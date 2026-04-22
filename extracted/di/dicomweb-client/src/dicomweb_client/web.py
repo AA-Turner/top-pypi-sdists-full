@@ -29,6 +29,7 @@ from xml.etree.ElementTree import (
 )
 
 import pydicom
+from pydicom.valuerep import INT_VR, FLOAT_VR, VR
 import requests
 import retrying
 
@@ -60,7 +61,7 @@ def _load_xml_dataset(dataset: Element) -> pydicom.dataset.Dataset:
     for element in dataset:
         keyword = element.attrib['keyword']
         vr = element.attrib['vr']
-        value: Optional[Union[List[Any], str]]
+        value: Optional[Union[List[Any], str, int, float]]
         if vr == 'SQ':
             value = [
                 _load_xml_dataset(item)
@@ -74,6 +75,26 @@ def _load_xml_dataset(dataset: Element) -> pydicom.dataset.Dataset:
                 value = [v.text.strip() for v in value]
             else:
                 value = None
+
+            # Convert string values to appropriate Python types for
+            # numeric VRs to satisfy pydicom 3.0+ stricter type validation
+            if value is not None:
+                try:
+                    vr_enum = VR(vr)
+                    if vr_enum in INT_VR:
+                        if isinstance(value, list):
+                            value = [int(v) for v in value]
+                        else:
+                            value = int(value)
+                    elif vr_enum in FLOAT_VR:
+                        if isinstance(value, list):
+                            value = [float(v) for v in value]
+                        else:
+                            value = float(value)
+                except ValueError:
+                    # VR not recognized, leave value as-is
+                    pass
+
         setattr(ds, keyword, value)
     return ds
 
@@ -205,7 +226,8 @@ class DICOMwebClient:
         headers: Optional[Dict[str, str]] = None,
         callback: Optional[Callable] = None,
         chunk_size: int = 10**6,
-        permissive_uid: bool = False
+        permissive_uid: bool = False,
+        timeout: float | tuple = 20,
     ) -> None:
         """Instatiate client.
 
@@ -248,6 +270,10 @@ class DICOMwebClient:
             this flag is **not** recommended, since non-conformant UIDs may
             lead to unexpected errors downstream, e.g., rejection by a DICOMweb
             server, etc.
+        timeout: float | tuple, optional
+            Timeout parameter used for all requests in the format used by the
+            requests library. May provide a single number or a tuple of
+            (connect timeout, read timeout), using seconds in both cases.
 
         Warning
         -------
@@ -285,6 +311,7 @@ class DICOMwebClient:
                 'Argument "delete_url_prefix" must not be a zero length string.'
             )
         self.delete_url_prefix = delete_url_prefix
+        self._timeout = timeout
 
         # This regular expression extracts the scheme and host name from the URL
         # and optionally the port number and prefix:
@@ -537,7 +564,12 @@ class DICOMwebClient:
             # encoding. The iter_content() method can be used to iterate over
             # chunks. If stream is not set, iter_content() will return the
             # full payload at once.
-            return self._session.get(url=url, headers=headers, stream=stream)
+            return self._session.get(
+                url=url,
+                headers=headers,
+                stream=stream,
+                timeout=self._timeout,
+            )
 
         if headers is None:
             headers = {}
@@ -1522,7 +1554,12 @@ class DICOMwebClient:
             headers: Optional[Dict[str, str]] = None
         ) -> requests.models.Response:
             logger.debug(f'POST: {url} {headers}')
-            return self._session.post(url, data=data, headers=headers)
+            return self._session.post(
+                url,
+                data=data,
+                headers=headers,
+                timeout=self._timeout,
+            )
 
         if len(data) > self._chunk_size:
             logger.info('store data in chunks using chunked transfer encoding')
@@ -1623,7 +1660,7 @@ class DICOMwebClient:
             stop_max_attempt_number=self._max_attempts
         )
         def _invoke_delete_request(url: str) -> requests.models.Response:
-            return self._session.delete(url)
+            return self._session.delete(url, timeout=self._timeout)
 
         response = _invoke_delete_request(url)
         if response.status_code == HTTPStatus.METHOD_NOT_ALLOWED:

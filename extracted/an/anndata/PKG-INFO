@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: anndata
-Version: 0.12.10
+Version: 0.12.11
 Summary: Annotated data.
 Project-URL: Documentation, https://anndata.readthedocs.io/
 Project-URL: Source, https://github.com/scverse/anndata
@@ -33,6 +33,7 @@ Requires-Dist: numpy>=1.26
 Requires-Dist: packaging>=24.2
 Requires-Dist: pandas!=2.1.2,<3,>=2.1.0
 Requires-Dist: scipy!=1.17.0,>=1.12
+Requires-Dist: scverse-misc>=0.0.3
 Requires-Dist: zarr!=3.0.*,>=2.18.7
 Provides-Extra: cu11
 Requires-Dist: cupy-cuda11x; extra == 'cu11'
@@ -45,19 +46,18 @@ Requires-Dist: towncrier>=24.8.0; extra == 'dev'
 Provides-Extra: dev-doc
 Requires-Dist: towncrier>=24.8.0; extra == 'dev-doc'
 Provides-Extra: doc
-Requires-Dist: awkward>=2.3; extra == 'doc'
+Requires-Dist: awkward>=2.6.3; extra == 'doc'
 Requires-Dist: dask[array]!=2024.8.*,!=2024.9.*,!=2025.2.*,!=2025.3.*,!=2025.4.*,!=2025.5.*,!=2025.6.*,!=2025.7.*,!=2025.8.*,>=2023.5.1; extra == 'doc'
 Requires-Dist: ipython; extra == 'doc'
 Requires-Dist: myst-nb; extra == 'doc'
 Requires-Dist: myst-parser; extra == 'doc'
-Requires-Dist: scanpydoc[theme,typehints]>=0.15.3; extra == 'doc'
-Requires-Dist: sphinx-autodoc-typehints>=2.2.0; extra == 'doc'
+Requires-Dist: scanpydoc[theme,typehints]>=0.17.1; extra == 'doc'
+Requires-Dist: sphinx-autodoc-typehints>=3.6.2; extra == 'doc'
 Requires-Dist: sphinx-book-theme>=1.1.0; extra == 'doc'
 Requires-Dist: sphinx-copybutton; extra == 'doc'
-Requires-Dist: sphinx-design>=0.5.0; extra == 'doc'
+Requires-Dist: sphinx-design; extra == 'doc'
 Requires-Dist: sphinx-issues>=5.0.1; extra == 'doc'
-Requires-Dist: sphinx-toolbox>=3.8.0; extra == 'doc'
-Requires-Dist: sphinx<9,>=8.2.1; extra == 'doc'
+Requires-Dist: sphinx>=9.1; extra == 'doc'
 Requires-Dist: sphinxext-opengraph; extra == 'doc'
 Requires-Dist: towncrier>=24.8.0; extra == 'doc'
 Provides-Extra: gpu

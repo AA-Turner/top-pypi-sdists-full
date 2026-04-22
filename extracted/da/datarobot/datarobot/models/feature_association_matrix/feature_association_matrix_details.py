@@ -42,7 +42,7 @@ class FeatureAssociationMatrixDetails(APIObject):
         Id of the project that contains the requested associations.
     chart_type : str
         Which type of plotting the pair of features gets in the UI.
-        e.g. 'HORIZONTAL_BOX', 'VERTICAL_BOX', 'SCATTER' or 'CONTINGENCY'
+        e.g., 'HORIZONTAL_BOX', 'VERTICAL_BOX', 'SCATTER' or 'CONTINGENCY'
     values : list
         The data triplets for pairwise plotting e.g.
         {"values": [[460.0, 428.5, 0.001], [1679.3, 259.0, 0.001], ...]

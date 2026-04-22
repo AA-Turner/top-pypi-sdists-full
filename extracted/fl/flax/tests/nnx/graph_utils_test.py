@@ -22,6 +22,7 @@ import numpy as np
 from flax import linen, nnx, struct
 import jax
 import jax.numpy as jnp
+import optax
 
 
 class StatefulLinear(nnx.Module):
@@ -73,7 +74,7 @@ class TestGraphUtils(parameterized.TestCase):
     a = nnx.Dict(a=1, b=nnx.Param(2))
     g = nnx.List([a, 3, a, nnx.Param(4)])
 
-    graphdef, state = nnx.split(g)
+    graphdef, state = nnx.compat.split(g)
     g = nnx.merge(graphdef, state)
 
     assert g[0] is g[2]
@@ -112,7 +113,7 @@ class TestGraphUtils(parameterized.TestCase):
     a = nnx.Dict(a=1, b=nnx.Param(2))
     g = nnx.List([a, 3, a, nnx.Param(4)])
 
-    graphdef, state = nnx.split(g)
+    graphdef, state = nnx.compat.split(g)
     pure_state = nnx.to_pure_dict(state)
 
     g = nnx.merge(graphdef, pure_state)
@@ -123,7 +124,7 @@ class TestGraphUtils(parameterized.TestCase):
     a = {'a': 1, 'b': nnx.Param(2)}
     g = [a, 3, a, nnx.Param(4)]
 
-    graphdef, state = nnx.split(g)
+    graphdef, state = nnx.compat.split(g)
     g = nnx.merge(graphdef, state)
 
     assert g[0] is not g[2]
@@ -132,7 +133,7 @@ class TestGraphUtils(parameterized.TestCase):
     a = nnx.Dict({'a': 1, 'b': nnx.Param(2)})
     g = nnx.List([a, 3, a, nnx.Param(4)])
 
-    graphdef, state = nnx.split(g)
+    graphdef, state = nnx.compat.split(g)
 
     with self.assertRaisesRegex(ValueError, 'Incorrect number of leaves'):
       nnx.graphlib.unflatten(graphdef, nnx.State({}))
@@ -154,7 +155,7 @@ class TestGraphUtils(parameterized.TestCase):
     a = {'a': 1, 'b': nnx.Param(jnp.array(2))}
     g = [a, 3, a, nnx.Param(jnp.array(4))]
 
-    graphdef, state = nnx.split(g)
+    graphdef, state = nnx.compat.split(g)
 
     state[0]['b'][...] = 3
     nnx.update(g, state)
@@ -166,7 +167,7 @@ class TestGraphUtils(parameterized.TestCase):
     a = {'a': 1, 'b': nnx.Param(jnp.array(2))}
     g = [a, 3, a, nnx.Param(jnp.array(4))]
 
-    graphdef, state = nnx.split(g)
+    graphdef, state = nnx.compat.split(g)
     pure_state = nnx.to_pure_dict(state)
 
     pure_state[0]['b'] = jnp.array(3)
@@ -196,7 +197,7 @@ class TestGraphUtils(parameterized.TestCase):
     v = nnx.Param(1)
     g = [v, v]
 
-    graphdef, state = nnx.split(g)
+    graphdef, state = nnx.compat.split(g)
 
     assert len(nnx.to_flat_state(state)) == 1
 
@@ -214,7 +215,7 @@ class TestGraphUtils(parameterized.TestCase):
         self.baz.kernel = self.bar.kernel
 
     node = Foo(rngs=nnx.Rngs(0))
-    graphdef, state = nnx.split(node)
+    graphdef, state = nnx.compat.split(node)
 
     assert len(nnx.to_flat_state(state)) == 3  # 2 bias + 1 kernel
 
@@ -247,7 +248,7 @@ class TestGraphUtils(parameterized.TestCase):
         return self.linear_out(x)
 
     model = Encoder(rngs=nnx.Rngs(0))
-    graphdef, state = nnx.split(model)
+    graphdef, state = nnx.compat.split(model)
 
     assert len(nnx.to_flat_state(state)) == 1
 
@@ -284,7 +285,7 @@ class TestGraphUtils(parameterized.TestCase):
         self.b = p
 
     m = Foo()
-    graphdef, state = nnx.split(m)
+    graphdef, state = nnx.compat.split(m)
 
     assert isinstance(m.a, nnx.Param)
     assert isinstance(m.b, nnx.Param)
@@ -541,8 +542,8 @@ class TestGraphUtils(parameterized.TestCase):
         self.rngs = rngs
 
       def __call__(self, x):
-        @nnx.split_rngs(splits=5)
-        @nnx.vmap(in_axes=(0, None), axis_size=5)
+        @nnx.compat.split_rngs(splits=5)
+        @nnx.compat.vmap(in_axes=(0, None), axis_size=5)
         def vmap_fn(inner, x):
           return inner(x)
 
@@ -835,7 +836,7 @@ class TestGraphUtils(parameterized.TestCase):
         y = 0
 
         self.assertIs(args[0], args[2]['b'])
-        for path, m in nnx.iter_graph(args):
+        for path, m in nnx.compat.iter_graph(args):
           if isinstance(m, Foo):
             self.assertEqual(m.a.shape, ())
             self.assertEqual(m.b.shape, ())
@@ -939,6 +940,15 @@ class TestGraphUtils(parameterized.TestCase):
     out = nnx.merge(graphdef, state)
     self.assertIs(out, state)
 
+  def test_merge_missing_state(self):
+    m = nnx.Linear(2, 3, rngs=nnx.Rngs(0))
+    graphdef, _ = nnx.split(m)
+
+    with self.assertRaisesRegex(
+      TypeError, r"merge\(\) missing 1 required positional argument: 'state'"
+    ):
+      nnx.merge(graphdef)
+
   @parameterized.parameters(
     (True, True), (True, False), (False, False),
   )
@@ -958,7 +968,7 @@ class TestGraphUtils(parameterized.TestCase):
     v2 = nnx.Param(jnp.array(2))
     vs = [v1, v1, v2]
 
-    @nnx.jit
+    @nnx.compat.jit
     def f(vs):
       self.assertIs(vs[0], vs[1])
       self.assertIsNot(vs[0], vs[2])
@@ -979,7 +989,7 @@ class TestGraphUtils(parameterized.TestCase):
     var = nnx.Param(1)
     foo = Foo(var)
 
-    @nnx.jit
+    @nnx.compat.jit
     def increment_var(var, foo):
       self.assertIs(var, foo.var)
       var[...] += 1
@@ -1041,7 +1051,7 @@ class TestGraphUtils(parameterized.TestCase):
 
     m = Foo()
 
-    @nnx.jit
+    @nnx.compat.jit
     def f(m):
       m.a += 1
       self.assertEqual(m.b, 'yes')
@@ -1124,7 +1134,7 @@ class TestGraphUtils(parameterized.TestCase):
     root.f = var0
     root.g = arr1
 
-    nodes = [node for _, node in nnx.iter_graph(root)]
+    nodes = [node for _, node in nnx.compat.iter_graph(root)]
     count = lambda e: sum(node is e for node in nodes)
 
     # All internal nodes must be visited exactly once.
@@ -1150,7 +1160,7 @@ class TestGraphUtils(parameterized.TestCase):
     model = nnx.Linear(2, 3, rngs=nnx.Rngs(0))
     optimizer = nnx.Optimizer(model, optax.adamw(1e-3), wrt=nnx.Param)
 
-    @nnx.jit
+    @nnx.compat.jit
     def train_step(model, optimizer, x, y):
       def loss_fn(model):
         return jnp.mean((model(x) - y) ** 2)
@@ -1159,7 +1169,7 @@ class TestGraphUtils(parameterized.TestCase):
       optimizer.update(model, grads)
       return loss
 
-    cached_train_step = nnx.cached_partial(train_step, model, optimizer)
+    cached_train_step = nnx.compat.cached_partial(train_step, model, optimizer)
 
     for step in range(2):
       x, y = jnp.ones((10, 2)), jnp.ones((10, 3))
@@ -1196,7 +1206,7 @@ class TestGraphUtils(parameterized.TestCase):
         node.d += 1
       return node
 
-    bar2 = nnx.recursive_map(inc_d, bar)
+    bar2 = nnx.compat.recursive_map(inc_d, bar)
     self.assertIs(bar2[0], bar2[2])
     self.assertEqual(bar2[0].d, 11)
     self.assertEqual(bar2[1].d, 21)
@@ -1219,7 +1229,7 @@ class TestGraphUtils(parameterized.TestCase):
         node = Foo(-node.d)
       return node
 
-    bar2 = nnx.recursive_map(swap, bar)
+    bar2 = nnx.compat.recursive_map(swap, bar)
     self.assertIs(bar2[0], bar2[2])
     self.assertEqual(bar2[0].d, -10)
     self.assertEqual(bar2[1].d, -20)
@@ -1699,6 +1709,445 @@ class TestTreeFlatten(parameterized.TestCase):
     np.testing.assert_array_equal(new_model.kernel[...], jnp.zeros((2, 3)))
     np.testing.assert_array_equal(new_model.bias[...], jnp.zeros((3,)))
 
+  def test_prefix_basic_tree_mode(self):
+    model = nnx.Linear(2, 3, rngs=nnx.Rngs(0))
+    result = nnx.prefix(model, {nnx.Param: 0}, graph=False)
+
+    self.assertEqual(result.kernel, 0)
+    self.assertEqual(result.bias, 0)
+
+  def test_prefix_basic_graph_mode(self):
+    model = nnx.Linear(2, 3, rngs=nnx.Rngs(0))
+    result = nnx.prefix(model, {nnx.Param: 0}, graph=True)
+
+    self.assertIsInstance(result, nnx.extract.TreeState)
+    self.assertEqual(result.state['kernel'], 0)
+    self.assertEqual(result.state['bias'], 0)
+
+  def test_prefix_multiple_filters_tree_mode(self):
+    class Foo(nnx.Module):
+
+      def __init__(self, rngs):
+        self.linear = nnx.Linear(2, 3, rngs=rngs)
+        self.bn = nnx.BatchNorm(3, rngs=rngs)
+
+    model = Foo(nnx.Rngs(0))
+    result = nnx.prefix(
+        model, {nnx.Param: 'params', nnx.BatchStat: 'batch_stats'}, graph=False
+    )
+
+    self.assertEqual(result.linear.kernel, 'params')
+    self.assertEqual(result.linear.bias, 'params')
+    self.assertEqual(result.bn.mean, 'batch_stats')
+    self.assertEqual(result.bn.var, 'batch_stats')
+
+  def test_prefix_multiple_filters_graph_mode(self):
+    class Foo(nnx.Module):
+
+      def __init__(self, rngs):
+        self.linear = nnx.Linear(2, 3, rngs=rngs)
+        self.bn = nnx.BatchNorm(3, rngs=rngs)
+
+    model = Foo(nnx.Rngs(0))
+    result = nnx.prefix(
+        model, {nnx.Param: 'params', nnx.BatchStat: 'batch_stats'}, graph=True
+    )
+
+    self.assertIsInstance(result, nnx.extract.TreeState)
+    self.assertEqual(result.state['linear']['kernel'], 'params')
+    self.assertEqual(result.state['linear']['bias'], 'params')
+    self.assertEqual(result.state['bn']['mean'], 'batch_stats')
+    self.assertEqual(result.state['bn']['var'], 'batch_stats')
+
+  def test_prefix_ellipsis_catch_all(self):
+    model = nnx.Linear(2, 3, rngs=nnx.Rngs(0))
+    result = nnx.prefix(model, {...: 'all'}, graph=False)
+
+    self.assertEqual(result.kernel, 'all')
+    self.assertEqual(result.bias, 'all')
+
+  def test_prefix_no_match_raises(self):
+    model = nnx.Linear(2, 3, rngs=nnx.Rngs(0))
+    with self.assertRaisesRegex(ValueError, 'No filter matched'):
+      nnx.prefix(model, {nnx.BatchStat: 0}, graph=False)
+
+  def test_prefix_callable_tree_mode(self):
+    model = nnx.Linear(2, 3, rngs=nnx.Rngs(0))
+    result = nnx.prefix(model, lambda path, leaf: 0, graph=False)
+
+    self.assertEqual(result.kernel, 0)
+    self.assertEqual(result.bias, 0)
+
+  def test_prefix_callable_graph_mode(self):
+    model = nnx.Linear(2, 3, rngs=nnx.Rngs(0))
+    result = nnx.prefix(model, lambda path, leaf: 0, graph=True)
+
+    self.assertIsInstance(result, nnx.extract.TreeState)
+    self.assertEqual(result.state['kernel'], 0)
+    self.assertEqual(result.state['bias'], 0)
+
+  def test_prefix_callable_per_type_tree_mode(self):
+    class Foo(nnx.Module):
+
+      def __init__(self, rngs):
+        self.linear = nnx.Linear(2, 3, rngs=rngs)
+        self.bn = nnx.BatchNorm(3, rngs=rngs)
+
+    model = Foo(nnx.Rngs(0))
+
+    def prefix_fn(_path, leaf):
+      if isinstance(leaf, nnx.BatchStat):
+        return 'batch_stats'
+      return 'params'
+
+    result = nnx.prefix(model, prefix_fn, graph=False)
+
+    self.assertEqual(result.linear.kernel, 'params')
+    self.assertEqual(result.linear.bias, 'params')
+    self.assertEqual(result.bn.mean, 'batch_stats')
+    self.assertEqual(result.bn.var, 'batch_stats')
+
+  @parameterized.parameters(True, False)
+  def test_prefix_with_vmap(self, graph):
+    class Foo(nnx.Module):
+
+      def __init__(self, rngs: nnx.Rngs):
+        self.w = nnx.Param(rngs.normal((4, 2, 3)))
+
+    model = Foo(rngs=nnx.Rngs(0))
+    x = jnp.ones((2,))
+
+    model_axes = nnx.prefix(model, {nnx.Param: 0}, graph=graph)
+
+    @nnx.vmap(
+        in_axes=(model_axes, None), out_axes=0, graph=graph, graph_updates=False
+    )
+    def forward(model, x):
+      return x @ model.w
+
+    y = forward(model, x)
+    self.assertEqual(y.shape, (4, 3))
+
+  @parameterized.parameters(True, False)
+  def test_prefix_with_vmap_var_only(self, graph):
+    rngs = nnx.Rngs(0)
+    v = nnx.Param(rngs.normal((4, 2, 3)))
+    x = jnp.ones((2,))
+
+    v_axes = nnx.prefix(v, {nnx.Param: 0}, graph=graph)
+
+    @nnx.vmap(
+        in_axes=(v_axes, None), out_axes=0, graph=graph, graph_updates=False
+    )
+    def forward(v, x):
+      return x @ v
+
+    y = forward(v, x)
+    self.assertEqual(y.shape, (4, 3))
+
+  def test_prefix_with_jax_vmap(self):
+    class Foo(nnx.Module):
+      def __init__(self, rngs: nnx.Rngs):
+        self.w = nnx.Param(rngs.normal((4, 2, 3)))
+
+    model = Foo(rngs=nnx.Rngs(0))
+    x = jnp.ones((2,))
+
+    model_axes = nnx.prefix(model, {nnx.Param: 0}, graph=False)
+
+    @partial(jax.vmap, in_axes=(model_axes, None), out_axes=0)
+    def forward(model, x):
+      return x @ model.w
+
+    y = forward(model, x)
+    self.assertEqual(y.shape, (4, 3))
+
+  def test_prefix_with_vmap_aliased_args(self):
+    class Foo(nnx.Module):
+
+      def __init__(self, rngs: nnx.Rngs):
+        self.w = nnx.Param(rngs.normal((4, 2, 3)))
+
+    model = Foo(rngs=nnx.Rngs(0))
+    x = jnp.ones((2,))
+
+    ma1, ma2 = nnx.prefix((model, model), {nnx.Param: 0}, graph=True)
+
+    @nnx.vmap(
+        in_axes=(ma1, ma2, None),
+        out_axes=0,
+        graph=True,
+        graph_updates=False,
+    )
+    def forward(model_a, model_b, x):
+      assert model_a is model_b
+      return x @ model_a.w + x @ model_b.w
+
+    y = forward(model, model, x)
+    self.assertEqual(y.shape, (4, 3))
+
+  def test_prefix_with_vmap_aliased_variables(self):
+    @nnx.dataclass
+    class Foo(nnx.Module):
+      a: nnx.Variable
+      b: nnx.Variable
+
+    @nnx.dataclass
+    class Bar(nnx.Module):
+      c: nnx.Variable
+      d: nnx.Variable
+
+    v = nnx.Param(jnp.ones((4, 2, 3)))
+    foo = Foo(a=nnx.Param(jnp.ones((4, 2, 3))), b=v)
+    bar = Bar(c=v, d=nnx.Param(jnp.ones((2, 4, 3))))
+
+    from_foo = lambda p, x: p[-1] in ('a', 'b')
+    from_bar = lambda p, x: p[-1] in ('c', 'd')
+
+    ma1, ma2 = nnx.prefix((foo, bar), {from_foo: 0, from_bar: 1}, graph=True)
+
+    @nnx.vmap(
+        in_axes=(ma1, ma2, None),
+        out_axes=0,
+        graph=True,
+        graph_updates=False,
+    )
+    def forward(foo, bar, x):
+      assert foo.b is bar.c
+      return x @ foo.a + x @ foo.b + x @ bar.c + x @ bar.d
+
+    x = jnp.ones((2,))
+    with self.assertRaisesRegex(
+        ValueError,
+        'Inconsistent aliasing detected. The following nodes have different'
+        ' prefixes',
+    ):
+      y = forward(foo, bar, x)
+
+  def test_map_recreate_variables_false(self):
+    rngs = nnx.Rngs(0)
+    new_rngs = nnx.map(
+      lambda path, x: 0, rngs, recreate_variables=False
+    )
+    self.assertNotIsInstance(new_rngs.default.count, nnx.Variable)
+    self.assertEqual(new_rngs.default.count, 0)
+
+
+class TestUnpack(parameterized.TestCase):
+
+  @parameterized.parameters(True, False)
+  def test_unpack_no_filter(self, graph):
+    model = nnx.Linear(2, 3, rngs=nnx.Rngs(0))
+    state = nnx.unpack(model, graph=graph)
+
+    self.assertIsInstance(state, nnx.GraphState)
+    self.assertIsInstance(state._graphdef, nnx.GraphDef)
+    self.assertIsInstance(state._state, nnx.State)
+    self.assertIn('kernel', state)
+    self.assertIn('bias', state)
+
+  @parameterized.parameters(True, False)
+  def test_unpack_single_filter(self, graph):
+    model = nnx.Linear(2, 3, rngs=nnx.Rngs(0))
+    state = nnx.unpack(model, nnx.Param, graph=graph)
+
+    self.assertIsInstance(state, nnx.GraphState)
+    self.assertIn('kernel', state)
+    self.assertIn('bias', state)
+
+  @parameterized.parameters(True, False)
+  def test_unpack_multiple_filters(self, graph):
+    class Foo(nnx.Module):
+      def __init__(self, rngs):
+        self.batch_norm = nnx.BatchNorm(2, rngs=rngs)
+        self.linear = nnx.Linear(2, 3, rngs=rngs)
+
+    node = Foo(nnx.Rngs(0))
+    params, batch_stats = nnx.unpack(node, nnx.Param, nnx.BatchStat, graph=graph)
+
+    self.assertIsInstance(params, nnx.GraphState)
+    self.assertIsInstance(batch_stats, nnx.GraphState)
+    # Params should contain kernel, bias, scale, bias
+    self.assertIn('linear', params)
+    self.assertIn('batch_norm', params)
+    # Batch stats should contain mean and var
+    self.assertIn('batch_norm', batch_stats)
+    self.assertIn('mean', batch_stats['batch_norm'])
+    self.assertIn('var', batch_stats['batch_norm'])
+
+  @parameterized.parameters(True, False)
+  def test_unpack_merge_roundtrip_no_filter(self, graph):
+    model = nnx.Linear(2, 3, rngs=nnx.Rngs(0))
+    kernel_before = model.kernel[...]
+    bias_before = model.bias[...]
+
+    state = nnx.unpack(model, graph=graph)
+    new_model = nnx.merge(state)
+
+    self.assertIsInstance(new_model, nnx.Linear)
+    np.testing.assert_array_equal(new_model.kernel[...], kernel_before)
+    np.testing.assert_array_equal(new_model.bias[...], bias_before)
+
+  @parameterized.parameters(True, False)
+  def test_unpack_merge_roundtrip_multiple_filters(self, graph):
+    class Foo(nnx.Module):
+      def __init__(self, rngs):
+        self.batch_norm = nnx.BatchNorm(2, rngs=rngs)
+        self.linear = nnx.Linear(2, 3, rngs=rngs)
+
+    node = Foo(nnx.Rngs(0))
+    kernel_before = node.linear.kernel[...]
+
+    params, batch_stats = nnx.unpack(node, nnx.Param, nnx.BatchStat, graph=graph)
+    new_node = nnx.merge(params, batch_stats)
+
+    self.assertIsInstance(new_node, Foo)
+    self.assertIsInstance(new_node.linear, nnx.Linear)
+    self.assertIsInstance(new_node.batch_norm, nnx.BatchNorm)
+    np.testing.assert_array_equal(new_node.linear.kernel[...], kernel_before)
+
+  @parameterized.parameters(True, False)
+  def test_unpack_merge_roundtrip_with_rest(self, graph):
+    class Foo(nnx.Module):
+      def __init__(self, rngs):
+        self.batch_norm = nnx.BatchNorm(2, rngs=rngs)
+        self.linear = nnx.Linear(2, 3, rngs=rngs)
+
+    node = Foo(nnx.Rngs(0))
+    params, rest = nnx.unpack(node, nnx.Param, ..., graph=graph)
+    new_node = nnx.merge(params, rest)
+
+    self.assertIsInstance(new_node, Foo)
+    self.assertIsInstance(new_node.linear, nnx.Linear)
+    self.assertIsInstance(new_node.batch_norm, nnx.BatchNorm)
+
+  def test_unpack_state_is_pytree(self):
+    model = nnx.Linear(2, 3, rngs=nnx.Rngs(0))
+    state = nnx.unpack(model)
+
+    # GraphState should be treeable by JAX
+    leaves = jax.tree.leaves(state)
+    self.assertTrue(len(leaves) > 0)
+
+    # Should be able to map over it
+    mapped = jax.tree.map(lambda x: x, state)
+    self.assertIsInstance(mapped, nnx.GraphState)
+
+  def test_unpack_state_graphdefs_shared(self):
+    class Foo(nnx.Module):
+      def __init__(self, rngs):
+        self.batch_norm = nnx.BatchNorm(2, rngs=rngs)
+        self.linear = nnx.Linear(2, 3, rngs=rngs)
+
+    node = Foo(nnx.Rngs(0))
+    params, batch_stats = nnx.unpack(node, nnx.Param, nnx.BatchStat)
+
+    # Both GraphState objects should have the same graphdef
+    self.assertEqual(params._graphdef, batch_stats._graphdef)
+
+  def test_unpack_with_nnx_grad_and_optimizer(self):
+    class Foo(nnx.Module):
+      def __init__(self, rngs):
+        self.batch_norm = nnx.BatchNorm(2, rngs=rngs)
+        self.linear = nnx.Linear(2, 3, rngs=rngs)
+
+      def __call__(self, x):
+        return self.linear(self.batch_norm(x))
+
+    x = jnp.ones((5, 2))
+    y = jnp.ones((5, 3))
+    model = Foo(nnx.Rngs(0))
+    optimizer = nnx.Optimizer(model, optax.adam(1e-3), wrt=nnx.Param)
+
+    params, rest = nnx.unpack(model, nnx.Param, ...)
+
+    def loss_fn(params, rest):
+      model = nnx.merge(params, rest)
+      return jnp.mean((model(x) - y) ** 2)
+
+    grads = nnx.grad(loss_fn, graph=False)(params, rest)
+    optimizer.update(model, grads)
+
+    self.assertIsInstance(grads, nnx.GraphState)
+    self.assertIsInstance(grads._state, nnx.State)
+    self.assertIn('linear', grads)
+    self.assertIn('kernel', grads['linear'])
+
+  def test_unpack_paths_match_state_paths(self):
+    model = nnx.Linear(2, 3, rngs=nnx.Rngs(0))
+    state = nnx.state(model)
+    unpacked = nnx.unpack(model)
+
+    state_entries, _ = jax.tree_util.tree_flatten_with_path(state)
+    unpacked_entries, _ = jax.tree_util.tree_flatten_with_path(unpacked)
+
+    self.assertEqual(len(state_entries), len(unpacked_entries))
+    for (sp, sl), (pp, pl) in zip(state_entries, unpacked_entries):
+      self.assertEqual(sp, pp)
+      if isinstance(sl, (jax.Array, np.ndarray)):
+        np.testing.assert_array_equal(sl, pl)
+      else:
+        self.assertEqual(sl, pl)
+
+  def test_merge_different_graphdefs_error(self):
+    model1 = nnx.Linear(2, 3, rngs=nnx.Rngs(0))
+    model2 = nnx.BatchNorm(2, rngs=nnx.Rngs(0))
+    state1 = nnx.unpack(model1)
+    state2 = nnx.unpack(model2)
+
+    with self.assertRaisesRegex(ValueError, 'GraphDef must be the same'):
+      nnx.merge(state1, state2)
+
+  def test_merge_wrong_type_error(self):
+    model = nnx.Linear(2, 3, rngs=nnx.Rngs(0))
+    graph_state = nnx.unpack(model)
+    state = nnx.state(model)
+
+    with self.assertRaisesRegex(ValueError, 'Expected GraphState object'):
+      nnx.merge(graph_state, state)
+
+  def test_graph_state_mutation(self):
+    model = nnx.Linear(2, 3, rngs=nnx.Rngs(0))
+    state = nnx.unpack(model)
+
+    # Mutate the state
+    kernel_var = state['kernel']
+    state['kernel'] = kernel_var.replace(jnp.zeros_like(kernel_var))
+
+    new_model = nnx.merge(state)
+    self.assertIsInstance(new_model, nnx.Linear)
+    np.testing.assert_array_equal(new_model.kernel[...], jnp.zeros((2, 3)))
+
+  def test_graph_state_attribute_access(self):
+    class Foo(nnx.Module):
+      def __init__(self, rngs):
+        self.linear = nnx.Linear(2, 3, rngs=rngs)
+
+    node = Foo(nnx.Rngs(0))
+    state = nnx.unpack(node)
+
+    # Test __getattr__
+    self.assertIsInstance(state.linear, nnx.State)
+    self.assertIn('kernel', state.linear)
+
+    # Test __setattr__
+    state.linear.kernel = 0
+    new_node = nnx.merge(state)
+
+    self.assertEqual(new_node.linear.kernel, 0)
+
+  def test_graph_state_update(self):
+    model = nnx.Linear(2, 3, rngs=nnx.Rngs(0))
+    state = nnx.unpack(model)
+
+    # mutate packed state
+    state['kernel'] = jnp.zeros((2, 3))
+    state['bias'] = jnp.zeros((3,))
+
+    nnx.update(model, state)
+
+    np.testing.assert_array_equal(model.kernel[...], jnp.zeros((2, 3)))
+    np.testing.assert_array_equal(model.bias[...], jnp.zeros((3,)))
 
 if __name__ == '__main__':
   absltest.main()

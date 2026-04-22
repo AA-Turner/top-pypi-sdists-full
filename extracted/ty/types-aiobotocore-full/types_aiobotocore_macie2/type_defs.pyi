@@ -577,6 +577,7 @@ class CellTypeDef(TypedDict):
 class S3DestinationTypeDef(TypedDict):
     bucketName: str
     kmsKeyArn: str
+    expectedBucketOwner: NotRequired[str]
     keyPrefix: NotRequired[str]
 
 class ClassificationResultStatusTypeDef(TypedDict):

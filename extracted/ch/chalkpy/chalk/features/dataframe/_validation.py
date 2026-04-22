@@ -12,9 +12,10 @@ from chalk.utils.pl_helpers import apply_compat, schema_compat, str_json_decode_
 
 if TYPE_CHECKING:
     import polars as pl
+    from polars._typing import PolarsDataType
 
 
-def _polars_dtype_contains_struct(dtype: pl.PolarsDataType):
+def _polars_dtype_contains_struct(dtype: PolarsDataType):
     """Returns whether the dtype contains a (potentially nested) struct"""
     import polars as pl
 
@@ -26,7 +27,7 @@ def _polars_dtype_contains_struct(dtype: pl.PolarsDataType):
     return False
 
 
-def _generate_empty_series_for_dtype(name: str, dtype: pl.PolarsDataType, length: int) -> pl.Series:
+def _generate_empty_series_for_dtype(name: str, dtype: PolarsDataType, length: int) -> pl.Series:
     """Safely generate a series of all null values for the specified datatype.
 
     Unlike the ``pl.Series`` constructor, this function can handle struct dtypes.
@@ -54,7 +55,7 @@ def _generate_empty_series_for_dtype(name: str, dtype: pl.PolarsDataType, length
     return pl.Series(name, dtype=dtype, values=([None] * length))
 
 
-def _get_expected_dtype(ft: Feature) -> pl.PolarsDataType:
+def _get_expected_dtype(ft: Feature) -> PolarsDataType:
     import polars as pl
 
     dtype = ft.converter.polars_dtype
@@ -67,6 +68,14 @@ def _get_expected_dtype(ft: Feature) -> pl.PolarsDataType:
 def validate_df_schema(underlying: Union[pl.DataFrame, pl.LazyFrame]):
     # This is called from within DataFrame.__init__, which validates that polars is installed
     import polars as pl
+
+    try:
+        from polars.exceptions import PolarsError
+    except ImportError:
+        # Older polars versions exposed specific subclasses but no shared base
+        from polars.exceptions import ComputeError, InvalidOperationError
+
+        PolarsError = (ComputeError, InvalidOperationError)  # type: ignore[assignment,misc]
 
     for root_fqn, actual_dtype in schema_compat(underlying).items():
         feature = Feature.from_root_fqn(root_fqn)
@@ -91,7 +100,7 @@ def validate_df_schema(underlying: Union[pl.DataFrame, pl.LazyFrame]):
             col = str_json_decode_compat(pl.col(root_fqn), expected_dtype)
             try:
                 underlying = underlying.with_columns(col.cast(expected_dtype))
-            except (Exception, pl.PolarsPanicError) as e:
+            except Exception as e:
                 raise TypeError(
                     f"Values for list feature `{root_fqn}` could not be deserialized from a JSON string to dtype `{expected_dtype}`."
                 ) from e
@@ -107,7 +116,7 @@ def validate_df_schema(underlying: Union[pl.DataFrame, pl.LazyFrame]):
             col = pl.col(root_fqn).cast(expected_dtype)
             try:
                 underlying = underlying.with_columns(underlying.select(col))
-            except (pl.ComputeError, pl.PolarsPanicError) as e:
+            except PolarsError as e:
                 try:
                     series = pl.from_arrow(
                         underlying.select(pl.col(root_fqn)).to_arrow()[root_fqn].cast(feature.converter.pyarrow_dtype)
@@ -150,7 +159,7 @@ def validate_df_schema(underlying: Union[pl.DataFrame, pl.LazyFrame]):
                 else:
                     col = pl.col(root_fqn).cast(expected_dtype)
                 underlying = underlying.with_columns(col)
-            except pl.ComputeError as e:
+            except PolarsError as e:
                 raise TypeError(
                     (
                         f"Values for feature `{root_fqn}` with type '{feature.typ}' could not be converted "

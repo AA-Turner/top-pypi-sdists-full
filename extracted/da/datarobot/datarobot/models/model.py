@@ -155,8 +155,8 @@ if TYPE_CHECKING:
 
 
 class Sentinel:
-    """This class is used to get around some limitations with sphinx.
-    see get_roc_curve for more info
+    """This class is used to work around some limitations with Sphinx.
+    See get_roc_curve for more information.
     """
 
 
@@ -165,8 +165,8 @@ DATA_SLICE_WITH_ID_NONE = Sentinel()
 
 class GenericModel(APIObject, BrowserMixin):
     """
-    GenericModel [ModelRecord] is the object which is returned from /modelRecords list route.
-    Contains most generic model information.
+    GenericModel [ModelRecord] is the object that is returned from the `/modelRecords` list route.
+    It contains most generic model information.
     """
 
     _base_model_path_template = "projects/{}/models/"
@@ -295,21 +295,21 @@ class GenericModel(APIObject, BrowserMixin):
 
         Parameters
         ----------
-        sort_by_partition: str, one of `validation`, `backtesting`, `crossValidation` or `holdout`
-            Set the partition to use for sorted (by score) list of models. `validation` is the default.
+        sort_by_partition: str, one of `validation`, `backtesting`, `crossValidation`, or `holdout`
+            Set the partition to use for the sorted (by score) list of models. `validation` is the default.
         sort_by_metric: str
-            Set the project metric to use for model sorting. DataRobot-selected project optimization metric
+            Set the project metric to use for model sorting. The DataRobot-selected project optimization metric
             is the default.
         with_metric: str
             For a single-metric list of results, specify that project metric.
         search_term: str
             If specified, only models containing the term in their name or processes are returned.
         featurelists: List[str]
-           If specified, only models trained on selected featurelists are returned.
+            If specified, only models trained on the selected featurelists are returned.
         families: List[str]
-            If specified, only models belonging to selected families are returned.
+            If specified, only models belonging to the selected families are returned.
         blueprints: List[str]
-             If specified, only models trained on specified blueprint IDs are returned.
+            If specified, only models trained on the specified blueprint IDs are returned.
         labels: List[str], `starred` or `prepared for deployment`
             If specified, only models tagged with all listed labels are returned.
         characteristics: List[str]
@@ -317,15 +317,15 @@ class GenericModel(APIObject, BrowserMixin):
         training_filters: List[str]
             If specified, only models matching at least one of the listed training conditions are returned.
             The following formats are supported for autoML and datetime partitioned projects:
-            - number of rows in training subset
+            - number of rows in the training subset
             For datetime partitioned projects:
-            - <training duration>, example `P6Y0M0D`
+            - <training duration>, for example, `P6Y0M0D`
             - <training_duration>-<time_window_sample_percent>-<sampling_method> Example: `P6Y0M0D-78-Random`,
             (returns models trained on 6 years of data, sampling rate 78%, random sampling).
             - `Start/end date`
             - `Project settings`
         number_of_clusters: list of int
-            Filter models by number of clusters. Applicable only in unsupervised clustering projects.
+            Filter models by the number of clusters. Applicable only in unsupervised clustering projects.
         limit: int
         offset: int
 
@@ -368,16 +368,16 @@ class GenericModel(APIObject, BrowserMixin):
     @classmethod
     def from_server_data(cls, data, keep_attrs=None):
         """
-        Overrides the inherited method since the model must _not_ recursively change casing
+        Override the inherited method because the model must _not_ recursively change casing.
 
         Parameters
         ----------
         data : dict
             The directly translated dict of JSON from the server. No casing fixes have
-            taken place
+            been applied.
         keep_attrs : list
-            List of attribute namespaces like: `['top.middle.bottom']`, that should be kept
-            even if their values are `None`
+            List of attribute namespaces such as `['top.middle.bottom']` that should be kept
+            even if their values are `None`.
         """
         case_converted = from_api(data, do_recursive=False, keep_attrs=keep_attrs)
         return cls.from_data(case_converted)
@@ -385,11 +385,11 @@ class GenericModel(APIObject, BrowserMixin):
     def get_features_used(self) -> List[str]:
         """Query the server to determine which features were used.
 
-        Note that the data returned by this method is possibly different
-        than the names of the features in the featurelist used by this model.
-        This method will return the raw features that must be supplied in order
-        for predictions to be generated on a new set of data. The featurelist,
-        in contrast, would also include the names of derived features.
+        Note that the data returned by this method may differ
+        from the names of the features in the featurelist used by this model.
+        This method returns the raw features that must be supplied for
+        predictions to be generated on a new set of data. The featurelist,
+        in contrast, also includes the names of derived features.
 
         Returns
         -------
@@ -401,31 +401,31 @@ class GenericModel(APIObject, BrowserMixin):
         return resp_data["featureNames"]
 
     def get_supported_capabilities(self):
-        """Retrieves a summary of the capabilities supported by a model.
+        """Retrieve a summary of the capabilities supported by a model.
 
         .. versionadded:: v2.14
 
         Returns
         -------
         supportsBlending: bool
-            whether the model supports blending
+            Whether the model supports blending.
         supportsMonotonicConstraints: bool
-            whether the model supports monotonic constraints
+            Whether the model supports monotonic constraints.
         hasWordCloud: bool
-            whether the model has word cloud data available
+            Whether the model has word cloud data available.
         eligibleForPrime: bool
             (Deprecated in version v3.6)
-            whether the model is eligible for Prime
+            Whether the model is eligible for Prime.
         hasParameters: bool
-            whether the model has parameters that can be retrieved
+            Whether the model has parameters that can be retrieved.
         supportsCodeGeneration: bool
-            (New in version v2.18) whether the model supports code generation
+            (New in version v2.18) Whether the model supports code generation.
         supportsShap: bool
-            (New in version v2.18) True if the model supports Shapley package. i.e. Shapley based
-             feature Importance
+            (New in version v2.18) True if the model supports the Shapley package, i.e., Shapley-based
+            feature importance.
         supportsEarlyStopping: bool
             (New in version v2.22) `True` if this is an early stopping
-            tree-based model and number of trained iterations can be retrieved.
+            tree-based model and the number of trained iterations can be retrieved.
         """
 
         url = f"projects/{self.project_id}/models/{self.id}/supportedCapabilities/"
@@ -433,26 +433,26 @@ class GenericModel(APIObject, BrowserMixin):
         return response.json()
 
     def get_num_iterations_trained(self):
-        """Retrieves the number of estimators trained by early-stopping tree-based models.
+        """Retrieve the number of estimators trained by early-stopping tree-based models.
 
-        -- versionadded:: v2.22
+        .. versionadded:: v2.22
 
 
         Returns
         -------
         projectId: str
-            id of project containing the model
+            The ID of the project containing the model.
         modelId: str
-            id of the model
+            The ID of the model.
         data: array
-            list of `numEstimatorsItem` objects, one for each modeling stage.
+            List of `numEstimatorsItem` objects, one for each modeling stage.
 
         `numEstimatorsItem` will be of the form:
 
         stage: str
-            indicates the modeling stage (for multi-stage models); None of single-stage models
+            Indicates the modeling stage (for multi-stage models); None for single-stage models.
         numIterations: int
-         the number of estimators or iterations trained by the model
+            The number of estimators or iterations trained by the model.
         """
         url = f"projects/{self.project_id}/models/{self.id}/numIterationsTrained/"
         response = self._client.get(url)
@@ -460,16 +460,18 @@ class GenericModel(APIObject, BrowserMixin):
 
     def delete(self) -> None:
         """
-        Delete a model from the project's leaderboard.
+        Delete the model from the project leaderboard.
         """
         self._client.delete(f"{self._base_model_path}{self.id}/")
 
     def get_uri(self) -> str:
         """
+        Return the permanent static hyperlink to this model on the leaderboard.
+
         Returns
         -------
         url : str
-            Permanent static hyperlink to this model at leaderboard.
+            The permanent static hyperlink to this model on the leaderboard.
         """
         return f"{self._client.domain}/projects/{self.project_id}/models/{self.id}"
 
@@ -483,16 +485,16 @@ class GenericModel(APIObject, BrowserMixin):
         monotonic_decreasing_featurelist_id: Optional[Union[str, object]] = MONOTONICITY_FEATURELIST_DEFAULT,
     ) -> str:
         """
-        Train the blueprint used in model on a particular featurelist or amount of data.
+        Train the blueprint used in the model on a particular featurelist or amount of data.
 
-        This method creates a new training job for worker and appends it to
+        This method creates a new training job for the worker and appends it to
         the end of the queue for this project.
-        After the job has finished you can get the newly trained model by retrieving
-        it from the project leaderboard, or by retrieving the result of the job.
+        After the job has finished, you can get the newly trained model by retrieving
+        it from the project leaderboard or by retrieving the result of the job.
 
         Either `sample_pct` or `training_row_count` can be used to specify the amount of data to
-        use, but not both.  If neither are specified, a default of the maximum amount of data that
-        can safely be used to train any blueprint without going into the validation data will be
+        use, but not both. If neither is specified, a default of the maximum amount of data that
+        can safely be used to train any blueprint without using the validation data will be
         selected.
 
         In smart-sampled projects, `sample_pct` and `training_row_count` are assumed to be in terms
@@ -514,7 +516,7 @@ class GenericModel(APIObject, BrowserMixin):
         scoring_type : Optional[str]
             Either ``validation`` or ``crossValidation`` (also ``dr.SCORING_TYPE.validation``
             or ``dr.SCORING_TYPE.cross_validation``). ``validation`` is available for every
-            partitioning type, and indicates that the default model validation should be
+            partitioning type and indicates that the default model validation should be
             used for the project.
             If the project uses a form of cross-validation partitioning,
             ``crossValidation`` can also be used to indicate
@@ -523,21 +525,21 @@ class GenericModel(APIObject, BrowserMixin):
         training_row_count : Optional[int]
             The number of rows to use to train the requested model.
         monotonic_increasing_featurelist_id : str
-            (new in version 2.11) optional, the id of the featurelist that defines
+            (New in version 2.11) Optional; the ID of the featurelist that defines
             the set of features with a monotonically increasing relationship to the target.
-            Passing ``None`` disables increasing monotonicity constraint. Default
+            Passing ``None`` disables the increasing monotonicity constraint. The default
             (``dr.enums.MONOTONICITY_FEATURELIST_DEFAULT``) is the one specified by the blueprint.
         monotonic_decreasing_featurelist_id : str
-            (new in version 2.11) optional, the id of the featurelist that defines
+            (New in version 2.11) Optional; the ID of the featurelist that defines
             the set of features with a monotonically decreasing relationship to the target.
-            Passing ``None`` disables decreasing monotonicity constraint. Default
+            Passing ``None`` disables the decreasing monotonicity constraint. The default
             (``dr.enums.MONOTONICITY_FEATURELIST_DEFAULT``) is the one specified by the blueprint.
 
         Returns
         -------
         model_job_id : str
-            id of created job, can be used as parameter to ``ModelJob.get``
-            method or ``wait_for_async_model_creation`` function
+            The ID of the created job; can be used as a parameter to ``ModelJob.get``
+            or the ``wait_for_async_model_creation`` function.
 
         Examples
         --------
@@ -586,7 +588,7 @@ class GenericModel(APIObject, BrowserMixin):
         sampling_method: Optional[str] = None,
         n_clusters: Optional[int] = None,
     ) -> ModelJob:
-        """Trains this model on a different featurelist or sample size.
+        """Train this model on a different featurelist or sample size.
 
         Requires that this model is part of a datetime partitioned project; otherwise, an error will
         occur.
@@ -600,52 +602,52 @@ class GenericModel(APIObject, BrowserMixin):
         Parameters
         ----------
         featurelist_id : Optional[str]
-            the featurelist to use to train the model.  If not specified, the featurelist of this
+            The featurelist to use to train the model. If not specified, the featurelist of this
             model is used.
         training_row_count : Optional[int]
-            the number of rows of data that should be used to train the model.  If specified,
+            The number of rows of data that should be used to train the model. If specified,
             neither ``training_duration`` nor ``use_project_settings`` may be specified.
         training_duration : Optional[str]
-            a duration string specifying what time range the data used to train the model should
-            span.  If specified, neither ``training_row_count`` nor ``use_project_settings`` may be
+            A duration string specifying the time range that the data used to train the model should
+            span. If specified, neither ``training_row_count`` nor ``use_project_settings`` may be
             specified.
         use_project_settings : Optional[bool]
-            (New in version v2.20) defaults to ``False``. If ``True``, indicates that the custom
+            (New in version v2.20) Defaults to ``False``. If ``True``, indicates that the custom
             backtest partitioning settings specified by the user will be used to train the model and
             evaluate backtest scores. If specified, neither ``training_row_count`` nor
             ``training_duration`` may be specified.
         time_window_sample_pct : Optional[int]
-            may only be specified when the requested model is a time window (e.g. duration or start
-            and end dates). An integer between 1 and 99 indicating the percentage to sample by
+            May only be specified when the requested model is a time window (e.g., duration or start
+            and end dates). An integer between 1 and 99 indicating the percentage to sample
             within the window. The points kept are determined by a random uniform sample.
-            If specified, training_duration must be specified otherwise, the number of rows used
-            to train the model and evaluate backtest scores and an error will occur.
+            If specified, ``training_duration`` must be specified; otherwise, the number of rows used
+            to train the model and evaluate backtest scores will be unclear and an error will occur.
         sampling_method : Optional[str]
-            (New in version v2.23) defines the way training data is selected. Can be either
-            ``random`` or ``latest``.  In combination with ``training_row_count`` defines how rows
-            are selected from backtest (``latest`` by default).  When training data is defined using
-            time range (``training_duration`` or ``use_project_settings``) this setting changes the
-            way ``time_window_sample_pct`` is applied (``random`` by default).  Applicable to OTV
+            (New in version v2.23) Defines the way training data is selected. Can be either
+            ``random`` or ``latest``. In combination with ``training_row_count``, defines how rows
+            are selected from the backtest (``latest`` by default). When training data is defined using
+            a time range (``training_duration`` or ``use_project_settings``), this setting changes the
+            way ``time_window_sample_pct`` is applied (``random`` by default). Applicable to OTV
             projects only.
         monotonic_increasing_featurelist_id : Optional[str]
-            (New in version v2.18) optional, the id of the featurelist that defines
+            (New in version v2.18) Optional; the ID of the featurelist that defines
             the set of features with a monotonically increasing relationship to the target.
-            Passing ``None`` disables increasing monotonicity constraint. Default
+            Passing ``None`` disables the increasing monotonicity constraint. The default
             (``dr.enums.MONOTONICITY_FEATURELIST_DEFAULT``) is the one specified by the blueprint.
         monotonic_decreasing_featurelist_id : Optional[str]
-            (New in version v2.18) optional, the id of the featurelist that defines
+            (New in version v2.18) Optional; the ID of the featurelist that defines
             the set of features with a monotonically decreasing relationship to the target.
-            Passing ``None`` disables decreasing monotonicity constraint. Default
+            Passing ``None`` disables the decreasing monotonicity constraint. The default
             (``dr.enums.MONOTONICITY_FEATURELIST_DEFAULT``) is the one specified by the blueprint.
         n_clusters: Optional[int]
-            (New in version 2.27) number of clusters to use in an unsupervised clustering model.
-            This parameter is used only for unsupervised clustering models that don't automatically
+            (New in version 2.27) The number of clusters to use in an unsupervised clustering model.
+            This parameter is used only for unsupervised clustering models that do not automatically
             determine the number of clusters.
 
         Returns
         -------
         job : ModelJob
-            the created job to build the model
+            The created job to build the model.
         """
         from .modeljob import ModelJob  # pylint: disable=import-outside-toplevel,cyclic-import
 
@@ -690,22 +692,22 @@ class GenericModel(APIObject, BrowserMixin):
         Parameters
         ----------
         sample_pct: Optional[float]
-            The sample size in percents (1 to 100) to use in training. If this parameter is used
-            then training_row_count should not be given.
+            The sample size in percent (1 to 100) to use in training. If this parameter is used,
+            then ``training_row_count`` should not be given.
         featurelist_id : Optional[str]
-            The featurelist id
+            The featurelist ID.
         training_row_count : Optional[int]
-            The number of rows used to train the model. If this parameter is used, then sample_pct
+            The number of rows used to train the model. If this parameter is used, then ``sample_pct``
             should not be given.
         n_clusters: Optional[int]
-            (new in version 2.27) number of clusters to use in an unsupervised clustering model.
+            (New in version 2.27) The number of clusters to use in an unsupervised clustering model.
             This parameter is used only for unsupervised clustering models that do not determine
             the number of clusters automatically.
 
         Returns
         -------
         job : ModelJob
-            The created job that is retraining the model
+            The created job that is retraining the model.
         """
         from .modeljob import ModelJob  # pylint: disable=import-outside-toplevel,cyclic-import
 
@@ -730,8 +732,8 @@ class GenericModel(APIObject, BrowserMixin):
         data_stage_compression: Optional[str] = None,
     ):
         """Submit a job to the queue to perform incremental training on an existing model using
-        additional data. The id of the additional data to use for training is specified with the data_stage_id.
-        Optionally a name for the iteration can be supplied by the user to help identify the contents of data in
+        additional data. The ID of the additional data to use for training is specified with ``data_stage_id``.
+        Optionally, a name for the iteration can be supplied by the user to help identify the contents of the data in
         the iteration.
 
         This functionality requires the INCREMENTAL_LEARNING feature flag to be enabled.
@@ -739,22 +741,22 @@ class GenericModel(APIObject, BrowserMixin):
         Parameters
         ----------
         data_stage_id: str
-            The id of the data stage to use for training.
+            The ID of the data stage to use for training.
         training_data_name : Optional[str]
             The name of the iteration or data stage to indicate what the incremental learning was performed on.
         data_stage_encoding : Optional[str]
             The encoding type of the data in the data stage (default: UTF-8).
             Supported formats: UTF-8, ASCII, WINDOWS1252
-        data_stage_encoding : Optional[str]
+        data_stage_delimiter : Optional[str]
             The delimiter used by the data in the data stage (default: ',').
         data_stage_compression : Optional[str]
-            The compression type of the data stage file, e.g. 'zip' (default: None).
-            Supported formats: zip
+            The compression type of the data stage file, e.g., 'zip' (default: None).
+            Supported formats: zip.
 
         Returns
         -------
         job : ModelJob
-            The created job that is retraining the model
+            The created job that is retraining the model.
         """
         from .modeljob import ModelJob  # pylint: disable=import-outside-toplevel,cyclic-import
 
@@ -797,12 +799,12 @@ class GenericModel(APIObject, BrowserMixin):
             iteration. If set to False, training will continue until early stopping conditions
             are met or the maximum number of iterations is reached. The default value is False.
         chunk_definition_id: str
-            The id of the chunk definition to be use for incremental training.
+            The ID of the chunk definition to use for incremental training.
 
         Returns
         -------
         job : ModelJob
-            The created job that is retraining the model
+            The created job that is retraining the model.
         """
         from .modeljob import ModelJob  # pylint: disable=import-outside-toplevel,cyclic-import
 
@@ -830,7 +832,7 @@ class GenericModel(APIObject, BrowserMixin):
         chunk_definition_id: str
             The Mongo ID for the chunking service.
         early_stopping_rounds: Optional[int]
-            The number of chunks that, when no improvement has been shown, triggers the early stopping mechanism.
+            The number of chunks in which no improvement has been shown that triggers the early stopping mechanism.
 
         Returns
         -------
@@ -860,7 +862,7 @@ class GenericModel(APIObject, BrowserMixin):
         training_data_name: Optional[str] = None,
     ) -> ModelJob:
         """Submit a job to the queue to perform incremental training on an existing model.
-        See train_incremental documentation.
+        See the train_incremental documentation.
         """
         return self.train_incremental(data_stage_id, training_data_name)
 
@@ -881,34 +883,34 @@ class GenericModel(APIObject, BrowserMixin):
         max_explanations: Optional[int] = None,
         max_ngram_explanations: Optional[Union[int, str]] = None,
     ) -> PredictJob:
-        """Requests predictions against a previously uploaded dataset.
+        """Request predictions against a previously uploaded dataset.
 
         Parameters
         ----------
-        dataset_id : string, optional
-            The ID of the dataset to make predictions against (as uploaded from Project.upload_dataset)
+        dataset_id : str, optional
+            The ID of the dataset to make predictions against (as uploaded from Project.upload_dataset).
         dataset : :class:`Dataset <datarobot.models.Dataset>`, optional
-            The dataset to make predictions against (as uploaded from Project.upload_dataset)
+            The dataset to make predictions against (as uploaded from Project.upload_dataset).
         dataframe : pd.DataFrame, optional
             (New in v3.0)
-            The dataframe to make predictions against
+            The dataframe to make predictions against.
         file_path : Optional[str]
             (New in v3.0)
-            Path to file to make predictions against
+            Path to the file to make predictions against.
         file : IOBase, optional
             (New in v3.0)
-            File to make predictions against
+            The file to make predictions against.
         include_prediction_intervals : Optional[bool]
             (New in v2.16) For :ref:`time series <time-series>` projects only.
             Specifies whether prediction intervals should be calculated for this request. Defaults
-            to True if `prediction_intervals_size` is specified, otherwise defaults to False.
+            to True if `prediction_intervals_size` is specified; otherwise, defaults to False.
         prediction_intervals_size : Optional[int]
             (New in v2.16) For :ref:`time series <time-series>` projects only.
             Represents the percentile to use for the size of the prediction intervals. Defaults to
-            80 if `include_prediction_intervals` is True. Prediction intervals size must be
+            80 if `include_prediction_intervals` is True. The prediction intervals size must be
             between 1 and 100 (inclusive).
         forecast_point : datetime.datetime or None, optional
-            (New in version v2.20) For time series projects only. This is the default point relative
+            (New in version v2.20) For time series projects only. The default point relative
             to which predictions will be generated, based on the forecast window of the project. See
             the time series :ref:`prediction documentation <time-series-predict>` for more
             information.
@@ -916,38 +918,38 @@ class GenericModel(APIObject, BrowserMixin):
             (New in version v2.20) For time series projects only. The start date for bulk
             predictions. Note that this parameter is for generating historical predictions using the
             training data. This parameter should be provided in conjunction with
-            ``predictions_end_date``. Can't be provided with the ``forecast_point`` parameter.
+            ``predictions_end_date``. Cannot be provided with the ``forecast_point`` parameter.
         predictions_end_date : datetime.datetime or None, optional
             (New in version v2.20) For time series projects only. The end date for bulk
             predictions, exclusive. Note that this parameter is for generating historical
             predictions using the training data. This parameter should be provided in conjunction
-            with ``predictions_start_date``. Can't be provided with the
+            with ``predictions_start_date``. Cannot be provided with the
             ``forecast_point`` parameter.
-        actual_value_column : string, optional
+        actual_value_column : str, optional
             (New in version v2.21) For time series unsupervised projects only.
-            Actual value column can be used to calculate the classification metrics and
-            insights on the prediction dataset. Can't be provided with the ``forecast_point``
+            The actual value column can be used to calculate the classification metrics and
+            insights on the prediction dataset. Cannot be provided with the ``forecast_point``
             parameter.
-        explanation_algorithm: (New in version v2.21) optional; If set to 'shap', the
+        explanation_algorithm: optional, (New in version v2.21). If set to 'shap', the
             response will include prediction explanations based on the SHAP explainer (SHapley
             Additive exPlanations). Defaults to null (no prediction explanations).
-        max_explanations: (New in version v2.21) int optional; specifies the maximum number of
+        max_explanations: int, optional (New in version v2.21). Specifies the maximum number of
             explanation values that should be returned for each row, ordered by absolute value,
             greatest to least. If null, no limit. In the case of 'shap': if the number of features
-            is greater than the limit, the sum of remaining values will also be returned as
+            is greater than the limit, the sum of the remaining values will also be returned as
             `shapRemainingTotal`. Defaults to null. Cannot be set if `explanation_algorithm` is
             omitted.
-        max_ngram_explanations: optional;  int or str
+        max_ngram_explanations: optional; int or str
             (New in version v2.29) Specifies the maximum number of text explanation values that
-            should be returned. If set to `all`, text explanations will be computed and all the
-            ngram explanations will be returned. If set to a non zero positive integer value, text
-            explanations will be computed and this amount of descendingly sorted ngram explanations
-            will be returned. By default text explanation won't be triggered to be computed.
+            should be returned. If set to `all`, text explanations will be computed and all
+            n-gram explanations will be returned. If set to a non-zero positive integer value, text
+            explanations will be computed and this number of descendingly sorted n-gram explanations
+            will be returned. By default, text explanation will not be triggered to be computed.
 
         Returns
         -------
         job : PredictJob
-            The job computing the predictions
+            The job computing the predictions.
         """
         assert_single_parameter(
             ("dataset_id", "dataset", "dataframe", "file_path", "file"),
@@ -1019,11 +1021,11 @@ class GenericModel(APIObject, BrowserMixin):
         return PredictJob.from_id(self.project_id, job_id)
 
     def _raise_if_not_slice_forbidden_error(self, e: Exception) -> None:
-        """If the user does not have the SLICED_INSIGHTS feature flag enabled, then all requests to
-        the /insights/ endpoints will be rejected with 403 FORBIDDEN. Also, some project types
-        are currently not supported by the /insights/ endpoint. In addition, datarobot version < 9.1
-        does not support `unslicedOnly` query parameter and returns 400 BAD REQUEST for such requests.
-        Use this method to check the error for that case. For any other error, reraise.
+        """If the user does not have the SLICED_INSIGHTS feature flag enabled, all requests to
+        the `/insights/` endpoints will be rejected with 403 FORBIDDEN. Also, some project types
+        are not supported by the `/insights/` endpoint. In addition, DataRobot version < 9.1
+        does not support the `unslicedOnly` query parameter and returns 400 BAD REQUEST for such requests.
+        Use this method to check the error for that case. For any other error, re-raise.
         """
         if (e.status_code not in [403, 422]) and not (
             e.json.get("message") == {"unslicedOnly": "unslicedOnly is not allowed key"}
@@ -1031,16 +1033,16 @@ class GenericModel(APIObject, BrowserMixin):
             raise e
 
     def _post_insights_url(self, insight_name: str) -> str:
-        """Build URL for requests to POST /insights/.../ endpoints, used with sliced insights."""
+        """Build the URL for requests to the `POST /insights/.../` endpoints, used with sliced insights."""
         return f"insights/{insight_name}/"
 
     def _get_insights_url(self, insight_name: str) -> str:
-        """Build URL for requests to GET /insights/.../ endpoints, used with sliced insights."""
+        """Build the URL for requests to the `GET /insights/.../` endpoints, used with sliced insights."""
         return f"insights/{insight_name}/models/{self.id}"
 
     def _data_slice_to_query_params(self, data_slice_filter: DataSlice = None) -> Dict[str, str]:
         """Convert a DataSlice object to the query params needed to request insights with a matching
-        DataSlice.  Passing in data_slice_filter = None will set params to return all insights"""
+        DataSlice. Passing ``data_slice_filter=None`` sets params to return all insights."""
         params = {}
         if data_slice_filter:
             if data_slice_filter.id is None:
@@ -1056,11 +1058,11 @@ class GenericModel(APIObject, BrowserMixin):
         return params
 
     def _validate_data_slice_filter(self, data_slice_filter: DataSlice | None) -> None:
-        """This method to validate data_slice_filter is not None for:
-        get_feature_impact, get_residuals_chart, get_lift_chart and get_roc_curve.
-        if data_slice_filter is None, the insights API fetch call won't filter insights,
-        this potentially will return a list of charts. The methods listed above expect to return
-        only a single chart sliced or unsliced insight.
+        """Validate that data_slice_filter is not None for
+        get_feature_impact, get_residuals_chart, get_lift_chart, and get_roc_curve.
+        If data_slice_filter is None, the insights API fetch will not filter insights,
+        which may return a list of charts. The methods listed above expect to return
+        only a single chart (sliced or unsliced) insight.
         """
         if data_slice_filter is None:
             raise ValueError("Invalid data_slice_filter value. Please specify `DataSlice` filter")
@@ -1078,13 +1080,13 @@ class GenericModel(APIObject, BrowserMixin):
         feature in the model.
 
         Feature Impact is computed for each column by creating new data with that column randomly
-        permuted (but the others left unchanged), and seeing how the error metric score for the
+        permuted (but the others left unchanged) and measuring how the error metric score for the
         predictions is affected. The 'impactUnnormalized' is how much worse the error metric score
         is when making predictions on this modified data. The 'impactNormalized' is normalized so
         that the largest value is 1. In both cases, larger values indicate more important features.
 
-        If a feature is a redundant feature, i.e. once other features are considered it doesn't
-        contribute much in addition, the 'redundantWith' value is the name of feature that has the
+        If a feature is redundant, i.e., once other features are considered it does not
+        contribute much in addition, the 'redundantWith' value is the name of the feature that has the
         highest correlation with this feature. Note that redundancy detection is only available for
         jobs run after the addition of this feature. When retrieving data that predates this
         functionality, a NoRedundancyImpactAvailable warning will be used.
@@ -1099,41 +1101,41 @@ class GenericModel(APIObject, BrowserMixin):
         Parameters
         ----------
         with_metadata : bool
-            The flag indicating if the result should include the metadata as well.
+            The flag indicating whether the result should include the metadata as well.
         data_slice_filter : DataSlice, optional
-            A dataslice used to filter the return values based on the dataslice.id. By default, this function will
-            use data_slice_filter.id == None which returns an unsliced insight. If data_slice_filter is None
-            then get_feature_impact will raise a ValueError.
+            A DataSlice used to filter the return values based on the DataSlice ID. By default, this function
+            uses data_slice_filter.id == None, which returns an unsliced insight. If data_slice_filter is None,
+            get_feature_impact will raise a ValueError.
 
         Returns
         -------
         list or dict
             The feature impact data response depends on the with_metadata parameter. The response is
-            either a dict with metadata and a list with actual data or just a list with that data.
+            either a dict with metadata and a list with the actual data or just a list with that data.
 
-            Each List item is a dict with the keys ``featureName``, ``impactNormalized``, and
-            ``impactUnnormalized``, ``redundantWith`` and ``count``.
+            Each list item is a dict with the keys ``featureName``, ``impactNormalized``,
+            ``impactUnnormalized``, ``redundantWith``, and ``count``.
 
-            For dict response available keys are:
+            For the dict response, the available keys are:
 
               - ``featureImpacts`` - Feature Impact data as a dictionary. Each item is a dict with
-                    keys: ``featureName``, ``impactNormalized``, and ``impactUnnormalized``, and
+                    the keys: ``featureName``, ``impactNormalized``, ``impactUnnormalized``, and
                     ``redundantWith``.
               - ``shapBased`` - A boolean that indicates whether Feature Impact was calculated using
                     Shapley values.
               - ``ranRedundancyDetection`` - A boolean that indicates whether redundant feature
                     identification was run while calculating this Feature Impact.
-              - ``rowCount`` - An integer or None that indicates the number of rows that was used to
-                    calculate Feature Impact. For the Feature Impact calculated with the default
-                    logic, without specifying the rowCount, we return None here.
-              - ``count`` - An integer with the number of features under the ``featureImpacts``.
+              - ``rowCount`` - An integer or None that indicates the number of rows that were used to
+                    calculate Feature Impact. For Feature Impact calculated with the default
+                    logic without specifying the rowCount, we return None here.
+              - ``count`` - An integer with the number of features under ``featureImpacts``.
 
         Raises
         ------
         ClientError
             If the feature impacts have not been computed.
         ValueError
-            If data_slice_filter passed as None
+            If data_slice_filter is passed as None.
         """
 
         self._validate_data_slice_filter(data_slice_filter)
@@ -1145,7 +1147,7 @@ class GenericModel(APIObject, BrowserMixin):
         return self._make_get_insights_feature_impact_request(params, with_metadata)
 
     def _make_get_insights_feature_impact_request(self, params, with_metadata):
-        """Make GET request to Feature Impact insights API"""
+        """Make a GET request to the Feature Impact insights API."""
         insight_name = "featureImpact"
         try:
             insights_fi_url = self._get_insights_url(insight_name)
@@ -1185,14 +1187,14 @@ class GenericModel(APIObject, BrowserMixin):
         Parameters
         ----------
         data_slice_filter : DataSlice, optional
-            A dataslice used to filter the return values based on the dataslice.id. By default, this function will
-            use data_slice_filter.id == None which returns an unsliced insight. If data_slice_filter is None
-            then no data_slice filtering will be applied when requesting the roc_curve.
+            A DataSlice used to filter the return values based on the DataSlice ID. By default, this function
+            uses data_slice_filter.id == None, which returns an unsliced insight. If data_slice_filter is None,
+            no data_slice filtering will be applied when requesting the ROC curve.
 
         Returns
         -------
         list of dicts
-            Data for all available model feature impacts. Or an empty list if not data found.
+            Data for all available model feature impacts, or an empty list if no data is found.
 
         Examples
         --------
@@ -1236,8 +1238,8 @@ class GenericModel(APIObject, BrowserMixin):
 
     def get_multiclass_feature_impact(self):
         """
-        For multiclass it's possible to calculate feature impact separately for each target class.
-        The method for calculation is exactly the same, calculated in one-vs-all style for each
+        For multiclass models, feature impact can be calculated separately for each target class.
+        The method of calculation is the same, computed in one-vs-all style for each
         target class.
 
         Requires that Feature Impact has already been computed with
@@ -1246,9 +1248,9 @@ class GenericModel(APIObject, BrowserMixin):
         Returns
         -------
         feature_impacts : list of dict
-           The feature impact data. Each item is a dict with the keys 'featureImpacts' (list),
-           'class' (str). Each item in 'featureImpacts' is a dict with the keys 'featureName',
-           'impactNormalized', and 'impactUnnormalized', and 'redundantWith'.
+            The feature impact data. Each item is a dict with the keys 'featureImpacts' (list),
+            'class' (str). Each item in 'featureImpacts' is a dict with the keys 'featureName',
+            'impactNormalized', 'impactUnnormalized', and 'redundantWith'.
 
         Raises
         ------
@@ -1261,7 +1263,7 @@ class GenericModel(APIObject, BrowserMixin):
         return data["classFeatureImpacts"]
 
     def _make_post_insights_feature_impact_request(self, source, data_slice_id, row_count):
-        """Make POST request to Feature Impact insights API"""
+        """Make a POST request to the Feature Impact insights API."""
         route = self._post_insights_url("featureImpact")
         payload = {
             "source": source,
@@ -1282,7 +1284,7 @@ class GenericModel(APIObject, BrowserMixin):
         data_slice_id: Optional[str] = None,
     ):
         """
-        Request feature impacts to be computed for the model.
+        Request that feature impacts be computed for the model.
 
         See :meth:`get_feature_impact <datarobot.models.Model.get_feature_impact>` for more
         information on the result of the job.
@@ -1290,19 +1292,19 @@ class GenericModel(APIObject, BrowserMixin):
         Parameters
         ----------
         row_count : Optional[int]
-            The sample size (specified in rows) to use for Feature Impact computation. This is not
+            The sample size (in rows) to use for Feature Impact computation. This is not
             supported for unsupervised, multiclass (which has a separate method), and time series
             projects.
         with_metadata : Optional[bool]
             Flag indicating whether the result should include the metadata.
-            If true, metadata is included.
+            If True, metadata is included.
         data_slice_id : Optional[str]
-            ID for the data slice used in the request. If None, request unsliced insight data.
+            The ID for the data slice used in the request. If None, requests unsliced insight data.
 
         Returns
         -------
         job : Job or status_id
-            Job representing the Feature Impact computation. To retrieve the completed Feature Impact
+            A job representing the Feature Impact computation. To retrieve the completed Feature Impact
             data, use `job.get_result` or `job.get_result_when_complete`.
 
         Raises
@@ -1325,36 +1327,35 @@ class GenericModel(APIObject, BrowserMixin):
 
     def request_external_test(self, dataset_id: str, actual_value_column: Optional[str] = None):
         """
-        Request external test to compute scores and insights on an external test dataset
+        Request an external test to compute scores and insights on an external test dataset.
 
         Parameters
         ----------
-        dataset_id : string
-            The dataset to make predictions against (as uploaded from Project.upload_dataset)
-        actual_value_column : string, optional
+        dataset_id : str
+            The ID of the dataset to make predictions against (as uploaded from Project.upload_dataset).
+        actual_value_column : str, optional
             (New in version v2.21) For time series unsupervised projects only.
-            Actual value column can be used to calculate the classification metrics and
-            insights on the prediction dataset. Can't be provided with the ``forecast_point``
+            The actual value column can be used to calculate the classification metrics and
+            insights on the prediction dataset. Cannot be provided with the ``forecast_point``
             parameter.
 
         Returns
         -------
         job : Job
-            a Job representing external dataset insights computation
-
+            A job representing external dataset insights computation.
         """
         return ExternalScores.create(self.project_id, self.id, dataset_id, actual_value_column)
 
     def get_or_request_feature_impact(self, max_wait: int = DEFAULT_MAX_WAIT, **kwargs):
         """
-        Retrieve feature impact for the model, requesting a job if it hasn't been run previously.
+        Retrieve feature impact for the model, requesting a job if it has not been run previously.
 
         Only the top 1000 features are saved and can be returned.
 
         Parameters
         ----------
         max_wait : Optional[int]
-            The maximum time to wait for a requested feature impact job to complete before erroring
+            The maximum time to wait for a requested feature impact job to complete before raising an error.
         **kwargs
             Arbitrary keyword arguments passed to
             :meth:`request_feature_impact <datarobot.models.Model.request_feature_impact>`.
@@ -1395,7 +1396,7 @@ class GenericModel(APIObject, BrowserMixin):
 
     def get_feature_effect_metadata(self):
         """
-        Retrieve Feature Effects metadata. Response contains status and available model sources.
+        Retrieve Feature Effects metadata. The response contains status and available model sources.
 
         * Feature Effect for the `training` partition is always available, with the exception of older
           projects that only supported Feature Effect for `validation`.
@@ -1412,7 +1413,6 @@ class GenericModel(APIObject, BrowserMixin):
         Returns
         -------
         feature_effect_metadata: FeatureEffectMetadata
-
         """
         fe_metadata_url = self._get_feature_effect_metadata_url()
         server_data = self._client.get(fe_metadata_url).json()
@@ -1423,7 +1423,7 @@ class GenericModel(APIObject, BrowserMixin):
 
     def request_feature_effect(self, row_count: Optional[int] = None, data_slice_id: Optional[str] = None):
         """
-        Submit request to compute Feature Effects for the model.
+        Submit a request to compute Feature Effects for the model.
 
         See :meth:`get_feature_effect <datarobot.models.Model.get_feature_effect>` for more
         information on the result of the job.
@@ -1431,22 +1431,22 @@ class GenericModel(APIObject, BrowserMixin):
         Parameters
         ----------
         row_count : int
-            (New in version v2.21) The sample size to use for Feature Impact computation.
+            (New in version v2.21) The sample size to use for Feature Effects computation.
             Minimum is 10 rows. Maximum is 100000 rows or the training sample size of the model,
             whichever is less.
         data_slice_id : Optional[str]
-            ID for the data slice used in the request. If None, request unsliced insight data.
+            The ID for the data slice used in the request. If None, requests unsliced insight data.
 
         Returns
         -------
         job : Job
-            A Job representing the feature effect computation. To get the completed feature effect
+            A job representing the feature effect computation. To get the completed feature effect
             data, use `job.get_result` or `job.get_result_when_complete`.
 
         Raises
         ------
         JobAlreadyRequested
-            If the feature effect have already been requested.
+            If the feature effects have already been requested.
         """
         from .job import Job  # pylint: disable=import-outside-toplevel,cyclic-import
 
@@ -1480,16 +1480,16 @@ class GenericModel(APIObject, BrowserMixin):
         Parameters
         ----------
         row_count : int
-            The number of rows from dataset to use for Feature Impact calculation.
+            The number of rows from the dataset to use for Feature Effects calculation.
         top_n_features : int or None
-            Number of top features (ranked by feature impact) used to calculate Feature Effects.
+            The number of top features (ranked by feature impact) used to calculate Feature Effects.
         features : list or None
             The list of features used to calculate Feature Effects.
 
         Returns
         -------
         job : Job
-            A Job representing Feature Effect computation. To get the completed Feature Effect
+            A job representing Feature Effect computation. To get the completed Feature Effect
             data, use `job.get_result` or `job.get_result_when_complete`.
         """
         return FeatureEffectsMulticlass.create(
@@ -1504,10 +1504,10 @@ class GenericModel(APIObject, BrowserMixin):
         """
         Retrieve Feature Effects for the model.
 
-        Feature Effects provides partial dependence and predicted vs actual values for top-500
+        Feature Effects provides partial dependence and predicted vs. actual values for the top 500
         features ordered by feature impact score.
 
-        The partial dependence shows marginal effect of a feature on the target variable after
+        The partial dependence shows the marginal effect of a feature on the target variable after
         accounting for the average effects of all other predictive features. It indicates how,
         holding all other variables except the feature of interest as they were,
         the value of this feature affects your prediction.
@@ -1516,14 +1516,14 @@ class GenericModel(APIObject, BrowserMixin):
         :meth:`request_feature_effect <datarobot.models.Model.request_feature_effect>`.
 
         See :meth:`get_feature_effect_metadata <datarobot.models.Model.get_feature_effect_metadata>`
-        for retrieving information the available sources.
+        for retrieving information on the available sources.
 
         Parameters
         ----------
-        source : string
-            The source Feature Effects are retrieved for.
-        data_slice_id : string, optional
-            ID for the data slice used in the request. If None, retrieve unsliced insight data.
+        source : str
+            The source that Feature Effects are retrieved for.
+        data_slice_id : str, optional
+            The ID for the data slice used in the request. If None, retrieves unsliced insight data.
 
         Returns
         -------
@@ -1533,7 +1533,7 @@ class GenericModel(APIObject, BrowserMixin):
         Raises
         ------
         ClientError
-            If the feature effects have not been computed or source is not valid value.
+            If the feature effects have not been computed or the source is not a valid value.
         """
         insight_name = "featureEffects"
         params = {"source": source}
@@ -1554,10 +1554,10 @@ class GenericModel(APIObject, BrowserMixin):
         """
         Retrieve Feature Effects for the multiclass model.
 
-        Feature Effects provide partial dependence and predicted vs actual values for top-500
+        Feature Effects provide partial dependence and predicted vs. actual values for the top 500
         features ordered by feature impact score.
 
-        The partial dependence shows marginal effect of a feature on the target variable after
+        The partial dependence shows the marginal effect of a feature on the target variable after
         accounting for the average effects of all other predictive features. It indicates how,
         holding all other variables except the feature of interest as they were,
         the value of this feature affects your prediction.
@@ -1566,14 +1566,14 @@ class GenericModel(APIObject, BrowserMixin):
         :meth:`request_feature_effect <datarobot.models.Model.request_feature_effect>`.
 
         See :meth:`get_feature_effect_metadata <datarobot.models.Model.get_feature_effect_metadata>`
-        for retrieving information the available sources.
+        for retrieving information on the available sources.
 
         Parameters
         ----------
         source : str
-            The source Feature Effects are retrieved for.
+            The source that Feature Effects are retrieved for.
         class_ : str or None
-            The class name Feature Effects are retrieved for.
+            The class name that Feature Effects are retrieved for.
 
         Returns
         -------
@@ -1583,7 +1583,7 @@ class GenericModel(APIObject, BrowserMixin):
         Raises
         ------
         ClientError
-            If Feature Effects have not been computed or source is not valid value.
+            If Feature Effects have not been computed or the source is not a valid value.
         """
         return FeatureEffectsMulticlass.get(project_id=self.project_id, model_id=self.id, source=source, class_=class_)
 
@@ -1597,24 +1597,24 @@ class GenericModel(APIObject, BrowserMixin):
         max_wait=DEFAULT_MAX_WAIT,
     ):
         """
-        Retrieve Feature Effects for the multiclass model, requesting a job if it hasn't been run
+        Retrieve Feature Effects for the multiclass model, requesting a job if it has not been run
         previously.
 
         Parameters
         ----------
-        source : string
-            The source Feature Effects retrieve for.
+        source : str
+            The source that Feature Effects are retrieved for.
         class_ : str or None
-            The class name Feature Effects retrieve for.
+            The class name that Feature Effects are retrieved for.
         row_count : int
-            The number of rows from dataset to use for Feature Impact calculation.
+            The number of rows from the dataset to use for Feature Effects calculation.
         top_n_features : int or None
-            Number of top features (ranked by Feature Impact) used to calculate Feature Effects.
+            The number of top features (ranked by Feature Impact) used to calculate Feature Effects.
         features : list or None
             The list of features used to calculate Feature Effects.
         max_wait : Optional[int]
             The maximum time to wait for a requested Feature Effects job to complete before
-            erroring.
+            raising an error.
 
         Returns
         -------
@@ -1647,24 +1647,24 @@ class GenericModel(APIObject, BrowserMixin):
         data_slice_id: Optional[str] = None,
     ):
         """
-        Retrieve Feature Effects for the model, requesting a new job if it hasn't been run previously.
+        Retrieve Feature Effects for the model, requesting a new job if it has not been run previously.
 
         See :meth:`get_feature_effect_metadata \
         <datarobot.models.Model.get_feature_effect_metadata>`
-        for retrieving information of source.
+        for retrieving information on the source.
 
         Parameters
         ----------
-        source : string
-            The source Feature Effects are retrieved for.
+        source : str
+            The source that Feature Effects are retrieved for.
         max_wait : Optional[int]
-            The maximum time to wait for a requested Feature Effect job to complete before erroring.
+            The maximum time to wait for a requested Feature Effect job to complete before raising an error.
         row_count : Optional[int]
-            (New in version v2.21) The sample size to use for Feature Impact computation.
+            (New in version v2.21) The sample size to use for Feature Effects computation.
             Minimum is 10 rows. Maximum is 100000 rows or the training sample size of the model,
             whichever is less.
         data_slice_id : Optional[str]
-            ID for the data slice used in the request. If None, request unsliced insight data.
+            The ID for the data slice used in the request. If None, requests unsliced insight data.
 
         Returns
         -------
@@ -1690,13 +1690,13 @@ class GenericModel(APIObject, BrowserMixin):
         message="Prime models are no longer supported.",
     )
     def get_prime_eligibility(self):
-        """Check if this model can be approximated with DataRobot Prime
+        """Check whether this model can be approximated with DataRobot Prime.
 
         Returns
         -------
         prime_eligibility : dict
-            a dict indicating whether a model can be approximated with DataRobot Prime
-            (key `can_make_prime`) and why it may be ineligible (key `message`)
+            A dict indicating whether the model can be approximated with DataRobot Prime
+            (key `can_make_prime`) and why it may be ineligible (key `message`).
         """
         converter = t.Dict({
             t.Key("can_make_prime"): t.Bool(),
@@ -1710,16 +1710,16 @@ class GenericModel(APIObject, BrowserMixin):
         return {key: safe_data[key] for key in return_keys}
 
     def request_approximation(self):
-        """Request an approximation of this model using DataRobot Prime
+        """Request an approximation of this model using DataRobot Prime.
 
-        This will create several rulesets that could be used to approximate this model.  After
+        This creates several rulesets that can be used to approximate this model. After
         comparing their scores and rule counts, the code used in the approximation can be downloaded
         and run locally.
 
         Returns
         -------
         job : Job
-            the job generating the rulesets
+            The job that generates the rulesets.
         """
         from .job import Job  # pylint: disable=import-outside-toplevel,cyclic-import
 
@@ -1729,10 +1729,10 @@ class GenericModel(APIObject, BrowserMixin):
         return Job.get(self.project_id, job_id)
 
     def get_rulesets(self) -> List[Ruleset]:
-        """List the rulesets approximating this model generated by DataRobot Prime
+        """List the rulesets that approximate this model, generated by DataRobot Prime.
 
-        If this model hasn't been approximated yet, will return an empty list.  Note that these
-        are rulesets approximating this model, not rulesets used to construct this model.
+        If this model has not been approximated yet, returns an empty list. Note that these
+        are rulesets that approximate this model, not rulesets used to construct this model.
 
         Returns
         -------
@@ -1746,12 +1746,12 @@ class GenericModel(APIObject, BrowserMixin):
         self, sample_pct: Optional[float] = None, training_row_count: Optional[int] = None
     ) -> ModelJob:
         """
-        Train a new frozen model with parameters from this model
+        Train a new frozen model with parameters from this model.
 
         Notes
         -----
-        This method only works if project the model belongs to is `not` datetime
-        partitioned.  If it is, use ``request_frozen_datetime_model`` instead.
+        This method only works if the project the model belongs to is not datetime
+        partitioned. If it is, use ``request_frozen_datetime_model`` instead.
 
         Frozen models use the same tuning parameters as their parent model instead of independently
         optimizing them to allow efficiently retraining models on larger amounts of the training
@@ -1760,16 +1760,16 @@ class GenericModel(APIObject, BrowserMixin):
         Parameters
         ----------
         sample_pct : float
-            optional, the percentage of the dataset to use with the model.  If not provided, will
+            Optional; the percentage of the dataset to use with the model. If not provided, will
             use the value from this model.
         training_row_count : int
-            (New in version v2.9) optional, the integer number of rows of the dataset to use with
+            (New in version v2.9) Optional; the integer number of rows of the dataset to use with
             the model. Only one of `sample_pct` and `training_row_count` should be specified.
 
         Returns
         -------
         model_job : ModelJob
-            the modeling job training a frozen model
+            The modeling job that trains a frozen model.
         """
         from .modeljob import ModelJob  # pylint: disable=import-outside-toplevel,cyclic-import
 
@@ -1796,15 +1796,15 @@ class GenericModel(APIObject, BrowserMixin):
     ) -> ModelJob:
         """Train a new frozen model with parameters from this model.
 
-        Requires that this model belongs to a datetime partitioned project.  If it does not, an
+        Requires that this model belongs to a datetime partitioned project. If it does not, an
         error will occur when submitting the job.
 
         Frozen models use the same tuning parameters as their parent model instead of independently
         optimizing them to allow efficiently retraining models on larger amounts of the training
         data.
 
-        In addition of training_row_count and training_duration, frozen datetime models may be
-        trained on an exact date range.  Only one of training_row_count, training_duration, or
+        In addition to training_row_count and training_duration, frozen datetime models may be
+        trained on an exact date range. Only one of training_row_count, training_duration, or
         training_start_date and training_end_date should be specified.
 
         Models specified using training_start_date and training_end_date are the only ones that can
@@ -1819,37 +1819,37 @@ class GenericModel(APIObject, BrowserMixin):
         Parameters
         ----------
         training_row_count : Optional[int]
-            the number of rows of data that should be used to train the model.  If specified,
+            The number of rows of data that should be used to train the model. If specified,
             training_duration may not be specified.
         training_duration : Optional[str]
-            a duration string specifying what time range the data used to train the model should
-            span.  If specified, training_row_count may not be specified.
+            A duration string specifying the time range that the data used to train the model should
+            span. If specified, training_row_count may not be specified.
         training_start_date : datetime.datetime, optional
-            the start date of the data to train to model on.  Only rows occurring at or after
-            this datetime will be used.  If training_start_date is specified, training_end_date
+            The start date of the data to train the model on. Only rows occurring at or after
+            this datetime will be used. If training_start_date is specified, training_end_date
             must also be specified.
         training_end_date : datetime.datetime, optional
-            the end date of the data to train the model on.  Only rows occurring strictly before
-            this datetime will be used.  If training_end_date is specified, training_start_date
+            The end date of the data to train the model on. Only rows occurring strictly before
+            this datetime will be used. If training_end_date is specified, training_start_date
             must also be specified.
         time_window_sample_pct : Optional[int]
-            may only be specified when the requested model is a time window (e.g. duration or start
-            and end dates).  An integer between 1 and 99 indicating the percentage to sample by
-            within the window.  The points kept are determined by a random uniform sample.
-            If specified, training_duration must be specified otherwise, the number of rows used
-            to train the model and evaluate backtest scores and an error will occur.
+            May only be specified when the requested model is a time window (e.g., duration or start
+            and end dates). An integer between 1 and 99 indicating the percentage to sample
+            within the window. The points kept are determined by a random uniform sample.
+            If specified, training_duration must be specified; otherwise, the number of rows used
+            to train the model and evaluate backtest scores will be unclear and an error will occur.
         sampling_method : Optional[str]
-            (New in version v2.23) defines the way training data is selected. Can be either
-            ``random`` or ``latest``.  In combination with ``training_row_count`` defines how rows
-            are selected from backtest (``latest`` by default).  When training data is defined using
-            time range (``training_duration`` or ``use_project_settings``) this setting changes the
-            way ``time_window_sample_pct`` is applied (``random`` by default).  Applicable to OTV
+            (New in version v2.23) Defines the way training data is selected. Can be either
+            ``random`` or ``latest``. In combination with ``training_row_count``, defines how rows
+            are selected from the backtest (``latest`` by default). When training data is defined using
+            a time range (``training_duration`` or ``use_project_settings``), this setting changes the
+            way ``time_window_sample_pct`` is applied (``random`` by default). Applicable to OTV
             projects only.
 
         Returns
         -------
         model_job : ModelJob
-            the modeling job training a frozen model
+            The modeling job that trains a frozen model.
         """
         from .modeljob import ModelJob  # pylint: disable=import-outside-toplevel,cyclic-import
 
@@ -1872,41 +1872,41 @@ class GenericModel(APIObject, BrowserMixin):
         return ModelJob.from_id(self.project_id, get_id_from_response(response))
 
     def get_parameters(self):
-        """Retrieve model parameters.
+        """Retrieve the model parameters.
 
         Returns
         -------
         ModelParameters
-            Model parameters for this model.
+            The model parameters for this model.
         """
         return ModelParameters.get(self.project_id, self.id)
 
     def _get_insight(self, url_template, source, insight_type, fallback_to_parent_insights=False):
         """
-        Retrieve insight data
+        Retrieve insight data.
 
         Parameters
         ----------
         url_template: str
-            Format string for the insight url
+            Format string for the insight URL.
         insight_type: str
-            Name of insight type.  Used in warning messages.
+            Name of the insight type. Used in warning messages.
         source: str
-            Data source. Check datarobot.enums.CHART_DATA_SOURCE for possible values.
+            The data source. Check datarobot.enums.CHART_DATA_SOURCE for possible values.
         fallback_to_parent_insights : bool
-            Optional, if True, this will attempt to return insight data for this
+            Optional; if True, attempts to return insight data for this
             model's parent if the insight is not available for this model and the model has a
-            defined parent model. If omitted or False, or there is no parent model, will not
+            defined parent model. If omitted or False, or if there is no parent model, will not
             attempt to return insight data from this model's parent.
 
         Returns
         -------
-        Model Insight Data
+        Model insight data.
 
         Raises
         ------
         ClientError
-            If the insight is not available for this model
+            If the insight is not available for this model.
         """
         url = url_template.format(self.project_id, self.id, source)
         source_model_id = self.id
@@ -2003,7 +2003,7 @@ class GenericModel(APIObject, BrowserMixin):
         response_data: dict
             The data returned from the original request for an insight (should be in the sliced insight format).
         insight_type: str
-            The name of the insight i.e. ROC curve, residuals, etc.
+            The name of the insight, i.e., ROC curve, residuals, etc.
         params: dict
             Params used in the original request for the insight data. The same params will be used to query
             the parent model.
@@ -3184,7 +3184,7 @@ class GenericModel(APIObject, BrowserMixin):
         Parameters
         ----------
         partition : float
-            optional, the id of the partition (1,2,3.0,4.0,etc...) to filter results by
+            Optional; the ID of the partition (1,2,3.0,4.0,etc...) to filter results by
             can be a whole number positive integer or float value. 0 corresponds to the
             validation partition.
         metric: unicode
@@ -3908,15 +3908,15 @@ class PrimeModel(Model):
     Attributes
     ----------
     id : str
-        the id of the model
+        the ID of the model
     project_id : str
-        the id of the project the model belongs to
+        the ID of the project the model belongs to
     processes : List[str]
         the processes used by the model
     featurelist_name : str
         the name of the featurelist used by the model
     featurelist_id : str
-        the id of the featurelist used by the model
+        the ID of the featurelist used by the model
     sample_pct : float
         the percentage of the project dataset used in training the model
     training_row_count : int or None
@@ -3935,29 +3935,29 @@ class PrimeModel(Model):
         only present for frozen models in datetime partitioned projects.  If specified, the end
         date of the data used to train the model.
     model_type : str
-        what model this is, e.g. 'DataRobot Prime'
+        what model this is, e.g., 'DataRobot Prime'
     model_category : str
         what kind of model this is - always 'prime' for DataRobot Prime models
     is_frozen : bool
         whether this model is a frozen model
     blueprint_id : str
-        the id of the blueprint used in this model
+        the ID of the blueprint used in this model
     metrics : dict
         a mapping from each metric to the model's scores for that metric
     ruleset : Ruleset
         the ruleset used in the Prime model
     parent_model_id : str
-        the id of the model that this Prime model approximates
+        the ID of the model that this Prime model approximates
     monotonic_increasing_featurelist_id : str
-        optional, the id of the featurelist that defines the set of features with
+        Optional; the ID of the featurelist that defines the set of features with
         a monotonically increasing relationship to the target.
         If None, no such constraints are enforced.
     monotonic_decreasing_featurelist_id : str
-        optional, the id of the featurelist that defines the set of features with
+        Optional; the ID of the featurelist that defines the set of features with
         a monotonically decreasing relationship to the target.
         If None, no such constraints are enforced.
     supports_monotonic_constraints : bool
-        optional, whether this model supports enforcing monotonic constraints
+        Optional; whether this model supports enforcing monotonic constraints
     is_starred : bool
         whether this model is marked as starred
     prediction_threshold : float
@@ -4125,15 +4125,15 @@ class BlenderModel(Model):
     Attributes
     ----------
     id : str
-        the id of the model
+        the ID of the model
     project_id : str
-        the id of the project the model belongs to
+        the ID of the project the model belongs to
     processes : List[str]
         the processes used by the model
     featurelist_name : str
         the name of the featurelist used by the model
     featurelist_id : str
-        the id of the featurelist used by the model
+        the ID of the featurelist used by the model
     sample_pct : float
         the percentage of the project dataset used in training the model
     training_row_count : int or None
@@ -4152,13 +4152,13 @@ class BlenderModel(Model):
         only present for frozen models in datetime partitioned projects.  If specified, the end
         date of the data used to train the model.
     model_type : str
-        what model this is, e.g. 'DataRobot Prime'
+        what model this is, e.g., 'DataRobot Prime'
     model_category : str
         what kind of model this is - always 'prime' for DataRobot Prime models
     is_frozen : bool
         whether this model is a frozen model
     blueprint_id : str
-        the id of the blueprint used in this model
+        the ID of the blueprint used in this model
     metrics : dict
         a mapping from each metric to the model's scores for that metric
     model_ids : List[str]
@@ -4166,15 +4166,15 @@ class BlenderModel(Model):
     blender_method : str
         Method used to blend results from underlying models
     monotonic_increasing_featurelist_id : str
-        optional, the id of the featurelist that defines the set of features with
+        Optional; the ID of the featurelist that defines the set of features with
         a monotonically increasing relationship to the target.
         If None, no such constraints are enforced.
     monotonic_decreasing_featurelist_id : str
-        optional, the id of the featurelist that defines the set of features with
+        Optional; the ID of the featurelist that defines the set of features with
         a monotonically decreasing relationship to the target.
         If None, no such constraints are enforced.
     supports_monotonic_constraints : bool
-        optional, whether this model supports enforcing monotonic constraints
+        Optional; whether this model supports enforcing monotonic constraints
     is_starred : bool
         whether this model marked as starred
     prediction_threshold : float
@@ -4186,7 +4186,7 @@ class BlenderModel(Model):
     model_number : integer
         model number assigned to a model
     parent_model_id : str or None
-        (New in version v2.20) the id of the model that tuning parameters are derived from
+        (New in version v2.20) the ID of the model that tuning parameters are derived from
     supports_composable_ml : bool or None
         (New in version v2.26)
         whether this model is supported in the Composable ML.
@@ -4301,15 +4301,15 @@ class FrozenModel(Model):
     Attributes
     ----------
     id : str
-        the id of the model
+        the ID of the model
     project_id : str
-        the id of the project the model belongs to
+        the ID of the project the model belongs to
     processes : List[str]
         the processes used by the model
     featurelist_name : str
         the name of the featurelist used by the model
     featurelist_id : str
-        the id of the featurelist used by the model
+        the ID of the featurelist used by the model
     sample_pct : float
         the percentage of the project dataset used in training the model
     training_row_count : int or None
@@ -4328,28 +4328,28 @@ class FrozenModel(Model):
         only present for frozen models in datetime partitioned projects.  If specified, the end
         date of the data used to train the model.
     model_type : str
-        what model this is, e.g. 'Nystroem Kernel SVM Regressor'
+        what model this is, e.g., 'Nystroem Kernel SVM Regressor'
     model_category : str
         what kind of model this is - 'prime' for DataRobot Prime models, 'blend' for blender models,
         and 'model' for other models
     is_frozen : bool
         whether this model is a frozen model
     parent_model_id : str
-        the id of the model that tuning parameters are derived from
+        the ID of the model that tuning parameters are derived from
     blueprint_id : str
-        the id of the blueprint used in this model
+        the ID of the blueprint used in this model
     metrics : dict
         a mapping from each metric to the model's scores for that metric
     monotonic_increasing_featurelist_id : str
-        optional, the id of the featurelist that defines the set of features with
+        Optional; the ID of the featurelist that defines the set of features with
         a monotonically increasing relationship to the target.
         If None, no such constraints are enforced.
     monotonic_decreasing_featurelist_id : str
-        optional, the id of the featurelist that defines the set of features with
+        Optional; the ID of the featurelist that defines the set of features with
         a monotonically decreasing relationship to the target.
         If None, no such constraints are enforced.
     supports_monotonic_constraints : bool
-        optional, whether this model supports enforcing monotonic constraints
+        Optional; whether this model supports enforcing monotonic constraints
     is_starred : bool
         whether this model marked as starred
     prediction_threshold : float
@@ -4481,15 +4481,15 @@ class DatetimeModel(Model):
     Attributes
     ----------
     id : str
-        the id of the model
+        the ID of the model
     project_id : str
-        the id of the project the model belongs to
+        the ID of the project the model belongs to
     processes : List[str]
         the processes used by the model
     featurelist_name : str
         the name of the featurelist used by the model
     featurelist_id : str
-        the id of the featurelist used by the model
+        the ID of the featurelist used by the model
     sample_pct : float
         the percentage of the project dataset used in training the model
     training_row_count : int or None
@@ -4512,14 +4512,14 @@ class DatetimeModel(Model):
         (New in v2.23) indicates the way training data has been selected (either how rows have been
         selected within backtest or how ``time_window_sample_pct`` has been applied).
     model_type : str
-        what model this is, e.g. 'Nystroem Kernel SVM Regressor'
+        what model this is, e.g., 'Nystroem Kernel SVM Regressor'
     model_category : str
         what kind of model this is - 'prime' for DataRobot Prime models, 'blend' for blender models,
         and 'model' for other models
     is_frozen : bool
         whether this model is a frozen model
     blueprint_id : str
-        the id of the blueprint used in this model
+        the ID of the blueprint used in this model
     metrics : dict
         a mapping from each metric to the model's scores for that metric.  The keys in metrics are
         the different metrics used to evaluate the model, and the values are the results.  The
@@ -4547,18 +4547,18 @@ class DatetimeModel(Model):
         the score against the holdout, if available and the holdout is unlocked, according to the
         project metric.
     holdout_status : string or None
-        the status of the holdout score, e.g. "COMPLETED", "HOLDOUT_BOUNDARIES_EXCEEDED".
+        the status of the holdout score, e.g., "COMPLETED", "HOLDOUT_BOUNDARIES_EXCEEDED".
         Unavailable if the holdout fold was disabled in the partitioning configuration.
     monotonic_increasing_featurelist_id : str
-        optional, the id of the featurelist that defines the set of features with
+        Optional; the ID of the featurelist that defines the set of features with
         a monotonically increasing relationship to the target.
         If None, no such constraints are enforced.
     monotonic_decreasing_featurelist_id : str
-        optional, the id of the featurelist that defines the set of features with
+        Optional; the ID of the featurelist that defines the set of features with
         a monotonically decreasing relationship to the target.
         If None, no such constraints are enforced.
     supports_monotonic_constraints : bool
-        optional, whether this model supports enforcing monotonic constraints
+        Optional; whether this model supports enforcing monotonic constraints
     is_starred : bool
         whether this model marked as starred
     prediction_threshold : float
@@ -4599,7 +4599,7 @@ class DatetimeModel(Model):
     model_number : integer
         model number assigned to a model
     parent_model_id : str or None
-        (New in version v2.20) the id of the model that tuning parameters are derived from
+        (New in version v2.20) the ID of the model that tuning parameters are derived from
 
     supports_composable_ml : bool or None
         (New in version v2.26)
@@ -4785,9 +4785,9 @@ class DatetimeModel(Model):
         Parameters
         ----------
         project : str
-            the id of the project the model belongs to
+            the ID of the project the model belongs to
         model_id : str
-            the id of the model to retrieve
+            the ID of the model to retrieve
 
         Returns
         -------
@@ -5160,7 +5160,7 @@ class DatetimeModel(Model):
           (except for the old project which supports only Feature Effect for `validation`).
 
         * When a model is trained into `validation` or `holdout` without stacked prediction
-          (e.g. no out-of-sample prediction in `validation` or `holdout`),
+          (e.g., no out-of-sample prediction in `validation` or `holdout`),
           Feature Effect is not available for `validation` or `holdout`.
 
         * Feature Effect for `holdout` is not available when there is no holdout configured for
@@ -6335,15 +6335,15 @@ class DatetimeModel(Model):
         is when making predictions on this modified data. The 'impactNormalized' is normalized so
         that the largest value is 1. In both cases, larger values indicate more important features.
 
-        If a feature is a redundant feature, i.e. once other features are considered it doesn't
-        contribute much in addition, the 'redundantWith' value is the name of feature that has the
+        If a feature is redundant, i.e., once other features are considered it does not
+        contribute much in addition, the 'redundantWith' value is the name of the feature that has the
         highest correlation with this feature. Note that redundancy detection is only available for
         jobs run after the addition of this feature. When retrieving data that predates this
         functionality, a NoRedundancyImpactAvailable warning will be used.
 
         Only the top 1000 features are saved and can be returned.
 
-        Else where this technique is sometimes called 'Permutation Importance'.
+        Elsewhere this technique is sometimes called 'Permutation Importance'.
 
         Requires that Feature Impact has already been computed with
         :meth:`request_feature_impact <datarobot.models.Model.request_feature_impact>`.
@@ -6730,15 +6730,15 @@ class RatingTableModel(Model):
     Attributes
     ----------
     id : str
-        the id of the model
+        the ID of the model
     project_id : str
-        the id of the project the model belongs to
+        the ID of the project the model belongs to
     processes : List[str]
         the processes used by the model
     featurelist_name : str
         the name of the featurelist used by the model
     featurelist_id : str
-        the id of the featurelist used by the model
+        the ID of the featurelist used by the model
     sample_pct : float or None
         the percentage of the project dataset used in training the model.  If the project uses
         datetime partitioning, the sample_pct will be None.  See `training_row_count`,
@@ -6759,28 +6759,28 @@ class RatingTableModel(Model):
         only present for frozen models in datetime partitioned projects.  If specified, the end
         date of the data used to train the model.
     model_type : str
-        what model this is, e.g. 'Nystroem Kernel SVM Regressor'
+        what model this is, e.g., 'Nystroem Kernel SVM Regressor'
     model_category : str
         what kind of model this is - 'prime' for DataRobot Prime models, 'blend' for blender models,
         and 'model' for other models
     is_frozen : bool
         whether this model is a frozen model
     blueprint_id : str
-        the id of the blueprint used in this model
+        the ID of the blueprint used in this model
     metrics : dict
         a mapping from each metric to the model's scores for that metric
     rating_table_id : str
-        the id of the rating table that belongs to this model
+        the ID of the rating table that belongs to this model
     monotonic_increasing_featurelist_id : str
-        optional, the id of the featurelist that defines the set of features with
+        Optional; the ID of the featurelist that defines the set of features with
         a monotonically increasing relationship to the target.
         If None, no such constraints are enforced.
     monotonic_decreasing_featurelist_id : str
-        optional, the id of the featurelist that defines the set of features with
+        Optional; the ID of the featurelist that defines the set of features with
         a monotonically decreasing relationship to the target.
         If None, no such constraints are enforced.
     supports_monotonic_constraints : bool
-        optional, whether this model supports enforcing monotonic constraints
+        Optional; whether this model supports enforcing monotonic constraints
     is_starred : bool
         whether this model marked as starred
     prediction_threshold : float
@@ -6878,9 +6878,9 @@ class RatingTableModel(Model):
         Parameters
         ----------
         project_id : str
-            the id of the project the model belongs to
+            the ID of the project the model belongs to
         model_id : str
-            the id of the model to retrieve
+            the ID of the model to retrieve
 
         Returns
         -------
@@ -6899,9 +6899,9 @@ class RatingTableModel(Model):
         Parameters
         ----------
         project_id : str
-            the id of the project the rating table belongs to
+            the ID of the project the rating table belongs to
         rating_table_id : str
-            the id of the rating table to create this model from
+            the ID of the rating table to create this model from
 
         Returns
         -------
@@ -7114,11 +7114,11 @@ class CombinedModel(Model):
     Attributes
     ----------
     id : str
-        the id of the model
+        the ID of the model
     project_id : str
-        the id of the project the model belongs to
+        the ID of the project the model belongs to
     segmentation_task_id : str
-        the id of a segmentation task used in this model
+        the ID of a segmentation task used in this model
     is_active_combined_model : bool
         flag indicating if this is the active combined model in segmented project
     """

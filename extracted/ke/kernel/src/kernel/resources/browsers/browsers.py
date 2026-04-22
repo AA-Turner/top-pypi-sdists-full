@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import typing_extensions
-from typing import Mapping, Iterable, Optional, cast
+from typing import Dict, Mapping, Iterable, Optional, cast
 from typing_extensions import Literal
 
 import httpx
@@ -25,6 +25,7 @@ from .fs.fs import (
     AsyncFsResourceWithStreamingResponse,
 )
 from ...types import (
+    browser_curl_params,
     browser_list_params,
     browser_create_params,
     browser_delete_params,
@@ -48,8 +49,9 @@ from .replays import (
     ReplaysResourceWithStreamingResponse,
     AsyncReplaysResourceWithStreamingResponse,
 )
+from ..._files import deepcopy_with_paths
 from ..._types import Body, Omit, Query, Headers, NoneType, NotGiven, omit, not_given
-from ..._utils import extract_files, path_template, maybe_transform, deepcopy_minimal, async_maybe_transform
+from ..._utils import extract_files, path_template, maybe_transform, async_maybe_transform
 from .computer import (
     ComputerResource,
     AsyncComputerResource,
@@ -76,6 +78,7 @@ from ..._response import (
 )
 from ...pagination import SyncOffsetPagination, AsyncOffsetPagination
 from ..._base_client import AsyncPaginator, make_request_options
+from ...types.browser_curl_response import BrowserCurlResponse
 from ...types.browser_list_response import BrowserListResponse
 from ...types.browser_create_response import BrowserCreateResponse
 from ...types.browser_update_response import BrowserUpdateResponse
@@ -443,6 +446,70 @@ class BrowsersResource(SyncAPIResource):
             cast_to=NoneType,
         )
 
+    def curl(
+        self,
+        id: str,
+        *,
+        url: str,
+        body: str | Omit = omit,
+        headers: Dict[str, str] | Omit = omit,
+        method: Literal["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"] | Omit = omit,
+        response_encoding: Literal["utf8", "base64"] | Omit = omit,
+        timeout_ms: int | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> BrowserCurlResponse:
+        """
+        Sends an HTTP request through Chrome's HTTP request stack, inheriting the
+        browser's TLS fingerprint, cookies, proxy configuration, and headers. Returns a
+        structured JSON response with status, headers, body, and timing.
+
+        Args:
+          url: Target URL (must be http or https).
+
+          body: Request body (for POST/PUT/PATCH).
+
+          headers: Custom headers merged with browser defaults.
+
+          method: HTTP method.
+
+          response_encoding: Encoding for the response body. Use base64 for binary content.
+
+          timeout_ms: Request timeout in milliseconds.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        if not id:
+            raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
+        return self._post(
+            path_template("/browsers/{id}/curl", id=id),
+            body=maybe_transform(
+                {
+                    "url": url,
+                    "body": body,
+                    "headers": headers,
+                    "method": method,
+                    "response_encoding": response_encoding,
+                    "timeout_ms": timeout_ms,
+                },
+                browser_curl_params.BrowserCurlParams,
+            ),
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=BrowserCurlResponse,
+        )
+
     def delete_by_id(
         self,
         id: str,
@@ -507,7 +574,7 @@ class BrowsersResource(SyncAPIResource):
         if not id:
             raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
         extra_headers = {"Accept": "*/*", **(extra_headers or {})}
-        body = deepcopy_minimal({"extensions": extensions})
+        body = deepcopy_with_paths({"extensions": extensions}, [["extensions", "<array>", "zip_file"]])
         files = extract_files(cast(Mapping[str, object], body), paths=[["extensions", "<array>", "zip_file"]])
         # It should be noted that the actual Content-Type header that will be
         # sent to the server will contain a `boundary` parameter, e.g.
@@ -881,6 +948,70 @@ class AsyncBrowsersResource(AsyncAPIResource):
             cast_to=NoneType,
         )
 
+    async def curl(
+        self,
+        id: str,
+        *,
+        url: str,
+        body: str | Omit = omit,
+        headers: Dict[str, str] | Omit = omit,
+        method: Literal["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"] | Omit = omit,
+        response_encoding: Literal["utf8", "base64"] | Omit = omit,
+        timeout_ms: int | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> BrowserCurlResponse:
+        """
+        Sends an HTTP request through Chrome's HTTP request stack, inheriting the
+        browser's TLS fingerprint, cookies, proxy configuration, and headers. Returns a
+        structured JSON response with status, headers, body, and timing.
+
+        Args:
+          url: Target URL (must be http or https).
+
+          body: Request body (for POST/PUT/PATCH).
+
+          headers: Custom headers merged with browser defaults.
+
+          method: HTTP method.
+
+          response_encoding: Encoding for the response body. Use base64 for binary content.
+
+          timeout_ms: Request timeout in milliseconds.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        if not id:
+            raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
+        return await self._post(
+            path_template("/browsers/{id}/curl", id=id),
+            body=await async_maybe_transform(
+                {
+                    "url": url,
+                    "body": body,
+                    "headers": headers,
+                    "method": method,
+                    "response_encoding": response_encoding,
+                    "timeout_ms": timeout_ms,
+                },
+                browser_curl_params.BrowserCurlParams,
+            ),
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=BrowserCurlResponse,
+        )
+
     async def delete_by_id(
         self,
         id: str,
@@ -945,7 +1076,7 @@ class AsyncBrowsersResource(AsyncAPIResource):
         if not id:
             raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
         extra_headers = {"Accept": "*/*", **(extra_headers or {})}
-        body = deepcopy_minimal({"extensions": extensions})
+        body = deepcopy_with_paths({"extensions": extensions}, [["extensions", "<array>", "zip_file"]])
         files = extract_files(cast(Mapping[str, object], body), paths=[["extensions", "<array>", "zip_file"]])
         # It should be noted that the actual Content-Type header that will be
         # sent to the server will contain a `boundary` parameter, e.g.
@@ -982,6 +1113,9 @@ class BrowsersResourceWithRawResponse:
             to_raw_response_wrapper(
                 browsers.delete,  # pyright: ignore[reportDeprecated],
             )
+        )
+        self.curl = to_raw_response_wrapper(
+            browsers.curl,
         )
         self.delete_by_id = to_raw_response_wrapper(
             browsers.delete_by_id,
@@ -1041,6 +1175,9 @@ class AsyncBrowsersResourceWithRawResponse:
                 browsers.delete,  # pyright: ignore[reportDeprecated],
             )
         )
+        self.curl = async_to_raw_response_wrapper(
+            browsers.curl,
+        )
         self.delete_by_id = async_to_raw_response_wrapper(
             browsers.delete_by_id,
         )
@@ -1099,6 +1236,9 @@ class BrowsersResourceWithStreamingResponse:
                 browsers.delete,  # pyright: ignore[reportDeprecated],
             )
         )
+        self.curl = to_streamed_response_wrapper(
+            browsers.curl,
+        )
         self.delete_by_id = to_streamed_response_wrapper(
             browsers.delete_by_id,
         )
@@ -1156,6 +1296,9 @@ class AsyncBrowsersResourceWithStreamingResponse:
             async_to_streamed_response_wrapper(
                 browsers.delete,  # pyright: ignore[reportDeprecated],
             )
+        )
+        self.curl = async_to_streamed_response_wrapper(
+            browsers.curl,
         )
         self.delete_by_id = async_to_streamed_response_wrapper(
             browsers.delete_by_id,

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: oslo.versionedobjects
-Version: 3.10.0
+Version: 3.10.1
 Summary: Oslo Versioned Objects library
 Author-email: OpenStack <openstack-discuss@lists.openstack.org>
 License: Apache-2.0

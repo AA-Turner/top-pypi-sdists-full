@@ -63,7 +63,7 @@ class DataSourceParameters:
     Attributes
     ----------
     data_store_id : str
-        the id of the DataStore.
+        the ID of the DataStore.
     table : str
         Optional. The name of specified database table.
     schema : str
@@ -147,13 +147,13 @@ class DataSource(APIObject):
     Attributes
     ----------
     id : str
-        the id of the data source.
+        the ID of the data source.
     type : str
         the type of data source.
     canonical_name : str
         the user-friendly name of the data source.
     creator : str
-        the id of the user who created the data source.
+        the ID of the user who created the data source.
     updated : datetime.datetime
         the time of the last update.
     params : DataSourceParameters
@@ -306,9 +306,9 @@ class DataSource(APIObject):
         Parameters
         ----------
         canonical_name : str
-            optional, the user-friendly name of the data source.
+            Optional; the user-friendly name of the data source.
         params : DataSourceParameters
-            optional, the identifier of the DataDriver.
+            Optional; the identifier of the DataDriver.
 
         Examples
         --------

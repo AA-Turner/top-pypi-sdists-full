@@ -53,7 +53,6 @@ from pymammotion.transport.base import (
 )
 from pymammotion.transport.ble import BLETransport, BLETransportConfig
 from pymammotion.transport.mqtt import MQTTTransport, MQTTTransportConfig
-from pymammotion.utility.constant import WorkMode
 from pymammotion.utility.device_type import DeviceType
 
 if TYPE_CHECKING:
@@ -68,7 +67,6 @@ if TYPE_CHECKING:
     from pymammotion.data.mqtt.properties import ThingPropertiesMessage
     from pymammotion.data.mqtt.status import ThingStatusMessage
     from pymammotion.http.model.http import MQTTConnection
-    from pymammotion.state.device_state import DeviceSnapshot
 
 _logger = logging.getLogger(__name__)
 
@@ -92,7 +90,7 @@ class MammotionClient:
         self._lock: asyncio.Lock = asyncio.Lock()
         self._iot_id_to_device_id: dict[str, str] = {}
         # RAII subscriptions for state-change watchers (keyed by device_name)
-        self._watcher_subscriptions: dict[str, Subscription] = {}
+        self._watcher_subscriptions: dict[str, list[Subscription]] = {}
         self._ha_version: str | None = ha_version
 
     # ------------------------------------------------------------------
@@ -125,49 +123,42 @@ class MammotionClient:
     # ------------------------------------------------------------------
 
     def setup_device_watchers(self, device_name: str) -> Subscription | None:
-        """Subscribe to state changes for a device.
+        """Register auto-fetch watchers for *device_name*.
 
-        Automatically triggers MowPathSaga (fetch-only, no re-planning) when the
-        device is found to be actively working (non-empty work_tasks_event.ids and
-        a non-zero report_data.work.path_hash) but the cover path has not yet been
-        collected.  Call teardown_device_watchers() when the device is removed.
-
-        Returns the Subscription handle, or None if the device is not yet registered.
+        Fires MowPathSaga (fetch-only, no re-planning) when the device's
+        ``work.ub_path_hash`` or ``work.path_hash`` changes to a valid value
+        while no cover path is cached.  Call ``teardown_device_watchers`` to
+        cancel.  Returns the first registered Subscription, or None if the
+        device isn't registered yet.
         """
         handle = self._device_registry.get_by_name(device_name)
         if handle is None:
             return None
 
-        async def _on_state_changed(snapshot: DeviceSnapshot) -> None:
-            device = snapshot.raw
-            task_ids = device.events.work_tasks_event.ids
+        async def _on_path_hashes_changed(_hashes: tuple[int, int]) -> None:
+            device = cast(MowerDevice, handle.snapshot.raw)
             work = device.report_data.work
-            actively_working = (
-                bool(task_ids)
-                or work.ub_path_hash != 0
-                or work.path_hash != 0
-                or device.report_data.dev.sys_status == WorkMode.MODE_WORKING.value
+            # path_hash in (0, 1) means "no job" / "job ended".
+            has_active_job = work.ub_path_hash != 0 or work.path_hash not in (0, 1)
+            if not has_active_job or device.map.current_mow_path:
+                return
+            if handle.queue.is_saga_active:
+                return
+            _logger.debug(
+                "Device %s path_hash=%d ub_path_hash=%d — auto-fetching cover path",
+                device_name,
+                work.path_hash,
+                work.ub_path_hash,
             )
-            path_missing = actively_working and not device.map.current_mow_path
+            try:
+                await self.start_mow_path_saga(device_name, zone_hashs=[], skip_planning=True)
+            except Exception:  # noqa: BLE001
+                _logger.warning("Auto-trigger MowPathSaga failed for %s", device_name, exc_info=True)
 
-            if path_missing:
-                if handle.queue.is_saga_active:
-                    return
-                _logger.debug(
-                    "Device %s is actively working — auto-fetching cover path for %d zone(s)",
-                    device_name,
-                    len(task_ids),
-                )
-                try:
-                    await self.start_mow_path_saga(
-                        device_name,
-                        zone_hashs=[],
-                        skip_planning=True,
-                    )
-                except Exception:  # noqa: BLE001
-                    _logger.warning("Auto-trigger MowPathSaga failed for %s", device_name, exc_info=True)
-
-            if device.map.current_mow_path and not device.map.generated_mow_progress_geojson:
+        async def _on_mow_progress_changed(_pos: tuple[int, int]) -> None:
+            device = cast(MowerDevice, handle.snapshot.raw)
+            if device.map.current_mow_path:
+                work = device.report_data.work
                 device.map.apply_mow_progress_geojson(
                     device.location.RTK,
                     work.now_index,
@@ -175,9 +166,18 @@ class MammotionClient:
                     work.path_pos_x,
                     work.path_pos_y,
                 )
+            else:
+                await _on_path_hashes_changed((0, 0))
 
-        sub = handle.subscribe_state_changed(_on_state_changed)
-        self._watcher_subscriptions[device_name] = sub
+        sub = handle.watch_field(
+            lambda s: (s.raw.report_data.work.ub_path_hash, s.raw.report_data.work.path_hash),
+            _on_path_hashes_changed,
+        )
+        progress_sub = handle.watch_field(
+            lambda s: (s.raw.report_data.work.path_pos_x, s.raw.report_data.work.path_pos_y),
+            _on_mow_progress_changed,
+        )
+        self._watcher_subscriptions[device_name] = [sub, progress_sub]
         return sub
 
     def subscribe_device_status(
@@ -209,8 +209,7 @@ class MammotionClient:
 
     def teardown_device_watchers(self, device_name: str) -> None:
         """Cancel state-change subscriptions for the named device."""
-        sub = self._watcher_subscriptions.pop(device_name, None)
-        if sub is not None:
+        for sub in self._watcher_subscriptions.pop(device_name, []):
             sub.cancel()
 
     def setup_all_mower_watchers(self) -> None:
@@ -265,6 +264,10 @@ class MammotionClient:
             msg = "No HTTP client available for re-login"
             raise LoginFailedError(session.email, msg)
         try:
+            try:
+                await session.mammotion_http.logout()
+            except:
+                pass
             login_resp = await session.mammotion_http.login_v2(session.email, session.password)
             if login_resp.code != 0:
                 raise LoginFailedError(session.email, login_resp.msg)
@@ -1229,32 +1232,29 @@ class MammotionClient:
         """
         from pymammotion.messaging.mow_path_saga import MowPathSaga
 
-        handle = self._device_registry.get_by_name(device_name)
-        if handle is None:
-            _logger.warning("start_mow_path_saga: device '%s' not registered", device_name)
-            return
-        commands = handle.commands
-        _iot_id = handle.iot_id
+        if handle := self._device_registry.get_by_name(device_name):
+            commands = handle.commands
+            _iot_id = handle.iot_id
 
-        async def _send(cmd: bytes) -> None:
-            await handle.active_transport().send(cmd, iot_id=_iot_id)
+            async def _send(cmd: bytes) -> None:
+                await handle.active_transport().send(cmd, iot_id=_iot_id)
 
-        saga = MowPathSaga(
-            command_builder=commands,
-            send_command=_send,
-            get_map=lambda: handle.snapshot.raw.map,
-            zone_hashs=zone_hashs,
-            route_info=route_info,
-            skip_planning=skip_planning,
-            device_name=device_name,
-        )
+            saga = MowPathSaga(
+                command_builder=commands,
+                send_command=_send,
+                get_map=lambda: handle.snapshot.raw.map,
+                zone_hashs=zone_hashs,
+                route_info=route_info,
+                skip_planning=skip_planning,
+                device_name=device_name,
+            )
 
-        async def _on_mow_path_complete() -> None:
-            device = self.get_device_by_name(device_name)
-            if device is not None and device.location.RTK.latitude != 0:
-                device.map.generate_mowing_geojson(device.location.RTK)
+            async def _on_mow_path_complete() -> None:
+                device = self.get_device_by_name(device_name)
+                if device is not None and device.location.RTK.latitude != 0:
+                    device.map.generate_mowing_geojson(device.location.RTK)
 
-        await handle.enqueue_saga(saga, on_complete=_on_mow_path_complete)
+            await handle.enqueue_saga(saga, on_complete=_on_mow_path_complete)
 
     async def get_dynamics_line(self, device_name: str) -> None:
         """Fetch the live mow-progress path for *device_name* via a CommonDataSaga.

@@ -120,7 +120,7 @@ class FeatureImpact(APIObject):
 
     @staticmethod
     def _repack_insights_response(server_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Repack the JSON sent by the GET /insights/ endpoint
+        """Repack the JSON sent by the GET `/insights/` endpoint
         to match the format expected by the insight APIObject class.
 
         Parameters
@@ -171,7 +171,7 @@ class FeatureImpact(APIObject):
             "count": len(feature_impacts),
             "featureImpacts": feature_impacts,
             "ranRedundancyDetection": server_data["data"]["ranRedundancyDetection"],
-            "shapBased": False,  # SHAP is not currently supported by /insights/
+            "shapBased": False,  # SHAP is not currently supported by the `/insights/` API
             "rowCount": server_data["data"]["rowCount"],
             "backtest": server_data["data"].get("backtest"),
             "dataSliceId": server_data["dataSliceId"],
@@ -187,7 +187,7 @@ class FeatureImpact(APIObject):
     ):
         """
         Overwrite APIObject.from_server_data to handle feature impact data retrieved
-        from either legacy URL or /insights/ new URL.
+        from either legacy URL or `/insights/` new URL.
 
         Parameters
         ----------
@@ -195,7 +195,7 @@ class FeatureImpact(APIObject):
             Directly translated dict of JSON from the server. No casing fixes have
             taken place.
         use_insights_format : Optional[bool]
-            Whether to repack the data from the format used in the GET /insights/featureImpact/ URL
+            Whether to repack the data from the format used in the GET `/insights/featureImpact/` URL
             to the format used in the legacy URL.
         """
         if use_insights_format:

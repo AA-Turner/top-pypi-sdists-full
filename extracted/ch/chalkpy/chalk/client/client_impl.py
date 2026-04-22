@@ -113,6 +113,7 @@ from chalk.client.models import (
     GetRegisteredModelResponse,
     GetRegisteredModelVersionResponse,
     IngestDatasetRequest,
+    JobQueueItem,
     ManualTriggerScheduledQueryResponse,
     MultiUploadFeaturesRequest,
     MultiUploadFeaturesResponse,
@@ -138,6 +139,7 @@ from chalk.client.models import (
     PlanQueryRequest,
     PlanQueryResponse,
     QueryMeta,
+    RedeployResponse,
     RegisterModelResponse,
     RegisterModelVersionResponse,
     ResolverReplayResponse,
@@ -209,6 +211,7 @@ if TYPE_CHECKING:
 
     import polars as pl
     import pyarrow as pa
+    from polars._typing import PolarsDataType
     from pydantic import BaseModel, ValidationError
 
     from chalk.client._internal_models.check import Result
@@ -2831,6 +2834,116 @@ https://docs.chalk.ai/cli/apply
 
         return client_grpc.get_scheduled_query_run_details(scheduled_run)
 
+    def list_jobs(
+        self,
+        state: Optional[
+            Literal["scheduled", "running", "completed", "failed", "canceled", "not_ready", "waiting"]
+        ] = None,
+        kind: Optional[
+            Literal["async_offline_query", "scheduled_query", "script_task", "chalksql_run", "dataframe_run"]
+        ] = None,
+        operation_id: Optional[str] = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> List[JobQueueItem]:
+        """List jobs in the data plane job queue."""
+        from chalk.client.client_grpc import ChalkGRPCClient
+
+        client_grpc = ChalkGRPCClient(
+            client_id=self._client_id,
+            client_secret=self._client_secret,
+            environment=self._primary_environment,
+            api_server=self._api_server,
+        )
+
+        return client_grpc.list_jobs(
+            state=state,
+            kind=kind,
+            operation_id=operation_id,
+            limit=limit,
+            offset=offset,
+        )
+
+    def redeploy(
+        self,
+        deployment_id: Optional[str] = None,
+        build_profile: Optional[Literal["o3_no_profiling", "o3_profiling", "o2_no_profiling", "o2_profiling"]] = None,
+        deployment_tags: Optional[List[str]] = None,
+        base_image_override: Optional[str] = None,
+        force_rebuild_dockerfile: bool = False,
+        display_description: Optional[str] = None,
+    ) -> RedeployResponse:
+        """Full rebuild and deploy using this deployment's source."""
+        from chalk.client.client_grpc import ChalkGRPCClient
+
+        client_grpc = ChalkGRPCClient(
+            client_id=self._client_id,
+            client_secret=self._client_secret,
+            environment=self._primary_environment,
+            api_server=self._api_server,
+        )
+
+        return client_grpc.redeploy(
+            deployment_id=deployment_id,
+            build_profile=build_profile,
+            deployment_tags=deployment_tags,
+            base_image_override=base_image_override,
+            force_rebuild_dockerfile=force_rebuild_dockerfile,
+            display_description=display_description,
+        )
+
+    def rollback_deployment(self, deployment_id: str) -> RedeployResponse:
+        """Instantly redeploy using this deployment's pre-built image."""
+        from chalk.client.client_grpc import ChalkGRPCClient
+
+        client_grpc = ChalkGRPCClient(
+            client_id=self._client_id,
+            client_secret=self._client_secret,
+            environment=self._primary_environment,
+            api_server=self._api_server,
+        )
+
+        return client_grpc.rollback_deployment(deployment_id=deployment_id)
+
+    def rebuild_deployment(
+        self,
+        deployment_id: str,
+        new_image_tag: str,
+        build_profile: Optional[Literal["o3_no_profiling", "o3_profiling", "o2_no_profiling", "o2_profiling"]] = None,
+        base_image_override: Optional[str] = None,
+        force_rebuild_dockerfile: bool = False,
+    ) -> RedeployResponse:
+        """Build a new image from this deployment's source without deploying."""
+        from chalk.client.client_grpc import ChalkGRPCClient
+
+        client_grpc = ChalkGRPCClient(
+            client_id=self._client_id,
+            client_secret=self._client_secret,
+            environment=self._primary_environment,
+            api_server=self._api_server,
+        )
+
+        return client_grpc.rebuild_deployment(
+            deployment_id=deployment_id,
+            new_image_tag=new_image_tag,
+            build_profile=build_profile,
+            base_image_override=base_image_override,
+            force_rebuild_dockerfile=force_rebuild_dockerfile,
+        )
+
+    def patch_deployment(self, deployment_id: Optional[str] = None) -> RedeployResponse:
+        """Patch deployment config and restart pods without a new build."""
+        from chalk.client.client_grpc import ChalkGRPCClient
+
+        client_grpc = ChalkGRPCClient(
+            client_id=self._client_id,
+            client_secret=self._client_secret,
+            environment=self._primary_environment,
+            api_server=self._api_server,
+        )
+
+        return client_grpc.patch_deployment(deployment_id=deployment_id)
+
     def get_named_query_metadata(
         self,
         name: str,
@@ -5132,7 +5245,7 @@ https://docs.chalk.ai/cli/apply
         f: Feature = Feature.from_root_fqn(x.field)
 
         if f.is_has_many_subfeature:
-            schema: dict[str, pl.PolarsDataType] = {}
+            schema: dict[str, PolarsDataType] = {}
             if isinstance(x.value, DataFrame):
                 df = x.value.to_polars().collect()
             elif isinstance(x.value, pl.DataFrame):

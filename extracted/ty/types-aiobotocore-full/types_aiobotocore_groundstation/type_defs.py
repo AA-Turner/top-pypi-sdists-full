@@ -38,7 +38,11 @@ from .literals import (
     EphemerisStatusType,
     EphemerisTypeType,
     FrequencyUnitsType,
+    MaintenanceTypeType,
     PolarizationType,
+    ReservationTypeType,
+    VersionFailureReasonCodeType,
+    VersionStatusType,
 )
 
 if sys.version_info >= (3, 12):
@@ -53,6 +57,7 @@ __all__ = (
     "AntennaDemodDecodeDetailsTypeDef",
     "AntennaDownlinkConfigTypeDef",
     "AntennaDownlinkDemodDecodeConfigTypeDef",
+    "AntennaListItemTypeDef",
     "AntennaUplinkConfigTypeDef",
     "AwsGroundStationAgentEndpointTypeDef",
     "AzElEphemerisFilterTypeDef",
@@ -71,6 +76,8 @@ __all__ = (
     "ConnectionDetailsTypeDef",
     "ContactDataTypeDef",
     "ContactIdResponseTypeDef",
+    "ContactReservationDetailsTypeDef",
+    "ContactVersionTypeDef",
     "CreateConfigRequestTypeDef",
     "CreateDataflowEndpointGroupRequestTypeDef",
     "CreateDataflowEndpointGroupV2RequestTypeDef",
@@ -92,6 +99,9 @@ __all__ = (
     "DescribeContactRequestTypeDef",
     "DescribeContactRequestWaitTypeDef",
     "DescribeContactResponseTypeDef",
+    "DescribeContactVersionRequestTypeDef",
+    "DescribeContactVersionRequestWaitTypeDef",
+    "DescribeContactVersionResponseTypeDef",
     "DescribeEphemerisRequestTypeDef",
     "DescribeEphemerisResponseTypeDef",
     "DestinationTypeDef",
@@ -131,13 +141,20 @@ __all__ = (
     "GetSatelliteRequestTypeDef",
     "GetSatelliteResponseTypeDef",
     "GroundStationDataTypeDef",
+    "GroundStationReservationListItemTypeDef",
     "ISO8601TimeRangeTypeDef",
     "IntegerRangeTypeDef",
     "KinesisDataStreamDataTypeDef",
     "KmsKeyTypeDef",
+    "ListAntennasRequestPaginateTypeDef",
+    "ListAntennasRequestTypeDef",
+    "ListAntennasResponseTypeDef",
     "ListConfigsRequestPaginateTypeDef",
     "ListConfigsRequestTypeDef",
     "ListConfigsResponseTypeDef",
+    "ListContactVersionsRequestPaginateTypeDef",
+    "ListContactVersionsRequestTypeDef",
+    "ListContactVersionsResponseTypeDef",
     "ListContactsRequestPaginateTypeDef",
     "ListContactsRequestTypeDef",
     "ListContactsResponseTypeDef",
@@ -147,6 +164,9 @@ __all__ = (
     "ListEphemeridesRequestPaginateTypeDef",
     "ListEphemeridesRequestTypeDef",
     "ListEphemeridesResponseTypeDef",
+    "ListGroundStationReservationsRequestPaginateTypeDef",
+    "ListGroundStationReservationsRequestTypeDef",
+    "ListGroundStationReservationsResponseTypeDef",
     "ListGroundStationsRequestPaginateTypeDef",
     "ListGroundStationsRequestTypeDef",
     "ListGroundStationsResponseTypeDef",
@@ -158,15 +178,18 @@ __all__ = (
     "ListSatellitesResponseTypeDef",
     "ListTagsForResourceRequestTypeDef",
     "ListTagsForResourceResponseTypeDef",
+    "MaintenanceReservationDetailsTypeDef",
     "MissionProfileIdResponseTypeDef",
     "MissionProfileListItemTypeDef",
     "OEMEphemerisTypeDef",
+    "OemProgramTrackSettingsTypeDef",
     "PaginatorConfigTypeDef",
     "ProgramTrackSettingsTypeDef",
     "RangedConnectionDetailsTypeDef",
     "RangedSocketAddressTypeDef",
     "RegisterAgentRequestTypeDef",
     "RegisterAgentResponseTypeDef",
+    "ReservationDetailsTypeDef",
     "ReserveContactRequestTypeDef",
     "ResponseMetadataTypeDef",
     "S3ObjectTypeDef",
@@ -187,12 +210,15 @@ __all__ = (
     "TimeAzElTypeDef",
     "TimeRangeTypeDef",
     "TimestampTypeDef",
+    "TleProgramTrackSettingsTypeDef",
     "TrackingConfigTypeDef",
     "TrackingOverridesTypeDef",
     "UntagResourceRequestTypeDef",
     "UpdateAgentStatusRequestTypeDef",
     "UpdateAgentStatusResponseTypeDef",
     "UpdateConfigRequestTypeDef",
+    "UpdateContactRequestTypeDef",
+    "UpdateContactResponseTypeDef",
     "UpdateEphemerisRequestTypeDef",
     "UpdateMissionProfileRequestTypeDef",
     "UplinkAwsGroundStationAgentEndpointDetailsTypeDef",
@@ -225,6 +251,12 @@ class DecodeConfigTypeDef(TypedDict):
 
 class DemodulationConfigTypeDef(TypedDict):
     unvalidatedJSON: str
+
+
+class AntennaListItemTypeDef(TypedDict):
+    groundStationName: str
+    antennaName: str
+    region: str
 
 
 class EirpTypeDef(TypedDict):
@@ -318,6 +350,17 @@ class SocketAddressTypeDef(TypedDict):
     port: int
 
 
+class ContactVersionTypeDef(TypedDict):
+    versionId: NotRequired[int]
+    created: NotRequired[datetime]
+    activated: NotRequired[datetime]
+    superseded: NotRequired[datetime]
+    lastUpdated: NotRequired[datetime]
+    status: NotRequired[VersionStatusType]
+    failureCodes: NotRequired[list[VersionFailureReasonCodeType]]
+    failureMessage: NotRequired[str]
+
+
 class ElevationTypeDef(TypedDict):
     value: float
     unit: AngleUnitsType
@@ -326,6 +369,10 @@ class ElevationTypeDef(TypedDict):
 class EphemerisResponseDataTypeDef(TypedDict):
     ephemerisType: EphemerisTypeType
     ephemerisId: NotRequired[str]
+
+
+class ContactReservationDetailsTypeDef(TypedDict):
+    contactId: NotRequired[str]
 
 
 class KmsKeyTypeDef(TypedDict):
@@ -363,6 +410,11 @@ class DescribeContactRequestTypeDef(TypedDict):
 class WaiterConfigTypeDef(TypedDict):
     Delay: NotRequired[int]
     MaxAttempts: NotRequired[int]
+
+
+class DescribeContactVersionRequestTypeDef(TypedDict):
+    contactId: str
+    versionId: int
 
 
 class DescribeEphemerisRequestTypeDef(TypedDict):
@@ -456,7 +508,19 @@ class PaginatorConfigTypeDef(TypedDict):
     StartingToken: NotRequired[str]
 
 
+class ListAntennasRequestTypeDef(TypedDict):
+    groundStationId: str
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+
 class ListConfigsRequestTypeDef(TypedDict):
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+
+class ListContactVersionsRequestTypeDef(TypedDict):
+    contactId: str
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
 
@@ -491,6 +555,18 @@ class ListSatellitesRequestTypeDef(TypedDict):
 
 class ListTagsForResourceRequestTypeDef(TypedDict):
     resourceArn: str
+
+
+class MaintenanceReservationDetailsTypeDef(TypedDict):
+    maintenanceType: MaintenanceTypeType
+
+
+class OemProgramTrackSettingsTypeDef(TypedDict):
+    ephemerisId: str
+
+
+class TleProgramTrackSettingsTypeDef(TypedDict):
+    ephemerisId: str
 
 
 class SecurityDetailsTypeDef(TypedDict):
@@ -529,10 +605,6 @@ class EphemerisFilterTypeDef(TypedDict):
     azEl: NotRequired[AzElEphemerisFilterTypeDef]
 
 
-class ProgramTrackSettingsTypeDef(TypedDict):
-    azEl: NotRequired[AzElProgramTrackSettingsTypeDef]
-
-
 class ISO8601TimeRangeTypeDef(TypedDict):
     startTime: TimestampTypeDef
     endTime: TimestampTypeDef
@@ -544,6 +616,15 @@ class ListEphemeridesRequestTypeDef(TypedDict):
     satelliteId: NotRequired[str]
     ephemerisType: NotRequired[EphemerisTypeType]
     statusList: NotRequired[Sequence[EphemerisStatusType]]
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+
+class ListGroundStationReservationsRequestTypeDef(TypedDict):
+    groundStationId: str
+    startTime: TimestampTypeDef
+    endTime: TimestampTypeDef
+    reservationTypes: NotRequired[Sequence[ReservationTypeType]]
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
 
@@ -590,6 +671,7 @@ class ConfigIdResponseTypeDef(TypedDict):
 
 class ContactIdResponseTypeDef(TypedDict):
     contactId: str
+    versionId: int
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -630,6 +712,12 @@ class GetMinuteUsageResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class ListAntennasResponseTypeDef(TypedDict):
+    antennaList: list[AntennaListItemTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
 class ListTagsForResourceResponseTypeDef(TypedDict):
     tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -647,6 +735,12 @@ class RegisterAgentResponseTypeDef(TypedDict):
 
 class UpdateAgentStatusResponseTypeDef(TypedDict):
     agentId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class UpdateContactResponseTypeDef(TypedDict):
+    contactId: str
+    versionId: int
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -668,6 +762,12 @@ class DataflowEndpointTypeDef(TypedDict):
     mtu: NotRequired[int]
 
 
+class ListContactVersionsResponseTypeDef(TypedDict):
+    contactVersionsList: list[ContactVersionTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
 class ContactDataTypeDef(TypedDict):
     contactId: NotRequired[str]
     missionProfileArn: NotRequired[str]
@@ -685,6 +785,7 @@ class ContactDataTypeDef(TypedDict):
     visibilityStartTime: NotRequired[datetime]
     visibilityEndTime: NotRequired[datetime]
     ephemeris: NotRequired[EphemerisResponseDataTypeDef]
+    version: NotRequired[ContactVersionTypeDef]
 
 
 class CreateMissionProfileRequestTypeDef(TypedDict):
@@ -741,6 +842,12 @@ class DescribeContactRequestWaitTypeDef(TypedDict):
     WaiterConfig: NotRequired[WaiterConfigTypeDef]
 
 
+class DescribeContactVersionRequestWaitTypeDef(TypedDict):
+    contactId: str
+    versionId: int
+    WaiterConfig: NotRequired[WaiterConfigTypeDef]
+
+
 class GetSatelliteResponseTypeDef(TypedDict):
     satelliteId: str
     satelliteArn: str
@@ -784,7 +891,17 @@ class TelemetrySinkDataTypeDef(TypedDict):
     kinesisDataStreamData: NotRequired[KinesisDataStreamDataTypeDef]
 
 
+class ListAntennasRequestPaginateTypeDef(TypedDict):
+    groundStationId: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
 class ListConfigsRequestPaginateTypeDef(TypedDict):
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListContactVersionsRequestPaginateTypeDef(TypedDict):
+    contactId: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
@@ -798,6 +915,14 @@ class ListEphemeridesRequestPaginateTypeDef(TypedDict):
     satelliteId: NotRequired[str]
     ephemerisType: NotRequired[EphemerisTypeType]
     statusList: NotRequired[Sequence[EphemerisStatusType]]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListGroundStationReservationsRequestPaginateTypeDef(TypedDict):
+    groundStationId: str
+    startTime: TimestampTypeDef
+    endTime: TimestampTypeDef
+    reservationTypes: NotRequired[Sequence[ReservationTypeType]]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
@@ -818,6 +943,17 @@ class ListMissionProfilesResponseTypeDef(TypedDict):
     missionProfileList: list[MissionProfileListItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+
+class ReservationDetailsTypeDef(TypedDict):
+    maintenance: NotRequired[MaintenanceReservationDetailsTypeDef]
+    contact: NotRequired[ContactReservationDetailsTypeDef]
+
+
+class ProgramTrackSettingsTypeDef(TypedDict):
+    azEl: NotRequired[AzElProgramTrackSettingsTypeDef]
+    oem: NotRequired[OemProgramTrackSettingsTypeDef]
+    tle: NotRequired[TleProgramTrackSettingsTypeDef]
 
 
 SecurityDetailsUnionTypeDef = Union[SecurityDetailsTypeDef, SecurityDetailsOutputTypeDef]
@@ -850,10 +986,6 @@ class ListContactsRequestTypeDef(TypedDict):
     satelliteArn: NotRequired[str]
     missionProfileArn: NotRequired[str]
     ephemeris: NotRequired[EphemerisFilterTypeDef]
-
-
-class TrackingOverridesTypeDef(TypedDict):
-    programTrackSettings: ProgramTrackSettingsTypeDef
 
 
 class AzElSegmentTypeDef(TypedDict):
@@ -918,14 +1050,17 @@ class TelemetrySinkConfigTypeDef(TypedDict):
     telemetrySinkData: TelemetrySinkDataTypeDef
 
 
-class ReserveContactRequestTypeDef(TypedDict):
-    missionProfileArn: str
-    startTime: TimestampTypeDef
-    endTime: TimestampTypeDef
-    groundStation: str
-    satelliteArn: NotRequired[str]
-    tags: NotRequired[Mapping[str, str]]
-    trackingOverrides: NotRequired[TrackingOverridesTypeDef]
+class GroundStationReservationListItemTypeDef(TypedDict):
+    reservationType: ReservationTypeType
+    groundStationId: str
+    antennaName: str
+    startTime: datetime
+    endTime: datetime
+    reservationDetails: ReservationDetailsTypeDef
+
+
+class TrackingOverridesTypeDef(TypedDict):
+    programTrackSettings: NotRequired[ProgramTrackSettingsTypeDef]
 
 
 class AzElSegmentsTypeDef(TypedDict):
@@ -980,6 +1115,29 @@ class ConfigTypeDataTypeDef(TypedDict):
     uplinkEchoConfig: NotRequired[UplinkEchoConfigTypeDef]
     s3RecordingConfig: NotRequired[S3RecordingConfigTypeDef]
     telemetrySinkConfig: NotRequired[TelemetrySinkConfigTypeDef]
+
+
+class ListGroundStationReservationsResponseTypeDef(TypedDict):
+    reservationList: list[GroundStationReservationListItemTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class ReserveContactRequestTypeDef(TypedDict):
+    missionProfileArn: str
+    startTime: TimestampTypeDef
+    endTime: TimestampTypeDef
+    groundStation: str
+    satelliteArn: NotRequired[str]
+    tags: NotRequired[Mapping[str, str]]
+    trackingOverrides: NotRequired[TrackingOverridesTypeDef]
+
+
+class UpdateContactRequestTypeDef(TypedDict):
+    contactId: str
+    clientToken: NotRequired[str]
+    trackingOverrides: NotRequired[TrackingOverridesTypeDef]
+    satelliteArn: NotRequired[str]
 
 
 class AzElSegmentsDataTypeDef(TypedDict):
@@ -1169,4 +1327,28 @@ class DescribeContactResponseTypeDef(TypedDict):
     visibilityEndTime: datetime
     trackingOverrides: TrackingOverridesTypeDef
     ephemeris: EphemerisResponseDataTypeDef
+    version: ContactVersionTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DescribeContactVersionResponseTypeDef(TypedDict):
+    contactId: str
+    missionProfileArn: str
+    satelliteArn: str
+    startTime: datetime
+    endTime: datetime
+    prePassStartTime: datetime
+    postPassEndTime: datetime
+    groundStation: str
+    contactStatus: ContactStatusType
+    errorMessage: str
+    maximumElevation: ElevationTypeDef
+    tags: dict[str, str]
+    region: str
+    dataflowList: list[DataflowDetailTypeDef]
+    visibilityStartTime: datetime
+    visibilityEndTime: datetime
+    trackingOverrides: TrackingOverridesTypeDef
+    ephemeris: EphemerisResponseDataTypeDef
+    version: ContactVersionTypeDef
     ResponseMetadata: ResponseMetadataTypeDef

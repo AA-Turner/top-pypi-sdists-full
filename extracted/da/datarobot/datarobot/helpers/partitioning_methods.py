@@ -571,7 +571,7 @@ class FeatureSettings:
             "do_not_derive": self.do_not_derive,
         }
         if use_a_priori:
-            # The /projects/<id>/options/ endpoint uses "aPriori" for known in advance
+            # The `/projects/<id>/options/` endpoint uses "aPriori" for known in advance
             # features, so we need to be able to switch keys for project options update
             # payloads.
             payload.update({"a_priori": self.known_in_advance})
@@ -1257,7 +1257,7 @@ class DatetimePartitioningSpecification(PartitioningMethod, UpdateAttributesMixi
         if not props["time_series_eligible"]:
             msg = (
                 "The selected datetime partition and multiseries id columns are not eligible for"
-                " time series modeling, i.e. they are insufficiently unique or regular"
+                " time series modeling, i.e., they are insufficiently unique or regular"
             )
             raise InvalidUsageError(msg)
 
@@ -1330,14 +1330,14 @@ class DatetimePartitioning:
     Attributes
     ----------
     project_id : str
-        the id of the project this partitioning applies to
+        the ID of the project this partitioning applies to
     datetime_partitioning_id : str or None
-        the id of the datetime partitioning it is an optimized partitioning
+        the ID of the datetime partitioning it is an optimized partitioning
     datetime_partition_column : str
         the name of the column whose values as dates are used to assign a row
         to a particular partition
     date_format : str
-        the format (e.g. "%Y-%m-%d %H:%M:%S") by which the partition column was interpreted
+        the format (e.g., "%Y-%m-%d %H:%M:%S") by which the partition column was interpreted
         (compatible with `strftime <https://docs.python.org/2/library/time.html#time.strftime>`_)
     autopilot_data_selection_method : str
         one of ``datarobot.enums.DATETIME_AUTOPILOT_DATA_SELECTION_METHOD``.  Whether models created
@@ -1703,11 +1703,11 @@ class DatetimePartitioning:
         Parameters
         ----------
         project_id : str
-            the id of the project
+            the ID of the project
         spec : DatetimePartitioningSpecification
             the desired partitioning
         max_wait : Optional[int]
-            For some settings (e.g. generating a partitioning preview for a multiseries project for
+            For some settings (e.g., generating a partitioning preview for a multiseries project for
             the first time), an asynchronous task must be run to analyze the dataset.  max_wait
             governs the maximum time (in seconds) to wait before giving up.  In all non-multiseries
             projects, this is unused.
@@ -1745,7 +1745,7 @@ class DatetimePartitioning:
         Parameters
         ----------
         project_id : str
-            the id of the project to retrieve partitioning for
+            the ID of the project to retrieve partitioning for
 
         Returns
         -------
@@ -1772,7 +1772,7 @@ class DatetimePartitioning:
         Parameters
         ----------
         project_id : str
-            the id of the project
+            the ID of the project
         spec : DatetimePartitioningSpecification
             the desired partitioning
         target : str
@@ -1814,7 +1814,7 @@ class DatetimePartitioning:
         Parameters
         ----------
         project_id : str
-            the id of the project to retrieve partitioning for
+            the ID of the project to retrieve partitioning for
         datetime_partitioning_id : ObjectId
             the ObjectId associated with the project to retrieve from Mongo
 
@@ -1841,23 +1841,23 @@ class DatetimePartitioning:
         The feature derivation log will include information about:
 
         * | Detected stationarity of the series:
-          | e.g. 'Series detected as non-stationary'
+          | e.g., 'Series detected as non-stationary'
         * | Detected presence of multiplicative trend in the series:
-          | e.g. 'Multiplicative trend detected'
+          | e.g., 'Multiplicative trend detected'
         * | Detected presence of multiplicative trend in the series:
-          | e.g.  'Detected periodicities: 7 day'
+          | e.g.,  'Detected periodicities: 7 day'
         * | Maximum number of feature to be generated:
-          | e.g. 'Maximum number of feature to be generated is 1440'
+          | e.g., 'Maximum number of feature to be generated is 1440'
         * | Window sizes used in rolling statistics / lag extractors
-          | e.g. 'The window sizes chosen to be: 2 months
+          | e.g., 'The window sizes chosen to be: 2 months
           | (because the time step is 1 month and Feature Derivation Window is 2 months)'
         * | Features that are specified as known-in-advance
-          | e.g. 'Variables treated as apriori: holiday'
+          | e.g., 'Variables treated as apriori: holiday'
         * | Details about why certain variables are transformed in the input data
-          | e.g. 'Generating variable "y (log)" from "y" because multiplicative trend
+          | e.g., 'Generating variable "y (log)" from "y" because multiplicative trend
           | is detected'
         * | Details about features generated as timeseries features, and their priority
-          | e.g. 'Generating feature "date (actual)" from "date" (priority: 1)'
+          | e.g., 'Generating feature "date (actual)" from "date" (priority: 1)'
 
         Parameters
         ----------
@@ -1887,23 +1887,23 @@ class DatetimePartitioning:
         The feature derivation log will include information about:
 
         * | Detected stationarity of the series:
-          | e.g. 'Series detected as non-stationary'
+          | e.g., 'Series detected as non-stationary'
         * | Detected presence of multiplicative trend in the series:
-          | e.g. 'Multiplicative trend detected'
+          | e.g., 'Multiplicative trend detected'
         * | Detected presence of multiplicative trend in the series:
-          | e.g.  'Detected periodicities: 7 day'
+          | e.g.,  'Detected periodicities: 7 day'
         * | Maximum number of feature to be generated:
-          | e.g. 'Maximum number of feature to be generated is 1440'
+          | e.g., 'Maximum number of feature to be generated is 1440'
         * | Window sizes used in rolling statistics / lag extractors
-          | e.g. 'The window sizes chosen to be: 2 months
+          | e.g., 'The window sizes chosen to be: 2 months
           | (because the time step is 1 month and Feature Derivation Window is 2 months)'
         * | Features that are specified as known-in-advance
-          | e.g. 'Variables treated as apriori: holiday'
+          | e.g., 'Variables treated as apriori: holiday'
         * | Details about why certain variables are transformed in the input data
-          | e.g. 'Generating variable "y (log)" from "y" because multiplicative trend
+          | e.g., 'Generating variable "y (log)" from "y" because multiplicative trend
           | is detected'
         * | Details about features generated as timeseries features, and their priority
-          | e.g. 'Generating feature "date (actual)" from "date" (priority: 1)'
+          | e.g., 'Generating feature "date (actual)" from "date" (priority: 1)'
 
         Parameters
         ----------

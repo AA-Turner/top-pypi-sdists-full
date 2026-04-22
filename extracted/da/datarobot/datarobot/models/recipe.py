@@ -410,7 +410,7 @@ class RecipeSettings(APIObject):
 
 class RecipeMetadata(APIObject):
     """
-    Recipe metadata for metadata fields that can be set on a recipe, e.g. name, description, etc.
+    Recipe metadata for metadata fields that can be set on a recipe, e.g., name, description, etc.
 
     Attributes
     ----------
@@ -1224,7 +1224,7 @@ class Recipe(APIObject, HumanReadable):
         recipe_type:
             Recipe type to filter by.
         order_by:
-            Field to order results by. For reverse ordering prefix with '-', e.g. -recipe_id.
+            Field to order results by. For reverse ordering prefix with '-', e.g., -recipe_id.
         created_by_user_id:
             User ID to filter recipes by. Return recipes created by user(s) associated with a user ID.
         created_by_username:

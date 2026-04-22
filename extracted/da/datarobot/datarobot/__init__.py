@@ -77,6 +77,7 @@ from .models import (
     Featurelist,
     Files,
     FilesCatalogSearch,
+    FilesDetails,
     FrozenModel,
     genai,
     InteractionFeature,
@@ -124,6 +125,9 @@ from .models import (
     TrainingPredictionsJob,
     UseCase,
     UserBlueprint,
+    JdbcPreview,
+    JdbcPreviewData,
+    JdbcResultSchemaEntry,
 )
 
 DR_TRACKABLE = True

@@ -69,7 +69,7 @@ class SegmentationTask(APIObject):
     project_id : bson.ObjectId
         The associated id of the parent project.
     type : str
-        What type of job the segmentation task is associated with, e.g. auto_ml or auto_ts.
+        What type of job the segmentation task is associated with, e.g., auto_ml or auto_ts.
     created  : datetime.datetime
         The date this segmentation task was created.
     segments_count : int

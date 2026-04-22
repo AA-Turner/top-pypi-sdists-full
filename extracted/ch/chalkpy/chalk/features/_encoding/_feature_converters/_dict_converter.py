@@ -17,8 +17,8 @@ import pyarrow.feather as pf
 from chalk._gen.chalk.arrow.v1 import arrow_pb2 as pb
 from chalk.features._encoding.json import (
     FeatureEncodingOptions,
-    structs_as_objects_feature_json_converter,
     structure_json_to_primitive,
+    unstructure_primitive_to_json,
 )
 from chalk.features._encoding.missing_value import MissingValueStrategy
 from chalk.features._encoding.pyarrow import (
@@ -474,7 +474,7 @@ class DictFeatureConverter(FeatureConverter["dict[str, Any]", "dict[str, Any]"])
         options: FeatureEncodingOptions = _DEFAULT_FEATURE_ENCODING_OPTIONS,
     ) -> TJSON:
         # Map types are always serialised as objects (not lists), regardless of options.
-        return structs_as_objects_feature_json_converter.unstructure_primitive_to_json(value)
+        return unstructure_primitive_to_json(value, encode_structs_as_objects=True)
 
     def from_json_to_primitive(self, value: "TJSON | dict | None") -> "dict | None":
         if value is None:

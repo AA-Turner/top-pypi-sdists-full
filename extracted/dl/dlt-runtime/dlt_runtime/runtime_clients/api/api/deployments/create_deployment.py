@@ -114,7 +114,12 @@ def sync_detailed(
 
 
     Creates a new deployment for a workspace. This deployment will become the new active deployment.
-    Requires upload of a tarball of files. Max tarball size is 1MB.
+
+    Requires a multipart upload with two parts:
+    - `files`: the workspace code tarball
+    - `requirements`: the serialized `TWorkspaceRequirementsManifest` JSON blob
+
+    Max combined body size is 5MB.
 
     Requires WRITE permission on the organization level.
 
@@ -160,7 +165,12 @@ def sync(
 
 
     Creates a new deployment for a workspace. This deployment will become the new active deployment.
-    Requires upload of a tarball of files. Max tarball size is 1MB.
+
+    Requires a multipart upload with two parts:
+    - `files`: the workspace code tarball
+    - `requirements`: the serialized `TWorkspaceRequirementsManifest` JSON blob
+
+    Max combined body size is 5MB.
 
     Requires WRITE permission on the organization level.
 
@@ -201,7 +211,12 @@ async def asyncio_detailed(
 
 
     Creates a new deployment for a workspace. This deployment will become the new active deployment.
-    Requires upload of a tarball of files. Max tarball size is 1MB.
+
+    Requires a multipart upload with two parts:
+    - `files`: the workspace code tarball
+    - `requirements`: the serialized `TWorkspaceRequirementsManifest` JSON blob
+
+    Max combined body size is 5MB.
 
     Requires WRITE permission on the organization level.
 
@@ -245,7 +260,12 @@ async def asyncio(
 
 
     Creates a new deployment for a workspace. This deployment will become the new active deployment.
-    Requires upload of a tarball of files. Max tarball size is 1MB.
+
+    Requires a multipart upload with two parts:
+    - `files`: the workspace code tarball
+    - `requirements`: the serialized `TWorkspaceRequirementsManifest` JSON blob
+
+    Max combined body size is 5MB.
 
     Requires WRITE permission on the organization level.
 

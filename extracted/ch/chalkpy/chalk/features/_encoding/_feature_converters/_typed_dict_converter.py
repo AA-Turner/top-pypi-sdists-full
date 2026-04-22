@@ -20,7 +20,6 @@ from typing_extensions import get_args, get_origin, is_typeddict
 from chalk._gen.chalk.arrow.v1 import arrow_pb2 as pb
 from chalk.features._encoding.json import (
     FeatureEncodingOptions,
-    structs_as_objects_feature_json_converter,
     structure_json_to_primitive,
     unstructure_primitive_to_json,
 )
@@ -552,7 +551,7 @@ class TypedDictFeatureConverter(
         options: FeatureEncodingOptions = _DEFAULT_FEATURE_ENCODING_OPTIONS,
     ) -> TJSON:
         if options.encode_structs_as_objects or is_map_in_dtype_tree(self._pa_struct_type):
-            return structs_as_objects_feature_json_converter.unstructure_primitive_to_json(value)
+            return unstructure_primitive_to_json(value, encode_structs_as_objects=True)
         return unstructure_primitive_to_json(value)
 
     def from_json_to_primitive(self, value: "TJSON | dict | None") -> "dict | None":

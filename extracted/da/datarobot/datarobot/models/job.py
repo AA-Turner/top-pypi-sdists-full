@@ -296,9 +296,9 @@ class Job(AbstractJob):
     Attributes
     ----------
     id : int
-        the id of the job
+        the ID of the job
     project_id : str
-        the id of the project the job belongs to
+        the ID of the project the job belongs to
     status : str
         the status of the job - will be one of ``datarobot.enums.QUEUE_STATUS``
     job_type : str
@@ -490,7 +490,7 @@ class FeatureImpactJob(Job):
         job_id : str
             The job id
         with_metadata : bool
-            To make this job return the metadata (i.e. the full object of the completed resource)
+            To make this job return the metadata (i.e., the full object of the completed resource)
             set the `with_metadata` flag to True.
 
         Returns

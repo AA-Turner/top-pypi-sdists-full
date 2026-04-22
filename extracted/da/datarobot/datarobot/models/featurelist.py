@@ -162,7 +162,7 @@ class Featurelist(BaseFeaturelist):
     Attributes
     ----------
     id : str
-        the id of the featurelist
+        the ID of the featurelist
     name : str
         the name of the featurelist
     features : List[str]
@@ -298,9 +298,9 @@ class ModelingFeaturelist(BaseFeaturelist):
     Attributes
     ----------
     id : str
-        the id of the modeling featurelist
+        the ID of the modeling featurelist
     project_id : str
-        the id of the project the modeling featurelist belongs to
+        the ID of the project the modeling featurelist belongs to
     name : str
         the name of the modeling featurelist
     features : List[str]
@@ -332,9 +332,9 @@ class ModelingFeaturelist(BaseFeaturelist):
         Parameters
         ----------
         project_id : str
-            the id of the project the modeling featurelist belongs to
+            the ID of the project the modeling featurelist belongs to
         featurelist_id : str
-             the id of the modeling featurelist to retrieve
+             the ID of the modeling featurelist to retrieve
 
         Returns
         -------
@@ -351,9 +351,9 @@ class DatasetFeaturelist(APIObject):
     Attributes
     ----------
     id : str
-        the id of the dataset featurelist
+        the ID of the dataset featurelist
     dataset_id : str
-        the id of the dataset the featurelist belongs to
+        the ID of the dataset the featurelist belongs to
     dataset_version_id: Optional[str]
         the version id of the dataset this featurelist belongs to
     name : str
@@ -415,9 +415,9 @@ class DatasetFeaturelist(APIObject):
         Parameters
         ----------
         dataset_id : str
-            the id of the dataset the featurelist belongs to
+            the ID of the dataset the featurelist belongs to
         featurelist_id : str
-             the id of the dataset featurelist to retrieve
+             the ID of the dataset featurelist to retrieve
 
         Returns
         -------

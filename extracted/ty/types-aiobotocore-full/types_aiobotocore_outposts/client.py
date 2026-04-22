@@ -49,6 +49,8 @@ from .type_defs import (
     CreateOrderOutputTypeDef,
     CreateOutpostInputTypeDef,
     CreateOutpostOutputTypeDef,
+    CreateRenewalInputTypeDef,
+    CreateRenewalOutputTypeDef,
     CreateSiteInputTypeDef,
     CreateSiteOutputTypeDef,
     DeleteOutpostInputTypeDef,
@@ -69,6 +71,8 @@ from .type_defs import (
     GetOutpostOutputTypeDef,
     GetOutpostSupportedInstanceTypesInputTypeDef,
     GetOutpostSupportedInstanceTypesOutputTypeDef,
+    GetRenewalPricingInputTypeDef,
+    GetRenewalPricingOutputTypeDef,
     GetSiteAddressInputTypeDef,
     GetSiteAddressOutputTypeDef,
     GetSiteInputTypeDef,
@@ -201,6 +205,16 @@ class OutpostsClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_outposts/client/#create_outpost)
         """
 
+    async def create_renewal(
+        self, **kwargs: Unpack[CreateRenewalInputTypeDef]
+    ) -> CreateRenewalOutputTypeDef:
+        """
+        Creates a renewal contract for the specified Outpost.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/outposts/client/create_renewal.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_outposts/client/#create_renewal)
+        """
+
     async def create_site(
         self, **kwargs: Unpack[CreateSiteInputTypeDef]
     ) -> CreateSiteOutputTypeDef:
@@ -304,6 +318,16 @@ class OutpostsClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/outposts/client/get_outpost_supported_instance_types.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_outposts/client/#get_outpost_supported_instance_types)
+        """
+
+    async def get_renewal_pricing(
+        self, **kwargs: Unpack[GetRenewalPricingInputTypeDef]
+    ) -> GetRenewalPricingOutputTypeDef:
+        """
+        Gets all available renewal pricing options for the specified Outpost.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/outposts/client/get_renewal_pricing.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_outposts/client/#get_renewal_pricing)
         """
 
     async def get_site(self, **kwargs: Unpack[GetSiteInputTypeDef]) -> GetSiteOutputTypeDef:

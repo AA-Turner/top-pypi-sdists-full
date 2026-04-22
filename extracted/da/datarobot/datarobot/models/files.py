@@ -14,13 +14,13 @@ from __future__ import annotations
 from datetime import datetime
 from io import IOBase
 import os
-from typing import Dict, Iterable, List, Optional, Type, Union, cast
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Type, Union, cast
 
 import dateutil
 from requests import Response
 import trafaret as t
 
-from datarobot._compat import Int, String
+from datarobot._compat import Int, String, TypedDict
 from datarobot.enums import (
     DEFAULT_MAX_WAIT,
     DEFAULT_TIMEOUT,
@@ -54,6 +54,8 @@ _file_schema = t.Dict({
     t.Key("file_type") >> "type": String,
     t.Key("file_size") >> "size": Int(),
     t.Key("ingest_errors", optional=True): t.Or(String(allow_blank=True), t.Null),
+    t.Key("file_created_at", optional=True) >> "created_at": t.Or(t.Call(dateutil.parser.parse), t.Null),
+    t.Key("file_checksum", optional=True) >> "checksum": t.Or(String, t.Null),
 })
 
 _files_schema = t.Dict({
@@ -84,6 +86,21 @@ _file_catalog_search_schema = t.Dict({
 
 _files_stage_schema = t.Dict({"catalog_id": String, "stage_id": String}).ignore_extra("*")
 
+_files_details_schema = t.Dict({
+    t.Key("id"): t.String(),
+    t.Key("catalog_version_id"): t.String(),
+}).allow_extra("*")
+
+
+class DeletionResult(TypedDict):
+    path: str
+    numFilesDeleted: int
+
+
+class FileLink(TypedDict):
+    fileName: str
+    url: str
+
 
 class File(APIObject, HumanReadable):
     """
@@ -102,6 +119,10 @@ class File(APIObject, HumanReadable):
         The size of the file in bytes.
     ingest_errors: str
         The errors encountered during ingestion of the file.
+    created_at: datetime or None
+        The datetime the file was created
+    checksum: str or None
+        The checksum of the file, if available.
     """
 
     _converter = _file_schema.allow_extra("*")
@@ -112,11 +133,15 @@ class File(APIObject, HumanReadable):
         type: str,
         size: int,
         ingest_errors: str | None = None,
+        created_at: datetime | None = None,
+        checksum: str | None = None,
     ):
         self.name = name
         self.type = type
         self.size = size
         self.ingest_errors = ingest_errors
+        self.created_at = created_at
+        self.checksum = checksum
 
 
 class FilesStage(APIObject, HumanReadable):
@@ -197,6 +222,32 @@ class FilesStage(APIObject, HumanReadable):
                 filelike=source,
                 read_timeout=DEFAULT_TIMEOUT.UPLOAD,
             )
+
+
+class FilesDetails(APIObject):
+    _converter = _files_details_schema
+
+    def __init__(self, id: str, catalog_version_id: str) -> None:
+        self.id = id
+        self.version_id = catalog_version_id
+
+    @classmethod
+    def get(cls, files_id: str) -> "FilesDetails":
+        """
+        Get details about a files container.
+
+        Parameters
+        ----------
+        files_id:
+            The ID of the files container.
+
+        Returns
+        -------
+        FilesDetails
+            An instance of FilesDetails containing the details of the files container.
+        """
+        path = f"catalogItems/{files_id}/extendedDetails/"
+        return cls.from_location(path)
 
 
 class Files(APIObject):
@@ -834,49 +885,6 @@ class Files(APIObject):
         file = stage.apply()
         self.num_files = file.num_files
 
-    def copy(
-        self,
-        source_path: str | Iterable[str],
-        *,
-        target: str | None = None,
-        target_files: Optional["Files"] = None,
-        max_wait: int = DEFAULT_MAX_WAIT,
-        wait_for_completion: bool = True,
-    ) -> "Files":
-        """Copy file(s) and/or folder(s) within the same or into another files container.
-
-        .. versionadded:: v3.10
-
-        Parameters
-        ----------
-        source_path
-            file(s) and/or folder(s) to copy.
-        target
-            Either a folder to copy file(s) into
-            or a new file name if only one file is being copied.
-        target_files
-            Files collection to copy files into.
-        max_wait
-             Raise TimeoutError if the operation took more than this number of seconds to complete.
-        """
-        if isinstance(source_path, str):
-            sources = [source_path]
-        elif isinstance(source_path, Iterable):
-            sources = list(source_path)
-        else:
-            raise ValueError(source_path)
-
-        url = f"files/{self.id}/copyBatch/"
-        response = self._client.post(
-            url,
-            json={
-                "sources": sources,
-                "target": target,
-                "targetCatalogId": target_files and target_files.id,
-            },
-        )
-        return self._get_files_from_async(response, max_wait=max_wait, wait_for_completion=wait_for_completion)
-
     def wait_for_completion(self) -> None:
         """Wait for initial upload completion."""
         if self._async_status_location is None:
@@ -888,61 +896,6 @@ class Files(APIObject):
         self.num_files = new_file.num_files
         self.from_archive = new_file.from_archive
         self._async_status_location = None
-
-    def list_contained_files(
-        self,
-        file_type: str = "",
-        limit: int = 100,
-        offset: int = 0,
-        version_id: Optional[str] = None,
-    ) -> List["File"]:
-        """
-        List all individual files within a Files container.
-
-        .. versionadded:: v3.8
-
-        This method retrieves information about all individual files contained within
-        a Files object. This is useful for Files objects that contain multiple files
-        or are archives.
-
-        Parameters
-        ----------
-        file_type: str
-            Filter results by file type (e.g., 'txt', 'pdf').
-        limit: Optional[int] (default: 100)
-            Maximum number of files to return. Set to 0 for no limit.
-        offset: Optional[int] (default: 0)
-            Number of files to skip before returning results.
-        version_id: Optional[str]
-            If provided, retrieve from the specified version instead of the latest version.
-
-
-        Returns
-        -------
-        List[File]
-            A list of File objects representing individual files within the Files container.
-
-        Raises
-        ------
-        ClientError
-            If the Files object is not found or access is denied.
-        ServerError
-            If there's a server-side error while retrieving the file list.
-        """
-        if version_id:
-            endpoint = f"{self._path}{self.id}/versions/{version_id}/allFiles/"
-        else:
-            endpoint = f"{self._path}{self.id}/allFiles/"
-        params: Dict[str, Union[int, str]] = {"offset": offset}
-        if file_type:
-            params["file_type"] = file_type
-        if limit == 0:
-            files_data = list(unpaginate(endpoint, params, self._client))
-        else:
-            params["limit"] = limit
-            files_data = self._client.get(endpoint, params=params).json()["data"]
-
-        return [File.from_server_data(file_data) for file_data in files_data]
 
     @classmethod
     def _get_files_from_async(cls, response: Response, *, wait_for_completion: bool = True, max_wait: int) -> "Files":
@@ -973,6 +926,421 @@ class Files(APIObject):
     def set_async_status_location(self, async_status_location: str) -> None:
         """Assign a URL to keep track of an async operation completion."""
         self._async_status_location = async_status_location
+
+    def list_contained_files(
+        self,
+        file_type: str = "",
+        limit: int = 100,
+        offset: int = 0,
+        recursive: bool = True,
+        prefix: Optional[str] = None,
+        version_id: Optional[str] = None,
+    ) -> List[File]:
+        """
+        List all individual files within a Files container.
+
+        This method retrieves information about all individual files contained within
+        a Files object. This is useful for Files objects that contain multiple files
+        or are archives.
+
+        Parameters
+        ----------
+        file_type:
+            Filter results by file type (e.g., 'txt', 'pdf').
+        limit:
+            Maximum number of files to return. Set to 0 for no limit.
+        offset:
+            Number of files to skip before returning results.
+        recursive:
+            If True, list files recursively within all subdirectories.
+        prefix:
+            If provided, only list files whose paths start with this prefix.
+        version_id:
+            If provided, retrieve from the specified version instead of the latest version.
+
+        Returns
+        -------
+        List[File]
+            A list of File objects representing individual files within the Files container.
+        """
+        endpoint = (
+            f"{self._path}{self.id}/versions/{version_id}/allFiles/"
+            if version_id
+            else f"{self._path}{self.id}/allFiles/"
+        )
+        params: Dict[str, Union[int, str]] = {"offset": offset, "recursive": str(recursive).lower()}
+
+        if file_type:
+            params["file_type"] = file_type
+        if limit > 0:
+            params["limit"] = limit
+        if prefix:
+            params["prefix"] = prefix
+
+        fetch_all_data = limit == 0
+        files_data = (
+            list(unpaginate(endpoint, params, self._client))
+            if fetch_all_data
+            else self._client.get(endpoint, params=params).json()["data"]
+        )
+        return [File.from_server_data(file_data) for file_data in files_data]
+
+    def copy(
+        self,
+        source_path: str | Iterable[str],
+        *,
+        target: str | None = None,
+        target_files: Optional["Files"] = None,
+        overwrite: FilesOverwriteStrategy = FilesOverwriteStrategy.RENAME,
+        max_wait: int = DEFAULT_MAX_WAIT,
+        wait_for_completion: bool = True,
+    ) -> "Files":
+        """
+        Copy file(s) and/or folder(s) within
+        the same or into another files container.
+
+        Parameters
+        ----------
+        source_path:
+            file(s) and/or folder(s) to copy.
+        target:
+            Either a folder to copy file(s) into
+            or a new file name if only one file is being copied.
+        target_files:
+            Files collection to copy files into.
+        overwrite:
+            Strategy to handle naming conflicts at the target location.
+        max_wait:
+             Raise TimeoutError if the operation took more than this number of seconds to complete.
+        wait_for_completion:
+            Whether to wait for the copy operation to complete before returning.
+        """
+        if isinstance(source_path, str):
+            sources = [source_path]
+        elif isinstance(source_path, Iterable):
+            sources = list(source_path)
+        else:
+            raise ValueError(source_path)
+
+        url = f"files/{self.id}/copyBatch/"
+        response = self._client.post(
+            url,
+            json={
+                "sources": sources,
+                "target": target,
+                "targetCatalogId": target_files and target_files.id,
+                "overwrite": overwrite.value,
+            },
+        )
+        return self._get_files_from_async(response, max_wait=max_wait, wait_for_completion=wait_for_completion)
+
+    def copy_within_container(
+        self,
+        source_path: str,
+        target_path: str,
+        overwrite: FilesOverwriteStrategy = FilesOverwriteStrategy.RENAME,
+    ) -> Files:
+        """
+        Copy a file or folder to another path within the same container.
+
+        Parameters
+        ----------
+        source_path:
+            The path of the source file or folder to copy.
+        target_path:
+            The destination path where the file or folder should be copied.
+        overwrite:
+            Strategy to handle naming conflicts at the target location.
+        """
+        url = f"files/{self.id}/copy/"
+        response = self._client.post(
+            url,
+            json={
+                "source": source_path,
+                "target": target_path,
+                "overwrite": overwrite.value,
+            },
+        )
+        return self.from_location(f"catalogItems/{response.json()['catalogId']}/")
+
+    def rename_files(
+        self,
+        from_path: str,
+        to_path: str,
+        *,
+        overwrite: Optional[FilesOverwriteStrategy] = None,
+    ) -> "Files":
+        """
+        Rename/move a file or folder within this catalog, and optionally overwrite.
+
+        Parameters
+        ----------
+        from_path:
+            Source path under this catalog.
+        to_path:
+            Target path under this catalog.
+        overwrite:
+            Strategy for overwriting existing paths. If not provided, not sent in the request.
+
+        Returns
+        -------
+        Files
+            The updated Files object after the rename.
+        """
+        url = f"{self._path}{self.id}/allFiles/"
+        payload: Dict[str, Any] = {"fromPath": from_path, "toPath": to_path}
+        if overwrite is not None:
+            payload["overwrite"] = overwrite.value
+        response = self._client.patch(url, json=payload)
+        resp_body = response.json() if response.text else {}
+        catalog_id = resp_body.get("catalogId", self.id)
+        return self.from_location(f"catalogItems/{catalog_id}/")
+
+    def delete_files(self, paths: List[str]) -> Tuple[Files, List[DeletionResult]]:
+        """
+        Recursively delete files or folders at the given paths. Silently ignore paths that do not exist.
+
+        Parameters
+        ----------
+        paths:
+            List of file or folder paths to delete. Folders are deleted recursively.
+
+        Returns
+        -------
+        Tuple[Files, List[DeletionResult]]
+            The updated Files object and a list of results for each path indicating the number of
+            files deleted that path was responsible for.
+        """
+        url = f"files/{self.id}/allFiles/"
+        response = self._client.delete(url, json={"paths": paths})
+        resp_body = response.json()
+        return self.from_location(f"catalogItems/{resp_body['catalogId']}/"), resp_body["results"]
+
+    @classmethod
+    def create_empty_catalog_item_dir(cls) -> "Files":
+        """Create an empty catalog item directory and return its Files object."""
+        response = cls._client.post(cls._path, json={})
+        resp_body = response.json()
+        return cls.from_location(f"catalogItems/{resp_body['catalogId']}/")
+
+    def upload_from_url(
+        self,
+        url: str,
+        use_archive_contents: bool = True,
+        overwrite: FilesOverwriteStrategy = FilesOverwriteStrategy.RENAME,
+        max_wait: int = DEFAULT_MAX_WAIT,
+        *,
+        wait_for_completion: bool = True,
+        prefix: Optional[str] = None,
+    ) -> "Files":
+        """
+        Load file(s) from a URL into this catalog item.
+
+        Parameters
+        ----------
+        url:
+            The URL of the file or archive to load. Must be accessible by the DataRobot server.
+        use_archive_contents:
+            If True, extract archive contents into the catalog item. If False, upload the
+            file as-is. Defaults to True.
+        overwrite:
+            How to handle name conflicts with existing files. Defaults to RENAME.
+        max_wait:
+            Maximum time in seconds to wait for the upload to complete. Defaults to DEFAULT_MAX_WAIT.
+        wait_for_completion:
+            If True, block until the upload completes. If False, return after starting the upload.
+            Defaults to True.
+        prefix:
+            Folder path inside the catalog item to upload into. If None, upload to the catalog root.
+
+        Returns
+        -------
+        Files
+            This catalog item. When wait_for_completion is False, the returned object has async
+            status set so callers can use wait_for_completion() to track the operation.
+
+        Raises
+        ------
+        AsyncTimeoutError
+            If wait_for_completion is True and the upload takes longer than max_wait seconds.
+        """
+        endpoint = f"{self._path}{self.id}/fromURL/"
+        payload = {
+            "url": url,
+            "useArchiveContents": str(use_archive_contents),
+            "overwrite": overwrite.value,
+            "prefix": prefix,
+        }
+        response = self._client.post(endpoint, json=payload)
+        return self._get_files_from_async(
+            response,
+            max_wait=max_wait,
+            wait_for_completion=wait_for_completion,
+        )
+
+    def upload_from_data_source(
+        self,
+        data_source_id: str,
+        credential_id: Optional[str] = None,
+        credential_data: Optional[Dict[str, str]] = None,
+        prefix: Optional[str] = None,
+        use_archive_contents: bool = True,
+        overwrite: FilesOverwriteStrategy = FilesOverwriteStrategy.RENAME,
+        *,
+        max_wait: int = DEFAULT_MAX_WAIT,
+        wait_for_completion: bool = True,
+    ) -> "Files":
+        """
+        A blocking call that uploads files from a data source into the Files container.
+        Returns when files have been successfully uploaded.
+
+        Parameters
+        ----------
+        data_source_id: str
+            The ID of the DataSource to use as the source of data.
+        tags: Optional[List[str]]
+            A list of tags associated with the files container.
+        credential_id: Optional[str]
+            The ID of the set of credentials to use for authentication.
+        credential_data: Optional[Dict[str, str]]
+            The credentials to authenticate with the database, to use instead of credential ID.
+        use_archive_contents: bool
+            If True, extract archive contents and associate with the files container.
+            If False, the archive file will be uploaded as-is. Defaults to True.
+        prefix: Optional[str]
+            Folder path inside the catalog item to upload into. If None, upload to the catalog root.
+        overwrite: FilesOverwriteStrategy
+            Strategy to use to handle name conflicts with existing files on upload.
+        max_wait: Optional[int]
+            Time in seconds after which files container creation is considered unsuccessful.
+        wait_for_completion: bool
+            If True, block until the upload completes. If False, return after starting the upload.
+
+        Returns
+        -------
+        response: Files
+            The Files container with the new uploaded files.
+        """
+        base_data = {
+            "data_source_id": data_source_id,
+            "credential_id": credential_id,
+            "credential_data": CredentialDataSchema(credential_data) if credential_data else None,
+            "use_archive_contents": str(use_archive_contents),
+            "prefix": prefix,
+            "overwrite": overwrite.value,
+        }
+        payload = _remove_empty_params(base_data)
+
+        url = f"{self._path}{self.id}/fromDataSource/"
+        response = self._client.post(url, json=payload)
+        return self._get_files_from_async(response, max_wait=max_wait, wait_for_completion=wait_for_completion)
+
+    def generate_signed_urls(
+        self, file_names: List[str], duration: int = 600, version_id: Optional[str] = None
+    ) -> List[FileLink]:
+        """
+        Generate signed URLs for one or more files.
+
+        Parameters
+        ----------
+        file_names:
+            List of file paths in the catalog for which to generate signed URLs.
+        duration:
+            Duration in seconds for which the signed URLs should remain valid. Maximum is 3000 seconds.
+        version_id:
+            Version ID of the catalog item to target. If not provided, the latest version is used. Allows caller to
+            retrieve signed URLs for earlier versions of files.
+
+        Returns
+        -------
+        List[FileLink]
+            A list of dictionaries for each file name with its corresponding signed url.
+        """
+        url = f"files/{self.id}/links/" if version_id is None else f"files/{self.id}/versions/{version_id}/links/"
+        response = self._client.post(
+            url,
+            json={
+                "fileNames": file_names,
+                "duration": duration,
+            },
+        )
+        return cast(List[FileLink], response.json()["links"])
+
+    def upload_file(
+        self,
+        file: Union[str, IOBase],
+        prefix: Optional[str] = None,
+        use_archive_contents: bool = True,
+        overwrite: FilesOverwriteStrategy = FilesOverwriteStrategy.RENAME,
+        read_timeout: int = DEFAULT_TIMEOUT.UPLOAD,
+        max_wait: int = DEFAULT_MAX_WAIT,
+        *,
+        wait_for_completion: bool = True,
+        file_name: Optional[str] = None,
+    ) -> "Files":
+        """
+        A blocking call to upload a file into an existing file container. Returns when the file has
+        been successfully uploaded and processed.
+
+        Warning: This function does not clean up its open files. If you pass a file-like object, you are
+        responsible for closing it. If you pass a file path, this will create a file object from
+        the file path but will not close it.
+
+        Parameters
+        ----------
+        file:
+            The path to the file or a file-like object to upload.
+        prefix:
+            An optional prefix (folder path) to place the uploaded file into.
+        use_archive_contents:
+            If True, extract archive contents and associate with the Files container.
+            If False, the archive file will be uploaded as-is. Defaults to True.
+        overwrite:
+            How to deal with a name conflict between an existing file and an uploaded one.
+            RENAME (default): rename an uploaded file using "<filename> (n).ext" pattern.'
+            REPLACE: prefer an uploaded file.
+            SKIP: prefer an existing file.'
+            ERROR: return "HTTP 409 Conflict" response in case of a naming conflict. '
+        read_timeout:
+            The maximum number of seconds to wait for the server to respond indicating that the
+            initial upload is complete.
+        max_wait:
+            Time in seconds after which files container creation is considered unsuccessful.
+        wait_for_completion:
+            Set to *False* if you don't want to wait for the operation completion.
+        file_name:
+            The file name to apply on the server side. Defaults to the base name for a file path
+            or "file" for a file-like object.
+
+        Returns
+        -------
+        response: Files
+            The updated Files container including the newly uploaded file(s).
+        """
+        request_kwargs: Dict[str, Union[str, IOBase]]
+        if isinstance(file, str):
+            fname = file_name or os.path.basename(file)
+            request_kwargs = {"file_path": file}
+        elif isinstance(file, IOBase):
+            fname = file_name or "file"
+            request_kwargs = {"filelike": file}
+        else:
+            raise InvalidUsageError(f"File parameter ({file}) must be a file path or a file-like object.")
+
+        form_data = {
+            "use_archive_contents": str(use_archive_contents),
+            "overwrite": overwrite.value,
+            "prefix": prefix,
+        }
+        response = self._client.build_request_with_file(
+            method="post",
+            url=f"{self._path}{self.id}/fromFile/",
+            fname=fname,
+            read_timeout=read_timeout,
+            form_data=form_data,
+            **request_kwargs,
+        )
+        return self._get_files_from_async(response, wait_for_completion=wait_for_completion, max_wait=max_wait)
 
 
 class FilesCatalogSearch(APIObject, HumanReadable):

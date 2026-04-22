@@ -35,10 +35,12 @@ class GroupHookArgs:
                  feature_flag_events: Optional[pulumi.Input[_builtins.bool]] = None,
                  issues_events: Optional[pulumi.Input[_builtins.bool]] = None,
                  job_events: Optional[pulumi.Input[_builtins.bool]] = None,
+                 member_events: Optional[pulumi.Input[_builtins.bool]] = None,
                  merge_requests_events: Optional[pulumi.Input[_builtins.bool]] = None,
                  name: Optional[pulumi.Input[_builtins.str]] = None,
                  note_events: Optional[pulumi.Input[_builtins.bool]] = None,
                  pipeline_events: Optional[pulumi.Input[_builtins.bool]] = None,
+                 project_events: Optional[pulumi.Input[_builtins.bool]] = None,
                  push_events: Optional[pulumi.Input[_builtins.bool]] = None,
                  push_events_branch_filter: Optional[pulumi.Input[_builtins.str]] = None,
                  releases_events: Optional[pulumi.Input[_builtins.bool]] = None,
@@ -49,6 +51,7 @@ class GroupHookArgs:
                  wiki_page_events: Optional[pulumi.Input[_builtins.bool]] = None):
         """
         The set of arguments for constructing a GroupHook resource.
+
         :param pulumi.Input[_builtins.str] group: The full path or id of the group to add the hook to.
         :param pulumi.Input[_builtins.str] url: The url of the hook to invoke. Forces re-creation to preserve `token`.
         :param pulumi.Input[_builtins.str] branch_filter_strategy: Filter push events by branch. Valid values are: `wildcard`, `regex`, `all_branches`.
@@ -63,10 +66,12 @@ class GroupHookArgs:
         :param pulumi.Input[_builtins.bool] feature_flag_events: Invoke the hook for feature flag events. Defaults to `false`.
         :param pulumi.Input[_builtins.bool] issues_events: Invoke the hook for issues events. Defaults to `false`.
         :param pulumi.Input[_builtins.bool] job_events: Invoke the hook for job events. Defaults to `false`.
+        :param pulumi.Input[_builtins.bool] member_events: Invoke the hook for member events. Defaults to `false`.
         :param pulumi.Input[_builtins.bool] merge_requests_events: Invoke the hook for merge requests events. Defaults to `false`.
         :param pulumi.Input[_builtins.str] name: Name of the group webhook.
         :param pulumi.Input[_builtins.bool] note_events: Invoke the hook for note events. Defaults to `false`.
         :param pulumi.Input[_builtins.bool] pipeline_events: Invoke the hook for pipeline events. Defaults to `false`.
+        :param pulumi.Input[_builtins.bool] project_events: Invoke the hook for project events. Defaults to `false`.
         :param pulumi.Input[_builtins.bool] push_events: Invoke the hook for push events. Defaults to `true`.
         :param pulumi.Input[_builtins.str] push_events_branch_filter: Invoke the hook for push events on matching branches only.
         :param pulumi.Input[_builtins.bool] releases_events: Invoke the hook for release events. Defaults to `false`.
@@ -102,6 +107,8 @@ class GroupHookArgs:
             pulumi.set(__self__, "issues_events", issues_events)
         if job_events is not None:
             pulumi.set(__self__, "job_events", job_events)
+        if member_events is not None:
+            pulumi.set(__self__, "member_events", member_events)
         if merge_requests_events is not None:
             pulumi.set(__self__, "merge_requests_events", merge_requests_events)
         if name is not None:
@@ -110,6 +117,8 @@ class GroupHookArgs:
             pulumi.set(__self__, "note_events", note_events)
         if pipeline_events is not None:
             pulumi.set(__self__, "pipeline_events", pipeline_events)
+        if project_events is not None:
+            pulumi.set(__self__, "project_events", project_events)
         if push_events is not None:
             pulumi.set(__self__, "push_events", push_events)
         if push_events_branch_filter is not None:
@@ -296,6 +305,18 @@ class GroupHookArgs:
         pulumi.set(self, "job_events", value)
 
     @_builtins.property
+    @pulumi.getter(name="memberEvents")
+    def member_events(self) -> Optional[pulumi.Input[_builtins.bool]]:
+        """
+        Invoke the hook for member events. Defaults to `false`.
+        """
+        return pulumi.get(self, "member_events")
+
+    @member_events.setter
+    def member_events(self, value: Optional[pulumi.Input[_builtins.bool]]):
+        pulumi.set(self, "member_events", value)
+
+    @_builtins.property
     @pulumi.getter(name="mergeRequestsEvents")
     def merge_requests_events(self) -> Optional[pulumi.Input[_builtins.bool]]:
         """
@@ -342,6 +363,18 @@ class GroupHookArgs:
     @pipeline_events.setter
     def pipeline_events(self, value: Optional[pulumi.Input[_builtins.bool]]):
         pulumi.set(self, "pipeline_events", value)
+
+    @_builtins.property
+    @pulumi.getter(name="projectEvents")
+    def project_events(self) -> Optional[pulumi.Input[_builtins.bool]]:
+        """
+        Invoke the hook for project events. Defaults to `false`.
+        """
+        return pulumi.get(self, "project_events")
+
+    @project_events.setter
+    def project_events(self, value: Optional[pulumi.Input[_builtins.bool]]):
+        pulumi.set(self, "project_events", value)
 
     @_builtins.property
     @pulumi.getter(name="pushEvents")
@@ -458,10 +491,12 @@ class _GroupHookState:
                  hook_id: Optional[pulumi.Input[_builtins.int]] = None,
                  issues_events: Optional[pulumi.Input[_builtins.bool]] = None,
                  job_events: Optional[pulumi.Input[_builtins.bool]] = None,
+                 member_events: Optional[pulumi.Input[_builtins.bool]] = None,
                  merge_requests_events: Optional[pulumi.Input[_builtins.bool]] = None,
                  name: Optional[pulumi.Input[_builtins.str]] = None,
                  note_events: Optional[pulumi.Input[_builtins.bool]] = None,
                  pipeline_events: Optional[pulumi.Input[_builtins.bool]] = None,
+                 project_events: Optional[pulumi.Input[_builtins.bool]] = None,
                  push_events: Optional[pulumi.Input[_builtins.bool]] = None,
                  push_events_branch_filter: Optional[pulumi.Input[_builtins.str]] = None,
                  releases_events: Optional[pulumi.Input[_builtins.bool]] = None,
@@ -473,6 +508,7 @@ class _GroupHookState:
                  wiki_page_events: Optional[pulumi.Input[_builtins.bool]] = None):
         """
         Input properties used for looking up and filtering GroupHook resources.
+
         :param pulumi.Input[_builtins.str] branch_filter_strategy: Filter push events by branch. Valid values are: `wildcard`, `regex`, `all_branches`.
         :param pulumi.Input[_builtins.bool] confidential_issues_events: Invoke the hook for confidential issues events. Defaults to `false`.
         :param pulumi.Input[_builtins.bool] confidential_note_events: Invoke the hook for confidential note events. Defaults to `false`.
@@ -488,10 +524,12 @@ class _GroupHookState:
         :param pulumi.Input[_builtins.int] hook_id: The id of the group hook.
         :param pulumi.Input[_builtins.bool] issues_events: Invoke the hook for issues events. Defaults to `false`.
         :param pulumi.Input[_builtins.bool] job_events: Invoke the hook for job events. Defaults to `false`.
+        :param pulumi.Input[_builtins.bool] member_events: Invoke the hook for member events. Defaults to `false`.
         :param pulumi.Input[_builtins.bool] merge_requests_events: Invoke the hook for merge requests events. Defaults to `false`.
         :param pulumi.Input[_builtins.str] name: Name of the group webhook.
         :param pulumi.Input[_builtins.bool] note_events: Invoke the hook for note events. Defaults to `false`.
         :param pulumi.Input[_builtins.bool] pipeline_events: Invoke the hook for pipeline events. Defaults to `false`.
+        :param pulumi.Input[_builtins.bool] project_events: Invoke the hook for project events. Defaults to `false`.
         :param pulumi.Input[_builtins.bool] push_events: Invoke the hook for push events. Defaults to `true`.
         :param pulumi.Input[_builtins.str] push_events_branch_filter: Invoke the hook for push events on matching branches only.
         :param pulumi.Input[_builtins.bool] releases_events: Invoke the hook for release events. Defaults to `false`.
@@ -532,6 +570,8 @@ class _GroupHookState:
             pulumi.set(__self__, "issues_events", issues_events)
         if job_events is not None:
             pulumi.set(__self__, "job_events", job_events)
+        if member_events is not None:
+            pulumi.set(__self__, "member_events", member_events)
         if merge_requests_events is not None:
             pulumi.set(__self__, "merge_requests_events", merge_requests_events)
         if name is not None:
@@ -540,6 +580,8 @@ class _GroupHookState:
             pulumi.set(__self__, "note_events", note_events)
         if pipeline_events is not None:
             pulumi.set(__self__, "pipeline_events", pipeline_events)
+        if project_events is not None:
+            pulumi.set(__self__, "project_events", project_events)
         if push_events is not None:
             pulumi.set(__self__, "push_events", push_events)
         if push_events_branch_filter is not None:
@@ -740,6 +782,18 @@ class _GroupHookState:
         pulumi.set(self, "job_events", value)
 
     @_builtins.property
+    @pulumi.getter(name="memberEvents")
+    def member_events(self) -> Optional[pulumi.Input[_builtins.bool]]:
+        """
+        Invoke the hook for member events. Defaults to `false`.
+        """
+        return pulumi.get(self, "member_events")
+
+    @member_events.setter
+    def member_events(self, value: Optional[pulumi.Input[_builtins.bool]]):
+        pulumi.set(self, "member_events", value)
+
+    @_builtins.property
     @pulumi.getter(name="mergeRequestsEvents")
     def merge_requests_events(self) -> Optional[pulumi.Input[_builtins.bool]]:
         """
@@ -786,6 +840,18 @@ class _GroupHookState:
     @pipeline_events.setter
     def pipeline_events(self, value: Optional[pulumi.Input[_builtins.bool]]):
         pulumi.set(self, "pipeline_events", value)
+
+    @_builtins.property
+    @pulumi.getter(name="projectEvents")
+    def project_events(self) -> Optional[pulumi.Input[_builtins.bool]]:
+        """
+        Invoke the hook for project events. Defaults to `false`.
+        """
+        return pulumi.get(self, "project_events")
+
+    @project_events.setter
+    def project_events(self, value: Optional[pulumi.Input[_builtins.bool]]):
+        pulumi.set(self, "project_events", value)
 
     @_builtins.property
     @pulumi.getter(name="pushEvents")
@@ -915,10 +981,12 @@ class GroupHook(pulumi.CustomResource):
                  group: Optional[pulumi.Input[_builtins.str]] = None,
                  issues_events: Optional[pulumi.Input[_builtins.bool]] = None,
                  job_events: Optional[pulumi.Input[_builtins.bool]] = None,
+                 member_events: Optional[pulumi.Input[_builtins.bool]] = None,
                  merge_requests_events: Optional[pulumi.Input[_builtins.bool]] = None,
                  name: Optional[pulumi.Input[_builtins.str]] = None,
                  note_events: Optional[pulumi.Input[_builtins.bool]] = None,
                  pipeline_events: Optional[pulumi.Input[_builtins.bool]] = None,
+                 project_events: Optional[pulumi.Input[_builtins.bool]] = None,
                  push_events: Optional[pulumi.Input[_builtins.bool]] = None,
                  push_events_branch_filter: Optional[pulumi.Input[_builtins.str]] = None,
                  releases_events: Optional[pulumi.Input[_builtins.bool]] = None,
@@ -938,27 +1006,18 @@ class GroupHook(pulumi.CustomResource):
 
         ## Import
 
-        Starting in Terraform v1.5.0, you can use an import block to import `gitlab_group_hook`. For example:
-
-        terraform
-
-        import {
-
-          to = gitlab_group_hook.example
-
-          id = "see CLI command below for ID"
-
-        }
+        Starting in Terraform v1.5.0, you can use an import block to import `GroupHook`. For example:
 
         Importing using the CLI is supported with the following syntax:
 
-        A GitLab Group Hook can be imported using a key composed of `<group-id>:<hook-id>`, e.g.
+        A GitLab Group Hook can be imported using a key composed of `<group-id>:<hook-id>`, for example:
 
         ```sh
         $ pulumi import gitlab:index/groupHook:GroupHook example "12345:1"
         ```
 
         NOTE: the `token` resource attribute is not available for imported resources as this information cannot be read from the GitLab API.
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -975,10 +1034,12 @@ class GroupHook(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] group: The full path or id of the group to add the hook to.
         :param pulumi.Input[_builtins.bool] issues_events: Invoke the hook for issues events. Defaults to `false`.
         :param pulumi.Input[_builtins.bool] job_events: Invoke the hook for job events. Defaults to `false`.
+        :param pulumi.Input[_builtins.bool] member_events: Invoke the hook for member events. Defaults to `false`.
         :param pulumi.Input[_builtins.bool] merge_requests_events: Invoke the hook for merge requests events. Defaults to `false`.
         :param pulumi.Input[_builtins.str] name: Name of the group webhook.
         :param pulumi.Input[_builtins.bool] note_events: Invoke the hook for note events. Defaults to `false`.
         :param pulumi.Input[_builtins.bool] pipeline_events: Invoke the hook for pipeline events. Defaults to `false`.
+        :param pulumi.Input[_builtins.bool] project_events: Invoke the hook for project events. Defaults to `false`.
         :param pulumi.Input[_builtins.bool] push_events: Invoke the hook for push events. Defaults to `true`.
         :param pulumi.Input[_builtins.str] push_events_branch_filter: Invoke the hook for push events on matching branches only.
         :param pulumi.Input[_builtins.bool] releases_events: Invoke the hook for release events. Defaults to `false`.
@@ -1004,27 +1065,18 @@ class GroupHook(pulumi.CustomResource):
 
         ## Import
 
-        Starting in Terraform v1.5.0, you can use an import block to import `gitlab_group_hook`. For example:
-
-        terraform
-
-        import {
-
-          to = gitlab_group_hook.example
-
-          id = "see CLI command below for ID"
-
-        }
+        Starting in Terraform v1.5.0, you can use an import block to import `GroupHook`. For example:
 
         Importing using the CLI is supported with the following syntax:
 
-        A GitLab Group Hook can be imported using a key composed of `<group-id>:<hook-id>`, e.g.
+        A GitLab Group Hook can be imported using a key composed of `<group-id>:<hook-id>`, for example:
 
         ```sh
         $ pulumi import gitlab:index/groupHook:GroupHook example "12345:1"
         ```
 
         NOTE: the `token` resource attribute is not available for imported resources as this information cannot be read from the GitLab API.
+
 
         :param str resource_name: The name of the resource.
         :param GroupHookArgs args: The arguments to use to populate this resource's properties.
@@ -1054,10 +1106,12 @@ class GroupHook(pulumi.CustomResource):
                  group: Optional[pulumi.Input[_builtins.str]] = None,
                  issues_events: Optional[pulumi.Input[_builtins.bool]] = None,
                  job_events: Optional[pulumi.Input[_builtins.bool]] = None,
+                 member_events: Optional[pulumi.Input[_builtins.bool]] = None,
                  merge_requests_events: Optional[pulumi.Input[_builtins.bool]] = None,
                  name: Optional[pulumi.Input[_builtins.str]] = None,
                  note_events: Optional[pulumi.Input[_builtins.bool]] = None,
                  pipeline_events: Optional[pulumi.Input[_builtins.bool]] = None,
+                 project_events: Optional[pulumi.Input[_builtins.bool]] = None,
                  push_events: Optional[pulumi.Input[_builtins.bool]] = None,
                  push_events_branch_filter: Optional[pulumi.Input[_builtins.str]] = None,
                  releases_events: Optional[pulumi.Input[_builtins.bool]] = None,
@@ -1091,10 +1145,12 @@ class GroupHook(pulumi.CustomResource):
             __props__.__dict__["group"] = group
             __props__.__dict__["issues_events"] = issues_events
             __props__.__dict__["job_events"] = job_events
+            __props__.__dict__["member_events"] = member_events
             __props__.__dict__["merge_requests_events"] = merge_requests_events
             __props__.__dict__["name"] = name
             __props__.__dict__["note_events"] = note_events
             __props__.__dict__["pipeline_events"] = pipeline_events
+            __props__.__dict__["project_events"] = project_events
             __props__.__dict__["push_events"] = push_events
             __props__.__dict__["push_events_branch_filter"] = push_events_branch_filter
             __props__.__dict__["releases_events"] = releases_events
@@ -1135,10 +1191,12 @@ class GroupHook(pulumi.CustomResource):
             hook_id: Optional[pulumi.Input[_builtins.int]] = None,
             issues_events: Optional[pulumi.Input[_builtins.bool]] = None,
             job_events: Optional[pulumi.Input[_builtins.bool]] = None,
+            member_events: Optional[pulumi.Input[_builtins.bool]] = None,
             merge_requests_events: Optional[pulumi.Input[_builtins.bool]] = None,
             name: Optional[pulumi.Input[_builtins.str]] = None,
             note_events: Optional[pulumi.Input[_builtins.bool]] = None,
             pipeline_events: Optional[pulumi.Input[_builtins.bool]] = None,
+            project_events: Optional[pulumi.Input[_builtins.bool]] = None,
             push_events: Optional[pulumi.Input[_builtins.bool]] = None,
             push_events_branch_filter: Optional[pulumi.Input[_builtins.str]] = None,
             releases_events: Optional[pulumi.Input[_builtins.bool]] = None,
@@ -1170,10 +1228,12 @@ class GroupHook(pulumi.CustomResource):
         :param pulumi.Input[_builtins.int] hook_id: The id of the group hook.
         :param pulumi.Input[_builtins.bool] issues_events: Invoke the hook for issues events. Defaults to `false`.
         :param pulumi.Input[_builtins.bool] job_events: Invoke the hook for job events. Defaults to `false`.
+        :param pulumi.Input[_builtins.bool] member_events: Invoke the hook for member events. Defaults to `false`.
         :param pulumi.Input[_builtins.bool] merge_requests_events: Invoke the hook for merge requests events. Defaults to `false`.
         :param pulumi.Input[_builtins.str] name: Name of the group webhook.
         :param pulumi.Input[_builtins.bool] note_events: Invoke the hook for note events. Defaults to `false`.
         :param pulumi.Input[_builtins.bool] pipeline_events: Invoke the hook for pipeline events. Defaults to `false`.
+        :param pulumi.Input[_builtins.bool] project_events: Invoke the hook for project events. Defaults to `false`.
         :param pulumi.Input[_builtins.bool] push_events: Invoke the hook for push events. Defaults to `true`.
         :param pulumi.Input[_builtins.str] push_events_branch_filter: Invoke the hook for push events on matching branches only.
         :param pulumi.Input[_builtins.bool] releases_events: Invoke the hook for release events. Defaults to `false`.
@@ -1203,10 +1263,12 @@ class GroupHook(pulumi.CustomResource):
         __props__.__dict__["hook_id"] = hook_id
         __props__.__dict__["issues_events"] = issues_events
         __props__.__dict__["job_events"] = job_events
+        __props__.__dict__["member_events"] = member_events
         __props__.__dict__["merge_requests_events"] = merge_requests_events
         __props__.__dict__["name"] = name
         __props__.__dict__["note_events"] = note_events
         __props__.__dict__["pipeline_events"] = pipeline_events
+        __props__.__dict__["project_events"] = project_events
         __props__.__dict__["push_events"] = push_events
         __props__.__dict__["push_events_branch_filter"] = push_events_branch_filter
         __props__.__dict__["releases_events"] = releases_events
@@ -1339,6 +1401,14 @@ class GroupHook(pulumi.CustomResource):
         return pulumi.get(self, "job_events")
 
     @_builtins.property
+    @pulumi.getter(name="memberEvents")
+    def member_events(self) -> pulumi.Output[_builtins.bool]:
+        """
+        Invoke the hook for member events. Defaults to `false`.
+        """
+        return pulumi.get(self, "member_events")
+
+    @_builtins.property
     @pulumi.getter(name="mergeRequestsEvents")
     def merge_requests_events(self) -> pulumi.Output[_builtins.bool]:
         """
@@ -1369,6 +1439,14 @@ class GroupHook(pulumi.CustomResource):
         Invoke the hook for pipeline events. Defaults to `false`.
         """
         return pulumi.get(self, "pipeline_events")
+
+    @_builtins.property
+    @pulumi.getter(name="projectEvents")
+    def project_events(self) -> pulumi.Output[_builtins.bool]:
+        """
+        Invoke the hook for project events. Defaults to `false`.
+        """
+        return pulumi.get(self, "project_events")
 
     @_builtins.property
     @pulumi.getter(name="pushEvents")

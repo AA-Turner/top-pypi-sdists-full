@@ -639,6 +639,75 @@ class Credential(APIObject):  # pylint: disable=missing-class-docstring
         payload = {key: value for key, value in payload.items() if value is not None}
         return cls.from_server_data(cls._client.post(cls._path, data=payload).json())
 
+    @classmethod
+    def create_box_jwt(
+        cls,
+        name: str,
+        client_id: str,
+        client_secret: str,
+        enterprise_id: str,
+        public_key_id: str,
+        private_key_str: str,
+        passphrase: str,
+        description: Optional[str] = None,
+    ) -> Credential:
+        """
+        Creates the Box JWT credentials.
+
+        Parameters
+        ----------
+        name : str
+            The name to use for this set of credentials.
+        client_id : str
+            The Box JWT client ID.
+        client_secret : str
+            The Box JWT client secret.
+        enterprise_id : str
+            The Box enterprise identifier.
+        public_key_id : str
+            The Box public key identifier.
+        private_key_str : str
+            The RSA private key for Box JWT.
+        passphrase : str
+            The passphrase for the Box JWT private key.
+        description : Optional[str]
+            The description to use for this set of credentials.
+
+        Returns
+        -------
+        credential : Credential
+            The created credential.
+
+        Examples
+        --------
+        .. code-block:: python
+
+            >>> import datarobot as dr
+            >>> cred = dr.Credential.create_box_jwt(
+            ...     name='my_box_jwt_cred',
+            ...     client_id='XXX',
+            ...     client_secret='YYY',
+            ...     enterprise_id='ZZZ',
+            ...     public_key_id='AAA',
+            ...     private_key_str='-----BEGIN PRIVATE KEY-----\\n...\\n-----END PRIVATE KEY-----',
+            ...     passphrase='BBB',
+            ... )
+            >>> cred
+            Credential('5e429d6ecf8a5f36c5693e03', 'my_box_jwt_cred', 'box_jwt')
+        """
+        payload = {
+            "name": name,
+            "credentialType": CredentialTypes.BOX_JWT.value,
+            "clientId": client_id,
+            "clientSecret": client_secret,
+            "enterpriseId": enterprise_id,
+            "publicKeyId": public_key_id,
+            "privateKeyStr": private_key_str,
+            "passphrase": passphrase,
+            "description": description,
+        }
+        return cls.from_server_data(cls._client.post(cls._path, data=payload).json())
+
     def __repr__(self) -> str:
         return "{}('{}', '{}', '{}')".format(
             self.__class__.__name__,
@@ -788,6 +857,16 @@ ExternalOAuthProviderCredentialsSchema = t.Dict({
     t.Key("authenticationId"): String(),
 }).allow_extra("*")
 
+BoxJwtCredentialsSchema = t.Dict({
+    t.Key("credentialType"): t.Atom("box_jwt"),
+    t.Key("clientId"): String(),
+    t.Key("clientSecret"): String(),
+    t.Key("enterpriseId"): String(),
+    t.Key("publicKeyId"): String(),
+    t.Key("privateKeyStr"): String(),
+    t.Key("passphrase"): String(),
+}).allow_extra("*")
+
 AnyCredentialsSchema = t.Dict({t.Key("credentialType"): String()}).allow_extra("*")
 
 CredentialDataSchema = t.Or(
@@ -800,5 +879,6 @@ CredentialDataSchema = t.Or(
     AzureServicePrincipalCredentialsSchema,
     AdlsOAuthCredentialsSchema,
     ExternalOAuthProviderCredentialsSchema,
+    BoxJwtCredentialsSchema,
     AnyCredentialsSchema,
 )

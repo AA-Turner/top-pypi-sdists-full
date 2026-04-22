@@ -404,17 +404,25 @@ _pattern_date = '|'.join(
 def _sized_pattern_string(lower: int = 0, upper: int = 0):
     ml = _sized_suffix((lower - 6) // 1, (upper - 6))
     sl = _sized_suffix((lower - 2) // 2, (upper - 2))
+    str_dq_r = FR'[rR]"[^\r\n]{sl}"'
+    str_sq_r = FR"[rR]'[^\r\n]{sl}'"
     str_dq = FR'"(?:[^"\\\r\n]|\\[^\r\n]){sl}"'
     str_sq = FR"'(?:[^'\\\r\n]|\\[^\r\n]){sl}'"
     str_js = FR'`(?:[^`\\]|\\.){sl}`'
-    str_mul_dq = FR'"""(?:.(?!""")){ml}"""'
-    str_mul_sq = FR"'''(?:.(?!''')){ml}'''"
+    str_mul_dq_r = FR'[rR]""".{ml}?"""'
+    str_mul_sq_r = FR"[rR]'''.{ml}?'''"
+    str_mul_dq = FR'"""(?:[^\\]|\\.){ml}?"""'
+    str_mul_sq = FR"'''(?:[^\\]|\\.){ml}?'''"
     return '(?:{})'.format('|'.join((
+        str_mul_dq_r,
+        str_mul_sq_r,
+        str_mul_dq,
+        str_mul_sq,
+        str_dq_r,
+        str_sq_r,
         str_dq,
         str_sq,
         str_js,
-        str_mul_dq,
-        str_mul_sq,
     )))
 
 
@@ -425,9 +433,20 @@ def _sized_pattern_cmdstr(lower: int = 0, upper: int = 0):
 
 _pattern_cmdstr = _sized_pattern_cmdstr()
 _pattern_ps1str = R'''(?:(?:@"\s*?[\r\n].*?[\r\n]"@)|(?:@'\s*?[\r\n].*?[\r\n]'@)|(?:"(?:`.|""|[^"\n])*")|(?:'(?:''|[^'\n])*'))'''
-_pattern_vbastr = R'''"(?:""|[^"])*"'''
 _pattern_vbaint = R'(?:&[bB][01]+|&[hH][0-9a-fA-F]+|&[oO][0-7]*|[-+]?(?:[1-9][0-9]*|0))(?=\b|$)'
 _pattern_string = _sized_pattern_string()
+
+_pattern_vbastr_literals = R'"(?:""|[^"])*"'
+_pattern_vbastr_charcode = F'chrw?\\$?\\({_pattern_vbaint}\\)'
+_pattern_vbastr_specials = R'vb(?:CrLf|Cr|Lf|NullChar|Tab|Back|FormFeed|VerticalTab)'
+
+pattern_vbastr_token = '|'.join((
+    _pattern_vbastr_literals,
+    _pattern_vbastr_charcode,
+    _pattern_vbastr_specials,
+))
+
+_pattern_vbastr = R'(?:{t})(?:\s{{0,8}}[+&]\s{{0,8}}(?:{t}))*'.format(t=pattern_vbastr_token)
 
 _pattern_urlenc = R'''(?:%[0-9a-fA-F]{2}|[0-9a-zA-Z\-\._~\?!$&=])+'''
 _pattern_urlhex = R'''(?:%[0-9a-fA-F]{2})+'''
@@ -542,7 +561,7 @@ class formats(_PatternEnum):
         description="Windows command line escaped string literal")
     ps1str = pattern(_pattern_ps1str, flags=re.DOTALL,
         description="PowerShell escaped string literal")
-    vbastr = pattern(_pattern_vbastr,
+    vbastr = pattern(_pattern_vbastr, flags=re.IGNORECASE,
         description="VBS/VBA string literal")
     vbaint = pattern(_pattern_vbaint,
         description="VBS/VBA integer literal")

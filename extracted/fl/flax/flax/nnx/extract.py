@@ -13,17 +13,17 @@
 # limitations under the License.
 
 import abc
+from collections import namedtuple
+import dataclasses
 import functools
 import typing as tp
-from collections import namedtuple
-
-import jax
 
 from flax import struct
 from flax import typing
+from flax.nnx import filterlib, graphlib, variablelib
 from flax.nnx.pytreelib import Pytree
 from flax.typing import Missing, PathParts
-from flax.nnx import graphlib, variablelib
+import jax
 
 
 A = tp.TypeVar('A')
@@ -108,27 +108,39 @@ def check_consistent_aliasing(
 
 
 def check_consistent_aliasing2(
-  node: tp.Any,
-  prefix: tp.Any,
-  /,
-  *,
-  base_path: tuple[tp.Any, ...] = (),
-  node_prefixes: dict[int, list[tuple[PathParts, tp.Any]]] | None = None,
+    node: tp.Any,
+    prefix: tp.Any,
+    /,
+    *,
+    base_path: tuple[tp.Any, ...] = (),
+    node_prefixes: dict[int, list[tuple[PathParts, tp.Any]]],
 ):
-  if node_prefixes is None:
-    node_prefixes = {}
-
   node_id_to_variable: dict[int, tp.Any] = {}
 
-  for path, value in graphlib.iter_graph(node, graph=True):
-    path = base_path + path
-    if graphlib.is_graph_node(value) or isinstance(value, graphlib.Variable):
+  for local_path, value in graphlib.iter_graph(node, graph=True):
+    path = base_path + local_path
+    if isinstance(value, variablelib.Variable):
       value_id = id(value)
       node_id_to_variable[value_id] = value
-      if value_id in node_prefixes:
-        node_prefixes[value_id].append((path, prefix))
+      # If prefix is a TreeState (e.g. from nnx.prefix(graph=True)),
+      # extract the actual prefix value for this Variable using local_path.
+      if isinstance(prefix, TreeState):
+        prefix_fn = prefix.prefix_fn.value
+        if not callable(prefix_fn):
+          raise ValueError(
+              'When passing a TreeState object as a prefix (e.g. for'
+              ' `in_axes`), it must have been produced by `nnx.prefix()` or'
+              ' contain a callable in `TreeState.metadata` with signature'
+              ' `(path: tuple[Any, ...], value: Variable) -> Any`. Got'
+              f' metadata of type {type(prefix_fn).__name__}.'
+          )
+        leaf_prefix = prefix_fn(local_path, value)
       else:
-        node_prefixes[value_id] = [(path, prefix)]
+        leaf_prefix = prefix
+      if value_id in node_prefixes:
+        node_prefixes[value_id].append((path, leaf_prefix))
+      else:
+        node_prefixes[value_id] = [(path, leaf_prefix)]
 
   node_msgs = []
   for node_id, paths_prefixes in node_prefixes.items():
@@ -151,6 +163,7 @@ def check_consistent_aliasing2(
       'Inconsistent aliasing detected. The following nodes have different prefixes:\n'
       + '\n'.join(node_msgs)
     )
+
 
 # -----------------------------
 # to_tree/from_tree
@@ -184,15 +197,24 @@ def broadcast_prefix2(
   prefix_tree: tp.Any,
   full_tree: tp.Any,
   is_leaf: tp.Callable[[tp.Any], bool] | None = None,
+  prefix_leaf: tp.Callable[[tp.Any], bool] | None = None,
 ) -> tuple[list[KeyPath], list[tp.Any]]:
+  _prefix_leaf: tp.Callable[[tp.Any], bool] | None
+  if prefix_leaf is not None and is_leaf is not None:
+    _prefix_leaf = lambda x: prefix_leaf(x) or is_leaf(x)
+  elif prefix_leaf is not None:
+    _prefix_leaf = prefix_leaf
+  else:
+    _prefix_leaf = is_leaf
+
   paths: list[KeyPath] = []
   leaves: list[tp.Any] = []
-  num_leaves = lambda t: jax.tree_util.tree_structure(t).num_leaves
+  num_leaves = lambda t: jax.tree.structure(t, is_leaf=is_leaf).num_leaves
   def add_leaves(path, x, subtree):
     n = num_leaves(subtree)
     paths.extend([path] * n)
     leaves.extend([x] * n)
-  jax.tree.map_with_path(add_leaves, prefix_tree, full_tree, is_leaf=is_leaf)
+  jax.tree.map_with_path(add_leaves, prefix_tree, full_tree, is_leaf=_prefix_leaf)
   return paths, leaves
 
 def broadcast_prefix_map(
@@ -201,19 +223,24 @@ def broadcast_prefix_map(
   full_tree: tp.Any,
   *rest: tp.Any,
   is_leaf: tp.Callable[[tp.Any], bool] | None = None,
+  prefix_leaf: tp.Callable[[tp.Any], bool] | None = None,
 ) -> tp.Any:
-  paths, prefix_leaves = broadcast_prefix2(prefix_tree, full_tree, is_leaf=is_leaf)
-  leaves, treedef = jax.tree_util.tree_flatten(full_tree, is_leaf=is_leaf)
-  full_prefix_tree = treedef.unflatten(prefix_leaves)
-  return jax.tree.map_with_path(f, full_prefix_tree, full_tree, *rest, is_leaf=is_leaf)
+  _, prefix_leaves = broadcast_prefix2(prefix_tree, full_tree, is_leaf=is_leaf, prefix_leaf=prefix_leaf)
+  full_leaves_with_path, treedef = jax.tree.flatten_with_path(full_tree, is_leaf=is_leaf)
+  rest_flat = [treedef.flatten_up_to(r) for r in rest]
+  out_leaves = []
+  for (path, full_leaf), p_leaf, *r_leaves in zip(full_leaves_with_path, prefix_leaves, *rest_flat):
+    out_leaf = f(path, p_leaf, full_leaf, *r_leaves)
+    out_leaves.append(out_leaf)
+  return jax.tree.unflatten(treedef, out_leaves)
 
 
 class GraphDefState(struct.PyTreeNode):
   graphdef: graphlib.GraphDef[tp.Any] = struct.field(pytree_node=False)
-  state: graphlib.GraphState = struct.field(pytree_node=True)
+  state: graphlib.State = struct.field(pytree_node=True)
 
 S = tp.TypeVar(
-  'S', bound=graphlib.GraphState | graphlib.GraphFlatState | list[tp.Any]
+  'S', bound=graphlib.State | graphlib.GraphFlatState | list[tp.Any]
 )
 
 class NodeStates(struct.PyTreeNode):
@@ -333,16 +360,49 @@ def to_tree(
   return pytree_out
 
 
+@dataclasses.dataclass(frozen=True, slots=True)
+class Opaque(tp.Generic[A]):
+  value: A
+
+  def __eq__(self, other):
+    return type(self) == type(other)
+
+  def __hash__(self):
+    return 0
+
+
+@functools.partial(
+    jax.tree_util.register_dataclass,
+    data_fields=['__state__'],
+    meta_fields=['graphdef', 'prefix_fn'],
+)
+@dataclasses.dataclass(frozen=True, slots=True)
+class TreeState:
+  graphdef: graphlib.GraphDef[tp.Any] | None
+  __state__: tp.Any
+  prefix_fn: Opaque[tp.Callable[[PathParts, tp.Any], tp.Any] | None] = Opaque(
+      None
+  )
+
+  @property
+  def state(self) -> tp.Any:
+    return self.__state__
+
+  def replace(self, **kwargs):
+    return dataclasses.replace(self, **kwargs)
+
+
 def to_tree2(
-  tree,
-  /,
-  *,
-  prefix: tp.Any = Missing,
-  check_aliasing: bool = True,
+    tree,
+    /,
+    *,
+    prefix: tp.Any = Missing,
+    check_aliasing: bool = True,
+    prefix_fn: tp.Callable[[PathParts, tp.Any], tp.Any] | None = None,
 ) -> tp.Any:
   """to_tree2 has two main tasks:
 
-  1. Convert all graph nodes to NodeStates (a tree representation).
+  1. Convert all graph nodes to TreeState (a tree representation).
   2. Check all Variables are aliased consistently given the prefix tree,
     e.g. vmap's in/out_axes arguments.
 
@@ -360,7 +420,7 @@ def to_tree2(
       leaf, ref_index=ref_index, graph=True
     )
     (state,) = graphlib._to_nested_state(graphdef, (flat_state,))
-    return NodeStates.from_split(graphdef, state)
+    return TreeState(graphdef, state, prefix_fn=Opaque(prefix_fn))
 
   is_leaf = lambda x: (
     isinstance(x, variablelib.Variable) or graphlib.is_graph_node(x)
@@ -370,10 +430,12 @@ def to_tree2(
     return jax.tree.map(_to_node_states, tree, is_leaf=is_leaf)
 
   leaf_prefixes = broadcast_prefix(
-    prefix,
-    tree,
-    prefix_is_leaf=lambda x: x is None or is_leaf(x),
-    tree_is_leaf=is_leaf,
+      prefix,
+      tree,
+      prefix_is_leaf=lambda x: x is None
+      or isinstance(x, TreeState)
+      or is_leaf(x),
+      tree_is_leaf=is_leaf,
   )
   leaf_paths, treedef = jax.tree_util.tree_flatten_with_path(tree, is_leaf=is_leaf)
 
@@ -399,21 +461,21 @@ def from_tree2(tree: tp.Any, /) -> tp.Any:
   index_ref = graphlib.IndexMap()
 
   def _from_node_states(x):
-    if not isinstance(x, NodeStates):
+    if not isinstance(x, TreeState):
       return x
-    state = graphlib._merge_to_flat_state(x.states)
+    state = graphlib._merge_to_flat_state((x.state,))
     return graphlib.unflatten(
       x.graphdef, state, index_ref=index_ref,
     )
 
   return jax.tree.map(
-    _from_node_states,
-    tree,
-    is_leaf=lambda x: (
-      isinstance(x, NodeStates)
-      or graphlib.is_graph_node(x)
-      or isinstance(x, variablelib.Variable)
-    ),
+      _from_node_states,
+      tree,
+      is_leaf=lambda x: (
+          isinstance(x, TreeState)
+          or graphlib.is_graph_node(x)
+          or isinstance(x, variablelib.Variable)
+      ),
   )
 
 
@@ -509,6 +571,69 @@ def replace_at(t: tuple, index: int, value: tp.Any) -> tuple:
     for i, x in enumerate(t)
   )
 
+
+def slice_at(t: tuple, index: int | None) -> tuple[tp.Any, tuple]:
+  if index is None:
+    return None, t
+  return t[index], t[:index] + t[index + 1 :]
+
+
+def insert_at(t: tuple, index: int | None, value: tp.Any) -> tuple:
+  if index is None:
+    return t
+  xs = list(t)
+  xs.insert(index, value)
+  return tuple(xs)
+
+
+def find(t: tuple, value: tp.Any) -> int | None:
+  return next((i for i, x in enumerate(t) if x == value), None)
+
+
+@jax.tree_util.register_static
+@dataclasses.dataclass(frozen=True, slots=True)
+class ExtractIndex:
+  index: int
+
+
+def extract(
+  f: tp.Callable[[jax.tree_util.KeyPath, tp.Any, tp.Any], bool],
+  prefix: tp.Any,
+  tree: tp.Any,
+  *,
+  is_leaf: tp.Callable[[tp.Any], bool] | None = None,
+) -> tuple[tp.Any, list[tp.Any]]:
+  extracted: list[tp.Any] = []
+  def _leaf_fn(path: jax.tree_util.KeyPath, prefix_leaf: tp.Any, leaf: tp.Any):
+    if f(path, prefix_leaf, leaf):
+      idx = len(extracted)
+      extracted.append(leaf)
+      return ExtractIndex(idx)
+    return leaf
+
+  full_prefix = jax.tree.broadcast(prefix, tree, is_leaf=is_leaf)
+  new_tree = jax.tree.map_with_path(_leaf_fn, full_prefix, tree, is_leaf=is_leaf)
+  return new_tree, extracted
+
+
+def insert(
+    tree: tp.Any,
+    extracted: list[tp.Any],
+    is_leaf: tp.Callable[[tp.Any], bool] | None = None,
+) -> tp.Any:
+  if is_leaf is None:
+    _is_leaf = lambda x: isinstance(x, ExtractIndex)
+  else:
+    _is_leaf = lambda x: isinstance(x, ExtractIndex) or is_leaf(x)
+
+  def _leaf_fn(leaf: tp.Any):
+    if isinstance(leaf, ExtractIndex):
+      return extracted[leaf.index]
+    return leaf
+
+  return jax.tree.map(_leaf_fn, tree, is_leaf=_is_leaf)
+
+
 def updates_and_snapshot(args: A) -> tuple[A, A]:
   is_leaf = lambda x: isinstance(x, variablelib.Variable)
   leaves, treedef = jax.tree.flatten(args, is_leaf=is_leaf)
@@ -517,7 +642,14 @@ def updates_and_snapshot(args: A) -> tuple[A, A]:
   for leaf in leaves:
     if isinstance(leaf, variablelib.Variable):
       updates_leaves.append(leaf)
-      snapshot_leaves.append(leaf.copy())
+      # don't snapshot hijax or ref Variables as their updates are automatically
+      # masked out in mask_variable_updates. However, the leaf is kept in the
+      # updates to check for aliasing. This avoids a copy operation which has
+      # significance for ref Variables.
+      if leaf.hijax or leaf.ref:
+        snapshot_leaves.append(Mask())
+      else:
+        snapshot_leaves.append(leaf.copy())
     else:
       updates_leaves.append(Mask())
       snapshot_leaves.append(Mask())
@@ -526,16 +658,29 @@ def updates_and_snapshot(args: A) -> tuple[A, A]:
   return updates, snapshot
 
 
-def check_no_aliases(fn_name: str, /, **kwargs):
+def check_no_aliases(
+    fn_name: str, /, *, check_can_update: tp.Iterable[str] = (), **kwargs
+):
   Attrs = namedtuple('Attrs', kwargs.keys())  # type: ignore[misc]
   container = Attrs(**kwargs)
   is_leaf = lambda x: isinstance(x, variablelib.Variable)
   seen: dict[int, jax.tree_util.KeyPath] = {}
-  for path, leaf in jax.tree.leaves_with_path(
-    container, is_leaf=is_leaf
-  ):
+  for path, leaf in jax.tree.leaves_with_path(container, is_leaf=is_leaf):
     if not isinstance(leaf, variablelib.Variable):
       continue
+
+    assert isinstance(path[0], jax.tree_util.GetAttrKey)
+    kwarg_name = path[0].name
+
+    if kwarg_name in check_can_update:
+      if not leaf._can_update:
+        path_str = jax.tree_util.keystr(path)
+        raise ValueError(
+            f'Cannot return captured Variable of type {type(leaf).__name__} '
+            f'from nnx.{fn_name}.\n'
+            f'Found at path: {path_str}'
+        )
+
     var_id = id(leaf)
     if var_id in seen:
       path_str = jax.tree_util.keystr(path)
@@ -545,7 +690,8 @@ def check_no_aliases(fn_name: str, /, **kwargs):
         f'  - {seen_path_str}\n'
         f'  - {path_str}\n\n'
         f'nnx.{fn_name} with graph_updates=False does not support '
-        'returning input Variables as outputs. '
+        'Variable aliasing (duplicate inputs, duplicate outputs, or '
+        'input Variables returned as outputs). '
         f'Consider the following options:\n\n'
         f'1. Remove the duplicate Variables.\n'
         f'2. Create new Variables via nnx.clone() and use those instead.\n'
@@ -559,19 +705,73 @@ def check_no_aliases(fn_name: str, /, **kwargs):
     seen[var_id] = path
 
 
-def check_prefix(prefix: tp.Any, prefix_name: str, fn_name: str):
+def check_prefix(
+  prefix: tp.Any,
+  prefix_name: str,
+  fn_name: str,
+  graph: bool,
+  graph_updates: bool,
+):
   def _check(path, leaf):
-    if graphlib.is_graph_node(leaf) or isinstance(leaf, variablelib.Variable):
+    if isinstance(leaf, variablelib.Variable):
       raise ValueError(
-        f'Found graph node or Variable of type {type(leaf).__name__} '
+        f'Found Variable of type {type(leaf).__name__} '
         f'at path {jax.tree_util.keystr(path)} in `{prefix_name}` '
-        f'for nnx.{fn_name}. Graph nodes and Variables are not allowed '
-        f'as prefixes when graph=True and graph_updates=False'
+        f'for nnx.{fn_name}. Variables prefixes are not supported.'
+        f'Pass a prefix for the entire Variable instead of passing a '
+        f'Variable with a prefix for its value.'
       )
+    if isinstance(leaf, PrefixMapping) and not (graph and graph_updates):
+      raise ValueError(
+        f'`{prefix_name}` cannot contain `{type(leaf).__name__}` objects '
+        f'when `graph=False` or `graph_updates=False`. '
+        f'Consider the following options:\n\n'
+        f'1. Remove `{type(leaf).__name__}` objects from `{prefix_name}`.\n'
+        f'2. Enable graph mode and graph updates by passing graph=True and '
+        f'graph_updates=True to {fn_name} e.g.\n\n'
+        f'  nnx.{fn_name}(..., graph=True, graph_updates=True)\n\n'
+        f'3. Use nnx.compat.{fn_name} instead e.g.\n\n'
+        f'  nnx.compat.{fn_name}(...)'
+      )
+    if graphlib.is_graph_node(leaf) and graph:
+      raise ValueError(
+        f'Found graph node of type {type(leaf).__name__} '
+        f'at path {jax.tree_util.keystr(path)} in `{prefix_name}` '
+        f'for nnx.{fn_name}. Graph nodes are not allowed as prefixes when '
+        f'graph=True.'
+        f'Consider the following options:\n\n'
+        f'1. Remove graph nodes from `{prefix_name}`.\n'
+        f'2. Enable tree mode by passing graph=False to {fn_name} e.g.\n\n'
+        f'  nnx.{fn_name}(..., graph=False)\n\n'
+        f'3. If you using nnx.prefix to create the prefix, pass graph=True:\n\n'
+        f'  prefix = nnx.prefix(..., graph=True)'
+      )
+    if isinstance(leaf, TreeState) and (not graph or graph_updates):
+      msg = (
+        f'Found `TreeState` object at path {jax.tree_util.keystr(path)} in '
+        f'`{prefix_name}` for nnx.{fn_name}. `TreeState` objects are only '
+        f'allowed as prefixes when `graph=True` and `graph_updates=False`.'
+        f'Consider the following options:\n\n'
+        f'1. Enable graph mode and graph updates by passing graph=True and '
+        f'graph_updates=True to {fn_name} e.g.\n\n'
+        f'  nnx.{fn_name}(..., graph=True, graph_updates=True)\n\n'
+        f'2. Use nnx.compat.{fn_name} instead e.g.\n\n'
+        f'  nnx.compat.{fn_name}(...)'
+      )
+      if graph_updates:
+        msg += (
+          f'\n\n3. If you using nnx.prefix to create the prefix, pass graph=False:\n\n'
+          f'  prefix = nnx.prefix(..., graph=False)'
+        )
+      raise ValueError(msg)
+
   jax.tree.map_with_path(
-    _check, prefix,
+    _check,
+    prefix,
     is_leaf=lambda x: isinstance(x, variablelib.Variable)
-    or graphlib.is_graph_node(x),
+    or graphlib.is_graph_node(x)
+    or isinstance(x, PrefixMapping)
+    or isinstance(x, TreeState),
   )
 
 
@@ -603,14 +803,16 @@ def mask_variable_updates(
       if keep_fn(path, prefix_leaf, current, snapshot):
         return current
     return Mask()
-  is_leaf = lambda x: isinstance(x, variablelib.Variable) or x is None
+  prefix_leaf = lambda x: x is None
+  is_leaf = lambda x: isinstance(x, variablelib.Variable)
   if prefix is Missing:
     return jax.tree.map_with_path(
         lambda path, cur, snap: _mask_updates(path, None, cur, snap),
-        current_tree, snapshot_tree, is_leaf=is_leaf,
+        current_tree, snapshot_tree, is_leaf=is_leaf
     )
   return broadcast_prefix_map(
       _mask_updates, prefix, current_tree, snapshot_tree, is_leaf=is_leaf,
+      prefix_leaf=prefix_leaf,
   )
 
 
@@ -658,3 +860,114 @@ def update_carry_variables(init_val, val_out):
     _update, init_val, val_out,
     is_leaf=lambda x: isinstance(x, variablelib.Variable),
   )
+
+
+def prefix(
+    node,
+    filter_map: tp.Mapping[filterlib.Filter, tp.Any] | tp.Callable[..., tp.Any],
+    /,
+    *,
+    graph: bool | None = None,
+):
+  """Replaces leaves in a graph node with prefix values.
+
+  ``prefix`` replaces each leaf in ``node`` with a prefix value computed by
+  ``filter_map(path, leaf)``. In graph mode (``graph=True``), the node is
+  first converted to a tree and the prefix is applied to
+  the resulting structure so it can be used directly as axes arguments for
+  transforms like ``nnx.vmap``.
+
+  Example usage::
+
+    from flax import nnx
+    import jax.numpy as jnp
+
+    d = {'a': nnx.Param(jnp.array(2)), 'b': nnx.BatchStat(jnp.arange(5))}
+    prefix = nnx.prefix(d, lambda path, x: 0 if 'b' in path else None)
+
+    @nnx.vmap(in_axes=(prefix,))
+    def f(d):
+      return d['a'] * d['b']
+
+    f(d)  # Array([0, 2, 4, 6, 8])
+
+  ``filter_map`` can also be a mapping from :class:`Filter` to prefix values.
+  Filters are checked in order and the first match determines the prefix::
+
+    d = {'a': nnx.Param(jnp.array(2)), 'b': nnx.BatchStat(jnp.arange(5))}
+    prefix = nnx.prefix(d, {nnx.Param: None, nnx.BatchStat: 0})
+
+  Calculating prefixes for graph mode transforms is a bit more involved as
+  the graph nodes are first converted to a trees in an order-dependent manner.
+  This means prefixes should be calculated jointly between all graph nodes in
+  the transform in the same order they appear in the arguments. For example::
+
+    import jax
+    import jax.numpy as jnp
+
+    @nnx.vmap
+    def create_model(rngs):
+      return nnx.Linear(2, 3, rngs=rngs)
+
+    model = create_model(nnx.Rngs(0).split(4))
+    px1, px2 = nnx.prefix((model, model), {nnx.Param: 0}, graph=True)
+
+    @nnx.vmap(in_axes=(px1, px2, None), graph=True)
+    def forward(m1, m2, x):
+      assert m1 is m2
+      return m1(x) + m2(x)
+
+    y = forward(model, model, jnp.ones(2))
+    assert y.shape == (4, 3)
+
+  The prefixes might be invalid if all graph node involved in the transform
+  aren't passed to `nnx.prefix`.
+
+  Args:
+    node: A graph node object.
+    filter_map: A callable ``(path, leaf) -> prefix`` that computes the prefix
+      for each leaf, or a mapping from :class:`Filter` to prefix values (filters
+      are checked in order; the first match determines the prefix).
+    graph: If ``True``, uses graph-mode which supports the full NNX feature set
+      including shared references. If ``False``, uses tree-mode which treats
+      Modules as regular JAX pytrees, avoiding the overhead of the graph
+      protocol.
+
+  Returns:
+    A new tree with prefix values replacing the leaves.
+  """
+  if graph is None:
+    graph = graphlib.set_graph_mode.current_value()
+
+  if isinstance(filter_map, tp.Mapping):
+    predicates = tuple(
+        (filterlib.to_predicate(f), value) for f, value in filter_map.items()
+    )
+    filters = list(filter_map.keys())
+
+    def prefix_fn(path, leaf):
+      for predicate, _prefix in predicates:
+        if predicate(path, leaf):
+          return _prefix
+      raise ValueError(
+          f'No filter matched leaf at path {path!r} with value {leaf!r}. '
+          f'Filters: {filters}'
+      )
+
+  else:
+    prefix_fn = filter_map
+
+  is_leaf = lambda x: isinstance(x, variablelib.Variable)
+
+  if graph:
+    node = to_tree2(node, prefix_fn=prefix_fn)
+
+  def _apply_prefix(jax_path, leaf):
+    path = graphlib.jax_to_nnx_path(jax_path)
+    if graph:
+      # remove __state__ resulting from TreeState from path
+      # to match the path you get on graph=False
+      path = tuple(k for k in path if k != '__state__')
+    return prefix_fn(path, leaf)
+
+  return jax.tree.map_with_path(_apply_prefix, node, is_leaf=is_leaf)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: awslabs.cloudtrail-mcp-server
-Version: 0.0.12
+Version: 0.0.13
 Summary: An AWS Labs Model Context Protocol (MCP) server for cloudtrail
 Project-URL: homepage, https://awslabs.github.io/mcp/
 Project-URL: docs, https://awslabs.github.io/mcp/servers/cloudtrail-mcp-server/

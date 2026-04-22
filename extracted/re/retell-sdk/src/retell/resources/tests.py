@@ -126,6 +126,7 @@ class TestsResource(SyncAPIResource):
             "gemini-2.5-flash",
             "gemini-2.5-flash-lite",
             "gemini-3.0-flash",
+            "gemini-3.1-flash-lite",
         ]
         | Omit = omit,
         tool_mocks: Iterable[test_create_test_case_definition_params.ToolMock] | Omit = omit,
@@ -386,7 +387,6 @@ class TestsResource(SyncAPIResource):
         type: Literal["retell-llm", "conversation-flow"],
         conversation_flow_id: str | Omit = omit,
         llm_id: str | Omit = omit,
-        version: int | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -403,8 +403,6 @@ class TestsResource(SyncAPIResource):
           conversation_flow_id: Conversation flow ID (required when type is conversation-flow)
 
           llm_id: LLM ID (required when type is retell-llm)
-
-          version: Version of the response engine (defaults to latest)
 
           extra_headers: Send extra headers
 
@@ -426,7 +424,6 @@ class TestsResource(SyncAPIResource):
                         "type": type,
                         "conversation_flow_id": conversation_flow_id,
                         "llm_id": llm_id,
-                        "version": version,
                     },
                     test_list_test_case_definitions_params.TestListTestCaseDefinitionsParams,
                 ),
@@ -492,6 +489,7 @@ class TestsResource(SyncAPIResource):
             "gemini-2.5-flash",
             "gemini-2.5-flash-lite",
             "gemini-3.0-flash",
+            "gemini-3.1-flash-lite",
         ]
         | Omit = omit,
         metrics: SequenceNotStr[str] | Omit = omit,
@@ -649,6 +647,7 @@ class AsyncTestsResource(AsyncAPIResource):
             "gemini-2.5-flash",
             "gemini-2.5-flash-lite",
             "gemini-3.0-flash",
+            "gemini-3.1-flash-lite",
         ]
         | Omit = omit,
         tool_mocks: Iterable[test_create_test_case_definition_params.ToolMock] | Omit = omit,
@@ -909,7 +908,6 @@ class AsyncTestsResource(AsyncAPIResource):
         type: Literal["retell-llm", "conversation-flow"],
         conversation_flow_id: str | Omit = omit,
         llm_id: str | Omit = omit,
-        version: int | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -926,8 +924,6 @@ class AsyncTestsResource(AsyncAPIResource):
           conversation_flow_id: Conversation flow ID (required when type is conversation-flow)
 
           llm_id: LLM ID (required when type is retell-llm)
-
-          version: Version of the response engine (defaults to latest)
 
           extra_headers: Send extra headers
 
@@ -949,7 +945,6 @@ class AsyncTestsResource(AsyncAPIResource):
                         "type": type,
                         "conversation_flow_id": conversation_flow_id,
                         "llm_id": llm_id,
-                        "version": version,
                     },
                     test_list_test_case_definitions_params.TestListTestCaseDefinitionsParams,
                 ),
@@ -1015,6 +1010,7 @@ class AsyncTestsResource(AsyncAPIResource):
             "gemini-2.5-flash",
             "gemini-2.5-flash-lite",
             "gemini-3.0-flash",
+            "gemini-3.1-flash-lite",
         ]
         | Omit = omit,
         metrics: SequenceNotStr[str] | Omit = omit,

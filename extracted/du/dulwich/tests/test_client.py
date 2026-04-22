@@ -62,6 +62,7 @@ from dulwich.client import (
     build_ls_refs_request_v2,
     check_wants,
     default_urllib3_manager,
+    default_user_agent_string,
     get_credentials_from_store,
     get_transport_and_path,
     get_transport_and_path_from_url,
@@ -136,8 +137,10 @@ class GitClientTests(TestCase):
         )
         self.assertEqual(
             {
+                b"atomic",
                 b"delete-refs",
                 b"ofs-delta",
+                b"push-options",
                 b"report-status",
                 b"side-band-64k",
                 agent_cap,
@@ -563,6 +566,110 @@ class GitClientTests(TestCase):
             {b"refs/heads/master": b"310ca9477129b8586fa2afc779c1f57cf64bba6c"},
         )
         self.assertEqual(self.rout.getvalue(), b"0000")
+
+    def test_send_pack_with_push_options(self) -> None:
+        # Server advertises push-options capability
+        self.rin.write(
+            b"0070310ca9477129b8586fa2afc779c1f57cf64bba6c "
+            b"refs/heads/master\x00report-status delete-refs ofs-delta push-options\n"
+            b"0000000eunpack ok\n"
+            b"001aok refs/heads/blah12\n"
+            b"0000"
+        )
+        self.rin.seek(0)
+
+        def update_refs(refs):
+            return {
+                b"refs/heads/blah12": b"310ca9477129b8586fa2afc779c1f57cf64bba6c",
+                b"refs/heads/master": b"310ca9477129b8586fa2afc779c1f57cf64bba6c",
+            }
+
+        def generate_pack_data(have, want, *, ofs_delta=False, progress=None):
+            return 0, []
+
+        f = BytesIO()
+        write_pack_objects(f.write, [], object_format=DEFAULT_OBJECT_FORMAT)
+        self.client.send_pack(
+            b"/",
+            update_refs,
+            generate_pack_data,
+            push_options=[b"topic=my-feature", b"title=My PR"],
+        )
+        out = self.rout.getvalue()
+        # Expected wire format:
+        # - ref update command with capabilities (including push-options)
+        # - flush-pkt (0000)
+        # - push option pkt-lines (no trailing newline, per git protocol)
+        # - flush-pkt (0000)
+        # - pack data
+        expected = (
+            b"00980000000000000000000000000000000000000000 "
+            b"310ca9477129b8586fa2afc779c1f57cf64bba6c "
+            b"refs/heads/blah12\x00delete-refs ofs-delta push-options report-status"
+            b"0000"
+            b"0014topic=my-feature"
+            b"000ftitle=My PR"
+            b"0000"
+        ) + f.getvalue()
+        self.assertEqual(out, expected)
+
+    def test_send_pack_atomic(self) -> None:
+        # Server advertises atomic capability
+        self.rin.write(
+            b"006a310ca9477129b8586fa2afc779c1f57cf64bba6c "
+            b"refs/heads/master\x00report-status delete-refs ofs-delta atomic\n"
+            b"0000000eunpack ok\n"
+            b"0019ok refs/heads/blah12\n"
+            b"0000"
+        )
+        self.rin.seek(0)
+
+        def update_refs(refs):
+            return {
+                b"refs/heads/blah12": b"310ca9477129b8586fa2afc779c1f57cf64bba6c",
+                b"refs/heads/master": b"310ca9477129b8586fa2afc779c1f57cf64bba6c",
+            }
+
+        def generate_pack_data(have, want, *, ofs_delta=False, progress=None):
+            return 0, []
+
+        f = BytesIO()
+        write_pack_objects(f.write, [], object_format=DEFAULT_OBJECT_FORMAT)
+        self.client.send_pack(
+            b"/",
+            update_refs,
+            generate_pack_data,
+            atomic=True,
+        )
+        out = self.rout.getvalue()
+        # The capabilities line should include "atomic"
+        self.assertIn(b"atomic", out)
+
+    def test_send_pack_atomic_not_supported(self) -> None:
+        # Server does NOT advertise atomic capability
+        self.rin.write(
+            b"0063310ca9477129b8586fa2afc779c1f57cf64bba6c "
+            b"refs/heads/master\x00report-status delete-refs ofs-delta\n"
+            b"0000"
+        )
+        self.rin.seek(0)
+
+        def update_refs(refs):
+            return {
+                b"refs/heads/master": b"310ca9477129b8586fa2afc779c1f57cf64bba6c",
+            }
+
+        def generate_pack_data(have, want, *, ofs_delta=False, progress=None):
+            return 0, []
+
+        self.assertRaises(
+            GitProtocolError,
+            self.client.send_pack,
+            b"/",
+            update_refs,
+            generate_pack_data,
+            atomic=True,
+        )
 
 
 class TestGetTransportAndPath(TestCase):
@@ -2277,6 +2384,38 @@ class TCPGitClientTests(TestCase):
         url = c.get_url(path)
         self.assertEqual("git://[2001:db8::1]/jelmer/dulwich", url)
 
+    def test_proxy_command(self) -> None:
+        c = TCPGitClient("example.com", proxy_command="my-proxy")
+        self.assertEqual("my-proxy", c._proxy_command)
+
+    def test_from_parsedurl_with_proxy_config(self) -> None:
+        from io import BytesIO
+        from urllib.parse import urlparse
+
+        from dulwich.config import ConfigFile
+
+        config = ConfigFile.from_file(
+            BytesIO(
+                b"[core]\n"
+                b"\tgitProxy = proxy-for-kernel for kernel.org\n"
+                b"\tgitProxy = default-proxy\n"
+            )
+        )
+        parsed = urlparse("git://kernel.org/pub/linux")
+        c = TCPGitClient.from_parsedurl(parsed, config=config)
+        self.assertEqual("proxy-for-kernel", c._proxy_command)
+
+        parsed = urlparse("git://example.com/repo")
+        c = TCPGitClient.from_parsedurl(parsed, config=config)
+        self.assertEqual("default-proxy", c._proxy_command)
+
+    def test_from_parsedurl_no_config(self) -> None:
+        from urllib.parse import urlparse
+
+        parsed = urlparse("git://example.com/repo")
+        c = TCPGitClient.from_parsedurl(parsed)
+        self.assertIsNone(c._proxy_command)
+
 
 class AuthCallbackPoolManagerTest(TestCase):
     def test_http_auth_callback(self) -> None:
@@ -2720,6 +2859,45 @@ class DefaultUrllib3ManagerTest(TestCase):
         manager = default_urllib3_manager(config=config, timeout=15)
         self.assertEqual(manager.connection_pool_kw["timeout"], 15)
 
+    def test_user_agent_default(self) -> None:
+        """Test that default user agent is used when no config is set."""
+        manager = default_urllib3_manager(config=None)
+        expected_ua = default_user_agent_string()
+
+        self.assertEqual(manager.headers["User-agent"], expected_ua)
+        self.assertTrue(expected_ua.startswith("git/"))
+        self.assertIn("dulwich", expected_ua)
+
+    def test_user_agent_from_config(self) -> None:
+        """Test that http.userAgent config is respected."""
+        config = ConfigDict()
+        config.set((b"http",), b"useragent", b"custom-agent/1.0")
+
+        manager = default_urllib3_manager(config=config)
+        self.assertEqual(manager.headers["User-agent"], "custom-agent/1.0")
+
+    def test_user_agent_url_specific(self) -> None:
+        """Test that URL-specific http.userAgent config is respected."""
+        config = ConfigDict()
+        config.set((b"http",), b"useragent", b"default-agent/1.0")
+        config.set(
+            (b"http", b"https://github.com/"),
+            b"useragent",
+            b"github-specific-agent/2.0",
+        )
+
+        # For github.com URL, should use the more specific config
+        manager = default_urllib3_manager(
+            config=config, base_url="https://github.com/user/repo"
+        )
+        self.assertEqual(manager.headers["User-agent"], "github-specific-agent/2.0")
+
+        # For other URLs, should use the default config
+        manager = default_urllib3_manager(
+            config=config, base_url="https://gitlab.com/user/repo"
+        )
+        self.assertEqual(manager.headers["User-agent"], "default-agent/1.0")
+
 
 class SubprocessSSHVendorTests(TestCase):
     def setUp(self) -> None:
@@ -3152,16 +3330,34 @@ class TestBuildLsRefsRequestV2(TestCase):
         )
 
         # Check exact argument packets include custom prefixes
-        # Note: ls-refs capability triggers unborn support
+        # Note: ls-refs alone does NOT trigger unborn support
         self.assertEqual(
             arg_packets,
             [
                 b"peel",
                 b"symrefs",
-                b"unborn",
                 b"ref-prefix refs/heads/main",
                 b"ref-prefix refs/tags/v1.0",
             ],
+        )
+
+    def test_ls_refs_without_unborn(self) -> None:
+        # Test case for GitHub issue #2104: Gerrit 3.12.2 advertises ls-refs
+        # but not ls-refs=unborn, and should not receive unborn argument
+        server_caps = {b"ls-refs\n", b"fetch=shallow\n", b"server-option\n"}
+        cmd_packets, arg_packets = build_ls_refs_request_v2(server_caps, None, None)
+
+        # Check exact command packets
+        self.assertEqual(
+            cmd_packets,
+            [b"command=ls-refs\n", b"agent=" + agent_string()],
+        )
+
+        # Should not include unborn argument when server only advertises ls-refs
+        # without explicitly advertising ls-refs=unborn
+        self.assertEqual(
+            arg_packets,
+            [b"peel", b"symrefs", b"ref-prefix HEAD", b"ref-prefix refs/"],
         )
 
     def test_no_unborn_support(self) -> None:

@@ -4,7 +4,7 @@ from typing import Any, Optional, Sequence
 
 from chalk.features._chalkop import Aggregation, op
 from chalk.features._embedding.embedding import embed
-from chalk.features._encoding.converter import FeatureConverter, GenericFeatureConverter
+from chalk.features._encoding.converter import FeatureConverter
 from chalk.features._encoding.missing_value import MissingValueStrategy
 from chalk.features._encoding.primitive import TPrimitive, TPrimitiveArrowScalar
 from chalk.features._encoding.serialized_dtype import deserialize_dtype, serialize_dtype
@@ -203,7 +203,6 @@ __all__ = (
     "Environments",
     "Feature",
     "FeatureConverter",
-    "GenericFeatureConverter",
     "FeatureNotFoundException",
     "FeatureSetBase",
     "FeatureTime",

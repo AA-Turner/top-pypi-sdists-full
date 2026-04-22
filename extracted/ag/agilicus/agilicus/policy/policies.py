@@ -244,13 +244,51 @@ def add_default_to_resource_policies(
         print(f"Adding default to {org.organisation}, {org.id}")
         _add_default_to_resource_policies(
             ctx,
-            org_id,
+            org.id,
             apiclient=apiclient,
             dump_dir=dump_dir,
             dry_run=dry_run,
             delay=delay,
             replace=replace,
         )
+
+
+def find_duplicate_resource_policies(
+    ctx,
+    org_id=None,
+    start_org=None,
+    dump_dir=None,
+    dry_run=False,
+    delay=None,
+    replace=False,
+):
+    org_objs = []
+    if start_org is not None:
+        org_objs = orgs.query(
+            ctx, page_at_id=start_org, org_id="", enabled=True, page_size=150
+        )
+    else:
+        org_id = get_org_from_input_or_ctx(ctx, org_id=org_id)
+        org_objs = [orgs.get_raw(ctx, org_id)]
+
+    token = context.get_token(ctx)
+    apiclient = context.get_apiclient(ctx, token)
+
+    for org in org_objs:
+        print(f"finding duplicates from {org.organisation}, {org.id}")
+        dupes = _find_policy_templates_with_dupes(
+            ctx,
+            org.id,
+            apiclient=apiclient,
+            dump_dir=dump_dir,
+            dry_run=dry_run,
+            delay=delay,
+            replace=replace,
+        )
+
+        for key, templates in dupes:
+            for t in templates:
+                print(f"\t {key}: {t.metadata.id}")
 
 
 def update_resource_policy(
@@ -299,6 +337,30 @@ def _dump_policy_template(ctx, policy, dump_dir):
     out_json.output_json_to_file(
         ctx, policy.to_dict(), os.path.join(dump_dir, file_name)
     )
+
+
+def _find_policy_templates_with_dupes(
+    ctx, org_id, apiclient, dump_dir=None, dry_run=False, delay=None, replace=False
+):
+    """
+    Walks through all resource policies for an organisation, ensuring that they have
+    a default rule. Can optionally back up the existing policies in case something
+    goes wrong in the migration so that they may be reapplied. If replace is True, the
+    default rule be rewritten if present.
+    """
+    object_to_templates = {}
+    templates = list_policy_templates(
+        ctx, org_id=org_id, template_type="simple_resource", apiclient=apiclient
+    )
+
+    for template in templates:
+        spec = template.spec
+        if not spec.object_id:
+            continue
+        obj_tmpls = object_to_templates.setdefault(spec.object_id, [])
+        obj_tmpls.append(template)
+
+    return [pair for pair in object_to_templates.items() if len(pair[1]) > 1]
 
 
 def _add_default_to_resource_policies(

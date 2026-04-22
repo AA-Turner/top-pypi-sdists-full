@@ -332,7 +332,7 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
     Attributes
     ----------
     id : str
-        the id of the deployment
+        the ID of the deployment
     label : str
         the label of the deployment
     description : str
@@ -341,16 +341,11 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         (New in version v2.29) deployment status
     default_prediction_server : dict
         Information about the default prediction server for the deployment.
-        Accepts the following values
-
-        - id ``str``
-          Prediction server ID.
-        - url ``Optional[str]``
-          Prediction server URL.
-        - datarobot-key ``str``
-          Corresponds the to the ``PredictionServer`` "snake_cased"
-          ``datarobot_key`` parameter that allows you to verify and access the prediction server.
-
+        Accepts the following keys: **id** (``str``) — Prediction server ID;
+        **url** (``Optional[str]``) — Prediction server URL; **datarobot-key**
+        (``str``) — Corresponds to the ``PredictionServer`` ``snake_cased``
+        ``datarobot_key`` parameter that allows you to verify and access the
+        prediction server.
     importance : Optional[str]
         deployment importance
     model : dict
@@ -907,7 +902,7 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         Parameters
         ----------
         deployment_id : str
-            the id of the deployment
+            the ID of the deployment
 
         Returns
         -------
@@ -1267,7 +1262,7 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         Parameters
         ----------
         new_model_id : Optional[str]
-            the id of the new model to validate
+            the ID of the new model to validate
         new_registered_model_version_id : Optional[str]
             (new in version 3.4) The registered model version (model package) ID of the new model to use.
 
@@ -2169,7 +2164,7 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         Parameters
         ----------
         model_id : Optional[str]
-            the id of the model
+            the ID of the model
         start_time : datetime, optional
             start of the time period
         end_time : datetime, optional
@@ -2227,7 +2222,7 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         metric : SERVICE_STAT_METRIC, optional
             the service stat metric to retrieve
         model_id : Optional[str | List[str]]
-            the id of the model
+            the ID of the model
         start_time : datetime, optional
             start of the time period
         end_time : datetime, optional
@@ -2281,7 +2276,7 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         Parameters
         ----------
         model_id : str
-            the id of the model
+            the ID of the model
         start_time : datetime
             start of the time period
         end_time : datetime
@@ -2328,7 +2323,7 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         Parameters
         ----------
         model_id : str
-            the id of the model
+            the ID of the model
         start_time : datetime
             start of the time period
         end_time : datetime
@@ -2449,7 +2444,7 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         Parameters
         ----------
         model_id : Optional[str | List[str]]
-            the id of the model
+            the ID of the model
         start_time : datetime
             start of the time period
         end_time : datetime
@@ -2464,7 +2459,7 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
             (New in Version v3.9) the metric value to retrieve,
             must be provided when querying for multiple models
         baseline_model_id : str
-            (New in Version v3.9) the id of the baseline model when calculating percentage change
+            (New in Version v3.9) the ID of the baseline model when calculating percentage change
 
         Returns
         -------
@@ -2511,7 +2506,7 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         metric : ACCURACY_METRIC
             the accuracy metric to retrieve
         model_id : Optional[str | List[str]]
-            the id of the model
+            the ID of the model
         start_time : datetime
             start of the time period
         end_time : datetime
@@ -2625,7 +2620,7 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         Parameters
         ----------
         model_id : str
-            the id of the model
+            the ID of the model
         start_time : datetime
             start of the time period
         end_time : datetime
@@ -2730,7 +2725,7 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         Parameters
         ----------
         model_id : str
-            the id of the model
+            the ID of the model
         start_time : datetime
             start of the time period
         end_time : datetime
@@ -2788,7 +2783,7 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         filepath : str
             path of the csv file
         model_id : str
-            the id of the model
+            the ID of the model
         start_time : datetime
             start of the time period
         end_time : datetime
@@ -3073,6 +3068,70 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         """
         return Challenger.list(self.id)
 
+    def get_agent_card(self) -> Dict[str, Any]:
+        """Retrieve the agent card for this deployment.
+
+        Returns
+        -------
+        agent_card : dict
+            The agent card associated with this deployment.
+
+        Examples
+        --------
+        .. code-block:: python
+
+            from datarobot import Deployment
+            deployment = Deployment.get(deployment_id='5c939e08962d741e34f609f0')
+            agent_card = deployment.get_agent_card()
+        """
+        path = f"{self._path}{self.id}/agentCard/"
+        response = self._client.get(path)
+        return cast(Dict[str, Any], response.json())
+
+    def upload_agent_card(self, agent_card: Dict[str, Any]) -> Dict[str, Any]:
+        """Upload or replace the agent card for this deployment.
+
+        This is only available for external deployments.
+
+        Parameters
+        ----------
+        agent_card : dict
+            The agent card to upload for this deployment.
+
+        Returns
+        -------
+        agent_card : dict
+            The uploaded agent card.
+
+        Examples
+        --------
+        .. code-block:: python
+
+            from datarobot import Deployment
+            deployment = Deployment.get(deployment_id='5c939e08962d741e34f609f0')
+            agent_card = deployment.upload_agent_card({"name": "My Agent", "version": "1.0.0"})
+        """
+        path = f"{self._path}{self.id}/agentCard/"
+        response = self._client.put(path, json=agent_card)
+        return cast(Dict[str, Any], response.json())
+
+    def delete_agent_card(self) -> None:
+        """Delete the agent card for this deployment.
+
+        This is only available for external deployments.
+        This operation is idempotent — returns successfully even if no agent card exists.
+
+        Examples
+        --------
+        .. code-block:: python
+
+            from datarobot import Deployment
+            deployment = Deployment.get(deployment_id='5c939e08962d741e34f609f0')
+            deployment.delete_agent_card()
+        """
+        path = f"{self._path}{self.id}/agentCard/"
+        self._client.delete(path)
+
     def get_champion_model_package(self) -> ChampionModelPackage:
         """
         Get a champion model package for this deployment.
@@ -3211,7 +3270,7 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         actual_pattern: Optional[str]
             The keywords to search in an actual value for a text generation target.
         order_by: Optional[str]
-            The field to sort by (e.g. associationId, timestamp, or customMetrics). Use a leading '-'
+            The field to sort by (e.g., associationId, timestamp, or customMetrics). Use a leading '-'
             to indicate descending order. When ordering by a custom-metric, must also specify 'order_metric'.
             The default is None, which equates to '-timestamp'.
         order_metric: Optional[str]
@@ -3608,7 +3667,9 @@ class DeploymentListFilters:
         that match any of the values will be returned. Supports comma-separated lists.
     tag_values : List[str]
         List of tag values to filter for. If multiple values are specified, deployments with tags
-        that match any of the values will be returned. Supports comma-separated lists."
+        that match any of the values will be returned. Supports comma-separated lists.
+    is_a2a_agent : bool
+        If specified, filters deployments based on whether they are A2A agents."
 
     Examples
     --------
@@ -3671,6 +3732,7 @@ class DeploymentListFilters:
         importance: Optional[List[str]] = None,
         tag_keys: Optional[List[str]] = None,
         tag_values: Optional[List[str]] = None,
+        is_a2a_agent: Optional[bool] = None,
     ) -> None:
         self.role = _check(String(), role)
         self.service_health = _check(t.List(String()), service_health)
@@ -3680,6 +3742,7 @@ class DeploymentListFilters:
         self.importance = _check(t.List(String()), importance)
         self.tag_keys = _check(t.List(String()), tag_keys)
         self.tag_values = _check(t.List(String()), tag_values)
+        self.is_a2a_agent = _check(t.Bool(), is_a2a_agent)
 
     def construct_query_args(self) -> Dict[str, str]:  # pylint: disable=missing-function-docstring
         query_args = {}
@@ -3702,6 +3765,8 @@ class DeploymentListFilters:
             query_args["tagKeys"] = self._list_to_comma_separated_string(self.tag_keys)
         if self.tag_values:
             query_args["tagValues"] = self._list_to_comma_separated_string(self.tag_values)
+        if self.is_a2a_agent is not None:
+            query_args["isA2AAgent"] = str(self.is_a2a_agent).lower()
 
         return query_args
 

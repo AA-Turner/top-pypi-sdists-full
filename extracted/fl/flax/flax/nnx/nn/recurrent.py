@@ -140,6 +140,9 @@ class LSTMCell(RNNCellBase):
     self.promote_dtype = promote_dtype
     self.rngs: rnglib.RngStream | None
     if keep_rngs:
+      warnings.warn(
+          "keep_rngs argument is deprecated. Please use rngs argument in __call__ instead "
+      )
       self.rngs = rngs.carry.fork()
     else:
       self.rngs = nnx.data(None)
@@ -329,6 +332,9 @@ class OptimizedLSTMCell(RNNCellBase):
     self.promote_dtype = promote_dtype
     self.rngs: rnglib.RngStream | None
     if keep_rngs:
+      warnings.warn(
+          "keep_rngs argument is deprecated. Please use rngs argument in __call__ instead "
+      )
       self.rngs = rngs.carry.fork()
     else:
       self.rngs = nnx.data(None)
@@ -493,6 +499,9 @@ class SimpleCell(RNNCellBase):
     self.promote_dtype = promote_dtype
     self.rngs: rnglib.RngStream | None
     if keep_rngs:
+      warnings.warn(
+        "keep_rngs argument is deprecated. Please use rngs argument in __call__ instead"
+      )
       self.rngs = rngs.carry.fork()
     else:
       self.rngs = nnx.data(None)
@@ -650,6 +659,9 @@ class GRUCell(RNNCellBase):
     self.promote_dtype = promote_dtype
     self.rngs: rnglib.RngStream | None
     if keep_rngs:
+      warnings.warn(
+        "keep_rngs argument is deprecated. Please use rngs argument in __call__ instead "
+      )
       self.rngs = rngs.carry.fork()
     else:
       self.rngs = nnx.data(None)
@@ -871,7 +883,7 @@ class RNN(Module):
     # we use split_rngs with splits=1 and squeeze=True to get unique rngs
     # every time RNN is called
     @nnx.split_rngs(splits=1, only=self.broadcast_rngs, squeeze=True)
-    @nnx.scan(
+    @nnx.compat.scan(
       in_axes=(state_axes, iteration.Carry, time_axis),
       out_axes=(iteration.Carry, (0, time_axis))
       if slice_carry

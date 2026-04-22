@@ -29,6 +29,12 @@ from ouroboros.core.worktree import (
 from ouroboros.evaluation.verification_artifacts import build_verification_artifacts
 from ouroboros.mcp.errors import MCPServerError, MCPToolError
 from ouroboros.mcp.job_manager import JobLinks, JobManager
+from ouroboros.mcp.tools.subagent import (
+    build_evolve_subagent,
+    build_subagent_result,
+    emit_subagent_dispatched_event,
+    should_dispatch_via_plugin,
+)
 from ouroboros.mcp.types import (
     ContentType,
     MCPContentItem,
@@ -103,6 +109,9 @@ class EvolveStepHandler:
     """
 
     evolutionary_loop: Any | None = field(default=None, repr=False)
+    event_store: EventStore | None = field(default=None, repr=False)
+    agent_runtime_backend: str | None = field(default=None, repr=False)
+    opencode_mode: str | None = field(default=None, repr=False)
 
     TIMEOUT_SECONDS: int = int(
         os.environ.get("OUROBOROS_GENERATION_TIMEOUT", "7200")
@@ -191,6 +200,34 @@ class EvolveStepHandler:
                 )
             )
 
+        # --- Subagent dispatch: gate on runtime + opencode_mode ---
+        # Parity with qa / execute_seed / lateral / evaluate handlers. When
+        # the opencode bridge plugin is active we emit a `_subagent`
+        # envelope instead of running the Python evolutionary_loop inline.
+        payload = build_evolve_subagent(
+            lineage_id=lineage_id,
+            seed_content=arguments.get("seed_content"),
+            execute=arguments.get("execute", True),
+            parallel=arguments.get("parallel", True),
+            skip_qa=arguments.get("skip_qa", False),
+            project_dir=arguments.get("project_dir"),
+        )
+        if should_dispatch_via_plugin(self.agent_runtime_backend, self.opencode_mode):
+            await emit_subagent_dispatched_event(
+                self.event_store,
+                session_id=lineage_id,
+                payload=payload,
+            )
+            return build_subagent_result(
+                payload,
+                response_shape={
+                    "lineage_id": lineage_id,
+                    "status": "delegated_to_subagent",
+                    "dispatch_mode": "plugin",
+                },
+            )
+
+        # Fall-through: real in-process execution (subprocess / non-opencode runtimes).
         if self.evolutionary_loop is None:
             return Result.err(
                 MCPToolError(
@@ -752,6 +789,8 @@ class StartEvolveStepHandler:
     evolve_handler: EvolveStepHandler | None = field(default=None, repr=False)
     event_store: EventStore | None = field(default=None, repr=False)
     job_manager: JobManager | None = field(default=None, repr=False)
+    agent_runtime_backend: str | None = field(default=None, repr=False)
+    opencode_mode: str | None = field(default=None, repr=False)
 
     def __post_init__(self) -> None:
         self._event_store = self.event_store or EventStore()
@@ -764,7 +803,10 @@ class StartEvolveStepHandler:
             name="ouroboros_start_evolve_step",
             description=(
                 "Start one evolve_step generation in the background and return a job ID "
-                "immediately for later status checks."
+                "immediately for later status checks. "
+                "In plugin mode, evolution is delegated to an OpenCode Task pane and "
+                "job_id is None — results appear in the Task pane instead of being "
+                "pollable via job_status/job_result."
             ),
             parameters=EvolveStepHandler().definition.parameters,
         )
@@ -782,6 +824,40 @@ class StartEvolveStepHandler:
                 )
             )
 
+        # --- Subagent dispatch: gate on runtime + opencode_mode ---
+        # Own-gate parity with StartExecuteSeedHandler. Plugin mode is
+        # terminal: return envelope, skip background-job enqueue entirely.
+        payload = build_evolve_subagent(
+            lineage_id=lineage_id,
+            seed_content=arguments.get("seed_content"),
+            execute=arguments.get("execute", True),
+            parallel=arguments.get("parallel", True),
+            skip_qa=arguments.get("skip_qa", False),
+            project_dir=arguments.get("project_dir"),
+        )
+        if should_dispatch_via_plugin(self.agent_runtime_backend, self.opencode_mode):
+            # Initialize event store first so the audit event persists.
+            await self._event_store.initialize()
+            await emit_subagent_dispatched_event(
+                self._event_store,
+                session_id=lineage_id,
+                payload=payload,
+            )
+
+            # Plugin mode: work runs in the OpenCode child session (Task
+            # pane), NOT in a JobManager background job.  See
+            # StartExecuteSeedHandler for rationale — no fake job_id.
+            return build_subagent_result(
+                payload,
+                response_shape={
+                    "job_id": None,
+                    "lineage_id": lineage_id,
+                    "status": "delegated_to_plugin",
+                    "dispatch_mode": "plugin",
+                },
+            )
+
+        # Fall-through: real background job path.
         async def _runner() -> MCPToolResult:
             result = await self._evolve_handler.handle(arguments)
             if result.is_err:

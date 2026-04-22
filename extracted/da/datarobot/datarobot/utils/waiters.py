@@ -38,7 +38,7 @@ def wait_for_custom_resolution(
     url : str
         The URL we are polling for resolution. This can be either a fully-qualified URL
         like `http://host.com/routeName/` or just the relative route within the API
-        i.e. `routeName/`.
+        i.e., `routeName/`.
     success_fn : Callable[[requests.Response], Any]
         The method to determine if polling should finish. If the method returns a truthy value,
         polling will stop and this value will be returned.
@@ -93,7 +93,7 @@ def wait_for_async_resolution(
     async_location : str
         The URL we are polling for resolution. This can be either a fully-qualified URL
         like `http://host.com/routeName/` or just the relative route within the API
-        i.e. `routeName/`.
+        i.e., `routeName/`.
     max_wait : int
         The number of seconds to wait before giving up
 

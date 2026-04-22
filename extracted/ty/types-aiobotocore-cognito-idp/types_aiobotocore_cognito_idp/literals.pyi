@@ -87,6 +87,7 @@ __all__ = (
     "UsernameAttributeTypeType",
     "VerifiedAttributeTypeType",
     "VerifySoftwareTokenResponseTypeType",
+    "WebAuthnFactorConfigurationTypeType",
 )
 
 AccountTakeoverEventActionTypeType = Literal[
@@ -216,6 +217,9 @@ UserVerificationTypeType = Literal["preferred", "required"]
 UsernameAttributeTypeType = Literal["email", "phone_number"]
 VerifiedAttributeTypeType = Literal["email", "phone_number"]
 VerifySoftwareTokenResponseTypeType = Literal["ERROR", "SUCCESS"]
+WebAuthnFactorConfigurationTypeType = Literal[
+    "MULTI_FACTOR_WITH_USER_VERIFICATION", "SINGLE_FACTOR"
+]
 CognitoIdentityProviderServiceName = Literal["cognito-idp"]
 ServiceName = Literal[
     "accessanalyzer",
@@ -402,6 +406,7 @@ ServiceName = Literal[
     "inspector",
     "inspector-scan",
     "inspector2",
+    "interconnect",
     "internetmonitor",
     "invoicing",
     "iot",
@@ -458,6 +463,7 @@ ServiceName = Literal[
     "marketplace-agreement",
     "marketplace-catalog",
     "marketplace-deployment",
+    "marketplace-discovery",
     "marketplace-entitlement",
     "marketplace-reporting",
     "marketplacecommerceanalytics",
@@ -555,6 +561,7 @@ ServiceName = Literal[
     "rum",
     "s3",
     "s3control",
+    "s3files",
     "s3outposts",
     "s3tables",
     "s3vectors",

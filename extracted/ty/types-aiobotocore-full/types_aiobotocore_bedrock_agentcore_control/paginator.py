@@ -29,6 +29,8 @@ Usage::
         ListPolicyEnginesPaginator,
         ListPolicyGenerationAssetsPaginator,
         ListPolicyGenerationsPaginator,
+        ListRegistriesPaginator,
+        ListRegistryRecordsPaginator,
         ListWorkloadIdentitiesPaginator,
     )
 
@@ -53,6 +55,8 @@ Usage::
         list_policy_engines_paginator: ListPolicyEnginesPaginator = client.get_paginator("list_policy_engines")
         list_policy_generation_assets_paginator: ListPolicyGenerationAssetsPaginator = client.get_paginator("list_policy_generation_assets")
         list_policy_generations_paginator: ListPolicyGenerationsPaginator = client.get_paginator("list_policy_generations")
+        list_registries_paginator: ListRegistriesPaginator = client.get_paginator("list_registries")
+        list_registry_records_paginator: ListRegistryRecordsPaginator = client.get_paginator("list_registry_records")
         list_workload_identities_paginator: ListWorkloadIdentitiesPaginator = client.get_paginator("list_workload_identities")
     ```
 """
@@ -99,6 +103,10 @@ from .type_defs import (
     ListPolicyGenerationAssetsResponseTypeDef,
     ListPolicyGenerationsRequestPaginateTypeDef,
     ListPolicyGenerationsResponseTypeDef,
+    ListRegistriesRequestPaginateTypeDef,
+    ListRegistriesResponseTypeDef,
+    ListRegistryRecordsRequestPaginateTypeDef,
+    ListRegistryRecordsResponseTypeDef,
     ListWorkloadIdentitiesRequestPaginateTypeDef,
     ListWorkloadIdentitiesResponseTypeDef,
 )
@@ -127,6 +135,8 @@ __all__ = (
     "ListPolicyEnginesPaginator",
     "ListPolicyGenerationAssetsPaginator",
     "ListPolicyGenerationsPaginator",
+    "ListRegistriesPaginator",
+    "ListRegistryRecordsPaginator",
     "ListWorkloadIdentitiesPaginator",
 )
 
@@ -493,6 +503,48 @@ class ListPolicyGenerationsPaginator(_ListPolicyGenerationsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListPolicyGenerations.html#BedrockAgentCoreControl.Paginator.ListPolicyGenerations.paginate)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/paginators/#listpolicygenerationspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListRegistriesPaginatorBase = AioPaginator[ListRegistriesResponseTypeDef]
+else:
+    _ListRegistriesPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+
+class ListRegistriesPaginator(_ListRegistriesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListRegistries.html#BedrockAgentCoreControl.Paginator.ListRegistries)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/paginators/#listregistriespaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListRegistriesRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListRegistriesResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListRegistries.html#BedrockAgentCoreControl.Paginator.ListRegistries.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/paginators/#listregistriespaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListRegistryRecordsPaginatorBase = AioPaginator[ListRegistryRecordsResponseTypeDef]
+else:
+    _ListRegistryRecordsPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+
+class ListRegistryRecordsPaginator(_ListRegistryRecordsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListRegistryRecords.html#BedrockAgentCoreControl.Paginator.ListRegistryRecords)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/paginators/#listregistryrecordspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListRegistryRecordsRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListRegistryRecordsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListRegistryRecords.html#BedrockAgentCoreControl.Paginator.ListRegistryRecords.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/paginators/#listregistryrecordspaginator)
         """
 
 

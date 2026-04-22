@@ -30,15 +30,15 @@ class Connector(APIObject):
     Attributes
     ----------
     id : str
-        the id of the connector.
+        the ID of the connector.
     creator_id : str
-        the id of the user who created the connector.
+        the ID of the user who created the connector.
     base_name : str
         the file name of the jar file.
     canonical_name : str
         the user-friendly name of the connector.
     configuration_id : str
-        the id of the configuration of the connector.
+        the ID of the configuration of the connector.
     """
 
     _path = "externalConnectors/"

@@ -39,6 +39,12 @@ class TestLoginApi(unittest.TestCase):
         """
         pass
 
+    def test_login_update(self) -> None:
+        """Test case for login_update
+
+        """
+        pass
+
     def test_logout(self) -> None:
         """Test case for logout
 

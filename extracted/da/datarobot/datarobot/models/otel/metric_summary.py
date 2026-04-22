@@ -31,7 +31,7 @@ class OtelMetricSummary(APIObject):
     description: Optional[str]
         Description of the reported metric.
     metricType: Optional[str]
-        Reported metric type (e.g. counter, gauge, histogram).
+        Reported metric type (e.g., counter, gauge, histogram).
     units: Optional[str]
         Units of the reported metric.
     """
@@ -81,13 +81,13 @@ class OtelMetricSummary(APIObject):
         Parameters
         ----------
         entity_type: str
-            The entity type of the reported metrics (e.g. deployment, or use_case).
+            The entity type of the reported metrics (e.g., deployment, or use_case).
         entity_id: str
-            The entity ID of the reported metrics (e.g. `123456`).
+            The entity ID of the reported metrics (e.g., `123456`).
         search: Optional[str]
             Only return metrics whose name contains this case-sensitive value.
         metric_type: Optional[str]
-            Only return metrics whose type matches this value (e.g. counter, gauge, histogram).
+            Only return metrics whose type matches this value (e.g., counter, gauge, histogram).
 
         Returns
         -------

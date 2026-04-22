@@ -8,6 +8,7 @@ from ..extensions import Enums
 class TokenCreateGrantType(Enums.KnownString):
     CLIENT_CREDENTIALS = "client_credentials"
     AUTHORIZATION_CODE = "authorization_code"
+    REFRESH_TOKEN = "refresh_token"
 
     def __str__(self) -> str:
         return str(self.value)

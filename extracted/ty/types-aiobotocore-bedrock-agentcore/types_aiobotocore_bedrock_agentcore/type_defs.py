@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from types_aiobotocore_bedrock_agentcore.type_defs import AccessDeniedExceptionTypeDef
+    from types_aiobotocore_bedrock_agentcore.type_defs import AgentCardDefinitionTypeDef
 
-    data: AccessDeniedExceptionTypeDef = ...
+    data: AgentCardDefinitionTypeDef = ...
     ```
 """
 
@@ -26,16 +26,20 @@ from aiobotocore.response import StreamingBody
 
 from .literals import (
     AutomationStreamStatusType,
+    BrowserActionStatusType,
     BrowserEnterprisePolicyTypeType,
     BrowserSessionStatusType,
     CodeInterpreterSessionStatusType,
     CommandExecutionStatusType,
     ContentBlockTypeType,
+    DescriptorTypeType,
     LanguageRuntimeType,
     MemoryRecordStatusType,
+    MouseButtonType,
     Oauth2FlowTypeType,
     OperatorTypeType,
     ProgrammingLanguageType,
+    RegistryRecordStatusType,
     ResourceContentTypeType,
     RoleType,
     SessionStatusType,
@@ -51,8 +55,11 @@ else:
 
 
 __all__ = (
+    "A2aDescriptorTypeDef",
     "AccessDeniedExceptionTypeDef",
     "ActorSummaryTypeDef",
+    "AgentCardDefinitionTypeDef",
+    "AgentSkillsDescriptorTypeDef",
     "AutomationStreamTypeDef",
     "AutomationStreamUpdateTypeDef",
     "BasicAuthTypeDef",
@@ -65,6 +72,8 @@ __all__ = (
     "BlobTypeDef",
     "BranchFilterTypeDef",
     "BranchTypeDef",
+    "BrowserActionResultTypeDef",
+    "BrowserActionTypeDef",
     "BrowserEnterprisePolicyTypeDef",
     "BrowserExtensionTypeDef",
     "BrowserProfileConfigurationTypeDef",
@@ -85,10 +94,12 @@ __all__ = (
     "ConversationalTypeDef",
     "CreateEventInputTypeDef",
     "CreateEventOutputTypeDef",
+    "CustomDescriptorTypeDef",
     "DeleteEventInputTypeDef",
     "DeleteEventOutputTypeDef",
     "DeleteMemoryRecordInputTypeDef",
     "DeleteMemoryRecordOutputTypeDef",
+    "DescriptorsTypeDef",
     "EvaluateRequestTypeDef",
     "EvaluateResponseTypeDef",
     "EvaluationContentTypeDef",
@@ -134,8 +145,16 @@ __all__ = (
     "InvokeAgentRuntimeCommandStreamOutputTypeDef",
     "InvokeAgentRuntimeRequestTypeDef",
     "InvokeAgentRuntimeResponseTypeDef",
+    "InvokeBrowserRequestTypeDef",
+    "InvokeBrowserResponseTypeDef",
     "InvokeCodeInterpreterRequestTypeDef",
     "InvokeCodeInterpreterResponseTypeDef",
+    "KeyPressArgumentsTypeDef",
+    "KeyPressResultTypeDef",
+    "KeyShortcutArgumentsTypeDef",
+    "KeyShortcutResultTypeDef",
+    "KeyTypeArgumentsTypeDef",
+    "KeyTypeResultTypeDef",
     "LeftExpressionTypeDef",
     "ListActorsInputPaginateTypeDef",
     "ListActorsInputTypeDef",
@@ -157,6 +176,7 @@ __all__ = (
     "ListSessionsInputTypeDef",
     "ListSessionsOutputTypeDef",
     "LiveViewStreamTypeDef",
+    "McpDescriptorTypeDef",
     "MemoryContentTypeDef",
     "MemoryMetadataFilterExpressionTypeDef",
     "MemoryRecordCreateInputTypeDef",
@@ -167,6 +187,14 @@ __all__ = (
     "MemoryRecordUpdateInputTypeDef",
     "MessageMetadataTypeDef",
     "MetadataValueTypeDef",
+    "MouseClickArgumentsTypeDef",
+    "MouseClickResultTypeDef",
+    "MouseDragArgumentsTypeDef",
+    "MouseDragResultTypeDef",
+    "MouseMoveArgumentsTypeDef",
+    "MouseMoveResultTypeDef",
+    "MouseScrollArgumentsTypeDef",
+    "MouseScrollResultTypeDef",
     "PaginatorConfigTypeDef",
     "PayloadTypeOutputTypeDef",
     "PayloadTypeTypeDef",
@@ -179,6 +207,7 @@ __all__ = (
     "ProxyCredentialsTypeDef",
     "ProxyOutputTypeDef",
     "ProxyTypeDef",
+    "RegistryRecordSummaryTypeDef",
     "ResourceContentTypeDef",
     "ResourceLocationTypeDef",
     "ResourceNotFoundExceptionTypeDef",
@@ -192,11 +221,18 @@ __all__ = (
     "S3LocationTypeDef",
     "SaveBrowserSessionProfileRequestTypeDef",
     "SaveBrowserSessionProfileResponseTypeDef",
+    "ScreenshotArgumentsTypeDef",
+    "ScreenshotResultTypeDef",
     "SearchCriteriaTypeDef",
+    "SearchRegistryRecordsRequestTypeDef",
+    "SearchRegistryRecordsResponseTypeDef",
     "SecretsManagerLocationTypeDef",
+    "ServerDefinitionTypeDef",
     "ServiceQuotaExceededExceptionTypeDef",
     "SessionFilterTypeDef",
     "SessionSummaryTypeDef",
+    "SkillDefinitionTypeDef",
+    "SkillMdDefinitionTypeDef",
     "SpanContextTypeDef",
     "StartBrowserSessionRequestTypeDef",
     "StartBrowserSessionResponseTypeDef",
@@ -216,6 +252,7 @@ __all__ = (
     "TokenUsageTypeDef",
     "ToolArgumentsTypeDef",
     "ToolResultStructuredContentTypeDef",
+    "ToolsDefinitionTypeDef",
     "UpdateBrowserStreamRequestTypeDef",
     "UpdateBrowserStreamResponseTypeDef",
     "UserIdentifierTypeDef",
@@ -225,12 +262,26 @@ __all__ = (
 )
 
 
+class AgentCardDefinitionTypeDef(TypedDict):
+    schemaVersion: NotRequired[str]
+    inlineContent: NotRequired[str]
+
+
 class AccessDeniedExceptionTypeDef(TypedDict):
     message: NotRequired[str]
 
 
 class ActorSummaryTypeDef(TypedDict):
     actorId: str
+
+
+class SkillDefinitionTypeDef(TypedDict):
+    schemaVersion: NotRequired[str]
+    inlineContent: NotRequired[str]
+
+
+class SkillMdDefinitionTypeDef(TypedDict):
+    inlineContent: NotRequired[str]
 
 
 class AutomationStreamTypeDef(TypedDict):
@@ -277,6 +328,95 @@ class BranchFilterTypeDef(TypedDict):
 class BranchTypeDef(TypedDict):
     name: str
     rootEventId: NotRequired[str]
+
+
+class KeyPressResultTypeDef(TypedDict):
+    status: BrowserActionStatusType
+    error: NotRequired[str]
+
+
+class KeyShortcutResultTypeDef(TypedDict):
+    status: BrowserActionStatusType
+    error: NotRequired[str]
+
+
+class KeyTypeResultTypeDef(TypedDict):
+    status: BrowserActionStatusType
+    error: NotRequired[str]
+
+
+class MouseClickResultTypeDef(TypedDict):
+    status: BrowserActionStatusType
+    error: NotRequired[str]
+
+
+class MouseDragResultTypeDef(TypedDict):
+    status: BrowserActionStatusType
+    error: NotRequired[str]
+
+
+class MouseMoveResultTypeDef(TypedDict):
+    status: BrowserActionStatusType
+    error: NotRequired[str]
+
+
+class MouseScrollResultTypeDef(TypedDict):
+    status: BrowserActionStatusType
+    error: NotRequired[str]
+
+
+class ScreenshotResultTypeDef(TypedDict):
+    status: BrowserActionStatusType
+    error: NotRequired[str]
+    data: NotRequired[bytes]
+
+
+class KeyPressArgumentsTypeDef(TypedDict):
+    key: str
+    presses: NotRequired[int]
+
+
+class KeyShortcutArgumentsTypeDef(TypedDict):
+    keys: Sequence[str]
+
+
+class KeyTypeArgumentsTypeDef(TypedDict):
+    text: str
+
+
+class MouseClickArgumentsTypeDef(TypedDict):
+    x: int
+    y: int
+    button: NotRequired[MouseButtonType]
+    clickCount: NotRequired[int]
+
+
+class MouseDragArgumentsTypeDef(TypedDict):
+    endX: int
+    endY: int
+    startX: int
+    startY: int
+    button: NotRequired[MouseButtonType]
+
+
+class MouseMoveArgumentsTypeDef(TypedDict):
+    x: int
+    y: int
+
+
+class MouseScrollArgumentsTypeDef(TypedDict):
+    x: int
+    y: int
+    deltaX: NotRequired[int]
+    deltaY: NotRequired[int]
+
+
+ScreenshotArgumentsTypeDef = TypedDict(
+    "ScreenshotArgumentsTypeDef",
+    {
+        "format": NotRequired[Literal["PNG"]],
+    },
+)
 
 
 class BrowserProfileConfigurationTypeDef(TypedDict):
@@ -380,6 +520,10 @@ class MetadataValueTypeDef(TypedDict):
 
 
 TimestampTypeDef = Union[datetime, str]
+
+
+class CustomDescriptorTypeDef(TypedDict):
+    inlineContent: NotRequired[str]
 
 
 class DeleteEventInputTypeDef(TypedDict):
@@ -538,7 +682,8 @@ class ListCodeInterpreterSessionsRequestTypeDef(TypedDict):
 
 class ListMemoryRecordsInputTypeDef(TypedDict):
     memoryId: str
-    namespace: str
+    namespace: NotRequired[str]
+    namespacePath: NotRequired[str]
     memoryStrategyId: NotRequired[str]
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
@@ -552,6 +697,16 @@ class SessionSummaryTypeDef(TypedDict):
     sessionId: str
     actorId: str
     createdAt: datetime
+
+
+class ServerDefinitionTypeDef(TypedDict):
+    schemaVersion: NotRequired[str]
+    inlineContent: NotRequired[str]
+
+
+class ToolsDefinitionTypeDef(TypedDict):
+    protocolVersion: NotRequired[str]
+    inlineContent: NotRequired[str]
 
 
 class MemoryContentTypeDef(TypedDict):
@@ -581,6 +736,13 @@ class SaveBrowserSessionProfileRequestTypeDef(TypedDict):
     clientToken: NotRequired[str]
 
 
+class SearchRegistryRecordsRequestTypeDef(TypedDict):
+    searchQuery: str
+    registryIds: Sequence[str]
+    maxResults: NotRequired[int]
+    filters: NotRequired[Mapping[str, Any]]
+
+
 class StopBrowserSessionRequestTypeDef(TypedDict):
     browserIdentifier: str
     sessionId: str
@@ -607,6 +769,15 @@ class StopRuntimeSessionRequestTypeDef(TypedDict):
 class ValidationExceptionFieldTypeDef(TypedDict):
     name: str
     message: str
+
+
+class A2aDescriptorTypeDef(TypedDict):
+    agentCard: AgentCardDefinitionTypeDef
+
+
+class AgentSkillsDescriptorTypeDef(TypedDict):
+    skillMd: SkillMdDefinitionTypeDef
+    skillDefinition: NotRequired[SkillDefinitionTypeDef]
 
 
 class StreamUpdateTypeDef(TypedDict):
@@ -768,6 +939,28 @@ class InvokeAgentRuntimeRequestTypeDef(TypedDict):
     accountId: NotRequired[str]
 
 
+class BrowserActionResultTypeDef(TypedDict):
+    mouseClick: NotRequired[MouseClickResultTypeDef]
+    mouseMove: NotRequired[MouseMoveResultTypeDef]
+    mouseDrag: NotRequired[MouseDragResultTypeDef]
+    mouseScroll: NotRequired[MouseScrollResultTypeDef]
+    keyType: NotRequired[KeyTypeResultTypeDef]
+    keyPress: NotRequired[KeyPressResultTypeDef]
+    keyShortcut: NotRequired[KeyShortcutResultTypeDef]
+    screenshot: NotRequired[ScreenshotResultTypeDef]
+
+
+class BrowserActionTypeDef(TypedDict):
+    mouseClick: NotRequired[MouseClickArgumentsTypeDef]
+    mouseMove: NotRequired[MouseMoveArgumentsTypeDef]
+    mouseDrag: NotRequired[MouseDragArgumentsTypeDef]
+    mouseScroll: NotRequired[MouseScrollArgumentsTypeDef]
+    keyType: NotRequired[KeyTypeArgumentsTypeDef]
+    keyPress: NotRequired[KeyPressArgumentsTypeDef]
+    keyShortcut: NotRequired[KeyShortcutArgumentsTypeDef]
+    screenshot: NotRequired[ScreenshotArgumentsTypeDef]
+
+
 class BrowserSessionStreamTypeDef(TypedDict):
     automationStream: AutomationStreamTypeDef
     liveViewStream: NotRequired[LiveViewStreamTypeDef]
@@ -881,7 +1074,8 @@ ListMemoryExtractionJobsInputPaginateTypeDef = TypedDict(
 
 class ListMemoryRecordsInputPaginateTypeDef(TypedDict):
     memoryId: str
-    namespace: str
+    namespace: NotRequired[str]
+    namespacePath: NotRequired[str]
     memoryStrategyId: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
@@ -911,6 +1105,11 @@ class ListSessionsOutputTypeDef(TypedDict):
     sessionSummaries: list[SessionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+
+class McpDescriptorTypeDef(TypedDict):
+    server: ServerDefinitionTypeDef
+    tools: ToolsDefinitionTypeDef
 
 
 class MemoryRecordCreateInputTypeDef(TypedDict):
@@ -990,6 +1189,18 @@ class ToolArgumentsTypeDef(TypedDict):
     directoryPath: NotRequired[str]
     taskId: NotRequired[str]
     runtime: NotRequired[LanguageRuntimeType]
+
+
+class InvokeBrowserResponseTypeDef(TypedDict):
+    result: BrowserActionResultTypeDef
+    sessionId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class InvokeBrowserRequestTypeDef(TypedDict):
+    browserIdentifier: str
+    sessionId: str
+    action: BrowserActionTypeDef
 
 
 class StartBrowserSessionResponseTypeDef(TypedDict):
@@ -1075,6 +1286,13 @@ class ExtractionJobMetadataTypeDef(TypedDict):
     strategyId: NotRequired[str]
     sessionId: NotRequired[str]
     actorId: NotRequired[str]
+
+
+class DescriptorsTypeDef(TypedDict):
+    mcp: NotRequired[McpDescriptorTypeDef]
+    a2a: NotRequired[A2aDescriptorTypeDef]
+    custom: NotRequired[CustomDescriptorTypeDef]
+    agentSkills: NotRequired[AgentSkillsDescriptorTypeDef]
 
 
 class BatchCreateMemoryRecordsInputTypeDef(TypedDict):
@@ -1222,6 +1440,20 @@ class ListMemoryExtractionJobsOutputTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 
+class RegistryRecordSummaryTypeDef(TypedDict):
+    registryArn: str
+    recordArn: str
+    recordId: str
+    name: str
+    descriptorType: DescriptorTypeType
+    descriptors: DescriptorsTypeDef
+    version: str
+    status: RegistryRecordStatusType
+    createdAt: datetime
+    updatedAt: datetime
+    description: NotRequired[str]
+
+
 class InvokeAgentRuntimeCommandResponseTypeDef(TypedDict):
     runtimeSessionId: str
     traceId: str
@@ -1304,17 +1536,24 @@ ListEventsInputTypeDef = TypedDict(
 
 class RetrieveMemoryRecordsInputPaginateTypeDef(TypedDict):
     memoryId: str
-    namespace: str
     searchCriteria: SearchCriteriaTypeDef
+    namespace: NotRequired[str]
+    namespacePath: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
 class RetrieveMemoryRecordsInputTypeDef(TypedDict):
     memoryId: str
-    namespace: str
     searchCriteria: SearchCriteriaTypeDef
+    namespace: NotRequired[str]
+    namespacePath: NotRequired[str]
     nextToken: NotRequired[str]
     maxResults: NotRequired[int]
+
+
+class SearchRegistryRecordsResponseTypeDef(TypedDict):
+    registryRecords: list[RegistryRecordSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class GetBrowserSessionResponseTypeDef(TypedDict):

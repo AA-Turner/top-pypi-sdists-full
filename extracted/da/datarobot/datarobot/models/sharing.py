@@ -38,7 +38,7 @@ if TYPE_CHECKING:
 
 
 class SharingAccess(APIObject):
-    """Represents metadata about whom a entity (e.g. a data store) has been shared with
+    """Represents metadata about whom a entity (e.g., a data store) has been shared with
 
     .. versionadded:: v2.14
 
@@ -71,7 +71,7 @@ class SharingAccess(APIObject):
         (use to create projects, predictions, etc). For OWNER can_use_data is always True. If role
         is empty canUseData is ignored.
     user_id : str or None
-        the id of the user
+        the ID of the user
     """
 
     _converter = t.Dict({

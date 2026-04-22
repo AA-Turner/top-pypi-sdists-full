@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openinference-instrumentation-haystack
-Version: 0.1.30
+Version: 0.1.31
 Summary: OpenInference Haystack Instrumentation
 Project-URL: Homepage, https://github.com/Arize-ai/openinference/tree/main/python/instrumentation/openinference-instrumentation-haystack
 Author-email: OpenInference Authors <oss@arize.com>
@@ -26,13 +26,6 @@ Requires-Dist: typing-extensions
 Requires-Dist: wrapt
 Provides-Extra: instruments
 Requires-Dist: haystack-ai>=2.18.0; extra == 'instruments'
-Provides-Extra: test
-Requires-Dist: cohere-haystack; extra == 'test'
-Requires-Dist: haystack-ai==2.18.0; extra == 'test'
-Requires-Dist: opentelemetry-sdk; extra == 'test'
-Requires-Dist: pytest-asyncio; extra == 'test'
-Requires-Dist: pytest-recording; extra == 'test'
-Requires-Dist: vcrpy<8.0.0,>=7.0.0; extra == 'test'
 Description-Content-Type: text/markdown
 
 # OpenInference Haystack Instrumentation

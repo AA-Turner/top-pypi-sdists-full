@@ -1,6 +1,6 @@
 [project]
 name = "streamlit-extras"
-version = "1.4.1"
+version = "1.5.0"
 license = "Apache-2.0"
 description = "A community-driven collection of useful Streamlit components and utilities that extend Streamlit's functionality."
 authors = [
@@ -44,10 +44,10 @@ path = "scripts/hatch_build.py"
 [dependency-groups]
 dev = [
   "pytest >= 7.4.4",
-  "mypy==1.20.0",
-  "ty==0.0.27",
+  "mypy==1.20.1",
+  "ty==0.0.31",
   "pre-commit >= 3.0.0",
-  "ruff==0.15.8",
+  "ruff==0.15.10",
   "types-requests",
   "types-python-dateutil",
   "types-pytz",

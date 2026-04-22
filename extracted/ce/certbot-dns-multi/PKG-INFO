@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: certbot-dns-multi
-Version: 4.34.0
+Version: 4.35.1
 Summary: Certbot DNS plugin supporting multiple providers, using github.com/go-acme/lego
 License: MIT
 Requires-Python: >=3.9

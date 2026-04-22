@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: geocif
-Version: 0.4.422
+Version: 0.4.423
 Summary: Models to visualize and forecast crop conditions and yields
 Author-email: Ritvik Sahajpal <ritvik@umd.edu>
 License: MIT
@@ -179,6 +179,20 @@ geocif supports the following model types (configured via `models` in `[DEFAULT]
 Configured via `feature_selection` in `[ML]`:
 
 `none`, `SelectKBest`, `BorutaPy`, `Leshy`, `gOMP`, `RFECV`, `RFE`, `lasso`, `mrmr`, `SHAP`, `stabl`, `PowerShap`, `BorutaShap`, `Genetic`, `feature_engine`, `multi`
+
+### Cluster analysis
+
+Optional analysis that clusters regions by their CID profiles and identifies which CIDs discriminate each cluster. Works with or without yield data — falls back to a proxy CID (e.g., AUC_NDVI) when yield is unavailable. Enabled via `[ML]`:
+
+```ini
+run_cluster_analysis = True
+cluster_analysis_proxy = AUC_NDVI   ; proxy CID when yield is unavailable
+cluster_analysis_max_k = 8          ; maximum clusters for silhouette selection
+cluster_analysis_top_n = 20         ; top N CIDs in discrimination heatmap
+cluster_analysis_variance = 0.85    ; cumulative PCA variance to retain
+```
+
+Pipeline: PCA dimensionality reduction → Ward's hierarchical clustering (silhouette-selected k) → Kruskal-Wallis + Cohen's d for CID discrimination → mutual information for CID-target association. Outputs: cluster map (choropleth), dendrogram, PCA biplot, discrimination heatmap with significance stars, target boxplot, and per-CID maps for top discriminating indices.
 
 ### Spatial neighbor features
 
@@ -391,6 +405,11 @@ panel_model = True
 cat_features = ["Harvest Year", "Region_ID", "Region"]
 outlook_n_years = 10        ; Number of historical years for yield outlook comparison
 outlook_aggregation = mean  ; mean or median
+run_cluster_analysis = False
+cluster_analysis_proxy = AUC_NDVI
+cluster_analysis_max_k = 8
+cluster_analysis_top_n = 20
+cluster_analysis_variance = 0.85
 
 [LOGGING]
 log_level = INFO

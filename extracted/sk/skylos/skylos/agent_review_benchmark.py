@@ -25,6 +25,20 @@ AGENT_REVIEW_TAXONOMY: dict[str, str] = {
     "technical_debt": "Repo hotspots with high fan-in, wide APIs, and thin resilience.",
 }
 
+SECURITY_BENCHMARK_CLASSES: dict[str, str] = {
+    "sql_injection": "Tainted input reaches SQL/query construction or execution.",
+    "command_injection": "Untrusted input reaches a shell or command-execution sink.",
+    "ssrf": "Untrusted input reaches an outbound HTTP or network fetch sink.",
+    "path_traversal": "Untrusted path segments reach filesystem read/write/delete sinks.",
+    "file_upload": "User-controlled uploads or filenames reach unsafe storage/serving paths.",
+    "auth_bypass": "Authentication or token verification is disabled or trivially bypassed.",
+    "xss": "Untrusted content reaches HTML/JS rendering without contextual escaping.",
+    "open_redirect": "Untrusted URL input reaches redirect/navigation sinks.",
+    "deserialization": "Untrusted data reaches unsafe deserialize/load primitives.",
+    "archive_extraction": "Archive extraction or unpack flows allow path escape or overwrite.",
+    "secrets_exposure": "Secrets, credentials, or agent config are exposed or mishandled.",
+}
+
 IMPORTANCE_WEIGHTS = {
     "low": 1.0,
     "medium": 1.0,
@@ -33,6 +47,8 @@ IMPORTANCE_WEIGHTS = {
 }
 
 DEFAULT_SCAN_MAX_FILES = 8
+ALLOWED_SCAN_ISSUE_TYPES = {"quality", "security", "security_audit"}
+SCAN_ISSUE_TYPES_FIELD = "issue_types"
 
 
 @dataclass(frozen=True)
@@ -118,6 +134,26 @@ def validate_manifest(
                 f"agent review benchmark case {case_id} must declare source metadata"
             )
 
+        security_classes = case.get("security_classes", [])
+        if security_classes not in (None, []) and not isinstance(security_classes, list):
+            raise ValueError(
+                f"agent review benchmark case {case_id} security_classes must be a list when provided"
+            )
+        if isinstance(security_classes, list):
+            invalid_security_classes = [
+                label
+                for label in security_classes
+                if not isinstance(label, str)
+                or not label.strip()
+                or label not in SECURITY_BENCHMARK_CLASSES
+            ]
+            if invalid_security_classes:
+                allowed = ", ".join(sorted(SECURITY_BENCHMARK_CLASSES))
+                raise ValueError(
+                    f"agent review benchmark case {case_id} has unknown security class "
+                    f"'{invalid_security_classes[0]}'. Allowed: {allowed}"
+                )
+
         scan_cfg = case.get("scan", {})
         if scan_cfg and not isinstance(scan_cfg, dict):
             raise ValueError(
@@ -128,6 +164,35 @@ def validate_manifest(
             if not isinstance(max_files, int) or max_files <= 0:
                 raise ValueError(
                     f"agent review benchmark case {case_id} scan.max_files must be a positive integer"
+                )
+        if isinstance(scan_cfg, dict) and SCAN_ISSUE_TYPES_FIELD in scan_cfg:
+            issue_types = scan_cfg.get(SCAN_ISSUE_TYPES_FIELD)
+            if not isinstance(issue_types, list) or not issue_types:
+                raise ValueError(
+                    f"agent review benchmark case {case_id} scan.issue_types must be a non-empty list"
+                )
+            invalid_issue_types = [
+                issue_type
+                for issue_type in issue_types
+                if not isinstance(issue_type, str) or not issue_type.strip()
+            ]
+            if invalid_issue_types:
+                raise ValueError(
+                    f"agent review benchmark case {case_id} scan.issue_types must only contain strings"
+                )
+            unsupported_issue_types = sorted(
+                {
+                    issue_type
+                    for issue_type in issue_types
+                    if issue_type not in ALLOWED_SCAN_ISSUE_TYPES
+                }
+            )
+            if unsupported_issue_types:
+                allowed = ", ".join(sorted(ALLOWED_SCAN_ISSUE_TYPES))
+                raise ValueError(
+                    "agent review benchmark case "
+                    f"{case_id} has unsupported scan.issue_types value "
+                    f"'{unsupported_issue_types[0]}'. Allowed: {allowed}"
                 )
 
         expect = case.get("expect")
@@ -156,6 +221,12 @@ def validate_manifest(
                         raise ValueError(
                             f"agent review benchmark case {case_id} {mode_name}.{category} has invalid symbol"
                         )
+
+        security_present = (expect.get("present") or {}).get("security") or []
+        if "security" in taxonomy and security_present and not security_classes:
+            raise ValueError(
+                f"agent review benchmark case {case_id} must declare security_classes when it expects present security findings"
+            )
 
     return cases
 
@@ -223,6 +294,7 @@ def _scan_case(
 ) -> dict[str, Any]:
     scan_cfg = case.get("scan") if isinstance(case, dict) else {}
     max_files = int((scan_cfg or {}).get("max_files") or DEFAULT_SCAN_MAX_FILES)
+    issue_types = list((scan_cfg or {}).get(SCAN_ISSUE_TYPES_FIELD) or [])
     prepared = prepare_case_scan(case_path, max_files=max_files)
 
     config = AnalyzerConfig(
@@ -239,7 +311,7 @@ def _scan_case(
         repo_context_map=prepared["repo_context_map"],
     )
     analyzer = SkylosLLM(config)
-    result = analyzer.analyze_files(prepared["files"])
+    result = analyzer.analyze_files(prepared["files"], issue_types=issue_types or None)
 
     symbols = {
         _normalize_symbol(getattr(finding, "symbol", None))

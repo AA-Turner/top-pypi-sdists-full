@@ -1,0 +1,249 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+#
+# Receipt-Gate — reusable workflow enforcing "Enforcement by Receipt" (OMN-TBD).
+#
+# Every PR must cite a Linear ticket whose dod_evidence items all have PASS
+# receipts at the canonical path `<receipts-dir>/<OMN-XXXX>/<item-id>/<check-type>.yaml`.
+# A missing or failing receipt blocks merge.
+#
+# Called by per-repo workflows via `workflow_call` (see cr-thread-gate.yml
+# pattern for precedent). Required status-check name: `receipt-gate / verify`.
+#
+# Inputs:
+#   contracts-dir:  path to ticket contract YAMLs, relative to the
+#                   onex_change_control checkout (default: contracts). The
+#                   Run Receipt-Gate step always prepends `.onex_change_control/`
+#                   since this workflow checks that repo out at that path.
+#   receipts-dir:   path to ModelDodReceipt YAMLs, relative to the
+#                   onex_change_control checkout (default: drift/dod_receipts).
+#
+# Secrets:
+#   (none — receipts + contracts are in-repo files, no API calls required)
+
+name: receipt-gate
+
+on:
+  workflow_call:
+    inputs:
+      contracts-dir:
+        description: Path to the contracts directory on disk, relative to the onex_change_control checkout.
+        type: string
+        required: false
+        default: contracts
+      receipts-dir:
+        description: Path to the dod_receipts directory on disk, relative to the onex_change_control checkout.
+        type: string
+        required: false
+        default: drift/dod_receipts
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  verify:
+    name: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 1
+
+      # We need the onex_change_control repo to find contracts + receipts.
+      # In single-repo usage (omnibase_core hosting the gate), the tree is
+      # already present as a submodule or sibling checkout. In fan-out
+      # deployment, each caller repo checks out onex_change_control here.
+      - name: Check out onex_change_control (for contracts + receipts)
+        uses: actions/checkout@v4
+        with:
+          repository: OmniNode-ai/onex_change_control
+          path: .onex_change_control
+          ref: main
+          fetch-depth: 1
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      # Check out omnibase_compat + omnibase_core from source when running in a
+      # caller repo (not omnibase_core itself). This avoids the broken PyPI
+      # fallback where omnibase-core's published package references a git+https
+      # URL for omnibase-compat that no longer resolves.
+      - name: Check out omnibase_compat (transitive dep)
+        if: "! hashFiles('./src/omnibase_compat/__init__.py') && ! hashFiles('./omnibase_compat/pyproject.toml')"
+        uses: actions/checkout@v4
+        with:
+          repository: OmniNode-ai/omnibase_compat
+          path: .receipt-gate-deps/omnibase_compat
+          ref: main
+          fetch-depth: 1
+
+      - name: Check out omnibase_core (for receipt-gate deps)
+        if: "! hashFiles('./src/omnibase_core/__init__.py') && ! hashFiles('./omnibase_core/pyproject.toml')"
+        uses: actions/checkout@v4
+        with:
+          repository: OmniNode-ai/omnibase_core
+          path: .receipt-gate-deps/omnibase_core
+          ref: main
+          fetch-depth: 1
+
+      - name: Install omnibase_core
+        # Install from the PR's in-tree checkout (omnibase_core repo itself),
+        # or a sibling checkout, or the .receipt-gate-deps source checkouts.
+        # Never fall back to PyPI — the published package has a broken transitive
+        # dep (git+https omnibase-compat URL) that fails in CI.
+        run: |
+          # OMN-9198 history (see docs/diagnosis-omn-9198-receipt-gate-v3-resolver-prefers-index.md):
+          #   - PR #850 --no-index on pass 2: uv couldn't satisfy caller's
+          #     `omnibase-core>=X` with index disabled.
+          #   - PR #851 single-pass `--reinstall-package -e`: uv preferred the
+          #     PyPI wheel over editable when both advertised 0.39.0.
+          #   - PR #854 uninstall-then-install-editable: uv rebuilt the PyPI
+          #     sdist instead of using the -e path.
+          #   - PR #855 `--no-binary omnibase-core`: uv obeyed the no-wheel rule
+          #     but built from the PyPI SOURCE (sdist), not from -e, because
+          #     index and -e both ship 0.39.0.
+          #
+          # Root cause: `-e path` REGISTERS a candidate with uv's resolver but
+          # does not MANDATE it. When an index candidate matches the same version,
+          # uv picks either — and empirically picks the index (sdist or wheel).
+          #
+          # Fix: skip uv's resolver for omnibase-core entirely. Install transitive
+          # deps explicitly from PyPI first, then `uv pip install --no-deps -e <path>`
+          # to tell uv "install exactly this path, do not consult the index".
+          # --no-deps is the only flag that fully bypasses candidate-selection.
+          #
+          # The explicit dep list below mirrors omnibase_core/pyproject.toml
+          # [dependencies]. If core adds a new runtime dep this list must be
+          # updated (tracked as OMN-FOLLOWUP pre-merge drift check).
+          uv pip uninstall --system omnibase-core omnibase-compat 2>/dev/null || true
+
+          if [ -f "./omnibase_compat/pyproject.toml" ]; then
+            compat_path="./omnibase_compat"
+          elif [ -f "./.receipt-gate-deps/omnibase_compat/pyproject.toml" ]; then
+            compat_path="./.receipt-gate-deps/omnibase_compat"
+          else
+            compat_path=""
+          fi
+
+          if [ -n "$compat_path" ]; then
+            uv pip install --system --refresh -e "$compat_path"
+          fi
+
+          if [ -f "./pyproject.toml" ] && grep -qE '^\s*name\s*=\s*["\x27]omnibase[-_.]core["\x27]' ./pyproject.toml 2>/dev/null; then
+            core_path="."
+          elif [ -f "./omnibase_core/pyproject.toml" ]; then
+            core_path="./omnibase_core"
+          elif [ -f "./.receipt-gate-deps/omnibase_core/pyproject.toml" ]; then
+            core_path="./.receipt-gate-deps/omnibase_core"
+          else
+            echo "::error::omnibase_core not installable — no source checkout available"
+            exit 1
+          fi
+
+          # Seed omnibase_core's transitive deps from PyPI before the --no-deps +
+          # --no-index editable install below. Keep in sync with
+          # omnibase_core/pyproject.toml [dependencies].
+          #
+          # Also includes `hatchling` (build backend from [build-system.requires])
+          # because the editable install below uses --no-index, which disables
+          # PyPI lookups for EVERYTHING including build-system requirements.
+          # Without hatchling pre-installed, uv cannot build the editable source.
+          uv pip install --system \
+            'hatchling' \
+            'editables' \
+            'pydantic>=2.12.5,<3.0.0' \
+            'pyyaml>=6.0.2,<7.0.0' \
+            'dependency-injector>=4.48.3,<5.0.0' \
+            'deepdiff>=8.0.0,<10.0.0' \
+            'click>=8.3.1,<9.0.0' \
+            'cryptography>=46.0.3,<47.0.0' \
+            'jsonschema>=4.25.1,<5.0.0' \
+            'httpx>=0.27.0,<1.0.0' \
+            'blake3>=1.0.8,<2.0.0' \
+            'ruamel-yaml>=0.18.0'
+
+          # OMN-9283: PR #864 (--no-index + --no-deps + -e <subpath>) worked for
+          # omnibase_core's OWN PRs (core_path=".") but FAILED in downstream callers
+          # where core_path="./.receipt-gate-deps/omnibase_core". Evidence from
+          # omnibase_infra PR #1351 run 24661986639 job 72110050548:
+          #   × No solution found when resolving dependencies:
+          #   ╰─▶ Because omnibase-core was not found in the provided package
+          #       locations and you require omnibase-core>=0.39.0, we can conclude
+          #       that your requirements are unsatisfiable.
+          #
+          # Root cause: uv auto-discovers the cwd's pyproject.toml (the caller
+          # repo, e.g. omnibase_infra) and treats its "omnibase-core>=0.39.0"
+          # declaration as a top-level resolver requirement. A nested -e <subpath>
+          # outside the cwd-project root is registered as a candidate offer but
+          # is not matched against the cwd-project's own constraint. With
+          # --no-index, there is no other source, so uv fails with "no solution".
+          # Self-project ("." as editable) works because the editable IS the cwd
+          # project — uv collapses them into one node.
+          #
+          # Fix (Option B from diagnosis-receipt-gate-v4-subpath-editable.md):
+          # build a wheel from source, install from a local --find-links. The
+          # resolver operates on a named package from a wheel location, which
+          # unambiguously satisfies the cwd-project's version constraint.
+          # Not editable, but receipt-gate imports the module once and exits —
+          # editability was never a functional requirement, only a means to use
+          # source instead of PyPI.
+          mkdir -p /tmp/receipt-gate-wheels
+          (cd "$core_path" && uv build --wheel --out-dir /tmp/receipt-gate-wheels)
+
+          uv pip install --system --no-deps --no-index \
+            --find-links /tmp/receipt-gate-wheels \
+            --reinstall-package omnibase-core \
+            omnibase-core
+
+      - name: Verify receipt_gate_cli importable
+        # Fail-fast check: the preceding install step claims success, but if uv
+        # silently substituted a PyPI wheel for omnibase-core (OMN-9198), the
+        # installed package won't contain recent modules. Catch that here so the
+        # actual gate step gets a clear error instead of a stack trace.
+        run: |
+          python -c "from omnibase_core.validation import receipt_gate_cli" || {
+            echo "::error::omnibase_core.validation.receipt_gate_cli not importable — install step silently picked a stale PyPI wheel"
+            python -c "import omnibase_core, os; print('omnibase_core at:', os.path.dirname(omnibase_core.__file__))" || true
+            exit 1
+          }
+
+      - name: Resolve PR body
+        id: resolve_body
+        # merge_group events do not carry pull_request.body. Fetch it from the
+        # merge_group head_ref (format: pr-<num>-<sha>) via the GitHub API so
+        # the gate evaluates the same body across pull_request and merge_group.
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_EVENT_BODY: ${{ github.event.pull_request.body }}
+          MERGE_GROUP_HEAD_REF: ${{ github.event.merge_group.head_ref }}
+        run: |
+          set -e
+          if [ -n "$PR_EVENT_BODY" ]; then
+            printf '%s' "$PR_EVENT_BODY" > /tmp/pr_body.txt
+          elif [ -n "$MERGE_GROUP_HEAD_REF" ]; then
+            pr_num="$(printf '%s' "$MERGE_GROUP_HEAD_REF" | sed -E 's@^.*/pr-([0-9]+)-.*$@\1@')"
+            if [ -n "$pr_num" ] && [ "$pr_num" != "$MERGE_GROUP_HEAD_REF" ]; then
+              gh pr view "$pr_num" --repo "${{ github.repository }}" --json body --jq '.body' > /tmp/pr_body.txt
+            else
+              : > /tmp/pr_body.txt
+            fi
+          else
+            : > /tmp/pr_body.txt
+          fi
+
+      - name: Run Receipt-Gate
+        run: |
+          PR_BODY="$(cat /tmp/pr_body.txt)"
+          python -m omnibase_core.validation.receipt_gate_cli \
+            --pr-body "$PR_BODY" \
+            --contracts-dir ".onex_change_control/${{ inputs.contracts-dir }}" \
+            --receipts-dir ".onex_change_control/${{ inputs.receipts-dir }}"

@@ -41,14 +41,13 @@ from xblock.fields import (
     ScoreField,
     String,
     Timedelta,
-    UserScope,
     XMLString,
 )
 from xblock.progress import Progress
 from xblock.runtime import KeyValueStore, KvsFieldData
 from xblock.scorable import ScorableXBlockMixin, Score, ShowCorrectness
 
-from xblocks_contrib.common.xml_utils import LegacyXmlMixin, is_pointer_tag
+from xblocks_contrib.legacy_utils.xml_utils import LegacyXmlMixin, is_pointer_tag
 from xblocks_contrib.problem.capa import responsetypes
 from xblocks_contrib.problem.capa.capa_problem import LoncapaProblem, LoncapaSystem
 from xblocks_contrib.problem.capa.inputtypes import Status
@@ -93,226 +92,6 @@ class SerializationError(Exception):
         self.location = location
 
 
-class RawMixin:
-    """
-    Common code between RawDescriptor and XBlocks converted from XModules.
-    """
-
-    @classmethod
-    def definition_from_xml(cls, xml_object, system):  # pylint: disable=unused-argument
-        """Convert XML node into a dictionary with 'data' key for XBlock."""
-        return {"data": etree.tostring(xml_object, pretty_print=True, encoding="unicode")}, []
-
-    def definition_to_xml(self, resource_fs):  # pylint: disable=unused-argument
-        """
-        Return an Element if we've kept the import OLX, or None otherwise.
-        """
-        # If there's no self.data, it means that an XBlock/XModule originally
-        # existed for this data at the time of import/editing, but was later
-        # uninstalled. RawDescriptor therefore never got to preserve the
-        # original OLX that came in, and we have no idea how it should be
-        # serialized for export. It's possible that we could do some smarter
-        # fallback here and attempt to extract the data, but it's reasonable
-        # and simpler to just skip this node altogether.
-        if not self.data:
-            log.warning(
-                "Could not serialize %s: No XBlock installed for '%s' tag.",
-                self.usage_key,
-                self.usage_key.block_type,
-            )
-            return None
-
-        # Normal case: Just echo back the original OLX we saved.
-        try:
-            return etree.fromstring(self.data)
-        except etree.XMLSyntaxError as err:
-            # Can't recover here, so just add some info and
-            # re-raise
-            lines = self.data.split("\n")
-            line, offset = err.position
-            msg = (
-                f"Unable to create xml for block {self.usage_key}. "
-                f"Context: '{lines[line - 1][offset - 40: offset + 40]}'"
-            )
-            raise SerializationError(self.usage_key, msg) from err
-
-    @classmethod
-    def parse_xml_new_runtime(cls, node, runtime, keys):
-        """
-        Interpret the parsed XML in `node`, creating a new instance of this
-        module.
-        """
-        # In the new/learning-core-based runtime, XModule parsing (from
-        # XmlMixin) is disabled, so definition_from_xml will not be
-        # called, and instead the "normal" XBlock parse_xml will be used.
-        # However, it's not compatible with RawMixin, so we implement
-        # support here.
-        data_field_value = cls.definition_from_xml(node, None)[0]["data"]
-        for child in node.getchildren():
-            node.remove(child)
-        # Get attributes, if any, via normal parse_xml.
-        try:
-            block = super().parse_xml_new_runtime(node, runtime, keys)
-        except AttributeError:
-            block = super().parse_xml(node, runtime, keys)
-        block.data = data_field_value
-        return block
-
-
-class XModuleMixin(XBlock):
-    """
-    Fields and methods used by XModules internally.
-
-    Adding this Mixin to an :class:`XBlock` allows it to cooperate with old-style :class:`XModules`
-
-    TODO: This mixin is legacy tech debt. Refactor the codebase to remove reliance
-    on XModule-style internals and remove this class.
-    """
-
-    @property
-    def xblock_kvs(self):
-        """
-        Retrieves the internal KeyValueStore for this XBlock.
-
-        Should only be used by the persistence layer. Use with caution.
-        """
-        # if caller wants kvs, caller's assuming it's up to date; so, decache it
-        self.save()
-        return self._field_data._kvs  # pylint: disable=protected-access
-
-    def bind_for_student(self, user_id, wrappers=None):
-        """
-        Set up this XBlock to act as an XModule instead of an XModuleDescriptor.
-
-        Arguments:
-            user_id: The user_id to set in scope_ids
-            wrappers: These are a list functions that put a wrapper, such as
-                      LmsFieldData or OverrideFieldData, around the field_data.
-                      Note that the functions will be applied in the order in
-                      which they're listed. So [f1, f2] -> f2(f1(field_data))
-        """
-
-        # Skip rebinding if we're already bound a user, and it's this user.
-        if self.scope_ids.user_id is not None and user_id == self.scope_ids.user_id:
-            if getattr(self.runtime, "position", None):
-                self.position = self.runtime.position  # update the position of the tab
-            return
-
-        # If we are switching users mid-request, save the data from the old user.
-        self.save()
-
-        # Update scope_ids to point to the new user.
-        self.scope_ids = self.scope_ids._replace(user_id=user_id)
-
-        # Clear out any cached instantiated children.
-        self.clear_child_cache()
-
-        # Clear out any cached field data scoped to the old user.
-        for field in self.fields.values():
-            if field.scope in (Scope.parent, Scope.children):
-                continue
-
-            if field.scope.user == UserScope.ONE:
-                field._del_cached_value(self)  # pylint: disable=protected-access
-                # not the most elegant way of doing this, but if we're removing
-                # a field from the module's field_data_cache, we should also
-                # remove it from its _dirty_fields
-                if field in self._dirty_fields:
-                    del self._dirty_fields[field]
-
-        if wrappers:
-            # Put user-specific wrappers around the field-data service for this block.
-            # Note that these are different from modulestore.xblock_field_data_wrappers, which are not user-specific.
-            wrapped_field_data = self.runtime.service(self, "field-data-unbound")
-            for wrapper in wrappers:
-                wrapped_field_data = wrapper(wrapped_field_data)
-            self._bound_field_data = wrapped_field_data
-            if getattr(self.runtime, "uses_deprecated_field_data", False):
-                # This approach is deprecated but OldModuleStoreRuntime still requires it.
-                # For SplitModuleStoreRuntime, don't set ._field_data this way.
-                self._field_data = wrapped_field_data
-
-    @property
-    def non_editable_metadata_fields(self):
-        """
-        Return the list of fields that should not be editable in Studio.
-
-        When overriding, be sure to append to the superclasses' list.
-        """
-        # We are not allowing editing of xblock tag and name fields at this time (for any component).
-        return [XBlock.tags, XBlock.name]
-
-    def public_view(self, _context):
-        """
-        Default message for blocks that don't implement public_view
-        """
-        alert_html = HTML(
-            '<div class="page-banner"><div class="alert alert-warning">'
-            '<span class="icon icon-alert fa fa fa-warning" aria-hidden="true"></span>'
-            '<div class="message-content">{}</div></div></div>'
-        )
-
-        if self.display_name:
-            display_text = _(
-                "{display_name} is only accessible to enrolled learners. "
-                "Sign in or register, and enroll in this course to view it."
-            ).format(display_name=self.display_name)
-        else:
-            display_text = _(DEFAULT_PUBLIC_VIEW_MESSAGE)  # pylint: disable=translation-of-non-string
-
-        return Fragment(alert_html.format(display_text))
-
-
-class XModuleToXBlockMixin:
-    """
-    Common code needed by XModule and XBlocks converted from XModules.
-
-    TODO: This mixin is legacy tech debt. Refactor ajax handling and
-    XModule-to-XBlock conversion logic to remove the need for this class.
-    """
-
-    @property
-    def ajax_url(self):
-        """
-        Returns the URL for the ajax handler.
-        """
-        return self.runtime.handler_url(self, "xmodule_handler", "", "").rstrip("/?")
-
-    @XBlock.handler
-    def xmodule_handler(self, request, suffix=None):
-        """
-        XBlock handler that wraps `handle_ajax`
-        """
-
-        class FileObjForWebobFiles:
-            """
-            Turn Webob cgi.FieldStorage uploaded files into pure file objects.
-
-            Webob represents uploaded files as cgi.FieldStorage objects, which
-            have a .file attribute.  We wrap the FieldStorage object, delegating
-            attribute access to the .file attribute.  But the files have no
-            name, so we carry the FieldStorage .filename attribute as the .name.
-
-            """
-
-            def __init__(self, webob_file):
-                self.file = webob_file.file
-                self.name = webob_file.filename
-
-            def __getattr__(self, name):
-                return getattr(self.file, name)
-
-        # WebOb requests have multiple entries for uploaded files.  handle_ajax
-        # expects a single entry as a list.
-        request_post = MultiDict(request.POST)
-        for key in set(request.POST.keys()):
-            if hasattr(request.POST[key], "file"):
-                request_post[key] = list(map(FileObjForWebobFiles, request.POST.getall(key)))
-
-        response_data = self.handle_ajax(suffix, request_post)
-        return Response(response_data, content_type="application/json", charset="UTF-8")
-
-
 class InheritanceKeyValueStore(KeyValueStore):
     """
     Common superclass for kvs's which know about inheritance of settings. Offers simple
@@ -355,108 +134,6 @@ class InheritanceKeyValueStore(KeyValueStore):
         the field's global default.
         """
         return self.inherited_settings[key.field_name]
-
-
-class XmlMixin(LegacyXmlMixin):  # pylint: disable=abstract-method
-    """
-    TODO: This mixin is legacy tech debt. Transition toward modern XBlock
-    serialization and remove this legacy XML parsing logic.
-    """
-
-    @classmethod
-    def parse_xml(cls, node, runtime, keys):
-        """
-        Use `node` to construct a new block.
-
-        Arguments:
-            node (etree.Element): The xml node to parse into an xblock.
-
-            runtime (:class:`.Runtime`): The runtime to use while parsing.
-
-            keys (:class:`.ScopeIds`): The keys identifying where this block
-                will store its data.
-
-        Returns (XBlock): The newly parsed XBlock
-
-        """
-        if keys is None:
-            # Passing keys=None is against the XBlock API but some platform tests do it.
-            def_id = runtime.id_generator.create_definition(node.tag, node.get("url_name"))
-            keys = ScopeIds(None, node.tag, def_id, runtime.id_generator.create_usage(def_id))
-        aside_children = []
-
-        # VS[compat]
-        # In 2012, when the platform didn't have CMS, and all courses were handwritten XML files, problem tags
-        # contained XML problem descriptions withing themselves. Later, when Studio has been created, and "pointer" tags
-        # became the preferred problem format, edX has to add this compatibility code to 1) support both pre- and
-        # post-Studio course formats simulteneously, and 2) be able to migrate 2012-fall courses to Studio. Old style
-        # support supposed to be removed, but the deprecation process have never been initiated, so this
-        # compatibility must stay, probably forever.
-        if is_pointer_tag(node):
-            # new style:
-            # read the actual definition file--named using url_name.replace(':','/')
-            definition_xml, filepath = cls.load_definition_xml(node, runtime, keys.def_id)
-            aside_children = runtime.parse_asides(definition_xml, keys.def_id, keys.usage_id, runtime.id_generator)
-        else:
-            filepath = None
-            definition_xml = node
-
-        # Note: removes metadata.
-        definition, children = cls.load_definition(definition_xml, runtime, keys.def_id, runtime.id_generator)
-
-        # VS[compat]
-        # Make Ike's github preview links work in both old and new file layouts.
-        if is_pointer_tag(node):
-            # new style -- contents actually at filepath
-            definition["filename"] = [filepath, filepath]
-
-        metadata = cls.load_metadata(definition_xml)
-
-        # move definition metadata into dict
-        dmdata = definition.get("definition_metadata", "")
-        if dmdata:
-            metadata["definition_metadata_raw"] = dmdata
-            try:
-                metadata.update(json.loads(dmdata))
-            except Exception as err:  # pylint: disable=broad-exception-caught
-                log.debug("Error in loading metadata %r", dmdata, exc_info=True)
-                metadata["definition_metadata_err"] = str(err)
-
-        definition_aside_children = definition.pop("aside_children", None)
-        if definition_aside_children:
-            aside_children.extend(definition_aside_children)
-
-        # Set/override any metadata specified by policy
-        cls.apply_policy(metadata, runtime.get_policy(keys.usage_id))
-
-        field_data = {**metadata, **definition, "children": children}
-        field_data["xml_attributes"]["filename"] = definition.get("filename", ["", None])  # for git link
-        if "filename" in field_data:
-            del field_data["filename"]  # filename should only be in xml_attributes.
-
-        if type(runtime).__name__ == "XMLImportingModuleStoreRuntime":
-            kvs = InheritanceKeyValueStore(field_data)
-            field_data = KvsFieldData(kvs)
-            xblock = runtime.construct_xblock_from_class(cls, keys, field_data)
-        else:
-            # The "normal" / new way to set field data:
-            xblock = runtime.construct_xblock_from_class(cls, keys)
-            for key, value_jsonish in field_data.items():
-                if key in cls.fields:
-                    setattr(xblock, key, cls.fields[key].from_json(value_jsonish))
-                elif key == "children":
-                    xblock.children = value_jsonish
-                else:
-                    log.warning(
-                        "Imported %s XBlock does not have field %s found in XML.",
-                        xblock.scope_ids.block_type,
-                        key,
-                    )
-
-        if aside_children:
-            cls.add_applicable_asides_to_block(xblock, runtime, aside_children)
-
-        return xblock
 
 
 class SHOWANSWER:
@@ -525,13 +202,7 @@ class Randomization(String):
 @XBlock.needs("xqueue")
 @XBlock.needs("replace_urls")
 @XBlock.wants("call_to_action")
-class ProblemBlock(
-    ScorableXBlockMixin,
-    RawMixin,
-    XmlMixin,
-    XModuleToXBlockMixin,
-    XModuleMixin,
-):
+class ProblemBlock(ScorableXBlockMixin, LegacyXmlMixin, XBlock):
     """
     An XBlock representing a "problem".
 
@@ -736,7 +407,10 @@ class ProblemBlock(
     )
 
     def bind_for_student(self, *args, **kwargs):
-        super().bind_for_student(*args, **kwargs)
+        """
+        Set up this XBlock to act as an XModule instead of an XModuleDescriptor.
+        """
+        super().bind_for_student(*args, **kwargs)  # pylint: disable=no-member
 
         # Capa was an XModule. When bind_for_student() was called on it with a new runtime, a new CapaModule object
         # was initialized when XModuleDescriptor._xmodule() was called next. self.lcp was constructed in CapaModule
@@ -785,7 +459,7 @@ class ProblemBlock(
             return self.student_view(context)
 
         # Show a message that this content requires users to login/enroll.
-        return super().public_view(context)
+        return super().public_view(context)  # pylint: disable=no-member
 
     def author_view(self, context):
         """
@@ -2739,6 +2413,203 @@ class ProblemBlock(
         """
         lcp_score = lcp.calculate_score()
         return Score(raw_earned=lcp_score["score"], raw_possible=lcp_score["total"])
+
+    @classmethod
+    def definition_from_xml(cls, xml_object, system):
+        """Convert XML node into a dictionary with 'data' key for XBlock."""
+        return {"data": etree.tostring(xml_object, pretty_print=True, encoding="unicode")}, []
+
+    def definition_to_xml(self, resource_fs):
+        """
+        Return an Element if we've kept the import OLX, or None otherwise.
+        """
+        # If there's no self.data, it means that an XBlock/XModule originally
+        # existed for this data at the time of import/editing, but was later
+        # uninstalled. RawDescriptor therefore never got to preserve the
+        # original OLX that came in, and we have no idea how it should be
+        # serialized for export. It's possible that we could do some smarter
+        # fallback here and attempt to extract the data, but it's reasonable
+        # and simpler to just skip this node altogether.
+        if not self.data:
+            log.warning(
+                "Could not serialize %s: No XBlock installed for '%s' tag.",
+                self.usage_key,
+                self.usage_key.block_type,
+            )
+            return None
+
+        # Normal case: Just echo back the original OLX we saved.
+        try:
+            return etree.fromstring(self.data)
+        except etree.XMLSyntaxError as err:
+            # Can't recover here, so just add some info and
+            # re-raise
+            lines = self.data.split("\n")
+            line, offset = err.position  # pylint: disable=unpacking-non-sequence
+            msg = (
+                f"Unable to create xml for block {self.usage_key}. "
+                f"Context: '{lines[line - 1][offset - 40: offset + 40]}'"
+            )
+            raise SerializationError(self.usage_key, msg) from err
+
+    @classmethod
+    def parse_xml_new_runtime(cls, node, runtime, keys):
+        """
+        Interpret the parsed XML in `node`, creating a new instance of this
+        module.
+        """
+        # In the new/learning-core-based runtime, XModule parsing (from
+        # XmlMixin) is disabled, so definition_from_xml will not be
+        # called, and instead the "normal" XBlock parse_xml will be used.
+        # However, it's not compatible with RawMixin, so we implement
+        # support here.
+        data_field_value = cls.definition_from_xml(node, None)[0]["data"]
+        for child in node.getchildren():
+            node.remove(child)
+        # Get attributes, if any, via normal parse_xml.
+        try:
+            block = super().parse_xml_new_runtime(node, runtime, keys)
+        except AttributeError:
+            block = super().parse_xml(node, runtime, keys)
+        block.data = data_field_value
+        return block
+
+    @classmethod
+    def parse_xml(cls, node, runtime, keys):
+        """
+        Use `node` to construct a new block.
+
+        Arguments:
+            node (etree.Element): The xml node to parse into an xblock.
+
+            runtime (:class:`.Runtime`): The runtime to use while parsing.
+
+            keys (:class:`.ScopeIds`): The keys identifying where this block
+                will store its data.
+
+        Returns (XBlock): The newly parsed XBlock
+
+        """
+        if keys is None:
+            # Passing keys=None is against the XBlock API but some platform tests do it.
+            def_id = runtime.id_generator.create_definition(node.tag, node.get("url_name"))
+            keys = ScopeIds(None, node.tag, def_id, runtime.id_generator.create_usage(def_id))
+        aside_children = []
+
+        # VS[compat]
+        # In 2012, when the platform didn't have CMS, and all courses were handwritten XML files, problem tags
+        # contained XML problem descriptions withing themselves. Later, when Studio has been created, and "pointer" tags
+        # became the preferred problem format, edX has to add this compatibility code to 1) support both pre- and
+        # post-Studio course formats simulteneously, and 2) be able to migrate 2012-fall courses to Studio. Old style
+        # support supposed to be removed, but the deprecation process have never been initiated, so this
+        # compatibility must stay, probably forever.
+        if is_pointer_tag(node):
+            # new style:
+            # read the actual definition file--named using url_name.replace(':','/')
+            definition_xml, filepath = cls.load_definition_xml(node, runtime, keys.def_id)
+            aside_children = runtime.parse_asides(definition_xml, keys.def_id, keys.usage_id, runtime.id_generator)
+        else:
+            filepath = None
+            definition_xml = node
+
+        # Note: removes metadata.
+        definition, children = cls.load_definition(definition_xml, runtime, keys.def_id, runtime.id_generator)
+
+        # VS[compat]
+        # Make Ike's github preview links work in both old and new file layouts.
+        if is_pointer_tag(node):
+            # new style -- contents actually at filepath
+            definition["filename"] = [filepath, filepath]
+
+        metadata = cls.load_metadata(definition_xml)
+
+        # move definition metadata into dict
+        dmdata = definition.get("definition_metadata", "")
+        if dmdata:
+            metadata["definition_metadata_raw"] = dmdata
+            try:
+                metadata.update(json.loads(dmdata))
+            except Exception as err:  # pylint: disable=broad-exception-caught
+                log.debug("Error in loading metadata %r", dmdata, exc_info=True)
+                metadata["definition_metadata_err"] = str(err)
+
+        definition_aside_children = definition.pop("aside_children", None)
+        if definition_aside_children:
+            aside_children.extend(definition_aside_children)
+
+        # Set/override any metadata specified by policy
+        cls.apply_policy(metadata, runtime.get_policy(keys.usage_id))
+
+        field_data = {**metadata, **definition, "children": children}
+        field_data["xml_attributes"]["filename"] = definition.get("filename", ["", None])  # for git link
+        if "filename" in field_data:
+            del field_data["filename"]  # filename should only be in xml_attributes.
+
+        if type(runtime).__name__ == "XMLImportingModuleStoreRuntime":
+            kvs = InheritanceKeyValueStore(field_data)
+            field_data = KvsFieldData(kvs)
+            xblock = runtime.construct_xblock_from_class(cls, keys, field_data)
+        else:
+            # The "normal" / new way to set field data:
+            xblock = runtime.construct_xblock_from_class(cls, keys)
+            for key, value_jsonish in field_data.items():
+                if key in cls.fields:  # pylint: disable=unsupported-membership-test
+                    # pylint: disable=unsubscriptable-object
+                    setattr(xblock, key, cls.fields[key].from_json(value_jsonish))
+                elif key == "children":
+                    xblock.children = value_jsonish
+                else:
+                    log.warning(
+                        "Imported %s XBlock does not have field %s found in XML.",
+                        xblock.scope_ids.block_type,
+                        key,
+                    )
+
+        if aside_children:
+            cls.add_applicable_asides_to_block(xblock, runtime, aside_children)
+
+        return xblock
+
+    @property
+    def ajax_url(self):
+        """
+        Returns the URL for the ajax handler.
+        """
+        return self.runtime.handler_url(self, "xmodule_handler", "", "").rstrip("/?")
+
+    @XBlock.handler
+    def xmodule_handler(self, request, suffix=None):
+        """
+        XBlock handler that wraps `handle_ajax`
+        """
+
+        class FileObjForWebobFiles:
+            """
+            Turn Webob cgi.FieldStorage uploaded files into pure file objects.
+
+            Webob represents uploaded files as cgi.FieldStorage objects, which
+            have a .file attribute.  We wrap the FieldStorage object, delegating
+            attribute access to the .file attribute.  But the files have no
+            name, so we carry the FieldStorage .filename attribute as the .name.
+
+            """
+
+            def __init__(self, webob_file):
+                self.file = webob_file.file
+                self.name = webob_file.filename
+
+            def __getattr__(self, name):
+                return getattr(self.file, name)
+
+        # WebOb requests have multiple entries for uploaded files.  handle_ajax
+        # expects a single entry as a list.
+        request_post = MultiDict(request.POST)
+        for key in set(request.POST.keys()):
+            if hasattr(request.POST[key], "file"):
+                request_post[key] = list(map(FileObjForWebobFiles, request.POST.getall(key)))
+
+        response_data = self.handle_ajax(suffix, request_post)
+        return Response(response_data, content_type="application/json", charset="UTF-8")
 
 
 class GradingMethodHandler:

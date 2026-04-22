@@ -280,7 +280,7 @@ class TestBridgeModule(absltest.TestCase):
     class NNXLayer(nnx.Module):
       def __init__(self, dim, dropout, rngs):
         self.linear = nnx.Linear(dim, dim, use_bias=False, rngs=rngs)
-        self.dropout = nnx.Dropout(dropout, rngs=rngs)
+        self.dropout = nnx.Dropout(dropout, deterministic=False, rngs=rngs)
         self.count = nnx.Intermediate(jnp.array([0.]))
       def __call__(self, x):
         # Required check to avoid state update in `init()`. Can this be avoided?
@@ -430,8 +430,8 @@ class TestBridgeModule(absltest.TestCase):
       dim: int
       num_layers: int
       def setup(self):
-        @nnx.split_rngs(splits=self.num_layers)
-        @nnx.vmap(
+        @nnx.compat.split_rngs(splits=self.num_layers)
+        @nnx.compat.vmap(
             in_axes=(nnx.StateAxes({nnx.RngState: 0, ...: None}),),
             axis_size=self.num_layers,
             transform_metadata={nnx.PARTITION_NAME: None},
@@ -442,8 +442,8 @@ class TestBridgeModule(absltest.TestCase):
         create_block(self)
 
       def __call__(self, x):
-        @nnx.split_rngs(splits=self.num_layers)
-        @nnx.scan(
+        @nnx.compat.split_rngs(splits=self.num_layers)
+        @nnx.compat.scan(
             in_axes=(0, nnx.Carry),
             out_axes=nnx.Carry,
             transform_metadata={nnx.PARTITION_NAME: None},
@@ -486,10 +486,11 @@ class TestBridgeModule(absltest.TestCase):
         return self.aaa(x)
 
       def __call__(self, x):
-        forward = nnx.remat(self.__class__.forward)
+        forward = nnx.compat.remat(self.__class__.forward)
         return forward(self, x)
 
     model = Top()
+    model = nnx.graph.merge(*nnx.graph.split(model))
     x = jnp.ones((4, 32))
     params = model.init(jax.random.key(0), x)['params']
     self.assertSameElements(['zzz'], params.keys())

@@ -1,13 +1,12 @@
 [build-system]
 requires = [
-    # setuptools 77.0.3+ supports PEP 639
-    # setuptools 78.1.1 fix path traversal vulnerability
-    "setuptools>=78.1.1,<=80.9.0",
+    "setuptools~=82.0",
 ]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "python-msilib"
+version = "0.6.0"
 description = "Read and write Microsoft Installer files"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -26,7 +25,6 @@ classifiers = [
     "Topic :: System :: Software Distribution",
     "Topic :: Utilities",
 ]
-dynamic = ["version"]
 keywords = ["msilib"]
 license = "PSF-2.0"
 license-files = ["LICENSE"]
@@ -41,29 +39,25 @@ email = "marcelotduarte@users.noreply.github.com"
 name = " Martin v. Löwis"
 email = "loewis@users.noreply.github.com"
 
-[project.optional-dependencies]
-dev = [
-    "bump-my-version==1.2.4",
-    "cibuildwheel==3.3.0",
-    "pre-commit==4.5.0",
-]
-tests = [
-    "coverage==7.12.0",
-    "pytest==9.0.2",
-]
-
 [project.urls]
 Source = "https://github.com/marcelotduarte/python-msilib"
 Changelog = "https://github.com/marcelotduarte/python-msilib/releases"
 Documentation = "https://docs.python.org/3.12/library/msilib.html"
 
+[dependency-groups]
+dev = [
+    "cibuildwheel>=3.4.1",
+    "prek>=0.3.8,<0.4.0",
+]
+tests = [
+    "coverage>=7.13.0",
+    "pytest>=9.0.3",
+]
+
 [tool.setuptools]
 include-package-data = true
 package-dir = {"" = "src"}
 zip-safe = false
-
-[tool.setuptools.dynamic]
-version = {attr = "msilib.__version__"}
 
 [[tool.setuptools.ext-modules]]
 name = "msilib._msi"
@@ -78,44 +72,9 @@ libraries = ["msi","rpcrt4", "cabinet"]
 namespaces = false
 where = ["src"]
 
-[tool.bumpversion]
-commit = true
-current_version = "0.5.0"
-message = "Bump version: {current_version} → {new_version} [ci skip]"
-parse = """(?x)
-    (?P<major>0|[1-9]\\d*)\\.
-    (?P<minor>0|[1-9]\\d*)\\.
-    (?P<patch>0|[1-9]\\d*)
-    (?:
-        \\.(?P<optional>0|[1-9]\\d*)  # pull request number (optional)
-    )?
-    (?:
-        -                             # dash separator for pre-release section
-        (?P<pre>[a-zA-Z-]+)\\.        # pre-release label
-        (?P<build>0|[1-9]\\d*)        # pre-release version number
-    )?                                # pre-release section is optional
-"""
-serialize = [
-	"{major}.{minor}.{patch}.{optional}-{pre}.{build}",
-	"{major}.{minor}.{patch}-{pre}.{build}",
-	"{major}.{minor}.{patch}"
-]
-sign_tags = true
-tag = true
-tag_name = "{new_version}"
-verbose = true
-
-[[tool.bumpversion.files]]
-filename = "src/msilib/__init__.py"
-
-[tool.bumpversion.parts.pre]
-values = ["dev", "final"]
-optional_value = "final"
-
 [tool.cibuildwheel]
 build-frontend = "build[uv]"
 build-verbosity = 1
-enable = ["cpython-freethreading"]
 
 [tool.coverage.html]
 directory = "build/coverage_html_report"
@@ -225,12 +184,13 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "src/msilib/__init__.py" = [
-    "S101",     # Use of `assert` detected
-    "S608",
     "A002",
+    "A005",
     "ANN201",
     "ERA001",
     "PLW0603", # global
+    "S101",     # Use of `assert` detected
+    "S608",
 ]
 "src/msilib/schema.py" = [
     "E501",     # Line too long

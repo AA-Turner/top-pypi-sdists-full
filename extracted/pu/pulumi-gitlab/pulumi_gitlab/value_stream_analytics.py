@@ -27,6 +27,7 @@ class ValueStreamAnalyticsArgs:
                  project_full_path: Optional[pulumi.Input[_builtins.str]] = None):
         """
         The set of arguments for constructing a ValueStreamAnalytics resource.
+
         :param pulumi.Input[Sequence[pulumi.Input['ValueStreamAnalyticsStageArgs']]] stages: Stages of the value stream
         :param pulumi.Input[_builtins.str] group_full_path: Full path of the group the value stream is created in. **One of `group_full_path` OR `project_full_path` is required.**
         :param pulumi.Input[_builtins.str] name: The name of the value stream
@@ -98,6 +99,7 @@ class _ValueStreamAnalyticsState:
                  stages: Optional[pulumi.Input[Sequence[pulumi.Input['ValueStreamAnalyticsStageArgs']]]] = None):
         """
         Input properties used for looking up and filtering ValueStreamAnalytics resources.
+
         :param pulumi.Input[_builtins.str] group_full_path: Full path of the group the value stream is created in. **One of `group_full_path` OR `project_full_path` is required.**
         :param pulumi.Input[_builtins.str] name: The name of the value stream
         :param pulumi.Input[_builtins.str] project_full_path: Full path of the project the value stream is created in. **One of `group_full_path` OR `project_full_path` is required.**
@@ -227,29 +229,18 @@ class ValueStreamAnalytics(pulumi.CustomResource):
 
         ## Import
 
-        Starting in Terraform v1.5.0, you can use an import block to import `gitlab_value_stream_analytics`. For example:
-
-        terraform
-
-        import {
-
-          to = gitlab_value_stream_analytics.example
-
-          id = "see CLI command below for ID"
-
-        }
+        Starting in Terraform v1.5.0, you can use an import block to import `ValueStreamAnalytics`. For example:
 
         Importing using the CLI is supported with the following syntax:
 
-        Gitlab value stream analytics can be imported with a key composed of `<full_path_type>:<full_path>:<value_stream_id>`, e.g.
+        Gitlab value stream analytics can be imported with a key composed of `<full_path_type>:<full_path>:<value_stream_id>`, for example:
 
         ```sh
         $ pulumi import gitlab:index/valueStreamAnalytics:ValueStreamAnalytics group "group:people/engineers:42"
-        ```
 
-        ```sh
         $ pulumi import gitlab:index/valueStreamAnalytics:ValueStreamAnalytics project "project:projects/sample:43"
         ```
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -319,29 +310,18 @@ class ValueStreamAnalytics(pulumi.CustomResource):
 
         ## Import
 
-        Starting in Terraform v1.5.0, you can use an import block to import `gitlab_value_stream_analytics`. For example:
-
-        terraform
-
-        import {
-
-          to = gitlab_value_stream_analytics.example
-
-          id = "see CLI command below for ID"
-
-        }
+        Starting in Terraform v1.5.0, you can use an import block to import `ValueStreamAnalytics`. For example:
 
         Importing using the CLI is supported with the following syntax:
 
-        Gitlab value stream analytics can be imported with a key composed of `<full_path_type>:<full_path>:<value_stream_id>`, e.g.
+        Gitlab value stream analytics can be imported with a key composed of `<full_path_type>:<full_path>:<value_stream_id>`, for example:
 
         ```sh
         $ pulumi import gitlab:index/valueStreamAnalytics:ValueStreamAnalytics group "group:people/engineers:42"
-        ```
 
-        ```sh
         $ pulumi import gitlab:index/valueStreamAnalytics:ValueStreamAnalytics project "project:projects/sample:43"
         ```
+
 
         :param str resource_name: The name of the resource.
         :param ValueStreamAnalyticsArgs args: The arguments to use to populate this resource's properties.

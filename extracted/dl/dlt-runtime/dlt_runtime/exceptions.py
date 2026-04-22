@@ -42,6 +42,17 @@ class NoRunnableRun(CliCommandInnerException):
         super().__init__(cmd="runtime", msg=msg)
 
 
+class WorkspaceNotFound(RuntimeException):
+    """Raised when `_resolve_workspace` cannot match the input to an owned workspace."""
+
+    def __init__(self, workspace: str, is_uuid: bool):
+        super().__init__(
+            f"Workspace '{workspace}' not found among your owned workspaces."
+        )
+        self.workspace = workspace
+        self.is_uuid = is_uuid
+
+
 @contextmanager
 def handle_client_exceptions(message: Optional[str] = None):
     message = message or "Error calling the Runtime API"

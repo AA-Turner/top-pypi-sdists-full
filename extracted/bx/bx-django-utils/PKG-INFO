@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bx_django_utils
-Version: 96
+Version: 97
 Summary: Various Django utility functions
 Project-URL: Documentation, https://github.com/boxine/bx_django_utils/
 Project-URL: Source, https://github.com/boxine/bx_django_utils/
@@ -11,13 +11,12 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Framework :: Django
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: <3.15,>=3.11
+Requires-Python: <3.15,>=3.12
 Requires-Dist: bx-py-utils
-Requires-Dist: django>=4.2
+Requires-Dist: django>=5.2
 Requires-Dist: python-stdnum
 Description-Content-Type: text/markdown
 
@@ -123,10 +122,10 @@ Helpers to build Admin URLs
 
 Helper functions around Django's admin LogEntry model.
 
-* [`create_log_entry()`](https://github.com/boxine/bx_django_utils/blob/master/bx_django_utils/admin_utils/log_entry.py#L25-L49) - Helper to create `LogEntry` entries for a model instance.
-* [`get_change_message_strings()`](https://github.com/boxine/bx_django_utils/blob/master/bx_django_utils/admin_utils/log_entry.py#L52-L60) - Get `LogEntry` change messages as plain strings build by `LogEntry.get_change_message()`.
-* [`get_log_entry_qs()`](https://github.com/boxine/bx_django_utils/blob/master/bx_django_utils/admin_utils/log_entry.py#L83-L106) - Get a QuerySet of LogEntry objects, with optional filtering by model, object ID, and action flag.
-* [`get_log_message_data()`](https://github.com/boxine/bx_django_utils/blob/master/bx_django_utils/admin_utils/log_entry.py#L63-L80) - Get `LogEntry` change messages data structure as list.
+* [`create_log_entry()`](https://github.com/boxine/bx_django_utils/blob/master/bx_django_utils/admin_utils/log_entry.py#L25-L57) - Helper to create `LogEntry` entries for a model instance.
+* [`get_change_message_strings()`](https://github.com/boxine/bx_django_utils/blob/master/bx_django_utils/admin_utils/log_entry.py#L60-L68) - Get `LogEntry` change messages as plain strings build by `LogEntry.get_change_message()`.
+* [`get_log_entry_qs()`](https://github.com/boxine/bx_django_utils/blob/master/bx_django_utils/admin_utils/log_entry.py#L91-L114) - Get a QuerySet of LogEntry objects, with optional filtering by model, object ID, and action flag.
+* [`get_log_message_data()`](https://github.com/boxine/bx_django_utils/blob/master/bx_django_utils/admin_utils/log_entry.py#L71-L88) - Get `LogEntry` change messages data structure as list.
 * [`validate_action_flag()`](https://github.com/boxine/bx_django_utils/blob/master/bx_django_utils/admin_utils/log_entry.py#L17-L22) - Validate that the action flag is one of the allowed values.
 
 ### bx_django_utils.approve_workflow
@@ -266,8 +265,8 @@ Utilities to manipulate objects in database via models:
 ### bx_django_utils.stacktrace
 
 * [`StackTrace()`](https://github.com/boxine/bx_django_utils/blob/master/bx_django_utils/stacktrace.py#L21-L22) - Built-in mutable sequence.
-* [`StacktraceAfter()`](https://github.com/boxine/bx_django_utils/blob/master/bx_django_utils/stacktrace.py#L87-L115) - Generate a stack trace after a package was visited.
-* [`get_stacktrace()`](https://github.com/boxine/bx_django_utils/blob/master/bx_django_utils/stacktrace.py#L64-L84) - Returns a StackTrace object, which is a list of FrameInfo objects.
+* [`StacktraceAfter()`](https://github.com/boxine/bx_django_utils/blob/master/bx_django_utils/stacktrace.py#L85-L113) - Generate a stack trace after a package was visited.
+* [`get_stacktrace()`](https://github.com/boxine/bx_django_utils/blob/master/bx_django_utils/stacktrace.py#L64-L82) - Returns a StackTrace object, which is a list of FrameInfo objects.
 
 #### bx_django_utils.templatetags.accessors
 

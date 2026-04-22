@@ -27,12 +27,12 @@ class _FSharpChoice_2[T1, T2](Union):
 
 @tagged_union(0)
 class Choice1Of2[T1, T2](_FSharpChoice_2[T1, T2]):
-    item: T1
+    item: Any
 
 
 @tagged_union(1)
 class Choice2Of2[T1, T2](_FSharpChoice_2[T1, T2]):
-    item: T2
+    item: Any
 
 
 type FSharpChoice_2[T1, T2] = Choice1Of2[T1, T2] | Choice2Of2[T1, T2]
@@ -58,17 +58,17 @@ class _FSharpChoice_3[T1, T2, T3](Union):
 
 @tagged_union(0)
 class Choice1Of3[T1, T2, T3](_FSharpChoice_3[T1, T2, T3]):
-    item: T1
+    item: Any
 
 
 @tagged_union(1)
 class Choice2Of3[T1, T2, T3](_FSharpChoice_3[T1, T2, T3]):
-    item: T2
+    item: Any
 
 
 @tagged_union(2)
 class Choice3Of3[T1, T2, T3](_FSharpChoice_3[T1, T2, T3]):
-    item: T3
+    item: Any
 
 
 type FSharpChoice_3[T1, T2, T3] = (Choice1Of3[T1, T2, T3] | Choice2Of3[T1, T2, T3]) | Choice3Of3[T1, T2, T3]
@@ -94,22 +94,22 @@ class _FSharpChoice_4[T1, T2, T3, T4](Union):
 
 @tagged_union(0)
 class Choice1Of4[T1, T2, T3, T4](_FSharpChoice_4[T1, T2, T3, T4]):
-    item: T1
+    item: Any
 
 
 @tagged_union(1)
 class Choice2Of4[T1, T2, T3, T4](_FSharpChoice_4[T1, T2, T3, T4]):
-    item: T2
+    item: Any
 
 
 @tagged_union(2)
 class Choice3Of4[T1, T2, T3, T4](_FSharpChoice_4[T1, T2, T3, T4]):
-    item: T3
+    item: Any
 
 
 @tagged_union(3)
 class Choice4Of4[T1, T2, T3, T4](_FSharpChoice_4[T1, T2, T3, T4]):
-    item: T4
+    item: Any
 
 
 type FSharpChoice_4[T1, T2, T3, T4] = (
@@ -137,27 +137,27 @@ class _FSharpChoice_5[T1, T2, T3, T4, T5](Union):
 
 @tagged_union(0)
 class Choice1Of5[T1, T2, T3, T4, T5](_FSharpChoice_5[T1, T2, T3, T4, T5]):
-    item: T1
+    item: Any
 
 
 @tagged_union(1)
 class Choice2Of5[T1, T2, T3, T4, T5](_FSharpChoice_5[T1, T2, T3, T4, T5]):
-    item: T2
+    item: Any
 
 
 @tagged_union(2)
 class Choice3Of5[T1, T2, T3, T4, T5](_FSharpChoice_5[T1, T2, T3, T4, T5]):
-    item: T3
+    item: Any
 
 
 @tagged_union(3)
 class Choice4Of5[T1, T2, T3, T4, T5](_FSharpChoice_5[T1, T2, T3, T4, T5]):
-    item: T4
+    item: Any
 
 
 @tagged_union(4)
 class Choice5Of5[T1, T2, T3, T4, T5](_FSharpChoice_5[T1, T2, T3, T4, T5]):
-    item: T5
+    item: Any
 
 
 type FSharpChoice_5[T1, T2, T3, T4, T5] = (
@@ -193,32 +193,32 @@ class _FSharpChoice_6[T1, T2, T3, T4, T5, T6](Union):
 
 @tagged_union(0)
 class Choice1Of6[T1, T2, T3, T4, T5, T6](_FSharpChoice_6[T1, T2, T3, T4, T5, T6]):
-    item: T1
+    item: Any
 
 
 @tagged_union(1)
 class Choice2Of6[T1, T2, T3, T4, T5, T6](_FSharpChoice_6[T1, T2, T3, T4, T5, T6]):
-    item: T2
+    item: Any
 
 
 @tagged_union(2)
 class Choice3Of6[T1, T2, T3, T4, T5, T6](_FSharpChoice_6[T1, T2, T3, T4, T5, T6]):
-    item: T3
+    item: Any
 
 
 @tagged_union(3)
 class Choice4Of6[T1, T2, T3, T4, T5, T6](_FSharpChoice_6[T1, T2, T3, T4, T5, T6]):
-    item: T4
+    item: Any
 
 
 @tagged_union(4)
 class Choice5Of6[T1, T2, T3, T4, T5, T6](_FSharpChoice_6[T1, T2, T3, T4, T5, T6]):
-    item: T5
+    item: Any
 
 
 @tagged_union(5)
 class Choice6Of6[T1, T2, T3, T4, T5, T6](_FSharpChoice_6[T1, T2, T3, T4, T5, T6]):
-    item: T6
+    item: Any
 
 
 type FSharpChoice_6[T1, T2, T3, T4, T5, T6] = (
@@ -260,37 +260,37 @@ class _FSharpChoice_7[T1, T2, T3, T4, T5, T6, T7](Union):
 
 @tagged_union(0)
 class Choice1Of7[T1, T2, T3, T4, T5, T6, T7](_FSharpChoice_7[T1, T2, T3, T4, T5, T6, T7]):
-    item: T1
+    item: Any
 
 
 @tagged_union(1)
 class Choice2Of7[T1, T2, T3, T4, T5, T6, T7](_FSharpChoice_7[T1, T2, T3, T4, T5, T6, T7]):
-    item: T2
+    item: Any
 
 
 @tagged_union(2)
 class Choice3Of7[T1, T2, T3, T4, T5, T6, T7](_FSharpChoice_7[T1, T2, T3, T4, T5, T6, T7]):
-    item: T3
+    item: Any
 
 
 @tagged_union(3)
 class Choice4Of7[T1, T2, T3, T4, T5, T6, T7](_FSharpChoice_7[T1, T2, T3, T4, T5, T6, T7]):
-    item: T4
+    item: Any
 
 
 @tagged_union(4)
 class Choice5Of7[T1, T2, T3, T4, T5, T6, T7](_FSharpChoice_7[T1, T2, T3, T4, T5, T6, T7]):
-    item: T5
+    item: Any
 
 
 @tagged_union(5)
 class Choice6Of7[T1, T2, T3, T4, T5, T6, T7](_FSharpChoice_7[T1, T2, T3, T4, T5, T6, T7]):
-    item: T6
+    item: Any
 
 
 @tagged_union(6)
 class Choice7Of7[T1, T2, T3, T4, T5, T6, T7](_FSharpChoice_7[T1, T2, T3, T4, T5, T6, T7]):
-    item: T7
+    item: Any
 
 
 type FSharpChoice_7[T1, T2, T3, T4, T5, T6, T7] = (
@@ -310,15 +310,15 @@ type FSharpChoice_7[T1, T2, T3, T4, T5, T6, T7] = (
 FSharpChoice_7_reflection = _expr26
 
 
-def Choice_makeChoice1Of2[T1, A](x: T1 = UNIT) -> FSharpChoice_2[T1, Any]:
+def Choice_makeChoice1Of2[T1, A](x: T1 = UNIT) -> FSharpChoice_2[T1, A]:
     return Choice1Of2(x)
 
 
-def Choice_makeChoice2Of2[T2, A](x: T2 = UNIT) -> FSharpChoice_2[Any, T2]:
+def Choice_makeChoice2Of2[T2, A](x: T2 = UNIT) -> FSharpChoice_2[A, T2]:
     return Choice2Of2(x)
 
 
-def Choice_tryValueIfChoice1Of2[T1, T2](x: FSharpChoice_2[T1, Any]) -> Option[T1]:
+def Choice_tryValueIfChoice1Of2[T1, T2](x: FSharpChoice_2[T1, T2]) -> Option[T1]:
     match x.tag:
         case 0:
             return some(x.fields[0])
@@ -327,7 +327,7 @@ def Choice_tryValueIfChoice1Of2[T1, T2](x: FSharpChoice_2[T1, Any]) -> Option[T1
             return None
 
 
-def Choice_tryValueIfChoice2Of2[T1, T2](x: FSharpChoice_2[Any, T2]) -> Option[T2]:
+def Choice_tryValueIfChoice2Of2[T1, T2](x: FSharpChoice_2[T1, T2]) -> Option[T2]:
     match x.tag:
         case 1:
             return some(x.fields[0])

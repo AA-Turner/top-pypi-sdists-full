@@ -13,6 +13,7 @@ from chalk.utils.missing_dependency import missing_dependency_exception
 
 if TYPE_CHECKING:
     import polars as pl
+    from polars._typing import PolarsDataType
 
 _logger = get_logger(__name__)
 
@@ -50,6 +51,9 @@ try:
     polars_name_dot_suffix_instead_of_suffix = is_version_gte(pl.__version__, "1.0.0")
     polars_lazy_frame_collect_schema = is_version_gte(pl.__version__, "1.0.0")
     polars_allow_lit_empty_struct = is_version_gte(pl.__version__, "1.0.0")
+    polars_csv_uses_include_header = is_version_gte(pl.__version__, "1.0.0")
+    polars_uses_total_microseconds = is_version_gte(pl.__version__, "1.0.0")
+    polars_hist_column_is_breakpoint = is_version_gte(pl.__version__, "1.0.0")
 except ImportError:
     is_new_polars = False
     polars_has_pad_start = False
@@ -61,9 +65,12 @@ except ImportError:
     polars_name_dot_suffix_instead_of_suffix = False
     polars_lazy_frame_collect_schema = False
     polars_allow_lit_empty_struct = False
+    polars_csv_uses_include_header = False
+    polars_uses_total_microseconds = False
+    polars_hist_column_is_breakpoint = False
 
 
-def pl_array(inner: pl.PolarsDataType, size: int) -> pl.Array:
+def pl_array(inner: PolarsDataType, size: int) -> pl.Array:
     """Create a Polars Array type with version-compatible parameter names.
 
     Args:
@@ -199,8 +206,8 @@ def pl_time_to_iso_string(expr: pl.Expr) -> pl.Expr:
         )
 
 
-def pl_dtype_swap(dtype: pl.PolarsDataType, _from: pl.PolarsDataType, to: pl.PolarsDataType) -> pl.PolarsDataType:
-    if isinstance(dtype, _from):
+def pl_dtype_swap(dtype: PolarsDataType, _from: PolarsDataType, to: PolarsDataType) -> PolarsDataType:
+    if isinstance(dtype, _from):  # pyright: ignore[reportArgumentType]
         return to
     if isinstance(dtype, pl.List):
         return pl.List(inner=pl_dtype_swap(dtype.inner, _from, to))
@@ -211,7 +218,7 @@ def pl_dtype_swap(dtype: pl.PolarsDataType, _from: pl.PolarsDataType, to: pl.Pol
     return dtype
 
 
-def pl_json_decode(series: pl.Series, dtype: pl.PolarsDataType) -> pl.Series:
+def pl_json_decode(series: pl.Series, dtype: PolarsDataType) -> pl.Series:
     if is_new_polars:
         swapped_dtype = pl_dtype_swap(dtype, pl.Binary, pl.Utf8)
         if swapped_dtype == pl.Utf8:
@@ -235,38 +242,37 @@ def pl_duration_to_iso_string(expr: pl.Expr) -> pl.Expr:
     except ImportError:
         raise missing_dependency_exception("chalkpy[runtime]")
 
-    try:
-        return pl.format(
-            "{}P{}DT{}H{}M{}.{}S",
-            pl.when(expr.dt.microseconds() < 0)  # pyright: ignore -- polars backcompat
-            .then(pl.lit("-"))
-            .otherwise(pl.lit("")),  # pyright: ignore -- polars backcompat
-            expr.dt.days().abs().cast(pl.Utf8),  # pyright: ignore -- polars backcompat
-            (expr.dt.hours().abs() % 24).cast(pl.Utf8),  # pyright: ignore -- polars backcompat
-            (expr.dt.minutes().abs() % 60).cast(pl.Utf8),  # pyright: ignore -- polars backcompat
-            (expr.dt.seconds().abs() % 60).cast(pl.Utf8),  # pyright: ignore -- polars backcompat
-            (
-                (expr.dt.microseconds().abs() % 1_000_000)  # pyright: ignore -- polars backcompat
-                .cast(pl.Utf8)
-                .str.pad_start(6, "0")  # pyright: ignore -- polars backcompat
-                if is_new_polars
-                else (expr.dt.microseconds().abs() % 1_000_000)  # pyright: ignore -- polars backcompat
-                .cast(pl.Utf8)
-                .str.rjust(6, "0")
-            ),  # pyright: ignore -- polars backcompat
-        )
-    except AttributeError:
-        return (
-            pl.format("{}P{}DT{}H{}M{}.{}S", expr.dt.total_microseconds().abs() % 1_000_000)
+    if polars_uses_total_microseconds:
+        days_expr = expr.dt.total_days()
+        hours_expr = expr.dt.total_hours()
+        minutes_expr = expr.dt.total_minutes()
+        seconds_expr = expr.dt.total_seconds()
+        microseconds_expr = expr.dt.total_microseconds()
+    else:
+        days_expr = expr.dt.days()  # pyright: ignore[reportAttributeAccessIssue] -- polars backcompat
+        hours_expr = expr.dt.hours()  # pyright: ignore[reportAttributeAccessIssue] -- polars backcompat
+        minutes_expr = expr.dt.minutes()  # pyright: ignore[reportAttributeAccessIssue] -- polars backcompat
+        seconds_expr = expr.dt.seconds()  # pyright: ignore[reportAttributeAccessIssue] -- polars backcompat
+        microseconds_expr = expr.dt.microseconds()  # pyright: ignore[reportAttributeAccessIssue] -- polars backcompat
+
+    return pl.format(
+        "{}P{}DT{}H{}M{}.{}S",
+        pl.when(microseconds_expr < 0).then(pl.lit("-")).otherwise(pl.lit("")),
+        days_expr.abs().cast(pl.Utf8),
+        (hours_expr.abs() % 24).cast(pl.Utf8),
+        (minutes_expr.abs() % 60).cast(pl.Utf8),
+        (seconds_expr.abs() % 60).cast(pl.Utf8),
+        (
+            (microseconds_expr.abs() % 1_000_000).cast(pl.Utf8).str.pad_start(6, "0")
+            if is_new_polars
+            else (microseconds_expr.abs() % 1_000_000)
             .cast(pl.Utf8)
-            .str.pad_start(
-                6,
-                "0",
-            )
-        )
+            .str.rjust(6, "0")  # pyright: ignore[reportAttributeAccessIssue] -- polars backcompat
+        ),
+    )
 
 
-def pl_json_encode(expr: pl.Expr, dtype: pl.PolarsDataType):
+def pl_json_encode(expr: pl.Expr, dtype: PolarsDataType):
     try:
         import polars as pl
     except ImportError:
@@ -372,7 +378,7 @@ def _backup_json_encode(x: Any) -> str:
 T = TypeVar("T", bound=type)
 
 
-def _check_is_type(dtype: pl.PolarsDataType, typ: T) -> TypeGuard[T]:
+def _check_is_type(dtype: PolarsDataType, typ: T) -> TypeGuard[T]:
     # polars < 0.20
     if isinstance(dtype, type):
         return issubclass(dtype, typ)
@@ -381,7 +387,7 @@ def _check_is_type(dtype: pl.PolarsDataType, typ: T) -> TypeGuard[T]:
         return isinstance(dtype, typ)
 
 
-def _json_encode_inner(expr: pl.Expr, dtype: pl.PolarsDataType) -> pl.Expr:
+def _json_encode_inner(expr: pl.Expr, dtype: PolarsDataType) -> pl.Expr:
     try:
         import polars as pl
     except ImportError:
@@ -509,7 +515,7 @@ def recursively_has_float16(dtype: pa.DataType) -> bool:
     return False
 
 
-def pl_is_uniquable_on(dtype: pl.PolarsDataType) -> bool:
+def pl_is_uniquable_on(dtype: PolarsDataType) -> bool:
     """Check whether the Polars dtype can be uniqued upon, which currently tests for existence of lists in the dtype"""
     try:
         import polars as pl
@@ -551,7 +557,7 @@ def recursively_has_struct(dtype: pa.DataType) -> bool:
 def apply_compat(
     expr: "pl.Expr",
     function: Any,
-    return_dtype: "pl.PolarsDataType | None" = None,
+    return_dtype: "PolarsDataType | None" = None,
     **kwargs: Any,
 ) -> "pl.Expr":
     """
@@ -589,14 +595,14 @@ def apply_compat(
 
 
 @overload
-def str_json_decode_compat(expr: "pl.Expr", dtype: "pl.PolarsDataType") -> "pl.Expr": ...
+def str_json_decode_compat(expr: "pl.Expr", dtype: "PolarsDataType") -> "pl.Expr": ...
 
 
 @overload
-def str_json_decode_compat(expr: "pl.Series", dtype: "pl.PolarsDataType") -> "pl.Series": ...
+def str_json_decode_compat(expr: "pl.Series", dtype: "PolarsDataType") -> "pl.Series": ...
 
 
-def str_json_decode_compat(expr: "pl.Expr | pl.Series", dtype: "pl.PolarsDataType") -> "pl.Expr | pl.Series":
+def str_json_decode_compat(expr: "pl.Expr | pl.Series", dtype: "PolarsDataType") -> "pl.Expr | pl.Series":
     """
     Parse/decode JSON strings in a version-compatible way.
 

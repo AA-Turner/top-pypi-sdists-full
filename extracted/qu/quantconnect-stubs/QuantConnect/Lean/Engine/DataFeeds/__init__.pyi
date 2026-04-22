@@ -2591,6 +2591,10 @@ class LiveTradingDataFeed(QuantConnect.Lean.Engine.DataFeeds.FileSystemDataFeed)
         """
         ...
 
+    @staticmethod
+    def get_scheduled_universe_utc_time_shift(current_utc_date_time: typing.Union[datetime.datetime, datetime.date]) -> datetime.timedelta:
+        ...
+
     def initialize(self, algorithm: QuantConnect.Interfaces.IAlgorithm, job: QuantConnect.Packets.AlgorithmNodePacket, result_handler: QuantConnect.Lean.Engine.Results.IResultHandler, map_file_provider: QuantConnect.Interfaces.IMapFileProvider, factor_file_provider: QuantConnect.Interfaces.IFactorFileProvider, data_provider: QuantConnect.Interfaces.IDataProvider, subscription_manager: QuantConnect.Lean.Engine.DataFeeds.IDataFeedSubscriptionManager, data_feed_time_provider: QuantConnect.Lean.Engine.DataFeeds.IDataFeedTimeProvider, data_channel_provider: QuantConnect.Interfaces.IDataChannelProvider) -> None:
         """Initializes the data feed for the specified job and algorithm"""
         ...

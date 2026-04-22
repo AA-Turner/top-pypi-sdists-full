@@ -57,9 +57,13 @@ AxisName = tp.Hashable
 
 
 @dataclasses.dataclass(frozen=True)
-class DiffState:
+class DiffState(extract.PrefixMapping):
   argnum: int
   filter: filterlib.Filter
+
+  def map_prefix(self, path, variable):
+    predicate = filterlib.to_predicate(self.filter)
+    return predicate(path, variable)
 
 
 @dataclasses.dataclass(eq=False)
@@ -79,7 +83,13 @@ class SimpleGradFn:
     out = self.f(*args, **kwargs)
     if self.graph:
       out = extract.to_tree2(out)
-    extract.check_no_aliases('grad', args=updates[0], kwargs=updates[1], out=out)
+    extract.check_no_aliases(
+        'grad',
+        args=updates[0],
+        kwargs=updates[1],
+        out=out,
+        check_can_update=['out'],
+    )
     updates = extract.mask_variable_updates(updates, snapshot)
 
     if self.has_aux:
@@ -142,13 +152,9 @@ def _grad_general(
 
   transform = jax.value_and_grad if return_value else jax.grad
 
+  extract.check_prefix(argnums, 'argnums', 'grad', graph, graph_updates)
+
   if not graph or not graph_updates:
-    if any(isinstance(x, DiffState) for x in jax.tree.leaves(argnums)):
-      raise ValueError(
-        '`argnums` cannot contain `DiffState` objects '
-        'when `graph=False`. '
-        + graphlib._tree_mode_suggestion_transform('grad')
-      )
 
     gradded_fn = transform(
         SimpleGradFn(f, has_aux, graph=graph),
@@ -572,7 +578,9 @@ class SimpleVjpFn:
     out = self.f(*args)
     if self.graph:
       out = extract.to_tree2(out)
-    extract.check_no_aliases('vjp', args=updates, out=out)
+    extract.check_no_aliases(
+        'vjp', args=updates, out=out, check_can_update=['out']
+    )
     updates = extract.mask_variable_updates(updates, snapshot)
     if self.has_aux:
       primals_out, aux = out
@@ -738,7 +746,9 @@ class SimpleJvpFn:
     out = self.f(*args)
     if self.graph:
       out = extract.to_tree2(out)
-    extract.check_no_aliases('jvp', args=updates, out=out)
+    extract.check_no_aliases(
+        'jvp', args=updates, out=out, check_can_update=['out']
+    )
     updates = extract.mask_variable_updates(updates, snapshot)
     if self.has_aux:
       primals_out, aux = out
@@ -915,7 +925,9 @@ class SimpleCustomVjpFn:
     out = self.f(*args)
     if self.graph:
       out = extract.to_tree2(out)
-    extract.check_no_aliases('custom_vjp', args=updates, out=out)
+    extract.check_no_aliases(
+        'custom_vjp', args=updates, out=out, check_can_update=['out']
+    )
     diff_prefix = tuple(
       i not in self.nondiff_argnums for i in range(len(args))
     )
@@ -955,7 +967,9 @@ class SimpleFwdFn:
     if self.graph:
       out = extract.to_tree2(out)
       residual = extract.to_tree2(residual)
-    extract.check_no_aliases('custom_vjp', args=updates, out=out)
+    extract.check_no_aliases(
+        'custom_vjp', args=updates, out=out, check_can_update=['out']
+    )
     updates = extract.mask_variable_updates(updates, snapshot)
     return (out, updates), residual
 
@@ -974,6 +988,7 @@ class SimpleBwdFn:
     if self.graph:
       nondiff = extract.from_tree2(nondiff)
       residual = extract.from_tree2(residual)
+      out_g = extract.from_tree2(out_g)
     result = self.bwd(*nondiff, residual, out_g)
     if self.graph:
       result = extract.to_tree2(result)
@@ -1063,7 +1078,7 @@ def _custom_vjp_split_fn(
   *,
   nondiff_states: list[extract.GraphDefState],
 ):
-  broadcast: graphlib.GraphState
+  broadcast: State
   if prefix is False:
     # pure non-differentiable arg, not supported
     raise TypeError(
@@ -1537,13 +1552,11 @@ def custom_vjp(
   if was_bound:
     _raise_bound_method_error('custom_vjp')
 
+  extract.check_prefix(
+    nondiff_argnums, 'nondiff_argnums', 'custom_vjp', graph, graph_updates
+  )
+
   if not graph or not graph_updates:
-    if any(isinstance(x, DiffState) for x in nondiff_argnums):
-      raise ValueError(
-        '`nondiff_argnums` cannot contain `DiffState` objects '
-        'when `graph=False`. '
-        + graphlib._tree_mode_suggestion_transform('custom_vjp')
-      )
     return SimpleCustomVjp(fun_unbound, nondiff_argnums, graph=graph)  # type: ignore[arg-type]
 
   return CustomVjp(fun_unbound, nondiff_argnums)

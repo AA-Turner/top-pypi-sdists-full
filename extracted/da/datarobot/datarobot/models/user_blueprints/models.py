@@ -790,7 +790,7 @@ class UserBlueprint(APIObject, HumanReadable, CompareWithJSON):
             Sort order which will be applied to catalog list, valid options are "catalogName",
             "originalName", "description", "created", and "relevance". For all options other
             than relevance, you may prefix the attribute name with a dash to sort
-            in descending order. e.g. orderBy='-catalogName'.
+            in descending order. e.g., orderBy='-catalogName'.
         """
         return UserBlueprintCatalogSearch.search_catalog(
             search=search,
@@ -892,7 +892,7 @@ class UserBlueprintCatalogSearch(APIObject, HumanReadable, CompareWithJSON):
             Sort order which will be applied to catalog list, valid options are "catalogName",
             "originalName", "description", "created", and "relevance". For all options other
             than relevance, you may prefix the attribute name with a dash to sort
-            in descending order. e.g. orderBy='-catalogName'.
+            in descending order. e.g., orderBy='-catalogName'.
         """
         params = dict(
             search_for=search,
@@ -1467,7 +1467,7 @@ class UserBlueprintHexColumnNameLookupEntry(HumanReadable, CompareWithJSON):
 
 class UserBlueprintTask(HumanReadable, CompareWithJSON):
     """
-    A task (i.e. vertex) in a blueprint
+    A task (i.e., vertex) in a blueprint
 
     Parameters
     ----------
@@ -1755,7 +1755,7 @@ class UserBlueprintTaskDefinition(HumanReadable, CompareWithJSON):
         The column names, their types, and their hex representation, available in the specified
         project for the task.
     icon: int
-        The integer representing the id to be displayed when the blueprint is trained.
+        The integer representing the ID to be displayed when the blueprint is trained.
     output_methods: list(string)
         The methods which the task can use to produce output.
     time_series_only: bool
@@ -1898,7 +1898,7 @@ class UserBlueprintTaskArgumentDefinition(HumanReadable, CompareWithJSON):
     name: string
         The name of the argument.
     type: string
-        The type of the argument (e.g. "int", "float", "select", "intgrid", "multi", etc.)
+        The type of the argument (e.g., "int", "float", "select", "intgrid", "multi", etc.)
     default: any or list(any), Optional
         The default value of the argument.
     values: any or list(any) or dict

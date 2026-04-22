@@ -18,6 +18,7 @@ from chalk.utils.pl_helpers import polars_lazy_frame_collect_schema
 
 if TYPE_CHECKING:
     import polars as pl
+    from polars._typing import PolarsDataType
 
 
 class ParsedExpr(Protocol):
@@ -438,7 +439,7 @@ class PolarsFilterConverter(FilterConverter["pl.Expr"]):
 
 def convert_filters_to_pl_expr(
     filters: Sequence[Filter],
-    df_schema: Mapping[str, pl.PolarsDataType],
+    df_schema: Mapping[str, PolarsDataType],
     timestamp_feature: Optional[Feature] = None,
     now: Optional[datetime.datetime] = None,
     now_col_name: Optional[str] = None,

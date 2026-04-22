@@ -21,7 +21,7 @@ class LogLine:
         content (str): Contents of the log message
         line_num (int): Line number of the log
         phase (LogPhase): The phase of execution this log line belongs to
-        reported_at (datetime.datetime): Timestamp when the log was reported
+        reported_at (datetime.datetime): datetime with the constraint that the value must have timezone info
     """
 
     content: str

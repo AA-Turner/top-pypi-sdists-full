@@ -19,7 +19,7 @@ from xblock.core import XBlock
 from xblock.fields import Boolean, Dict, List, Scope, String
 from xblock.utils.resources import ResourceLoader
 
-from xblocks_contrib.common.xml_utils import LegacyXmlMixin
+from xblocks_contrib.legacy_utils.xml_utils import LegacyXmlMixin
 
 Text = markupsafe.escape
 resource_loader = ResourceLoader(__name__)
@@ -106,17 +106,6 @@ class PollBlock(LegacyXmlMixin, XBlock):
 
     _tag_name = "poll_question"
     _child_tag_name = "answer"
-
-    @property
-    def xblock_kvs(self):
-        """
-        Retrieves the internal KeyValueStore for this XModule.
-
-        Should only be used by the persistence layer. Use with caution.
-        """
-        # if caller wants kvs, caller's assuming it's up to date; so, decache it
-        self.save()
-        return self._field_data._kvs  # pylint: disable=protected-access
 
     def handle_ajax(self, dispatch, data):  # legacy support for tests
         """
@@ -260,23 +249,6 @@ class PollBlock(LegacyXmlMixin, XBlock):
                 """,
             ),
         ]
-
-    def get_explicitly_set_fields_by_scope(self, scope=Scope.content):
-        """
-        Get a dictionary of the fields for the given scope which are set explicitly on this xblock. (Including
-        any set to None.)
-        """
-        result = {}
-        for field in self.fields.values():
-            if field.scope == scope and field.is_set_on(self):
-                try:
-                    result[field.name] = field.read_json(self)
-                except TypeError as exception:
-                    exception_message = "{message}, Block-location:{location}, Field-name:{field_name}".format(
-                        message=str(exception), location=str(self.usage_key), field_name=field.name
-                    )
-                    raise TypeError(exception_message)  # pylint: disable=raise-missing-from
-        return result
 
     @classmethod
     def definition_from_xml(cls, xml_object, system):

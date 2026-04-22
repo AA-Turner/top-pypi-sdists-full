@@ -80,9 +80,9 @@ class CustomApplication(APIObject):
         The organization ID.
     created_by : str
         Email of the user who created the application.
-    creator_first_name : str
+    creator_first_name : Optional[str]
         First name of the creator.
-    creator_last_name : str
+    creator_last_name : Optional[str]
         Last name of the creator.
     creator_userhash : str
         Userhash of the creator.
@@ -121,8 +121,8 @@ class CustomApplication(APIObject):
         t.Key("user_id"): t.String,
         t.Key("org_id"): t.String,
         t.Key("created_by"): t.String,
-        t.Key("creator_first_name"): t.String,
-        t.Key("creator_last_name"): t.String,
+        t.Key("creator_first_name", optional=True): t.Or(t.String, t.Null),
+        t.Key("creator_last_name", optional=True): t.Or(t.String, t.Null),
         t.Key("creator_userhash"): t.String,
         t.Key("permissions"): t.List(t.String),
         t.Key("created_at"): t.String,
@@ -146,8 +146,6 @@ class CustomApplication(APIObject):
         user_id: str,
         org_id: str,
         created_by: str,
-        creator_first_name: str,
-        creator_last_name: str,
         creator_userhash: str,
         permissions: List[str],
         created_at: str,
@@ -156,6 +154,8 @@ class CustomApplication(APIObject):
         external_access_enabled: bool,
         allow_auto_stopping: bool,
         external_access_recipients: List[str],
+        creator_first_name: Optional[str] = None,
+        creator_last_name: Optional[str] = None,
         custom_application_source_id: Optional[str] = None,
         custom_application_source_version_id: Optional[str] = None,
         expires_at: Optional[str] = None,
@@ -330,7 +330,7 @@ class CustomApplication(APIObject):
             },
             "creator_info": {
                 "created_by": self.created_by,
-                "creator_name": f"{self.creator_first_name} {self.creator_last_name}",
+                "creator_name": f"{self.creator_first_name or ''} {self.creator_last_name or ''}".strip(),
                 "creator_userhash": self.creator_userhash,
             },
             "configuration": {

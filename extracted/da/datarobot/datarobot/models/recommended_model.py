@@ -29,9 +29,9 @@ class ModelRecommendation(APIObject):
     Attributes
     ----------
     project_id : str
-        the id of the project the model belongs to
+        the ID of the project the model belongs to
     model_id : str
-        the id of the recommended model
+        the ID of the recommended model
     recommendation_type : str
         the type of model recommendation
     """

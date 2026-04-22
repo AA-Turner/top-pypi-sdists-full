@@ -578,8 +578,7 @@ class TestCreateOuroborosServerCwdFallback:
     """Verify create_ouroboros_server() propagates _safe_cwd() fallback to components."""
 
     def test_cwd_root_propagates_fallback_to_all_components(self, tmp_path):
-        """When cwd=/, runtime adapter, LLM adapter, and channel workflow handler
-        all receive the fallback directory (Path.home()), not '/'.
+        """When cwd=/, runtime and LLM adapters receive the fallback directory.
 
         This is the factory-level complement to the unit-level TestSafeCwd tests.
         """
@@ -592,15 +591,6 @@ class TestCreateOuroborosServerCwdFallback:
         # Track calls to key dependency factories
         mock_create_runtime = MagicMock(return_value=MagicMock())
         mock_create_llm = MagicMock(return_value=MagicMock())
-        captured_channel_kwargs: dict = {}
-
-        class ChannelWorkflowCapture:
-            """Capture ChannelWorkflowHandler constructor kwargs."""
-
-            def __init__(self, **kwargs):
-                captured_channel_kwargs.update(kwargs)
-                self.definition = MagicMock()
-                self.definition.name = "ouroboros_channel_workflow"
 
         mock_event_store = MagicMock()
         mock_event_store.initialize = MagicMock()
@@ -626,9 +616,6 @@ class TestCreateOuroborosServerCwdFallback:
             "ouroboros.evolution.reflect.ReflectEngine": MagicMock(),
             "ouroboros.verification.extractor.AssertionExtractor": MagicMock(),
             "ouroboros.mcp.job_manager.JobManager": MagicMock(),
-            "ouroboros.openclaw.workflow.ChannelWorkflowManager": MagicMock(),
-            "ouroboros.openclaw.workflow.ChannelRepoRegistry": MagicMock(),
-            "ouroboros.mcp.tools.definitions.ChannelWorkflowHandler": ChannelWorkflowCapture,
             # Stub all tool handler classes
             "ouroboros.mcp.tools.definitions.ExecuteSeedHandler": _mock_handler(
                 "ouroboros_execute_seed"
@@ -723,8 +710,131 @@ class TestCreateOuroborosServerCwdFallback:
             f"got {llm_call.kwargs['cwd']}"
         )
 
-        # 3) ChannelWorkflowHandler received the fallback as default_repo
-        assert captured_channel_kwargs.get("default_repo") == str(expected_fallback), (
-            f"ChannelWorkflowHandler should receive default_repo={expected_fallback}, "
-            f"got {captured_channel_kwargs.get('default_repo')}"
-        )
+
+class TestCreateOuroborosServerOpenCodeMode:
+    """Verify create_ouroboros_server() threads opencode_mode to handlers."""
+
+    def test_config_resolves_to_opencode_threads_mode_to_subagent_handlers(self):
+        """Config-resolved OpenCode plugin mode reaches subagent-aware handlers."""
+        import contextlib
+        from unittest.mock import MagicMock, patch
+
+        captured_modes: dict[str, list[tuple[str | None, str | None]]] = {}
+
+        def _capture_handler(name: str) -> type:
+            """Factory that records runtime backend and opencode mode."""
+
+            class _Handler:
+                def __init__(self, **kwargs):
+                    mode = kwargs.get("opencode_mode")
+                    backend = kwargs.get("agent_runtime_backend")
+                    captured_modes.setdefault(name, []).append((backend, mode))
+                    self.opencode_mode = mode
+                    self.agent_runtime_backend = backend
+                    self.definition = MagicMock(name=name)
+
+            return _Handler
+
+        mock_event_store = MagicMock()
+        mock_event_store.initialize = MagicMock()
+
+        gated_handlers = {
+            "ouroboros_execute_seed": "ouroboros.mcp.tools.definitions.ExecuteSeedHandler",
+            "ouroboros_start_execute_seed": "ouroboros.mcp.tools.definitions.StartExecuteSeedHandler",
+            "ouroboros_generate_seed": "ouroboros.mcp.tools.definitions.GenerateSeedHandler",
+            "ouroboros_interview": "ouroboros.mcp.tools.definitions.InterviewHandler",
+            "ouroboros_evaluate": "ouroboros.mcp.tools.definitions.EvaluateHandler",
+            "ouroboros_lateral_think": "ouroboros.mcp.tools.definitions.LateralThinkHandler",
+            "ouroboros_evolve_step": "ouroboros.mcp.tools.definitions.EvolveStepHandler",
+            "ouroboros_start_evolve_step": "ouroboros.mcp.tools.definitions.StartEvolveStepHandler",
+            "ouroboros_pm_interview": "ouroboros.mcp.tools.pm_handler.PMInterviewHandler",
+            "ouroboros_qa": "ouroboros.mcp.tools.qa.QAHandler",
+        }
+
+        def _simple_mock_handler(name: str) -> type:
+            """Non-gated handler mock."""
+
+            class _H:
+                def __init__(self, **kwargs):
+                    self.definition = MagicMock(name=name)
+
+            return _H
+
+        patch_targets = {
+            # Config resolves to opencode without runtime_backend arg
+            "ouroboros.orchestrator.resolve_agent_runtime_backend": MagicMock(
+                return_value="opencode"
+            ),
+            "ouroboros.config.get_opencode_mode": MagicMock(return_value="plugin"),
+            "ouroboros.orchestrator.create_agent_runtime": MagicMock(return_value=MagicMock()),
+            "ouroboros.providers.create_llm_adapter": MagicMock(return_value=MagicMock()),
+            "ouroboros.bigbang.interview.InterviewEngine": MagicMock(),
+            "ouroboros.bigbang.seed_generator.SeedGenerator": MagicMock(),
+            "ouroboros.evaluation.EvaluationPipeline": MagicMock(),
+            "ouroboros.evolution.loop.EvolutionaryLoop": MagicMock(),
+            "ouroboros.evolution.wonder.WonderEngine": MagicMock(),
+            "ouroboros.evolution.reflect.ReflectEngine": MagicMock(),
+            "ouroboros.verification.extractor.AssertionExtractor": MagicMock(),
+            "ouroboros.mcp.job_manager.JobManager": MagicMock(),
+            "ouroboros.mcp.tools.definitions.SessionStatusHandler": _simple_mock_handler(
+                "ouroboros_session_status"
+            ),
+            "ouroboros.mcp.tools.definitions.JobStatusHandler": _simple_mock_handler(
+                "ouroboros_job_status"
+            ),
+            "ouroboros.mcp.tools.definitions.JobWaitHandler": _simple_mock_handler(
+                "ouroboros_job_wait"
+            ),
+            "ouroboros.mcp.tools.definitions.JobResultHandler": _simple_mock_handler(
+                "ouroboros_job_result"
+            ),
+            "ouroboros.mcp.tools.definitions.CancelJobHandler": _simple_mock_handler(
+                "ouroboros_cancel_job"
+            ),
+            "ouroboros.mcp.tools.definitions.QueryEventsHandler": _simple_mock_handler(
+                "ouroboros_query_events"
+            ),
+            "ouroboros.mcp.tools.definitions.MeasureDriftHandler": _simple_mock_handler(
+                "ouroboros_measure_drift"
+            ),
+            "ouroboros.mcp.tools.definitions.LineageStatusHandler": _simple_mock_handler(
+                "ouroboros_lineage_status"
+            ),
+            "ouroboros.mcp.tools.definitions.EvolveRewindHandler": _simple_mock_handler(
+                "ouroboros_evolve_rewind"
+            ),
+            "ouroboros.mcp.tools.definitions.ACDashboardHandler": _simple_mock_handler(
+                "ouroboros_ac_dashboard"
+            ),
+            "ouroboros.mcp.tools.definitions.ACTreeHUDHandler": _simple_mock_handler(
+                "ouroboros_ac_tree_hud"
+            ),
+            "ouroboros.mcp.tools.definitions.CancelExecutionHandler": _simple_mock_handler(
+                "ouroboros_cancel_execution"
+            ),
+            "ouroboros.mcp.tools.brownfield_handler.BrownfieldHandler": _simple_mock_handler(
+                "ouroboros_brownfield"
+            ),
+            "ouroboros.mcp.tools.registry.ToolRegistry": MagicMock(),
+            "ouroboros.config.get_clarification_model": MagicMock(return_value="test-model"),
+            "ouroboros.config.get_semantic_model": MagicMock(return_value="test-model"),
+            "ouroboros.config.get_wonder_model": MagicMock(return_value="test-model"),
+            "ouroboros.config.get_reflect_model": MagicMock(return_value="test-model"),
+            "ouroboros.config.get_assertion_extraction_model": MagicMock(return_value="test-model"),
+        }
+
+        for handler_name, patch_path in gated_handlers.items():
+            patch_targets[patch_path] = _capture_handler(handler_name)
+
+        with contextlib.ExitStack() as stack:
+            for target, mock_obj in patch_targets.items():
+                stack.enter_context(patch(target, mock_obj))
+
+            from ouroboros.mcp.server.adapter import create_ouroboros_server
+
+            create_ouroboros_server(event_store=mock_event_store)
+
+        for name in gated_handlers:
+            assert captured_modes.get(name), f"{name} was not constructed"
+            assert all(backend == "opencode" for backend, _mode in captured_modes[name])
+            assert all(mode == "plugin" for _backend, mode in captured_modes[name])

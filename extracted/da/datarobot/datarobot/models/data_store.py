@@ -314,7 +314,7 @@ class DataStore(APIObject):
         Parameters
         ----------
         canonical_name : str
-            optional, the user-friendly name of the data store.
+            Optional; the user-friendly name of the data store.
         driver_id : str
             Optional. The identifier of the DataDriver. if the type is one of DataStoreTypes.DR_DATABASE_V1
             or DataStoreTypes.JDBC.
@@ -387,16 +387,16 @@ class DataStore(APIObject):
         Parameters
         ----------
         username : str
-            optional, the username for database authentication.
+            Optional; the username for database authentication.
         password : str
-            optional, the password for database authentication. The password is encrypted
+            Optional; the password for database authentication. The password is encrypted
             at server side and never saved / stored
         credential_id : str
             optional, id of the set of credentials to use instead of username and password
         use_kerberos : bool
-            optional, whether to use Kerberos for data store authentication
+            Optional; whether to use Kerberos for data store authentication
         credential_data : dict
-            optional, the credentials to authenticate with the database, to use instead of
+            Optional; the credentials to authenticate with the database, to use instead of
             user/password or credential ID
         set_default_credential: bool
             optional, if True and credential_id is provided, sets the credential as default for this data store
@@ -475,12 +475,12 @@ class DataStore(APIObject):
         Parameters
         ----------
         username : str
-            optional, the username for database authentication.
+            Optional; the username for database authentication.
         password : str
-            optional, the password for database authentication. The password is encrypted
+            Optional; the password for database authentication. The password is encrypted
             at server side and never saved / stored
         schema : str
-            optional, the schema name.
+            Optional; the schema name.
 
         Returns
         -------

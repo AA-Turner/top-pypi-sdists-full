@@ -523,8 +523,15 @@ def generate_report(
         )
         report = generator.generate_report()
 
-        # If no linker scripts were provided, create default regions from sections
-        if memory_regions_data is None:
+        # Fall back to default regions when no linker scripts were provided
+        # OR when parsing yielded none (e.g. SECTIONS-only script with no
+        # MEMORY block). Otherwise upload fails: "memory_layout is required".
+        if not memory_regions_data:
+            if memory_regions_data is not None:
+                logger.warning(
+                    "Linker scripts parsed but yielded no memory regions; "
+                    "falling back to default Code/Data regions from ELF sections"
+                )
             _apply_default_regions(generator, report)
 
     except Exception as e:  # pylint: disable=broad-exception-caught
@@ -587,6 +594,7 @@ def _create_metadata_only_report() -> dict:
     return {
         'file_path': None,
         'architecture': None,
+        'toolchain': None,
         'entry_point': None,
         'file_type': None,
         'machine': None,
@@ -693,7 +701,11 @@ def _build_enriched_report(
         'git': commit_info,
         'repository': commit_info.get('repository'),
         'target_name': target_name,
-        'analysis_version': version('membrowse')
+        'analysis_version': version('membrowse'),
+        # Core reads these at metadata.architecture / metadata.toolchain
+        # (membrowse-core/core/src/routes/memory.py).
+        'architecture': report.get('architecture'),
+        'toolchain': report.get('toolchain'),
     }
 
     # Add build_failed directly to metadata if provided

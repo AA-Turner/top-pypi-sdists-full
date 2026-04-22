@@ -14,7 +14,6 @@ from attrs import field as _attrs_field
 from dateutil.parser import isoparse
 
 from ..models.run_status import RunStatus
-from ..models.run_trigger_type import RunTriggerType
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
@@ -30,20 +29,27 @@ class DetailedRunResponse:
     """
     Attributes:
         configuration_id (UUID): The ID of the configuration that will be used when running the script
-        date_added (datetime.datetime): The date the entity was added
-        date_updated (datetime.datetime): The date the entity was updated
+        date_added (datetime.datetime): datetime with the constraint that the value must have timezone info
+        date_updated (datetime.datetime): datetime with the constraint that the value must have timezone info
         deployment_id (UUID): The ID of the deployment that will be used when running the script
         id (UUID): The unique ID of the entity
         number (int): The number of the run. Will increment for each new run of the script
         script (ScriptResponse):
         script_version_id (UUID): The ID of the script version that will be used when running the script
         status (RunStatus): The status of the run
-        trigger (RunTriggerType): The trigger of the run. Scripts can be triggered manually or by a schedule
+        trigger (str): The trigger that started this run (full TTrigger string, e.g. schedule:0 8 * * *, manual:,
+            job.success:jobs.ref)
         workspace_id (UUID): The ID of the workspace the run belongs to
         duration (Union[None, Unset, int]): The duration of the run in seconds (null if not yet completed)
+        interval_end (Union[None, Unset, datetime.datetime]): End of the interval being processed (for interval-based
+            jobs)
+        interval_start (Union[None, Unset, datetime.datetime]): Start of the interval being processed (for interval-
+            based jobs)
         logs (Union[None, Unset, str]): A link to the logs of the run
         pipeline_run_summaries (Union[Unset, list['PipelineRunSummaryResponse']]): Pipeline run summaries linked to this
             job run, populated by telemetry
+        prev_run_id (Union[None, UUID, Unset]): The ID of the upstream run that triggered this run (for job event
+            triggers)
         profile (Union[None, Unset, str]): The name of the profile that was used for the run
         time_ended (Union[None, Unset, datetime.datetime]): The time the run ended
         time_started (Union[None, Unset, datetime.datetime]): The time the run started
@@ -59,11 +65,14 @@ class DetailedRunResponse:
     script: "ScriptResponse"
     script_version_id: UUID
     status: RunStatus
-    trigger: RunTriggerType
+    trigger: str
     workspace_id: UUID
     duration: Union[None, Unset, int] = UNSET
+    interval_end: Union[None, Unset, datetime.datetime] = UNSET
+    interval_start: Union[None, Unset, datetime.datetime] = UNSET
     logs: Union[None, Unset, str] = UNSET
     pipeline_run_summaries: Union[Unset, list["PipelineRunSummaryResponse"]] = UNSET
+    prev_run_id: Union[None, UUID, Unset] = UNSET
     profile: Union[None, Unset, str] = UNSET
     time_ended: Union[None, Unset, datetime.datetime] = UNSET
     time_started: Union[None, Unset, datetime.datetime] = UNSET
@@ -89,7 +98,7 @@ class DetailedRunResponse:
 
         status = self.status.value
 
-        trigger = self.trigger.value
+        trigger = self.trigger
 
         workspace_id = str(self.workspace_id)
 
@@ -98,6 +107,22 @@ class DetailedRunResponse:
             duration = UNSET
         else:
             duration = self.duration
+
+        interval_end: Union[None, Unset, str]
+        if isinstance(self.interval_end, Unset):
+            interval_end = UNSET
+        elif isinstance(self.interval_end, datetime.datetime):
+            interval_end = self.interval_end.isoformat()
+        else:
+            interval_end = self.interval_end
+
+        interval_start: Union[None, Unset, str]
+        if isinstance(self.interval_start, Unset):
+            interval_start = UNSET
+        elif isinstance(self.interval_start, datetime.datetime):
+            interval_start = self.interval_start.isoformat()
+        else:
+            interval_start = self.interval_start
 
         logs: Union[None, Unset, str]
         if isinstance(self.logs, Unset):
@@ -111,6 +136,14 @@ class DetailedRunResponse:
             for pipeline_run_summaries_item_data in self.pipeline_run_summaries:
                 pipeline_run_summaries_item = pipeline_run_summaries_item_data.to_dict()
                 pipeline_run_summaries.append(pipeline_run_summaries_item)
+
+        prev_run_id: Union[None, Unset, str]
+        if isinstance(self.prev_run_id, Unset):
+            prev_run_id = UNSET
+        elif isinstance(self.prev_run_id, UUID):
+            prev_run_id = str(self.prev_run_id)
+        else:
+            prev_run_id = self.prev_run_id
 
         profile: Union[None, Unset, str]
         if isinstance(self.profile, Unset):
@@ -161,10 +194,16 @@ class DetailedRunResponse:
         )
         if duration is not UNSET:
             field_dict["duration"] = duration
+        if interval_end is not UNSET:
+            field_dict["interval_end"] = interval_end
+        if interval_start is not UNSET:
+            field_dict["interval_start"] = interval_start
         if logs is not UNSET:
             field_dict["logs"] = logs
         if pipeline_run_summaries is not UNSET:
             field_dict["pipeline_run_summaries"] = pipeline_run_summaries
+        if prev_run_id is not UNSET:
+            field_dict["prev_run_id"] = prev_run_id
         if profile is not UNSET:
             field_dict["profile"] = profile
         if time_ended is not UNSET:
@@ -200,7 +239,7 @@ class DetailedRunResponse:
 
         status = RunStatus(d.pop("status"))
 
-        trigger = RunTriggerType(d.pop("trigger"))
+        trigger = d.pop("trigger")
 
         workspace_id = UUID(d.pop("workspace_id"))
 
@@ -212,6 +251,42 @@ class DetailedRunResponse:
             return cast(Union[None, Unset, int], data)
 
         duration = _parse_duration(d.pop("duration", UNSET))
+
+        def _parse_interval_end(data: object) -> Union[None, Unset, datetime.datetime]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                interval_end_type_0 = isoparse(data)
+
+                return interval_end_type_0
+            except:  # noqa: E722
+                pass
+            return cast(Union[None, Unset, datetime.datetime], data)
+
+        interval_end = _parse_interval_end(d.pop("interval_end", UNSET))
+
+        def _parse_interval_start(
+            data: object,
+        ) -> Union[None, Unset, datetime.datetime]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                interval_start_type_0 = isoparse(data)
+
+                return interval_start_type_0
+            except:  # noqa: E722
+                pass
+            return cast(Union[None, Unset, datetime.datetime], data)
+
+        interval_start = _parse_interval_start(d.pop("interval_start", UNSET))
 
         def _parse_logs(data: object) -> Union[None, Unset, str]:
             if data is None:
@@ -230,6 +305,23 @@ class DetailedRunResponse:
             )
 
             pipeline_run_summaries.append(pipeline_run_summaries_item)
+
+        def _parse_prev_run_id(data: object) -> Union[None, UUID, Unset]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                prev_run_id_type_0 = UUID(data)
+
+                return prev_run_id_type_0
+            except:  # noqa: E722
+                pass
+            return cast(Union[None, UUID, Unset], data)
+
+        prev_run_id = _parse_prev_run_id(d.pop("prev_run_id", UNSET))
 
         def _parse_profile(data: object) -> Union[None, Unset, str]:
             if data is None:
@@ -304,8 +396,11 @@ class DetailedRunResponse:
             trigger=trigger,
             workspace_id=workspace_id,
             duration=duration,
+            interval_end=interval_end,
+            interval_start=interval_start,
             logs=logs,
             pipeline_run_summaries=pipeline_run_summaries,
+            prev_run_id=prev_run_id,
             profile=profile,
             time_ended=time_ended,
             time_started=time_started,

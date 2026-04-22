@@ -22,6 +22,8 @@
 """Simple wrapper that provides porcelain-like functions on top of Dulwich.
 
 Currently implemented:
+ * am
+ * apply_patch
  * archive
  * add
  * bisect{_start,_bad,_good,_skip,_reset,_log,_replay}
@@ -96,6 +98,11 @@ __all__ = [
     "TransportKwargs",
     "active_branch",
     "add",
+    "am",
+    "am_abort",
+    "am_continue",
+    "am_quit",
+    "am_skip",
     "annotate",
     "archive",
     "bisect_bad",
@@ -196,7 +203,10 @@ __all__ = [
     "parse_timezone_format",
     "path_to_tree_path",
     "print_commit",
+    "print_name_only",
     "print_name_status",
+    "print_oneline",
+    "print_stat",
     "print_tag",
     "prune",
     "pull",
@@ -321,7 +331,6 @@ if TYPE_CHECKING:
     from ..gc import GCStats
     from ..maintenance import MaintenanceResult
     from ..objects import RawObjectID
-
 from ..archive import tar_stream
 from ..bisect import BisectState
 from ..client import (
@@ -381,9 +390,13 @@ from ..pack import UnpackedObject, write_pack_from_container, write_pack_index
 from ..patch import (
     MailinfoResult,
     get_summary,
+    parse_unified_diff,
     write_commit_patch,
     write_object_diff,
     write_tree_diff,
+)
+from ..patch import (
+    apply_patches as apply_file_patches,
 )
 from ..protocol import ZERO_SHA, Protocol
 from ..refs import (
@@ -1577,6 +1590,7 @@ def add(
         config = r.get_config_stack()
         preload_index = config.get_boolean(b"core", b"preloadIndex", False)
         trust_ctime = config.get_boolean(b"core", b"trustctime", True)
+        precompose_unicode = config.get_boolean(b"core", b"precomposeunicode", False)
 
         all_unstaged_paths = list(
             get_unstaged_changes(
@@ -1632,6 +1646,7 @@ def add(
                         str(resolved_path),
                         str(repo_path),
                         index,
+                        precompose_unicode=precompose_unicode,
                     )
                 )
                 for untracked_path in current_untracked:
@@ -1941,6 +1956,7 @@ def print_commit(
     commit: Commit,
     decode: Callable[[bytes], str],
     outstream: TextIO = sys.stdout,
+    abbrev_commit: bool = False,
 ) -> None:
     """Write a human-readable commit log entry.
 
@@ -1948,9 +1964,13 @@ def print_commit(
       commit: A `Commit` object
       decode: Function to decode commit data
       outstream: A stream file to write to
+      abbrev_commit: If True, abbreviate commit hashes
     """
     outstream.write("-" * 50 + "\n")
-    outstream.write("commit: " + commit.id.decode("ascii") + "\n")
+    commit_id = commit.id.decode("ascii")
+    if abbrev_commit:
+        commit_id = commit_id[:7]
+    outstream.write("commit: " + commit_id + "\n")
     if len(commit.parents) > 1:
         outstream.write(
             "merge: "
@@ -2170,6 +2190,83 @@ def print_name_status(changes: Iterator[TreeChange]) -> Iterator[str]:
         yield f"{kind:<8}{path1_str:<20}{path2_str:<20}"
 
 
+def print_name_only(changes: Iterator[TreeChange]) -> Iterator[str]:
+    """Print only the names of changed files.
+
+    Args:
+      changes: Iterator of TreeChange objects
+    Yields:
+      Formatted name-only strings for each change
+    """
+    for change in changes:
+        if not change:
+            continue
+        if isinstance(change, list):
+            change = change[0]
+        if change.type == CHANGE_DELETE:
+            assert change.old is not None
+            path = change.old.path
+        else:
+            assert change.new is not None
+            path = change.new.path
+        assert path is not None
+        path_str = (
+            path.decode("utf-8", errors="replace") if isinstance(path, bytes) else path
+        )
+        yield path_str
+
+
+def print_oneline(
+    commit: Commit,
+    decode: Callable[[bytes], str],
+    outstream: TextIO = sys.stdout,
+    abbrev_commit: bool = True,
+) -> None:
+    """Write a single-line commit log entry.
+
+    Args:
+      commit: A `Commit` object
+      decode: Function to decode commit data
+      outstream: A stream file to write to
+      abbrev_commit: If True, abbreviate commit hashes
+    """
+    commit_id = commit.id.decode("ascii")
+    if abbrev_commit:
+        commit_id = commit_id[:7]
+    message = decode(commit.message).split("\n", 1)[0] if commit.message else ""
+    outstream.write(f"{commit_id} {message}\n")
+
+
+def print_stat(
+    store: "BaseObjectStore",
+    commit: Commit,
+    outstream: TextIO = sys.stdout,
+) -> None:
+    """Write a diffstat summary for a commit.
+
+    Args:
+      store: ObjectStore for looking up objects
+      commit: A `Commit` object
+      outstream: A stream file to write to
+    """
+    if commit.parents:
+        parent = store[commit.parents[0]]
+        assert isinstance(parent, Commit)
+        base_tree = parent.tree
+    else:
+        base_tree = None
+
+    diffstream = BytesIO()
+    write_tree_diff(diffstream, store, base_tree, commit.tree)
+    diffstream.seek(0)
+    diff_lines = diffstream.getvalue().split(b"\n")
+
+    from ..diffstat import diffstat
+
+    stat_output = diffstat(diff_lines)
+    outstream.write(stat_output.decode("utf-8", errors="replace") + "\n")
+
+
 def log(
     repo: RepoPath = ".",
     paths: Sequence[str | bytes] | None = None,
@@ -2177,6 +2274,19 @@ def log(
     max_entries: int | None = None,
     reverse: bool = False,
     name_status: bool = False,
+    name_only: bool = False,
+    author: str | None = None,
+    committer: str | None = None,
+    grep: str | None = None,
+    since: str | int | None = None,
+    until: str | int | None = None,
+    no_merges: bool = False,
+    merges: bool = False,
+    oneline: bool = False,
+    abbrev_commit: bool = False,
+    stat: bool = False,
+    patch: bool = False,
+    follow: bool = False,
 ) -> None:
     """Write commit logs.
 
@@ -2185,9 +2295,45 @@ def log(
       paths: Optional set of specific paths to print entries for
       outstream: Stream to write log output to
       reverse: Reverse order in which entries are printed
-      name_status: Print name status
+      name_status: Print name/status for each changed file
+      name_only: Print only names of changed files
       max_entries: Optional maximum number of entries to display
+      author: Filter commits by author pattern
+      committer: Filter commits by committer pattern
+      grep: Filter commits by message pattern
+      since: Show commits after this date (timestamp or date string)
+      until: Show commits before this date (timestamp or date string)
+      no_merges: Exclude merge commits
+      merges: Only show merge commits
+      oneline: Show each commit on a single line
+      abbrev_commit: Abbreviate commit hashes
+      stat: Show diffstat for each commit
+      patch: Show patch (diff) for each commit
+      follow: Follow file renames
     """
+    import re
+
+    since_ts: int | None = None
+    until_ts: int | None = None
+    if since is not None:
+        if isinstance(since, int):
+            since_ts = since
+        else:
+            from ..approxidate import parse_approxidate
+
+            since_ts = parse_approxidate(since)
+    if until is not None:
+        if isinstance(until, int):
+            until_ts = until
+        else:
+            from ..approxidate import parse_approxidate
+
+            until_ts = parse_approxidate(until)
+
+    author_re = re.compile(author.encode(), re.IGNORECASE) if author else None
+    committer_re = re.compile(committer.encode(), re.IGNORECASE) if committer else None
+    grep_re = re.compile(grep.encode(), re.IGNORECASE) if grep else None
+
     with open_repo_closing(repo) as r:
         try:
             include = [r.head()]
@@ -2199,14 +2345,54 @@ def log(
             paths_bytes = [p.encode() if isinstance(p, str) else p for p in paths]
 
         walker = r.get_walker(
-            include=include, max_entries=max_entries, paths=paths_bytes, reverse=reverse
+            include=include,
+            max_entries=None,  # We filter ourselves to handle author/grep/merges
+            paths=paths_bytes,
+            reverse=reverse,
+            since=since_ts,
+            until=until_ts,
+            follow=follow,
         )
+
+        count = 0
         for entry in walker:
+            commit = entry.commit
+
+            # Filter by merge status
+            if no_merges and len(commit.parents) > 1:
+                continue
+            if merges and len(commit.parents) <= 1:
+                continue
+
+            # Filter by author
+            if author_re and not author_re.search(commit.author):
+                continue
+
+            # Filter by committer
+            if committer_re and not committer_re.search(commit.committer):
+                continue
+
+            # Filter by commit message
+            if grep_re and (not commit.message or not grep_re.search(commit.message)):
+                continue
+
+            # Check max_entries after filtering
+            if max_entries is not None and count >= max_entries:
+                break
+            count += 1
 
             def decode_wrapper(x: bytes) -> str:
                 return commit_decode(entry.commit, x)
 
-            print_commit(entry.commit, decode_wrapper, outstream)
+            if oneline:
+                print_oneline(commit, decode_wrapper, outstream, abbrev_commit=True)
+            else:
+                print_commit(
+                    commit,
+                    decode_wrapper,
+                    outstream,
+                    abbrev_commit=abbrev_commit,
+                )
             if name_status:
                 outstream.writelines(
                     [
@@ -2216,6 +2402,28 @@ def log(
                         )
                     ]
                 )
+            if name_only:
+                outstream.writelines(
+                    [
+                        line + "\n"
+                        for line in print_name_only(
+                            cast(Iterator[TreeChange], entry.changes())
+                        )
+                    ]
+                )
+            if stat:
+                print_stat(r.object_store, commit, outstream)
+            if patch:
+                if commit.parents:
+                    parent = r[commit.parents[0]]
+                    assert isinstance(parent, Commit)
+                    base_tree = parent.tree
+                else:
+                    base_tree = None
+                diffstream = BytesIO()
+                write_tree_diff(diffstream, r.object_store, base_tree, commit.tree)
+                diffstream.seek(0)
+                outstream.write(commit_decode(commit, diffstream.getvalue()))
 
 
 # TODO(jelmer): better default for encoding?
@@ -2681,6 +2889,121 @@ def get_remote_repo(
     return (remote_name, encoded_location.decode())
 
 
+def _find_reachable_tags(
+    r: BaseRepo,
+    pushed_shas: set[ObjectID],
+    already_included: set[Ref],
+    remote_refs: dict[Ref, ObjectID],
+) -> Iterator[tuple[Ref, ObjectID]]:
+    """Yield annotated tags whose targets are reachable from pushed commits.
+
+    Args:
+      r: Local repository
+      pushed_shas: SHAs being pushed (non-deletion)
+      already_included: Refs already being pushed
+      remote_refs: Current remote refs
+    """
+    reachable: set[ObjectID] = set()
+    for sha in pushed_shas:
+        try:
+            obj = r[sha]
+        except KeyError:
+            continue
+        if isinstance(obj, Commit):
+            for entry in r.get_walker([sha]):
+                reachable.add(entry.commit.id)
+
+    for ref in r.refs.keys():
+        if not ref.startswith(LOCAL_TAG_PREFIX):
+            continue
+        if ref in already_included or ref in remote_refs:
+            continue
+        tag_sha = r.refs[ref]
+        try:
+            tag_obj = r[tag_sha]
+        except KeyError:
+            continue
+        if isinstance(tag_obj, Tag) and tag_obj.object[1] in reachable:
+            yield (Ref(ref), tag_sha)
+
+
+def _select_push_refs(
+    r: BaseRepo,
+    remote_refs: dict[Ref, ObjectID],
+    refspecs: str | bytes | Sequence[str | bytes] | None,
+    *,
+    force: bool = False,
+    mirror_mode: bool = False,
+    all: bool = False,
+    tags: bool = False,
+    delete: bool = False,
+) -> list[tuple[Ref | None, Ref | None, bool]]:
+    """Select which refs to push based on mode flags or user refspecs.
+
+    Returns a list of (local_ref, remote_ref, force) tuples.
+    local_ref is None for deletions.
+
+    Args:
+      r: Local repository
+      remote_refs: Current remote refs dict
+      refspecs: User-provided refspecs (may be None)
+      force: Force overwriting refs
+      mirror_mode: Push all refs
+      all: Push all branches
+      tags: Push all tags
+      delete: Delete the specified remote refs
+    """
+    result: list[tuple[Ref | None, Ref | None, bool]] = []
+
+    if mirror_mode:
+        for ref in r.refs.keys():
+            result.append((Ref(ref), Ref(ref), True))
+    elif all:
+        for ref in r.refs.keys():
+            if ref.startswith(LOCAL_BRANCH_PREFIX):
+                result.append((Ref(ref), Ref(ref), force))
+    elif delete:
+        assert refspecs is not None
+        if isinstance(refspecs, (str, bytes)):
+            refspecs = [refspecs]
+        remote_container = DictRefsContainer(remote_refs)  # type: ignore[arg-type]
+        for spec in refspecs:
+            try:
+                resolved = parse_ref(remote_container, spec)
+            except KeyError:
+                resolved = Ref(spec.encode() if isinstance(spec, str) else spec)
+            result.append((None, resolved, force))
+    elif tags and refspecs is None:
+        for ref in r.refs.keys():
+            if ref.startswith(LOCAL_TAG_PREFIX):
+                result.append((Ref(ref), Ref(ref), force))
+    else:
+        # Parse user-provided refspecs (or default to active branch)
+        if refspecs is None:
+            active_ref = r.refs.follow(HEADREF)[0][1]
+            if not active_ref.startswith(LOCAL_BRANCH_PREFIX):
+                raise ValueError(active_ref)
+            refspecs = [active_ref[len(LOCAL_BRANCH_PREFIX) :]]
+        elif isinstance(refspecs, (str, bytes)):
+            refspecs = [refspecs]
+        refspecs_bytes = [
+            spec.encode() if isinstance(spec, str) else spec for spec in refspecs
+        ]
+        remote_container = DictRefsContainer(remote_refs)  # type: ignore[arg-type]
+        result.extend(
+            parse_reftuples(r.refs, remote_container, refspecs_bytes, force=force)
+        )
+
+    # --tags combined with refspecs: also include all local tags
+    if tags and refspecs is not None and not all and not mirror_mode:
+        already = {rh for _, rh, _ in result}
+        for ref in r.refs.keys():
+            if ref.startswith(LOCAL_TAG_PREFIX) and Ref(ref) not in already:
+                result.append((Ref(ref), Ref(ref), force))
+
+    return result
+
+
 def push(
     repo: RepoPath,
     remote_location: str | bytes | None = None,
@@ -2688,6 +3011,16 @@ def push(
     outstream: BinaryIO = default_bytes_out_stream,
     errstream: BinaryIO | RawIOBase = default_bytes_err_stream,
     force: bool = False,
+    push_options: list[str] | None = None,
+    atomic: bool = False,
+    all: bool = False,
+    tags: bool = False,
+    delete: bool = False,
+    dry_run: bool = False,
+    prune: bool = False,
+    set_upstream: bool = False,
+    follow_tags: bool = False,
+    mirror: bool = False,
     **kwargs: object,
 ) -> SendPackResult:
     """Remote push with dulwich via dulwich.client.
@@ -2699,14 +3032,29 @@ def push(
       outstream: A stream file to write output
       errstream: A stream file to write errors
       force: Force overwriting refs
+      push_options: Optional list of push options to send to the server
+        (e.g. for AGit flow: ["topic=my-branch", "title=My PR"])
+      atomic: If True, request atomic push (all refs update or none do)
+      all: If True, push all branches
+      tags: If True, push all tags
+      delete: If True, delete the specified remote refs
+      dry_run: If True, do everything except actually send the updates
+      prune: If True, remove remote refs that don't exist locally
+      set_upstream: If True, set upstream tracking info for pushed branches
+      follow_tags: If True, push annotated tags reachable from pushed commits
+      mirror: If True, mirror all refs (implies force, push all refs and
+        delete remote refs not present locally)
       **kwargs: Additional keyword arguments for the client
     """
+    if delete and not refspecs:
+        raise Error("--delete requires ref arguments")
+
     # Open the repo
     with open_repo_closing(repo) as r:
         (remote_name, remote_location) = get_remote_repo(r, remote_location)
-        # Check if mirror mode is enabled
-        mirror_mode = False
-        if remote_name:
+        # Check if mirror mode is enabled (via flag or config)
+        mirror_mode = mirror
+        if not mirror_mode and remote_name:
             try:
                 mirror_mode_val = r.get_config_stack().get_boolean(
                     (b"remote", remote_name.encode()), b"mirror"
@@ -2717,26 +3065,7 @@ def push(
                 pass
 
         if mirror_mode:
-            # Mirror mode: push all refs and delete non-existent ones
-            refspecs = []
-            for ref in r.refs.keys():
-                # Push all refs to the same name on remote
-                refspecs.append(ref + b":" + ref)
-        elif refspecs is None:
-            refspecs = [active_branch(r)]
-
-        # Normalize refspecs to bytes
-        if isinstance(refspecs, str):
-            refspecs_bytes: bytes | list[bytes] = refspecs.encode()
-        elif isinstance(refspecs, bytes):
-            refspecs_bytes = refspecs
-        else:
-            refspecs_bytes = []
-            for spec in refspecs:
-                if isinstance(spec, str):
-                    refspecs_bytes.append(spec.encode())
-                else:
-                    refspecs_bytes.append(spec)
+            force = True
 
         # Get the client and path
         transport_kwargs = _filter_transport_kwargs(**kwargs)
@@ -2746,24 +3075,41 @@ def push(
             **transport_kwargs,
         )
 
-        selected_refs = []
+        selected_refs: list[tuple[Ref | None, Ref | None, bool]] = []
         remote_changed_refs: dict[Ref, ObjectID | None] = {}
 
         def update_refs(refs: dict[Ref, ObjectID]) -> dict[Ref, ObjectID]:
-            remote_refs = DictRefsContainer(refs)  # type: ignore[arg-type]
-            selected_refs.extend(
-                parse_reftuples(r.refs, remote_refs, refspecs_bytes, force=force)
-            )
             new_refs: dict[Ref, ObjectID] = {}
 
-            # In mirror mode, delete remote refs that don't exist locally
-            if mirror_mode:
+            selected_refs.extend(
+                _select_push_refs(
+                    r,
+                    refs,
+                    refspecs,
+                    force=force,
+                    mirror_mode=mirror_mode,
+                    all=all,
+                    tags=tags,
+                    delete=delete,
+                )
+            )
+
+            # Prune remote branches not present locally
+            if prune or mirror_mode:
                 local_refs = set(r.refs.keys())
-                for remote_ref in refs.keys():
-                    if remote_ref not in local_refs:
+                for remote_ref in refs:
+                    should_prune = (mirror_mode and remote_ref not in local_refs) or (
+                        prune
+                        and not mirror_mode
+                        and remote_ref.startswith(LOCAL_BRANCH_PREFIX)
+                        and Ref(remote_ref[len(LOCAL_BRANCH_PREFIX) :])
+                        not in set(r.refs.keys(base=Ref(LOCAL_BRANCH_PREFIX)))
+                    )
+                    if should_prune:
                         new_refs[remote_ref] = ZERO_SHA
                         remote_changed_refs[remote_ref] = None
-            # TODO: Handle selected_refs == {None: None}
+
+            # Apply selected ref mappings
             for lh, rh, force_ref in selected_refs:
                 if lh is None:
                     assert rh is not None
@@ -2781,10 +3127,40 @@ def push(
                         check_diverged(r, refs[rh], localsha)
                     new_refs[rh] = localsha
                     remote_changed_refs[rh] = localsha
+
+            # --follow-tags: push annotated tags reachable from pushed commits
+            if follow_tags:
+                pushed_shas = {sha for sha in new_refs.values() if sha != ZERO_SHA}
+                for ref, sha in _find_reachable_tags(
+                    r, pushed_shas, set(new_refs), refs
+                ):
+                    new_refs[ref] = sha
+                    remote_changed_refs[ref] = sha
+
             return new_refs
 
         err_encoding = getattr(errstream, "encoding", None) or DEFAULT_ENCODING
         remote_location = client.get_url(path)
+
+        if dry_run:
+            # Fetch remote refs without pushing, then compute what would change
+            result = client.send_pack(
+                path.encode(),
+                lambda refs: refs,
+                generate_pack_data=lambda have, want, **kw: (0, iter([])),
+                progress=lambda data: (errstream.write(data), None)[1],
+            )
+            update_refs({k: v for k, v in (result.refs or {}).items() if v is not None})
+            errstream.write(
+                b"Push to " + remote_location.encode(err_encoding) + b" (dry run).\n"
+            )
+            for rh, sha in remote_changed_refs.items():
+                action = "delete" if sha is None else "update"
+                errstream.write(
+                    f"Would {action} {rh.decode('utf-8', 'replace')}\n".encode()
+                )
+            return result
+
         try:
 
             def generate_pack_data_wrapper(
@@ -2794,17 +3170,23 @@ def push(
                 ofs_delta: bool = False,
                 progress: Callable[..., None] | None = None,
             ) -> tuple[int, Iterator[UnpackedObject]]:
-                # Wrap to match the expected signature
-                # Convert AbstractSet to set since generate_pack_data expects set
                 return r.generate_pack_data(
                     set(have), set(want), progress=progress, ofs_delta=ofs_delta
                 )
 
+            push_options_bytes: list[bytes] | None = None
+            if push_options is not None:
+                push_options_bytes = [
+                    opt.encode() if isinstance(opt, str) else opt
+                    for opt in push_options
+                ]
             result = client.send_pack(
                 path.encode(),
                 update_refs,
                 generate_pack_data=generate_pack_data_wrapper,
                 progress=lambda data: (errstream.write(data), None)[1],
+                push_options=push_options_bytes,
+                atomic=atomic,
             )
         except SendPackError as exc:
             raise Error(
@@ -2815,7 +3197,7 @@ def push(
                 b"Push to " + remote_location.encode(err_encoding) + b" successful.\n"
             )
 
-        for ref, error in (result.ref_status or {}).items():  # type: ignore[assignment]
+        for ref, error in (result.ref_status or {}).items():
             if error is not None:
                 errstream.write(
                     f"Push of ref {ref.decode('utf-8', 'replace')} failed: {error}\n".encode(
@@ -2829,6 +3211,28 @@ def push(
 
         if remote_name is not None:
             _import_remote_refs(r.refs, remote_name, remote_changed_refs)
+
+        # --set-upstream: configure tracking for pushed branches
+        if set_upstream and remote_name is not None:
+            config = r.get_config()
+            for local_ref, remote_ref, _force_ref in selected_refs:
+                if (
+                    local_ref is not None
+                    and remote_ref is not None
+                    and local_ref.startswith(LOCAL_BRANCH_PREFIX)
+                ):
+                    branch_name = local_ref[len(LOCAL_BRANCH_PREFIX) :]
+                    config.set(
+                        (b"branch", branch_name),
+                        b"remote",
+                        remote_name.encode(),
+                    )
+                    config.set(
+                        (b"branch", branch_name),
+                        b"merge",
+                        remote_ref,
+                    )
+            config.write_to_path()
 
         return result
 
@@ -3049,10 +3453,20 @@ def status(
         config = r.get_config_stack()
         preload_index = config.get_boolean(b"core", b"preloadIndex", False)
         trust_ctime = config.get_boolean(b"core", b"trustctime", True)
+        try:
+            max_stat = int(config.get(b"core", b"maxStat"))
+        except KeyError:
+            max_stat = None
+        precompose_unicode = config.get_boolean(b"core", b"precomposeunicode", False)
 
         unstaged_changes_tree = list(
             get_unstaged_changes(
-                index, r.path, filter_callback, preload_index, trust_ctime
+                index,
+                r.path,
+                filter_callback,
+                preload_index,
+                trust_ctime,
+                max_stat,
             )
         )
 
@@ -3062,6 +3476,7 @@ def status(
             index,
             exclude_ignored=not ignored,
             untracked_files=untracked_files,
+            precompose_unicode=precompose_unicode,
         )
 
         # Convert all paths to filesystem encoding
@@ -3125,10 +3540,23 @@ def shortlog(
         return items
 
 
+def _precompose_unicode_path(path: str) -> str:
+    """Normalize a filesystem path to NFC (precomposed) Unicode form.
+
+    On macOS, HFS+/APFS filesystems return filenames in NFD (decomposed)
+    form. This function normalizes them to NFC so they match the paths
+    stored in the git index.
+    """
+    import unicodedata
+
+    return unicodedata.normalize("NFC", path)
+
+
 def _walk_working_dir_paths(
     frompath: str | bytes | os.PathLike[str],
     basepath: str | bytes | os.PathLike[str],
     prune_dirnames: Callable[[str, list[str]], list[str]] | None = None,
+    precompose_unicode: bool = False,
 ) -> Iterator[tuple[str | bytes, bool]]:
     """Get path, is_dir for files in working dir from frompath.
 
@@ -3137,6 +3565,7 @@ def _walk_working_dir_paths(
       basepath: Path to compare to
       prune_dirnames: Optional callback to prune dirnames during os.walk
         dirnames will be set to result of prune_dirnames(dirpath, dirnames)
+      precompose_unicode: If True, normalize paths to NFC Unicode form
     """
     # Convert paths to strings for os.walk compatibility
 
@@ -3151,6 +3580,15 @@ def _walk_working_dir_paths(
             filenames.remove(".git")
             if dirpath != basepath:
                 continue
+
+        if precompose_unicode and isinstance(dirpath, str):
+            dirpath = _precompose_unicode_path(dirpath)
+            dirnames[:] = [
+                _precompose_unicode_path(d) for d in dirnames if isinstance(d, str)
+            ]
+            filenames = [
+                _precompose_unicode_path(f) for f in filenames if isinstance(f, str)
+            ]
 
         if dirpath != frompath:
             yield dirpath, True  # type: ignore[misc]
@@ -3169,6 +3607,7 @@ def get_untracked_paths(
     index: Index,
     exclude_ignored: bool = False,
     untracked_files: str = "all",
+    precompose_unicode: bool = False,
 ) -> Iterator[str]:
     """Get untracked paths.
 
@@ -3181,6 +3620,8 @@ def get_untracked_paths(
         - "no": return an empty list
         - "all": return all files in untracked directories
         - "normal": return untracked directories without listing their contents
+      precompose_unicode: If True, normalize filesystem paths to NFC Unicode
+        form. This is needed on macOS where the filesystem returns NFD paths.
 
     Note: ignored directories will never be walked for performance reasons.
       If exclude_ignored is False, only the path to an ignored directory will
@@ -3269,7 +3710,10 @@ def get_untracked_paths(
     # For "all" mode, use the original behavior
     if untracked_files == "all":
         for ap, is_dir in _walk_working_dir_paths(
-            frompath_str, basepath_str, prune_dirnames=prune_dirnames
+            frompath_str,
+            basepath_str,
+            prune_dirnames=prune_dirnames,
+            precompose_unicode=precompose_unicode,
         ):
             # frompath_str and basepath_str are both str, so ap must be str
             assert isinstance(ap, str)
@@ -3283,7 +3727,10 @@ def get_untracked_paths(
     else:  # "normal" mode
         # Walk directories, handling both files and directories
         for ap, is_dir in _walk_working_dir_paths(
-            frompath_str, basepath_str, prune_dirnames=prune_dirnames
+            frompath_str,
+            basepath_str,
+            prune_dirnames=prune_dirnames,
+            precompose_unicode=precompose_unicode,
         ):
             # frompath_str and basepath_str are both str, so ap must be str
             assert isinstance(ap, str)
@@ -7051,7 +7498,7 @@ def gc(
     auto: bool = False,
     aggressive: bool = False,
     prune: bool = True,
-    grace_period: int | None = 1209600,  # 2 weeks default
+    grace_period: int | None = None,
     dry_run: bool = False,
     progress: Callable[[str], None] | None = None,
 ) -> "GCStats":
@@ -7062,16 +7509,19 @@ def gc(
       auto: If True, only run gc if needed
       aggressive: If True, use more aggressive settings
       prune: If True, prune unreachable objects
-      grace_period: Grace period in seconds for pruning (default 2 weeks)
+      grace_period: Grace period in seconds for pruning.
+          If None, reads gc.pruneExpire from config (default 2 weeks).
       dry_run: If True, only report what would be done
       progress: Optional progress callback
 
     Returns:
       GCStats object with garbage collection statistics
     """
-    from ..gc import garbage_collect
+    from ..gc import garbage_collect, get_prune_grace_period
 
     with open_repo_closing(repo) as r:
+        if grace_period is None:
+            grace_period = get_prune_grace_period(r.get_config())
         return garbage_collect(
             r,
             auto=auto,
@@ -8504,3 +8954,255 @@ def rerere_gc(repo: RepoPath = ".", max_age_days: int = 60) -> None:
     with open_repo_closing(repo) as r:
         cache = RerereCache.from_repo(r)
         cache.gc(max_age_days)
+
+
+def apply_patch(
+    repo: RepoPath = ".",
+    patch_file: str | bytes | BinaryIO | None = None,
+    cached: bool = False,
+    reverse: bool = False,
+    check: bool = False,
+    strip: int = 1,
+    three_way: bool = False,
+) -> None:
+    """Apply a patch to the working tree and/or index.
+
+    Args:
+        repo: Path to the repository
+        patch_file: Path to patch file or file-like object (stdin if None)
+        cached: Apply patch to index only, not working tree
+        reverse: Apply patch in reverse
+        check: Only check if patch can be applied, don't apply
+        strip: Number of leading path components to strip (default: 1)
+        three_way: Fall back to 3-way merge if patch does not apply cleanly
+
+    Raises:
+        ValueError: If patch cannot be applied
+    """
+    with open_repo_closing(repo) as r:
+        # Read patch content
+        if patch_file is None:
+            # Read from stdin
+            import sys
+
+            patch_content = sys.stdin.buffer.read()
+        elif isinstance(patch_file, (str, bytes)):
+            # Path to file
+            if isinstance(patch_file, bytes):
+                path = patch_file.decode("utf-8")
+            else:
+                path = patch_file
+            with open(path, "rb") as f:
+                patch_content = f.read()
+        else:
+            # File-like object
+            patch_content = patch_file.read()
+            if isinstance(patch_content, str):
+                patch_content = patch_content.encode("utf-8")
+
+        # Parse the patch
+        patches = parse_unified_diff(patch_content)
+
+        if not patches:
+            raise ValueError("No patches found in input")
+
+        # Apply patches
+        apply_file_patches(
+            r,
+            patches,
+            cached=cached,
+            reverse=reverse,
+            check=check,
+            strip=strip,
+            three_way=three_way,
+        )
+
+
+def am(
+    repo: RepoPath = ".",
+    patches: str | bytes | BinaryIO | list[str | bytes | BinaryIO] | None = None,
+    three_way: bool = False,
+    keep_subject: bool = False,
+    keep_non_patch: bool = False,
+    scissors: bool = False,
+    message_id: bool = False,
+    strip: int = 1,
+    committer: bytes | None = None,
+    commit_timestamp: float | None = None,
+    commit_timezone: int | None = None,
+) -> list[ObjectID]:
+    """Apply patches from mailbox-style email messages, creating commits.
+
+    Args:
+        repo: Path to the repository
+        patches: Patch input(s) - file path(s), file-like object(s), or None for stdin.
+            Can be a single mbox file containing multiple messages.
+        three_way: Fall back to 3-way merge if patch does not apply cleanly
+        keep_subject: If True, keep subject intact without munging
+        keep_non_patch: If True, only strip [PATCH] from brackets
+        scissors: If True, remove everything before scissors line
+        message_id: If True, include Message-ID in commit message
+        strip: Number of leading path components to strip (default: 1)
+        committer: Optional committer identity (bytes)
+        commit_timestamp: Optional committer timestamp
+        commit_timezone: Optional committer timezone offset
+
+    Returns:
+        List of commit SHAs (bytes) created
+    """
+    import email.parser
+    import mailbox
+    import tempfile
+
+    from ..am import am as am_impl
+
+    # Normalize input to a list
+    if patches is None:
+        import sys
+
+        inputs: list[str | bytes | BinaryIO] = [sys.stdin.buffer]
+    elif isinstance(patches, list):
+        inputs = patches
+    else:
+        inputs = [patches]
+
+    # Collect all email messages
+    msgs: list[email.message.Message] = []
+    parser = email.parser.BytesParser()
+
+    for inp in inputs:
+        # Read content
+        if isinstance(inp, (str, bytes)):
+            if isinstance(inp, str):
+                path = inp
+            else:
+                path = inp.decode("utf-8")
+            with open(path, "rb") as f:
+                content = f.read()
+        else:
+            content = inp.read()
+            if isinstance(content, str):
+                content = content.encode("utf-8")
+
+        # Detect mbox format (multiple messages starting with "From ")
+        if content.startswith(b"From "):
+            # Parse as mbox using mailbox module
+            with tempfile.NamedTemporaryFile(delete=False) as tmp:
+                tmp.write(content)
+                tmp_path = tmp.name
+            try:
+                mbox = mailbox.mbox(tmp_path)
+                try:
+                    for mbox_msg in mbox:
+                        msgs.append(mbox_msg)
+                finally:
+                    mbox.close()
+            finally:
+                import os
+
+                os.unlink(tmp_path)
+        else:
+            # Parse as single email message
+            msg = parser.parsebytes(content)
+            msgs.append(msg)
+
+    with open_repo_closing(repo) as r:
+        return am_impl(
+            r,
+            msgs,
+            three_way=three_way,
+            keep_subject=keep_subject,
+            keep_non_patch=keep_non_patch,
+            scissors=scissors,
+            message_id=message_id,
+            strip=strip,
+            committer=committer,
+            commit_timestamp=commit_timestamp,
+            commit_timezone=commit_timezone,
+        )
+
+
+def am_continue(
+    repo: RepoPath = ".",
+    committer: bytes | None = None,
+    commit_timestamp: float | None = None,
+    commit_timezone: int | None = None,
+) -> list[ObjectID]:
+    """Continue applying patches after resolving a conflict.
+
+    The user should have resolved conflicts and staged the result.
+
+    Args:
+        repo: Path to the repository
+        committer: Optional committer identity
+        commit_timestamp: Optional committer timestamp
+        commit_timezone: Optional committer timezone offset
+
+    Returns:
+        List of commit SHAs created
+    """
+    from ..am import am_continue as am_continue_impl
+
+    with open_repo_closing(repo) as r:
+        return am_continue_impl(
+            r,
+            committer=committer,
+            commit_timestamp=commit_timestamp,
+            commit_timezone=commit_timezone,
+        )
+
+
+def am_skip(
+    repo: RepoPath = ".",
+    committer: bytes | None = None,
+    commit_timestamp: float | None = None,
+    commit_timezone: int | None = None,
+) -> list[ObjectID]:
+    """Skip the current patch and continue with remaining patches.
+
+    Args:
+        repo: Path to the repository
+        committer: Optional committer identity
+        commit_timestamp: Optional committer timestamp
+        commit_timezone: Optional committer timezone offset
+
+    Returns:
+        List of commit SHAs created
+    """
+    from ..am import am_skip as am_skip_impl
+
+    with open_repo_closing(repo) as r:
+        return am_skip_impl(
+            r,
+            committer=committer,
+            commit_timestamp=commit_timestamp,
+            commit_timezone=commit_timezone,
+        )
+
+
+def am_abort(repo: RepoPath = ".") -> None:
+    """Abort the current am and restore the original state.
+
+    Resets HEAD, index, and working tree to the state before am started.
+
+    Args:
+        repo: Path to the repository
+    """
+    from ..am import am_abort as am_abort_impl
+
+    with open_repo_closing(repo) as r:
+        am_abort_impl(r)
+
+
+def am_quit(repo: RepoPath = ".") -> None:
+    """Quit the current am without reverting changes.
+
+    Removes am state but keeps HEAD, index, and working tree as-is.
+
+    Args:
+        repo: Path to the repository
+    """
+    from ..am import am_quit as am_quit_impl
+
+    with open_repo_closing(repo) as r:
+        am_quit_impl(r)

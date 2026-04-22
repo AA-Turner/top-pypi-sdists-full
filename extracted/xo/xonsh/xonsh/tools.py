@@ -373,6 +373,15 @@ def subproc_toks(
     toks = []
     lparens = []
     saw_macro = False
+    # True while the current toks window is prefixed by a ``(`` that
+    # was skipped via BEG_TOK_SKIPS — i.e. a statement-wrapping paren
+    # that will be preserved in the output (via ``line[:beg]``) rather
+    # than folded into the subproc wrap.  When set, the final ``)`` at
+    # end-of-input balances that skipped paren and must be popped from
+    # ``toks`` so it ends up in ``line[end:]`` instead of the wrap.
+    # When unset, the final ``)`` balances an in-toks ``(`` (a function
+    # call or sub-expression) and must stay in the wrap.
+    leading_paren_skipped = False
     end_offset = 0
     for tok in lexer:
         pos = tok.lexpos
@@ -391,15 +400,34 @@ def subproc_toks(
                 lparens.pop()
             continue
         if len(toks) == 0 and tok.type in BEG_TOK_SKIPS:
+            if tok.type == "LPAREN":
+                leading_paren_skipped = True
             continue  # handle indentation
         elif len(toks) > 0 and toks[-1].type in END_TOK_TYPES:
             if _is_not_lparen_and_rparen(lparens, toks[-1]):
                 lparens.pop()  # don't continue or break
             elif pos < maxcol and tok.type not in ("NEWLINE", "DEDENT", "WS"):
-                if not greedy:
+                # The ``)`` at ``toks[-1]`` is treated as a statement
+                # terminator (RPAREN is in END_TOK_TYPES) and would trigger
+                # a restart of token collection.  However if that ``)``
+                # balances an LPAREN that was actually kept in ``toks`` —
+                # i.e. a function-call or sub-expression paren, not an
+                # outer statement-wrapping paren that BEG_TOK_SKIPS skipped
+                # on the way in — the ``)`` is part of the expression,
+                # not a terminator.  Without this guard ``q()[0]`` would
+                # be re-tokenized as just ``![[0]]``, silently losing the
+                # function call (GH-6354).
+                if toks[-1].type == "RPAREN" and any(
+                    t.type == "LPAREN" for t in toks[:-1]
+                ):
+                    pass
+                elif not greedy:
                     toks.clear()
                     lparens.clear()
+                    leading_paren_skipped = False
                 if tok.type in BEG_TOK_SKIPS:
+                    if tok.type == "LPAREN":
+                        leading_paren_skipped = True
                     continue
             else:
                 break
@@ -432,6 +460,12 @@ def subproc_toks(
                 pass
             elif greedy and toks[-1].type == "RPAREN":
                 pass
+            elif toks[-1].type == "RPAREN" and not leading_paren_skipped:
+                # The trailing ``)`` balances an in-toks LPAREN (a
+                # function call or sub-expression such as ``q()[0]``'s
+                # final ``]`` case where the line ends with ``)``).
+                # Keep it in the wrap — see GH-6354.
+                pass
             else:
                 toks.pop()
         if len(toks) == 0:
@@ -445,6 +479,23 @@ def subproc_toks(
             end_offset = len(el)
     if len(toks) == 0:
         return  # handle comment lines
+    # A statement that starts with a string literal — f-string or
+    # otherwise — is a Python expression, not a subprocess command.
+    # On Python 3.12+ with PEP 701 an f-string begins with FSTRING_START;
+    # on 3.11 the whole f-string collapses into a single STRING token
+    # with an ``f`` prefix.  Either way, ``f"{q()[0]}"`` at statement
+    # level must stay Python.  Before the GH-6354 fix the same line
+    # produced a broken wrap that round-tripped back to Python via a
+    # SyntaxError in re-parse; now that the wrap is syntactically clean
+    # we have to decline it explicitly, otherwise ``try_subproc_toks``
+    # would substitute the f-string as a subprocess command.  Plain
+    # string statements (``"hi"``) don't reach this path because
+    # ``CtxAwareTransformer.is_in_scope`` returns True when there are
+    # no Load names — but being defensive here costs nothing and keeps
+    # the intent explicit.  ``echo "x"`` / ``echo f"x"`` still wrap:
+    # the STRING token is not the first collected token in those lines.
+    if toks[0].type in ("FSTRING_START", "STRING"):
+        return
     elif saw_macro or greedy:
         end_offset = len(toks[-1].value.rstrip()) + 1
     if toks[0].lineno != toks[-1].lineno:

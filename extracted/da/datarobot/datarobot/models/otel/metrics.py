@@ -42,13 +42,13 @@ class OtelMetrics(APIObject):
         Parameters
         ----------
         entity_type: str
-            The entity type of the reported metrics (e.g. deployment, or use_case).
+            The entity type of the reported metrics (e.g., deployment, or use_case).
         entity_id: str
-            The entity ID of the reported metrics (e.g. `123456`).
+            The entity ID of the reported metrics (e.g., `123456`).
         search: Optional[str]
             Only return metrics whose name contains this case-sensitive value.
         metric_type: Optional[str]
-            Only return metrics whose type matches this value (e.g. counter, gauge, histogram).
+            Only return metrics whose type matches this value (e.g., counter, gauge, histogram).
 
         Returns
         -------
@@ -71,9 +71,9 @@ class OtelMetrics(APIObject):
         Parameters
         ----------
         entity_type: str
-            The entity type of the metrics (e.g. deployment or use_case).
+            The entity type of the metrics (e.g., deployment or use_case).
         entity_id: str
-            The entity ID of the metrics (e.g. `123456`).
+            The entity ID of the metrics (e.g., `123456`).
         start_time: Optional[datetime | date | str]
             The start time of the metrics to delete.
         end_time: Optional[datetime | date | str]

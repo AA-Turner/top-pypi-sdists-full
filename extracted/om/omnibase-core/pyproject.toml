@@ -7,7 +7,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "omnibase_core"
-version = "0.39.0"
+version = "0.40.0"
 description = "ONEX Core Framework - Base classes and essential implementations"
 authors = [
     {name = "OmniNode.ai", email = "contact@omninode.ai"}
@@ -84,13 +84,25 @@ env_vars = "omnibase_core.doctor.checks.check_env_vars:CheckEnvVars"
 python_version = "omnibase_core.doctor.checks.check_python_version:CheckPythonVersion"
 js_runtime = "omnibase_core.doctor.checks.check_js_runtime:CheckJsRuntime"
 
+[project.entry-points."onex.nodes"]
+node_compliance_evidence_effect = "omnibase_core.nodes.node_compliance_evidence_effect"
+node_compliance_orchestrator = "omnibase_core.nodes.node_compliance_orchestrator"
+node_compliance_report_reducer = "omnibase_core.nodes.node_compliance_report_reducer"
+node_compliance_scan_compute = "omnibase_core.nodes.node_compliance_scan_compute"
+node_contract_resolve_compute = "omnibase_core.nodes.node_contract_resolve_compute"
+node_contract_verify_replay_compute = "omnibase_core.nodes.node_contract_verify_replay_compute"
+
 [project.optional-dependencies]
 spi = ["omnibase-spi>=0.20.2"]
+# omnibase-compat provides run_coro_sync (OMN-9237) for sync-from-async bridging.
+# Optional so omnibase-core can be installed as a standalone SDK without it;
+# model_onex_container falls back to an inline equivalent when not installed.
+compat = ["omnibase-compat>=0.3.1,<1.0.0"]
 cli = ["psutil>=7.2.1"]
 cache = ["redis>=5.0.0,<8.0.0"]
 metrics = ["prometheus-client>=0.21.0,<1.0.0"]
 sql-parser = ["sqlglot>=26.0.0,<31.0.0"]
-full = ["omnibase-spi>=0.20.2", "psutil>=7.2.1", "redis>=5.0.0,<8.0.0", "prometheus-client>=0.21.0,<1.0.0", "sqlglot>=26.0.0,<31.0.0"]
+full = ["omnibase-spi>=0.20.2", "omnibase-compat>=0.3.1,<1.0.0", "psutil>=7.2.1", "redis>=5.0.0,<8.0.0", "prometheus-client>=0.21.0,<1.0.0", "sqlglot>=26.0.0,<31.0.0"]
 
 [dependency-groups]
 dev = [
@@ -120,6 +132,9 @@ dev = [
 
 [tool.uv.sources]
 onex-change-control = { git = "https://github.com/OmniNode-ai/onex_change_control.git", branch = "main" }
+# Pinned to compat main post-OMN-9237 (run_coro_sync helper in src/omnibase_compat/concurrency/).
+# PyPI release v0.3.1 (2026-03-30) predates PR #64 — switch to PyPI pin after compat v0.4.0 ships.
+omnibase-compat = { git = "https://github.com/OmniNode-ai/omnibase_compat.git", branch = "main" }
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/omnibase_core"]
@@ -267,9 +282,13 @@ ignore = [
 "src/omnibase_core/models/metadata/model_example_string_reduction_improvements.py" = ["T201"]
 "src/omnibase_core/services/service_validation_suite.py" = ["T201"]
 "src/omnibase_core/validation/validator_architecture.py" = ["T201"]
+"src/omnibase_core/validation/validator_banned_compose_vars.py" = ["T201"]
+"src/omnibase_core/validation/validator_requirements_consumer.py" = ["T201"]
 "src/omnibase_core/validation/validator_base.py" = ["T201"]
 "src/omnibase_core/validation/validator_circular_import.py" = ["T201"]
 "src/omnibase_core/validation/validator_cli.py" = ["T201"]
+"src/omnibase_core/validation/receipt_gate_cli.py" = ["T201"]
+"scripts/validation/validate_pr_receipts.py" = ["T201"]
 "src/omnibase_core/validation/validator_contracts.py" = ["T201"]
 "src/omnibase_core/validation/validator_local_paths.py" = ["T201"]
 "src/omnibase_core/validation/validator_patterns.py" = ["T201"]
@@ -280,6 +299,8 @@ ignore = [
 "src/omnibase_core/validation/scripts/validate_string_versions.py" = ["T201"]
 "src/omnibase_core/validation/scripts/validate_topic_names.py" = ["T201"]
 "src/omnibase_core/scripts/validate_markdown_links.py" = ["T201"]
+"scripts/pin_bump.py" = ["T201"]  # CLI output for publish-downstream-pin-bump workflow [OMN-9050]
+"scripts/emit_ts_types.py" = ["T201"]  # CLI output for omnidash-v2 TS type generation
 # Test files: print() used for debug output and test diagnostics — bulk removal deferred
 "tests/**/*.py" = ["T201"]
 

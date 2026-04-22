@@ -19,8 +19,8 @@ class ConfigurationResponse:
     Attributes:
         content_hash (str): The hash of the file of the uploaded tarball
         created_by (UUID): The ID of the identity who created the entity
-        date_added (datetime.datetime): The date the entity was added
-        date_updated (datetime.datetime): The date the entity was updated
+        date_added (datetime.datetime): datetime with the constraint that the value must have timezone info
+        date_updated (datetime.datetime): datetime with the constraint that the value must have timezone info
         file_count (int): The number of files in the uploaded tarball
         file_names (str): The names of the files in the uploaded tarball (comma-separated)
         id (UUID): The unique ID of the entity

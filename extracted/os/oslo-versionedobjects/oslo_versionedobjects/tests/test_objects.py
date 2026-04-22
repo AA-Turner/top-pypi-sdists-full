@@ -802,6 +802,24 @@ class TestRemotableClassmethodDeprecation(test.TestCase):
             str(caught_warnings[0].message),
         )
 
+    def test_remotable_classmethod_context_as_kwarg(self):
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+
+            @base.VersionedObjectRegistry.register_if(False)
+            class MyLegacyObj(base.VersionedObject):
+                VERSION = '1.0'
+
+                @base.remotable_classmethod
+                def create(
+                    cls: 'type[MyLegacyObj]', context: context.RequestContext
+                ) -> context.RequestContext:
+                    return context
+
+        ctx = context.RequestContext('user', 'project')
+        result = MyLegacyObj.create(context=ctx)
+        self.assertEqual(ctx, result)
+
 
 class _LocalTest(_BaseTestCase):
     def setUp(self):
@@ -1099,6 +1117,10 @@ class _TestObject(_BaseTestCase):
         result = obj.marco()
         self.assertEqual(result, 'polo')
 
+    def test_static_result_context_as_kwarg(self):
+        obj = MyObj.query(context=self.context)
+        self.assertEqual(obj.bar, 'bar')
+
     def test_updates(self):
         obj = MyObj.query(self.context)
         self.assertEqual(obj.foo, 1)
@@ -1126,14 +1148,18 @@ class _TestObject(_BaseTestCase):
         self.assertEqual({'rel_object', 'rel_objects'}, obj.obj_what_changed())
         obj.obj_reset_changes()
         self.assertEqual({'rel_object'}, obj.obj_what_changed())
-        self.assertEqual({'baz'}, obj.rel_object.obj_what_changed())
-        self.assertEqual({'baz'}, obj.rel_objects[0].obj_what_changed())
+        rel_object = obj.rel_object
+        assert rel_object is not None
+        rel_objects = obj.rel_objects
+        assert rel_objects is not None
+        self.assertEqual({'baz'}, rel_object.obj_what_changed())
+        self.assertEqual({'baz'}, rel_objects[0].obj_what_changed())
         obj.obj_reset_changes(recursive=True, fields=['foo'])
         self.assertEqual({'rel_object'}, obj.obj_what_changed())
-        self.assertEqual({'baz'}, obj.rel_object.obj_what_changed())
-        self.assertEqual({'baz'}, obj.rel_objects[0].obj_what_changed())
+        self.assertEqual({'baz'}, rel_object.obj_what_changed())
+        self.assertEqual({'baz'}, rel_objects[0].obj_what_changed())
         obj.obj_reset_changes(recursive=True)
-        self.assertEqual(set(), obj.rel_object.obj_what_changed())
+        self.assertEqual(set(), rel_object.obj_what_changed())
         self.assertEqual(set(), obj.obj_what_changed())
 
     def test_get(self):

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: async-substrate-interface
-Version: 1.6.4
+Version: 2.0.0
 Summary: Asyncio library for interacting with substrate. Mostly API-compatible with py-substrate-interface
 Author: Opentensor Foundation
 Author-email: BD Himes <b@latent.to>
@@ -46,12 +46,10 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: wheel
 Requires-Dist: aiosqlite<1.0.0,>=0.21.0
-Requires-Dist: bt-decode==v0.8.0
-Requires-Dist: scalecodec~=1.2.11
+Requires-Dist: cyscale<1.0.0,>=0.3.0
 Requires-Dist: websockets>=14.1
 Requires-Dist: xxhash
 Provides-Extra: dev
-Requires-Dist: bittensor; extra == "dev"
 Requires-Dist: pytest==8.3.5; extra == "dev"
 Requires-Dist: pytest-asyncio==0.26.0; extra == "dev"
 Requires-Dist: pytest-mock==3.14.0; extra == "dev"
@@ -60,6 +58,8 @@ Requires-Dist: pytest-xdist==3.6.1; extra == "dev"
 Requires-Dist: pytest-rerunfailures==10.2; extra == "dev"
 Requires-Dist: bittensor-wallet>=4.0.0; extra == "dev"
 Requires-Dist: pytest-forked; extra == "dev"
+Requires-Dist: mypy>=1.20.1; extra == "dev"
+Requires-Dist: ruff==0.11.5; extra == "dev"
 Dynamic: license-file
 
 # Async Substrate Interface

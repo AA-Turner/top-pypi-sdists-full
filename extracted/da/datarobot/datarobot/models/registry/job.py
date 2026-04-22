@@ -21,6 +21,7 @@ import trafaret as t
 from typing_extensions import TypedDict
 
 from datarobot._compat import String
+from datarobot.errors import InvalidUsageError
 from datarobot.models.api_object import APIObject
 from datarobot.models.runtime_parameters import RuntimeParameter, RuntimeParameterValue
 from datarobot.models.types import Schedule
@@ -201,7 +202,7 @@ class Job(APIObject):
             Defined as a dictionary where keys are the file paths in the job file system.
             and values are the files content.
         runtime_parameter_values: Optional[List[RuntimeParameterValue]]
-            Additional parameters to be injected into a model at runtime. The fieldName
+            Additional parameters to be injected into a job at runtime. The fieldName
             must match a fieldName that is listed in the runtimeParameterDefinitions section
             of the model-metadata.yaml file.
 
@@ -357,6 +358,7 @@ class Job(APIObject):
         files: Optional[Union[List[Tuple[str, str]], List[str]]] = None,
         file_data: Optional[Dict[str, str]] = None,
         runtime_parameter_values: Optional[List[RuntimeParameterValue]] = None,
+        runtime_parameters: Optional[List[RuntimeParameter]] = None,
     ) -> None:
         """Update job properties.
 
@@ -392,9 +394,18 @@ class Job(APIObject):
             Defined as a dictionary where keys are the file paths in the job file system.
             and values are the files content.
         runtime_parameter_values: Optional[List[RuntimeParameterValue]]
-            Additional parameters to be injected into a model at runtime. The fieldName
+            Additional parameters to be injected into a job at runtime. The fieldName
             must match a fieldName that is listed in the runtimeParameterDefinitions section
             of the model-metadata.yaml file.
+            Mutually exclusive with ``runtime_parameters``.
+        runtime_parameters: Optional[List[RuntimeParameter]]
+            Full parameter definitions to create or replace on this job. Unlike
+            ``runtime_parameter_values`` (which only sets override values), this field
+            performs a snapshot replacement — any parameter not present in the list is
+            deleted from the job.
+            Mutually exclusive with ``runtime_parameter_values``.
+            Requires the server to have the runtime parameters batch update feature enabled;
+            if unsupported, the server will return a ``ClientError``.
 
         Raises
         ------
@@ -403,6 +414,14 @@ class Job(APIObject):
         datarobot.errors.ServerError
             if the server responded with 5xx status.
         """
+        if runtime_parameters is not None and runtime_parameter_values is not None:
+            raise InvalidUsageError(
+                "`runtime_parameters` and `runtime_parameter_values` are mutually exclusive. "
+                "Use `runtime_parameters` for full parameter definition management "
+                "(requires server support for the runtime parameters batch update feature), "
+                "or `runtime_parameter_values` to set override values on existing definitions only."
+            )
+
         path = self._job_path(self.id)
 
         upload_data: List[Tuple[str, Any]] = []
@@ -423,6 +442,11 @@ class Job(APIObject):
                 json.dumps([
                     {camelize(k): v for k, v in param.to_dict().items()} for param in runtime_parameter_values
                 ]),
+            ))
+        if runtime_parameters is not None:
+            upload_data.append((
+                "runtimeParameters",
+                json.dumps([{camelize(k): v for k, v in param.to_dict().items()} for param in runtime_parameters]),
             ))
 
         with self._process_files_upload(folder_path, files, file_data) as file_upload_data:

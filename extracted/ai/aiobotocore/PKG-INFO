@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aiobotocore
-Version: 3.4.0
+Version: 3.5.0
 Summary: Async client for aws services using botocore and aiohttp
 Author-email: Nikolay Novik <nickolainovik@gmail.com>
 License-Expression: Apache-2.0
@@ -24,7 +24,7 @@ Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: aiohttp<4.0.0,>=3.12.0
 Requires-Dist: aioitertools<1.0.0,>=0.5.1
-Requires-Dist: botocore<1.42.85,>=1.42.79
+Requires-Dist: botocore<1.42.92,>=1.42.90
 Requires-Dist: python-dateutil<3.0.0,>=2.1
 Requires-Dist: jmespath<2.0.0,>=0.7.1
 Requires-Dist: multidict<7.0.0,>=6.0.0
@@ -235,7 +235,7 @@ For ``types-aiobotocore-lite`` package use explicit type annotations:
         # type checking and code completion is now enabled for client
 
 
-Full documentation for ``types-aiobotocore`` can be found here: https://youtype.github.io/types_aiobotocore_docs/
+See the `types-aiobotocore <https://youtype.github.io/types_aiobotocore_docs/>`__ documentation for full reference.
 
 
 Requirements
@@ -255,6 +255,10 @@ Requirements
 
 Changes
 -------
+
+3.5.0 (2026-04-19)
+^^^^^^^^^^^^^^^^^^
+* bump botocore dependency specification to support ``"botocore >= 1.42.90, < 1.42.92"``
 
 3.4.0 (2026-04-07)
 ^^^^^^^^^^^^^^^^^^

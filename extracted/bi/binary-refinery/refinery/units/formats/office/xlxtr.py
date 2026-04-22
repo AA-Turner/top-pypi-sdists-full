@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import codecs
 import enum
 import functools
 import io
@@ -13,7 +14,7 @@ import defusedxml
 
 from refinery.lib.structures import MemoryFile
 from refinery.lib.tools import NoLogging
-from refinery.lib.types import Param
+from refinery.lib.types import Param, buf
 from refinery.units import Arg, Unit
 
 if TYPE_CHECKING:
@@ -50,9 +51,11 @@ def _rc2ref(row: int, col: int):
 
 class SheetReference:
 
+    Separator = '!'
+
     def _parse_sheet(self, token: str):
         try:
-            sheet, token = token.rsplit('#', 1)
+            sheet, token = token.rsplit(self.Separator, 1)
         except ValueError:
             sheet = None
         else:
@@ -291,24 +294,19 @@ class xlxtr(ExcelUnit):
     A sheet reference is of the form `B1` or `1.2`, both specifying the first cell of the
     second column. A cell range can be specified as `B1:C12`, or `1.2:C12`, or `1.2:12.3`.
     Finally, the unit will always refer to the first sheet in the document and to change
-    this, specify the sheet name or index separated by a hashtag, i.e. `sheet#B1:C12` or
-    `1#B1:C12`. Note that indices are 1-based. To get all elements of one sheet, use
-    `sheet#`. If parsing a sheet reference fails, the script will assume that the given
+    this, specify the sheet name or index separated by a hashtag, i.e. `sheet{s}B1:C12` or
+    `1{s}B1:C12`. Note that indices are 1-based. To get all elements of one sheet, use
+    `sheet{s}`. If parsing a sheet reference fails, the script will assume that the given
     reference specifies a sheet.
     """
     def __init__(
         self,
-        *references: Param[SheetReference, Arg(
-            metavar='reference',
-            type=SheetReference,
-            help=(
-                'A sheet reference to be extracted. '
-                'If no sheet references are given, the unit lists all sheet names.'
-            )
-        )]
+        *references: Param[buf, Arg(metavar='reference', help=(
+            'A sheet reference to be extracted. '
+            'If no sheet references are given, the unit lists all sheet names.'))]
     ):
         if not references:
-            references = SheetReference('*'),
+            references = b'*',
         super().__init__(references=references)
 
     def process(self, data):
@@ -318,8 +316,8 @@ class xlxtr(ExcelUnit):
             raise
         except Exception as E:
             raise ValueError('Input not recognized as Excel document.') from E
-        for ref in self.args.references:
-            ref: SheetReference
+        references = [SheetReference(codecs.decode(r, self.codec)) for r in self.args.references]
+        for ref in references:
             for k, name in enumerate(wb.sheets()):
                 if not ref.match(k, name):
                     continue
@@ -341,3 +339,7 @@ class xlxtr(ExcelUnit):
                             ref=_rc2ref(r, c),
                             sheet=name
                         )
+
+
+if __doc := xlxtr.__doc__:
+    xlxtr.__doc__ = __doc.format(s=SheetReference.Separator)

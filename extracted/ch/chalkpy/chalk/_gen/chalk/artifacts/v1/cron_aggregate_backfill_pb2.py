@@ -13,8 +13,11 @@ from google.protobuf.internal import builder as _builder
 _sym_db = _symbol_database.Default()
 
 
+from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
+
+
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n0chalk/artifacts/v1/cron_aggregate_backfill.proto\x12\x12\x63halk.artifacts.v1"\xc5\x02\n\x15\x43ronAggregateBackfill\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name\x12\x1a\n\x08schedule\x18\x02 \x01(\tR\x08schedule\x12\x1b\n\tfile_name\x18\x03 \x01(\tR\x08\x66ileName\x12\x1a\n\x08\x66\x65\x61tures\x18\x04 \x03(\tR\x08\x66\x65\x61tures\x12\x1c\n\tresolvers\x18\x05 \x03(\tR\tresolvers\x12\x1d\n\nquery_tags\x18\x06 \x03(\tR\tqueryTags\x12G\n\x06target\x18\x07 \x01(\x0e\x32/.chalk.artifacts.v1.CronAggregateBackfillTargetR\x06target\x12*\n\x0eresource_group\x18\x08 \x01(\tH\x00R\rresourceGroup\x88\x01\x01\x42\x11\n\x0f_resource_group*\xa4\x01\n\x1b\x43ronAggregateBackfillTarget\x12.\n*CRON_AGGREGATE_BACKFILL_TARGET_UNSPECIFIED\x10\x00\x12)\n%CRON_AGGREGATE_BACKFILL_TARGET_ONLINE\x10\x01\x12*\n&CRON_AGGREGATE_BACKFILL_TARGET_OFFLINE\x10\x02\x42\x9e\x01\n\x16\x63om.chalk.artifacts.v1B\x1a\x43ronAggregateBackfillProtoP\x01\xa2\x02\x03\x43\x41X\xaa\x02\x12\x43halk.Artifacts.V1\xca\x02\x12\x43halk\\Artifacts\\V1\xe2\x02\x1e\x43halk\\Artifacts\\V1\\GPBMetadata\xea\x02\x14\x43halk::Artifacts::V1b\x06proto3'
+    b'\n0chalk/artifacts/v1/cron_aggregate_backfill.proto\x12\x12\x63halk.artifacts.v1\x1a\x1fgoogle/protobuf/timestamp.proto"\xbf\x03\n\x15\x43ronAggregateBackfill\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name\x12\x1a\n\x08schedule\x18\x02 \x01(\tR\x08schedule\x12\x1b\n\tfile_name\x18\x03 \x01(\tR\x08\x66ileName\x12\x1a\n\x08\x66\x65\x61tures\x18\x04 \x03(\tR\x08\x66\x65\x61tures\x12\x1c\n\tresolvers\x18\x05 \x03(\tR\tresolvers\x12\x1d\n\nquery_tags\x18\x06 \x03(\tR\tqueryTags\x12G\n\x06target\x18\x07 \x01(\x0e\x32/.chalk.artifacts.v1.CronAggregateBackfillTargetR\x06target\x12*\n\x0eresource_group\x18\x08 \x01(\tH\x00R\rresourceGroup\x88\x01\x01\x12;\n\x0blower_bound\x18\t \x01(\x0b\x32\x1a.google.protobuf.TimestampR\nlowerBound\x12;\n\x0bupper_bound\x18\n \x01(\x0b\x32\x1a.google.protobuf.TimestampR\nupperBoundB\x11\n\x0f_resource_group*\xa4\x01\n\x1b\x43ronAggregateBackfillTarget\x12.\n*CRON_AGGREGATE_BACKFILL_TARGET_UNSPECIFIED\x10\x00\x12)\n%CRON_AGGREGATE_BACKFILL_TARGET_ONLINE\x10\x01\x12*\n&CRON_AGGREGATE_BACKFILL_TARGET_OFFLINE\x10\x02\x42\x9e\x01\n\x16\x63om.chalk.artifacts.v1B\x1a\x43ronAggregateBackfillProtoP\x01\xa2\x02\x03\x43\x41X\xaa\x02\x12\x43halk.Artifacts.V1\xca\x02\x12\x43halk\\Artifacts\\V1\xe2\x02\x1e\x43halk\\Artifacts\\V1\\GPBMetadata\xea\x02\x14\x43halk::Artifacts::V1b\x06proto3'
 )
 
 _globals = globals()
@@ -25,8 +28,8 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _globals[
         "DESCRIPTOR"
     ]._serialized_options = b"\n\026com.chalk.artifacts.v1B\032CronAggregateBackfillProtoP\001\242\002\003CAX\252\002\022Chalk.Artifacts.V1\312\002\022Chalk\\Artifacts\\V1\342\002\036Chalk\\Artifacts\\V1\\GPBMetadata\352\002\024Chalk::Artifacts::V1"
-    _globals["_CRONAGGREGATEBACKFILLTARGET"]._serialized_start = 401
-    _globals["_CRONAGGREGATEBACKFILLTARGET"]._serialized_end = 565
-    _globals["_CRONAGGREGATEBACKFILL"]._serialized_start = 73
-    _globals["_CRONAGGREGATEBACKFILL"]._serialized_end = 398
+    _globals["_CRONAGGREGATEBACKFILLTARGET"]._serialized_start = 556
+    _globals["_CRONAGGREGATEBACKFILLTARGET"]._serialized_end = 720
+    _globals["_CRONAGGREGATEBACKFILL"]._serialized_start = 106
+    _globals["_CRONAGGREGATEBACKFILL"]._serialized_end = 553
 # @@protoc_insertion_point(module_scope)

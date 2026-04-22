@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import inspect
+from datetime import datetime, timezone
 from enum import Enum
 from typing import TYPE_CHECKING, Collection
 
@@ -25,6 +26,8 @@ class ScheduledAggregateBackfill:
         target: AggregateBackfillTarget,
         query_tags: Collection[str] | None = None,
         resource_group: str | None = None,
+        lower_bound: datetime | None = None,
+        upper_bound: datetime | None = None,
     ):
         super().__init__()
         self.errors = []
@@ -44,6 +47,11 @@ class ScheduledAggregateBackfill:
                 f"Scheduled aggregate backfill '{name}' was instantiated with invalid target '{target}'. Use AggregateBackfillTarget.ONLINE or AggregateBackfillTarget.OFFLINE."
             )
 
+        if lower_bound is not None:
+            lower_bound = lower_bound.astimezone(tz=timezone.utc)
+        if upper_bound is not None:
+            upper_bound = upper_bound.astimezone(tz=timezone.utc)
+
         caller_filename = None
         frame = inspect.currentframe()
         assert frame is not None, "Failed to get current frame"
@@ -58,6 +66,8 @@ class ScheduledAggregateBackfill:
         self.target = target
         self.query_tags = list(query_tags) if query_tags is not None else None
         self.resource_group = resource_group
+        self.lower_bound = lower_bound
+        self.upper_bound = upper_bound
         self.filename = caller_filename
 
         SCHEDULED_AGGREGATE_BACKFILL_REGISTRY[name] = self

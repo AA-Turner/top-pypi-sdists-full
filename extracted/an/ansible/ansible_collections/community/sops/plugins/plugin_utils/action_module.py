@@ -16,6 +16,7 @@ from __future__ import annotations
 import abc
 import copy
 import traceback
+import typing as t
 
 from ansible.errors import AnsibleError
 from ansible.module_utils.basic import SEQUENCETYPE, remove_values
@@ -24,6 +25,12 @@ from ansible.plugins.action import ActionBase
 
 from ansible.module_utils.common.arg_spec import ArgumentSpecValidator
 from ansible.module_utils.errors import UnsupportedError
+
+if t.TYPE_CHECKING:
+    from collections.abc import Callable
+
+
+safe_eval: Callable[[t.Any, t.Any, t.Any], t.Any] | None
 
 try:
     from ansible.module_utils.common.validation import (
@@ -207,7 +214,7 @@ class ActionModuleBase(ActionBase, metaclass=abc.ABCMeta):
             argument_spec, kwargs = self.setup_module()
             module = argument_spec.create_ansible_module_helper(AnsibleActionModule, (self, ), **kwargs)
             self.run_module(module)
-            raise AnsibleError('Internal error: action module did not call module.exit_json()')
+            raise AnsibleError('Internal error: action module did not call module.exit_json()')  # pragma: no cover
         except _ModuleExitException as mee:
             result.update(mee.result)
             return result

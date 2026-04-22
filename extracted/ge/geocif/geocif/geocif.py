@@ -180,6 +180,26 @@ class Geocif:
             self.parser.getboolean("ML", "remove_last_month")
             if self.parser.has_option("ML", "remove_last_month") else False
         )
+        self.run_cluster_analysis = (
+            self.parser.getboolean("ML", "run_cluster_analysis")
+            if self.parser.has_option("ML", "run_cluster_analysis") else False
+        )
+        self.cluster_analysis_proxy = (
+            self.parser.get("ML", "cluster_analysis_proxy")
+            if self.parser.has_option("ML", "cluster_analysis_proxy") else "AUC_NDVI"
+        )
+        self.cluster_analysis_max_k = (
+            self.parser.getint("ML", "cluster_analysis_max_k")
+            if self.parser.has_option("ML", "cluster_analysis_max_k") else 8
+        )
+        self.cluster_analysis_top_n = (
+            self.parser.getint("ML", "cluster_analysis_top_n")
+            if self.parser.has_option("ML", "cluster_analysis_top_n") else 20
+        )
+        self.cluster_analysis_variance = (
+            self.parser.getfloat("ML", "cluster_analysis_variance")
+            if self.parser.has_option("ML", "cluster_analysis_variance") else 0.85
+        )
 
     def _setup_feature_dictionaries(self):
         """Setup feature dictionaries and database paths."""
@@ -658,11 +678,12 @@ class Geocif:
         """
         df = self._prepare_ml_dataframe()
         df = self._add_lat_lon_to_data(df)
-        
+
         self._run_spatial_autocorrelation_if_enabled()
-        
+        self._run_cluster_analysis(df)
+
         dict_selected_features, dict_best_cid = self._generate_correlation_plots(df)
-        
+
         self._prepare_train_test_split(df)
         self._compute_detrended_yield()
         self._add_spatial_neighbor_features()
@@ -793,14 +814,39 @@ class Geocif:
         kwargs = self._build_correlation_kwargs()
         sa.compute_spatial_autocorrelation(self.df_inputs, **kwargs)
 
+    def _run_cluster_analysis(self, df: pd.DataFrame):
+        """Run cluster analysis on region CID profiles."""
+        if not self.run_cluster_analysis:
+            return
+
+        from .ml import cluster_analysis as ca
+
+        dir_out = (
+            self.dir_analysis / self.country / self.crop
+            / self.model_name / str(self.forecast_season)
+        )
+
+        self.cluster_results = ca.run_cluster_analysis(
+            df=df,
+            dir_output=dir_out,
+            target_col=self.target,
+            proxy_prefix=self.cluster_analysis_proxy,
+            gdf=getattr(self, "dg_country", None),
+            countries=[self.country.title().replace("_", " ")] if self.country else None,
+            max_clusters=self.cluster_analysis_max_k,
+            top_n_cids=self.cluster_analysis_top_n,
+            variance_threshold=self.cluster_analysis_variance,
+            logger=self.logger,
+        )
+
     def _generate_correlation_plots(self, df: pd.DataFrame) -> Tuple[Dict, Dict]:
         """Generate correlation plots and return selected features."""
         if not self.correlation_plots:
             return {}, {}
-        
+
         self.logger.info(f"Correlation plot for {self.country} {self.crop}")
         kwargs = self._build_correlation_kwargs()
-        
+
         return correlations.all_correlated_feature_by_time(df, **kwargs)
 
     def _build_correlation_kwargs(self) -> Dict:
@@ -1244,29 +1290,7 @@ class Geocif:
 
     def get_cid_column_names(self, df: pd.DataFrame) -> List[str]:
         """Get list of CID column names (excluding fixed/target/meta/engineered columns)."""
-        exclude = set(
-            self.fixed_columns
-            + [self.target]
-            + self.statistics_columns
-            + [
-                f"{self.target}_class",
-                "Region_ID", "lat", "lon", "Country Region", "Country__Region",
-                f"Detrended {self.target}", "Detrended Model", "Detrended Model Type",
-                "Stage Names", "Stage_ID", "Stage Range", "Starting Stage", "Ending Stage",
-                "Percentage Season",
-                "Analogous Year", "Analogous Year Yield",
-            ]
-        )
-        skip_prefixes = (
-            f"Median {self.target}",
-            f"Last Year {self.target}",
-            "t - ",
-            "nbr_",
-        )
-        return [
-            col for col in df.columns
-            if col not in exclude and not col.startswith(skip_prefixes)
-        ]
+        return utils.filter_cid_columns(df, self.fixed_columns, self.target, self.statistics_columns)
 
     # ============================================================================
     # FEATURE CREATION METHODS

@@ -15,7 +15,9 @@
 import logging
 
 from opentelemetry.instrumentation.distro import BaseDistro
+from opentelemetry.instrumentation.logging import LoggingInstrumentor
 from opentelemetry.instrumentation.propagators import set_global_response_propagator
+from opentelemetry.propagators.composite import CompositePropagator
 from opentelemetry.sdk.environment_variables import (
     OTEL_EXPORTER_OTLP_HEADERS,
     OTEL_EXPORTER_OTLP_LOGS_ENDPOINT,
@@ -25,6 +27,7 @@ from opentelemetry.sdk.environment_variables import (
     OTEL_RESOURCE_ATTRIBUTES,
     OTEL_SERVICE_NAME,
 )
+from opentelemetry.propagate import get_global_textmap, set_global_textmap
 
 from splunk_otel.__about__ import __version__ as version
 from splunk_otel.env import (
@@ -33,10 +36,12 @@ from splunk_otel.env import (
     SPLUNK_PROFILER_ENABLED,
     SPLUNK_PROFILER_LOGS_ENDPOINT,
     SPLUNK_REALM,
+    SPLUNK_SNAPSHOT_PROFILER_ENABLED,
+    SPLUNK_SNAPSHOT_SELECTION_PROBABILITY,
     SPLUNK_TRACE_RESPONSE_HEADER_ENABLED,
     Env,
 )
-from splunk_otel.propagator import ServerTimingResponsePropagator
+from splunk_otel.propagator import CallgraphsPropagator, ServerTimingResponsePropagator
 
 _DISTRO_NAME = "splunk-opentelemetry"
 
@@ -66,6 +71,15 @@ class SplunkDistro(BaseDistro):
         self.handle_realm()
         self.configure_token_headers()
         self.set_server_timing_propagator()
+        self.set_callgraphs_propagator()
+        # Previously, the SDK's LoggingHandler was enabled by setting
+        # OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED=true (our default). That handler
+        # has been deprecated in the SDK and moved to opentelemetry-instrumentation-logging.
+        # We call instrument() explicitly here to ensure the handler is installed for users
+        # who don't run under `opentelemetry-instrument` (which would auto-discover it via
+        # entry points). This is safe when running under `opentelemetry-instrument` because
+        # LoggingInstrumentor is a singleton and its instrument() call is idempotent.
+        LoggingInstrumentor().instrument()
 
     def set_env_defaults(self):
         for key, value in DEFAULTS.items():
@@ -77,7 +91,9 @@ class SplunkDistro(BaseDistro):
             self.env.setval(OTEL_SERVICE_NAME, _DEFAULT_SERVICE_NAME)
 
     def set_profiling_env(self):
-        if self.env.is_true(SPLUNK_PROFILER_ENABLED, "false"):
+        profiler_enabled = self.env.is_true(SPLUNK_PROFILER_ENABLED, "false")
+        snapshot_profiler_enabled = self.env.is_true(SPLUNK_SNAPSHOT_PROFILER_ENABLED, "false")
+        if profiler_enabled or snapshot_profiler_enabled:
             logs_endpt = self.env.getval(SPLUNK_PROFILER_LOGS_ENDPOINT)
             if logs_endpt:
                 self.env.setval(OTEL_EXPORTER_OTLP_LOGS_ENDPOINT, logs_endpt)
@@ -89,7 +105,7 @@ class SplunkDistro(BaseDistro):
     def handle_realm(self):
         realm = self.env.getval(SPLUNK_REALM)
         if len(realm):
-            ingest_url = f"https://ingest.{realm}.signalfx.com"
+            ingest_url = f"https://ingest.{realm}.observability.splunkcloud.com"
             self.env.setdefault(
                 OTEL_EXPORTER_OTLP_TRACES_ENDPOINT,
                 f"{ingest_url}/v2/trace/otlp",
@@ -110,3 +126,17 @@ class SplunkDistro(BaseDistro):
     def set_server_timing_propagator(self):
         if self.env.is_true(SPLUNK_TRACE_RESPONSE_HEADER_ENABLED, "true"):
             set_global_response_propagator(ServerTimingResponsePropagator())
+
+    def set_callgraphs_propagator(self):
+        # Strip any existing CallgraphsPropagator before conditionally adding a fresh one,
+        # so this method is idempotent and the result depends only on the current config.
+        current = get_global_textmap()
+        if isinstance(current, CompositePropagator):
+            propagators = [p for p in current._propagators if not isinstance(p, CallgraphsPropagator)]  # noqa SLF001
+        else:
+            propagators = [current]
+
+        if self.env.is_true(SPLUNK_SNAPSHOT_PROFILER_ENABLED, "false"):
+            propagators.append(CallgraphsPropagator(self.env.getfloat(SPLUNK_SNAPSHOT_SELECTION_PROBABILITY, 0.01)))
+
+        set_global_textmap(CompositePropagator(propagators))

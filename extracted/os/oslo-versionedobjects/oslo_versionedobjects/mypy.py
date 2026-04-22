@@ -19,6 +19,21 @@ from mypy import plugin as _plugin
 from mypy import types
 
 
+def _fields_dict_from_body(
+    body: list[nodes.Statement],
+) -> nodes.DictExpr | None:
+    """Return the first ``fields = {...}`` DictExpr found in a class body."""
+    for statement in body:
+        if (
+            isinstance(statement, nodes.AssignmentStmt)
+            and isinstance(statement.lvalues[0], nodes.NameExpr)
+            and statement.lvalues[0].name == "fields"
+            and isinstance(statement.rvalue, nodes.DictExpr)
+        ):
+            return statement.rvalue
+    return None
+
+
 class OsloVersionedObjectPlugin(_plugin.Plugin):
     """A mypy plugin for Oslo VersionedObjects
 
@@ -72,15 +87,9 @@ class OsloVersionedObjectPlugin(_plugin.Plugin):
 
     def _cache_fields(self, ctx: _plugin.ClassDefContext) -> None:
         """Cache the fields dict from this class's body while it is intact."""
-        for statement in ctx.cls.defs.body:
-            if (
-                isinstance(statement, nodes.AssignmentStmt)
-                and isinstance(statement.lvalues[0], nodes.NameExpr)
-                and statement.lvalues[0].name == "fields"
-                and isinstance(statement.rvalue, nodes.DictExpr)
-            ):
-                self._fields_cache[ctx.cls.info.fullname] = statement.rvalue
-                return
+        fields = _fields_dict_from_body(ctx.cls.defs.body)
+        if fields is not None:
+            self._fields_cache[ctx.cls.info.fullname] = fields
 
     def _get_fields_dict_from_type_info(
         self, type_info: nodes.TypeInfo
@@ -93,18 +102,7 @@ class OsloVersionedObjectPlugin(_plugin.Plugin):
         """
         if type_info.fullname in self._fields_cache:
             return self._fields_cache[type_info.fullname]
-
-        # Fallback: read directly from the body (works for the current class)
-        for statement in type_info.defn.defs.body:
-            if (
-                isinstance(statement, nodes.AssignmentStmt)
-                and isinstance(statement.lvalues[0], nodes.NameExpr)
-                and statement.lvalues[0].name == "fields"
-                and isinstance(statement.rvalue, nodes.DictExpr)
-            ):
-                return statement.rvalue
-
-        return None
+        return _fields_dict_from_body(type_info.defn.defs.body)
 
     def _add_member_to_class(
         self, member_name: str, member_type: types.Type, clazz: nodes.TypeInfo
@@ -125,40 +123,102 @@ class OsloVersionedObjectPlugin(_plugin.Plugin):
             f"{member_type}"
         )
 
+    def _apply_nullable(
+        self,
+        field_type: types.Type,
+        ctx: _plugin.ClassDefContext,
+        kwargs: dict[str, nodes.Expression],
+    ) -> types.Type:
+        if "nullable" in kwargs and ctx.api.parse_bool(kwargs["nullable"]):
+            return types.UnionType([field_type, types.NoneType()])
+        return field_type
+
+    def _resolve_ovo_class_type(
+        self,
+        ctx: _plugin.ClassDefContext,
+        class_name: str,
+    ) -> types.Type | None:
+        """Look up a versioned object class by name and return its mypy Type.
+
+        Tries the current module scope first, then falls back to searching all
+        loaded modules.
+        """
+        sym = ctx.api.lookup_qualified(
+            class_name, ctx.cls, suppress_errors=True
+        )
+        if sym is not None and isinstance(sym.node, nodes.TypeInfo):
+            return types.Instance(sym.node, [])
+
+        for module in ctx.api.modules.values():
+            node = module.names.get(class_name)
+            if node is not None and isinstance(node.node, nodes.TypeInfo):
+                return types.Instance(node.node, [])
+
+        return None
+
     def _get_python_type_from_ovo_field_type(
         self,
         ctx: _plugin.ClassDefContext,
         ovo_field_type_name: str,
-        args: dict[str, nodes.Expression],
+        args: list[nodes.Expression],
+        kwargs: dict[str, nodes.Expression],
     ) -> types.Type:
+        # lookup_fully_qualified_or_none requires a dotted name (bare names
+        # like a local callable would raise ValueError inside mypy)
+        if '.' not in ovo_field_type_name:
+            self.log(f"Unqualified field type name: {ovo_field_type_name}")
+            return types.AnyType(types.TypeOfAny.implementation_artifact)
 
-        try:
-            field_symbol = ctx.api.lookup_fully_qualified_or_none(
-                ovo_field_type_name
-            )
-            assert field_symbol is not None
-            assert field_symbol.node is not None
-            assert isinstance(field_symbol.node, nodes.TypeInfo)
-            assert "MYPY_TYPE" in field_symbol.node.names
-            assert field_symbol.node.names["MYPY_TYPE"] is not None
-            assert isinstance(
-                field_symbol.node.names["MYPY_TYPE"].node, nodes.Var
-            )
-            assert field_symbol.node.names["MYPY_TYPE"].node.type is not None
+        field_symbol = ctx.api.lookup_fully_qualified_or_none(
+            ovo_field_type_name
+        )
+        if field_symbol is None or not isinstance(
+            field_symbol.node, nodes.TypeInfo
+        ):
+            self.log(f"Could not find field type {ovo_field_type_name}")
+            return types.AnyType(types.TypeOfAny.implementation_artifact)
 
-            type = field_symbol.node.names["MYPY_TYPE"].node.type
+        field_fullname = field_symbol.node.fullname
 
-            if "nullable" in args and ctx.api.parse_bool(args["nullable"]):
-                return types.UnionType([type, types.NoneType()])
+        # ObjectField and ListOfObjectsField take the target class name as a
+        # positional string arg rather than exposing a static MYPY_TYPE.
+        if field_fullname == 'oslo_versionedobjects.fields.ListOfObjectsField':
+            base_type: types.Type | None = None
+            if args and isinstance(args[0], nodes.StrExpr):
+                resolved = self._resolve_ovo_class_type(ctx, args[0].value)
+                if resolved is not None:
+                    list_sym = ctx.api.lookup_fully_qualified_or_none(
+                        'builtins.list'
+                    )
+                    if list_sym and isinstance(list_sym.node, nodes.TypeInfo):
+                        base_type = types.Instance(list_sym.node, [resolved])
+            if base_type is None:
+                self.log(
+                    f"Could not resolve object type for {ovo_field_type_name}"
+                )
+                return types.AnyType(types.TypeOfAny.implementation_artifact)
+            return self._apply_nullable(base_type, ctx, kwargs)
 
-            return type
-        except Exception as e:
+        if field_fullname == 'oslo_versionedobjects.fields.ObjectField':
+            if args and isinstance(args[0], nodes.StrExpr):
+                resolved = self._resolve_ovo_class_type(ctx, args[0].value)
+                if resolved is not None:
+                    return self._apply_nullable(resolved, ctx, kwargs)
             self.log(
-                f"looking up {ovo_field_type_name} got exception {str(e)}"
+                f"Could not resolve object type for {ovo_field_type_name}"
             )
+            return types.AnyType(types.TypeOfAny.implementation_artifact)
 
-        # defaults to Any if the stub is incomplete
-        return types.AnyType(types.TypeOfAny.implementation_artifact)
+        mypy_type_node = field_symbol.node.names.get("MYPY_TYPE")
+        if (
+            mypy_type_node is None
+            or not isinstance(mypy_type_node.node, nodes.Var)
+            or mypy_type_node.node.type is None
+        ):
+            self.log(f"No MYPY_TYPE defined on {ovo_field_type_name}")
+            return types.AnyType(types.TypeOfAny.implementation_artifact)
+
+        return self._apply_nullable(mypy_type_node.node.type, ctx, kwargs)
 
     def _add_ovo_members_to_class(
         self,
@@ -184,6 +244,7 @@ class OsloVersionedObjectPlugin(_plugin.Plugin):
             # Skip fields already defined by a more derived class in the MRO
             if field_name in processed_fields:
                 continue
+
             processed_fields.add(field_name)
 
             if (
@@ -198,14 +259,19 @@ class OsloVersionedObjectPlugin(_plugin.Plugin):
                     types.TypeOfAny.implementation_artifact
                 )
             else:
-                args = {
+                args = [
+                    arg
+                    for arg, arg_name in zip(v.args, v.arg_names)
+                    if arg_name is None
+                ]
+                kwargs = {
                     arg_name: arg
                     for arg, arg_name in zip(v.args, v.arg_names)
-                    if arg_name is not None  # skip positional args
+                    if arg_name is not None
                 }
 
                 field_type = self._get_python_type_from_ovo_field_type(
-                    ctx, v.callee.fullname, args
+                    ctx, v.callee.fullname, args, kwargs
                 )
 
             self._add_member_to_class(field_name, field_type, ctx.cls.info)

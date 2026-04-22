@@ -968,7 +968,7 @@ class VectorDatabase(APIObject):
         sort : Optional[str]
             Property to sort vector databases by.
             Prefix the attribute name with a dash to sort in descending order,
-            e.g. sort='-creationDate'.
+            e.g., sort='-creationDate'.
             Currently supported options are listed in ListVectorDatabasesSortQueryParams
             but the values can differ with different platform versions.
             By default, the sort parameter is None which will result in

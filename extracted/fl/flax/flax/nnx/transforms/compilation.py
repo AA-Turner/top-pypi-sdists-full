@@ -146,6 +146,8 @@ class JitFn:
 
 
 @tp.overload
+
+
 def jit(
   *,
   in_shardings: tp.Any = None,
@@ -162,6 +164,8 @@ def jit(
   graph_updates: bool | None = None,
 ) -> tp.Callable[[tp.Callable[P, R]], JitWrapped[P, R]]: ...
 @tp.overload
+
+
 def jit(
   fun: tp.Callable[P, R],
   *,
@@ -363,25 +367,14 @@ def jit(
   if was_bound:
     _raise_bound_method_error('jit')
 
-  if not graph:
-    if any(isinstance(x, StateSharding) for x in jax.tree.leaves(in_shardings)):
-      raise ValueError(
-        '`in_shardings` cannot contain `StateSharding` objects '
-        'when `graph=False`. '
-        + graphlib._tree_mode_suggestion_transform('jit')
-      )
-    if any(isinstance(x, StateSharding) for x in jax.tree.leaves(out_shardings)):
-      raise ValueError(
-        '`out_shardings` cannot contain `StateSharding` objects '
-        'when `graph=False`. '
-        + graphlib._tree_mode_suggestion_transform('jit')
-      )
-
-  if graph and not graph_updates:
-    if in_shardings is not None:
-      extract.check_prefix(in_shardings, 'in_shardings', 'jit')
-    if out_shardings is not None:
-      extract.check_prefix(out_shardings, 'out_shardings', 'jit')
+  if in_shardings is not None:
+    extract.check_prefix(
+      in_shardings, 'in_shardings', 'jit', graph, graph_updates
+    )
+  if out_shardings is not None:
+    extract.check_prefix(
+      out_shardings, 'out_shardings', 'jit', graph, graph_updates
+    )
 
   wrapped_cls: tp.Any
   if graph and graph_updates:
@@ -434,8 +427,6 @@ def _flatten_to_partial_state(
   return PartialState(treedef=treedef, leaves=leaves)
 
 
-
-
 @dataclasses.dataclass(eq=False)
 class SimpleJitFn:
   f: tp.Callable[..., tp.Any]
@@ -457,7 +448,13 @@ class SimpleJitFn:
     out = self.f(*args, **kwargs)
     if self.graph:
       out = extract.to_tree2(out, prefix=self.out_shardings)
-    extract.check_no_aliases('jit', args=args_updates, kwargs=kwargs_updates, out=out)
+    extract.check_no_aliases(
+        'jit',
+        args=args_updates,
+        kwargs=kwargs_updates,
+        out=out,
+        check_can_update=['out'],
+    )
     def donated_arg(jax_path, prefix, c, s):
       path = graphlib.jax_to_nnx_path(jax_path)
       return path[0] in self.donate_argnums or extract.variable_changed(c, s)
@@ -1281,7 +1278,9 @@ class SimpleShardMapFn:
     out = self.f(*args)
     if self.graph:
       out = extract.to_tree2(out, prefix=self.out_specs)
-    extract.check_no_aliases('shard_map', args=updates, out=out)
+    extract.check_no_aliases(
+        'shard_map', args=updates, out=out, check_can_update=['out']
+    )
     updates = extract.mask_variable_updates(updates, snapshot)
     return out, updates
 
@@ -1386,7 +1385,7 @@ def shard_map(
     jax.debug.visualize_array_sharding(y)
 
   Notice that here we simply used some ``PartitionSpec`` to define the spec
-  the the whole model and data. This works for simple cases but if we need
+  the whole model and data. This works for simple cases but if we need
   to assign different ``PartitionSpec`` to different parts of the model we
   need to use ``StateSharding`` and create some filters that allow us to target
   specific parts of the model. Here's an example of how to do tensor parallelism
@@ -1536,20 +1535,14 @@ def shard_map(
   if was_bound:
     _raise_bound_method_error('shard_map')
 
-  if not graph or not graph_updates:
-    if any(isinstance(x, StateSharding) for x in jax.tree.leaves(in_specs)):
-      raise ValueError(
-        '`in_specs` cannot contain `StateSharding` objects '
-        'when `graph=False`'
-      )
-    if any(isinstance(x, StateSharding) for x in jax.tree.leaves(out_specs)):
-      raise ValueError(
-        '`out_specs` cannot contain `StateSharding` objects '
-        'when `graph=False`'
-      )
-    if graph:
-      extract.check_prefix(in_specs, 'in_specs', 'shard_map')
-      extract.check_prefix(out_specs, 'out_specs', 'shard_map')
+  extract.check_prefix(
+    in_specs, 'in_specs', 'shard_map', graph, graph_updates
+  )
+  extract.check_prefix(
+    out_specs, 'out_specs', 'shard_map', graph, graph_updates
+  )
+
+  if not (graph and graph_updates):
 
     shard_map_fn = jax.shard_map(
         SimpleShardMapFn(f_unbound, graph=graph, out_specs=out_specs),

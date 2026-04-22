@@ -23,7 +23,7 @@ import optax
 from flax import nnx
 from flax.nnx import filterlib
 from flax.nnx.pytreelib import Pytree
-from flax.nnx.variablelib import Variable
+from flax.nnx.variablelib import Param, Variable
 
 M = tp.TypeVar('M', bound=nnx.Module)
 F = tp.TypeVar('F', bound=tp.Callable[..., tp.Any])
@@ -49,7 +49,10 @@ class OptVariable(OptState):
 def to_opt_state(tree):
   def _to_opt_state(x):
     if isinstance(x, Variable):
-      opt_state = OptVariable(x.get_value(), **x.get_metadata())  # type: ignore
+      opt_metadata = x.get_metadata()
+      if 'optimizer_sharding' in opt_metadata:
+        opt_metadata['out_sharding'] = opt_metadata.pop('optimizer_sharding')
+      opt_state = OptVariable(x.get_value(), **opt_metadata)  # type: ignore
     else:
       opt_state = OptArray(x)
     return opt_state
@@ -115,7 +118,7 @@ class Optimizer(Pytree, tp.Generic[M]):
     >>> loss_fn(model)
     Array(2.3359997, dtype=float32)
     >>> grads = nnx.grad(loss_fn)(model)
-    >>> optimizer.update(model, grads)
+    >>> _ = optimizer.update(model, grads)
     >>> loss_fn(model)
     Array(2.310461, dtype=float32)
 
@@ -165,7 +168,7 @@ class Optimizer(Pytree, tp.Generic[M]):
       return super().__getattribute__(name)
 
   @_check_grads_arg_passed
-  def update(self, model: M, grads, /, **kwargs):
+  def update(self, model: M, grads, /, **kwargs) -> optax.Updates:
     """Updates the optimizer state and model parameters given the gradients.
 
     Example::
@@ -190,7 +193,7 @@ class Optimizer(Pytree, tp.Generic[M]):
       >>> grads = nnx.grad(loss_fn, argnums=nnx.DiffState(0, nnx.Param))(
       ...   model, jnp.ones((1, 2)), jnp.ones((1, 3))
       ... )
-      >>> optimizer.update(model, grads)
+      >>> _ = optimizer.update(model, grads)
 
     Note that internally this function calls ``.tx.update()`` followed by a call
     to ``optax.apply_updates()`` to update ``params`` and ``opt_state``.
@@ -199,11 +202,15 @@ class Optimizer(Pytree, tp.Generic[M]):
       grads: the gradients derived from ``nnx.grad``.
       **kwargs: additional keyword arguments passed to the tx.update, to support
       ``GradientTransformationExtraArgs``, such as ``optax.scale_by_backtracking_linesearch``.
+
+    Returns:
+      The updates PyTree containing the parameter updates applied to the model.
+      This matches the structure of the model parameters filtered by ``wrt``.
     """
-    param_arrays = nnx.pure(nnx.state(model, self.wrt))
-    grad_arrays = nnx.pure(nnx.state(grads, self.wrt))
-    opt_state_arrays = nnx.pure(self.opt_state)
-    kwargs_arrays = nnx.pure(kwargs)
+    param_arrays = nnx.as_pure(nnx.state(model, self.wrt))
+    grad_arrays = nnx.as_pure(nnx.state(grads, self.wrt))
+    opt_state_arrays = nnx.as_pure(self.opt_state)
+    kwargs_arrays = nnx.as_pure(kwargs)
 
     updates, new_opt_state = self.tx.update(
       grad_arrays, opt_state_arrays, param_arrays, **kwargs_arrays
@@ -213,6 +220,7 @@ class Optimizer(Pytree, tp.Generic[M]):
     nnx.update(model, new_params)
     nnx.update(self.opt_state, nnx.state(new_opt_state))
     self.step[...] += 1
+    return updates
 
 class ModelAndOptimizer(Optimizer[M]):
   """A convenience class that combines a model and an optimizer.
@@ -221,7 +229,7 @@ class ModelAndOptimizer(Optimizer[M]):
   Use :class:`Optimizer` instead.
   """
 
-  def __init__(self, model: M, tx: optax.GradientTransformation, *, wrt: filterlib.Filter = nnx.Param):
+  def __init__(self, model: M, tx: optax.GradientTransformation, *, wrt: filterlib.Filter = Param):
     super().__init__(model, tx, wrt=wrt)
     self.model = model
 

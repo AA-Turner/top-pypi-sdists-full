@@ -202,7 +202,7 @@ class Blueprint(APIObject):
     Attributes
     ----------
     id : str
-        the id of the blueprint
+        the ID of the blueprint
     processes : List[str]
         the processes used by the blueprint
     model_type : str

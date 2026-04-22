@@ -77,6 +77,8 @@ from .type_defs import (
     InvokeAgentRuntimeCommandResponseTypeDef,
     InvokeAgentRuntimeRequestTypeDef,
     InvokeAgentRuntimeResponseTypeDef,
+    InvokeBrowserRequestTypeDef,
+    InvokeBrowserResponseTypeDef,
     InvokeCodeInterpreterRequestTypeDef,
     InvokeCodeInterpreterResponseTypeDef,
     ListActorsInputTypeDef,
@@ -97,6 +99,8 @@ from .type_defs import (
     RetrieveMemoryRecordsOutputTypeDef,
     SaveBrowserSessionProfileRequestTypeDef,
     SaveBrowserSessionProfileResponseTypeDef,
+    SearchRegistryRecordsRequestTypeDef,
+    SearchRegistryRecordsResponseTypeDef,
     StartBrowserSessionRequestTypeDef,
     StartBrowserSessionResponseTypeDef,
     StartCodeInterpreterSessionRequestTypeDef,
@@ -382,6 +386,17 @@ class BedrockAgentCoreClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore/client/#invoke_agent_runtime_command)
         """
 
+    async def invoke_browser(
+        self, **kwargs: Unpack[InvokeBrowserRequestTypeDef]
+    ) -> InvokeBrowserResponseTypeDef:
+        """
+        Invokes an operating system-level action on a browser session in Amazon Bedrock
+        AgentCore.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/invoke_browser.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore/client/#invoke_browser)
+        """
+
     async def invoke_code_interpreter(
         self, **kwargs: Unpack[InvokeCodeInterpreterRequestTypeDef]
     ) -> InvokeCodeInterpreterResponseTypeDef:
@@ -487,6 +502,16 @@ class BedrockAgentCoreClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/save_browser_session_profile.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore/client/#save_browser_session_profile)
+        """
+
+    async def search_registry_records(
+        self, **kwargs: Unpack[SearchRegistryRecordsRequestTypeDef]
+    ) -> SearchRegistryRecordsResponseTypeDef:
+        """
+        Searches for registry records using semantic, lexical, or hybrid queries.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/search_registry_records.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore/client/#search_registry_records)
         """
 
     async def start_browser_session(

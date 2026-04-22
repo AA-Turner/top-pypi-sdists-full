@@ -13,9 +13,12 @@ Usage::
     from types_aiobotocore_rtbfabric.client import RTBFabricClient
     from types_aiobotocore_rtbfabric.waiter import (
         InboundExternalLinkActiveWaiter,
+        InboundExternalLinkDeletedWaiter,
         LinkAcceptedWaiter,
         LinkActiveWaiter,
+        LinkDeletedWaiter,
         OutboundExternalLinkActiveWaiter,
+        OutboundExternalLinkDeletedWaiter,
         RequesterGatewayActiveWaiter,
         RequesterGatewayDeletedWaiter,
         ResponderGatewayActiveWaiter,
@@ -27,9 +30,12 @@ Usage::
         client: RTBFabricClient
 
         inbound_external_link_active_waiter: InboundExternalLinkActiveWaiter = client.get_waiter("inbound_external_link_active")
+        inbound_external_link_deleted_waiter: InboundExternalLinkDeletedWaiter = client.get_waiter("inbound_external_link_deleted")
         link_accepted_waiter: LinkAcceptedWaiter = client.get_waiter("link_accepted")
         link_active_waiter: LinkActiveWaiter = client.get_waiter("link_active")
+        link_deleted_waiter: LinkDeletedWaiter = client.get_waiter("link_deleted")
         outbound_external_link_active_waiter: OutboundExternalLinkActiveWaiter = client.get_waiter("outbound_external_link_active")
+        outbound_external_link_deleted_waiter: OutboundExternalLinkDeletedWaiter = client.get_waiter("outbound_external_link_deleted")
         requester_gateway_active_waiter: RequesterGatewayActiveWaiter = client.get_waiter("requester_gateway_active")
         requester_gateway_deleted_waiter: RequesterGatewayDeletedWaiter = client.get_waiter("requester_gateway_deleted")
         responder_gateway_active_waiter: ResponderGatewayActiveWaiter = client.get_waiter("responder_gateway_active")
@@ -44,9 +50,12 @@ import sys
 from aiobotocore.waiter import AIOWaiter
 
 from .type_defs import (
+    GetInboundExternalLinkRequestWaitExtraTypeDef,
     GetInboundExternalLinkRequestWaitTypeDef,
+    GetLinkRequestWaitExtraExtraTypeDef,
     GetLinkRequestWaitExtraTypeDef,
     GetLinkRequestWaitTypeDef,
+    GetOutboundExternalLinkRequestWaitExtraTypeDef,
     GetOutboundExternalLinkRequestWaitTypeDef,
     GetRequesterGatewayRequestWaitExtraTypeDef,
     GetRequesterGatewayRequestWaitTypeDef,
@@ -61,9 +70,12 @@ else:
 
 __all__ = (
     "InboundExternalLinkActiveWaiter",
+    "InboundExternalLinkDeletedWaiter",
     "LinkAcceptedWaiter",
     "LinkActiveWaiter",
+    "LinkDeletedWaiter",
     "OutboundExternalLinkActiveWaiter",
+    "OutboundExternalLinkDeletedWaiter",
     "RequesterGatewayActiveWaiter",
     "RequesterGatewayDeletedWaiter",
     "ResponderGatewayActiveWaiter",
@@ -81,6 +93,19 @@ class InboundExternalLinkActiveWaiter(AIOWaiter):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rtbfabric/waiter/InboundExternalLinkActive.html#RTBFabric.Waiter.InboundExternalLinkActive.wait)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_rtbfabric/waiters/#inboundexternallinkactivewaiter)
+        """
+
+class InboundExternalLinkDeletedWaiter(AIOWaiter):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rtbfabric/waiter/InboundExternalLinkDeleted.html#RTBFabric.Waiter.InboundExternalLinkDeleted)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_rtbfabric/waiters/#inboundexternallinkdeletedwaiter)
+    """
+    async def wait(  # type: ignore[override]
+        self, **kwargs: Unpack[GetInboundExternalLinkRequestWaitExtraTypeDef]
+    ) -> None:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rtbfabric/waiter/InboundExternalLinkDeleted.html#RTBFabric.Waiter.InboundExternalLinkDeleted.wait)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_rtbfabric/waiters/#inboundexternallinkdeletedwaiter)
         """
 
 class LinkAcceptedWaiter(AIOWaiter):
@@ -109,6 +134,19 @@ class LinkActiveWaiter(AIOWaiter):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_rtbfabric/waiters/#linkactivewaiter)
         """
 
+class LinkDeletedWaiter(AIOWaiter):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rtbfabric/waiter/LinkDeleted.html#RTBFabric.Waiter.LinkDeleted)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_rtbfabric/waiters/#linkdeletedwaiter)
+    """
+    async def wait(  # type: ignore[override]
+        self, **kwargs: Unpack[GetLinkRequestWaitExtraExtraTypeDef]
+    ) -> None:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rtbfabric/waiter/LinkDeleted.html#RTBFabric.Waiter.LinkDeleted.wait)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_rtbfabric/waiters/#linkdeletedwaiter)
+        """
+
 class OutboundExternalLinkActiveWaiter(AIOWaiter):
     """
     [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rtbfabric/waiter/OutboundExternalLinkActive.html#RTBFabric.Waiter.OutboundExternalLinkActive)
@@ -120,6 +158,19 @@ class OutboundExternalLinkActiveWaiter(AIOWaiter):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rtbfabric/waiter/OutboundExternalLinkActive.html#RTBFabric.Waiter.OutboundExternalLinkActive.wait)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_rtbfabric/waiters/#outboundexternallinkactivewaiter)
+        """
+
+class OutboundExternalLinkDeletedWaiter(AIOWaiter):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rtbfabric/waiter/OutboundExternalLinkDeleted.html#RTBFabric.Waiter.OutboundExternalLinkDeleted)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_rtbfabric/waiters/#outboundexternallinkdeletedwaiter)
+    """
+    async def wait(  # type: ignore[override]
+        self, **kwargs: Unpack[GetOutboundExternalLinkRequestWaitExtraTypeDef]
+    ) -> None:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rtbfabric/waiter/OutboundExternalLinkDeleted.html#RTBFabric.Waiter.OutboundExternalLinkDeleted.wait)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_rtbfabric/waiters/#outboundexternallinkdeletedwaiter)
         """
 
 class RequesterGatewayActiveWaiter(AIOWaiter):

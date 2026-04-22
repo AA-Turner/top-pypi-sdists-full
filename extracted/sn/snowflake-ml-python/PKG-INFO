@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: snowflake-ml-python
-Version: 1.35.0
+Version: 1.36.0
 Summary: The machine learning client library that is used for interacting with Snowflake to build machine learning solutions.
 Author-email: "Snowflake, Inc" <support@snowflake.com>
 License: 
@@ -416,7 +416,28 @@ NOTE: Version 1.7.0 is used as example here. Please choose the the latest versio
 
 # Release History
 
-## 1.35.0
+## 1.36.0
+
+### New Features
+
+* Feature Store: for latency-sensitive online feature view reads, set use_session_warehouse=True to
+  re-use the warehouse from the current session and achieve the best latency.
+
+### Bug Fixes
+
+* Registry: Pin `transformers<5` when saving HuggingFace pipeline models that use tasks removed in
+  `transformers 5.x` (`image-to-text`, `visual-question-answering`, `conversational`), preventing
+  deployment failures from missing pipeline classes.
+
+### Behavior Changes
+
+* Registry: Logging a model with `pip_requirements` and no `artifact_repository_map` now raises a `ValueError`
+  when `target_platforms` explicitly includes `"WAREHOUSE"`. Previously this combination would silently proceed,
+  resulting in the warehouse deployment being silently dropped.
+
+### Deprecations
+
+## 1.35.0 (2026-04-17)
 
 ### New Features
 

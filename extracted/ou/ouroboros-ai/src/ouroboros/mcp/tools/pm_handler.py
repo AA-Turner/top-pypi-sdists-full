@@ -37,8 +37,15 @@ from ouroboros.bigbang.pm_completion import (
 from ouroboros.bigbang.pm_document import save_pm_document
 from ouroboros.bigbang.pm_interview import PMInterviewEngine
 from ouroboros.config import get_clarification_model
+from ouroboros.core.initial_context import resolve_initial_context_input
 from ouroboros.core.types import Result
 from ouroboros.mcp.errors import MCPServerError, MCPToolError
+from ouroboros.mcp.tools.subagent import (
+    build_pm_interview_subagent,
+    build_subagent_result,
+    emit_subagent_dispatched_event,
+    should_dispatch_via_plugin,
+)
 from ouroboros.mcp.types import (
     ContentType,
     MCPContentItem,
@@ -48,6 +55,7 @@ from ouroboros.mcp.types import (
     ToolInputType,
 )
 from ouroboros.persistence.brownfield import BrownfieldRepo, BrownfieldStore
+from ouroboros.persistence.event_store import EventStore
 from ouroboros.pm.handoff import build_pm_dev_handoff_next_step
 from ouroboros.providers import create_llm_adapter
 
@@ -169,6 +177,22 @@ def _last_classification(engine: PMInterviewEngine) -> str | None:
     return engine.get_last_classification()
 
 
+def _format_pm_transcript(state: InterviewState) -> str:
+    """Format persisted PM interview rounds as readable transcript for subagent context."""
+    if not state.rounds:
+        return ""
+    lines: list[str] = []
+    if state.initial_context:
+        lines.append(f"**Product Idea:** {state.initial_context}")
+        lines.append("")
+    for r in state.rounds:
+        lines.append(f"**Q{r.round_number}:** {r.question}")
+        if r.user_response:
+            lines.append(f"**A{r.round_number}:** {r.user_response}")
+        lines.append("")
+    return "\n".join(lines).rstrip()
+
+
 def _detect_action(arguments: dict[str, Any]) -> str:
     """Auto-detect the action from parameter presence when action param is omitted.
 
@@ -251,6 +275,9 @@ class PMInterviewHandler:
     data_dir: Path | None = field(default=None, repr=False)
     llm_adapter: Any | None = field(default=None, repr=False)
     llm_backend: str | None = field(default=None, repr=False)
+    event_store: EventStore | None = field(default=None, repr=False)
+    agent_runtime_backend: str | None = field(default=None, repr=False)
+    opencode_mode: str | None = field(default=None, repr=False)
 
     @property
     def definition(self) -> MCPToolDefinition:
@@ -260,7 +287,10 @@ class PMInterviewHandler:
             description=(
                 "PM interview for product requirements gathering. "
                 "Start with initial_context, continue with session_id + answer, "
-                "or generate PM seed with action='generate'."
+                "or generate PM seed with action='generate'. "
+                "In plugin mode, returns a delegation receipt "
+                "(status=delegated_to_subagent) and the PM interview executes in an "
+                "OpenCode Task pane — the real session_id is returned there."
             ),
             parameters=(
                 MCPToolParameter(
@@ -314,6 +344,19 @@ class PMInterviewHandler:
                     required=False,
                     items={"type": "string"},
                 ),
+                MCPToolParameter(
+                    name="last_question",
+                    type=ToolInputType.STRING,
+                    description=(
+                        "The question text from the previous child session's response. "
+                        "In plugin mode each dispatch creates a new child session whose "
+                        "questions are not automatically persisted server-side. Pass the "
+                        "child's last question here when submitting an answer so the "
+                        "PM interview transcript preserves the real question text instead "
+                        "of a placeholder."
+                    ),
+                    required=False,
+                ),
             ),
         )
 
@@ -352,9 +395,254 @@ class PMInterviewHandler:
         answer = arguments.get("answer")
         cwd_arg = arguments.get("cwd")
         selected_repos: list[str] | None = arguments.get("selected_repos")
+        last_question = arguments.get("last_question")
 
         # Auto-detect action from parameter presence (AC 13)
         action = _detect_action(arguments)
+
+        # --- Argument validation (before any dispatch) ---
+        # Reject invalid action+args combos early — applies to both plugin and subprocess.
+        _valid_combo = (
+            (action == "start" and initial_context)
+            or (action == "select_repos" and selected_repos is not None)
+            or (action == "resume" and session_id)
+            or (action == "generate" and session_id)
+        )
+        if not _valid_combo:
+            return Result.err(
+                MCPToolError(
+                    "Must provide initial_context to start, or session_id to resume/generate",
+                    tool_name="ouroboros_pm_interview",
+                )
+            )
+
+        # --- Subagent dispatch: gate on runtime + opencode_mode ---
+        if should_dispatch_via_plugin(self.agent_runtime_backend, self.opencode_mode):
+            # Plugin mode: persist BOTH generic InterviewState AND PM-specific
+            # metadata (pm_meta) server-side WITHOUT creating an LLM adapter.
+            # Subagent handles all LLM work. This preserves the 2-step PM flow:
+            #   step 1 (start): writes InterviewState + pm_meta(initial_context, cwd)
+            #   step 2 (select_repos): loads pm_meta, updates brownfield_repos, re-saves
+            #   resume/answer: loads state + pm_meta, records answer, builds transcript
+            #   generate: delegates seed generation to subagent (state on disk)
+            from ouroboros.mcp.tools.authoring_handlers import (
+                _plugin_load_state,
+                _plugin_save_state,
+            )
+
+            state_dir = self.data_dir or _DATA_DIR
+            state_dir.mkdir(parents=True, exist_ok=True)
+
+            transcript = ""
+            real_session_id = session_id
+
+            if action == "start" and initial_context:
+                cwd = cwd_arg or os.getcwd()
+                resolved = resolve_initial_context_input(initial_context, cwd=cwd)
+                if resolved.is_err:
+                    return Result.err(
+                        MCPToolError(str(resolved.error), tool_name="ouroboros_pm_interview")
+                    )
+                from ouroboros.core.security import InputValidator
+
+                is_valid, error_msg = InputValidator.validate_initial_context(resolved.value)
+                if not is_valid:
+                    return Result.err(MCPToolError(error_msg, tool_name="ouroboros_pm_interview"))
+                from uuid import uuid4
+
+                interview_id = f"interview_{uuid4().hex[:16]}"
+                state = InterviewState(
+                    interview_id=interview_id,
+                    initial_context=resolved.value,
+                )
+                if cwd:
+                    from ouroboros.bigbang.explore import detect_brownfield
+
+                    if detect_brownfield(cwd):
+                        state.is_brownfield = True
+                        state.codebase_paths = [{"path": cwd, "role": "primary"}]
+
+                save_result = await _plugin_save_state(state_dir, state)
+                if save_result.is_err:
+                    return Result.err(
+                        MCPToolError(str(save_result.error), tool_name="ouroboros_pm_interview")
+                    )
+                # Persist PM-specific metadata (no engine needed for initial save)
+                # For 1-step start (initial_context + selected_repos), persist
+                # the caller's selected_repos so later resume/generate turns
+                # can restore them.  Fall back to cwd-derived codebase_paths
+                # when no explicit repos provided.
+                persisted_repos: list[Any] = []
+                if selected_repos is not None:
+                    persisted_repos = selected_repos
+                elif state.codebase_paths:
+                    persisted_repos = [
+                        {"path": p["path"], "role": p.get("role", "primary")}
+                        for p in state.codebase_paths
+                    ]
+                _save_pm_meta(
+                    interview_id,
+                    engine=None,
+                    cwd=cwd,
+                    data_dir=self.data_dir,
+                    extra={
+                        "initial_context": resolved.value,
+                        "brownfield_repos": persisted_repos,
+                    },
+                )
+                real_session_id = state.interview_id
+
+            elif action == "select_repos" and selected_repos is not None:
+                # 2-step PM flow step 2: recover initial_context from pm_meta,
+                # persist selected repos, then dispatch to subagent.
+                if not session_id:
+                    return Result.err(
+                        MCPToolError(
+                            "select_repos requires session_id (from step 1) "
+                            "or initial_context for 1-step start",
+                            tool_name="ouroboros_pm_interview",
+                        )
+                    )
+                meta = _load_pm_meta(session_id, data_dir=self.data_dir)
+                if meta is None:
+                    return Result.err(
+                        MCPToolError(
+                            f"No pm_meta found for session {session_id}. "
+                            "The session may have expired or never been created.",
+                            tool_name="ouroboros_pm_interview",
+                        )
+                    )
+                # Update pm_meta with selected repos and mark interview_started
+                meta["brownfield_repos"] = selected_repos
+                meta["status"] = "interview_started"
+                _save_pm_meta(
+                    session_id,
+                    engine=None,
+                    cwd=meta.get("cwd", cwd_arg or os.getcwd()),
+                    data_dir=self.data_dir,
+                    status="interview_started",
+                    extra={
+                        "initial_context": meta.get("initial_context", ""),
+                        "brownfield_repos": selected_repos,
+                    },
+                )
+                # Use initial_context from pm_meta for subagent prompt
+                initial_context = meta.get("initial_context", initial_context)
+                real_session_id = session_id
+
+            elif session_id:
+                # resume / answer / generate — load state + build transcript
+                load_result = await _plugin_load_state(state_dir, session_id)
+                if load_result.is_err:
+                    return Result.err(
+                        MCPToolError(str(load_result.error), tool_name="ouroboros_pm_interview")
+                    )
+                state = load_result.value
+
+                # Restore brownfield repos from pm_meta if not provided in
+                # the current request.  The user selects repos during
+                # select_repos action; subsequent resume/generate turns omit
+                # them from the request params.  Without this, the child
+                # subagent loses repo context on later turns.
+                if selected_repos is None:
+                    meta = _load_pm_meta(session_id, data_dir=self.data_dir)
+                    if meta:
+                        if meta.get("brownfield_repos") is not None:
+                            selected_repos = meta["brownfield_repos"]
+                        # Also restore initial_context for generate prompts
+                        if not initial_context and meta.get("initial_context"):
+                            initial_context = meta["initial_context"]
+
+                # Gate: generate requires interview evidence.  In plugin
+                # mode is_complete is never set (child owns progression),
+                # so we gate on answered rounds instead.  The child session
+                # performs the real completeness validation.
+                if action == "generate":
+                    answered_rounds = [r for r in state.rounds if r.user_response is not None]
+                    if not state.is_complete and not answered_rounds:
+                        return Result.err(
+                            MCPToolError(
+                                "Interview has no answered rounds and is not "
+                                "marked complete. Continue the interview "
+                                "before generating a PM seed.",
+                                tool_name="ouroboros_pm_interview",
+                            )
+                        )
+
+                # Record answer into persisted state.
+                # In plugin mode each dispatch = new child session. The child
+                # generates questions but can't write back to server-side state.
+                # We must always persist user answers for transcript continuity.
+                #
+                # The ``last_question`` parameter solves the question-text gap:
+                # the parent LLM sees the child's response (which contains the
+                # question) and passes it back here so we can persist the real
+                # question text instead of a placeholder.
+                if answer:
+                    if state.rounds and state.rounds[-1].user_response is None:
+                        # Round exists with question but no answer yet — fill it.
+                        # If last_question was provided, update the question text
+                        # in case the existing one is a stale placeholder from a
+                        # previous partial persistence.
+                        if last_question:
+                            state.rounds[-1].question = last_question
+                        state.rounds[-1].user_response = answer
+                    else:
+                        # No rounds yet or all answered — append new round.
+                        # Use last_question when available; fall back to a
+                        # descriptive placeholder for backward compatibility
+                        # (callers that don't supply last_question yet).
+                        from ouroboros.bigbang.interview import InterviewRound
+
+                        question_text = (
+                            last_question if last_question else "(continued from subagent)"
+                        )
+                        state.rounds.append(
+                            InterviewRound(
+                                round_number=len(state.rounds) + 1,
+                                question=question_text,
+                                user_response=answer,
+                            )
+                        )
+                    state.mark_updated()
+                    save_result = await _plugin_save_state(state_dir, state)
+                    if save_result.is_err:
+                        return Result.err(
+                            MCPToolError(str(save_result.error), tool_name="ouroboros_pm_interview")
+                        )
+                # Build transcript from persisted rounds
+                transcript = _format_pm_transcript(state)
+
+            payload = build_pm_interview_subagent(
+                session_id=real_session_id or "new",
+                action=action,
+                initial_context=initial_context,
+                answer=answer,
+                cwd=cwd_arg,
+                selected_repos=selected_repos,
+                transcript=transcript,
+            )
+            await emit_subagent_dispatched_event(
+                self.event_store,
+                session_id=real_session_id,
+                payload=payload,
+            )
+            return build_subagent_result(
+                payload,
+                response_shape={
+                    "session_id": real_session_id,
+                    "action": action,
+                    "status": "delegated_to_subagent",
+                    "dispatch_mode": "plugin",
+                    "next_turn_hint": (
+                        "When the user answers, pass the child session's "
+                        "question text as 'last_question' alongside 'answer' "
+                        "to preserve PM interview transcript fidelity."
+                    ),
+                },
+            )
+
+        # Fall-through: real in-process PM interview (subprocess / non-opencode runtimes).
 
         # For resume/generate, prefer persisted session cwd over os.getcwd()
         # so artifacts land in the workspace where the interview started.

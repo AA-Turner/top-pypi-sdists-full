@@ -8,3 +8,4 @@ from .metric_single_values import OtelSingleMetricValue
 from .metric_summary import OtelMetricSummary
 from .metric_values import OtelMetricBucketValue, OtelMetricValue
 from .metrics import OtelMetrics
+from .stats import OtelStats

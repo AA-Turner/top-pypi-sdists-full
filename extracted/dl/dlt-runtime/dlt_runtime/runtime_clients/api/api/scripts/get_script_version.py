@@ -16,14 +16,14 @@ from ...types import Response
 
 def _get_kwargs(
     workspace_id: UUID,
-    script_id_or_name: str,
+    script_id_or_ref: str,
     script_version_id_or_version: Union[UUID, int],
 ) -> dict[str, Any]:
     _kwargs: dict[str, Any] = {
         "method": "get",
-        "url": "/v1/workspaces/{workspace_id}/scripts/{script_id_or_name}/versions/{script_version_id_or_version}".format(
+        "url": "/v1/workspaces/{workspace_id}/scripts/{script_id_or_ref}/versions/{script_version_id_or_version}".format(
             workspace_id=workspace_id,
-            script_id_or_name=script_id_or_name,
+            script_id_or_ref=script_id_or_ref,
             script_version_id_or_version=script_version_id_or_version,
         ),
     }
@@ -94,7 +94,7 @@ def _build_response(
 
 def sync_detailed(
     workspace_id: UUID,
-    script_id_or_name: str,
+    script_id_or_ref: str,
     script_version_id_or_version: Union[UUID, int],
     *,
     client: Union[AuthenticatedClient, Client],
@@ -116,7 +116,7 @@ def sync_detailed(
 
     Args:
         workspace_id (UUID):
-        script_id_or_name (str):
+        script_id_or_ref (str):
         script_version_id_or_version (Union[UUID, int]):
 
     Raises:
@@ -129,7 +129,7 @@ def sync_detailed(
 
     kwargs = _get_kwargs(
         workspace_id=workspace_id,
-        script_id_or_name=script_id_or_name,
+        script_id_or_ref=script_id_or_ref,
         script_version_id_or_version=script_version_id_or_version,
     )
 
@@ -142,7 +142,7 @@ def sync_detailed(
 
 def sync(
     workspace_id: UUID,
-    script_id_or_name: str,
+    script_id_or_ref: str,
     script_version_id_or_version: Union[UUID, int],
     *,
     client: Union[AuthenticatedClient, Client],
@@ -164,7 +164,7 @@ def sync(
 
     Args:
         workspace_id (UUID):
-        script_id_or_name (str):
+        script_id_or_ref (str):
         script_version_id_or_version (Union[UUID, int]):
 
     Raises:
@@ -177,7 +177,7 @@ def sync(
 
     return sync_detailed(
         workspace_id=workspace_id,
-        script_id_or_name=script_id_or_name,
+        script_id_or_ref=script_id_or_ref,
         script_version_id_or_version=script_version_id_or_version,
         client=client,
     ).parsed
@@ -185,7 +185,7 @@ def sync(
 
 async def asyncio_detailed(
     workspace_id: UUID,
-    script_id_or_name: str,
+    script_id_or_ref: str,
     script_version_id_or_version: Union[UUID, int],
     *,
     client: Union[AuthenticatedClient, Client],
@@ -207,7 +207,7 @@ async def asyncio_detailed(
 
     Args:
         workspace_id (UUID):
-        script_id_or_name (str):
+        script_id_or_ref (str):
         script_version_id_or_version (Union[UUID, int]):
 
     Raises:
@@ -220,7 +220,7 @@ async def asyncio_detailed(
 
     kwargs = _get_kwargs(
         workspace_id=workspace_id,
-        script_id_or_name=script_id_or_name,
+        script_id_or_ref=script_id_or_ref,
         script_version_id_or_version=script_version_id_or_version,
     )
 
@@ -231,7 +231,7 @@ async def asyncio_detailed(
 
 async def asyncio(
     workspace_id: UUID,
-    script_id_or_name: str,
+    script_id_or_ref: str,
     script_version_id_or_version: Union[UUID, int],
     *,
     client: Union[AuthenticatedClient, Client],
@@ -253,7 +253,7 @@ async def asyncio(
 
     Args:
         workspace_id (UUID):
-        script_id_or_name (str):
+        script_id_or_ref (str):
         script_version_id_or_version (Union[UUID, int]):
 
     Raises:
@@ -267,7 +267,7 @@ async def asyncio(
     return (
         await asyncio_detailed(
             workspace_id=workspace_id,
-            script_id_or_name=script_id_or_name,
+            script_id_or_ref=script_id_or_ref,
             script_version_id_or_version=script_version_id_or_version,
             client=client,
         )

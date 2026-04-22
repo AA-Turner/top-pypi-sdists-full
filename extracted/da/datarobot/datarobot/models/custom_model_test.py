@@ -154,9 +154,9 @@ class CustomModelTest(APIObject):
         Parameters
         ----------
         custom_model_id: str
-            the id of the custom model
+            the ID of the custom model
         custom_model_version_id: str
-            the id of the custom model version
+            the ID of the custom model version
         dataset_id: Optional[str]
             The id of the testing dataset for non-unstructured custom models.
             Ignored and not required for unstructured models.
@@ -239,7 +239,7 @@ class CustomModelTest(APIObject):
         Parameters
         ----------
         custom_model_id: str
-            the id of the custom model
+            the ID of the custom model
 
         Returns
         -------
@@ -266,7 +266,7 @@ class CustomModelTest(APIObject):
         Parameters
         ----------
         custom_model_test_id: str
-            the id of the custom model test
+            the ID of the custom model test
 
         Returns
         -------

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: binary-refinery
-Version: 0.10.10
+Version: 0.10.11
 Summary: A toolkit to transform and refine (mostly) binary data.
 Home-page: https://github.com/binref/refinery/
 Author: Jesko Huettenhain
@@ -42,71 +42,69 @@ Requires-Dist: pyperclip
 Requires-Dist: pyperclip
 Requires-Dist: colorama
 Provides-Extra: default
-Requires-Dist: Pillow; extra == "default"
+Requires-Dist: pymupdf; extra == "default"
+Requires-Dist: orjson; extra == "default"
 Requires-Dist: capstone; extra == "default"
 Requires-Dist: pikepdf<=9.5; extra == "default"
-Requires-Dist: orjson; extra == "default"
-Requires-Dist: pefile; extra == "default"
-Requires-Dist: pymupdf; extra == "default"
-Requires-Dist: unicorn>=2.0.1.post1; extra == "default"
-Requires-Dist: colorama; extra == "default"
-Requires-Dist: chardet; extra == "default"
 Requires-Dist: numpy; extra == "default"
+Requires-Dist: chardet; extra == "default"
+Requires-Dist: pefile; extra == "default"
+Requires-Dist: colorama; extra == "default"
+Requires-Dist: Pillow; extra == "default"
+Requires-Dist: unicorn>=2.0.1.post1; extra == "default"
 Provides-Extra: extended
-Requires-Dist: Pillow; extra == "extended"
-Requires-Dist: jsbeautifier; extra == "extended"
-Requires-Dist: pyxlsb2; extra == "extended"
-Requires-Dist: pikepdf<=9.5; extra == "extended"
-Requires-Dist: pefile; extra == "extended"
-Requires-Dist: decompyle3; extra == "extended"
-Requires-Dist: xdis; extra == "extended"
-Requires-Dist: pyonenote; extra == "extended"
-Requires-Dist: icicle-emu>=0.0.11; extra == "extended"
-Requires-Dist: xlrd2; extra == "extended"
+Requires-Dist: pymupdf; extra == "extended"
+Requires-Dist: orjson; extra == "extended"
+Requires-Dist: capstone; extra == "extended"
+Requires-Dist: python-registry; extra == "extended"
+Requires-Dist: numpy; extra == "extended"
+Requires-Dist: openpyxl; extra == "extended"
+Requires-Dist: pyppmd; extra == "extended"
 Requires-Dist: chardet; extra == "extended"
 Requires-Dist: uncompyle6>=3.9.3; extra == "extended"
-Requires-Dist: capstone; extra == "extended"
-Requires-Dist: brotli; extra == "extended"
-Requires-Dist: openpyxl; extra == "extended"
-Requires-Dist: orjson; extra == "extended"
-Requires-Dist: pymupdf; extra == "extended"
-Requires-Dist: unicorn>=2.0.1.post1; extra == "extended"
-Requires-Dist: colorama; extra == "extended"
-Requires-Dist: python-registry; extra == "extended"
 Requires-Dist: minidump==0.0.24; extra == "extended"
-Requires-Dist: pyppmd; extra == "extended"
-Requires-Dist: numpy; extra == "extended"
+Requires-Dist: xdis; extra == "extended"
+Requires-Dist: colorama; extra == "extended"
+Requires-Dist: unicorn>=2.0.1.post1; extra == "extended"
+Requires-Dist: icicle-emu>=0.0.11; extra == "extended"
+Requires-Dist: xlrd2; extra == "extended"
+Requires-Dist: pikepdf<=9.5; extra == "extended"
+Requires-Dist: pyonenote; extra == "extended"
+Requires-Dist: pyxlsb2; extra == "extended"
+Requires-Dist: pefile; extra == "extended"
+Requires-Dist: Pillow; extra == "extended"
+Requires-Dist: brotli; extra == "extended"
+Requires-Dist: decompyle3; extra == "extended"
 Requires-Dist: pyzstd; extra == "extended"
 Provides-Extra: all
-Requires-Dist: Pillow; extra == "all"
-Requires-Dist: jsbeautifier; extra == "all"
-Requires-Dist: pyxlsb2; extra == "all"
-Requires-Dist: pikepdf<=9.5; extra == "all"
+Requires-Dist: pymupdf; extra == "all"
+Requires-Dist: orjson; extra == "all"
+Requires-Dist: capstone; extra == "all"
+Requires-Dist: python-registry; extra == "all"
+Requires-Dist: numpy; extra == "all"
+Requires-Dist: openpyxl; extra == "all"
+Requires-Dist: pyppmd; extra == "all"
+Requires-Dist: smda<2.0; extra == "all"
+Requires-Dist: javaobj-py3>=0.4.0.1; extra == "all"
 Requires-Dist: python-evtx; extra == "all"
 Requires-Dist: python-idb<=0.8.0; extra == "all"
-Requires-Dist: pefile; extra == "all"
-Requires-Dist: decompyle3; extra == "all"
-Requires-Dist: javaobj-py3>=0.4.0.1; extra == "all"
-Requires-Dist: xdis; extra == "all"
-Requires-Dist: pyonenote; extra == "all"
-Requires-Dist: icicle-emu>=0.0.11; extra == "all"
-Requires-Dist: xlrd2; extra == "all"
-Requires-Dist: smda<2.0; extra == "all"
 Requires-Dist: chardet; extra == "all"
 Requires-Dist: uncompyle6>=3.9.3; extra == "all"
-Requires-Dist: speakeasy-emulator-refined==1.6.1b0.post3; extra == "all"
-Requires-Dist: capstone; extra == "all"
-Requires-Dist: brotli; extra == "all"
-Requires-Dist: openpyxl; extra == "all"
-Requires-Dist: orjson; extra == "all"
-Requires-Dist: pymupdf; extra == "all"
-Requires-Dist: unicorn>=2.0.1.post1; extra == "all"
-Requires-Dist: colorama; extra == "all"
-Requires-Dist: python-registry; extra == "all"
-Requires-Dist: minidump==0.0.24; extra == "all"
 Requires-Dist: Pygments; extra == "all"
-Requires-Dist: pyppmd; extra == "all"
-Requires-Dist: numpy; extra == "all"
+Requires-Dist: minidump==0.0.24; extra == "all"
+Requires-Dist: xdis; extra == "all"
+Requires-Dist: colorama; extra == "all"
+Requires-Dist: unicorn>=2.0.1.post1; extra == "all"
+Requires-Dist: icicle-emu>=0.0.11; extra == "all"
+Requires-Dist: xlrd2; extra == "all"
+Requires-Dist: pikepdf<=9.5; extra == "all"
+Requires-Dist: pyonenote; extra == "all"
+Requires-Dist: pyxlsb2; extra == "all"
+Requires-Dist: pefile; extra == "all"
+Requires-Dist: speakeasy-emulator-refined==1.6.1b0.post3; extra == "all"
+Requires-Dist: Pillow; extra == "all"
+Requires-Dist: brotli; extra == "all"
+Requires-Dist: decompyle3; extra == "all"
 Requires-Dist: pyzstd; extra == "all"
 Dynamic: author
 Dynamic: classifier
@@ -396,14 +394,11 @@ emit 81a1fca7a1fb97fe021a1f2cf0bf9011dd2e72a5864aad674f8fea4ef009417b [ \
   | xlxtr 9.5:11.5 15.15 12.5:14.5 [ \
   | scope -n 3 | chop -t 5 [| sorted -a | snip 2: | sep ] \
   | pack 10 | alu --dec -sN B-S ]] \
-  | dump payload.ps1
+  | dump payload.cmd
 ```
 And get the domains for the next stage:
 ```
-emit payload.ps1 
-  | carve -sd b64 | zl | deob-ps1 
-  | carve -sd b64 | zl | deob-ps1
-  | xtp -f domain
+emit payload.cmd | cmdarg | ps1 | xtp -f domain
 ```
 Extract the configuration of unpacked HawkEye samples:
 ```
@@ -421,7 +416,7 @@ emit 4537fab9de768a668ab4e72ae2cce3169b7af2dd36a1723ddab09c04d31d61a5 \
 Extract payload from a shellcode loader and carve its c2:
 ```
 emit 58ba30052d249805caae0107a0e2a5a3cb85f3000ba5479fafb7767e2a5a78f3 \
-  | rex yara:50607080.* [| struct LL{s:L}{} | xor -B2 accu[s]:@msvc | xtp url ]
+  | rex yara:50607080.* [| struct LL{s:L}{} | xor -B2 rand[s]:msvc | xtp url ]
 ```
 Get the malicious VBA macros from a forgotten time when this was how it was done:
 ```

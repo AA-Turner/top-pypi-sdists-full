@@ -24,6 +24,7 @@ class ProjectTargetBranchRuleArgs:
                  target_branch_name: pulumi.Input[_builtins.str]):
         """
         The set of arguments for constructing a ProjectTargetBranchRule resource.
+
         :param pulumi.Input[_builtins.str] project: The ID or URL-encoded path of the project.
         :param pulumi.Input[_builtins.str] source_branch_pattern: A pattern matching the branch name for which the merge request should have a default target branch configured.
         :param pulumi.Input[_builtins.str] target_branch_name: The name of the branch to which the merge request should be addressed.
@@ -77,6 +78,7 @@ class _ProjectTargetBranchRuleState:
                  target_branch_name: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering ProjectTargetBranchRule resources.
+
         :param pulumi.Input[_builtins.str] project: The ID or URL-encoded path of the project.
         :param pulumi.Input[_builtins.str] source_branch_pattern: A pattern matching the branch name for which the merge request should have a default target branch configured.
         :param pulumi.Input[_builtins.str] target_branch_name: The name of the branch to which the merge request should be addressed.
@@ -159,25 +161,18 @@ class ProjectTargetBranchRule(pulumi.CustomResource):
 
         ## Import
 
-        Starting in Terraform v1.5.0, you can use an import block to import `gitlab_project_target_branch_rule`. For example:
-
-        terraform
-
-        import {
-
-          to = gitlab_project_target_branch_rule.example
-
-          id = "see CLI command below for ID"
-
-        }
+        Starting in Terraform v1.5.0, you can use an import block to import `ProjectTargetBranchRule`. For example:
 
         Importing using the CLI is supported with the following syntax:
 
-        A GitLab Project targer branch rule can be imported using a key composed of `<project-id>:<target-branch-rule-id>`, for example:
+        A GitLab Project targer branch rule can be imported using a key composed of `<project>:<target-branch-rule-id>`, for example:
 
         ```sh
         $ pulumi import gitlab:index/projectTargetBranchRule:ProjectTargetBranchRule example "12345:1"
         ```
+
+        Where `project` may be the product ID or path with namespace depending on what you have in your config.
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -215,25 +210,18 @@ class ProjectTargetBranchRule(pulumi.CustomResource):
 
         ## Import
 
-        Starting in Terraform v1.5.0, you can use an import block to import `gitlab_project_target_branch_rule`. For example:
-
-        terraform
-
-        import {
-
-          to = gitlab_project_target_branch_rule.example
-
-          id = "see CLI command below for ID"
-
-        }
+        Starting in Terraform v1.5.0, you can use an import block to import `ProjectTargetBranchRule`. For example:
 
         Importing using the CLI is supported with the following syntax:
 
-        A GitLab Project targer branch rule can be imported using a key composed of `<project-id>:<target-branch-rule-id>`, for example:
+        A GitLab Project targer branch rule can be imported using a key composed of `<project>:<target-branch-rule-id>`, for example:
 
         ```sh
         $ pulumi import gitlab:index/projectTargetBranchRule:ProjectTargetBranchRule example "12345:1"
         ```
+
+        Where `project` may be the product ID or path with namespace depending on what you have in your config.
+
 
         :param str resource_name: The name of the resource.
         :param ProjectTargetBranchRuleArgs args: The arguments to use to populate this resource's properties.

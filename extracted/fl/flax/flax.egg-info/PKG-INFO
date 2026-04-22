@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: flax
-Version: 0.12.6
+Version: 0.12.7
 Summary: Flax: A neural network library for JAX designed for flexibility
 Author-email: Flax team <flax-dev@google.com>
 Project-URL: homepage, https://github.com/google/flax
@@ -16,7 +16,7 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: AUTHORS
 Requires-Dist: numpy>=1.23.2
-Requires-Dist: jax>=0.8.1
+Requires-Dist: jax>=0.10.0
 Requires-Dist: msgpack
 Requires-Dist: optax
 Requires-Dist: orbax-checkpoint
@@ -25,7 +25,6 @@ Requires-Dist: rich>=11.1
 Requires-Dist: typing_extensions>=4.2
 Requires-Dist: PyYAML>=5.4.1
 Requires-Dist: treescope>=0.1.7
-Requires-Dist: orbax-export>=0.0.8
 Provides-Extra: testing
 Requires-Dist: clu; extra == "testing"
 Requires-Dist: clu<=0.0.9; python_version < "3.10" and extra == "testing"
@@ -53,6 +52,7 @@ Requires-Dist: torch; extra == "testing"
 Requires-Dist: treescope>=0.1.1; python_version >= "3.10" and extra == "testing"
 Requires-Dist: cloudpickle>=3.0.0; extra == "testing"
 Requires-Dist: ale-py>=0.10.2; python_version < "3.14" and extra == "testing"
+Requires-Dist: grain>=0.2; extra == "testing"
 Provides-Extra: docs
 Requires-Dist: sphinx==6.2.1; extra == "docs"
 Requires-Dist: sphinx-book-theme; extra == "docs"
@@ -73,6 +73,7 @@ Requires-Dist: ml_collections; extra == "docs"
 Requires-Dist: einops; extra == "docs"
 Requires-Dist: kagglehub>=0.3.3; extra == "docs"
 Requires-Dist: ipywidgets>=8.1.5; extra == "docs"
+Requires-Dist: orbax-export>=0.0.8; extra == "docs"
 Provides-Extra: dev
 Requires-Dist: nanobind>=2.5.0; extra == "dev"
 Requires-Dist: pre-commit>=3.8.0; extra == "dev"
@@ -239,7 +240,7 @@ To cite this repository:
   author = {Jonathan Heek and Anselm Levskaya and Avital Oliver and Marvin Ritter and Bertrand Rondepierre and Andreas Steiner and Marc van {Z}ee},
   title = {{F}lax: A neural network library and ecosystem for {JAX}},
   url = {http://github.com/google/flax},
-  version = {0.12.6},
+  version = {0.12.7},
   year = {2024},
 }
 ```

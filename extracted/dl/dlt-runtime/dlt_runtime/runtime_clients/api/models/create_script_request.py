@@ -1,5 +1,6 @@
 from collections.abc import Mapping
 from typing import (
+    TYPE_CHECKING,
     Any,
     TypeVar,
     Union,
@@ -9,9 +10,12 @@ from typing import (
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
-from ..models.interactive_script_type import InteractiveScriptType
 from ..models.script_type import ScriptType
 from ..types import UNSET, Unset
+
+if TYPE_CHECKING:
+    from ..models.t_job_definition import TJobDefinition
+
 
 T = TypeVar("T", bound="CreateScriptRequest")
 
@@ -20,43 +24,56 @@ T = TypeVar("T", bound="CreateScriptRequest")
 class CreateScriptRequest:
     """
     Attributes:
-        description (str): The description of the script
-        entry_point (str): The entry point of the script. Will usually be the path to a python file in the uploaded
-            tarball
-        name (str): The name of the script
-        script_type (ScriptType): The type of the script. Use 'batch' for batch pipelines and 'interactive' for
-            notebooks
-        interactive_script_type (Union[InteractiveScriptType, None, Unset]): The type of interactive script. Use
-            'marimo' for marimo notebook, 'mcp' for MCPs and 'streamlit' for streamlit reports.
+        job_definition (TJobDefinition):
+        job_definition_engine_version (int): Manifest engine version for future migration
+        job_definition_hash (str): Hash of the job definition for change detection
+        job_ref (str): Canonical job reference, unique per workspace
+        script_type (ScriptType): The type of the script: batch, interactive, or stream
+        deployment_module (Union[None, Unset, str]): Deployment module name (e.g. __deployment__)
+        description (Union[None, Unset, str]): The description of the script
+        name (Union[None, Unset, str]): Display name for the job
         profile (Union[None, Unset, str]): The name of the profile to use for the script
-        schedule (Union[None, Unset, str]): The schedule of the script. Use 'cron' format for cron jobs
     """
 
-    description: str
-    entry_point: str
-    name: str
+    job_definition: "TJobDefinition"
+    job_definition_engine_version: int
+    job_definition_hash: str
+    job_ref: str
     script_type: ScriptType
-    interactive_script_type: Union[InteractiveScriptType, None, Unset] = UNSET
+    deployment_module: Union[None, Unset, str] = UNSET
+    description: Union[None, Unset, str] = UNSET
+    name: Union[None, Unset, str] = UNSET
     profile: Union[None, Unset, str] = UNSET
-    schedule: Union[None, Unset, str] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        description = self.description
+        job_definition = self.job_definition.to_dict()
 
-        entry_point = self.entry_point
+        job_definition_engine_version = self.job_definition_engine_version
 
-        name = self.name
+        job_definition_hash = self.job_definition_hash
+
+        job_ref = self.job_ref
 
         script_type = self.script_type.value
 
-        interactive_script_type: Union[None, Unset, str]
-        if isinstance(self.interactive_script_type, Unset):
-            interactive_script_type = UNSET
-        elif isinstance(self.interactive_script_type, InteractiveScriptType):
-            interactive_script_type = self.interactive_script_type.value
+        deployment_module: Union[None, Unset, str]
+        if isinstance(self.deployment_module, Unset):
+            deployment_module = UNSET
         else:
-            interactive_script_type = self.interactive_script_type
+            deployment_module = self.deployment_module
+
+        description: Union[None, Unset, str]
+        if isinstance(self.description, Unset):
+            description = UNSET
+        else:
+            description = self.description
+
+        name: Union[None, Unset, str]
+        if isinstance(self.name, Unset):
+            name = UNSET
+        else:
+            name = self.name
 
         profile: Union[None, Unset, str]
         if isinstance(self.profile, Unset):
@@ -64,62 +81,69 @@ class CreateScriptRequest:
         else:
             profile = self.profile
 
-        schedule: Union[None, Unset, str]
-        if isinstance(self.schedule, Unset):
-            schedule = UNSET
-        else:
-            schedule = self.schedule
-
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
-                "description": description,
-                "entry_point": entry_point,
-                "name": name,
+                "job_definition": job_definition,
+                "job_definition_engine_version": job_definition_engine_version,
+                "job_definition_hash": job_definition_hash,
+                "job_ref": job_ref,
                 "script_type": script_type,
             }
         )
-        if interactive_script_type is not UNSET:
-            field_dict["interactive_script_type"] = interactive_script_type
+        if deployment_module is not UNSET:
+            field_dict["deployment_module"] = deployment_module
+        if description is not UNSET:
+            field_dict["description"] = description
+        if name is not UNSET:
+            field_dict["name"] = name
         if profile is not UNSET:
             field_dict["profile"] = profile
-        if schedule is not UNSET:
-            field_dict["schedule"] = schedule
 
         return field_dict
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.t_job_definition import TJobDefinition
+
         d = dict(src_dict)
-        description = d.pop("description")
+        job_definition = TJobDefinition.from_dict(d.pop("job_definition"))
 
-        entry_point = d.pop("entry_point")
+        job_definition_engine_version = d.pop("job_definition_engine_version")
 
-        name = d.pop("name")
+        job_definition_hash = d.pop("job_definition_hash")
+
+        job_ref = d.pop("job_ref")
 
         script_type = ScriptType(d.pop("script_type"))
 
-        def _parse_interactive_script_type(
-            data: object,
-        ) -> Union[InteractiveScriptType, None, Unset]:
+        def _parse_deployment_module(data: object) -> Union[None, Unset, str]:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            try:
-                if not isinstance(data, str):
-                    raise TypeError()
-                interactive_script_type_type_0 = InteractiveScriptType(data)
+            return cast(Union[None, Unset, str], data)
 
-                return interactive_script_type_type_0
-            except:  # noqa: E722
-                pass
-            return cast(Union[InteractiveScriptType, None, Unset], data)
+        deployment_module = _parse_deployment_module(d.pop("deployment_module", UNSET))
 
-        interactive_script_type = _parse_interactive_script_type(
-            d.pop("interactive_script_type", UNSET)
-        )
+        def _parse_description(data: object) -> Union[None, Unset, str]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(Union[None, Unset, str], data)
+
+        description = _parse_description(d.pop("description", UNSET))
+
+        def _parse_name(data: object) -> Union[None, Unset, str]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(Union[None, Unset, str], data)
+
+        name = _parse_name(d.pop("name", UNSET))
 
         def _parse_profile(data: object) -> Union[None, Unset, str]:
             if data is None:
@@ -130,23 +154,16 @@ class CreateScriptRequest:
 
         profile = _parse_profile(d.pop("profile", UNSET))
 
-        def _parse_schedule(data: object) -> Union[None, Unset, str]:
-            if data is None:
-                return data
-            if isinstance(data, Unset):
-                return data
-            return cast(Union[None, Unset, str], data)
-
-        schedule = _parse_schedule(d.pop("schedule", UNSET))
-
         create_script_request = cls(
-            description=description,
-            entry_point=entry_point,
-            name=name,
+            job_definition=job_definition,
+            job_definition_engine_version=job_definition_engine_version,
+            job_definition_hash=job_definition_hash,
+            job_ref=job_ref,
             script_type=script_type,
-            interactive_script_type=interactive_script_type,
+            deployment_module=deployment_module,
+            description=description,
+            name=name,
             profile=profile,
-            schedule=schedule,
         )
 
         create_script_request.additional_properties = d

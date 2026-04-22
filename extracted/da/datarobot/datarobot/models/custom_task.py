@@ -147,7 +147,7 @@ class CustomTask(APIObject):
             property to sort custom tasks by.
             Supported properties are "created" and "updated".
             Prefix the attribute name with a dash to sort in descending order,
-            e.g. order_by='-created'.
+            e.g., order_by='-created'.
             By default, the order_by parameter is None which will result in
             custom tasks being returned in order of creation time descending
 

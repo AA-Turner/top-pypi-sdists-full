@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aiobotocore-otel
-Version: 1.4.0
+Version: 1.5.0
 Summary: OpenTelemetry aiobotocore instrumentation
 Author-email: Krzysztof Jagiello <hello@kjagiello.com>
 License-File: LICENSE
@@ -15,7 +15,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Requires-Python: >=3.9
-Requires-Dist: aiobotocore<3.5.0,>=2.24.0
+Requires-Dist: aiobotocore<3.6.0,>=2.24.0
 Requires-Dist: opentelemetry-api~=1.0
 Requires-Dist: opentelemetry-instrumentation>=0.40b0
 Requires-Dist: opentelemetry-propagator-aws-xray~=1.0

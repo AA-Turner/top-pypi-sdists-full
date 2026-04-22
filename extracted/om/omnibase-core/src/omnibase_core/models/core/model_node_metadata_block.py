@@ -95,6 +95,7 @@ class ModelNodeMetadataBlock(BaseModel):
     copyright: Annotated[str, StringConstraints(min_length=1)] = Field(
         default="OmniNode Team",
     )
+    # string-version-ok: metadata block schema version; pattern-validated string at YAML contract boundary; legacy format predates ModelSemVer
     schema_version: Annotated[
         str,
         StringConstraints(min_length=1, pattern=r"^\d+\.\d+\.\d+$"),
@@ -155,6 +156,19 @@ class ModelNodeMetadataBlock(BaseModel):
     )
     test_matrix: list[TestMatrixEntry] | None = None
     test_coverage: float | None = None  # Percentage, 0-100
+
+    # Deprecation fields - enable catalog generator to flag deprecated nodes
+    deprecated: bool = Field(
+        default=False, description="Whether this node is deprecated"
+    )
+    deprecated_by: str | None = Field(
+        default=None,
+        description="Identifier of the replacement node (e.g., namespace URI)",
+    )
+    deprecated_reason: str | None = Field(
+        default=None,
+        description="Human-readable explanation of why this node is deprecated",
+    )
 
     # Function tools support - unified tools approach
     tools: ModelToolCollection | None = Field(

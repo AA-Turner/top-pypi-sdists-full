@@ -307,6 +307,11 @@ def _set_extent_and_save(ax, fig, name_country, dir_out, fname):
             _name_country.append(cntr_lower.replace(" ", "_"))
 
         extent = rgeo.get_country_lat_lon_extent(_name_country, buffer=1.0)
+
+        # Use contiguous U.S. extent (exclude Alaska/Hawaii)
+        if any(c in ("united_states_of_america", "united_states") for c in _name_country):
+            extent = [-130, -60, 22, 52]
+
         extent[3] = extent[3] + 2  # space for title
         extent[2] = extent[2] - 3  # space for legend
         ax.set_extent(extent)

@@ -36,6 +36,7 @@ from .type_defs import (
     DeleteCampaignChannelSubtypeConfigRequestTypeDef,
     DeleteCampaignCommunicationLimitsRequestTypeDef,
     DeleteCampaignCommunicationTimeRequestTypeDef,
+    DeleteCampaignEntryLimitsRequestTypeDef,
     DeleteCampaignRequestTypeDef,
     DeleteConnectInstanceConfigRequestTypeDef,
     DeleteConnectInstanceIntegrationRequestTypeDef,
@@ -76,6 +77,7 @@ from .type_defs import (
     UpdateCampaignChannelSubtypeConfigRequestTypeDef,
     UpdateCampaignCommunicationLimitsRequestTypeDef,
     UpdateCampaignCommunicationTimeRequestTypeDef,
+    UpdateCampaignEntryLimitsRequestTypeDef,
     UpdateCampaignFlowAssociationRequestTypeDef,
     UpdateCampaignNameRequestTypeDef,
     UpdateCampaignScheduleRequestTypeDef,
@@ -187,6 +189,16 @@ class ConnectCampaignServiceV2Client(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connectcampaignsv2/client/delete_campaign_communication_time.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connectcampaignsv2/client/#delete_campaign_communication_time)
+        """
+
+    async def delete_campaign_entry_limits(
+        self, **kwargs: Unpack[DeleteCampaignEntryLimitsRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Deletes the entry limits config for a campaign.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connectcampaignsv2/client/delete_campaign_entry_limits.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connectcampaignsv2/client/#delete_campaign_entry_limits)
         """
 
     async def delete_connect_instance_config(
@@ -451,6 +463,16 @@ class ConnectCampaignServiceV2Client(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connectcampaignsv2/client/update_campaign_communication_time.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connectcampaignsv2/client/#update_campaign_communication_time)
+        """
+
+    async def update_campaign_entry_limits(
+        self, **kwargs: Unpack[UpdateCampaignEntryLimitsRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Updates the entry limits config for a campaign.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connectcampaignsv2/client/update_campaign_entry_limits.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connectcampaignsv2/client/#update_campaign_entry_limits)
         """
 
     async def update_campaign_flow_association(

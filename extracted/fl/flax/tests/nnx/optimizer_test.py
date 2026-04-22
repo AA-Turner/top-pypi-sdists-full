@@ -99,7 +99,7 @@ class TestOptimizer(parameterized.TestCase):
 
   @parameterized.product(
     module_cls=[nnx.Linear, Model],
-    jit_decorator=[lambda f: f, nnx.jit, jax.jit],
+    jit_decorator=[lambda f: f, nnx.compat.jit, jax.jit],
     optimizer=[optax.sgd, optax.adam],
   )
   def test_jit(self, module_cls, jit_decorator, optimizer):
@@ -146,7 +146,7 @@ class TestOptimizer(parameterized.TestCase):
 
   @parameterized.product(
       module_cls=[nnx.Linear, Model],
-      jit_decorator=[lambda f: f, nnx.jit, jax.jit],
+      jit_decorator=[lambda f: f, nnx.compat.jit, jax.jit],
       optimizer=[optax.lbfgs],
   )
   def test_jit_linesearch(self, module_cls, jit_decorator, optimizer):
@@ -190,7 +190,7 @@ class TestOptimizer(parameterized.TestCase):
       initial_loss = loss_fn(state.model, x, y)
 
       def nnx_jit_train_step(optimizer: nnx.Optimizer, x, y):
-        grads = nnx.grad(loss_fn)(optimizer.model, x, y)
+        grads = nnx.compat.grad(loss_fn)(optimizer.model, x, y)
         optimizer.update(
             grads, grad=grads, value=initial_loss, value_fn=loss_fn_split
         )
@@ -247,12 +247,19 @@ class TestOptimizer(parameterized.TestCase):
         rngs=nnx.Rngs(1),
     )
     state = nnx.Optimizer(model, optax.adam(1e-3), wrt=variable)
-    prev_variables, prev_other_variables = nnx.clone(nnx.state(model, variable, ...))
+    prev_variables, prev_other_variables = nnx.clone(
+        nnx.state(model, variable, ...), graph=True
+    )
 
     x = jnp.ones((1, 4))
     y = jnp.ones((1, 10))
     loss_fn = lambda model, x, y: ((model(x) - y) ** 2).mean()
-    grad_fn = nnx.grad(loss_fn, argnums=nnx.DiffState(0, variable))
+    grad_fn = nnx.grad(
+        loss_fn,
+        argnums=nnx.DiffState(0, variable),
+        graph=True,
+        graph_updates=True,
+    )
 
     def step():
       grads = grad_fn(model, x, y)
@@ -278,7 +285,7 @@ class TestOptimizer(parameterized.TestCase):
 
   @parameterized.parameters(
       {'variable': nnx.Param},
-      # {'variable': nnx.LoRAParam},
+      {'variable': nnx.LoRAParam},
       {'variable': (nnx.Param, nnx.LoRAParam)},
   )
   def test_wrt_update_linesearch(self, variable):
@@ -294,15 +301,22 @@ class TestOptimizer(parameterized.TestCase):
         rngs=nnx.Rngs(1),
     )
     state = nnx.Optimizer(model, optax.lbfgs(), wrt=variable)
-    prev_variables, prev_other_variables = nnx.clone(nnx.state(model, variable, ...))
+    prev_variables, prev_other_variables = nnx.clone(
+        nnx.state(model, variable, ...), graph=True
+    )
 
     x = jnp.ones((1, 4))
     y = jnp.ones((1, 10))
     loss_fn = lambda model, x, y: ((model(x) - y) ** 2).mean()
 
-    grad_fn = nnx.grad(loss_fn, argnums=nnx.DiffState(0, variable))
-    graphdef = nnx.graphdef(model)
-    loss_fn_split = lambda state: loss_fn(nnx.merge(graphdef, state), x, y)
+    grad_fn = nnx.grad(
+        loss_fn,
+        argnums=nnx.DiffState(0, variable),
+        graph=True,
+        graph_updates=True,
+    )
+    graphdef, _, other_variables = nnx.compat.split(model, variable, ...)
+    loss_fn_split = lambda state: loss_fn(nnx.merge(graphdef, state, other_variables), x, y)
 
     def step():
       grads = grad_fn(model, x, y)
@@ -328,6 +342,147 @@ class TestOptimizer(parameterized.TestCase):
           assert_equal, prev_other_variables, other_variables
       )
 
+  def test_update_returns_updates(self):
+    """Test that Optimizer.update returns the updates PyTree."""
+    model = nnx.Linear(2, 3, rngs=nnx.Rngs(0))
+    optimizer = nnx.Optimizer(model, optax.sgd(0.1), wrt=nnx.Param)
+
+    def loss_fn(model):
+      params = nnx.state(model)
+      loss = sum(jnp.sum(x**2) for x in jax.tree.leaves(params))
+      return loss
+
+    grads = nnx.grad(loss_fn)(model)
+
+    # Call update and capture return value
+    updates = optimizer.update(model, grads)
+
+    # Verify updates is not None
+    self.assertIsNotNone(updates)
+
+    # Verify updates structure matches params structure
+    params = nnx.as_pure(nnx.state(model, nnx.Param))
+
+    # Get initial params as pure arrays
+    initial_params = nnx.as_pure(nnx.state(model, nnx.Param))
+
+    def loss_fn(model):
+      params = nnx.state(model)
+      loss = sum(jnp.sum(x**2) for x in jax.tree.leaves(params))
+      return loss
+
+    grads = nnx.grad(loss_fn)(model)
+
+    # Get updates
+    updates = optimizer.update(model, grads)
+
+    # Get new params as pure arrays
+    new_params = nnx.as_pure(nnx.state(model, nnx.Param))
+
+    # Verify updates has the expected structure
+    params = nnx.as_pure(nnx.state(model, nnx.Param))
+    def check_structure(path, update_val, param_val):
+      self.assertEqual(update_val.shape, param_val.shape)
+
+    jax.tree.map_with_path(check_structure, updates, params)
+
+  def test_update_backward_compatible(self):
+    """Test that existing code ignoring return value still works."""
+    model = nnx.Linear(2, 3, rngs=nnx.Rngs(0))
+    optimizer = nnx.Optimizer(model, optax.adam(0.1), wrt=nnx.Param)
+
+  @parameterized.parameters(
+      {'variable': nnx.Param},
+      # {'variable': nnx.LoRAParam},
+      {'variable': (nnx.Param, nnx.LoRAParam)},
+  )
+  def test_wrt_update_linesearch_functional(self, variable):
+    in_features = 4
+    out_features = 10
+    model = nnx.LoRA(
+        in_features=in_features,
+        lora_rank=2,
+        out_features=out_features,
+        base_module=Model(
+            in_features=in_features, out_features=out_features, rngs=nnx.Rngs(0)
+        ),
+        rngs=nnx.Rngs(1),
+    )
+    optimizer = nnx.Optimizer(model, optax.lbfgs(), wrt=variable)
+    graphdef, params, nondiff = nnx.split(model, variable, ..., graph=True)
+    prev_params, prev_nondiff = nnx.clone(
+        (params, nondiff), graph=True
+    )
+
+    x = jnp.ones((1, 4))
+    y = jnp.ones((1, 10))
+    def loss_fn(params, nondiff):
+      model = nnx.merge(graphdef, params, nondiff)
+      return ((model(x) - y) ** 2).mean()
+
+    grad_fn = nnx.grad(loss_fn, graph=True, graph_updates=True)
+    loss_fn_split = lambda params: loss_fn(params, nondiff)
+
+    def step():
+      grads = grad_fn(params, nondiff)
+      initial_loss = loss_fn(params, nondiff)
+      optimizer.update(
+          model, grads, grad=grads, value_fn=loss_fn_split, value=initial_loss
+      )
+      self.assertTrue(loss_fn(params, nondiff) < initial_loss)
+
+    # Since lora_b is initialized to zeros by default, the gradient flow to lora_a
+    # will be zeroed out in first call. Thus, run the step twice to make sure
+    # lora_a is updated.
+    for _ in range(2):
+      step()
+
+    jax.tree.map_with_path(assert_not_equal, prev_params, params)
+    jax.tree.map_with_path(assert_equal, prev_nondiff, nondiff)
+
+  @parameterized.parameters(
+      {'variable': nnx.Param},
+      {'variable': nnx.LoRAParam},
+      {'variable': (nnx.Param, nnx.LoRAParam)},
+  )
+  def test_wrt_update_functional(self, variable):
+    in_features = 4
+    out_features = 10
+    model = nnx.LoRA(
+        in_features=in_features,
+        lora_rank=2,
+        out_features=out_features,
+        base_module=Model(
+            in_features=in_features, out_features=out_features, rngs=nnx.Rngs(0)
+        ),
+        rngs=nnx.Rngs(1),
+    )
+    optimizer = nnx.Optimizer(model, optax.adam(1e-3), wrt=variable)
+    graphdef, params, nondiff = nnx.split(model, variable, ..., graph=True)
+    prev_params, prev_nondiff = nnx.clone((params, nondiff), graph=True)
+
+    x = jnp.ones((1, 4))
+    y = jnp.ones((1, 10))
+
+    def loss_fn(params, nondiff):
+      model = nnx.merge(graphdef, params, nondiff)
+      return ((model(x) - y) ** 2).mean()
+
+    grad_fn = nnx.grad(loss_fn, graph=True, graph_updates=True)
+
+    def step():
+      grads = grad_fn(params, nondiff)
+      initial_loss = loss_fn(params, nondiff)
+      optimizer.update(model, grads)
+      self.assertTrue(loss_fn(params, nondiff) < initial_loss)
+
+    for _ in range(2):
+      step()
+
+    jax.tree.map_with_path(assert_not_equal, prev_params, params)
+    jax.tree.map_with_path(assert_equal, prev_nondiff, nondiff)
+
 
 if __name__ == '__main__':
   absltest.main()
+

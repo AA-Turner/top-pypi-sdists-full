@@ -16,7 +16,7 @@ use pyo3::{
 };
 use std::sync::{Arc, Mutex};
 
-#[pyclass(module = "fable", subclass)]
+#[pyclass(module = "fable", subclass, from_py_object)]
 #[derive(Clone, Debug)]
 
 pub struct FSharpArray {
@@ -154,6 +154,23 @@ fn ensure_array<'py>(py: Python<'py>, ob: &'py Bound<'py, PyAny>) -> PyResult<Ar
     // If it's a single item, create a singleton array
     let singleton_list = PyList::new(py, [ob])?;
     Ok(ArrayRef::Owned(FSharpArray::new(py, Some(&singleton_list), None)?))
+}
+
+fn ensure_equal_length_arrays<'py>(
+    py: Python<'py>,
+    array1: &'py Bound<'py, PyAny>,
+    array2: &'py Bound<'py, PyAny>,
+) -> PyResult<(ArrayRef<'py>, ArrayRef<'py>)> {
+    let array1 = ensure_array(py, array1)?;
+    let array2 = ensure_array(py, array2)?;
+
+    if array1.storage.len() != array2.storage.len() {
+        return Err(PyErr::new::<exceptions::PyValueError, _>(
+            "Arrays had different lengths",
+        ));
+    }
+
+    Ok((array1, array2))
 }
 
 #[pymethods]
@@ -480,7 +497,11 @@ impl FSharpArray {
     pub fn __iter__(slf: PyRef<'_, Self>, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let len = slf.storage.len();
         // SAFETY: slf.as_ptr() is valid and from_borrowed_ptr increments refcount
-        let array: Py<FSharpArray> = unsafe { Py::from_borrowed_ptr(py, slf.as_ptr()) };
+        let array: Py<FSharpArray> = unsafe {
+            Bound::from_borrowed_ptr(py, slf.as_ptr())
+                .cast_into_unchecked::<FSharpArray>()
+        }
+        .unbind();
         let iter = FSharpArrayIter {
             array,
             index: 0,
@@ -496,7 +517,11 @@ impl FSharpArray {
     pub fn GetEnumerator(slf: PyRef<'_, Self>, py: Python<'_>, _unit: Option<&Bound<'_, PyAny>>) -> PyResult<Py<PyAny>> {
         let len = slf.storage.len();
         // SAFETY: slf.as_ptr() is valid and from_borrowed_ptr increments refcount
-        let array: Py<FSharpArray> = unsafe { Py::from_borrowed_ptr(py, slf.as_ptr()) };
+        let array: Py<FSharpArray> = unsafe {
+            Bound::from_borrowed_ptr(py, slf.as_ptr())
+                .cast_into_unchecked::<FSharpArray>()
+        }
+        .unbind();
         let enumerator = FSharpArrayEnumerator {
             array,
             index: -1, // Before first element
@@ -3241,6 +3266,243 @@ impl FSharpArray {
 
         Ok(FSharpArray { storage: result })
     }
+
+    // --- Internal swap helper ---
+
+    fn swap_items(&mut self, i: usize, j: usize) {
+        match &mut self.storage {
+            NativeArray::Int8(vec) => vec.swap(i, j),
+            NativeArray::UInt8(vec) => vec.swap(i, j),
+            NativeArray::Int16(vec) => vec.swap(i, j),
+            NativeArray::UInt16(vec) => vec.swap(i, j),
+            NativeArray::Int32(vec) => vec.swap(i, j),
+            NativeArray::UInt32(vec) => vec.swap(i, j),
+            NativeArray::Int64(vec) => vec.swap(i, j),
+            NativeArray::UInt64(vec) => vec.swap(i, j),
+            NativeArray::Float32(vec) => vec.swap(i, j),
+            NativeArray::Float64(vec) => vec.swap(i, j),
+            NativeArray::Bool(vec) => vec.swap(i, j),
+            NativeArray::PyObject(arc) => {
+                let mut vec = arc.lock().unwrap();
+                vec.swap(i, j);
+            }
+        }
+    }
+
+    // --- Random functions ---
+
+    pub fn random_shuffle_in_place_by(
+        &mut self,
+        _py: Python<'_>,
+        randomizer: &Bound<'_, PyAny>,
+    ) -> PyResult<()> {
+        let len = self.storage.len();
+        for i in (1..len).rev() {
+            let r: f64 = randomizer.call0()?.extract()?;
+            if r < 0.0 || r >= 1.0 {
+                return Err(PyErr::new::<exceptions::PyValueError, _>(format!(
+                    "The index is outside the legal range.\nrandomizer returned {}, should be in range [0.0, 1.0).",
+                    r
+                )));
+            }
+            let j = (r * (i + 1) as f64) as usize;
+            self.swap_items(i, j);
+        }
+        Ok(())
+    }
+
+    pub fn random_shuffle_in_place_with(
+        &mut self,
+        py: Python<'_>,
+        _random: &Bound<'_, PyAny>,
+    ) -> PyResult<()> {
+        let random_module = py.import("random")?;
+        let randomizer = random_module.getattr("random")?;
+        self.random_shuffle_in_place_by(py, &randomizer)
+    }
+
+    pub fn random_shuffle_in_place(&mut self, py: Python<'_>) -> PyResult<()> {
+        let random_module = py.import("random")?;
+        let randomizer = random_module.getattr("random")?;
+        self.random_shuffle_in_place_by(py, &randomizer)
+    }
+
+    pub fn random_shuffle_by(
+        &self,
+        py: Python<'_>,
+        randomizer: &Bound<'_, PyAny>,
+    ) -> PyResult<FSharpArray> {
+        let mut arr = self.clone();
+        arr.random_shuffle_in_place_by(py, randomizer)?;
+        Ok(arr)
+    }
+
+    pub fn random_shuffle_with(
+        &self,
+        py: Python<'_>,
+        _random: &Bound<'_, PyAny>,
+    ) -> PyResult<FSharpArray> {
+        let random_module = py.import("random")?;
+        let randomizer = random_module.getattr("random")?;
+        self.random_shuffle_by(py, &randomizer)
+    }
+
+    pub fn random_shuffle(&self, py: Python<'_>) -> PyResult<FSharpArray> {
+        let random_module = py.import("random")?;
+        let randomizer = random_module.getattr("random")?;
+        self.random_shuffle_by(py, &randomizer)
+    }
+
+    pub fn random_choice_by(
+        &self,
+        py: Python<'_>,
+        randomizer: &Bound<'_, PyAny>,
+    ) -> PyResult<Py<PyAny>> {
+        let len = self.storage.len();
+        if len == 0 {
+            return Err(PyErr::new::<exceptions::PyValueError, _>(
+                "The input sequence was empty.",
+            ));
+        }
+        let r: f64 = randomizer.call0()?.extract()?;
+        if r < 0.0 || r >= 1.0 {
+            return Err(PyErr::new::<exceptions::PyValueError, _>(format!(
+                "The index is outside the legal range.\nrandomizer returned {}, should be in range [0.0, 1.0).",
+                r
+            )));
+        }
+        self.storage.get(py, (r * len as f64) as usize)
+    }
+
+    pub fn random_choice_with(
+        &self,
+        py: Python<'_>,
+        _random: &Bound<'_, PyAny>,
+    ) -> PyResult<Py<PyAny>> {
+        let random_module = py.import("random")?;
+        let randomizer = random_module.getattr("random")?;
+        self.random_choice_by(py, &randomizer)
+    }
+
+    pub fn random_choice(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        let random_module = py.import("random")?;
+        let randomizer = random_module.getattr("random")?;
+        self.random_choice_by(py, &randomizer)
+    }
+
+    pub fn random_choices_by(
+        &self,
+        py: Python<'_>,
+        randomizer: &Bound<'_, PyAny>,
+        count: isize,
+    ) -> PyResult<FSharpArray> {
+        if count < 0 {
+            return Err(PyErr::new::<exceptions::PyValueError, _>(
+                "The input must be non-negative.",
+            ));
+        }
+        let count = count as usize;
+        let xs_len = self.storage.len();
+        if count > 0 && xs_len == 0 {
+            return Err(PyErr::new::<exceptions::PyValueError, _>(
+                "The input sequence was empty.",
+            ));
+        }
+        if count == 0 {
+            if xs_len == 0 {
+                return FSharpArray::empty(py, None);
+            }
+            let first = self.storage.get(py, 0)?;
+            return FSharpArray::create(py, 0, first.bind(py));
+        }
+        let first = self.storage.get(py, 0)?;
+        let mut result = FSharpArray::create(py, count, first.bind(py))?;
+        for i in 0..count {
+            let r: f64 = randomizer.call0()?.extract()?;
+            if r < 0.0 || r >= 1.0 {
+                return Err(PyErr::new::<exceptions::PyValueError, _>(format!(
+                    "The index is outside the legal range.\nrandomizer returned {}, should be in range [0.0, 1.0).",
+                    r
+                )));
+            }
+            let src_idx = (r * xs_len as f64) as usize;
+            let val = self.storage.get(py, src_idx)?;
+            result.__setitem__(i as isize, val.bind(py), py)?;
+        }
+        Ok(result)
+    }
+
+    pub fn random_choices_with(
+        &self,
+        py: Python<'_>,
+        _random: &Bound<'_, PyAny>,
+        count: isize,
+    ) -> PyResult<FSharpArray> {
+        let random_module = py.import("random")?;
+        let randomizer = random_module.getattr("random")?;
+        self.random_choices_by(py, &randomizer, count)
+    }
+
+    pub fn random_choices(&self, py: Python<'_>, count: isize) -> PyResult<FSharpArray> {
+        let random_module = py.import("random")?;
+        let randomizer = random_module.getattr("random")?;
+        self.random_choices_by(py, &randomizer, count)
+    }
+
+    pub fn random_sample_by(
+        &self,
+        py: Python<'_>,
+        randomizer: &Bound<'_, PyAny>,
+        count: isize,
+    ) -> PyResult<FSharpArray> {
+        if count < 0 {
+            return Err(PyErr::new::<exceptions::PyValueError, _>(
+                "The input must be non-negative.",
+            ));
+        }
+        let count = count as usize;
+        let mut arr = self.clone();
+        let length = arr.storage.len();
+        if length == 0 && count > 0 {
+            return Err(PyErr::new::<exceptions::PyValueError, _>(
+                "The input sequence was empty.",
+            ));
+        }
+        if count > length {
+            return Err(PyErr::new::<exceptions::PyValueError, _>(
+                "The input sequence has an insufficient number of elements.",
+            ));
+        }
+        for i in 0..count {
+            let r: f64 = randomizer.call0()?.extract()?;
+            if r < 0.0 || r >= 1.0 {
+                return Err(PyErr::new::<exceptions::PyValueError, _>(format!(
+                    "The index is outside the legal range.\nrandomizer returned {}, should be in range [0.0, 1.0).",
+                    r
+                )));
+            }
+            let j = i + (r * (length - i) as f64) as usize;
+            arr.swap_items(i, j);
+        }
+        arr.get_sub_array(py, 0, count, None)
+    }
+
+    pub fn random_sample_with(
+        &self,
+        py: Python<'_>,
+        _random: &Bound<'_, PyAny>,
+        count: isize,
+    ) -> PyResult<FSharpArray> {
+        let random_module = py.import("random")?;
+        let randomizer = random_module.getattr("random")?;
+        self.random_sample_by(py, &randomizer, count)
+    }
+
+    pub fn random_sample(&self, py: Python<'_>, count: isize) -> PyResult<FSharpArray> {
+        let random_module = py.import("random")?;
+        let randomizer = random_module.getattr("random")?;
+        self.random_sample_by(py, &randomizer, count)
+    }
 }
 
 // Loose functions that delegate to member functions
@@ -3548,6 +3810,26 @@ pub fn fold_back2(
 }
 
 #[pyfunction]
+pub fn fold2(
+    py: Python<'_>,
+    folder: &Bound<'_, PyAny>,
+    state: &Bound<'_, PyAny>,
+    array1: &Bound<'_, PyAny>,
+    array2: &Bound<'_, PyAny>,
+) -> PyResult<Py<PyAny>> {
+    let (array1, array2) = ensure_equal_length_arrays(py, array1, array2)?;
+    let mut acc = state.clone();
+
+    for i in 0..array1.storage.len() {
+        let item1 = array1.get_item_at_index(i as isize, py)?;
+        let item2 = array2.get_item_at_index(i as isize, py)?;
+        acc = folder.call1((acc, item1, item2))?;
+    }
+
+    Ok(acc.into())
+}
+
+#[pyfunction]
 pub fn iterate(py: Python<'_>, action: &Bound<'_, PyAny>, array: &Bound<'_, PyAny>) -> PyResult<()> {
     let array = ensure_array(py, array)?;
     array.iterate(py, action)
@@ -3561,6 +3843,42 @@ pub fn iterate_indexed(
 ) -> PyResult<()> {
     let array = ensure_array(py, array)?;
     array.iterate_indexed(py, action)
+}
+
+#[pyfunction]
+pub fn iterate_indexed2(
+    py: Python<'_>,
+    action: &Bound<'_, PyAny>,
+    array1: &Bound<'_, PyAny>,
+    array2: &Bound<'_, PyAny>,
+) -> PyResult<()> {
+    let (array1, array2) = ensure_equal_length_arrays(py, array1, array2)?;
+
+    for i in 0..array1.storage.len() {
+        let item1 = array1.get_item_at_index(i as isize, py)?;
+        let item2 = array2.get_item_at_index(i as isize, py)?;
+        action.call1((i, item1, item2))?;
+    }
+
+    Ok(())
+}
+
+#[pyfunction]
+pub fn iterate2(
+    py: Python<'_>,
+    action: &Bound<'_, PyAny>,
+    array1: &Bound<'_, PyAny>,
+    array2: &Bound<'_, PyAny>,
+) -> PyResult<()> {
+    let (array1, array2) = ensure_equal_length_arrays(py, array1, array2)?;
+
+    for i in 0..array1.storage.len() {
+        let item1 = array1.get_item_at_index(i as isize, py)?;
+        let item2 = array2.get_item_at_index(i as isize, py)?;
+        action.call1((item1, item2))?;
+    }
+
+    Ok(())
 }
 
 #[pyfunction]
@@ -3797,6 +4115,26 @@ pub fn exists(py: Python<'_>, predicate: &Bound<'_, PyAny>, array: &Bound<'_, Py
 }
 
 #[pyfunction]
+pub fn exists2(
+    py: Python<'_>,
+    predicate: &Bound<'_, PyAny>,
+    array1: &Bound<'_, PyAny>,
+    array2: &Bound<'_, PyAny>,
+) -> PyResult<bool> {
+    let (array1, array2) = ensure_equal_length_arrays(py, array1, array2)?;
+
+    for i in 0..array1.storage.len() {
+        let item1 = array1.get_item_at_index(i as isize, py)?;
+        let item2 = array2.get_item_at_index(i as isize, py)?;
+        if predicate.call1((item1, item2))?.is_truthy()? {
+            return Ok(true);
+        }
+    }
+
+    Ok(false)
+}
+
+#[pyfunction]
 #[pyo3(signature = (index, value, array, cons=None))]
 pub fn update_at(
     py: Python<'_>,
@@ -3965,6 +4303,26 @@ pub fn for_all(
 }
 
 #[pyfunction]
+pub fn for_all2(
+    py: Python<'_>,
+    predicate: &Bound<'_, PyAny>,
+    array1: &Bound<'_, PyAny>,
+    array2: &Bound<'_, PyAny>,
+) -> PyResult<bool> {
+    let (array1, array2) = ensure_equal_length_arrays(py, array1, array2)?;
+
+    for i in 0..array1.storage.len() {
+        let item1 = array1.get_item_at_index(i as isize, py)?;
+        let item2 = array2.get_item_at_index(i as isize, py)?;
+        if !predicate.call1((item1, item2))?.is_truthy()? {
+            return Ok(false);
+        }
+    }
+
+    Ok(true)
+}
+
+#[pyfunction]
 pub fn find(
     py: Python<'_>,
     predicate: &Bound<'_, PyAny>,
@@ -4052,6 +4410,145 @@ pub fn contains(
 pub fn copy(py: Python<'_>, array: &Bound<'_, PyAny>) -> PyResult<FSharpArray> {
     let array = ensure_array(py, array)?;
     array.copy(py)
+}
+
+#[pyfunction]
+pub fn random_shuffle_in_place_by(
+    py: Python<'_>,
+    randomizer: &Bound<'_, PyAny>,
+    xs: &mut FSharpArray,
+) -> PyResult<()> {
+    xs.random_shuffle_in_place_by(py, randomizer)
+}
+
+#[pyfunction]
+pub fn random_shuffle_in_place_with(
+    py: Python<'_>,
+    random: &Bound<'_, PyAny>,
+    xs: &mut FSharpArray,
+) -> PyResult<()> {
+    xs.random_shuffle_in_place_with(py, random)
+}
+
+#[pyfunction]
+pub fn random_shuffle_in_place(py: Python<'_>, xs: &mut FSharpArray) -> PyResult<()> {
+    xs.random_shuffle_in_place(py)
+}
+
+#[pyfunction]
+pub fn random_shuffle_by(
+    py: Python<'_>,
+    randomizer: &Bound<'_, PyAny>,
+    xs: &Bound<'_, PyAny>,
+) -> PyResult<FSharpArray> {
+    let xs = ensure_array(py, xs)?;
+    xs.random_shuffle_by(py, randomizer)
+}
+
+#[pyfunction]
+pub fn random_shuffle_with(
+    py: Python<'_>,
+    random: &Bound<'_, PyAny>,
+    xs: &Bound<'_, PyAny>,
+) -> PyResult<FSharpArray> {
+    let xs = ensure_array(py, xs)?;
+    xs.random_shuffle_with(py, random)
+}
+
+#[pyfunction]
+pub fn random_shuffle(py: Python<'_>, xs: &Bound<'_, PyAny>) -> PyResult<FSharpArray> {
+    let xs = ensure_array(py, xs)?;
+    xs.random_shuffle(py)
+}
+
+#[pyfunction]
+pub fn random_choice_by(
+    py: Python<'_>,
+    randomizer: &Bound<'_, PyAny>,
+    xs: &Bound<'_, PyAny>,
+) -> PyResult<Py<PyAny>> {
+    let xs = ensure_array(py, xs)?;
+    xs.random_choice_by(py, randomizer)
+}
+
+#[pyfunction]
+pub fn random_choice_with(
+    py: Python<'_>,
+    random: &Bound<'_, PyAny>,
+    xs: &Bound<'_, PyAny>,
+) -> PyResult<Py<PyAny>> {
+    let xs = ensure_array(py, xs)?;
+    xs.random_choice_with(py, random)
+}
+
+#[pyfunction]
+pub fn random_choice(py: Python<'_>, xs: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+    let xs = ensure_array(py, xs)?;
+    xs.random_choice(py)
+}
+
+#[pyfunction]
+pub fn random_choices_by(
+    py: Python<'_>,
+    randomizer: &Bound<'_, PyAny>,
+    count: isize,
+    xs: &Bound<'_, PyAny>,
+) -> PyResult<FSharpArray> {
+    let xs = ensure_array(py, xs)?;
+    xs.random_choices_by(py, randomizer, count)
+}
+
+#[pyfunction]
+pub fn random_choices_with(
+    py: Python<'_>,
+    random: &Bound<'_, PyAny>,
+    count: isize,
+    xs: &Bound<'_, PyAny>,
+) -> PyResult<FSharpArray> {
+    let xs = ensure_array(py, xs)?;
+    xs.random_choices_with(py, random, count)
+}
+
+#[pyfunction]
+pub fn random_choices(
+    py: Python<'_>,
+    count: isize,
+    xs: &Bound<'_, PyAny>,
+) -> PyResult<FSharpArray> {
+    let xs = ensure_array(py, xs)?;
+    xs.random_choices(py, count)
+}
+
+#[pyfunction]
+pub fn random_sample_by(
+    py: Python<'_>,
+    randomizer: &Bound<'_, PyAny>,
+    count: isize,
+    xs: &Bound<'_, PyAny>,
+) -> PyResult<FSharpArray> {
+    let xs = ensure_array(py, xs)?;
+    xs.random_sample_by(py, randomizer, count)
+}
+
+#[pyfunction]
+pub fn random_sample_with(
+    py: Python<'_>,
+    random: &Bound<'_, PyAny>,
+    count: isize,
+    xs: &Bound<'_, PyAny>,
+) -> PyResult<FSharpArray> {
+    let xs = ensure_array(py, xs)?;
+    xs.random_sample_with(py, random, count)
+}
+
+#[pyfunction]
+pub fn random_sample(
+    py: Python<'_>,
+    count: isize,
+    xs: &Bound<'_, PyAny>,
+) -> PyResult<FSharpArray> {
+    let xs = ensure_array(py, xs)?;
+    xs.random_sample(py, count)
 }
 
 #[pyfunction]
@@ -4291,6 +4788,17 @@ pub fn sort(
 }
 
 #[pyfunction]
+pub fn sort_descending(
+    py: Python<'_>,
+    array: &Bound<'_, PyAny>,
+    comparer: &Bound<'_, PyAny>,
+) -> PyResult<FSharpArray> {
+    let array = ensure_array(py, array)?;
+    let sorted = array.sort(py, comparer)?;
+    sorted.reverse(py)
+}
+
+#[pyfunction]
 #[pyo3(signature = (projection, array, comparer=None))]
 pub fn sort_by(
     py: Python<'_>,
@@ -4300,6 +4808,19 @@ pub fn sort_by(
 ) -> PyResult<FSharpArray> {
     let array = ensure_array(py, array)?;
     array.sort_by(py, projection, comparer)
+}
+
+#[pyfunction]
+#[pyo3(signature = (projection, array, comparer=None))]
+pub fn sort_by_descending(
+    py: Python<'_>,
+    projection: &Bound<'_, PyAny>,
+    array: &Bound<'_, PyAny>,
+    comparer: Option<&Bound<'_, PyAny>>,
+) -> PyResult<FSharpArray> {
+    let array = ensure_array(py, array)?;
+    let sorted = array.sort_by(py, projection, comparer)?;
+    sorted.reverse(py)
 }
 
 #[pyfunction]
@@ -4324,10 +4845,69 @@ pub fn sum_by(
     array.sum_by(py, projection, adder)
 }
 
+#[pyfunction(name = "where")]
+pub fn where_(
+    py: Python<'_>,
+    predicate: &Bound<'_, PyAny>,
+    array: &Bound<'_, PyAny>,
+) -> PyResult<FSharpArray> {
+    let array = ensure_array(py, array)?;
+    array.filter(py, predicate)
+}
+
 #[pyfunction]
 pub fn unzip(py: Python<'_>, array: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
     let array = ensure_array(py, array)?;
     array.unzip(py)
+}
+
+#[pyfunction]
+pub fn unzip3(py: Python<'_>, array: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+    let array = ensure_array(py, array)?;
+    let len = array.storage.len();
+
+    let mut res1 = NativeArray::new(&ArrayType::Generic, Some(len));
+    let mut res2 = NativeArray::new(&ArrayType::Generic, Some(len));
+    let mut res3 = NativeArray::new(&ArrayType::Generic, Some(len));
+
+    for i in 0..len {
+        let item = array.get_item_at_index(i as isize, py)?;
+
+        if let Ok(tuple) = item.bind(py).cast::<PyTuple>() {
+            if tuple.len() != 3 {
+                return Err(PyErr::new::<exceptions::PyValueError, _>(
+                    "Expected tuples of length 3",
+                ));
+            }
+
+            let first = tuple.get_item(0)?;
+            let second = tuple.get_item(1)?;
+            let third = tuple.get_item(2)?;
+
+            res1.push_value(&first, py)?;
+            res2.push_value(&second, py)?;
+            res3.push_value(&third, py)?;
+        } else {
+            return Err(PyErr::new::<exceptions::PyTypeError, _>(
+                "Expected an array of tuples",
+            ));
+        }
+    }
+
+    let array1 = FSharpArray { storage: res1 };
+    let array2 = FSharpArray { storage: res2 };
+    let array3 = FSharpArray { storage: res3 };
+
+    let result_tuple = PyTuple::new(
+        py,
+        [
+            Py::new(py, array1)?.bind(py),
+            Py::new(py, array2)?.bind(py),
+            Py::new(py, array3)?.bind(py),
+        ],
+    );
+
+    Ok(result_tuple?.into())
 }
 
 #[pyfunction]
@@ -4355,6 +4935,86 @@ pub fn compare_to(
 }
 
 #[pyfunction]
+pub fn exactly_one(py: Python<'_>, array: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+    let array = ensure_array(py, array)?;
+
+    if array.storage.len() != 1 {
+        return Err(PyErr::new::<exceptions::PyValueError, _>(
+            "Input array must contain exactly one element",
+        ));
+    }
+
+    array.get_item_at_index(0, py)
+}
+
+#[pyfunction]
+pub fn try_exactly_one(py: Python<'_>, array: &Bound<'_, PyAny>) -> PyResult<Option<Py<PyAny>>> {
+    let array = ensure_array(py, array)?;
+
+    if array.storage.len() != 1 {
+        return Ok(None);
+    }
+
+    let item = array.get_item_at_index(0, py)?;
+    if item.is_none(py) {
+        Ok(Some(SomeWrapper::new(item).into_py_any(py)?))
+    } else {
+        Ok(Some(item))
+    }
+}
+
+#[pyfunction]
+pub fn all_pairs(
+    py: Python<'_>,
+    array1: &Bound<'_, PyAny>,
+    array2: &Bound<'_, PyAny>,
+) -> PyResult<FSharpArray> {
+    let array1 = ensure_array(py, array1)?;
+    let array2 = ensure_array(py, array2)?;
+    let mut result = FSharpArray::new(py, None, None)?;
+
+    for i in 0..array1.storage.len() {
+        let item1 = array1.get_item_at_index(i as isize, py)?;
+
+        for j in 0..array2.storage.len() {
+            let item2 = array2.get_item_at_index(j as isize, py)?;
+            let tuple = PyTuple::new(py, &[item1.bind(py), item2.bind(py)])?;
+            result.storage.push_value(&tuple, py)?;
+        }
+    }
+
+    Ok(result)
+}
+
+#[pyfunction]
+pub fn zip3(
+    py: Python<'_>,
+    array1: &Bound<'_, PyAny>,
+    array2: &Bound<'_, PyAny>,
+    array3: &Bound<'_, PyAny>,
+) -> PyResult<FSharpArray> {
+    let (array1, array2) = ensure_equal_length_arrays(py, array1, array2)?;
+    let array3 = ensure_array(py, array3)?;
+
+    if array1.storage.len() != array3.storage.len() {
+        return Err(PyErr::new::<exceptions::PyValueError, _>(
+            "Arrays had different lengths",
+        ));
+    }
+
+    let mut result = FSharpArray::new(py, None, None)?;
+    for i in 0..array1.storage.len() {
+        let item1 = array1.get_item_at_index(i as isize, py)?;
+        let item2 = array2.get_item_at_index(i as isize, py)?;
+        let item3 = array3.get_item_at_index(i as isize, py)?;
+        let tuple = PyTuple::new(py, &[item1.bind(py), item2.bind(py), item3.bind(py)])?;
+        result.storage.push_value(&tuple, py)?;
+    }
+
+    Ok(result)
+}
+
+#[pyfunction]
 #[pyo3(signature = (seq, cons=None))]
 pub fn of_seq(
     py: Python<'_>,
@@ -4377,7 +5037,7 @@ pub fn of_seq(
 }
 
 // Constructor class for array allocation
-#[pyclass(module = "fable")]
+#[pyclass(module = "fable", from_py_object)]
 #[derive(Clone)]
 struct FSharpCons {
     #[pyo3(get, set)]
@@ -4845,6 +5505,7 @@ pub fn register_array_module(parent_module: &Bound<'_, PyModule>) -> PyResult<()
     m.add_function(wrap_pyfunction!(empty, &m)?)?;
     m.add_function(wrap_pyfunction!(equals_with, &m)?)?;
     m.add_function(wrap_pyfunction!(exists, &m)?)?;
+    m.add_function(wrap_pyfunction!(exists2, &m)?)?;
     m.add_function(wrap_pyfunction!(exists_offset, &m)?)?;
     m.add_function(wrap_pyfunction!(fill, &m)?)?;
     m.add_function(wrap_pyfunction!(filter, &m)?)?;
@@ -4854,12 +5515,14 @@ pub fn register_array_module(parent_module: &Bound<'_, PyModule>) -> PyResult<()
     m.add_function(wrap_pyfunction!(find_index_back, &m)?)?;
     m.add_function(wrap_pyfunction!(find_last_index, &m)?)?;
     m.add_function(wrap_pyfunction!(fold, &m)?)?;
+    m.add_function(wrap_pyfunction!(fold2, &m)?)?;
     m.add_function(wrap_pyfunction!(fold_back, &m)?)?;
     m.add_function(wrap_pyfunction!(fold_back2, &m)?)?;
     m.add_function(wrap_pyfunction!(fold_back_indexed, &m)?)?;
     m.add_function(wrap_pyfunction!(fold_back_indexed2, &m)?)?;
     m.add_function(wrap_pyfunction!(fold_indexed, &m)?)?;
     m.add_function(wrap_pyfunction!(for_all, &m)?)?;
+    m.add_function(wrap_pyfunction!(for_all2, &m)?)?;
     m.add_function(wrap_pyfunction!(get_sub_array, &m)?)?;
     m.add_function(wrap_pyfunction!(head, &m)?)?;
     m.add_function(wrap_pyfunction!(indexed, &m)?)?;
@@ -4870,7 +5533,9 @@ pub fn register_array_module(parent_module: &Bound<'_, PyModule>) -> PyResult<()
     m.add_function(wrap_pyfunction!(index_of, &m)?)?;
     m.add_function(wrap_pyfunction!(item, &m)?)?;
     m.add_function(wrap_pyfunction!(iterate, &m)?)?;
+    m.add_function(wrap_pyfunction!(iterate2, &m)?)?;
     m.add_function(wrap_pyfunction!(iterate_indexed, &m)?)?;
+    m.add_function(wrap_pyfunction!(iterate_indexed2, &m)?)?;
     m.add_function(wrap_pyfunction!(last, &m)?)?;
     m.add_function(wrap_pyfunction!(map, &m)?)?;
     m.add_function(wrap_pyfunction!(map2, &m)?)?;
@@ -4905,6 +5570,8 @@ pub fn register_array_module(parent_module: &Bound<'_, PyModule>) -> PyResult<()
     m.add_function(wrap_pyfunction!(skip_while, &m)?)?;
     m.add_function(wrap_pyfunction!(sort, &m)?)?;
     m.add_function(wrap_pyfunction!(sort_by, &m)?)?;
+    m.add_function(wrap_pyfunction!(sort_by_descending, &m)?)?;
+    m.add_function(wrap_pyfunction!(sort_descending, &m)?)?;
     m.add_function(wrap_pyfunction!(sort_in_place, &m)?)?;
     m.add_function(wrap_pyfunction!(sort_in_place_by, &m)?)?;
     m.add_function(wrap_pyfunction!(sort_in_place_with, &m)?)?;
@@ -4912,10 +5579,13 @@ pub fn register_array_module(parent_module: &Bound<'_, PyModule>) -> PyResult<()
     m.add_function(wrap_pyfunction!(split_into, &m)?)?;
     m.add_function(wrap_pyfunction!(sum, &m)?)?;
     m.add_function(wrap_pyfunction!(sum_by, &m)?)?;
+    m.add_function(wrap_pyfunction!(all_pairs, &m)?)?;
+    m.add_function(wrap_pyfunction!(exactly_one, &m)?)?;
     m.add_function(wrap_pyfunction!(tail, &m)?)?;
     m.add_function(wrap_pyfunction!(take, &m)?)?;
     m.add_function(wrap_pyfunction!(take_while, &m)?)?;
     m.add_function(wrap_pyfunction!(transpose, &m)?)?;
+    m.add_function(wrap_pyfunction!(try_exactly_one, &m)?)?;
     m.add_function(wrap_pyfunction!(try_find, &m)?)?;
     m.add_function(wrap_pyfunction!(try_find_back, &m)?)?;
     m.add_function(wrap_pyfunction!(try_find_index, &m)?)?;
@@ -4926,10 +5596,28 @@ pub fn register_array_module(parent_module: &Bound<'_, PyModule>) -> PyResult<()
     m.add_function(wrap_pyfunction!(try_pick, &m)?)?;
     m.add_function(wrap_pyfunction!(truncate, &m)?)?;
     m.add_function(wrap_pyfunction!(unzip, &m)?)?;
+    m.add_function(wrap_pyfunction!(unzip3, &m)?)?;
     m.add_function(wrap_pyfunction!(update_at, &m)?)?;
     m.add_function(wrap_pyfunction!(windowed, &m)?)?;
+    m.add_function(wrap_pyfunction!(where_, &m)?)?;
     m.add_function(wrap_pyfunction!(zip, &m)?)?;
+    m.add_function(wrap_pyfunction!(zip3, &m)?)?;
     m.add_function(wrap_pyfunction!(compare_to, &m)?)?;
+    m.add_function(wrap_pyfunction!(random_shuffle_in_place_by, &m)?)?;
+    m.add_function(wrap_pyfunction!(random_shuffle_in_place_with, &m)?)?;
+    m.add_function(wrap_pyfunction!(random_shuffle_in_place, &m)?)?;
+    m.add_function(wrap_pyfunction!(random_shuffle_by, &m)?)?;
+    m.add_function(wrap_pyfunction!(random_shuffle_with, &m)?)?;
+    m.add_function(wrap_pyfunction!(random_shuffle, &m)?)?;
+    m.add_function(wrap_pyfunction!(random_choice_by, &m)?)?;
+    m.add_function(wrap_pyfunction!(random_choice_with, &m)?)?;
+    m.add_function(wrap_pyfunction!(random_choice, &m)?)?;
+    m.add_function(wrap_pyfunction!(random_choices_by, &m)?)?;
+    m.add_function(wrap_pyfunction!(random_choices_with, &m)?)?;
+    m.add_function(wrap_pyfunction!(random_choices, &m)?)?;
+    m.add_function(wrap_pyfunction!(random_sample_by, &m)?)?;
+    m.add_function(wrap_pyfunction!(random_sample_with, &m)?)?;
+    m.add_function(wrap_pyfunction!(random_sample, &m)?)?;
 
     m.add_function(wrap_pyfunction!(allocate_array_from_cons, &m)?)?;
 

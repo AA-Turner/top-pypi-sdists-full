@@ -145,9 +145,9 @@ class TargetDrift(APIObject, MonitoringDataQueryBuilderMixin):
         Parameters
         ----------
         deployment_id : str
-            the id of the deployment
+            the ID of the deployment
         model_id : str
-            the id of the model
+            the ID of the model
         start_time : datetime
             start of the time period
         end_time : datetime
@@ -283,9 +283,9 @@ class FeatureDrift(APIObject, MonitoringDataQueryBuilderMixin):
         Parameters
         ----------
         deployment_id : str
-            the id of the deployment
+            the ID of the deployment
         model_id : str
-            the id of the model
+            the ID of the model
         start_time : datetime
             start of the time period
         end_time : datetime
@@ -401,7 +401,7 @@ class PredictionsOverTime(APIObject, MonitoringDataQueryBuilderMixin):
         Parameters
         ----------
         deployment_id : str
-            the id of the deployment
+            the ID of the deployment
         model_ids : list[str]
             ID of models to retrieve prediction stats
         start_time : datetime

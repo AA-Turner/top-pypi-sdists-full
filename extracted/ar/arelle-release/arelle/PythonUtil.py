@@ -21,50 +21,6 @@ from arelle.typing import OptionalString
 
 STR_NUM_TYPES = (str, int, float, Decimal, fractions.Fraction)
 
-# python 3 unquote, because py2 unquote doesn't do utf-8 correctly
-def py3unquote(string: str, encoding: str = 'utf-8', errors: str = 'replace') -> str:
-    """Replace %xx escapes by their single-character equivalent. The optional
-    encoding and errors parameters specify how to decode percent-encoded
-    sequences into Unicode characters, as accepted by the bytes.decode()
-    method.
-    By default, percent-encoded sequences are decoded with UTF-8, and invalid
-    sequences are replaced by a placeholder character.
-
-    unquote('abc%20def') -> 'abc def'.
-    """
-    if string == '':
-        return string
-    res = string.split('%')
-    if len(res) == 1:
-        return string
-    if encoding is None:
-        encoding = 'utf-8'
-    if errors is None:
-        errors = 'replace'
-    # pct_sequence: contiguous sequence of percent-encoded bytes, decoded
-    pct_sequence = b''
-    string = res[0]
-    for item in res[1:]:
-        try:
-            if not item:
-                raise ValueError
-            pct_sequence += bytearray.fromhex(item[:2])
-            rest = item[2:]
-            if not rest:
-                # This segment was just a single percent-encoded character.
-                # May be part of a sequence of code units, so delay decoding.
-                # (Stored in pct_sequence).
-                continue
-        except ValueError:
-            rest = '%' + item
-        # Encountered non-percent-encoded characters. Flush the current
-        # pct_sequence.
-        string += pct_sequence.decode(encoding, errors) + rest
-        pct_sequence = b''
-    if pct_sequence:
-        # Flush the final pct_sequence
-        string += pct_sequence.decode(encoding, errors)
-    return string
 
 def pyTypeName(object: Any) -> str:
     try:
@@ -368,6 +324,8 @@ def tryRunCommand(*args: str) -> str | None:
             text=True,
             # A call to get std handle throws an OSError if stdin is not specified when run on Windows as a service.
             stdin=subprocess.PIPE,
+            # Prevent a console window flashing briefly when spawning console-subsystem processes from a GUI app.
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
         ).stdout.strip()
     except (OSError, subprocess.SubprocessError):
         return None

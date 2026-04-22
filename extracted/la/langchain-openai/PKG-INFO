@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: langchain-openai
-Version: 1.1.15
+Version: 1.1.16
 Summary: An integration package connecting OpenAI and LangChain
 Project-URL: Homepage, https://docs.langchain.com/oss/python/integrations/providers/openai
 Project-URL: Documentation, https://reference.langchain.com/python/integrations/langchain_openai/

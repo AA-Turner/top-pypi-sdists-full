@@ -23,6 +23,7 @@ class PipelineTriggerArgs:
                  project: pulumi.Input[_builtins.str]):
         """
         The set of arguments for constructing a PipelineTrigger resource.
+
         :param pulumi.Input[_builtins.str] description: The description of the pipeline trigger.
         :param pulumi.Input[_builtins.str] project: The name or id of the project to add the trigger to.
         """
@@ -63,6 +64,7 @@ class _PipelineTriggerState:
                  token: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering PipelineTrigger resources.
+
         :param pulumi.Input[_builtins.str] description: The description of the pipeline trigger.
         :param pulumi.Input[_builtins.int] pipeline_trigger_id: The pipeline trigger id.
         :param pulumi.Input[_builtins.str] project: The name or id of the project to add the trigger to.
@@ -153,25 +155,16 @@ class PipelineTrigger(pulumi.CustomResource):
 
         ## Import
 
-        Starting in Terraform v1.5.0, you can use an import block to import `gitlab_pipeline_trigger`. For example:
-
-        terraform
-
-        import {
-
-          to = gitlab_pipeline_trigger.example
-
-          id = "see CLI command below for ID"
-
-        }
+        Starting in Terraform v1.5.0, you can use an import block to import `PipelineTrigger`. For example:
 
         Importing using the CLI is supported with the following syntax:
 
-        GitLab pipeline triggers can be imported using an id made up of `{project_id}:{pipeline_trigger_id}`, e.g.
+        GitLab pipeline triggers can be imported using an id made up of `{project_id}:{pipeline_trigger_id}`, for example:
 
         ```sh
         $ pulumi import gitlab:index/pipelineTrigger:PipelineTrigger test 1:3
         ```
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -202,25 +195,16 @@ class PipelineTrigger(pulumi.CustomResource):
 
         ## Import
 
-        Starting in Terraform v1.5.0, you can use an import block to import `gitlab_pipeline_trigger`. For example:
-
-        terraform
-
-        import {
-
-          to = gitlab_pipeline_trigger.example
-
-          id = "see CLI command below for ID"
-
-        }
+        Starting in Terraform v1.5.0, you can use an import block to import `PipelineTrigger`. For example:
 
         Importing using the CLI is supported with the following syntax:
 
-        GitLab pipeline triggers can be imported using an id made up of `{project_id}:{pipeline_trigger_id}`, e.g.
+        GitLab pipeline triggers can be imported using an id made up of `{project_id}:{pipeline_trigger_id}`, for example:
 
         ```sh
         $ pulumi import gitlab:index/pipelineTrigger:PipelineTrigger test 1:3
         ```
+
 
         :param str resource_name: The name of the resource.
         :param PipelineTriggerArgs args: The arguments to use to populate this resource's properties.

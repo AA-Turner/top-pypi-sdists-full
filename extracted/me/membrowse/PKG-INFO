@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: membrowse
-Version: 1.2.1
+Version: 1.2.2
 Summary: Memory footprint analysis tools for embedded firmware
 Author-email: MemBrowse <support@membrowse.com>
 Maintainer-email: MemBrowse <support@membrowse.com>
@@ -200,8 +200,8 @@ By default, this generates a **human-readable report** with memory regions, sect
 **Example output:**
 
 ```
-ELF Metadata: build/firmware.elf  |  Arch: ELF32  |  Machine: EM_ARM  |  Entry: 0x0802015d  |  Type: ET_EXEC
-=======================================================================================================================================
+ELF Metadata: build/firmware.elf  |  Arch: ARM  |  Machine: EM_ARM  |  Toolchain: gcc-10.3.1  |  Entry: 0x0802015d  |  Type: ET_EXEC
+==========================================================================================================================================================
 
 Region               Address Range                                Size                Used                Free  Utilization
 --------------------------------------------------------------------------------------------------------------------------------------------

@@ -134,7 +134,7 @@ class _CustomModelBase(APIObject):  # pylint: disable=missing-class-docstring
             Property to sort custom inference models by.
             Supported properties are "created" and "updated".
             Prefix the attribute name with a dash to sort in descending order,
-            e.g. order_by='-created'.
+            e.g., order_by='-created'.
             By default, the order_by parameter is None which will result in
             custom models being returned in order of creation time descending
 
@@ -512,7 +512,7 @@ class CustomInferenceModel(_CustomModelBase):
             Property to sort custom inference models by.
             Supported properties are "created" and "updated".
             Prefix the attribute name with a dash to sort in descending order,
-            e.g. order_by='-created'.
+            e.g., order_by='-created'.
             By default, the order_by parameter is None which will result in
             custom models being returned in order of creation time descending.
 

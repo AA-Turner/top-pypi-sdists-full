@@ -155,9 +155,9 @@ class Accuracy(APIObject, MonitoringDataQueryBuilderMixin):
         Parameters
         ----------
         deployment_id : str
-            the id of the deployment
+            the ID of the deployment
         model_id : Optional[str | List[str]]
-            the id of the model
+            the ID of the model
         start_time : datetime
             start of the time period
         end_time : datetime
@@ -172,7 +172,7 @@ class Accuracy(APIObject, MonitoringDataQueryBuilderMixin):
             (New in Version v3.9) the metric value to retrieve,
             must be provided when querying for multiple models
         baseline_model_id : str
-            (New in Version v3.9) the id of the baseline model when calculating percentage change
+            (New in Version v3.9) the ID of the baseline model when calculating percentage change
 
         Returns
         -------
@@ -361,11 +361,11 @@ class AccuracyOverTime(APIObject, MonitoringDataQueryBuilderMixin):
         Parameters
         ----------
         deployment_id : str
-            the id of the deployment
+            the ID of the deployment
         metric : ACCURACY_METRIC
             the accuracy metric to retrieve
         model_id : Optional[str | List[str]]
-            the id of the model
+            the ID of the model
         start_time : datetime
             start of the time period
         end_time : datetime
@@ -431,11 +431,11 @@ class AccuracyOverTime(APIObject, MonitoringDataQueryBuilderMixin):
         Parameters
         ----------
         deployment_id : str
-            the id of the deployment
+            the ID of the deployment
         metrics : [ACCURACY_METRIC]
             the accuracy metrics to retrieve
         model_id : Optional[str | List[str]]
-            the id of the model
+            the ID of the model
         start_time : datetime
             start of the time period
         end_time : datetime
@@ -601,7 +601,7 @@ class PredictionsVsActualsOverTime(APIObject, MonitoringDataQueryBuilderMixin):
         Parameters
         ----------
         deployment_id : str
-            the id of the deployment
+            the ID of the deployment
         model_ids : list[str]
             ID of models to retrieve predictions vs actuals stats
         start_time : datetime

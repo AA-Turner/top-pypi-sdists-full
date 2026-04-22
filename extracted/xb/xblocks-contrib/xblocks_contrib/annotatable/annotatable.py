@@ -17,7 +17,7 @@ from xblock.core import XBlock
 from xblock.fields import Scope, String, XMLString
 from xblock.utils.resources import ResourceLoader
 
-from xblocks_contrib.common.xml_utils import LegacyXmlMixin
+from xblocks_contrib.legacy_utils.xml_utils import LegacyXmlMixin
 
 log = logging.getLogger(__name__)
 

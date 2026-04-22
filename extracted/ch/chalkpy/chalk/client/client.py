@@ -33,6 +33,7 @@ from chalk.client.models import (
     GetIncrementalProgressResponse,
     GetRegisteredModelResponse,
     GetRegisteredModelVersionResponse,
+    JobQueueItem,
     ManualTriggerScheduledQueryResponse,
     NamedQueryMetadata,
     OfflineQueryDeadlineOptions,
@@ -41,6 +42,7 @@ from chalk.client.models import (
     OnlineQuery,
     OnlineQueryContext,
     PlanQueryResponse,
+    RedeployResponse,
     RegisterModelResponse,
     RegisterModelVersionResponse,
     ResolverRunResponse,
@@ -1250,6 +1252,46 @@ class ChalkClient:
         """
         ...
 
+    def list_jobs(
+        self,
+        state: Optional[
+            Literal["scheduled", "running", "completed", "failed", "canceled", "not_ready", "waiting"]
+        ] = None,
+        kind: Optional[
+            Literal["async_offline_query", "scheduled_query", "script_task", "chalksql_run", "dataframe_run"]
+        ] = None,
+        operation_id: Optional[str] = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> List[JobQueueItem]:
+        """
+        List jobs in the data plane job queue.
+
+        Parameters
+        ----------
+        state
+            Filter by job state (scheduled, running, completed, failed, canceled, not_ready).
+        kind
+            Filter by job kind (async_offline_query, scheduled_query, script_task, chalksql_run, dataframe_run).
+        operation_id
+            Filter by operation ID.
+        limit
+            Maximum number of jobs to return. Defaults to 50.
+        offset
+            Offset for pagination. Defaults to 0.
+
+        Returns
+        -------
+        List[JobQueueItem]
+            The list of jobs.
+
+        Examples
+        --------
+        >>> from chalk.client import ChalkClient
+        >>> ChalkClient().list_jobs(state="running", limit=10)
+        """
+        ...
+
     def get_named_query_metadata(
         self,
         name: str,
@@ -1998,6 +2040,127 @@ class ChalkClient:
         >>> from chalk.client import ChalkClient
         >>> client = ChalkClient()
         >>> client.create_branch("my-new-branch")
+        """
+        ...
+
+    def redeploy(
+        self,
+        deployment_id: Optional[str] = None,
+        build_profile: Optional[Literal["o3_no_profiling", "o3_profiling", "o2_no_profiling", "o2_profiling"]] = None,
+        deployment_tags: Optional[List[str]] = None,
+        base_image_override: Optional[str] = None,
+        force_rebuild_dockerfile: bool = False,
+        display_description: Optional[str] = None,
+    ) -> RedeployResponse:
+        """
+        Full rebuild and deploy using this deployment's source.
+
+        Parameters
+        ----------
+        deployment_id
+            The ID of the existing deployment to rebuild and deploy.
+            If omitted, the environment's active deployment is used.
+        build_profile
+            Build optimization level. One of ``'o3_no_profiling'``, ``'o3_profiling'``,
+            ``'o2_no_profiling'``, ``'o2_profiling'``.
+        deployment_tags
+            Blue-green routing tags to assign to the new deployment.
+        base_image_override
+            Override the base Docker image used for the build.
+        force_rebuild_dockerfile
+            Force a Dockerfile rebuild even if it has not changed.
+        display_description
+            Human-readable description for the new deployment.
+
+        Returns
+        -------
+        RedeployResponse
+            ``deployment_id`` is populated with the new deployment's ID.
+
+        Examples
+        --------
+        >>> from chalk.client import ChalkClient
+        >>> client = ChalkClient()
+        >>> client.redeploy("dep_abc123")
+        """
+        ...
+
+    def rollback_deployment(self, deployment_id: str) -> RedeployResponse:
+        """
+        Instantly redeploy using this deployment's pre-built image.
+
+        Parameters
+        ----------
+        deployment_id
+            The ID of the existing deployment whose image will be activated.
+
+        Returns
+        -------
+        RedeployResponse
+
+        Examples
+        --------
+        >>> from chalk.client import ChalkClient
+        >>> ChalkClient().rollback_deployment("dep_abc123")
+        """
+        ...
+
+    def rebuild_deployment(
+        self,
+        deployment_id: str,
+        new_image_tag: str,
+        build_profile: Optional[Literal["o3_no_profiling", "o3_profiling", "o2_no_profiling", "o2_profiling"]] = None,
+        base_image_override: Optional[str] = None,
+        force_rebuild_dockerfile: bool = False,
+    ) -> RedeployResponse:
+        """
+        Build a new image from this deployment's source without deploying.
+
+        Parameters
+        ----------
+        deployment_id
+            The ID of the existing deployment to use as the build source.
+        new_image_tag
+            The image tag to apply to the rebuilt image.
+        build_profile
+            Build optimization level. One of ``'o3_no_profiling'``, ``'o3_profiling'``,
+            ``'o2_no_profiling'``, ``'o2_profiling'``.
+        base_image_override
+            Override the base Docker image used for the build.
+        force_rebuild_dockerfile
+            Force a Dockerfile rebuild even if it has not changed.
+
+        Returns
+        -------
+        RedeployResponse
+            ``build_id`` is populated with the resulting build/job ID.
+
+        Examples
+        --------
+        >>> from chalk.client import ChalkClient
+        >>> ChalkClient().rebuild_deployment("dep_abc123", new_image_tag="v1.2.3")
+        """
+        ...
+
+    def patch_deployment(self, deployment_id: Optional[str] = None) -> RedeployResponse:
+        """
+        Patch deployment config and restart pods without a new build.
+
+        Parameters
+        ----------
+        deployment_id
+            The ID of the existing deployment to patch.
+            If omitted, the environment's active deployment is used.
+
+        Returns
+        -------
+        RedeployResponse
+            ``nonfatal_errors`` is populated with any non-fatal errors encountered.
+
+        Examples
+        --------
+        >>> from chalk.client import ChalkClient
+        >>> ChalkClient().patch_deployment("dep_abc123")
         """
         ...
 

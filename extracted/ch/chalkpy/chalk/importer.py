@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import TracebackType
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Type, Union, cast, get_args, get_origin
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Type, Union, get_args, get_origin
 
 import pyarrow as pa
 
@@ -1443,7 +1443,10 @@ def _supplemental_validate_underscore_expression(
                 raise _UnderscoreValidationError(
                     f"the input '{underscore!r}' is a scalar value, so a feature called '{underscore._chalk__attr}' cannot be extracted from it"
                 )
-            st = cast(pa.StructType, parent_result.dtype)
+            assert isinstance(
+                parent_result.dtype, pa.StructType
+            ), f"Expected StructType after is_struct check, got {type(parent_result.dtype)}"
+            st = parent_result.dtype
             field = next((field for field in st if field.name == underscore._chalk__attr), None)
             if field is not None:
                 return _ScalarExpr(dtype=field.type)

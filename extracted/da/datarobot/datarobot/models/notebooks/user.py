@@ -79,7 +79,7 @@ class NotebookUser(APIObject):
 
 class NotebookActivity(APIObject):
     """
-    A record of activity (i.e. last run, updated, etc.) in a Notebook.
+    A record of activity (i.e., last run, updated, etc.) in a Notebook.
 
     Attributes
     ----------

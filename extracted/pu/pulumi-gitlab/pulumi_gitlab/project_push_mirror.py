@@ -28,8 +28,9 @@ class ProjectPushMirrorArgs:
                  only_protected_branches: Optional[pulumi.Input[_builtins.bool]] = None):
         """
         The set of arguments for constructing a ProjectPushMirror resource.
+
         :param pulumi.Input[_builtins.str] project: The id of the project.
-        :param pulumi.Input[_builtins.str] url: The URL of the remote repository to be mirrored.
+        :param pulumi.Input[_builtins.str] url: The URL of the remote repository to be mirrored. Note that URLs with credentials will not import properly, and will require a replace on the first apply.
         :param pulumi.Input[_builtins.str] auth_method: Determines the mirror authentication method. Valid values are: `ssh_public_key`, `password`.
         :param pulumi.Input[_builtins.bool] enabled: Determines if the mirror is enabled.
         :param pulumi.Input[_builtins.bool] keep_divergent_refs: Determines if divergent refs are skipped.
@@ -65,7 +66,7 @@ class ProjectPushMirrorArgs:
     @pulumi.getter
     def url(self) -> pulumi.Input[_builtins.str]:
         """
-        The URL of the remote repository to be mirrored.
+        The URL of the remote repository to be mirrored. Note that URLs with credentials will not import properly, and will require a replace on the first apply.
         """
         return pulumi.get(self, "url")
 
@@ -147,6 +148,7 @@ class _ProjectPushMirrorState:
                  url: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering ProjectPushMirror resources.
+
         :param pulumi.Input[_builtins.str] auth_method: Determines the mirror authentication method. Valid values are: `ssh_public_key`, `password`.
         :param pulumi.Input[_builtins.bool] enabled: Determines if the mirror is enabled.
         :param pulumi.Input[_builtins.bool] keep_divergent_refs: Determines if divergent refs are skipped.
@@ -154,7 +156,7 @@ class _ProjectPushMirrorState:
         :param pulumi.Input[_builtins.int] mirror_id: Mirror ID.
         :param pulumi.Input[_builtins.bool] only_protected_branches: Determines if only protected branches are mirrored.
         :param pulumi.Input[_builtins.str] project: The id of the project.
-        :param pulumi.Input[_builtins.str] url: The URL of the remote repository to be mirrored.
+        :param pulumi.Input[_builtins.str] url: The URL of the remote repository to be mirrored. Note that URLs with credentials will not import properly, and will require a replace on the first apply.
         """
         if auth_method is not None:
             pulumi.set(__self__, "auth_method", auth_method)
@@ -261,7 +263,7 @@ class _ProjectPushMirrorState:
     @pulumi.getter
     def url(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        The URL of the remote repository to be mirrored.
+        The URL of the remote repository to be mirrored. Note that URLs with credentials will not import properly, and will require a replace on the first apply.
         """
         return pulumi.get(self, "url")
 
@@ -308,25 +310,16 @@ class ProjectPushMirror(pulumi.CustomResource):
 
         ## Import
 
-        Starting in Terraform v1.5.0, you can use an import block to import `gitlab_project_push_mirror`. For example:
-
-        terraform
-
-        import {
-
-          to = gitlab_project_push_mirror.example
-
-          id = "see CLI command below for ID"
-
-        }
+        Starting in Terraform v1.5.0, you can use an import block to import `ProjectPushMirror`. For example:
 
         Importing using the CLI is supported with the following syntax:
 
-        GitLab project mirror can be imported using an id made up of `project_id:mirror_id`, e.g.
+        GitLab project mirror can be imported using an id made up of `project_id:mirror_id`, for example:
 
         ```sh
         $ pulumi import gitlab:index/projectPushMirror:ProjectPushMirror foo "12345:1337"
         ```
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -336,7 +329,7 @@ class ProjectPushMirror(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] mirror_branch_regex: Contains a regular expression. Only branches with names matching the regex are mirrored. Requires only*protected*branches to be disabled. Premium and Ultimate only.
         :param pulumi.Input[_builtins.bool] only_protected_branches: Determines if only protected branches are mirrored.
         :param pulumi.Input[_builtins.str] project: The id of the project.
-        :param pulumi.Input[_builtins.str] url: The URL of the remote repository to be mirrored.
+        :param pulumi.Input[_builtins.str] url: The URL of the remote repository to be mirrored. Note that URLs with credentials will not import properly, and will require a replace on the first apply.
         """
         ...
     @overload
@@ -368,25 +361,16 @@ class ProjectPushMirror(pulumi.CustomResource):
 
         ## Import
 
-        Starting in Terraform v1.5.0, you can use an import block to import `gitlab_project_push_mirror`. For example:
-
-        terraform
-
-        import {
-
-          to = gitlab_project_push_mirror.example
-
-          id = "see CLI command below for ID"
-
-        }
+        Starting in Terraform v1.5.0, you can use an import block to import `ProjectPushMirror`. For example:
 
         Importing using the CLI is supported with the following syntax:
 
-        GitLab project mirror can be imported using an id made up of `project_id:mirror_id`, e.g.
+        GitLab project mirror can be imported using an id made up of `project_id:mirror_id`, for example:
 
         ```sh
         $ pulumi import gitlab:index/projectPushMirror:ProjectPushMirror foo "12345:1337"
         ```
+
 
         :param str resource_name: The name of the resource.
         :param ProjectPushMirrorArgs args: The arguments to use to populate this resource's properties.
@@ -465,7 +449,7 @@ class ProjectPushMirror(pulumi.CustomResource):
         :param pulumi.Input[_builtins.int] mirror_id: Mirror ID.
         :param pulumi.Input[_builtins.bool] only_protected_branches: Determines if only protected branches are mirrored.
         :param pulumi.Input[_builtins.str] project: The id of the project.
-        :param pulumi.Input[_builtins.str] url: The URL of the remote repository to be mirrored.
+        :param pulumi.Input[_builtins.str] url: The URL of the remote repository to be mirrored. Note that URLs with credentials will not import properly, and will require a replace on the first apply.
         """
         opts = pulumi.ResourceOptions.merge(opts, pulumi.ResourceOptions(id=id))
 
@@ -541,7 +525,7 @@ class ProjectPushMirror(pulumi.CustomResource):
     @pulumi.getter
     def url(self) -> pulumi.Output[_builtins.str]:
         """
-        The URL of the remote repository to be mirrored.
+        The URL of the remote repository to be mirrored. Note that URLs with credentials will not import properly, and will require a replace on the first apply.
         """
         return pulumi.get(self, "url")
 

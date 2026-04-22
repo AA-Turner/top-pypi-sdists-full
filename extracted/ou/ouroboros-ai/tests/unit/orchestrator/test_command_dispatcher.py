@@ -11,8 +11,9 @@ from ouroboros.core.types import Result
 from ouroboros.mcp.errors import MCPTimeoutError, MCPToolError
 from ouroboros.mcp.types import ContentType, MCPContentItem, MCPToolResult
 from ouroboros.orchestrator.adapter import RuntimeHandle
-from ouroboros.orchestrator.codex_cli_runtime import CodexCliRuntime, SkillInterceptRequest
+from ouroboros.orchestrator.codex_cli_runtime import CodexCliRuntime
 from ouroboros.orchestrator.command_dispatcher import create_codex_command_dispatcher
+from ouroboros.router.types import Resolved
 
 
 class TestCodexCommandDispatcher:
@@ -41,8 +42,8 @@ class TestCodexCommandDispatcher:
         mcp_args: dict[str, object],
         prompt: str,
         first_argument: str | None,
-    ) -> SkillInterceptRequest:
-        return SkillInterceptRequest(
+    ) -> Resolved:
+        return Resolved(
             skill_name=skill_name,
             command_prefix=f"ooo {skill_name}",
             prompt=prompt,
@@ -178,10 +179,12 @@ class TestCodexCommandDispatcher:
         call_args = fake_server.call_tool.call_args
         assert call_args[0][0] == "ouroboros_interview"
         actual_args = call_args[0][1]
-        # Resume must preserve original frontmatter args AND overlay session_id/answer
+        # Resume must drop initial_context so InterviewHandler branches on
+        # session_id instead of restarting the interview, while preserving
+        # cwd and overlaying session_id + answer.
         assert actual_args["session_id"] == "interview-123"
         assert actual_args["answer"] == "Use PostgreSQL"
-        assert actual_args["initial_context"] == "Use PostgreSQL"
+        assert "initial_context" not in actual_args
         assert "cwd" in actual_args
         mock_exec.assert_not_called()
         assert messages[-1].data["subtype"] == "error"

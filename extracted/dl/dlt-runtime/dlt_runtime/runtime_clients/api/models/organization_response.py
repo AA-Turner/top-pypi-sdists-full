@@ -22,8 +22,8 @@ class OrganizationResponse:
     """The user's personal organization (immutable)
 
     Attributes:
-        date_added (datetime.datetime): The date the entity was added
-        date_updated (datetime.datetime): The date the entity was updated
+        date_added (datetime.datetime): datetime with the constraint that the value must have timezone info
+        date_updated (datetime.datetime): datetime with the constraint that the value must have timezone info
         id (UUID): The unique ID of the entity
         name (str): The name of the organization
         description (Union[None, Unset, str]): The description of the organization

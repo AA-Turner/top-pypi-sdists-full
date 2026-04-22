@@ -347,7 +347,7 @@ class TimeSeriesOperation(WranglingOperation):
         List of integers representing the periodicities used to generate naive baseline features from the target.
         Baseline period = 1 corresponds to the naive latest baseline.
     known_in_advance_columns:
-        List of columns that are known in advance at prediction time, i.e. features that do not need to be lagged.
+        List of columns that are known in advance at prediction time, i.e., features that do not need to be lagged.
     multiseries_id_column:
         Column name used to identify each time series within the data. Required only for multiseries.
     rolling_median_udf:
@@ -882,7 +882,7 @@ class AggregateFeature(TypedDict):
         Feature to aggregate.
     functions: List[AggregationFunctions]
         List of aggregation functions to apply. A new column will be created for each function. Some feature types may
-        not support all aggregation functions, e.g. categorical features do not support numeric aggregation functions
+        not support all aggregation functions, e.g., categorical features do not support numeric aggregation functions
         like SUM or AVG.
 
     Examples
@@ -1023,7 +1023,7 @@ class LimitSamplingOperation(SamplingOperation):
 class DatetimeSamplingOperation(SamplingOperation):
     """
     A sampling technique that samples `n` rows by ordering rows based on a datetime partition column and selecting
-    according to the strategy specified (e.g. latest, earliest). Supports multiseries data.
+    according to the strategy specified (e.g., latest, earliest). Supports multiseries data.
 
     Parameters
     ----------
@@ -1110,8 +1110,8 @@ class TableSampleSamplingOperation(SamplingOperation):
 
 class RandomDownsamplingOperation(DownsamplingOperation):
     """
-    A downsampling technique that reduces the size of the majority class using random sampling (i.e., each sample has an
-    equal probability of being chosen).
+    Downsampling that reduces the majority class via random sampling (i.e.,
+    each sample has equal probability of being chosen).
 
     Parameters
     ----------

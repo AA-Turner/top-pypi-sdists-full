@@ -430,9 +430,13 @@ class AttributeAggregation(google.protobuf.message.Message):
     KEY_FIELD_NUMBER: builtins.int
     LABEL_FIELD_NUMBER: builtins.int
     EXTRAPOLATION_MODE_FIELD_NUMBER: builtins.int
+    DEFAULT_VALUE_DOUBLE_FIELD_NUMBER: builtins.int
+    DEFAULT_VALUE_INT64_FIELD_NUMBER: builtins.int
     aggregate: global___Function.ValueType
     label: builtins.str
     extrapolation_mode: global___ExtrapolationMode.ValueType
+    default_value_double: builtins.float
+    default_value_int64: builtins.int
     @property
     def key(self) -> global___AttributeKey: ...
     def __init__(
@@ -442,8 +446,11 @@ class AttributeAggregation(google.protobuf.message.Message):
         key: global___AttributeKey | None = ...,
         label: builtins.str = ...,
         extrapolation_mode: global___ExtrapolationMode.ValueType = ...,
+        default_value_double: builtins.float = ...,
+        default_value_int64: builtins.int = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["key", b"key"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["aggregate", b"aggregate", "extrapolation_mode", b"extrapolation_mode", "key", b"key", "label", b"label"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["default_value", b"default_value", "default_value_double", b"default_value_double", "default_value_int64", b"default_value_int64", "key", b"key"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["aggregate", b"aggregate", "default_value", b"default_value", "default_value_double", b"default_value_double", "default_value_int64", b"default_value_int64", "extrapolation_mode", b"extrapolation_mode", "key", b"key", "label", b"label"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing.Literal["default_value", b"default_value"]) -> typing.Literal["default_value_double", "default_value_int64"] | None: ...
 
 global___AttributeAggregation = AttributeAggregation

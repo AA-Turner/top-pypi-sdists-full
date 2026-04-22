@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: checkdmarc
-Version: 5.14.1
+Version: 5.14.3
 Summary: A Python module and command line parser for SPF and DMARC records
 Project-URL: Homepage, https://github.com/domainaware/checkdmarc
 Project-URL: Documentation, https://domainaware.github.io/checkdmarc/
@@ -24,7 +24,6 @@ Requires-Dist: publicsuffixlist>=0.10.0
 Requires-Dist: pyleri>=1.3.2
 Requires-Dist: pyopenssl>=24.2.1
 Requires-Dist: requests>=2.25.0
-Requires-Dist: timeout-decorator>=0.4.1
 Requires-Dist: xmltodict>=0.14.2
 Provides-Extra: build
 Requires-Dist: hatch>=1.14.0; extra == 'build'
@@ -44,6 +43,11 @@ Description-Content-Type: text/markdown
 [![PyPI - Downloads](https://img.shields.io/pypi/dm/checkdmarc?color=blue)](https://pypistats.org/packages/checkdmarc)
 
 A Python module, command line utility, and [web application](https://github.com/domainaware/checkdmarc-web-frontend) for validating SPF and DMARC DNS records.
+
+## Sponcers
+
+This is a project is maintained by one developer.
+Please consider [sponsoring my work](https://github.com/sponsors/seanthegeek) if you or your organization benefit from it.
 
 ## Features
 

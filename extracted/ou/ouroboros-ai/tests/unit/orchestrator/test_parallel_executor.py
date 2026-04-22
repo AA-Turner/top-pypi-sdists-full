@@ -84,6 +84,67 @@ class TestParallelACExecutor:
     """Tests for staged hybrid result handling."""
 
     @pytest.mark.asyncio
+    async def test_batch_fans_out_in_parallel_regardless_of_tool_catalog(self) -> None:
+        """Batch scheduling is tool-catalog-agnostic.
+
+        The control plane exists as declarative audit/metadata, not as a
+        batch-level scheduler.  Cross-AC safety is enforced by the
+        file-conflict guard (static) and by the provider runtime at
+        tool-invocation time (dynamic); the scheduler must not degrade
+        a batch to serial execution based on session-level tool
+        availability, because "tool is in the catalog" does not imply
+        "every AC in this batch will invoke it".
+
+        This test mixes read-only and write-capable tools in the same
+        catalog to pin that mixed catalogs also fan out in parallel.
+        """
+        seed = _make_seed("AC alpha", "AC beta")
+        executor = _make_executor()
+        active_count = 0
+        max_active_count = 0
+
+        async def fake_execute_single_ac(**kwargs: Any) -> ACExecutionResult:
+            nonlocal active_count, max_active_count
+            ac_index = int(kwargs["ac_index"])
+            active_count += 1
+            max_active_count = max(max_active_count, active_count)
+            await asyncio.sleep(0)
+            await asyncio.sleep(0)
+            active_count -= 1
+            return ACExecutionResult(
+                ac_index=ac_index,
+                ac_content=str(kwargs["ac_content"]),
+                success=True,
+                final_message=f"AC {ac_index} complete",
+            )
+
+        with patch.object(executor, "_execute_single_ac", side_effect=fake_execute_single_ac):
+            results = await executor._execute_ac_batch(
+                seed=seed,
+                batch_indices=[0, 1],
+                session_id="sess_batch_parallel",
+                execution_id="exec_batch_parallel",
+                tools=["Read", "Edit", "Bash"],
+                tool_catalog=(
+                    MCPToolDefinition(name="Read", description="Read files"),
+                    MCPToolDefinition(name="Edit", description="Edit files"),
+                    MCPToolDefinition(name="Bash", description="Run shell"),
+                ),
+                system_prompt="test",
+                level_contexts=[],
+                ac_retry_attempts={0: 0, 1: 0},
+            )
+
+        assert [result.ac_index for result in results if isinstance(result, ACExecutionResult)] == [
+            0,
+            1,
+        ]
+        # Regression guard: even a catalog containing SERIALIZED (Edit)
+        # and ISOLATED_SESSION_REQUIRED (Bash) tools must not collapse
+        # a batch to serial execution.
+        assert max_active_count == 2
+
+    @pytest.mark.asyncio
     async def test_atomic_ac_uses_ac_scoped_runtime_handle(self) -> None:
         """Atomic AC execution should seed a fresh AC-scoped runtime handle."""
 

@@ -29,7 +29,7 @@ class Ruleset(APIObject):
     Attributes
     ----------
     id : str
-        the id of the ruleset
+        the ID of the ruleset
     rule_count : int
         the number of rules used to approximate the model
     score : float

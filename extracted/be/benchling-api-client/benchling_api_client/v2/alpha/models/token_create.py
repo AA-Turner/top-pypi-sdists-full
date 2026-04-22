@@ -19,6 +19,7 @@ class TokenCreate:
     _code: Union[Unset, str] = UNSET
     _code_verifier: Union[Unset, str] = UNSET
     _redirect_uri: Union[Unset, str] = UNSET
+    _refresh_token: Union[Unset, str] = UNSET
     _state: Union[Unset, str] = UNSET
     additional_properties: Dict[str, Any] = attr.ib(init=False, factory=dict)
 
@@ -30,6 +31,7 @@ class TokenCreate:
         fields.append("code={}".format(repr(self._code)))
         fields.append("code_verifier={}".format(repr(self._code_verifier)))
         fields.append("redirect_uri={}".format(repr(self._redirect_uri)))
+        fields.append("refresh_token={}".format(repr(self._refresh_token)))
         fields.append("state={}".format(repr(self._state)))
         fields.append("additional_properties={}".format(repr(self.additional_properties)))
         return "TokenCreate({})".format(", ".join(fields))
@@ -42,6 +44,7 @@ class TokenCreate:
         code = self._code
         code_verifier = self._code_verifier
         redirect_uri = self._redirect_uri
+        refresh_token = self._refresh_token
         state = self._state
 
         field_dict: Dict[str, Any] = {}
@@ -59,6 +62,8 @@ class TokenCreate:
             field_dict["code_verifier"] = code_verifier
         if redirect_uri is not UNSET:
             field_dict["redirect_uri"] = redirect_uri
+        if refresh_token is not UNSET:
+            field_dict["refresh_token"] = refresh_token
         if state is not UNSET:
             field_dict["state"] = state
 
@@ -139,6 +144,17 @@ class TokenCreate:
                 raise
             redirect_uri = cast(Union[Unset, str], UNSET)
 
+        def get_refresh_token() -> Union[Unset, str]:
+            refresh_token = d.pop("refresh_token")
+            return refresh_token
+
+        try:
+            refresh_token = get_refresh_token()
+        except KeyError:
+            if strict:
+                raise
+            refresh_token = cast(Union[Unset, str], UNSET)
+
         def get_state() -> Union[Unset, str]:
             state = d.pop("state")
             return state
@@ -157,6 +173,7 @@ class TokenCreate:
             code=code,
             code_verifier=code_verifier,
             redirect_uri=redirect_uri,
+            refresh_token=refresh_token,
             state=state,
         )
 
@@ -266,6 +283,21 @@ class TokenCreate:
     @redirect_uri.deleter
     def redirect_uri(self) -> None:
         self._redirect_uri = UNSET
+
+    @property
+    def refresh_token(self) -> str:
+        """Refresh token to request token for. Required if grant_type is refresh_token."""
+        if isinstance(self._refresh_token, Unset):
+            raise NotPresentError(self, "refresh_token")
+        return self._refresh_token
+
+    @refresh_token.setter
+    def refresh_token(self, value: str) -> None:
+        self._refresh_token = value
+
+    @refresh_token.deleter
+    def refresh_token(self) -> None:
+        self._refresh_token = UNSET
 
     @property
     def state(self) -> str:

@@ -54,13 +54,12 @@ class LabelResolver:
         Returns the translated label if available, otherwise applies
         automatic formatting: split by underscores, title case each word.
         """
-        if (
-            label := get_parameter_translation(
-                parameter=parameter_id,
-                channel_type=channel_type or None,
-                locale=self._locale,
-            )
-        ) is not None:
+        label: str | None = get_parameter_translation(
+            parameter=parameter_id,
+            channel_type=channel_type or None,
+            locale=self._locale,
+        )
+        if label is not None:
             return label
         return _humanize_parameter_id(parameter_id=parameter_id)
 

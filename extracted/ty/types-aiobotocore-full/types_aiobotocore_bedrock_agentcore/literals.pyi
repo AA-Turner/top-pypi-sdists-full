@@ -24,11 +24,13 @@ else:
 __all__ = (
     "AutomationStreamStatusType",
     "BedrockAgentCoreServiceName",
+    "BrowserActionStatusType",
     "BrowserEnterprisePolicyTypeType",
     "BrowserSessionStatusType",
     "CodeInterpreterSessionStatusType",
     "CommandExecutionStatusType",
     "ContentBlockTypeType",
+    "DescriptorTypeType",
     "EventFilterConditionType",
     "ExtractionJobStatusType",
     "LanguageRuntimeType",
@@ -38,14 +40,17 @@ __all__ = (
     "ListMemoryRecordsPaginatorName",
     "ListSessionsPaginatorName",
     "MemoryRecordStatusType",
+    "MouseButtonType",
     "Oauth2FlowTypeType",
     "OperatorTypeType",
     "PaginatorName",
     "ProgrammingLanguageType",
+    "RegistryRecordStatusType",
     "ResourceContentTypeType",
     "ResourceServiceName",
     "RetrieveMemoryRecordsPaginatorName",
     "RoleType",
+    "ScreenshotFormatType",
     "ServiceName",
     "SessionStatusType",
     "TaskStatusType",
@@ -54,11 +59,13 @@ __all__ = (
 )
 
 AutomationStreamStatusType = Literal["DISABLED", "ENABLED"]
+BrowserActionStatusType = Literal["FAILED", "SUCCESS"]
 BrowserEnterprisePolicyTypeType = Literal["MANAGED", "RECOMMENDED"]
 BrowserSessionStatusType = Literal["READY", "TERMINATED"]
 CodeInterpreterSessionStatusType = Literal["READY", "TERMINATED"]
 CommandExecutionStatusType = Literal["COMPLETED", "TIMED_OUT"]
 ContentBlockTypeType = Literal["image", "resource", "resource_link", "text"]
+DescriptorTypeType = Literal["A2A", "AGENT_SKILLS", "CUSTOM", "MCP"]
 EventFilterConditionType = Literal["HAS_EVENTS"]
 ExtractionJobStatusType = Literal["FAILED"]
 LanguageRuntimeType = Literal["deno", "nodejs", "python"]
@@ -68,12 +75,17 @@ ListMemoryExtractionJobsPaginatorName = Literal["list_memory_extraction_jobs"]
 ListMemoryRecordsPaginatorName = Literal["list_memory_records"]
 ListSessionsPaginatorName = Literal["list_sessions"]
 MemoryRecordStatusType = Literal["FAILED", "SUCCEEDED"]
+MouseButtonType = Literal["LEFT", "MIDDLE", "RIGHT"]
 Oauth2FlowTypeType = Literal["M2M", "USER_FEDERATION"]
 OperatorTypeType = Literal["EQUALS_TO", "EXISTS", "NOT_EXISTS"]
 ProgrammingLanguageType = Literal["javascript", "python", "typescript"]
+RegistryRecordStatusType = Literal[
+    "APPROVED", "DEPRECATED", "DRAFT", "PENDING_APPROVAL", "REJECTED"
+]
 ResourceContentTypeType = Literal["blob", "text"]
 RetrieveMemoryRecordsPaginatorName = Literal["retrieve_memory_records"]
 RoleType = Literal["ASSISTANT", "OTHER", "TOOL", "USER"]
+ScreenshotFormatType = Literal["PNG"]
 SessionStatusType = Literal["FAILED", "IN_PROGRESS"]
 TaskStatusType = Literal["canceled", "completed", "failed", "submitted", "working"]
 ToolNameType = Literal[
@@ -280,6 +292,7 @@ ServiceName = Literal[
     "inspector",
     "inspector-scan",
     "inspector2",
+    "interconnect",
     "internetmonitor",
     "invoicing",
     "iot",
@@ -336,6 +349,7 @@ ServiceName = Literal[
     "marketplace-agreement",
     "marketplace-catalog",
     "marketplace-deployment",
+    "marketplace-discovery",
     "marketplace-entitlement",
     "marketplace-reporting",
     "marketplacecommerceanalytics",
@@ -433,6 +447,7 @@ ServiceName = Literal[
     "rum",
     "s3",
     "s3control",
+    "s3files",
     "s3outposts",
     "s3tables",
     "s3vectors",

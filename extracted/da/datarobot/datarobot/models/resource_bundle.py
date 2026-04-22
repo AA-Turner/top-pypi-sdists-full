@@ -40,13 +40,13 @@ class ResourceBundle(APIObject):
     memory_bytes: int
         Maximum amount of memory available.
     gpu_maker: Optional[str]
-        The manufacturer of the GPU (e.g. nvidia, amd, intel)
+        The manufacturer of the GPU (e.g., nvidia, amd, intel)
     gpu_count: Optional[float]
         Maximum number of GPUs available.
     gpu_memory_bytes: int
         Maximum amount of GPU memory available.
     use_cases: List[str]
-        List of use cases this bundle supports (e.g. customApplication, customJob, customModel, sapAICore).
+        List of use cases this bundle supports (e.g., customApplication, customJob, customModel, sapAICore).
     is_default: Optional[bool]
         If this should be the default resource choice.
     is_deleted: Optional[bool]
@@ -148,7 +148,7 @@ class ResourceBundle(APIObject):
         Parameters
         ----------
         bundle_id: str
-            ID of the resource bundle (e.g. cpu.micro)
+            ID of the resource bundle (e.g., cpu.micro)
         """
         response = cls._client.get(f"{cls._path}{bundle_id}/")
         return cls.from_server_data(response.json())

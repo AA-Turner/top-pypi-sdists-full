@@ -2275,6 +2275,20 @@ class DomainModelDomainType(pycarlo.lib.types.Enum):
     __choices__ = ("AGENTIC", "METADATA", "SAMPLING")
 
 
+class DomainType(pycarlo.lib.types.Enum):
+    """Category of a domain. Values mirror ``DomainModel.DOMAIN_TYPE_*``.
+
+    Enumeration Choices:
+
+    * `AGENTIC`None
+    * `METADATA`None
+    * `SAMPLING`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("AGENTIC", "METADATA", "SAMPLING")
+
+
 class EdgeType(pycarlo.lib.types.Enum):
     """Enumeration Choices:
 
@@ -3485,6 +3499,17 @@ class FindingSeverity(pycarlo.lib.types.Enum):
 
     __schema__ = schema
     __choices__ = ("CRITICAL", "INFO", "WARNING")
+
+
+class FindingSortDirection(pycarlo.lib.types.Enum):
+    """Enumeration Choices:
+
+    * `ASC`None
+    * `DESC`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("ASC", "DESC")
 
 
 class FindingStatus(pycarlo.lib.types.Enum):
@@ -9191,10 +9216,10 @@ class DbtArtifactsInput(sgqlc.types.Input):
 
     __schema__ = schema
     __field_names__ = ("manifest", "run_results", "logs")
-    manifest = sgqlc.types.Field(String, graphql_name="manifest")
+    manifest = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="manifest")
     """manifest file name"""
 
-    run_results = sgqlc.types.Field(String, graphql_name="runResults")
+    run_results = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="runResults")
     """run results file name"""
 
     logs = sgqlc.types.Field(String, graphql_name="logs")
@@ -9619,10 +9644,13 @@ class FindingFilterInput(sgqlc.types.Input):
         "agentic_scope_uuids",
         "use_cases",
         "asset_mcon",
+        "parent_finding_uuid",
         "search_query",
         "needs_attention",
         "detection_time_start",
         "detection_time_end",
+        "order_by",
+        "detection_time_order",
     )
     finding_types = sgqlc.types.Field(
         sgqlc.types.list_of(sgqlc.types.non_null(FindingType)), graphql_name="findingTypes"
@@ -9650,6 +9678,9 @@ class FindingFilterInput(sgqlc.types.Input):
 
     asset_mcon = sgqlc.types.Field(String, graphql_name="assetMcon")
 
+    parent_finding_uuid = sgqlc.types.Field(UUID, graphql_name="parentFindingUuid")
+    """Return only findings whose parent finding has this UUID."""
+
     search_query = sgqlc.types.Field(String, graphql_name="searchQuery")
 
     needs_attention = sgqlc.types.Field(Boolean, graphql_name="needsAttention")
@@ -9657,6 +9688,24 @@ class FindingFilterInput(sgqlc.types.Input):
     detection_time_start = sgqlc.types.Field(DateTime, graphql_name="detectionTimeStart")
 
     detection_time_end = sgqlc.types.Field(DateTime, graphql_name="detectionTimeEnd")
+
+    order_by = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="orderBy"
+    )
+    """Order results by one or more fields. Prefix a field with '-' for
+    DESC. Allowed fields: title, agentType, status, severity,
+    criticalityScore, useCase, detectionTime. Defaults to
+    '-detectionTime' (newest first). An implicit secondary sort by id
+    guarantees stable pagination.
+    """
+
+    detection_time_order = sgqlc.types.Field(
+        FindingSortDirection, graphql_name="detectionTimeOrder"
+    )
+    """DEPRECATED: use orderBy: ['detectionTime'] or ['-detectionTime']
+    instead. Order of results by detection_time. Defaults to DESC
+    (newest first).
+    """
 
 
 class FreshnessAutomatedAlertConditionInput(sgqlc.types.Input):
@@ -31201,6 +31250,39 @@ class ListTagsOutput(sgqlc.types.Type):
 
     tags = sgqlc.types.Field(sgqlc.types.list_of("TagObjectOutput"), graphql_name="tags")
     """Tags list."""
+
+
+class LogTypeParseResult(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("log_type", "sources", "destination", "errors", "success")
+    log_type = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="logType")
+    """The candidate log_type this result corresponds to, echoed from the
+    input (e.g. 'snowflake', 'bigquery', 'generic').
+    """
+
+    sources = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null("SqlParsedTable")), graphql_name="sources"
+    )
+    """Parsed query sources for this log_type. ``mcon`` is always null
+    here — this API does not perform table resolution. Call
+    ``parseQuery`` with a chosen ``resourceId`` once the right dialect
+    has been identified to get MCONs.
+    """
+
+    destination = sgqlc.types.Field("SqlParsedTable", graphql_name="destination")
+    """Parsed query destination for this log_type. ``mcon`` is always
+    null here — see the note on ``sources``.
+    """
+
+    errors = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="errors"
+    )
+    """SQL parser errors for this log_type"""
+
+    success = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="success")
+    """True when the parser returned no errors and at least one source or
+    a destination was parsed for this log_type.
+    """
 
 
 class LoginDetails(sgqlc.types.Type):
@@ -55092,6 +55174,7 @@ class OrchestratorDetails(sgqlc.types.Type):
     __field_names__ = (
         "endpoint",
         "private_link_endpoint",
+        "public_ip_addresses",
         "aws_private_endpoint_service_name",
         "azure_application_gateway_resource_id",
         "azure_application_gateway_sub_resource",
@@ -55101,6 +55184,11 @@ class OrchestratorDetails(sgqlc.types.Type):
 
     private_link_endpoint = sgqlc.types.Field(String, graphql_name="privateLinkEndpoint")
     """Orchestrator Private Link endpoint URL"""
+
+    public_ip_addresses = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(String)), graphql_name="publicIpAddresses"
+    )
+    """List of static public IP addresses used by the orchestrator"""
 
     aws_private_endpoint_service_name = sgqlc.types.Field(
         String, graphql_name="awsPrivateEndpointServiceName"
@@ -56328,6 +56416,7 @@ class Query(sgqlc.types.Type):
         "get_domains_for_mcons",
         "get_data_product_dry_run_counts",
         "parse_query",
+        "parse_query_for_log_types",
         "ping_data_collector",
         "get_notebook",
         "get_notebooks",
@@ -60355,6 +60444,14 @@ class Query(sgqlc.types.Type):
                         default=None,
                     ),
                 ),
+                (
+                    "domain_types",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(DomainType)),
+                        graphql_name="domainTypes",
+                        default=None,
+                    ),
+                ),
             )
         ),
     )
@@ -60366,6 +60463,10 @@ class Query(sgqlc.types.Type):
 
     * `mcons` (`[String!]!`): List of MCONs to look up domain
       assignments for (max 250)
+    * `domain_types` (`[DomainType!]`): Domain types to include.
+      Defaults to metadata-only. Pass `AGENTIC` alongside `METADATA`
+      to surface agentic (include-all-assets) domains as synthetic
+      per-warehouse pairs.
     """
 
     get_data_product_dry_run_counts = sgqlc.types.Field(
@@ -60418,6 +60519,53 @@ class Query(sgqlc.types.Type):
     * `database` (`String`): Name of database to use for table
       resolution
     * `schema` (`String`): Name of schema to use for table resolution
+    """
+
+    parse_query_for_log_types = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(LogTypeParseResult))),
+        graphql_name="parseQueryForLogTypes",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "query",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="query", default=None
+                    ),
+                ),
+                (
+                    "log_types",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+                        graphql_name="logTypes",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) For each candidate log_type, returns the sources
+    and destination Monte Carlo's SQL parser would extract from the
+    query. Useful for push-ingestion customers comparing extraction
+    across log_types before committing to one for POST
+    /ingest/v1/querylogs — pick the one whose lineage matches your
+    real data flow. The alias 'generic' maps to the transactional-db
+    dialect for warehouses that do not have a dedicated parser. Parser
+    behavior mirrors production push ingestion: Rust SQL parser first,
+    Java Presto parser fallback on Rust error or timeout. So the
+    lineage shown here is a faithful preview of what downstream
+    OpenSearch will index for the same payload — not a dialect-
+    strictness check. If every log_type returns the same lineage for a
+    query, that's genuine 'any of these will work' news; if they
+    diverge, you pick the one whose extraction matches your intent.
+    Scope note: this is a pre-decision discovery tool. It does not
+    perform MCON resolution — use ``parseQuery`` with a chosen
+    ``resourceId`` for that, once a log_type has been picked.
+
+    Arguments:
+
+    * `query` (`String!`): SQL query to parse
+    * `log_types` (`[String!]!`): Candidate log_types (push
+      resource_type values) to try, 1..15 entries.
     """
 
     ping_data_collector = sgqlc.types.Field(
@@ -71241,6 +71389,14 @@ class Query(sgqlc.types.Type):
                 ),
                 ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=None)),
                 ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
+                (
+                    "domain_types",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(DomainType)),
+                        graphql_name="domainTypes",
+                        default=None,
+                    ),
+                ),
             )
         ),
     )
@@ -71257,6 +71413,11 @@ class Query(sgqlc.types.Type):
     * `limit` (`Int`): Max (tag, domain) matches per page (default
       100, capped at 500).
     * `offset` (`Int`): Offset into the match list. Default 0.
+    * `domain_types` (`[DomainType!]`): Domain types to include.
+      Defaults to metadata-only. Include `AGENTIC` to also match
+      include-all-assets domains — every deduped tag matches every
+      agentic domain the caller has access to, because agentic domains
+      logically contain every asset.
     """
 
     get_iamresource_definitions = sgqlc.types.Field(

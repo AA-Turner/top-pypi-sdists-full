@@ -47,6 +47,8 @@ from .paginator import (
     ListPolicyEnginesPaginator,
     ListPolicyGenerationAssetsPaginator,
     ListPolicyGenerationsPaginator,
+    ListRegistriesPaginator,
+    ListRegistryRecordsPaginator,
     ListWorkloadIdentitiesPaginator,
 )
 from .type_defs import (
@@ -78,6 +80,10 @@ from .type_defs import (
     CreatePolicyEngineResponseTypeDef,
     CreatePolicyRequestTypeDef,
     CreatePolicyResponseTypeDef,
+    CreateRegistryRecordRequestTypeDef,
+    CreateRegistryRecordResponseTypeDef,
+    CreateRegistryRequestTypeDef,
+    CreateRegistryResponseTypeDef,
     CreateWorkloadIdentityRequestTypeDef,
     CreateWorkloadIdentityResponseTypeDef,
     DeleteAgentRuntimeEndpointRequestTypeDef,
@@ -106,6 +112,9 @@ from .type_defs import (
     DeletePolicyEngineResponseTypeDef,
     DeletePolicyRequestTypeDef,
     DeletePolicyResponseTypeDef,
+    DeleteRegistryRecordRequestTypeDef,
+    DeleteRegistryRequestTypeDef,
+    DeleteRegistryResponseTypeDef,
     DeleteResourcePolicyRequestTypeDef,
     DeleteWorkloadIdentityRequestTypeDef,
     GetAgentRuntimeEndpointRequestTypeDef,
@@ -138,6 +147,10 @@ from .type_defs import (
     GetPolicyGenerationResponseTypeDef,
     GetPolicyRequestTypeDef,
     GetPolicyResponseTypeDef,
+    GetRegistryRecordRequestTypeDef,
+    GetRegistryRecordResponseTypeDef,
+    GetRegistryRequestTypeDef,
+    GetRegistryResponseTypeDef,
     GetResourcePolicyRequestTypeDef,
     GetResourcePolicyResponseTypeDef,
     GetTokenVaultRequestTypeDef,
@@ -178,6 +191,10 @@ from .type_defs import (
     ListPolicyGenerationAssetsResponseTypeDef,
     ListPolicyGenerationsRequestTypeDef,
     ListPolicyGenerationsResponseTypeDef,
+    ListRegistriesRequestTypeDef,
+    ListRegistriesResponseTypeDef,
+    ListRegistryRecordsRequestTypeDef,
+    ListRegistryRecordsResponseTypeDef,
     ListTagsForResourceRequestTypeDef,
     ListTagsForResourceResponseTypeDef,
     ListWorkloadIdentitiesRequestTypeDef,
@@ -188,6 +205,8 @@ from .type_defs import (
     SetTokenVaultCMKResponseTypeDef,
     StartPolicyGenerationRequestTypeDef,
     StartPolicyGenerationResponseTypeDef,
+    SubmitRegistryRecordForApprovalRequestTypeDef,
+    SubmitRegistryRecordForApprovalResponseTypeDef,
     SynchronizeGatewayTargetsRequestTypeDef,
     SynchronizeGatewayTargetsResponseTypeDef,
     TagResourceRequestTypeDef,
@@ -214,6 +233,12 @@ from .type_defs import (
     UpdatePolicyEngineResponseTypeDef,
     UpdatePolicyRequestTypeDef,
     UpdatePolicyResponseTypeDef,
+    UpdateRegistryRecordRequestTypeDef,
+    UpdateRegistryRecordResponseTypeDef,
+    UpdateRegistryRecordStatusRequestTypeDef,
+    UpdateRegistryRecordStatusResponseTypeDef,
+    UpdateRegistryRequestTypeDef,
+    UpdateRegistryResponseTypeDef,
     UpdateWorkloadIdentityRequestTypeDef,
     UpdateWorkloadIdentityResponseTypeDef,
 )
@@ -426,6 +451,26 @@ class BedrockAgentCoreControlClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#create_policy_engine)
         """
 
+    async def create_registry(
+        self, **kwargs: Unpack[CreateRegistryRequestTypeDef]
+    ) -> CreateRegistryResponseTypeDef:
+        """
+        Creates a new registry in your Amazon Web Services account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/create_registry.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#create_registry)
+        """
+
+    async def create_registry_record(
+        self, **kwargs: Unpack[CreateRegistryRecordRequestTypeDef]
+    ) -> CreateRegistryRecordResponseTypeDef:
+        """
+        Creates a new registry record within the specified registry.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/create_registry_record.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#create_registry_record)
+        """
+
     async def create_workload_identity(
         self, **kwargs: Unpack[CreateWorkloadIdentityRequestTypeDef]
     ) -> CreateWorkloadIdentityResponseTypeDef:
@@ -575,6 +620,26 @@ class BedrockAgentCoreControlClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/delete_policy_engine.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#delete_policy_engine)
+        """
+
+    async def delete_registry(
+        self, **kwargs: Unpack[DeleteRegistryRequestTypeDef]
+    ) -> DeleteRegistryResponseTypeDef:
+        """
+        Deletes a registry.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/delete_registry.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#delete_registry)
+        """
+
+    async def delete_registry_record(
+        self, **kwargs: Unpack[DeleteRegistryRecordRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Deletes a registry record.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/delete_registry_record.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#delete_registry_record)
         """
 
     async def delete_resource_policy(
@@ -748,6 +813,26 @@ class BedrockAgentCoreControlClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_policy_generation.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#get_policy_generation)
+        """
+
+    async def get_registry(
+        self, **kwargs: Unpack[GetRegistryRequestTypeDef]
+    ) -> GetRegistryResponseTypeDef:
+        """
+        Retrieves information about a specific registry.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_registry.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#get_registry)
+        """
+
+    async def get_registry_record(
+        self, **kwargs: Unpack[GetRegistryRecordRequestTypeDef]
+    ) -> GetRegistryRecordResponseTypeDef:
+        """
+        Retrieves information about a specific registry record.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_registry_record.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#get_registry_record)
         """
 
     async def get_resource_policy(
@@ -955,6 +1040,26 @@ class BedrockAgentCoreControlClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#list_policy_generations)
         """
 
+    async def list_registries(
+        self, **kwargs: Unpack[ListRegistriesRequestTypeDef]
+    ) -> ListRegistriesResponseTypeDef:
+        """
+        Lists all registries in the account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/list_registries.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#list_registries)
+        """
+
+    async def list_registry_records(
+        self, **kwargs: Unpack[ListRegistryRecordsRequestTypeDef]
+    ) -> ListRegistryRecordsResponseTypeDef:
+        """
+        Lists registry records within a registry.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/list_registry_records.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#list_registry_records)
+        """
+
     async def list_tags_for_resource(
         self, **kwargs: Unpack[ListTagsForResourceRequestTypeDef]
     ) -> ListTagsForResourceResponseTypeDef:
@@ -1005,6 +1110,16 @@ class BedrockAgentCoreControlClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/start_policy_generation.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#start_policy_generation)
+        """
+
+    async def submit_registry_record_for_approval(
+        self, **kwargs: Unpack[SubmitRegistryRecordForApprovalRequestTypeDef]
+    ) -> SubmitRegistryRecordForApprovalResponseTypeDef:
+        """
+        Submits a registry record for approval.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/submit_registry_record_for_approval.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#submit_registry_record_for_approval)
         """
 
     async def synchronize_gateway_targets(
@@ -1143,6 +1258,36 @@ class BedrockAgentCoreControlClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/update_policy_engine.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#update_policy_engine)
+        """
+
+    async def update_registry(
+        self, **kwargs: Unpack[UpdateRegistryRequestTypeDef]
+    ) -> UpdateRegistryResponseTypeDef:
+        """
+        Updates an existing registry.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/update_registry.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#update_registry)
+        """
+
+    async def update_registry_record(
+        self, **kwargs: Unpack[UpdateRegistryRecordRequestTypeDef]
+    ) -> UpdateRegistryRecordResponseTypeDef:
+        """
+        Updates an existing registry record.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/update_registry_record.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#update_registry_record)
+        """
+
+    async def update_registry_record_status(
+        self, **kwargs: Unpack[UpdateRegistryRecordStatusRequestTypeDef]
+    ) -> UpdateRegistryRecordStatusResponseTypeDef:
+        """
+        Updates the status of a registry record.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/update_registry_record_status.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#update_registry_record_status)
         """
 
     async def update_workload_identity(
@@ -1335,6 +1480,28 @@ class BedrockAgentCoreControlClient(AioBaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_policy_generations"]
     ) -> ListPolicyGenerationsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_registries"]
+    ) -> ListRegistriesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_registry_records"]
+    ) -> ListRegistryRecordsPaginator:
         """
         Create a paginator for an operation.
 

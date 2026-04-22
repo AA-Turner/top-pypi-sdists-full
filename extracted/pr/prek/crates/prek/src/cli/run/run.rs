@@ -644,7 +644,7 @@ async fn run_hooks(
                 run_priority_group(group_hooks, &filter, store, dry_run, &reporter).await?;
 
             // Print results in a stable order (same order as config within the project).
-            group_results.sort_unstable_by(|a, b| a.hook.idx.cmp(&b.hook.idx));
+            group_results.sort_unstable_by_key(|a| a.hook.idx);
 
             // Check if any files were modified by this group of hooks.
             let all_skipped = group_results.iter().all(|r| r.status.is_skipped());
@@ -661,6 +661,7 @@ async fn run_hooks(
                 file_modified = true;
             }
 
+            reporter.clear_completed();
             reporter.suspend(|| {
                 render_priority_group(
                     printer,

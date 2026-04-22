@@ -1,37 +1,88 @@
-[tool.poetry]
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project]
 name = "interface_meta"
-version = "1.3.0"
+dynamic = ["version"]
 description = "`interface_meta` provides a convenient way to expose an extensible API with enforced method signatures and consistent documentation."
-authors = ["Matthew Wardrop <mpwardrop@gmail.com>"]
-license = "MIT"
 readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "Matthew Wardrop", email = "mpwardrop@gmail.com" }]
+requires-python = ">=3.10"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Environment :: Console",
-    "Intended Audience :: Developers"
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
 ]
 
-include = [
-    { path = "tests", format = "sdist" },
-    { path = ".flake8", format = "sdist" },
+[project.urls]
+Homepage = "https://github.com/matthewwardrop/interface_meta"
+Repository = "https://github.com/matthewwardrop/interface_meta"
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "interface_meta/_version.py"
+
+[tool.hatch.build.targets.sdist]
+include = ["interface_meta/", "tests/"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["interface_meta"]
+
+[tool.hatch.envs.default]
+dependencies = [
+    "pytest==9.0.3",
+    "pytest-cov==7.1.0",
+    "ruff==0.15.11",
+    "mypy==1.20.1",
 ]
 
-[tool.poetry-dynamic-versioning]
-enable = false
+[tool.hatch.envs.default.scripts]
+test      = "pytest {args} tests/"
+test-cov  = "pytest --cov=interface_meta --cov-report=xml {args} tests/"
+lint      = "ruff check interface_meta tests"
+format    = "ruff format interface_meta tests"
+typecheck = "mypy interface_meta"
+check     = ["lint", "format", "typecheck", "test"]
 
-[tool.poetry.build]
-generate-setup-file = false
+[tool.pytest.ini_options]
+testpaths = ["tests"]
 
-[tool.poetry.dependencies]
-python = "^3.7"
+[tool.mypy]
+strict = true
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
 
-[tool.poetry.dev-dependencies]
-black = "^22.3.0"
-flake8 = "^4.0.1"
-pytest = "^7.1.1"
-pytest-cov = "^3.0.0"
-tox = "^3.24.5"
+[[tool.mypy.overrides]]
+module = "interface_meta.utils.inspection"
+warn_return_any = false  # functional_getattr intentionally returns Any
 
-[build-system]
-requires = ["poetry-core>=1.0.0", "poetry-dynamic-versioning"]
-build-backend = "poetry.core.masonry.api"
+[tool.ruff]
+line-length = 160
+target-version = "py310"
+exclude = ["interface_meta/_version.py"]
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "UP", "B", "C4", "RUF"]
+ignore = [
+    "E501",   # handled by formatter
+    "E712",   # intentional comparison to bool in tests
+    "E722",   # bare except used sparingly
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["interface_meta"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"

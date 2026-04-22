@@ -33,6 +33,7 @@ from chalk.utils.tracing import safe_add_metrics, safe_add_tags, safe_trace
 
 if TYPE_CHECKING:
     import polars as pl
+    from polars._typing import PolarsDataType
     from polars.type_aliases import PolarsTemporalType
     from sqlalchemy.engine import URL, Connection
 
@@ -218,7 +219,7 @@ class PostgreSQLSourceImpl(BaseSQLSource, TableIngestMixIn, SQLSourceWithTableIn
             buffer.seek(0)
             features = columns_to_features(column_names)
 
-            parse_dtypes: Dict[str, pl.PolarsDataType] = {}
+            parse_dtypes: Dict[str, PolarsDataType] = {}
             boolean_columns: List[str] = []
             date_columns: List[str] = []
             datetime_col_to_dtype: Dict[str, pl.Datetime] = {}
@@ -484,7 +485,7 @@ class PostgreSQLSourceImpl(BaseSQLSource, TableIngestMixIn, SQLSourceWithTableIn
 
             import polars as pl
 
-            parse_dtypes: Dict[str, pl.PolarsDataType] = {}
+            parse_dtypes: Dict[str, PolarsDataType] = {}
             for field in expected_output_schema:
                 # Convert PyArrow types to Polars types for parsing
                 if pa.types.is_boolean(field.type):

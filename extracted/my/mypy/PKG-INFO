@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mypy
-Version: 1.20.1
+Version: 1.20.2
 Summary: Optional static typing for Python
 Author-email: Jukka Lehtosalo <jukka.lehtosalo@iki.fi>
 License-Expression: MIT
@@ -24,7 +24,8 @@ Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 License-File: mypy/typeshed/LICENSE
-Requires-Dist: typing_extensions>=4.6.0
+Requires-Dist: typing_extensions>=4.6.0; python_version < "3.15"
+Requires-Dist: typing_extensions>=4.14.0; python_version >= "3.15"
 Requires-Dist: mypy_extensions>=1.0.0
 Requires-Dist: pathspec>=1.0.0
 Requires-Dist: tomli>=1.1.0; python_version < "3.11"

@@ -180,7 +180,7 @@ class Project(APIObject, BrowserMixin):
     Attributes
     ----------
     id : str
-        the id of the project
+        the ID of the project
     project_name : str
         the name of the project
     project_description : str
@@ -197,7 +197,7 @@ class Project(APIObject, BrowserMixin):
     holdout_unlocked : bool
         whether the holdout has been unlocked
     metric : str
-        the selected project metric (e.g. `LogLoss`)
+        the selected project metric (e.g., `LogLoss`)
     stage : str
         the stage the project has reached - one of ``datarobot.enums.PROJECT_STAGE``
     partition : dict
@@ -208,7 +208,7 @@ class Project(APIObject, BrowserMixin):
         the time the project was created
     advanced_options : AdvancedOptions
         information on the advanced options that were selected for the project settings,
-        e.g. a weights column or a cap of the runtime of models that can advance autopilot stages
+        e.g., a weights column or a cap of the runtime of models that can advance autopilot stages
     max_train_pct : float
         The maximum percentage of the project dataset that can be used without going into the
         validation data or being too large to submit any blueprint for training
@@ -474,7 +474,7 @@ OR individual keyword arguments. You cannot pass both."
                         f"All options that can be set are the following: {settable_options}"
                     )
 
-        # Retrieve project options that have previously been set from the /options endpoint
+        # Retrieve project options that have previously been set from the `/options` endpoint
         project_options: ProjectOptions = self._options
         options_to_be_set = self._reconcile_options(options=options, options_previously_set=project_options, **kwargs)
 
@@ -749,7 +749,7 @@ OR individual keyword arguments. You cannot pass both."
         ----------
         url : str
             The location of the WebHDFS file, both server and full path. Per the DataRobot
-            specification, must begin with `hdfs://`, e.g. `hdfs:///tmp/10kDiabetes.csv`
+            specification, must begin with `hdfs://`, e.g., `hdfs:///tmp/10kDiabetes.csv`
         port : Optional[int]
             The port to use. If not specified, will default to the server default (50070)
         project_name : Optional[str]
@@ -821,7 +821,7 @@ OR individual keyword arguments. You cannot pass both."
         project_name : Optional[str]
             optional, a name to give to the project.
         max_wait : int
-            optional, the maximum number of seconds to wait before giving up.
+            Optional; the maximum number of seconds to wait before giving up.
         use_case: UseCase | string, optional
             A single UseCase object or ID to add this new Project to. Must be a kwarg.
 
@@ -904,7 +904,7 @@ OR individual keyword arguments. You cannot pass both."
             The credentials to authenticate with the database, to use instead of user/password or
             credential ID.
         max_wait: int
-            optional, the maximum number of seconds to wait before giving up.
+            Optional; the maximum number of seconds to wait before giving up.
         use_case: UseCase | string, optional
             A single UseCase object or ID to add this new Project to. Must be a kwarg.
 
@@ -973,7 +973,7 @@ OR individual keyword arguments. You cannot pass both."
             The name of the target column that will be used from the
             clustering project.
         max_wait: int
-            optional, the maximum number of seconds to wait before giving up.
+            Optional; the maximum number of seconds to wait before giving up.
         use_case: UseCase | string, optional
             A single UseCase object or ID to add this new Project to. Must be a kwarg.
 
@@ -1224,7 +1224,7 @@ OR individual keyword arguments. You cannot pass both."
             we insert into blueprints
         include_bias_mitigation_feature_as_predictor_variable : Optional[bool]
             Whether we should also use the mitigation feature as in input to the modeler just like
-            any other categorical used for training, i.e. do we want the model to "train on" this
+            any other categorical used for training, i.e., do we want the model to "train on" this
             feature in addition to using it for bias mitigation
         use_case: UseCase | string, optional
             A single UseCase object or ID to add this new Project to. Must be a kwarg.
@@ -2142,7 +2142,7 @@ OR individual keyword arguments. You cannot pass both."
 
         metric_details = self.get_metrics(self.target)["metric_details"]
 
-        # If the metric is ascending (i.e. lower value is better), don't reverse sort order
+        # If the metric is ascending (i.e., lower value is better), don't reverse sort order
         is_ascending = next(m["ascending"] for m in metric_details if m["metric_name"] == metric)
 
         # Create list of the form [(4.31236, Model("RMSE"))] where the first element is the score
@@ -2353,7 +2353,7 @@ OR individual keyword arguments. You cannot pass both."
             Raised if polling for the status of an async process resulted in a response with an
             unsupported status code.
         AsyncProcessUnsuccessfulError
-            Raised if project creation was unsuccessful (i.e. the server reported an error in
+            Raised if project creation was unsuccessful (i.e., the server reported an error in
             uploading the dataset).
         AsyncTimeoutError
             Raised if processing the uploaded dataset took more time than specified
@@ -2859,7 +2859,7 @@ OR individual keyword arguments. You cannot pass both."
             This data has 3 keys: chart_type, features, values, and types
         chart_type : str
             Type of plotting the pair of features gets in the UI.
-            e.g. 'HORIZONTAL_BOX', 'VERTICAL_BOX', 'SCATTER' or 'CONTINGENCY'
+            e.g., 'HORIZONTAL_BOX', 'VERTICAL_BOX', 'SCATTER' or 'CONTINGENCY'
         values : list
             A list of triplet lists e.g.
             {"values": [[460.0, 428.5, 0.001], [1679.3, 259.0, 0.001], ...]
@@ -2870,7 +2870,7 @@ OR individual keyword arguments. You cannot pass both."
             A list of the passed features, [feature1, feature2]
         types : List[str]
             A list of the passed features' types inferred by DataRobot.
-            e.g. ['NUMERIC', 'CATEGORICAL']
+            e.g., ['NUMERIC', 'CATEGORICAL']
         """
         from .feature_association_matrix import (  # pylint: disable=import-outside-toplevel,cyclic-import
             FeatureAssociationMatrixDetails,
@@ -3482,12 +3482,12 @@ OR individual keyword arguments. You cannot pass both."
         training_row_count : Optional[int]
             The number of rows to use to train the requested model.
         monotonic_increasing_featurelist_id : Optional[str]
-            (new in version 2.11) the id of the featurelist that defines the set of features with
+            (new in version 2.11) the ID of the featurelist that defines the set of features with
             a monotonically increasing relationship to the target. Passing ``None`` disables
             increasing monotonicity constraint. Default
             (``dr.enums.MONOTONICITY_FEATURELIST_DEFAULT``) is the one specified by the blueprint.
         monotonic_decreasing_featurelist_id : Optional[str]
-            (new in version 2.11) the id of the featurelist that defines the set of features with
+            (new in version 2.11) the ID of the featurelist that defines the set of features with
             a monotonically decreasing relationship to the target. Passing ``None`` disables
             decreasing monotonicity constraint. Default
             (``dr.enums.MONOTONICITY_FEATURELIST_DEFAULT``) is the one specified by the blueprint.
@@ -3593,10 +3593,10 @@ OR individual keyword arguments. You cannot pass both."
         training_row_count : Optional[int]
             The number of rows to use to train the requested model.
         monotonic_increasing_featurelist_id : Optional[str]
-            the id of the featurelist that defines the set of features with
+            the ID of the featurelist that defines the set of features with
             a monotonically increasing relationship to the target.
         monotonic_decreasing_featurelist_id : Optional[str]
-            the id of the featurelist that defines the set of features with
+            the ID of the featurelist that defines the set of features with
             a monotonically decreasing relationship to the target.
         n_clusters: Optional[int]
             Number of clusters used in an unsupervised clustering model. This parameter is used
@@ -3687,15 +3687,15 @@ OR individual keyword arguments. You cannot pass both."
             evaluate backtest scores. If specified, neither ``training_row_count`` nor
             ``training_duration`` may be specified.
         source_project_id : Optional[str]
-            the id of the project this blueprint comes from, if not this project.  If left
+            the ID of the project this blueprint comes from, if not this project.  If left
             unspecified, the blueprint must belong to this project.
         monotonic_increasing_featurelist_id : Optional[str]
-            (New in version v2.18) optional, the id of the featurelist that defines
+            (New in version v2.18) Optional; the ID of the featurelist that defines
             the set of features with a monotonically increasing relationship to the target.
             Passing ``None`` disables increasing monotonicity constraint. Default
             (``dr.enums.MONOTONICITY_FEATURELIST_DEFAULT``) is the one specified by the blueprint.
         monotonic_decreasing_featurelist_id : Optional[str]
-            (New in version v2.18) optional, the id of the featurelist that defines
+            (New in version v2.18) Optional; the ID of the featurelist that defines
             the set of features with a monotonically decreasing relationship to the target.
             Passing ``None`` disables decreasing monotonicity constraint. Default
             (``dr.enums.MONOTONICITY_FEATURELIST_DEFAULT``) is the one specified by the blueprint.
@@ -3917,7 +3917,7 @@ OR individual keyword arguments. You cannot pass both."
         if combined_model_id is None:
             combined_model_list = self.get_combined_models()
             if len(combined_model_list) > 1:
-                raise ValueError("More than 1 combined_model_id was found, please specify the id that you wish to use.")
+                raise ValueError("More than 1 combined_model_id was found, please specify the ID that you wish to use.")
             combined_model = combined_model_list[0]
         else:
             combined_model = CombinedModel.get(project_id=self.id, combined_model_id=combined_model_id)
@@ -4169,12 +4169,12 @@ OR individual keyword arguments. You cannot pass both."
         events_count : string, optional
             (New in version v2.8) the name of a column specifying events count.
         monotonic_increasing_featurelist_id : string, optional
-            (new in version 2.11) the id of the featurelist that defines the set of features
+            (new in version 2.11) the ID of the featurelist that defines the set of features
             with a monotonically increasing relationship to the target. If None,
             no such constraints are enforced. When specified, this will set a default for the project
             that can be overridden at model submission time if desired.
         monotonic_decreasing_featurelist_id : string, optional
-            (new in version 2.11) the id of the featurelist that defines the set of features
+            (new in version 2.11) the ID of the featurelist that defines the set of features
             with a monotonically decreasing relationship to the target. If None,
             no such constraints are enforced. When specified, this will set a default for the project
             that can be overridden at model submission time if desired.
@@ -4251,7 +4251,7 @@ OR individual keyword arguments. You cannot pass both."
             Used and required only if *Bias & Fairness in AutoML* feature is enabled.
         fairness_threshold: Optional[str].
             (New in version v2.24) Threshold value for the fairness metric.
-            Can be in a range of ``[0.0, 1.0]``. If the relative (i.e. normalized) fairness
+            Can be in a range of ``[0.0, 1.0]``. If the relative (i.e., normalized) fairness
             score is below the threshold, then the user will see a visual indication on the
         bias_mitigation_feature_name : Optional[str]
             The feature from protected features that will be used in a bias mitigation task to
@@ -4265,7 +4265,7 @@ OR individual keyword arguments. You cannot pass both."
             we insert into blueprints
         include_bias_mitigation_feature_as_predictor_variable : Optional[bool]
             Whether we should also use the mitigation feature as in input to the modeler just like
-            any other categorical used for training, i.e. do we want the model to "train on" this
+            any other categorical used for training, i.e., do we want the model to "train on" this
             feature in addition to using it for bias mitigation
         series_id : string, optional
             (New in version v3.6) The name of a column containing the series ID for each row.
@@ -4469,7 +4469,7 @@ OR individual keyword arguments. You cannot pass both."
         access_list : list of :class:`SharingAccess <datarobot.SharingAccess>`
             the modifications to make.
         send_notification : boolean, default ``None``
-            (New in version v2.21) optional, whether or not an email notification should be sent,
+            (New in version v2.21) Optional; whether or not an email notification should be sent,
             default to None
         include_feature_discovery_entities : boolean, default ``None``
             (New in version v2.21) optional (default: None), whether or not to share all the
@@ -4978,7 +4978,7 @@ OR individual keyword arguments. You cannot pass both."
             we insert into blueprints
         include_bias_mitigation_feature_as_predictor_variable : bool
           Whether we should also use the mitigation feature as in input to the modeler just like
-          any other categorical used for training, i.e. do we want the model to "train on" this
+          any other categorical used for training, i.e., do we want the model to "train on" this
           feature in addition to using it for bias mitigation
 
         Returns
@@ -5118,7 +5118,7 @@ OR individual keyword arguments. You cannot pass both."
         """List datetime partitioning settings.
 
         This method makes an API call to retrieve settings from the DB if project is in the modeling
-        stage, i.e. if `analyze_and_model` (autopilot) has already been called.
+        stage, i.e., if `analyze_and_model` (autopilot) has already been called.
 
         If `analyze_and_model` has not yet been called, this method will instead simply print
         settings from `project.partitioning_method`.

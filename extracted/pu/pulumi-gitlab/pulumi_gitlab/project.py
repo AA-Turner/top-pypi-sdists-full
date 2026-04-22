@@ -75,6 +75,8 @@ class ProjectArgs:
                  merge_commit_template: Optional[pulumi.Input[_builtins.str]] = None,
                  merge_method: Optional[pulumi.Input[_builtins.str]] = None,
                  merge_pipelines_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
+                 merge_request_title_regex: Optional[pulumi.Input[_builtins.str]] = None,
+                 merge_request_title_regex_description: Optional[pulumi.Input[_builtins.str]] = None,
                  merge_requests_access_level: Optional[pulumi.Input[_builtins.str]] = None,
                  merge_requests_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
                  merge_requests_template: Optional[pulumi.Input[_builtins.str]] = None,
@@ -130,6 +132,7 @@ class ProjectArgs:
                  wiki_enabled: Optional[pulumi.Input[_builtins.bool]] = None):
         """
         The set of arguments for constructing a Project resource.
+
         :param pulumi.Input[_builtins.bool] allow_merge_on_skipped_pipeline: Set to true if you want to treat skipped pipelines as if they finished with success.
         :param pulumi.Input[_builtins.bool] allow_pipeline_trigger_approve_deployment: Set whether or not a pipeline triggerer is allowed to approve deployments. Premium and Ultimate only.
         :param pulumi.Input[_builtins.str] analytics_access_level: Set the analytics access level. Valid values are `disabled`, `private`, `enabled`.
@@ -184,6 +187,8 @@ class ProjectArgs:
         :param pulumi.Input[_builtins.str] merge_commit_template: Template used to create merge commit message in merge requests.
         :param pulumi.Input[_builtins.str] merge_method: Set the merge method. Valid values are `merge`, `rebase_merge`, `ff`.
         :param pulumi.Input[_builtins.bool] merge_pipelines_enabled: Enable or disable merge pipelines.
+        :param pulumi.Input[_builtins.str] merge_request_title_regex: Set the regex pattern that merge request titles must match. Use `merge_request_title_regex_description` to provide a hint to the user.
+        :param pulumi.Input[_builtins.str] merge_request_title_regex_description: Set the description shown to users when a merge request title does not match `merge_request_title_regex`.
         :param pulumi.Input[_builtins.str] merge_requests_access_level: Set the merge requests access level. Valid values are `disabled`, `private`, `enabled`.
         :param pulumi.Input[_builtins.bool] merge_requests_enabled: Enable merge requests for the project. Use `merge_requests_access_level` instead. To be removed in 19.0.
         :param pulumi.Input[_builtins.str] merge_requests_template: Sets the template for new merge requests in the project.
@@ -359,6 +364,10 @@ class ProjectArgs:
             pulumi.set(__self__, "merge_method", merge_method)
         if merge_pipelines_enabled is not None:
             pulumi.set(__self__, "merge_pipelines_enabled", merge_pipelines_enabled)
+        if merge_request_title_regex is not None:
+            pulumi.set(__self__, "merge_request_title_regex", merge_request_title_regex)
+        if merge_request_title_regex_description is not None:
+            pulumi.set(__self__, "merge_request_title_regex_description", merge_request_title_regex_description)
         if merge_requests_access_level is not None:
             pulumi.set(__self__, "merge_requests_access_level", merge_requests_access_level)
         if merge_requests_enabled is not None:
@@ -1151,6 +1160,30 @@ class ProjectArgs:
         pulumi.set(self, "merge_pipelines_enabled", value)
 
     @_builtins.property
+    @pulumi.getter(name="mergeRequestTitleRegex")
+    def merge_request_title_regex(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Set the regex pattern that merge request titles must match. Use `merge_request_title_regex_description` to provide a hint to the user.
+        """
+        return pulumi.get(self, "merge_request_title_regex")
+
+    @merge_request_title_regex.setter
+    def merge_request_title_regex(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "merge_request_title_regex", value)
+
+    @_builtins.property
+    @pulumi.getter(name="mergeRequestTitleRegexDescription")
+    def merge_request_title_regex_description(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Set the description shown to users when a merge request title does not match `merge_request_title_regex`.
+        """
+        return pulumi.get(self, "merge_request_title_regex_description")
+
+    @merge_request_title_regex_description.setter
+    def merge_request_title_regex_description(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "merge_request_title_regex_description", value)
+
+    @_builtins.property
     @pulumi.getter(name="mergeRequestsAccessLevel")
     def merge_requests_access_level(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
@@ -1862,6 +1895,8 @@ class _ProjectState:
                  merge_commit_template: Optional[pulumi.Input[_builtins.str]] = None,
                  merge_method: Optional[pulumi.Input[_builtins.str]] = None,
                  merge_pipelines_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
+                 merge_request_title_regex: Optional[pulumi.Input[_builtins.str]] = None,
+                 merge_request_title_regex_description: Optional[pulumi.Input[_builtins.str]] = None,
                  merge_requests_access_level: Optional[pulumi.Input[_builtins.str]] = None,
                  merge_requests_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
                  merge_requests_template: Optional[pulumi.Input[_builtins.str]] = None,
@@ -1921,6 +1956,7 @@ class _ProjectState:
                  wiki_enabled: Optional[pulumi.Input[_builtins.bool]] = None):
         """
         Input properties used for looking up and filtering Project resources.
+
         :param pulumi.Input[_builtins.bool] allow_merge_on_skipped_pipeline: Set to true if you want to treat skipped pipelines as if they finished with success.
         :param pulumi.Input[_builtins.bool] allow_pipeline_trigger_approve_deployment: Set whether or not a pipeline triggerer is allowed to approve deployments. Premium and Ultimate only.
         :param pulumi.Input[_builtins.str] analytics_access_level: Set the analytics access level. Valid values are `disabled`, `private`, `enabled`.
@@ -1978,6 +2014,8 @@ class _ProjectState:
         :param pulumi.Input[_builtins.str] merge_commit_template: Template used to create merge commit message in merge requests.
         :param pulumi.Input[_builtins.str] merge_method: Set the merge method. Valid values are `merge`, `rebase_merge`, `ff`.
         :param pulumi.Input[_builtins.bool] merge_pipelines_enabled: Enable or disable merge pipelines.
+        :param pulumi.Input[_builtins.str] merge_request_title_regex: Set the regex pattern that merge request titles must match. Use `merge_request_title_regex_description` to provide a hint to the user.
+        :param pulumi.Input[_builtins.str] merge_request_title_regex_description: Set the description shown to users when a merge request title does not match `merge_request_title_regex`.
         :param pulumi.Input[_builtins.str] merge_requests_access_level: Set the merge requests access level. Valid values are `disabled`, `private`, `enabled`.
         :param pulumi.Input[_builtins.bool] merge_requests_enabled: Enable merge requests for the project. Use `merge_requests_access_level` instead. To be removed in 19.0.
         :param pulumi.Input[_builtins.str] merge_requests_template: Sets the template for new merge requests in the project.
@@ -2163,6 +2201,10 @@ class _ProjectState:
             pulumi.set(__self__, "merge_method", merge_method)
         if merge_pipelines_enabled is not None:
             pulumi.set(__self__, "merge_pipelines_enabled", merge_pipelines_enabled)
+        if merge_request_title_regex is not None:
+            pulumi.set(__self__, "merge_request_title_regex", merge_request_title_regex)
+        if merge_request_title_regex_description is not None:
+            pulumi.set(__self__, "merge_request_title_regex_description", merge_request_title_regex_description)
         if merge_requests_access_level is not None:
             pulumi.set(__self__, "merge_requests_access_level", merge_requests_access_level)
         if merge_requests_enabled is not None:
@@ -2999,6 +3041,30 @@ class _ProjectState:
         pulumi.set(self, "merge_pipelines_enabled", value)
 
     @_builtins.property
+    @pulumi.getter(name="mergeRequestTitleRegex")
+    def merge_request_title_regex(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Set the regex pattern that merge request titles must match. Use `merge_request_title_regex_description` to provide a hint to the user.
+        """
+        return pulumi.get(self, "merge_request_title_regex")
+
+    @merge_request_title_regex.setter
+    def merge_request_title_regex(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "merge_request_title_regex", value)
+
+    @_builtins.property
+    @pulumi.getter(name="mergeRequestTitleRegexDescription")
+    def merge_request_title_regex_description(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Set the description shown to users when a merge request title does not match `merge_request_title_regex`.
+        """
+        return pulumi.get(self, "merge_request_title_regex_description")
+
+    @merge_request_title_regex_description.setter
+    def merge_request_title_regex_description(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "merge_request_title_regex_description", value)
+
+    @_builtins.property
     @pulumi.getter(name="mergeRequestsAccessLevel")
     def merge_requests_access_level(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
@@ -3758,6 +3824,8 @@ class Project(pulumi.CustomResource):
                  merge_commit_template: Optional[pulumi.Input[_builtins.str]] = None,
                  merge_method: Optional[pulumi.Input[_builtins.str]] = None,
                  merge_pipelines_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
+                 merge_request_title_regex: Optional[pulumi.Input[_builtins.str]] = None,
+                 merge_request_title_regex_description: Optional[pulumi.Input[_builtins.str]] = None,
                  merge_requests_access_level: Optional[pulumi.Input[_builtins.str]] = None,
                  merge_requests_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
                  merge_requests_template: Optional[pulumi.Input[_builtins.str]] = None,
@@ -3813,30 +3881,26 @@ class Project(pulumi.CustomResource):
                  wiki_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
                  __props__=None):
         """
-        ## Example Usage
+        The `Project` resource manages the lifecycle of a project.
+
+        A project can either be created in a group or user namespace.
+
+        > **Default Branch Protection Workaround** Projects are created with default branch protection.
+        Since this default branch protection is not currently managed via Terraform, to workaround this limitation,
+        you can remove the default branch protection via the API and create your desired Terraform managed branch protection.
+        In the `Project` resource, define a `local-exec` provisioner which invokes
+        the `/projects/:id/protected_branches/:name` API via curl to delete the branch protection on the default
+        branch using a `DELETE` request. Then define the desired branch protection using the `BranchProtection` resource.
+
+        **Upstream API**: [GitLab REST API docs](https://docs.gitlab.com/api/projects/)
 
         ## Import
 
-        Starting in Terraform v1.5.0, you can use an import block to import `gitlab_project`. For example:
-
-        terraform
-
-        import {
-
-          to = gitlab_project.example
-
-          id = "see CLI command below for ID"
-
-        }
+        Starting in Terraform v1.5.0, you can use an import block to import `Project`. For example:
 
         Importing using the CLI is supported with the following syntax:
 
-        ```sh
-        $ pulumi import gitlab:index/project:Project You can import a project state using `<resource> <id>`. The
-        ```
-
         `id` can be whatever the [get single project api][get_single_project] takes for
-
         its `:id` value, so for example:
 
         ```sh
@@ -3844,6 +3908,7 @@ class Project(pulumi.CustomResource):
         ```
 
         NOTE: the `import_url_username` and `import_url_password` cannot be imported.
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -3901,6 +3966,8 @@ class Project(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] merge_commit_template: Template used to create merge commit message in merge requests.
         :param pulumi.Input[_builtins.str] merge_method: Set the merge method. Valid values are `merge`, `rebase_merge`, `ff`.
         :param pulumi.Input[_builtins.bool] merge_pipelines_enabled: Enable or disable merge pipelines.
+        :param pulumi.Input[_builtins.str] merge_request_title_regex: Set the regex pattern that merge request titles must match. Use `merge_request_title_regex_description` to provide a hint to the user.
+        :param pulumi.Input[_builtins.str] merge_request_title_regex_description: Set the description shown to users when a merge request title does not match `merge_request_title_regex`.
         :param pulumi.Input[_builtins.str] merge_requests_access_level: Set the merge requests access level. Valid values are `disabled`, `private`, `enabled`.
         :param pulumi.Input[_builtins.bool] merge_requests_enabled: Enable merge requests for the project. Use `merge_requests_access_level` instead. To be removed in 19.0.
         :param pulumi.Input[_builtins.str] merge_requests_template: Sets the template for new merge requests in the project.
@@ -3966,30 +4033,26 @@ class Project(pulumi.CustomResource):
                  args: Optional[ProjectArgs] = None,
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
-        ## Example Usage
+        The `Project` resource manages the lifecycle of a project.
+
+        A project can either be created in a group or user namespace.
+
+        > **Default Branch Protection Workaround** Projects are created with default branch protection.
+        Since this default branch protection is not currently managed via Terraform, to workaround this limitation,
+        you can remove the default branch protection via the API and create your desired Terraform managed branch protection.
+        In the `Project` resource, define a `local-exec` provisioner which invokes
+        the `/projects/:id/protected_branches/:name` API via curl to delete the branch protection on the default
+        branch using a `DELETE` request. Then define the desired branch protection using the `BranchProtection` resource.
+
+        **Upstream API**: [GitLab REST API docs](https://docs.gitlab.com/api/projects/)
 
         ## Import
 
-        Starting in Terraform v1.5.0, you can use an import block to import `gitlab_project`. For example:
-
-        terraform
-
-        import {
-
-          to = gitlab_project.example
-
-          id = "see CLI command below for ID"
-
-        }
+        Starting in Terraform v1.5.0, you can use an import block to import `Project`. For example:
 
         Importing using the CLI is supported with the following syntax:
 
-        ```sh
-        $ pulumi import gitlab:index/project:Project You can import a project state using `<resource> <id>`. The
-        ```
-
         `id` can be whatever the [get single project api][get_single_project] takes for
-
         its `:id` value, so for example:
 
         ```sh
@@ -3997,6 +4060,7 @@ class Project(pulumi.CustomResource):
         ```
 
         NOTE: the `import_url_username` and `import_url_password` cannot be imported.
+
 
         :param str resource_name: The name of the resource.
         :param ProjectArgs args: The arguments to use to populate this resource's properties.
@@ -4067,6 +4131,8 @@ class Project(pulumi.CustomResource):
                  merge_commit_template: Optional[pulumi.Input[_builtins.str]] = None,
                  merge_method: Optional[pulumi.Input[_builtins.str]] = None,
                  merge_pipelines_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
+                 merge_request_title_regex: Optional[pulumi.Input[_builtins.str]] = None,
+                 merge_request_title_regex_description: Optional[pulumi.Input[_builtins.str]] = None,
                  merge_requests_access_level: Optional[pulumi.Input[_builtins.str]] = None,
                  merge_requests_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
                  merge_requests_template: Optional[pulumi.Input[_builtins.str]] = None,
@@ -4183,6 +4249,8 @@ class Project(pulumi.CustomResource):
             __props__.__dict__["merge_commit_template"] = merge_commit_template
             __props__.__dict__["merge_method"] = merge_method
             __props__.__dict__["merge_pipelines_enabled"] = merge_pipelines_enabled
+            __props__.__dict__["merge_request_title_regex"] = merge_request_title_regex
+            __props__.__dict__["merge_request_title_regex_description"] = merge_request_title_regex_description
             __props__.__dict__["merge_requests_access_level"] = merge_requests_access_level
             __props__.__dict__["merge_requests_enabled"] = merge_requests_enabled
             __props__.__dict__["merge_requests_template"] = merge_requests_template
@@ -4312,6 +4380,8 @@ class Project(pulumi.CustomResource):
             merge_commit_template: Optional[pulumi.Input[_builtins.str]] = None,
             merge_method: Optional[pulumi.Input[_builtins.str]] = None,
             merge_pipelines_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
+            merge_request_title_regex: Optional[pulumi.Input[_builtins.str]] = None,
+            merge_request_title_regex_description: Optional[pulumi.Input[_builtins.str]] = None,
             merge_requests_access_level: Optional[pulumi.Input[_builtins.str]] = None,
             merge_requests_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
             merge_requests_template: Optional[pulumi.Input[_builtins.str]] = None,
@@ -4433,6 +4503,8 @@ class Project(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] merge_commit_template: Template used to create merge commit message in merge requests.
         :param pulumi.Input[_builtins.str] merge_method: Set the merge method. Valid values are `merge`, `rebase_merge`, `ff`.
         :param pulumi.Input[_builtins.bool] merge_pipelines_enabled: Enable or disable merge pipelines.
+        :param pulumi.Input[_builtins.str] merge_request_title_regex: Set the regex pattern that merge request titles must match. Use `merge_request_title_regex_description` to provide a hint to the user.
+        :param pulumi.Input[_builtins.str] merge_request_title_regex_description: Set the description shown to users when a merge request title does not match `merge_request_title_regex`.
         :param pulumi.Input[_builtins.str] merge_requests_access_level: Set the merge requests access level. Valid values are `disabled`, `private`, `enabled`.
         :param pulumi.Input[_builtins.bool] merge_requests_enabled: Enable merge requests for the project. Use `merge_requests_access_level` instead. To be removed in 19.0.
         :param pulumi.Input[_builtins.str] merge_requests_template: Sets the template for new merge requests in the project.
@@ -4556,6 +4628,8 @@ class Project(pulumi.CustomResource):
         __props__.__dict__["merge_commit_template"] = merge_commit_template
         __props__.__dict__["merge_method"] = merge_method
         __props__.__dict__["merge_pipelines_enabled"] = merge_pipelines_enabled
+        __props__.__dict__["merge_request_title_regex"] = merge_request_title_regex
+        __props__.__dict__["merge_request_title_regex_description"] = merge_request_title_regex_description
         __props__.__dict__["merge_requests_access_level"] = merge_requests_access_level
         __props__.__dict__["merge_requests_enabled"] = merge_requests_enabled
         __props__.__dict__["merge_requests_template"] = merge_requests_template
@@ -5073,6 +5147,22 @@ class Project(pulumi.CustomResource):
         Enable or disable merge pipelines.
         """
         return pulumi.get(self, "merge_pipelines_enabled")
+
+    @_builtins.property
+    @pulumi.getter(name="mergeRequestTitleRegex")
+    def merge_request_title_regex(self) -> pulumi.Output[_builtins.str]:
+        """
+        Set the regex pattern that merge request titles must match. Use `merge_request_title_regex_description` to provide a hint to the user.
+        """
+        return pulumi.get(self, "merge_request_title_regex")
+
+    @_builtins.property
+    @pulumi.getter(name="mergeRequestTitleRegexDescription")
+    def merge_request_title_regex_description(self) -> pulumi.Output[_builtins.str]:
+        """
+        Set the description shown to users when a merge request title does not match `merge_request_title_regex`.
+        """
+        return pulumi.get(self, "merge_request_title_regex_description")
 
     @_builtins.property
     @pulumi.getter(name="mergeRequestsAccessLevel")

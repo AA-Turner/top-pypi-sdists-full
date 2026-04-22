@@ -302,21 +302,26 @@ class OrchestratorConfig(BaseModel, frozen=True):
         worktree_lock_stale_after_minutes: Staleness threshold for task lock recovery
     """
 
-    runtime_backend: Literal["claude", "codex", "opencode"] = "claude"
+    runtime_backend: Literal["claude", "codex", "opencode", "hermes"] = "claude"
     permission_mode: Literal["default", "acceptEdits", "bypassPermissions"] = "acceptEdits"
     opencode_permission_mode: Literal["default", "acceptEdits", "bypassPermissions"] = (
         "bypassPermissions"
     )
+    # OpenCode integration mode. Written by `ouroboros setup --opencode-mode`.
+    # None = unset (legacy installs); gate treats None as NOT plugin (safe
+    # default — require explicit opt-in via setup --opencode-mode=plugin).
+    opencode_mode: Literal["plugin", "subprocess"] | None = None
     cli_path: str | None = None
     codex_cli_path: str | None = None
     opencode_cli_path: str | None = None
+    hermes_cli_path: str | None = None
     default_max_turns: int = Field(default=10, ge=1)
     use_worktrees: bool = True
     worktree_root: str = "~/.ouroboros/worktrees"
     worktree_cleanup: Literal["keep"] = "keep"
     worktree_lock_stale_after_minutes: int = Field(default=60, ge=1)
 
-    @field_validator("cli_path", "codex_cli_path", "opencode_cli_path")
+    @field_validator("cli_path", "codex_cli_path", "opencode_cli_path", "hermes_cli_path")
     @classmethod
     def expand_cli_path(cls, v: str | None) -> str | None:
         """Expand ~ in cli_path."""

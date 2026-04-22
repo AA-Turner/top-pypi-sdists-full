@@ -64,6 +64,7 @@ __all__ = (
     "MaintenanceScheduleTypeType",
     "MaintenanceTypeType",
     "MediaConnectServiceName",
+    "MediaLiveChannelPipelineIdType",
     "MediaLiveInputPipelineIdType",
     "MediaLiveTransitEncryptionKeyTypeType",
     "MediaStreamTypeType",
@@ -169,6 +170,7 @@ MaintenanceDayType = Literal[
 ]
 MaintenanceScheduleTypeType = Literal["WINDOW"]
 MaintenanceTypeType = Literal["DEFAULT", "PREFERRED_DAY_TIME"]
+MediaLiveChannelPipelineIdType = Literal["PIPELINE_0", "PIPELINE_1"]
 MediaLiveInputPipelineIdType = Literal["PIPELINE_0", "PIPELINE_1"]
 MediaLiveTransitEncryptionKeyTypeType = Literal["AUTOMATIC", "SECRETS_MANAGER"]
 MediaStreamTypeType = Literal["ancillary-data", "audio", "video"]
@@ -213,7 +215,9 @@ RouterInputStateType = Literal[
 ]
 RouterInputTierType = Literal["INPUT_100", "INPUT_20", "INPUT_50"]
 RouterInputTransitEncryptionKeyTypeType = Literal["AUTOMATIC", "SECRETS_MANAGER"]
-RouterInputTypeType = Literal["FAILOVER", "MEDIACONNECT_FLOW", "MERGE", "STANDARD"]
+RouterInputTypeType = Literal[
+    "FAILOVER", "MEDIACONNECT_FLOW", "MEDIALIVE_CHANNEL", "MERGE", "STANDARD"
+]
 RouterNetworkInterfaceStateType = Literal[
     "ACTIVE", "CREATING", "DELETING", "ERROR", "RECOVERING", "UPDATING"
 ]
@@ -429,6 +433,7 @@ ServiceName = Literal[
     "inspector",
     "inspector-scan",
     "inspector2",
+    "interconnect",
     "internetmonitor",
     "invoicing",
     "iot",
@@ -485,6 +490,7 @@ ServiceName = Literal[
     "marketplace-agreement",
     "marketplace-catalog",
     "marketplace-deployment",
+    "marketplace-discovery",
     "marketplace-entitlement",
     "marketplace-reporting",
     "marketplacecommerceanalytics",
@@ -582,6 +588,7 @@ ServiceName = Literal[
     "rum",
     "s3",
     "s3control",
+    "s3files",
     "s3outposts",
     "s3tables",
     "s3vectors",

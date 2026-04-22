@@ -2,6 +2,11 @@ import skylos
 
 COMMANDS = [
     {
+        "name": "skylos suite <path>",
+        "desc": "Run the full local analysis bundle",
+        "group": "Core Analysis",
+    },
+    {
         "name": "skylos <path>",
         "desc": "Dead code, security, and quality analysis",
         "group": "Core Analysis",
@@ -14,11 +19,6 @@ COMMANDS = [
     {
         "name": "skylos defend <path>",
         "desc": "Check LLM integrations for missing defenses",
-        "group": "Core Analysis",
-    },
-    {
-        "name": "skylos city <path>",
-        "desc": "Visualize codebase as a Code City topology",
         "group": "Core Analysis",
     },
     {
@@ -43,7 +43,7 @@ COMMANDS = [
     },
     {
         "name": "skylos agent pre-commit <path>",
-        "desc": "Analyze staged files (git hook)",
+        "desc": "Staged local hook for security, secrets, and quality",
         "group": "AI Agent",
     },
     {

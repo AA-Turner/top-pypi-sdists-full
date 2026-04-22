@@ -98,6 +98,9 @@ from .enum_customer_tier import EnumCustomerTier
 from .enum_dashboard_status import EnumDashboardStatus
 from .enum_dashboard_theme import EnumDashboardTheme
 
+# Dashboard widget type (registry-driven dashboard Part 1 - OMN-9207)
+from .enum_dashboard_widget_type import EnumDashboardWidgetType
+
 # Security-related enums
 from .enum_data_classification import EnumDataClassification
 
@@ -177,6 +180,9 @@ from .enum_handler_command_type import EnumHandlerCommandType
 
 # Handler execution phase enums (OMN-1108)
 from .enum_handler_execution_phase import EnumHandlerExecutionPhase
+
+# Handler resolution outcome enum (HandlerResolver Phase 1 — OMN-9195/OMN-9196)
+from .enum_handler_resolution_outcome import EnumHandlerResolutionOutcome
 
 # Handler role enums (OMN-1086)
 from .enum_handler_role import EnumHandlerRole
@@ -270,6 +276,7 @@ from .enum_node_archetype import EnumNodeArchetype
 from .enum_node_architecture_type import EnumNodeArchitectureType
 from .enum_node_kind import EnumNodeKind
 from .enum_node_requirement import EnumNodeRequirement
+from .enum_node_role import EnumNodeRole
 from .enum_node_status import EnumNodeStatus
 from .enum_node_type import EnumNodeType
 
@@ -564,6 +571,7 @@ __all__ = [
     "EnumNodeArchetype",
     "EnumNodeArchitectureType",
     "EnumNodeKind",
+    "EnumNodeRole",
     "EnumNodeType",
     "EnumOperationStatus",  # Canonical operation status (OMN-1310)
     "EnumExecutionStatus",  # Canonical execution status (OMN-1310)
@@ -642,6 +650,8 @@ __all__ = [
     "EnumHandlerCommandType",
     # Handler execution phase domain (OMN-1108)
     "EnumHandlerExecutionPhase",
+    # Handler resolution outcome domain (HandlerResolver Phase 1 — OMN-9195/OMN-9196)
+    "EnumHandlerResolutionOutcome",
     # Handler routing strategy domain (OMN-1295)
     "EnumHandlerRoutingStrategy",
     # Handler role domain (OMN-1086)
@@ -760,6 +770,8 @@ __all__ = [
     "EnumDashboardStatus",
     "EnumDashboardTheme",
     "EnumWidgetType",
+    # Dashboard widget type (registry-driven dashboard Part 1 - OMN-9207)
+    "EnumDashboardWidgetType",
     # Event priority domain (OMN-1308)
     "EnumEventPriority",
     # Event sink type domain (OMN-1151)

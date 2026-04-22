@@ -1439,6 +1439,12 @@ class ParallelACExecutor:
                         raise
                     batch_results[idx] = e
 
+        # Cross-AC concurrency is governed by the LevelCoordinator's
+        # file-conflict guard, not by session-level tool catalog presence.
+        # Tool-call-level serialization (same runtime session cannot invoke
+        # ISOLATED_SESSION_REQUIRED capabilities concurrently) is enforced by
+        # the provider runtime, which is the correct layer: the batch
+        # scheduler does not know which ACs will actually invoke which tools.
         async with anyio.create_task_group() as tg:
             for idx, ac_idx in enumerate(batch_indices):
                 tg.start_soon(_run_ac, idx, ac_idx)

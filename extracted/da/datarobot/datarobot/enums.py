@@ -1049,6 +1049,7 @@ class CredentialTypes(StrEnum):
     AZURE_SERVICE_PRINCIPAL = "azure_service_principal"
     ADLS_OAUTH = "adls_gen2_oauth"
     EXTERNAL_OAUTH_PROVIDER = "external_oauth_provider"
+    BOX_JWT = "box_jwt"
 
 
 class DriverTypes(StrEnum):
@@ -1149,6 +1150,7 @@ class PredictionEnvironmentPlatform:
     OPEN_SHIFT = "openShift"
     OTHER = "other"
     SNOWFLAKE = "snowflake"
+    SAP_AI_CORE = "sapAiCore"
 
     ALL = [
         AWS,
@@ -1160,8 +1162,9 @@ class PredictionEnvironmentPlatform:
         OPEN_SHIFT,
         OTHER,
         SNOWFLAKE,
+        SAP_AI_CORE,
     ]
-    EXTERNALS = [AWS, GCP, AZURE, ON_PREMISE, OPEN_SHIFT, OTHER, SNOWFLAKE]
+    EXTERNALS = [AWS, GCP, AZURE, ON_PREMISE, OPEN_SHIFT, OTHER, SNOWFLAKE, SAP_AI_CORE]
 
     HUMAN_STRING = {
         AWS: "Amazon Web Services (AWS)",
@@ -1173,6 +1176,7 @@ class PredictionEnvironmentPlatform:
         OPEN_SHIFT: "OpenShift",
         OTHER: "Other",
         SNOWFLAKE: "Snowflake",
+        SAP_AI_CORE: "SAP AI Core",
     }
 
 

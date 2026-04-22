@@ -98,6 +98,8 @@ def _build_routing(existing, properties):
     if not existing:
         return None
 
+    if not isinstance(existing, dict):
+        existing = existing.to_dict()
     return agilicus_api.AuditDestinationRouting(**existing)
 
 

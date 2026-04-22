@@ -153,6 +153,7 @@ from .detection import (
     is_mips64el,
     is_mipsel,
     is_netbsd,
+    is_nixos,
     is_nobara,
     is_nushell,
     is_openbsd,
@@ -305,6 +306,7 @@ from .platform_data import (
     MANJARO,
     MIDNIGHTBSD,
     NETBSD,
+    NIXOS,
     NOBARA,
     OPENBSD,
     OPENSUSE,
@@ -380,18 +382,20 @@ from .trait import (
 )
 
 """
-.. important::
-    Exposing everything at package level here motivates platforms and groups to have a
-    unique and unambiguous ID. This constraint is enforced at the data-level and
-    checked in unittests.
+```{important}
+Exposing everything at package level here motivates platforms and groups to have a
+unique and unambiguous ID. This constraint is enforced at the data-level and
+checked in unittests.
+```
 
-.. hint::
-    The content of ``pytest.py`` file is not imported here to make dependency on
-    Pytest optional.
+```{hint}
+The content of `pytest.py` file is not imported here to make dependency on
+Pytest optional.
+```
 """
 
 
-__version__ = "11.0.5"
+__version__ = "11.1.0"
 
 
 def _initialize_group_detection_functions() -> list[str]:
@@ -399,7 +403,7 @@ def _initialize_group_detection_functions() -> list[str]:
 
     Generates the appropriate test function for each group and registers it globally.
     Since traits and groups have unique, non-overlapping IDs, we can create a
-    ``is_<group>()`` function for each group.
+    `is_<group>()` function for each group.
 
     Returns a list of all registered function IDs for cache invalidation purposes.
     """
@@ -412,12 +416,12 @@ def _initialize_group_detection_functions() -> list[str]:
         # Use default argument to capture the current group value (not the
         # variable reference).
         def group_membership_check(_group: Group = group) -> bool:
-            """Compares all the current traits to the ``group``."""
+            """Compares all the current traits to the `group`."""
             return any(t in _group for t in current_traits())
 
         group_membership_check.__doc__ = (
-            "Return ``True`` if at least one :func:`~current_traits` is "
-            f"found in the :data:`~{group.symbol_id}` group."
+            "Return `True` if at least one {func}`~current_traits` is "
+            f"found in the {{data}}`~{group.symbol_id}` group."
         )
 
         assert func_id not in locals(), (
@@ -430,10 +434,10 @@ def _initialize_group_detection_functions() -> list[str]:
 
 
 _group_detection_func_ids = _initialize_group_detection_functions()
-"""Generates ``is_<group>()`` function for each group.
+"""Generates `is_<group>()` function for each group.
 
-These are the equivalent for groups of ``is_<trait>()`` functions defined in
-``detection.py``.
+These are the equivalent for groups of `is_<trait>()` functions defined in
+`detection.py`.
 
 These functions return a boolean value indicating the membership of the current
 system into that group.
@@ -442,7 +446,7 @@ system into that group.
 # Declare type stubs for dynamically generated group detection functions so that
 # mypy and other static type checkers can see them. At runtime, the actual
 # implementations are the cached closures registered by
-# ``_initialize_group_detection_functions()`` above.
+# `_initialize_group_detection_functions()` above.
 TYPE_CHECKING = False
 if TYPE_CHECKING:
 
@@ -491,8 +495,7 @@ if TYPE_CHECKING:
 def invalidate_caches():
     """Invalidate all cached properties.
 
-    Inspired by the new `platform.invalidate_caches() from Python 3.14
-    <https://docs.python.org/3.14/library/platform.html#platform.invalidate_caches>`_,
+    Inspired by the new [`platform.invalidate_caches()` from Python 3.14](https://docs.python.org/3.14/library/platform.html#platform.invalidate_caches),
     which is also called here when available.
     """
     # Invalidate platform module caches if available.
@@ -646,6 +649,7 @@ __all__ = (
     "MULTIPLEXERS",
     "NATIVE_TERMINALS",
     "NETBSD",
+    "NIXOS",
     "NOBARA",
     "NON_OVERLAPPING_GROUPS",
     "NUSHELL",
@@ -837,6 +841,7 @@ __all__ = (
     "is_multiplexers",
     "is_native_terminals",
     "is_netbsd",
+    "is_nixos",
     "is_nobara",
     "is_nushell",
     "is_openbsd",
@@ -912,10 +917,11 @@ __all__ = (
 )
 """Expose all package-wide elements.
 
-.. note::
-    Sorting of ``__all__`` is enforced by ``ruff`` via rule ``RUF022``.
+```{note}
+Sorting of `__all__` is enforced by `ruff` via rule `RUF022`.
 
-    Completeness (no missing or extra entries) is checked in unittests.
+Completeness (no missing or extra entries) is checked in unittests.
+```
 """
 
 # Initialize docstrings for all trait and group instances after all imports

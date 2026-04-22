@@ -19,6 +19,7 @@ from typing import Iterator, Mapping, NamedTuple, Optional, Tuple
 from unittest.mock import patch
 
 import torch
+import transformers
 
 import tensorizer
 
@@ -161,6 +162,21 @@ def model_digest(
     return {k: TensorInfo.from_tensor(v) for k, v in orig_sd.items()}
 
 
+# Key suffixes that older serialized artifacts may contain but that
+# newer transformers versions no longer register.
+# If the transformers version is one that no longer registers these,
+# `check_deserialized` ignores any mismatches caused by them being present.
+_LEGACY_IGNORED_KEY_SUFFIXES: Tuple[str, ...]
+if int(transformers.__version__.partition(".")[0]) < 5:
+    _LEGACY_IGNORED_KEY_SUFFIXES = ()
+else:
+    _LEGACY_IGNORED_KEY_SUFFIXES = (".attn.attention.masked_bias",)
+
+
+def _is_legacy_ignored_key(k: str) -> bool:
+    return k.endswith(_LEGACY_IGNORED_KEY_SUFFIXES)
+
+
 def check_deserialized(
     test_case: unittest.TestCase,
     deserialized: TensorDeserializer,
@@ -171,13 +187,19 @@ def check_deserialized(
     orig_sd = model_digest(model_name, include_non_persistent_buffers)
 
     if not allow_subset:
-        test_case.assertEqual(
+        deserialized_filtered = {
+            k for k in deserialized.keys() if not _is_legacy_ignored_key(k)
+        }
+        test_case.assertCountEqual(
             orig_sd.keys(),
-            deserialized.keys(),
+            deserialized_filtered,
             "List of deserialized keys doesn't match list of original keys",
         )
 
     for k, v in deserialized.items():
+        if _is_legacy_ignored_key(k):
+            continue
+
         test_case.assertIn(
             k,
             orig_sd,

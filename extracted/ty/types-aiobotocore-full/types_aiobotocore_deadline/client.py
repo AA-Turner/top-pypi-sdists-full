@@ -150,6 +150,8 @@ from .type_defs import (
     GetLimitResponseTypeDef,
     GetMonitorRequestTypeDef,
     GetMonitorResponseTypeDef,
+    GetMonitorSettingsRequestTypeDef,
+    GetMonitorSettingsResponseTypeDef,
     GetQueueEnvironmentRequestTypeDef,
     GetQueueEnvironmentResponseTypeDef,
     GetQueueFleetAssociationRequestTypeDef,
@@ -251,6 +253,7 @@ from .type_defs import (
     UpdateJobRequestTypeDef,
     UpdateLimitRequestTypeDef,
     UpdateMonitorRequestTypeDef,
+    UpdateMonitorSettingsRequestTypeDef,
     UpdateQueueEnvironmentRequestTypeDef,
     UpdateQueueFleetAssociationRequestTypeDef,
     UpdateQueueLimitAssociationRequestTypeDef,
@@ -874,6 +877,16 @@ class DeadlineCloudClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_deadline/client/#get_monitor)
         """
 
+    async def get_monitor_settings(
+        self, **kwargs: Unpack[GetMonitorSettingsRequestTypeDef]
+    ) -> GetMonitorSettingsResponseTypeDef:
+        """
+        Gets the settings for a Deadline Cloud monitor.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/deadline/client/get_monitor_settings.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_deadline/client/#get_monitor_settings)
+        """
+
     async def get_queue(self, **kwargs: Unpack[GetQueueRequestTypeDef]) -> GetQueueResponseTypeDef:
         """
         Gets a queue.
@@ -1399,6 +1412,16 @@ class DeadlineCloudClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/deadline/client/update_monitor.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_deadline/client/#update_monitor)
+        """
+
+    async def update_monitor_settings(
+        self, **kwargs: Unpack[UpdateMonitorSettingsRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Updates the settings for a Deadline Cloud monitor.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/deadline/client/update_monitor_settings.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_deadline/client/#update_monitor_settings)
         """
 
     async def update_queue(self, **kwargs: Unpack[UpdateQueueRequestTypeDef]) -> dict[str, Any]:

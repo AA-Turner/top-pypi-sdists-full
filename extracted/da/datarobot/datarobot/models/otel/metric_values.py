@@ -149,9 +149,9 @@ class OtelMetricValue(APIObject):
         Parameters
         ----------
         entity_type: str
-            The entity type of the reported metrics (e.g. deployment, or use_case).
+            The entity type of the reported metrics (e.g., deployment, or use_case).
         entity_id: str
-            The entity ID of the reported metrics (e.g. `123456`).
+            The entity ID of the reported metrics (e.g., `123456`).
         resolution: OtelMetricResolution
             Period for values of the metric list.
         start_time: Optional[datetime | date | str]

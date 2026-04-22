@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xradar
-Version: 0.11.1
+Version: 0.12.0
 Summary: Xradar includes all the tools to get your weather radar into the xarray data model.
 Author-email: Maxwell Grover <mgrover@anl.gov>, Kai Mühlbauer <kai.muehlbauer@uni-bonn.de>, Zachary Sherman <zsherman@anl.gov>
 License-Expression: MIT
@@ -22,7 +22,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Scientific/Engineering :: Atmospheric Science
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: cmweather
@@ -34,7 +34,7 @@ Requires-Dist: netCDF4
 Requires-Dist: numpy
 Requires-Dist: pyproj
 Requires-Dist: scipy
-Requires-Dist: xarray>=2024.10.0
+Requires-Dist: xarray>=2026.4.0
 Requires-Dist: xmltodict
 Provides-Extra: dev
 Requires-Dist: cffconvert; extra == "dev"
@@ -50,7 +50,7 @@ Requires-Dist: fsspec; extra == "dev"
 Requires-Dist: ruff; extra == "dev"
 Requires-Dist: nbconvert; extra == "dev"
 Requires-Dist: notebook; extra == "dev"
-Requires-Dist: open_radar_data; extra == "dev"
+Requires-Dist: open_radar_data>=0.6.0; extra == "dev"
 Requires-Dist: boto3; extra == "dev"
 Requires-Dist: cartopy; extra == "dev"
 Requires-Dist: s3fs; extra == "dev"
@@ -59,11 +59,11 @@ Requires-Dist: pytest-xdist; extra == "dev"
 Requires-Dist: pytest-cov; extra == "dev"
 Requires-Dist: pre-commit; extra == "dev"
 Requires-Dist: diff-cover; extra == "dev"
-Requires-Dist: myst-parser; extra == "dev"
+Requires-Dist: myst-nb; extra == "dev"
 Requires-Dist: sphinx-copybutton; extra == "dev"
 Requires-Dist: sphinx-favicon; extra == "dev"
-Requires-Dist: nbsphinx; extra == "dev"
 Requires-Dist: pydata-sphinx-theme; extra == "dev"
+Requires-Dist: linkify-it-py; extra == "dev"
 Dynamic: license-file
 
 # xradar
@@ -77,8 +77,8 @@ Dynamic: license-file
 
 Xradar includes all the tools to get your weather radar into the xarray data model.
 
-* Free software: MIT license
-* Documentation: [https://docs.openradarscience.org/projects/xradar](https://xradar.readthedocs.io)
+* Code: [MIT license](LICENSE)
+* Documentation: [CC-BY-SA-4.0](LICENSE-CC-BY-SA-4.0) [https://docs.openradarscience.org/projects/xradar](https://xradar.readthedocs.io)
 
 ## How to cite Xradar
 
@@ -99,7 +99,7 @@ At a developer meeting held in the course of the ERAD2022 conference in Locarno,
 
 The consensus was that a close collaboration that benefits the entire community can only be maximized through joint projects. So the idea of a common software project whose only task is to read and write radar data was born. The data import should include as many available data formats as possible, but the data export should be limited to the recognized standards, such as [ODIM_H5](https://www.eumetnet.eu/activities/observations-programme/current-activities/opera/) and [CfRadial](https://github.com/NCAR/CfRadial).
 
-As memory representation an xarray based data model was chosen, which is internally adapted to the forthcoming standard CfRadial2.1/FM301. FM301 is enforced by the [Joint Expert Team on Operational Weather Radar (JET-OWR)](https://community.wmo.int/governance/commission-membership/commission-observation-infrastructure-and-information-systems-infcom/commission-infrastructure-officers/infcom-management-group/standing-committee-measurements-instrumentation-and-traceability-sc-mint/joint-expert-team). Information on FM301 is available at WMO as [WMO CF Extensions](https://community.wmo.int/activity-areas/wis/wmo-cf-extensions).
+As memory representation an xarray based data model was chosen, which is internally adapted to the forthcoming standard CfRadial2.1/FM301. FM301 is enforced by the [Joint Expert Team on Operational Weather Radar (JET-OWR)](https://community.wmo.int/governance/commission-membership/commission-observation-infrastructure-and-information-systems-infcom/commission-infrastructure-officers/infcom-management-group/standing-committee-measurements-instrumentation-and-traceability-sc-mint/joint-expert-team). Information on FM301 is available at WMO as [WMO CF Extensions](https://community.wmo.int/activity-areas/wis/wmo-cf-extensions) and is described in the [WMO Manual on Codes](https://library.wmo.int/idurl/4/35625).
 
 Any software package that uses xarray in any way will then be able to directly use the described data model and thus quickly and easily import and export radar data. Another advantage is the easy connection to already existing [open source radar processing software](https://openradarscience.org/pages/projects/#).
 
@@ -143,6 +143,26 @@ Thanks to our many contributors!
 
 # History
 
+## 0.12.0 (2026-04-21)
+
+* MNT: Unpin xarray, require ``xarray >= 2026.4.0`` in ``requirements.txt``, ``environment.yml``, ``ci/unittests.yml``, and ``ci/notebooktests.yml`` by [@aladinor](https://github.com/aladinor)
+* MNT: Clarify contributor, team-member, and maintainer roles in the contributing guide, including the pathway to greater project involvement ({issue}`341`) by [@kmuehlbauer](https://github.com/kmuehlbauer), ({pull}`354`) by [@syedhamidali](https://github.com/syedhamidali)
+* FIX: ``open_nexradlevel2_datatree`` keeps sweeps with interior sweep-index gaps — derive sweep names from actual indices in ``nex.data`` instead of ``range(len(...))`` so upstream-dropped interior cuts (e.g. ``[0..9, 11]``) no longer raise ``KeyError`` ({issue}`361`, {pull}`362`) by [@aladinor](https://github.com/aladinor)
+* ADD: ``open_cfradial2_datatree`` reader with grouped CfRadial2 compatibility normalization for common FM301/CfRadial2 naming differences ({issue}`93`, {issue}`287`), ({pull}`349`) by [@syedhamidali](https://github.com/syedhamidali)
+* ENH: Move station coordinates (``latitude``, ``longitude``, ``altitude``) to root node as coordinates for DataTree coordinate inheritance ({issue}`331`, {pull}`333`) by [@aladinor](https://github.com/aladinor)
+* ENH: Add ``optional_groups`` parameter (default ``False``) to all ``open_*_datatree()`` functions to control inclusion of ``/radar_parameters``, ``/georeferencing_correction``, and ``/radar_calibration`` subgroups ({issue}`331`, {pull}`333`) by [@aladinor](https://github.com/aladinor)
+* ENH: Skip redundant station coordinate reads for subsequent sweeps in DataTree by passing ``site_as_coords=False`` and extracting shared ``_apply_site_as_coords`` helper ({issue}`334`, {pull}`337`) by [@aladinor](https://github.com/aladinor)
+* ADD: Support list/tuple of chunk files (bytes, file-like, or paths) as input to ``open_nexradlevel2_datatree`` for streaming NEXRAD Level 2 data from S3 chunk buckets ({pull}`332`) by [@aladinor](https://github.com/aladinor)
+* ADD: ``incomplete_sweep`` parameter (``"drop"``/``"pad"``) to ``open_nexradlevel2_datatree`` for handling incomplete sweeps in partial volume data ({pull}`332`) by [@aladinor](https://github.com/aladinor)
+* ADD: Notebook example for streaming NEXRAD Level 2 chunks from S3 (``nexrad_read_chunks.ipynb``) ({pull}`332`) by [@aladinor](https://github.com/aladinor)
+* ADD: Comprehensive test suite for chunk list-input and incomplete sweep handling ({pull}`332`) by [@aladinor](https://github.com/aladinor)
+* ENH: Expose NEXRAD ICD scan metadata (AVSET/SAILS/MRLE/MPDA/BASE TILT flags, VCP sequencing, per-sweep waveform data) as FM301-compliant user-defined attributes ({issue}`338`, {pull}`339`) by [@aladinor](https://github.com/aladinor)
+* FIX: Set indexes and wrap variables in CopyOnWriteArray for ODIM and GAMIC backends, fixes pickle error for `BufferedReader` ({issue}`189`) by [@Ockenfuss](https://github.com/Ockenfuss), ({pull}`345`) by [@kmuehlbauer](https://github.com/kmuehlbauer)
+* FIX: Allow passing ``inherit`` parameter to ``apply_to_sweeps`` / ``map_over_sweeps`` to control coordinate inheritance from root node ({issue}`343`, {pull}`344`) by [@aladinor](https://github.com/aladinor)
+* FIX: Use ``open-radar-data`` fixture as fallback for ``nexrad_read_chunks.ipynb`` notebook, replacing dependency on ephemeral S3 chunk data ({issue}`351`, {pull}`352`) by [@aladinor](https://github.com/aladinor)
+* MNT: Pin ``open-radar-data>=0.6.0`` for NEXRAD chunk test data ({pull}`352`) by [@aladinor](https://github.com/aladinor)
+* MNT: Transform ipynb notebooks to myst markdown notebooks ({issue}`342`, {pull}`348`) by [@kmuehlbauer](https://github.com/kmuehlbauer)
+* DOC: Link WMO Manual on Codes in README.md ({issue}`308`, {pull}`353` ) [@kmuehlbauer](https://github.com/kmuehlbauer)
 
 ## 0.11.1 (2026-02-03)
 

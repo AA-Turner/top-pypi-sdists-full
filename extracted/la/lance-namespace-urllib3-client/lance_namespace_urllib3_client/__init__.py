@@ -14,7 +14,7 @@
 """  # noqa: E501
 
 
-__version__ = "0.6.1"
+__version__ = "0.7.0"
 
 # import apis into sdk package
 from lance_namespace_urllib3_client.api.data_api import DataApi
@@ -65,8 +65,6 @@ from lance_namespace_urllib3_client.models.boost_query import BoostQuery
 from lance_namespace_urllib3_client.models.commit_table_operation import CommitTableOperation
 from lance_namespace_urllib3_client.models.commit_table_result import CommitTableResult
 from lance_namespace_urllib3_client.models.count_table_rows_request import CountTableRowsRequest
-from lance_namespace_urllib3_client.models.create_empty_table_request import CreateEmptyTableRequest
-from lance_namespace_urllib3_client.models.create_empty_table_response import CreateEmptyTableResponse
 from lance_namespace_urllib3_client.models.create_namespace_request import CreateNamespaceRequest
 from lance_namespace_urllib3_client.models.create_namespace_response import CreateNamespaceResponse
 from lance_namespace_urllib3_client.models.create_table_index_request import CreateTableIndexRequest

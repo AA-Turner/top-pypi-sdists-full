@@ -167,11 +167,13 @@ class RuntimeLocal:
         *,
         state_root: Path = Path(".onex_state"),
         backend_overrides: dict[str, str] | None = None,
+        input_path: Path | None = None,
         timeout: int = 300,
     ) -> None:
         self.workflow_path = workflow_path
         self.state_root = state_root
         self.backend_overrides = backend_overrides or {}
+        self.input_path = input_path
         self.timeout = timeout
 
         # ONEX_EXCLUDE: dict_str_any — workflow contract raw YAML
@@ -179,14 +181,21 @@ class RuntimeLocal:
         self._result: EnumWorkflowResult = EnumWorkflowResult.TIMEOUT
         self._terminal_received = asyncio.Event()
 
+        # Diagnostic tracking: events received per topic
+        self._events_received: dict[str, int] = {}
+        self._last_error: str | None = None
+        self._handlers_wired: list[str] = []
+
     # ONEX_EXCLUDE: dict_str_any — event bus payload
     def _on_terminal_event(self, payload: dict[str, Any]) -> None:
         """Callback invoked when a message arrives on the terminal_event topic."""
+        self._record_event("(terminal)")
         if self._terminal_received.is_set():
             logger.warning("Duplicate terminal event received — ignoring (first wins).")
             return
 
         status = payload.get("status", "success")
+        logger.info("RuntimeLocal: terminal event received (status=%s)", status)
         if status == "failure":
             self._result = EnumWorkflowResult.FAILED
         else:
@@ -263,6 +272,74 @@ class RuntimeLocal:
         )
         return instance
 
+    # Fallback method names for handlers that lack handle().
+    _FALLBACK_METHODS: tuple[str, ...] = ("run_full_cycle", "run", "execute")
+
+    def _resolve_handler_method(
+        self, handler_instance: Any, class_name: str
+    ) -> tuple[Any, str]:
+        """Resolve the entry method on a handler instance.
+
+        Prefers ``handle()``. If absent, tries ``run_full_cycle``, ``run``,
+        ``execute`` in order. Returns ``(method, name)`` or ``(None, "")``
+        if no callable entry point is found.
+        """
+        handle_method = getattr(handler_instance, "handle", None)
+        if handle_method is not None:
+            return handle_method, "handle"
+
+        for name in self._FALLBACK_METHODS:
+            method = getattr(handler_instance, name, None)
+            if method is not None and callable(method):
+                logger.info(
+                    "RuntimeLocal: handler %s has no handle() — falling back to %s()",
+                    class_name,
+                    name,
+                )
+                return method, name
+
+        logger.error(
+            "Handler %s has no handle(), run_full_cycle(), run(), or execute() method",
+            class_name,
+        )
+        return None, ""
+
+    async def _invoke_handler_method(
+        self,
+        method: Any,
+        method_name: str,
+        handler_instance: Any,
+        initial_payload: Any,
+    ) -> Any:
+        """Invoke a handler method, adapting the call signature as needed.
+
+        ``handle()`` receives a single positional payload argument.
+        ``run_full_cycle()`` receives a typed command model as its first arg.
+        ``run()`` and ``execute()`` are tried with payload first, then without.
+        """
+        try:
+            if asyncio.iscoroutinefunction(method):
+                result = await method(initial_payload)
+            else:
+                result = method(initial_payload)
+        except TypeError as original_exc:
+            # The method may not accept arguments (e.g. run() with no args).
+            # Retry without args; if that also fails, re-raise the original.
+            try:
+                if asyncio.iscoroutinefunction(method):
+                    result = await method()
+                else:
+                    result = method()
+            except TypeError:
+                raise original_exc from None
+
+        # run_full_cycle returns (state, events, completed_event) — extract
+        # the completed event for result classification.
+        if isinstance(result, tuple) and len(result) >= 3:
+            result = result[-1]
+
+        return result
+
     # ------------------------------------------------------------------
     # Single-handler execution path
     # ------------------------------------------------------------------
@@ -296,37 +373,61 @@ class RuntimeLocal:
         handler_module_name = handler_spec.get("module", "")
         handler_class_name = handler_spec.get("class", "")
 
+        # Fallback: resolve from handler_routing.default_handler
         if not handler_module_name or not handler_class_name:
-            logger.error("Workflow contract missing handler.module or handler.class")
-            self._result = EnumWorkflowResult.FAILED
-            return
+            resolved = self._resolve_default_handler()
+            if resolved is not None:
+                handler_module_name, handler_class_name = resolved
+            else:
+                logger.error(
+                    "Workflow contract missing handler.module or handler.class "
+                    "and no valid handler_routing.default_handler found"
+                )
+                self._result = EnumWorkflowResult.FAILED
+                return
+
+        self._handlers_wired = [f"{handler_module_name}.{handler_class_name}"]
 
         handler_instance = self._instantiate_handler(
             handler_module_name, handler_class_name
         )
 
-        # Build initial payload from contract input spec
-        initial_payload = self._build_initial_payload(self._contract.get("input", {}))
+        # Build initial payload from handler or contract input spec.
+        # input_model may be a dotted string ("module.ClassName") — coerce to dict.
+        input_spec: dict[str, Any] | str = handler_spec.get(
+            "input_model", {}
+        ) or self._contract.get("input", {})
+        if isinstance(input_spec, str) and "." in input_spec:
+            module_name, class_name = input_spec.rsplit(".", 1)
+            input_spec = {"module": module_name, "class": class_name}
+        elif not isinstance(input_spec, dict):
+            input_spec = {}
+        initial_payload = self._build_initial_payload(input_spec)
 
-        # Invoke handler
-        handle_method = getattr(handler_instance, "handle", None)
+        # Invoke handler — prefer handle(), fall back to run_full_cycle/run/execute
+        handle_method, method_name = self._resolve_handler_method(
+            handler_instance, handler_class_name
+        )
         if handle_method is None:
-            logger.error("Handler %s has no handle() method", handler_class_name)
             self._result = EnumWorkflowResult.FAILED
             return
 
-        if asyncio.iscoroutinefunction(handle_method):
-            result_obj = await handle_method(initial_payload)
-        else:
-            result_obj = handle_method(initial_payload)
+        result_obj = await self._invoke_handler_method(
+            handle_method, method_name, handler_instance, initial_payload
+        )
 
-        # If the handler returned a classifiable result, use it directly.
-        classified = self._classify_result(result_obj)
-        if (
-            classified != EnumWorkflowResult.COMPLETED
-            or self._terminal_received.is_set()
-        ):
-            self._result = classified
+        # If the handler returned a result, use it directly — don't wait for
+        # terminal event since single-handler workflows return synchronously.
+        # If terminal_received is already set (e.g. by _on_terminal_event with a
+        # failure), preserve that result rather than overwriting with a classification
+        # of None.
+        if result_obj is not None:
+            self._result = self._classify_result(result_obj)
+            await self._publish_synthesized_terminal(bus, terminal_topic)
+            logger.info("RuntimeLocal: handler returned, result=%s", self._result.value)
+            return
+
+        if self._terminal_received.is_set():
             logger.info("RuntimeLocal: handler returned, result=%s", self._result.value)
             return
 
@@ -345,13 +446,80 @@ class RuntimeLocal:
                     correlation_id,
                 )
                 self._result = EnumWorkflowResult.TIMEOUT
+                self._log_timeout_summary()
                 return
 
         logger.info("RuntimeLocal: handler returned, result=%s", self._result.value)
 
+    async def _publish_synthesized_terminal(
+        self, bus: Any, terminal_topic: str
+    ) -> None:
+        """Publish a runtime-synthesized terminal event after sync-return classification.
+
+        Runtime behavior decision (OMN-8940): synchronous-return handlers in the
+        single-handler execution path bypass the bus today — ``_run_single_handler``
+        classifies the handler's return value directly and sets ``self._result`` without
+        publishing to the terminal topic. This method adopts the rule that
+        ``RuntimeLocal`` publishes a terminal event after successful classification so
+        the bus participates in every completed workflow regardless of handler return
+        style.
+
+        Payload shape::
+
+            {"status": "success" | "failure",
+             "correlation_id": "<uuid>",
+             "source": "runtime_local"}
+
+        The ``source`` field lets downstream consumers distinguish runtime-synthesized
+        from handler-published terminals. Fires for both COMPLETED and FAILED paths;
+        silence on failure would be worse than a documented failure event.
+
+        This helper is called *only* by ``_run_single_handler``. The event-driven path
+        (``_run_event_driven``) already relies on handler-published terminals and must
+        not double-emit.
+        """
+        status_payload = (
+            "success" if self._result == EnumWorkflowResult.COMPLETED else "failure"
+        )
+        await bus.publish(
+            terminal_topic,
+            None,
+            json.dumps(
+                {
+                    "status": status_payload,
+                    "correlation_id": str(uuid.uuid4()),
+                    "source": "runtime_local",
+                }
+            ).encode("utf-8"),
+        )
+
     # ------------------------------------------------------------------
     # Event-driven execution path
     # ------------------------------------------------------------------
+
+    @staticmethod
+    def _resolve_handler_input_topic(
+        entry: dict[str, Any],
+        idx: int,
+        subscribe_topics: list[str],
+    ) -> str | None:
+        """Resolve the input topic for a single handler entry.
+
+        Prefers an explicit ``subscribe_topic`` field on the handler entry.
+        Falls back to positional lookup (``subscribe_topics[idx]``) for
+        backward-compatible contracts that omit the field.
+
+        Returns the resolved topic string, or ``None`` if neither source
+        provides a valid topic (e.g. terminal reducer with no positional slot).
+        """
+        if "subscribe_topic" in entry:
+            explicit = entry["subscribe_topic"]
+            if explicit is None:
+                return None
+            return str(explicit)
+        if idx < len(subscribe_topics):
+            return subscribe_topics[idx]
+        return None
 
     @staticmethod
     def _validate_routing(
@@ -361,20 +529,19 @@ class RuntimeLocal:
     ) -> list[str]:
         """Validate handler routing entries against topic lists.
 
+        Uses a map-based check: every handler must resolve an input topic that
+        exists in ``subscribe_topics`` (via explicit ``subscribe_topic`` field
+        or positional fallback). Terminal reducers with no ``publish_topic`` /
+        ``output_events`` are valid — they do not require padding.
+
         Returns:
             List of validation error messages (empty means valid).
         """
         handlers: list[dict[str, Any]] = routing.get("handlers", [])
         errors: list[str] = []
+        input_topic_set = set(subscribe_topics)
 
-        # Positional alignment check
-        if len(subscribe_topics) != len(handlers):
-            errors.append(
-                f"subscribe_topics length ({len(subscribe_topics)}) != "
-                f"handlers length ({len(handlers)})"
-            )
-
-        # Per-entry field validation
+        # Per-entry field and topic validation
         for i, entry in enumerate(handlers):
             prefix = f"handlers[{i}]"
             em = entry.get("event_model", {})
@@ -387,6 +554,17 @@ class RuntimeLocal:
                 errors.append(f"{prefix}.handler.name is missing")
             if not hd.get("module"):
                 errors.append(f"{prefix}.handler.module is missing")
+
+            # Resolve input topic; terminal reducers with no positional slot are
+            # valid (no error) — they simply receive no events via the bus.
+            resolved_topic = RuntimeLocal._resolve_handler_input_topic(
+                entry, i, subscribe_topics
+            )
+            if resolved_topic is not None and resolved_topic not in input_topic_set:
+                errors.append(
+                    f"{prefix}.subscribe_topic '{resolved_topic}' is not in "
+                    f"event_bus.subscribe_topics"
+                )
 
         # Collect all event_model.name values and publish_topics for output
         # validation
@@ -435,9 +613,19 @@ class RuntimeLocal:
                 first_output = output_events[0]
                 downstream_idx = name_to_topic_idx.get(first_output)
                 if downstream_idx is not None:
-                    output_topic = subscribe_topics[downstream_idx]
+                    downstream_entry = handlers[downstream_idx]
+                    downstream_topic = self._resolve_handler_input_topic(
+                        downstream_entry, downstream_idx, subscribe_topics
+                    )
+                    output_topic = downstream_topic or ""
                 elif publish_topics:
                     output_topic = publish_topics[0]
+
+            # Terminal reducers may have no input topic (no positional slot and
+            # no explicit subscribe_topic) — use empty string to skip bus wiring.
+            input_topic = (
+                self._resolve_handler_input_topic(entry, i, subscribe_topics) or ""
+            )
 
             resolved.append(
                 _ResolvedRoutingEntry(
@@ -446,7 +634,7 @@ class RuntimeLocal:
                     handler_name=hd.get("name", "unknown"),
                     event_model_module=em.get("module", ""),
                     event_model_class=em.get("name", ""),
-                    input_topic=subscribe_topics[i],
+                    input_topic=input_topic,
                     output_topic=output_topic,
                 )
             )
@@ -494,6 +682,7 @@ class RuntimeLocal:
 
         # --- 4. Wire adapters to bus ---
         unsubscribe_handles: list[Any] = []
+        self._handlers_wired = [e.handler_name for e in resolved_entries]
 
         def _fail_callback() -> None:
             self._result = EnumWorkflowResult.FAILED
@@ -517,14 +706,30 @@ class RuntimeLocal:
                 self._result = EnumWorkflowResult.FAILED
                 return
 
+            def _make_fail_cb(name: str) -> Any:
+                def _cb() -> None:
+                    self._last_error = f"handler '{name}' failed"
+                    _fail_callback()
+
+                return _cb
+
             adapter = HandlerBusAdapter(
                 handler=handler_instance,
                 handler_name=entry.handler_name,
                 input_model_cls=input_model_cls,
                 output_topic=entry.output_topic or None,
                 bus=bus,
-                on_error=_fail_callback,
+                on_error=_make_fail_cb(entry.handler_name),
             )
+
+            if not entry.input_topic:
+                # Terminal reducer: no input topic, no bus subscription needed.
+                logger.info(
+                    "RuntimeLocal: handler '%s' has no input_topic — "
+                    "skipping bus subscription (terminal reducer)",
+                    entry.handler_name,
+                )
+                continue
 
             unsub = await bus.subscribe(
                 entry.input_topic,
@@ -548,18 +753,19 @@ class RuntimeLocal:
 
         # --- 6. Build and publish initial payload ---
         correlation_id = uuid.uuid4()
-        input_spec: dict[str, Any] | str = self._contract.get("input_model", {})
+        # ONEX_EXCLUDE: dict_str_any — input_model can be dict or dotted string
+        raw_input_spec: Any = self._contract.get("input_model", {})
 
         # input_model can be a string "module.Class" or a dict with module/class
         initial_payload = None
-        if isinstance(input_spec, str) and "." in input_spec:
+        if isinstance(raw_input_spec, str) and "." in raw_input_spec:
             # Format: "some.module.ClassName"
-            parts = input_spec.rsplit(".", 1)
+            parts = raw_input_spec.rsplit(".", 1)
             initial_payload = self._build_initial_payload(
                 {"module": parts[0], "class": parts[1]}
             )
-        elif isinstance(input_spec, dict):
-            initial_payload = self._build_initial_payload(input_spec)
+        elif isinstance(raw_input_spec, dict):
+            initial_payload = self._build_initial_payload(raw_input_spec)
 
         if initial_payload is not None:
             # Inject correlation_id if the model supports it
@@ -591,15 +797,207 @@ class RuntimeLocal:
         try:
             await asyncio.wait_for(self._terminal_received.wait(), timeout=self.timeout)
         except TimeoutError:
-            logger.exception(
+            logger.warning(
                 "RuntimeLocal: timeout after %ds (correlation_id=%s)",
                 self.timeout,
                 correlation_id,
             )
             self._result = EnumWorkflowResult.TIMEOUT
+            self._log_timeout_summary()
         finally:
             for unsub in unsubscribe_handles:
                 await unsub()
+
+    # ------------------------------------------------------------------
+    # Diagnostic helpers
+    # ------------------------------------------------------------------
+
+    def _record_event(self, topic: str) -> None:
+        """Increment the event counter for *topic*."""
+        self._events_received[topic] = self._events_received.get(topic, 0) + 1
+
+    def _log_timeout_summary(self) -> None:
+        """Log a diagnostic summary when the workflow times out."""
+        logger.warning("--- timeout diagnostic summary ---")
+        logger.warning("  handlers wired: %s", self._handlers_wired or "(none)")
+        if self._events_received:
+            for topic, count in self._events_received.items():
+                logger.warning("  events on '%s': %d", topic, count)
+        else:
+            logger.warning("  events received: 0 (no messages on any topic)")
+        if self._last_error:
+            logger.warning("  last error: %s", self._last_error)
+        logger.warning("--- end diagnostic summary ---")
+
+    # ------------------------------------------------------------------
+    # Main entry point
+    # ------------------------------------------------------------------
+
+    # ------------------------------------------------------------------
+    # Compute-node execution path (no terminal_event / event bus)
+    # ------------------------------------------------------------------
+
+    def _resolve_default_handler(self) -> tuple[str, str] | None:
+        """Extract (module, class) from handler_routing.default_handler.
+
+        The ``default_handler`` field uses ``module_ref:ClassName`` format.
+        When ``module_ref`` is a bare name like ``handler``, it is resolved
+        relative to the contract file's parent package (e.g.
+        ``omnimarket.nodes.node_foo.handler`` for a contract at
+        ``.../node_foo/contract.yaml``).
+
+        Returns:
+            ``(module_name, class_name)`` or ``None`` if not resolvable.
+        """
+        routing = self._contract.get("handler_routing")
+        if not isinstance(routing, dict):
+            return None
+        default_handler = routing.get("default_handler")
+        if not default_handler or not isinstance(default_handler, str):
+            return None
+        if ":" not in default_handler:
+            return None
+
+        module_ref, class_name = default_handler.rsplit(":", 1)
+
+        # If module_ref looks like a bare name (no dots), try to resolve it
+        # relative to the contract file's parent directory using the Python
+        # package structure.
+        if "." not in module_ref:
+            contract_dir = self.workflow_path.resolve().parent
+            resolved = self._infer_package_module(contract_dir, module_ref)
+            if resolved == module_ref:
+                # Could not resolve to a package-qualified path — accept as-is
+                # only if the module is already importable (e.g. injected into
+                # sys.modules at runtime).
+                import sys as _sys
+
+                if module_ref not in _sys.modules:
+                    try:
+                        __import__(module_ref)
+                    except ImportError:
+                        return None
+            else:
+                module_ref = resolved
+
+        return (module_ref, class_name)
+
+    @staticmethod
+    def _infer_package_module(contract_dir: Path, relative_name: str) -> str:
+        """Infer a fully-qualified module path from a contract directory.
+
+        Walks up from *contract_dir* to find the nearest ancestor that is NOT
+        a Python package (no ``__init__.py``), then builds the dotted path.
+
+        Args:
+            contract_dir: Directory containing ``contract.yaml``.
+            relative_name: Bare module name (e.g. ``handler``).
+
+        Returns:
+            Dotted module path (e.g. ``omnimarket.nodes.node_foo.handler``).
+            Falls back to *relative_name* if the package root can't be found.
+        """
+        parts: list[str] = [relative_name]
+        current = contract_dir
+        while (current / "__init__.py").exists():
+            parts.insert(0, current.name)
+            current = current.parent
+        # Also check for src/ layout: if we stopped at a "src" directory,
+        # skip it (it's not part of the package name).
+        if parts and current.name == "src":
+            pass  # parts are already correct
+        return ".".join(parts) if len(parts) > 1 else relative_name
+
+    def _resolve_handler_spec(self) -> tuple[str, str] | None:
+        """Resolve handler (module, class) from available contract fields.
+
+        Checks in order:
+        1. ``handler_routing.default_handler`` (module:Class format)
+        2. Top-level ``handler.module`` + ``handler.class``
+
+        Returns:
+            ``(module_name, class_name)`` or ``None``.
+        """
+        resolved = self._resolve_default_handler()
+        if resolved is not None:
+            return resolved
+
+        handler_spec = self._contract.get("handler", {})
+        if isinstance(handler_spec, dict):
+            module_name = handler_spec.get("module", "")
+            class_name = handler_spec.get("class", "")
+            if module_name and class_name:
+                return (module_name, class_name)
+
+        return None
+
+    async def _run_compute(self) -> None:
+        """Execute a compute node's handler directly.
+
+        No event bus or terminal_event is needed. The handler is resolved
+        from ``handler_routing.default_handler`` or the top-level ``handler``
+        spec, instantiated, and invoked. The return value determines the
+        workflow result.
+        """
+        resolved = self._resolve_handler_spec()
+        if resolved is None:
+            logger.error(
+                "RuntimeLocal: compute mode requires "
+                "handler_routing.default_handler or handler.module/class"
+            )
+            self._result = EnumWorkflowResult.FAILED
+            return
+
+        module_name, class_name = resolved
+        self._handlers_wired = [f"{module_name}.{class_name}"]
+
+        handler_instance = self._instantiate_handler(module_name, class_name)
+
+        handle_method, method_name = self._resolve_handler_method(
+            handler_instance, class_name
+        )
+        if handle_method is None:
+            self._result = EnumWorkflowResult.FAILED
+            return
+
+        # Build initial payload from handler or contract input spec
+        handler_spec = self._contract.get("handler", {})
+        input_spec_raw: dict[str, Any] | str = (
+            handler_spec.get("input_model", {})
+            if isinstance(handler_spec, dict)
+            else {}
+        ) or self._contract.get("input", {})
+        if isinstance(input_spec_raw, str) and "." in input_spec_raw:
+            if not all(seg.isidentifier() for seg in input_spec_raw.split(".")):
+                logger.warning(
+                    "RuntimeLocal: invalid input_model format: %s",
+                    input_spec_raw,
+                )
+                input_spec: dict[str, Any] = {}
+            else:
+                im_module, im_class = input_spec_raw.rsplit(".", 1)
+                input_spec = {"module": im_module, "class": im_class}
+        elif isinstance(input_spec_raw, dict):
+            input_spec = input_spec_raw
+        else:
+            input_spec = {}
+        initial_payload = self._build_initial_payload(input_spec)
+
+        logger.info(
+            "RuntimeLocal: invoking compute handler %s.%s (method=%s)",
+            module_name,
+            class_name,
+            method_name,
+        )
+
+        result_obj = await self._invoke_handler_method(
+            handle_method, method_name, handler_instance, initial_payload
+        )
+
+        self._result = self._classify_result(result_obj)
+        logger.info(
+            "RuntimeLocal: compute handler returned, result=%s", self._result.value
+        )
 
     # ------------------------------------------------------------------
     # Main entry point
@@ -611,13 +1009,46 @@ class RuntimeLocal:
         Returns:
             The terminal result state.
         """
+        # TEST-ONLY PLUMBING: exposes state_root to test fixture handlers
+        # (e.g. HandlerProofNoop). Production handlers MUST NOT read
+        # ONEX_STATE_ROOT — they receive state via ProtocolStateStore DI.
+        # See OMN-8938 plan Task 3 Step 6.
+        os.environ["ONEX_STATE_ROOT"] = str(self.state_root)
+
         # 1. Load contract
         self._contract = load_workflow_contract(self.workflow_path)
 
         terminal_topic = self._contract.get("terminal_event")
+
+        # Contracts without terminal_event can still be executed if they
+        # declare a handler (via handler_routing.default_handler or
+        # top-level handler.module/class).
         if not terminal_topic:
-            logger.error("Workflow contract missing 'terminal_event' topic.")
-            return EnumWorkflowResult.FAILED
+            if self._resolve_handler_spec() is not None:
+                logger.info(
+                    "RuntimeLocal: no terminal_event but handler found — "
+                    "using compute execution path"
+                )
+                try:
+                    await self._run_compute()
+                except ModelOnexError:
+                    self._result = EnumWorkflowResult.FAILED
+                except Exception:
+                    logger.exception(
+                        "RuntimeLocal: unhandled exception during compute execution"
+                    )
+                    self._result = EnumWorkflowResult.FAILED
+                finally:
+                    self._write_state()
+                logger.info("RuntimeLocal: result=%s", self._result.value)
+                return self._result
+            else:
+                logger.error(
+                    "Workflow contract missing 'terminal_event' topic "
+                    "and no handler spec found (need handler_routing.default_handler "
+                    "or handler.module/class)."
+                )
+                return EnumWorkflowResult.FAILED
 
         logger.info(
             "RuntimeLocal: loaded contract %s, terminal_event=%s",
@@ -662,9 +1093,12 @@ class RuntimeLocal:
     def _build_initial_payload(self, input_spec: dict[str, Any]) -> Any:
         """Import and instantiate the input model from the contract's input spec.
 
-        If the input spec declares a ``module`` and ``class``, the model is imported
-        and instantiated with defaults. Otherwise returns None (handler must accept
-        None or have its own defaults).
+        Resolution order:
+            1. If ``self.input_path`` is set, load JSON from that file and validate
+               against the imported input model class.
+            2. Otherwise instantiate the model with defaults (auto-fill required
+               UUID, datetime, str, tuple, and list fields as appropriate).
+            3. Return None if the input spec lacks module/class.
         """
         model_module = input_spec.get("module", "")
         model_class = input_spec.get("class", "")
@@ -673,38 +1107,74 @@ class RuntimeLocal:
         try:
             mod = importlib.import_module(model_module)
             cls = getattr(mod, model_class)
-            try:
-                return cls()
-            except (TypeError, ValueError):
-                # Auto-fill required UUID and datetime fields with defaults
-                import typing
-                from datetime import UTC
-                from datetime import datetime as _dt
-
-                defaults: dict[str, Any] = {}
-                for field_name, field_info in cls.model_fields.items():
-                    if field_info.is_required():
-                        ann = field_info.annotation
-                        if ann is uuid.UUID:
-                            defaults[field_name] = uuid.uuid4()
-                        elif ann is _dt:
-                            defaults[field_name] = _dt.now(UTC)
-                        elif ann is str:
-                            defaults[field_name] = ""
-                        else:
-                            # Handle tuple[T, ...] and list[T] with empty default
-                            origin = typing.get_origin(ann)
-                            if origin is tuple or origin is list:
-                                defaults[field_name] = ()
-                return cls(**defaults)
-        except (ImportError, AttributeError, TypeError) as exc:
+        except (ImportError, AttributeError) as exc:
             logger.warning(
-                "RuntimeLocal: could not build input payload from %s.%s: %s",
+                "RuntimeLocal: could not import input model %s.%s: %s",
                 model_module,
                 model_class,
                 exc,
             )
             return None
+
+        # Prefer --input file over defaults when provided (OMN-8938).
+        if self.input_path is not None:
+            try:
+                raw = json.loads(self.input_path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError) as exc:
+                msg = f"Invalid input payload at {self.input_path}: {exc}"
+                logger.exception("RuntimeLocal: %s", msg)
+                raise ModelOnexError(
+                    error_code=EnumCoreErrorCode.INVALID_INPUT,
+                    message=msg,
+                ) from exc
+            try:
+                if isinstance(raw, dict):
+                    return cls(**raw)
+                return cls.model_validate(raw)
+            except (TypeError, ValueError) as exc:
+                msg = (
+                    f"Input payload at {self.input_path} does not validate against "
+                    f"{model_module}.{model_class}: {exc}"
+                )
+                logger.exception("RuntimeLocal: %s", msg)
+                raise ModelOnexError(
+                    error_code=EnumCoreErrorCode.VALIDATION_ERROR,
+                    message=msg,
+                ) from exc
+
+        try:
+            return cls()
+        except (TypeError, ValueError):
+            # Auto-fill required UUID and datetime fields with defaults.
+            import typing
+            from datetime import UTC
+            from datetime import datetime as _dt
+
+            defaults: dict[str, Any] = {}
+            for field_name, field_info in cls.model_fields.items():
+                if field_info.is_required():
+                    ann = field_info.annotation
+                    if ann is uuid.UUID:
+                        defaults[field_name] = uuid.uuid4()
+                    elif ann is _dt:
+                        defaults[field_name] = _dt.now(UTC)
+                    elif ann is str:
+                        defaults[field_name] = ""
+                    else:
+                        # Handle tuple[T, ...] and list[T] with empty default
+                        origin = typing.get_origin(ann)
+                        if origin is tuple or origin is list:
+                            defaults[field_name] = ()
+            try:
+                return cls(**defaults)
+            except (TypeError, ValueError) as exc:
+                logger.warning(
+                    "RuntimeLocal: could not build input payload from %s.%s: %s",
+                    model_module,
+                    model_class,
+                    exc,
+                )
+                return None
 
     @staticmethod
     def _classify_result(result_obj: Any) -> EnumWorkflowResult:

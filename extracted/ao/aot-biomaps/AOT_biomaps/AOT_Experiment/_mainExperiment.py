@@ -129,40 +129,46 @@ class Experiment(ABC):
 
     def addNoise(self, noiseType='gaussian', noiseLvl=0.1, withTumor=True, show_log=True):
         """
-        Ajoute du bruit (gaussien ou poisson) au signal AO sélectionné.
+        Ajoute du bruit (gaussien ou poisson) au signal AO sélectionné,
+        en garantissant que le signal final ne soit pas négatif (min = 0).
 
         Args:
-            noiseType (str): Type de bruit à ajouter ('gaussian' ou 'poisson').
-            noiseLvl (float): Niveau de bruit (écart-type pour le bruit gaussien, facteur multiplicatif pour le bruit de Poisson).
-            withTumor (bool): Si True, ajoute le bruit au signal avec tumeur, sinon au signal sans tumeur.
+            noiseType (str): Type de bruit ('gaussian' ou 'poisson').
+            noiseLvl (float): Niveau de bruit (écart-type pour gaussien, facteur pour poisson).
+            withTumor (bool): Si True, ajoute le bruit au signal avec tumeur.
+            show_log (bool): Si True, affiche une barre de progression.
         """
         if withTumor and self.AOsignal_withTumor is None:
-            raise ValueError("AO signal with tumor is not generated. Please generate it first.")
+            raise ValueError("AO signal with tumor not generated. Generate it first.")
         if not withTumor and self.AOsignal_withoutTumor is None:
-            raise ValueError("AO signal without tumor is not generated. Please generate it first.")
+            raise ValueError("AO signal without tumor not generated. Generate it first.")
 
-        if withTumor:
-            AOsignals = self.AOsignal_withTumor
-        else:
-            AOsignals = self.AOsignal_withoutTumor
-        
+        # Sélection du signal
+        AOsignals = self.AOsignal_withTumor if withTumor else self.AOsignal_withoutTumor
         noiseSignals = np.zeros_like(AOsignals)
-        iteration = range(AOsignals.shape[1]) if not show_log else trange(AOsignals.shape[1], desc=f"Adding {noiseType} noise to AO signal {'with' if withTumor else 'without'} tumor")
+
+        # Boucle sur les signaux
+        iteration = trange(AOsignals.shape[1], desc=f"Adding {noiseType} noise") if show_log else range(AOsignals.shape[1])
         for i in iteration:
             AOsignal = AOsignals[:, i]
+
+            # Ajout du bruit
             if noiseType.lower() == 'gaussian':
-                noise = np.random.normal(0, noiseLvl*np.max(AOsignal), AOsignal.shape)
+                noise = np.random.normal(0, noiseLvl * np.max(AOsignal), AOsignal.shape)
                 noisy_signal = AOsignal + noise
             elif noiseType.lower() == 'poisson':
-                # Pour le bruit de Poisson, on utilise souvent un facteur multiplicatif
-                # car le bruit de Poisson est proportionnel à la racine carrée du signal.
-                # Ici, on multiplie le signal par un facteur aléatoire centré autour de 1.
-                noise = np.random.poisson(noiseLvl * np.abs(AOsignal)) / (noiseLvl * np.abs(AOsignal).max())
+                # Bruit de Poisson proportionnel au signal (évite les valeurs négatives)
+                noise = np.random.poisson(noiseLvl * np.abs(AOsignal)) / (noiseLvl * np.max(np.abs(AOsignal))) if np.max(AOsignal) != 0 else 0
                 noisy_signal = AOsignal * noise
             else:
-                raise ValueError("noiseType must be either 'gaussian' or 'poisson'.")
-            noisy_signal = np.clip(noisy_signal, a_min=0, a_max=None)  # Assurer que le signal reste non négatif
+                raise ValueError("noiseType must be 'gaussian' or 'poisson'.")
+
+            # Correction des valeurs négatives uniquement (shift vers le haut)
+            if np.min(noisy_signal) < 0:
+                noisy_signal -= np.min(noisy_signal)  # Décale tout le signal pour que min(noisy_signal) = 0
+
             noiseSignals[:, i] = noisy_signal
+
         return noiseSignals
 
     def reduceDims(self, mode='avg'):

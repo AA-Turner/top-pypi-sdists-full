@@ -27,10 +27,7 @@ from opentelemetry.sdk.environment_variables import (
     OTEL_TRACES_SAMPLER,
 )
 
-OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED = "OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED"
-
 DEFAULTS = {
-    OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED: "true",
     OTEL_TRACES_EXPORTER: "otlp",
     OTEL_METRICS_EXPORTER: "otlp",
     OTEL_LOGS_EXPORTER: "otlp",
@@ -51,6 +48,9 @@ SPLUNK_TRACE_RESPONSE_HEADER_ENABLED = "SPLUNK_TRACE_RESPONSE_HEADER_ENABLED"
 SPLUNK_PROFILER_ENABLED = "SPLUNK_PROFILER_ENABLED"
 SPLUNK_PROFILER_CALL_STACK_INTERVAL = "SPLUNK_PROFILER_CALL_STACK_INTERVAL"
 SPLUNK_PROFILER_LOGS_ENDPOINT = "SPLUNK_PROFILER_LOGS_ENDPOINT"
+SPLUNK_SNAPSHOT_PROFILER_ENABLED = "SPLUNK_SNAPSHOT_PROFILER_ENABLED"
+SPLUNK_SNAPSHOT_SAMPLING_INTERVAL = "SPLUNK_SNAPSHOT_SAMPLING_INTERVAL"
+SPLUNK_SNAPSHOT_SELECTION_PROBABILITY = "SPLUNK_SNAPSHOT_SELECTION_PROBABILITY"
 SPLUNK_REALM = "SPLUNK_REALM"
 
 _pylogger = logging.getLogger(__name__)
@@ -83,6 +83,14 @@ class Env:
             return int(val)
         except ValueError:
             _pylogger.warning("Invalid integer value of '%s' for env var '%s'", val, key)
+            return default
+
+    def getfloat(self, key, default=0.0):
+        val = self.getval(key, str(default))
+        try:
+            return float(val)
+        except ValueError:
+            _pylogger.warning("Invalid float value of '%s' for env var '%s'", val, key)
             return default
 
     def setval(self, key, value):

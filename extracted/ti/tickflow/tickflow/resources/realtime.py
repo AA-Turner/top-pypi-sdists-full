@@ -1,16 +1,29 @@
-"""WebSocket-based real-time quote streaming for TickFlow API."""
+"""WebSocket-based real-time quote streaming for TickFlow API.
+
+.. deprecated::
+    Use :class:`~tickflow.resources.stream.MarketStream` (``tf.stream``) instead.
+    This module connects to the legacy ``/v1/ws/quotes`` endpoint which only
+    supports quote data.  ``tf.stream`` connects to ``/v1/ws/stream`` and
+    supports both ``quotes`` and ``depth`` channels.
+"""
 
 from __future__ import annotations
 
 import asyncio
 import logging
 import threading
+import warnings
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Set
 
 if TYPE_CHECKING:
     from .._base_client import AsyncAPIClient, SyncAPIClient
 
 logger = logging.getLogger("tickflow.realtime")
+
+_DEPRECATION_MSG = (
+    "QuoteStream (tf.realtime) is deprecated and will be removed in a future version. "
+    "Use MarketStream (tf.stream) instead, which supports both quotes and depth channels."
+)
 
 
 def _build_ws_url(base_url: str, api_key: str) -> str:
@@ -62,30 +75,17 @@ def _extract_rejection_reason(exc: Exception) -> str:
 class QuoteStream:
     """Synchronous real-time quote stream over WebSocket.
 
-    Runs the async event loop in a background thread and dispatches
-    quote callbacks on that thread. Use `on_quotes` to register a handler.
+    .. deprecated::
+        Use :class:`~tickflow.resources.stream.MarketStream` (``tf.stream``) instead.
 
     Parameters
     ----------
     client : SyncAPIClient
         The underlying HTTP client (used for base_url and api_key).
-
-    Examples
-    --------
-    >>> from tickflow import TickFlow
-    >>> client = TickFlow(api_key="your-key")
-    >>> stream = client.realtime
-    >>>
-    >>> @stream.on_quotes
-    ... def handle(quotes):
-    ...     for q in quotes:
-    ...         print(f"{q['symbol']}: {q['last_price']}")
-    >>>
-    >>> stream.subscribe(["600000.SH", "000001.SZ"])
-    >>> stream.connect()  # blocks until close() or KeyboardInterrupt
     """
 
     def __init__(self, client: "SyncAPIClient") -> None:
+        warnings.warn(_DEPRECATION_MSG, DeprecationWarning, stacklevel=2)
         self._base_url = client.base_url
         self._api_key = client.api_key or ""
         self._handler: Optional[Callable[[List[Dict[str, Any]]], None]] = None
@@ -162,32 +162,17 @@ class QuoteStream:
 class AsyncQuoteStream:
     """Async real-time quote stream over WebSocket.
 
+    .. deprecated::
+        Use :class:`~tickflow.resources.stream.AsyncMarketStream` (``tf.stream``) instead.
+
     Parameters
     ----------
     client : AsyncAPIClient
         The underlying async HTTP client (used for base_url and api_key).
-
-    Examples
-    --------
-    >>> import asyncio
-    >>> from tickflow import AsyncTickFlow
-    >>>
-    >>> async def main():
-    ...     async with AsyncTickFlow(api_key="your-key") as client:
-    ...         stream = client.realtime
-    ...
-    ...         @stream.on_quotes
-    ...         def handle(quotes):
-    ...             for q in quotes:
-    ...                 print(f"{q['symbol']}: {q['last_price']}")
-    ...
-    ...         await stream.subscribe(["600000.SH", "000001.SZ"])
-    ...         await stream.connect()
-    >>>
-    >>> asyncio.run(main())
     """
 
     def __init__(self, client: "AsyncAPIClient") -> None:
+        warnings.warn(_DEPRECATION_MSG, DeprecationWarning, stacklevel=2)
         self._ws_url = _build_ws_url(client.base_url, client.api_key or "")
         self._handler: Optional[Callable[[List[Dict[str, Any]]], None]] = None
         self._error_handler: Optional[Callable[[str], None]] = None

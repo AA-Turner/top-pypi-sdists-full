@@ -187,7 +187,7 @@ class DataEngineQueryGenerator(APIObject):
         Returns when the dataset has been successfully processed. If optional
         parameters are not specified the query is applied to the dataset_id
         and dataset_version_id stored in the query generator. If specified they
-        will override the stored dataset_id/dataset_version_id, i.e. to prep a
+        will override the stored dataset_id/dataset_version_id, i.e., to prep a
         prediction dataset.
 
         Parameters
@@ -286,7 +286,7 @@ class DataEngineQueryGenerator(APIObject):
             Raised if polling for the status of an async process resulted in a response with an
             unsupported status code.
         AsyncProcessUnsuccessfulError
-            Raised if project creation was unsuccessful (i.e. the server reported an error in
+            Raised if project creation was unsuccessful (i.e., the server reported an error in
             uploading the dataset).
         AsyncTimeoutError
             Raised if processing the uploaded dataset took more time than specified

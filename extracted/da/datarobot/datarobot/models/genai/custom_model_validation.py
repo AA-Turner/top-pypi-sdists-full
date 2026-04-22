@@ -264,7 +264,7 @@ class CustomModelValidation(APIObject):
         sort : Optional[str], optional
             Property to sort validations by.
             Prefix the attribute name with a dash to sort in descending order,
-            e.g. sort='-name'.
+            e.g., sort='-name'.
             Currently supported options are listed in ListCustomModelValidationsSortQueryParams
             but the values can differ with different platform versions.
             By default, the sort parameter is None which will result in

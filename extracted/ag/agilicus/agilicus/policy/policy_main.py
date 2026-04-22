@@ -132,6 +132,25 @@ def cli_command_add_default_to_resource_policies(ctx, **kwargs):
     policies.add_default_to_resource_policies(ctx, **kwargs)
 
 
+@click.command(name="find-duplicate-resource-policies")
+@click.option("--org-id", default=None)
+@click.option("--start-org", default=None)
+@click.option("--dry-run", is_flag=True, default=False)
+@click.option(
+    "--replace",
+    is_flag=True,
+    default=False,
+    help="Whether to rewrite any exiting defaults",
+)
+@click.option("--dump-dir", default=None, help="A directory to cache migrated rules")
+@click.option(
+    "--delay", type=float, default=None, help="fractional seconds between applies"
+)
+@click.pass_context
+def cli_command_find_duplicate_resource_policies(ctx, **kwargs):
+    policies.find_duplicate_resource_policies(ctx, **kwargs)
+
+
 @click.command(name="update-resource-policy")
 @click.option("--org-id", default=None)
 @click.option("--instance-id", default=None)

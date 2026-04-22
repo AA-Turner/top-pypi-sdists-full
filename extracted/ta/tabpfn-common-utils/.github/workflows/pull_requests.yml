@@ -47,7 +47,7 @@ jobs:
       
       - name: Run Pyright
         run: |
-          uv sync --extra dev
+          uv sync --group dev
           uv run pyright
 
   test_compatibility:
@@ -84,7 +84,7 @@ jobs:
 
       # Install dev extras so pytest is available.
       - name: Install dependencies
-        run: uv sync --extra dev
+        run: uv sync --group dev
 
       - name: Run Tests
         run: uv run pytest -q

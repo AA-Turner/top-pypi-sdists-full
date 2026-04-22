@@ -1,6 +1,9 @@
-# Copyright (c) 2023-2025, Songlin Yang, Yu Zhang
-
-import warnings
+# Copyright (c) 2023-2026, Songlin Yang, Yu Zhang, Zhiyuan Li
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+# For a list of all contributors, visit:
+#   https://github.com/fla-org/flash-linear-attention/graphs/contributors
 
 import torch
 
@@ -290,8 +293,8 @@ def chunk_gated_oja_rule(
     v: torch.Tensor,
     gv: torch.Tensor,
     beta: torch.Tensor,
-    scale: float = None,
-    initial_state: torch.Tensor = None,
+    scale: float | None = None,
+    initial_state: torch.Tensor | None = None,
     output_final_state: bool = False,
     use_q_l2norm: bool = False,
     use_k_l2norm: bool = False,
@@ -300,9 +303,8 @@ def chunk_gated_oja_rule(
     **kwargs,
 ):
     if 'head_first' in kwargs:
-        warnings.warn(
-            "head_first is deprecated and will be removed in a future version. "
-            "Please use head_first=False for now instead."
+        raise DeprecationWarning(
+            "head_first has been removed. Inputs must be in `[B, T, H, ...]` format.",
         )
     if 'use_qk_l2norm_in_kernel' in kwargs and (not use_q_l2norm and not use_k_l2norm):
         use_q_l2norm = True

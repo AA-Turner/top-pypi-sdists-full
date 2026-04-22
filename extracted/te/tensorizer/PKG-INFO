@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: tensorizer
-Version: 2.12.0
+Version: 2.12.1
 Summary: A tool for fast PyTorch module, model, and tensor serialization + deserialization.
 Author: CoreWeave
 License: MIT License

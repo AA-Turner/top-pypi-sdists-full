@@ -494,6 +494,18 @@ def _process_combination(obj, country, scale, crop, growing_season):
             if adm0_col:
                 mask = gdf[adm0_col].str.lower().str.replace("_", " ") == country_norm
                 boundary_gdf = gdf[mask].copy()
+
+                # Exclude non-contiguous territories for U.S. (Alaska, Hawaii)
+                if country_norm == "united states of america":
+                    adm1_col = next(
+                        (c for c in ["ADM1_NAME", "ADMIN1", "name1"] if c in boundary_gdf.columns),
+                        None,
+                    )
+                    if adm1_col:
+                        boundary_gdf = boundary_gdf[
+                            ~boundary_gdf[adm1_col].str.lower().isin(["alaska", "hawaii"])
+                        ]
+
                 # Clip antimeridian wraparound (e.g., Russia/USA spanning dateline)
                 b = boundary_gdf.total_bounds
                 if b[2] - b[0] > 300:

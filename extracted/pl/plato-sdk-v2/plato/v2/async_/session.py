@@ -1543,7 +1543,12 @@ class Session:
                 public_url,
             )
             backend = AgentBrowserBackend(run_cmd=run_cmd, session=env.alias)
-            executor = FlowExecutor(flow=env_flow, backend=backend, log=active_log)
+            executor = FlowExecutor(
+                flow=env_flow,
+                backend=backend,
+                log=active_log,
+                base_url=public_url,
+            )
 
             last_error: Exception | None = None
             for attempt in range(1 + retries):

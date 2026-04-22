@@ -5,10 +5,21 @@ from unittest.mock import Mock, patch
 import pytest
 
 import skylos.cli as cli
-from skylos.debt.advisor import augment_hotspots_with_advisories
+from skylos.debt.advisor import (
+    DebtAdvisor,
+    _parse_json_object,
+    _safe_excerpt,
+    _user_prompt,
+    augment_hotspots_with_advisories,
+)
 from skylos.debt.baseline import compare_to_baseline, save_baseline
-from skylos.debt.engine import collect_debt_signals, run_debt_analysis
+from skylos.debt.engine import (
+    build_debt_snapshot,
+    collect_debt_signals,
+    run_debt_analysis,
+)
 from skylos.debt.policy import _parse_policy, load_policy
+from skylos.debt.report import format_debt_table
 from skylos.debt.result import (
     DebtAdvisory,
     DebtHotspot,
@@ -150,6 +161,15 @@ def test_run_debt_analysis_changed_mode_keeps_project_score_and_filters_hotspots
     assert changed_snapshot.hotspots[0].file == "app/services.py"
     assert changed_snapshot.summary["scope"]["score"] == "project"
     assert changed_snapshot.summary["scope"]["hotspots"] == "changed"
+
+
+def test_build_debt_snapshot_reuses_static_result():
+    snapshot = build_debt_snapshot(SAMPLE_RESULT, project_root="/repo")
+
+    assert snapshot.files_scanned == 3
+    assert snapshot.total_loc == 500
+    assert snapshot.score.hotspot_count == len(snapshot.hotspots)
+    assert snapshot.summary["dimensions"]["complexity"] == 1
 
 
 def test_build_hotspots_changed_files_raise_priority_not_structural_score():
@@ -295,6 +315,210 @@ def test_augment_hotspots_with_advisories_sets_advisory(tmp_path):
         == "The hotspot concentrates branching logic in one service function."
     )
     assert snapshot.hotspots[0].advisory.refactor_steps[0].startswith("Extract")
+
+
+def test_safe_excerpt_returns_context_and_missing_file_is_empty(tmp_path):
+    services = tmp_path / "app.py"
+    services.write_text(
+        "line 1\n"
+        "line 2\n"
+        "line 3\n"
+        "line 4\n"
+        "line 5\n",
+        encoding="utf-8",
+    )
+
+    excerpt = _safe_excerpt(services, 3, radius=1)
+
+    assert excerpt == "2: line 2\n3: line 3\n4: line 4"
+    assert _safe_excerpt(tmp_path / "missing.py", 3) == ""
+
+
+def test_parse_json_object_handles_plain_fenced_and_invalid_payloads():
+    assert _parse_json_object('{"summary":"ok"}') == {"summary": "ok"}
+    assert _parse_json_object('```json\n{"summary":"ok"}\n```') == {
+        "summary": "ok"
+    }
+    assert _parse_json_object("not json") is None
+    assert _parse_json_object("") is None
+
+
+def test_user_prompt_includes_signals_architecture_and_excerpt(tmp_path):
+    services = tmp_path / "app" / "services.py"
+    services.parent.mkdir(parents=True)
+    services.write_text(
+        "\n".join(f"line {idx}" for idx in range(1, 31)) + "\n",
+        encoding="utf-8",
+    )
+    snapshot = _snapshot(str(tmp_path))
+
+    prompt = _user_prompt(
+        snapshot.hotspots[0],
+        project_root=tmp_path,
+        architecture_metrics={
+            "system_metrics": {
+                "mean_distance": 1.2,
+                "architecture_fitness": 0.8,
+                "dip_violations": 3,
+            }
+        },
+    )
+
+    assert "Hotspot:" in prompt
+    assert "- [SKY-Q301] Cyclomatic complexity is 18 (threshold: 10)" in prompt
+    assert "Architecture context:" in prompt
+    assert "- mean_distance=1.2" in prompt
+    assert "[app/services.py:20]" in prompt
+
+
+def _stub_debt_advisor(payload: str, *, model: str = "gpt-4.1") -> DebtAdvisor:
+    advisor = DebtAdvisor.__new__(DebtAdvisor)
+    advisor.model = model
+    advisor.adapter = Mock(complete=Mock(return_value=payload))
+    return advisor
+
+
+def test_debt_advisor_summarize_hotspot_normalizes_payload(tmp_path):
+    services = tmp_path / "app" / "services.py"
+    services.parent.mkdir(parents=True)
+    services.write_text(
+        "def process_order(order):\n"
+        "    if order:\n"
+        "        return order\n"
+        "    return None\n",
+        encoding="utf-8",
+    )
+    snapshot = _snapshot(str(tmp_path))
+    advisor = _stub_debt_advisor(
+        json.dumps(
+            {
+                "summary": "The hotspot concentrates branching logic.",
+                "root_cause": "Control flow and responsibility are mixed.",
+                "refactor_steps": ["Extract validation.", "", "Split branches."],
+                "remediation_notes": ["Keep regression coverage.", ""],
+                "confidence": "BOGUS",
+            }
+        )
+    )
+
+    advisory = advisor.summarize_hotspot(snapshot.hotspots[0], project_root=tmp_path)
+
+    assert advisory is not None
+    assert advisory.confidence == "medium"
+    assert advisory.refactor_steps == ["Extract validation.", "Split branches."]
+    assert advisory.remediation_notes == ["Keep regression coverage."]
+
+
+def test_debt_advisor_summarize_hotspot_returns_none_for_incomplete_payload(tmp_path):
+    services = tmp_path / "app" / "services.py"
+    services.parent.mkdir(parents=True)
+    services.write_text(
+        "def process_order(order):\n"
+        "    if order:\n"
+        "        return order\n"
+        "    return None\n",
+        encoding="utf-8",
+    )
+    snapshot = _snapshot(str(tmp_path))
+    advisor = _stub_debt_advisor(
+        json.dumps(
+            {
+                "summary": "",
+                "root_cause": "Control flow and responsibility are mixed.",
+                "refactor_steps": [],
+                "remediation_notes": [],
+                "confidence": "low",
+            }
+        )
+    )
+
+    advisory = advisor.summarize_hotspot(snapshot.hotspots[0], project_root=tmp_path)
+
+    assert advisory is None
+
+
+def test_format_debt_table_renders_changed_scope_empty_state_and_baseline():
+    snapshot = _snapshot("/repo")
+    snapshot.hotspots = []
+    snapshot.summary["scope"] = {"score": "project", "hotspots": "changed"}
+    snapshot.summary["project_hotspot_count"] = 3
+    snapshot.summary["baseline"] = {
+        "new": 1,
+        "worsened": 2,
+        "improved": 0,
+        "unchanged": 4,
+        "resolved": 1,
+    }
+
+    rendered = format_debt_table(snapshot)
+
+    assert "Skylos Technical Debt Report" in rendered
+    assert "Hotspots: 0 shown (3 project total)" in rendered
+    assert "View: changed files only" in rendered
+    assert "Baseline: 1 new | 2 worsened | 0 improved | 4 unchanged | 1 resolved" in rendered
+    assert "No debt hotspots found in changed files." in rendered
+
+
+def test_format_debt_table_renders_hotspot_advisory_and_delta():
+    snapshot = _snapshot("/repo")
+    hotspot = snapshot.hotspots[0]
+    hotspot.priority_score = 16.5
+    hotspot.baseline_status = "worsened"
+    hotspot.score_delta = 1.25
+    hotspot.advisory = DebtAdvisory(
+        summary="Split summary and detail formatting into helpers.",
+        root_cause="One function owns several output branches.",
+        refactor_steps=[
+            "Extract summary line builders.",
+            "Move hotspot rendering into a helper.",
+            "Keep advisory formatting isolated.",
+        ],
+    )
+
+    rendered = format_debt_table(snapshot)
+
+    assert (
+        "1. app/services.py | score=14.00 | priority=16.50 | "
+        "signals=1 | dimensions=complexity | worsened (+1.25)"
+    ) in rendered
+    assert "advisor: Split summary and detail formatting into helpers." in rendered
+    assert "step: Extract summary line builders." in rendered
+    assert "step: Move hotspot rendering into a helper." in rendered
+    assert "step: Keep advisory formatting isolated." not in rendered
+
+
+def test_format_debt_table_orders_by_priority_and_applies_top_limit():
+    snapshot = _snapshot("/repo")
+    hotspot = snapshot.hotspots[0]
+    hotspot.priority_score = 10.0
+
+    second_signal = DebtSignal(
+        fingerprint="maintainability:SKY-L027:app/core.py:8:app.core",
+        dimension="maintainability",
+        rule_id="SKY-L027",
+        severity="MEDIUM",
+        file="app/core.py",
+        line=8,
+        subject="app.core",
+        message="String literal repeated 5 times (threshold: 3)",
+        points=9.0,
+    )
+    second_hotspot = DebtHotspot(
+        fingerprint="hotspot:app/core.py",
+        file="app/core.py",
+        score=9.0,
+        signal_count=1,
+        dimension_count=1,
+        primary_dimension="maintainability",
+        priority_score=18.0,
+        signals=[second_signal],
+    )
+    snapshot.hotspots.append(second_hotspot)
+
+    rendered = format_debt_table(snapshot, top=1)
+
+    assert "1. app/core.py | score=9.00 | priority=18.00" in rendered
+    assert "app/services.py" not in rendered
 
 
 def test_cli_debt_json_outputs_snapshot_and_exits_zero(tmp_path, monkeypatch):

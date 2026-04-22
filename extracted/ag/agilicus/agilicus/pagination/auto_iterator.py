@@ -22,6 +22,19 @@ def get_page_on(list_function):
     return result
 
 
+def _page_sort_supported(list_function):
+    """
+    tries to figure out page_sort is supported
+     - If it's an enum, uses the preferred one in the list, otherwise the first
+     - If it's not an enum, just tries the 'default', which is id.
+    """
+    # yes, the key here is a tuple or some reason
+    result = list(list_function.allowed_values.get(("page_sort",), {}).values())
+    if result:
+        return True
+    return False
+
+
 def _determine_page_on(list_function):
     page_on_list = get_page_on(list_function)
     if not page_on_list:
@@ -75,6 +88,7 @@ class AutoIterator:
         self.limit = limit
         self.page_size = page_size
         self.legacy_pagination = legacy_pagination
+        self._page_sort_supported = _page_sort_supported(self._list_function)
         if not self.legacy_pagination:
             self.configured_page_on = page_on or _determine_page_on(self._list_function)
         else:
@@ -126,7 +140,8 @@ class AutoIterator:
                 next_page_on = next_page_on.value
             params["page_on"] = self._page_on
             params["page_at_key"] = next_page_on
-            params["page_sort"] = self.page_sort
+            if self._page_sort_supported:
+                params["page_sort"] = self.page_sort
         return params
 
     def _fetch_next_page(self):

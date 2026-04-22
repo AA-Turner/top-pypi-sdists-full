@@ -20,10 +20,10 @@ from opaque_keys.edx.locator import LibraryLocatorV2
 from path import Path as path
 from web_fragments.fragment import Fragment
 from xblock.core import XBlock
-from xblock.fields import Boolean, Scope, String, UserScope
+from xblock.fields import Boolean, Scope, String
 from xblock.utils.resources import ResourceLoader
 
-from xblocks_contrib.common.xml_utils import LegacyXmlMixin, name_to_pathname
+from xblocks_contrib.legacy_utils.xml_utils import LegacyXmlMixin, name_to_pathname
 
 log = logging.getLogger(__name__)
 resource_loader = ResourceLoader(__name__)
@@ -185,18 +185,6 @@ class HtmlBlockMixin(LegacyXmlMixin, XBlock):
     uses_xmodule_styles_setup = True
     template_dir_name = "html"
     show_in_read_only_mode = True
-    icon_class = "other"
-
-    @property
-    def xblock_kvs(self):
-        """
-        Retrieves the internal KeyValueStore for this XModule.
-
-        Should only be used by the persistence layer. Use with caution.
-        """
-        # if caller wants kvs, caller's assuming it's up to date; so, decache it
-        self.save()
-        return self._field_data._kvs  # pylint: disable=protected-access
 
     @XBlock.supports("multi_device")
     def student_view(self, _context):
@@ -334,59 +322,6 @@ class HtmlBlockMixin(LegacyXmlMixin, XBlock):
             xblock_body["content"] = html_body
         xblock_body["content_type"] = "Text"
         return xblock_body
-
-    def bind_for_student(self, user_id, wrappers=None):
-        """
-        Set up this XBlock to act as an XModule instead of an XModuleDescriptor.
-
-        Arguments:
-            user_id: The user_id to set in scope_ids
-            wrappers: These are a list functions that put a wrapper, such as
-                      LmsFieldData or OverrideFieldData, around the field_data.
-                      Note that the functions will be applied in the order in
-                      which they're listed. So [f1, f2] -> f2(f1(field_data))
-        """
-
-        # Skip rebinding if we're already bound a user, and it's this user.
-        if self.scope_ids.user_id is not None and user_id == self.scope_ids.user_id:
-            if getattr(self.runtime, "position", None):
-                # update the position of the tab
-                self.position = self.runtime.position
-            return
-
-        # # If we are switching users mid-request, save the data from the old user.
-        # self.save()
-
-        # Update scope_ids to point to the new user.
-        self.scope_ids = self.scope_ids._replace(user_id=user_id)
-
-        # Clear out any cached instantiated children.
-        self.clear_child_cache()
-
-        # Clear out any cached field data scoped to the old user.
-        for field in self.fields.values():
-            if field.scope in (Scope.parent, Scope.children):
-                continue
-
-            if field.scope.user == UserScope.ONE:
-                field._del_cached_value(self)  # pylint: disable=protected-access
-                # not the most elegant way of doing this, but if we're removing
-                # a field from the module's field_data_cache, we should also
-                # remove it from its _dirty_fields
-                if field in self._dirty_fields:
-                    del self._dirty_fields[field]
-
-        if wrappers:
-            # Put user-specific wrappers around the field-data service for this block.
-            # Note that these are different from modulestore.xblock_field_data_wrappers, which are not user-specific.
-            wrapped_field_data = self.runtime.service(self, "field-data-unbound")
-            for wrapper in wrappers:
-                wrapped_field_data = wrapper(wrapped_field_data)
-            self._bound_field_data = wrapped_field_data
-            if getattr(self.runtime, "uses_deprecated_field_data", False):
-                # This approach is deprecated but old mongo's CachingDescriptorSystem still requires it.
-                # For Split mongo's CachingDescriptor system, don't set ._field_data this way.
-                self._field_data = wrapped_field_data
 
     @staticmethod
     def serialize_asset_key_with_slash(asset_key):

@@ -82,6 +82,7 @@ __all__ = (
     "ConstantTypeType",
     "ContributionAnalysisDirectionType",
     "ContributionAnalysisSortTypeType",
+    "ControlSortDirectionType",
     "CrossDatasetTypesType",
     "CustomContentImageScalingConfigurationType",
     "CustomContentTypeType",
@@ -565,6 +566,7 @@ ContributionAnalysisSortTypeType = Literal[
     "DEVIATION_FROM_EXPECTED",
     "PERCENTAGE_DIFFERENCE",
 ]
+ControlSortDirectionType = Literal["ASC", "DESC", "USER_DEFINED_ORDER"]
 CrossDatasetTypesType = Literal["ALL_DATASETS", "SINGLE_DATASET"]
 CustomContentImageScalingConfigurationType = Literal[
     "DO_NOT_SCALE", "FIT_TO_HEIGHT", "FIT_TO_WIDTH", "SCALE_TO_VISUAL"
@@ -668,6 +670,7 @@ DataSourceTypeType = Literal[
     "REDSHIFT",
     "S3",
     "S3_KNOWLEDGE_BASE",
+    "S3_TABLES",
     "SALESFORCE",
     "SERVICENOW",
     "SHAREPOINT",
@@ -1400,6 +1403,7 @@ ServiceName = Literal[
     "inspector",
     "inspector-scan",
     "inspector2",
+    "interconnect",
     "internetmonitor",
     "invoicing",
     "iot",
@@ -1456,6 +1460,7 @@ ServiceName = Literal[
     "marketplace-agreement",
     "marketplace-catalog",
     "marketplace-deployment",
+    "marketplace-discovery",
     "marketplace-entitlement",
     "marketplace-reporting",
     "marketplacecommerceanalytics",
@@ -1553,6 +1558,7 @@ ServiceName = Literal[
     "rum",
     "s3",
     "s3control",
+    "s3files",
     "s3outposts",
     "s3tables",
     "s3vectors",

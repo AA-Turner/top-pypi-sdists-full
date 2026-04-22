@@ -534,7 +534,7 @@ class PredictionExplanations(APIObject):
             maximum number of prediction explanations rows to retrieve per request
         exclude_adjusted_predictions : bool
             Optional, defaults to True. Set to False to include adjusted predictions, which will
-            differ from the predictions on some projects, e.g. those with an exposure column
+            differ from the predictions on some projects, e.g., those with an exposure column
             specified.
 
         Yields
@@ -580,7 +580,7 @@ class PredictionExplanations(APIObject):
             - row_id : row id from prediction dataset
             - prediction : the output of the model for this row
             - adjusted_prediction : adjusted prediction values (only appears for projects that
-              utilize prediction adjustments, e.g. projects with an exposure column)
+              utilize prediction adjustments, e.g., projects with an exposure column)
             - class_0_label : a class level from the target (only appears for classification
               projects)
             - class_0_probability : the probability that the target is this class (only appears for
@@ -597,7 +597,7 @@ class PredictionExplanations(APIObject):
               is the class label whose probability increasing would correspond to a positive
               strength.
             - explanation_0_qualitative_strength : a human-readable description of how strongly the
-              feature affected the prediction (e.g. '+++', '--', '+') for this explanation
+              feature affected the prediction (e.g., '+++', '--', '+') for this explanation
             - explanation_0_per_ngram_text_explanations : Text prediction explanations data in json
               formatted string.
             - explanation_0_strength : the amount this feature's value affected the prediction
@@ -610,7 +610,7 @@ class PredictionExplanations(APIObject):
               is the class label whose probability increasing would correspond to a positive
               strength.
             - explanation_N_qualitative_strength : a human-readable description of how strongly the
-              feature affected the prediction (e.g. '+++', '--', '+') for this explanation
+              feature affected the prediction (e.g., '+++', '--', '+') for this explanation
             - explanation_N_per_ngram_text_explanations : Text prediction explanations data in json
               formatted string.
             - explanation_N_strength : the amount this feature's value affected the prediction
@@ -639,7 +639,7 @@ class PredictionExplanations(APIObject):
         if adjusted_predictions_in_data:
             columns.append("adjusted_prediction")
         # for regression, length is 1; for classification, length is number of levels in target
-        # i.e. 2 for binary classification
+        # i.e., 2 for binary classification
         is_classification = len(first_row.prediction_values) > 1
         # include class label/probability for classification project
         if is_classification:
@@ -730,7 +730,7 @@ class PredictionExplanations(APIObject):
             A string representing the encoding to use in the output file, defaults to 'utf-8'
         exclude_adjusted_predictions : bool
             Optional, defaults to True. Set to False to include adjusted predictions, which will
-            differ from the predictions on some projects, e.g. those with an exposure column
+            differ from the predictions on some projects, e.g., those with an exposure column
             specified.
         """
         df = self.get_all_as_dataframe(exclude_adjusted_predictions=exclude_adjusted_predictions)  # noqa: PD901
@@ -752,7 +752,7 @@ class PredictionExplanations(APIObject):
             the number of records to skip, default 0
         exclude_adjusted_predictions : bool
             Optional, defaults to True. Set to False to include adjusted predictions, which will
-            differ from the predictions on some projects, e.g. those with an exposure column
+            differ from the predictions on some projects, e.g., those with an exposure column
             specified.
 
         Returns
@@ -919,7 +919,7 @@ class PredictionExplanationsPage(APIObject):
             the number of records to skip, default 0
         exclude_adjusted_predictions : bool
             Optional, defaults to True. Set to False to include adjusted predictions, which will
-            differ from the predictions on some projects, e.g. those with an exposure column
+            differ from the predictions on some projects, e.g., those with an exposure column
             specified.
 
         Returns

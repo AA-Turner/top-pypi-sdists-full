@@ -68,8 +68,13 @@ __topics__ = [
 
 EXTENSION_DICT = {
     'refinery.lib.fast.a3x'       : 'refinery/lib/fast/a3x.pyx',
+    'refinery.lib.fast.aplib'     : 'refinery/lib/fast/aplib.pyx',
     'refinery.lib.fast.argon2'    : 'refinery/lib/fast/argon2.pyx',
+    'refinery.lib.fast.blz'       : 'refinery/lib/fast/blz.pyx',
     'refinery.lib.fast.lzfse'     : 'refinery/lib/fast/lzfse.pyx',
+    'refinery.lib.fast.lzjb'      : 'refinery/lib/fast/lzjb.pyx',
+    'refinery.lib.fast.lzw'       : 'refinery/lib/fast/lzw.pyx',
+    'refinery.lib.fast.xpress'    : 'refinery/lib/fast/xpress.pyx',
     'refinery.lib.fast.pkware'    : 'refinery/lib/fast/pkware.pyx',
     'refinery.lib.fast.zipcrypto' : 'refinery/lib/fast/zipcrypto.pyx',
     'refinery.lib.seven.deflate'  : 'refinery/lib/seven/deflate.pyx',
@@ -203,13 +208,13 @@ def get_config():
     sys.path.insert(0, str(pathlib.Path(__file__).parent.absolute()))
 
     import refinery
+    import refinery.__unit__
     import refinery.lib.shared
 
     import importlib
     import pkgutil
 
-    with refinery.__unit_loader__ as ldr:
-        ldr.reload()
+    from refinery.lib.loader import get_all_entry_points
 
     for _, name, _ in pkgutil.iter_modules(refinery.lib.shared.__path__):
         # populate all shared dependencies
@@ -217,18 +222,17 @@ def get_config():
 
     def get_setup_extras(requirements: list[str] | None = None):
         deps_by_level: dict[int, set[str]] = {}
-        with refinery.__unit_loader__ as ldr:
-            for executable in (
-                refinery.lib.shared.GlobalDependenciesDummy,
-                *ldr.cache.values()
-            ):
-                if executable.optional_dependencies:
-                    for level, deps in executable.optional_dependencies.items():
-                        bucket = deps_by_level.setdefault(level, set())
-                        bucket.update(deps)
-                if executable.required_dependencies:
-                    if requirements is not None:
-                        requirements.extend(executable.required_dependencies)
+        for executable in (
+            refinery.lib.shared.GlobalDependenciesDummy,
+            *get_all_entry_points(),
+        ):
+            if executable.optional_dependencies:
+                for level, deps in executable.optional_dependencies.items():
+                    bucket = deps_by_level.setdefault(level, set())
+                    bucket.update(deps)
+            if executable.required_dependencies:
+                if requirements is not None:
+                    requirements.extend(executable.required_dependencies)
         l1 = deps_by_level.get(1, set())
         l2 = deps_by_level.get(2, set())
         l3 = deps_by_level.get(3, set())
@@ -270,11 +274,10 @@ def get_config():
     if __prefix__ == '!':
         console_scripts = []
     else:
-        with refinery.__unit_loader__ as ldr:
-            console_scripts = [
-                F'{__prefix__}{normalize_name(name)}={path}:{name}.run'
-                for name, path in ldr.units.items()
-            ]
+        console_scripts = [
+            F'{__prefix__}{normalize_name(name)}={path}:{name}.run'
+            for name, path in refinery.__unit__.UNITS.items()
+        ]
     console_scripts.append('binref=refinery.explore:explorer')
     settings = get_setup_common()
     settings['classifiers'] += [
@@ -290,7 +293,7 @@ def get_config():
 
     try:
         import Cython.Build as cy
-        ext = cy.cythonize(EXTENSION_LIST)
+        ext = cy.cythonize(EXTENSION_LIST, nthreads=os.cpu_count() or 1)
     except Exception:
         ext = []
 

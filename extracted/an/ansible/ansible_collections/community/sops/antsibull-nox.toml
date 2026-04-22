@@ -31,7 +31,12 @@ yamllint_config = ".yamllint"
 yamllint_config_plugins = ".yamllint-docs"
 yamllint_config_plugins_examples = ".yamllint-examples"
 yamllint_config_extra_docs = ".yamllint-extra-docs"
-run_mypy = false
+run_mypy = true
+mypy_config = ".mypy.ini"
+mypy_extra_deps = [
+    "types-mock",
+    "types-PyYAML",
+]
 
 [sessions.docs_check]
 validate_collection_refs="all"
@@ -90,33 +95,45 @@ gha_container = "ubuntu-latest"
 
 [[sessions.ansible_test_integration.groups.sessions]]
 ansible_core = "devel"
-docker = ["ubuntu2204", "ubuntu2404", "fedora42"]
+docker = ["ubuntu2204"]
+# Cannot install 3.5.0 on Fedora 44 (digest algorithm used for RPM isn't accepted anymore)
 ansible_vars = { override_sops_version = "3.5.0" }
 
 [[sessions.ansible_test_integration.groups.sessions]]
 ansible_core = "devel"
-docker = ["ubuntu2204", "ubuntu2404", "fedora42"]
+docker = ["ubuntu2404"]
+# Cannot install 3.6.1 on Fedora 43 (digest algorithm used for RPM isn't accepted anymore)
 ansible_vars = { override_sops_version = "3.6.1" }
 
 [[sessions.ansible_test_integration.groups.sessions]]
 ansible_core = "devel"
-docker = ["ubuntu2204", "ubuntu2404", "fedora42"]
+docker = ["fedora44"]
 ansible_vars = { override_sops_version = "3.7.3" }
 
 [[sessions.ansible_test_integration.groups.sessions]]
 ansible_core = "devel"
-docker = ["ubuntu2204", "ubuntu2404", "fedora42"]
+docker = ["ubuntu2404"]
 ansible_vars = { override_sops_version = "3.8.1" }
 
 [[sessions.ansible_test_integration.groups.sessions]]
 ansible_core = "devel"
-docker = ["ubuntu2204", "ubuntu2404", "fedora42"]
-ansible_vars = { override_sops_version = "3.9.3" }
+docker = ["ubuntu2204"]
+ansible_vars = { override_sops_version = "3.9.4" }
 
 [[sessions.ansible_test_integration.groups.sessions]]
 ansible_core = "devel"
-docker = ["ubuntu2204", "ubuntu2404", "fedora42"]
+docker = ["fedora44"]
+ansible_vars = { override_sops_version = "3.10.2" }
+
+[[sessions.ansible_test_integration.groups.sessions]]
+ansible_core = "devel"
+docker = ["ubuntu2404"]
 ansible_vars = { override_sops_version = "3.11.0" }
+
+[[sessions.ansible_test_integration.groups.sessions]]
+ansible_core = "devel"
+docker = ["ubuntu2204", "ubuntu2404", "fedora44"]
+ansible_vars = { override_sops_version = "3.12.1" }
 
 [[sessions.ansible_test_integration.groups.sessions]]
 ansible_core = "2.15"
@@ -175,6 +192,26 @@ docker = "fedora41"
 ansible_vars = { override_sops_version = "3.10.2" }
 
 [[sessions.ansible_test_integration.groups.sessions]]
+ansible_core = "2.20"
+docker = "fedora42"
+ansible_vars = { override_sops_version = "3.9.3" }
+
+[[sessions.ansible_test_integration.groups.sessions]]
+ansible_core = "2.20"
+docker = "ubuntu2404"
+ansible_vars = { override_sops_version = "3.11.0" }
+
+[[sessions.ansible_test_integration.groups.sessions]]
+ansible_core = "2.21"
+docker = "fedora43"
+ansible_vars = { override_sops_version = "3.12.2" }
+
+[[sessions.ansible_test_integration.groups.sessions]]
+ansible_core = "2.21"
+docker = "ubuntu2404"
+ansible_vars = { override_sops_version = "3.12.1" }
+
+[[sessions.ansible_test_integration.groups.sessions]]
 ansible_core = "devel"
 docker = "ubuntu2204"
 ansible_vars = { override_sops_version = "3.6.0" }
@@ -192,7 +229,7 @@ ansible_vars = { override_sops_version = "3.9.1" }
 [[sessions.ansible_test_integration.groups.sessions]]
 ansible_core = "devel"
 docker = "quay.io/ansible-community/test-image:archlinux"
-python_version = "3.13"
+python_version = "3.14"
 ansible_vars = { override_sops_version = "latest" }
 
 [[sessions.ansible_test_integration.groups.sessions]]
@@ -271,7 +308,7 @@ gha_container = "ubuntu-latest"
 [[sessions.ansible_test_integration.groups.sessions]]
 ansible_core = "devel"
 docker = "quay.io/ansible-community/test-image:archlinux"
-python_version = "3.13"
+python_version = "3.14"
 ansible_vars = { github_latest_detection = "auto" }
 
 [[sessions.ansible_test_integration.groups.sessions]]
@@ -298,8 +335,18 @@ docker = "fedora41"
 ansible_vars = { github_latest_detection = "auto" }
 
 [[sessions.ansible_test_integration.groups.sessions]]
-ansible_core = "devel"
+ansible_core = "2.20"
 docker = "fedora42"
+ansible_vars = { github_latest_detection = "auto" }
+
+[[sessions.ansible_test_integration.groups.sessions]]
+ansible_core = "2.21"
+docker = "fedora43"
+ansible_vars = { github_latest_detection = "auto" }
+
+[[sessions.ansible_test_integration.groups.sessions]]
+ansible_core = "devel"
+docker = "fedora44"
 ansible_vars = { github_latest_detection = "auto" }
 
 [[sessions.ansible_test_integration.groups.sessions]]
@@ -318,13 +365,23 @@ docker = "alpine321"
 ansible_vars = { github_latest_detection = "auto" }
 
 [[sessions.ansible_test_integration.groups.sessions]]
-ansible_core = "devel"
+ansible_core = "2.20"
 docker = "alpine322"
 ansible_vars = { github_latest_detection = "auto" }
 
 [[sessions.ansible_test_integration.groups.sessions]]
+ansible_core = "2.21"
+docker = "alpine323"
+ansible_vars = { github_latest_detection = "auto" }
+
+[[sessions.ansible_test_integration.groups.sessions]]
 ansible_core = "devel"
-docker = "alpine322"
+docker = "alpine323"
+ansible_vars = { github_latest_detection = "auto" }
+
+[[sessions.ansible_test_integration.groups.sessions]]
+ansible_core = "devel"
+docker = "alpine323"
 gha_container = "ubuntu-24.04-arm"
 ansible_vars = { github_latest_detection = "auto" }
 

@@ -604,3 +604,90 @@ releases:
       - 2.2.7.yml
       - ansible-core-2.20-warning.yml
     release_date: '2025-11-02'
+  2.3.0-b1:
+    changes:
+      minor_changes:
+        - load_vars - now supports ansible-core 2.21's way of actually loading variables,
+          instead of returning ``ansible_facts``. The behavior for this can be controlled
+          through the new ``return_method`` option, which is by default set to ``auto``.
+          On ansible-core 2.21+, ``auto`` behaves the same as ``vars-only`` (return
+          proper variables), and for ansible-core before 2.21 the same as ``facts-only``
+          (return ``ansible_facts``) (https://github.com/ansible-collections/community.sops/pull/283).
+      release_summary: 'This is a pre-release for community.sops 2.3.0.
+
+        The main new feature of this release is ansible-core 2.21 support for ``community.sops.load_vars``.
+
+        ansible-core 2.21 is the first version to explicitly allow action plugins
+        to set variables,
+
+        which finally allows ``community.sops.load_vars`` to set variables the same
+        way as
+
+        ``ansible.builtin.include_vars``.
+
+
+        Since this interface is brand-new and changes might still happen until the
+        final ansible-core 2.21
+
+        release, this is a pre-release.'
+    fragments:
+      - 2.3.0-b1.yml
+      - 283-load-vars-as-vars.yml
+    release_date: '2026-04-07'
+  2.3.0-b2:
+    changes:
+      minor_changes:
+        - all modules and plugins - allow retrieving private age keys and private
+          SSH keys through commands with the new ``age_key_cmd`` and ``age_ssh_private_key_cmd``
+          options (https://github.com/ansible-collections/community.sops/issues/282,
+          https://github.com/ansible-collections/community.sops/pull/286).
+        - all modules and plugins - allow to configure GCP access with the ``gcp_oauth_access_token``
+          and ``gcp_kms_client_type`` options (https://github.com/ansible-collections/community.sops/issues/282,
+          https://github.com/ansible-collections/community.sops/pull/286).
+        - sops_encrypt - support providing HuaweiCloud KMS key IDs with the ``huawei_cloud_kms``
+          option (https://github.com/ansible-collections/community.sops/issues/282,
+          https://github.com/ansible-collections/community.sops/pull/286).
+      release_summary: 'This is a pre-release for community.sops 2.3.0.
+
+        The main new features of this release are ansible-core 2.21 support for ``community.sops.load_vars``
+
+        and improved argument checking for the ``community.sops.decrypt`` filter.
+
+        Also the handling of the ``sops_binary`` option for the lookup and vars plugin
+        have been improved.
+
+
+        ansible-core 2.21 is the first version to explicitly allow action plugins
+        to set variables,
+
+        which finally allows ``community.sops.load_vars`` to set variables the same
+        way as
+
+        ``ansible.builtin.include_vars``.
+
+
+        Since this interface is brand-new and changes might still happen until the
+        final ansible-core 2.21
+
+        release, this is a pre-release.'
+    fragments:
+      - 2.3.0-b2.yml
+      - 286-options.yml
+    release_date: '2026-04-15'
+  2.3.0:
+    changes:
+      release_summary: 'Feature release.
+
+
+        The main new feature of this release is ansible-core 2.21 support for ``community.sops.load_vars``.
+
+        ansible-core 2.21 is the first version to explicitly allow action plugins
+        to set variables,
+
+        which finally allows ``community.sops.load_vars`` to set variables the same
+        way as
+
+        ``ansible.builtin.include_vars``.'
+    fragments:
+      - 2.3.0.yml
+    release_date: '2026-04-19'

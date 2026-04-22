@@ -23,6 +23,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
 ]
 dependencies = [
     "torch>=2.2",  # to enjoy Flash Attention v2
@@ -36,19 +37,41 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+doc = [
+  "sphinx",
+  "sphinx-copybutton",
+  "sphinx-gallery",
+  "matplotlib>=3.10.3",
+  "pydata-sphinx-theme",
+  "sphinxext-opengraph",
+  "skrub",
+  "pandas",
+  "shap>=0.42",
+  "shapiq>=1.0",
+  "numba",  # Add it here to facilitate the life of the installer
+]
 forecast = [                                                                                                                                                                                                        
     "pandas>=2.1.2",
     "gluonts>=0.16.0",  # calendar features
     "statsmodels>=0.14.5",  # seasonal detection
     "matplotlib>=3.10.3",  # plotting
 ]
+shap = [
+    "shap>=0.42",
+    "shapiq>=1.0",
+    "matplotlib>=3.10.3",
+    "numba",  # Add it here to facilitate the life of the installer
+]
 pretrain = [
     "transformers",  # only used in optim for schedules
     "xgboost",  # used in the TabICLv1 prior
     "wandb",  # logging in pre-training
 ]
+test = [
+    "pandas",
+]
 all = [
-    "tabicl[forecast,pretrain]",
+    "tabicl[doc,forecast,shap,pretrain,test]",
 ]
 
 [build-system]
@@ -71,10 +94,7 @@ features = []
 [tool.hatch.envs.hatch-test]
 default-args = ["tests"]
 installer = "uv"
-features = []
-
-[tool.pytest.ini_options]
-pythonpath = "src"  # to allow importing tabicl instead of src.tabicl
+features = ["test"]
 
 [tool.hatch.envs.types]
 extra-dependencies = [
@@ -99,4 +119,13 @@ exclude_lines = [
     "no cov",
     "if __name__ == .__main__.:",
     "if TYPE_CHECKING:",
+]
+
+[tool.uv]
+# gluonts pins an old numpy version which is not available for Python 3.14. The
+# following override is a temporary workaround to avoid having uv build numpy
+# from source on Python 3.14 and later.
+override-dependencies = [
+    "numpy>=2.4; python_version >= '3.14'",
+    "numpy; python_version < '3.14'",
 ]

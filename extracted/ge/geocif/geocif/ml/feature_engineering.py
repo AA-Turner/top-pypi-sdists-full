@@ -301,109 +301,79 @@ def compute_analogous_yield(
     return df
 
 
-def detect_clusters(df, target_col="Yield (tn per ha)"):
-    """
+def find_optimal_kmeans(feature_matrix, max_clusters=15, random_state=42):
+    """Find optimal K-Means clustering using the elbow method.
 
     Args:
-        df:
-        target_col:
+        feature_matrix: DataFrame or 2D array where rows are samples and
+            columns are features. NaN/inf values should be handled before
+            calling this function.
+        max_clusters: Upper bound on cluster count (clamped to n_samples - 1).
+        random_state: Reproducibility seed.
 
     Returns:
-
+        (labels, optimal_k, inertias): Cluster labels array, chosen k, and
+        list of inertia values for each k tested.
     """
     os.environ["OMP_NUM_THREADS"] = "1"
 
-    # Suppress warnings in this function
     import warnings
-
     warnings.filterwarnings("ignore")
 
     from kneed import KneeLocator
     from sklearn.cluster import KMeans
 
-    # Get the yield of each region in df_results
-    df_yield = df[["Region", "Harvest Year", target_col]]
+    n_samples = len(feature_matrix)
+    k_range = range(1, min(max_clusters, n_samples))
 
-    # Drop any columns with missing values
-    df_yield = df_yield.dropna()
+    inertias = []
+    for k in k_range:
+        km = KMeans(n_clusters=k, random_state=random_state)
+        km.fit(feature_matrix)
+        inertias.append(km.inertia_)
 
-    # Pivot the DataFrame to have regions as rows and years as columns with their corresponding yields
-    df_yield_pivot = df_yield.pivot_table(
-        index="Region",
-        columns="Harvest Year",
-        values=target_col,
-        aggfunc="mean",
+    knee = KneeLocator(
+        k_range, inertias, curve="convex", direction="decreasing"
     )
 
-    # Fill rows with median value of the row
-    df_na = df_yield_pivot.median(axis=1)
-    # Fill NaNs in df_yield_pivot with value from df_na
-    df_yield_pivot = df_yield_pivot.fillna(df_na, axis=0)
+    optimal_k = knee.knee
+    if optimal_k and optimal_k > 1:
+        optimal_k += 1
 
-    # Fill data with Median values rowwise
-    df_yield_pivot = df_yield_pivot.apply(lambda row: row.fillna(row.median()), axis=1)
+    if not optimal_k:
+        optimal_k = 1
 
-    # Normalize the data
-    # scaler = StandardScaler()
-    # df_yield_normalized = scaler.fit_transform(df_yield_pivot)
+    km_final = KMeans(n_clusters=optimal_k, random_state=random_state)
+    km_final.fit(feature_matrix)
 
-    # Determine an appropriate number of clusters using the Elbow Method
-    inertia = []
-    range_of_clusters = range(
-        1, len(df_yield_pivot)
-    )  # Assuming up to 15 clusters for demonstration
+    return km_final.labels_, optimal_k, inertias
 
-    # Replace inf or NaN values with column median
-    df_yield_pivot = df_yield_pivot.replace([np.inf, -np.inf], np.nan)
-    df_yield_pivot = df_yield_pivot.fillna(df_yield_pivot.median())
-    for n_clusters in range_of_clusters:
-        kmeans = KMeans(n_clusters=n_clusters, random_state=42)
-        try:
-            kmeans.fit(df_yield_pivot)
-        except:
-            breakpoint()
-        inertia.append(kmeans.inertia_)
 
-    # Use KneeLocator to find the elbow point automatically
-    knee_locator = KneeLocator(
-        range_of_clusters, inertia, curve="convex", direction="decreasing"
+def detect_clusters(df, target_col="Yield (tn per ha)"):
+    """Cluster regions by their yield patterns across years.
+
+    Args:
+        df: DataFrame with columns "Region", "Harvest Year", and target_col.
+        target_col: Column name for the target variable.
+
+    Returns:
+        DataFrame with columns ["Region", "Region_ID"] mapping each region
+        to its cluster assignment.
+    """
+    df_yield = df[["Region", "Harvest Year", target_col]].dropna()
+
+    df_pivot = df_yield.pivot_table(
+        index="Region", columns="Harvest Year", values=target_col, aggfunc="mean",
     )
 
-    # # Plot the Elbow Method for visual confirmation
-    # plt.figure(figsize=(10, 6))
-    # plt.plot(range_of_clusters, inertia, marker='o', linestyle='--')
-    # plt.title('Elbow Method For Optimal k')
-    # plt.xlabel('Number of clusters')
-    # plt.ylabel('Inertia')
-    # plt.xticks(range_of_clusters)
-    # plt.vlines(knee_locator.knee, plt.ylim()[0], plt.ylim()[1], linestyles='dashed')
-    # plt.show()
+    # Fill NaNs with row median, then column median
+    df_pivot = df_pivot.apply(lambda row: row.fillna(row.median()), axis=1)
+    df_pivot = df_pivot.replace([np.inf, -np.inf], np.nan)
+    df_pivot = df_pivot.fillna(df_pivot.median())
 
-    # Use the detected number of clusters
-    optimal_clusters = knee_locator.knee
-    if optimal_clusters:
-        optimal_clusters = (
-            optimal_clusters + 1 if optimal_clusters > 1 else optimal_clusters
-        )
+    labels, _, _ = find_optimal_kmeans(df_pivot)
 
-        # Apply K-Means clustering with the detected optimal number of clusters
-        kmeans = KMeans(n_clusters=optimal_clusters, random_state=42)
-        kmeans.fit(df_yield_pivot)
-
-        # Assign cluster labels to each region
-        cluster_labels = kmeans.labels_
-
-        # Create a DataFrame with region names and their respective cluster IDs
-        clusters_assigned = pd.DataFrame(
-            {"Region": df_yield_pivot.index, "Region_ID": cluster_labels}
-        )
-    else:
-        # If no optimal_clusters is found, then assign all regions to a single cluster
-        clusters_assigned = pd.DataFrame(
-            {"Region": df_yield_pivot.index, "Region_ID": 1}
-        )
-
-    return clusters_assigned
+    return pd.DataFrame({"Region": df_pivot.index, "Region_ID": labels})
 
 
 def classify_target(df, target_col, number_classes):

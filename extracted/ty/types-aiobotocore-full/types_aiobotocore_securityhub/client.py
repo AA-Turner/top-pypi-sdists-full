@@ -253,6 +253,8 @@ class Exceptions(BaseClientExceptions):
     InvalidAccessException: type[BotocoreClientError]
     InvalidInputException: type[BotocoreClientError]
     LimitExceededException: type[BotocoreClientError]
+    OrganizationNotFoundException: type[BotocoreClientError]
+    OrganizationalUnitNotFoundException: type[BotocoreClientError]
     ResourceConflictException: type[BotocoreClientError]
     ResourceInUseException: type[BotocoreClientError]
     ResourceNotFoundException: type[BotocoreClientError]
@@ -429,8 +431,7 @@ class SecurityHubClient(AioBaseClient):
         self, **kwargs: Unpack[BatchUpdateFindingsV2RequestTypeDef]
     ) -> BatchUpdateFindingsV2ResponseTypeDef:
         """
-        Used by customers to update information about their investigation into a
-        finding.
+        Updates information about a customer's investigation into a finding.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/batch_update_findings_v2.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/client/#batch_update_findings_v2)
@@ -965,7 +966,7 @@ class SecurityHubClient(AioBaseClient):
         self, **kwargs: Unpack[GetFindingsV2RequestTypeDef]
     ) -> GetFindingsV2ResponseTypeDef:
         """
-        Return a list of findings that match the specified criteria.
+        Returns a list of findings that match the specified criteria.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_findings_v2.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/client/#get_findings_v2)

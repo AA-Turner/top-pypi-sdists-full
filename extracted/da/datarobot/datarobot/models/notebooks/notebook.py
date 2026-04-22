@@ -340,7 +340,7 @@ class Notebook(APIObject, BrowserMixin):
             Property to sort returned Notebooks. Optional.
             Supported properties are "name", "created", "updated", "tags", and "lastViewed".
             Prefix the attribute name with a dash to sort in descending order,
-            e.g. order_by='-created'.
+            e.g., order_by='-created'.
             By default, the order_by parameter is None.
         tags : Optional[List[str]]
             A list of tags that returned Notebooks should be associated with. Optional.

@@ -53,12 +53,13 @@ from .module import capture as capture
 from .module import view as view
 from .module import view_info as view_info
 from .module import with_attributes as with_attributes
-from .module import iter_children as iter_children, iter_modules as iter_modules
+from .module import iter_children as iter_children, iter_modules as iter_modules, iter_module_children as iter_module_children
 from .graphlib import merge as merge
 from .graphlib import UpdateContext as UpdateContext
 from .graphlib import update_context as update_context
 from .graphlib import current_update_context as current_update_context
 from .graphlib import split as split
+from .graphlib import unpack as unpack
 from .graphlib import update as update
 from .graphlib import clone as clone
 from .graphlib import pop as pop
@@ -76,6 +77,7 @@ from .graphlib import MergeContext as MergeContext
 from .graphlib import merge_context as merge_context
 from .graphlib import variables as variables
 from .graphlib import vars_as as vars_as
+from .graphlib import as_pure as as_pure
 from .graphlib import pure as pure
 from .graphlib import cached_partial as cached_partial
 from .graphlib import flatten as flatten
@@ -146,12 +148,14 @@ from .rnglib import RngCount as RngCount
 from .rnglib import fork_rngs as fork_rngs
 from .rnglib import reseed as reseed
 from .rnglib import split_rngs as split_rngs
+from .rnglib import with_rngs as with_rngs
 from .rnglib import restore_rngs as restore_rngs
 from .spmd import PARTITION_NAME as PARTITION_NAME
 from .spmd import get_partition_spec as get_partition_spec
 from .spmd import get_named_sharding as get_named_sharding
 from .spmd import with_partitioning as with_partitioning
 from .spmd import get_abstract_model as get_abstract_model
+from .spmd import as_abstract as as_abstract
 from .spmd import abstract_with_sharding as abstract_with_sharding
 from .statelib import FlatState as FlatState
 from .statelib import State as State
@@ -195,6 +199,7 @@ from .transforms.transforms import eval_shape as eval_shape
 from .transforms.transforms import cond as cond
 from .transforms.transforms import switch as switch
 from .transforms.transforms import checkify as checkify
+from .transforms.transforms import make_jaxpr as make_jaxpr
 from .transforms.iteration import while_loop as while_loop
 from .transforms.iteration import fori_loop as fori_loop
 from .transforms.iteration import StateAxes as StateAxes
@@ -215,6 +220,7 @@ from .visualization import display as display
 from .extract import to_tree as to_tree
 from .extract import from_tree as from_tree
 from .extract import NodeStates as NodeStates
+from .extract import prefix as prefix
 from .summary import tabulate as tabulate
 from . import traversals as traversals
 from . import graphlib as graphlib

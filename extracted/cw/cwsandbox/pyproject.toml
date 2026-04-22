@@ -7,7 +7,7 @@ packages = ["src/cwsandbox"]
 
 [project]
 name = "cwsandbox"
-version = "0.18.0"
+version = "0.19.1"
 description = "A Python client library for CoreWeave Sandbox"
 readme = "README.md"
 requires-python = ">=3.11,<4"
@@ -117,6 +117,10 @@ ignore_errors = true
 module = "wandb.*"
 ignore_missing_imports = true
 follow_imports = "skip"
+
+[[tool.mypy.overrides]]
+module = "google.rpc.*"
+ignore_missing_imports = true
 
 [tool.semantic_release]
 allow_zero_version      = true

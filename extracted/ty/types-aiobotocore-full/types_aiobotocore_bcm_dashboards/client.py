@@ -22,31 +22,43 @@ from __future__ import annotations
 import sys
 from collections.abc import Mapping
 from types import TracebackType
-from typing import Any
+from typing import Any, overload
 
 from aiobotocore.client import AioBaseClient
 from botocore.client import ClientMeta
 from botocore.errorfactory import BaseClientExceptions
 from botocore.exceptions import ClientError as BotocoreClientError
 
-from .paginator import ListDashboardsPaginator
+from .paginator import ListDashboardsPaginator, ListScheduledReportsPaginator
 from .type_defs import (
     CreateDashboardRequestTypeDef,
     CreateDashboardResponseTypeDef,
+    CreateScheduledReportRequestTypeDef,
+    CreateScheduledReportResponseTypeDef,
     DeleteDashboardRequestTypeDef,
     DeleteDashboardResponseTypeDef,
+    DeleteScheduledReportRequestTypeDef,
+    DeleteScheduledReportResponseTypeDef,
+    ExecuteScheduledReportRequestTypeDef,
+    ExecuteScheduledReportResponseTypeDef,
     GetDashboardRequestTypeDef,
     GetDashboardResponseTypeDef,
     GetResourcePolicyRequestTypeDef,
     GetResourcePolicyResponseTypeDef,
+    GetScheduledReportRequestTypeDef,
+    GetScheduledReportResponseTypeDef,
     ListDashboardsRequestTypeDef,
     ListDashboardsResponseTypeDef,
+    ListScheduledReportsRequestTypeDef,
+    ListScheduledReportsResponseTypeDef,
     ListTagsForResourceRequestTypeDef,
     ListTagsForResourceResponseTypeDef,
     TagResourceRequestTypeDef,
     UntagResourceRequestTypeDef,
     UpdateDashboardRequestTypeDef,
     UpdateDashboardResponseTypeDef,
+    UpdateScheduledReportRequestTypeDef,
+    UpdateScheduledReportResponseTypeDef,
 )
 
 if sys.version_info >= (3, 12):
@@ -61,6 +73,7 @@ __all__ = ("BillingandCostManagementDashboardsClient",)
 class Exceptions(BaseClientExceptions):
     AccessDeniedException: type[BotocoreClientError]
     ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
     InternalServerException: type[BotocoreClientError]
     ResourceNotFoundException: type[BotocoreClientError]
     ServiceQuotaExceededException: type[BotocoreClientError]
@@ -114,6 +127,16 @@ class BillingandCostManagementDashboardsClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bcm_dashboards/client/#create_dashboard)
         """
 
+    async def create_scheduled_report(
+        self, **kwargs: Unpack[CreateScheduledReportRequestTypeDef]
+    ) -> CreateScheduledReportResponseTypeDef:
+        """
+        Creates a new scheduled report for a dashboard.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bcm-dashboards/client/create_scheduled_report.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bcm_dashboards/client/#create_scheduled_report)
+        """
+
     async def delete_dashboard(
         self, **kwargs: Unpack[DeleteDashboardRequestTypeDef]
     ) -> DeleteDashboardResponseTypeDef:
@@ -122,6 +145,27 @@ class BillingandCostManagementDashboardsClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bcm-dashboards/client/delete_dashboard.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bcm_dashboards/client/#delete_dashboard)
+        """
+
+    async def delete_scheduled_report(
+        self, **kwargs: Unpack[DeleteScheduledReportRequestTypeDef]
+    ) -> DeleteScheduledReportResponseTypeDef:
+        """
+        Deletes a specified scheduled report.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bcm-dashboards/client/delete_scheduled_report.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bcm_dashboards/client/#delete_scheduled_report)
+        """
+
+    async def execute_scheduled_report(
+        self, **kwargs: Unpack[ExecuteScheduledReportRequestTypeDef]
+    ) -> ExecuteScheduledReportResponseTypeDef:
+        """
+        Triggers an immediate execution of a scheduled report, outside of its regular
+        schedule.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bcm-dashboards/client/execute_scheduled_report.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bcm_dashboards/client/#execute_scheduled_report)
         """
 
     async def get_dashboard(
@@ -146,6 +190,16 @@ class BillingandCostManagementDashboardsClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bcm_dashboards/client/#get_resource_policy)
         """
 
+    async def get_scheduled_report(
+        self, **kwargs: Unpack[GetScheduledReportRequestTypeDef]
+    ) -> GetScheduledReportResponseTypeDef:
+        """
+        Retrieves the configuration and metadata of a specified scheduled report.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bcm-dashboards/client/get_scheduled_report.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bcm_dashboards/client/#get_scheduled_report)
+        """
+
     async def list_dashboards(
         self, **kwargs: Unpack[ListDashboardsRequestTypeDef]
     ) -> ListDashboardsResponseTypeDef:
@@ -154,6 +208,16 @@ class BillingandCostManagementDashboardsClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bcm-dashboards/client/list_dashboards.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bcm_dashboards/client/#list_dashboards)
+        """
+
+    async def list_scheduled_reports(
+        self, **kwargs: Unpack[ListScheduledReportsRequestTypeDef]
+    ) -> ListScheduledReportsResponseTypeDef:
+        """
+        Returns a list of scheduled reports in your account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bcm-dashboards/client/list_scheduled_reports.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bcm_dashboards/client/#list_scheduled_reports)
         """
 
     async def list_tags_for_resource(
@@ -193,9 +257,32 @@ class BillingandCostManagementDashboardsClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bcm_dashboards/client/#update_dashboard)
         """
 
+    async def update_scheduled_report(
+        self, **kwargs: Unpack[UpdateScheduledReportRequestTypeDef]
+    ) -> UpdateScheduledReportResponseTypeDef:
+        """
+        Updates an existing scheduled report's properties, including its name,
+        description, schedule configuration, and widget settings.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bcm-dashboards/client/update_scheduled_report.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bcm_dashboards/client/#update_scheduled_report)
+        """
+
+    @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_dashboards"]
     ) -> ListDashboardsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bcm-dashboards/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bcm_dashboards/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_scheduled_reports"]
+    ) -> ListScheduledReportsPaginator:
         """
         Create a paginator for an operation.
 

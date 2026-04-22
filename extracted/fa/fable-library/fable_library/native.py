@@ -13,13 +13,13 @@ def Helpers_arrayFrom[T](xs: IEnumerable_1[T]) -> Array[T]:
     return of_seq(xs)
 
 
-def Helpers_allocateArray[T](len_1: int32) -> Array[Any]:
-    return create(len_1, cast(T, None))
+def Helpers_allocateArray[T](len_1: int32) -> Array[T]:
+    return create(len_1, cast(Any, None))
 
 
 def Helpers_allocateArrayFromCons[T](cons: FSharpCons[T], len_1: int32) -> Array[T]:
     if Operators_IsNull(cons):
-        return create(len_1, cast(T, None))
+        return create(len_1, cast(Any, None))
 
     else:
         return cons.allocate(len_1)

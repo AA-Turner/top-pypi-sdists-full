@@ -852,3 +852,40 @@ def display_run_summary(title, params, wait=20):
 
     if wait > 0:
         wait_or_keypress(wait)
+
+
+def filter_cid_columns(df, fixed_cols, target, stat_cols):
+    """Get CID feature column names, excluding fixed/target/meta/engineered columns.
+
+    Args:
+        df: DataFrame with wide-format CID columns.
+        fixed_cols: List of fixed metadata columns (e.g. Country, Region, ...).
+        target: Target column name (e.g. "Yield (tn per ha)").
+        stat_cols: Statistics columns (e.g. ["Area (ha)", "Production (tn)"]).
+
+    Returns:
+        List of CID column names.
+    """
+    exclude = set(
+        list(fixed_cols)
+        + [target]
+        + list(stat_cols)
+        + [
+            f"{target}_class",
+            "Region_ID", "lat", "lon", "Country Region", "Country__Region",
+            f"Detrended {target}", "Detrended Model", "Detrended Model Type",
+            "Stage Names", "Stage_ID", "Stage Range", "Starting Stage", "Ending Stage",
+            "Percentage Season",
+            "Analogous Year", "Analogous Year Yield",
+        ]
+    )
+    skip_prefixes = (
+        f"Median {target}",
+        f"Last Year {target}",
+        "t - ",
+        "nbr_",
+    )
+    return [
+        col for col in df.columns
+        if col not in exclude and not col.startswith(skip_prefixes)
+    ]

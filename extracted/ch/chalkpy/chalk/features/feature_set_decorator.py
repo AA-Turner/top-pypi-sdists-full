@@ -542,6 +542,7 @@ def _get_field(
 
     f.features_cls = cls
     f.attribute_name = annotation_name
+    f.unversioned_attribute_name = annotation_name
     if not hasattr(f, "name"):
         f.name = annotation_name
     f.is_singleton = is_singleton

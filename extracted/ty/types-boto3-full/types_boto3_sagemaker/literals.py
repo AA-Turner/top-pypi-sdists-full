@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from types_boto3_sagemaker.literals import AccountDefaultStatusType
+    from types_boto3_sagemaker.literals import AIBenchmarkJobStatusType
 
-    data: AccountDefaultStatusType = "DISABLED"
+    data: AIBenchmarkJobStatusType = "Completed"
     ```
 """
 
@@ -23,6 +23,13 @@ else:
 
 
 __all__ = (
+    "AIBenchmarkJobStatusType",
+    "AICapacityReservationPreferenceType",
+    "AIRecommendationInferenceFrameworkType",
+    "AIRecommendationInstanceTypeType",
+    "AIRecommendationJobStatusType",
+    "AIRecommendationMetricType",
+    "AIRecommendationOptimizationTypeType",
     "AccountDefaultStatusType",
     "ActionStatusType",
     "ActivationStateType",
@@ -189,6 +196,12 @@ __all__ = (
     "LastUpdateStatusValueType",
     "LifecycleManagementType",
     "LineageTypeType",
+    "ListAIBenchmarkJobsPaginatorName",
+    "ListAIBenchmarkJobsSortByType",
+    "ListAIRecommendationJobsPaginatorName",
+    "ListAIRecommendationJobsSortByType",
+    "ListAIWorkloadConfigsPaginatorName",
+    "ListAIWorkloadConfigsSortByType",
     "ListActionsPaginatorName",
     "ListAlgorithmsPaginatorName",
     "ListAliasesPaginatorName",
@@ -474,6 +487,53 @@ __all__ = (
 )
 
 
+AIBenchmarkJobStatusType = Literal["Completed", "Failed", "InProgress", "Stopped", "Stopping"]
+AICapacityReservationPreferenceType = Literal["capacity-reservations-only"]
+AIRecommendationInferenceFrameworkType = Literal["LMI", "VLLM"]
+AIRecommendationInstanceTypeType = Literal[
+    "ml.g5.12xlarge",
+    "ml.g5.16xlarge",
+    "ml.g5.24xlarge",
+    "ml.g5.2xlarge",
+    "ml.g5.48xlarge",
+    "ml.g5.4xlarge",
+    "ml.g5.8xlarge",
+    "ml.g5.xlarge",
+    "ml.g6.12xlarge",
+    "ml.g6.16xlarge",
+    "ml.g6.24xlarge",
+    "ml.g6.2xlarge",
+    "ml.g6.48xlarge",
+    "ml.g6.4xlarge",
+    "ml.g6.8xlarge",
+    "ml.g6.xlarge",
+    "ml.g6e.12xlarge",
+    "ml.g6e.16xlarge",
+    "ml.g6e.24xlarge",
+    "ml.g6e.2xlarge",
+    "ml.g6e.48xlarge",
+    "ml.g6e.4xlarge",
+    "ml.g6e.8xlarge",
+    "ml.g6e.xlarge",
+    "ml.g7e.12xlarge",
+    "ml.g7e.24xlarge",
+    "ml.g7e.2xlarge",
+    "ml.g7e.48xlarge",
+    "ml.g7e.4xlarge",
+    "ml.g7e.8xlarge",
+    "ml.p3.16xlarge",
+    "ml.p3.2xlarge",
+    "ml.p3.8xlarge",
+    "ml.p4d.24xlarge",
+    "ml.p4de.24xlarge",
+    "ml.p5.48xlarge",
+    "ml.p5.4xlarge",
+    "ml.p5e.48xlarge",
+    "ml.p5en.48xlarge",
+]
+AIRecommendationJobStatusType = Literal["Completed", "Failed", "InProgress", "Stopped", "Stopping"]
+AIRecommendationMetricType = Literal["cost", "throughput", "ttft-ms"]
+AIRecommendationOptimizationTypeType = Literal["KernelTuning", "SpeculativeDecoding"]
 AccountDefaultStatusType = Literal["DISABLED", "ENABLED"]
 ActionStatusType = Literal["Completed", "Failed", "InProgress", "Stopped", "Stopping", "Unknown"]
 ActivationStateType = Literal["Disabled", "Enabled"]
@@ -1340,6 +1400,12 @@ LabelingJobStatusType = Literal[
 LastUpdateStatusValueType = Literal["Failed", "InProgress", "Successful"]
 LifecycleManagementType = Literal["DISABLED", "ENABLED"]
 LineageTypeType = Literal["Action", "Artifact", "Context", "TrialComponent"]
+ListAIBenchmarkJobsPaginatorName = Literal["list_ai_benchmark_jobs"]
+ListAIBenchmarkJobsSortByType = Literal["CreationTime", "Name", "Status"]
+ListAIRecommendationJobsPaginatorName = Literal["list_ai_recommendation_jobs"]
+ListAIRecommendationJobsSortByType = Literal["CreationTime", "Name", "Status"]
+ListAIWorkloadConfigsPaginatorName = Literal["list_ai_workload_configs"]
+ListAIWorkloadConfigsSortByType = Literal["CreationTime", "Name"]
 ListActionsPaginatorName = Literal["list_actions"]
 ListAlgorithmsPaginatorName = Literal["list_algorithms"]
 ListAliasesPaginatorName = Literal["list_aliases"]
@@ -1590,6 +1656,12 @@ OperatorType = Literal[
     "NotExists",
 ]
 OptimizationJobDeploymentInstanceTypeType = Literal[
+    "ml.g4dn.12xlarge",
+    "ml.g4dn.16xlarge",
+    "ml.g4dn.2xlarge",
+    "ml.g4dn.4xlarge",
+    "ml.g4dn.8xlarge",
+    "ml.g4dn.xlarge",
     "ml.g5.12xlarge",
     "ml.g5.16xlarge",
     "ml.g5.24xlarge",
@@ -3024,6 +3096,9 @@ PaginatorName = Literal[
     "create_hub_content_presigned_urls",
     "describe_training_plan_extension_history",
     "list_actions",
+    "list_ai_benchmark_jobs",
+    "list_ai_recommendation_jobs",
+    "list_ai_workload_configs",
     "list_algorithms",
     "list_aliases",
     "list_app_image_configs",

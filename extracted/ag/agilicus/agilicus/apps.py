@@ -1042,6 +1042,43 @@ def get_application_services(ctx, org_id=None, **kwargs):
     ).application_services
 
 
+def list_external_networks(ctx, org_id=None, get_all=False, limit=None, **kwargs):
+    token = context.get_token(ctx)
+    kwargs["org_id"] = get_org_from_input_or_ctx(ctx, org_id=org_id)
+    apiclient = context.get_apiclient(ctx, token)
+    params = {}
+    params = normalize_page_args(params)
+    update_if_not_none(params, kwargs)
+    if not get_all:
+        if limit is None:
+            limit = 500
+        return apiclient.app_services_api.list_external_networks(
+            limit=limit,
+            **params,
+        ).external_networks
+    params["page_on"] = ["source_type", "id"]
+    return [
+        x
+        for x in apiclient.app_services_api.list_external_networks.auto_paging_iter(
+            limit=limit, **params
+        )
+    ]
+
+
+def format_external_networks(ctx, networks):
+    port_columns = [column("ports", optional=True)]
+    network_columns = [
+        status_column("source_object_type", "type"),
+        metadata_column("id"),
+        status_column("org_id"),
+        status_column("name"),
+        status_column("domains"),
+        status_column("connection_uri_template", "uri"),
+        subtable(ctx, "config", port_columns, subobject_name="status"),
+    ]
+    return format_table(ctx, networks, network_columns)
+
+
 def get_application_service(ctx, id, org_id=None, **kwargs):
     token = context.get_token(ctx)
     if not org_id:

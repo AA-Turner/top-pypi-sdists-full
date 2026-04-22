@@ -92,9 +92,9 @@ class CustomApplicationSource(APIObject):
         Timestamp when the source was last updated.
     created_by : str
         Email of the user who created the source.
-    creator_first_name : str
+    creator_first_name : Optional[str]
         First name of the creator.
-    creator_last_name : str
+    creator_last_name : Optional[str]
         Last name of the creator.
     creator_userhash : str
         Userhash of the creator.
@@ -117,8 +117,8 @@ class CustomApplicationSource(APIObject):
         t.Key("created_at"): t.String,
         t.Key("updated_at"): t.String,
         t.Key("created_by"): t.String,
-        t.Key("creator_first_name"): t.String,
-        t.Key("creator_last_name"): t.String,
+        t.Key("creator_first_name", optional=True): t.Or(t.String, t.Null),
+        t.Key("creator_last_name", optional=True): t.Or(t.String, t.Null),
         t.Key("creator_userhash"): t.String,
     }).ignore_extra("*")
 
@@ -133,9 +133,9 @@ class CustomApplicationSource(APIObject):
         created_at: str,
         updated_at: str,
         created_by: str,
-        creator_first_name: str,
-        creator_last_name: str,
         creator_userhash: str,
+        creator_first_name: Optional[str] = None,
+        creator_last_name: Optional[str] = None,
     ):
         self.id = id
         self.name = name
@@ -363,7 +363,7 @@ class CustomApplicationSource(APIObject):
             },
             "creator_info": {
                 "created_by": self.created_by,
-                "creator_name": f"{self.creator_first_name} {self.creator_last_name}",
+                "creator_name": f"{self.creator_first_name or ''} {self.creator_last_name or ''}".strip(),
                 "creator_userhash": self.creator_userhash,
             },
             "latest_version": {

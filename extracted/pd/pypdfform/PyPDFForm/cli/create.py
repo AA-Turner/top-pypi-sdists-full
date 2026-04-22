@@ -1,161 +1,60 @@
 # -*- coding: utf-8 -*-
 """
-CLI module for creating PDF form fields.
+This module defines CLI commands for creating PDF files and PDF content.
 
-This module provides command-line interfaces to create various types of PDF form fields
-(such as text fields, checkboxes, radio buttons, dropdowns, signatures, and images)
-in an existing PDF. It aims to mimic the field creation features available via the
-Python API as described in the preparation documentation.
+It exposes the `create` command group for blank PDFs, extracted page ranges,
+merged PDFs, form fields, raw drawn elements, annotations, and coordinate grid
+views. Commands in this module translate command-line arguments or grouped JSON
+input into `PdfWrapper`, `BlankPage`, `Fields`, `RawElements`, and
+`Annotations` operations.
 """
 
-import json
+from pathlib import Path
 from typing import Annotated
 
 import typer
 
-from .. import BlankPage, Fields, PdfWrapper, RawElements
+from .. import (Annotations, BlankPage, Fields, PdfArray, PdfWrapper,
+                RawElements)
+from .common import (INPUT_PDF, OPTIONAL_OUTPUT_PDF, REQUIRED_OUTPUT_PDF,
+                     create_elements_from_file, json_file_option)
 
 create_cli = typer.Typer(
     context_settings={"help_option_names": ["--help", "-h"]}, no_args_is_help=True
 )
 
 
-def _create_elements_from_file(
-    pdf: str,
-    data: str,
-    element_map: dict,
-    method_name: str,
-    ctx: typer.Context,
-    output: str = None,
-) -> None:
-    """
-    Create PDF elements from a JSON file.
-
-    Args:
-        pdf: Path to the input PDF file.
-        data: Path to the JSON file containing element parameters.
-        element_map: Mapping of element type names to element classes.
-        method_name: Name of the method to call on PdfWrapper (e.g., "bulk_create_fields", "draw").
-        ctx: Typer context containing configuration options.
-        output: Path to save the output PDF. Defaults to the original path if not specified.
-    """
-    with open(data, "r", encoding="utf-8") as f:
-        input_data = json.load(f)
-
-    obj = PdfWrapper(pdf, **ctx.obj)
-    ungrouped_input = []
-    registered_font = {}
-    for k, v in input_data.items():
-        for each in v:
-            if "font" in each:
-                if each["font"] not in registered_font:
-                    font_name = f"new_font_{len(registered_font)}"
-                    obj.register_font(font_name, each["font"])
-                    registered_font[each["font"]] = font_name
-                each["font"] = registered_font[each["font"]]
-            ungrouped_input.append(element_map[k](**each))
-
-    getattr(obj, method_name)(ungrouped_input).write(output or pdf)
-
-
-@create_cli.command(no_args_is_help=True)
-def field(
-    ctx: typer.Context,
-    pdf: Annotated[str, typer.Argument(help="Path to the input PDF file.")],
-    data: Annotated[
-        str,
-        typer.Option(
-            "--file",
-            "-f",
-            help="Path to the JSON file representing the field creation parameters.",
-        ),
-    ],
-    output: Annotated[
-        str,
-        typer.Option(
-            "--output",
-            "-o",
-            help="Path to save the output PDF. Defaults to the original path if not specified.",
-        ),
-    ] = None,
-) -> None:
-    """
-    Create PDF form fields.
-    """
-    field_map = {
-        "text": Fields.TextField,
-        "check": Fields.CheckBoxField,
-        "radio": Fields.RadioGroup,
-        "dropdown": Fields.DropdownField,
-        "image": Fields.ImageField,
-        "signature": Fields.SignatureField,
-    }
-    _create_elements_from_file(pdf, data, field_map, "bulk_create_fields", ctx, output)
-
-
-@create_cli.command(no_args_is_help=True)
-def raw(
-    ctx: typer.Context,
-    pdf: Annotated[str, typer.Argument(help="Path to the input PDF file.")],
-    data: Annotated[
-        str,
-        typer.Option(
-            "--file",
-            "-f",
-            help="Path to the JSON file representing the draw parameters.",
-        ),
-    ],
-    output: Annotated[
-        str,
-        typer.Option(
-            "--output",
-            "-o",
-            help="Path to save the output PDF. Defaults to the original path if not specified.",
-        ),
-    ] = None,
-) -> None:
-    """
-    Draw raw PDF elements.
-    """
-    raw_element_map = {
-        "text": RawElements.RawText,
-        "image": RawElements.RawImage,
-        "line": RawElements.RawLine,
-        "rectangle": RawElements.RawRectangle,
-        "circle": RawElements.RawCircle,
-        "ellipse": RawElements.RawEllipse,
-    }
-    _create_elements_from_file(pdf, data, raw_element_map, "draw", ctx, output)
-
-
 @create_cli.command(no_args_is_help=True)
 def blank(
     ctx: typer.Context,
-    output: Annotated[
-        str,
-        typer.Option(
-            "--output",
-            "-o",
-            help="Path to save the output PDF.",
-        ),
-    ],
+    output: REQUIRED_OUTPUT_PDF,
     count: Annotated[
-        int, typer.Option("--count", "-c", help="Number of blank pages.")
+        int,
+        typer.Option(
+            "--count",
+            "-c",
+            min=1,
+            help="Number of blank pages to create.",
+        ),
     ] = None,
     width: Annotated[
         float,
         typer.Option(
             "--width",
-            help="Width of the blank PDF.",
+            min=0.0,
+            help="Page width in points.",
         ),
     ] = None,
     height: Annotated[
-        float, typer.Option("--height", help="Height of the blank PDF.")
+        float,
+        typer.Option(
+            "--height",
+            min=0.0,
+            help="Page height in points.",
+        ),
     ] = None,
 ) -> None:
-    """
-    Create a new blank PDF.
-    """
+    """Create a new blank PDF."""
     params = {}
     if width is not None:
         params["width"] = width
@@ -167,3 +66,172 @@ def blank(
         obj = BlankPage(**params) * count
 
     PdfWrapper(obj, **ctx.obj).write(output)
+
+
+@create_cli.command(no_args_is_help=True)
+def extract(
+    ctx: typer.Context,
+    pdf: INPUT_PDF,
+    output: REQUIRED_OUTPUT_PDF,
+    start: Annotated[
+        int,
+        typer.Option(
+            "--start",
+            "-s",
+            min=1,
+            help="First page to extract, starting at 1.",
+        ),
+    ] = None,
+    end: Annotated[
+        int,
+        typer.Option(
+            "--end",
+            "-e",
+            min=1,
+            help="Last page to extract, starting at 1.",
+        ),
+    ] = None,
+) -> None:
+    """Extract pages from an existing PDF."""
+    PdfWrapper(str(pdf), **ctx.obj).pages[slice((start or 1) - 1, end)].write(output)
+
+
+@create_cli.command(no_args_is_help=True)
+def merge(
+    ctx: typer.Context,
+    pdfs: Annotated[
+        list[Path],
+        typer.Argument(
+            exists=True,
+            file_okay=True,
+            dir_okay=False,
+            readable=True,
+            resolve_path=True,
+            help="Input PDF paths in merge order.",
+        ),
+    ],
+    output: REQUIRED_OUTPUT_PDF,
+) -> None:
+    """Merge multiple PDFs into one."""
+    PdfArray([PdfWrapper(str(pdf), **ctx.obj) for pdf in pdfs]).merge().write(output)
+
+
+@create_cli.command(no_args_is_help=True)
+def field(
+    ctx: typer.Context,
+    pdf: INPUT_PDF,
+    data: Annotated[Path, json_file_option("JSON file with form field definitions.")],
+    output: OPTIONAL_OUTPUT_PDF = None,
+) -> None:
+    """Add form fields to a PDF."""
+    field_map = {
+        "text": Fields.TextField,
+        "check": Fields.CheckBoxField,
+        "radio": Fields.RadioGroup,
+        "dropdown": Fields.DropdownField,
+        "image": Fields.ImageField,
+        "signature": Fields.SignatureField,
+    }
+    create_elements_from_file(pdf, data, field_map, "bulk_create_fields", ctx, output)
+
+
+@create_cli.command(no_args_is_help=True)
+def raw(
+    ctx: typer.Context,
+    pdf: INPUT_PDF,
+    data: Annotated[Path, json_file_option("JSON file with raw element definitions.")],
+    output: OPTIONAL_OUTPUT_PDF = None,
+) -> None:
+    """Draw text, images, and shapes on a PDF."""
+    raw_element_map = {
+        "text": RawElements.RawText,
+        "image": RawElements.RawImage,
+        "line": RawElements.RawLine,
+        "rectangle": RawElements.RawRectangle,
+        "circle": RawElements.RawCircle,
+        "ellipse": RawElements.RawEllipse,
+    }
+    create_elements_from_file(pdf, data, raw_element_map, "draw", ctx, output)
+
+
+@create_cli.command(no_args_is_help=True)
+def annotation(
+    ctx: typer.Context,
+    pdf: INPUT_PDF,
+    data: Annotated[Path, json_file_option("JSON file with annotation definitions.")],
+    output: OPTIONAL_OUTPUT_PDF = None,
+) -> None:
+    """Add annotations to a PDF."""
+    annotation_map = {
+        "text": Annotations.TextAnnotation,
+        "link": Annotations.LinkAnnotation,
+        "highlight": Annotations.HighlightAnnotation,
+        "underline": Annotations.UnderlineAnnotation,
+        "squiggly": Annotations.SquigglyAnnotation,
+        "strikeout": Annotations.StrikeOutAnnotation,
+        "stamp": Annotations.RubberStampAnnotation,
+    }
+    create_elements_from_file(pdf, data, annotation_map, "annotate", ctx, output)
+
+
+@create_cli.command(no_args_is_help=True)
+def grid(
+    ctx: typer.Context,
+    pdf: INPUT_PDF,
+    output: OPTIONAL_OUTPUT_PDF = None,
+    red: Annotated[
+        float,
+        typer.Option(
+            "--red",
+            "-r",
+            min=0.0,
+            max=1.0,
+            help="Grid red value, from 0 to 1.",
+        ),
+    ] = None,
+    green: Annotated[
+        float,
+        typer.Option(
+            "--green",
+            "-g",
+            min=0.0,
+            max=1.0,
+            help="Grid green value, from 0 to 1.",
+        ),
+    ] = None,
+    blue: Annotated[
+        float,
+        typer.Option(
+            "--blue",
+            "-b",
+            min=0.0,
+            max=1.0,
+            help="Grid blue value, from 0 to 1.",
+        ),
+    ] = None,
+    margin: Annotated[
+        float,
+        typer.Option(
+            "--margin",
+            "-m",
+            min=0.0,
+            help="Grid margin in points.",
+        ),
+    ] = None,
+) -> None:
+    """Add a coordinate grid to a PDF."""
+    params = {}
+    if any(
+        [
+            red is not None,
+            green is not None,
+            blue is not None,
+        ]
+    ):
+        params["color"] = (red or 0, green or 0, blue or 0)
+
+    if margin is not None:
+        params["margin"] = int(margin) if margin.is_integer() else margin
+    PdfWrapper(str(pdf), **ctx.obj).generate_coordinate_grid(**params).write(
+        output or pdf
+    )

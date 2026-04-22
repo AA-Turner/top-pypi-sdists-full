@@ -76,9 +76,9 @@ class ModelJob(AbstractSpecificJob):
     Attributes
     ----------
     id : int
-        the id of the job
+        the ID of the job
     project_id : str
-        the id of the project the job belongs to
+        the ID of the project the job belongs to
     status : str
         the status of the job - will be one of ``datarobot.enums.QUEUE_STATUS``
     job_type : str
@@ -88,11 +88,11 @@ class ModelJob(AbstractSpecificJob):
     sample_pct : float
         the percentage of the project's dataset used in this modeling job
     model_type : str
-        the model this job builds (e.g. 'Nystroem Kernel SVM Regressor')
+        the model this job builds (e.g., 'Nystroem Kernel SVM Regressor')
     processes : List[str]
         the processes used by the model
     featurelist_id : str
-        the id of the featurelist used in this modeling job
+        the ID of the featurelist used in this modeling job
     blueprint : Blueprint
         the blueprint used in this modeling job
     """
@@ -145,7 +145,7 @@ class ModelJob(AbstractSpecificJob):
         Raises
         ------
         ValueError:
-            If the generic Job was not a model job, e.g. job_type != JOB_TYPE.MODEL
+            If the generic Job was not a model job, e.g., job_type != JOB_TYPE.MODEL
         """
         return super().from_job(job)
 

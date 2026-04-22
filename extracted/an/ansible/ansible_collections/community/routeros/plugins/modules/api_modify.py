@@ -124,11 +124,25 @@ options:
       - interface ethernet
       - interface ethernet poe
       - interface ethernet switch
+      - interface ethernet switch acl
+      - interface ethernet switch acl policer
+      - interface ethernet switch dscp-qos-map
+      - interface ethernet switch dscp-to-dscp
+      - interface ethernet switch egress-vlan-tag
+      - interface ethernet switch egress-vlan-translation
       - interface ethernet switch host
+      - interface ethernet switch ingress-port-policer
+      - interface ethernet switch ingress-vlan-translation
       - interface ethernet switch l3hw-settings
       - interface ethernet switch l3hw-settings advanced
+      - interface ethernet switch mac-based-vlan
+      - interface ethernet switch multicast-fdb
+      - interface ethernet switch one2one-vlan-switching
+      - interface ethernet switch policer-qos-map
       - interface ethernet switch port
       - interface ethernet switch port-isolation
+      - interface ethernet switch port-leakage
+      - interface ethernet switch protocol-based-vlan
       - interface ethernet switch qos map
       - interface ethernet switch qos map ip
       - interface ethernet switch qos map vlan
@@ -136,7 +150,12 @@ options:
       - interface ethernet switch qos profile
       - interface ethernet switch qos settings
       - interface ethernet switch qos tx-manager
+      - interface ethernet switch qos-group
+      - interface ethernet switch reserved-fdb
       - interface ethernet switch rule
+      - interface ethernet switch shaper
+      - interface ethernet switch trunk
+      - interface ethernet switch unicast-fdb
       - interface ethernet switch vlan
       - interface gre
       - interface gre6
@@ -184,6 +203,8 @@ options:
       - interface wifi configuration
       - interface wifi datapath
       - interface wifi interworking
+      - interface wifi network
+      - interface wifi network radio
       - interface wifi provisioning
       - interface wifi radio settings
       - interface wifi security
@@ -291,6 +312,7 @@ options:
       - ip proxy access
       - ip proxy cache
       - ip proxy direct
+      - ip reverse-proxy
       - ip route
       - ip route rule
       - ip route vrf
@@ -701,6 +723,10 @@ from ansible_collections.community.routeros.plugins.module_utils._api_helper imp
     value_to_str,
 )
 
+from ansible_collections.community.routeros.plugins.module_utils._hardware_detect import (
+    get_cached_or_detect,
+)
+
 HAS_ORDEREDDICT = True
 try:
     from collections import OrderedDict
@@ -873,6 +899,8 @@ def polish_entry(entry, path_info, module, for_text):
         if key_info.write_only:
             if module.params['handle_write_only'] == 'error':
                 module.fail_json(msg='Key "{key}" is write-only{for_text}, and handle_write_only=error.'.format(key=key, for_text=for_text))
+        if key_info.depr and key_info.depr.applies("write"):
+            key_info.depr.emit(module)
     for key in to_remove:
         entry.pop(key)
     # Iterate over a snapshot of keys because we may update values in-place.
@@ -1431,7 +1459,7 @@ def get_backend(path_info):
     if path_info.single_value:
         return sync_single_value
 
-    if not path_info.has_identifier:
+    if not path_info.has_identifier and not path_info.modify_not_supported:
         return sync_list
 
     return None
@@ -1440,6 +1468,9 @@ def get_backend(path_info):
 def has_backend(versioned_path_info):
     if not versioned_path_info.fully_understood:
         return False
+
+    if versioned_path_info.hardware_variants is not None:
+        return any(has_backend(v) for v in versioned_path_info.hardware_variants.values())
 
     if versioned_path_info.unversioned is not None:
         return get_backend(versioned_path_info.unversioned) is not None
@@ -1482,6 +1513,15 @@ def main():
 
     path = split_path(module.params['path'])
     versioned_path_info = PATHS.get(tuple(path))
+
+    if versioned_path_info.hardware_detect:
+        hardware_variant_key = get_cached_or_detect(versioned_path_info.hardware_detect, api)
+        if hardware_variant_key not in versioned_path_info.hardware_variants:
+            module.fail_json(
+                msg='Path /{path} is not supported for detected hardware variant {variant}'.format(
+                    path='/'.join(path), variant=hardware_variant_key))
+        versioned_path_info = versioned_path_info.hardware_variants[hardware_variant_key]
+
     if versioned_path_info.needs_version:
         api_version = get_api_version(api)
         supported, not_supported_msg = versioned_path_info.provide_version(api_version)

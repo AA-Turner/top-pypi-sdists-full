@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openinference-instrumentation-portkey
-Version: 0.1.7
+Version: 0.1.8
 Summary: OpenInference Portkey AI Instrumentation
 Project-URL: Homepage, https://github.com/Arize-ai/openinference/tree/main/python/instrumentation/openinference-instrumentation-portkey
 Author-email: OpenInference Authors <oss@arize.com>
@@ -10,13 +10,12 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Requires-Python: <3.15,>=3.9
+Requires-Python: <3.15,>=3.10
 Requires-Dist: openinference-instrumentation>=0.1.17
 Requires-Dist: openinference-semantic-conventions>=0.1.17
 Requires-Dist: opentelemetry-api
@@ -26,10 +25,6 @@ Requires-Dist: typing-extensions
 Requires-Dist: wrapt
 Provides-Extra: instruments
 Requires-Dist: portkey-ai>=0.1.0; extra == 'instruments'
-Provides-Extra: test
-Requires-Dist: opentelemetry-sdk; extra == 'test'
-Requires-Dist: portkey-ai>=0.1.0; extra == 'test'
-Requires-Dist: responses; extra == 'test'
 Description-Content-Type: text/markdown
 
 # OpenInference Portkey AI Instrumentation
@@ -76,7 +71,7 @@ PortkeyInstrumentor().uninstrument()
 
 ## Requirements
 
-- Python 3.9+
+- Python 3.10+
 - Portkey AI 0.1.0+
 
 ## License

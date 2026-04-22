@@ -1,4 +1,4 @@
-__version__ = "0.4.8"
+__version__ = "0.4.9"
 
 import json
 import os
@@ -318,30 +318,36 @@ def _get_toctree_children(app, docname):
     return children
 
 
+def _cache_root_toctree_entries(app, doctree):
+    """Cache toctree entries from the root doc during the read phase.
+
+    Called via doctree-read (not doctree-resolved) so this runs in the main
+    process before parallel write workers are spawned. The cached data on
+    app.env gets pickled and distributed to all workers.
+    """
+    docname = app.env.docname
+    if docname != app.config.root_doc:
+        return
+
+    from sphinx import addnodes
+
+    entries = []
+    for toctree_node in doctree.findall(addnodes.toctree):
+        for title, ref in toctree_node.get("entries", []):
+            if ref:
+                is_external = ref.startswith(("http://", "https://", "/"))
+                entries.append((title, ref, is_external))
+
+    app.env._root_toctree_entries = entries
+
+
 def _get_toctree_entries_from_doctree(app, docname):
     """Get all toctree entries from a document, including external URLs.
 
     Returns a list of tuples: (title, reference, is_external)
+    Uses entries cached during the read phase by _cache_root_toctree_entries.
     """
-    entries = []
-    try:
-        doctree = app.env.get_doctree(docname)
-
-        # Find all toctree nodes
-        from sphinx import addnodes
-
-        for toctree_node in doctree.findall(addnodes.toctree):
-            # toctree_node['entries'] contains tuples of (title, ref)
-            # where title can be None (use document title) or a string
-            # and ref is either a document name or an external URL
-            for title, ref in toctree_node.get("entries", []):
-                if ref:
-                    is_external = ref.startswith(("http://", "https://", "/"))
-                    entries.append((title, ref, is_external))
-    except Exception:
-        pass
-
-    return entries
+    return getattr(app.env, "_root_toctree_entries", [])
 
 
 def _generate_hierarchical_header_nav(app, pagename):
@@ -467,6 +473,10 @@ def setup(app):
     app.add_config_value("add_last_updated", False, "html")
     app.connect("html-page-context", add_date_info_to_page)
 
+    # Cache root doc toctree entries during read phase (before doctrees may be
+    # discarded by builders that skip disk writes for performance)
+    app.connect("doctree-read", _cache_root_toctree_entries)
+
     # Add hierarchical navigation context for dropdown menus
     app.connect("html-page-context", _add_hierarchical_nav_to_context)
 
@@ -500,7 +510,7 @@ def setup(app):
         )
 
     return {
-        "version": "0.4.6",
+        "version": "0.4.9",
         "parallel_read_safe": True,
         "parallel_write_safe": True,
     }

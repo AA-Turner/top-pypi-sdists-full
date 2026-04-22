@@ -6283,16 +6283,23 @@ def shuffle(array: Underscore):
 ########################################################################################################################
 
 
-def catalog_call(qualified_name: str, *args: Any, **kwargs: Any):
-    """Call a function registered in the active chalkdf Catalog.
+def catalog_call(qualified_name: str, *args: Any, output_type: "pa.DataType | None" = None, **kwargs: Any):
+    """Call a function registered in the active chalkdf Catalog, or invoke a
+    model/resolver by fully-qualified name when an explicit ``output_type`` is
+    provided.
 
     Parameters
     ----------
     qualified_name
         Dotted name like "ServiceName.method_name" matching a function
-        registered via ``Catalog.register()``.
+        registered via ``Catalog.register()``, or a resolver/model FQN when
+        ``output_type`` is supplied.
     *args
         Column expressions (underscore expressions) to pass as inputs.
+    output_type
+        Optional PyArrow data type for the return value.  When provided, the
+        local catalog lookup is skipped — useful for model-registry and
+        resolver FQNs that are only resolvable server-side.
 
     Examples
     --------
@@ -6302,7 +6309,13 @@ def catalog_call(qualified_name: str, *args: Any, **kwargs: Any):
     >>> c = Catalog.local_catalog()
     >>> c.register("Tour", "get_known_for", tour_svc, output_type=pa.string())
     >>> df = df.with_columns({"known_for": F.catalog_call("Tour.get_known_for", _.city)})
+
+    With an explicit output_type (no local catalog needed):
+
+    >>> df = df.with_columns({"pred": F.catalog_call("my_model.predict", _.feat, output_type=pa.float64())})
     """
+    if output_type is not None:
+        kwargs["output_type"] = output_type
     return UnderscoreFunction("catalog_call", qualified_name, *args, **kwargs)
 
 

@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import re
 
+from skylos.constants import get_non_library_dir_kind
+
 RULE_ID = "SKY-L021"
 
 _AUTH_DECORATORS = {
@@ -108,10 +110,16 @@ _CSRF_EXEMPT_RE = re.compile(r"@csrf_exempt")
 _HASH_CALL_RE = re.compile(r"(?:hashlib\.)?(\w+)\(")
 
 
+def _is_test_file(file_path: str) -> bool:
+    return get_non_library_dir_kind(file_path) == "test"
+
+
 def detect_security_regressions(
     diff_text: str,
     file_path: str,
 ) -> list[dict]:
+    if _is_test_file(file_path):
+        return []
 
     findings: list[dict] = []
     current_line = 0

@@ -11,7 +11,7 @@
 # Released under the terms of DataRobot Tool and Utility Agreement.
 from __future__ import annotations
 
-from typing import Any, Optional, Union, cast
+from typing import Any, Dict, Optional, Union, cast
 
 import trafaret as t
 
@@ -56,6 +56,9 @@ class RuntimeParameter(APIObject):
         runtime parameter.
     credential_type: str
         Describes the type of credential, used only for credentials parameters.
+    key_value_id: str or None
+        The ID of the key-value store entry that holds the current value of this parameter.
+        Populated by the server; not required when creating or updating parameters.
     """
 
     _converter = t.Dict({
@@ -69,6 +72,7 @@ class RuntimeParameter(APIObject):
         t.Key("default_value", optional=True): t.Or(t.Bool(), t.Float(), String(), t.Null()),
         t.Key("override_value", optional=True): t.Or(t.Bool(), t.Float(), String(), t.Null()),
         t.Key("current_value", optional=True): t.Or(t.Bool(), t.Float(), String(), t.Null()),
+        t.Key("key_value_id", optional=True): t.Or(String(), t.Null()),
     }).ignore_extra("*")
 
     schema = _converter
@@ -88,6 +92,7 @@ class RuntimeParameter(APIObject):
         default_value: Optional[Union[float, bool, str]] = None,
         override_value: Optional[Union[float, bool, str]] = None,
         current_value: Optional[Union[float, bool, str]] = None,
+        key_value_id: Optional[str] = None,
     ) -> None:
         """Set values for runtime parameter"""
         self.field_name = field_name
@@ -100,6 +105,35 @@ class RuntimeParameter(APIObject):
         self.default_value = default_value
         self.override_value = override_value
         self.current_value = current_value
+        self.key_value_id = key_value_id
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Serialize this parameter for use in the ``runtime_parameters`` creation argument.
+
+        Returns a dict with snake_case keys that are converted to camelCase before sending to
+        the API. Only fields relevant to parameter creation are included; server-computed fields
+        (``override_value``, ``key_value_id``) are excluded. Optional fields with a ``None``
+        value are omitted so the server applies its own defaults.
+        """
+        data: Dict[str, Any] = {
+            "field_name": self.field_name,
+            "type": self.type,
+        }
+        if self.description is not None:
+            data["description"] = self.description
+        if self.allow_empty is not None:
+            data["allow_empty"] = self.allow_empty
+        if self.min_value is not None:
+            data["min_value"] = self.min_value
+        if self.max_value is not None:
+            data["max_value"] = self.max_value
+        if self.credential_type is not None:
+            data["credential_type"] = self.credential_type
+        if self.default_value is not None:
+            data["default_value"] = self.default_value
+        if self.current_value is not None:
+            data["current_value"] = self.current_value
+        return data
 
 
 class RuntimeParameterValue(APIObject):

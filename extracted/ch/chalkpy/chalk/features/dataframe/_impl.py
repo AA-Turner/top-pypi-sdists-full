@@ -57,6 +57,7 @@ from chalk.utils.duration import Duration, parse_chalk_duration
 from chalk.utils.missing_dependency import missing_dependency_exception
 from chalk.utils.pl_helpers import (
     polars_group_by_instead_of_groupby,
+    polars_hist_column_is_breakpoint,
     polars_lazy_frame_collect_schema,
     polars_name_dot_suffix_instead_of_suffix,
     polars_uses_schema_overrides,
@@ -889,7 +890,11 @@ class DataFrame(metaclass=DataFrameMeta):
         col_dtype = schema_compat(self._underlying)[col_str]
         underlying = self._underlying
         if col_dtype != pl.Float64() and col_dtype != pl.Float32():
-            underlying = underlying.select(pl.col(col_str).cast(pl.Float32))
+            # Cast to Float64 (not Float32) so datetime microsecond timestamps
+            # remain exact — the bin edges we compute below are Python floats
+            # (Float64), and polars >=1.0 rejects mixed-precision bin/series
+            # comparisons which can shift values across bucket boundaries.
+            underlying = underlying.select(pl.col(col_str).cast(pl.Float64))
 
         if isinstance(bin_width, timedelta):
             bin_width = bin_width.total_seconds() * 1_000_000.0
@@ -914,20 +919,27 @@ class DataFrame(metaclass=DataFrameMeta):
         if nbins is None:
             nbins = int((max_value - base) / bin_width)
 
-        # A final bucket is assigned to the right of the buckets,
-        # so we need to have one fewer bucket than `nbins`.
-        bins = [base + x * bin_width for x in range(1, nbins)]
+        if polars_hist_column_is_breakpoint:
+            # polars >=1.0: Series.hist(bins=[b0,..bK]) returns exactly K buckets
+            # (each adjacent pair defines a bucket). No implicit -inf/+inf bins.
+            # To get `nbins` buckets we need `nbins + 1` explicit edges.
+            bins = [base + x * bin_width for x in range(nbins + 1)]
+            breakpoint_col = "breakpoint"
+            count_col = "count"
+        else:
+            # polars <1.0: Series.hist(bins=[b0,..bK]) returns K+1 buckets by
+            # implicitly including (-inf, b0] at the left and (bK, +inf] at the
+            # right, so we pass `nbins - 1` inner edges.
+            bins = [base + x * bin_width for x in range(1, nbins)]
+            breakpoint_col = "break_point"
+            count_col = f"{column}_count"
         return (
-            self.to_polars()
-            .select(col_str)
+            underlying.select(col_str)
             .collect()
             .to_series()
             .hist(bins=bins)
-            .sort(
-                by="break_point",
-                descending=descending,
-            )
-            .select(f"{column}_count")
+            .sort(by=breakpoint_col, descending=descending)
+            .select(count_col)
             .to_series()
             .to_list()
         )
@@ -1017,7 +1029,7 @@ class DataFrame(metaclass=DataFrameMeta):
             The strategy to determine the start of the first window by.
             - `window`: Truncate the start of the window with the ‘every’ argument.
             - `datapoint`: Start from the first encountered data point.
-            - `monday | tuesday | ...`: Start from the first Monday before the first encountered data point.
+            - `monday | tuesday | types.EllipsisType`: Start from the first Monday before the first encountered data point.
 
         Returns
         -------

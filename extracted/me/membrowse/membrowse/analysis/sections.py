@@ -8,7 +8,7 @@ categorization, and memory allocation tracking.
 
 import re
 import logging
-from typing import List, Optional
+from typing import List, Optional, Tuple
 from elftools.common.exceptions import ELFError
 import elftools.elf.constants
 from ..core.models import MemorySection
@@ -20,6 +20,8 @@ SHF_ALLOC = elftools.elf.constants.SH_FLAGS.SHF_ALLOC
 SHF_WRITE = elftools.elf.constants.SH_FLAGS.SHF_WRITE
 SHF_EXECINSTR = elftools.elf.constants.SH_FLAGS.SHF_EXECINSTR
 
+SHT_NOBITS = 'SHT_NOBITS'
+
 # Section type constants
 SECTION_TYPE_CODE = 'code'
 SECTION_TYPE_DATA = 'data'
@@ -29,6 +31,16 @@ SECTION_TYPE_UNKNOWN = 'unknown'
 
 _IAR_FILL_RE = re.compile(r'^Fill\d+$')
 
+# Toolchain detection patterns, ordered by specificity.
+# More specific compilers are checked first so that e.g. clang wins over
+# a libc GCC entry that may also be present in the same .comment section.
+_TOOLCHAIN_PATTERNS = (
+    ('clang', re.compile(rb'clang version (\d+\.\d+(?:\.\d+)?)')),
+    ('rustc', re.compile(rb'rustc (?:version )?(\d+\.\d+(?:\.\d+)?)')),
+    ('iar', re.compile(rb'IAR.*?V(\d+\.\d+(?:\.\d+)?)')),
+    ('gcc', re.compile(rb'GCC:.*\)\s+(\d+\.\d+(?:\.\d+)?)')),
+)
+
 
 class SectionAnalyzer:  # pylint: disable=too-few-public-methods
     """Handles ELF section analysis and categorization"""
@@ -37,19 +49,70 @@ class SectionAnalyzer:  # pylint: disable=too-few-public-methods
         """Initialize with ELF file handle."""
         self.elffile = elffile
         self._toolchain: Optional[str] = None
+        self._toolchain_resolved: bool = False
+        self._load_segments: Optional[List[Tuple[int, int, int]]] = None
 
-    def _detect_toolchain(self) -> Optional[str]:
-        """Detect the toolchain from the ELF .comment section."""
-        if self._toolchain is not None:
+    def _get_load_segments(self) -> List[Tuple[int, int, int]]:
+        """Return cached list of (p_vaddr_start, p_vaddr_end, p_paddr) tuples
+        for PT_LOAD segments, used to compute per-section LMA.
+        """
+        if self._load_segments is not None:
+            return self._load_segments
+        segs: List[Tuple[int, int, int]] = []
+        try:
+            for seg in self.elffile.iter_segments():
+                if seg['p_type'] != 'PT_LOAD':
+                    continue
+                v_start = seg['p_vaddr']
+                v_end = v_start + seg['p_memsz']
+                segs.append((v_start, v_end, seg['p_paddr']))
+        except (IOError, OSError, ELFError):
+            segs = []
+        self._load_segments = segs
+        return segs
+
+    def _compute_lma(self, section) -> Optional[int]:
+        """Compute LMA for a section, or None if not applicable.
+
+        Returns None when the section has no file image (SHT_NOBITS like
+        .bss), when no containing PT_LOAD segment is found, or when the
+        computed LMA equals the VMA (no meaningful split to track).
+        """
+        if section['sh_type'] == SHT_NOBITS:
+            return None
+        sh_addr = section['sh_addr']
+        for v_start, v_end, p_paddr in self._get_load_segments():
+            if v_start <= sh_addr < v_end:
+                lma = p_paddr + (sh_addr - v_start)
+                return lma if lma != sh_addr else None
+        return None
+
+    def detect_toolchain(self) -> Optional[str]:
+        """Detect the toolchain from the ELF .comment section.
+
+        Returns a string like ``'gcc-10.3.1'``, ``'clang-15.0.0'``,
+        ``'iar-9.40.1'``, or ``'rustc-1.75.0'``. Returns ``None`` if the
+        ELF has no ``.comment`` section or no recognized compiler entry
+        (e.g. a stripped binary).
+
+        The result is cached on first call.
+        """
+        if self._toolchain_resolved:
             return self._toolchain
+        self._toolchain_resolved = True
         try:
             comment = self.elffile.get_section_by_name('.comment')
-            if comment and b'IAR' in comment.data():
-                self._toolchain = 'iar'
-                return self._toolchain
-        except (IOError, OSError):
-            pass
-        self._toolchain = ''
+            data = comment.data() if comment else b''
+        except (IOError, OSError, ELFError):
+            data = b''
+        entries = [e for e in data.split(b'\x00') if e]
+        for name, pattern in _TOOLCHAIN_PATTERNS:
+            for entry in entries:
+                match = pattern.search(entry)
+                if match:
+                    version = match.group(1).decode('ascii', errors='replace')
+                    self._toolchain = f'{name}-{version}'
+                    return self._toolchain
         return None
 
     def analyze_sections(self) -> List[MemorySection]:
@@ -72,7 +135,8 @@ class SectionAnalyzer:  # pylint: disable=too-few-public-methods
                 # Skip IAR linker fill sections (Fill1, Fill2, etc.)
                 # These are padding inserted by ielftool --fill, not real
                 # code/data
-                if (self._detect_toolchain() == 'iar'
+                toolchain = self.detect_toolchain() or ''
+                if (toolchain.startswith('iar')
                         and _IAR_FILL_RE.match(section.name)):
                     logger.debug(
                         "Skipping IAR fill section '%s' (%d bytes)",
@@ -87,6 +151,7 @@ class SectionAnalyzer:  # pylint: disable=too-few-public-methods
                     address=section['sh_addr'],
                     size=size,
                     type=section_type,
+                    lma=self._compute_lma(section),
                 ))
 
         except (IOError, OSError) as e:

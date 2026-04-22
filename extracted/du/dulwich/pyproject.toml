@@ -43,11 +43,12 @@ pgp = ["gpg"]
 paramiko = ["paramiko"]
 colordiff = ["rich"]
 dev = [
-    "ruff==0.14.14",
-    "mypy==1.19.1",
+    "ruff==0.15.8",
+    "mypy==1.20.0",
     "dissolve>=0.1.1",
-    "codespell==2.4.1",
+    "codespell==2.4.2",
 ]
+hypothesis = ["hypothesis>=6"]
 merge = ["merge3"]
 fuzzing = ["atheris"]
 patiencediff = ["patiencediff"]
@@ -112,7 +113,6 @@ packages = [
     "dulwich",
     "dulwich.aiohttp",
     "dulwich.cloud",
-    "dulwich.contrib",
     "dulwich.porcelain",
     "dulwich.tests",
 ]
@@ -155,6 +155,7 @@ convention = "google"
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = ["D"]  # Don't require docstrings in tests
+"contrib/test_*.py" = ["D"]  # Don't require docstrings in tests
 "fuzzing/**/*.py" = ["D"]  # Don't require docstrings in fuzzing
 "examples/**/*.py" = ["D"]  # Don't require docstrings in examples
 "devscripts/**/*.py" = ["D"]  # Don't require docstrings in devscripts
@@ -171,9 +172,16 @@ skip = "*-musllinux_*"
 archs = ["auto", "aarch64"]
 before-build = "pip install -U setuptools-rust && yum -y install libatomic && curl https://sh.rustup.rs -sSf | sh -s -- --profile=minimal -y && rustup show"
 
+[tool.cibuildwheel.android]
+before-build = "pip install -U setuptools-rust && curl https://sh.rustup.rs -sSf | sh -s -- --profile=minimal -y && rustup target add aarch64-linux-android x86_64-linux-android && rustup show"
+
 [tool.cibuildwheel.macos]
 archs = ["auto", "universal2", "x86_64", "arm64"]
 before-all = "rustup target add x86_64-apple-darwin aarch64-apple-darwin"
 skip = """\
-    cp*-macosx_x86_64 cp*-macosx_universal2 \
+    cp*-macosx_universal2 \
     """
+
+[[tool.cibuildwheel.overrides]]
+select = "*-macosx_x86_64"
+environment = {PATH="$HOME/.cargo/bin:$PATH", CARGO_BUILD_TARGET="x86_64-apple-darwin", ARCHFLAGS="-arch x86_64", MACOSX_DEPLOYMENT_TARGET="10.12"}

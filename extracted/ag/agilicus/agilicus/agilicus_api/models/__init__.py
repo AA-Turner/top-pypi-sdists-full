@@ -283,6 +283,9 @@ from agilicus_api.model.environment_config import EnvironmentConfig
 from agilicus_api.model.environment_config_var import EnvironmentConfigVar
 from agilicus_api.model.environment_status import EnvironmentStatus
 from agilicus_api.model.error_message import ErrorMessage
+from agilicus_api.model.external_network import ExternalNetwork
+from agilicus_api.model.external_network_routing import ExternalNetworkRouting
+from agilicus_api.model.external_network_status import ExternalNetworkStatus
 from agilicus_api.model.extra_process import ExtraProcess
 from agilicus_api.model.feature import Feature
 from agilicus_api.model.feature_flag import FeatureFlag
@@ -472,6 +475,7 @@ from agilicus_api.model.list_desktop_resources_response import ListDesktopResour
 from agilicus_api.model.list_domains_response import ListDomainsResponse
 from agilicus_api.model.list_elevated_user_roles import ListElevatedUserRoles
 from agilicus_api.model.list_environment_configs_response import ListEnvironmentConfigsResponse
+from agilicus_api.model.list_external_networks_response import ListExternalNetworksResponse
 from agilicus_api.model.list_feature_tags_response import ListFeatureTagsResponse
 from agilicus_api.model.list_features_response import ListFeaturesResponse
 from agilicus_api.model.list_file_associations_response import ListFileAssociationsResponse

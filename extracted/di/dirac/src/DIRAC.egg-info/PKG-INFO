@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: DIRAC
-Version: 9.1.6
+Version: 9.1.7
 Summary: DIRAC is an interware, meaning a software framework for distributed computing.
 Home-page: https://github.com/DIRACGrid/DIRAC/
 License: GPL-3.0-only
@@ -19,7 +19,7 @@ Requires-Dist: cachetools
 Requires-Dist: certifi
 Requires-Dist: cwltool
 Requires-Dist: diraccfg
-Requires-Dist: DIRACCommon==v9.1.6
+Requires-Dist: DIRACCommon==v9.1.7
 Requires-Dist: diracx-client>=v0.0.1
 Requires-Dist: diracx-core>=v0.0.1
 Requires-Dist: diracx-cli>=v0.0.1
@@ -143,6 +143,8 @@ Important links
 - HTML documentation (stable release): http://diracgrid.org (http://dirac.readthedocs.io/en/latest/index.html)
 - Issue tracker: https://github.com/DIRACGrid/DIRAC/issues
 - Discussions: https://github.com/DIRACGrid/DIRAC/discussions
+- Developer's mailing list: diracproject-users@cern.ch
+- Site administrator's mailing list: diracproject-admins@cern.ch
 - [ARCHIVED] Support Mailing list: https://groups.google.com/forum/#!forum/diracgrid-forum
 
 Install

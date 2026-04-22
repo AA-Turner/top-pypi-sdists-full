@@ -4,11 +4,11 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "fla-core"
-version = "0.4.2"
+version = "0.5.0"
 description = "Core operations for flash-linear-attention"
 readme = "README.md"
 requires-python = ">=3.10"
-dependencies = ["torch", "einops"]
+dependencies = ["torch>=2.7.0", "einops"]
 
 [project.urls]
 Homepage = "https://github.com/fla-org/flash-linear-attention"

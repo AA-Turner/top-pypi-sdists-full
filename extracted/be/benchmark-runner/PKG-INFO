@@ -1,18 +1,17 @@
 Metadata-Version: 2.4
 Name: benchmark-runner
-Version: 1.0.970
+Version: 1.0.972
 Summary: Benchmark Runner Tool
-Home-page: https://github.com/redhat-performance/benchmark-runner
-Author: Red Hat
-Author-email: ebattat@redhat.com
-License: Apache License 2.0
-Classifier: License :: OSI Approved :: Apache Software License
+Author-email: Red Hat <ebattat@redhat.com>
+License-Expression: Apache-2.0
+Project-URL: Homepage, https://github.com/redhat-performance/benchmark-runner
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: attrs==21.4.0
@@ -42,16 +41,7 @@ Requires-Dist: tenacity==8.0.1
 Requires-Dist: tqdm==4.66.3
 Requires-Dist: typeguard==2.12.1
 Requires-Dist: typing==3.7.4.3
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: license
 Dynamic: license-file
-Dynamic: requires-dist
-Dynamic: summary
 
 <div align="center">
   <img src="https://github.com/redhat-performance/benchmark-runner/blob/main/media/benchmark_runner.png"><br>

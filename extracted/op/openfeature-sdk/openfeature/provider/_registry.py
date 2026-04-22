@@ -1,5 +1,3 @@
-import typing
-
 from openfeature._event_support import run_handlers_for_provider
 from openfeature.evaluation_context import EvaluationContext, get_evaluation_context
 from openfeature.event import (
@@ -26,17 +24,22 @@ class ProviderRegistry:
     def set_provider(self, domain: str, provider: FeatureProvider) -> None:
         if provider is None:
             raise GeneralError(error_message="No provider")
+        if domain is None:
+            raise GeneralError(error_message="No domain")
         providers = self._providers
         if domain in providers:
             old_provider = providers[domain]
             del providers[domain]
-            if old_provider not in providers.values():
+            if (
+                old_provider != self._default_provider
+                and old_provider not in providers.values()
+            ):
                 self._shutdown_provider(old_provider)
-        if provider not in providers.values():
+        if provider != self._default_provider and provider not in providers.values():
             self._initialize_provider(provider)
         providers[domain] = provider
 
-    def get_provider(self, domain: typing.Optional[str]) -> FeatureProvider:
+    def get_provider(self, domain: str | None) -> FeatureProvider:
         if domain is None:
             return self._default_provider
         return self._providers.get(domain, self._default_provider)
@@ -44,10 +47,15 @@ class ProviderRegistry:
     def set_default_provider(self, provider: FeatureProvider) -> None:
         if provider is None:
             raise GeneralError(error_message="No provider")
-        if self._default_provider:
+        if (
+            self._default_provider
+            and self._default_provider not in self._providers.values()
+        ):
             self._shutdown_provider(self._default_provider)
         self._default_provider = provider
-        self._initialize_provider(provider)
+
+        if self._default_provider not in self._providers.values():
+            self._initialize_provider(provider)
 
     def get_default_provider(self) -> FeatureProvider:
         return self._default_provider
@@ -94,7 +102,7 @@ class ProviderRegistry:
         try:
             if hasattr(provider, "shutdown"):
                 provider.shutdown()
-            self._provider_status[provider] = ProviderStatus.NOT_READY
+            del self._provider_status[provider]
         except Exception as err:
             self.dispatch_event(
                 provider,

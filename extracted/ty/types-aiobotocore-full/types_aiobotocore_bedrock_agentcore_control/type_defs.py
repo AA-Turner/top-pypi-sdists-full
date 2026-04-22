@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from types_aiobotocore_bedrock_agentcore_control.type_defs import ContainerConfigurationTypeDef
+    from types_aiobotocore_bedrock_agentcore_control.type_defs import AgentCardDefinitionTypeDef
 
-    data: ContainerConfigurationTypeDef = ...
+    data: AgentCardDefinitionTypeDef = ...
     ```
 """
 
@@ -37,6 +37,7 @@ from .literals import (
     ContentLevelType,
     CredentialProviderTypeType,
     CredentialProviderVendorTypeType,
+    DescriptorTypeType,
     EndpointIpAddressTypeType,
     EvaluatorLevelType,
     EvaluatorStatusType,
@@ -61,6 +62,10 @@ from .literals import (
     PolicyGenerationStatusType,
     PolicyStatusType,
     PolicyValidationModeType,
+    RegistryAuthorizerTypeType,
+    RegistryRecordCredentialProviderTypeType,
+    RegistryRecordStatusType,
+    RegistryStatusType,
     ResourceTypeType,
     RestApiMethodType,
     SchemaTypeType,
@@ -75,11 +80,14 @@ else:
 
 
 __all__ = (
+    "A2aDescriptorTypeDef",
+    "AgentCardDefinitionTypeDef",
     "AgentRuntimeArtifactOutputTypeDef",
     "AgentRuntimeArtifactTypeDef",
     "AgentRuntimeArtifactUnionTypeDef",
     "AgentRuntimeEndpointTypeDef",
     "AgentRuntimeTypeDef",
+    "AgentSkillsDescriptorTypeDef",
     "ApiGatewayTargetConfigurationOutputTypeDef",
     "ApiGatewayTargetConfigurationTypeDef",
     "ApiGatewayToolConfigurationOutputTypeDef",
@@ -90,6 +98,7 @@ __all__ = (
     "ApiKeyCredentialProviderItemTypeDef",
     "ApiKeyCredentialProviderTypeDef",
     "ApiSchemaConfigurationTypeDef",
+    "ApprovalConfigurationTypeDef",
     "AtlassianOauth2ProviderConfigInputTypeDef",
     "AtlassianOauth2ProviderConfigOutputTypeDef",
     "AuthorizationDataTypeDef",
@@ -98,6 +107,7 @@ __all__ = (
     "AuthorizerConfigurationUnionTypeDef",
     "AuthorizingClaimMatchValueTypeOutputTypeDef",
     "AuthorizingClaimMatchValueTypeTypeDef",
+    "AuthorizingClaimMatchValueTypeUnionTypeDef",
     "BedrockEvaluatorModelConfigOutputTypeDef",
     "BedrockEvaluatorModelConfigTypeDef",
     "BrowserEnterprisePolicyTypeDef",
@@ -114,6 +124,7 @@ __all__ = (
     "CertificateTypeDef",
     "ClaimMatchValueTypeOutputTypeDef",
     "ClaimMatchValueTypeTypeDef",
+    "ClaimMatchValueTypeUnionTypeDef",
     "CloudWatchLogsInputConfigOutputTypeDef",
     "CloudWatchLogsInputConfigTypeDef",
     "CloudWatchOutputConfigTypeDef",
@@ -157,6 +168,10 @@ __all__ = (
     "CreatePolicyEngineResponseTypeDef",
     "CreatePolicyRequestTypeDef",
     "CreatePolicyResponseTypeDef",
+    "CreateRegistryRecordRequestTypeDef",
+    "CreateRegistryRecordResponseTypeDef",
+    "CreateRegistryRequestTypeDef",
+    "CreateRegistryResponseTypeDef",
     "CreateWorkloadIdentityRequestTypeDef",
     "CreateWorkloadIdentityResponseTypeDef",
     "CredentialProviderConfigurationOutputTypeDef",
@@ -167,13 +182,16 @@ __all__ = (
     "CredentialProviderUnionTypeDef",
     "CustomClaimValidationTypeOutputTypeDef",
     "CustomClaimValidationTypeTypeDef",
+    "CustomClaimValidationTypeUnionTypeDef",
     "CustomConfigurationInputTypeDef",
     "CustomConsolidationConfigurationInputTypeDef",
     "CustomConsolidationConfigurationTypeDef",
+    "CustomDescriptorTypeDef",
     "CustomExtractionConfigurationInputTypeDef",
     "CustomExtractionConfigurationTypeDef",
     "CustomJWTAuthorizerConfigurationOutputTypeDef",
     "CustomJWTAuthorizerConfigurationTypeDef",
+    "CustomJWTAuthorizerConfigurationUnionTypeDef",
     "CustomMemoryStrategyInputTypeDef",
     "CustomOauth2ProviderConfigInputTypeDef",
     "CustomOauth2ProviderConfigOutputTypeDef",
@@ -209,8 +227,12 @@ __all__ = (
     "DeletePolicyEngineResponseTypeDef",
     "DeletePolicyRequestTypeDef",
     "DeletePolicyResponseTypeDef",
+    "DeleteRegistryRecordRequestTypeDef",
+    "DeleteRegistryRequestTypeDef",
+    "DeleteRegistryResponseTypeDef",
     "DeleteResourcePolicyRequestTypeDef",
     "DeleteWorkloadIdentityRequestTypeDef",
+    "DescriptorsTypeDef",
     "EpisodicConsolidationOverrideTypeDef",
     "EpisodicExtractionOverrideTypeDef",
     "EpisodicMemoryStrategyInputTypeDef",
@@ -233,6 +255,9 @@ __all__ = (
     "FilterTypeDef",
     "FilterValueTypeDef",
     "FindingTypeDef",
+    "FromUrlSynchronizationConfigurationOutputTypeDef",
+    "FromUrlSynchronizationConfigurationTypeDef",
+    "FromUrlSynchronizationConfigurationUnionTypeDef",
     "GatewayInterceptorConfigurationOutputTypeDef",
     "GatewayInterceptorConfigurationTypeDef",
     "GatewayInterceptorConfigurationUnionTypeDef",
@@ -278,6 +303,10 @@ __all__ = (
     "GetPolicyRequestWaitExtraTypeDef",
     "GetPolicyRequestWaitTypeDef",
     "GetPolicyResponseTypeDef",
+    "GetRegistryRecordRequestTypeDef",
+    "GetRegistryRecordResponseTypeDef",
+    "GetRegistryRequestTypeDef",
+    "GetRegistryResponseTypeDef",
     "GetResourcePolicyRequestTypeDef",
     "GetResourcePolicyResponseTypeDef",
     "GetTokenVaultRequestTypeDef",
@@ -356,6 +385,12 @@ __all__ = (
     "ListPolicyGenerationsRequestPaginateTypeDef",
     "ListPolicyGenerationsRequestTypeDef",
     "ListPolicyGenerationsResponseTypeDef",
+    "ListRegistriesRequestPaginateTypeDef",
+    "ListRegistriesRequestTypeDef",
+    "ListRegistriesResponseTypeDef",
+    "ListRegistryRecordsRequestPaginateTypeDef",
+    "ListRegistryRecordsRequestTypeDef",
+    "ListRegistryRecordsResponseTypeDef",
     "ListTagsForResourceRequestTypeDef",
     "ListTagsForResourceResponseTypeDef",
     "ListWorkloadIdentitiesRequestPaginateTypeDef",
@@ -368,6 +403,7 @@ __all__ = (
     "ManagedLatticeResourceOutputTypeDef",
     "ManagedLatticeResourceTypeDef",
     "ManagedResourceDetailsTypeDef",
+    "McpDescriptorTypeDef",
     "McpLambdaTargetConfigurationOutputTypeDef",
     "McpLambdaTargetConfigurationTypeDef",
     "McpServerTargetConfigurationTypeDef",
@@ -429,6 +465,18 @@ __all__ = (
     "RatingScaleTypeDef",
     "RecordingConfigTypeDef",
     "ReflectionConfigurationTypeDef",
+    "RegistryRecordCredentialProviderConfigurationOutputTypeDef",
+    "RegistryRecordCredentialProviderConfigurationTypeDef",
+    "RegistryRecordCredentialProviderConfigurationUnionTypeDef",
+    "RegistryRecordCredentialProviderUnionOutputTypeDef",
+    "RegistryRecordCredentialProviderUnionTypeDef",
+    "RegistryRecordCredentialProviderUnionUnionTypeDef",
+    "RegistryRecordIamCredentialProviderTypeDef",
+    "RegistryRecordOAuthCredentialProviderOutputTypeDef",
+    "RegistryRecordOAuthCredentialProviderTypeDef",
+    "RegistryRecordOAuthCredentialProviderUnionTypeDef",
+    "RegistryRecordSummaryTypeDef",
+    "RegistrySummaryTypeDef",
     "RequestHeaderConfigurationOutputTypeDef",
     "RequestHeaderConfigurationTypeDef",
     "RequestHeaderConfigurationUnionTypeDef",
@@ -457,10 +505,13 @@ __all__ = (
     "SemanticOverrideConfigurationInputTypeDef",
     "SemanticOverrideConsolidationConfigurationInputTypeDef",
     "SemanticOverrideExtractionConfigurationInputTypeDef",
+    "ServerDefinitionTypeDef",
     "SessionConfigTypeDef",
     "SessionStorageConfigurationTypeDef",
     "SetTokenVaultCMKRequestTypeDef",
     "SetTokenVaultCMKResponseTypeDef",
+    "SkillDefinitionTypeDef",
+    "SkillMdDefinitionTypeDef",
     "SlackOauth2ProviderConfigInputTypeDef",
     "SlackOauth2ProviderConfigOutputTypeDef",
     "StartPolicyGenerationRequestTypeDef",
@@ -471,10 +522,15 @@ __all__ = (
     "StreamDeliveryResourcesOutputTypeDef",
     "StreamDeliveryResourcesTypeDef",
     "StreamDeliveryResourcesUnionTypeDef",
+    "SubmitRegistryRecordForApprovalRequestTypeDef",
+    "SubmitRegistryRecordForApprovalResponseTypeDef",
     "SummaryConsolidationOverrideTypeDef",
     "SummaryMemoryStrategyInputTypeDef",
     "SummaryOverrideConfigurationInputTypeDef",
     "SummaryOverrideConsolidationConfigurationInputTypeDef",
+    "SynchronizationConfigurationOutputTypeDef",
+    "SynchronizationConfigurationTypeDef",
+    "SynchronizationConfigurationUnionTypeDef",
     "SynchronizeGatewayTargetsRequestTypeDef",
     "SynchronizeGatewayTargetsResponseTypeDef",
     "TagResourceRequestTypeDef",
@@ -490,6 +546,7 @@ __all__ = (
     "ToolDefinitionTypeDef",
     "ToolSchemaOutputTypeDef",
     "ToolSchemaTypeDef",
+    "ToolsDefinitionTypeDef",
     "TriggerConditionInputTypeDef",
     "TriggerConditionTypeDef",
     "UntagResourceRequestTypeDef",
@@ -515,9 +572,31 @@ __all__ = (
     "UpdatePolicyEngineResponseTypeDef",
     "UpdatePolicyRequestTypeDef",
     "UpdatePolicyResponseTypeDef",
+    "UpdateRegistryRecordRequestTypeDef",
+    "UpdateRegistryRecordResponseTypeDef",
+    "UpdateRegistryRecordStatusRequestTypeDef",
+    "UpdateRegistryRecordStatusResponseTypeDef",
+    "UpdateRegistryRequestTypeDef",
+    "UpdateRegistryResponseTypeDef",
     "UpdateWorkloadIdentityRequestTypeDef",
     "UpdateWorkloadIdentityResponseTypeDef",
+    "UpdatedA2aDescriptorTypeDef",
+    "UpdatedAgentSkillsDescriptorFieldsTypeDef",
+    "UpdatedAgentSkillsDescriptorTypeDef",
+    "UpdatedApprovalConfigurationTypeDef",
+    "UpdatedAuthorizerConfigurationTypeDef",
+    "UpdatedCustomDescriptorTypeDef",
     "UpdatedDescriptionTypeDef",
+    "UpdatedDescriptorsTypeDef",
+    "UpdatedDescriptorsUnionTypeDef",
+    "UpdatedMcpDescriptorFieldsTypeDef",
+    "UpdatedMcpDescriptorTypeDef",
+    "UpdatedServerDefinitionTypeDef",
+    "UpdatedSkillDefinitionTypeDef",
+    "UpdatedSkillMdDefinitionTypeDef",
+    "UpdatedSynchronizationConfigurationTypeDef",
+    "UpdatedSynchronizationTypeTypeDef",
+    "UpdatedToolsDefinitionTypeDef",
     "UserPreferenceConsolidationOverrideTypeDef",
     "UserPreferenceExtractionOverrideTypeDef",
     "UserPreferenceMemoryStrategyInputTypeDef",
@@ -530,6 +609,11 @@ __all__ = (
     "WorkloadIdentityDetailsTypeDef",
     "WorkloadIdentityTypeTypeDef",
 )
+
+
+class AgentCardDefinitionTypeDef(TypedDict):
+    schemaVersion: NotRequired[str]
+    inlineContent: NotRequired[str]
 
 
 class ContainerConfigurationTypeDef(TypedDict):
@@ -561,6 +645,15 @@ class AgentRuntimeTypeDef(TypedDict):
     description: str
     lastUpdatedAt: datetime
     status: AgentRuntimeStatusType
+
+
+class SkillDefinitionTypeDef(TypedDict):
+    schemaVersion: NotRequired[str]
+    inlineContent: NotRequired[str]
+
+
+class SkillMdDefinitionTypeDef(TypedDict):
+    inlineContent: NotRequired[str]
 
 
 class ApiGatewayToolFilterOutputTypeDef(TypedDict):
@@ -599,6 +692,10 @@ class S3ConfigurationTypeDef(TypedDict):
     bucketOwnerAccountId: NotRequired[str]
 
 
+class ApprovalConfigurationTypeDef(TypedDict):
+    autoApproval: NotRequired[bool]
+
+
 class AtlassianOauth2ProviderConfigInputTypeDef(TypedDict):
     clientId: str
     clientSecret: str
@@ -612,11 +709,6 @@ class OAuth2AuthorizationDataTypeDef(TypedDict):
 class ClaimMatchValueTypeOutputTypeDef(TypedDict):
     matchValueString: NotRequired[str]
     matchValueStringList: NotRequired[list[str]]
-
-
-class ClaimMatchValueTypeTypeDef(TypedDict):
-    matchValueString: NotRequired[str]
-    matchValueStringList: NotRequired[Sequence[str]]
 
 
 class InferenceConfigurationOutputTypeDef(TypedDict):
@@ -685,6 +777,11 @@ class CedarPolicyTypeDef(TypedDict):
 
 class SecretsManagerLocationTypeDef(TypedDict):
     secretArn: str
+
+
+class ClaimMatchValueTypeTypeDef(TypedDict):
+    matchValueString: NotRequired[str]
+    matchValueStringList: NotRequired[Sequence[str]]
 
 
 class CloudWatchLogsInputConfigOutputTypeDef(TypedDict):
@@ -870,6 +967,10 @@ class UserPreferenceConsolidationOverrideTypeDef(TypedDict):
     modelId: str
 
 
+class CustomDescriptorTypeDef(TypedDict):
+    inlineContent: NotRequired[str]
+
+
 class EpisodicOverrideExtractionConfigurationInputTypeDef(TypedDict):
     appendToPrompt: str
     modelId: str
@@ -981,6 +1082,15 @@ class DeletePolicyEngineRequestTypeDef(TypedDict):
 class DeletePolicyRequestTypeDef(TypedDict):
     policyEngineId: str
     policyId: str
+
+
+class DeleteRegistryRecordRequestTypeDef(TypedDict):
+    registryId: str
+    recordId: str
+
+
+class DeleteRegistryRequestTypeDef(TypedDict):
+    registryId: str
 
 
 class DeleteResourcePolicyRequestTypeDef(TypedDict):
@@ -1141,6 +1251,15 @@ class ResourceTypeDef(TypedDict):
 class GetPolicyRequestTypeDef(TypedDict):
     policyEngineId: str
     policyId: str
+
+
+class GetRegistryRecordRequestTypeDef(TypedDict):
+    registryId: str
+    recordId: str
+
+
+class GetRegistryRequestTypeDef(TypedDict):
+    registryId: str
 
 
 class GetResourcePolicyRequestTypeDef(TypedDict):
@@ -1358,6 +1477,46 @@ class ListPolicyGenerationsRequestTypeDef(TypedDict):
     maxResults: NotRequired[int]
 
 
+class ListRegistriesRequestTypeDef(TypedDict):
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+    status: NotRequired[RegistryStatusType]
+
+
+class RegistrySummaryTypeDef(TypedDict):
+    name: str
+    registryId: str
+    registryArn: str
+    status: RegistryStatusType
+    createdAt: datetime
+    updatedAt: datetime
+    description: NotRequired[str]
+    authorizerType: NotRequired[RegistryAuthorizerTypeType]
+    statusReason: NotRequired[str]
+
+
+class ListRegistryRecordsRequestTypeDef(TypedDict):
+    registryId: str
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+    name: NotRequired[str]
+    status: NotRequired[RegistryRecordStatusType]
+    descriptorType: NotRequired[DescriptorTypeType]
+
+
+class RegistryRecordSummaryTypeDef(TypedDict):
+    registryArn: str
+    recordArn: str
+    recordId: str
+    name: str
+    descriptorType: DescriptorTypeType
+    recordVersion: str
+    status: RegistryRecordStatusType
+    createdAt: datetime
+    updatedAt: datetime
+    description: NotRequired[str]
+
+
 class ListTagsForResourceRequestTypeDef(TypedDict):
     resourceArn: str
 
@@ -1388,6 +1547,16 @@ class ManagedLatticeResourceTypeDef(TypedDict):
     securityGroupIds: NotRequired[Sequence[str]]
     tags: NotRequired[Mapping[str, str]]
     routingDomain: NotRequired[str]
+
+
+class ServerDefinitionTypeDef(TypedDict):
+    schemaVersion: NotRequired[str]
+    inlineContent: NotRequired[str]
+
+
+class ToolsDefinitionTypeDef(TypedDict):
+    protocolVersion: NotRequired[str]
+    inlineContent: NotRequired[str]
 
 
 class SemanticMemoryStrategyInputTypeDef(TypedDict):
@@ -1490,6 +1659,26 @@ class PutResourcePolicyRequestTypeDef(TypedDict):
     policy: str
 
 
+class RegistryRecordIamCredentialProviderTypeDef(TypedDict):
+    roleArn: NotRequired[str]
+    service: NotRequired[str]
+    region: NotRequired[str]
+
+
+class RegistryRecordOAuthCredentialProviderOutputTypeDef(TypedDict):
+    providerArn: str
+    grantType: NotRequired[Literal["CLIENT_CREDENTIALS"]]
+    scopes: NotRequired[list[str]]
+    customParameters: NotRequired[dict[str, str]]
+
+
+class RegistryRecordOAuthCredentialProviderTypeDef(TypedDict):
+    providerArn: str
+    grantType: NotRequired[Literal["CLIENT_CREDENTIALS"]]
+    scopes: NotRequired[Sequence[str]]
+    customParameters: NotRequired[Mapping[str, str]]
+
+
 class RequestHeaderConfigurationTypeDef(TypedDict):
     requestHeaderAllowlist: NotRequired[Sequence[str]]
 
@@ -1522,6 +1711,11 @@ SchemaDefinitionTypeDef = TypedDict(
         "description": NotRequired[str],
     },
 )
+
+
+class SubmitRegistryRecordForApprovalRequestTypeDef(TypedDict):
+    registryId: str
+    recordId: str
 
 
 class SynchronizeGatewayTargetsRequestTypeDef(TypedDict):
@@ -1572,9 +1766,37 @@ class UpdatedDescriptionTypeDef(TypedDict):
     optionalValue: NotRequired[str]
 
 
+class UpdatedSynchronizationTypeTypeDef(TypedDict):
+    optionalValue: NotRequired[Literal["URL"]]
+
+
+class UpdateRegistryRecordStatusRequestTypeDef(TypedDict):
+    registryId: str
+    recordId: str
+    status: RegistryRecordStatusType
+    statusReason: str
+
+
 class UpdateWorkloadIdentityRequestTypeDef(TypedDict):
     name: str
     allowedResourceOauth2ReturnUrls: NotRequired[Sequence[str]]
+
+
+class A2aDescriptorTypeDef(TypedDict):
+    agentCard: NotRequired[AgentCardDefinitionTypeDef]
+
+
+class UpdatedSkillDefinitionTypeDef(TypedDict):
+    optionalValue: NotRequired[SkillDefinitionTypeDef]
+
+
+class AgentSkillsDescriptorTypeDef(TypedDict):
+    skillMd: NotRequired[SkillMdDefinitionTypeDef]
+    skillDefinition: NotRequired[SkillDefinitionTypeDef]
+
+
+class UpdatedSkillMdDefinitionTypeDef(TypedDict):
+    optionalValue: NotRequired[SkillMdDefinitionTypeDef]
 
 
 class ApiGatewayToolConfigurationOutputTypeDef(TypedDict):
@@ -1597,17 +1819,16 @@ class McpToolSchemaConfigurationTypeDef(TypedDict):
     inlinePayload: NotRequired[str]
 
 
+class UpdatedApprovalConfigurationTypeDef(TypedDict):
+    optionalValue: NotRequired[ApprovalConfigurationTypeDef]
+
+
 class AuthorizationDataTypeDef(TypedDict):
     oauth2: NotRequired[OAuth2AuthorizationDataTypeDef]
 
 
 class AuthorizingClaimMatchValueTypeOutputTypeDef(TypedDict):
     claimMatchValue: ClaimMatchValueTypeOutputTypeDef
-    claimMatchOperator: ClaimMatchOperatorTypeType
-
-
-class AuthorizingClaimMatchValueTypeTypeDef(TypedDict):
-    claimMatchValue: ClaimMatchValueTypeTypeDef
     claimMatchOperator: ClaimMatchOperatorTypeType
 
 
@@ -1655,6 +1876,11 @@ class NetworkConfigurationTypeDef(TypedDict):
 
 class CertificateLocationTypeDef(TypedDict):
     secretsManager: NotRequired[SecretsManagerLocationTypeDef]
+
+
+ClaimMatchValueTypeUnionTypeDef = Union[
+    ClaimMatchValueTypeTypeDef, ClaimMatchValueTypeOutputTypeDef
+]
 
 
 class DataSourceConfigOutputTypeDef(TypedDict):
@@ -1752,6 +1978,17 @@ class CreatePolicyEngineResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class CreateRegistryRecordResponseTypeDef(TypedDict):
+    recordArn: str
+    status: RegistryRecordStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreateRegistryResponseTypeDef(TypedDict):
+    registryArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class CreateWorkloadIdentityResponseTypeDef(TypedDict):
     name: str
     workloadIdentityArn: str
@@ -1840,6 +2077,11 @@ class DeletePolicyEngineResponseTypeDef(TypedDict):
     status: PolicyEngineStatusType
     statusReasons: list[str]
     encryptionKeyArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DeleteRegistryResponseTypeDef(TypedDict):
+    status: RegistryStatusType
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1955,6 +2197,15 @@ class PutResourcePolicyResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class SubmitRegistryRecordForApprovalResponseTypeDef(TypedDict):
+    registryArn: str
+    recordArn: str
+    recordId: str
+    status: RegistryRecordStatusType
+    updatedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class UpdateAgentRuntimeEndpointResponseTypeDef(TypedDict):
     liveVersion: str
     targetVersion: str
@@ -1994,6 +2245,16 @@ class UpdatePolicyEngineResponseTypeDef(TypedDict):
     status: PolicyEngineStatusType
     statusReasons: list[str]
     encryptionKeyArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class UpdateRegistryRecordStatusResponseTypeDef(TypedDict):
+    registryArn: str
+    recordArn: str
+    recordId: str
+    status: RegistryRecordStatusType
+    statusReason: str
+    updatedAt: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -2080,6 +2341,10 @@ class CustomConsolidationConfigurationTypeDef(TypedDict):
     summaryConsolidationOverride: NotRequired[SummaryConsolidationOverrideTypeDef]
     userPreferenceConsolidationOverride: NotRequired[UserPreferenceConsolidationOverrideTypeDef]
     episodicConsolidationOverride: NotRequired[EpisodicConsolidationOverrideTypeDef]
+
+
+class UpdatedCustomDescriptorTypeDef(TypedDict):
+    optionalValue: NotRequired[CustomDescriptorTypeDef]
 
 
 class SemanticOverrideConfigurationInputTypeDef(TypedDict):
@@ -2357,6 +2622,19 @@ class ListPolicyGenerationsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
+class ListRegistriesRequestPaginateTypeDef(TypedDict):
+    status: NotRequired[RegistryStatusType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListRegistryRecordsRequestPaginateTypeDef(TypedDict):
+    registryId: str
+    name: NotRequired[str]
+    status: NotRequired[RegistryRecordStatusType]
+    descriptorType: NotRequired[DescriptorTypeType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
 class ListWorkloadIdentitiesRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
@@ -2391,10 +2669,35 @@ class ListPolicyEnginesResponseTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 
+class ListRegistriesResponseTypeDef(TypedDict):
+    registries: list[RegistrySummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class ListRegistryRecordsResponseTypeDef(TypedDict):
+    registryRecords: list[RegistryRecordSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
 class ListWorkloadIdentitiesResponseTypeDef(TypedDict):
     workloadIdentities: list[WorkloadIdentityTypeTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+
+class UpdatedServerDefinitionTypeDef(TypedDict):
+    optionalValue: NotRequired[ServerDefinitionTypeDef]
+
+
+class McpDescriptorTypeDef(TypedDict):
+    server: NotRequired[ServerDefinitionTypeDef]
+    tools: NotRequired[ToolsDefinitionTypeDef]
+
+
+class UpdatedToolsDefinitionTypeDef(TypedDict):
+    optionalValue: NotRequired[ToolsDefinitionTypeDef]
 
 
 MetadataConfigurationUnionTypeDef = Union[
@@ -2442,6 +2745,14 @@ class PrivateEndpointTypeDef(TypedDict):
     managedLatticeResource: NotRequired[ManagedLatticeResourceTypeDef]
 
 
+class RegistryRecordCredentialProviderUnionOutputTypeDef(TypedDict):
+    oauthCredentialProvider: NotRequired[RegistryRecordOAuthCredentialProviderOutputTypeDef]
+    iamCredentialProvider: NotRequired[RegistryRecordIamCredentialProviderTypeDef]
+
+
+RegistryRecordOAuthCredentialProviderUnionTypeDef = Union[
+    RegistryRecordOAuthCredentialProviderTypeDef, RegistryRecordOAuthCredentialProviderOutputTypeDef
+]
 RequestHeaderConfigurationUnionTypeDef = Union[
     RequestHeaderConfigurationTypeDef, RequestHeaderConfigurationOutputTypeDef
 ]
@@ -2478,6 +2789,15 @@ class UpdatePolicyEngineRequestTypeDef(TypedDict):
     description: NotRequired[UpdatedDescriptionTypeDef]
 
 
+class UpdatedA2aDescriptorTypeDef(TypedDict):
+    optionalValue: NotRequired[A2aDescriptorTypeDef]
+
+
+class UpdatedAgentSkillsDescriptorFieldsTypeDef(TypedDict):
+    skillMd: NotRequired[UpdatedSkillMdDefinitionTypeDef]
+    skillDefinition: NotRequired[UpdatedSkillDefinitionTypeDef]
+
+
 class ApiGatewayTargetConfigurationOutputTypeDef(TypedDict):
     restApiId: str
     stage: str
@@ -2501,12 +2821,6 @@ class CustomClaimValidationTypeOutputTypeDef(TypedDict):
     authorizingClaimMatchValue: AuthorizingClaimMatchValueTypeOutputTypeDef
 
 
-class CustomClaimValidationTypeTypeDef(TypedDict):
-    inboundTokenClaimName: str
-    inboundTokenClaimValueType: InboundTokenClaimValueTypeType
-    authorizingClaimMatchValue: AuthorizingClaimMatchValueTypeTypeDef
-
-
 class EvaluatorModelConfigOutputTypeDef(TypedDict):
     bedrockEvaluatorModelConfig: NotRequired[BedrockEvaluatorModelConfigOutputTypeDef]
 
@@ -2528,6 +2842,11 @@ NetworkConfigurationUnionTypeDef = Union[
 
 class CertificateTypeDef(TypedDict):
     location: CertificateLocationTypeDef
+
+
+class AuthorizingClaimMatchValueTypeTypeDef(TypedDict):
+    claimMatchValue: ClaimMatchValueTypeUnionTypeDef
+    claimMatchOperator: ClaimMatchOperatorTypeType
 
 
 DataSourceConfigUnionTypeDef = Union[DataSourceConfigTypeDef, DataSourceConfigOutputTypeDef]
@@ -2637,6 +2956,18 @@ class GatewayInterceptorConfigurationTypeDef(TypedDict):
     interceptor: InterceptorConfigurationTypeDef
     interceptionPoints: Sequence[GatewayInterceptionPointType]
     inputConfiguration: NotRequired[InterceptorInputConfigurationTypeDef]
+
+
+class DescriptorsTypeDef(TypedDict):
+    mcp: NotRequired[McpDescriptorTypeDef]
+    a2a: NotRequired[A2aDescriptorTypeDef]
+    custom: NotRequired[CustomDescriptorTypeDef]
+    agentSkills: NotRequired[AgentSkillsDescriptorTypeDef]
+
+
+class UpdatedMcpDescriptorFieldsTypeDef(TypedDict):
+    server: NotRequired[UpdatedServerDefinitionTypeDef]
+    tools: NotRequired[UpdatedToolsDefinitionTypeDef]
 
 
 class CredentialProviderTypeDef(TypedDict):
@@ -2791,6 +3122,16 @@ class UpdatePolicyResponseTypeDef(TypedDict):
 PrivateEndpointUnionTypeDef = Union[PrivateEndpointTypeDef, PrivateEndpointOutputTypeDef]
 
 
+class RegistryRecordCredentialProviderConfigurationOutputTypeDef(TypedDict):
+    credentialProviderType: RegistryRecordCredentialProviderTypeType
+    credentialProvider: RegistryRecordCredentialProviderUnionOutputTypeDef
+
+
+class RegistryRecordCredentialProviderUnionTypeDef(TypedDict):
+    oauthCredentialProvider: NotRequired[RegistryRecordOAuthCredentialProviderUnionTypeDef]
+    iamCredentialProvider: NotRequired[RegistryRecordIamCredentialProviderTypeDef]
+
+
 class ToolSchemaOutputTypeDef(TypedDict):
     s3: NotRequired[S3ConfigurationTypeDef]
     inlinePayload: NotRequired[list[ToolDefinitionOutputTypeDef]]
@@ -2819,20 +3160,16 @@ class SelfManagedConfigurationTypeDef(TypedDict):
     historicalContextWindowSize: int
 
 
+class UpdatedAgentSkillsDescriptorTypeDef(TypedDict):
+    optionalValue: NotRequired[UpdatedAgentSkillsDescriptorFieldsTypeDef]
+
+
 class CustomJWTAuthorizerConfigurationOutputTypeDef(TypedDict):
     discoveryUrl: str
     allowedAudience: NotRequired[list[str]]
     allowedClients: NotRequired[list[str]]
     allowedScopes: NotRequired[list[str]]
     customClaims: NotRequired[list[CustomClaimValidationTypeOutputTypeDef]]
-
-
-class CustomJWTAuthorizerConfigurationTypeDef(TypedDict):
-    discoveryUrl: str
-    allowedAudience: NotRequired[Sequence[str]]
-    allowedClients: NotRequired[Sequence[str]]
-    allowedScopes: NotRequired[Sequence[str]]
-    customClaims: NotRequired[Sequence[CustomClaimValidationTypeTypeDef]]
 
 
 class LlmAsAJudgeEvaluatorConfigOutputTypeDef(TypedDict):
@@ -2870,6 +3207,11 @@ class GetCodeInterpreterResponseTypeDef(TypedDict):
     createdAt: datetime
     lastUpdatedAt: datetime
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+AuthorizingClaimMatchValueTypeUnionTypeDef = Union[
+    AuthorizingClaimMatchValueTypeTypeDef, AuthorizingClaimMatchValueTypeOutputTypeDef
+]
 
 
 class AgentRuntimeArtifactOutputTypeDef(TypedDict):
@@ -2943,6 +3285,12 @@ RuleUnionTypeDef = Union[RuleTypeDef, RuleOutputTypeDef]
 GatewayInterceptorConfigurationUnionTypeDef = Union[
     GatewayInterceptorConfigurationTypeDef, GatewayInterceptorConfigurationOutputTypeDef
 ]
+
+
+class UpdatedMcpDescriptorTypeDef(TypedDict):
+    optionalValue: NotRequired[UpdatedMcpDescriptorFieldsTypeDef]
+
+
 CredentialProviderUnionTypeDef = Union[CredentialProviderTypeDef, CredentialProviderOutputTypeDef]
 
 
@@ -2971,6 +3319,18 @@ class ListPoliciesResponseTypeDef(TypedDict):
     policies: list[PolicyTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+
+class FromUrlSynchronizationConfigurationOutputTypeDef(TypedDict):
+    url: str
+    credentialProviderConfigurations: NotRequired[
+        list[RegistryRecordCredentialProviderConfigurationOutputTypeDef]
+    ]
+
+
+RegistryRecordCredentialProviderUnionUnionTypeDef = Union[
+    RegistryRecordCredentialProviderUnionTypeDef, RegistryRecordCredentialProviderUnionOutputTypeDef
+]
 
 
 class McpLambdaTargetConfigurationOutputTypeDef(TypedDict):
@@ -3014,10 +3374,6 @@ class AuthorizerConfigurationOutputTypeDef(TypedDict):
     customJWTAuthorizer: NotRequired[CustomJWTAuthorizerConfigurationOutputTypeDef]
 
 
-class AuthorizerConfigurationTypeDef(TypedDict):
-    customJWTAuthorizer: NotRequired[CustomJWTAuthorizerConfigurationTypeDef]
-
-
 class EvaluatorConfigOutputTypeDef(TypedDict):
     llmAsAJudge: NotRequired[LlmAsAJudgeEvaluatorConfigOutputTypeDef]
     codeBased: NotRequired[CodeBasedEvaluatorConfigTypeDef]
@@ -3026,6 +3382,12 @@ class EvaluatorConfigOutputTypeDef(TypedDict):
 class EvaluatorConfigTypeDef(TypedDict):
     llmAsAJudge: NotRequired[LlmAsAJudgeEvaluatorConfigTypeDef]
     codeBased: NotRequired[CodeBasedEvaluatorConfigTypeDef]
+
+
+class CustomClaimValidationTypeTypeDef(TypedDict):
+    inboundTokenClaimName: str
+    inboundTokenClaimValueType: InboundTokenClaimValueTypeType
+    authorizingClaimMatchValue: AuthorizingClaimMatchValueTypeUnionTypeDef
 
 
 AgentRuntimeArtifactUnionTypeDef = Union[
@@ -3057,6 +3419,13 @@ class UpdateOnlineEvaluationConfigRequestTypeDef(TypedDict):
     evaluators: NotRequired[Sequence[EvaluatorReferenceTypeDef]]
     evaluationExecutionRoleArn: NotRequired[str]
     executionStatus: NotRequired[OnlineEvaluationExecutionStatusType]
+
+
+class UpdatedDescriptorsUnionTypeDef(TypedDict):
+    mcp: NotRequired[UpdatedMcpDescriptorTypeDef]
+    a2a: NotRequired[UpdatedA2aDescriptorTypeDef]
+    custom: NotRequired[UpdatedCustomDescriptorTypeDef]
+    agentSkills: NotRequired[UpdatedAgentSkillsDescriptorTypeDef]
 
 
 class CredentialProviderConfigurationTypeDef(TypedDict):
@@ -3101,6 +3470,15 @@ class CustomOauth2ProviderConfigInputTypeDef(TypedDict):
     oauthDiscovery: Oauth2DiscoveryUnionTypeDef
     clientId: str
     clientSecret: str
+
+
+class SynchronizationConfigurationOutputTypeDef(TypedDict):
+    fromUrl: NotRequired[FromUrlSynchronizationConfigurationOutputTypeDef]
+
+
+class RegistryRecordCredentialProviderConfigurationTypeDef(TypedDict):
+    credentialProviderType: RegistryRecordCredentialProviderTypeType
+    credentialProvider: RegistryRecordCredentialProviderUnionUnionTypeDef
 
 
 McpTargetConfigurationOutputTypeDef = TypedDict(
@@ -3228,6 +3606,21 @@ class GetGatewayResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class GetRegistryResponseTypeDef(TypedDict):
+    name: str
+    description: str
+    registryId: str
+    registryArn: str
+    authorizerType: RegistryAuthorizerTypeType
+    authorizerConfiguration: AuthorizerConfigurationOutputTypeDef
+    approvalConfiguration: ApprovalConfigurationTypeDef
+    status: RegistryStatusType
+    statusReason: str
+    createdAt: datetime
+    updatedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class UpdateGatewayResponseTypeDef(TypedDict):
     gatewayArn: str
     gatewayId: str
@@ -3251,9 +3644,19 @@ class UpdateGatewayResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
-AuthorizerConfigurationUnionTypeDef = Union[
-    AuthorizerConfigurationTypeDef, AuthorizerConfigurationOutputTypeDef
-]
+class UpdateRegistryResponseTypeDef(TypedDict):
+    name: str
+    description: str
+    registryId: str
+    registryArn: str
+    authorizerType: RegistryAuthorizerTypeType
+    authorizerConfiguration: AuthorizerConfigurationOutputTypeDef
+    approvalConfiguration: ApprovalConfigurationTypeDef
+    status: RegistryStatusType
+    statusReason: str
+    createdAt: datetime
+    updatedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class GetEvaluatorResponseTypeDef(TypedDict):
@@ -3271,6 +3674,15 @@ class GetEvaluatorResponseTypeDef(TypedDict):
 
 
 EvaluatorConfigUnionTypeDef = Union[EvaluatorConfigTypeDef, EvaluatorConfigOutputTypeDef]
+CustomClaimValidationTypeUnionTypeDef = Union[
+    CustomClaimValidationTypeTypeDef, CustomClaimValidationTypeOutputTypeDef
+]
+
+
+class UpdatedDescriptorsTypeDef(TypedDict):
+    optionalValue: NotRequired[UpdatedDescriptorsUnionTypeDef]
+
+
 CredentialProviderConfigurationUnionTypeDef = Union[
     CredentialProviderConfigurationTypeDef, CredentialProviderConfigurationOutputTypeDef
 ]
@@ -3286,6 +3698,48 @@ class Oauth2ProviderConfigInputTypeDef(TypedDict):
     atlassianOauth2ProviderConfig: NotRequired[AtlassianOauth2ProviderConfigInputTypeDef]
     linkedinOauth2ProviderConfig: NotRequired[LinkedinOauth2ProviderConfigInputTypeDef]
     includedOauth2ProviderConfig: NotRequired[IncludedOauth2ProviderConfigInputTypeDef]
+
+
+class GetRegistryRecordResponseTypeDef(TypedDict):
+    registryArn: str
+    recordArn: str
+    recordId: str
+    name: str
+    description: str
+    descriptorType: DescriptorTypeType
+    descriptors: DescriptorsTypeDef
+    recordVersion: str
+    status: RegistryRecordStatusType
+    createdAt: datetime
+    updatedAt: datetime
+    statusReason: str
+    synchronizationType: Literal["URL"]
+    synchronizationConfiguration: SynchronizationConfigurationOutputTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class UpdateRegistryRecordResponseTypeDef(TypedDict):
+    registryArn: str
+    recordArn: str
+    recordId: str
+    name: str
+    description: str
+    descriptorType: DescriptorTypeType
+    descriptors: DescriptorsTypeDef
+    recordVersion: str
+    status: RegistryRecordStatusType
+    createdAt: datetime
+    updatedAt: datetime
+    statusReason: str
+    synchronizationType: Literal["URL"]
+    synchronizationConfiguration: SynchronizationConfigurationOutputTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+RegistryRecordCredentialProviderConfigurationUnionTypeDef = Union[
+    RegistryRecordCredentialProviderConfigurationTypeDef,
+    RegistryRecordCredentialProviderConfigurationOutputTypeDef,
+]
 
 
 class TargetConfigurationOutputTypeDef(TypedDict):
@@ -3324,69 +3778,6 @@ MemoryTypeDef = TypedDict(
 )
 
 
-class CreateAgentRuntimeRequestTypeDef(TypedDict):
-    agentRuntimeName: str
-    agentRuntimeArtifact: AgentRuntimeArtifactUnionTypeDef
-    roleArn: str
-    networkConfiguration: NetworkConfigurationUnionTypeDef
-    clientToken: NotRequired[str]
-    description: NotRequired[str]
-    authorizerConfiguration: NotRequired[AuthorizerConfigurationUnionTypeDef]
-    requestHeaderConfiguration: NotRequired[RequestHeaderConfigurationUnionTypeDef]
-    protocolConfiguration: NotRequired[ProtocolConfigurationTypeDef]
-    lifecycleConfiguration: NotRequired[LifecycleConfigurationTypeDef]
-    environmentVariables: NotRequired[Mapping[str, str]]
-    filesystemConfigurations: NotRequired[Sequence[FilesystemConfigurationTypeDef]]
-    tags: NotRequired[Mapping[str, str]]
-
-
-class CreateGatewayRequestTypeDef(TypedDict):
-    name: str
-    roleArn: str
-    protocolType: Literal["MCP"]
-    authorizerType: AuthorizerTypeType
-    description: NotRequired[str]
-    clientToken: NotRequired[str]
-    protocolConfiguration: NotRequired[GatewayProtocolConfigurationUnionTypeDef]
-    authorizerConfiguration: NotRequired[AuthorizerConfigurationUnionTypeDef]
-    kmsKeyArn: NotRequired[str]
-    interceptorConfigurations: NotRequired[Sequence[GatewayInterceptorConfigurationUnionTypeDef]]
-    policyEngineConfiguration: NotRequired[GatewayPolicyEngineConfigurationTypeDef]
-    exceptionLevel: NotRequired[Literal["DEBUG"]]
-    tags: NotRequired[Mapping[str, str]]
-
-
-class UpdateAgentRuntimeRequestTypeDef(TypedDict):
-    agentRuntimeId: str
-    agentRuntimeArtifact: AgentRuntimeArtifactUnionTypeDef
-    roleArn: str
-    networkConfiguration: NetworkConfigurationUnionTypeDef
-    description: NotRequired[str]
-    authorizerConfiguration: NotRequired[AuthorizerConfigurationUnionTypeDef]
-    requestHeaderConfiguration: NotRequired[RequestHeaderConfigurationUnionTypeDef]
-    protocolConfiguration: NotRequired[ProtocolConfigurationTypeDef]
-    lifecycleConfiguration: NotRequired[LifecycleConfigurationTypeDef]
-    metadataConfiguration: NotRequired[RuntimeMetadataConfigurationTypeDef]
-    environmentVariables: NotRequired[Mapping[str, str]]
-    filesystemConfigurations: NotRequired[Sequence[FilesystemConfigurationTypeDef]]
-    clientToken: NotRequired[str]
-
-
-class UpdateGatewayRequestTypeDef(TypedDict):
-    gatewayIdentifier: str
-    name: str
-    roleArn: str
-    protocolType: Literal["MCP"]
-    authorizerType: AuthorizerTypeType
-    description: NotRequired[str]
-    protocolConfiguration: NotRequired[GatewayProtocolConfigurationUnionTypeDef]
-    authorizerConfiguration: NotRequired[AuthorizerConfigurationUnionTypeDef]
-    kmsKeyArn: NotRequired[str]
-    interceptorConfigurations: NotRequired[Sequence[GatewayInterceptorConfigurationUnionTypeDef]]
-    policyEngineConfiguration: NotRequired[GatewayPolicyEngineConfigurationTypeDef]
-    exceptionLevel: NotRequired[Literal["DEBUG"]]
-
-
 class CreateEvaluatorRequestTypeDef(TypedDict):
     evaluatorName: str
     evaluatorConfig: EvaluatorConfigUnionTypeDef
@@ -3404,6 +3795,14 @@ class UpdateEvaluatorRequestTypeDef(TypedDict):
     level: NotRequired[EvaluatorLevelType]
 
 
+class CustomJWTAuthorizerConfigurationTypeDef(TypedDict):
+    discoveryUrl: str
+    allowedAudience: NotRequired[Sequence[str]]
+    allowedClients: NotRequired[Sequence[str]]
+    allowedScopes: NotRequired[Sequence[str]]
+    customClaims: NotRequired[Sequence[CustomClaimValidationTypeUnionTypeDef]]
+
+
 class CreateOauth2CredentialProviderRequestTypeDef(TypedDict):
     name: str
     credentialProviderVendor: CredentialProviderVendorTypeType
@@ -3415,6 +3814,13 @@ class UpdateOauth2CredentialProviderRequestTypeDef(TypedDict):
     name: str
     credentialProviderVendor: CredentialProviderVendorTypeType
     oauth2ProviderConfigInput: Oauth2ProviderConfigInputTypeDef
+
+
+class FromUrlSynchronizationConfigurationTypeDef(TypedDict):
+    url: str
+    credentialProviderConfigurations: NotRequired[
+        Sequence[RegistryRecordCredentialProviderConfigurationUnionTypeDef]
+    ]
 
 
 class CreateGatewayTargetResponseTypeDef(TypedDict):
@@ -3530,6 +3936,14 @@ class UpdateMemoryOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+CustomJWTAuthorizerConfigurationUnionTypeDef = Union[
+    CustomJWTAuthorizerConfigurationTypeDef, CustomJWTAuthorizerConfigurationOutputTypeDef
+]
+FromUrlSynchronizationConfigurationUnionTypeDef = Union[
+    FromUrlSynchronizationConfigurationTypeDef, FromUrlSynchronizationConfigurationOutputTypeDef
+]
+
+
 class SynchronizeGatewayTargetsResponseTypeDef(TypedDict):
     targets: list[GatewayTargetTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -3569,3 +3983,132 @@ class UpdateMemoryInputTypeDef(TypedDict):
     memoryExecutionRoleArn: NotRequired[str]
     memoryStrategies: NotRequired[ModifyMemoryStrategiesTypeDef]
     streamDeliveryResources: NotRequired[StreamDeliveryResourcesUnionTypeDef]
+
+
+class AuthorizerConfigurationTypeDef(TypedDict):
+    customJWTAuthorizer: NotRequired[CustomJWTAuthorizerConfigurationUnionTypeDef]
+
+
+class SynchronizationConfigurationTypeDef(TypedDict):
+    fromUrl: NotRequired[FromUrlSynchronizationConfigurationUnionTypeDef]
+
+
+AuthorizerConfigurationUnionTypeDef = Union[
+    AuthorizerConfigurationTypeDef, AuthorizerConfigurationOutputTypeDef
+]
+SynchronizationConfigurationUnionTypeDef = Union[
+    SynchronizationConfigurationTypeDef, SynchronizationConfigurationOutputTypeDef
+]
+
+
+class CreateAgentRuntimeRequestTypeDef(TypedDict):
+    agentRuntimeName: str
+    agentRuntimeArtifact: AgentRuntimeArtifactUnionTypeDef
+    roleArn: str
+    networkConfiguration: NetworkConfigurationUnionTypeDef
+    clientToken: NotRequired[str]
+    description: NotRequired[str]
+    authorizerConfiguration: NotRequired[AuthorizerConfigurationUnionTypeDef]
+    requestHeaderConfiguration: NotRequired[RequestHeaderConfigurationUnionTypeDef]
+    protocolConfiguration: NotRequired[ProtocolConfigurationTypeDef]
+    lifecycleConfiguration: NotRequired[LifecycleConfigurationTypeDef]
+    environmentVariables: NotRequired[Mapping[str, str]]
+    filesystemConfigurations: NotRequired[Sequence[FilesystemConfigurationTypeDef]]
+    tags: NotRequired[Mapping[str, str]]
+
+
+class CreateGatewayRequestTypeDef(TypedDict):
+    name: str
+    roleArn: str
+    protocolType: Literal["MCP"]
+    authorizerType: AuthorizerTypeType
+    description: NotRequired[str]
+    clientToken: NotRequired[str]
+    protocolConfiguration: NotRequired[GatewayProtocolConfigurationUnionTypeDef]
+    authorizerConfiguration: NotRequired[AuthorizerConfigurationUnionTypeDef]
+    kmsKeyArn: NotRequired[str]
+    interceptorConfigurations: NotRequired[Sequence[GatewayInterceptorConfigurationUnionTypeDef]]
+    policyEngineConfiguration: NotRequired[GatewayPolicyEngineConfigurationTypeDef]
+    exceptionLevel: NotRequired[Literal["DEBUG"]]
+    tags: NotRequired[Mapping[str, str]]
+
+
+class CreateRegistryRequestTypeDef(TypedDict):
+    name: str
+    description: NotRequired[str]
+    authorizerType: NotRequired[RegistryAuthorizerTypeType]
+    authorizerConfiguration: NotRequired[AuthorizerConfigurationUnionTypeDef]
+    clientToken: NotRequired[str]
+    approvalConfiguration: NotRequired[ApprovalConfigurationTypeDef]
+
+
+class UpdateAgentRuntimeRequestTypeDef(TypedDict):
+    agentRuntimeId: str
+    agentRuntimeArtifact: AgentRuntimeArtifactUnionTypeDef
+    roleArn: str
+    networkConfiguration: NetworkConfigurationUnionTypeDef
+    description: NotRequired[str]
+    authorizerConfiguration: NotRequired[AuthorizerConfigurationUnionTypeDef]
+    requestHeaderConfiguration: NotRequired[RequestHeaderConfigurationUnionTypeDef]
+    protocolConfiguration: NotRequired[ProtocolConfigurationTypeDef]
+    lifecycleConfiguration: NotRequired[LifecycleConfigurationTypeDef]
+    metadataConfiguration: NotRequired[RuntimeMetadataConfigurationTypeDef]
+    environmentVariables: NotRequired[Mapping[str, str]]
+    filesystemConfigurations: NotRequired[Sequence[FilesystemConfigurationTypeDef]]
+    clientToken: NotRequired[str]
+
+
+class UpdateGatewayRequestTypeDef(TypedDict):
+    gatewayIdentifier: str
+    name: str
+    roleArn: str
+    protocolType: Literal["MCP"]
+    authorizerType: AuthorizerTypeType
+    description: NotRequired[str]
+    protocolConfiguration: NotRequired[GatewayProtocolConfigurationUnionTypeDef]
+    authorizerConfiguration: NotRequired[AuthorizerConfigurationUnionTypeDef]
+    kmsKeyArn: NotRequired[str]
+    interceptorConfigurations: NotRequired[Sequence[GatewayInterceptorConfigurationUnionTypeDef]]
+    policyEngineConfiguration: NotRequired[GatewayPolicyEngineConfigurationTypeDef]
+    exceptionLevel: NotRequired[Literal["DEBUG"]]
+
+
+class UpdatedAuthorizerConfigurationTypeDef(TypedDict):
+    optionalValue: NotRequired[AuthorizerConfigurationUnionTypeDef]
+
+
+class CreateRegistryRecordRequestTypeDef(TypedDict):
+    registryId: str
+    name: str
+    descriptorType: DescriptorTypeType
+    description: NotRequired[str]
+    descriptors: NotRequired[DescriptorsTypeDef]
+    recordVersion: NotRequired[str]
+    synchronizationType: NotRequired[Literal["URL"]]
+    synchronizationConfiguration: NotRequired[SynchronizationConfigurationUnionTypeDef]
+    clientToken: NotRequired[str]
+
+
+class UpdatedSynchronizationConfigurationTypeDef(TypedDict):
+    optionalValue: NotRequired[SynchronizationConfigurationUnionTypeDef]
+
+
+class UpdateRegistryRequestTypeDef(TypedDict):
+    registryId: str
+    name: NotRequired[str]
+    description: NotRequired[UpdatedDescriptionTypeDef]
+    authorizerConfiguration: NotRequired[UpdatedAuthorizerConfigurationTypeDef]
+    approvalConfiguration: NotRequired[UpdatedApprovalConfigurationTypeDef]
+
+
+class UpdateRegistryRecordRequestTypeDef(TypedDict):
+    registryId: str
+    recordId: str
+    name: NotRequired[str]
+    description: NotRequired[UpdatedDescriptionTypeDef]
+    descriptorType: NotRequired[DescriptorTypeType]
+    descriptors: NotRequired[UpdatedDescriptorsTypeDef]
+    recordVersion: NotRequired[str]
+    synchronizationType: NotRequired[UpdatedSynchronizationTypeTypeDef]
+    synchronizationConfiguration: NotRequired[UpdatedSynchronizationConfigurationTypeDef]
+    triggerSynchronization: NotRequired[bool]

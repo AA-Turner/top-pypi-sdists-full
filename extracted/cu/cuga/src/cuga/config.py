@@ -121,6 +121,7 @@ validators = [
     Validator("advanced_features.langfuse_tracing", default=False),
     Validator("observability.openlit", default=False),
     Validator("advanced_features.benchmark", default="default"),
+    Validator("advanced_features.appworld_final_answer_plain", default=False),
     Validator("advanced_features.tracker_enabled", default=False),
     Validator("advanced_features.lite_mode", default=False),
     Validator("advanced_features.lite_mode_tool_threshold", default=15),
@@ -138,6 +139,7 @@ validators = [
     Validator("advanced_features.e2b_cleanup_frequency", default=0),
     Validator("advanced_features.enable_web_search", default=False),
     Validator("advanced_features.execution_output_max_length", default=3500),
+    Validator("advanced_features.cuga_lite_nl_auto_continue", default=True),
     Validator("features.chat", default=True),
     Validator("features.memory_provider", default="mem0"),
     Validator("playwright_args", default=[]),
@@ -160,6 +162,7 @@ validators = [
     Validator("secrets.vault_skip_verify", default=False),
     Validator("secrets.vault_mount", default="secret"),
     Validator("secrets.vault_kv_version", default=""),
+    Validator("secrets.vault_secret_path", default=""),
     Validator("secrets.vault_write_enabled", default=False),
     Validator("secrets.aws_region", default=""),
     Validator("auth.enabled", default=False),
@@ -342,6 +345,19 @@ def get_tenant_id() -> str:
     if val is not None:
         return str(val)
     return str(getattr(getattr(settings, "service", None), "tenant_id", "") or "")
+
+
+def resolved_benchmark() -> str:
+    """Benchmark profile (e.g. ``appworld``, ``default``).
+
+    Prefer ``DYNACONF_ADVANCED_FEATURES__BENCHMARK`` from the process environment so
+    values set in the shell or via ``os.environ`` after ``cuga.config`` is imported
+    still apply; then fall back to :attr:`settings.advanced_features.benchmark`.
+    """
+    val = os.environ.get("DYNACONF_ADVANCED_FEATURES__BENCHMARK")
+    if val is not None and str(val).strip():
+        return str(val).strip()
+    return str(getattr(getattr(settings, "advanced_features", None), "benchmark", None) or "default")
 
 
 if __name__ == "__main__":

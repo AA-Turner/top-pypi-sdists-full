@@ -37,7 +37,6 @@ from ._factory import make_feature_converter, make_primitive_converter
 from ._fixed_size_list_converter import FixedSizeListFeatureConverter
 from ._float_converter import Float16FeatureConverter, Float32FeatureConverter, Float64FeatureConverter
 from ._generic_converter import (
-    GenericFeatureConverter,
     JSONCodec,
     TDecoder,
     TEncoder,
@@ -118,7 +117,6 @@ __all__ = [
     "Float32FeatureConverter",
     "Float64FeatureConverter",
     # generic_converter
-    "GenericFeatureConverter",
     "JSONCodec",
     "TDecoder",
     "TEncoder",

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: linopy
-Version: 0.6.6
+Version: 0.6.7
 Summary: Linear optimization with N-D labeled arrays in Python
 Author-email: Fabian Hofmann <fabianmarikhofmann@gmail.com>
 Project-URL: Homepage, https://github.com/PyPSA/linopy
@@ -61,13 +61,13 @@ Requires-Dist: gurobipy; extra == "dev"
 Requires-Dist: highspy; extra == "dev"
 Provides-Extra: solvers
 Requires-Dist: gurobipy; extra == "solvers"
-Requires-Dist: highspy>=1.5.0; python_version < "3.12" and extra == "solvers"
-Requires-Dist: highspy>=1.7.1; python_version >= "3.12" and extra == "solvers"
-Requires-Dist: cplex; (platform_system != "Darwin" and python_version < "3.12") and extra == "solvers"
+Requires-Dist: highspy!=1.14.0,>=1.5.0; python_version < "3.12" and extra == "solvers"
+Requires-Dist: highspy!=1.14.0,>=1.7.1; python_version >= "3.12" and extra == "solvers"
+Requires-Dist: cplex; platform_system != "Darwin" and extra == "solvers"
 Requires-Dist: mosek; extra == "solvers"
-Requires-Dist: mindoptpy; python_version < "3.12" and extra == "solvers"
+Requires-Dist: mindoptpy; extra == "solvers"
 Requires-Dist: coptpy!=7.2.1; extra == "solvers"
-Requires-Dist: xpress; (platform_system != "Darwin" and python_version < "3.11") and extra == "solvers"
+Requires-Dist: xpress; platform_system != "Darwin" and extra == "solvers"
 Requires-Dist: pyscipopt; platform_system != "Darwin" and extra == "solvers"
 Requires-Dist: knitro>=15.1.0; extra == "solvers"
 Dynamic: license-file

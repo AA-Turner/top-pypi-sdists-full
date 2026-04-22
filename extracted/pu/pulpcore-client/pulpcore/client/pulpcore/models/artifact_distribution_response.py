@@ -28,20 +28,20 @@ class ArtifactDistributionResponse(BaseModel):
     """
     A serializer for ArtifactDistribution.
     """ # noqa: E501
-    pulp_href: Optional[StrictStr] = None
-    hidden: Optional[StrictBool] = Field(default=False, description="Whether this distribution should be shown in the content app.")
-    content_guard_prn: Optional[StrictStr] = Field(default=None, description="The Pulp Resource Name (PRN) of the associated optional content guard.")
-    pulp_labels: Optional[Dict[str, Optional[StrictStr]]] = None
-    repository_version: Optional[StrictStr] = Field(default=None, description="RepositoryVersion to be served")
-    pulp_last_updated: Optional[datetime] = Field(default=None, description="Timestamp of the last time this resource was updated. Note: for immutable resources - like content, repository versions, and publication - pulp_created and pulp_last_updated dates will be the same.")
-    prn: Optional[StrictStr] = Field(default=None, description="The Pulp Resource Name (PRN).")
-    pulp_created: Optional[datetime] = Field(default=None, description="Timestamp of creation.")
-    content_guard: Optional[StrictStr] = Field(default=None, description="An optional content-guard.")
+    base_url: Optional[StrictStr] = Field(default=None, description="The URL for accessing the publication as defined by this distribution.")
     no_content_change_since: Optional[StrictStr] = Field(default=None, description="Timestamp since when the distributed content served by this distribution has not changed. If equals to `null`, no guarantee is provided about content changes.")
+    pulp_href: Optional[StrictStr] = None
     name: StrictStr = Field(description="A unique name. Ex, `rawhide` and `stable`.")
     base_path: StrictStr = Field(description="The base (relative) path component of the published url. Avoid paths that                     overlap with other distribution base paths (e.g. \"foo\" and \"foo/bar\")")
-    base_url: Optional[StrictStr] = Field(default=None, description="The URL for accessing the publication as defined by this distribution.")
-    __properties: ClassVar[List[str]] = ["pulp_href", "hidden", "content_guard_prn", "pulp_labels", "repository_version", "pulp_last_updated", "prn", "pulp_created", "content_guard", "no_content_change_since", "name", "base_path", "base_url"]
+    pulp_last_updated: Optional[datetime] = Field(default=None, description="Timestamp of the last time this resource was updated. Note: for immutable resources - like content, repository versions, and publication - pulp_created and pulp_last_updated dates will be the same.")
+    prn: Optional[StrictStr] = Field(default=None, description="The Pulp Resource Name (PRN).")
+    repository_version: Optional[StrictStr] = Field(default=None, description="RepositoryVersion to be served")
+    content_guard_prn: Optional[StrictStr] = Field(default=None, description="The Pulp Resource Name (PRN) of the associated optional content guard.")
+    pulp_labels: Optional[Dict[str, Optional[StrictStr]]] = None
+    hidden: Optional[StrictBool] = Field(default=False, description="Whether this distribution should be shown in the content app.")
+    content_guard: Optional[StrictStr] = Field(default=None, description="An optional content-guard.")
+    pulp_created: Optional[datetime] = Field(default=None, description="Timestamp of creation.")
+    __properties: ClassVar[List[str]] = ["base_url", "no_content_change_since", "pulp_href", "name", "base_path", "pulp_last_updated", "prn", "repository_version", "content_guard_prn", "pulp_labels", "hidden", "content_guard", "pulp_created"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -82,13 +82,13 @@ class ArtifactDistributionResponse(BaseModel):
         * OpenAPI `readOnly` fields are excluded.
         """
         excluded_fields: Set[str] = set([
+            "base_url",
+            "no_content_change_since",
             "pulp_href",
-            "content_guard_prn",
             "pulp_last_updated",
             "prn",
+            "content_guard_prn",
             "pulp_created",
-            "no_content_change_since",
-            "base_url",
         ])
 
         _dict = self.model_dump(

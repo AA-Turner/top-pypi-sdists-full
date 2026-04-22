@@ -1,6 +1,6 @@
 import os
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Generator, Optional, Union
 from uuid import UUID
 
@@ -58,6 +58,7 @@ class WorkspaceInfo:
     name: str
     description: Optional[str]
     role: Optional[str] = None
+    predefined_profiles: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass
@@ -180,7 +181,7 @@ class RuntimeAuthService:
         config = self.workspace_run_context.runtime_config
         if not config.auth_token:
             raise RuntimeNotAuthenticated("No token found")
-        self.auth_info = self._validate_and_decode_jwt(config.auth_token)
+        self.auth_info = self._validate_and_decode_user_jwt(config.auth_token)
         return self.auth_info
 
     def _save_token_and_refresh_token(
@@ -195,7 +196,7 @@ class RuntimeAuthService:
         That stale refresh token would trigger theft detection on the next
         refresh attempt, revoking *all* user tokens.
         """
-        self.auth_info = self._validate_and_decode_jwt(token)
+        self.auth_info = self._validate_and_decode_user_jwt(token)
         values = [
             WritableConfigValue(
                 "auth_token", str, token, (RuntimeConfiguration.__section__,)
@@ -258,10 +259,17 @@ class RuntimeAuthService:
         if isinstance(description, Unset):
             description = None
 
+        predefined_profiles: dict[str, str] = {}
+        if not isinstance(workspace.predefined_profiles, Unset):
+            predefined_profiles = dict(
+                workspace.predefined_profiles.additional_properties
+            )
+
         return WorkspaceInfo(
             id=str(workspace.id),
             name=workspace.name,
             description=description,
+            predefined_profiles=predefined_profiles,
         )
 
     def _convert_workspace_membership(
@@ -322,7 +330,7 @@ class RuntimeAuthService:
         )
         secrets.write_toml()
 
-    def _validate_and_decode_jwt(self, token: Union[str, bytes]) -> AuthInfo:
+    def _validate_and_decode_user_jwt(self, token: Union[str, bytes]) -> AuthInfo:
         if isinstance(token, str):
             token = token.encode("utf-8")
         try:

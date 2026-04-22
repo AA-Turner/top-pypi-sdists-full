@@ -516,7 +516,7 @@ class PromptTemplate(APIObject):
         ----------
         sort : str, optional
             Prefix the attribute name with a dash to sort in descending order,
-            e.g. sort='-creationDate'.
+            e.g., sort='-creationDate'.
         search : str, optional
             Filter templates by name containing this string.
 

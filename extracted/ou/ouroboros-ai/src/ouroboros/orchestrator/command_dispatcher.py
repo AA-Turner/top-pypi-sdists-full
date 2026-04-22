@@ -9,13 +9,13 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from ouroboros.observability.logging import get_logger
-from ouroboros.orchestrator.adapter import AgentMessage, RuntimeHandle
+from ouroboros.orchestrator.adapter import AgentMessage, RuntimeHandle, SkillDispatchHandler
+from ouroboros.router.types import Resolved
 
 log = get_logger(__name__)
 
 if TYPE_CHECKING:
     from ouroboros.mcp.server.adapter import MCPServerAdapter
-    from ouroboros.orchestrator.codex_cli_runtime import SkillDispatchHandler, SkillInterceptRequest
 
 
 _INTERVIEW_SESSION_METADATA_KEY = "ouroboros_interview_session_id"
@@ -57,7 +57,7 @@ class CodexCommandDispatcher:
 
     def _build_tool_arguments(
         self,
-        intercept: SkillInterceptRequest,
+        intercept: Resolved,
         current_handle: RuntimeHandle | None,
     ) -> dict[str, Any]:
         """Build the MCP argument payload for an intercepted skill."""
@@ -68,9 +68,11 @@ class CodexCommandDispatcher:
         if not isinstance(session_id, str) or not session_id.strip():
             return dict(intercept.mcp_args)
 
-        # Preserve original frontmatter args (initial_context, cwd, etc.)
-        # and overlay session_id + answer for the resume turn.
+        # Resume turn: drop initial_context so InterviewHandler branches on
+        # session_id instead of starting a new interview. Other frontmatter
+        # args (cwd, etc.) are preserved.
         arguments: dict[str, Any] = dict(intercept.mcp_args)
+        arguments.pop("initial_context", None)
         arguments["session_id"] = session_id.strip()
         if intercept.first_argument is not None:
             arguments["answer"] = intercept.first_argument
@@ -79,7 +81,7 @@ class CodexCommandDispatcher:
     def _build_resume_handle(
         self,
         current_handle: RuntimeHandle | None,
-        intercept: SkillInterceptRequest,
+        intercept: Resolved,
         tool_result: Any,
     ) -> RuntimeHandle | None:
         """Attach interview session metadata to the runtime handle."""
@@ -112,7 +114,7 @@ class CodexCommandDispatcher:
 
     def _build_tool_call_message(
         self,
-        intercept: SkillInterceptRequest,
+        intercept: Resolved,
         tool_arguments: dict[str, Any],
         *,
         resume_handle: RuntimeHandle | None,
@@ -132,7 +134,7 @@ class CodexCommandDispatcher:
 
     def _build_recoverable_failure_messages(
         self,
-        intercept: SkillInterceptRequest,
+        intercept: Resolved,
         tool_arguments: dict[str, Any],
         error: Any,
         *,
@@ -165,7 +167,7 @@ class CodexCommandDispatcher:
 
     async def dispatch(
         self,
-        intercept: SkillInterceptRequest,
+        intercept: Resolved,
         current_handle: RuntimeHandle | None = None,
     ) -> tuple[AgentMessage, ...] | None:
         """Dispatch an intercepted command to its backing Ouroboros MCP tool."""

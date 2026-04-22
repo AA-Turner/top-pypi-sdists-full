@@ -216,9 +216,9 @@ class CustomTaskVersion(APIObject):
         Parameters
         ----------
         custom_task_id: str
-            the id of the custom task
+            the ID of the custom task
         base_environment_id: str
-            the id of the base environment to use with the custom task version
+            the ID of the base environment to use with the custom task version
         maximum_memory: Optional[int]
             A number in bytes about how much memory custom tasks' inference containers can run with.
         is_major_update: bool
@@ -279,9 +279,9 @@ class CustomTaskVersion(APIObject):
         Parameters
         ----------
         custom_task_id: str
-            the id of the custom task
+            the ID of the custom task
         base_environment_id: str
-            the id of the base environment to use with the custom task version
+            the ID of the base environment to use with the custom task version
         maximum_memory: Optional[int]
             A number in bytes about how much memory custom tasks' inference containers can run with.
         is_major_update: bool
@@ -392,7 +392,7 @@ class CustomTaskVersion(APIObject):
         Parameters
         ----------
         custom_task_id: str
-            the id of the custom task
+            the ID of the custom task
 
         Returns
         -------
@@ -419,9 +419,9 @@ class CustomTaskVersion(APIObject):
         Parameters
         ----------
         custom_task_id: str
-            the id of the custom task
+            the ID of the custom task
         custom_task_version_id: str
-            the id of the custom task version to retrieve
+            the ID of the custom task version to retrieve
 
         Returns
         -------

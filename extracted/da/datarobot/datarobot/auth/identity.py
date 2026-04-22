@@ -18,7 +18,7 @@ from pydantic import BaseModel
 class Identity(BaseModel):
     """
     Identity data class representing an identity in a custom application.
-    One user can have multiple identities coming from different providers e.g. Google, Box, etc.
+    One user can have multiple identities coming from different providers e.g., Google, Box, etc.
     """
 
     id: str

@@ -25,9 +25,9 @@ class PrimeFile(APIObject):
     Attributes
     ----------
     id : str
-        the id of the PrimeFile
+        the ID of the PrimeFile
     project_id : str
-        the id of the project this PrimeFile belongs to
+        the ID of the project this PrimeFile belongs to
     parent_model_id : str
         the model being approximated by this PrimeFile
     model_id : str

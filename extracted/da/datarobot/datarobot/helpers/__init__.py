@@ -92,12 +92,12 @@ class AdvancedOptions(dict):  # type: ignore[type-arg]
     events_count : Optional[str]
         (New in version v2.8) the name of a column specifying events count.
     monotonic_increasing_featurelist_id : Optional[str]
-        (new in version 2.11) the id of the featurelist that defines the set of features
+        (new in version 2.11) the ID of the featurelist that defines the set of features
         with a monotonically increasing relationship to the target. If None,
         no such constraints are enforced. When specified, this will set a default for the project
         that can be overridden at model submission time if desired.
     monotonic_decreasing_featurelist_id : Optional[str]
-        (new in version 2.11) the id of the featurelist that defines the set of features
+        (new in version 2.11) the ID of the featurelist that defines the set of features
         with a monotonically decreasing relationship to the target. If None,
         no such constraints are enforced. When specified, this will set a default for the project
         that can be overridden at model submission time if desired.
@@ -176,7 +176,7 @@ class AdvancedOptions(dict):  # type: ignore[type-arg]
         Used and required only if *Bias & Fairness in AutoML* feature is enabled.
     fairness_threshold: Optional[str].
         (New in version v2.24) Threshold value for the fairness metric.
-        Can be in a range of ``[0.0, 1.0]``. If the relative (i.e. normalized) fairness
+        Can be in a range of ``[0.0, 1.0]``. If the relative (i.e., normalized) fairness
         score is below the threshold, then the user will see a visual indication on the
     bias_mitigation_feature_name : Optional[str]
         The feature from protected features that will be used in a bias mitigation task to
@@ -190,7 +190,7 @@ class AdvancedOptions(dict):  # type: ignore[type-arg]
         we insert into blueprints
     include_bias_mitigation_feature_as_predictor_variable : Optional[bool]
         Whether we should also use the mitigation feature as in input to the modeler just like
-        any other categorical used for training, i.e. do we want the model to "train on" this
+        any other categorical used for training, i.e., do we want the model to "train on" this
         feature in addition to using it for bias mitigation
     default_monotonic_increasing_featurelist_id : Optional[str]
         Returned from server on Project GET request - not able to be updated by user

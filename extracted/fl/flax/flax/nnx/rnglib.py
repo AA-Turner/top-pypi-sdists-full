@@ -124,8 +124,8 @@ class RngStream(Pytree):
     return key
 
   def split(self, k: int | tuple[int, ...]):
-      key = random.split(self(), k)
-      return type(self)(key, tag=self.tag)
+    key = random.split(self(), k)
+    return type(self)(key, tag=self.tag)
 
   def fork(self, *, split: int | tuple[int, ...] | None = None):
     if split is not None:
@@ -138,6 +138,26 @@ class RngStream(Pytree):
     if split is not None:
       key = random.split(key, split)
     return type(self)(key, tag=self.tag)
+
+  def broadcast(self, k: int | tuple[int, ...]):
+    """Broadcasts the RNG stream to a new shape.
+
+    This method generates a new key from the stream and broadcasts it to the specified
+    shape ``k`` prepended to the key's shape. It returns a new ``RngStream`` instance
+    with this broadcasted key.
+
+    Args:
+      k: The shape to broadcast to. If an integer is provided, it is treated as a
+        single-element tuple ``(k,)``.
+    """
+    key = self()
+    shape: tuple[int, ...]
+    if isinstance(k, int):
+      shape = (k,)
+    else:
+      shape = k
+    replicated_key = jnp.broadcast_to(key, shape + key.shape)
+    return type(self)(replicated_key, tag=self.tag)
 
   # ----------------------------------------------------------
   # random functions
@@ -413,6 +433,8 @@ class Rngs(Pytree):
     return self._get_stream(name, KeyError)
 
   def __getattr__(self, name: str):
+    if name.startswith('__') and name.endswith('__'):
+      raise AttributeError(name)
     return self._get_stream(name, AttributeError)
 
   def __call__(self):
@@ -481,6 +503,65 @@ class Rngs(Pytree):
           break
         else:
           keys[name] = stream
+
+    return Rngs(**keys)
+
+  def broadcast(
+      self,
+      k: (
+          int
+          | tuple[int, ...]
+          | None
+          | tp.Mapping[filterlib.Filter, int | tuple[int, ...] | None]
+      ),
+  ):
+    """Broadcasts the keys of the newly created ``Rngs`` object.
+
+    This method generates a new key for each selected stream and broadcasts it
+    to the specified shape ``k``. It returns a new ``Rngs`` object containing
+    these broadcasted streams.
+
+    Example::
+      >>> from flax import nnx
+      ...
+      >>> rngs = nnx.Rngs(0).broadcast(5)
+      ...
+      >>> assert rngs.default.key.shape == (5,)
+      >>> assert rngs.default.key[0] == rngs.default.key[4]
+
+    ``broadcast`` also accepts a mapping of
+    `Filters
+    <https://flax.readthedocs.io/en/latest/guides/filters_guide.html>`__
+    to broadcast sizes or None to control which streams are broadcasted and how
+    they are broadcasted::
+
+      >>> rngs = nnx.Rngs(params=1, dropout=2, noise=3).broadcast({
+      ...  'params': 5,      # broadcast params into 5 keys
+      ...  'dropout': None,  # don't broadcast dropout
+      ...  ...: (2, 5),      # broadcast anything else into 2x5 keys
+      ... })
+      ...
+      >>> assert rngs.params.key.shape == (5,)
+      >>> assert rngs.dropout.key.shape == ()
+      >>> assert rngs.noise.key.shape == (2, 5)
+    """
+    if isinstance(k, int) or k is None:
+      k = {...: k}
+    elif isinstance(k, tuple):
+      k = {...: k}
+
+    broadcast_predicates = {filterlib.to_predicate(k): v for k, v in k.items()}
+    keys: dict[str, RngStream] = {}
+    for name, stream in self.items():
+      for predicate, num_broadcasts in broadcast_predicates.items():
+        if predicate((), stream):
+          if num_broadcasts is None:
+            keys[name] = stream
+          else:
+            keys[name] = stream.broadcast(num_broadcasts)
+          break
+      else:
+        keys[name] = stream
 
     return Rngs(**keys)
 
@@ -727,53 +808,304 @@ class SplitBackups(struct.PyTreeNode, tp.Iterable[StreamBackup]):
 
 
 @tp.overload
-def split_rngs(
-  node: tp.Any,
-  /,
-  *,
-  splits: int | tuple[int, ...],
-  only: filterlib.Filter = ...,
-  squeeze: bool = False,
-  graph: tp.Literal[True] | None = None,
-) -> SplitBackups: ...
-@tp.overload
-def split_rngs(
-  node: A,
-  /,
-  *,
-  splits: int | tuple[int, ...],
-  only: filterlib.Filter = ...,
-  squeeze: bool = False,
-  graph: tp.Literal[False],
+def with_rngs(
+    node: A,
+    /,
+    *,
+    split: (
+        tp.Mapping[filterlib.Filter, int | tuple[int, ...]]
+        | int
+        | tuple[int, ...]
+        | None
+    ) = None,
+    fork: filterlib.Filter | tp.Sequence[filterlib.Filter] | None = None,
+    broadcast: (
+        tp.Mapping[filterlib.Filter, int | tuple[int, ...]]
+        | int
+        | tuple[int, ...]
+        | None
+    ) = None,
+    only: filterlib.Filter = True,
+    graph: bool | None = None,
+    graph_updates: bool | None = None,
 ) -> A: ...
+
+
+@tp.overload
+def with_rngs(
+    *,
+    split: (
+        tp.Mapping[filterlib.Filter, int | tuple[int, ...]]
+        | int
+        | tuple[int, ...]
+        | None
+    ) = None,
+    fork: filterlib.Filter | tp.Sequence[filterlib.Filter] | None = None,
+    broadcast: (
+        tp.Mapping[filterlib.Filter, int | tuple[int, ...]]
+        | int
+        | tuple[int, ...]
+        | None
+    ) = None,
+    only: filterlib.Filter = True,
+    graph: bool | None = None,
+    graph_updates: bool | None = None,
+) -> tp.Callable[[F], F]: ...
+
+
+def with_rngs(
+    node: tp.Any = MISSING,
+    /,
+    *,
+    split: (
+        tp.Mapping[filterlib.Filter, int | tuple[int, ...]]
+        | int
+        | tuple[int, ...]
+        | None
+    ) = None,
+    fork: filterlib.Filter | tp.Sequence[filterlib.Filter] | None = None,
+    broadcast: (
+        tp.Mapping[filterlib.Filter, int | tuple[int, ...]]
+        | int
+        | tuple[int, ...]
+        | None
+    ) = None,
+    only: filterlib.Filter = True,
+    graph: bool | None = None,
+    graph_updates: bool | None = None,
+) -> tp.Any:
+  """Returns a copy of ``tree`` with ``RngStream`` objects replaced according to
+
+  ``split`` and ``fork`` rules.
+
+  ``split`` controls which streams are **split** — after splitting, each call
+  to the stream produces one key from an array of pre-generated keys rather
+  than a single key.  ``fork`` controls which of the remaining streams are
+  **forked** — each call to a forked stream produces a unique key derived from
+  the parent counter.  Streams that match neither rule are returned unchanged.
+
+  Args:
+    node: A pytree that may contain ``RngStream`` objects (e.g. an ``Rngs``
+      instance, a module, or any nested structure).
+    split: Specifies which streams to split and into what shape.  Can be:  * An
+      ``int`` or ``tuple[int, ...]`` — split *all* streams into this shape,
+      equivalent to ``{...: split}``. * A
+      :class:`~flax.nnx.filterlib.Filter`-keyed mapping where each value is an
+      ``int`` or ``tuple[int, ...]``.  The first matching filter wins.
+    fork: A :class:`~flax.nnx.filterlib.Filter`, a sequence of filters, or
+      ``None`` selecting which streams not already handled by ``split`` should
+      be forked.  Pass ``...`` to fork all remaining streams.
+    broadcast: Specifies which streams to broadcast and into what shape.  Can
+      be: * An ``int`` or ``tuple[int, ...]`` — broadcast *all* streams into
+        this shape, equivalent to ``{...: broadcast}``. * A
+        :class:`~flax.nnx.filterlib.Filter`-keyed mapping where each value is an
+        ``int`` or ``tuple[int, ...]``.  The first matching filter wins.
+    only: A :class:`~flax.nnx.filterlib.Filter` selecting which streams to
+      process. Pass ``True`` (default) to process all streams.
+    graph: If ``True``, uses graph-mode which supports the full NNX feature set
+      including shared references. If ``False``, uses tree-mode which treats
+      Modules as regular JAX pytrees, avoiding the overhead of the graph
+      protocol.
+
+  Returns:
+    A new tree of the same structure as ``tree`` with ``RngStream`` objects
+    replaced by split or forked copies as specified.
+
+  Example — split all streams::
+
+    >>> from flax import nnx
+    ...
+    >>> rngs = nnx.Rngs(params=0, dropout=1)
+    >>> new_rngs = nnx.with_rngs(rngs, split=4, graph=False)
+    >>> new_rngs.params.key.shape
+    (4,)
+    >>> new_rngs.dropout.key.shape
+    (4,)
+
+  Example — split some streams, fork the rest::
+
+    >>> rngs = nnx.Rngs(params=0, dropout=1)
+    >>> new_rngs = nnx.with_rngs(
+    ...   rngs, split={'params': 4}, fork=nnx.Not('params'), graph=False
+    ... )
+    >>> new_rngs.params.key.shape
+    (4,)
+    >>> new_rngs.dropout.key.shape   # forked: scalar key, advanced counter
+    ()
+
+  Example — per-filter split shapes::
+
+    >>> rngs = nnx.Rngs(params=0, dropout=1, noise=2)
+    >>> new_rngs = nnx.with_rngs(rngs, split={
+    ...   'params': 4,    # split params into 4 keys
+    ...   ...: (2, 4),    # split anything else into 2×4 keys
+    ... }, graph=False)
+    >>> new_rngs.params.key.shape
+    (4,)
+    >>> new_rngs.noise.key.shape
+    (2, 4)
+  """
+  if graph is None:
+    graph = graphlib.set_graph_mode.current_value()
+  if graph_updates is None:
+    graph_updates = graphlib.set_graph_updates.current_value()
+
+  if graph and graph_updates:
+    raise NotImplementedError(
+        'graph=True and graph_updates=True is not supported for `with_rngs`'
+    )
+
+  if isinstance(node, Missing):
+
+    def with_rngs_decorator(f: F) -> F:
+      @functools.wraps(f)
+      def with_rngs_wrapper(*args, **kwargs):
+        args, kwargs = with_rngs(
+            (args, kwargs),
+            split=split,
+            fork=fork,
+            broadcast=broadcast,
+            only=only,
+            graph=graph,
+            graph_updates=False,
+        )
+        return f(*args, **kwargs)
+
+      return tp.cast(F, with_rngs_wrapper)
+
+    return with_rngs_decorator  # type: ignore[bad-return-type]
+
+  if split is None:
+    split = {}
+  elif isinstance(split, (int, tuple)):
+    split = {...: split}
+
+  if broadcast is None:
+    broadcast = {}
+  elif isinstance(broadcast, (int, tuple)):
+    broadcast = {...: broadcast}
+
+  if fork is None:
+    fork = []
+  elif isinstance(fork, str) or not isinstance(fork, tp.Sequence):
+    fork = [fork]
+
+  split_predicates = [(k, filterlib.to_predicate(k), v) for k, v in split.items()]
+  broadcast_predicates = [(k, filterlib.to_predicate(k), v) for k, v in broadcast.items()]
+  fork_predicates = [(p, filterlib.to_predicate(p)) for p in fork]
+  only_predicate = filterlib.to_predicate(only)
+
+  def update_rngs(path, val):
+    if isinstance(val, RngStream) and only_predicate(path, val):
+      results = {}
+      for (filter, predicate, num_splits) in split_predicates:
+        if predicate(path, val):
+          results['split'] = (filter, num_splits)
+          break
+      for (filter, predicate, num_broadcasts) in broadcast_predicates:
+        if predicate(path, val):
+          results['broadcast'] = (filter, num_broadcasts)
+          break
+      for (filter, predicate) in fork_predicates:
+        if predicate(path, val):
+          results['fork'] = (filter,)
+          break
+
+      if len(results) > 1:
+        specific_matches = [r for r, info in results.items() if info[0] not in (..., True)]
+        if len(specific_matches) > 1:
+          rule_descriptions = '\n'.join(f'  - {rule} matches filter {info[0]!r}' for rule, info in results.items())
+          raise ValueError(
+            f"RngStream at path {path} matches multiple rules:\n{rule_descriptions}"
+          )
+
+      if 'split' in results:
+        return val.split(results['split'][1])
+      if 'broadcast' in results:
+        return val.broadcast(results['broadcast'][1])
+      if 'fork' in results:
+        return val.fork()
+    return val
+
+  return graphlib.recursive_map(update_rngs, node, graph=graph)
+
+
 @tp.overload
 def split_rngs(
-  *,
-  splits: int | tuple[int, ...],
-  only: filterlib.Filter = ...,
-  squeeze: bool = False,
-  graph: bool | None = None,
-) -> tp.Callable[[F], F]: ...
+    node: tp.Any,
+    /,
+    *,
+    splits: int | tuple[int, ...],
+    only: filterlib.Filter = ...,
+    squeeze: bool = False,
+    graph: tp.Literal[True] | None = None,
+    graph_updates: tp.Literal[True] | None = None,
+) -> SplitBackups:
+  ...
+
+
+@tp.overload
 def split_rngs(
-  node: tp.Any = MISSING,
-  /,
-  *,
-  splits: int | tuple[int, ...],
-  only: filterlib.Filter = ...,
-  squeeze: bool = False,
-  graph: bool | None = None,
+    node: A,
+    /,
+    *,
+    splits: int | tuple[int, ...],
+    only: filterlib.Filter = ...,
+    squeeze: bool = False,
+    graph: tp.Literal[False],
+    graph_updates: bool | None = None,
+) -> A:
+  ...
+
+
+@tp.overload
+def split_rngs(
+    node: A,
+    /,
+    *,
+    splits: int | tuple[int, ...],
+    only: filterlib.Filter = ...,
+    squeeze: bool = False,
+    graph: tp.Literal[True] | None,
+    graph_updates: tp.Literal[False],
+) -> A:
+  ...
+
+
+@tp.overload
+def split_rngs(
+    *,
+    splits: int | tuple[int, ...],
+    only: filterlib.Filter = ...,
+    squeeze: bool = False,
+    graph: bool | None = None,
+    graph_updates: bool | None = None,
+) -> tp.Callable[[F], F]:
+  ...
+
+def split_rngs(
+    node: tp.Any = MISSING,
+    /,
+    *,
+    splits: int | tuple[int, ...],
+    only: filterlib.Filter = ...,
+    squeeze: bool = False,
+    graph: bool | None = None,
+    graph_updates: bool | None = None,
 ) -> SplitBackups | tp.Any | tp.Callable[[F], F]:
   """Splits the (nested) Rng states of the given node.
 
   Args:
     node: the base node containing the rng states to split.
-    splits: an integer or tuple of integers specifying the
-      shape of the split rng keys.
+    splits: an integer or tuple of integers specifying the shape of the split
+      rng keys.
     only: a Filter selecting which rng states to split.
-    graph: If ``True`` (default), uses graph-mode which supports the full
-      NNX feature set including shared references. If ``False``, uses
-      tree-mode which treats Modules as regular JAX pytrees, avoiding
-      the overhead of the graph protocol.
+    graph: If ``True`` (default), uses graph-mode which supports the full NNX
+      feature set including shared references. If ``False``, uses tree-mode
+      which treats Modules as regular JAX pytrees, avoiding the overhead of the
+      graph protocol.
+    graph_updates: If ``True``, applies the splits in-place on the node. If
+      ``False``, returns a new node with split rng states.
 
   Returns:
     A SplitBackups iterable if ``node`` is provided, otherwise a
@@ -855,27 +1187,35 @@ def split_rngs(
     >>> model = create_model(rngs)
     >>> model.dropout.rngs.key.shape
     ()
-
-
   """
   if graph is None:
     graph = graphlib.set_graph_mode.current_value()
+  if graph_updates is None:
+    graph_updates = graphlib.set_graph_updates.current_value()
 
   if isinstance(node, Missing):
 
     def split_rngs_decorator(f: F) -> F:
       @functools.wraps(f)
       def split_rngs_wrapper(*args, **kwargs):
-        if graph:
+        if graph and graph_updates:
           with split_rngs(
-            (args, kwargs), splits=splits, only=only, squeeze=squeeze,
-            graph=True,
+              (args, kwargs),
+              splits=splits,
+              only=only,
+              squeeze=squeeze,
+              graph=True,
+              graph_updates=True,
           ):
             return f(*args, **kwargs)
         else:
           args, kwargs = split_rngs(
-            (args, kwargs), splits=splits, only=only, squeeze=squeeze,
-            graph=False,
+              (args, kwargs),
+              splits=splits,
+              only=only,
+              squeeze=squeeze,
+              graph=graph,
+              graph_updates=False,
           )
           return f(*args, **kwargs)
 
@@ -886,23 +1226,30 @@ def split_rngs(
   if squeeze and splits != 1:
     raise ValueError('squeeze=True is only supported for splits=1')
 
-  if graph:
-    return _graph_split_rngs(
-      node, splits=splits, only=only, squeeze=squeeze,
+  if graph and graph_updates:
+    return _graph_updates_split_rngs(
+        node,
+        splits=splits,
+        only=only,
+        squeeze=squeeze,
     )
   else:
-    return _tree_split_rngs(
-      node, splits=splits, only=only, squeeze=squeeze,
+    return _simple_split_rngs(
+        node,
+        splits=splits,
+        only=only,
+        squeeze=squeeze,
+        graph=graph,
     )
 
 
-def _graph_split_rngs(
-  node: tp.Any,
-  /,
-  *,
-  splits: int | tuple[int, ...],
-  only: filterlib.Filter = ...,
-  squeeze: bool = False,
+def _graph_updates_split_rngs(
+    node: tp.Any,
+    /,
+    *,
+    splits: int | tuple[int, ...],
+    only: filterlib.Filter = ...,
+    squeeze: bool = False,
 ) -> SplitBackups:
   predicate = filterlib.to_predicate(only)
   backups: list[StreamBackup] = []
@@ -930,13 +1277,14 @@ def _graph_split_rngs(
   return SplitBackups(backups)
 
 
-def _tree_split_rngs(
-  node: tp.Any,
-  /,
-  *,
-  splits: int | tuple[int, ...],
-  only: filterlib.Filter = ...,
-  squeeze: bool = False,
+def _simple_split_rngs(
+    node: tp.Any,
+    /,
+    *,
+    splits: int | tuple[int, ...],
+    only: filterlib.Filter = ...,
+    squeeze: bool = False,
+    graph: bool,
 ) -> tp.Any:
   predicate = filterlib.to_predicate(only)
 
@@ -962,34 +1310,88 @@ def _tree_split_rngs(
       )
     return node
 
-  return graphlib.recursive_map(_split_stream, node, graph=False)
+  return graphlib.recursive_map(_split_stream, node, graph=graph)
+
+
+def _graph_updates_fork_rngs(
+    node: tp.Any,
+    /,
+    *,
+    predicate_splits: tp.Mapping[tp.Callable, tp.Any],
+    graph: bool,
+) -> SplitBackups:
+  backups: list[StreamBackup] = []
+  for path, stream in graphlib.iter_graph(node, graph=graph):
+    for predicate, splits in predicate_splits.items():
+      if (
+          isinstance(stream, RngStream)
+          and predicate((*path, 'key'), stream.key)
+          and predicate((*path, 'count'), stream.count)
+      ):
+        forked_stream = stream.fork(split=splits)
+        # backup the original stream state
+        backups.append((stream, stream.key[...], stream.count[...]))
+        # apply the forked key and count to the original stream
+        stream.key.set_value(forked_stream.key.get_value())
+        stream.count.set_value(forked_stream.count.get_value())
+
+  return SplitBackups(backups)
+
+
+def _simple_fork_rngs(
+    node: tp.Any,
+    /,
+    *,
+    predicate_splits: tp.Mapping[tp.Callable, tp.Any],
+    graph: bool,
+) -> tp.Any:
+  def _fork_stream(path, node):
+    if isinstance(node, RngStream):
+      for predicate, splits in predicate_splits.items():
+        if predicate((*path, 'key'), node.key) and predicate(
+            (*path, 'count'), node.count
+        ):
+          return node.fork(split=splits)
+    return node
+
+  return graphlib.recursive_map(_fork_stream, node, graph=graph)
+
 
 @tp.overload
 def fork_rngs(
-  node: tp.Any,
-  /,
-  *,
-  split: tp.Mapping[filterlib.Filter, int | tuple[int, ...] | None]
-    | int
-    | None = None,
-  graph: bool | None = None,
-) -> SplitBackups: ...
+    node: tp.Any,
+    /,
+    *,
+    split: (
+        tp.Mapping[filterlib.Filter, int | tuple[int, ...] | None] | int | None
+    ) = None,
+    graph: bool | None = None,
+    graph_updates: bool | None = None,
+) -> SplitBackups:
+  ...
+
+
 @tp.overload
 def fork_rngs(
-  *,
-  split: tp.Mapping[filterlib.Filter, int | tuple[int, ...] | None]
-    | int
-    | None = None,
-  graph: bool | None = None,
-) -> tp.Callable[[F], F]: ...
+    *,
+    split: (
+        tp.Mapping[filterlib.Filter, int | tuple[int, ...] | None] | int | None
+    ) = None,
+    graph: bool | None = None,
+    graph_updates: bool | None = None,
+) -> tp.Callable[[F], F]:
+  ...
+
+
 def fork_rngs(
-  node: tp.Any = MISSING,
-  /,
-  *,
-  split: tp.Mapping[filterlib.Filter, int | tuple[int, ...] | None]
-    | int
-    | None = None,
-  graph: bool | None = None,
+    node: tp.Any = MISSING,
+    /,
+    *,
+    split: (
+        tp.Mapping[filterlib.Filter, int | tuple[int, ...] | None] | int | None
+    ) = None,
+    graph: bool | None = None,
+    graph_updates: bool | None = None,
 ) -> SplitBackups | tp.Callable[[F], F]:
   """Forks the (nested) Rng states of the given node.
 
@@ -1032,12 +1434,25 @@ def fork_rngs(
     ...   model = nnx.Linear(2, 3, rngs=rngs)
 
   """
+  if graph is None:
+    graph = graphlib.set_graph_mode.current_value()
+  if graph_updates is None:
+    graph_updates = graphlib.set_graph_updates.current_value()
+
   if isinstance(node, Missing):
 
     def fork_rngs_decorator(f: F) -> F:
       @functools.wraps(f)
       def fork_rngs_wrapper(*args, **kwargs):
-        with fork_rngs((args, kwargs), split=split):
+        if graph and graph_updates:
+          with fork_rngs(
+              (args, kwargs), split=split, graph=True, graph_updates=True
+          ):
+            return f(*args, **kwargs)
+        else:
+          args, kwargs = fork_rngs(
+              (args, kwargs), split=split, graph=graph, graph_updates=False
+          )
           return f(*args, **kwargs)
 
       return tp.cast(F, fork_rngs_wrapper)
@@ -1052,22 +1467,15 @@ def fork_rngs(
   predicate_splits = {
     filterlib.to_predicate(k): v for k, v in split.items()
   }
-  backups: list[StreamBackup] = []
-  for path, stream in graphlib.iter_graph(node, graph=graph):
-    for predicate, splits in predicate_splits.items():
-      if (
-        isinstance(stream, RngStream)
-        and predicate((*path, 'key'), stream.key)
-        and predicate((*path, 'count'), stream.count)
-      ):
-        forked_stream = stream.fork(split=splits)
-        # backup the original stream state
-        backups.append((stream, stream.key[...], stream.count[...]))
-        # apply the forked key and count to the original stream
-        stream.key.set_value(forked_stream.key.get_value())
-        stream.count.set_value(forked_stream.count.get_value())
 
-  return SplitBackups(backups)
+  if graph and graph_updates:
+    return _graph_updates_fork_rngs(
+        node, predicate_splits=predicate_splits, graph=graph
+    )
+  else:
+    return _simple_fork_rngs(
+        node, predicate_splits=predicate_splits, graph=graph
+    )
 
 
 def backup_keys(node: tp.Any, /, *, graph: bool | None = None):
@@ -1117,7 +1525,7 @@ def reseed(
       NNX feature set including shared references. If ``False``, uses
       tree-mode which treats Modules as regular JAX pytrees, avoiding
       the overhead of the graph protocol.
-    policy: defines how the the new scalar key is for each RngStream is used to
+    policy: defines how the new scalar key is for each RngStream is used to
       reseed the stream. If ``'scalars_only'`` is given (the default), an error is raised
       if the target stream key is not a scalar. If ``'match_shape'`` is given, the new
       scalar key is split to match the shape of the target stream key. A callable

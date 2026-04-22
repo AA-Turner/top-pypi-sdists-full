@@ -9,6 +9,7 @@ from openfeature.evaluation_context import EvaluationContext
 from openfeature.event import ProviderEvent, ProviderEventDetails
 from openfeature.flag_evaluation import FlagResolutionDetails
 from openfeature.hook import Hook
+from openfeature.track import TrackingEventDetails
 
 from .metadata import Metadata
 
@@ -46,79 +47,82 @@ class FeatureProvider(typing.Protocol):  # pragma: no cover
         self,
         flag_key: str,
         default_value: bool,
-        evaluation_context: typing.Optional[EvaluationContext] = None,
+        evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[bool]: ...
 
     async def resolve_boolean_details_async(
         self,
         flag_key: str,
         default_value: bool,
-        evaluation_context: typing.Optional[EvaluationContext] = None,
+        evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[bool]: ...
 
     def resolve_string_details(
         self,
         flag_key: str,
         default_value: str,
-        evaluation_context: typing.Optional[EvaluationContext] = None,
+        evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[str]: ...
 
     async def resolve_string_details_async(
         self,
         flag_key: str,
         default_value: str,
-        evaluation_context: typing.Optional[EvaluationContext] = None,
+        evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[str]: ...
 
     def resolve_integer_details(
         self,
         flag_key: str,
         default_value: int,
-        evaluation_context: typing.Optional[EvaluationContext] = None,
+        evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[int]: ...
 
     async def resolve_integer_details_async(
         self,
         flag_key: str,
         default_value: int,
-        evaluation_context: typing.Optional[EvaluationContext] = None,
+        evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[int]: ...
 
     def resolve_float_details(
         self,
         flag_key: str,
         default_value: float,
-        evaluation_context: typing.Optional[EvaluationContext] = None,
+        evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[float]: ...
 
     async def resolve_float_details_async(
         self,
         flag_key: str,
         default_value: float,
-        evaluation_context: typing.Optional[EvaluationContext] = None,
+        evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[float]: ...
 
     def resolve_object_details(
         self,
         flag_key: str,
-        default_value: typing.Union[
-            Sequence[FlagValueType], Mapping[str, FlagValueType]
-        ],
-        evaluation_context: typing.Optional[EvaluationContext] = None,
+        default_value: Sequence[FlagValueType] | Mapping[str, FlagValueType],
+        evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[
-        typing.Union[Sequence[FlagValueType], Mapping[str, FlagValueType]]
+        Sequence[FlagValueType] | Mapping[str, FlagValueType]
     ]: ...
 
     async def resolve_object_details_async(
         self,
         flag_key: str,
-        default_value: typing.Union[
-            Sequence[FlagValueType], Mapping[str, FlagValueType]
-        ],
-        evaluation_context: typing.Optional[EvaluationContext] = None,
+        default_value: Sequence[FlagValueType] | Mapping[str, FlagValueType],
+        evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[
-        typing.Union[Sequence[FlagValueType], Mapping[str, FlagValueType]]
+        Sequence[FlagValueType] | Mapping[str, FlagValueType]
     ]: ...
+
+    def track(
+        self,
+        tracking_event_name: str,
+        evaluation_context: EvaluationContext | None = None,
+        tracking_event_details: TrackingEventDetails | None = None,
+    ) -> None: ...
 
 
 class AbstractProvider(FeatureProvider):
@@ -142,6 +146,14 @@ class AbstractProvider(FeatureProvider):
     def shutdown(self) -> None:
         pass
 
+    def track(
+        self,
+        tracking_event_name: str,
+        evaluation_context: EvaluationContext | None = None,
+        tracking_event_details: TrackingEventDetails | None = None,
+    ) -> None:
+        pass
+
     @abstractmethod
     def get_metadata(self) -> Metadata:
         pass
@@ -154,7 +166,7 @@ class AbstractProvider(FeatureProvider):
         self,
         flag_key: str,
         default_value: bool,
-        evaluation_context: typing.Optional[EvaluationContext] = None,
+        evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[bool]:
         pass
 
@@ -162,7 +174,7 @@ class AbstractProvider(FeatureProvider):
         self,
         flag_key: str,
         default_value: bool,
-        evaluation_context: typing.Optional[EvaluationContext] = None,
+        evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[bool]:
         return self.resolve_boolean_details(flag_key, default_value, evaluation_context)
 
@@ -171,7 +183,7 @@ class AbstractProvider(FeatureProvider):
         self,
         flag_key: str,
         default_value: str,
-        evaluation_context: typing.Optional[EvaluationContext] = None,
+        evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[str]:
         pass
 
@@ -179,7 +191,7 @@ class AbstractProvider(FeatureProvider):
         self,
         flag_key: str,
         default_value: str,
-        evaluation_context: typing.Optional[EvaluationContext] = None,
+        evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[str]:
         return self.resolve_string_details(flag_key, default_value, evaluation_context)
 
@@ -188,7 +200,7 @@ class AbstractProvider(FeatureProvider):
         self,
         flag_key: str,
         default_value: int,
-        evaluation_context: typing.Optional[EvaluationContext] = None,
+        evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[int]:
         pass
 
@@ -196,7 +208,7 @@ class AbstractProvider(FeatureProvider):
         self,
         flag_key: str,
         default_value: int,
-        evaluation_context: typing.Optional[EvaluationContext] = None,
+        evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[int]:
         return self.resolve_integer_details(flag_key, default_value, evaluation_context)
 
@@ -205,7 +217,7 @@ class AbstractProvider(FeatureProvider):
         self,
         flag_key: str,
         default_value: float,
-        evaluation_context: typing.Optional[EvaluationContext] = None,
+        evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[float]:
         pass
 
@@ -213,7 +225,7 @@ class AbstractProvider(FeatureProvider):
         self,
         flag_key: str,
         default_value: float,
-        evaluation_context: typing.Optional[EvaluationContext] = None,
+        evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[float]:
         return self.resolve_float_details(flag_key, default_value, evaluation_context)
 
@@ -221,25 +233,17 @@ class AbstractProvider(FeatureProvider):
     def resolve_object_details(
         self,
         flag_key: str,
-        default_value: typing.Union[
-            Sequence[FlagValueType], Mapping[str, FlagValueType]
-        ],
-        evaluation_context: typing.Optional[EvaluationContext] = None,
-    ) -> FlagResolutionDetails[
-        typing.Union[Sequence[FlagValueType], Mapping[str, FlagValueType]]
-    ]:
+        default_value: Sequence[FlagValueType] | Mapping[str, FlagValueType],
+        evaluation_context: EvaluationContext | None = None,
+    ) -> FlagResolutionDetails[Sequence[FlagValueType] | Mapping[str, FlagValueType]]:
         pass
 
     async def resolve_object_details_async(
         self,
         flag_key: str,
-        default_value: typing.Union[
-            Sequence[FlagValueType], Mapping[str, FlagValueType]
-        ],
-        evaluation_context: typing.Optional[EvaluationContext] = None,
-    ) -> FlagResolutionDetails[
-        typing.Union[Sequence[FlagValueType], Mapping[str, FlagValueType]]
-    ]:
+        default_value: Sequence[FlagValueType] | Mapping[str, FlagValueType],
+        evaluation_context: EvaluationContext | None = None,
+    ) -> FlagResolutionDetails[Sequence[FlagValueType] | Mapping[str, FlagValueType]]:
         return self.resolve_object_details(flag_key, default_value, evaluation_context)
 
     def emit_provider_ready(self, details: ProviderEventDetails) -> None:

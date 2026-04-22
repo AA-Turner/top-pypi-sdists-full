@@ -37,7 +37,7 @@ except ImportError:
 _POLARS_FLOAT16: Any
 if pl is not None:
     try:
-        _POLARS_FLOAT16 = pl.Float16()  # pyright: ignore[reportConstantRedefinition]
+        _POLARS_FLOAT16 = pl.Float16()  # pyright: ignore[reportConstantRedefinition, reportAttributeAccessIssue]
     except AttributeError:
         # Older Polars versions don't have Float16; fall back to Float32 to match
         # what GenericFeatureConverter returns for pa.float16().
@@ -110,6 +110,17 @@ class Float16FeatureConverter(
         if value is None or value is ...:
             return cast(float, value)
         return float(cast(Any, value))
+
+    def is_rich_valid(self, value: Any) -> bool:
+        # Override to coerce via np.float16 directly, avoiding pa.scalar(plain_float, pa.float16())
+        # which raises ArrowTypeError on some PyArrow versions.
+        if self.is_value_missing(value):
+            return self._is_nullable
+        try:
+            np.float16(value)  # type: ignore[union-attr]
+            return True
+        except (TypeError, ValueError, OverflowError):
+            return False
 
     def from_primitive_to_protobuf(self, value: float | pa.Scalar) -> pb.ScalarValue:
         scalar_value = _unwrap_scalar_value(value)

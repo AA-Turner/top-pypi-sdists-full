@@ -311,7 +311,7 @@ def raw_prediction_response_to_dataframe(
             frame = _pivot_prediction_explanations(frame, pred_response, has_prediction_values)
 
     # Remove some columns with all null values
-    # (i.e. TS models return empty series_id for single-series projects)
+    # (i.e., TS models return empty series_id for single-series projects)
     drop_cols = [col for col in ("positive_probability", "series_id") if col in frame and frame[col].isna().all()]
     if drop_cols:
         frame = frame.drop(columns=drop_cols)

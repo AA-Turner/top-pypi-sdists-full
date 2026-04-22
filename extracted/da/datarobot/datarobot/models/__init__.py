@@ -69,7 +69,8 @@ from .feature_effect import (
     FeatureEffectsMulticlass,
 )
 from .featurelist import DatasetFeaturelist, Featurelist, ModelingFeaturelist
-from .files import Files, FilesCatalogSearch, FilesStage
+from .files import Files, FilesCatalogSearch, FilesStage, FilesDetails
+from .jdbc_data_preview import JdbcPreview, JdbcPreviewData, JdbcResultSchemaEntry
 from .job import FeatureImpactJob, Job, TrainingPredictionsJob
 from .key_values import KeyValue
 from .model import (

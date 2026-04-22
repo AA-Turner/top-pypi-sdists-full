@@ -34,6 +34,7 @@ class AgentRuntimeBackend(str, Enum):  # noqa: UP042
     CLAUDE = "claude"
     CODEX = "codex"
     OPENCODE = "opencode"
+    HERMES = "hermes"
 
 
 class LLMBackend(str, Enum):  # noqa: UP042
@@ -105,7 +106,7 @@ def _check_stale_instance() -> bool:
 def _ensure_shell_env(*, timeout: float = 10.0) -> None:
     """Load login-shell environment when launched outside a login shell.
 
-    When a gateway process (e.g., OpenClaw) spawns ``ouroboros mcp serve``,
+    When an agent host process spawns ``ouroboros mcp serve``,
     the child inherits only a minimal environment. This sources the user's
     shell profile to recover PATH, ANTHROPIC_API_KEY, etc.
 
@@ -348,7 +349,7 @@ def serve(
         AgentRuntimeBackend | None,
         typer.Option(
             "--runtime",
-            help="Agent runtime backend for orchestrator-driven tools (claude, codex, or opencode).",
+            help="Agent runtime backend for orchestrator-driven tools (claude, codex, opencode, or hermes).",
             case_sensitive=False,
         ),
     ] = None,
@@ -435,7 +436,7 @@ def info(
         AgentRuntimeBackend | None,
         typer.Option(
             "--runtime",
-            help="Agent runtime backend for orchestrator-driven tools (claude, codex, or opencode).",
+            help="Agent runtime backend for orchestrator-driven tools (claude, codex, opencode, or hermes).",
             case_sensitive=False,
         ),
     ] = None,

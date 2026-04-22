@@ -439,6 +439,7 @@ EventSourceNameType = Literal[
     "OnCaseCreate",
     "OnCaseUpdate",
     "OnContactEvaluationSubmit",
+    "OnEmailAnalysisAvailable",
     "OnMetricDataUpdate",
     "OnPostCallAnalysisAvailable",
     "OnPostChatAnalysisAvailable",
@@ -464,7 +465,14 @@ FailureReasonCodeType = Literal[
     "REQUEST_THROTTLED",
 ]
 FileStatusTypeType = Literal["APPROVED", "FAILED", "PROCESSING", "REJECTED"]
-FileUseCaseTypeType = Literal["ATTACHMENT", "EMAIL_MESSAGE"]
+FileUseCaseTypeType = Literal[
+    "ATTACHMENT",
+    "CONTACT_ANALYSIS",
+    "EMAIL_MESSAGE",
+    "EMAIL_MESSAGE_PLAIN_TEXT",
+    "EMAIL_MESSAGE_PLAIN_TEXT_REDACTED",
+    "EMAIL_MESSAGE_REDACTED",
+]
 FilterV2StringConditionComparisonOperatorType = Literal["NOT_EXISTS"]
 FlowAssociationResourceTypeType = Literal[
     "ANALYTICS_CONNECTOR",
@@ -976,6 +984,8 @@ ReferenceTypeType = Literal[
     "EMAIL",
     "EMAIL_MESSAGE",
     "EMAIL_MESSAGE_PLAIN_TEXT",
+    "EMAIL_MESSAGE_PLAIN_TEXT_REDACTED",
+    "EMAIL_MESSAGE_REDACTED",
     "NUMBER",
     "STRING",
     "URL",
@@ -1301,6 +1311,7 @@ ServiceName = Literal[
     "inspector",
     "inspector-scan",
     "inspector2",
+    "interconnect",
     "internetmonitor",
     "invoicing",
     "iot",
@@ -1357,6 +1368,7 @@ ServiceName = Literal[
     "marketplace-agreement",
     "marketplace-catalog",
     "marketplace-deployment",
+    "marketplace-discovery",
     "marketplace-entitlement",
     "marketplace-reporting",
     "marketplacecommerceanalytics",
@@ -1454,6 +1466,7 @@ ServiceName = Literal[
     "rum",
     "s3",
     "s3control",
+    "s3files",
     "s3outposts",
     "s3tables",
     "s3vectors",

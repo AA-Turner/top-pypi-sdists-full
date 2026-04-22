@@ -112,9 +112,9 @@ class OtelMetricConfig(APIObject):
         Parameters
         ----------
         entity_type: str
-            The entity type of the log entries (e.g. deployment, or use_case)
+            The entity type of the log entries (e.g., deployment, or use_case)
         entity_id: str
-            The entity id of the log entries (e.g. `123456`)
+            The entity ID of the log entries (e.g., `123456`)
         otel_name: str
             Name of the reported metric.
         display_name: Optional[str]
@@ -155,9 +155,9 @@ class OtelMetricConfig(APIObject):
         Parameters
         ----------
         entity_type: str
-            The entity type of the log entries (e.g. deployment, or use_case)
+            The entity type of the log entries (e.g., deployment, or use_case)
         entity_id: str
-            The entity id of the log entries (e.g. `123456`)
+            The entity ID of the log entries (e.g., `123456`)
         configs: List[OtelMetricConfig]
             Ordered list of OpenTelemetry metric configurations.
         """
@@ -197,9 +197,9 @@ class OtelMetricConfig(APIObject):
         Parameters
         ----------
         entity_type: str
-            The entity type of the log entries (e.g. deployment, or use_case)
+            The entity type of the log entries (e.g., deployment, or use_case)
         entity_id: str
-            The entity id of the log entries (e.g. `123456`)
+            The entity ID of the log entries (e.g., `123456`)
         offset: Optional[int]
             Offset for pagination.
         limit: Optional[int]
@@ -238,9 +238,9 @@ class OtelMetricConfig(APIObject):
         Parameters
         ----------
         entity_type: str
-            The entity type of the log entries (e.g. deployment, or use_case)
+            The entity type of the log entries (e.g., deployment, or use_case)
         entity_id: str
-            The entity id of the log entries (e.g. `123456`)
+            The entity ID of the log entries (e.g., `123456`)
         config_id: str
             ID of the OpenTelemetry metric configuration.
 

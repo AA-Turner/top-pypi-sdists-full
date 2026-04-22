@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: omnibase_core
-Version: 0.39.0
+Version: 0.40.0
 Summary: ONEX Core Framework - Base classes and essential implementations
 Project-URL: Homepage, https://github.com/OmniNode-ai/omnibase_core
 Project-URL: Repository, https://github.com/OmniNode-ai/omnibase_core
@@ -31,7 +31,10 @@ Provides-Extra: cache
 Requires-Dist: redis<8.0.0,>=5.0.0; extra == 'cache'
 Provides-Extra: cli
 Requires-Dist: psutil>=7.2.1; extra == 'cli'
+Provides-Extra: compat
+Requires-Dist: omnibase-compat<1.0.0,>=0.3.1; extra == 'compat'
 Provides-Extra: full
+Requires-Dist: omnibase-compat<1.0.0,>=0.3.1; extra == 'full'
 Requires-Dist: omnibase-spi>=0.20.2; extra == 'full'
 Requires-Dist: prometheus-client<1.0.0,>=0.21.0; extra == 'full'
 Requires-Dist: psutil>=7.2.1; extra == 'full'

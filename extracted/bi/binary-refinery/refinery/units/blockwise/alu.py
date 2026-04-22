@@ -28,26 +28,24 @@ class alu(ArithmeticUnit):
     encoding and encryption schemes.
 
     The unit allows you to specify a custom Python expression where the following variables can be
-    used:
+    used (rotation operations are interpreted as shifts when arbitrary precision is used):
 
-    - the variable `A`: same as `V[0]`
-    - the variable `B`: current block
-    - the variable `E`: block value of encoded input (not changed after update)
-    - the variable `N`: number of bytes in the input
-    - the variable `K`: current index in the input
-    - the variable `S`: the internal state value
-    - the variable `V`: the vector of arguments
-    - the variable `I`: function that casts to a signed int in current precision
-    - the variable `U`: function that casts to unsigned int in current precision
-    - the variable `R`: function; `R(x,4)` rotates x by 4 to the right
-    - the variable `L`: function; `L(x,4)` rotates x by 4 to the left
-    - the variable `M`: function; `M(x,8)` picks the lower 8 bits of x
-    - the variable `X`: function that negates the bits of the input
+    - `A`: same as `V[0]`
+    - `B`: current block (already updated in epilogue)
+    - `E`: block value of encoded input (not changed after update)
+    - `N`: number of bytes in the input
+    - `K`: current index in the input
+    - `S`: the internal state value
+    - `V`: the vector of arguments
+    - `I`: function that casts to a signed int in current precision
+    - `U`: function that casts to unsigned int in current precision
+    - `R`: function; `R(x,3)` rotates x by 3 to the right
+    - `L`: function; `L(x,3)` rotates x by 3 to the left
+    - `M`: function; `M(x,8)` picks the lower 8 bits of x
+    - `X`: function that negates the bits of the input
 
-    (The rotation operations are interpreted as shifts when arbitrary precision is used.)
-
-    Each block of the input is replaced by the value of this expression. Additionally, it is possible to
-    specify prologue and epilogue expressions which are used to update the state variable `S` before and
+    Each block of the input is replaced by the value of this expression. It is possible to specify
+    prologue and epilogue expressions which are used to update the state variable `S` before and
     after the update of each block, respectively.
     """
 
@@ -67,6 +65,10 @@ class alu(ArithmeticUnit):
         seed: Param[int | str, Arg.String('-s', help=(
             'Optional seed value for the state variable S. The default is zero. This can be an expression '
             'involving the variable N.'))] = 0,
+        skip: Param[int, Arg.Number('-k', help=(
+            'Optional skip value for the state machine. When specified, prologue and epilogue are exeucted '
+            'N times before operation on the input buffer begins: the expressions may not depend on block '
+            'values or indices.'))] = 0,
         prologue: Param[str, Arg.String('-p', metavar='E', help=(
             'Optional expression with which the state variable S is updated before a block is operated on.'))] = '',
         epilogue: Param[str, Arg.String('-e', metavar='E', group='EPI', help=(
@@ -104,6 +106,7 @@ class alu(ArithmeticUnit):
             blocksize=blocksize,
             precision=precision,
             seed=seed,
+            skip=skip,
             lcg=lcg,
             operator=self._parse_op(operator),
             prologue=self._parse_op(prologue, 'S'),
@@ -120,6 +123,7 @@ class alu(ArithmeticUnit):
     def process(self, data):
         context = dict(metavars(data))
         seed = self.args.seed
+        skip = self.args.skip
         fbits = self.fbits
         fmask = self.fmask
 
@@ -184,13 +188,6 @@ class alu(ArithmeticUnit):
             X=negate_bits,
             M=mask_to_bits,
         )
-        args = [
-            self._infinitize_argument(len(data), *self._argument_parse_hook(a))
-            for a in self.args.argument]
-        if args:
-            args = [next(iter(a)) for a in args]
-            context['A'] = args[0]
-            context['V'] = args
 
         if isinstance(seed, str):
             seed = PythonExpression(seed, 'IAMNVRLX', constants=context, mask=fmask)
@@ -199,6 +196,10 @@ class alu(ArithmeticUnit):
 
         self._index.init(self.fmask)
         context.update(S=seed)
+
+        for _ in range(skip):
+            context['S'] = eval(prologue, None, context)
+            context['S'] = eval(epilogue, None, context)
 
         def operate(block, index, *args):
             context.update(K=index, B=block, E=block, V=args)

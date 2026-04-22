@@ -6952,11 +6952,18 @@ components:
           enum:
           - client_credentials
           - authorization_code
+          - refresh_token
           example: client_credentials
           type: string
         redirect_uri:
           description: 'Redirect URI to request token for. Required if grant_type
             is authorization_code.
+
+            '
+          type: string
+        refresh_token:
+          description: 'Refresh token to request token for. Required if grant_type
+            is refresh_token.
 
             '
           type: string
@@ -6977,6 +6984,12 @@ components:
         expires_in:
           description: Number of seconds that token is valid for
           example: 900
+          type: integer
+        refresh_token:
+          example: eyJ...
+          type: string
+        refresh_token_expires_in:
+          description: Number of seconds that refresh token is valid for
           type: integer
         token_type:
           enum:

@@ -45,6 +45,8 @@ from plato.cli.utils import (
 from plato.v1.flow_executor import FlowExecutor
 from plato.v1.models.flow import Flow
 from plato.v1.sdk import Plato
+from plato.v2 import Env as EnvV2
+from plato.v2 import Plato as PlatoV2
 
 # =============================================================================
 # CONSTANTS
@@ -56,6 +58,7 @@ UUID_PATTERN = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-
 CHRONOS_URL = "https://chronos.plato.so"
 DEFAULT_DATAGEN_API_KEY = os.getenv("PLATO_DATAGEN_API_KEY", "")
 DEFAULT_ANCHOR_KEY = os.getenv("ANCHOR_API_KEY", "")
+DEFAULT_BROWSERBASE_KEY = os.getenv("BROWSERBASE_API_KEY", "")
 
 # Keychain service name used by Claude Code to store OAuth credentials
 _CLAUDE_KEYCHAIN_SERVICE = "Claude Code-credentials"
@@ -267,6 +270,29 @@ def _get_base_url() -> str:
     if base_url.endswith("/api"):
         base_url = base_url[:-4]
     return base_url.rstrip("/")
+
+
+def _split_sim_colon_arg(raw: str, command_name: str) -> tuple[str, str | None]:
+    """Split a positional ``sim`` / ``sim:<uuid>`` arg for commands that take
+    simulators as positional args (e.g. ``pm open``, ``pm start from-template``).
+
+    Distinct from ``parse_simulator_artifact``, which prints usage guidance
+    using the ``-s`` flag — that's misleading for commands where the simulator
+    is a positional argument. Returns ``(sim_name, artifact_id_or_None)``.
+    Raises ``typer.Exit`` on malformed colon notation.
+    """
+    if ":" not in raw:
+        return raw, None
+    sim_part, colon_part = raw.split(":", 1)
+    if UUID_PATTERN.match(colon_part):
+        return sim_part, colon_part
+    console.print(f"[red]❌ Invalid artifact UUID after colon: '{colon_part}'[/red]")
+    console.print()
+    console.print("[yellow]Usage:[/yellow]")
+    console.print(f"  plato pm {command_name} <simulator>                      # Simulator only")
+    console.print(f"  plato pm {command_name} <simulator>:<artifact-uuid>      # Colon notation")
+    console.print(f"  plato pm {command_name} <artifact-uuid>                  # Bare artifact UUID")
+    raise typer.Exit(1)
 
 
 def validate_status_transition(current_status: str, expected_status: str, command_name: str):
@@ -571,6 +597,27 @@ def _render_step_instructions(world_config: dict, **substitutions: str) -> None:
         step["instruction"] = instr
 
 
+def _render_step_verify(world_config: dict, **substitutions: str) -> None:
+    """Replace ``{key}`` placeholders in every step's verify shell commands.
+
+    Extract-screenshots bakes API credentials and the Plato base URL into the
+    upload verify shell, so we render those the same way we render instructions.
+    """
+    for step in world_config.get("steps", []):
+        verify = step.get("verify")
+        if not isinstance(verify, list):
+            continue
+        rendered: list[str] = []
+        for cmd in verify:
+            if not isinstance(cmd, str):
+                rendered.append(cmd)
+                continue
+            for key, value in substitutions.items():
+                cmd = cmd.replace(f"{{{key}}}", str(value))
+            rendered.append(cmd)
+        step["verify"] = rendered
+
+
 def _fetch_experiment_config(pipeline: str, mode: str, api_key: str) -> tuple[dict, str]:
     """Fetch latest experiment config from Chronos by name. Raises if not found.
 
@@ -823,6 +870,7 @@ async def _launch_datagen_world(
             _set_claude_credentials(agent_config, cred_key, cred_val)
         config["plato_api_key"] = datagen_api_key
         config["anchor_api_key"] = DEFAULT_ANCHOR_KEY
+        config["browserbase_api_key"] = DEFAULT_BROWSERBASE_KEY
         config["envs"] = [
             {
                 "env": {"artifact_id": artifact_id, "alias": simulator_name},
@@ -959,6 +1007,7 @@ async def _launch_datagen_unified_world(
             _set_claude_credentials(agent_config, cred_key, cred_val)
         config["plato_api_key"] = datagen_api_key
         config["anchor_api_key"] = DEFAULT_ANCHOR_KEY
+        config["browserbase_api_key"] = DEFAULT_BROWSERBASE_KEY
         config["envs"] = envs
         config["sim_names"] = [s["name"] for s in sims]
         # Fallback simulator_name in per-env state.json when env.simulator is None
@@ -1031,7 +1080,7 @@ async def _launch_sim_checker_world(
                 }
             )
         mcps.append({"type": "vm", "name": "vm"})
-        mcps.append({"type": "browser", "name": "browser"})
+        mcps.append({"type": "browser", "name": "browser", "backend": "browserbase"})
 
         config = template["world"]["config"]
         cred_key, cred_val = _get_claude_credentials()
@@ -1041,6 +1090,7 @@ async def _launch_sim_checker_world(
             _set_claude_credentials(agent_config, cred_key, cred_val)
         config["plato_api_key"] = datagen_api_key
         config["anchor_api_key"] = DEFAULT_ANCHOR_KEY
+        config["browserbase_api_key"] = DEFAULT_BROWSERBASE_KEY
         config["envs"] = [
             {
                 "env": {"artifact_id": artifact_id, "alias": simulator_name},
@@ -1067,6 +1117,219 @@ async def _launch_sim_checker_world(
 
     except Exception as e:
         console.print(f"[red]❌ Sim-checker launch failed: {e}[/red]")
+        return None
+
+
+# Supported MCP types for local-template launches.
+_SUPPORTED_TEMPLATE_MCPS: frozenset[str] = frozenset({"browser", "vm", "db", "functions"})
+
+
+async def _build_mcps_for_sim(
+    mcps_required: list[str],
+    simulator_name: str,
+    artifact_id: str,
+    api_key: str,
+) -> list[dict]:
+    """Materialize the MCP list for one attached env from ``mcps_required``.
+
+    ``browser`` and ``vm`` are static. ``db`` fetches the sim's db_config from
+    the Plato API and may expand to multiple entries (multi-DB sims).
+    ``functions`` is stamped with a per-sim session_id.
+    """
+    unknown = [m for m in mcps_required if m not in _SUPPORTED_TEMPLATE_MCPS]
+    if unknown:
+        raise ValueError(f"Unsupported MCPs in mcps_required: {unknown}. Supported: {sorted(_SUPPORTED_TEMPLATE_MCPS)}")
+
+    mcps: list[dict] = []
+    base_url = _get_base_url()
+
+    for mcp_type in mcps_required:
+        if mcp_type == "browser":
+            mcps.append({"type": "browser", "name": "browser", "backend": "browserbase"})
+        elif mcp_type == "vm":
+            mcps.append({"type": "vm", "name": "vm"})
+        elif mcp_type == "db":
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                resp = await client.get(
+                    f"{base_url}/api/v1/simulator/{artifact_id}/db_config",
+                    headers={"X-API-Key": api_key},
+                )
+            db_configs = resp.json() if resp.status_code == 200 else []
+            if not isinstance(db_configs, list):
+                db_configs = [db_configs]
+            for idx, db in enumerate(db_configs):
+                db_name = _sanitize_mcp_name(db.get("db_database") or f"db{idx}")
+                mcps.append(
+                    {
+                        "type": "db",
+                        "name": db_name,
+                        "db_type": db.get("db_type"),
+                        "db_port": db.get("db_port"),
+                        "db_user": db.get("db_user"),
+                        "db_password": db.get("db_password"),
+                        "db_database": db.get("db_database"),
+                        "service": simulator_name,
+                    }
+                )
+        elif mcp_type == "functions":
+            mcps.append(
+                {
+                    "type": "functions",
+                    "name": "functions",
+                    "session_id": f"run-{simulator_name}",
+                    "service": simulator_name,
+                }
+            )
+
+    return mcps
+
+
+async def _launch_from_template_world(
+    template_path: Path,
+    simulator_name: str,
+    artifact_id: str,
+    api_key: str,
+) -> str | None:
+    """Launch a structured-execution session from a local JSON template.
+
+    The template's root-level ``mcps_required`` list declares which MCPs to
+    wire up per attached env. Supported: ``browser``, ``vm``, ``db``,
+    ``functions``.
+    """
+    datagen_api_key = DEFAULT_DATAGEN_API_KEY
+
+    if not DEFAULT_ANCHOR_KEY:
+        console.print("[yellow]⚠️  ANCHOR_API_KEY is not set. The session will fail to launch a browser.[/yellow]")
+        console.print("[yellow]   Set it with: export ANCHOR_API_KEY=<your-key>[/yellow]")
+        if not typer.confirm("Continue anyway?", default=False):
+            return None
+
+    try:
+        with open(template_path) as f:
+            template = json.load(f)
+
+        mcps_required = template.pop("mcps_required", ["browser"])
+        mcps = await _build_mcps_for_sim(mcps_required, simulator_name, artifact_id, api_key)
+
+        config = template["world"]["config"]
+        cred_key, cred_val = _get_claude_credentials()
+        _set_claude_credentials(config, cred_key, cred_val)
+        agent_config = config.get("agent", {}).get("config")
+        if agent_config is not None:
+            _set_claude_credentials(agent_config, cred_key, cred_val)
+        config["plato_api_key"] = datagen_api_key
+        config["anchor_api_key"] = DEFAULT_ANCHOR_KEY
+        config["browserbase_api_key"] = DEFAULT_BROWSERBASE_KEY
+        config["envs"] = [
+            {
+                "env": {"artifact_id": artifact_id, "alias": simulator_name},
+                "mcps": mcps,
+                "default": True,
+            }
+        ]
+        config["sim_name"] = simulator_name
+        config["artifact_id"] = artifact_id
+
+        plato_base_url = _get_base_url()
+        subs: dict[str, str] = {
+            "sim_name": simulator_name,
+            "artifact_id": artifact_id,
+            "plato_api_key": datagen_api_key,
+            "plato_base_url": plato_base_url,
+            "workspace": "/workspace",
+            "mutation_threshold": str(config.get("mutation_threshold", 40)),
+        }
+        _render_step_instructions(config, **subs)
+        _render_step_verify(config, **subs)
+
+        template.setdefault("tags", []).append(simulator_name)
+
+        console.print(f"[cyan]Launching {template_path.name} on Chronos for {simulator_name}...[/cyan]")
+        session_id = _launch_on_chronos(template, api_key)
+        return session_id
+
+    except Exception as e:
+        console.print(f"[red]❌ from-template launch failed: {e}[/red]")
+        return None
+
+
+async def _launch_from_template_unified(
+    template_path: Path,
+    sims: list[dict],
+    api_key: str,
+) -> str | None:
+    """Launch ONE session from a local template with multiple sims attached as envs.
+
+    Mirrors ``_launch_datagen_unified_world`` but reads the template from disk.
+    ``sims`` is a list of ``{"name": str, "artifact_id": str}`` dicts. Template
+    authors should reference ``config.sim_names`` (plural) rather than the
+    per-sim ``{sim_name}`` placeholder — the latter is not substituted in
+    unified mode.
+    """
+    datagen_api_key = DEFAULT_DATAGEN_API_KEY
+
+    if not DEFAULT_ANCHOR_KEY:
+        console.print("[yellow]⚠️  ANCHOR_API_KEY is not set. Browsers will fail to launch.[/yellow]")
+        console.print("[yellow]   Set it with: export ANCHOR_API_KEY=<your-key>[/yellow]")
+        if not typer.confirm("Continue anyway?", default=False):
+            return None
+
+    try:
+        with open(template_path) as f:
+            template = json.load(f)
+
+        mcps_required = template.pop("mcps_required", ["browser"])
+
+        envs: list[dict] = []
+        for idx, sim in enumerate(sims):
+            sim_mcps = await _build_mcps_for_sim(mcps_required, sim["name"], sim["artifact_id"], api_key)
+            envs.append(
+                {
+                    "env": {"artifact_id": sim["artifact_id"], "alias": sim["name"]},
+                    "mcps": sim_mcps,
+                    "default": idx == 0,
+                }
+            )
+
+        config = template["world"]["config"]
+        cred_key, cred_val = _get_claude_credentials()
+        _set_claude_credentials(config, cred_key, cred_val)
+        agent_config = config.get("agent", {}).get("config")
+        if agent_config is not None:
+            _set_claude_credentials(agent_config, cred_key, cred_val)
+        config["plato_api_key"] = datagen_api_key
+        config["anchor_api_key"] = DEFAULT_ANCHOR_KEY
+        config["browserbase_api_key"] = DEFAULT_BROWSERBASE_KEY
+        config["envs"] = envs
+        config["sim_names"] = [s["name"] for s in sims]
+        # config.sim_name is populated (first sim) for templates that read from
+        # world config directly, but {sim_name} placeholders in step instructions
+        # / verify commands are NOT rendered in unified mode — there is no single
+        # sim to substitute. Templates used with --unified should reference
+        # config.sim_names (plural) from within the world, not rely on
+        # placeholder substitution.
+        config["sim_name"] = sims[0]["name"]
+
+        plato_base_url = _get_base_url()
+        subs: dict[str, str] = {
+            "plato_api_key": datagen_api_key,
+            "plato_base_url": plato_base_url,
+            "workspace": "/workspace",
+            "mutation_threshold": str(config.get("mutation_threshold", 40)),
+        }
+        _render_step_instructions(config, **subs)
+        _render_step_verify(config, **subs)
+
+        tags = template.setdefault("tags", [])
+        for sim in sims:
+            tags.append(sim["name"])
+
+        console.print(f"[cyan]Launching {template_path.name} on Chronos (unified, {len(sims)} sims)...[/cyan]")
+        session_id = _launch_on_chronos(template, api_key)
+        return session_id
+
+    except Exception as e:
+        console.print(f"[red]❌ unified from-template launch failed: {e}[/red]")
         return None
 
 
@@ -1599,6 +1862,345 @@ def start_checker(
                 console.print(f"[red]❌ {s['name']}: {e}[/red]")
 
     handle_async(_start())
+
+
+@start_app.command(name="from-template")
+def start_from_template(
+    template: str = typer.Argument(
+        ..., help="Path to a local JSON launch template (e.g. extract-screenshots-launch.json)"
+    ),
+    simulators: list[str] = typer.Argument(..., help="Simulator name(s)"),
+    artifact: str = typer.Option(
+        "",
+        "-a",
+        "--artifact-id",
+        help="Explicit artifact UUID. Requires exactly one simulator name.",
+    ),
+    use_base: bool = typer.Option(
+        False,
+        "--base",
+        help="Use base_artifact_id (pre-datagen snapshot).",
+    ),
+    use_data: bool = typer.Option(
+        False,
+        "--data",
+        help="Use data_artifact_id (post-datagen snapshot). Default behavior already falls back to base if missing.",
+    ),
+    unified: bool = typer.Option(
+        False,
+        "--unified",
+        help="Launch ONE session with all sims attached as envs (mirrors datagen unified mode). The template must be written to handle multiple envs (reference config.sim_names).",
+    ),
+):
+    """Launch Chronos session(s) from a local JSON template.
+
+    Scoped for templates that attach a simulator env with a browser (and
+    optionally vm) MCP — i.e. sim-checker and extract_screenshots. The template
+    is read from disk; nothing is uploaded to Chronos. The template's root-level
+    ``mcps_required`` list declares which MCPs to wire up per env. ``{sim_name}``,
+    ``{artifact_id}``, ``{plato_api_key}``, ``{plato_base_url}``, and
+    ``{workspace}`` are substituted into each step's instruction and verify.
+
+    Default mode launches one session per simulator. ``--unified`` launches a
+    single session with all simulators attached as separate envs (only
+    ``{plato_api_key}``, ``{plato_base_url}``, ``{workspace}`` are substituted —
+    per-sim placeholders are skipped since there is more than one).
+
+    By default each sim's data_artifact_id is used, falling back to
+    base_artifact_id if no data artifact exists. Pass ``--base`` to force base,
+    or ``-a <uuid>`` to override explicitly.
+
+    Examples:
+        plato pm start from-template python-sdk/plato/cli/templates/extract-screenshots-launch.json aureus memos
+        plato pm start from-template ./extract-screenshots-launch.json aureus --base
+        plato pm start from-template ./extract-screenshots-launch.json aureus -a 9c744a5b-f52c-40a7-ad67-c3863b34c68d
+        plato pm start from-template ./extract-screenshots-unified.json aureus memos docmost --unified
+    """
+    if use_base and use_data:
+        console.print("[red]❌ --base and --data are mutually exclusive.[/red]")
+        raise typer.Exit(1)
+
+    template_path = Path(template).expanduser().resolve()
+    if not template_path.exists():
+        console.print(f"[red]❌ Template not found: {template_path}[/red]")
+        raise typer.Exit(1)
+
+    api_key = require_api_key()
+
+    if artifact and len(simulators) != 1:
+        console.print("[red]❌ --artifact-id can only be used with exactly one simulator name[/red]")
+        raise typer.Exit(1)
+
+    if unified and artifact:
+        console.print(
+            "[red]❌ --unified and --artifact-id are mutually exclusive (unified resolves artifacts per sim).[/red]"
+        )
+        raise typer.Exit(1)
+
+    async def _start():
+        base_url = _get_base_url()
+
+        to_launch = []
+        for raw in simulators:
+            # Bare artifact UUID: use directly, skip sim-name lookup. --artifact-id
+            # override doesn't apply here (the positional IS the artifact).
+            if UUID_PATTERN.match(raw):
+                to_launch.append({"name": f"artifact-{raw[:8]}", "artifact_id": raw, "source": "raw_artifact_uuid"})
+                continue
+
+            # sim:<uuid> colon notation: explicit artifact, no API lookup.
+            sim_name, colon_artifact = _split_sim_colon_arg(raw, command_name="start from-template")
+            if colon_artifact:
+                to_launch.append({"name": sim_name, "artifact_id": colon_artifact, "source": "colon_notation"})
+                continue
+
+            # --artifact-id override applies to the (single) sim name.
+            if artifact and raw == simulators[0] and len(simulators) == 1:
+                to_launch.append({"name": sim_name, "artifact_id": artifact, "source": "override"})
+                continue
+
+            try:
+                async with httpx.AsyncClient(base_url=base_url, timeout=60.0) as client:
+                    sim = await get_simulator_by_name.asyncio(client=client, name=sim_name, x_api_key=api_key)
+                current_config = sim.config or {}
+                base_artifact_id = current_config.get("base_artifact_id", "")
+                data_artifact_id = current_config.get("data_artifact_id", "")
+
+                if use_base:
+                    artifact_id = base_artifact_id
+                    source = "base_artifact_id"
+                else:
+                    artifact_id = data_artifact_id or base_artifact_id
+                    source = "data_artifact_id" if data_artifact_id else "base_artifact_id"
+
+                if not artifact_id:
+                    missing = "base_artifact_id" if use_base else "data_artifact_id/base_artifact_id"
+                    console.print(f"[yellow]⚠️  {sim_name}: no {missing}, skipping[/yellow]")
+                    continue
+
+                to_launch.append({"name": sim_name, "artifact_id": artifact_id, "source": source})
+            except Exception as e:
+                console.print(f"[red]❌ {sim_name}: {e}[/red]")
+
+        if not to_launch:
+            console.print("[yellow]Nothing to launch.[/yellow]")
+            return
+
+        mode_label = "unified session across" if unified else "one session per"
+        console.print(f"\n[bold]Will launch {template_path.name} ({mode_label} {len(to_launch)} simulator(s)):[/bold]")
+        for s in to_launch:
+            console.print(f"  {s['name']} — artifact {s['artifact_id'][:8]}... ({s['source']})")
+
+        if not typer.confirm("\nProceed?", default=True):
+            console.print("[yellow]Cancelled.[/yellow]")
+            return
+
+        if unified:
+            try:
+                launched = await _launch_from_template_unified(
+                    template_path=template_path,
+                    sims=[{"name": s["name"], "artifact_id": s["artifact_id"]} for s in to_launch],
+                    api_key=api_key,
+                )
+                if launched:
+                    console.print(f"[green]✅ unified:[/green] {launched}")
+                else:
+                    console.print("[red]❌ unified: launch returned None[/red]")
+            except Exception as e:
+                console.print(f"[red]❌ unified: {e}[/red]")
+            return
+
+        for s in to_launch:
+            try:
+                launched = await _launch_from_template_world(
+                    template_path=template_path,
+                    simulator_name=s["name"],
+                    artifact_id=s["artifact_id"],
+                    api_key=api_key,
+                )
+                if launched:
+                    console.print(f"[green]✅ {s['name']}:[/green] {launched}")
+                else:
+                    console.print(f"[red]❌ {s['name']}: launch returned None[/red]")
+            except Exception as e:
+                console.print(f"[red]❌ {s['name']}: {e}[/red]")
+
+    handle_async(_start())
+
+
+# =============================================================================
+# OPEN COMMAND — interactive Playwright session
+# =============================================================================
+
+
+@pm_app.command(name="open")
+def open_sim(
+    simulators: list[str] = typer.Argument(
+        ...,
+        help="Simulator name(s), bare artifact UUIDs, or sim:<artifact-uuid> colon notation.",
+    ),
+    artifact: str = typer.Option(
+        "",
+        "-a",
+        "--artifact-id",
+        help="Explicit artifact UUID. Requires exactly one simulator name.",
+    ),
+    use_base: bool = typer.Option(
+        False,
+        "--base",
+        help="Use base_artifact_id (pre-datagen snapshot).",
+    ),
+    use_data: bool = typer.Option(
+        False,
+        "--data",
+        help="Use data_artifact_id (post-datagen snapshot). Default already falls back to base if missing.",
+    ),
+    headless: bool = typer.Option(
+        False,
+        "--headless",
+        help="Run Playwright headless (default: headed).",
+    ),
+    dataset: str = typer.Option(
+        "base",
+        "--dataset",
+        help="Flow dataset. 'base' runs the 'login' flow; any other value runs the flow with that name.",
+    ),
+    timeout: int = typer.Option(
+        1800,
+        "--timeout",
+        help="VM ready timeout in seconds (default: 1800).",
+    ),
+):
+    """Open one or more sims in a Playwright browser with the login flow executed.
+
+    Creates a single Plato session with one env per simulator, resets, runs the
+    sim's declared login flow in a shared Playwright context, and blocks until
+    you press Enter. One tab per sim.
+
+    Each positional argument is one of:
+        - a simulator name (resolves via --base/--data/-a)
+        - a bare artifact UUID (used directly, skips sim lookup)
+        - ``sim:<artifact-uuid>`` colon notation for an explicit artifact
+
+    ``-a`` is equivalent to colon notation but requires a single simulator arg.
+
+    Examples:
+        plato pm open mattermost
+        plato pm open mattermost --base
+        plato pm open mattermost aureus memos                       # three tabs, one session
+        plato pm open mattermost:1b642f11-...                       # colon notation
+        plato pm open b07fcb30-6af9-4e28-bef3-1aa6764b93c9           # bare artifact UUID
+        plato pm open b07fcb30-... 5eea5b08-...                      # two bare UUIDs
+        plato pm open mattermost -a 1b642f11-...
+        plato pm open mattermost --headless --dataset login_admin
+    """
+    if use_base and use_data:
+        console.print("[red]❌ --base and --data are mutually exclusive.[/red]")
+        raise typer.Exit(1)
+    if artifact and len(simulators) != 1:
+        console.print("[red]❌ --artifact-id can only be used with exactly one simulator name[/red]")
+        raise typer.Exit(1)
+    if artifact and simulators and UUID_PATTERN.match(simulators[0]):
+        console.print("[red]❌ --artifact-id was given but the positional is already an artifact UUID. Pick one.[/red]")
+        raise typer.Exit(1)
+
+    api_key = require_api_key()
+
+    async def _resolve() -> list[dict]:
+        base_url = _get_base_url()
+        resolved: list[dict] = []
+        for raw in simulators:
+            # Bare artifact UUIDs skip the sim-name lookup entirely.
+            if UUID_PATTERN.match(raw):
+                resolved.append({"name": f"artifact-{raw[:8]}", "artifact_id": raw, "source": "raw_artifact_uuid"})
+                continue
+
+            sim_name, colon_artifact = _split_sim_colon_arg(raw, command_name="open")
+            override = artifact or colon_artifact
+
+            if override:
+                resolved.append({"name": sim_name, "artifact_id": override, "source": "override"})
+                continue
+
+            try:
+                async with httpx.AsyncClient(base_url=base_url, timeout=60.0) as client:
+                    sim = await get_simulator_by_name.asyncio(client=client, name=sim_name, x_api_key=api_key)
+                current_config = sim.config or {}
+                base_artifact_id = current_config.get("base_artifact_id", "")
+                data_artifact_id = current_config.get("data_artifact_id", "")
+
+                if use_base:
+                    artifact_id = base_artifact_id
+                    source = "base_artifact_id"
+                else:
+                    artifact_id = data_artifact_id or base_artifact_id
+                    source = "data_artifact_id" if data_artifact_id else "base_artifact_id"
+
+                if not artifact_id:
+                    missing = "base_artifact_id" if use_base else "data_artifact_id/base_artifact_id"
+                    console.print(f"[yellow]⚠️  {sim_name}: no {missing}, skipping[/yellow]")
+                    continue
+
+                resolved.append({"name": sim_name, "artifact_id": artifact_id, "source": source})
+            except Exception as e:
+                console.print(f"[red]❌ {sim_name}: {e}[/red]")
+        return resolved
+
+    to_open = handle_async(_resolve())
+    if not to_open:
+        console.print("[yellow]Nothing to open.[/yellow]")
+        raise typer.Exit(1)
+
+    console.print(f"\n[bold]Will open {len(to_open)} sim(s) in one Playwright session:[/bold]")
+    for s in to_open:
+        console.print(f"  {s['name']} — artifact {s['artifact_id'][:8]}... ({s['source']})")
+
+    # Playwright is not a runtime dep, import lazily so the rest of `plato pm`
+    # keeps working without it installed.
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError:
+        console.print(
+            "[red]❌ playwright is not installed. Run: uv pip install playwright && playwright install chromium[/red]"
+        )
+        raise typer.Exit(1) from None
+
+    plato = PlatoV2()
+    session = None
+    try:
+        envs = [EnvV2.artifact(s["artifact_id"]) for s in to_open]
+        console.print("[cyan]Creating session...[/cyan]")
+        session = plato.sessions.create(envs=envs, timeout=timeout)
+        console.print(f"[green]Session ready:[/green] {session.session_id}")
+
+        console.print("[cyan]Resetting session...[/cyan]")
+        session.reset()
+
+        with sync_playwright() as pw:
+            browser = pw.chromium.launch(headless=headless)
+            try:
+                console.print(f"[cyan]Running '{dataset}' flow on each env...[/cyan]")
+                login_result = session.login(browser, dataset=dataset)
+
+                console.print("\n[bold green]Logged in. Pages:[/bold green]")
+                for alias, page in login_result.pages.items():
+                    console.print(f"  {alias}: {page.url}")
+
+                console.print("\n[bold]Browser is open. Press Enter to close session and quit.[/bold]")
+                try:
+                    input()
+                except EOFError:
+                    pass
+            finally:
+                browser.close()
+    finally:
+        if session is not None:
+            console.print("[cyan]Closing session...[/cyan]")
+            try:
+                session.close()
+            except Exception as e:
+                console.print(f"[yellow]⚠️  Session close failed: {e}[/yellow]")
+        plato.close()
 
 
 # =============================================================================
@@ -3164,18 +3766,21 @@ def _push_experiment(pipeline: str, mode: str, api_key: str) -> None:
         ("env", "base"): "env-create-launch.json",
         ("env", "fix"): "env-fix-launch.json",
         ("data", "base"): "datagen-launch.json",
+        ("data", "unified"): "datagen-unified-launch.json",
         ("check", "base"): "sim-checker-launch.json",
     }[(pipeline, mode)]
     description = {
         ("env", "base"): "Run via: plato pm start env <sim> (fresh create) or plato pm review env <sim> (action=fresh)",
         ("env", "fix"): "Run via: plato pm review env <sim> (action=fix, after rejection)",
         ("data", "base"): "Run via: plato pm start data <sim>",
+        ("data", "unified"): "Run via: plato pm start data --unified <sim1> <sim2> ...",
         ("check", "base"): "Run via: plato pm start checker <sim>",
     }[(pipeline, mode)]
     world_key = {
         ("env", "base"): "structured-execution",
         ("env", "fix"): "structured-execution",
         ("data", "base"): "interactive",
+        ("data", "unified"): "structured-execution",
         ("check", "base"): "structured-execution",
     }[(pipeline, mode)]
     config_json = _load_template(template_file)

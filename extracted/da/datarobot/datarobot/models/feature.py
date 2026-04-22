@@ -60,25 +60,25 @@ class Feature(APIObject, HasHistogram):
     the distribution of the feature in the EDA sample data.  For non-numeric features or features
     created prior to these summary statistics becoming available, they will be None.  For features
     where the summary statistics are available, they will be in a format compatible with the data
-    type, i.e. date type features will have their summary statistics expressed as ISO-8601
+    type, i.e., date type features will have their summary statistics expressed as ISO-8601
     formatted date strings.
 
     Attributes
     ----------
     id : int
-        the id for the feature - note that `name` is used to reference the feature instead of `id`
+        The ID for the feature - note that `name` is used to reference the feature instead of `id`
     project_id : str
-        the id of the project the feature belongs to
+        the ID of the project the feature belongs to
     name : str
         the name of the feature
     feature_type : str
-        the type of the feature, e.g. 'Categorical', 'Text'
+        the type of the feature, e.g., 'Categorical', 'Text'
     importance : float or None
         numeric measure of the strength of relationship between the feature and target (independent
         of any model or other features); may be None for non-modeling features such as partition
         columns
     low_information : bool
-        whether a feature is considered too uninformative for modeling (e.g. because it has too few
+        whether a feature is considered too uninformative for modeling (e.g., because it has too few
         values)
     unique_count : int
         number of unique values
@@ -109,7 +109,7 @@ class Feature(APIObject, HasHistogram):
         project, the feature derivation and forecast windows must start and end at an integer
         multiple of this value. None for features that are not time series eligible.
     time_unit : str or None
-        For time series eligible features, the time unit covered by a single time step, e.g. 'HOUR',
+        For time series eligible features, the time unit covered by a single time step, e.g., 'HOUR',
         or None for features that are not time series eligible.
     target_leakage : str
         Whether a feature is considered to have target leakage or not.  A value of
@@ -547,17 +547,17 @@ class ModelingFeature(APIObject, HasHistogram):
     Attributes
     ----------
     project_id : str
-        the id of the project the feature belongs to
+        the ID of the project the feature belongs to
     name : str
         the name of the feature
     feature_type : str
-        the type of the feature, e.g. 'Categorical', 'Text'
+        the type of the feature, e.g., 'Categorical', 'Text'
     importance : float or None
         numeric measure of the strength of relationship between the feature and target (independent
         of any model or other features); may be None for non-modeling features such as partition
         columns
     low_information : bool
-        whether a feature is considered too uninformative for modeling (e.g. because it has too few
+        whether a feature is considered too uninformative for modeling (e.g., because it has too few
         values)
     unique_count : int
         number of unique values
@@ -709,23 +709,23 @@ class DatasetFeature(APIObject):
     the distribution of the feature in the EDA sample data.  For non-numeric features or features
     created prior to these summary statistics becoming available, they will be None.  For features
     where the summary statistics are available, they will be in a format compatible with the data
-    type, i.e. date type features will have their summary statistics expressed as ISO-8601
+    type, i.e., date type features will have their summary statistics expressed as ISO-8601
     formatted date strings.
 
     Attributes
     ----------
     id : int
-        the id for the feature - note that `name` is used to reference the feature instead of `id`
+        The ID for the feature - note that `name` is used to reference the feature instead of `id`
     dataset_id : str
-        the id of the dataset the feature belongs to
+        the ID of the dataset the feature belongs to
     dataset_version_id : str
-        the id of the dataset version the feature belongs to
+        the ID of the dataset version the feature belongs to
     name : str
         the name of the feature
     feature_type : Optional[str]
-        the type of the feature, e.g. 'Categorical', 'Text'
+        the type of the feature, e.g., 'Categorical', 'Text'
     low_information : Optional[bool]
-        whether a feature is considered too uninformative for modeling (e.g. because it has too few
+        whether a feature is considered too uninformative for modeling (e.g., because it has too few
         values)
     unique_count : Optional[int]
         number of unique values
@@ -756,7 +756,7 @@ class DatasetFeature(APIObject):
         project, the feature derivation and forecast windows must start and end at an integer
         multiple of this value. None for features that are not time series eligible.
     time_unit : Optional[str]
-        For time series eligible features, the time unit covered by a single time step, e.g. 'HOUR',
+        For time series eligible features, the time unit covered by a single time step, e.g., 'HOUR',
         or None for features that are not time series eligible.
     target_leakage : Optional[str]
         Whether a feature is considered to have target leakage or not.  A value of
@@ -1128,7 +1128,7 @@ class FeatureLineage(APIObject):
         ``columns`` structure is
 
             data_type: (str)
-                the type of the feature, e.g. 'Categorical', 'Text'
+                the type of the feature, e.g., 'Categorical', 'Text'
             is_input: (bool)
                 indicates features which provided data to transform in this lineage.
             name: (str)

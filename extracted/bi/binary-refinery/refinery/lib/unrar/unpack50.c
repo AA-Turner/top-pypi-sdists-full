@@ -1616,7 +1616,7 @@ struct __pyx_MemviewEnum_obj;
 struct __pyx_memoryview_obj;
 struct __pyx_memoryviewslice_obj;
 
-/* "refinery/lib/unrar/unpack50.pyx":30
+/* "refinery/lib/unrar/unpack50.pyx":31
  * 
  * 
  * cdef class BitInput:             # <<<<<<<<<<<<<<
@@ -1633,7 +1633,7 @@ struct __pyx_obj_8refinery_3lib_5unrar_8unpack50_BitInput {
 };
 
 
-/* "refinery/lib/unrar/unpack50.pyx":89
+/* "refinery/lib/unrar/unpack50.pyx":90
  * 
  * 
  * cdef class DecodeTable:             # <<<<<<<<<<<<<<
@@ -1652,7 +1652,7 @@ struct __pyx_obj_8refinery_3lib_5unrar_8unpack50_DecodeTable {
 };
 
 
-/* "refinery/lib/unrar/unpack50.pyx":254
+/* "refinery/lib/unrar/unpack50.pyx":255
  * 
  * 
  * cdef class BlockHeader:             # <<<<<<<<<<<<<<
@@ -1670,7 +1670,7 @@ struct __pyx_obj_8refinery_3lib_5unrar_8unpack50_BlockHeader {
 };
 
 
-/* "refinery/lib/unrar/unpack50.pyx":272
+/* "refinery/lib/unrar/unpack50.pyx":273
  * 
  * 
  * cdef class BlockTables:             # <<<<<<<<<<<<<<
@@ -1764,7 +1764,7 @@ struct __pyx_memoryviewslice_obj {
 
 
 
-/* "refinery/lib/unrar/unpack50.pyx":30
+/* "refinery/lib/unrar/unpack50.pyx":31
  * 
  * 
  * cdef class BitInput:             # <<<<<<<<<<<<<<
@@ -17956,7 +17956,7 @@ static PyObject *__pyx_unpickle_Enum__set_state(struct __pyx_MemviewEnum_obj *__
   return __pyx_r;
 }
 
-/* "refinery/lib/unrar/unpack50.pyx":37
+/* "refinery/lib/unrar/unpack50.pyx":38
  *         int _buf_len
  * 
  *     def __init__(self, data):             # <<<<<<<<<<<<<<
@@ -17986,32 +17986,32 @@ static int __pyx_pw_8refinery_3lib_5unrar_8unpack50_8BitInput_1__init__(PyObject
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_data,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_VARARGS(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 37, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 38, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_VARARGS(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 37, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 38, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__init__", 0) < (0)) __PYX_ERR(0, 37, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__init__", 0) < (0)) __PYX_ERR(0, 38, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__init__", 1, 1, 1, i); __PYX_ERR(0, 37, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__init__", 1, 1, 1, i); __PYX_ERR(0, 38, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_VARARGS(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 37, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 38, __pyx_L3_error)
     }
     __pyx_v_data = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__init__", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 37, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__init__", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 38, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -18046,7 +18046,7 @@ static int __pyx_pf_8refinery_3lib_5unrar_8unpack50_8BitInput___init__(struct __
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__init__", 0);
 
-  /* "refinery/lib/unrar/unpack50.pyx":38
+  /* "refinery/lib/unrar/unpack50.pyx":39
  * 
  *     def __init__(self, data):
  *         if isinstance(data, memoryview):             # <<<<<<<<<<<<<<
@@ -18056,20 +18056,20 @@ static int __pyx_pf_8refinery_3lib_5unrar_8unpack50_8BitInput___init__(struct __
   __pyx_t_1 = PyMemoryView_Check(__pyx_v_data); 
   if (__pyx_t_1) {
 
-    /* "refinery/lib/unrar/unpack50.pyx":39
+    /* "refinery/lib/unrar/unpack50.pyx":40
  *     def __init__(self, data):
  *         if isinstance(data, memoryview):
  *             self._buf = data             # <<<<<<<<<<<<<<
  *         else:
  *             self._buf = memoryview(bytes(data))
 */
-    __pyx_t_2 = __Pyx_PyObject_to_MemoryviewSlice_dc_unsigned_char__const__(__pyx_v_data, 0); if (unlikely(!__pyx_t_2.memview)) __PYX_ERR(0, 39, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_to_MemoryviewSlice_dc_unsigned_char__const__(__pyx_v_data, 0); if (unlikely(!__pyx_t_2.memview)) __PYX_ERR(0, 40, __pyx_L1_error)
     __PYX_XCLEAR_MEMVIEW(&__pyx_v_self->_buf, 0);
     __pyx_v_self->_buf = __pyx_t_2;
     __pyx_t_2.memview = NULL;
     __pyx_t_2.data = NULL;
 
-    /* "refinery/lib/unrar/unpack50.pyx":38
+    /* "refinery/lib/unrar/unpack50.pyx":39
  * 
  *     def __init__(self, data):
  *         if isinstance(data, memoryview):             # <<<<<<<<<<<<<<
@@ -18079,7 +18079,7 @@ static int __pyx_pf_8refinery_3lib_5unrar_8unpack50_8BitInput___init__(struct __
     goto __pyx_L3;
   }
 
-  /* "refinery/lib/unrar/unpack50.pyx":41
+  /* "refinery/lib/unrar/unpack50.pyx":42
  *             self._buf = data
  *         else:
  *             self._buf = memoryview(bytes(data))             # <<<<<<<<<<<<<<
@@ -18093,13 +18093,13 @@ static int __pyx_pf_8refinery_3lib_5unrar_8unpack50_8BitInput___init__(struct __
       PyObject *__pyx_callargs[2] = {__pyx_t_4, __pyx_v_data};
       __pyx_t_3 = __Pyx_PyObject_FastCall((PyObject*)(&PyBytes_Type), __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 41, __pyx_L1_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 42, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
     }
-    __pyx_t_4 = PyMemoryView_FromObject(__pyx_t_3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 41, __pyx_L1_error)
+    __pyx_t_4 = PyMemoryView_FromObject(__pyx_t_3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 42, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __pyx_t_2 = __Pyx_PyObject_to_MemoryviewSlice_dc_unsigned_char__const__(__pyx_t_4, 0); if (unlikely(!__pyx_t_2.memview)) __PYX_ERR(0, 41, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_to_MemoryviewSlice_dc_unsigned_char__const__(__pyx_t_4, 0); if (unlikely(!__pyx_t_2.memview)) __PYX_ERR(0, 42, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __PYX_XCLEAR_MEMVIEW(&__pyx_v_self->_buf, 0);
     __pyx_v_self->_buf = __pyx_t_2;
@@ -18108,7 +18108,7 @@ static int __pyx_pf_8refinery_3lib_5unrar_8unpack50_8BitInput___init__(struct __
   }
   __pyx_L3:;
 
-  /* "refinery/lib/unrar/unpack50.pyx":42
+  /* "refinery/lib/unrar/unpack50.pyx":43
  *         else:
  *             self._buf = memoryview(bytes(data))
  *         self.in_addr = 0             # <<<<<<<<<<<<<<
@@ -18117,7 +18117,7 @@ static int __pyx_pf_8refinery_3lib_5unrar_8unpack50_8BitInput___init__(struct __
 */
   __pyx_v_self->in_addr = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":43
+  /* "refinery/lib/unrar/unpack50.pyx":44
  *             self._buf = memoryview(bytes(data))
  *         self.in_addr = 0
  *         self.in_bit = 0             # <<<<<<<<<<<<<<
@@ -18126,17 +18126,17 @@ static int __pyx_pf_8refinery_3lib_5unrar_8unpack50_8BitInput___init__(struct __
 */
   __pyx_v_self->in_bit = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":44
+  /* "refinery/lib/unrar/unpack50.pyx":45
  *         self.in_addr = 0
  *         self.in_bit = 0
  *         self._buf_len = len(data)             # <<<<<<<<<<<<<<
  * 
  *     @property
 */
-  __pyx_t_6 = PyObject_Length(__pyx_v_data); if (unlikely(__pyx_t_6 == ((Py_ssize_t)-1))) __PYX_ERR(0, 44, __pyx_L1_error)
+  __pyx_t_6 = PyObject_Length(__pyx_v_data); if (unlikely(__pyx_t_6 == ((Py_ssize_t)-1))) __PYX_ERR(0, 45, __pyx_L1_error)
   __pyx_v_self->_buf_len = __pyx_t_6;
 
-  /* "refinery/lib/unrar/unpack50.pyx":37
+  /* "refinery/lib/unrar/unpack50.pyx":38
  *         int _buf_len
  * 
  *     def __init__(self, data):             # <<<<<<<<<<<<<<
@@ -18158,7 +18158,7 @@ static int __pyx_pf_8refinery_3lib_5unrar_8unpack50_8BitInput___init__(struct __
   return __pyx_r;
 }
 
-/* "refinery/lib/unrar/unpack50.pyx":46
+/* "refinery/lib/unrar/unpack50.pyx":47
  *         self._buf_len = len(data)
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -18190,7 +18190,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8BitInput_3buf___get__
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "refinery/lib/unrar/unpack50.pyx":48
+  /* "refinery/lib/unrar/unpack50.pyx":49
  *     @property
  *     def buf(self):
  *         return self._buf             # <<<<<<<<<<<<<<
@@ -18198,14 +18198,14 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8BitInput_3buf___get__
  *     @property
 */
   __Pyx_XDECREF(__pyx_r);
-  if (unlikely(!__pyx_v_self->_buf.memview)) {PyErr_SetString(PyExc_AttributeError,"Memoryview is not initialized");__PYX_ERR(0, 48, __pyx_L1_error)}
-  __pyx_t_1 = __pyx_memoryview_fromslice(__pyx_v_self->_buf, 1, (PyObject *(*)(char *)) __pyx_memview_get_unsigned_char__const__, (int (*)(char *, PyObject *)) NULL, 0);; if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 48, __pyx_L1_error)
+  if (unlikely(!__pyx_v_self->_buf.memview)) {PyErr_SetString(PyExc_AttributeError,"Memoryview is not initialized");__PYX_ERR(0, 49, __pyx_L1_error)}
+  __pyx_t_1 = __pyx_memoryview_fromslice(__pyx_v_self->_buf, 1, (PyObject *(*)(char *)) __pyx_memview_get_unsigned_char__const__, (int (*)(char *, PyObject *)) NULL, 0);; if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 49, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":46
+  /* "refinery/lib/unrar/unpack50.pyx":47
  *         self._buf_len = len(data)
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -18224,7 +18224,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8BitInput_3buf___get__
   return __pyx_r;
 }
 
-/* "refinery/lib/unrar/unpack50.pyx":50
+/* "refinery/lib/unrar/unpack50.pyx":51
  *         return self._buf
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -18259,7 +18259,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8BitInput_9remaining__
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "refinery/lib/unrar/unpack50.pyx":52
+  /* "refinery/lib/unrar/unpack50.pyx":53
  *     @property
  *     def remaining(self):
  *         cdef int r = self._buf_len - self.in_addr             # <<<<<<<<<<<<<<
@@ -18268,7 +18268,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8BitInput_9remaining__
 */
   __pyx_v_r = (__pyx_v_self->_buf_len - __pyx_v_self->in_addr);
 
-  /* "refinery/lib/unrar/unpack50.pyx":53
+  /* "refinery/lib/unrar/unpack50.pyx":54
  *     def remaining(self):
  *         cdef int r = self._buf_len - self.in_addr
  *         return r if r > 0 else 0             # <<<<<<<<<<<<<<
@@ -18278,7 +18278,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8BitInput_9remaining__
   __Pyx_XDECREF(__pyx_r);
   __pyx_t_2 = (__pyx_v_r > 0);
   if (__pyx_t_2) {
-    __pyx_t_3 = __Pyx_PyLong_From_int(__pyx_v_r); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 53, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyLong_From_int(__pyx_v_r); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 54, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_t_1 = __pyx_t_3;
     __pyx_t_3 = 0;
@@ -18290,7 +18290,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8BitInput_9remaining__
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":50
+  /* "refinery/lib/unrar/unpack50.pyx":51
  *         return self._buf
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -18310,7 +18310,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8BitInput_9remaining__
   return __pyx_r;
 }
 
-/* "refinery/lib/unrar/unpack50.pyx":55
+/* "refinery/lib/unrar/unpack50.pyx":56
  *         return r if r > 0 else 0
  * 
  *     def init(self):             # <<<<<<<<<<<<<<
@@ -18365,7 +18365,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8BitInput_2init(struct
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("init", 0);
 
-  /* "refinery/lib/unrar/unpack50.pyx":56
+  /* "refinery/lib/unrar/unpack50.pyx":57
  * 
  *     def init(self):
  *         self.in_addr = 0             # <<<<<<<<<<<<<<
@@ -18374,7 +18374,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8BitInput_2init(struct
 */
   __pyx_v_self->in_addr = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":57
+  /* "refinery/lib/unrar/unpack50.pyx":58
  *     def init(self):
  *         self.in_addr = 0
  *         self.in_bit = 0             # <<<<<<<<<<<<<<
@@ -18383,7 +18383,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8BitInput_2init(struct
 */
   __pyx_v_self->in_bit = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":55
+  /* "refinery/lib/unrar/unpack50.pyx":56
  *         return r if r > 0 else 0
  * 
  *     def init(self):             # <<<<<<<<<<<<<<
@@ -18398,7 +18398,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8BitInput_2init(struct
   return __pyx_r;
 }
 
-/* "refinery/lib/unrar/unpack50.pyx":59
+/* "refinery/lib/unrar/unpack50.pyx":60
  *         self.in_bit = 0
  * 
  *     cpdef int getbits(self):             # <<<<<<<<<<<<<<
@@ -18451,7 +18451,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50_8BitInput_getbits(struct __py
     if (unlikely(!__Pyx_object_dict_version_matches(((PyObject *)__pyx_v_self), __pyx_tp_dict_version, __pyx_obj_dict_version))) {
       PY_UINT64_T __pyx_typedict_guard = __Pyx_get_tp_dict_version(((PyObject *)__pyx_v_self));
       #endif
-      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_getbits); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 59, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_getbits); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 60, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       if (!__Pyx_IsSameCFunction(__pyx_t_1, (void(*)(void)) __pyx_pw_8refinery_3lib_5unrar_8unpack50_8BitInput_5getbits)) {
         __pyx_t_3 = NULL;
@@ -18474,10 +18474,10 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50_8BitInput_getbits(struct __py
           __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_4, __pyx_callargs+__pyx_t_5, (1-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
           __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 59, __pyx_L1_error)
+          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 60, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_2);
         }
-        __pyx_t_6 = __Pyx_PyLong_As_int(__pyx_t_2); if (unlikely((__pyx_t_6 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 59, __pyx_L1_error)
+        __pyx_t_6 = __Pyx_PyLong_As_int(__pyx_t_2); if (unlikely((__pyx_t_6 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 60, __pyx_L1_error)
         __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
         __pyx_r = __pyx_t_6;
         __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
@@ -18496,7 +18496,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50_8BitInput_getbits(struct __py
     #endif
   }
 
-  /* "refinery/lib/unrar/unpack50.pyx":60
+  /* "refinery/lib/unrar/unpack50.pyx":61
  * 
  *     cpdef int getbits(self):
  *         cdef int addr = self.in_addr             # <<<<<<<<<<<<<<
@@ -18506,7 +18506,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50_8BitInput_getbits(struct __py
   __pyx_t_6 = __pyx_v_self->in_addr;
   __pyx_v_addr = __pyx_t_6;
 
-  /* "refinery/lib/unrar/unpack50.pyx":61
+  /* "refinery/lib/unrar/unpack50.pyx":62
  *     cpdef int getbits(self):
  *         cdef int addr = self.in_addr
  *         cdef int bit = self.in_bit             # <<<<<<<<<<<<<<
@@ -18516,7 +18516,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50_8BitInput_getbits(struct __py
   __pyx_t_6 = __pyx_v_self->in_bit;
   __pyx_v_bit = __pyx_t_6;
 
-  /* "refinery/lib/unrar/unpack50.pyx":62
+  /* "refinery/lib/unrar/unpack50.pyx":63
  *         cdef int addr = self.in_addr
  *         cdef int bit = self.in_bit
  *         cdef int blen = self._buf_len             # <<<<<<<<<<<<<<
@@ -18526,7 +18526,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50_8BitInput_getbits(struct __py
   __pyx_t_6 = __pyx_v_self->_buf_len;
   __pyx_v_blen = __pyx_t_6;
 
-  /* "refinery/lib/unrar/unpack50.pyx":64
+  /* "refinery/lib/unrar/unpack50.pyx":65
  *         cdef int blen = self._buf_len
  *         cdef int b0, b1, b2, val
  *         b0 = self._buf[addr] if addr < blen else 0             # <<<<<<<<<<<<<<
@@ -18535,7 +18535,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50_8BitInput_getbits(struct __py
 */
   __pyx_t_7 = (__pyx_v_addr < __pyx_v_blen);
   if (__pyx_t_7) {
-    if (unlikely(!__pyx_v_self->_buf.memview)) {PyErr_SetString(PyExc_AttributeError,"Memoryview is not initialized");__PYX_ERR(0, 64, __pyx_L1_error)}
+    if (unlikely(!__pyx_v_self->_buf.memview)) {PyErr_SetString(PyExc_AttributeError,"Memoryview is not initialized");__PYX_ERR(0, 65, __pyx_L1_error)}
     __pyx_t_8 = __pyx_v_addr;
     __pyx_t_6 = (*((unsigned char const  *) ( /* dim=0 */ ((char *) (((unsigned char const  *) __pyx_v_self->_buf.data) + __pyx_t_8)) )));
   } else {
@@ -18543,7 +18543,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50_8BitInput_getbits(struct __py
   }
   __pyx_v_b0 = __pyx_t_6;
 
-  /* "refinery/lib/unrar/unpack50.pyx":65
+  /* "refinery/lib/unrar/unpack50.pyx":66
  *         cdef int b0, b1, b2, val
  *         b0 = self._buf[addr] if addr < blen else 0
  *         b1 = self._buf[addr + 1] if addr + 1 < blen else 0             # <<<<<<<<<<<<<<
@@ -18552,7 +18552,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50_8BitInput_getbits(struct __py
 */
   __pyx_t_7 = ((__pyx_v_addr + 1) < __pyx_v_blen);
   if (__pyx_t_7) {
-    if (unlikely(!__pyx_v_self->_buf.memview)) {PyErr_SetString(PyExc_AttributeError,"Memoryview is not initialized");__PYX_ERR(0, 65, __pyx_L1_error)}
+    if (unlikely(!__pyx_v_self->_buf.memview)) {PyErr_SetString(PyExc_AttributeError,"Memoryview is not initialized");__PYX_ERR(0, 66, __pyx_L1_error)}
     __pyx_t_8 = (__pyx_v_addr + 1);
     __pyx_t_6 = (*((unsigned char const  *) ( /* dim=0 */ ((char *) (((unsigned char const  *) __pyx_v_self->_buf.data) + __pyx_t_8)) )));
   } else {
@@ -18560,7 +18560,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50_8BitInput_getbits(struct __py
   }
   __pyx_v_b1 = __pyx_t_6;
 
-  /* "refinery/lib/unrar/unpack50.pyx":66
+  /* "refinery/lib/unrar/unpack50.pyx":67
  *         b0 = self._buf[addr] if addr < blen else 0
  *         b1 = self._buf[addr + 1] if addr + 1 < blen else 0
  *         b2 = self._buf[addr + 2] if addr + 2 < blen else 0             # <<<<<<<<<<<<<<
@@ -18569,7 +18569,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50_8BitInput_getbits(struct __py
 */
   __pyx_t_7 = ((__pyx_v_addr + 2) < __pyx_v_blen);
   if (__pyx_t_7) {
-    if (unlikely(!__pyx_v_self->_buf.memview)) {PyErr_SetString(PyExc_AttributeError,"Memoryview is not initialized");__PYX_ERR(0, 66, __pyx_L1_error)}
+    if (unlikely(!__pyx_v_self->_buf.memview)) {PyErr_SetString(PyExc_AttributeError,"Memoryview is not initialized");__PYX_ERR(0, 67, __pyx_L1_error)}
     __pyx_t_8 = (__pyx_v_addr + 2);
     __pyx_t_6 = (*((unsigned char const  *) ( /* dim=0 */ ((char *) (((unsigned char const  *) __pyx_v_self->_buf.data) + __pyx_t_8)) )));
   } else {
@@ -18577,7 +18577,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50_8BitInput_getbits(struct __py
   }
   __pyx_v_b2 = __pyx_t_6;
 
-  /* "refinery/lib/unrar/unpack50.pyx":67
+  /* "refinery/lib/unrar/unpack50.pyx":68
  *         b1 = self._buf[addr + 1] if addr + 1 < blen else 0
  *         b2 = self._buf[addr + 2] if addr + 2 < blen else 0
  *         val = (b0 << 16) | (b1 << 8) | b2             # <<<<<<<<<<<<<<
@@ -18586,7 +18586,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50_8BitInput_getbits(struct __py
 */
   __pyx_v_val = (((__pyx_v_b0 << 16) | (__pyx_v_b1 << 8)) | __pyx_v_b2);
 
-  /* "refinery/lib/unrar/unpack50.pyx":68
+  /* "refinery/lib/unrar/unpack50.pyx":69
  *         b2 = self._buf[addr + 2] if addr + 2 < blen else 0
  *         val = (b0 << 16) | (b1 << 8) | b2
  *         return (val >> (8 - bit)) & 0xFFFF             # <<<<<<<<<<<<<<
@@ -18596,7 +18596,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50_8BitInput_getbits(struct __py
   __pyx_r = ((__pyx_v_val >> (8 - __pyx_v_bit)) & 0xFFFF);
   goto __pyx_L0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":59
+  /* "refinery/lib/unrar/unpack50.pyx":60
  *         self.in_bit = 0
  * 
  *     cpdef int getbits(self):             # <<<<<<<<<<<<<<
@@ -18669,8 +18669,8 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8BitInput_4getbits(str
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("getbits", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_8refinery_3lib_5unrar_8unpack50_8BitInput_getbits(__pyx_v_self, 1); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 59, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_PyLong_From_int(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 59, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_8refinery_3lib_5unrar_8unpack50_8BitInput_getbits(__pyx_v_self, 1); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 60, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyLong_From_int(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 60, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_r = __pyx_t_2;
   __pyx_t_2 = 0;
@@ -18687,7 +18687,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8BitInput_4getbits(str
   return __pyx_r;
 }
 
-/* "refinery/lib/unrar/unpack50.pyx":70
+/* "refinery/lib/unrar/unpack50.pyx":71
  *         return (val >> (8 - bit)) & 0xFFFF
  * 
  *     cpdef unsigned int getbits32(self):             # <<<<<<<<<<<<<<
@@ -18744,7 +18744,7 @@ static unsigned int __pyx_f_8refinery_3lib_5unrar_8unpack50_8BitInput_getbits32(
     if (unlikely(!__Pyx_object_dict_version_matches(((PyObject *)__pyx_v_self), __pyx_tp_dict_version, __pyx_obj_dict_version))) {
       PY_UINT64_T __pyx_typedict_guard = __Pyx_get_tp_dict_version(((PyObject *)__pyx_v_self));
       #endif
-      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_getbits32); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 70, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_getbits32); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 71, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       if (!__Pyx_IsSameCFunction(__pyx_t_1, (void(*)(void)) __pyx_pw_8refinery_3lib_5unrar_8unpack50_8BitInput_7getbits32)) {
         __pyx_t_3 = NULL;
@@ -18767,10 +18767,10 @@ static unsigned int __pyx_f_8refinery_3lib_5unrar_8unpack50_8BitInput_getbits32(
           __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_4, __pyx_callargs+__pyx_t_5, (1-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
           __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 70, __pyx_L1_error)
+          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 71, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_2);
         }
-        __pyx_t_6 = __Pyx_PyLong_As_unsigned_int(__pyx_t_2); if (unlikely((__pyx_t_6 == (unsigned int)-1) && PyErr_Occurred())) __PYX_ERR(0, 70, __pyx_L1_error)
+        __pyx_t_6 = __Pyx_PyLong_As_unsigned_int(__pyx_t_2); if (unlikely((__pyx_t_6 == (unsigned int)-1) && PyErr_Occurred())) __PYX_ERR(0, 71, __pyx_L1_error)
         __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
         __pyx_r = __pyx_t_6;
         __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
@@ -18789,7 +18789,7 @@ static unsigned int __pyx_f_8refinery_3lib_5unrar_8unpack50_8BitInput_getbits32(
     #endif
   }
 
-  /* "refinery/lib/unrar/unpack50.pyx":71
+  /* "refinery/lib/unrar/unpack50.pyx":72
  * 
  *     cpdef unsigned int getbits32(self):
  *         cdef int addr = self.in_addr             # <<<<<<<<<<<<<<
@@ -18799,7 +18799,7 @@ static unsigned int __pyx_f_8refinery_3lib_5unrar_8unpack50_8BitInput_getbits32(
   __pyx_t_7 = __pyx_v_self->in_addr;
   __pyx_v_addr = __pyx_t_7;
 
-  /* "refinery/lib/unrar/unpack50.pyx":72
+  /* "refinery/lib/unrar/unpack50.pyx":73
  *     cpdef unsigned int getbits32(self):
  *         cdef int addr = self.in_addr
  *         cdef int bit = self.in_bit             # <<<<<<<<<<<<<<
@@ -18809,7 +18809,7 @@ static unsigned int __pyx_f_8refinery_3lib_5unrar_8unpack50_8BitInput_getbits32(
   __pyx_t_7 = __pyx_v_self->in_bit;
   __pyx_v_bit = __pyx_t_7;
 
-  /* "refinery/lib/unrar/unpack50.pyx":73
+  /* "refinery/lib/unrar/unpack50.pyx":74
  *         cdef int addr = self.in_addr
  *         cdef int bit = self.in_bit
  *         cdef int blen = self._buf_len             # <<<<<<<<<<<<<<
@@ -18819,7 +18819,7 @@ static unsigned int __pyx_f_8refinery_3lib_5unrar_8unpack50_8BitInput_getbits32(
   __pyx_t_7 = __pyx_v_self->_buf_len;
   __pyx_v_blen = __pyx_t_7;
 
-  /* "refinery/lib/unrar/unpack50.pyx":75
+  /* "refinery/lib/unrar/unpack50.pyx":76
  *         cdef int blen = self._buf_len
  *         cdef unsigned long long b0, b1, b2, b3, b4, val
  *         b0 = self._buf[addr] if addr < blen else 0             # <<<<<<<<<<<<<<
@@ -18828,7 +18828,7 @@ static unsigned int __pyx_f_8refinery_3lib_5unrar_8unpack50_8BitInput_getbits32(
 */
   __pyx_t_9 = (__pyx_v_addr < __pyx_v_blen);
   if (__pyx_t_9) {
-    if (unlikely(!__pyx_v_self->_buf.memview)) {PyErr_SetString(PyExc_AttributeError,"Memoryview is not initialized");__PYX_ERR(0, 75, __pyx_L1_error)}
+    if (unlikely(!__pyx_v_self->_buf.memview)) {PyErr_SetString(PyExc_AttributeError,"Memoryview is not initialized");__PYX_ERR(0, 76, __pyx_L1_error)}
     __pyx_t_10 = __pyx_v_addr;
     __pyx_t_8 = (*((unsigned char const  *) ( /* dim=0 */ ((char *) (((unsigned char const  *) __pyx_v_self->_buf.data) + __pyx_t_10)) )));
   } else {
@@ -18836,7 +18836,7 @@ static unsigned int __pyx_f_8refinery_3lib_5unrar_8unpack50_8BitInput_getbits32(
   }
   __pyx_v_b0 = __pyx_t_8;
 
-  /* "refinery/lib/unrar/unpack50.pyx":76
+  /* "refinery/lib/unrar/unpack50.pyx":77
  *         cdef unsigned long long b0, b1, b2, b3, b4, val
  *         b0 = self._buf[addr] if addr < blen else 0
  *         b1 = self._buf[addr + 1] if addr + 1 < blen else 0             # <<<<<<<<<<<<<<
@@ -18845,7 +18845,7 @@ static unsigned int __pyx_f_8refinery_3lib_5unrar_8unpack50_8BitInput_getbits32(
 */
   __pyx_t_9 = ((__pyx_v_addr + 1) < __pyx_v_blen);
   if (__pyx_t_9) {
-    if (unlikely(!__pyx_v_self->_buf.memview)) {PyErr_SetString(PyExc_AttributeError,"Memoryview is not initialized");__PYX_ERR(0, 76, __pyx_L1_error)}
+    if (unlikely(!__pyx_v_self->_buf.memview)) {PyErr_SetString(PyExc_AttributeError,"Memoryview is not initialized");__PYX_ERR(0, 77, __pyx_L1_error)}
     __pyx_t_10 = (__pyx_v_addr + 1);
     __pyx_t_8 = (*((unsigned char const  *) ( /* dim=0 */ ((char *) (((unsigned char const  *) __pyx_v_self->_buf.data) + __pyx_t_10)) )));
   } else {
@@ -18853,7 +18853,7 @@ static unsigned int __pyx_f_8refinery_3lib_5unrar_8unpack50_8BitInput_getbits32(
   }
   __pyx_v_b1 = __pyx_t_8;
 
-  /* "refinery/lib/unrar/unpack50.pyx":77
+  /* "refinery/lib/unrar/unpack50.pyx":78
  *         b0 = self._buf[addr] if addr < blen else 0
  *         b1 = self._buf[addr + 1] if addr + 1 < blen else 0
  *         b2 = self._buf[addr + 2] if addr + 2 < blen else 0             # <<<<<<<<<<<<<<
@@ -18862,7 +18862,7 @@ static unsigned int __pyx_f_8refinery_3lib_5unrar_8unpack50_8BitInput_getbits32(
 */
   __pyx_t_9 = ((__pyx_v_addr + 2) < __pyx_v_blen);
   if (__pyx_t_9) {
-    if (unlikely(!__pyx_v_self->_buf.memview)) {PyErr_SetString(PyExc_AttributeError,"Memoryview is not initialized");__PYX_ERR(0, 77, __pyx_L1_error)}
+    if (unlikely(!__pyx_v_self->_buf.memview)) {PyErr_SetString(PyExc_AttributeError,"Memoryview is not initialized");__PYX_ERR(0, 78, __pyx_L1_error)}
     __pyx_t_10 = (__pyx_v_addr + 2);
     __pyx_t_8 = (*((unsigned char const  *) ( /* dim=0 */ ((char *) (((unsigned char const  *) __pyx_v_self->_buf.data) + __pyx_t_10)) )));
   } else {
@@ -18870,7 +18870,7 @@ static unsigned int __pyx_f_8refinery_3lib_5unrar_8unpack50_8BitInput_getbits32(
   }
   __pyx_v_b2 = __pyx_t_8;
 
-  /* "refinery/lib/unrar/unpack50.pyx":78
+  /* "refinery/lib/unrar/unpack50.pyx":79
  *         b1 = self._buf[addr + 1] if addr + 1 < blen else 0
  *         b2 = self._buf[addr + 2] if addr + 2 < blen else 0
  *         b3 = self._buf[addr + 3] if addr + 3 < blen else 0             # <<<<<<<<<<<<<<
@@ -18879,7 +18879,7 @@ static unsigned int __pyx_f_8refinery_3lib_5unrar_8unpack50_8BitInput_getbits32(
 */
   __pyx_t_9 = ((__pyx_v_addr + 3) < __pyx_v_blen);
   if (__pyx_t_9) {
-    if (unlikely(!__pyx_v_self->_buf.memview)) {PyErr_SetString(PyExc_AttributeError,"Memoryview is not initialized");__PYX_ERR(0, 78, __pyx_L1_error)}
+    if (unlikely(!__pyx_v_self->_buf.memview)) {PyErr_SetString(PyExc_AttributeError,"Memoryview is not initialized");__PYX_ERR(0, 79, __pyx_L1_error)}
     __pyx_t_10 = (__pyx_v_addr + 3);
     __pyx_t_8 = (*((unsigned char const  *) ( /* dim=0 */ ((char *) (((unsigned char const  *) __pyx_v_self->_buf.data) + __pyx_t_10)) )));
   } else {
@@ -18887,7 +18887,7 @@ static unsigned int __pyx_f_8refinery_3lib_5unrar_8unpack50_8BitInput_getbits32(
   }
   __pyx_v_b3 = __pyx_t_8;
 
-  /* "refinery/lib/unrar/unpack50.pyx":79
+  /* "refinery/lib/unrar/unpack50.pyx":80
  *         b2 = self._buf[addr + 2] if addr + 2 < blen else 0
  *         b3 = self._buf[addr + 3] if addr + 3 < blen else 0
  *         b4 = self._buf[addr + 4] if addr + 4 < blen else 0             # <<<<<<<<<<<<<<
@@ -18896,7 +18896,7 @@ static unsigned int __pyx_f_8refinery_3lib_5unrar_8unpack50_8BitInput_getbits32(
 */
   __pyx_t_9 = ((__pyx_v_addr + 4) < __pyx_v_blen);
   if (__pyx_t_9) {
-    if (unlikely(!__pyx_v_self->_buf.memview)) {PyErr_SetString(PyExc_AttributeError,"Memoryview is not initialized");__PYX_ERR(0, 79, __pyx_L1_error)}
+    if (unlikely(!__pyx_v_self->_buf.memview)) {PyErr_SetString(PyExc_AttributeError,"Memoryview is not initialized");__PYX_ERR(0, 80, __pyx_L1_error)}
     __pyx_t_10 = (__pyx_v_addr + 4);
     __pyx_t_8 = (*((unsigned char const  *) ( /* dim=0 */ ((char *) (((unsigned char const  *) __pyx_v_self->_buf.data) + __pyx_t_10)) )));
   } else {
@@ -18904,7 +18904,7 @@ static unsigned int __pyx_f_8refinery_3lib_5unrar_8unpack50_8BitInput_getbits32(
   }
   __pyx_v_b4 = __pyx_t_8;
 
-  /* "refinery/lib/unrar/unpack50.pyx":80
+  /* "refinery/lib/unrar/unpack50.pyx":81
  *         b3 = self._buf[addr + 3] if addr + 3 < blen else 0
  *         b4 = self._buf[addr + 4] if addr + 4 < blen else 0
  *         val = (b0 << 32) | (b1 << 24) | (b2 << 16) | (b3 << 8) | b4             # <<<<<<<<<<<<<<
@@ -18913,24 +18913,24 @@ static unsigned int __pyx_f_8refinery_3lib_5unrar_8unpack50_8BitInput_getbits32(
 */
   __pyx_v_val = (((((__pyx_v_b0 << 32) | (__pyx_v_b1 << 24)) | (__pyx_v_b2 << 16)) | (__pyx_v_b3 << 8)) | __pyx_v_b4);
 
-  /* "refinery/lib/unrar/unpack50.pyx":81
+  /* "refinery/lib/unrar/unpack50.pyx":82
  *         b4 = self._buf[addr + 4] if addr + 4 < blen else 0
  *         val = (b0 << 32) | (b1 << 24) | (b2 << 16) | (b3 << 8) | b4
  *         return <unsigned int>((val >> (8 - bit)) & 0xFFFFFFFF)             # <<<<<<<<<<<<<<
  * 
  *     cpdef void addbits(self, int bits):
 */
-  __pyx_t_1 = __Pyx_PyLong_From_unsigned_PY_LONG_LONG((__pyx_v_val >> (8 - __pyx_v_bit))); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 81, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_From_unsigned_PY_LONG_LONG((__pyx_v_val >> (8 - __pyx_v_bit))); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 82, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = PyNumber_And(__pyx_t_1, __pyx_mstate_global->__pyx_int_4294967295); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 81, __pyx_L1_error)
+  __pyx_t_2 = PyNumber_And(__pyx_t_1, __pyx_mstate_global->__pyx_int_4294967295); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 82, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_6 = __Pyx_PyLong_As_unsigned_int(__pyx_t_2); if (unlikely((__pyx_t_6 == (unsigned int)-1) && PyErr_Occurred())) __PYX_ERR(0, 81, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyLong_As_unsigned_int(__pyx_t_2); if (unlikely((__pyx_t_6 == (unsigned int)-1) && PyErr_Occurred())) __PYX_ERR(0, 82, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_r = ((unsigned int)__pyx_t_6);
   goto __pyx_L0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":70
+  /* "refinery/lib/unrar/unpack50.pyx":71
  *         return (val >> (8 - bit)) & 0xFFFF
  * 
  *     cpdef unsigned int getbits32(self):             # <<<<<<<<<<<<<<
@@ -19003,8 +19003,8 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8BitInput_6getbits32(s
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("getbits32", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_8refinery_3lib_5unrar_8unpack50_8BitInput_getbits32(__pyx_v_self, 1); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 70, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_PyLong_From_unsigned_int(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 70, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_8refinery_3lib_5unrar_8unpack50_8BitInput_getbits32(__pyx_v_self, 1); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 71, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyLong_From_unsigned_int(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 71, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_r = __pyx_t_2;
   __pyx_t_2 = 0;
@@ -19021,7 +19021,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8BitInput_6getbits32(s
   return __pyx_r;
 }
 
-/* "refinery/lib/unrar/unpack50.pyx":83
+/* "refinery/lib/unrar/unpack50.pyx":84
  *         return <unsigned int>((val >> (8 - bit)) & 0xFFFFFFFF)
  * 
  *     cpdef void addbits(self, int bits):             # <<<<<<<<<<<<<<
@@ -19065,13 +19065,13 @@ static void __pyx_f_8refinery_3lib_5unrar_8unpack50_8BitInput_addbits(struct __p
     if (unlikely(!__Pyx_object_dict_version_matches(((PyObject *)__pyx_v_self), __pyx_tp_dict_version, __pyx_obj_dict_version))) {
       PY_UINT64_T __pyx_typedict_guard = __Pyx_get_tp_dict_version(((PyObject *)__pyx_v_self));
       #endif
-      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_addbits); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 83, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_addbits); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 84, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       if (!__Pyx_IsSameCFunction(__pyx_t_1, (void(*)(void)) __pyx_pw_8refinery_3lib_5unrar_8unpack50_8BitInput_9addbits)) {
         __pyx_t_3 = NULL;
         __Pyx_INCREF(__pyx_t_1);
         __pyx_t_4 = __pyx_t_1; 
-        __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_bits); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 83, __pyx_L1_error)
+        __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_bits); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 84, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_5);
         __pyx_t_6 = 1;
         #if CYTHON_UNPACK_METHODS
@@ -19091,7 +19091,7 @@ static void __pyx_f_8refinery_3lib_5unrar_8unpack50_8BitInput_addbits(struct __p
           __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
           __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
           __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 83, __pyx_L1_error)
+          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 84, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_2);
         }
         __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
@@ -19111,7 +19111,7 @@ static void __pyx_f_8refinery_3lib_5unrar_8unpack50_8BitInput_addbits(struct __p
     #endif
   }
 
-  /* "refinery/lib/unrar/unpack50.pyx":84
+  /* "refinery/lib/unrar/unpack50.pyx":85
  * 
  *     cpdef void addbits(self, int bits):
  *         cdef int total = (self.in_addr << 3) + self.in_bit + bits             # <<<<<<<<<<<<<<
@@ -19120,7 +19120,7 @@ static void __pyx_f_8refinery_3lib_5unrar_8unpack50_8BitInput_addbits(struct __p
 */
   __pyx_v_total = (((__pyx_v_self->in_addr << 3) + __pyx_v_self->in_bit) + __pyx_v_bits);
 
-  /* "refinery/lib/unrar/unpack50.pyx":85
+  /* "refinery/lib/unrar/unpack50.pyx":86
  *     cpdef void addbits(self, int bits):
  *         cdef int total = (self.in_addr << 3) + self.in_bit + bits
  *         self.in_addr = total >> 3             # <<<<<<<<<<<<<<
@@ -19129,7 +19129,7 @@ static void __pyx_f_8refinery_3lib_5unrar_8unpack50_8BitInput_addbits(struct __p
 */
   __pyx_v_self->in_addr = (__pyx_v_total >> 3);
 
-  /* "refinery/lib/unrar/unpack50.pyx":86
+  /* "refinery/lib/unrar/unpack50.pyx":87
  *         cdef int total = (self.in_addr << 3) + self.in_bit + bits
  *         self.in_addr = total >> 3
  *         self.in_bit = total & 7             # <<<<<<<<<<<<<<
@@ -19138,7 +19138,7 @@ static void __pyx_f_8refinery_3lib_5unrar_8unpack50_8BitInput_addbits(struct __p
 */
   __pyx_v_self->in_bit = (__pyx_v_total & 7);
 
-  /* "refinery/lib/unrar/unpack50.pyx":83
+  /* "refinery/lib/unrar/unpack50.pyx":84
  *         return <unsigned int>((val >> (8 - bit)) & 0xFFFFFFFF)
  * 
  *     cpdef void addbits(self, int bits):             # <<<<<<<<<<<<<<
@@ -19198,32 +19198,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_bits,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 83, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 84, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 83, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 84, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "addbits", 0) < (0)) __PYX_ERR(0, 83, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "addbits", 0) < (0)) __PYX_ERR(0, 84, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("addbits", 1, 1, 1, i); __PYX_ERR(0, 83, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("addbits", 1, 1, 1, i); __PYX_ERR(0, 84, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 83, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 84, __pyx_L3_error)
     }
-    __pyx_v_bits = __Pyx_PyLong_As_int(values[0]); if (unlikely((__pyx_v_bits == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 83, __pyx_L3_error)
+    __pyx_v_bits = __Pyx_PyLong_As_int(values[0]); if (unlikely((__pyx_v_bits == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 84, __pyx_L3_error)
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("addbits", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 83, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("addbits", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 84, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -19253,8 +19253,8 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8BitInput_8addbits(str
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("addbits", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_f_8refinery_3lib_5unrar_8unpack50_8BitInput_addbits(__pyx_v_self, __pyx_v_bits, 1); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 83, __pyx_L1_error)
-  __pyx_t_1 = __Pyx_void_to_None(NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 83, __pyx_L1_error)
+  __pyx_f_8refinery_3lib_5unrar_8unpack50_8BitInput_addbits(__pyx_v_self, __pyx_v_bits, 1); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 84, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_void_to_None(NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 84, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -19271,7 +19271,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8BitInput_8addbits(str
   return __pyx_r;
 }
 
-/* "refinery/lib/unrar/unpack50.pyx":33
+/* "refinery/lib/unrar/unpack50.pyx":34
  *     cdef:
  *         const unsigned char[::1] _buf
  *         public int in_addr             # <<<<<<<<<<<<<<
@@ -19303,7 +19303,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8BitInput_7in_addr___g
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_self->in_addr); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 33, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_self->in_addr); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 34, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -19341,7 +19341,7 @@ static int __pyx_pf_8refinery_3lib_5unrar_8unpack50_8BitInput_7in_addr_2__set__(
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
-  __pyx_t_1 = __Pyx_PyLong_As_int(__pyx_v_value); if (unlikely((__pyx_t_1 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 33, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_As_int(__pyx_v_value); if (unlikely((__pyx_t_1 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 34, __pyx_L1_error)
   __pyx_v_self->in_addr = __pyx_t_1;
 
   /* function exit code */
@@ -19354,7 +19354,7 @@ static int __pyx_pf_8refinery_3lib_5unrar_8unpack50_8BitInput_7in_addr_2__set__(
   return __pyx_r;
 }
 
-/* "refinery/lib/unrar/unpack50.pyx":34
+/* "refinery/lib/unrar/unpack50.pyx":35
  *         const unsigned char[::1] _buf
  *         public int in_addr
  *         public int in_bit             # <<<<<<<<<<<<<<
@@ -19386,7 +19386,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8BitInput_6in_bit___ge
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_self->in_bit); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 34, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_self->in_bit); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 35, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -19424,7 +19424,7 @@ static int __pyx_pf_8refinery_3lib_5unrar_8unpack50_8BitInput_6in_bit_2__set__(s
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
-  __pyx_t_1 = __Pyx_PyLong_As_int(__pyx_v_value); if (unlikely((__pyx_t_1 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 34, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_As_int(__pyx_v_value); if (unlikely((__pyx_t_1 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 35, __pyx_L1_error)
   __pyx_v_self->in_bit = __pyx_t_1;
 
   /* function exit code */
@@ -19867,7 +19867,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8BitInput_12__setstate
   return __pyx_r;
 }
 
-/* "refinery/lib/unrar/unpack50.pyx":99
+/* "refinery/lib/unrar/unpack50.pyx":100
  *         public int decode_num[306]
  * 
  *     def __init__(self):             # <<<<<<<<<<<<<<
@@ -19903,7 +19903,7 @@ static int __pyx_pw_8refinery_3lib_5unrar_8unpack50_11DecodeTable_1__init__(PyOb
 static int __pyx_pf_8refinery_3lib_5unrar_8unpack50_11DecodeTable___init__(struct __pyx_obj_8refinery_3lib_5unrar_8unpack50_DecodeTable *__pyx_v_self) {
   int __pyx_r;
 
-  /* "refinery/lib/unrar/unpack50.pyx":100
+  /* "refinery/lib/unrar/unpack50.pyx":101
  * 
  *     def __init__(self):
  *         self.max_num = 0             # <<<<<<<<<<<<<<
@@ -19912,7 +19912,7 @@ static int __pyx_pf_8refinery_3lib_5unrar_8unpack50_11DecodeTable___init__(struc
 */
   __pyx_v_self->max_num = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":101
+  /* "refinery/lib/unrar/unpack50.pyx":102
  *     def __init__(self):
  *         self.max_num = 0
  *         self.quick_bits = 0             # <<<<<<<<<<<<<<
@@ -19921,7 +19921,7 @@ static int __pyx_pf_8refinery_3lib_5unrar_8unpack50_11DecodeTable___init__(struc
 */
   __pyx_v_self->quick_bits = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":102
+  /* "refinery/lib/unrar/unpack50.pyx":103
  *         self.max_num = 0
  *         self.quick_bits = 0
  *         memset(self.decode_len, 0, 16 * sizeof(int))             # <<<<<<<<<<<<<<
@@ -19930,7 +19930,7 @@ static int __pyx_pf_8refinery_3lib_5unrar_8unpack50_11DecodeTable___init__(struc
 */
   (void)(memset(__pyx_v_self->decode_len, 0, (16 * (sizeof(int)))));
 
-  /* "refinery/lib/unrar/unpack50.pyx":103
+  /* "refinery/lib/unrar/unpack50.pyx":104
  *         self.quick_bits = 0
  *         memset(self.decode_len, 0, 16 * sizeof(int))
  *         memset(self.decode_pos, 0, 16 * sizeof(int))             # <<<<<<<<<<<<<<
@@ -19939,7 +19939,7 @@ static int __pyx_pf_8refinery_3lib_5unrar_8unpack50_11DecodeTable___init__(struc
 */
   (void)(memset(__pyx_v_self->decode_pos, 0, (16 * (sizeof(int)))));
 
-  /* "refinery/lib/unrar/unpack50.pyx":104
+  /* "refinery/lib/unrar/unpack50.pyx":105
  *         memset(self.decode_len, 0, 16 * sizeof(int))
  *         memset(self.decode_pos, 0, 16 * sizeof(int))
  *         memset(self.quick_len, 0, 1024)             # <<<<<<<<<<<<<<
@@ -19948,7 +19948,7 @@ static int __pyx_pf_8refinery_3lib_5unrar_8unpack50_11DecodeTable___init__(struc
 */
   (void)(memset(__pyx_v_self->quick_len, 0, 0x400));
 
-  /* "refinery/lib/unrar/unpack50.pyx":105
+  /* "refinery/lib/unrar/unpack50.pyx":106
  *         memset(self.decode_pos, 0, 16 * sizeof(int))
  *         memset(self.quick_len, 0, 1024)
  *         memset(self.quick_num, 0, 1024 * sizeof(int))             # <<<<<<<<<<<<<<
@@ -19957,7 +19957,7 @@ static int __pyx_pf_8refinery_3lib_5unrar_8unpack50_11DecodeTable___init__(struc
 */
   (void)(memset(__pyx_v_self->quick_num, 0, (0x400 * (sizeof(int)))));
 
-  /* "refinery/lib/unrar/unpack50.pyx":106
+  /* "refinery/lib/unrar/unpack50.pyx":107
  *         memset(self.quick_len, 0, 1024)
  *         memset(self.quick_num, 0, 1024 * sizeof(int))
  *         memset(self.decode_num, 0, 306 * sizeof(int))             # <<<<<<<<<<<<<<
@@ -19966,7 +19966,7 @@ static int __pyx_pf_8refinery_3lib_5unrar_8unpack50_11DecodeTable___init__(struc
 */
   (void)(memset(__pyx_v_self->decode_num, 0, (0x132 * (sizeof(int)))));
 
-  /* "refinery/lib/unrar/unpack50.pyx":99
+  /* "refinery/lib/unrar/unpack50.pyx":100
  *         public int decode_num[306]
  * 
  *     def __init__(self):             # <<<<<<<<<<<<<<
@@ -19979,7 +19979,7 @@ static int __pyx_pf_8refinery_3lib_5unrar_8unpack50_11DecodeTable___init__(struc
   return __pyx_r;
 }
 
-/* "refinery/lib/unrar/unpack50.pyx":91
+/* "refinery/lib/unrar/unpack50.pyx":92
  * cdef class DecodeTable:
  *     cdef:
  *         public int max_num             # <<<<<<<<<<<<<<
@@ -20011,7 +20011,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_11DecodeTable_7max_num
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_self->max_num); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 91, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_self->max_num); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 92, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -20049,7 +20049,7 @@ static int __pyx_pf_8refinery_3lib_5unrar_8unpack50_11DecodeTable_7max_num_2__se
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
-  __pyx_t_1 = __Pyx_PyLong_As_int(__pyx_v_value); if (unlikely((__pyx_t_1 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 91, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_As_int(__pyx_v_value); if (unlikely((__pyx_t_1 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 92, __pyx_L1_error)
   __pyx_v_self->max_num = __pyx_t_1;
 
   /* function exit code */
@@ -20062,7 +20062,7 @@ static int __pyx_pf_8refinery_3lib_5unrar_8unpack50_11DecodeTable_7max_num_2__se
   return __pyx_r;
 }
 
-/* "refinery/lib/unrar/unpack50.pyx":92
+/* "refinery/lib/unrar/unpack50.pyx":93
  *     cdef:
  *         public int max_num
  *         public int decode_len[16]             # <<<<<<<<<<<<<<
@@ -20094,7 +20094,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_11DecodeTable_10decode
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_carray_to_py_int(__pyx_v_self->decode_len, 16); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 92, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_carray_to_py_int(__pyx_v_self->decode_len, 16); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 93, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -20132,7 +20132,7 @@ static int __pyx_pf_8refinery_3lib_5unrar_8unpack50_11DecodeTable_10decode_len_2
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
-  if (unlikely((__Pyx_carray_from_py_int(__pyx_v_value, __pyx_t_1, 16) < 0))) __PYX_ERR(0, 92, __pyx_L1_error)
+  if (unlikely((__Pyx_carray_from_py_int(__pyx_v_value, __pyx_t_1, 16) < 0))) __PYX_ERR(0, 93, __pyx_L1_error)
   memcpy(&(__pyx_v_self->decode_len[0]), __pyx_t_1, sizeof(__pyx_v_self->decode_len[0]) * (16));
 
   /* function exit code */
@@ -20145,7 +20145,7 @@ static int __pyx_pf_8refinery_3lib_5unrar_8unpack50_11DecodeTable_10decode_len_2
   return __pyx_r;
 }
 
-/* "refinery/lib/unrar/unpack50.pyx":93
+/* "refinery/lib/unrar/unpack50.pyx":94
  *         public int max_num
  *         public int decode_len[16]
  *         public int decode_pos[16]             # <<<<<<<<<<<<<<
@@ -20177,7 +20177,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_11DecodeTable_10decode
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_carray_to_py_int(__pyx_v_self->decode_pos, 16); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 93, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_carray_to_py_int(__pyx_v_self->decode_pos, 16); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 94, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -20215,7 +20215,7 @@ static int __pyx_pf_8refinery_3lib_5unrar_8unpack50_11DecodeTable_10decode_pos_2
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
-  if (unlikely((__Pyx_carray_from_py_int(__pyx_v_value, __pyx_t_1, 16) < 0))) __PYX_ERR(0, 93, __pyx_L1_error)
+  if (unlikely((__Pyx_carray_from_py_int(__pyx_v_value, __pyx_t_1, 16) < 0))) __PYX_ERR(0, 94, __pyx_L1_error)
   memcpy(&(__pyx_v_self->decode_pos[0]), __pyx_t_1, sizeof(__pyx_v_self->decode_pos[0]) * (16));
 
   /* function exit code */
@@ -20228,7 +20228,7 @@ static int __pyx_pf_8refinery_3lib_5unrar_8unpack50_11DecodeTable_10decode_pos_2
   return __pyx_r;
 }
 
-/* "refinery/lib/unrar/unpack50.pyx":94
+/* "refinery/lib/unrar/unpack50.pyx":95
  *         public int decode_len[16]
  *         public int decode_pos[16]
  *         public int quick_bits             # <<<<<<<<<<<<<<
@@ -20260,7 +20260,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_11DecodeTable_10quick_
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_self->quick_bits); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 94, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_self->quick_bits); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 95, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -20298,7 +20298,7 @@ static int __pyx_pf_8refinery_3lib_5unrar_8unpack50_11DecodeTable_10quick_bits_2
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
-  __pyx_t_1 = __Pyx_PyLong_As_int(__pyx_v_value); if (unlikely((__pyx_t_1 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 94, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_As_int(__pyx_v_value); if (unlikely((__pyx_t_1 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 95, __pyx_L1_error)
   __pyx_v_self->quick_bits = __pyx_t_1;
 
   /* function exit code */
@@ -20311,7 +20311,7 @@ static int __pyx_pf_8refinery_3lib_5unrar_8unpack50_11DecodeTable_10quick_bits_2
   return __pyx_r;
 }
 
-/* "refinery/lib/unrar/unpack50.pyx":95
+/* "refinery/lib/unrar/unpack50.pyx":96
  *         public int decode_pos[16]
  *         public int quick_bits
  *         public unsigned char quick_len[1024]             # <<<<<<<<<<<<<<
@@ -20343,7 +20343,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_11DecodeTable_9quick_l
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyBytes_FromCString(__pyx_v_self->quick_len); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 95, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyBytes_FromCString(__pyx_v_self->quick_len); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 96, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -20381,7 +20381,7 @@ static int __pyx_pf_8refinery_3lib_5unrar_8unpack50_11DecodeTable_9quick_len_2__
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
-  if (unlikely((__Pyx_carray_from_py_unsigned_char(__pyx_v_value, __pyx_t_1, 1024) < 0))) __PYX_ERR(0, 95, __pyx_L1_error)
+  if (unlikely((__Pyx_carray_from_py_unsigned_char(__pyx_v_value, __pyx_t_1, 1024) < 0))) __PYX_ERR(0, 96, __pyx_L1_error)
   memcpy(&(__pyx_v_self->quick_len[0]), __pyx_t_1, sizeof(__pyx_v_self->quick_len[0]) * (1024));
 
   /* function exit code */
@@ -20394,7 +20394,7 @@ static int __pyx_pf_8refinery_3lib_5unrar_8unpack50_11DecodeTable_9quick_len_2__
   return __pyx_r;
 }
 
-/* "refinery/lib/unrar/unpack50.pyx":96
+/* "refinery/lib/unrar/unpack50.pyx":97
  *         public int quick_bits
  *         public unsigned char quick_len[1024]
  *         public int quick_num[1024]             # <<<<<<<<<<<<<<
@@ -20426,7 +20426,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_11DecodeTable_9quick_n
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_carray_to_py_int(__pyx_v_self->quick_num, 1024); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 96, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_carray_to_py_int(__pyx_v_self->quick_num, 1024); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 97, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -20464,7 +20464,7 @@ static int __pyx_pf_8refinery_3lib_5unrar_8unpack50_11DecodeTable_9quick_num_2__
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
-  if (unlikely((__Pyx_carray_from_py_int(__pyx_v_value, __pyx_t_1, 1024) < 0))) __PYX_ERR(0, 96, __pyx_L1_error)
+  if (unlikely((__Pyx_carray_from_py_int(__pyx_v_value, __pyx_t_1, 1024) < 0))) __PYX_ERR(0, 97, __pyx_L1_error)
   memcpy(&(__pyx_v_self->quick_num[0]), __pyx_t_1, sizeof(__pyx_v_self->quick_num[0]) * (1024));
 
   /* function exit code */
@@ -20477,7 +20477,7 @@ static int __pyx_pf_8refinery_3lib_5unrar_8unpack50_11DecodeTable_9quick_num_2__
   return __pyx_r;
 }
 
-/* "refinery/lib/unrar/unpack50.pyx":97
+/* "refinery/lib/unrar/unpack50.pyx":98
  *         public unsigned char quick_len[1024]
  *         public int quick_num[1024]
  *         public int decode_num[306]             # <<<<<<<<<<<<<<
@@ -20509,7 +20509,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_11DecodeTable_10decode
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_carray_to_py_int(__pyx_v_self->decode_num, 306); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 97, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_carray_to_py_int(__pyx_v_self->decode_num, 306); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 98, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -20547,7 +20547,7 @@ static int __pyx_pf_8refinery_3lib_5unrar_8unpack50_11DecodeTable_10decode_num_2
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
-  if (unlikely((__Pyx_carray_from_py_int(__pyx_v_value, __pyx_t_1, 306) < 0))) __PYX_ERR(0, 97, __pyx_L1_error)
+  if (unlikely((__Pyx_carray_from_py_int(__pyx_v_value, __pyx_t_1, 306) < 0))) __PYX_ERR(0, 98, __pyx_L1_error)
   memcpy(&(__pyx_v_self->decode_num[0]), __pyx_t_1, sizeof(__pyx_v_self->decode_num[0]) * (306));
 
   /* function exit code */
@@ -21010,7 +21010,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_11DecodeTable_4__setst
   return __pyx_r;
 }
 
-/* "refinery/lib/unrar/unpack50.pyx":109
+/* "refinery/lib/unrar/unpack50.pyx":110
  * 
  * 
  * cpdef void make_decode_tables(             # <<<<<<<<<<<<<<
@@ -21045,7 +21045,7 @@ static void __pyx_f_8refinery_3lib_5unrar_8unpack50_make_decode_tables(PyObject 
   int __pyx_t_6;
   int __pyx_t_7;
 
-  /* "refinery/lib/unrar/unpack50.pyx":121
+  /* "refinery/lib/unrar/unpack50.pyx":122
  *     cdef int quick_data_size, bit_field
  * 
  *     dec.max_num = size             # <<<<<<<<<<<<<<
@@ -21054,7 +21054,7 @@ static void __pyx_f_8refinery_3lib_5unrar_8unpack50_make_decode_tables(PyObject 
 */
   __pyx_v_dec->max_num = __pyx_v_size;
 
-  /* "refinery/lib/unrar/unpack50.pyx":123
+  /* "refinery/lib/unrar/unpack50.pyx":124
  *     dec.max_num = size
  * 
  *     memset(length_count, 0, 16 * sizeof(int))             # <<<<<<<<<<<<<<
@@ -21063,7 +21063,7 @@ static void __pyx_f_8refinery_3lib_5unrar_8unpack50_make_decode_tables(PyObject 
 */
   (void)(memset(__pyx_v_length_count, 0, (16 * (sizeof(int)))));
 
-  /* "refinery/lib/unrar/unpack50.pyx":124
+  /* "refinery/lib/unrar/unpack50.pyx":125
  * 
  *     memset(length_count, 0, 16 * sizeof(int))
  *     for i in range(size):             # <<<<<<<<<<<<<<
@@ -21075,7 +21075,7 @@ static void __pyx_f_8refinery_3lib_5unrar_8unpack50_make_decode_tables(PyObject 
   for (__pyx_t_3 = 0; __pyx_t_3 < __pyx_t_2; __pyx_t_3+=1) {
     __pyx_v_i = __pyx_t_3;
 
-    /* "refinery/lib/unrar/unpack50.pyx":125
+    /* "refinery/lib/unrar/unpack50.pyx":126
  *     memset(length_count, 0, 16 * sizeof(int))
  *     for i in range(size):
  *         length_count[length_table[i] & 0xF] += 1             # <<<<<<<<<<<<<<
@@ -21086,7 +21086,7 @@ static void __pyx_f_8refinery_3lib_5unrar_8unpack50_make_decode_tables(PyObject 
     (__pyx_v_length_count[__pyx_t_4]) = ((__pyx_v_length_count[__pyx_t_4]) + 1);
   }
 
-  /* "refinery/lib/unrar/unpack50.pyx":126
+  /* "refinery/lib/unrar/unpack50.pyx":127
  *     for i in range(size):
  *         length_count[length_table[i] & 0xF] += 1
  *     length_count[0] = 0             # <<<<<<<<<<<<<<
@@ -21095,7 +21095,7 @@ static void __pyx_f_8refinery_3lib_5unrar_8unpack50_make_decode_tables(PyObject 
 */
   (__pyx_v_length_count[0]) = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":128
+  /* "refinery/lib/unrar/unpack50.pyx":129
  *     length_count[0] = 0
  * 
  *     for i in range(size):             # <<<<<<<<<<<<<<
@@ -21107,7 +21107,7 @@ static void __pyx_f_8refinery_3lib_5unrar_8unpack50_make_decode_tables(PyObject 
   for (__pyx_t_3 = 0; __pyx_t_3 < __pyx_t_2; __pyx_t_3+=1) {
     __pyx_v_i = __pyx_t_3;
 
-    /* "refinery/lib/unrar/unpack50.pyx":129
+    /* "refinery/lib/unrar/unpack50.pyx":130
  * 
  *     for i in range(size):
  *         dec.decode_num[i] = 0             # <<<<<<<<<<<<<<
@@ -21117,7 +21117,7 @@ static void __pyx_f_8refinery_3lib_5unrar_8unpack50_make_decode_tables(PyObject 
     (__pyx_v_dec->decode_num[__pyx_v_i]) = 0;
   }
 
-  /* "refinery/lib/unrar/unpack50.pyx":131
+  /* "refinery/lib/unrar/unpack50.pyx":132
  *         dec.decode_num[i] = 0
  * 
  *     dec.decode_pos[0] = 0             # <<<<<<<<<<<<<<
@@ -21126,7 +21126,7 @@ static void __pyx_f_8refinery_3lib_5unrar_8unpack50_make_decode_tables(PyObject 
 */
   (__pyx_v_dec->decode_pos[0]) = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":132
+  /* "refinery/lib/unrar/unpack50.pyx":133
  * 
  *     dec.decode_pos[0] = 0
  *     dec.decode_len[0] = 0             # <<<<<<<<<<<<<<
@@ -21135,7 +21135,7 @@ static void __pyx_f_8refinery_3lib_5unrar_8unpack50_make_decode_tables(PyObject 
 */
   (__pyx_v_dec->decode_len[0]) = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":134
+  /* "refinery/lib/unrar/unpack50.pyx":135
  *     dec.decode_len[0] = 0
  * 
  *     upper_limit = 0             # <<<<<<<<<<<<<<
@@ -21144,7 +21144,7 @@ static void __pyx_f_8refinery_3lib_5unrar_8unpack50_make_decode_tables(PyObject 
 */
   __pyx_v_upper_limit = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":135
+  /* "refinery/lib/unrar/unpack50.pyx":136
  * 
  *     upper_limit = 0
  *     for i in range(1, 16):             # <<<<<<<<<<<<<<
@@ -21154,7 +21154,7 @@ static void __pyx_f_8refinery_3lib_5unrar_8unpack50_make_decode_tables(PyObject 
   for (__pyx_t_1 = 1; __pyx_t_1 < 16; __pyx_t_1+=1) {
     __pyx_v_i = __pyx_t_1;
 
-    /* "refinery/lib/unrar/unpack50.pyx":136
+    /* "refinery/lib/unrar/unpack50.pyx":137
  *     upper_limit = 0
  *     for i in range(1, 16):
  *         upper_limit += length_count[i]             # <<<<<<<<<<<<<<
@@ -21163,7 +21163,7 @@ static void __pyx_f_8refinery_3lib_5unrar_8unpack50_make_decode_tables(PyObject 
 */
     __pyx_v_upper_limit = (__pyx_v_upper_limit + (__pyx_v_length_count[__pyx_v_i]));
 
-    /* "refinery/lib/unrar/unpack50.pyx":137
+    /* "refinery/lib/unrar/unpack50.pyx":138
  *     for i in range(1, 16):
  *         upper_limit += length_count[i]
  *         left_aligned = upper_limit << (16 - i)             # <<<<<<<<<<<<<<
@@ -21172,7 +21172,7 @@ static void __pyx_f_8refinery_3lib_5unrar_8unpack50_make_decode_tables(PyObject 
 */
     __pyx_v_left_aligned = (__pyx_v_upper_limit << (16 - __pyx_v_i));
 
-    /* "refinery/lib/unrar/unpack50.pyx":138
+    /* "refinery/lib/unrar/unpack50.pyx":139
  *         upper_limit += length_count[i]
  *         left_aligned = upper_limit << (16 - i)
  *         upper_limit *= 2             # <<<<<<<<<<<<<<
@@ -21181,7 +21181,7 @@ static void __pyx_f_8refinery_3lib_5unrar_8unpack50_make_decode_tables(PyObject 
 */
     __pyx_v_upper_limit = (__pyx_v_upper_limit * 2);
 
-    /* "refinery/lib/unrar/unpack50.pyx":139
+    /* "refinery/lib/unrar/unpack50.pyx":140
  *         left_aligned = upper_limit << (16 - i)
  *         upper_limit *= 2
  *         dec.decode_len[i] = left_aligned             # <<<<<<<<<<<<<<
@@ -21190,7 +21190,7 @@ static void __pyx_f_8refinery_3lib_5unrar_8unpack50_make_decode_tables(PyObject 
 */
     (__pyx_v_dec->decode_len[__pyx_v_i]) = __pyx_v_left_aligned;
 
-    /* "refinery/lib/unrar/unpack50.pyx":140
+    /* "refinery/lib/unrar/unpack50.pyx":141
  *         upper_limit *= 2
  *         dec.decode_len[i] = left_aligned
  *         dec.decode_pos[i] = dec.decode_pos[i - 1] + length_count[i - 1]             # <<<<<<<<<<<<<<
@@ -21200,7 +21200,7 @@ static void __pyx_f_8refinery_3lib_5unrar_8unpack50_make_decode_tables(PyObject 
     (__pyx_v_dec->decode_pos[__pyx_v_i]) = ((__pyx_v_dec->decode_pos[(__pyx_v_i - 1)]) + (__pyx_v_length_count[(__pyx_v_i - 1)]));
   }
 
-  /* "refinery/lib/unrar/unpack50.pyx":142
+  /* "refinery/lib/unrar/unpack50.pyx":143
  *         dec.decode_pos[i] = dec.decode_pos[i - 1] + length_count[i - 1]
  * 
  *     for i in range(16):             # <<<<<<<<<<<<<<
@@ -21210,7 +21210,7 @@ static void __pyx_f_8refinery_3lib_5unrar_8unpack50_make_decode_tables(PyObject 
   for (__pyx_t_1 = 0; __pyx_t_1 < 16; __pyx_t_1+=1) {
     __pyx_v_i = __pyx_t_1;
 
-    /* "refinery/lib/unrar/unpack50.pyx":143
+    /* "refinery/lib/unrar/unpack50.pyx":144
  * 
  *     for i in range(16):
  *         copy_decode_pos[i] = dec.decode_pos[i]             # <<<<<<<<<<<<<<
@@ -21220,7 +21220,7 @@ static void __pyx_f_8refinery_3lib_5unrar_8unpack50_make_decode_tables(PyObject 
     (__pyx_v_copy_decode_pos[__pyx_v_i]) = (__pyx_v_dec->decode_pos[__pyx_v_i]);
   }
 
-  /* "refinery/lib/unrar/unpack50.pyx":145
+  /* "refinery/lib/unrar/unpack50.pyx":146
  *         copy_decode_pos[i] = dec.decode_pos[i]
  * 
  *     for i in range(size):             # <<<<<<<<<<<<<<
@@ -21232,7 +21232,7 @@ static void __pyx_f_8refinery_3lib_5unrar_8unpack50_make_decode_tables(PyObject 
   for (__pyx_t_3 = 0; __pyx_t_3 < __pyx_t_2; __pyx_t_3+=1) {
     __pyx_v_i = __pyx_t_3;
 
-    /* "refinery/lib/unrar/unpack50.pyx":146
+    /* "refinery/lib/unrar/unpack50.pyx":147
  * 
  *     for i in range(size):
  *         cur_bit_length = length_table[i] & 0xF             # <<<<<<<<<<<<<<
@@ -21241,7 +21241,7 @@ static void __pyx_f_8refinery_3lib_5unrar_8unpack50_make_decode_tables(PyObject 
 */
     __pyx_v_cur_bit_length = (((unsigned char)(__Pyx_PyByteArray_AsString(__pyx_v_length_table)[__pyx_v_i])) & 0xF);
 
-    /* "refinery/lib/unrar/unpack50.pyx":147
+    /* "refinery/lib/unrar/unpack50.pyx":148
  *     for i in range(size):
  *         cur_bit_length = length_table[i] & 0xF
  *         if cur_bit_length != 0:             # <<<<<<<<<<<<<<
@@ -21251,7 +21251,7 @@ static void __pyx_f_8refinery_3lib_5unrar_8unpack50_make_decode_tables(PyObject 
     __pyx_t_5 = (__pyx_v_cur_bit_length != 0);
     if (__pyx_t_5) {
 
-      /* "refinery/lib/unrar/unpack50.pyx":148
+      /* "refinery/lib/unrar/unpack50.pyx":149
  *         cur_bit_length = length_table[i] & 0xF
  *         if cur_bit_length != 0:
  *             pos = copy_decode_pos[cur_bit_length]             # <<<<<<<<<<<<<<
@@ -21260,7 +21260,7 @@ static void __pyx_f_8refinery_3lib_5unrar_8unpack50_make_decode_tables(PyObject 
 */
       __pyx_v_pos = (__pyx_v_copy_decode_pos[__pyx_v_cur_bit_length]);
 
-      /* "refinery/lib/unrar/unpack50.pyx":149
+      /* "refinery/lib/unrar/unpack50.pyx":150
  *         if cur_bit_length != 0:
  *             pos = copy_decode_pos[cur_bit_length]
  *             if pos < size:             # <<<<<<<<<<<<<<
@@ -21270,7 +21270,7 @@ static void __pyx_f_8refinery_3lib_5unrar_8unpack50_make_decode_tables(PyObject 
       __pyx_t_5 = (__pyx_v_pos < __pyx_v_size);
       if (__pyx_t_5) {
 
-        /* "refinery/lib/unrar/unpack50.pyx":150
+        /* "refinery/lib/unrar/unpack50.pyx":151
  *             pos = copy_decode_pos[cur_bit_length]
  *             if pos < size:
  *                 dec.decode_num[pos] = i             # <<<<<<<<<<<<<<
@@ -21279,7 +21279,7 @@ static void __pyx_f_8refinery_3lib_5unrar_8unpack50_make_decode_tables(PyObject 
 */
         (__pyx_v_dec->decode_num[__pyx_v_pos]) = __pyx_v_i;
 
-        /* "refinery/lib/unrar/unpack50.pyx":149
+        /* "refinery/lib/unrar/unpack50.pyx":150
  *         if cur_bit_length != 0:
  *             pos = copy_decode_pos[cur_bit_length]
  *             if pos < size:             # <<<<<<<<<<<<<<
@@ -21288,7 +21288,7 @@ static void __pyx_f_8refinery_3lib_5unrar_8unpack50_make_decode_tables(PyObject 
 */
       }
 
-      /* "refinery/lib/unrar/unpack50.pyx":151
+      /* "refinery/lib/unrar/unpack50.pyx":152
  *             if pos < size:
  *                 dec.decode_num[pos] = i
  *             copy_decode_pos[cur_bit_length] += 1             # <<<<<<<<<<<<<<
@@ -21298,7 +21298,7 @@ static void __pyx_f_8refinery_3lib_5unrar_8unpack50_make_decode_tables(PyObject 
       __pyx_t_6 = __pyx_v_cur_bit_length;
       (__pyx_v_copy_decode_pos[__pyx_t_6]) = ((__pyx_v_copy_decode_pos[__pyx_t_6]) + 1);
 
-      /* "refinery/lib/unrar/unpack50.pyx":147
+      /* "refinery/lib/unrar/unpack50.pyx":148
  *     for i in range(size):
  *         cur_bit_length = length_table[i] & 0xF
  *         if cur_bit_length != 0:             # <<<<<<<<<<<<<<
@@ -21308,7 +21308,7 @@ static void __pyx_f_8refinery_3lib_5unrar_8unpack50_make_decode_tables(PyObject 
     }
   }
 
-  /* "refinery/lib/unrar/unpack50.pyx":153
+  /* "refinery/lib/unrar/unpack50.pyx":154
  *             copy_decode_pos[cur_bit_length] += 1
  * 
  *     if size == NC or size == 298 or size == 299:             # <<<<<<<<<<<<<<
@@ -21334,7 +21334,7 @@ static void __pyx_f_8refinery_3lib_5unrar_8unpack50_make_decode_tables(PyObject 
   __pyx_L16_bool_binop_done:;
   if (__pyx_t_5) {
 
-    /* "refinery/lib/unrar/unpack50.pyx":154
+    /* "refinery/lib/unrar/unpack50.pyx":155
  * 
  *     if size == NC or size == 298 or size == 299:
  *         dec.quick_bits = MAX_QUICK_DECODE_BITS             # <<<<<<<<<<<<<<
@@ -21343,7 +21343,7 @@ static void __pyx_f_8refinery_3lib_5unrar_8unpack50_make_decode_tables(PyObject 
 */
     __pyx_v_dec->quick_bits = __pyx_v_8refinery_3lib_5unrar_8unpack50_MAX_QUICK_DECODE_BITS;
 
-    /* "refinery/lib/unrar/unpack50.pyx":153
+    /* "refinery/lib/unrar/unpack50.pyx":154
  *             copy_decode_pos[cur_bit_length] += 1
  * 
  *     if size == NC or size == 298 or size == 299:             # <<<<<<<<<<<<<<
@@ -21353,7 +21353,7 @@ static void __pyx_f_8refinery_3lib_5unrar_8unpack50_make_decode_tables(PyObject 
     goto __pyx_L15;
   }
 
-  /* "refinery/lib/unrar/unpack50.pyx":156
+  /* "refinery/lib/unrar/unpack50.pyx":157
  *         dec.quick_bits = MAX_QUICK_DECODE_BITS
  *     else:
  *         dec.quick_bits = MAX_QUICK_DECODE_BITS - 3             # <<<<<<<<<<<<<<
@@ -21365,7 +21365,7 @@ static void __pyx_f_8refinery_3lib_5unrar_8unpack50_make_decode_tables(PyObject 
   }
   __pyx_L15:;
 
-  /* "refinery/lib/unrar/unpack50.pyx":158
+  /* "refinery/lib/unrar/unpack50.pyx":159
  *         dec.quick_bits = MAX_QUICK_DECODE_BITS - 3
  * 
  *     quick_data_size = 1 << dec.quick_bits             # <<<<<<<<<<<<<<
@@ -21374,7 +21374,7 @@ static void __pyx_f_8refinery_3lib_5unrar_8unpack50_make_decode_tables(PyObject 
 */
   __pyx_v_quick_data_size = (1 << __pyx_v_dec->quick_bits);
 
-  /* "refinery/lib/unrar/unpack50.pyx":159
+  /* "refinery/lib/unrar/unpack50.pyx":160
  * 
  *     quick_data_size = 1 << dec.quick_bits
  *     cur_bit_length = 1             # <<<<<<<<<<<<<<
@@ -21383,7 +21383,7 @@ static void __pyx_f_8refinery_3lib_5unrar_8unpack50_make_decode_tables(PyObject 
 */
   __pyx_v_cur_bit_length = 1;
 
-  /* "refinery/lib/unrar/unpack50.pyx":161
+  /* "refinery/lib/unrar/unpack50.pyx":162
  *     cur_bit_length = 1
  * 
  *     for code in range(quick_data_size):             # <<<<<<<<<<<<<<
@@ -21395,7 +21395,7 @@ static void __pyx_f_8refinery_3lib_5unrar_8unpack50_make_decode_tables(PyObject 
   for (__pyx_t_3 = 0; __pyx_t_3 < __pyx_t_2; __pyx_t_3+=1) {
     __pyx_v_code = __pyx_t_3;
 
-    /* "refinery/lib/unrar/unpack50.pyx":162
+    /* "refinery/lib/unrar/unpack50.pyx":163
  * 
  *     for code in range(quick_data_size):
  *         bit_field = code << (16 - dec.quick_bits)             # <<<<<<<<<<<<<<
@@ -21404,7 +21404,7 @@ static void __pyx_f_8refinery_3lib_5unrar_8unpack50_make_decode_tables(PyObject 
 */
     __pyx_v_bit_field = (__pyx_v_code << (16 - __pyx_v_dec->quick_bits));
 
-    /* "refinery/lib/unrar/unpack50.pyx":163
+    /* "refinery/lib/unrar/unpack50.pyx":164
  *     for code in range(quick_data_size):
  *         bit_field = code << (16 - dec.quick_bits)
  *         while cur_bit_length < 16 and bit_field >= dec.decode_len[cur_bit_length]:             # <<<<<<<<<<<<<<
@@ -21423,7 +21423,7 @@ static void __pyx_f_8refinery_3lib_5unrar_8unpack50_make_decode_tables(PyObject 
       __pyx_L22_bool_binop_done:;
       if (!__pyx_t_5) break;
 
-      /* "refinery/lib/unrar/unpack50.pyx":164
+      /* "refinery/lib/unrar/unpack50.pyx":165
  *         bit_field = code << (16 - dec.quick_bits)
  *         while cur_bit_length < 16 and bit_field >= dec.decode_len[cur_bit_length]:
  *             cur_bit_length += 1             # <<<<<<<<<<<<<<
@@ -21433,7 +21433,7 @@ static void __pyx_f_8refinery_3lib_5unrar_8unpack50_make_decode_tables(PyObject 
       __pyx_v_cur_bit_length = (__pyx_v_cur_bit_length + 1);
     }
 
-    /* "refinery/lib/unrar/unpack50.pyx":165
+    /* "refinery/lib/unrar/unpack50.pyx":166
  *         while cur_bit_length < 16 and bit_field >= dec.decode_len[cur_bit_length]:
  *             cur_bit_length += 1
  *         dec.quick_len[code] = <unsigned char>cur_bit_length             # <<<<<<<<<<<<<<
@@ -21442,7 +21442,7 @@ static void __pyx_f_8refinery_3lib_5unrar_8unpack50_make_decode_tables(PyObject 
 */
     (__pyx_v_dec->quick_len[__pyx_v_code]) = ((unsigned char)__pyx_v_cur_bit_length);
 
-    /* "refinery/lib/unrar/unpack50.pyx":167
+    /* "refinery/lib/unrar/unpack50.pyx":168
  *         dec.quick_len[code] = <unsigned char>cur_bit_length
  * 
  *         dist = bit_field - dec.decode_len[cur_bit_length - 1]             # <<<<<<<<<<<<<<
@@ -21451,7 +21451,7 @@ static void __pyx_f_8refinery_3lib_5unrar_8unpack50_make_decode_tables(PyObject 
 */
     __pyx_v_dist = (__pyx_v_bit_field - (__pyx_v_dec->decode_len[(__pyx_v_cur_bit_length - 1)]));
 
-    /* "refinery/lib/unrar/unpack50.pyx":168
+    /* "refinery/lib/unrar/unpack50.pyx":169
  * 
  *         dist = bit_field - dec.decode_len[cur_bit_length - 1]
  *         dist >>= (16 - cur_bit_length)             # <<<<<<<<<<<<<<
@@ -21460,7 +21460,7 @@ static void __pyx_f_8refinery_3lib_5unrar_8unpack50_make_decode_tables(PyObject 
 */
     __pyx_v_dist = (__pyx_v_dist >> (16 - __pyx_v_cur_bit_length));
 
-    /* "refinery/lib/unrar/unpack50.pyx":169
+    /* "refinery/lib/unrar/unpack50.pyx":170
  *         dist = bit_field - dec.decode_len[cur_bit_length - 1]
  *         dist >>= (16 - cur_bit_length)
  *         pos = dec.decode_pos[cur_bit_length] + dist if cur_bit_length < 16 else 0             # <<<<<<<<<<<<<<
@@ -21475,7 +21475,7 @@ static void __pyx_f_8refinery_3lib_5unrar_8unpack50_make_decode_tables(PyObject 
     }
     __pyx_v_pos = __pyx_t_6;
 
-    /* "refinery/lib/unrar/unpack50.pyx":170
+    /* "refinery/lib/unrar/unpack50.pyx":171
  *         dist >>= (16 - cur_bit_length)
  *         pos = dec.decode_pos[cur_bit_length] + dist if cur_bit_length < 16 else 0
  *         if pos < size:             # <<<<<<<<<<<<<<
@@ -21485,7 +21485,7 @@ static void __pyx_f_8refinery_3lib_5unrar_8unpack50_make_decode_tables(PyObject 
     __pyx_t_5 = (__pyx_v_pos < __pyx_v_size);
     if (__pyx_t_5) {
 
-      /* "refinery/lib/unrar/unpack50.pyx":171
+      /* "refinery/lib/unrar/unpack50.pyx":172
  *         pos = dec.decode_pos[cur_bit_length] + dist if cur_bit_length < 16 else 0
  *         if pos < size:
  *             dec.quick_num[code] = dec.decode_num[pos]             # <<<<<<<<<<<<<<
@@ -21494,7 +21494,7 @@ static void __pyx_f_8refinery_3lib_5unrar_8unpack50_make_decode_tables(PyObject 
 */
       (__pyx_v_dec->quick_num[__pyx_v_code]) = (__pyx_v_dec->decode_num[__pyx_v_pos]);
 
-      /* "refinery/lib/unrar/unpack50.pyx":170
+      /* "refinery/lib/unrar/unpack50.pyx":171
  *         dist >>= (16 - cur_bit_length)
  *         pos = dec.decode_pos[cur_bit_length] + dist if cur_bit_length < 16 else 0
  *         if pos < size:             # <<<<<<<<<<<<<<
@@ -21504,7 +21504,7 @@ static void __pyx_f_8refinery_3lib_5unrar_8unpack50_make_decode_tables(PyObject 
       goto __pyx_L24;
     }
 
-    /* "refinery/lib/unrar/unpack50.pyx":173
+    /* "refinery/lib/unrar/unpack50.pyx":174
  *             dec.quick_num[code] = dec.decode_num[pos]
  *         else:
  *             dec.quick_num[code] = 0             # <<<<<<<<<<<<<<
@@ -21517,7 +21517,7 @@ static void __pyx_f_8refinery_3lib_5unrar_8unpack50_make_decode_tables(PyObject 
     __pyx_L24:;
   }
 
-  /* "refinery/lib/unrar/unpack50.pyx":109
+  /* "refinery/lib/unrar/unpack50.pyx":110
  * 
  * 
  * cpdef void make_decode_tables(             # <<<<<<<<<<<<<<
@@ -21570,46 +21570,46 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_length_table,&__pyx_mstate_global->__pyx_n_u_dec,&__pyx_mstate_global->__pyx_n_u_size,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 109, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 110, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 109, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 110, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 109, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 110, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 109, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 110, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "make_decode_tables", 0) < (0)) __PYX_ERR(0, 109, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "make_decode_tables", 0) < (0)) __PYX_ERR(0, 110, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 3; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("make_decode_tables", 1, 3, 3, i); __PYX_ERR(0, 109, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("make_decode_tables", 1, 3, 3, i); __PYX_ERR(0, 110, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 3)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 109, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 110, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 109, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 110, __pyx_L3_error)
       values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 109, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 110, __pyx_L3_error)
     }
     __pyx_v_length_table = ((PyObject*)values[0]);
     __pyx_v_dec = ((struct __pyx_obj_8refinery_3lib_5unrar_8unpack50_DecodeTable *)values[1]);
-    __pyx_v_size = __Pyx_PyLong_As_int(values[2]); if (unlikely((__pyx_v_size == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 110, __pyx_L3_error)
+    __pyx_v_size = __Pyx_PyLong_As_int(values[2]); if (unlikely((__pyx_v_size == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 111, __pyx_L3_error)
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("make_decode_tables", 1, 3, 3, __pyx_nargs); __PYX_ERR(0, 109, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("make_decode_tables", 1, 3, 3, __pyx_nargs); __PYX_ERR(0, 110, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -21620,8 +21620,8 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_length_table), (&PyByteArray_Type), 1, "length_table", 1))) __PYX_ERR(0, 110, __pyx_L1_error)
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_dec), __pyx_mstate_global->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_DecodeTable, 1, "dec", 0))) __PYX_ERR(0, 110, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_length_table), (&PyByteArray_Type), 1, "length_table", 1))) __PYX_ERR(0, 111, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_dec), __pyx_mstate_global->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_DecodeTable, 1, "dec", 0))) __PYX_ERR(0, 111, __pyx_L1_error)
   __pyx_r = __pyx_pf_8refinery_3lib_5unrar_8unpack50_make_decode_tables(__pyx_self, __pyx_v_length_table, __pyx_v_dec, __pyx_v_size);
 
   /* function exit code */
@@ -21650,8 +21650,8 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_make_decode_tables(CYT
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("make_decode_tables", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_f_8refinery_3lib_5unrar_8unpack50_make_decode_tables(__pyx_v_length_table, __pyx_v_dec, __pyx_v_size, 1); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 109, __pyx_L1_error)
-  __pyx_t_1 = __Pyx_void_to_None(NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 109, __pyx_L1_error)
+  __pyx_f_8refinery_3lib_5unrar_8unpack50_make_decode_tables(__pyx_v_length_table, __pyx_v_dec, __pyx_v_size, 1); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 110, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_void_to_None(NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 110, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -21668,7 +21668,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_make_decode_tables(CYT
   return __pyx_r;
 }
 
-/* "refinery/lib/unrar/unpack50.pyx":176
+/* "refinery/lib/unrar/unpack50.pyx":177
  * 
  * 
  * cdef int _decode_number_fast(BitInput inp, DecodeTable dec):             # <<<<<<<<<<<<<<
@@ -21690,17 +21690,17 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__decode_number_fast(struct __
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":179
+  /* "refinery/lib/unrar/unpack50.pyx":180
  *     cdef int bit_field, code, bits, i, dist, pos
  * 
  *     bit_field = inp.getbits() & 0xFFFE             # <<<<<<<<<<<<<<
  * 
  *     if bit_field < dec.decode_len[dec.quick_bits]:
 */
-  __pyx_t_1 = ((struct __pyx_vtabstruct_8refinery_3lib_5unrar_8unpack50_BitInput *)__pyx_v_inp->__pyx_vtab)->getbits(__pyx_v_inp, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 179, __pyx_L1_error)
+  __pyx_t_1 = ((struct __pyx_vtabstruct_8refinery_3lib_5unrar_8unpack50_BitInput *)__pyx_v_inp->__pyx_vtab)->getbits(__pyx_v_inp, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 180, __pyx_L1_error)
   __pyx_v_bit_field = (__pyx_t_1 & 0xFFFE);
 
-  /* "refinery/lib/unrar/unpack50.pyx":181
+  /* "refinery/lib/unrar/unpack50.pyx":182
  *     bit_field = inp.getbits() & 0xFFFE
  * 
  *     if bit_field < dec.decode_len[dec.quick_bits]:             # <<<<<<<<<<<<<<
@@ -21710,7 +21710,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__decode_number_fast(struct __
   __pyx_t_2 = (__pyx_v_bit_field < (__pyx_v_dec->decode_len[__pyx_v_dec->quick_bits]));
   if (__pyx_t_2) {
 
-    /* "refinery/lib/unrar/unpack50.pyx":182
+    /* "refinery/lib/unrar/unpack50.pyx":183
  * 
  *     if bit_field < dec.decode_len[dec.quick_bits]:
  *         code = bit_field >> (16 - dec.quick_bits)             # <<<<<<<<<<<<<<
@@ -21719,16 +21719,16 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__decode_number_fast(struct __
 */
     __pyx_v_code = (__pyx_v_bit_field >> (16 - __pyx_v_dec->quick_bits));
 
-    /* "refinery/lib/unrar/unpack50.pyx":183
+    /* "refinery/lib/unrar/unpack50.pyx":184
  *     if bit_field < dec.decode_len[dec.quick_bits]:
  *         code = bit_field >> (16 - dec.quick_bits)
  *         inp.addbits(dec.quick_len[code])             # <<<<<<<<<<<<<<
  *         return dec.quick_num[code]
  * 
 */
-    ((struct __pyx_vtabstruct_8refinery_3lib_5unrar_8unpack50_BitInput *)__pyx_v_inp->__pyx_vtab)->addbits(__pyx_v_inp, (__pyx_v_dec->quick_len[__pyx_v_code]), 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 183, __pyx_L1_error)
+    ((struct __pyx_vtabstruct_8refinery_3lib_5unrar_8unpack50_BitInput *)__pyx_v_inp->__pyx_vtab)->addbits(__pyx_v_inp, (__pyx_v_dec->quick_len[__pyx_v_code]), 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 184, __pyx_L1_error)
 
-    /* "refinery/lib/unrar/unpack50.pyx":184
+    /* "refinery/lib/unrar/unpack50.pyx":185
  *         code = bit_field >> (16 - dec.quick_bits)
  *         inp.addbits(dec.quick_len[code])
  *         return dec.quick_num[code]             # <<<<<<<<<<<<<<
@@ -21738,7 +21738,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__decode_number_fast(struct __
     __pyx_r = (__pyx_v_dec->quick_num[__pyx_v_code]);
     goto __pyx_L0;
 
-    /* "refinery/lib/unrar/unpack50.pyx":181
+    /* "refinery/lib/unrar/unpack50.pyx":182
  *     bit_field = inp.getbits() & 0xFFFE
  * 
  *     if bit_field < dec.decode_len[dec.quick_bits]:             # <<<<<<<<<<<<<<
@@ -21747,7 +21747,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__decode_number_fast(struct __
 */
   }
 
-  /* "refinery/lib/unrar/unpack50.pyx":186
+  /* "refinery/lib/unrar/unpack50.pyx":187
  *         return dec.quick_num[code]
  * 
  *     bits = 15             # <<<<<<<<<<<<<<
@@ -21756,7 +21756,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__decode_number_fast(struct __
 */
   __pyx_v_bits = 15;
 
-  /* "refinery/lib/unrar/unpack50.pyx":187
+  /* "refinery/lib/unrar/unpack50.pyx":188
  * 
  *     bits = 15
  *     for i in range(dec.quick_bits + 1, 15):             # <<<<<<<<<<<<<<
@@ -21766,7 +21766,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__decode_number_fast(struct __
   for (__pyx_t_1 = (__pyx_v_dec->quick_bits + 1); __pyx_t_1 < 15; __pyx_t_1+=1) {
     __pyx_v_i = __pyx_t_1;
 
-    /* "refinery/lib/unrar/unpack50.pyx":188
+    /* "refinery/lib/unrar/unpack50.pyx":189
  *     bits = 15
  *     for i in range(dec.quick_bits + 1, 15):
  *         if bit_field < dec.decode_len[i]:             # <<<<<<<<<<<<<<
@@ -21776,7 +21776,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__decode_number_fast(struct __
     __pyx_t_2 = (__pyx_v_bit_field < (__pyx_v_dec->decode_len[__pyx_v_i]));
     if (__pyx_t_2) {
 
-      /* "refinery/lib/unrar/unpack50.pyx":189
+      /* "refinery/lib/unrar/unpack50.pyx":190
  *     for i in range(dec.quick_bits + 1, 15):
  *         if bit_field < dec.decode_len[i]:
  *             bits = i             # <<<<<<<<<<<<<<
@@ -21785,7 +21785,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__decode_number_fast(struct __
 */
       __pyx_v_bits = __pyx_v_i;
 
-      /* "refinery/lib/unrar/unpack50.pyx":190
+      /* "refinery/lib/unrar/unpack50.pyx":191
  *         if bit_field < dec.decode_len[i]:
  *             bits = i
  *             break             # <<<<<<<<<<<<<<
@@ -21794,7 +21794,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__decode_number_fast(struct __
 */
       goto __pyx_L5_break;
 
-      /* "refinery/lib/unrar/unpack50.pyx":188
+      /* "refinery/lib/unrar/unpack50.pyx":189
  *     bits = 15
  *     for i in range(dec.quick_bits + 1, 15):
  *         if bit_field < dec.decode_len[i]:             # <<<<<<<<<<<<<<
@@ -21805,16 +21805,16 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__decode_number_fast(struct __
   }
   __pyx_L5_break:;
 
-  /* "refinery/lib/unrar/unpack50.pyx":192
+  /* "refinery/lib/unrar/unpack50.pyx":193
  *             break
  * 
  *     inp.addbits(bits)             # <<<<<<<<<<<<<<
  *     dist = bit_field - dec.decode_len[bits - 1]
  *     dist >>= (16 - bits)
 */
-  ((struct __pyx_vtabstruct_8refinery_3lib_5unrar_8unpack50_BitInput *)__pyx_v_inp->__pyx_vtab)->addbits(__pyx_v_inp, __pyx_v_bits, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 192, __pyx_L1_error)
+  ((struct __pyx_vtabstruct_8refinery_3lib_5unrar_8unpack50_BitInput *)__pyx_v_inp->__pyx_vtab)->addbits(__pyx_v_inp, __pyx_v_bits, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 193, __pyx_L1_error)
 
-  /* "refinery/lib/unrar/unpack50.pyx":193
+  /* "refinery/lib/unrar/unpack50.pyx":194
  * 
  *     inp.addbits(bits)
  *     dist = bit_field - dec.decode_len[bits - 1]             # <<<<<<<<<<<<<<
@@ -21823,7 +21823,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__decode_number_fast(struct __
 */
   __pyx_v_dist = (__pyx_v_bit_field - (__pyx_v_dec->decode_len[(__pyx_v_bits - 1)]));
 
-  /* "refinery/lib/unrar/unpack50.pyx":194
+  /* "refinery/lib/unrar/unpack50.pyx":195
  *     inp.addbits(bits)
  *     dist = bit_field - dec.decode_len[bits - 1]
  *     dist >>= (16 - bits)             # <<<<<<<<<<<<<<
@@ -21832,7 +21832,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__decode_number_fast(struct __
 */
   __pyx_v_dist = (__pyx_v_dist >> (16 - __pyx_v_bits));
 
-  /* "refinery/lib/unrar/unpack50.pyx":195
+  /* "refinery/lib/unrar/unpack50.pyx":196
  *     dist = bit_field - dec.decode_len[bits - 1]
  *     dist >>= (16 - bits)
  *     pos = dec.decode_pos[bits] + dist             # <<<<<<<<<<<<<<
@@ -21841,7 +21841,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__decode_number_fast(struct __
 */
   __pyx_v_pos = ((__pyx_v_dec->decode_pos[__pyx_v_bits]) + __pyx_v_dist);
 
-  /* "refinery/lib/unrar/unpack50.pyx":196
+  /* "refinery/lib/unrar/unpack50.pyx":197
  *     dist >>= (16 - bits)
  *     pos = dec.decode_pos[bits] + dist
  *     if pos >= dec.max_num:             # <<<<<<<<<<<<<<
@@ -21851,7 +21851,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__decode_number_fast(struct __
   __pyx_t_2 = (__pyx_v_pos >= __pyx_v_dec->max_num);
   if (__pyx_t_2) {
 
-    /* "refinery/lib/unrar/unpack50.pyx":197
+    /* "refinery/lib/unrar/unpack50.pyx":198
  *     pos = dec.decode_pos[bits] + dist
  *     if pos >= dec.max_num:
  *         pos = 0             # <<<<<<<<<<<<<<
@@ -21860,7 +21860,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__decode_number_fast(struct __
 */
     __pyx_v_pos = 0;
 
-    /* "refinery/lib/unrar/unpack50.pyx":196
+    /* "refinery/lib/unrar/unpack50.pyx":197
  *     dist >>= (16 - bits)
  *     pos = dec.decode_pos[bits] + dist
  *     if pos >= dec.max_num:             # <<<<<<<<<<<<<<
@@ -21869,7 +21869,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__decode_number_fast(struct __
 */
   }
 
-  /* "refinery/lib/unrar/unpack50.pyx":198
+  /* "refinery/lib/unrar/unpack50.pyx":199
  *     if pos >= dec.max_num:
  *         pos = 0
  *     return dec.decode_num[pos]             # <<<<<<<<<<<<<<
@@ -21879,7 +21879,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__decode_number_fast(struct __
   __pyx_r = (__pyx_v_dec->decode_num[__pyx_v_pos]);
   goto __pyx_L0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":176
+  /* "refinery/lib/unrar/unpack50.pyx":177
  * 
  * 
  * cdef int _decode_number_fast(BitInput inp, DecodeTable dec):             # <<<<<<<<<<<<<<
@@ -21895,7 +21895,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__decode_number_fast(struct __
   return __pyx_r;
 }
 
-/* "refinery/lib/unrar/unpack50.pyx":201
+/* "refinery/lib/unrar/unpack50.pyx":202
  * 
  * 
  * def decode_number(inp, DecodeTable dec):             # <<<<<<<<<<<<<<
@@ -21944,39 +21944,39 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_inp,&__pyx_mstate_global->__pyx_n_u_dec,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 201, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 202, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 201, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 202, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 201, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 202, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "decode_number", 0) < (0)) __PYX_ERR(0, 201, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "decode_number", 0) < (0)) __PYX_ERR(0, 202, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 2; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("decode_number", 1, 2, 2, i); __PYX_ERR(0, 201, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("decode_number", 1, 2, 2, i); __PYX_ERR(0, 202, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 2)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 201, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 202, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 201, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 202, __pyx_L3_error)
     }
     __pyx_v_inp = values[0];
     __pyx_v_dec = ((struct __pyx_obj_8refinery_3lib_5unrar_8unpack50_DecodeTable *)values[1]);
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("decode_number", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 201, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("decode_number", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 202, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -21987,7 +21987,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_dec), __pyx_mstate_global->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_DecodeTable, 1, "dec", 0))) __PYX_ERR(0, 201, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_dec), __pyx_mstate_global->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_DecodeTable, 1, "dec", 0))) __PYX_ERR(0, 202, __pyx_L1_error)
   __pyx_r = __pyx_pf_8refinery_3lib_5unrar_8unpack50_2decode_number(__pyx_self, __pyx_v_inp, __pyx_v_dec);
 
   /* function exit code */
@@ -22027,7 +22027,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_2decode_number(CYTHON_
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("decode_number", 0);
 
-  /* "refinery/lib/unrar/unpack50.pyx":207
+  /* "refinery/lib/unrar/unpack50.pyx":208
  *     cdef int bit_field, code, bits, i, dist, pos
  * 
  *     if isinstance(inp, BitInput):             # <<<<<<<<<<<<<<
@@ -22037,7 +22037,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_2decode_number(CYTHON_
   __pyx_t_1 = __Pyx_TypeCheck(__pyx_v_inp, __pyx_mstate_global->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BitInput); 
   if (__pyx_t_1) {
 
-    /* "refinery/lib/unrar/unpack50.pyx":208
+    /* "refinery/lib/unrar/unpack50.pyx":209
  * 
  *     if isinstance(inp, BitInput):
  *         return _decode_number_fast(<BitInput>inp, dec)             # <<<<<<<<<<<<<<
@@ -22045,14 +22045,14 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_2decode_number(CYTHON_
  *     bit_field = inp.getbits() & 0xFFFE
 */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_2 = __pyx_f_8refinery_3lib_5unrar_8unpack50__decode_number_fast(((struct __pyx_obj_8refinery_3lib_5unrar_8unpack50_BitInput *)__pyx_v_inp), __pyx_v_dec); if (unlikely(__pyx_t_2 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 208, __pyx_L1_error)
-    __pyx_t_3 = __Pyx_PyLong_From_int(__pyx_t_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 208, __pyx_L1_error)
+    __pyx_t_2 = __pyx_f_8refinery_3lib_5unrar_8unpack50__decode_number_fast(((struct __pyx_obj_8refinery_3lib_5unrar_8unpack50_BitInput *)__pyx_v_inp), __pyx_v_dec); if (unlikely(__pyx_t_2 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 209, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyLong_From_int(__pyx_t_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 209, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_r = __pyx_t_3;
     __pyx_t_3 = 0;
     goto __pyx_L0;
 
-    /* "refinery/lib/unrar/unpack50.pyx":207
+    /* "refinery/lib/unrar/unpack50.pyx":208
  *     cdef int bit_field, code, bits, i, dist, pos
  * 
  *     if isinstance(inp, BitInput):             # <<<<<<<<<<<<<<
@@ -22061,7 +22061,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_2decode_number(CYTHON_
 */
   }
 
-  /* "refinery/lib/unrar/unpack50.pyx":210
+  /* "refinery/lib/unrar/unpack50.pyx":211
  *         return _decode_number_fast(<BitInput>inp, dec)
  * 
  *     bit_field = inp.getbits() & 0xFFFE             # <<<<<<<<<<<<<<
@@ -22075,17 +22075,17 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_2decode_number(CYTHON_
     PyObject *__pyx_callargs[2] = {__pyx_t_4, NULL};
     __pyx_t_3 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_getbits, __pyx_callargs+__pyx_t_5, (1-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 210, __pyx_L1_error)
+    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 211, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
   }
-  __pyx_t_4 = __Pyx_PyLong_AndObjC(__pyx_t_3, __pyx_mstate_global->__pyx_int_65534, 0xFFFE, 0, 0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 210, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyLong_AndObjC(__pyx_t_3, __pyx_mstate_global->__pyx_int_65534, 0xFFFE, 0, 0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 211, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_2 = __Pyx_PyLong_As_int(__pyx_t_4); if (unlikely((__pyx_t_2 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 210, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyLong_As_int(__pyx_t_4); if (unlikely((__pyx_t_2 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 211, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __pyx_v_bit_field = __pyx_t_2;
 
-  /* "refinery/lib/unrar/unpack50.pyx":212
+  /* "refinery/lib/unrar/unpack50.pyx":213
  *     bit_field = inp.getbits() & 0xFFFE
  * 
  *     if bit_field < dec.decode_len[dec.quick_bits]:             # <<<<<<<<<<<<<<
@@ -22095,7 +22095,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_2decode_number(CYTHON_
   __pyx_t_1 = (__pyx_v_bit_field < (__pyx_v_dec->decode_len[__pyx_v_dec->quick_bits]));
   if (__pyx_t_1) {
 
-    /* "refinery/lib/unrar/unpack50.pyx":213
+    /* "refinery/lib/unrar/unpack50.pyx":214
  * 
  *     if bit_field < dec.decode_len[dec.quick_bits]:
  *         code = bit_field >> (16 - dec.quick_bits)             # <<<<<<<<<<<<<<
@@ -22104,7 +22104,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_2decode_number(CYTHON_
 */
     __pyx_v_code = (__pyx_v_bit_field >> (16 - __pyx_v_dec->quick_bits));
 
-    /* "refinery/lib/unrar/unpack50.pyx":214
+    /* "refinery/lib/unrar/unpack50.pyx":215
  *     if bit_field < dec.decode_len[dec.quick_bits]:
  *         code = bit_field >> (16 - dec.quick_bits)
  *         inp.addbits(dec.quick_len[code])             # <<<<<<<<<<<<<<
@@ -22113,7 +22113,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_2decode_number(CYTHON_
 */
     __pyx_t_3 = __pyx_v_inp;
     __Pyx_INCREF(__pyx_t_3);
-    __pyx_t_6 = __Pyx_PyLong_From_unsigned_char((__pyx_v_dec->quick_len[__pyx_v_code])); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 214, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyLong_From_unsigned_char((__pyx_v_dec->quick_len[__pyx_v_code])); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 215, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __pyx_t_5 = 0;
     {
@@ -22121,12 +22121,12 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_2decode_number(CYTHON_
       __pyx_t_4 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_addbits, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 214, __pyx_L1_error)
+      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 215, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
     }
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-    /* "refinery/lib/unrar/unpack50.pyx":215
+    /* "refinery/lib/unrar/unpack50.pyx":216
  *         code = bit_field >> (16 - dec.quick_bits)
  *         inp.addbits(dec.quick_len[code])
  *         return dec.quick_num[code]             # <<<<<<<<<<<<<<
@@ -22134,13 +22134,13 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_2decode_number(CYTHON_
  *     bits = 15
 */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_4 = __Pyx_PyLong_From_int((__pyx_v_dec->quick_num[__pyx_v_code])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 215, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyLong_From_int((__pyx_v_dec->quick_num[__pyx_v_code])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 216, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_r = __pyx_t_4;
     __pyx_t_4 = 0;
     goto __pyx_L0;
 
-    /* "refinery/lib/unrar/unpack50.pyx":212
+    /* "refinery/lib/unrar/unpack50.pyx":213
  *     bit_field = inp.getbits() & 0xFFFE
  * 
  *     if bit_field < dec.decode_len[dec.quick_bits]:             # <<<<<<<<<<<<<<
@@ -22149,7 +22149,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_2decode_number(CYTHON_
 */
   }
 
-  /* "refinery/lib/unrar/unpack50.pyx":217
+  /* "refinery/lib/unrar/unpack50.pyx":218
  *         return dec.quick_num[code]
  * 
  *     bits = 15             # <<<<<<<<<<<<<<
@@ -22158,7 +22158,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_2decode_number(CYTHON_
 */
   __pyx_v_bits = 15;
 
-  /* "refinery/lib/unrar/unpack50.pyx":218
+  /* "refinery/lib/unrar/unpack50.pyx":219
  * 
  *     bits = 15
  *     for i in range(dec.quick_bits + 1, 15):             # <<<<<<<<<<<<<<
@@ -22168,7 +22168,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_2decode_number(CYTHON_
   for (__pyx_t_2 = (__pyx_v_dec->quick_bits + 1); __pyx_t_2 < 15; __pyx_t_2+=1) {
     __pyx_v_i = __pyx_t_2;
 
-    /* "refinery/lib/unrar/unpack50.pyx":219
+    /* "refinery/lib/unrar/unpack50.pyx":220
  *     bits = 15
  *     for i in range(dec.quick_bits + 1, 15):
  *         if bit_field < dec.decode_len[i]:             # <<<<<<<<<<<<<<
@@ -22178,7 +22178,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_2decode_number(CYTHON_
     __pyx_t_1 = (__pyx_v_bit_field < (__pyx_v_dec->decode_len[__pyx_v_i]));
     if (__pyx_t_1) {
 
-      /* "refinery/lib/unrar/unpack50.pyx":220
+      /* "refinery/lib/unrar/unpack50.pyx":221
  *     for i in range(dec.quick_bits + 1, 15):
  *         if bit_field < dec.decode_len[i]:
  *             bits = i             # <<<<<<<<<<<<<<
@@ -22187,7 +22187,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_2decode_number(CYTHON_
 */
       __pyx_v_bits = __pyx_v_i;
 
-      /* "refinery/lib/unrar/unpack50.pyx":221
+      /* "refinery/lib/unrar/unpack50.pyx":222
  *         if bit_field < dec.decode_len[i]:
  *             bits = i
  *             break             # <<<<<<<<<<<<<<
@@ -22196,7 +22196,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_2decode_number(CYTHON_
 */
       goto __pyx_L6_break;
 
-      /* "refinery/lib/unrar/unpack50.pyx":219
+      /* "refinery/lib/unrar/unpack50.pyx":220
  *     bits = 15
  *     for i in range(dec.quick_bits + 1, 15):
  *         if bit_field < dec.decode_len[i]:             # <<<<<<<<<<<<<<
@@ -22207,7 +22207,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_2decode_number(CYTHON_
   }
   __pyx_L6_break:;
 
-  /* "refinery/lib/unrar/unpack50.pyx":223
+  /* "refinery/lib/unrar/unpack50.pyx":224
  *             break
  * 
  *     inp.addbits(bits)             # <<<<<<<<<<<<<<
@@ -22216,7 +22216,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_2decode_number(CYTHON_
 */
   __pyx_t_6 = __pyx_v_inp;
   __Pyx_INCREF(__pyx_t_6);
-  __pyx_t_3 = __Pyx_PyLong_From_int(__pyx_v_bits); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 223, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyLong_From_int(__pyx_v_bits); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 224, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_t_5 = 0;
   {
@@ -22224,12 +22224,12 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_2decode_number(CYTHON_
     __pyx_t_4 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_addbits, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 223, __pyx_L1_error)
+    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 224, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
   }
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":224
+  /* "refinery/lib/unrar/unpack50.pyx":225
  * 
  *     inp.addbits(bits)
  *     dist = bit_field - dec.decode_len[bits - 1]             # <<<<<<<<<<<<<<
@@ -22238,7 +22238,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_2decode_number(CYTHON_
 */
   __pyx_v_dist = (__pyx_v_bit_field - (__pyx_v_dec->decode_len[(__pyx_v_bits - 1)]));
 
-  /* "refinery/lib/unrar/unpack50.pyx":225
+  /* "refinery/lib/unrar/unpack50.pyx":226
  *     inp.addbits(bits)
  *     dist = bit_field - dec.decode_len[bits - 1]
  *     dist >>= (16 - bits)             # <<<<<<<<<<<<<<
@@ -22247,7 +22247,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_2decode_number(CYTHON_
 */
   __pyx_v_dist = (__pyx_v_dist >> (16 - __pyx_v_bits));
 
-  /* "refinery/lib/unrar/unpack50.pyx":226
+  /* "refinery/lib/unrar/unpack50.pyx":227
  *     dist = bit_field - dec.decode_len[bits - 1]
  *     dist >>= (16 - bits)
  *     pos = dec.decode_pos[bits] + dist             # <<<<<<<<<<<<<<
@@ -22256,7 +22256,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_2decode_number(CYTHON_
 */
   __pyx_v_pos = ((__pyx_v_dec->decode_pos[__pyx_v_bits]) + __pyx_v_dist);
 
-  /* "refinery/lib/unrar/unpack50.pyx":227
+  /* "refinery/lib/unrar/unpack50.pyx":228
  *     dist >>= (16 - bits)
  *     pos = dec.decode_pos[bits] + dist
  *     if pos >= dec.max_num:             # <<<<<<<<<<<<<<
@@ -22266,7 +22266,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_2decode_number(CYTHON_
   __pyx_t_1 = (__pyx_v_pos >= __pyx_v_dec->max_num);
   if (__pyx_t_1) {
 
-    /* "refinery/lib/unrar/unpack50.pyx":228
+    /* "refinery/lib/unrar/unpack50.pyx":229
  *     pos = dec.decode_pos[bits] + dist
  *     if pos >= dec.max_num:
  *         pos = 0             # <<<<<<<<<<<<<<
@@ -22275,7 +22275,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_2decode_number(CYTHON_
 */
     __pyx_v_pos = 0;
 
-    /* "refinery/lib/unrar/unpack50.pyx":227
+    /* "refinery/lib/unrar/unpack50.pyx":228
  *     dist >>= (16 - bits)
  *     pos = dec.decode_pos[bits] + dist
  *     if pos >= dec.max_num:             # <<<<<<<<<<<<<<
@@ -22284,7 +22284,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_2decode_number(CYTHON_
 */
   }
 
-  /* "refinery/lib/unrar/unpack50.pyx":229
+  /* "refinery/lib/unrar/unpack50.pyx":230
  *     if pos >= dec.max_num:
  *         pos = 0
  *     return dec.decode_num[pos]             # <<<<<<<<<<<<<<
@@ -22292,13 +22292,13 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_2decode_number(CYTHON_
  * 
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_4 = __Pyx_PyLong_From_int((__pyx_v_dec->decode_num[__pyx_v_pos])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 229, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyLong_From_int((__pyx_v_dec->decode_num[__pyx_v_pos])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 230, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __pyx_r = __pyx_t_4;
   __pyx_t_4 = 0;
   goto __pyx_L0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":201
+  /* "refinery/lib/unrar/unpack50.pyx":202
  * 
  * 
  * def decode_number(inp, DecodeTable dec):             # <<<<<<<<<<<<<<
@@ -22319,7 +22319,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_2decode_number(CYTHON_
   return __pyx_r;
 }
 
-/* "refinery/lib/unrar/unpack50.pyx":232
+/* "refinery/lib/unrar/unpack50.pyx":233
  * 
  * 
  * cdef int _slot_to_length(BitInput inp, int slot):             # <<<<<<<<<<<<<<
@@ -22337,7 +22337,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__slot_to_length(struct __pyx_
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":234
+  /* "refinery/lib/unrar/unpack50.pyx":235
  * cdef int _slot_to_length(BitInput inp, int slot):
  *     cdef int l_bits, length
  *     if slot < 8:             # <<<<<<<<<<<<<<
@@ -22347,7 +22347,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__slot_to_length(struct __pyx_
   __pyx_t_1 = (__pyx_v_slot < 8);
   if (__pyx_t_1) {
 
-    /* "refinery/lib/unrar/unpack50.pyx":235
+    /* "refinery/lib/unrar/unpack50.pyx":236
  *     cdef int l_bits, length
  *     if slot < 8:
  *         l_bits = 0             # <<<<<<<<<<<<<<
@@ -22356,7 +22356,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__slot_to_length(struct __pyx_
 */
     __pyx_v_l_bits = 0;
 
-    /* "refinery/lib/unrar/unpack50.pyx":236
+    /* "refinery/lib/unrar/unpack50.pyx":237
  *     if slot < 8:
  *         l_bits = 0
  *         length = 2 + slot             # <<<<<<<<<<<<<<
@@ -22365,7 +22365,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__slot_to_length(struct __pyx_
 */
     __pyx_v_length = (2 + __pyx_v_slot);
 
-    /* "refinery/lib/unrar/unpack50.pyx":234
+    /* "refinery/lib/unrar/unpack50.pyx":235
  * cdef int _slot_to_length(BitInput inp, int slot):
  *     cdef int l_bits, length
  *     if slot < 8:             # <<<<<<<<<<<<<<
@@ -22375,7 +22375,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__slot_to_length(struct __pyx_
     goto __pyx_L3;
   }
 
-  /* "refinery/lib/unrar/unpack50.pyx":238
+  /* "refinery/lib/unrar/unpack50.pyx":239
  *         length = 2 + slot
  *     else:
  *         l_bits = slot // 4 - 1             # <<<<<<<<<<<<<<
@@ -22385,7 +22385,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__slot_to_length(struct __pyx_
   /*else*/ {
     __pyx_v_l_bits = ((__pyx_v_slot / 4) - 1);
 
-    /* "refinery/lib/unrar/unpack50.pyx":239
+    /* "refinery/lib/unrar/unpack50.pyx":240
  *     else:
  *         l_bits = slot // 4 - 1
  *         length = 2 + ((4 | (slot & 3)) << l_bits)             # <<<<<<<<<<<<<<
@@ -22396,7 +22396,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__slot_to_length(struct __pyx_
   }
   __pyx_L3:;
 
-  /* "refinery/lib/unrar/unpack50.pyx":241
+  /* "refinery/lib/unrar/unpack50.pyx":242
  *         length = 2 + ((4 | (slot & 3)) << l_bits)
  * 
  *     if l_bits > 0:             # <<<<<<<<<<<<<<
@@ -22406,26 +22406,26 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__slot_to_length(struct __pyx_
   __pyx_t_1 = (__pyx_v_l_bits > 0);
   if (__pyx_t_1) {
 
-    /* "refinery/lib/unrar/unpack50.pyx":242
+    /* "refinery/lib/unrar/unpack50.pyx":243
  * 
  *     if l_bits > 0:
  *         length += inp.getbits() >> (16 - l_bits)             # <<<<<<<<<<<<<<
  *         inp.addbits(l_bits)
  *     return length
 */
-    __pyx_t_2 = ((struct __pyx_vtabstruct_8refinery_3lib_5unrar_8unpack50_BitInput *)__pyx_v_inp->__pyx_vtab)->getbits(__pyx_v_inp, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 242, __pyx_L1_error)
+    __pyx_t_2 = ((struct __pyx_vtabstruct_8refinery_3lib_5unrar_8unpack50_BitInput *)__pyx_v_inp->__pyx_vtab)->getbits(__pyx_v_inp, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 243, __pyx_L1_error)
     __pyx_v_length = (__pyx_v_length + (__pyx_t_2 >> (16 - __pyx_v_l_bits)));
 
-    /* "refinery/lib/unrar/unpack50.pyx":243
+    /* "refinery/lib/unrar/unpack50.pyx":244
  *     if l_bits > 0:
  *         length += inp.getbits() >> (16 - l_bits)
  *         inp.addbits(l_bits)             # <<<<<<<<<<<<<<
  *     return length
  * 
 */
-    ((struct __pyx_vtabstruct_8refinery_3lib_5unrar_8unpack50_BitInput *)__pyx_v_inp->__pyx_vtab)->addbits(__pyx_v_inp, __pyx_v_l_bits, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 243, __pyx_L1_error)
+    ((struct __pyx_vtabstruct_8refinery_3lib_5unrar_8unpack50_BitInput *)__pyx_v_inp->__pyx_vtab)->addbits(__pyx_v_inp, __pyx_v_l_bits, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 244, __pyx_L1_error)
 
-    /* "refinery/lib/unrar/unpack50.pyx":241
+    /* "refinery/lib/unrar/unpack50.pyx":242
  *         length = 2 + ((4 | (slot & 3)) << l_bits)
  * 
  *     if l_bits > 0:             # <<<<<<<<<<<<<<
@@ -22434,7 +22434,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__slot_to_length(struct __pyx_
 */
   }
 
-  /* "refinery/lib/unrar/unpack50.pyx":244
+  /* "refinery/lib/unrar/unpack50.pyx":245
  *         length += inp.getbits() >> (16 - l_bits)
  *         inp.addbits(l_bits)
  *     return length             # <<<<<<<<<<<<<<
@@ -22444,7 +22444,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__slot_to_length(struct __pyx_
   __pyx_r = __pyx_v_length;
   goto __pyx_L0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":232
+  /* "refinery/lib/unrar/unpack50.pyx":233
  * 
  * 
  * cdef int _slot_to_length(BitInput inp, int slot):             # <<<<<<<<<<<<<<
@@ -22460,7 +22460,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__slot_to_length(struct __pyx_
   return __pyx_r;
 }
 
-/* "refinery/lib/unrar/unpack50.pyx":247
+/* "refinery/lib/unrar/unpack50.pyx":248
  * 
  * 
  * def slot_to_length(BitInput inp, int slot):             # <<<<<<<<<<<<<<
@@ -22509,39 +22509,39 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_inp,&__pyx_mstate_global->__pyx_n_u_slot,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 247, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 248, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 247, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 248, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 247, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 248, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "slot_to_length", 0) < (0)) __PYX_ERR(0, 247, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "slot_to_length", 0) < (0)) __PYX_ERR(0, 248, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 2; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("slot_to_length", 1, 2, 2, i); __PYX_ERR(0, 247, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("slot_to_length", 1, 2, 2, i); __PYX_ERR(0, 248, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 2)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 247, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 248, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 247, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 248, __pyx_L3_error)
     }
     __pyx_v_inp = ((struct __pyx_obj_8refinery_3lib_5unrar_8unpack50_BitInput *)values[0]);
-    __pyx_v_slot = __Pyx_PyLong_As_int(values[1]); if (unlikely((__pyx_v_slot == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 247, __pyx_L3_error)
+    __pyx_v_slot = __Pyx_PyLong_As_int(values[1]); if (unlikely((__pyx_v_slot == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 248, __pyx_L3_error)
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("slot_to_length", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 247, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("slot_to_length", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 248, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -22552,7 +22552,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_inp), __pyx_mstate_global->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BitInput, 1, "inp", 0))) __PYX_ERR(0, 247, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_inp), __pyx_mstate_global->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BitInput, 1, "inp", 0))) __PYX_ERR(0, 248, __pyx_L1_error)
   __pyx_r = __pyx_pf_8refinery_3lib_5unrar_8unpack50_4slot_to_length(__pyx_self, __pyx_v_inp, __pyx_v_slot);
 
   /* function exit code */
@@ -22582,7 +22582,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_4slot_to_length(CYTHON
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("slot_to_length", 0);
 
-  /* "refinery/lib/unrar/unpack50.pyx":251
+  /* "refinery/lib/unrar/unpack50.pyx":252
  *     Convert a length slot to actual length.
  *     """
  *     return _slot_to_length(inp, slot)             # <<<<<<<<<<<<<<
@@ -22590,14 +22590,14 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_4slot_to_length(CYTHON
  * 
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_8refinery_3lib_5unrar_8unpack50__slot_to_length(__pyx_v_inp, __pyx_v_slot); if (unlikely(__pyx_t_1 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 251, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_PyLong_From_int(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 251, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_8refinery_3lib_5unrar_8unpack50__slot_to_length(__pyx_v_inp, __pyx_v_slot); if (unlikely(__pyx_t_1 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 252, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyLong_From_int(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 252, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_r = __pyx_t_2;
   __pyx_t_2 = 0;
   goto __pyx_L0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":247
+  /* "refinery/lib/unrar/unpack50.pyx":248
  * 
  * 
  * def slot_to_length(BitInput inp, int slot):             # <<<<<<<<<<<<<<
@@ -22616,7 +22616,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_4slot_to_length(CYTHON
   return __pyx_r;
 }
 
-/* "refinery/lib/unrar/unpack50.pyx":263
+/* "refinery/lib/unrar/unpack50.pyx":264
  *         public bint table_present
  * 
  *     def __init__(self):             # <<<<<<<<<<<<<<
@@ -22652,7 +22652,7 @@ static int __pyx_pw_8refinery_3lib_5unrar_8unpack50_11BlockHeader_1__init__(PyOb
 static int __pyx_pf_8refinery_3lib_5unrar_8unpack50_11BlockHeader___init__(struct __pyx_obj_8refinery_3lib_5unrar_8unpack50_BlockHeader *__pyx_v_self) {
   int __pyx_r;
 
-  /* "refinery/lib/unrar/unpack50.pyx":264
+  /* "refinery/lib/unrar/unpack50.pyx":265
  * 
  *     def __init__(self):
  *         self.block_size = -1             # <<<<<<<<<<<<<<
@@ -22661,7 +22661,7 @@ static int __pyx_pf_8refinery_3lib_5unrar_8unpack50_11BlockHeader___init__(struc
 */
   __pyx_v_self->block_size = -1;
 
-  /* "refinery/lib/unrar/unpack50.pyx":265
+  /* "refinery/lib/unrar/unpack50.pyx":266
  *     def __init__(self):
  *         self.block_size = -1
  *         self.block_bit_size = 0             # <<<<<<<<<<<<<<
@@ -22670,7 +22670,7 @@ static int __pyx_pf_8refinery_3lib_5unrar_8unpack50_11BlockHeader___init__(struc
 */
   __pyx_v_self->block_bit_size = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":266
+  /* "refinery/lib/unrar/unpack50.pyx":267
  *         self.block_size = -1
  *         self.block_bit_size = 0
  *         self.block_start = 0             # <<<<<<<<<<<<<<
@@ -22679,7 +22679,7 @@ static int __pyx_pf_8refinery_3lib_5unrar_8unpack50_11BlockHeader___init__(struc
 */
   __pyx_v_self->block_start = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":267
+  /* "refinery/lib/unrar/unpack50.pyx":268
  *         self.block_bit_size = 0
  *         self.block_start = 0
  *         self.header_size = 0             # <<<<<<<<<<<<<<
@@ -22688,7 +22688,7 @@ static int __pyx_pf_8refinery_3lib_5unrar_8unpack50_11BlockHeader___init__(struc
 */
   __pyx_v_self->header_size = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":268
+  /* "refinery/lib/unrar/unpack50.pyx":269
  *         self.block_start = 0
  *         self.header_size = 0
  *         self.last_block = False             # <<<<<<<<<<<<<<
@@ -22697,7 +22697,7 @@ static int __pyx_pf_8refinery_3lib_5unrar_8unpack50_11BlockHeader___init__(struc
 */
   __pyx_v_self->last_block = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":269
+  /* "refinery/lib/unrar/unpack50.pyx":270
  *         self.header_size = 0
  *         self.last_block = False
  *         self.table_present = False             # <<<<<<<<<<<<<<
@@ -22706,7 +22706,7 @@ static int __pyx_pf_8refinery_3lib_5unrar_8unpack50_11BlockHeader___init__(struc
 */
   __pyx_v_self->table_present = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":263
+  /* "refinery/lib/unrar/unpack50.pyx":264
  *         public bint table_present
  * 
  *     def __init__(self):             # <<<<<<<<<<<<<<
@@ -22719,7 +22719,7 @@ static int __pyx_pf_8refinery_3lib_5unrar_8unpack50_11BlockHeader___init__(struc
   return __pyx_r;
 }
 
-/* "refinery/lib/unrar/unpack50.pyx":256
+/* "refinery/lib/unrar/unpack50.pyx":257
  * cdef class BlockHeader:
  *     cdef:
  *         public int block_size             # <<<<<<<<<<<<<<
@@ -22751,7 +22751,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_11BlockHeader_10block_
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_self->block_size); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 256, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_self->block_size); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 257, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -22789,7 +22789,7 @@ static int __pyx_pf_8refinery_3lib_5unrar_8unpack50_11BlockHeader_10block_size_2
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
-  __pyx_t_1 = __Pyx_PyLong_As_int(__pyx_v_value); if (unlikely((__pyx_t_1 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 256, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_As_int(__pyx_v_value); if (unlikely((__pyx_t_1 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 257, __pyx_L1_error)
   __pyx_v_self->block_size = __pyx_t_1;
 
   /* function exit code */
@@ -22802,7 +22802,7 @@ static int __pyx_pf_8refinery_3lib_5unrar_8unpack50_11BlockHeader_10block_size_2
   return __pyx_r;
 }
 
-/* "refinery/lib/unrar/unpack50.pyx":257
+/* "refinery/lib/unrar/unpack50.pyx":258
  *     cdef:
  *         public int block_size
  *         public int block_bit_size             # <<<<<<<<<<<<<<
@@ -22834,7 +22834,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_11BlockHeader_14block_
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_self->block_bit_size); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 257, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_self->block_bit_size); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 258, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -22872,7 +22872,7 @@ static int __pyx_pf_8refinery_3lib_5unrar_8unpack50_11BlockHeader_14block_bit_si
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
-  __pyx_t_1 = __Pyx_PyLong_As_int(__pyx_v_value); if (unlikely((__pyx_t_1 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 257, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_As_int(__pyx_v_value); if (unlikely((__pyx_t_1 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 258, __pyx_L1_error)
   __pyx_v_self->block_bit_size = __pyx_t_1;
 
   /* function exit code */
@@ -22885,7 +22885,7 @@ static int __pyx_pf_8refinery_3lib_5unrar_8unpack50_11BlockHeader_14block_bit_si
   return __pyx_r;
 }
 
-/* "refinery/lib/unrar/unpack50.pyx":258
+/* "refinery/lib/unrar/unpack50.pyx":259
  *         public int block_size
  *         public int block_bit_size
  *         public int block_start             # <<<<<<<<<<<<<<
@@ -22917,7 +22917,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_11BlockHeader_11block_
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_self->block_start); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 258, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_self->block_start); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 259, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -22955,7 +22955,7 @@ static int __pyx_pf_8refinery_3lib_5unrar_8unpack50_11BlockHeader_11block_start_
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
-  __pyx_t_1 = __Pyx_PyLong_As_int(__pyx_v_value); if (unlikely((__pyx_t_1 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 258, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_As_int(__pyx_v_value); if (unlikely((__pyx_t_1 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 259, __pyx_L1_error)
   __pyx_v_self->block_start = __pyx_t_1;
 
   /* function exit code */
@@ -22968,7 +22968,7 @@ static int __pyx_pf_8refinery_3lib_5unrar_8unpack50_11BlockHeader_11block_start_
   return __pyx_r;
 }
 
-/* "refinery/lib/unrar/unpack50.pyx":259
+/* "refinery/lib/unrar/unpack50.pyx":260
  *         public int block_bit_size
  *         public int block_start
  *         public int header_size             # <<<<<<<<<<<<<<
@@ -23000,7 +23000,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_11BlockHeader_11header
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_self->header_size); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 259, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_self->header_size); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 260, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -23038,7 +23038,7 @@ static int __pyx_pf_8refinery_3lib_5unrar_8unpack50_11BlockHeader_11header_size_
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
-  __pyx_t_1 = __Pyx_PyLong_As_int(__pyx_v_value); if (unlikely((__pyx_t_1 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 259, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_As_int(__pyx_v_value); if (unlikely((__pyx_t_1 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 260, __pyx_L1_error)
   __pyx_v_self->header_size = __pyx_t_1;
 
   /* function exit code */
@@ -23051,7 +23051,7 @@ static int __pyx_pf_8refinery_3lib_5unrar_8unpack50_11BlockHeader_11header_size_
   return __pyx_r;
 }
 
-/* "refinery/lib/unrar/unpack50.pyx":260
+/* "refinery/lib/unrar/unpack50.pyx":261
  *         public int block_start
  *         public int header_size
  *         public bint last_block             # <<<<<<<<<<<<<<
@@ -23083,7 +23083,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_11BlockHeader_10last_b
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyBool_FromLong(__pyx_v_self->last_block); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 260, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyBool_FromLong(__pyx_v_self->last_block); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 261, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -23121,7 +23121,7 @@ static int __pyx_pf_8refinery_3lib_5unrar_8unpack50_11BlockHeader_10last_block_2
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
-  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_value); if (unlikely((__pyx_t_1 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 260, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_value); if (unlikely((__pyx_t_1 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 261, __pyx_L1_error)
   __pyx_v_self->last_block = __pyx_t_1;
 
   /* function exit code */
@@ -23134,7 +23134,7 @@ static int __pyx_pf_8refinery_3lib_5unrar_8unpack50_11BlockHeader_10last_block_2
   return __pyx_r;
 }
 
-/* "refinery/lib/unrar/unpack50.pyx":261
+/* "refinery/lib/unrar/unpack50.pyx":262
  *         public int header_size
  *         public bint last_block
  *         public bint table_present             # <<<<<<<<<<<<<<
@@ -23166,7 +23166,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_11BlockHeader_13table_
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyBool_FromLong(__pyx_v_self->table_present); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 261, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyBool_FromLong(__pyx_v_self->table_present); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 262, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -23204,7 +23204,7 @@ static int __pyx_pf_8refinery_3lib_5unrar_8unpack50_11BlockHeader_13table_presen
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
-  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_value); if (unlikely((__pyx_t_1 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 261, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_value); if (unlikely((__pyx_t_1 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 262, __pyx_L1_error)
   __pyx_v_self->table_present = __pyx_t_1;
 
   /* function exit code */
@@ -23660,7 +23660,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_11BlockHeader_4__setst
   return __pyx_r;
 }
 
-/* "refinery/lib/unrar/unpack50.pyx":280
+/* "refinery/lib/unrar/unpack50.pyx":281
  *         public DecodeTable BD
  * 
  *     def __init__(self):             # <<<<<<<<<<<<<<
@@ -23704,7 +23704,7 @@ static int __pyx_pf_8refinery_3lib_5unrar_8unpack50_11BlockTables___init__(struc
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__init__", 0);
 
-  /* "refinery/lib/unrar/unpack50.pyx":281
+  /* "refinery/lib/unrar/unpack50.pyx":282
  * 
  *     def __init__(self):
  *         self.LD = DecodeTable()             # <<<<<<<<<<<<<<
@@ -23717,7 +23717,7 @@ static int __pyx_pf_8refinery_3lib_5unrar_8unpack50_11BlockTables___init__(struc
     PyObject *__pyx_callargs[2] = {__pyx_t_2, NULL};
     __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_mstate_global->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_DecodeTable, __pyx_callargs+__pyx_t_3, (1-__pyx_t_3) | (__pyx_t_3*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 281, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 282, __pyx_L1_error)
     __Pyx_GOTREF((PyObject *)__pyx_t_1);
   }
   __Pyx_GIVEREF((PyObject *)__pyx_t_1);
@@ -23726,7 +23726,7 @@ static int __pyx_pf_8refinery_3lib_5unrar_8unpack50_11BlockTables___init__(struc
   __pyx_v_self->LD = ((struct __pyx_obj_8refinery_3lib_5unrar_8unpack50_DecodeTable *)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":282
+  /* "refinery/lib/unrar/unpack50.pyx":283
  *     def __init__(self):
  *         self.LD = DecodeTable()
  *         self.DD = DecodeTable()             # <<<<<<<<<<<<<<
@@ -23739,7 +23739,7 @@ static int __pyx_pf_8refinery_3lib_5unrar_8unpack50_11BlockTables___init__(struc
     PyObject *__pyx_callargs[2] = {__pyx_t_2, NULL};
     __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_mstate_global->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_DecodeTable, __pyx_callargs+__pyx_t_3, (1-__pyx_t_3) | (__pyx_t_3*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 282, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 283, __pyx_L1_error)
     __Pyx_GOTREF((PyObject *)__pyx_t_1);
   }
   __Pyx_GIVEREF((PyObject *)__pyx_t_1);
@@ -23748,7 +23748,7 @@ static int __pyx_pf_8refinery_3lib_5unrar_8unpack50_11BlockTables___init__(struc
   __pyx_v_self->DD = ((struct __pyx_obj_8refinery_3lib_5unrar_8unpack50_DecodeTable *)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":283
+  /* "refinery/lib/unrar/unpack50.pyx":284
  *         self.LD = DecodeTable()
  *         self.DD = DecodeTable()
  *         self.LDD = DecodeTable()             # <<<<<<<<<<<<<<
@@ -23761,7 +23761,7 @@ static int __pyx_pf_8refinery_3lib_5unrar_8unpack50_11BlockTables___init__(struc
     PyObject *__pyx_callargs[2] = {__pyx_t_2, NULL};
     __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_mstate_global->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_DecodeTable, __pyx_callargs+__pyx_t_3, (1-__pyx_t_3) | (__pyx_t_3*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 283, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 284, __pyx_L1_error)
     __Pyx_GOTREF((PyObject *)__pyx_t_1);
   }
   __Pyx_GIVEREF((PyObject *)__pyx_t_1);
@@ -23770,7 +23770,7 @@ static int __pyx_pf_8refinery_3lib_5unrar_8unpack50_11BlockTables___init__(struc
   __pyx_v_self->LDD = ((struct __pyx_obj_8refinery_3lib_5unrar_8unpack50_DecodeTable *)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":284
+  /* "refinery/lib/unrar/unpack50.pyx":285
  *         self.DD = DecodeTable()
  *         self.LDD = DecodeTable()
  *         self.RD = DecodeTable()             # <<<<<<<<<<<<<<
@@ -23783,7 +23783,7 @@ static int __pyx_pf_8refinery_3lib_5unrar_8unpack50_11BlockTables___init__(struc
     PyObject *__pyx_callargs[2] = {__pyx_t_2, NULL};
     __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_mstate_global->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_DecodeTable, __pyx_callargs+__pyx_t_3, (1-__pyx_t_3) | (__pyx_t_3*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 284, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 285, __pyx_L1_error)
     __Pyx_GOTREF((PyObject *)__pyx_t_1);
   }
   __Pyx_GIVEREF((PyObject *)__pyx_t_1);
@@ -23792,7 +23792,7 @@ static int __pyx_pf_8refinery_3lib_5unrar_8unpack50_11BlockTables___init__(struc
   __pyx_v_self->RD = ((struct __pyx_obj_8refinery_3lib_5unrar_8unpack50_DecodeTable *)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":285
+  /* "refinery/lib/unrar/unpack50.pyx":286
  *         self.LDD = DecodeTable()
  *         self.RD = DecodeTable()
  *         self.BD = DecodeTable()             # <<<<<<<<<<<<<<
@@ -23805,7 +23805,7 @@ static int __pyx_pf_8refinery_3lib_5unrar_8unpack50_11BlockTables___init__(struc
     PyObject *__pyx_callargs[2] = {__pyx_t_2, NULL};
     __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_mstate_global->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_DecodeTable, __pyx_callargs+__pyx_t_3, (1-__pyx_t_3) | (__pyx_t_3*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 285, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 286, __pyx_L1_error)
     __Pyx_GOTREF((PyObject *)__pyx_t_1);
   }
   __Pyx_GIVEREF((PyObject *)__pyx_t_1);
@@ -23814,7 +23814,7 @@ static int __pyx_pf_8refinery_3lib_5unrar_8unpack50_11BlockTables___init__(struc
   __pyx_v_self->BD = ((struct __pyx_obj_8refinery_3lib_5unrar_8unpack50_DecodeTable *)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":280
+  /* "refinery/lib/unrar/unpack50.pyx":281
  *         public DecodeTable BD
  * 
  *     def __init__(self):             # <<<<<<<<<<<<<<
@@ -23835,7 +23835,7 @@ static int __pyx_pf_8refinery_3lib_5unrar_8unpack50_11BlockTables___init__(struc
   return __pyx_r;
 }
 
-/* "refinery/lib/unrar/unpack50.pyx":274
+/* "refinery/lib/unrar/unpack50.pyx":275
  * cdef class BlockTables:
  *     cdef:
  *         public DecodeTable LD             # <<<<<<<<<<<<<<
@@ -23899,7 +23899,7 @@ static int __pyx_pf_8refinery_3lib_5unrar_8unpack50_11BlockTables_2LD_2__set__(s
   __Pyx_RefNannySetupContext("__set__", 0);
   __pyx_t_1 = __pyx_v_value;
   __Pyx_INCREF(__pyx_t_1);
-  if (!(likely(((__pyx_t_1) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_1, __pyx_mstate_global->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_DecodeTable))))) __PYX_ERR(0, 274, __pyx_L1_error)
+  if (!(likely(((__pyx_t_1) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_1, __pyx_mstate_global->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_DecodeTable))))) __PYX_ERR(0, 275, __pyx_L1_error)
   __Pyx_GIVEREF(__pyx_t_1);
   __Pyx_GOTREF((PyObject *)__pyx_v_self->LD);
   __Pyx_DECREF((PyObject *)__pyx_v_self->LD);
@@ -23949,7 +23949,7 @@ static int __pyx_pf_8refinery_3lib_5unrar_8unpack50_11BlockTables_2LD_4__del__(s
   return __pyx_r;
 }
 
-/* "refinery/lib/unrar/unpack50.pyx":275
+/* "refinery/lib/unrar/unpack50.pyx":276
  *     cdef:
  *         public DecodeTable LD
  *         public DecodeTable DD             # <<<<<<<<<<<<<<
@@ -24013,7 +24013,7 @@ static int __pyx_pf_8refinery_3lib_5unrar_8unpack50_11BlockTables_2DD_2__set__(s
   __Pyx_RefNannySetupContext("__set__", 0);
   __pyx_t_1 = __pyx_v_value;
   __Pyx_INCREF(__pyx_t_1);
-  if (!(likely(((__pyx_t_1) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_1, __pyx_mstate_global->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_DecodeTable))))) __PYX_ERR(0, 275, __pyx_L1_error)
+  if (!(likely(((__pyx_t_1) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_1, __pyx_mstate_global->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_DecodeTable))))) __PYX_ERR(0, 276, __pyx_L1_error)
   __Pyx_GIVEREF(__pyx_t_1);
   __Pyx_GOTREF((PyObject *)__pyx_v_self->DD);
   __Pyx_DECREF((PyObject *)__pyx_v_self->DD);
@@ -24063,7 +24063,7 @@ static int __pyx_pf_8refinery_3lib_5unrar_8unpack50_11BlockTables_2DD_4__del__(s
   return __pyx_r;
 }
 
-/* "refinery/lib/unrar/unpack50.pyx":276
+/* "refinery/lib/unrar/unpack50.pyx":277
  *         public DecodeTable LD
  *         public DecodeTable DD
  *         public DecodeTable LDD             # <<<<<<<<<<<<<<
@@ -24127,7 +24127,7 @@ static int __pyx_pf_8refinery_3lib_5unrar_8unpack50_11BlockTables_3LDD_2__set__(
   __Pyx_RefNannySetupContext("__set__", 0);
   __pyx_t_1 = __pyx_v_value;
   __Pyx_INCREF(__pyx_t_1);
-  if (!(likely(((__pyx_t_1) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_1, __pyx_mstate_global->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_DecodeTable))))) __PYX_ERR(0, 276, __pyx_L1_error)
+  if (!(likely(((__pyx_t_1) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_1, __pyx_mstate_global->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_DecodeTable))))) __PYX_ERR(0, 277, __pyx_L1_error)
   __Pyx_GIVEREF(__pyx_t_1);
   __Pyx_GOTREF((PyObject *)__pyx_v_self->LDD);
   __Pyx_DECREF((PyObject *)__pyx_v_self->LDD);
@@ -24177,7 +24177,7 @@ static int __pyx_pf_8refinery_3lib_5unrar_8unpack50_11BlockTables_3LDD_4__del__(
   return __pyx_r;
 }
 
-/* "refinery/lib/unrar/unpack50.pyx":277
+/* "refinery/lib/unrar/unpack50.pyx":278
  *         public DecodeTable DD
  *         public DecodeTable LDD
  *         public DecodeTable RD             # <<<<<<<<<<<<<<
@@ -24241,7 +24241,7 @@ static int __pyx_pf_8refinery_3lib_5unrar_8unpack50_11BlockTables_2RD_2__set__(s
   __Pyx_RefNannySetupContext("__set__", 0);
   __pyx_t_1 = __pyx_v_value;
   __Pyx_INCREF(__pyx_t_1);
-  if (!(likely(((__pyx_t_1) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_1, __pyx_mstate_global->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_DecodeTable))))) __PYX_ERR(0, 277, __pyx_L1_error)
+  if (!(likely(((__pyx_t_1) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_1, __pyx_mstate_global->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_DecodeTable))))) __PYX_ERR(0, 278, __pyx_L1_error)
   __Pyx_GIVEREF(__pyx_t_1);
   __Pyx_GOTREF((PyObject *)__pyx_v_self->RD);
   __Pyx_DECREF((PyObject *)__pyx_v_self->RD);
@@ -24291,7 +24291,7 @@ static int __pyx_pf_8refinery_3lib_5unrar_8unpack50_11BlockTables_2RD_4__del__(s
   return __pyx_r;
 }
 
-/* "refinery/lib/unrar/unpack50.pyx":278
+/* "refinery/lib/unrar/unpack50.pyx":279
  *         public DecodeTable LDD
  *         public DecodeTable RD
  *         public DecodeTable BD             # <<<<<<<<<<<<<<
@@ -24355,7 +24355,7 @@ static int __pyx_pf_8refinery_3lib_5unrar_8unpack50_11BlockTables_2BD_2__set__(s
   __Pyx_RefNannySetupContext("__set__", 0);
   __pyx_t_1 = __pyx_v_value;
   __Pyx_INCREF(__pyx_t_1);
-  if (!(likely(((__pyx_t_1) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_1, __pyx_mstate_global->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_DecodeTable))))) __PYX_ERR(0, 278, __pyx_L1_error)
+  if (!(likely(((__pyx_t_1) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_1, __pyx_mstate_global->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_DecodeTable))))) __PYX_ERR(0, 279, __pyx_L1_error)
   __Pyx_GIVEREF(__pyx_t_1);
   __Pyx_GOTREF((PyObject *)__pyx_v_self->BD);
   __Pyx_DECREF((PyObject *)__pyx_v_self->BD);
@@ -24852,7 +24852,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_11BlockTables_4__setst
   return __pyx_r;
 }
 
-/* "refinery/lib/unrar/unpack50.pyx":288
+/* "refinery/lib/unrar/unpack50.pyx":289
  * 
  * 
  * cdef bint _read_block_header(BitInput inp, BlockHeader header):             # <<<<<<<<<<<<<<
@@ -24881,7 +24881,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__read_block_header(struct __p
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_read_block_header", 0);
 
-  /* "refinery/lib/unrar/unpack50.pyx":291
+  /* "refinery/lib/unrar/unpack50.pyx":292
  *     cdef int block_flags, byte_count, saved_checksum, block_size, checksum, i
  * 
  *     header.header_size = 0             # <<<<<<<<<<<<<<
@@ -24890,31 +24890,31 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__read_block_header(struct __p
 */
   __pyx_v_header->header_size = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":292
+  /* "refinery/lib/unrar/unpack50.pyx":293
  * 
  *     header.header_size = 0
  *     inp.addbits((8 - inp.in_bit) & 7)             # <<<<<<<<<<<<<<
  * 
  *     if inp.remaining < 7:
 */
-  ((struct __pyx_vtabstruct_8refinery_3lib_5unrar_8unpack50_BitInput *)__pyx_v_inp->__pyx_vtab)->addbits(__pyx_v_inp, ((8 - __pyx_v_inp->in_bit) & 7), 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 292, __pyx_L1_error)
+  ((struct __pyx_vtabstruct_8refinery_3lib_5unrar_8unpack50_BitInput *)__pyx_v_inp->__pyx_vtab)->addbits(__pyx_v_inp, ((8 - __pyx_v_inp->in_bit) & 7), 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 293, __pyx_L1_error)
 
-  /* "refinery/lib/unrar/unpack50.pyx":294
+  /* "refinery/lib/unrar/unpack50.pyx":295
  *     inp.addbits((8 - inp.in_bit) & 7)
  * 
  *     if inp.remaining < 7:             # <<<<<<<<<<<<<<
  *         return False
  * 
 */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_inp), __pyx_mstate_global->__pyx_n_u_remaining); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 294, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_inp), __pyx_mstate_global->__pyx_n_u_remaining); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 295, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = PyObject_RichCompare(__pyx_t_1, __pyx_mstate_global->__pyx_int_7, Py_LT); __Pyx_XGOTREF(__pyx_t_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 294, __pyx_L1_error)
+  __pyx_t_2 = PyObject_RichCompare(__pyx_t_1, __pyx_mstate_global->__pyx_int_7, Py_LT); __Pyx_XGOTREF(__pyx_t_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 295, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 294, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 295, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   if (__pyx_t_3) {
 
-    /* "refinery/lib/unrar/unpack50.pyx":295
+    /* "refinery/lib/unrar/unpack50.pyx":296
  * 
  *     if inp.remaining < 7:
  *         return False             # <<<<<<<<<<<<<<
@@ -24924,7 +24924,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__read_block_header(struct __p
     __pyx_r = 0;
     goto __pyx_L0;
 
-    /* "refinery/lib/unrar/unpack50.pyx":294
+    /* "refinery/lib/unrar/unpack50.pyx":295
  *     inp.addbits((8 - inp.in_bit) & 7)
  * 
  *     if inp.remaining < 7:             # <<<<<<<<<<<<<<
@@ -24933,26 +24933,26 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__read_block_header(struct __p
 */
   }
 
-  /* "refinery/lib/unrar/unpack50.pyx":297
+  /* "refinery/lib/unrar/unpack50.pyx":298
  *         return False
  * 
  *     block_flags = inp.getbits() >> 8             # <<<<<<<<<<<<<<
  *     inp.addbits(8)
  * 
 */
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8refinery_3lib_5unrar_8unpack50_BitInput *)__pyx_v_inp->__pyx_vtab)->getbits(__pyx_v_inp, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 297, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8refinery_3lib_5unrar_8unpack50_BitInput *)__pyx_v_inp->__pyx_vtab)->getbits(__pyx_v_inp, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 298, __pyx_L1_error)
   __pyx_v_block_flags = (__pyx_t_4 >> 8);
 
-  /* "refinery/lib/unrar/unpack50.pyx":298
+  /* "refinery/lib/unrar/unpack50.pyx":299
  * 
  *     block_flags = inp.getbits() >> 8
  *     inp.addbits(8)             # <<<<<<<<<<<<<<
  * 
  *     byte_count = ((block_flags >> 3) & 3) + 1
 */
-  ((struct __pyx_vtabstruct_8refinery_3lib_5unrar_8unpack50_BitInput *)__pyx_v_inp->__pyx_vtab)->addbits(__pyx_v_inp, 8, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 298, __pyx_L1_error)
+  ((struct __pyx_vtabstruct_8refinery_3lib_5unrar_8unpack50_BitInput *)__pyx_v_inp->__pyx_vtab)->addbits(__pyx_v_inp, 8, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 299, __pyx_L1_error)
 
-  /* "refinery/lib/unrar/unpack50.pyx":300
+  /* "refinery/lib/unrar/unpack50.pyx":301
  *     inp.addbits(8)
  * 
  *     byte_count = ((block_flags >> 3) & 3) + 1             # <<<<<<<<<<<<<<
@@ -24961,7 +24961,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__read_block_header(struct __p
 */
   __pyx_v_byte_count = (((__pyx_v_block_flags >> 3) & 3) + 1);
 
-  /* "refinery/lib/unrar/unpack50.pyx":301
+  /* "refinery/lib/unrar/unpack50.pyx":302
  * 
  *     byte_count = ((block_flags >> 3) & 3) + 1
  *     if byte_count == 4:             # <<<<<<<<<<<<<<
@@ -24971,7 +24971,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__read_block_header(struct __p
   __pyx_t_3 = (__pyx_v_byte_count == 4);
   if (__pyx_t_3) {
 
-    /* "refinery/lib/unrar/unpack50.pyx":302
+    /* "refinery/lib/unrar/unpack50.pyx":303
  *     byte_count = ((block_flags >> 3) & 3) + 1
  *     if byte_count == 4:
  *         return False             # <<<<<<<<<<<<<<
@@ -24981,7 +24981,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__read_block_header(struct __p
     __pyx_r = 0;
     goto __pyx_L0;
 
-    /* "refinery/lib/unrar/unpack50.pyx":301
+    /* "refinery/lib/unrar/unpack50.pyx":302
  * 
  *     byte_count = ((block_flags >> 3) & 3) + 1
  *     if byte_count == 4:             # <<<<<<<<<<<<<<
@@ -24990,7 +24990,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__read_block_header(struct __p
 */
   }
 
-  /* "refinery/lib/unrar/unpack50.pyx":304
+  /* "refinery/lib/unrar/unpack50.pyx":305
  *         return False
  * 
  *     header.header_size = 2 + byte_count             # <<<<<<<<<<<<<<
@@ -24999,7 +24999,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__read_block_header(struct __p
 */
   __pyx_v_header->header_size = (2 + __pyx_v_byte_count);
 
-  /* "refinery/lib/unrar/unpack50.pyx":305
+  /* "refinery/lib/unrar/unpack50.pyx":306
  * 
  *     header.header_size = 2 + byte_count
  *     header.block_bit_size = (block_flags & 7) + 1             # <<<<<<<<<<<<<<
@@ -25008,26 +25008,26 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__read_block_header(struct __p
 */
   __pyx_v_header->block_bit_size = ((__pyx_v_block_flags & 7) + 1);
 
-  /* "refinery/lib/unrar/unpack50.pyx":307
+  /* "refinery/lib/unrar/unpack50.pyx":308
  *     header.block_bit_size = (block_flags & 7) + 1
  * 
  *     saved_checksum = inp.getbits() >> 8             # <<<<<<<<<<<<<<
  *     inp.addbits(8)
  * 
 */
-  __pyx_t_4 = ((struct __pyx_vtabstruct_8refinery_3lib_5unrar_8unpack50_BitInput *)__pyx_v_inp->__pyx_vtab)->getbits(__pyx_v_inp, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 307, __pyx_L1_error)
+  __pyx_t_4 = ((struct __pyx_vtabstruct_8refinery_3lib_5unrar_8unpack50_BitInput *)__pyx_v_inp->__pyx_vtab)->getbits(__pyx_v_inp, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 308, __pyx_L1_error)
   __pyx_v_saved_checksum = (__pyx_t_4 >> 8);
 
-  /* "refinery/lib/unrar/unpack50.pyx":308
+  /* "refinery/lib/unrar/unpack50.pyx":309
  * 
  *     saved_checksum = inp.getbits() >> 8
  *     inp.addbits(8)             # <<<<<<<<<<<<<<
  * 
  *     block_size = 0
 */
-  ((struct __pyx_vtabstruct_8refinery_3lib_5unrar_8unpack50_BitInput *)__pyx_v_inp->__pyx_vtab)->addbits(__pyx_v_inp, 8, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 308, __pyx_L1_error)
+  ((struct __pyx_vtabstruct_8refinery_3lib_5unrar_8unpack50_BitInput *)__pyx_v_inp->__pyx_vtab)->addbits(__pyx_v_inp, 8, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 309, __pyx_L1_error)
 
-  /* "refinery/lib/unrar/unpack50.pyx":310
+  /* "refinery/lib/unrar/unpack50.pyx":311
  *     inp.addbits(8)
  * 
  *     block_size = 0             # <<<<<<<<<<<<<<
@@ -25036,7 +25036,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__read_block_header(struct __p
 */
   __pyx_v_block_size = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":311
+  /* "refinery/lib/unrar/unpack50.pyx":312
  * 
  *     block_size = 0
  *     for i in range(byte_count):             # <<<<<<<<<<<<<<
@@ -25048,27 +25048,27 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__read_block_header(struct __p
   for (__pyx_t_6 = 0; __pyx_t_6 < __pyx_t_5; __pyx_t_6+=1) {
     __pyx_v_i = __pyx_t_6;
 
-    /* "refinery/lib/unrar/unpack50.pyx":312
+    /* "refinery/lib/unrar/unpack50.pyx":313
  *     block_size = 0
  *     for i in range(byte_count):
  *         block_size += (inp.getbits() >> 8) << (i * 8)             # <<<<<<<<<<<<<<
  *         inp.addbits(8)
  * 
 */
-    __pyx_t_7 = ((struct __pyx_vtabstruct_8refinery_3lib_5unrar_8unpack50_BitInput *)__pyx_v_inp->__pyx_vtab)->getbits(__pyx_v_inp, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 312, __pyx_L1_error)
+    __pyx_t_7 = ((struct __pyx_vtabstruct_8refinery_3lib_5unrar_8unpack50_BitInput *)__pyx_v_inp->__pyx_vtab)->getbits(__pyx_v_inp, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 313, __pyx_L1_error)
     __pyx_v_block_size = (__pyx_v_block_size + ((__pyx_t_7 >> 8) << (__pyx_v_i * 8)));
 
-    /* "refinery/lib/unrar/unpack50.pyx":313
+    /* "refinery/lib/unrar/unpack50.pyx":314
  *     for i in range(byte_count):
  *         block_size += (inp.getbits() >> 8) << (i * 8)
  *         inp.addbits(8)             # <<<<<<<<<<<<<<
  * 
  *     header.block_size = block_size
 */
-    ((struct __pyx_vtabstruct_8refinery_3lib_5unrar_8unpack50_BitInput *)__pyx_v_inp->__pyx_vtab)->addbits(__pyx_v_inp, 8, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 313, __pyx_L1_error)
+    ((struct __pyx_vtabstruct_8refinery_3lib_5unrar_8unpack50_BitInput *)__pyx_v_inp->__pyx_vtab)->addbits(__pyx_v_inp, 8, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 314, __pyx_L1_error)
   }
 
-  /* "refinery/lib/unrar/unpack50.pyx":315
+  /* "refinery/lib/unrar/unpack50.pyx":316
  *         inp.addbits(8)
  * 
  *     header.block_size = block_size             # <<<<<<<<<<<<<<
@@ -25077,7 +25077,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__read_block_header(struct __p
 */
   __pyx_v_header->block_size = __pyx_v_block_size;
 
-  /* "refinery/lib/unrar/unpack50.pyx":317
+  /* "refinery/lib/unrar/unpack50.pyx":318
  *     header.block_size = block_size
  *     checksum = (0x5A ^ block_flags ^ (block_size & 0xFF)
  *         ^ ((block_size >> 8) & 0xFF) ^ ((block_size >> 16) & 0xFF)) & 0xFF             # <<<<<<<<<<<<<<
@@ -25086,7 +25086,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__read_block_header(struct __p
 */
   __pyx_v_checksum = (((((0x5A ^ __pyx_v_block_flags) ^ (__pyx_v_block_size & 0xFF)) ^ ((__pyx_v_block_size >> 8) & 0xFF)) ^ ((__pyx_v_block_size >> 16) & 0xFF)) & 0xFF);
 
-  /* "refinery/lib/unrar/unpack50.pyx":318
+  /* "refinery/lib/unrar/unpack50.pyx":319
  *     checksum = (0x5A ^ block_flags ^ (block_size & 0xFF)
  *         ^ ((block_size >> 8) & 0xFF) ^ ((block_size >> 16) & 0xFF)) & 0xFF
  *     if checksum != saved_checksum:             # <<<<<<<<<<<<<<
@@ -25096,7 +25096,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__read_block_header(struct __p
   __pyx_t_3 = (__pyx_v_checksum != __pyx_v_saved_checksum);
   if (__pyx_t_3) {
 
-    /* "refinery/lib/unrar/unpack50.pyx":319
+    /* "refinery/lib/unrar/unpack50.pyx":320
  *         ^ ((block_size >> 8) & 0xFF) ^ ((block_size >> 16) & 0xFF)) & 0xFF
  *     if checksum != saved_checksum:
  *         return False             # <<<<<<<<<<<<<<
@@ -25106,7 +25106,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__read_block_header(struct __p
     __pyx_r = 0;
     goto __pyx_L0;
 
-    /* "refinery/lib/unrar/unpack50.pyx":318
+    /* "refinery/lib/unrar/unpack50.pyx":319
  *     checksum = (0x5A ^ block_flags ^ (block_size & 0xFF)
  *         ^ ((block_size >> 8) & 0xFF) ^ ((block_size >> 16) & 0xFF)) & 0xFF
  *     if checksum != saved_checksum:             # <<<<<<<<<<<<<<
@@ -25115,7 +25115,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__read_block_header(struct __p
 */
   }
 
-  /* "refinery/lib/unrar/unpack50.pyx":321
+  /* "refinery/lib/unrar/unpack50.pyx":322
  *         return False
  * 
  *     header.block_start = inp.in_addr             # <<<<<<<<<<<<<<
@@ -25125,7 +25125,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__read_block_header(struct __p
   __pyx_t_4 = __pyx_v_inp->in_addr;
   __pyx_v_header->block_start = __pyx_t_4;
 
-  /* "refinery/lib/unrar/unpack50.pyx":322
+  /* "refinery/lib/unrar/unpack50.pyx":323
  * 
  *     header.block_start = inp.in_addr
  *     header.last_block = bool(block_flags & 0x40)             # <<<<<<<<<<<<<<
@@ -25134,7 +25134,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__read_block_header(struct __p
 */
   __pyx_v_header->last_block = (!(!((__pyx_v_block_flags & 0x40) != 0)));
 
-  /* "refinery/lib/unrar/unpack50.pyx":323
+  /* "refinery/lib/unrar/unpack50.pyx":324
  *     header.block_start = inp.in_addr
  *     header.last_block = bool(block_flags & 0x40)
  *     header.table_present = bool(block_flags & 0x80)             # <<<<<<<<<<<<<<
@@ -25143,7 +25143,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__read_block_header(struct __p
 */
   __pyx_v_header->table_present = (!(!((__pyx_v_block_flags & 0x80) != 0)));
 
-  /* "refinery/lib/unrar/unpack50.pyx":324
+  /* "refinery/lib/unrar/unpack50.pyx":325
  *     header.last_block = bool(block_flags & 0x40)
  *     header.table_present = bool(block_flags & 0x80)
  *     return True             # <<<<<<<<<<<<<<
@@ -25153,7 +25153,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__read_block_header(struct __p
   __pyx_r = 1;
   goto __pyx_L0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":288
+  /* "refinery/lib/unrar/unpack50.pyx":289
  * 
  * 
  * cdef bint _read_block_header(BitInput inp, BlockHeader header):             # <<<<<<<<<<<<<<
@@ -25172,7 +25172,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__read_block_header(struct __p
   return __pyx_r;
 }
 
-/* "refinery/lib/unrar/unpack50.pyx":327
+/* "refinery/lib/unrar/unpack50.pyx":328
  * 
  * 
  * def read_block_header(BitInput inp, BlockHeader header):             # <<<<<<<<<<<<<<
@@ -25221,39 +25221,39 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_inp,&__pyx_mstate_global->__pyx_n_u_header,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 327, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 328, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 327, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 328, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 327, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 328, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "read_block_header", 0) < (0)) __PYX_ERR(0, 327, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "read_block_header", 0) < (0)) __PYX_ERR(0, 328, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 2; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("read_block_header", 1, 2, 2, i); __PYX_ERR(0, 327, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("read_block_header", 1, 2, 2, i); __PYX_ERR(0, 328, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 2)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 327, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 328, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 327, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 328, __pyx_L3_error)
     }
     __pyx_v_inp = ((struct __pyx_obj_8refinery_3lib_5unrar_8unpack50_BitInput *)values[0]);
     __pyx_v_header = ((struct __pyx_obj_8refinery_3lib_5unrar_8unpack50_BlockHeader *)values[1]);
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("read_block_header", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 327, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("read_block_header", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 328, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -25264,8 +25264,8 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_inp), __pyx_mstate_global->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BitInput, 1, "inp", 0))) __PYX_ERR(0, 327, __pyx_L1_error)
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_header), __pyx_mstate_global->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BlockHeader, 1, "header", 0))) __PYX_ERR(0, 327, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_inp), __pyx_mstate_global->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BitInput, 1, "inp", 0))) __PYX_ERR(0, 328, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_header), __pyx_mstate_global->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BlockHeader, 1, "header", 0))) __PYX_ERR(0, 328, __pyx_L1_error)
   __pyx_r = __pyx_pf_8refinery_3lib_5unrar_8unpack50_6read_block_header(__pyx_self, __pyx_v_inp, __pyx_v_header);
 
   /* function exit code */
@@ -25295,7 +25295,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_6read_block_header(CYT
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("read_block_header", 0);
 
-  /* "refinery/lib/unrar/unpack50.pyx":331
+  /* "refinery/lib/unrar/unpack50.pyx":332
  *     Read a RAR5 compression block header.
  *     """
  *     return _read_block_header(inp, header)             # <<<<<<<<<<<<<<
@@ -25303,14 +25303,14 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_6read_block_header(CYT
  * 
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_8refinery_3lib_5unrar_8unpack50__read_block_header(__pyx_v_inp, __pyx_v_header); if (unlikely(__pyx_t_1 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 331, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 331, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_8refinery_3lib_5unrar_8unpack50__read_block_header(__pyx_v_inp, __pyx_v_header); if (unlikely(__pyx_t_1 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 332, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 332, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_r = __pyx_t_2;
   __pyx_t_2 = 0;
   goto __pyx_L0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":327
+  /* "refinery/lib/unrar/unpack50.pyx":328
  * 
  * 
  * def read_block_header(BitInput inp, BlockHeader header):             # <<<<<<<<<<<<<<
@@ -25329,7 +25329,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_6read_block_header(CYT
   return __pyx_r;
 }
 
-/* "refinery/lib/unrar/unpack50.pyx":334
+/* "refinery/lib/unrar/unpack50.pyx":335
  * 
  * 
  * cdef bint _read_tables(BitInput inp, BlockHeader header, BlockTables tables):             # <<<<<<<<<<<<<<
@@ -25361,7 +25361,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__read_tables(struct __pyx_obj
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_read_tables", 0);
 
-  /* "refinery/lib/unrar/unpack50.pyx":340
+  /* "refinery/lib/unrar/unpack50.pyx":341
  *     cdef int off
  * 
  *     if not header.table_present:             # <<<<<<<<<<<<<<
@@ -25371,7 +25371,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__read_tables(struct __pyx_obj
   __pyx_t_1 = (!__pyx_v_header->table_present);
   if (__pyx_t_1) {
 
-    /* "refinery/lib/unrar/unpack50.pyx":341
+    /* "refinery/lib/unrar/unpack50.pyx":342
  * 
  *     if not header.table_present:
  *         return True             # <<<<<<<<<<<<<<
@@ -25381,7 +25381,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__read_tables(struct __pyx_obj
     __pyx_r = 1;
     goto __pyx_L0;
 
-    /* "refinery/lib/unrar/unpack50.pyx":340
+    /* "refinery/lib/unrar/unpack50.pyx":341
  *     cdef int off
  * 
  *     if not header.table_present:             # <<<<<<<<<<<<<<
@@ -25390,7 +25390,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__read_tables(struct __pyx_obj
 */
   }
 
-  /* "refinery/lib/unrar/unpack50.pyx":343
+  /* "refinery/lib/unrar/unpack50.pyx":344
  *         return True
  * 
  *     bit_length = bytearray(BC)             # <<<<<<<<<<<<<<
@@ -25398,7 +25398,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__read_tables(struct __pyx_obj
  *     while i < BC:
 */
   __pyx_t_3 = NULL;
-  __pyx_t_4 = __Pyx_PyLong_From_int(__pyx_v_8refinery_3lib_5unrar_8unpack50_BC); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 343, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyLong_From_int(__pyx_v_8refinery_3lib_5unrar_8unpack50_BC); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 344, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __pyx_t_5 = 1;
   {
@@ -25406,13 +25406,13 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__read_tables(struct __pyx_obj
     __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)(&PyByteArray_Type), __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 343, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 344, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
   }
   __pyx_v_bit_length = ((PyObject*)__pyx_t_2);
   __pyx_t_2 = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":344
+  /* "refinery/lib/unrar/unpack50.pyx":345
  * 
  *     bit_length = bytearray(BC)
  *     i = 0             # <<<<<<<<<<<<<<
@@ -25421,7 +25421,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__read_tables(struct __pyx_obj
 */
   __pyx_v_i = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":345
+  /* "refinery/lib/unrar/unpack50.pyx":346
  *     bit_length = bytearray(BC)
  *     i = 0
  *     while i < BC:             # <<<<<<<<<<<<<<
@@ -25432,26 +25432,26 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__read_tables(struct __pyx_obj
     __pyx_t_1 = (__pyx_v_i < __pyx_v_8refinery_3lib_5unrar_8unpack50_BC);
     if (!__pyx_t_1) break;
 
-    /* "refinery/lib/unrar/unpack50.pyx":346
+    /* "refinery/lib/unrar/unpack50.pyx":347
  *     i = 0
  *     while i < BC:
  *         length = (inp.getbits() >> 12) & 0xF             # <<<<<<<<<<<<<<
  *         inp.addbits(4)
  *         if length == 15:
 */
-    __pyx_t_6 = ((struct __pyx_vtabstruct_8refinery_3lib_5unrar_8unpack50_BitInput *)__pyx_v_inp->__pyx_vtab)->getbits(__pyx_v_inp, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 346, __pyx_L1_error)
+    __pyx_t_6 = ((struct __pyx_vtabstruct_8refinery_3lib_5unrar_8unpack50_BitInput *)__pyx_v_inp->__pyx_vtab)->getbits(__pyx_v_inp, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 347, __pyx_L1_error)
     __pyx_v_length = ((__pyx_t_6 >> 12) & 0xF);
 
-    /* "refinery/lib/unrar/unpack50.pyx":347
+    /* "refinery/lib/unrar/unpack50.pyx":348
  *     while i < BC:
  *         length = (inp.getbits() >> 12) & 0xF
  *         inp.addbits(4)             # <<<<<<<<<<<<<<
  *         if length == 15:
  *             zero_count = (inp.getbits() >> 12) & 0xF
 */
-    ((struct __pyx_vtabstruct_8refinery_3lib_5unrar_8unpack50_BitInput *)__pyx_v_inp->__pyx_vtab)->addbits(__pyx_v_inp, 4, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 347, __pyx_L1_error)
+    ((struct __pyx_vtabstruct_8refinery_3lib_5unrar_8unpack50_BitInput *)__pyx_v_inp->__pyx_vtab)->addbits(__pyx_v_inp, 4, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 348, __pyx_L1_error)
 
-    /* "refinery/lib/unrar/unpack50.pyx":348
+    /* "refinery/lib/unrar/unpack50.pyx":349
  *         length = (inp.getbits() >> 12) & 0xF
  *         inp.addbits(4)
  *         if length == 15:             # <<<<<<<<<<<<<<
@@ -25461,26 +25461,26 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__read_tables(struct __pyx_obj
     __pyx_t_1 = (__pyx_v_length == 15);
     if (__pyx_t_1) {
 
-      /* "refinery/lib/unrar/unpack50.pyx":349
+      /* "refinery/lib/unrar/unpack50.pyx":350
  *         inp.addbits(4)
  *         if length == 15:
  *             zero_count = (inp.getbits() >> 12) & 0xF             # <<<<<<<<<<<<<<
  *             inp.addbits(4)
  *             if zero_count == 0:
 */
-      __pyx_t_6 = ((struct __pyx_vtabstruct_8refinery_3lib_5unrar_8unpack50_BitInput *)__pyx_v_inp->__pyx_vtab)->getbits(__pyx_v_inp, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 349, __pyx_L1_error)
+      __pyx_t_6 = ((struct __pyx_vtabstruct_8refinery_3lib_5unrar_8unpack50_BitInput *)__pyx_v_inp->__pyx_vtab)->getbits(__pyx_v_inp, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 350, __pyx_L1_error)
       __pyx_v_zero_count = ((__pyx_t_6 >> 12) & 0xF);
 
-      /* "refinery/lib/unrar/unpack50.pyx":350
+      /* "refinery/lib/unrar/unpack50.pyx":351
  *         if length == 15:
  *             zero_count = (inp.getbits() >> 12) & 0xF
  *             inp.addbits(4)             # <<<<<<<<<<<<<<
  *             if zero_count == 0:
  *                 bit_length[i] = 15
 */
-      ((struct __pyx_vtabstruct_8refinery_3lib_5unrar_8unpack50_BitInput *)__pyx_v_inp->__pyx_vtab)->addbits(__pyx_v_inp, 4, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 350, __pyx_L1_error)
+      ((struct __pyx_vtabstruct_8refinery_3lib_5unrar_8unpack50_BitInput *)__pyx_v_inp->__pyx_vtab)->addbits(__pyx_v_inp, 4, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 351, __pyx_L1_error)
 
-      /* "refinery/lib/unrar/unpack50.pyx":351
+      /* "refinery/lib/unrar/unpack50.pyx":352
  *             zero_count = (inp.getbits() >> 12) & 0xF
  *             inp.addbits(4)
  *             if zero_count == 0:             # <<<<<<<<<<<<<<
@@ -25490,16 +25490,16 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__read_tables(struct __pyx_obj
       __pyx_t_1 = (__pyx_v_zero_count == 0);
       if (__pyx_t_1) {
 
-        /* "refinery/lib/unrar/unpack50.pyx":352
+        /* "refinery/lib/unrar/unpack50.pyx":353
  *             inp.addbits(4)
  *             if zero_count == 0:
  *                 bit_length[i] = 15             # <<<<<<<<<<<<<<
  *             else:
  *                 zero_count += 2
 */
-        if (unlikely((__Pyx_SetItemInt_ByteArray(__pyx_v_bit_length, __pyx_v_i, 15, int, 1, __Pyx_PyLong_From_int, 0, 0, 0, 1, __Pyx_ReferenceSharing_OwnStrongReference) < 0))) __PYX_ERR(0, 352, __pyx_L1_error)
+        if (unlikely((__Pyx_SetItemInt_ByteArray(__pyx_v_bit_length, __pyx_v_i, 15, int, 1, __Pyx_PyLong_From_int, 0, 0, 0, 1, __Pyx_ReferenceSharing_OwnStrongReference) < 0))) __PYX_ERR(0, 353, __pyx_L1_error)
 
-        /* "refinery/lib/unrar/unpack50.pyx":351
+        /* "refinery/lib/unrar/unpack50.pyx":352
  *             zero_count = (inp.getbits() >> 12) & 0xF
  *             inp.addbits(4)
  *             if zero_count == 0:             # <<<<<<<<<<<<<<
@@ -25509,7 +25509,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__read_tables(struct __pyx_obj
         goto __pyx_L7;
       }
 
-      /* "refinery/lib/unrar/unpack50.pyx":354
+      /* "refinery/lib/unrar/unpack50.pyx":355
  *                 bit_length[i] = 15
  *             else:
  *                 zero_count += 2             # <<<<<<<<<<<<<<
@@ -25519,7 +25519,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__read_tables(struct __pyx_obj
       /*else*/ {
         __pyx_v_zero_count = (__pyx_v_zero_count + 2);
 
-        /* "refinery/lib/unrar/unpack50.pyx":355
+        /* "refinery/lib/unrar/unpack50.pyx":356
  *             else:
  *                 zero_count += 2
  *                 while zero_count > 0 and i < BC:             # <<<<<<<<<<<<<<
@@ -25538,16 +25538,16 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__read_tables(struct __pyx_obj
           __pyx_L10_bool_binop_done:;
           if (!__pyx_t_1) break;
 
-          /* "refinery/lib/unrar/unpack50.pyx":356
+          /* "refinery/lib/unrar/unpack50.pyx":357
  *                 zero_count += 2
  *                 while zero_count > 0 and i < BC:
  *                     bit_length[i] = 0             # <<<<<<<<<<<<<<
  *                     i += 1
  *                     zero_count -= 1
 */
-          if (unlikely((__Pyx_SetItemInt_ByteArray(__pyx_v_bit_length, __pyx_v_i, 0, int, 1, __Pyx_PyLong_From_int, 0, 0, 0, 1, __Pyx_ReferenceSharing_OwnStrongReference) < 0))) __PYX_ERR(0, 356, __pyx_L1_error)
+          if (unlikely((__Pyx_SetItemInt_ByteArray(__pyx_v_bit_length, __pyx_v_i, 0, int, 1, __Pyx_PyLong_From_int, 0, 0, 0, 1, __Pyx_ReferenceSharing_OwnStrongReference) < 0))) __PYX_ERR(0, 357, __pyx_L1_error)
 
-          /* "refinery/lib/unrar/unpack50.pyx":357
+          /* "refinery/lib/unrar/unpack50.pyx":358
  *                 while zero_count > 0 and i < BC:
  *                     bit_length[i] = 0
  *                     i += 1             # <<<<<<<<<<<<<<
@@ -25556,7 +25556,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__read_tables(struct __pyx_obj
 */
           __pyx_v_i = (__pyx_v_i + 1);
 
-          /* "refinery/lib/unrar/unpack50.pyx":358
+          /* "refinery/lib/unrar/unpack50.pyx":359
  *                     bit_length[i] = 0
  *                     i += 1
  *                     zero_count -= 1             # <<<<<<<<<<<<<<
@@ -25566,7 +25566,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__read_tables(struct __pyx_obj
           __pyx_v_zero_count = (__pyx_v_zero_count - 1);
         }
 
-        /* "refinery/lib/unrar/unpack50.pyx":359
+        /* "refinery/lib/unrar/unpack50.pyx":360
  *                     i += 1
  *                     zero_count -= 1
  *                 continue             # <<<<<<<<<<<<<<
@@ -25577,7 +25577,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__read_tables(struct __pyx_obj
       }
       __pyx_L7:;
 
-      /* "refinery/lib/unrar/unpack50.pyx":348
+      /* "refinery/lib/unrar/unpack50.pyx":349
  *         length = (inp.getbits() >> 12) & 0xF
  *         inp.addbits(4)
  *         if length == 15:             # <<<<<<<<<<<<<<
@@ -25587,7 +25587,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__read_tables(struct __pyx_obj
       goto __pyx_L6;
     }
 
-    /* "refinery/lib/unrar/unpack50.pyx":361
+    /* "refinery/lib/unrar/unpack50.pyx":362
  *                 continue
  *         else:
  *             bit_length[i] = length             # <<<<<<<<<<<<<<
@@ -25596,13 +25596,13 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__read_tables(struct __pyx_obj
 */
     /*else*/ {
       if (unlikely(__pyx_v_length < 0 || __pyx_v_length > 255)) {
-        PyErr_SetString(PyExc_ValueError, "byte must be in range(0, 256)"); __PYX_ERR(0, 361, __pyx_L1_error)
+        PyErr_SetString(PyExc_ValueError, "byte must be in range(0, 256)"); __PYX_ERR(0, 362, __pyx_L1_error)
       }
-      if (unlikely((__Pyx_SetItemInt_ByteArray(__pyx_v_bit_length, __pyx_v_i, ((unsigned char)__pyx_v_length), int, 1, __Pyx_PyLong_From_int, 0, 0, 0, 1, __Pyx_ReferenceSharing_OwnStrongReference) < 0))) __PYX_ERR(0, 361, __pyx_L1_error)
+      if (unlikely((__Pyx_SetItemInt_ByteArray(__pyx_v_bit_length, __pyx_v_i, ((unsigned char)__pyx_v_length), int, 1, __Pyx_PyLong_From_int, 0, 0, 0, 1, __Pyx_ReferenceSharing_OwnStrongReference) < 0))) __PYX_ERR(0, 362, __pyx_L1_error)
     }
     __pyx_L6:;
 
-    /* "refinery/lib/unrar/unpack50.pyx":362
+    /* "refinery/lib/unrar/unpack50.pyx":363
  *         else:
  *             bit_length[i] = length
  *         i += 1             # <<<<<<<<<<<<<<
@@ -25613,7 +25613,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__read_tables(struct __pyx_obj
     __pyx_L4_continue:;
   }
 
-  /* "refinery/lib/unrar/unpack50.pyx":364
+  /* "refinery/lib/unrar/unpack50.pyx":365
  *         i += 1
  * 
  *     make_decode_tables(bit_length, tables.BD, BC)             # <<<<<<<<<<<<<<
@@ -25622,10 +25622,10 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__read_tables(struct __pyx_obj
 */
   __pyx_t_2 = ((PyObject *)__pyx_v_tables->BD);
   __Pyx_INCREF(__pyx_t_2);
-  __pyx_f_8refinery_3lib_5unrar_8unpack50_make_decode_tables(__pyx_v_bit_length, ((struct __pyx_obj_8refinery_3lib_5unrar_8unpack50_DecodeTable *)__pyx_t_2), __pyx_v_8refinery_3lib_5unrar_8unpack50_BC, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 364, __pyx_L1_error)
+  __pyx_f_8refinery_3lib_5unrar_8unpack50_make_decode_tables(__pyx_v_bit_length, ((struct __pyx_obj_8refinery_3lib_5unrar_8unpack50_DecodeTable *)__pyx_t_2), __pyx_v_8refinery_3lib_5unrar_8unpack50_BC, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 365, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":366
+  /* "refinery/lib/unrar/unpack50.pyx":367
  *     make_decode_tables(bit_length, tables.BD, BC)
  * 
  *     table = bytearray(HUFF_TABLE_SIZE)             # <<<<<<<<<<<<<<
@@ -25633,7 +25633,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__read_tables(struct __pyx_obj
  *     while i < HUFF_TABLE_SIZE:
 */
   __pyx_t_4 = NULL;
-  __pyx_t_3 = __Pyx_PyLong_From_int(__pyx_v_8refinery_3lib_5unrar_8unpack50_HUFF_TABLE_SIZE); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 366, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyLong_From_int(__pyx_v_8refinery_3lib_5unrar_8unpack50_HUFF_TABLE_SIZE); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 367, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_t_5 = 1;
   {
@@ -25641,13 +25641,13 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__read_tables(struct __pyx_obj
     __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)(&PyByteArray_Type), __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 366, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 367, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
   }
   __pyx_v_table = ((PyObject*)__pyx_t_2);
   __pyx_t_2 = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":367
+  /* "refinery/lib/unrar/unpack50.pyx":368
  * 
  *     table = bytearray(HUFF_TABLE_SIZE)
  *     i = 0             # <<<<<<<<<<<<<<
@@ -25656,7 +25656,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__read_tables(struct __pyx_obj
 */
   __pyx_v_i = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":368
+  /* "refinery/lib/unrar/unpack50.pyx":369
  *     table = bytearray(HUFF_TABLE_SIZE)
  *     i = 0
  *     while i < HUFF_TABLE_SIZE:             # <<<<<<<<<<<<<<
@@ -25667,7 +25667,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__read_tables(struct __pyx_obj
     __pyx_t_1 = (__pyx_v_i < __pyx_v_8refinery_3lib_5unrar_8unpack50_HUFF_TABLE_SIZE);
     if (!__pyx_t_1) break;
 
-    /* "refinery/lib/unrar/unpack50.pyx":369
+    /* "refinery/lib/unrar/unpack50.pyx":370
  *     i = 0
  *     while i < HUFF_TABLE_SIZE:
  *         number = _decode_number_fast(inp, tables.BD)             # <<<<<<<<<<<<<<
@@ -25676,11 +25676,11 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__read_tables(struct __pyx_obj
 */
     __pyx_t_2 = ((PyObject *)__pyx_v_tables->BD);
     __Pyx_INCREF(__pyx_t_2);
-    __pyx_t_6 = __pyx_f_8refinery_3lib_5unrar_8unpack50__decode_number_fast(__pyx_v_inp, ((struct __pyx_obj_8refinery_3lib_5unrar_8unpack50_DecodeTable *)__pyx_t_2)); if (unlikely(__pyx_t_6 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 369, __pyx_L1_error)
+    __pyx_t_6 = __pyx_f_8refinery_3lib_5unrar_8unpack50__decode_number_fast(__pyx_v_inp, ((struct __pyx_obj_8refinery_3lib_5unrar_8unpack50_DecodeTable *)__pyx_t_2)); if (unlikely(__pyx_t_6 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 370, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     __pyx_v_number = __pyx_t_6;
 
-    /* "refinery/lib/unrar/unpack50.pyx":370
+    /* "refinery/lib/unrar/unpack50.pyx":371
  *     while i < HUFF_TABLE_SIZE:
  *         number = _decode_number_fast(inp, tables.BD)
  *         if number < 16:             # <<<<<<<<<<<<<<
@@ -25690,7 +25690,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__read_tables(struct __pyx_obj
     __pyx_t_1 = (__pyx_v_number < 16);
     if (__pyx_t_1) {
 
-      /* "refinery/lib/unrar/unpack50.pyx":371
+      /* "refinery/lib/unrar/unpack50.pyx":372
  *         number = _decode_number_fast(inp, tables.BD)
  *         if number < 16:
  *             table[i] = number             # <<<<<<<<<<<<<<
@@ -25698,11 +25698,11 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__read_tables(struct __pyx_obj
  *         elif number < 18:
 */
       if (unlikely(__pyx_v_number < 0 || __pyx_v_number > 255)) {
-        PyErr_SetString(PyExc_ValueError, "byte must be in range(0, 256)"); __PYX_ERR(0, 371, __pyx_L1_error)
+        PyErr_SetString(PyExc_ValueError, "byte must be in range(0, 256)"); __PYX_ERR(0, 372, __pyx_L1_error)
       }
-      if (unlikely((__Pyx_SetItemInt_ByteArray(__pyx_v_table, __pyx_v_i, ((unsigned char)__pyx_v_number), int, 1, __Pyx_PyLong_From_int, 0, 0, 0, 1, __Pyx_ReferenceSharing_OwnStrongReference) < 0))) __PYX_ERR(0, 371, __pyx_L1_error)
+      if (unlikely((__Pyx_SetItemInt_ByteArray(__pyx_v_table, __pyx_v_i, ((unsigned char)__pyx_v_number), int, 1, __Pyx_PyLong_From_int, 0, 0, 0, 1, __Pyx_ReferenceSharing_OwnStrongReference) < 0))) __PYX_ERR(0, 372, __pyx_L1_error)
 
-      /* "refinery/lib/unrar/unpack50.pyx":372
+      /* "refinery/lib/unrar/unpack50.pyx":373
  *         if number < 16:
  *             table[i] = number
  *             i += 1             # <<<<<<<<<<<<<<
@@ -25711,7 +25711,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__read_tables(struct __pyx_obj
 */
       __pyx_v_i = (__pyx_v_i + 1);
 
-      /* "refinery/lib/unrar/unpack50.pyx":370
+      /* "refinery/lib/unrar/unpack50.pyx":371
  *     while i < HUFF_TABLE_SIZE:
  *         number = _decode_number_fast(inp, tables.BD)
  *         if number < 16:             # <<<<<<<<<<<<<<
@@ -25721,7 +25721,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__read_tables(struct __pyx_obj
       goto __pyx_L14;
     }
 
-    /* "refinery/lib/unrar/unpack50.pyx":373
+    /* "refinery/lib/unrar/unpack50.pyx":374
  *             table[i] = number
  *             i += 1
  *         elif number < 18:             # <<<<<<<<<<<<<<
@@ -25731,7 +25731,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__read_tables(struct __pyx_obj
     __pyx_t_1 = (__pyx_v_number < 18);
     if (__pyx_t_1) {
 
-      /* "refinery/lib/unrar/unpack50.pyx":374
+      /* "refinery/lib/unrar/unpack50.pyx":375
  *             i += 1
  *         elif number < 18:
  *             if number == 16:             # <<<<<<<<<<<<<<
@@ -25741,26 +25741,26 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__read_tables(struct __pyx_obj
       __pyx_t_1 = (__pyx_v_number == 16);
       if (__pyx_t_1) {
 
-        /* "refinery/lib/unrar/unpack50.pyx":375
+        /* "refinery/lib/unrar/unpack50.pyx":376
  *         elif number < 18:
  *             if number == 16:
  *                 n = ((inp.getbits() >> 13) & 7) + 3             # <<<<<<<<<<<<<<
  *                 inp.addbits(3)
  *             else:
 */
-        __pyx_t_6 = ((struct __pyx_vtabstruct_8refinery_3lib_5unrar_8unpack50_BitInput *)__pyx_v_inp->__pyx_vtab)->getbits(__pyx_v_inp, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 375, __pyx_L1_error)
+        __pyx_t_6 = ((struct __pyx_vtabstruct_8refinery_3lib_5unrar_8unpack50_BitInput *)__pyx_v_inp->__pyx_vtab)->getbits(__pyx_v_inp, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 376, __pyx_L1_error)
         __pyx_v_n = (((__pyx_t_6 >> 13) & 7) + 3);
 
-        /* "refinery/lib/unrar/unpack50.pyx":376
+        /* "refinery/lib/unrar/unpack50.pyx":377
  *             if number == 16:
  *                 n = ((inp.getbits() >> 13) & 7) + 3
  *                 inp.addbits(3)             # <<<<<<<<<<<<<<
  *             else:
  *                 n = ((inp.getbits() >> 9) & 0x7F) + 11
 */
-        ((struct __pyx_vtabstruct_8refinery_3lib_5unrar_8unpack50_BitInput *)__pyx_v_inp->__pyx_vtab)->addbits(__pyx_v_inp, 3, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 376, __pyx_L1_error)
+        ((struct __pyx_vtabstruct_8refinery_3lib_5unrar_8unpack50_BitInput *)__pyx_v_inp->__pyx_vtab)->addbits(__pyx_v_inp, 3, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 377, __pyx_L1_error)
 
-        /* "refinery/lib/unrar/unpack50.pyx":374
+        /* "refinery/lib/unrar/unpack50.pyx":375
  *             i += 1
  *         elif number < 18:
  *             if number == 16:             # <<<<<<<<<<<<<<
@@ -25770,7 +25770,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__read_tables(struct __pyx_obj
         goto __pyx_L15;
       }
 
-      /* "refinery/lib/unrar/unpack50.pyx":378
+      /* "refinery/lib/unrar/unpack50.pyx":379
  *                 inp.addbits(3)
  *             else:
  *                 n = ((inp.getbits() >> 9) & 0x7F) + 11             # <<<<<<<<<<<<<<
@@ -25778,21 +25778,21 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__read_tables(struct __pyx_obj
  *             if i == 0:
 */
       /*else*/ {
-        __pyx_t_6 = ((struct __pyx_vtabstruct_8refinery_3lib_5unrar_8unpack50_BitInput *)__pyx_v_inp->__pyx_vtab)->getbits(__pyx_v_inp, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 378, __pyx_L1_error)
+        __pyx_t_6 = ((struct __pyx_vtabstruct_8refinery_3lib_5unrar_8unpack50_BitInput *)__pyx_v_inp->__pyx_vtab)->getbits(__pyx_v_inp, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 379, __pyx_L1_error)
         __pyx_v_n = (((__pyx_t_6 >> 9) & 0x7F) + 11);
 
-        /* "refinery/lib/unrar/unpack50.pyx":379
+        /* "refinery/lib/unrar/unpack50.pyx":380
  *             else:
  *                 n = ((inp.getbits() >> 9) & 0x7F) + 11
  *                 inp.addbits(7)             # <<<<<<<<<<<<<<
  *             if i == 0:
  *                 return False
 */
-        ((struct __pyx_vtabstruct_8refinery_3lib_5unrar_8unpack50_BitInput *)__pyx_v_inp->__pyx_vtab)->addbits(__pyx_v_inp, 7, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 379, __pyx_L1_error)
+        ((struct __pyx_vtabstruct_8refinery_3lib_5unrar_8unpack50_BitInput *)__pyx_v_inp->__pyx_vtab)->addbits(__pyx_v_inp, 7, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 380, __pyx_L1_error)
       }
       __pyx_L15:;
 
-      /* "refinery/lib/unrar/unpack50.pyx":380
+      /* "refinery/lib/unrar/unpack50.pyx":381
  *                 n = ((inp.getbits() >> 9) & 0x7F) + 11
  *                 inp.addbits(7)
  *             if i == 0:             # <<<<<<<<<<<<<<
@@ -25802,7 +25802,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__read_tables(struct __pyx_obj
       __pyx_t_1 = (__pyx_v_i == 0);
       if (__pyx_t_1) {
 
-        /* "refinery/lib/unrar/unpack50.pyx":381
+        /* "refinery/lib/unrar/unpack50.pyx":382
  *                 inp.addbits(7)
  *             if i == 0:
  *                 return False             # <<<<<<<<<<<<<<
@@ -25812,7 +25812,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__read_tables(struct __pyx_obj
         __pyx_r = 0;
         goto __pyx_L0;
 
-        /* "refinery/lib/unrar/unpack50.pyx":380
+        /* "refinery/lib/unrar/unpack50.pyx":381
  *                 n = ((inp.getbits() >> 9) & 0x7F) + 11
  *                 inp.addbits(7)
  *             if i == 0:             # <<<<<<<<<<<<<<
@@ -25821,7 +25821,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__read_tables(struct __pyx_obj
 */
       }
 
-      /* "refinery/lib/unrar/unpack50.pyx":382
+      /* "refinery/lib/unrar/unpack50.pyx":383
  *             if i == 0:
  *                 return False
  *             while n > 0 and i < HUFF_TABLE_SIZE:             # <<<<<<<<<<<<<<
@@ -25840,7 +25840,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__read_tables(struct __pyx_obj
         __pyx_L19_bool_binop_done:;
         if (!__pyx_t_1) break;
 
-        /* "refinery/lib/unrar/unpack50.pyx":383
+        /* "refinery/lib/unrar/unpack50.pyx":384
  *                 return False
  *             while n > 0 and i < HUFF_TABLE_SIZE:
  *                 table[i] = table[i - 1]             # <<<<<<<<<<<<<<
@@ -25849,11 +25849,11 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__read_tables(struct __pyx_obj
 */
         __pyx_t_8 = (__pyx_v_i - 1);
         if (unlikely(((unsigned char)(__Pyx_PyByteArray_AsString(__pyx_v_table)[__pyx_t_8])) < 0 || ((unsigned char)(__Pyx_PyByteArray_AsString(__pyx_v_table)[__pyx_t_8])) > 255)) {
-          PyErr_SetString(PyExc_ValueError, "byte must be in range(0, 256)"); __PYX_ERR(0, 383, __pyx_L1_error)
+          PyErr_SetString(PyExc_ValueError, "byte must be in range(0, 256)"); __PYX_ERR(0, 384, __pyx_L1_error)
         }
-        if (unlikely((__Pyx_SetItemInt_ByteArray(__pyx_v_table, __pyx_v_i, ((unsigned char)((unsigned char)(__Pyx_PyByteArray_AsString(__pyx_v_table)[__pyx_t_8]))), int, 1, __Pyx_PyLong_From_int, 0, 0, 0, 1, __Pyx_ReferenceSharing_OwnStrongReference) < 0))) __PYX_ERR(0, 383, __pyx_L1_error)
+        if (unlikely((__Pyx_SetItemInt_ByteArray(__pyx_v_table, __pyx_v_i, ((unsigned char)((unsigned char)(__Pyx_PyByteArray_AsString(__pyx_v_table)[__pyx_t_8]))), int, 1, __Pyx_PyLong_From_int, 0, 0, 0, 1, __Pyx_ReferenceSharing_OwnStrongReference) < 0))) __PYX_ERR(0, 384, __pyx_L1_error)
 
-        /* "refinery/lib/unrar/unpack50.pyx":384
+        /* "refinery/lib/unrar/unpack50.pyx":385
  *             while n > 0 and i < HUFF_TABLE_SIZE:
  *                 table[i] = table[i - 1]
  *                 i += 1             # <<<<<<<<<<<<<<
@@ -25862,7 +25862,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__read_tables(struct __pyx_obj
 */
         __pyx_v_i = (__pyx_v_i + 1);
 
-        /* "refinery/lib/unrar/unpack50.pyx":385
+        /* "refinery/lib/unrar/unpack50.pyx":386
  *                 table[i] = table[i - 1]
  *                 i += 1
  *                 n -= 1             # <<<<<<<<<<<<<<
@@ -25872,7 +25872,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__read_tables(struct __pyx_obj
         __pyx_v_n = (__pyx_v_n - 1);
       }
 
-      /* "refinery/lib/unrar/unpack50.pyx":373
+      /* "refinery/lib/unrar/unpack50.pyx":374
  *             table[i] = number
  *             i += 1
  *         elif number < 18:             # <<<<<<<<<<<<<<
@@ -25882,7 +25882,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__read_tables(struct __pyx_obj
       goto __pyx_L14;
     }
 
-    /* "refinery/lib/unrar/unpack50.pyx":387
+    /* "refinery/lib/unrar/unpack50.pyx":388
  *                 n -= 1
  *         else:
  *             if number == 18:             # <<<<<<<<<<<<<<
@@ -25893,26 +25893,26 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__read_tables(struct __pyx_obj
       __pyx_t_1 = (__pyx_v_number == 18);
       if (__pyx_t_1) {
 
-        /* "refinery/lib/unrar/unpack50.pyx":388
+        /* "refinery/lib/unrar/unpack50.pyx":389
  *         else:
  *             if number == 18:
  *                 n = ((inp.getbits() >> 13) & 7) + 3             # <<<<<<<<<<<<<<
  *                 inp.addbits(3)
  *             else:
 */
-        __pyx_t_6 = ((struct __pyx_vtabstruct_8refinery_3lib_5unrar_8unpack50_BitInput *)__pyx_v_inp->__pyx_vtab)->getbits(__pyx_v_inp, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 388, __pyx_L1_error)
+        __pyx_t_6 = ((struct __pyx_vtabstruct_8refinery_3lib_5unrar_8unpack50_BitInput *)__pyx_v_inp->__pyx_vtab)->getbits(__pyx_v_inp, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 389, __pyx_L1_error)
         __pyx_v_n = (((__pyx_t_6 >> 13) & 7) + 3);
 
-        /* "refinery/lib/unrar/unpack50.pyx":389
+        /* "refinery/lib/unrar/unpack50.pyx":390
  *             if number == 18:
  *                 n = ((inp.getbits() >> 13) & 7) + 3
  *                 inp.addbits(3)             # <<<<<<<<<<<<<<
  *             else:
  *                 n = ((inp.getbits() >> 9) & 0x7F) + 11
 */
-        ((struct __pyx_vtabstruct_8refinery_3lib_5unrar_8unpack50_BitInput *)__pyx_v_inp->__pyx_vtab)->addbits(__pyx_v_inp, 3, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 389, __pyx_L1_error)
+        ((struct __pyx_vtabstruct_8refinery_3lib_5unrar_8unpack50_BitInput *)__pyx_v_inp->__pyx_vtab)->addbits(__pyx_v_inp, 3, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 390, __pyx_L1_error)
 
-        /* "refinery/lib/unrar/unpack50.pyx":387
+        /* "refinery/lib/unrar/unpack50.pyx":388
  *                 n -= 1
  *         else:
  *             if number == 18:             # <<<<<<<<<<<<<<
@@ -25922,7 +25922,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__read_tables(struct __pyx_obj
         goto __pyx_L21;
       }
 
-      /* "refinery/lib/unrar/unpack50.pyx":391
+      /* "refinery/lib/unrar/unpack50.pyx":392
  *                 inp.addbits(3)
  *             else:
  *                 n = ((inp.getbits() >> 9) & 0x7F) + 11             # <<<<<<<<<<<<<<
@@ -25930,21 +25930,21 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__read_tables(struct __pyx_obj
  *             while n > 0 and i < HUFF_TABLE_SIZE:
 */
       /*else*/ {
-        __pyx_t_6 = ((struct __pyx_vtabstruct_8refinery_3lib_5unrar_8unpack50_BitInput *)__pyx_v_inp->__pyx_vtab)->getbits(__pyx_v_inp, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 391, __pyx_L1_error)
+        __pyx_t_6 = ((struct __pyx_vtabstruct_8refinery_3lib_5unrar_8unpack50_BitInput *)__pyx_v_inp->__pyx_vtab)->getbits(__pyx_v_inp, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 392, __pyx_L1_error)
         __pyx_v_n = (((__pyx_t_6 >> 9) & 0x7F) + 11);
 
-        /* "refinery/lib/unrar/unpack50.pyx":392
+        /* "refinery/lib/unrar/unpack50.pyx":393
  *             else:
  *                 n = ((inp.getbits() >> 9) & 0x7F) + 11
  *                 inp.addbits(7)             # <<<<<<<<<<<<<<
  *             while n > 0 and i < HUFF_TABLE_SIZE:
  *                 table[i] = 0
 */
-        ((struct __pyx_vtabstruct_8refinery_3lib_5unrar_8unpack50_BitInput *)__pyx_v_inp->__pyx_vtab)->addbits(__pyx_v_inp, 7, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 392, __pyx_L1_error)
+        ((struct __pyx_vtabstruct_8refinery_3lib_5unrar_8unpack50_BitInput *)__pyx_v_inp->__pyx_vtab)->addbits(__pyx_v_inp, 7, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 393, __pyx_L1_error)
       }
       __pyx_L21:;
 
-      /* "refinery/lib/unrar/unpack50.pyx":393
+      /* "refinery/lib/unrar/unpack50.pyx":394
  *                 n = ((inp.getbits() >> 9) & 0x7F) + 11
  *                 inp.addbits(7)
  *             while n > 0 and i < HUFF_TABLE_SIZE:             # <<<<<<<<<<<<<<
@@ -25963,16 +25963,16 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__read_tables(struct __pyx_obj
         __pyx_L24_bool_binop_done:;
         if (!__pyx_t_1) break;
 
-        /* "refinery/lib/unrar/unpack50.pyx":394
+        /* "refinery/lib/unrar/unpack50.pyx":395
  *                 inp.addbits(7)
  *             while n > 0 and i < HUFF_TABLE_SIZE:
  *                 table[i] = 0             # <<<<<<<<<<<<<<
  *                 i += 1
  *                 n -= 1
 */
-        if (unlikely((__Pyx_SetItemInt_ByteArray(__pyx_v_table, __pyx_v_i, 0, int, 1, __Pyx_PyLong_From_int, 0, 0, 0, 1, __Pyx_ReferenceSharing_OwnStrongReference) < 0))) __PYX_ERR(0, 394, __pyx_L1_error)
+        if (unlikely((__Pyx_SetItemInt_ByteArray(__pyx_v_table, __pyx_v_i, 0, int, 1, __Pyx_PyLong_From_int, 0, 0, 0, 1, __Pyx_ReferenceSharing_OwnStrongReference) < 0))) __PYX_ERR(0, 395, __pyx_L1_error)
 
-        /* "refinery/lib/unrar/unpack50.pyx":395
+        /* "refinery/lib/unrar/unpack50.pyx":396
  *             while n > 0 and i < HUFF_TABLE_SIZE:
  *                 table[i] = 0
  *                 i += 1             # <<<<<<<<<<<<<<
@@ -25981,7 +25981,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__read_tables(struct __pyx_obj
 */
         __pyx_v_i = (__pyx_v_i + 1);
 
-        /* "refinery/lib/unrar/unpack50.pyx":396
+        /* "refinery/lib/unrar/unpack50.pyx":397
  *                 table[i] = 0
  *                 i += 1
  *                 n -= 1             # <<<<<<<<<<<<<<
@@ -25994,7 +25994,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__read_tables(struct __pyx_obj
     __pyx_L14:;
   }
 
-  /* "refinery/lib/unrar/unpack50.pyx":398
+  /* "refinery/lib/unrar/unpack50.pyx":399
  *                 n -= 1
  * 
  *     make_decode_tables(table, tables.LD, NC)             # <<<<<<<<<<<<<<
@@ -26003,10 +26003,10 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__read_tables(struct __pyx_obj
 */
   __pyx_t_2 = ((PyObject *)__pyx_v_tables->LD);
   __Pyx_INCREF(__pyx_t_2);
-  __pyx_f_8refinery_3lib_5unrar_8unpack50_make_decode_tables(__pyx_v_table, ((struct __pyx_obj_8refinery_3lib_5unrar_8unpack50_DecodeTable *)__pyx_t_2), __pyx_v_8refinery_3lib_5unrar_8unpack50_NC, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 398, __pyx_L1_error)
+  __pyx_f_8refinery_3lib_5unrar_8unpack50_make_decode_tables(__pyx_v_table, ((struct __pyx_obj_8refinery_3lib_5unrar_8unpack50_DecodeTable *)__pyx_t_2), __pyx_v_8refinery_3lib_5unrar_8unpack50_NC, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 399, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":399
+  /* "refinery/lib/unrar/unpack50.pyx":400
  * 
  *     make_decode_tables(table, tables.LD, NC)
  *     off = NC             # <<<<<<<<<<<<<<
@@ -26015,22 +26015,22 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__read_tables(struct __pyx_obj
 */
   __pyx_v_off = __pyx_v_8refinery_3lib_5unrar_8unpack50_NC;
 
-  /* "refinery/lib/unrar/unpack50.pyx":400
+  /* "refinery/lib/unrar/unpack50.pyx":401
  *     make_decode_tables(table, tables.LD, NC)
  *     off = NC
  *     make_decode_tables(table[off:], tables.DD, DC)             # <<<<<<<<<<<<<<
  *     off += DC
  *     make_decode_tables(table[off:], tables.LDD, LDC)
 */
-  __pyx_t_2 = PySequence_GetSlice(__pyx_v_table, __pyx_v_off, PY_SSIZE_T_MAX); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 400, __pyx_L1_error)
+  __pyx_t_2 = PySequence_GetSlice(__pyx_v_table, __pyx_v_off, PY_SSIZE_T_MAX); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 401, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_t_3 = ((PyObject *)__pyx_v_tables->DD);
   __Pyx_INCREF(__pyx_t_3);
-  __pyx_f_8refinery_3lib_5unrar_8unpack50_make_decode_tables(((PyObject*)__pyx_t_2), ((struct __pyx_obj_8refinery_3lib_5unrar_8unpack50_DecodeTable *)__pyx_t_3), __pyx_v_8refinery_3lib_5unrar_8unpack50_DC, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 400, __pyx_L1_error)
+  __pyx_f_8refinery_3lib_5unrar_8unpack50_make_decode_tables(((PyObject*)__pyx_t_2), ((struct __pyx_obj_8refinery_3lib_5unrar_8unpack50_DecodeTable *)__pyx_t_3), __pyx_v_8refinery_3lib_5unrar_8unpack50_DC, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 401, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":401
+  /* "refinery/lib/unrar/unpack50.pyx":402
  *     off = NC
  *     make_decode_tables(table[off:], tables.DD, DC)
  *     off += DC             # <<<<<<<<<<<<<<
@@ -26039,22 +26039,22 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__read_tables(struct __pyx_obj
 */
   __pyx_v_off = (__pyx_v_off + __pyx_v_8refinery_3lib_5unrar_8unpack50_DC);
 
-  /* "refinery/lib/unrar/unpack50.pyx":402
+  /* "refinery/lib/unrar/unpack50.pyx":403
  *     make_decode_tables(table[off:], tables.DD, DC)
  *     off += DC
  *     make_decode_tables(table[off:], tables.LDD, LDC)             # <<<<<<<<<<<<<<
  *     off += LDC
  *     make_decode_tables(table[off:], tables.RD, RC)
 */
-  __pyx_t_3 = PySequence_GetSlice(__pyx_v_table, __pyx_v_off, PY_SSIZE_T_MAX); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 402, __pyx_L1_error)
+  __pyx_t_3 = PySequence_GetSlice(__pyx_v_table, __pyx_v_off, PY_SSIZE_T_MAX); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 403, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_t_2 = ((PyObject *)__pyx_v_tables->LDD);
   __Pyx_INCREF(__pyx_t_2);
-  __pyx_f_8refinery_3lib_5unrar_8unpack50_make_decode_tables(((PyObject*)__pyx_t_3), ((struct __pyx_obj_8refinery_3lib_5unrar_8unpack50_DecodeTable *)__pyx_t_2), __pyx_v_8refinery_3lib_5unrar_8unpack50_LDC, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 402, __pyx_L1_error)
+  __pyx_f_8refinery_3lib_5unrar_8unpack50_make_decode_tables(((PyObject*)__pyx_t_3), ((struct __pyx_obj_8refinery_3lib_5unrar_8unpack50_DecodeTable *)__pyx_t_2), __pyx_v_8refinery_3lib_5unrar_8unpack50_LDC, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 403, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":403
+  /* "refinery/lib/unrar/unpack50.pyx":404
  *     off += DC
  *     make_decode_tables(table[off:], tables.LDD, LDC)
  *     off += LDC             # <<<<<<<<<<<<<<
@@ -26063,22 +26063,22 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__read_tables(struct __pyx_obj
 */
   __pyx_v_off = (__pyx_v_off + __pyx_v_8refinery_3lib_5unrar_8unpack50_LDC);
 
-  /* "refinery/lib/unrar/unpack50.pyx":404
+  /* "refinery/lib/unrar/unpack50.pyx":405
  *     make_decode_tables(table[off:], tables.LDD, LDC)
  *     off += LDC
  *     make_decode_tables(table[off:], tables.RD, RC)             # <<<<<<<<<<<<<<
  *     return True
  * 
 */
-  __pyx_t_2 = PySequence_GetSlice(__pyx_v_table, __pyx_v_off, PY_SSIZE_T_MAX); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 404, __pyx_L1_error)
+  __pyx_t_2 = PySequence_GetSlice(__pyx_v_table, __pyx_v_off, PY_SSIZE_T_MAX); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 405, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_t_3 = ((PyObject *)__pyx_v_tables->RD);
   __Pyx_INCREF(__pyx_t_3);
-  __pyx_f_8refinery_3lib_5unrar_8unpack50_make_decode_tables(((PyObject*)__pyx_t_2), ((struct __pyx_obj_8refinery_3lib_5unrar_8unpack50_DecodeTable *)__pyx_t_3), __pyx_v_8refinery_3lib_5unrar_8unpack50_RC, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 404, __pyx_L1_error)
+  __pyx_f_8refinery_3lib_5unrar_8unpack50_make_decode_tables(((PyObject*)__pyx_t_2), ((struct __pyx_obj_8refinery_3lib_5unrar_8unpack50_DecodeTable *)__pyx_t_3), __pyx_v_8refinery_3lib_5unrar_8unpack50_RC, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 405, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":405
+  /* "refinery/lib/unrar/unpack50.pyx":406
  *     off += LDC
  *     make_decode_tables(table[off:], tables.RD, RC)
  *     return True             # <<<<<<<<<<<<<<
@@ -26088,7 +26088,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__read_tables(struct __pyx_obj
   __pyx_r = 1;
   goto __pyx_L0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":334
+  /* "refinery/lib/unrar/unpack50.pyx":335
  * 
  * 
  * cdef bint _read_tables(BitInput inp, BlockHeader header, BlockTables tables):             # <<<<<<<<<<<<<<
@@ -26110,7 +26110,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__read_tables(struct __pyx_obj
   return __pyx_r;
 }
 
-/* "refinery/lib/unrar/unpack50.pyx":408
+/* "refinery/lib/unrar/unpack50.pyx":409
  * 
  * 
  * def read_tables(BitInput inp, BlockHeader header, BlockTables tables):             # <<<<<<<<<<<<<<
@@ -26160,38 +26160,38 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_inp,&__pyx_mstate_global->__pyx_n_u_header,&__pyx_mstate_global->__pyx_n_u_tables,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 408, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 409, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 408, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 409, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 408, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 409, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 408, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 409, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "read_tables", 0) < (0)) __PYX_ERR(0, 408, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "read_tables", 0) < (0)) __PYX_ERR(0, 409, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 3; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("read_tables", 1, 3, 3, i); __PYX_ERR(0, 408, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("read_tables", 1, 3, 3, i); __PYX_ERR(0, 409, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 3)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 408, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 409, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 408, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 409, __pyx_L3_error)
       values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 408, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 409, __pyx_L3_error)
     }
     __pyx_v_inp = ((struct __pyx_obj_8refinery_3lib_5unrar_8unpack50_BitInput *)values[0]);
     __pyx_v_header = ((struct __pyx_obj_8refinery_3lib_5unrar_8unpack50_BlockHeader *)values[1]);
@@ -26199,7 +26199,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("read_tables", 1, 3, 3, __pyx_nargs); __PYX_ERR(0, 408, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("read_tables", 1, 3, 3, __pyx_nargs); __PYX_ERR(0, 409, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -26210,9 +26210,9 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_inp), __pyx_mstate_global->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BitInput, 1, "inp", 0))) __PYX_ERR(0, 408, __pyx_L1_error)
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_header), __pyx_mstate_global->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BlockHeader, 1, "header", 0))) __PYX_ERR(0, 408, __pyx_L1_error)
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_tables), __pyx_mstate_global->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BlockTables, 1, "tables", 0))) __PYX_ERR(0, 408, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_inp), __pyx_mstate_global->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BitInput, 1, "inp", 0))) __PYX_ERR(0, 409, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_header), __pyx_mstate_global->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BlockHeader, 1, "header", 0))) __PYX_ERR(0, 409, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_tables), __pyx_mstate_global->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BlockTables, 1, "tables", 0))) __PYX_ERR(0, 409, __pyx_L1_error)
   __pyx_r = __pyx_pf_8refinery_3lib_5unrar_8unpack50_8read_tables(__pyx_self, __pyx_v_inp, __pyx_v_header, __pyx_v_tables);
 
   /* function exit code */
@@ -26242,7 +26242,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8read_tables(CYTHON_UN
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("read_tables", 0);
 
-  /* "refinery/lib/unrar/unpack50.pyx":412
+  /* "refinery/lib/unrar/unpack50.pyx":413
  *     Read Huffman tables from a block.
  *     """
  *     return _read_tables(inp, header, tables)             # <<<<<<<<<<<<<<
@@ -26250,14 +26250,14 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8read_tables(CYTHON_UN
  * 
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_8refinery_3lib_5unrar_8unpack50__read_tables(__pyx_v_inp, __pyx_v_header, __pyx_v_tables); if (unlikely(__pyx_t_1 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 412, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 412, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_8refinery_3lib_5unrar_8unpack50__read_tables(__pyx_v_inp, __pyx_v_header, __pyx_v_tables); if (unlikely(__pyx_t_1 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 413, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 413, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_r = __pyx_t_2;
   __pyx_t_2 = 0;
   goto __pyx_L0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":408
+  /* "refinery/lib/unrar/unpack50.pyx":409
  * 
  * 
  * def read_tables(BitInput inp, BlockHeader header, BlockTables tables):             # <<<<<<<<<<<<<<
@@ -26276,7 +26276,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8read_tables(CYTHON_UN
   return __pyx_r;
 }
 
-/* "refinery/lib/unrar/unpack50.pyx":415
+/* "refinery/lib/unrar/unpack50.pyx":416
  * 
  * 
  * cdef int _read_filter_data(BitInput inp):             # <<<<<<<<<<<<<<
@@ -26297,26 +26297,26 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__read_filter_data(struct __py
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":417
+  /* "refinery/lib/unrar/unpack50.pyx":418
  * cdef int _read_filter_data(BitInput inp):
  *     cdef int byte_count, data, i
  *     byte_count = ((inp.getbits() >> 14) & 3) + 1             # <<<<<<<<<<<<<<
  *     inp.addbits(2)
  *     data = 0
 */
-  __pyx_t_1 = ((struct __pyx_vtabstruct_8refinery_3lib_5unrar_8unpack50_BitInput *)__pyx_v_inp->__pyx_vtab)->getbits(__pyx_v_inp, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 417, __pyx_L1_error)
+  __pyx_t_1 = ((struct __pyx_vtabstruct_8refinery_3lib_5unrar_8unpack50_BitInput *)__pyx_v_inp->__pyx_vtab)->getbits(__pyx_v_inp, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 418, __pyx_L1_error)
   __pyx_v_byte_count = (((__pyx_t_1 >> 14) & 3) + 1);
 
-  /* "refinery/lib/unrar/unpack50.pyx":418
+  /* "refinery/lib/unrar/unpack50.pyx":419
  *     cdef int byte_count, data, i
  *     byte_count = ((inp.getbits() >> 14) & 3) + 1
  *     inp.addbits(2)             # <<<<<<<<<<<<<<
  *     data = 0
  *     for i in range(byte_count):
 */
-  ((struct __pyx_vtabstruct_8refinery_3lib_5unrar_8unpack50_BitInput *)__pyx_v_inp->__pyx_vtab)->addbits(__pyx_v_inp, 2, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 418, __pyx_L1_error)
+  ((struct __pyx_vtabstruct_8refinery_3lib_5unrar_8unpack50_BitInput *)__pyx_v_inp->__pyx_vtab)->addbits(__pyx_v_inp, 2, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 419, __pyx_L1_error)
 
-  /* "refinery/lib/unrar/unpack50.pyx":419
+  /* "refinery/lib/unrar/unpack50.pyx":420
  *     byte_count = ((inp.getbits() >> 14) & 3) + 1
  *     inp.addbits(2)
  *     data = 0             # <<<<<<<<<<<<<<
@@ -26325,7 +26325,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__read_filter_data(struct __py
 */
   __pyx_v_data = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":420
+  /* "refinery/lib/unrar/unpack50.pyx":421
  *     inp.addbits(2)
  *     data = 0
  *     for i in range(byte_count):             # <<<<<<<<<<<<<<
@@ -26337,27 +26337,27 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__read_filter_data(struct __py
   for (__pyx_t_3 = 0; __pyx_t_3 < __pyx_t_2; __pyx_t_3+=1) {
     __pyx_v_i = __pyx_t_3;
 
-    /* "refinery/lib/unrar/unpack50.pyx":421
+    /* "refinery/lib/unrar/unpack50.pyx":422
  *     data = 0
  *     for i in range(byte_count):
  *         data += ((inp.getbits() >> 8) & 0xFF) << (i * 8)             # <<<<<<<<<<<<<<
  *         inp.addbits(8)
  *     return data
 */
-    __pyx_t_4 = ((struct __pyx_vtabstruct_8refinery_3lib_5unrar_8unpack50_BitInput *)__pyx_v_inp->__pyx_vtab)->getbits(__pyx_v_inp, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 421, __pyx_L1_error)
+    __pyx_t_4 = ((struct __pyx_vtabstruct_8refinery_3lib_5unrar_8unpack50_BitInput *)__pyx_v_inp->__pyx_vtab)->getbits(__pyx_v_inp, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 422, __pyx_L1_error)
     __pyx_v_data = (__pyx_v_data + (((__pyx_t_4 >> 8) & 0xFF) << (__pyx_v_i * 8)));
 
-    /* "refinery/lib/unrar/unpack50.pyx":422
+    /* "refinery/lib/unrar/unpack50.pyx":423
  *     for i in range(byte_count):
  *         data += ((inp.getbits() >> 8) & 0xFF) << (i * 8)
  *         inp.addbits(8)             # <<<<<<<<<<<<<<
  *     return data
  * 
 */
-    ((struct __pyx_vtabstruct_8refinery_3lib_5unrar_8unpack50_BitInput *)__pyx_v_inp->__pyx_vtab)->addbits(__pyx_v_inp, 8, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 422, __pyx_L1_error)
+    ((struct __pyx_vtabstruct_8refinery_3lib_5unrar_8unpack50_BitInput *)__pyx_v_inp->__pyx_vtab)->addbits(__pyx_v_inp, 8, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 423, __pyx_L1_error)
   }
 
-  /* "refinery/lib/unrar/unpack50.pyx":423
+  /* "refinery/lib/unrar/unpack50.pyx":424
  *         data += ((inp.getbits() >> 8) & 0xFF) << (i * 8)
  *         inp.addbits(8)
  *     return data             # <<<<<<<<<<<<<<
@@ -26367,7 +26367,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__read_filter_data(struct __py
   __pyx_r = __pyx_v_data;
   goto __pyx_L0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":415
+  /* "refinery/lib/unrar/unpack50.pyx":416
  * 
  * 
  * cdef int _read_filter_data(BitInput inp):             # <<<<<<<<<<<<<<
@@ -26383,7 +26383,7 @@ static int __pyx_f_8refinery_3lib_5unrar_8unpack50__read_filter_data(struct __py
   return __pyx_r;
 }
 
-/* "refinery/lib/unrar/unpack50.pyx":426
+/* "refinery/lib/unrar/unpack50.pyx":427
  * 
  * 
  * def read_filter_data(BitInput inp):             # <<<<<<<<<<<<<<
@@ -26431,32 +26431,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_inp,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 426, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 427, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 426, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 427, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "read_filter_data", 0) < (0)) __PYX_ERR(0, 426, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "read_filter_data", 0) < (0)) __PYX_ERR(0, 427, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("read_filter_data", 1, 1, 1, i); __PYX_ERR(0, 426, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("read_filter_data", 1, 1, 1, i); __PYX_ERR(0, 427, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 426, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 427, __pyx_L3_error)
     }
     __pyx_v_inp = ((struct __pyx_obj_8refinery_3lib_5unrar_8unpack50_BitInput *)values[0]);
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("read_filter_data", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 426, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("read_filter_data", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 427, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -26467,7 +26467,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_inp), __pyx_mstate_global->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BitInput, 1, "inp", 0))) __PYX_ERR(0, 426, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_inp), __pyx_mstate_global->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BitInput, 1, "inp", 0))) __PYX_ERR(0, 427, __pyx_L1_error)
   __pyx_r = __pyx_pf_8refinery_3lib_5unrar_8unpack50_10read_filter_data(__pyx_self, __pyx_v_inp);
 
   /* function exit code */
@@ -26497,7 +26497,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_10read_filter_data(CYT
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("read_filter_data", 0);
 
-  /* "refinery/lib/unrar/unpack50.pyx":430
+  /* "refinery/lib/unrar/unpack50.pyx":431
  *     Read a variable-length filter data value.
  *     """
  *     return _read_filter_data(inp)             # <<<<<<<<<<<<<<
@@ -26505,14 +26505,14 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_10read_filter_data(CYT
  * 
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_8refinery_3lib_5unrar_8unpack50__read_filter_data(__pyx_v_inp); if (unlikely(__pyx_t_1 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 430, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_PyLong_From_int(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 430, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_8refinery_3lib_5unrar_8unpack50__read_filter_data(__pyx_v_inp); if (unlikely(__pyx_t_1 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 431, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyLong_From_int(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 431, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_r = __pyx_t_2;
   __pyx_t_2 = 0;
   goto __pyx_L0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":426
+  /* "refinery/lib/unrar/unpack50.pyx":427
  * 
  * 
  * def read_filter_data(BitInput inp):             # <<<<<<<<<<<<<<
@@ -26531,7 +26531,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_10read_filter_data(CYT
   return __pyx_r;
 }
 
-/* "refinery/lib/unrar/unpack50.pyx":433
+/* "refinery/lib/unrar/unpack50.pyx":434
  * 
  * 
  * def read_filter(BitInput inp):             # <<<<<<<<<<<<<<
@@ -26579,32 +26579,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_inp,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 433, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 434, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 433, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 434, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "read_filter", 0) < (0)) __PYX_ERR(0, 433, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "read_filter", 0) < (0)) __PYX_ERR(0, 434, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("read_filter", 1, 1, 1, i); __PYX_ERR(0, 433, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("read_filter", 1, 1, 1, i); __PYX_ERR(0, 434, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 433, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 434, __pyx_L3_error)
     }
     __pyx_v_inp = ((struct __pyx_obj_8refinery_3lib_5unrar_8unpack50_BitInput *)values[0]);
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("read_filter", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 433, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("read_filter", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 434, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -26615,7 +26615,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_inp), __pyx_mstate_global->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BitInput, 1, "inp", 0))) __PYX_ERR(0, 433, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_inp), __pyx_mstate_global->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BitInput, 1, "inp", 0))) __PYX_ERR(0, 434, __pyx_L1_error)
   __pyx_r = __pyx_pf_8refinery_3lib_5unrar_8unpack50_12read_filter(__pyx_self, __pyx_v_inp);
 
   /* function exit code */
@@ -26650,7 +26650,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_12read_filter(CYTHON_U
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("read_filter", 0);
 
-  /* "refinery/lib/unrar/unpack50.pyx":437
+  /* "refinery/lib/unrar/unpack50.pyx":438
  *     Read a RAR5 filter definition.
  *     """
  *     flt = UnpackFilter()             # <<<<<<<<<<<<<<
@@ -26658,7 +26658,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_12read_filter(CYTHON_U
  *     flt.block_length = _read_filter_data(inp)
 */
   __pyx_t_2 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_UnpackFilter); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 437, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_UnpackFilter); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 438, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_t_4 = 1;
   #if CYTHON_UNPACK_METHODS
@@ -26677,66 +26677,66 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_12read_filter(CYTHON_U
     __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_3, __pyx_callargs+__pyx_t_4, (1-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 437, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 438, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_v_flt = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":438
+  /* "refinery/lib/unrar/unpack50.pyx":439
  *     """
  *     flt = UnpackFilter()
  *     flt.block_start = _read_filter_data(inp)             # <<<<<<<<<<<<<<
  *     flt.block_length = _read_filter_data(inp)
  *     if flt.block_length > MAX_FILTER_BLOCK_SIZE:
 */
-  __pyx_t_5 = __pyx_f_8refinery_3lib_5unrar_8unpack50__read_filter_data(__pyx_v_inp); if (unlikely(__pyx_t_5 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 438, __pyx_L1_error)
-  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_t_5); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 438, __pyx_L1_error)
+  __pyx_t_5 = __pyx_f_8refinery_3lib_5unrar_8unpack50__read_filter_data(__pyx_v_inp); if (unlikely(__pyx_t_5 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 439, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_t_5); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 439, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_flt, __pyx_mstate_global->__pyx_n_u_block_start, __pyx_t_1) < (0)) __PYX_ERR(0, 438, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_flt, __pyx_mstate_global->__pyx_n_u_block_start, __pyx_t_1) < (0)) __PYX_ERR(0, 439, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":439
+  /* "refinery/lib/unrar/unpack50.pyx":440
  *     flt = UnpackFilter()
  *     flt.block_start = _read_filter_data(inp)
  *     flt.block_length = _read_filter_data(inp)             # <<<<<<<<<<<<<<
  *     if flt.block_length > MAX_FILTER_BLOCK_SIZE:
  *         flt.block_length = 0
 */
-  __pyx_t_5 = __pyx_f_8refinery_3lib_5unrar_8unpack50__read_filter_data(__pyx_v_inp); if (unlikely(__pyx_t_5 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 439, __pyx_L1_error)
-  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_t_5); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 439, __pyx_L1_error)
+  __pyx_t_5 = __pyx_f_8refinery_3lib_5unrar_8unpack50__read_filter_data(__pyx_v_inp); if (unlikely(__pyx_t_5 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 440, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_t_5); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 440, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_flt, __pyx_mstate_global->__pyx_n_u_block_length, __pyx_t_1) < (0)) __PYX_ERR(0, 439, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_flt, __pyx_mstate_global->__pyx_n_u_block_length, __pyx_t_1) < (0)) __PYX_ERR(0, 440, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":440
+  /* "refinery/lib/unrar/unpack50.pyx":441
  *     flt.block_start = _read_filter_data(inp)
  *     flt.block_length = _read_filter_data(inp)
  *     if flt.block_length > MAX_FILTER_BLOCK_SIZE:             # <<<<<<<<<<<<<<
  *         flt.block_length = 0
  * 
 */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_flt, __pyx_mstate_global->__pyx_n_u_block_length); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 440, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_flt, __pyx_mstate_global->__pyx_n_u_block_length); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 441, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_3 = __Pyx_PyLong_From_int(__pyx_v_8refinery_3lib_5unrar_8unpack50_MAX_FILTER_BLOCK_SIZE); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 440, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyLong_From_int(__pyx_v_8refinery_3lib_5unrar_8unpack50_MAX_FILTER_BLOCK_SIZE); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 441, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_2 = PyObject_RichCompare(__pyx_t_1, __pyx_t_3, Py_GT); __Pyx_XGOTREF(__pyx_t_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 440, __pyx_L1_error)
+  __pyx_t_2 = PyObject_RichCompare(__pyx_t_1, __pyx_t_3, Py_GT); __Pyx_XGOTREF(__pyx_t_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 441, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 440, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 441, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   if (__pyx_t_6) {
 
-    /* "refinery/lib/unrar/unpack50.pyx":441
+    /* "refinery/lib/unrar/unpack50.pyx":442
  *     flt.block_length = _read_filter_data(inp)
  *     if flt.block_length > MAX_FILTER_BLOCK_SIZE:
  *         flt.block_length = 0             # <<<<<<<<<<<<<<
  * 
  *     flt.type = (inp.getbits() >> 13) & 7
 */
-    if (__Pyx_PyObject_SetAttrStr(__pyx_v_flt, __pyx_mstate_global->__pyx_n_u_block_length, __pyx_mstate_global->__pyx_int_0) < (0)) __PYX_ERR(0, 441, __pyx_L1_error)
+    if (__Pyx_PyObject_SetAttrStr(__pyx_v_flt, __pyx_mstate_global->__pyx_n_u_block_length, __pyx_mstate_global->__pyx_int_0) < (0)) __PYX_ERR(0, 442, __pyx_L1_error)
 
-    /* "refinery/lib/unrar/unpack50.pyx":440
+    /* "refinery/lib/unrar/unpack50.pyx":441
  *     flt.block_start = _read_filter_data(inp)
  *     flt.block_length = _read_filter_data(inp)
  *     if flt.block_length > MAX_FILTER_BLOCK_SIZE:             # <<<<<<<<<<<<<<
@@ -26745,72 +26745,72 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_12read_filter(CYTHON_U
 */
   }
 
-  /* "refinery/lib/unrar/unpack50.pyx":443
+  /* "refinery/lib/unrar/unpack50.pyx":444
  *         flt.block_length = 0
  * 
  *     flt.type = (inp.getbits() >> 13) & 7             # <<<<<<<<<<<<<<
  *     inp.addbits(3)
  * 
 */
-  __pyx_t_5 = ((struct __pyx_vtabstruct_8refinery_3lib_5unrar_8unpack50_BitInput *)__pyx_v_inp->__pyx_vtab)->getbits(__pyx_v_inp, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 443, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_PyLong_From_long(((__pyx_t_5 >> 13) & 7)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 443, __pyx_L1_error)
+  __pyx_t_5 = ((struct __pyx_vtabstruct_8refinery_3lib_5unrar_8unpack50_BitInput *)__pyx_v_inp->__pyx_vtab)->getbits(__pyx_v_inp, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 444, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyLong_From_long(((__pyx_t_5 >> 13) & 7)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 444, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_flt, __pyx_mstate_global->__pyx_n_u_type, __pyx_t_2) < (0)) __PYX_ERR(0, 443, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_flt, __pyx_mstate_global->__pyx_n_u_type, __pyx_t_2) < (0)) __PYX_ERR(0, 444, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":444
+  /* "refinery/lib/unrar/unpack50.pyx":445
  * 
  *     flt.type = (inp.getbits() >> 13) & 7
  *     inp.addbits(3)             # <<<<<<<<<<<<<<
  * 
  *     if flt.type == FilterType.FILTER_DELTA:
 */
-  ((struct __pyx_vtabstruct_8refinery_3lib_5unrar_8unpack50_BitInput *)__pyx_v_inp->__pyx_vtab)->addbits(__pyx_v_inp, 3, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 444, __pyx_L1_error)
+  ((struct __pyx_vtabstruct_8refinery_3lib_5unrar_8unpack50_BitInput *)__pyx_v_inp->__pyx_vtab)->addbits(__pyx_v_inp, 3, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 445, __pyx_L1_error)
 
-  /* "refinery/lib/unrar/unpack50.pyx":446
+  /* "refinery/lib/unrar/unpack50.pyx":447
  *     inp.addbits(3)
  * 
  *     if flt.type == FilterType.FILTER_DELTA:             # <<<<<<<<<<<<<<
  *         flt.channels = ((inp.getbits() >> 11) & 0x1F) + 1
  *         inp.addbits(5)
 */
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_flt, __pyx_mstate_global->__pyx_n_u_type); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 446, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_flt, __pyx_mstate_global->__pyx_n_u_type); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 447, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_FilterType); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 446, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_FilterType); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 447, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_FILTER_DELTA); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 446, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_FILTER_DELTA); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 447, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_3 = PyObject_RichCompare(__pyx_t_2, __pyx_t_1, Py_EQ); __Pyx_XGOTREF(__pyx_t_3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 446, __pyx_L1_error)
+  __pyx_t_3 = PyObject_RichCompare(__pyx_t_2, __pyx_t_1, Py_EQ); __Pyx_XGOTREF(__pyx_t_3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 447, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 446, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 447, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   if (__pyx_t_6) {
 
-    /* "refinery/lib/unrar/unpack50.pyx":447
+    /* "refinery/lib/unrar/unpack50.pyx":448
  * 
  *     if flt.type == FilterType.FILTER_DELTA:
  *         flt.channels = ((inp.getbits() >> 11) & 0x1F) + 1             # <<<<<<<<<<<<<<
  *         inp.addbits(5)
  * 
 */
-    __pyx_t_5 = ((struct __pyx_vtabstruct_8refinery_3lib_5unrar_8unpack50_BitInput *)__pyx_v_inp->__pyx_vtab)->getbits(__pyx_v_inp, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 447, __pyx_L1_error)
-    __pyx_t_3 = __Pyx_PyLong_From_long((((__pyx_t_5 >> 11) & 0x1F) + 1)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 447, __pyx_L1_error)
+    __pyx_t_5 = ((struct __pyx_vtabstruct_8refinery_3lib_5unrar_8unpack50_BitInput *)__pyx_v_inp->__pyx_vtab)->getbits(__pyx_v_inp, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 448, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyLong_From_long((((__pyx_t_5 >> 11) & 0x1F) + 1)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 448, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    if (__Pyx_PyObject_SetAttrStr(__pyx_v_flt, __pyx_mstate_global->__pyx_n_u_channels, __pyx_t_3) < (0)) __PYX_ERR(0, 447, __pyx_L1_error)
+    if (__Pyx_PyObject_SetAttrStr(__pyx_v_flt, __pyx_mstate_global->__pyx_n_u_channels, __pyx_t_3) < (0)) __PYX_ERR(0, 448, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-    /* "refinery/lib/unrar/unpack50.pyx":448
+    /* "refinery/lib/unrar/unpack50.pyx":449
  *     if flt.type == FilterType.FILTER_DELTA:
  *         flt.channels = ((inp.getbits() >> 11) & 0x1F) + 1
  *         inp.addbits(5)             # <<<<<<<<<<<<<<
  * 
  *     return flt
 */
-    ((struct __pyx_vtabstruct_8refinery_3lib_5unrar_8unpack50_BitInput *)__pyx_v_inp->__pyx_vtab)->addbits(__pyx_v_inp, 5, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 448, __pyx_L1_error)
+    ((struct __pyx_vtabstruct_8refinery_3lib_5unrar_8unpack50_BitInput *)__pyx_v_inp->__pyx_vtab)->addbits(__pyx_v_inp, 5, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 449, __pyx_L1_error)
 
-    /* "refinery/lib/unrar/unpack50.pyx":446
+    /* "refinery/lib/unrar/unpack50.pyx":447
  *     inp.addbits(3)
  * 
  *     if flt.type == FilterType.FILTER_DELTA:             # <<<<<<<<<<<<<<
@@ -26819,7 +26819,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_12read_filter(CYTHON_U
 */
   }
 
-  /* "refinery/lib/unrar/unpack50.pyx":450
+  /* "refinery/lib/unrar/unpack50.pyx":451
  *         inp.addbits(5)
  * 
  *     return flt             # <<<<<<<<<<<<<<
@@ -26831,7 +26831,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_12read_filter(CYTHON_U
   __pyx_r = __pyx_v_flt;
   goto __pyx_L0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":433
+  /* "refinery/lib/unrar/unpack50.pyx":434
  * 
  * 
  * def read_filter(BitInput inp):             # <<<<<<<<<<<<<<
@@ -26853,7 +26853,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_12read_filter(CYTHON_U
   return __pyx_r;
 }
 
-/* "refinery/lib/unrar/unpack50.pyx":458
+/* "refinery/lib/unrar/unpack50.pyx":459
  *     """
  * 
  *     def __init__(             # <<<<<<<<<<<<<<
@@ -26904,65 +26904,65 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,&__pyx_mstate_global->__pyx_n_u_data,&__pyx_mstate_global->__pyx_n_u_unp_size,&__pyx_mstate_global->__pyx_n_u_win_size,&__pyx_mstate_global->__pyx_n_u_solid,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 458, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 459, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  5:
         values[4] = __Pyx_ArgRef_FASTCALL(__pyx_args, 4);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 458, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 459, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  4:
         values[3] = __Pyx_ArgRef_FASTCALL(__pyx_args, 3);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 458, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 459, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 458, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 459, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 458, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 459, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 458, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 459, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__init__", 0) < (0)) __PYX_ERR(0, 458, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__init__", 0) < (0)) __PYX_ERR(0, 459, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 4; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__init__", 0, 4, 5, i); __PYX_ERR(0, 458, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__init__", 0, 4, 5, i); __PYX_ERR(0, 459, __pyx_L3_error) }
       }
     } else {
       switch (__pyx_nargs) {
         case  5:
         values[4] = __Pyx_ArgRef_FASTCALL(__pyx_args, 4);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 458, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 459, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  4:
         values[3] = __Pyx_ArgRef_FASTCALL(__pyx_args, 3);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 458, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 459, __pyx_L3_error)
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 458, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 459, __pyx_L3_error)
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 458, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 459, __pyx_L3_error)
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 458, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 459, __pyx_L3_error)
         break;
         default: goto __pyx_L5_argtuple_error;
       }
     }
     __pyx_v_self = values[0];
     __pyx_v_data = values[1];
-    __pyx_v_unp_size = __Pyx_PyLong_As_int(values[2]); if (unlikely((__pyx_v_unp_size == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 461, __pyx_L3_error)
-    __pyx_v_win_size = __Pyx_PyLong_As_int(values[3]); if (unlikely((__pyx_v_win_size == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 462, __pyx_L3_error)
+    __pyx_v_unp_size = __Pyx_PyLong_As_int(values[2]); if (unlikely((__pyx_v_unp_size == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 462, __pyx_L3_error)
+    __pyx_v_win_size = __Pyx_PyLong_As_int(values[3]); if (unlikely((__pyx_v_win_size == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 463, __pyx_L3_error)
     if (values[4]) {
-      __pyx_v_solid = __Pyx_PyObject_IsTrue(values[4]); if (unlikely((__pyx_v_solid == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 463, __pyx_L3_error)
+      __pyx_v_solid = __Pyx_PyObject_IsTrue(values[4]); if (unlikely((__pyx_v_solid == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 464, __pyx_L3_error)
     } else {
 
-      /* "refinery/lib/unrar/unpack50.pyx":463
+      /* "refinery/lib/unrar/unpack50.pyx":464
  *         int unp_size,
  *         int win_size,
  *         bint solid=False,             # <<<<<<<<<<<<<<
@@ -26974,7 +26974,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__init__", 0, 4, 5, __pyx_nargs); __PYX_ERR(0, 458, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__init__", 0, 4, 5, __pyx_nargs); __PYX_ERR(0, 459, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -26987,7 +26987,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __pyx_L4_argument_unpacking_done:;
   __pyx_r = __pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50___init__(__pyx_self, __pyx_v_self, __pyx_v_data, __pyx_v_unp_size, __pyx_v_win_size, __pyx_v_solid);
 
-  /* "refinery/lib/unrar/unpack50.pyx":458
+  /* "refinery/lib/unrar/unpack50.pyx":459
  *     """
  * 
  *     def __init__(             # <<<<<<<<<<<<<<
@@ -27020,7 +27020,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50___init__(CYT
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__init__", 0);
 
-  /* "refinery/lib/unrar/unpack50.pyx":465
+  /* "refinery/lib/unrar/unpack50.pyx":466
  *         bint solid=False,
  *     ):
  *         self._inp = BitInput(data)             # <<<<<<<<<<<<<<
@@ -27033,25 +27033,25 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50___init__(CYT
     PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_v_data};
     __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_mstate_global->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BitInput, __pyx_callargs+__pyx_t_3, (2-__pyx_t_3) | (__pyx_t_3*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 465, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 466, __pyx_L1_error)
     __Pyx_GOTREF((PyObject *)__pyx_t_1);
   }
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_inp_2, ((PyObject *)__pyx_t_1)) < (0)) __PYX_ERR(0, 465, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_inp_2, ((PyObject *)__pyx_t_1)) < (0)) __PYX_ERR(0, 466, __pyx_L1_error)
   __Pyx_DECREF((PyObject *)__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":466
+  /* "refinery/lib/unrar/unpack50.pyx":467
  *     ):
  *         self._inp = BitInput(data)
  *         self._dest_size = unp_size             # <<<<<<<<<<<<<<
  *         self._win_size = max(win_size, 0x40000)
  *         self._win_mask = self._win_size - 1
 */
-  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_unp_size); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 466, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_unp_size); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 467, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_dest_size, __pyx_t_1) < (0)) __PYX_ERR(0, 466, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_dest_size, __pyx_t_1) < (0)) __PYX_ERR(0, 467, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":467
+  /* "refinery/lib/unrar/unpack50.pyx":468
  *         self._inp = BitInput(data)
  *         self._dest_size = unp_size
  *         self._win_size = max(win_size, 0x40000)             # <<<<<<<<<<<<<<
@@ -27066,27 +27066,27 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50___init__(CYT
   } else {
     __pyx_t_6 = __pyx_t_5;
   }
-  __pyx_t_1 = __Pyx_PyLong_From_long(__pyx_t_6); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 467, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_From_long(__pyx_t_6); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 468, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_win_size_2, __pyx_t_1) < (0)) __PYX_ERR(0, 467, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_win_size_2, __pyx_t_1) < (0)) __PYX_ERR(0, 468, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":468
+  /* "refinery/lib/unrar/unpack50.pyx":469
  *         self._dest_size = unp_size
  *         self._win_size = max(win_size, 0x40000)
  *         self._win_mask = self._win_size - 1             # <<<<<<<<<<<<<<
  *         self._window = bytearray(self._win_size)
  *         self._solid = solid
 */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_win_size_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 468, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_win_size_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 469, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyLong_SubtractObjC(__pyx_t_1, __pyx_mstate_global->__pyx_int_1, 1, 0, 0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 468, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyLong_SubtractObjC(__pyx_t_1, __pyx_mstate_global->__pyx_int_1, 1, 0, 0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 469, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_win_mask, __pyx_t_2) < (0)) __PYX_ERR(0, 468, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_win_mask, __pyx_t_2) < (0)) __PYX_ERR(0, 469, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":469
+  /* "refinery/lib/unrar/unpack50.pyx":470
  *         self._win_size = max(win_size, 0x40000)
  *         self._win_mask = self._win_size - 1
  *         self._window = bytearray(self._win_size)             # <<<<<<<<<<<<<<
@@ -27094,7 +27094,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50___init__(CYT
  *         self._old_dist = [0, 0, 0, 0]
 */
   __pyx_t_1 = NULL;
-  __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_win_size_2); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 469, __pyx_L1_error)
+  __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_win_size_2); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 470, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_8);
   __pyx_t_3 = 1;
   {
@@ -27102,85 +27102,85 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50___init__(CYT
     __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)(&PyByteArray_Type), __pyx_callargs+__pyx_t_3, (2-__pyx_t_3) | (__pyx_t_3*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
     __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 469, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 470, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
   }
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_window, __pyx_t_2) < (0)) __PYX_ERR(0, 469, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_window, __pyx_t_2) < (0)) __PYX_ERR(0, 470, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":470
+  /* "refinery/lib/unrar/unpack50.pyx":471
  *         self._win_mask = self._win_size - 1
  *         self._window = bytearray(self._win_size)
  *         self._solid = solid             # <<<<<<<<<<<<<<
  *         self._old_dist = [0, 0, 0, 0]
  *         self._last_length = 0
 */
-  __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_v_solid); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 470, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_v_solid); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 471, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_solid_2, __pyx_t_2) < (0)) __PYX_ERR(0, 470, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_solid_2, __pyx_t_2) < (0)) __PYX_ERR(0, 471, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":471
+  /* "refinery/lib/unrar/unpack50.pyx":472
  *         self._window = bytearray(self._win_size)
  *         self._solid = solid
  *         self._old_dist = [0, 0, 0, 0]             # <<<<<<<<<<<<<<
  *         self._last_length = 0
  *         self._unp_ptr = 0
 */
-  __pyx_t_2 = PyList_New(4); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 471, __pyx_L1_error)
+  __pyx_t_2 = PyList_New(4); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 472, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_INCREF(__pyx_mstate_global->__pyx_int_0);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_int_0);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_2, 0, __pyx_mstate_global->__pyx_int_0) != (0)) __PYX_ERR(0, 471, __pyx_L1_error);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_2, 0, __pyx_mstate_global->__pyx_int_0) != (0)) __PYX_ERR(0, 472, __pyx_L1_error);
   __Pyx_INCREF(__pyx_mstate_global->__pyx_int_0);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_int_0);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_2, 1, __pyx_mstate_global->__pyx_int_0) != (0)) __PYX_ERR(0, 471, __pyx_L1_error);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_2, 1, __pyx_mstate_global->__pyx_int_0) != (0)) __PYX_ERR(0, 472, __pyx_L1_error);
   __Pyx_INCREF(__pyx_mstate_global->__pyx_int_0);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_int_0);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_2, 2, __pyx_mstate_global->__pyx_int_0) != (0)) __PYX_ERR(0, 471, __pyx_L1_error);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_2, 2, __pyx_mstate_global->__pyx_int_0) != (0)) __PYX_ERR(0, 472, __pyx_L1_error);
   __Pyx_INCREF(__pyx_mstate_global->__pyx_int_0);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_int_0);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_2, 3, __pyx_mstate_global->__pyx_int_0) != (0)) __PYX_ERR(0, 471, __pyx_L1_error);
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_old_dist, __pyx_t_2) < (0)) __PYX_ERR(0, 471, __pyx_L1_error)
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_2, 3, __pyx_mstate_global->__pyx_int_0) != (0)) __PYX_ERR(0, 472, __pyx_L1_error);
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_old_dist, __pyx_t_2) < (0)) __PYX_ERR(0, 472, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":472
+  /* "refinery/lib/unrar/unpack50.pyx":473
  *         self._solid = solid
  *         self._old_dist = [0, 0, 0, 0]
  *         self._last_length = 0             # <<<<<<<<<<<<<<
  *         self._unp_ptr = 0
  *         self._wr_ptr = 0
 */
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_last_length, __pyx_mstate_global->__pyx_int_0) < (0)) __PYX_ERR(0, 472, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_last_length, __pyx_mstate_global->__pyx_int_0) < (0)) __PYX_ERR(0, 473, __pyx_L1_error)
 
-  /* "refinery/lib/unrar/unpack50.pyx":473
+  /* "refinery/lib/unrar/unpack50.pyx":474
  *         self._old_dist = [0, 0, 0, 0]
  *         self._last_length = 0
  *         self._unp_ptr = 0             # <<<<<<<<<<<<<<
  *         self._wr_ptr = 0
  *         self._written = 0
 */
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_unp_ptr, __pyx_mstate_global->__pyx_int_0) < (0)) __PYX_ERR(0, 473, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_unp_ptr, __pyx_mstate_global->__pyx_int_0) < (0)) __PYX_ERR(0, 474, __pyx_L1_error)
 
-  /* "refinery/lib/unrar/unpack50.pyx":474
+  /* "refinery/lib/unrar/unpack50.pyx":475
  *         self._last_length = 0
  *         self._unp_ptr = 0
  *         self._wr_ptr = 0             # <<<<<<<<<<<<<<
  *         self._written = 0
  *         self._output = bytearray()
 */
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_wr_ptr, __pyx_mstate_global->__pyx_int_0) < (0)) __PYX_ERR(0, 474, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_wr_ptr, __pyx_mstate_global->__pyx_int_0) < (0)) __PYX_ERR(0, 475, __pyx_L1_error)
 
-  /* "refinery/lib/unrar/unpack50.pyx":475
+  /* "refinery/lib/unrar/unpack50.pyx":476
  *         self._unp_ptr = 0
  *         self._wr_ptr = 0
  *         self._written = 0             # <<<<<<<<<<<<<<
  *         self._output = bytearray()
  *         self._filters = []
 */
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_written, __pyx_mstate_global->__pyx_int_0) < (0)) __PYX_ERR(0, 475, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_written, __pyx_mstate_global->__pyx_int_0) < (0)) __PYX_ERR(0, 476, __pyx_L1_error)
 
-  /* "refinery/lib/unrar/unpack50.pyx":476
+  /* "refinery/lib/unrar/unpack50.pyx":477
  *         self._wr_ptr = 0
  *         self._written = 0
  *         self._output = bytearray()             # <<<<<<<<<<<<<<
@@ -27193,34 +27193,34 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50___init__(CYT
     PyObject *__pyx_callargs[2] = {__pyx_t_8, NULL};
     __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)(&PyByteArray_Type), __pyx_callargs+__pyx_t_3, (1-__pyx_t_3) | (__pyx_t_3*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 476, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 477, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
   }
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_output, __pyx_t_2) < (0)) __PYX_ERR(0, 476, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_output, __pyx_t_2) < (0)) __PYX_ERR(0, 477, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":477
+  /* "refinery/lib/unrar/unpack50.pyx":478
  *         self._written = 0
  *         self._output = bytearray()
  *         self._filters = []             # <<<<<<<<<<<<<<
  *         self._tables_read = False
  *         self._block_header = BlockHeader()
 */
-  __pyx_t_2 = PyList_New(0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 477, __pyx_L1_error)
+  __pyx_t_2 = PyList_New(0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 478, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_filters, __pyx_t_2) < (0)) __PYX_ERR(0, 477, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_filters, __pyx_t_2) < (0)) __PYX_ERR(0, 478, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":478
+  /* "refinery/lib/unrar/unpack50.pyx":479
  *         self._output = bytearray()
  *         self._filters = []
  *         self._tables_read = False             # <<<<<<<<<<<<<<
  *         self._block_header = BlockHeader()
  *         self._block_tables = BlockTables()
 */
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_tables_read, Py_False) < (0)) __PYX_ERR(0, 478, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_tables_read, Py_False) < (0)) __PYX_ERR(0, 479, __pyx_L1_error)
 
-  /* "refinery/lib/unrar/unpack50.pyx":479
+  /* "refinery/lib/unrar/unpack50.pyx":480
  *         self._filters = []
  *         self._tables_read = False
  *         self._block_header = BlockHeader()             # <<<<<<<<<<<<<<
@@ -27233,13 +27233,13 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50___init__(CYT
     PyObject *__pyx_callargs[2] = {__pyx_t_8, NULL};
     __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)__pyx_mstate_global->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BlockHeader, __pyx_callargs+__pyx_t_3, (1-__pyx_t_3) | (__pyx_t_3*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 479, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 480, __pyx_L1_error)
     __Pyx_GOTREF((PyObject *)__pyx_t_2);
   }
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_block_header, ((PyObject *)__pyx_t_2)) < (0)) __PYX_ERR(0, 479, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_block_header, ((PyObject *)__pyx_t_2)) < (0)) __PYX_ERR(0, 480, __pyx_L1_error)
   __Pyx_DECREF((PyObject *)__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":480
+  /* "refinery/lib/unrar/unpack50.pyx":481
  *         self._tables_read = False
  *         self._block_header = BlockHeader()
  *         self._block_tables = BlockTables()             # <<<<<<<<<<<<<<
@@ -27252,13 +27252,13 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50___init__(CYT
     PyObject *__pyx_callargs[2] = {__pyx_t_8, NULL};
     __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)__pyx_mstate_global->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BlockTables, __pyx_callargs+__pyx_t_3, (1-__pyx_t_3) | (__pyx_t_3*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 480, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 481, __pyx_L1_error)
     __Pyx_GOTREF((PyObject *)__pyx_t_2);
   }
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_block_tables, ((PyObject *)__pyx_t_2)) < (0)) __PYX_ERR(0, 480, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_block_tables, ((PyObject *)__pyx_t_2)) < (0)) __PYX_ERR(0, 481, __pyx_L1_error)
   __Pyx_DECREF((PyObject *)__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":481
+  /* "refinery/lib/unrar/unpack50.pyx":482
  *         self._block_header = BlockHeader()
  *         self._block_tables = BlockTables()
  *         self._write_border = min(self._win_size, UNPACK_MAX_WRITE) & self._win_mask             # <<<<<<<<<<<<<<
@@ -27266,16 +27266,16 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50___init__(CYT
  *     def init_solid(self, data, int dest_size):
 */
   __pyx_t_5 = __pyx_v_8refinery_3lib_5unrar_8unpack50_UNPACK_MAX_WRITE;
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_win_size_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 481, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_win_size_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 482, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_t_5); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 481, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_t_5); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 482, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_9 = PyObject_RichCompare(__pyx_t_1, __pyx_t_2, Py_LT); __Pyx_XGOTREF(__pyx_t_9); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 481, __pyx_L1_error)
+  __pyx_t_9 = PyObject_RichCompare(__pyx_t_1, __pyx_t_2, Py_LT); __Pyx_XGOTREF(__pyx_t_9); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 482, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_t_9); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 481, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_t_9); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 482, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
   if (__pyx_t_7) {
-    __pyx_t_9 = __Pyx_PyLong_From_int(__pyx_t_5); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 481, __pyx_L1_error)
+    __pyx_t_9 = __Pyx_PyLong_From_int(__pyx_t_5); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 482, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
     __pyx_t_8 = __pyx_t_9;
     __pyx_t_9 = 0;
@@ -27284,16 +27284,16 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50___init__(CYT
     __pyx_t_8 = __pyx_t_2;
   }
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_win_mask); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 481, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_win_mask); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 482, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_9 = PyNumber_And(__pyx_t_8, __pyx_t_2); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 481, __pyx_L1_error)
+  __pyx_t_9 = PyNumber_And(__pyx_t_8, __pyx_t_2); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 482, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
   __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_write_border, __pyx_t_9) < (0)) __PYX_ERR(0, 481, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_write_border, __pyx_t_9) < (0)) __PYX_ERR(0, 482, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":458
+  /* "refinery/lib/unrar/unpack50.pyx":459
  *     """
  * 
  *     def __init__(             # <<<<<<<<<<<<<<
@@ -27317,7 +27317,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50___init__(CYT
   return __pyx_r;
 }
 
-/* "refinery/lib/unrar/unpack50.pyx":483
+/* "refinery/lib/unrar/unpack50.pyx":484
  *         self._write_border = min(self._win_size, UNPACK_MAX_WRITE) & self._win_mask
  * 
  *     def init_solid(self, data, int dest_size):             # <<<<<<<<<<<<<<
@@ -27367,46 +27367,46 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,&__pyx_mstate_global->__pyx_n_u_data,&__pyx_mstate_global->__pyx_n_u_dest_size_2,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 483, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 484, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 483, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 484, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 483, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 484, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 483, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 484, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "init_solid", 0) < (0)) __PYX_ERR(0, 483, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "init_solid", 0) < (0)) __PYX_ERR(0, 484, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 3; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("init_solid", 1, 3, 3, i); __PYX_ERR(0, 483, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("init_solid", 1, 3, 3, i); __PYX_ERR(0, 484, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 3)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 483, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 484, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 483, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 484, __pyx_L3_error)
       values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 483, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 484, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
     __pyx_v_data = values[1];
-    __pyx_v_dest_size = __Pyx_PyLong_As_int(values[2]); if (unlikely((__pyx_v_dest_size == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 483, __pyx_L3_error)
+    __pyx_v_dest_size = __Pyx_PyLong_As_int(values[2]); if (unlikely((__pyx_v_dest_size == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 484, __pyx_L3_error)
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("init_solid", 1, 3, 3, __pyx_nargs); __PYX_ERR(0, 483, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("init_solid", 1, 3, 3, __pyx_nargs); __PYX_ERR(0, 484, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -27438,7 +27438,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_2init_solid(
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("init_solid", 0);
 
-  /* "refinery/lib/unrar/unpack50.pyx":487
+  /* "refinery/lib/unrar/unpack50.pyx":488
  *         Reinitialize for the next file in a solid archive chain.
  *         """
  *         self._inp = BitInput(data)             # <<<<<<<<<<<<<<
@@ -27451,25 +27451,25 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_2init_solid(
     PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_v_data};
     __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_mstate_global->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BitInput, __pyx_callargs+__pyx_t_3, (2-__pyx_t_3) | (__pyx_t_3*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 487, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 488, __pyx_L1_error)
     __Pyx_GOTREF((PyObject *)__pyx_t_1);
   }
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_inp_2, ((PyObject *)__pyx_t_1)) < (0)) __PYX_ERR(0, 487, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_inp_2, ((PyObject *)__pyx_t_1)) < (0)) __PYX_ERR(0, 488, __pyx_L1_error)
   __Pyx_DECREF((PyObject *)__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":488
+  /* "refinery/lib/unrar/unpack50.pyx":489
  *         """
  *         self._inp = BitInput(data)
  *         self._dest_size = dest_size             # <<<<<<<<<<<<<<
  *         self._output = bytearray()
  *         self._written = 0
 */
-  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_dest_size); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 488, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_dest_size); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 489, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_dest_size, __pyx_t_1) < (0)) __PYX_ERR(0, 488, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_dest_size, __pyx_t_1) < (0)) __PYX_ERR(0, 489, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":489
+  /* "refinery/lib/unrar/unpack50.pyx":490
  *         self._inp = BitInput(data)
  *         self._dest_size = dest_size
  *         self._output = bytearray()             # <<<<<<<<<<<<<<
@@ -27482,31 +27482,31 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_2init_solid(
     PyObject *__pyx_callargs[2] = {__pyx_t_2, NULL};
     __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)(&PyByteArray_Type), __pyx_callargs+__pyx_t_3, (1-__pyx_t_3) | (__pyx_t_3*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 489, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 490, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_output, __pyx_t_1) < (0)) __PYX_ERR(0, 489, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_output, __pyx_t_1) < (0)) __PYX_ERR(0, 490, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":490
+  /* "refinery/lib/unrar/unpack50.pyx":491
  *         self._dest_size = dest_size
  *         self._output = bytearray()
  *         self._written = 0             # <<<<<<<<<<<<<<
  *         self._solid = True
  * 
 */
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_written, __pyx_mstate_global->__pyx_int_0) < (0)) __PYX_ERR(0, 490, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_written, __pyx_mstate_global->__pyx_int_0) < (0)) __PYX_ERR(0, 491, __pyx_L1_error)
 
-  /* "refinery/lib/unrar/unpack50.pyx":491
+  /* "refinery/lib/unrar/unpack50.pyx":492
  *         self._output = bytearray()
  *         self._written = 0
  *         self._solid = True             # <<<<<<<<<<<<<<
  * 
  *     def _write_buf(self):
 */
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_solid_2, Py_True) < (0)) __PYX_ERR(0, 491, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_solid_2, Py_True) < (0)) __PYX_ERR(0, 492, __pyx_L1_error)
 
-  /* "refinery/lib/unrar/unpack50.pyx":483
+  /* "refinery/lib/unrar/unpack50.pyx":484
  *         self._write_border = min(self._win_size, UNPACK_MAX_WRITE) & self._win_mask
  * 
  *     def init_solid(self, data, int dest_size):             # <<<<<<<<<<<<<<
@@ -27528,7 +27528,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_2init_solid(
   return __pyx_r;
 }
 
-/* "refinery/lib/unrar/unpack50.pyx":493
+/* "refinery/lib/unrar/unpack50.pyx":494
  *         self._solid = True
  * 
  *     def _write_buf(self):             # <<<<<<<<<<<<<<
@@ -27576,32 +27576,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 493, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 494, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 493, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 494, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_write_buf", 0) < (0)) __PYX_ERR(0, 493, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_write_buf", 0) < (0)) __PYX_ERR(0, 494, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_write_buf", 1, 1, 1, i); __PYX_ERR(0, 493, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_write_buf", 1, 1, 1, i); __PYX_ERR(0, 494, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 493, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 494, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("_write_buf", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 493, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("_write_buf", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 494, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -27663,66 +27663,66 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_4_write_buf(
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_write_buf", 0);
 
-  /* "refinery/lib/unrar/unpack50.pyx":500
+  /* "refinery/lib/unrar/unpack50.pyx":501
  *         cdef int block_start, block_length, block_end, first_part
  *         cdef int i, j
  *         written_border = self._wr_ptr             # <<<<<<<<<<<<<<
  *         mask = self._win_mask
  *         win = self._window
 */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_wr_ptr); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 500, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_wr_ptr); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 501, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_written_border = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":501
+  /* "refinery/lib/unrar/unpack50.pyx":502
  *         cdef int i, j
  *         written_border = self._wr_ptr
  *         mask = self._win_mask             # <<<<<<<<<<<<<<
  *         win = self._window
  *         full_write_size = (self._unp_ptr - written_border) & mask
 */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_win_mask); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 501, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_win_mask); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 502, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyLong_As_int(__pyx_t_1); if (unlikely((__pyx_t_2 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 501, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyLong_As_int(__pyx_t_1); if (unlikely((__pyx_t_2 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 502, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_v_mask = __pyx_t_2;
 
-  /* "refinery/lib/unrar/unpack50.pyx":502
+  /* "refinery/lib/unrar/unpack50.pyx":503
  *         written_border = self._wr_ptr
  *         mask = self._win_mask
  *         win = self._window             # <<<<<<<<<<<<<<
  *         full_write_size = (self._unp_ptr - written_border) & mask
  *         write_size_left = full_write_size
 */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_window); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 502, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_window); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 503, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_win = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":503
+  /* "refinery/lib/unrar/unpack50.pyx":504
  *         mask = self._win_mask
  *         win = self._window
  *         full_write_size = (self._unp_ptr - written_border) & mask             # <<<<<<<<<<<<<<
  *         write_size_left = full_write_size
  * 
 */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_unp_ptr); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 503, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_unp_ptr); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 504, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_3 = PyNumber_Subtract(__pyx_t_1, __pyx_v_written_border); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 503, __pyx_L1_error)
+  __pyx_t_3 = PyNumber_Subtract(__pyx_t_1, __pyx_v_written_border); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 504, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_mask); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 503, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_mask); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 504, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_4 = PyNumber_And(__pyx_t_3, __pyx_t_1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 503, __pyx_L1_error)
+  __pyx_t_4 = PyNumber_And(__pyx_t_3, __pyx_t_1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 504, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_2 = __Pyx_PyLong_As_int(__pyx_t_4); if (unlikely((__pyx_t_2 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 503, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyLong_As_int(__pyx_t_4); if (unlikely((__pyx_t_2 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 504, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __pyx_v_full_write_size = __pyx_t_2;
 
-  /* "refinery/lib/unrar/unpack50.pyx":504
+  /* "refinery/lib/unrar/unpack50.pyx":505
  *         win = self._window
  *         full_write_size = (self._unp_ptr - written_border) & mask
  *         write_size_left = full_write_size             # <<<<<<<<<<<<<<
@@ -27731,7 +27731,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_4_write_buf(
 */
   __pyx_v_write_size_left = __pyx_v_full_write_size;
 
-  /* "refinery/lib/unrar/unpack50.pyx":506
+  /* "refinery/lib/unrar/unpack50.pyx":507
  *         write_size_left = full_write_size
  * 
  *         for i, flt in enumerate(self._filters):             # <<<<<<<<<<<<<<
@@ -27739,16 +27739,16 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_4_write_buf(
  *                 continue
 */
   __pyx_t_2 = 0;
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_filters); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 506, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_filters); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 507, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   if (likely(PyList_CheckExact(__pyx_t_4)) || PyTuple_CheckExact(__pyx_t_4)) {
     __pyx_t_1 = __pyx_t_4; __Pyx_INCREF(__pyx_t_1);
     __pyx_t_5 = 0;
     __pyx_t_6 = NULL;
   } else {
-    __pyx_t_5 = -1; __pyx_t_1 = PyObject_GetIter(__pyx_t_4); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 506, __pyx_L1_error)
+    __pyx_t_5 = -1; __pyx_t_1 = PyObject_GetIter(__pyx_t_4); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 507, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_6 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_1); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 506, __pyx_L1_error)
+    __pyx_t_6 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_1); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 507, __pyx_L1_error)
   }
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   for (;;) {
@@ -27757,7 +27757,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_4_write_buf(
         {
           Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_1);
           #if !CYTHON_ASSUME_SAFE_SIZE
-          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 506, __pyx_L1_error)
+          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 507, __pyx_L1_error)
           #endif
           if (__pyx_t_5 >= __pyx_temp) break;
         }
@@ -27767,7 +27767,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_4_write_buf(
         {
           Py_ssize_t __pyx_temp = __Pyx_PyTuple_GET_SIZE(__pyx_t_1);
           #if !CYTHON_ASSUME_SAFE_SIZE
-          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 506, __pyx_L1_error)
+          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 507, __pyx_L1_error)
           #endif
           if (__pyx_t_5 >= __pyx_temp) break;
         }
@@ -27778,13 +27778,13 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_4_write_buf(
         #endif
         ++__pyx_t_5;
       }
-      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 506, __pyx_L1_error)
+      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 507, __pyx_L1_error)
     } else {
       __pyx_t_4 = __pyx_t_6(__pyx_t_1);
       if (unlikely(!__pyx_t_4)) {
         PyObject* exc_type = PyErr_Occurred();
         if (exc_type) {
-          if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 506, __pyx_L1_error)
+          if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 507, __pyx_L1_error)
           PyErr_Clear();
         }
         break;
@@ -27796,28 +27796,28 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_4_write_buf(
     __pyx_v_i = __pyx_t_2;
     __pyx_t_2 = (__pyx_t_2 + 1);
 
-    /* "refinery/lib/unrar/unpack50.pyx":507
+    /* "refinery/lib/unrar/unpack50.pyx":508
  * 
  *         for i, flt in enumerate(self._filters):
  *             if flt.type == FilterType.FILTER_NONE:             # <<<<<<<<<<<<<<
  *                 continue
  *             if flt.next_window:
 */
-    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_flt, __pyx_mstate_global->__pyx_n_u_type); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 507, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_flt, __pyx_mstate_global->__pyx_n_u_type); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 508, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_FilterType); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 507, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_FilterType); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 508, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_FILTER_NONE); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 507, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_FILTER_NONE); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 508, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __pyx_t_3 = PyObject_RichCompare(__pyx_t_4, __pyx_t_7, Py_EQ); __Pyx_XGOTREF(__pyx_t_3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 507, __pyx_L1_error)
+    __pyx_t_3 = PyObject_RichCompare(__pyx_t_4, __pyx_t_7, Py_EQ); __Pyx_XGOTREF(__pyx_t_3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 508, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-    __pyx_t_8 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 507, __pyx_L1_error)
+    __pyx_t_8 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 508, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     if (__pyx_t_8) {
 
-      /* "refinery/lib/unrar/unpack50.pyx":508
+      /* "refinery/lib/unrar/unpack50.pyx":509
  *         for i, flt in enumerate(self._filters):
  *             if flt.type == FilterType.FILTER_NONE:
  *                 continue             # <<<<<<<<<<<<<<
@@ -27826,7 +27826,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_4_write_buf(
 */
       goto __pyx_L3_continue;
 
-      /* "refinery/lib/unrar/unpack50.pyx":507
+      /* "refinery/lib/unrar/unpack50.pyx":508
  * 
  *         for i, flt in enumerate(self._filters):
  *             if flt.type == FilterType.FILTER_NONE:             # <<<<<<<<<<<<<<
@@ -27835,59 +27835,59 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_4_write_buf(
 */
     }
 
-    /* "refinery/lib/unrar/unpack50.pyx":509
+    /* "refinery/lib/unrar/unpack50.pyx":510
  *             if flt.type == FilterType.FILTER_NONE:
  *                 continue
  *             if flt.next_window:             # <<<<<<<<<<<<<<
  *                 if ((flt.block_start - self._wr_ptr) & mask) <= full_write_size:
  *                     flt.next_window = False
 */
-    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_flt, __pyx_mstate_global->__pyx_n_u_next_window); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 509, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_flt, __pyx_mstate_global->__pyx_n_u_next_window); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 510, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_8 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 509, __pyx_L1_error)
+    __pyx_t_8 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 510, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     if (__pyx_t_8) {
 
-      /* "refinery/lib/unrar/unpack50.pyx":510
+      /* "refinery/lib/unrar/unpack50.pyx":511
  *                 continue
  *             if flt.next_window:
  *                 if ((flt.block_start - self._wr_ptr) & mask) <= full_write_size:             # <<<<<<<<<<<<<<
  *                     flt.next_window = False
  *                 continue
 */
-      __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_flt, __pyx_mstate_global->__pyx_n_u_block_start); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 510, __pyx_L1_error)
+      __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_flt, __pyx_mstate_global->__pyx_n_u_block_start); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 511, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
-      __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_wr_ptr); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 510, __pyx_L1_error)
+      __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_wr_ptr); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 511, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_7);
-      __pyx_t_4 = PyNumber_Subtract(__pyx_t_3, __pyx_t_7); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 510, __pyx_L1_error)
+      __pyx_t_4 = PyNumber_Subtract(__pyx_t_3, __pyx_t_7); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 511, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
       __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-      __pyx_t_7 = __Pyx_PyLong_From_int(__pyx_v_mask); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 510, __pyx_L1_error)
+      __pyx_t_7 = __Pyx_PyLong_From_int(__pyx_v_mask); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 511, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_7);
-      __pyx_t_3 = PyNumber_And(__pyx_t_4, __pyx_t_7); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 510, __pyx_L1_error)
+      __pyx_t_3 = PyNumber_And(__pyx_t_4, __pyx_t_7); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 511, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
       __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-      __pyx_t_7 = __Pyx_PyLong_From_int(__pyx_v_full_write_size); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 510, __pyx_L1_error)
+      __pyx_t_7 = __Pyx_PyLong_From_int(__pyx_v_full_write_size); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 511, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_7);
-      __pyx_t_4 = PyObject_RichCompare(__pyx_t_3, __pyx_t_7, Py_LE); __Pyx_XGOTREF(__pyx_t_4); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 510, __pyx_L1_error)
+      __pyx_t_4 = PyObject_RichCompare(__pyx_t_3, __pyx_t_7, Py_LE); __Pyx_XGOTREF(__pyx_t_4); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 511, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
       __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-      __pyx_t_8 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 510, __pyx_L1_error)
+      __pyx_t_8 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 511, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
       if (__pyx_t_8) {
 
-        /* "refinery/lib/unrar/unpack50.pyx":511
+        /* "refinery/lib/unrar/unpack50.pyx":512
  *             if flt.next_window:
  *                 if ((flt.block_start - self._wr_ptr) & mask) <= full_write_size:
  *                     flt.next_window = False             # <<<<<<<<<<<<<<
  *                 continue
  * 
 */
-        if (__Pyx_PyObject_SetAttrStr(__pyx_v_flt, __pyx_mstate_global->__pyx_n_u_next_window, Py_False) < (0)) __PYX_ERR(0, 511, __pyx_L1_error)
+        if (__Pyx_PyObject_SetAttrStr(__pyx_v_flt, __pyx_mstate_global->__pyx_n_u_next_window, Py_False) < (0)) __PYX_ERR(0, 512, __pyx_L1_error)
 
-        /* "refinery/lib/unrar/unpack50.pyx":510
+        /* "refinery/lib/unrar/unpack50.pyx":511
  *                 continue
  *             if flt.next_window:
  *                 if ((flt.block_start - self._wr_ptr) & mask) <= full_write_size:             # <<<<<<<<<<<<<<
@@ -27896,7 +27896,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_4_write_buf(
 */
       }
 
-      /* "refinery/lib/unrar/unpack50.pyx":512
+      /* "refinery/lib/unrar/unpack50.pyx":513
  *                 if ((flt.block_start - self._wr_ptr) & mask) <= full_write_size:
  *                     flt.next_window = False
  *                 continue             # <<<<<<<<<<<<<<
@@ -27905,7 +27905,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_4_write_buf(
 */
       goto __pyx_L3_continue;
 
-      /* "refinery/lib/unrar/unpack50.pyx":509
+      /* "refinery/lib/unrar/unpack50.pyx":510
  *             if flt.type == FilterType.FILTER_NONE:
  *                 continue
  *             if flt.next_window:             # <<<<<<<<<<<<<<
@@ -27914,75 +27914,75 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_4_write_buf(
 */
     }
 
-    /* "refinery/lib/unrar/unpack50.pyx":514
+    /* "refinery/lib/unrar/unpack50.pyx":515
  *                 continue
  * 
  *             block_start = flt.block_start             # <<<<<<<<<<<<<<
  *             block_length = flt.block_length
  * 
 */
-    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_flt, __pyx_mstate_global->__pyx_n_u_block_start); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 514, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_flt, __pyx_mstate_global->__pyx_n_u_block_start); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 515, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_9 = __Pyx_PyLong_As_int(__pyx_t_4); if (unlikely((__pyx_t_9 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 514, __pyx_L1_error)
+    __pyx_t_9 = __Pyx_PyLong_As_int(__pyx_t_4); if (unlikely((__pyx_t_9 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 515, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __pyx_v_block_start = __pyx_t_9;
 
-    /* "refinery/lib/unrar/unpack50.pyx":515
+    /* "refinery/lib/unrar/unpack50.pyx":516
  * 
  *             block_start = flt.block_start
  *             block_length = flt.block_length             # <<<<<<<<<<<<<<
  * 
  *             if ((block_start - written_border) & mask) < write_size_left:
 */
-    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_flt, __pyx_mstate_global->__pyx_n_u_block_length); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 515, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_flt, __pyx_mstate_global->__pyx_n_u_block_length); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 516, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_9 = __Pyx_PyLong_As_int(__pyx_t_4); if (unlikely((__pyx_t_9 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 515, __pyx_L1_error)
+    __pyx_t_9 = __Pyx_PyLong_As_int(__pyx_t_4); if (unlikely((__pyx_t_9 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 516, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __pyx_v_block_length = __pyx_t_9;
 
-    /* "refinery/lib/unrar/unpack50.pyx":517
+    /* "refinery/lib/unrar/unpack50.pyx":518
  *             block_length = flt.block_length
  * 
  *             if ((block_start - written_border) & mask) < write_size_left:             # <<<<<<<<<<<<<<
  *                 if written_border != block_start:
  *                     self._write_area(written_border, block_start)
 */
-    __pyx_t_4 = __Pyx_PyLong_From_int(__pyx_v_block_start); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 517, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyLong_From_int(__pyx_v_block_start); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 518, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_7 = PyNumber_Subtract(__pyx_t_4, __pyx_v_written_border); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 517, __pyx_L1_error)
+    __pyx_t_7 = PyNumber_Subtract(__pyx_t_4, __pyx_v_written_border); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 518, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    __pyx_t_4 = __Pyx_PyLong_From_int(__pyx_v_mask); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 517, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyLong_From_int(__pyx_v_mask); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 518, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_3 = PyNumber_And(__pyx_t_7, __pyx_t_4); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 517, __pyx_L1_error)
+    __pyx_t_3 = PyNumber_And(__pyx_t_7, __pyx_t_4); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 518, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    __pyx_t_4 = __Pyx_PyLong_From_int(__pyx_v_write_size_left); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 517, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyLong_From_int(__pyx_v_write_size_left); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 518, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_7 = PyObject_RichCompare(__pyx_t_3, __pyx_t_4, Py_LT); __Pyx_XGOTREF(__pyx_t_7); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 517, __pyx_L1_error)
+    __pyx_t_7 = PyObject_RichCompare(__pyx_t_3, __pyx_t_4, Py_LT); __Pyx_XGOTREF(__pyx_t_7); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 518, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    __pyx_t_8 = __Pyx_PyObject_IsTrue(__pyx_t_7); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 517, __pyx_L1_error)
+    __pyx_t_8 = __Pyx_PyObject_IsTrue(__pyx_t_7); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 518, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
     if (__pyx_t_8) {
 
-      /* "refinery/lib/unrar/unpack50.pyx":518
+      /* "refinery/lib/unrar/unpack50.pyx":519
  * 
  *             if ((block_start - written_border) & mask) < write_size_left:
  *                 if written_border != block_start:             # <<<<<<<<<<<<<<
  *                     self._write_area(written_border, block_start)
  *                     written_border = block_start
 */
-      __pyx_t_7 = __Pyx_PyLong_From_int(__pyx_v_block_start); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 518, __pyx_L1_error)
+      __pyx_t_7 = __Pyx_PyLong_From_int(__pyx_v_block_start); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 519, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_7);
-      __pyx_t_4 = PyObject_RichCompare(__pyx_v_written_border, __pyx_t_7, Py_NE); __Pyx_XGOTREF(__pyx_t_4); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 518, __pyx_L1_error)
+      __pyx_t_4 = PyObject_RichCompare(__pyx_v_written_border, __pyx_t_7, Py_NE); __Pyx_XGOTREF(__pyx_t_4); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 519, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-      __pyx_t_8 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 518, __pyx_L1_error)
+      __pyx_t_8 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 519, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
       if (__pyx_t_8) {
 
-        /* "refinery/lib/unrar/unpack50.pyx":519
+        /* "refinery/lib/unrar/unpack50.pyx":520
  *             if ((block_start - written_border) & mask) < write_size_left:
  *                 if written_border != block_start:
  *                     self._write_area(written_border, block_start)             # <<<<<<<<<<<<<<
@@ -27991,7 +27991,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_4_write_buf(
 */
         __pyx_t_7 = __pyx_v_self;
         __Pyx_INCREF(__pyx_t_7);
-        __pyx_t_3 = __Pyx_PyLong_From_int(__pyx_v_block_start); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 519, __pyx_L1_error)
+        __pyx_t_3 = __Pyx_PyLong_From_int(__pyx_v_block_start); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 520, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_3);
         __pyx_t_10 = 0;
         {
@@ -27999,46 +27999,46 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_4_write_buf(
           __pyx_t_4 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_write_area, __pyx_callargs+__pyx_t_10, (3-__pyx_t_10) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
           __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-          if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 519, __pyx_L1_error)
+          if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 520, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_4);
         }
         __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-        /* "refinery/lib/unrar/unpack50.pyx":520
+        /* "refinery/lib/unrar/unpack50.pyx":521
  *                 if written_border != block_start:
  *                     self._write_area(written_border, block_start)
  *                     written_border = block_start             # <<<<<<<<<<<<<<
  *                     write_size_left = (self._unp_ptr - written_border) & mask
  * 
 */
-        __pyx_t_4 = __Pyx_PyLong_From_int(__pyx_v_block_start); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 520, __pyx_L1_error)
+        __pyx_t_4 = __Pyx_PyLong_From_int(__pyx_v_block_start); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 521, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_4);
         __Pyx_DECREF_SET(__pyx_v_written_border, __pyx_t_4);
         __pyx_t_4 = 0;
 
-        /* "refinery/lib/unrar/unpack50.pyx":521
+        /* "refinery/lib/unrar/unpack50.pyx":522
  *                     self._write_area(written_border, block_start)
  *                     written_border = block_start
  *                     write_size_left = (self._unp_ptr - written_border) & mask             # <<<<<<<<<<<<<<
  * 
  *                 if block_length <= write_size_left:
 */
-        __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_unp_ptr); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 521, __pyx_L1_error)
+        __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_unp_ptr); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 522, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_4);
-        __pyx_t_3 = PyNumber_Subtract(__pyx_t_4, __pyx_v_written_border); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 521, __pyx_L1_error)
+        __pyx_t_3 = PyNumber_Subtract(__pyx_t_4, __pyx_v_written_border); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 522, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_3);
         __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-        __pyx_t_4 = __Pyx_PyLong_From_int(__pyx_v_mask); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 521, __pyx_L1_error)
+        __pyx_t_4 = __Pyx_PyLong_From_int(__pyx_v_mask); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 522, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_4);
-        __pyx_t_7 = PyNumber_And(__pyx_t_3, __pyx_t_4); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 521, __pyx_L1_error)
+        __pyx_t_7 = PyNumber_And(__pyx_t_3, __pyx_t_4); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 522, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_7);
         __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
         __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-        __pyx_t_9 = __Pyx_PyLong_As_int(__pyx_t_7); if (unlikely((__pyx_t_9 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 521, __pyx_L1_error)
+        __pyx_t_9 = __Pyx_PyLong_As_int(__pyx_t_7); if (unlikely((__pyx_t_9 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 522, __pyx_L1_error)
         __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
         __pyx_v_write_size_left = __pyx_t_9;
 
-        /* "refinery/lib/unrar/unpack50.pyx":518
+        /* "refinery/lib/unrar/unpack50.pyx":519
  * 
  *             if ((block_start - written_border) & mask) < write_size_left:
  *                 if written_border != block_start:             # <<<<<<<<<<<<<<
@@ -28047,7 +28047,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_4_write_buf(
 */
       }
 
-      /* "refinery/lib/unrar/unpack50.pyx":523
+      /* "refinery/lib/unrar/unpack50.pyx":524
  *                     write_size_left = (self._unp_ptr - written_border) & mask
  * 
  *                 if block_length <= write_size_left:             # <<<<<<<<<<<<<<
@@ -28057,7 +28057,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_4_write_buf(
       __pyx_t_8 = (__pyx_v_block_length <= __pyx_v_write_size_left);
       if (__pyx_t_8) {
 
-        /* "refinery/lib/unrar/unpack50.pyx":524
+        /* "refinery/lib/unrar/unpack50.pyx":525
  * 
  *                 if block_length <= write_size_left:
  *                     if block_length > 0:             # <<<<<<<<<<<<<<
@@ -28067,7 +28067,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_4_write_buf(
         __pyx_t_8 = (__pyx_v_block_length > 0);
         if (__pyx_t_8) {
 
-          /* "refinery/lib/unrar/unpack50.pyx":525
+          /* "refinery/lib/unrar/unpack50.pyx":526
  *                 if block_length <= write_size_left:
  *                     if block_length > 0:
  *                         block_end = (block_start + block_length) & mask             # <<<<<<<<<<<<<<
@@ -28076,7 +28076,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_4_write_buf(
 */
           __pyx_v_block_end = ((__pyx_v_block_start + __pyx_v_block_length) & __pyx_v_mask);
 
-          /* "refinery/lib/unrar/unpack50.pyx":526
+          /* "refinery/lib/unrar/unpack50.pyx":527
  *                     if block_length > 0:
  *                         block_end = (block_start + block_length) & mask
  *                         mem = bytearray(block_length)             # <<<<<<<<<<<<<<
@@ -28084,7 +28084,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_4_write_buf(
  *                             mem[:] = win[block_start:block_start + block_length]
 */
           __pyx_t_4 = NULL;
-          __pyx_t_3 = __Pyx_PyLong_From_int(__pyx_v_block_length); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 526, __pyx_L1_error)
+          __pyx_t_3 = __Pyx_PyLong_From_int(__pyx_v_block_length); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 527, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_3);
           __pyx_t_10 = 1;
           {
@@ -28092,13 +28092,13 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_4_write_buf(
             __pyx_t_7 = __Pyx_PyObject_FastCall((PyObject*)(&PyByteArray_Type), __pyx_callargs+__pyx_t_10, (2-__pyx_t_10) | (__pyx_t_10*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
             __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
             __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-            if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 526, __pyx_L1_error)
+            if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 527, __pyx_L1_error)
             __Pyx_GOTREF(__pyx_t_7);
           }
           __Pyx_XDECREF_SET(__pyx_v_mem, ((PyObject*)__pyx_t_7));
           __pyx_t_7 = 0;
 
-          /* "refinery/lib/unrar/unpack50.pyx":527
+          /* "refinery/lib/unrar/unpack50.pyx":528
  *                         block_end = (block_start + block_length) & mask
  *                         mem = bytearray(block_length)
  *                         if block_start < block_end or block_end == 0:             # <<<<<<<<<<<<<<
@@ -28116,19 +28116,19 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_4_write_buf(
           __pyx_L13_bool_binop_done:;
           if (__pyx_t_8) {
 
-            /* "refinery/lib/unrar/unpack50.pyx":528
+            /* "refinery/lib/unrar/unpack50.pyx":529
  *                         mem = bytearray(block_length)
  *                         if block_start < block_end or block_end == 0:
  *                             mem[:] = win[block_start:block_start + block_length]             # <<<<<<<<<<<<<<
  *                         else:
  *                             first_part = self._win_size - block_start
 */
-            __pyx_t_7 = __Pyx_PyObject_GetSlice(__pyx_v_win, __pyx_v_block_start, (__pyx_v_block_start + __pyx_v_block_length), NULL, NULL, NULL, 1, 1, 0); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 528, __pyx_L1_error)
+            __pyx_t_7 = __Pyx_PyObject_GetSlice(__pyx_v_win, __pyx_v_block_start, (__pyx_v_block_start + __pyx_v_block_length), NULL, NULL, NULL, 1, 1, 0); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 529, __pyx_L1_error)
             __Pyx_GOTREF(__pyx_t_7);
-            if (__Pyx_PyObject_SetSlice(__pyx_v_mem, __pyx_t_7, 0, 0, NULL, NULL, NULL, 0, 0, 0) < (0)) __PYX_ERR(0, 528, __pyx_L1_error)
+            if (__Pyx_PyObject_SetSlice(__pyx_v_mem, __pyx_t_7, 0, 0, NULL, NULL, NULL, 0, 0, 0) < (0)) __PYX_ERR(0, 529, __pyx_L1_error)
             __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
 
-            /* "refinery/lib/unrar/unpack50.pyx":527
+            /* "refinery/lib/unrar/unpack50.pyx":528
  *                         block_end = (block_start + block_length) & mask
  *                         mem = bytearray(block_length)
  *                         if block_start < block_end or block_end == 0:             # <<<<<<<<<<<<<<
@@ -28138,7 +28138,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_4_write_buf(
             goto __pyx_L12;
           }
 
-          /* "refinery/lib/unrar/unpack50.pyx":530
+          /* "refinery/lib/unrar/unpack50.pyx":531
  *                             mem[:] = win[block_start:block_start + block_length]
  *                         else:
  *                             first_part = self._win_size - block_start             # <<<<<<<<<<<<<<
@@ -28146,45 +28146,45 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_4_write_buf(
  *                             mem[first_part:] = win[:block_end]
 */
           /*else*/ {
-            __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_win_size_2); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 530, __pyx_L1_error)
+            __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_win_size_2); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 531, __pyx_L1_error)
             __Pyx_GOTREF(__pyx_t_7);
-            __pyx_t_3 = __Pyx_PyLong_From_int(__pyx_v_block_start); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 530, __pyx_L1_error)
+            __pyx_t_3 = __Pyx_PyLong_From_int(__pyx_v_block_start); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 531, __pyx_L1_error)
             __Pyx_GOTREF(__pyx_t_3);
-            __pyx_t_4 = PyNumber_Subtract(__pyx_t_7, __pyx_t_3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 530, __pyx_L1_error)
+            __pyx_t_4 = PyNumber_Subtract(__pyx_t_7, __pyx_t_3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 531, __pyx_L1_error)
             __Pyx_GOTREF(__pyx_t_4);
             __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
             __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-            __pyx_t_9 = __Pyx_PyLong_As_int(__pyx_t_4); if (unlikely((__pyx_t_9 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 530, __pyx_L1_error)
+            __pyx_t_9 = __Pyx_PyLong_As_int(__pyx_t_4); if (unlikely((__pyx_t_9 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 531, __pyx_L1_error)
             __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
             __pyx_v_first_part = __pyx_t_9;
 
-            /* "refinery/lib/unrar/unpack50.pyx":531
+            /* "refinery/lib/unrar/unpack50.pyx":532
  *                         else:
  *                             first_part = self._win_size - block_start
  *                             mem[:first_part] = win[block_start:]             # <<<<<<<<<<<<<<
  *                             mem[first_part:] = win[:block_end]
  * 
 */
-            __pyx_t_4 = __Pyx_PyObject_GetSlice(__pyx_v_win, __pyx_v_block_start, 0, NULL, NULL, NULL, 1, 0, 0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 531, __pyx_L1_error)
+            __pyx_t_4 = __Pyx_PyObject_GetSlice(__pyx_v_win, __pyx_v_block_start, 0, NULL, NULL, NULL, 1, 0, 0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 532, __pyx_L1_error)
             __Pyx_GOTREF(__pyx_t_4);
-            if (__Pyx_PyObject_SetSlice(__pyx_v_mem, __pyx_t_4, 0, __pyx_v_first_part, NULL, NULL, NULL, 0, 1, 0) < (0)) __PYX_ERR(0, 531, __pyx_L1_error)
+            if (__Pyx_PyObject_SetSlice(__pyx_v_mem, __pyx_t_4, 0, __pyx_v_first_part, NULL, NULL, NULL, 0, 1, 0) < (0)) __PYX_ERR(0, 532, __pyx_L1_error)
             __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-            /* "refinery/lib/unrar/unpack50.pyx":532
+            /* "refinery/lib/unrar/unpack50.pyx":533
  *                             first_part = self._win_size - block_start
  *                             mem[:first_part] = win[block_start:]
  *                             mem[first_part:] = win[:block_end]             # <<<<<<<<<<<<<<
  * 
  *                         out_mem = apply_filter(
 */
-            __pyx_t_4 = __Pyx_PyObject_GetSlice(__pyx_v_win, 0, __pyx_v_block_end, NULL, NULL, NULL, 0, 1, 0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 532, __pyx_L1_error)
+            __pyx_t_4 = __Pyx_PyObject_GetSlice(__pyx_v_win, 0, __pyx_v_block_end, NULL, NULL, NULL, 0, 1, 0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 533, __pyx_L1_error)
             __Pyx_GOTREF(__pyx_t_4);
-            if (__Pyx_PyObject_SetSlice(__pyx_v_mem, __pyx_t_4, __pyx_v_first_part, 0, NULL, NULL, NULL, 1, 0, 0) < (0)) __PYX_ERR(0, 532, __pyx_L1_error)
+            if (__Pyx_PyObject_SetSlice(__pyx_v_mem, __pyx_t_4, __pyx_v_first_part, 0, NULL, NULL, NULL, 1, 0, 0) < (0)) __PYX_ERR(0, 533, __pyx_L1_error)
             __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
           }
           __pyx_L12:;
 
-          /* "refinery/lib/unrar/unpack50.pyx":534
+          /* "refinery/lib/unrar/unpack50.pyx":535
  *                             mem[first_part:] = win[:block_end]
  * 
  *                         out_mem = apply_filter(             # <<<<<<<<<<<<<<
@@ -28192,21 +28192,21 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_4_write_buf(
  *                         self._filters[i].type = FilterType.FILTER_NONE
 */
           __pyx_t_3 = NULL;
-          __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_apply_filter); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 534, __pyx_L1_error)
+          __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_apply_filter); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 535, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_7);
 
-          /* "refinery/lib/unrar/unpack50.pyx":535
+          /* "refinery/lib/unrar/unpack50.pyx":536
  * 
  *                         out_mem = apply_filter(
  *                             mem, flt.type, flt.channels, self._written)             # <<<<<<<<<<<<<<
  *                         self._filters[i].type = FilterType.FILTER_NONE
  * 
 */
-          __pyx_t_12 = __Pyx_PyObject_GetAttrStr(__pyx_v_flt, __pyx_mstate_global->__pyx_n_u_type); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 535, __pyx_L1_error)
+          __pyx_t_12 = __Pyx_PyObject_GetAttrStr(__pyx_v_flt, __pyx_mstate_global->__pyx_n_u_type); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 536, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_12);
-          __pyx_t_13 = __Pyx_PyObject_GetAttrStr(__pyx_v_flt, __pyx_mstate_global->__pyx_n_u_channels); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 535, __pyx_L1_error)
+          __pyx_t_13 = __Pyx_PyObject_GetAttrStr(__pyx_v_flt, __pyx_mstate_global->__pyx_n_u_channels); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 536, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_13);
-          __pyx_t_14 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_written); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 535, __pyx_L1_error)
+          __pyx_t_14 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_written); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 536, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_14);
           __pyx_t_10 = 1;
           #if CYTHON_UNPACK_METHODS
@@ -28228,34 +28228,34 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_4_write_buf(
             __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
             __Pyx_DECREF(__pyx_t_14); __pyx_t_14 = 0;
             __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-            if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 534, __pyx_L1_error)
+            if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 535, __pyx_L1_error)
             __Pyx_GOTREF(__pyx_t_4);
           }
           __Pyx_XDECREF_SET(__pyx_v_out_mem, __pyx_t_4);
           __pyx_t_4 = 0;
 
-          /* "refinery/lib/unrar/unpack50.pyx":536
+          /* "refinery/lib/unrar/unpack50.pyx":537
  *                         out_mem = apply_filter(
  *                             mem, flt.type, flt.channels, self._written)
  *                         self._filters[i].type = FilterType.FILTER_NONE             # <<<<<<<<<<<<<<
  * 
  *                         if out_mem is not None:
 */
-          __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_FilterType); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 536, __pyx_L1_error)
+          __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_FilterType); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 537, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_4);
-          __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_FILTER_NONE); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 536, __pyx_L1_error)
+          __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_FILTER_NONE); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 537, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_7);
           __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-          __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_filters); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 536, __pyx_L1_error)
+          __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_filters); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 537, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_4);
-          __pyx_t_14 = __Pyx_GetItemInt(__pyx_t_4, __pyx_v_i, int, 1, __Pyx_PyLong_From_int, 0, 0, 0, 1, __Pyx_ReferenceSharing_OwnStrongReference); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 536, __pyx_L1_error)
+          __pyx_t_14 = __Pyx_GetItemInt(__pyx_t_4, __pyx_v_i, int, 1, __Pyx_PyLong_From_int, 0, 0, 0, 1, __Pyx_ReferenceSharing_OwnStrongReference); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 537, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_14);
           __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-          if (__Pyx_PyObject_SetAttrStr(__pyx_t_14, __pyx_mstate_global->__pyx_n_u_type, __pyx_t_7) < (0)) __PYX_ERR(0, 536, __pyx_L1_error)
+          if (__Pyx_PyObject_SetAttrStr(__pyx_t_14, __pyx_mstate_global->__pyx_n_u_type, __pyx_t_7) < (0)) __PYX_ERR(0, 537, __pyx_L1_error)
           __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
           __Pyx_DECREF(__pyx_t_14); __pyx_t_14 = 0;
 
-          /* "refinery/lib/unrar/unpack50.pyx":538
+          /* "refinery/lib/unrar/unpack50.pyx":539
  *                         self._filters[i].type = FilterType.FILTER_NONE
  * 
  *                         if out_mem is not None:             # <<<<<<<<<<<<<<
@@ -28265,7 +28265,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_4_write_buf(
           __pyx_t_8 = (__pyx_v_out_mem != Py_None);
           if (__pyx_t_8) {
 
-            /* "refinery/lib/unrar/unpack50.pyx":539
+            /* "refinery/lib/unrar/unpack50.pyx":540
  * 
  *                         if out_mem is not None:
  *                             self._write_data(out_mem)             # <<<<<<<<<<<<<<
@@ -28279,12 +28279,12 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_4_write_buf(
               PyObject *__pyx_callargs[2] = {__pyx_t_7, __pyx_v_out_mem};
               __pyx_t_14 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_write_data, __pyx_callargs+__pyx_t_10, (2-__pyx_t_10) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
               __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
-              if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 539, __pyx_L1_error)
+              if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 540, __pyx_L1_error)
               __Pyx_GOTREF(__pyx_t_14);
             }
             __Pyx_DECREF(__pyx_t_14); __pyx_t_14 = 0;
 
-            /* "refinery/lib/unrar/unpack50.pyx":538
+            /* "refinery/lib/unrar/unpack50.pyx":539
  *                         self._filters[i].type = FilterType.FILTER_NONE
  * 
  *                         if out_mem is not None:             # <<<<<<<<<<<<<<
@@ -28293,41 +28293,41 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_4_write_buf(
 */
           }
 
-          /* "refinery/lib/unrar/unpack50.pyx":541
+          /* "refinery/lib/unrar/unpack50.pyx":542
  *                             self._write_data(out_mem)
  * 
  *                         written_border = block_end             # <<<<<<<<<<<<<<
  *                         write_size_left = (self._unp_ptr - written_border) & mask
  *                 else:
 */
-          __pyx_t_14 = __Pyx_PyLong_From_int(__pyx_v_block_end); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 541, __pyx_L1_error)
+          __pyx_t_14 = __Pyx_PyLong_From_int(__pyx_v_block_end); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 542, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_14);
           __Pyx_DECREF_SET(__pyx_v_written_border, __pyx_t_14);
           __pyx_t_14 = 0;
 
-          /* "refinery/lib/unrar/unpack50.pyx":542
+          /* "refinery/lib/unrar/unpack50.pyx":543
  * 
  *                         written_border = block_end
  *                         write_size_left = (self._unp_ptr - written_border) & mask             # <<<<<<<<<<<<<<
  *                 else:
  *                     self._wr_ptr = written_border
 */
-          __pyx_t_14 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_unp_ptr); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 542, __pyx_L1_error)
+          __pyx_t_14 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_unp_ptr); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 543, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_14);
-          __pyx_t_7 = PyNumber_Subtract(__pyx_t_14, __pyx_v_written_border); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 542, __pyx_L1_error)
+          __pyx_t_7 = PyNumber_Subtract(__pyx_t_14, __pyx_v_written_border); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 543, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_7);
           __Pyx_DECREF(__pyx_t_14); __pyx_t_14 = 0;
-          __pyx_t_14 = __Pyx_PyLong_From_int(__pyx_v_mask); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 542, __pyx_L1_error)
+          __pyx_t_14 = __Pyx_PyLong_From_int(__pyx_v_mask); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 543, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_14);
-          __pyx_t_4 = PyNumber_And(__pyx_t_7, __pyx_t_14); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 542, __pyx_L1_error)
+          __pyx_t_4 = PyNumber_And(__pyx_t_7, __pyx_t_14); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 543, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_4);
           __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
           __Pyx_DECREF(__pyx_t_14); __pyx_t_14 = 0;
-          __pyx_t_9 = __Pyx_PyLong_As_int(__pyx_t_4); if (unlikely((__pyx_t_9 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 542, __pyx_L1_error)
+          __pyx_t_9 = __Pyx_PyLong_As_int(__pyx_t_4); if (unlikely((__pyx_t_9 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 543, __pyx_L1_error)
           __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
           __pyx_v_write_size_left = __pyx_t_9;
 
-          /* "refinery/lib/unrar/unpack50.pyx":524
+          /* "refinery/lib/unrar/unpack50.pyx":525
  * 
  *                 if block_length <= write_size_left:
  *                     if block_length > 0:             # <<<<<<<<<<<<<<
@@ -28336,7 +28336,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_4_write_buf(
 */
         }
 
-        /* "refinery/lib/unrar/unpack50.pyx":523
+        /* "refinery/lib/unrar/unpack50.pyx":524
  *                     write_size_left = (self._unp_ptr - written_border) & mask
  * 
  *                 if block_length <= write_size_left:             # <<<<<<<<<<<<<<
@@ -28346,7 +28346,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_4_write_buf(
         goto __pyx_L10;
       }
 
-      /* "refinery/lib/unrar/unpack50.pyx":544
+      /* "refinery/lib/unrar/unpack50.pyx":545
  *                         write_size_left = (self._unp_ptr - written_border) & mask
  *                 else:
  *                     self._wr_ptr = written_border             # <<<<<<<<<<<<<<
@@ -28354,66 +28354,66 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_4_write_buf(
  *                         if self._filters[j].type != FilterType.FILTER_NONE:
 */
       /*else*/ {
-        if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_wr_ptr, __pyx_v_written_border) < (0)) __PYX_ERR(0, 544, __pyx_L1_error)
+        if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_wr_ptr, __pyx_v_written_border) < (0)) __PYX_ERR(0, 545, __pyx_L1_error)
 
-        /* "refinery/lib/unrar/unpack50.pyx":545
+        /* "refinery/lib/unrar/unpack50.pyx":546
  *                 else:
  *                     self._wr_ptr = written_border
  *                     for j in range(i, len(self._filters)):             # <<<<<<<<<<<<<<
  *                         if self._filters[j].type != FilterType.FILTER_NONE:
  *                             self._filters[j].next_window = False
 */
-        __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_filters); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 545, __pyx_L1_error)
+        __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_filters); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 546, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_4);
-        __pyx_t_15 = PyObject_Length(__pyx_t_4); if (unlikely(__pyx_t_15 == ((Py_ssize_t)-1))) __PYX_ERR(0, 545, __pyx_L1_error)
+        __pyx_t_15 = PyObject_Length(__pyx_t_4); if (unlikely(__pyx_t_15 == ((Py_ssize_t)-1))) __PYX_ERR(0, 546, __pyx_L1_error)
         __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
         __pyx_t_16 = __pyx_t_15;
         for (__pyx_t_9 = __pyx_v_i; __pyx_t_9 < __pyx_t_16; __pyx_t_9+=1) {
           __pyx_v_j = __pyx_t_9;
 
-          /* "refinery/lib/unrar/unpack50.pyx":546
+          /* "refinery/lib/unrar/unpack50.pyx":547
  *                     self._wr_ptr = written_border
  *                     for j in range(i, len(self._filters)):
  *                         if self._filters[j].type != FilterType.FILTER_NONE:             # <<<<<<<<<<<<<<
  *                             self._filters[j].next_window = False
  *                     self._filters = [
 */
-          __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_filters); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 546, __pyx_L1_error)
+          __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_filters); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 547, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_4);
-          __pyx_t_14 = __Pyx_GetItemInt(__pyx_t_4, __pyx_v_j, int, 1, __Pyx_PyLong_From_int, 0, 0, 0, 1, __Pyx_ReferenceSharing_OwnStrongReference); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 546, __pyx_L1_error)
+          __pyx_t_14 = __Pyx_GetItemInt(__pyx_t_4, __pyx_v_j, int, 1, __Pyx_PyLong_From_int, 0, 0, 0, 1, __Pyx_ReferenceSharing_OwnStrongReference); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 547, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_14);
           __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-          __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_14, __pyx_mstate_global->__pyx_n_u_type); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 546, __pyx_L1_error)
+          __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_14, __pyx_mstate_global->__pyx_n_u_type); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 547, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_4);
           __Pyx_DECREF(__pyx_t_14); __pyx_t_14 = 0;
-          __Pyx_GetModuleGlobalName(__pyx_t_14, __pyx_mstate_global->__pyx_n_u_FilterType); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 546, __pyx_L1_error)
+          __Pyx_GetModuleGlobalName(__pyx_t_14, __pyx_mstate_global->__pyx_n_u_FilterType); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 547, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_14);
-          __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_t_14, __pyx_mstate_global->__pyx_n_u_FILTER_NONE); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 546, __pyx_L1_error)
+          __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_t_14, __pyx_mstate_global->__pyx_n_u_FILTER_NONE); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 547, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_7);
           __Pyx_DECREF(__pyx_t_14); __pyx_t_14 = 0;
-          __pyx_t_14 = PyObject_RichCompare(__pyx_t_4, __pyx_t_7, Py_NE); __Pyx_XGOTREF(__pyx_t_14); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 546, __pyx_L1_error)
+          __pyx_t_14 = PyObject_RichCompare(__pyx_t_4, __pyx_t_7, Py_NE); __Pyx_XGOTREF(__pyx_t_14); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 547, __pyx_L1_error)
           __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
           __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-          __pyx_t_8 = __Pyx_PyObject_IsTrue(__pyx_t_14); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 546, __pyx_L1_error)
+          __pyx_t_8 = __Pyx_PyObject_IsTrue(__pyx_t_14); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 547, __pyx_L1_error)
           __Pyx_DECREF(__pyx_t_14); __pyx_t_14 = 0;
           if (__pyx_t_8) {
 
-            /* "refinery/lib/unrar/unpack50.pyx":547
+            /* "refinery/lib/unrar/unpack50.pyx":548
  *                     for j in range(i, len(self._filters)):
  *                         if self._filters[j].type != FilterType.FILTER_NONE:
  *                             self._filters[j].next_window = False             # <<<<<<<<<<<<<<
  *                     self._filters = [
  *                         f for f in self._filters if f.type != FilterType.FILTER_NONE]
 */
-            __pyx_t_14 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_filters); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 547, __pyx_L1_error)
+            __pyx_t_14 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_filters); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 548, __pyx_L1_error)
             __Pyx_GOTREF(__pyx_t_14);
-            __pyx_t_7 = __Pyx_GetItemInt(__pyx_t_14, __pyx_v_j, int, 1, __Pyx_PyLong_From_int, 0, 0, 0, 1, __Pyx_ReferenceSharing_OwnStrongReference); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 547, __pyx_L1_error)
+            __pyx_t_7 = __Pyx_GetItemInt(__pyx_t_14, __pyx_v_j, int, 1, __Pyx_PyLong_From_int, 0, 0, 0, 1, __Pyx_ReferenceSharing_OwnStrongReference); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 548, __pyx_L1_error)
             __Pyx_GOTREF(__pyx_t_7);
             __Pyx_DECREF(__pyx_t_14); __pyx_t_14 = 0;
-            if (__Pyx_PyObject_SetAttrStr(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_next_window, Py_False) < (0)) __PYX_ERR(0, 547, __pyx_L1_error)
+            if (__Pyx_PyObject_SetAttrStr(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_next_window, Py_False) < (0)) __PYX_ERR(0, 548, __pyx_L1_error)
             __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
 
-            /* "refinery/lib/unrar/unpack50.pyx":546
+            /* "refinery/lib/unrar/unpack50.pyx":547
  *                     self._wr_ptr = written_border
  *                     for j in range(i, len(self._filters)):
  *                         if self._filters[j].type != FilterType.FILTER_NONE:             # <<<<<<<<<<<<<<
@@ -28423,7 +28423,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_4_write_buf(
           }
         }
 
-        /* "refinery/lib/unrar/unpack50.pyx":548
+        /* "refinery/lib/unrar/unpack50.pyx":549
  *                         if self._filters[j].type != FilterType.FILTER_NONE:
  *                             self._filters[j].next_window = False
  *                     self._filters = [             # <<<<<<<<<<<<<<
@@ -28431,26 +28431,26 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_4_write_buf(
  *                     self._write_border = (
 */
         { /* enter inner scope */
-          __pyx_t_7 = PyList_New(0); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 548, __pyx_L21_error)
+          __pyx_t_7 = PyList_New(0); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 549, __pyx_L21_error)
           __Pyx_GOTREF(__pyx_t_7);
 
-          /* "refinery/lib/unrar/unpack50.pyx":549
+          /* "refinery/lib/unrar/unpack50.pyx":550
  *                             self._filters[j].next_window = False
  *                     self._filters = [
  *                         f for f in self._filters if f.type != FilterType.FILTER_NONE]             # <<<<<<<<<<<<<<
  *                     self._write_border = (
  *                         self._unp_ptr + min(self._win_size, UNPACK_MAX_WRITE)) & mask
 */
-          __pyx_t_14 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_filters); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 549, __pyx_L21_error)
+          __pyx_t_14 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_filters); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 550, __pyx_L21_error)
           __Pyx_GOTREF(__pyx_t_14);
           if (likely(PyList_CheckExact(__pyx_t_14)) || PyTuple_CheckExact(__pyx_t_14)) {
             __pyx_t_4 = __pyx_t_14; __Pyx_INCREF(__pyx_t_4);
             __pyx_t_15 = 0;
             __pyx_t_17 = NULL;
           } else {
-            __pyx_t_15 = -1; __pyx_t_4 = PyObject_GetIter(__pyx_t_14); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 549, __pyx_L21_error)
+            __pyx_t_15 = -1; __pyx_t_4 = PyObject_GetIter(__pyx_t_14); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 550, __pyx_L21_error)
             __Pyx_GOTREF(__pyx_t_4);
-            __pyx_t_17 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_4); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 549, __pyx_L21_error)
+            __pyx_t_17 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_4); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 550, __pyx_L21_error)
           }
           __Pyx_DECREF(__pyx_t_14); __pyx_t_14 = 0;
           for (;;) {
@@ -28459,7 +28459,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_4_write_buf(
                 {
                   Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_4);
                   #if !CYTHON_ASSUME_SAFE_SIZE
-                  if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 549, __pyx_L21_error)
+                  if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 550, __pyx_L21_error)
                   #endif
                   if (__pyx_t_15 >= __pyx_temp) break;
                 }
@@ -28469,7 +28469,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_4_write_buf(
                 {
                   Py_ssize_t __pyx_temp = __Pyx_PyTuple_GET_SIZE(__pyx_t_4);
                   #if !CYTHON_ASSUME_SAFE_SIZE
-                  if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 549, __pyx_L21_error)
+                  if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 550, __pyx_L21_error)
                   #endif
                   if (__pyx_t_15 >= __pyx_temp) break;
                 }
@@ -28480,13 +28480,13 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_4_write_buf(
                 #endif
                 ++__pyx_t_15;
               }
-              if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 549, __pyx_L21_error)
+              if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 550, __pyx_L21_error)
             } else {
               __pyx_t_14 = __pyx_t_17(__pyx_t_4);
               if (unlikely(!__pyx_t_14)) {
                 PyObject* exc_type = PyErr_Occurred();
                 if (exc_type) {
-                  if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 549, __pyx_L21_error)
+                  if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 550, __pyx_L21_error)
                   PyErr_Clear();
                 }
                 break;
@@ -28495,20 +28495,20 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_4_write_buf(
             __Pyx_GOTREF(__pyx_t_14);
             __Pyx_XDECREF_SET(__pyx_7genexpr__pyx_v_f, __pyx_t_14);
             __pyx_t_14 = 0;
-            __pyx_t_14 = __Pyx_PyObject_GetAttrStr(__pyx_7genexpr__pyx_v_f, __pyx_mstate_global->__pyx_n_u_type); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 549, __pyx_L21_error)
+            __pyx_t_14 = __Pyx_PyObject_GetAttrStr(__pyx_7genexpr__pyx_v_f, __pyx_mstate_global->__pyx_n_u_type); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 550, __pyx_L21_error)
             __Pyx_GOTREF(__pyx_t_14);
-            __Pyx_GetModuleGlobalName(__pyx_t_13, __pyx_mstate_global->__pyx_n_u_FilterType); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 549, __pyx_L21_error)
+            __Pyx_GetModuleGlobalName(__pyx_t_13, __pyx_mstate_global->__pyx_n_u_FilterType); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 550, __pyx_L21_error)
             __Pyx_GOTREF(__pyx_t_13);
-            __pyx_t_12 = __Pyx_PyObject_GetAttrStr(__pyx_t_13, __pyx_mstate_global->__pyx_n_u_FILTER_NONE); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 549, __pyx_L21_error)
+            __pyx_t_12 = __Pyx_PyObject_GetAttrStr(__pyx_t_13, __pyx_mstate_global->__pyx_n_u_FILTER_NONE); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 550, __pyx_L21_error)
             __Pyx_GOTREF(__pyx_t_12);
             __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
-            __pyx_t_13 = PyObject_RichCompare(__pyx_t_14, __pyx_t_12, Py_NE); __Pyx_XGOTREF(__pyx_t_13); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 549, __pyx_L21_error)
+            __pyx_t_13 = PyObject_RichCompare(__pyx_t_14, __pyx_t_12, Py_NE); __Pyx_XGOTREF(__pyx_t_13); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 550, __pyx_L21_error)
             __Pyx_DECREF(__pyx_t_14); __pyx_t_14 = 0;
             __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
-            __pyx_t_8 = __Pyx_PyObject_IsTrue(__pyx_t_13); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 549, __pyx_L21_error)
+            __pyx_t_8 = __Pyx_PyObject_IsTrue(__pyx_t_13); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 550, __pyx_L21_error)
             __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
             if (__pyx_t_8) {
-              if (unlikely(__Pyx_ListComp_Append(__pyx_t_7, (PyObject*)__pyx_7genexpr__pyx_v_f))) __PYX_ERR(0, 548, __pyx_L21_error)
+              if (unlikely(__Pyx_ListComp_Append(__pyx_t_7, (PyObject*)__pyx_7genexpr__pyx_v_f))) __PYX_ERR(0, 549, __pyx_L21_error)
             }
           }
           __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
@@ -28520,36 +28520,36 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_4_write_buf(
           __pyx_L26_exit_scope:;
         } /* exit inner scope */
 
-        /* "refinery/lib/unrar/unpack50.pyx":548
+        /* "refinery/lib/unrar/unpack50.pyx":549
  *                         if self._filters[j].type != FilterType.FILTER_NONE:
  *                             self._filters[j].next_window = False
  *                     self._filters = [             # <<<<<<<<<<<<<<
  *                         f for f in self._filters if f.type != FilterType.FILTER_NONE]
  *                     self._write_border = (
 */
-        if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_filters, __pyx_t_7) < (0)) __PYX_ERR(0, 548, __pyx_L1_error)
+        if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_filters, __pyx_t_7) < (0)) __PYX_ERR(0, 549, __pyx_L1_error)
         __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
 
-        /* "refinery/lib/unrar/unpack50.pyx":551
+        /* "refinery/lib/unrar/unpack50.pyx":552
  *                         f for f in self._filters if f.type != FilterType.FILTER_NONE]
  *                     self._write_border = (
  *                         self._unp_ptr + min(self._win_size, UNPACK_MAX_WRITE)) & mask             # <<<<<<<<<<<<<<
  *                     return
  * 
 */
-        __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_unp_ptr); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 551, __pyx_L1_error)
+        __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_unp_ptr); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 552, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_7);
         __pyx_t_9 = __pyx_v_8refinery_3lib_5unrar_8unpack50_UNPACK_MAX_WRITE;
-        __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_win_size_2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 551, __pyx_L1_error)
+        __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_win_size_2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 552, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_4);
-        __pyx_t_12 = __Pyx_PyLong_From_int(__pyx_t_9); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 551, __pyx_L1_error)
+        __pyx_t_12 = __Pyx_PyLong_From_int(__pyx_t_9); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 552, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_12);
-        __pyx_t_14 = PyObject_RichCompare(__pyx_t_12, __pyx_t_4, Py_LT); __Pyx_XGOTREF(__pyx_t_14); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 551, __pyx_L1_error)
+        __pyx_t_14 = PyObject_RichCompare(__pyx_t_12, __pyx_t_4, Py_LT); __Pyx_XGOTREF(__pyx_t_14); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 552, __pyx_L1_error)
         __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
-        __pyx_t_8 = __Pyx_PyObject_IsTrue(__pyx_t_14); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 551, __pyx_L1_error)
+        __pyx_t_8 = __Pyx_PyObject_IsTrue(__pyx_t_14); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 552, __pyx_L1_error)
         __Pyx_DECREF(__pyx_t_14); __pyx_t_14 = 0;
         if (__pyx_t_8) {
-          __pyx_t_14 = __Pyx_PyLong_From_int(__pyx_t_9); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 551, __pyx_L1_error)
+          __pyx_t_14 = __Pyx_PyLong_From_int(__pyx_t_9); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 552, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_14);
           __pyx_t_13 = __pyx_t_14;
           __pyx_t_14 = 0;
@@ -28558,28 +28558,28 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_4_write_buf(
           __pyx_t_13 = __pyx_t_4;
         }
         __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-        __pyx_t_4 = PyNumber_Add(__pyx_t_7, __pyx_t_13); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 551, __pyx_L1_error)
+        __pyx_t_4 = PyNumber_Add(__pyx_t_7, __pyx_t_13); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 552, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_4);
         __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
         __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
-        __pyx_t_13 = __Pyx_PyLong_From_int(__pyx_v_mask); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 551, __pyx_L1_error)
+        __pyx_t_13 = __Pyx_PyLong_From_int(__pyx_v_mask); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 552, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_13);
-        __pyx_t_7 = PyNumber_And(__pyx_t_4, __pyx_t_13); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 551, __pyx_L1_error)
+        __pyx_t_7 = PyNumber_And(__pyx_t_4, __pyx_t_13); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 552, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_7);
         __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
         __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
 
-        /* "refinery/lib/unrar/unpack50.pyx":550
+        /* "refinery/lib/unrar/unpack50.pyx":551
  *                     self._filters = [
  *                         f for f in self._filters if f.type != FilterType.FILTER_NONE]
  *                     self._write_border = (             # <<<<<<<<<<<<<<
  *                         self._unp_ptr + min(self._win_size, UNPACK_MAX_WRITE)) & mask
  *                     return
 */
-        if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_write_border, __pyx_t_7) < (0)) __PYX_ERR(0, 550, __pyx_L1_error)
+        if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_write_border, __pyx_t_7) < (0)) __PYX_ERR(0, 551, __pyx_L1_error)
         __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
 
-        /* "refinery/lib/unrar/unpack50.pyx":552
+        /* "refinery/lib/unrar/unpack50.pyx":553
  *                     self._write_border = (
  *                         self._unp_ptr + min(self._win_size, UNPACK_MAX_WRITE)) & mask
  *                     return             # <<<<<<<<<<<<<<
@@ -28593,7 +28593,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_4_write_buf(
       }
       __pyx_L10:;
 
-      /* "refinery/lib/unrar/unpack50.pyx":517
+      /* "refinery/lib/unrar/unpack50.pyx":518
  *             block_length = flt.block_length
  * 
  *             if ((block_start - written_border) & mask) < write_size_left:             # <<<<<<<<<<<<<<
@@ -28602,7 +28602,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_4_write_buf(
 */
     }
 
-    /* "refinery/lib/unrar/unpack50.pyx":506
+    /* "refinery/lib/unrar/unpack50.pyx":507
  *         write_size_left = full_write_size
  * 
  *         for i, flt in enumerate(self._filters):             # <<<<<<<<<<<<<<
@@ -28613,7 +28613,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_4_write_buf(
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":554
+  /* "refinery/lib/unrar/unpack50.pyx":555
  *                     return
  * 
  *         self._filters = [             # <<<<<<<<<<<<<<
@@ -28621,26 +28621,26 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_4_write_buf(
  *         self._write_area(written_border, self._unp_ptr)
 */
   { /* enter inner scope */
-    __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 554, __pyx_L30_error)
+    __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 555, __pyx_L30_error)
     __Pyx_GOTREF(__pyx_t_1);
 
-    /* "refinery/lib/unrar/unpack50.pyx":555
+    /* "refinery/lib/unrar/unpack50.pyx":556
  * 
  *         self._filters = [
  *             f for f in self._filters if f.type != FilterType.FILTER_NONE]             # <<<<<<<<<<<<<<
  *         self._write_area(written_border, self._unp_ptr)
  *         self._wr_ptr = self._unp_ptr
 */
-    __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_filters); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 555, __pyx_L30_error)
+    __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_filters); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 556, __pyx_L30_error)
     __Pyx_GOTREF(__pyx_t_7);
     if (likely(PyList_CheckExact(__pyx_t_7)) || PyTuple_CheckExact(__pyx_t_7)) {
       __pyx_t_13 = __pyx_t_7; __Pyx_INCREF(__pyx_t_13);
       __pyx_t_5 = 0;
       __pyx_t_6 = NULL;
     } else {
-      __pyx_t_5 = -1; __pyx_t_13 = PyObject_GetIter(__pyx_t_7); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 555, __pyx_L30_error)
+      __pyx_t_5 = -1; __pyx_t_13 = PyObject_GetIter(__pyx_t_7); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 556, __pyx_L30_error)
       __Pyx_GOTREF(__pyx_t_13);
-      __pyx_t_6 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_13); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 555, __pyx_L30_error)
+      __pyx_t_6 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_13); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 556, __pyx_L30_error)
     }
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
     for (;;) {
@@ -28649,7 +28649,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_4_write_buf(
           {
             Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_13);
             #if !CYTHON_ASSUME_SAFE_SIZE
-            if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 555, __pyx_L30_error)
+            if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 556, __pyx_L30_error)
             #endif
             if (__pyx_t_5 >= __pyx_temp) break;
           }
@@ -28659,7 +28659,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_4_write_buf(
           {
             Py_ssize_t __pyx_temp = __Pyx_PyTuple_GET_SIZE(__pyx_t_13);
             #if !CYTHON_ASSUME_SAFE_SIZE
-            if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 555, __pyx_L30_error)
+            if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 556, __pyx_L30_error)
             #endif
             if (__pyx_t_5 >= __pyx_temp) break;
           }
@@ -28670,13 +28670,13 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_4_write_buf(
           #endif
           ++__pyx_t_5;
         }
-        if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 555, __pyx_L30_error)
+        if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 556, __pyx_L30_error)
       } else {
         __pyx_t_7 = __pyx_t_6(__pyx_t_13);
         if (unlikely(!__pyx_t_7)) {
           PyObject* exc_type = PyErr_Occurred();
           if (exc_type) {
-            if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 555, __pyx_L30_error)
+            if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 556, __pyx_L30_error)
             PyErr_Clear();
           }
           break;
@@ -28685,20 +28685,20 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_4_write_buf(
       __Pyx_GOTREF(__pyx_t_7);
       __Pyx_XDECREF_SET(__pyx_8genexpr1__pyx_v_f, __pyx_t_7);
       __pyx_t_7 = 0;
-      __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_8genexpr1__pyx_v_f, __pyx_mstate_global->__pyx_n_u_type); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 555, __pyx_L30_error)
+      __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_8genexpr1__pyx_v_f, __pyx_mstate_global->__pyx_n_u_type); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 556, __pyx_L30_error)
       __Pyx_GOTREF(__pyx_t_7);
-      __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_FilterType); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 555, __pyx_L30_error)
+      __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_FilterType); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 556, __pyx_L30_error)
       __Pyx_GOTREF(__pyx_t_4);
-      __pyx_t_14 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_FILTER_NONE); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 555, __pyx_L30_error)
+      __pyx_t_14 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_FILTER_NONE); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 556, __pyx_L30_error)
       __Pyx_GOTREF(__pyx_t_14);
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      __pyx_t_4 = PyObject_RichCompare(__pyx_t_7, __pyx_t_14, Py_NE); __Pyx_XGOTREF(__pyx_t_4); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 555, __pyx_L30_error)
+      __pyx_t_4 = PyObject_RichCompare(__pyx_t_7, __pyx_t_14, Py_NE); __Pyx_XGOTREF(__pyx_t_4); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 556, __pyx_L30_error)
       __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
       __Pyx_DECREF(__pyx_t_14); __pyx_t_14 = 0;
-      __pyx_t_8 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 555, __pyx_L30_error)
+      __pyx_t_8 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 556, __pyx_L30_error)
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
       if (__pyx_t_8) {
-        if (unlikely(__Pyx_ListComp_Append(__pyx_t_1, (PyObject*)__pyx_8genexpr1__pyx_v_f))) __PYX_ERR(0, 554, __pyx_L30_error)
+        if (unlikely(__Pyx_ListComp_Append(__pyx_t_1, (PyObject*)__pyx_8genexpr1__pyx_v_f))) __PYX_ERR(0, 555, __pyx_L30_error)
       }
     }
     __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
@@ -28710,17 +28710,17 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_4_write_buf(
     __pyx_L35_exit_scope:;
   } /* exit inner scope */
 
-  /* "refinery/lib/unrar/unpack50.pyx":554
+  /* "refinery/lib/unrar/unpack50.pyx":555
  *                     return
  * 
  *         self._filters = [             # <<<<<<<<<<<<<<
  *             f for f in self._filters if f.type != FilterType.FILTER_NONE]
  *         self._write_area(written_border, self._unp_ptr)
 */
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_filters, __pyx_t_1) < (0)) __PYX_ERR(0, 554, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_filters, __pyx_t_1) < (0)) __PYX_ERR(0, 555, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":556
+  /* "refinery/lib/unrar/unpack50.pyx":557
  *         self._filters = [
  *             f for f in self._filters if f.type != FilterType.FILTER_NONE]
  *         self._write_area(written_border, self._unp_ptr)             # <<<<<<<<<<<<<<
@@ -28729,7 +28729,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_4_write_buf(
 */
   __pyx_t_13 = __pyx_v_self;
   __Pyx_INCREF(__pyx_t_13);
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_unp_ptr); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 556, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_unp_ptr); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 557, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __pyx_t_10 = 0;
   {
@@ -28737,43 +28737,43 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_4_write_buf(
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_write_area, __pyx_callargs+__pyx_t_10, (3-__pyx_t_10) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_13); __pyx_t_13 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 556, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 557, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":557
+  /* "refinery/lib/unrar/unpack50.pyx":558
  *             f for f in self._filters if f.type != FilterType.FILTER_NONE]
  *         self._write_area(written_border, self._unp_ptr)
  *         self._wr_ptr = self._unp_ptr             # <<<<<<<<<<<<<<
  *         self._write_border = (
  *             self._unp_ptr + min(self._win_size, UNPACK_MAX_WRITE)) & mask
 */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_unp_ptr); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 557, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_unp_ptr); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 558, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_wr_ptr, __pyx_t_1) < (0)) __PYX_ERR(0, 557, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_wr_ptr, __pyx_t_1) < (0)) __PYX_ERR(0, 558, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":559
+  /* "refinery/lib/unrar/unpack50.pyx":560
  *         self._wr_ptr = self._unp_ptr
  *         self._write_border = (
  *             self._unp_ptr + min(self._win_size, UNPACK_MAX_WRITE)) & mask             # <<<<<<<<<<<<<<
  * 
  *     def decompress(self):
 */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_unp_ptr); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 559, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_unp_ptr); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 560, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_t_2 = __pyx_v_8refinery_3lib_5unrar_8unpack50_UNPACK_MAX_WRITE;
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_win_size_2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 559, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_win_size_2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 560, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_14 = __Pyx_PyLong_From_int(__pyx_t_2); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 559, __pyx_L1_error)
+  __pyx_t_14 = __Pyx_PyLong_From_int(__pyx_t_2); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 560, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_14);
-  __pyx_t_7 = PyObject_RichCompare(__pyx_t_14, __pyx_t_4, Py_LT); __Pyx_XGOTREF(__pyx_t_7); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 559, __pyx_L1_error)
+  __pyx_t_7 = PyObject_RichCompare(__pyx_t_14, __pyx_t_4, Py_LT); __Pyx_XGOTREF(__pyx_t_7); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 560, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_14); __pyx_t_14 = 0;
-  __pyx_t_8 = __Pyx_PyObject_IsTrue(__pyx_t_7); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 559, __pyx_L1_error)
+  __pyx_t_8 = __Pyx_PyObject_IsTrue(__pyx_t_7); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 560, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
   if (__pyx_t_8) {
-    __pyx_t_7 = __Pyx_PyLong_From_int(__pyx_t_2); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 559, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyLong_From_int(__pyx_t_2); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 560, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
     __pyx_t_13 = __pyx_t_7;
     __pyx_t_7 = 0;
@@ -28782,28 +28782,28 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_4_write_buf(
     __pyx_t_13 = __pyx_t_4;
   }
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  __pyx_t_4 = PyNumber_Add(__pyx_t_1, __pyx_t_13); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 559, __pyx_L1_error)
+  __pyx_t_4 = PyNumber_Add(__pyx_t_1, __pyx_t_13); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 560, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
-  __pyx_t_13 = __Pyx_PyLong_From_int(__pyx_v_mask); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 559, __pyx_L1_error)
+  __pyx_t_13 = __Pyx_PyLong_From_int(__pyx_v_mask); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 560, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_13);
-  __pyx_t_1 = PyNumber_And(__pyx_t_4, __pyx_t_13); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 559, __pyx_L1_error)
+  __pyx_t_1 = PyNumber_And(__pyx_t_4, __pyx_t_13); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 560, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":558
+  /* "refinery/lib/unrar/unpack50.pyx":559
  *         self._write_area(written_border, self._unp_ptr)
  *         self._wr_ptr = self._unp_ptr
  *         self._write_border = (             # <<<<<<<<<<<<<<
  *             self._unp_ptr + min(self._win_size, UNPACK_MAX_WRITE)) & mask
  * 
 */
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_write_border, __pyx_t_1) < (0)) __PYX_ERR(0, 558, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_write_border, __pyx_t_1) < (0)) __PYX_ERR(0, 559, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":493
+  /* "refinery/lib/unrar/unpack50.pyx":494
  *         self._solid = True
  * 
  *     def _write_buf(self):             # <<<<<<<<<<<<<<
@@ -28837,7 +28837,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_4_write_buf(
   return __pyx_r;
 }
 
-/* "refinery/lib/unrar/unpack50.pyx":561
+/* "refinery/lib/unrar/unpack50.pyx":562
  *             self._unp_ptr + min(self._win_size, UNPACK_MAX_WRITE)) & mask
  * 
  *     def decompress(self):             # <<<<<<<<<<<<<<
@@ -28885,32 +28885,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 561, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 562, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 561, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 562, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "decompress", 0) < (0)) __PYX_ERR(0, 561, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "decompress", 0) < (0)) __PYX_ERR(0, 562, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("decompress", 1, 1, 1, i); __PYX_ERR(0, 561, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("decompress", 1, 1, 1, i); __PYX_ERR(0, 562, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 561, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 562, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("decompress", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 561, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("decompress", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 562, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -28980,45 +28980,45 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("decompress", 0);
 
-  /* "refinery/lib/unrar/unpack50.pyx":565
+  /* "refinery/lib/unrar/unpack50.pyx":566
  *         Run the RAR5 decompression and return the extracted data.
  *         """
  *         cdef BitInput inp = self._inp             # <<<<<<<<<<<<<<
  *         cdef int mask = self._win_mask
  *         cdef int inp_len
 */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_inp_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 565, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_inp_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 566, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  if (!(likely(((__pyx_t_1) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_1, __pyx_mstate_global->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BitInput))))) __PYX_ERR(0, 565, __pyx_L1_error)
+  if (!(likely(((__pyx_t_1) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_1, __pyx_mstate_global->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BitInput))))) __PYX_ERR(0, 566, __pyx_L1_error)
   __pyx_v_inp = ((struct __pyx_obj_8refinery_3lib_5unrar_8unpack50_BitInput *)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":566
+  /* "refinery/lib/unrar/unpack50.pyx":567
  *         """
  *         cdef BitInput inp = self._inp
  *         cdef int mask = self._win_mask             # <<<<<<<<<<<<<<
  *         cdef int inp_len
  *         cdef int main_slot, length, dist_slot, d_bits, distance
 */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_win_mask); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 566, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_win_mask); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 567, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyLong_As_int(__pyx_t_1); if (unlikely((__pyx_t_2 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 566, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyLong_As_int(__pyx_t_1); if (unlikely((__pyx_t_2 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 567, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_v_mask = __pyx_t_2;
 
-  /* "refinery/lib/unrar/unpack50.pyx":577
+  /* "refinery/lib/unrar/unpack50.pyx":578
  *         cdef int src, dst, copied, chunk
  * 
  *         win = self._window             # <<<<<<<<<<<<<<
  *         win_ptr = <unsigned char *>PyByteArray_AS_STRING(win)
  *         win_size = self._win_size
 */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_window); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 577, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_window); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 578, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_win = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":578
+  /* "refinery/lib/unrar/unpack50.pyx":579
  * 
  *         win = self._window
  *         win_ptr = <unsigned char *>PyByteArray_AS_STRING(win)             # <<<<<<<<<<<<<<
@@ -29027,35 +29027,35 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
   __pyx_v_win_ptr = ((unsigned char *)PyByteArray_AS_STRING(__pyx_v_win));
 
-  /* "refinery/lib/unrar/unpack50.pyx":579
+  /* "refinery/lib/unrar/unpack50.pyx":580
  *         win = self._window
  *         win_ptr = <unsigned char *>PyByteArray_AS_STRING(win)
  *         win_size = self._win_size             # <<<<<<<<<<<<<<
  * 
  *         if not _read_block_header(inp, self._block_header):
 */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_win_size_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 579, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_win_size_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 580, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyLong_As_int(__pyx_t_1); if (unlikely((__pyx_t_2 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 579, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyLong_As_int(__pyx_t_1); if (unlikely((__pyx_t_2 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 580, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_v_win_size = __pyx_t_2;
 
-  /* "refinery/lib/unrar/unpack50.pyx":581
+  /* "refinery/lib/unrar/unpack50.pyx":582
  *         win_size = self._win_size
  * 
  *         if not _read_block_header(inp, self._block_header):             # <<<<<<<<<<<<<<
  *             return self._output
  *         if not _read_tables(inp, self._block_header, self._block_tables):
 */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_block_header); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 581, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_block_header); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 582, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  if (!(likely(((__pyx_t_1) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_1, __pyx_mstate_global->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BlockHeader))))) __PYX_ERR(0, 581, __pyx_L1_error)
-  __pyx_t_3 = __pyx_f_8refinery_3lib_5unrar_8unpack50__read_block_header(__pyx_v_inp, ((struct __pyx_obj_8refinery_3lib_5unrar_8unpack50_BlockHeader *)__pyx_t_1)); if (unlikely(__pyx_t_3 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 581, __pyx_L1_error)
+  if (!(likely(((__pyx_t_1) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_1, __pyx_mstate_global->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BlockHeader))))) __PYX_ERR(0, 582, __pyx_L1_error)
+  __pyx_t_3 = __pyx_f_8refinery_3lib_5unrar_8unpack50__read_block_header(__pyx_v_inp, ((struct __pyx_obj_8refinery_3lib_5unrar_8unpack50_BlockHeader *)__pyx_t_1)); if (unlikely(__pyx_t_3 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 582, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_t_4 = (!__pyx_t_3);
   if (__pyx_t_4) {
 
-    /* "refinery/lib/unrar/unpack50.pyx":582
+    /* "refinery/lib/unrar/unpack50.pyx":583
  * 
  *         if not _read_block_header(inp, self._block_header):
  *             return self._output             # <<<<<<<<<<<<<<
@@ -29063,13 +29063,13 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
  *             return self._output
 */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_output); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 582, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_output); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 583, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __pyx_r = __pyx_t_1;
     __pyx_t_1 = 0;
     goto __pyx_L0;
 
-    /* "refinery/lib/unrar/unpack50.pyx":581
+    /* "refinery/lib/unrar/unpack50.pyx":582
  *         win_size = self._win_size
  * 
  *         if not _read_block_header(inp, self._block_header):             # <<<<<<<<<<<<<<
@@ -29078,26 +29078,26 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
   }
 
-  /* "refinery/lib/unrar/unpack50.pyx":583
+  /* "refinery/lib/unrar/unpack50.pyx":584
  *         if not _read_block_header(inp, self._block_header):
  *             return self._output
  *         if not _read_tables(inp, self._block_header, self._block_tables):             # <<<<<<<<<<<<<<
  *             return self._output
  *         self._tables_read = True
 */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_block_header); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 583, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_block_header); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 584, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  if (!(likely(((__pyx_t_1) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_1, __pyx_mstate_global->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BlockHeader))))) __PYX_ERR(0, 583, __pyx_L1_error)
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_block_tables); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 583, __pyx_L1_error)
+  if (!(likely(((__pyx_t_1) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_1, __pyx_mstate_global->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BlockHeader))))) __PYX_ERR(0, 584, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_block_tables); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 584, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  if (!(likely(((__pyx_t_5) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_5, __pyx_mstate_global->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BlockTables))))) __PYX_ERR(0, 583, __pyx_L1_error)
-  __pyx_t_4 = __pyx_f_8refinery_3lib_5unrar_8unpack50__read_tables(__pyx_v_inp, ((struct __pyx_obj_8refinery_3lib_5unrar_8unpack50_BlockHeader *)__pyx_t_1), ((struct __pyx_obj_8refinery_3lib_5unrar_8unpack50_BlockTables *)__pyx_t_5)); if (unlikely(__pyx_t_4 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 583, __pyx_L1_error)
+  if (!(likely(((__pyx_t_5) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_5, __pyx_mstate_global->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BlockTables))))) __PYX_ERR(0, 584, __pyx_L1_error)
+  __pyx_t_4 = __pyx_f_8refinery_3lib_5unrar_8unpack50__read_tables(__pyx_v_inp, ((struct __pyx_obj_8refinery_3lib_5unrar_8unpack50_BlockHeader *)__pyx_t_1), ((struct __pyx_obj_8refinery_3lib_5unrar_8unpack50_BlockTables *)__pyx_t_5)); if (unlikely(__pyx_t_4 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 584, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __pyx_t_3 = (!__pyx_t_4);
   if (__pyx_t_3) {
 
-    /* "refinery/lib/unrar/unpack50.pyx":584
+    /* "refinery/lib/unrar/unpack50.pyx":585
  *             return self._output
  *         if not _read_tables(inp, self._block_header, self._block_tables):
  *             return self._output             # <<<<<<<<<<<<<<
@@ -29105,13 +29105,13 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
  * 
 */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_output); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 584, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_output); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 585, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __pyx_r = __pyx_t_5;
     __pyx_t_5 = 0;
     goto __pyx_L0;
 
-    /* "refinery/lib/unrar/unpack50.pyx":583
+    /* "refinery/lib/unrar/unpack50.pyx":584
  *         if not _read_block_header(inp, self._block_header):
  *             return self._output
  *         if not _read_tables(inp, self._block_header, self._block_tables):             # <<<<<<<<<<<<<<
@@ -29120,42 +29120,42 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
   }
 
-  /* "refinery/lib/unrar/unpack50.pyx":585
+  /* "refinery/lib/unrar/unpack50.pyx":586
  *         if not _read_tables(inp, self._block_header, self._block_tables):
  *             return self._output
  *         self._tables_read = True             # <<<<<<<<<<<<<<
  * 
  *         cdef BlockHeader hdr = self._block_header
 */
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_tables_read, Py_True) < (0)) __PYX_ERR(0, 585, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_tables_read, Py_True) < (0)) __PYX_ERR(0, 586, __pyx_L1_error)
 
-  /* "refinery/lib/unrar/unpack50.pyx":587
+  /* "refinery/lib/unrar/unpack50.pyx":588
  *         self._tables_read = True
  * 
  *         cdef BlockHeader hdr = self._block_header             # <<<<<<<<<<<<<<
  *         cdef BlockTables tbl = self._block_tables
  * 
 */
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_block_header); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 587, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_block_header); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 588, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  if (!(likely(((__pyx_t_5) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_5, __pyx_mstate_global->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BlockHeader))))) __PYX_ERR(0, 587, __pyx_L1_error)
+  if (!(likely(((__pyx_t_5) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_5, __pyx_mstate_global->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BlockHeader))))) __PYX_ERR(0, 588, __pyx_L1_error)
   __pyx_v_hdr = ((struct __pyx_obj_8refinery_3lib_5unrar_8unpack50_BlockHeader *)__pyx_t_5);
   __pyx_t_5 = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":588
+  /* "refinery/lib/unrar/unpack50.pyx":589
  * 
  *         cdef BlockHeader hdr = self._block_header
  *         cdef BlockTables tbl = self._block_tables             # <<<<<<<<<<<<<<
  * 
  *         inp_len = inp._buf_len
 */
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_block_tables); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 588, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_block_tables); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 589, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  if (!(likely(((__pyx_t_5) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_5, __pyx_mstate_global->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BlockTables))))) __PYX_ERR(0, 588, __pyx_L1_error)
+  if (!(likely(((__pyx_t_5) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_5, __pyx_mstate_global->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BlockTables))))) __PYX_ERR(0, 589, __pyx_L1_error)
   __pyx_v_tbl = ((struct __pyx_obj_8refinery_3lib_5unrar_8unpack50_BlockTables *)__pyx_t_5);
   __pyx_t_5 = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":590
+  /* "refinery/lib/unrar/unpack50.pyx":591
  *         cdef BlockTables tbl = self._block_tables
  * 
  *         inp_len = inp._buf_len             # <<<<<<<<<<<<<<
@@ -29165,110 +29165,110 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
   __pyx_t_2 = __pyx_v_inp->_buf_len;
   __pyx_v_inp_len = __pyx_t_2;
 
-  /* "refinery/lib/unrar/unpack50.pyx":592
+  /* "refinery/lib/unrar/unpack50.pyx":593
  *         inp_len = inp._buf_len
  * 
  *         old_dist = self._old_dist             # <<<<<<<<<<<<<<
  *         old0 = old_dist[0]
  *         old1 = old_dist[1]
 */
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_old_dist); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 592, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_old_dist); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 593, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __pyx_v_old_dist = __pyx_t_5;
   __pyx_t_5 = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":593
+  /* "refinery/lib/unrar/unpack50.pyx":594
  * 
  *         old_dist = self._old_dist
  *         old0 = old_dist[0]             # <<<<<<<<<<<<<<
  *         old1 = old_dist[1]
  *         old2 = old_dist[2]
 */
-  __pyx_t_5 = __Pyx_GetItemInt(__pyx_v_old_dist, 0, long, 1, __Pyx_PyLong_From_long, 0, 0, 0, 1, __Pyx_ReferenceSharing_OwnStrongReference); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 593, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_GetItemInt(__pyx_v_old_dist, 0, long, 1, __Pyx_PyLong_From_long, 0, 0, 0, 1, __Pyx_ReferenceSharing_OwnStrongReference); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 594, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_2 = __Pyx_PyLong_As_int(__pyx_t_5); if (unlikely((__pyx_t_2 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 593, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyLong_As_int(__pyx_t_5); if (unlikely((__pyx_t_2 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 594, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __pyx_v_old0 = __pyx_t_2;
 
-  /* "refinery/lib/unrar/unpack50.pyx":594
+  /* "refinery/lib/unrar/unpack50.pyx":595
  *         old_dist = self._old_dist
  *         old0 = old_dist[0]
  *         old1 = old_dist[1]             # <<<<<<<<<<<<<<
  *         old2 = old_dist[2]
  *         old3 = old_dist[3]
 */
-  __pyx_t_5 = __Pyx_GetItemInt(__pyx_v_old_dist, 1, long, 1, __Pyx_PyLong_From_long, 0, 0, 0, 1, __Pyx_ReferenceSharing_OwnStrongReference); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 594, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_GetItemInt(__pyx_v_old_dist, 1, long, 1, __Pyx_PyLong_From_long, 0, 0, 0, 1, __Pyx_ReferenceSharing_OwnStrongReference); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 595, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_2 = __Pyx_PyLong_As_int(__pyx_t_5); if (unlikely((__pyx_t_2 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 594, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyLong_As_int(__pyx_t_5); if (unlikely((__pyx_t_2 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 595, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __pyx_v_old1 = __pyx_t_2;
 
-  /* "refinery/lib/unrar/unpack50.pyx":595
+  /* "refinery/lib/unrar/unpack50.pyx":596
  *         old0 = old_dist[0]
  *         old1 = old_dist[1]
  *         old2 = old_dist[2]             # <<<<<<<<<<<<<<
  *         old3 = old_dist[3]
  *         unp_ptr = self._unp_ptr
 */
-  __pyx_t_5 = __Pyx_GetItemInt(__pyx_v_old_dist, 2, long, 1, __Pyx_PyLong_From_long, 0, 0, 0, 1, __Pyx_ReferenceSharing_OwnStrongReference); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 595, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_GetItemInt(__pyx_v_old_dist, 2, long, 1, __Pyx_PyLong_From_long, 0, 0, 0, 1, __Pyx_ReferenceSharing_OwnStrongReference); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 596, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_2 = __Pyx_PyLong_As_int(__pyx_t_5); if (unlikely((__pyx_t_2 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 595, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyLong_As_int(__pyx_t_5); if (unlikely((__pyx_t_2 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 596, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __pyx_v_old2 = __pyx_t_2;
 
-  /* "refinery/lib/unrar/unpack50.pyx":596
+  /* "refinery/lib/unrar/unpack50.pyx":597
  *         old1 = old_dist[1]
  *         old2 = old_dist[2]
  *         old3 = old_dist[3]             # <<<<<<<<<<<<<<
  *         unp_ptr = self._unp_ptr
  *         last_length = self._last_length
 */
-  __pyx_t_5 = __Pyx_GetItemInt(__pyx_v_old_dist, 3, long, 1, __Pyx_PyLong_From_long, 0, 0, 0, 1, __Pyx_ReferenceSharing_OwnStrongReference); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 596, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_GetItemInt(__pyx_v_old_dist, 3, long, 1, __Pyx_PyLong_From_long, 0, 0, 0, 1, __Pyx_ReferenceSharing_OwnStrongReference); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 597, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_2 = __Pyx_PyLong_As_int(__pyx_t_5); if (unlikely((__pyx_t_2 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 596, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyLong_As_int(__pyx_t_5); if (unlikely((__pyx_t_2 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 597, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __pyx_v_old3 = __pyx_t_2;
 
-  /* "refinery/lib/unrar/unpack50.pyx":597
+  /* "refinery/lib/unrar/unpack50.pyx":598
  *         old2 = old_dist[2]
  *         old3 = old_dist[3]
  *         unp_ptr = self._unp_ptr             # <<<<<<<<<<<<<<
  *         last_length = self._last_length
  *         write_border = self._write_border
 */
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_unp_ptr); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 597, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_unp_ptr); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 598, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_2 = __Pyx_PyLong_As_int(__pyx_t_5); if (unlikely((__pyx_t_2 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 597, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyLong_As_int(__pyx_t_5); if (unlikely((__pyx_t_2 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 598, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __pyx_v_unp_ptr = __pyx_t_2;
 
-  /* "refinery/lib/unrar/unpack50.pyx":598
+  /* "refinery/lib/unrar/unpack50.pyx":599
  *         old3 = old_dist[3]
  *         unp_ptr = self._unp_ptr
  *         last_length = self._last_length             # <<<<<<<<<<<<<<
  *         write_border = self._write_border
  * 
 */
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_last_length); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 598, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_last_length); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 599, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_2 = __Pyx_PyLong_As_int(__pyx_t_5); if (unlikely((__pyx_t_2 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 598, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyLong_As_int(__pyx_t_5); if (unlikely((__pyx_t_2 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 599, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __pyx_v_last_length = __pyx_t_2;
 
-  /* "refinery/lib/unrar/unpack50.pyx":599
+  /* "refinery/lib/unrar/unpack50.pyx":600
  *         unp_ptr = self._unp_ptr
  *         last_length = self._last_length
  *         write_border = self._write_border             # <<<<<<<<<<<<<<
  * 
  *         while True:
 */
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_write_border); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 599, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_write_border); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 600, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_2 = __Pyx_PyLong_As_int(__pyx_t_5); if (unlikely((__pyx_t_2 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 599, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyLong_As_int(__pyx_t_5); if (unlikely((__pyx_t_2 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 600, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __pyx_v_write_border = __pyx_t_2;
 
-  /* "refinery/lib/unrar/unpack50.pyx":601
+  /* "refinery/lib/unrar/unpack50.pyx":602
  *         write_border = self._write_border
  * 
  *         while True:             # <<<<<<<<<<<<<<
@@ -29277,7 +29277,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
   while (1) {
 
-    /* "refinery/lib/unrar/unpack50.pyx":602
+    /* "refinery/lib/unrar/unpack50.pyx":603
  * 
  *         while True:
  *             unp_ptr &= mask             # <<<<<<<<<<<<<<
@@ -29286,7 +29286,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
     __pyx_v_unp_ptr = (__pyx_v_unp_ptr & __pyx_v_mask);
 
-    /* "refinery/lib/unrar/unpack50.pyx":604
+    /* "refinery/lib/unrar/unpack50.pyx":605
  *             unp_ptr &= mask
  * 
  *             if inp.in_addr >= inp_len:             # <<<<<<<<<<<<<<
@@ -29296,7 +29296,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
     __pyx_t_3 = (__pyx_v_inp->in_addr >= __pyx_v_inp_len);
     if (__pyx_t_3) {
 
-      /* "refinery/lib/unrar/unpack50.pyx":605
+      /* "refinery/lib/unrar/unpack50.pyx":606
  * 
  *             if inp.in_addr >= inp_len:
  *                 break             # <<<<<<<<<<<<<<
@@ -29305,7 +29305,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
       goto __pyx_L6_break;
 
-      /* "refinery/lib/unrar/unpack50.pyx":604
+      /* "refinery/lib/unrar/unpack50.pyx":605
  *             unp_ptr &= mask
  * 
  *             if inp.in_addr >= inp_len:             # <<<<<<<<<<<<<<
@@ -29314,7 +29314,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
     }
 
-    /* "refinery/lib/unrar/unpack50.pyx":607
+    /* "refinery/lib/unrar/unpack50.pyx":608
  *                 break
  * 
  *             while (inp.in_addr > hdr.block_start + hdr.block_size - 1             # <<<<<<<<<<<<<<
@@ -29323,7 +29323,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
     while (1) {
 
-      /* "refinery/lib/unrar/unpack50.pyx":608
+      /* "refinery/lib/unrar/unpack50.pyx":609
  * 
  *             while (inp.in_addr > hdr.block_start + hdr.block_size - 1
  *                 or (inp.in_addr == hdr.block_start + hdr.block_size - 1             # <<<<<<<<<<<<<<
@@ -29337,7 +29337,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
         goto __pyx_L10_bool_binop_done;
       }
 
-      /* "refinery/lib/unrar/unpack50.pyx":609
+      /* "refinery/lib/unrar/unpack50.pyx":610
  *             while (inp.in_addr > hdr.block_start + hdr.block_size - 1
  *                 or (inp.in_addr == hdr.block_start + hdr.block_size - 1
  *                     and inp.in_bit >= hdr.block_bit_size)):             # <<<<<<<<<<<<<<
@@ -29355,7 +29355,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
       __pyx_L10_bool_binop_done:;
       if (!__pyx_t_3) break;
 
-      /* "refinery/lib/unrar/unpack50.pyx":610
+      /* "refinery/lib/unrar/unpack50.pyx":611
  *                 or (inp.in_addr == hdr.block_start + hdr.block_size - 1
  *                     and inp.in_bit >= hdr.block_bit_size)):
  *                 if hdr.last_block:             # <<<<<<<<<<<<<<
@@ -29364,91 +29364,91 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
       if (__pyx_v_hdr->last_block) {
 
-        /* "refinery/lib/unrar/unpack50.pyx":611
+        /* "refinery/lib/unrar/unpack50.pyx":612
  *                     and inp.in_bit >= hdr.block_bit_size)):
  *                 if hdr.last_block:
  *                     self._old_dist[0] = old0             # <<<<<<<<<<<<<<
  *                     self._old_dist[1] = old1
  *                     self._old_dist[2] = old2
 */
-        __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_old0); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 611, __pyx_L1_error)
+        __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_old0); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 612, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_5);
-        __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_old_dist); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 611, __pyx_L1_error)
+        __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_old_dist); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 612, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_1);
-        if (unlikely((__Pyx_SetItemInt(__pyx_t_1, 0, __pyx_t_5, long, 1, __Pyx_PyLong_From_long, 0, 0, 0, 1, __Pyx_ReferenceSharing_OwnStrongReference) < 0))) __PYX_ERR(0, 611, __pyx_L1_error)
+        if (unlikely((__Pyx_SetItemInt(__pyx_t_1, 0, __pyx_t_5, long, 1, __Pyx_PyLong_From_long, 0, 0, 0, 1, __Pyx_ReferenceSharing_OwnStrongReference) < 0))) __PYX_ERR(0, 612, __pyx_L1_error)
         __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-        /* "refinery/lib/unrar/unpack50.pyx":612
+        /* "refinery/lib/unrar/unpack50.pyx":613
  *                 if hdr.last_block:
  *                     self._old_dist[0] = old0
  *                     self._old_dist[1] = old1             # <<<<<<<<<<<<<<
  *                     self._old_dist[2] = old2
  *                     self._old_dist[3] = old3
 */
-        __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_old1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 612, __pyx_L1_error)
+        __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_old1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 613, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_5);
-        __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_old_dist); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 612, __pyx_L1_error)
+        __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_old_dist); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 613, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_1);
-        if (unlikely((__Pyx_SetItemInt(__pyx_t_1, 1, __pyx_t_5, long, 1, __Pyx_PyLong_From_long, 0, 0, 0, 1, __Pyx_ReferenceSharing_OwnStrongReference) < 0))) __PYX_ERR(0, 612, __pyx_L1_error)
+        if (unlikely((__Pyx_SetItemInt(__pyx_t_1, 1, __pyx_t_5, long, 1, __Pyx_PyLong_From_long, 0, 0, 0, 1, __Pyx_ReferenceSharing_OwnStrongReference) < 0))) __PYX_ERR(0, 613, __pyx_L1_error)
         __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-        /* "refinery/lib/unrar/unpack50.pyx":613
+        /* "refinery/lib/unrar/unpack50.pyx":614
  *                     self._old_dist[0] = old0
  *                     self._old_dist[1] = old1
  *                     self._old_dist[2] = old2             # <<<<<<<<<<<<<<
  *                     self._old_dist[3] = old3
  *                     self._unp_ptr = unp_ptr
 */
-        __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_old2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 613, __pyx_L1_error)
+        __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_old2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 614, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_5);
-        __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_old_dist); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 613, __pyx_L1_error)
+        __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_old_dist); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 614, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_1);
-        if (unlikely((__Pyx_SetItemInt(__pyx_t_1, 2, __pyx_t_5, long, 1, __Pyx_PyLong_From_long, 0, 0, 0, 1, __Pyx_ReferenceSharing_OwnStrongReference) < 0))) __PYX_ERR(0, 613, __pyx_L1_error)
+        if (unlikely((__Pyx_SetItemInt(__pyx_t_1, 2, __pyx_t_5, long, 1, __Pyx_PyLong_From_long, 0, 0, 0, 1, __Pyx_ReferenceSharing_OwnStrongReference) < 0))) __PYX_ERR(0, 614, __pyx_L1_error)
         __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-        /* "refinery/lib/unrar/unpack50.pyx":614
+        /* "refinery/lib/unrar/unpack50.pyx":615
  *                     self._old_dist[1] = old1
  *                     self._old_dist[2] = old2
  *                     self._old_dist[3] = old3             # <<<<<<<<<<<<<<
  *                     self._unp_ptr = unp_ptr
  *                     self._last_length = last_length
 */
-        __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_old3); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 614, __pyx_L1_error)
+        __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_old3); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 615, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_5);
-        __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_old_dist); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 614, __pyx_L1_error)
+        __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_old_dist); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 615, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_1);
-        if (unlikely((__Pyx_SetItemInt(__pyx_t_1, 3, __pyx_t_5, long, 1, __Pyx_PyLong_From_long, 0, 0, 0, 1, __Pyx_ReferenceSharing_OwnStrongReference) < 0))) __PYX_ERR(0, 614, __pyx_L1_error)
+        if (unlikely((__Pyx_SetItemInt(__pyx_t_1, 3, __pyx_t_5, long, 1, __Pyx_PyLong_From_long, 0, 0, 0, 1, __Pyx_ReferenceSharing_OwnStrongReference) < 0))) __PYX_ERR(0, 615, __pyx_L1_error)
         __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-        /* "refinery/lib/unrar/unpack50.pyx":615
+        /* "refinery/lib/unrar/unpack50.pyx":616
  *                     self._old_dist[2] = old2
  *                     self._old_dist[3] = old3
  *                     self._unp_ptr = unp_ptr             # <<<<<<<<<<<<<<
  *                     self._last_length = last_length
  *                     self._write_buf()
 */
-        __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_unp_ptr); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 615, __pyx_L1_error)
+        __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_unp_ptr); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 616, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_5);
-        if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_unp_ptr, __pyx_t_5) < (0)) __PYX_ERR(0, 615, __pyx_L1_error)
+        if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_unp_ptr, __pyx_t_5) < (0)) __PYX_ERR(0, 616, __pyx_L1_error)
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-        /* "refinery/lib/unrar/unpack50.pyx":616
+        /* "refinery/lib/unrar/unpack50.pyx":617
  *                     self._old_dist[3] = old3
  *                     self._unp_ptr = unp_ptr
  *                     self._last_length = last_length             # <<<<<<<<<<<<<<
  *                     self._write_buf()
  *                     return self._output
 */
-        __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_last_length); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 616, __pyx_L1_error)
+        __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_last_length); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 617, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_5);
-        if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_last_length, __pyx_t_5) < (0)) __PYX_ERR(0, 616, __pyx_L1_error)
+        if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_last_length, __pyx_t_5) < (0)) __PYX_ERR(0, 617, __pyx_L1_error)
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-        /* "refinery/lib/unrar/unpack50.pyx":617
+        /* "refinery/lib/unrar/unpack50.pyx":618
  *                     self._unp_ptr = unp_ptr
  *                     self._last_length = last_length
  *                     self._write_buf()             # <<<<<<<<<<<<<<
@@ -29462,12 +29462,12 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
           PyObject *__pyx_callargs[2] = {__pyx_t_1, NULL};
           __pyx_t_5 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_write_buf, __pyx_callargs+__pyx_t_6, (1-__pyx_t_6) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
-          if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 617, __pyx_L1_error)
+          if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 618, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_5);
         }
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-        /* "refinery/lib/unrar/unpack50.pyx":618
+        /* "refinery/lib/unrar/unpack50.pyx":619
  *                     self._last_length = last_length
  *                     self._write_buf()
  *                     return self._output             # <<<<<<<<<<<<<<
@@ -29475,13 +29475,13 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
  *                     self._old_dist[0] = old0
 */
         __Pyx_XDECREF(__pyx_r);
-        __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_output); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 618, __pyx_L1_error)
+        __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_output); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 619, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_5);
         __pyx_r = __pyx_t_5;
         __pyx_t_5 = 0;
         goto __pyx_L0;
 
-        /* "refinery/lib/unrar/unpack50.pyx":610
+        /* "refinery/lib/unrar/unpack50.pyx":611
  *                 or (inp.in_addr == hdr.block_start + hdr.block_size - 1
  *                     and inp.in_bit >= hdr.block_bit_size)):
  *                 if hdr.last_block:             # <<<<<<<<<<<<<<
@@ -29490,111 +29490,111 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
       }
 
-      /* "refinery/lib/unrar/unpack50.pyx":619
+      /* "refinery/lib/unrar/unpack50.pyx":620
  *                     self._write_buf()
  *                     return self._output
  *                 if not _read_block_header(inp, hdr) or not _read_tables(inp, hdr, tbl):             # <<<<<<<<<<<<<<
  *                     self._old_dist[0] = old0
  *                     self._old_dist[1] = old1
 */
-      __pyx_t_4 = __pyx_f_8refinery_3lib_5unrar_8unpack50__read_block_header(__pyx_v_inp, __pyx_v_hdr); if (unlikely(__pyx_t_4 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 619, __pyx_L1_error)
+      __pyx_t_4 = __pyx_f_8refinery_3lib_5unrar_8unpack50__read_block_header(__pyx_v_inp, __pyx_v_hdr); if (unlikely(__pyx_t_4 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 620, __pyx_L1_error)
       __pyx_t_7 = (!__pyx_t_4);
       if (!__pyx_t_7) {
       } else {
         __pyx_t_3 = __pyx_t_7;
         goto __pyx_L15_bool_binop_done;
       }
-      __pyx_t_7 = __pyx_f_8refinery_3lib_5unrar_8unpack50__read_tables(__pyx_v_inp, __pyx_v_hdr, __pyx_v_tbl); if (unlikely(__pyx_t_7 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 619, __pyx_L1_error)
+      __pyx_t_7 = __pyx_f_8refinery_3lib_5unrar_8unpack50__read_tables(__pyx_v_inp, __pyx_v_hdr, __pyx_v_tbl); if (unlikely(__pyx_t_7 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 620, __pyx_L1_error)
       __pyx_t_4 = (!__pyx_t_7);
       __pyx_t_3 = __pyx_t_4;
       __pyx_L15_bool_binop_done:;
       if (__pyx_t_3) {
 
-        /* "refinery/lib/unrar/unpack50.pyx":620
+        /* "refinery/lib/unrar/unpack50.pyx":621
  *                     return self._output
  *                 if not _read_block_header(inp, hdr) or not _read_tables(inp, hdr, tbl):
  *                     self._old_dist[0] = old0             # <<<<<<<<<<<<<<
  *                     self._old_dist[1] = old1
  *                     self._old_dist[2] = old2
 */
-        __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_old0); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 620, __pyx_L1_error)
+        __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_old0); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 621, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_5);
-        __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_old_dist); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 620, __pyx_L1_error)
+        __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_old_dist); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 621, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_1);
-        if (unlikely((__Pyx_SetItemInt(__pyx_t_1, 0, __pyx_t_5, long, 1, __Pyx_PyLong_From_long, 0, 0, 0, 1, __Pyx_ReferenceSharing_OwnStrongReference) < 0))) __PYX_ERR(0, 620, __pyx_L1_error)
+        if (unlikely((__Pyx_SetItemInt(__pyx_t_1, 0, __pyx_t_5, long, 1, __Pyx_PyLong_From_long, 0, 0, 0, 1, __Pyx_ReferenceSharing_OwnStrongReference) < 0))) __PYX_ERR(0, 621, __pyx_L1_error)
         __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-        /* "refinery/lib/unrar/unpack50.pyx":621
+        /* "refinery/lib/unrar/unpack50.pyx":622
  *                 if not _read_block_header(inp, hdr) or not _read_tables(inp, hdr, tbl):
  *                     self._old_dist[0] = old0
  *                     self._old_dist[1] = old1             # <<<<<<<<<<<<<<
  *                     self._old_dist[2] = old2
  *                     self._old_dist[3] = old3
 */
-        __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_old1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 621, __pyx_L1_error)
+        __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_old1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 622, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_5);
-        __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_old_dist); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 621, __pyx_L1_error)
+        __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_old_dist); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 622, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_1);
-        if (unlikely((__Pyx_SetItemInt(__pyx_t_1, 1, __pyx_t_5, long, 1, __Pyx_PyLong_From_long, 0, 0, 0, 1, __Pyx_ReferenceSharing_OwnStrongReference) < 0))) __PYX_ERR(0, 621, __pyx_L1_error)
+        if (unlikely((__Pyx_SetItemInt(__pyx_t_1, 1, __pyx_t_5, long, 1, __Pyx_PyLong_From_long, 0, 0, 0, 1, __Pyx_ReferenceSharing_OwnStrongReference) < 0))) __PYX_ERR(0, 622, __pyx_L1_error)
         __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-        /* "refinery/lib/unrar/unpack50.pyx":622
+        /* "refinery/lib/unrar/unpack50.pyx":623
  *                     self._old_dist[0] = old0
  *                     self._old_dist[1] = old1
  *                     self._old_dist[2] = old2             # <<<<<<<<<<<<<<
  *                     self._old_dist[3] = old3
  *                     self._unp_ptr = unp_ptr
 */
-        __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_old2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 622, __pyx_L1_error)
+        __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_old2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 623, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_5);
-        __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_old_dist); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 622, __pyx_L1_error)
+        __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_old_dist); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 623, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_1);
-        if (unlikely((__Pyx_SetItemInt(__pyx_t_1, 2, __pyx_t_5, long, 1, __Pyx_PyLong_From_long, 0, 0, 0, 1, __Pyx_ReferenceSharing_OwnStrongReference) < 0))) __PYX_ERR(0, 622, __pyx_L1_error)
+        if (unlikely((__Pyx_SetItemInt(__pyx_t_1, 2, __pyx_t_5, long, 1, __Pyx_PyLong_From_long, 0, 0, 0, 1, __Pyx_ReferenceSharing_OwnStrongReference) < 0))) __PYX_ERR(0, 623, __pyx_L1_error)
         __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-        /* "refinery/lib/unrar/unpack50.pyx":623
+        /* "refinery/lib/unrar/unpack50.pyx":624
  *                     self._old_dist[1] = old1
  *                     self._old_dist[2] = old2
  *                     self._old_dist[3] = old3             # <<<<<<<<<<<<<<
  *                     self._unp_ptr = unp_ptr
  *                     self._last_length = last_length
 */
-        __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_old3); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 623, __pyx_L1_error)
+        __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_old3); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 624, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_5);
-        __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_old_dist); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 623, __pyx_L1_error)
+        __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_old_dist); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 624, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_1);
-        if (unlikely((__Pyx_SetItemInt(__pyx_t_1, 3, __pyx_t_5, long, 1, __Pyx_PyLong_From_long, 0, 0, 0, 1, __Pyx_ReferenceSharing_OwnStrongReference) < 0))) __PYX_ERR(0, 623, __pyx_L1_error)
+        if (unlikely((__Pyx_SetItemInt(__pyx_t_1, 3, __pyx_t_5, long, 1, __Pyx_PyLong_From_long, 0, 0, 0, 1, __Pyx_ReferenceSharing_OwnStrongReference) < 0))) __PYX_ERR(0, 624, __pyx_L1_error)
         __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-        /* "refinery/lib/unrar/unpack50.pyx":624
+        /* "refinery/lib/unrar/unpack50.pyx":625
  *                     self._old_dist[2] = old2
  *                     self._old_dist[3] = old3
  *                     self._unp_ptr = unp_ptr             # <<<<<<<<<<<<<<
  *                     self._last_length = last_length
  *                     self._write_buf()
 */
-        __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_unp_ptr); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 624, __pyx_L1_error)
+        __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_unp_ptr); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 625, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_5);
-        if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_unp_ptr, __pyx_t_5) < (0)) __PYX_ERR(0, 624, __pyx_L1_error)
+        if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_unp_ptr, __pyx_t_5) < (0)) __PYX_ERR(0, 625, __pyx_L1_error)
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-        /* "refinery/lib/unrar/unpack50.pyx":625
+        /* "refinery/lib/unrar/unpack50.pyx":626
  *                     self._old_dist[3] = old3
  *                     self._unp_ptr = unp_ptr
  *                     self._last_length = last_length             # <<<<<<<<<<<<<<
  *                     self._write_buf()
  *                     return self._output
 */
-        __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_last_length); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 625, __pyx_L1_error)
+        __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_last_length); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 626, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_5);
-        if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_last_length, __pyx_t_5) < (0)) __PYX_ERR(0, 625, __pyx_L1_error)
+        if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_last_length, __pyx_t_5) < (0)) __PYX_ERR(0, 626, __pyx_L1_error)
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-        /* "refinery/lib/unrar/unpack50.pyx":626
+        /* "refinery/lib/unrar/unpack50.pyx":627
  *                     self._unp_ptr = unp_ptr
  *                     self._last_length = last_length
  *                     self._write_buf()             # <<<<<<<<<<<<<<
@@ -29608,12 +29608,12 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
           PyObject *__pyx_callargs[2] = {__pyx_t_1, NULL};
           __pyx_t_5 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_write_buf, __pyx_callargs+__pyx_t_6, (1-__pyx_t_6) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
-          if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 626, __pyx_L1_error)
+          if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 627, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_5);
         }
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-        /* "refinery/lib/unrar/unpack50.pyx":627
+        /* "refinery/lib/unrar/unpack50.pyx":628
  *                     self._last_length = last_length
  *                     self._write_buf()
  *                     return self._output             # <<<<<<<<<<<<<<
@@ -29621,13 +29621,13 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
  *             if (((write_border - unp_ptr) & mask) < MAX_INC_LZ_MATCH
 */
         __Pyx_XDECREF(__pyx_r);
-        __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_output); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 627, __pyx_L1_error)
+        __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_output); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 628, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_5);
         __pyx_r = __pyx_t_5;
         __pyx_t_5 = 0;
         goto __pyx_L0;
 
-        /* "refinery/lib/unrar/unpack50.pyx":619
+        /* "refinery/lib/unrar/unpack50.pyx":620
  *                     self._write_buf()
  *                     return self._output
  *                 if not _read_block_header(inp, hdr) or not _read_tables(inp, hdr, tbl):             # <<<<<<<<<<<<<<
@@ -29637,7 +29637,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
       }
     }
 
-    /* "refinery/lib/unrar/unpack50.pyx":629
+    /* "refinery/lib/unrar/unpack50.pyx":630
  *                     return self._output
  * 
  *             if (((write_border - unp_ptr) & mask) < MAX_INC_LZ_MATCH             # <<<<<<<<<<<<<<
@@ -29651,7 +29651,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
       goto __pyx_L18_bool_binop_done;
     }
 
-    /* "refinery/lib/unrar/unpack50.pyx":630
+    /* "refinery/lib/unrar/unpack50.pyx":631
  * 
  *             if (((write_border - unp_ptr) & mask) < MAX_INC_LZ_MATCH
  *                     and write_border != unp_ptr):             # <<<<<<<<<<<<<<
@@ -29662,7 +29662,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
     __pyx_t_3 = __pyx_t_4;
     __pyx_L18_bool_binop_done:;
 
-    /* "refinery/lib/unrar/unpack50.pyx":629
+    /* "refinery/lib/unrar/unpack50.pyx":630
  *                     return self._output
  * 
  *             if (((write_border - unp_ptr) & mask) < MAX_INC_LZ_MATCH             # <<<<<<<<<<<<<<
@@ -29671,91 +29671,91 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
     if (__pyx_t_3) {
 
-      /* "refinery/lib/unrar/unpack50.pyx":631
+      /* "refinery/lib/unrar/unpack50.pyx":632
  *             if (((write_border - unp_ptr) & mask) < MAX_INC_LZ_MATCH
  *                     and write_border != unp_ptr):
  *                 self._old_dist[0] = old0             # <<<<<<<<<<<<<<
  *                 self._old_dist[1] = old1
  *                 self._old_dist[2] = old2
 */
-      __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_old0); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 631, __pyx_L1_error)
+      __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_old0); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 632, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
-      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_old_dist); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 631, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_old_dist); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 632, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
-      if (unlikely((__Pyx_SetItemInt(__pyx_t_1, 0, __pyx_t_5, long, 1, __Pyx_PyLong_From_long, 0, 0, 0, 1, __Pyx_ReferenceSharing_OwnStrongReference) < 0))) __PYX_ERR(0, 631, __pyx_L1_error)
+      if (unlikely((__Pyx_SetItemInt(__pyx_t_1, 0, __pyx_t_5, long, 1, __Pyx_PyLong_From_long, 0, 0, 0, 1, __Pyx_ReferenceSharing_OwnStrongReference) < 0))) __PYX_ERR(0, 632, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-      /* "refinery/lib/unrar/unpack50.pyx":632
+      /* "refinery/lib/unrar/unpack50.pyx":633
  *                     and write_border != unp_ptr):
  *                 self._old_dist[0] = old0
  *                 self._old_dist[1] = old1             # <<<<<<<<<<<<<<
  *                 self._old_dist[2] = old2
  *                 self._old_dist[3] = old3
 */
-      __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_old1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 632, __pyx_L1_error)
+      __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_old1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 633, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
-      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_old_dist); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 632, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_old_dist); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 633, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
-      if (unlikely((__Pyx_SetItemInt(__pyx_t_1, 1, __pyx_t_5, long, 1, __Pyx_PyLong_From_long, 0, 0, 0, 1, __Pyx_ReferenceSharing_OwnStrongReference) < 0))) __PYX_ERR(0, 632, __pyx_L1_error)
+      if (unlikely((__Pyx_SetItemInt(__pyx_t_1, 1, __pyx_t_5, long, 1, __Pyx_PyLong_From_long, 0, 0, 0, 1, __Pyx_ReferenceSharing_OwnStrongReference) < 0))) __PYX_ERR(0, 633, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-      /* "refinery/lib/unrar/unpack50.pyx":633
+      /* "refinery/lib/unrar/unpack50.pyx":634
  *                 self._old_dist[0] = old0
  *                 self._old_dist[1] = old1
  *                 self._old_dist[2] = old2             # <<<<<<<<<<<<<<
  *                 self._old_dist[3] = old3
  *                 self._unp_ptr = unp_ptr
 */
-      __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_old2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 633, __pyx_L1_error)
+      __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_old2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 634, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
-      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_old_dist); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 633, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_old_dist); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 634, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
-      if (unlikely((__Pyx_SetItemInt(__pyx_t_1, 2, __pyx_t_5, long, 1, __Pyx_PyLong_From_long, 0, 0, 0, 1, __Pyx_ReferenceSharing_OwnStrongReference) < 0))) __PYX_ERR(0, 633, __pyx_L1_error)
+      if (unlikely((__Pyx_SetItemInt(__pyx_t_1, 2, __pyx_t_5, long, 1, __Pyx_PyLong_From_long, 0, 0, 0, 1, __Pyx_ReferenceSharing_OwnStrongReference) < 0))) __PYX_ERR(0, 634, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-      /* "refinery/lib/unrar/unpack50.pyx":634
+      /* "refinery/lib/unrar/unpack50.pyx":635
  *                 self._old_dist[1] = old1
  *                 self._old_dist[2] = old2
  *                 self._old_dist[3] = old3             # <<<<<<<<<<<<<<
  *                 self._unp_ptr = unp_ptr
  *                 self._last_length = last_length
 */
-      __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_old3); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 634, __pyx_L1_error)
+      __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_old3); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 635, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
-      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_old_dist); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 634, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_old_dist); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 635, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
-      if (unlikely((__Pyx_SetItemInt(__pyx_t_1, 3, __pyx_t_5, long, 1, __Pyx_PyLong_From_long, 0, 0, 0, 1, __Pyx_ReferenceSharing_OwnStrongReference) < 0))) __PYX_ERR(0, 634, __pyx_L1_error)
+      if (unlikely((__Pyx_SetItemInt(__pyx_t_1, 3, __pyx_t_5, long, 1, __Pyx_PyLong_From_long, 0, 0, 0, 1, __Pyx_ReferenceSharing_OwnStrongReference) < 0))) __PYX_ERR(0, 635, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-      /* "refinery/lib/unrar/unpack50.pyx":635
+      /* "refinery/lib/unrar/unpack50.pyx":636
  *                 self._old_dist[2] = old2
  *                 self._old_dist[3] = old3
  *                 self._unp_ptr = unp_ptr             # <<<<<<<<<<<<<<
  *                 self._last_length = last_length
  *                 self._write_buf()
 */
-      __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_unp_ptr); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 635, __pyx_L1_error)
+      __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_unp_ptr); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 636, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
-      if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_unp_ptr, __pyx_t_5) < (0)) __PYX_ERR(0, 635, __pyx_L1_error)
+      if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_unp_ptr, __pyx_t_5) < (0)) __PYX_ERR(0, 636, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-      /* "refinery/lib/unrar/unpack50.pyx":636
+      /* "refinery/lib/unrar/unpack50.pyx":637
  *                 self._old_dist[3] = old3
  *                 self._unp_ptr = unp_ptr
  *                 self._last_length = last_length             # <<<<<<<<<<<<<<
  *                 self._write_buf()
  *                 write_border = self._write_border
 */
-      __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_last_length); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 636, __pyx_L1_error)
+      __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_last_length); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 637, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
-      if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_last_length, __pyx_t_5) < (0)) __PYX_ERR(0, 636, __pyx_L1_error)
+      if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_last_length, __pyx_t_5) < (0)) __PYX_ERR(0, 637, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-      /* "refinery/lib/unrar/unpack50.pyx":637
+      /* "refinery/lib/unrar/unpack50.pyx":638
  *                 self._unp_ptr = unp_ptr
  *                 self._last_length = last_length
  *                 self._write_buf()             # <<<<<<<<<<<<<<
@@ -29769,43 +29769,43 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
         PyObject *__pyx_callargs[2] = {__pyx_t_1, NULL};
         __pyx_t_5 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_write_buf, __pyx_callargs+__pyx_t_6, (1-__pyx_t_6) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
-        if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 637, __pyx_L1_error)
+        if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 638, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_5);
       }
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-      /* "refinery/lib/unrar/unpack50.pyx":638
+      /* "refinery/lib/unrar/unpack50.pyx":639
  *                 self._last_length = last_length
  *                 self._write_buf()
  *                 write_border = self._write_border             # <<<<<<<<<<<<<<
  *                 if self._written > self._dest_size:
  *                     return self._output
 */
-      __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_write_border); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 638, __pyx_L1_error)
+      __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_write_border); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 639, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
-      __pyx_t_2 = __Pyx_PyLong_As_int(__pyx_t_5); if (unlikely((__pyx_t_2 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 638, __pyx_L1_error)
+      __pyx_t_2 = __Pyx_PyLong_As_int(__pyx_t_5); if (unlikely((__pyx_t_2 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 639, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
       __pyx_v_write_border = __pyx_t_2;
 
-      /* "refinery/lib/unrar/unpack50.pyx":639
+      /* "refinery/lib/unrar/unpack50.pyx":640
  *                 self._write_buf()
  *                 write_border = self._write_border
  *                 if self._written > self._dest_size:             # <<<<<<<<<<<<<<
  *                     return self._output
  * 
 */
-      __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_written); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 639, __pyx_L1_error)
+      __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_written); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 640, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
-      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_dest_size); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 639, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_dest_size); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 640, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
-      __pyx_t_8 = PyObject_RichCompare(__pyx_t_5, __pyx_t_1, Py_GT); __Pyx_XGOTREF(__pyx_t_8); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 639, __pyx_L1_error)
+      __pyx_t_8 = PyObject_RichCompare(__pyx_t_5, __pyx_t_1, Py_GT); __Pyx_XGOTREF(__pyx_t_8); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 640, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-      __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_t_8); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 639, __pyx_L1_error)
+      __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_t_8); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 640, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
       if (__pyx_t_3) {
 
-        /* "refinery/lib/unrar/unpack50.pyx":640
+        /* "refinery/lib/unrar/unpack50.pyx":641
  *                 write_border = self._write_border
  *                 if self._written > self._dest_size:
  *                     return self._output             # <<<<<<<<<<<<<<
@@ -29813,13 +29813,13 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
  *             main_slot = _decode_number_fast(inp, tbl.LD)
 */
         __Pyx_XDECREF(__pyx_r);
-        __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_output); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 640, __pyx_L1_error)
+        __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_output); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 641, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_8);
         __pyx_r = __pyx_t_8;
         __pyx_t_8 = 0;
         goto __pyx_L0;
 
-        /* "refinery/lib/unrar/unpack50.pyx":639
+        /* "refinery/lib/unrar/unpack50.pyx":640
  *                 self._write_buf()
  *                 write_border = self._write_border
  *                 if self._written > self._dest_size:             # <<<<<<<<<<<<<<
@@ -29828,7 +29828,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
       }
 
-      /* "refinery/lib/unrar/unpack50.pyx":629
+      /* "refinery/lib/unrar/unpack50.pyx":630
  *                     return self._output
  * 
  *             if (((write_border - unp_ptr) & mask) < MAX_INC_LZ_MATCH             # <<<<<<<<<<<<<<
@@ -29837,7 +29837,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
     }
 
-    /* "refinery/lib/unrar/unpack50.pyx":642
+    /* "refinery/lib/unrar/unpack50.pyx":643
  *                     return self._output
  * 
  *             main_slot = _decode_number_fast(inp, tbl.LD)             # <<<<<<<<<<<<<<
@@ -29846,11 +29846,11 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
     __pyx_t_8 = ((PyObject *)__pyx_v_tbl->LD);
     __Pyx_INCREF(__pyx_t_8);
-    __pyx_t_2 = __pyx_f_8refinery_3lib_5unrar_8unpack50__decode_number_fast(__pyx_v_inp, ((struct __pyx_obj_8refinery_3lib_5unrar_8unpack50_DecodeTable *)__pyx_t_8)); if (unlikely(__pyx_t_2 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 642, __pyx_L1_error)
+    __pyx_t_2 = __pyx_f_8refinery_3lib_5unrar_8unpack50__decode_number_fast(__pyx_v_inp, ((struct __pyx_obj_8refinery_3lib_5unrar_8unpack50_DecodeTable *)__pyx_t_8)); if (unlikely(__pyx_t_2 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 643, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
     __pyx_v_main_slot = __pyx_t_2;
 
-    /* "refinery/lib/unrar/unpack50.pyx":644
+    /* "refinery/lib/unrar/unpack50.pyx":645
  *             main_slot = _decode_number_fast(inp, tbl.LD)
  * 
  *             if main_slot < 256:             # <<<<<<<<<<<<<<
@@ -29860,7 +29860,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
     __pyx_t_3 = (__pyx_v_main_slot < 0x100);
     if (__pyx_t_3) {
 
-      /* "refinery/lib/unrar/unpack50.pyx":645
+      /* "refinery/lib/unrar/unpack50.pyx":646
  * 
  *             if main_slot < 256:
  *                 win_ptr[unp_ptr] = <unsigned char>(main_slot & 0xFF)             # <<<<<<<<<<<<<<
@@ -29869,7 +29869,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
       (__pyx_v_win_ptr[__pyx_v_unp_ptr]) = ((unsigned char)(__pyx_v_main_slot & 0xFF));
 
-      /* "refinery/lib/unrar/unpack50.pyx":646
+      /* "refinery/lib/unrar/unpack50.pyx":647
  *             if main_slot < 256:
  *                 win_ptr[unp_ptr] = <unsigned char>(main_slot & 0xFF)
  *                 unp_ptr = (unp_ptr + 1) & mask             # <<<<<<<<<<<<<<
@@ -29878,7 +29878,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
       __pyx_v_unp_ptr = ((__pyx_v_unp_ptr + 1) & __pyx_v_mask);
 
-      /* "refinery/lib/unrar/unpack50.pyx":647
+      /* "refinery/lib/unrar/unpack50.pyx":648
  *                 win_ptr[unp_ptr] = <unsigned char>(main_slot & 0xFF)
  *                 unp_ptr = (unp_ptr + 1) & mask
  *                 continue             # <<<<<<<<<<<<<<
@@ -29887,7 +29887,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
       goto __pyx_L5_continue;
 
-      /* "refinery/lib/unrar/unpack50.pyx":644
+      /* "refinery/lib/unrar/unpack50.pyx":645
  *             main_slot = _decode_number_fast(inp, tbl.LD)
  * 
  *             if main_slot < 256:             # <<<<<<<<<<<<<<
@@ -29896,7 +29896,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
     }
 
-    /* "refinery/lib/unrar/unpack50.pyx":649
+    /* "refinery/lib/unrar/unpack50.pyx":650
  *                 continue
  * 
  *             if main_slot >= 262:             # <<<<<<<<<<<<<<
@@ -29906,17 +29906,17 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
     __pyx_t_3 = (__pyx_v_main_slot >= 0x106);
     if (__pyx_t_3) {
 
-      /* "refinery/lib/unrar/unpack50.pyx":650
+      /* "refinery/lib/unrar/unpack50.pyx":651
  * 
  *             if main_slot >= 262:
  *                 length = _slot_to_length(inp, main_slot - 262)             # <<<<<<<<<<<<<<
  * 
  *                 dist_slot = _decode_number_fast(inp, tbl.DD)
 */
-      __pyx_t_2 = __pyx_f_8refinery_3lib_5unrar_8unpack50__slot_to_length(__pyx_v_inp, (__pyx_v_main_slot - 0x106)); if (unlikely(__pyx_t_2 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 650, __pyx_L1_error)
+      __pyx_t_2 = __pyx_f_8refinery_3lib_5unrar_8unpack50__slot_to_length(__pyx_v_inp, (__pyx_v_main_slot - 0x106)); if (unlikely(__pyx_t_2 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 651, __pyx_L1_error)
       __pyx_v_length = __pyx_t_2;
 
-      /* "refinery/lib/unrar/unpack50.pyx":652
+      /* "refinery/lib/unrar/unpack50.pyx":653
  *                 length = _slot_to_length(inp, main_slot - 262)
  * 
  *                 dist_slot = _decode_number_fast(inp, tbl.DD)             # <<<<<<<<<<<<<<
@@ -29925,11 +29925,11 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
       __pyx_t_8 = ((PyObject *)__pyx_v_tbl->DD);
       __Pyx_INCREF(__pyx_t_8);
-      __pyx_t_2 = __pyx_f_8refinery_3lib_5unrar_8unpack50__decode_number_fast(__pyx_v_inp, ((struct __pyx_obj_8refinery_3lib_5unrar_8unpack50_DecodeTable *)__pyx_t_8)); if (unlikely(__pyx_t_2 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 652, __pyx_L1_error)
+      __pyx_t_2 = __pyx_f_8refinery_3lib_5unrar_8unpack50__decode_number_fast(__pyx_v_inp, ((struct __pyx_obj_8refinery_3lib_5unrar_8unpack50_DecodeTable *)__pyx_t_8)); if (unlikely(__pyx_t_2 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 653, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
       __pyx_v_dist_slot = __pyx_t_2;
 
-      /* "refinery/lib/unrar/unpack50.pyx":653
+      /* "refinery/lib/unrar/unpack50.pyx":654
  * 
  *                 dist_slot = _decode_number_fast(inp, tbl.DD)
  *                 if dist_slot < 4:             # <<<<<<<<<<<<<<
@@ -29939,7 +29939,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
       __pyx_t_3 = (__pyx_v_dist_slot < 4);
       if (__pyx_t_3) {
 
-        /* "refinery/lib/unrar/unpack50.pyx":654
+        /* "refinery/lib/unrar/unpack50.pyx":655
  *                 dist_slot = _decode_number_fast(inp, tbl.DD)
  *                 if dist_slot < 4:
  *                     d_bits = 0             # <<<<<<<<<<<<<<
@@ -29948,7 +29948,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
         __pyx_v_d_bits = 0;
 
-        /* "refinery/lib/unrar/unpack50.pyx":655
+        /* "refinery/lib/unrar/unpack50.pyx":656
  *                 if dist_slot < 4:
  *                     d_bits = 0
  *                     distance = 1 + dist_slot             # <<<<<<<<<<<<<<
@@ -29957,7 +29957,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
         __pyx_v_distance = (1 + __pyx_v_dist_slot);
 
-        /* "refinery/lib/unrar/unpack50.pyx":653
+        /* "refinery/lib/unrar/unpack50.pyx":654
  * 
  *                 dist_slot = _decode_number_fast(inp, tbl.DD)
  *                 if dist_slot < 4:             # <<<<<<<<<<<<<<
@@ -29967,7 +29967,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
         goto __pyx_L23;
       }
 
-      /* "refinery/lib/unrar/unpack50.pyx":657
+      /* "refinery/lib/unrar/unpack50.pyx":658
  *                     distance = 1 + dist_slot
  *                 else:
  *                     d_bits = dist_slot // 2 - 1             # <<<<<<<<<<<<<<
@@ -29977,7 +29977,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
       /*else*/ {
         __pyx_v_d_bits = ((__pyx_v_dist_slot / 2) - 1);
 
-        /* "refinery/lib/unrar/unpack50.pyx":658
+        /* "refinery/lib/unrar/unpack50.pyx":659
  *                 else:
  *                     d_bits = dist_slot // 2 - 1
  *                     distance = 1 + ((2 | (dist_slot & 1)) << d_bits)             # <<<<<<<<<<<<<<
@@ -29988,7 +29988,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
       }
       __pyx_L23:;
 
-      /* "refinery/lib/unrar/unpack50.pyx":660
+      /* "refinery/lib/unrar/unpack50.pyx":661
  *                     distance = 1 + ((2 | (dist_slot & 1)) << d_bits)
  * 
  *                 if d_bits > 0:             # <<<<<<<<<<<<<<
@@ -29998,7 +29998,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
       __pyx_t_3 = (__pyx_v_d_bits > 0);
       if (__pyx_t_3) {
 
-        /* "refinery/lib/unrar/unpack50.pyx":661
+        /* "refinery/lib/unrar/unpack50.pyx":662
  * 
  *                 if d_bits > 0:
  *                     if d_bits >= 4:             # <<<<<<<<<<<<<<
@@ -30008,7 +30008,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
         __pyx_t_3 = (__pyx_v_d_bits >= 4);
         if (__pyx_t_3) {
 
-          /* "refinery/lib/unrar/unpack50.pyx":662
+          /* "refinery/lib/unrar/unpack50.pyx":663
  *                 if d_bits > 0:
  *                     if d_bits >= 4:
  *                         if d_bits > 4:             # <<<<<<<<<<<<<<
@@ -30018,26 +30018,26 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
           __pyx_t_3 = (__pyx_v_d_bits > 4);
           if (__pyx_t_3) {
 
-            /* "refinery/lib/unrar/unpack50.pyx":663
+            /* "refinery/lib/unrar/unpack50.pyx":664
  *                     if d_bits >= 4:
  *                         if d_bits > 4:
  *                             distance += (inp.getbits32() >> (36 - d_bits)) << 4             # <<<<<<<<<<<<<<
  *                             inp.addbits(d_bits - 4)
  *                         low_dist = _decode_number_fast(inp, tbl.LDD)
 */
-            __pyx_t_9 = ((struct __pyx_vtabstruct_8refinery_3lib_5unrar_8unpack50_BitInput *)__pyx_v_inp->__pyx_vtab)->getbits32(__pyx_v_inp, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 663, __pyx_L1_error)
+            __pyx_t_9 = ((struct __pyx_vtabstruct_8refinery_3lib_5unrar_8unpack50_BitInput *)__pyx_v_inp->__pyx_vtab)->getbits32(__pyx_v_inp, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 664, __pyx_L1_error)
             __pyx_v_distance = (__pyx_v_distance + ((__pyx_t_9 >> (36 - __pyx_v_d_bits)) << 4));
 
-            /* "refinery/lib/unrar/unpack50.pyx":664
+            /* "refinery/lib/unrar/unpack50.pyx":665
  *                         if d_bits > 4:
  *                             distance += (inp.getbits32() >> (36 - d_bits)) << 4
  *                             inp.addbits(d_bits - 4)             # <<<<<<<<<<<<<<
  *                         low_dist = _decode_number_fast(inp, tbl.LDD)
  *                         distance += low_dist
 */
-            ((struct __pyx_vtabstruct_8refinery_3lib_5unrar_8unpack50_BitInput *)__pyx_v_inp->__pyx_vtab)->addbits(__pyx_v_inp, (__pyx_v_d_bits - 4), 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 664, __pyx_L1_error)
+            ((struct __pyx_vtabstruct_8refinery_3lib_5unrar_8unpack50_BitInput *)__pyx_v_inp->__pyx_vtab)->addbits(__pyx_v_inp, (__pyx_v_d_bits - 4), 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 665, __pyx_L1_error)
 
-            /* "refinery/lib/unrar/unpack50.pyx":662
+            /* "refinery/lib/unrar/unpack50.pyx":663
  *                 if d_bits > 0:
  *                     if d_bits >= 4:
  *                         if d_bits > 4:             # <<<<<<<<<<<<<<
@@ -30046,7 +30046,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
           }
 
-          /* "refinery/lib/unrar/unpack50.pyx":665
+          /* "refinery/lib/unrar/unpack50.pyx":666
  *                             distance += (inp.getbits32() >> (36 - d_bits)) << 4
  *                             inp.addbits(d_bits - 4)
  *                         low_dist = _decode_number_fast(inp, tbl.LDD)             # <<<<<<<<<<<<<<
@@ -30055,11 +30055,11 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
           __pyx_t_8 = ((PyObject *)__pyx_v_tbl->LDD);
           __Pyx_INCREF(__pyx_t_8);
-          __pyx_t_2 = __pyx_f_8refinery_3lib_5unrar_8unpack50__decode_number_fast(__pyx_v_inp, ((struct __pyx_obj_8refinery_3lib_5unrar_8unpack50_DecodeTable *)__pyx_t_8)); if (unlikely(__pyx_t_2 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 665, __pyx_L1_error)
+          __pyx_t_2 = __pyx_f_8refinery_3lib_5unrar_8unpack50__decode_number_fast(__pyx_v_inp, ((struct __pyx_obj_8refinery_3lib_5unrar_8unpack50_DecodeTable *)__pyx_t_8)); if (unlikely(__pyx_t_2 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 666, __pyx_L1_error)
           __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
           __pyx_v_low_dist = __pyx_t_2;
 
-          /* "refinery/lib/unrar/unpack50.pyx":666
+          /* "refinery/lib/unrar/unpack50.pyx":667
  *                             inp.addbits(d_bits - 4)
  *                         low_dist = _decode_number_fast(inp, tbl.LDD)
  *                         distance += low_dist             # <<<<<<<<<<<<<<
@@ -30068,7 +30068,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
           __pyx_v_distance = (__pyx_v_distance + __pyx_v_low_dist);
 
-          /* "refinery/lib/unrar/unpack50.pyx":661
+          /* "refinery/lib/unrar/unpack50.pyx":662
  * 
  *                 if d_bits > 0:
  *                     if d_bits >= 4:             # <<<<<<<<<<<<<<
@@ -30078,7 +30078,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
           goto __pyx_L25;
         }
 
-        /* "refinery/lib/unrar/unpack50.pyx":668
+        /* "refinery/lib/unrar/unpack50.pyx":669
  *                         distance += low_dist
  *                     else:
  *                         distance += inp.getbits32() >> (32 - d_bits)             # <<<<<<<<<<<<<<
@@ -30086,21 +30086,21 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
  * 
 */
         /*else*/ {
-          __pyx_t_9 = ((struct __pyx_vtabstruct_8refinery_3lib_5unrar_8unpack50_BitInput *)__pyx_v_inp->__pyx_vtab)->getbits32(__pyx_v_inp, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 668, __pyx_L1_error)
+          __pyx_t_9 = ((struct __pyx_vtabstruct_8refinery_3lib_5unrar_8unpack50_BitInput *)__pyx_v_inp->__pyx_vtab)->getbits32(__pyx_v_inp, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 669, __pyx_L1_error)
           __pyx_v_distance = (__pyx_v_distance + (__pyx_t_9 >> (32 - __pyx_v_d_bits)));
 
-          /* "refinery/lib/unrar/unpack50.pyx":669
+          /* "refinery/lib/unrar/unpack50.pyx":670
  *                     else:
  *                         distance += inp.getbits32() >> (32 - d_bits)
  *                         inp.addbits(d_bits)             # <<<<<<<<<<<<<<
  * 
  *                 if distance > 0x100:
 */
-          ((struct __pyx_vtabstruct_8refinery_3lib_5unrar_8unpack50_BitInput *)__pyx_v_inp->__pyx_vtab)->addbits(__pyx_v_inp, __pyx_v_d_bits, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 669, __pyx_L1_error)
+          ((struct __pyx_vtabstruct_8refinery_3lib_5unrar_8unpack50_BitInput *)__pyx_v_inp->__pyx_vtab)->addbits(__pyx_v_inp, __pyx_v_d_bits, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 670, __pyx_L1_error)
         }
         __pyx_L25:;
 
-        /* "refinery/lib/unrar/unpack50.pyx":660
+        /* "refinery/lib/unrar/unpack50.pyx":661
  *                     distance = 1 + ((2 | (dist_slot & 1)) << d_bits)
  * 
  *                 if d_bits > 0:             # <<<<<<<<<<<<<<
@@ -30109,7 +30109,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
       }
 
-      /* "refinery/lib/unrar/unpack50.pyx":671
+      /* "refinery/lib/unrar/unpack50.pyx":672
  *                         inp.addbits(d_bits)
  * 
  *                 if distance > 0x100:             # <<<<<<<<<<<<<<
@@ -30119,7 +30119,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
       __pyx_t_3 = (__pyx_v_distance > 0x100);
       if (__pyx_t_3) {
 
-        /* "refinery/lib/unrar/unpack50.pyx":672
+        /* "refinery/lib/unrar/unpack50.pyx":673
  * 
  *                 if distance > 0x100:
  *                     length += 1             # <<<<<<<<<<<<<<
@@ -30128,7 +30128,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
         __pyx_v_length = (__pyx_v_length + 1);
 
-        /* "refinery/lib/unrar/unpack50.pyx":673
+        /* "refinery/lib/unrar/unpack50.pyx":674
  *                 if distance > 0x100:
  *                     length += 1
  *                     if distance > 0x2000:             # <<<<<<<<<<<<<<
@@ -30138,7 +30138,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
         __pyx_t_3 = (__pyx_v_distance > 0x2000);
         if (__pyx_t_3) {
 
-          /* "refinery/lib/unrar/unpack50.pyx":674
+          /* "refinery/lib/unrar/unpack50.pyx":675
  *                     length += 1
  *                     if distance > 0x2000:
  *                         length += 1             # <<<<<<<<<<<<<<
@@ -30147,7 +30147,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
           __pyx_v_length = (__pyx_v_length + 1);
 
-          /* "refinery/lib/unrar/unpack50.pyx":675
+          /* "refinery/lib/unrar/unpack50.pyx":676
  *                     if distance > 0x2000:
  *                         length += 1
  *                         if distance > 0x40000:             # <<<<<<<<<<<<<<
@@ -30157,7 +30157,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
           __pyx_t_3 = (__pyx_v_distance > 0x40000);
           if (__pyx_t_3) {
 
-            /* "refinery/lib/unrar/unpack50.pyx":676
+            /* "refinery/lib/unrar/unpack50.pyx":677
  *                         length += 1
  *                         if distance > 0x40000:
  *                             length += 1             # <<<<<<<<<<<<<<
@@ -30166,7 +30166,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
             __pyx_v_length = (__pyx_v_length + 1);
 
-            /* "refinery/lib/unrar/unpack50.pyx":675
+            /* "refinery/lib/unrar/unpack50.pyx":676
  *                     if distance > 0x2000:
  *                         length += 1
  *                         if distance > 0x40000:             # <<<<<<<<<<<<<<
@@ -30175,7 +30175,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
           }
 
-          /* "refinery/lib/unrar/unpack50.pyx":673
+          /* "refinery/lib/unrar/unpack50.pyx":674
  *                 if distance > 0x100:
  *                     length += 1
  *                     if distance > 0x2000:             # <<<<<<<<<<<<<<
@@ -30184,7 +30184,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
         }
 
-        /* "refinery/lib/unrar/unpack50.pyx":671
+        /* "refinery/lib/unrar/unpack50.pyx":672
  *                         inp.addbits(d_bits)
  * 
  *                 if distance > 0x100:             # <<<<<<<<<<<<<<
@@ -30193,7 +30193,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
       }
 
-      /* "refinery/lib/unrar/unpack50.pyx":678
+      /* "refinery/lib/unrar/unpack50.pyx":679
  *                             length += 1
  * 
  *                 old3 = old2             # <<<<<<<<<<<<<<
@@ -30202,7 +30202,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
       __pyx_v_old3 = __pyx_v_old2;
 
-      /* "refinery/lib/unrar/unpack50.pyx":679
+      /* "refinery/lib/unrar/unpack50.pyx":680
  * 
  *                 old3 = old2
  *                 old2 = old1             # <<<<<<<<<<<<<<
@@ -30211,7 +30211,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
       __pyx_v_old2 = __pyx_v_old1;
 
-      /* "refinery/lib/unrar/unpack50.pyx":680
+      /* "refinery/lib/unrar/unpack50.pyx":681
  *                 old3 = old2
  *                 old2 = old1
  *                 old1 = old0             # <<<<<<<<<<<<<<
@@ -30220,7 +30220,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
       __pyx_v_old1 = __pyx_v_old0;
 
-      /* "refinery/lib/unrar/unpack50.pyx":681
+      /* "refinery/lib/unrar/unpack50.pyx":682
  *                 old2 = old1
  *                 old1 = old0
  *                 old0 = distance             # <<<<<<<<<<<<<<
@@ -30229,7 +30229,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
       __pyx_v_old0 = __pyx_v_distance;
 
-      /* "refinery/lib/unrar/unpack50.pyx":682
+      /* "refinery/lib/unrar/unpack50.pyx":683
  *                 old1 = old0
  *                 old0 = distance
  *                 last_length = length             # <<<<<<<<<<<<<<
@@ -30238,7 +30238,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
       __pyx_v_last_length = __pyx_v_length;
 
-      /* "refinery/lib/unrar/unpack50.pyx":684
+      /* "refinery/lib/unrar/unpack50.pyx":685
  *                 last_length = length
  * 
  *                 src = (unp_ptr - distance) & mask             # <<<<<<<<<<<<<<
@@ -30247,7 +30247,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
       __pyx_v_src = ((__pyx_v_unp_ptr - __pyx_v_distance) & __pyx_v_mask);
 
-      /* "refinery/lib/unrar/unpack50.pyx":685
+      /* "refinery/lib/unrar/unpack50.pyx":686
  * 
  *                 src = (unp_ptr - distance) & mask
  *                 dst = unp_ptr             # <<<<<<<<<<<<<<
@@ -30256,7 +30256,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
       __pyx_v_dst = __pyx_v_unp_ptr;
 
-      /* "refinery/lib/unrar/unpack50.pyx":686
+      /* "refinery/lib/unrar/unpack50.pyx":687
  *                 src = (unp_ptr - distance) & mask
  *                 dst = unp_ptr
  *                 if src + length <= win_size and dst + length <= win_size:             # <<<<<<<<<<<<<<
@@ -30274,7 +30274,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
       __pyx_L31_bool_binop_done:;
       if (__pyx_t_3) {
 
-        /* "refinery/lib/unrar/unpack50.pyx":687
+        /* "refinery/lib/unrar/unpack50.pyx":688
  *                 dst = unp_ptr
  *                 if src + length <= win_size and dst + length <= win_size:
  *                     if distance >= length:             # <<<<<<<<<<<<<<
@@ -30284,7 +30284,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
         __pyx_t_3 = (__pyx_v_distance >= __pyx_v_length);
         if (__pyx_t_3) {
 
-          /* "refinery/lib/unrar/unpack50.pyx":688
+          /* "refinery/lib/unrar/unpack50.pyx":689
  *                 if src + length <= win_size and dst + length <= win_size:
  *                     if distance >= length:
  *                         memcpy(&win_ptr[dst], &win_ptr[src], length)             # <<<<<<<<<<<<<<
@@ -30293,7 +30293,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
           (void)(memcpy((&(__pyx_v_win_ptr[__pyx_v_dst])), (&(__pyx_v_win_ptr[__pyx_v_src])), __pyx_v_length));
 
-          /* "refinery/lib/unrar/unpack50.pyx":687
+          /* "refinery/lib/unrar/unpack50.pyx":688
  *                 dst = unp_ptr
  *                 if src + length <= win_size and dst + length <= win_size:
  *                     if distance >= length:             # <<<<<<<<<<<<<<
@@ -30303,7 +30303,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
           goto __pyx_L33;
         }
 
-        /* "refinery/lib/unrar/unpack50.pyx":690
+        /* "refinery/lib/unrar/unpack50.pyx":691
  *                         memcpy(&win_ptr[dst], &win_ptr[src], length)
  *                     else:
  *                         copied = 0             # <<<<<<<<<<<<<<
@@ -30313,7 +30313,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
         /*else*/ {
           __pyx_v_copied = 0;
 
-          /* "refinery/lib/unrar/unpack50.pyx":691
+          /* "refinery/lib/unrar/unpack50.pyx":692
  *                     else:
  *                         copied = 0
  *                         while copied < length:             # <<<<<<<<<<<<<<
@@ -30324,7 +30324,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
             __pyx_t_3 = (__pyx_v_copied < __pyx_v_length);
             if (!__pyx_t_3) break;
 
-            /* "refinery/lib/unrar/unpack50.pyx":692
+            /* "refinery/lib/unrar/unpack50.pyx":693
  *                         copied = 0
  *                         while copied < length:
  *                             chunk = distance if distance < length - copied else length - copied             # <<<<<<<<<<<<<<
@@ -30339,7 +30339,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
             }
             __pyx_v_chunk = __pyx_t_2;
 
-            /* "refinery/lib/unrar/unpack50.pyx":693
+            /* "refinery/lib/unrar/unpack50.pyx":694
  *                         while copied < length:
  *                             chunk = distance if distance < length - copied else length - copied
  *                             memcpy(&win_ptr[dst + copied], &win_ptr[src + copied], chunk)             # <<<<<<<<<<<<<<
@@ -30348,7 +30348,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
             (void)(memcpy((&(__pyx_v_win_ptr[(__pyx_v_dst + __pyx_v_copied)])), (&(__pyx_v_win_ptr[(__pyx_v_src + __pyx_v_copied)])), __pyx_v_chunk));
 
-            /* "refinery/lib/unrar/unpack50.pyx":694
+            /* "refinery/lib/unrar/unpack50.pyx":695
  *                             chunk = distance if distance < length - copied else length - copied
  *                             memcpy(&win_ptr[dst + copied], &win_ptr[src + copied], chunk)
  *                             copied += chunk             # <<<<<<<<<<<<<<
@@ -30360,7 +30360,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
         }
         __pyx_L33:;
 
-        /* "refinery/lib/unrar/unpack50.pyx":695
+        /* "refinery/lib/unrar/unpack50.pyx":696
  *                             memcpy(&win_ptr[dst + copied], &win_ptr[src + copied], chunk)
  *                             copied += chunk
  *                     unp_ptr = (dst + length) & mask             # <<<<<<<<<<<<<<
@@ -30369,7 +30369,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
         __pyx_v_unp_ptr = ((__pyx_v_dst + __pyx_v_length) & __pyx_v_mask);
 
-        /* "refinery/lib/unrar/unpack50.pyx":686
+        /* "refinery/lib/unrar/unpack50.pyx":687
  *                 src = (unp_ptr - distance) & mask
  *                 dst = unp_ptr
  *                 if src + length <= win_size and dst + length <= win_size:             # <<<<<<<<<<<<<<
@@ -30379,7 +30379,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
         goto __pyx_L30;
       }
 
-      /* "refinery/lib/unrar/unpack50.pyx":697
+      /* "refinery/lib/unrar/unpack50.pyx":698
  *                     unp_ptr = (dst + length) & mask
  *                 else:
  *                     src = unp_ptr - distance             # <<<<<<<<<<<<<<
@@ -30389,7 +30389,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
       /*else*/ {
         __pyx_v_src = (__pyx_v_unp_ptr - __pyx_v_distance);
 
-        /* "refinery/lib/unrar/unpack50.pyx":698
+        /* "refinery/lib/unrar/unpack50.pyx":699
  *                 else:
  *                     src = unp_ptr - distance
  *                     dst = unp_ptr             # <<<<<<<<<<<<<<
@@ -30398,7 +30398,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
         __pyx_v_dst = __pyx_v_unp_ptr;
 
-        /* "refinery/lib/unrar/unpack50.pyx":699
+        /* "refinery/lib/unrar/unpack50.pyx":700
  *                     src = unp_ptr - distance
  *                     dst = unp_ptr
  *                     while length > 0:             # <<<<<<<<<<<<<<
@@ -30409,7 +30409,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
           __pyx_t_3 = (__pyx_v_length > 0);
           if (!__pyx_t_3) break;
 
-          /* "refinery/lib/unrar/unpack50.pyx":700
+          /* "refinery/lib/unrar/unpack50.pyx":701
  *                     dst = unp_ptr
  *                     while length > 0:
  *                         win_ptr[dst & mask] = win_ptr[src & mask]             # <<<<<<<<<<<<<<
@@ -30418,7 +30418,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
           (__pyx_v_win_ptr[(__pyx_v_dst & __pyx_v_mask)]) = (__pyx_v_win_ptr[(__pyx_v_src & __pyx_v_mask)]);
 
-          /* "refinery/lib/unrar/unpack50.pyx":701
+          /* "refinery/lib/unrar/unpack50.pyx":702
  *                     while length > 0:
  *                         win_ptr[dst & mask] = win_ptr[src & mask]
  *                         src += 1             # <<<<<<<<<<<<<<
@@ -30427,7 +30427,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
           __pyx_v_src = (__pyx_v_src + 1);
 
-          /* "refinery/lib/unrar/unpack50.pyx":702
+          /* "refinery/lib/unrar/unpack50.pyx":703
  *                         win_ptr[dst & mask] = win_ptr[src & mask]
  *                         src += 1
  *                         dst += 1             # <<<<<<<<<<<<<<
@@ -30436,7 +30436,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
           __pyx_v_dst = (__pyx_v_dst + 1);
 
-          /* "refinery/lib/unrar/unpack50.pyx":703
+          /* "refinery/lib/unrar/unpack50.pyx":704
  *                         src += 1
  *                         dst += 1
  *                         length -= 1             # <<<<<<<<<<<<<<
@@ -30446,7 +30446,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
           __pyx_v_length = (__pyx_v_length - 1);
         }
 
-        /* "refinery/lib/unrar/unpack50.pyx":704
+        /* "refinery/lib/unrar/unpack50.pyx":705
  *                         dst += 1
  *                         length -= 1
  *                     unp_ptr = dst & mask             # <<<<<<<<<<<<<<
@@ -30457,7 +30457,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
       }
       __pyx_L30:;
 
-      /* "refinery/lib/unrar/unpack50.pyx":705
+      /* "refinery/lib/unrar/unpack50.pyx":706
  *                         length -= 1
  *                     unp_ptr = dst & mask
  *                 continue             # <<<<<<<<<<<<<<
@@ -30466,7 +30466,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
       goto __pyx_L5_continue;
 
-      /* "refinery/lib/unrar/unpack50.pyx":649
+      /* "refinery/lib/unrar/unpack50.pyx":650
  *                 continue
  * 
  *             if main_slot >= 262:             # <<<<<<<<<<<<<<
@@ -30475,7 +30475,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
     }
 
-    /* "refinery/lib/unrar/unpack50.pyx":707
+    /* "refinery/lib/unrar/unpack50.pyx":708
  *                 continue
  * 
  *             if main_slot == 256:             # <<<<<<<<<<<<<<
@@ -30485,19 +30485,19 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
     __pyx_t_3 = (__pyx_v_main_slot == 0x100);
     if (__pyx_t_3) {
 
-      /* "refinery/lib/unrar/unpack50.pyx":708
+      /* "refinery/lib/unrar/unpack50.pyx":709
  * 
  *             if main_slot == 256:
  *                 self._unp_ptr = unp_ptr             # <<<<<<<<<<<<<<
  *                 flt = read_filter(inp)
  *                 if flt is None:
 */
-      __pyx_t_8 = __Pyx_PyLong_From_int(__pyx_v_unp_ptr); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 708, __pyx_L1_error)
+      __pyx_t_8 = __Pyx_PyLong_From_int(__pyx_v_unp_ptr); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 709, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_8);
-      if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_unp_ptr, __pyx_t_8) < (0)) __PYX_ERR(0, 708, __pyx_L1_error)
+      if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_unp_ptr, __pyx_t_8) < (0)) __PYX_ERR(0, 709, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
 
-      /* "refinery/lib/unrar/unpack50.pyx":709
+      /* "refinery/lib/unrar/unpack50.pyx":710
  *             if main_slot == 256:
  *                 self._unp_ptr = unp_ptr
  *                 flt = read_filter(inp)             # <<<<<<<<<<<<<<
@@ -30505,7 +30505,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
  *                     break
 */
       __pyx_t_1 = NULL;
-      __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_read_filter); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 709, __pyx_L1_error)
+      __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_read_filter); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 710, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
       __pyx_t_6 = 1;
       #if CYTHON_UNPACK_METHODS
@@ -30524,13 +30524,13 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
         __pyx_t_8 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_5, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-        if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 709, __pyx_L1_error)
+        if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 710, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_8);
       }
       __Pyx_XDECREF_SET(__pyx_v_flt, __pyx_t_8);
       __pyx_t_8 = 0;
 
-      /* "refinery/lib/unrar/unpack50.pyx":710
+      /* "refinery/lib/unrar/unpack50.pyx":711
  *                 self._unp_ptr = unp_ptr
  *                 flt = read_filter(inp)
  *                 if flt is None:             # <<<<<<<<<<<<<<
@@ -30540,7 +30540,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
       __pyx_t_3 = (__pyx_v_flt == Py_None);
       if (__pyx_t_3) {
 
-        /* "refinery/lib/unrar/unpack50.pyx":711
+        /* "refinery/lib/unrar/unpack50.pyx":712
  *                 flt = read_filter(inp)
  *                 if flt is None:
  *                     break             # <<<<<<<<<<<<<<
@@ -30549,7 +30549,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
         goto __pyx_L6_break;
 
-        /* "refinery/lib/unrar/unpack50.pyx":710
+        /* "refinery/lib/unrar/unpack50.pyx":711
  *                 self._unp_ptr = unp_ptr
  *                 flt = read_filter(inp)
  *                 if flt is None:             # <<<<<<<<<<<<<<
@@ -30558,21 +30558,21 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
       }
 
-      /* "refinery/lib/unrar/unpack50.pyx":712
+      /* "refinery/lib/unrar/unpack50.pyx":713
  *                 if flt is None:
  *                     break
  *                 flt.next_window = (self._wr_ptr != unp_ptr             # <<<<<<<<<<<<<<
  *                     and ((self._wr_ptr - unp_ptr) & mask) <= flt.block_start)
  *                 flt.block_start = (flt.block_start + unp_ptr) & mask
 */
-      __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_wr_ptr); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 712, __pyx_L1_error)
+      __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_wr_ptr); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 713, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
-      __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_unp_ptr); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 712, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_unp_ptr); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 713, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
-      __pyx_t_10 = PyObject_RichCompare(__pyx_t_5, __pyx_t_1, Py_NE); __Pyx_XGOTREF(__pyx_t_10); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 712, __pyx_L1_error)
+      __pyx_t_10 = PyObject_RichCompare(__pyx_t_5, __pyx_t_1, Py_NE); __Pyx_XGOTREF(__pyx_t_10); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 713, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-      __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_t_10); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 712, __pyx_L1_error)
+      __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_t_10); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 713, __pyx_L1_error)
       if (__pyx_t_3) {
         __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
       } else {
@@ -30582,30 +30582,30 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
         goto __pyx_L40_bool_binop_done;
       }
 
-      /* "refinery/lib/unrar/unpack50.pyx":713
+      /* "refinery/lib/unrar/unpack50.pyx":714
  *                     break
  *                 flt.next_window = (self._wr_ptr != unp_ptr
  *                     and ((self._wr_ptr - unp_ptr) & mask) <= flt.block_start)             # <<<<<<<<<<<<<<
  *                 flt.block_start = (flt.block_start + unp_ptr) & mask
  *                 if len(self._filters) >= MAX_UNPACK_FILTERS:
 */
-      __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_wr_ptr); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 713, __pyx_L1_error)
+      __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_wr_ptr); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 714, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_10);
-      __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_unp_ptr); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 713, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_unp_ptr); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 714, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
-      __pyx_t_5 = PyNumber_Subtract(__pyx_t_10, __pyx_t_1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 713, __pyx_L1_error)
+      __pyx_t_5 = PyNumber_Subtract(__pyx_t_10, __pyx_t_1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 714, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
       __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-      __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_mask); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 713, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_mask); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 714, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
-      __pyx_t_10 = PyNumber_And(__pyx_t_5, __pyx_t_1); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 713, __pyx_L1_error)
+      __pyx_t_10 = PyNumber_And(__pyx_t_5, __pyx_t_1); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 714, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_10);
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_flt, __pyx_mstate_global->__pyx_n_u_block_start); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 713, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_flt, __pyx_mstate_global->__pyx_n_u_block_start); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 714, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
-      __pyx_t_5 = PyObject_RichCompare(__pyx_t_10, __pyx_t_1, Py_LE); __Pyx_XGOTREF(__pyx_t_5); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 713, __pyx_L1_error)
+      __pyx_t_5 = PyObject_RichCompare(__pyx_t_10, __pyx_t_1, Py_LE); __Pyx_XGOTREF(__pyx_t_5); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 714, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
       __Pyx_INCREF(__pyx_t_5);
@@ -30613,127 +30613,127 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
       __pyx_L40_bool_binop_done:;
 
-      /* "refinery/lib/unrar/unpack50.pyx":712
+      /* "refinery/lib/unrar/unpack50.pyx":713
  *                 if flt is None:
  *                     break
  *                 flt.next_window = (self._wr_ptr != unp_ptr             # <<<<<<<<<<<<<<
  *                     and ((self._wr_ptr - unp_ptr) & mask) <= flt.block_start)
  *                 flt.block_start = (flt.block_start + unp_ptr) & mask
 */
-      if (__Pyx_PyObject_SetAttrStr(__pyx_v_flt, __pyx_mstate_global->__pyx_n_u_next_window, __pyx_t_8) < (0)) __PYX_ERR(0, 712, __pyx_L1_error)
+      if (__Pyx_PyObject_SetAttrStr(__pyx_v_flt, __pyx_mstate_global->__pyx_n_u_next_window, __pyx_t_8) < (0)) __PYX_ERR(0, 713, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
 
-      /* "refinery/lib/unrar/unpack50.pyx":714
+      /* "refinery/lib/unrar/unpack50.pyx":715
  *                 flt.next_window = (self._wr_ptr != unp_ptr
  *                     and ((self._wr_ptr - unp_ptr) & mask) <= flt.block_start)
  *                 flt.block_start = (flt.block_start + unp_ptr) & mask             # <<<<<<<<<<<<<<
  *                 if len(self._filters) >= MAX_UNPACK_FILTERS:
  *                     self._old_dist[0] = old0
 */
-      __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_v_flt, __pyx_mstate_global->__pyx_n_u_block_start); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 714, __pyx_L1_error)
+      __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_v_flt, __pyx_mstate_global->__pyx_n_u_block_start); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 715, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_8);
-      __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_unp_ptr); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 714, __pyx_L1_error)
+      __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_unp_ptr); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 715, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
-      __pyx_t_1 = PyNumber_Add(__pyx_t_8, __pyx_t_5); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 714, __pyx_L1_error)
+      __pyx_t_1 = PyNumber_Add(__pyx_t_8, __pyx_t_5); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 715, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-      __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_mask); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 714, __pyx_L1_error)
+      __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_mask); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 715, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
-      __pyx_t_8 = PyNumber_And(__pyx_t_1, __pyx_t_5); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 714, __pyx_L1_error)
+      __pyx_t_8 = PyNumber_And(__pyx_t_1, __pyx_t_5); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 715, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_8);
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (__Pyx_PyObject_SetAttrStr(__pyx_v_flt, __pyx_mstate_global->__pyx_n_u_block_start, __pyx_t_8) < (0)) __PYX_ERR(0, 714, __pyx_L1_error)
+      if (__Pyx_PyObject_SetAttrStr(__pyx_v_flt, __pyx_mstate_global->__pyx_n_u_block_start, __pyx_t_8) < (0)) __PYX_ERR(0, 715, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
 
-      /* "refinery/lib/unrar/unpack50.pyx":715
+      /* "refinery/lib/unrar/unpack50.pyx":716
  *                     and ((self._wr_ptr - unp_ptr) & mask) <= flt.block_start)
  *                 flt.block_start = (flt.block_start + unp_ptr) & mask
  *                 if len(self._filters) >= MAX_UNPACK_FILTERS:             # <<<<<<<<<<<<<<
  *                     self._old_dist[0] = old0
  *                     self._old_dist[1] = old1
 */
-      __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_filters); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 715, __pyx_L1_error)
+      __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_filters); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 716, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_8);
-      __pyx_t_11 = PyObject_Length(__pyx_t_8); if (unlikely(__pyx_t_11 == ((Py_ssize_t)-1))) __PYX_ERR(0, 715, __pyx_L1_error)
+      __pyx_t_11 = PyObject_Length(__pyx_t_8); if (unlikely(__pyx_t_11 == ((Py_ssize_t)-1))) __PYX_ERR(0, 716, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
       __pyx_t_3 = (__pyx_t_11 >= __pyx_v_8refinery_3lib_5unrar_8unpack50_MAX_UNPACK_FILTERS);
       if (__pyx_t_3) {
 
-        /* "refinery/lib/unrar/unpack50.pyx":716
+        /* "refinery/lib/unrar/unpack50.pyx":717
  *                 flt.block_start = (flt.block_start + unp_ptr) & mask
  *                 if len(self._filters) >= MAX_UNPACK_FILTERS:
  *                     self._old_dist[0] = old0             # <<<<<<<<<<<<<<
  *                     self._old_dist[1] = old1
  *                     self._old_dist[2] = old2
 */
-        __pyx_t_8 = __Pyx_PyLong_From_int(__pyx_v_old0); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 716, __pyx_L1_error)
+        __pyx_t_8 = __Pyx_PyLong_From_int(__pyx_v_old0); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 717, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_8);
-        __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_old_dist); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 716, __pyx_L1_error)
+        __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_old_dist); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 717, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_5);
-        if (unlikely((__Pyx_SetItemInt(__pyx_t_5, 0, __pyx_t_8, long, 1, __Pyx_PyLong_From_long, 0, 0, 0, 1, __Pyx_ReferenceSharing_OwnStrongReference) < 0))) __PYX_ERR(0, 716, __pyx_L1_error)
+        if (unlikely((__Pyx_SetItemInt(__pyx_t_5, 0, __pyx_t_8, long, 1, __Pyx_PyLong_From_long, 0, 0, 0, 1, __Pyx_ReferenceSharing_OwnStrongReference) < 0))) __PYX_ERR(0, 717, __pyx_L1_error)
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
         __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
 
-        /* "refinery/lib/unrar/unpack50.pyx":717
+        /* "refinery/lib/unrar/unpack50.pyx":718
  *                 if len(self._filters) >= MAX_UNPACK_FILTERS:
  *                     self._old_dist[0] = old0
  *                     self._old_dist[1] = old1             # <<<<<<<<<<<<<<
  *                     self._old_dist[2] = old2
  *                     self._old_dist[3] = old3
 */
-        __pyx_t_8 = __Pyx_PyLong_From_int(__pyx_v_old1); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 717, __pyx_L1_error)
+        __pyx_t_8 = __Pyx_PyLong_From_int(__pyx_v_old1); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 718, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_8);
-        __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_old_dist); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 717, __pyx_L1_error)
+        __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_old_dist); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 718, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_5);
-        if (unlikely((__Pyx_SetItemInt(__pyx_t_5, 1, __pyx_t_8, long, 1, __Pyx_PyLong_From_long, 0, 0, 0, 1, __Pyx_ReferenceSharing_OwnStrongReference) < 0))) __PYX_ERR(0, 717, __pyx_L1_error)
+        if (unlikely((__Pyx_SetItemInt(__pyx_t_5, 1, __pyx_t_8, long, 1, __Pyx_PyLong_From_long, 0, 0, 0, 1, __Pyx_ReferenceSharing_OwnStrongReference) < 0))) __PYX_ERR(0, 718, __pyx_L1_error)
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
         __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
 
-        /* "refinery/lib/unrar/unpack50.pyx":718
+        /* "refinery/lib/unrar/unpack50.pyx":719
  *                     self._old_dist[0] = old0
  *                     self._old_dist[1] = old1
  *                     self._old_dist[2] = old2             # <<<<<<<<<<<<<<
  *                     self._old_dist[3] = old3
  *                     self._last_length = last_length
 */
-        __pyx_t_8 = __Pyx_PyLong_From_int(__pyx_v_old2); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 718, __pyx_L1_error)
+        __pyx_t_8 = __Pyx_PyLong_From_int(__pyx_v_old2); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 719, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_8);
-        __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_old_dist); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 718, __pyx_L1_error)
+        __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_old_dist); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 719, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_5);
-        if (unlikely((__Pyx_SetItemInt(__pyx_t_5, 2, __pyx_t_8, long, 1, __Pyx_PyLong_From_long, 0, 0, 0, 1, __Pyx_ReferenceSharing_OwnStrongReference) < 0))) __PYX_ERR(0, 718, __pyx_L1_error)
+        if (unlikely((__Pyx_SetItemInt(__pyx_t_5, 2, __pyx_t_8, long, 1, __Pyx_PyLong_From_long, 0, 0, 0, 1, __Pyx_ReferenceSharing_OwnStrongReference) < 0))) __PYX_ERR(0, 719, __pyx_L1_error)
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
         __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
 
-        /* "refinery/lib/unrar/unpack50.pyx":719
+        /* "refinery/lib/unrar/unpack50.pyx":720
  *                     self._old_dist[1] = old1
  *                     self._old_dist[2] = old2
  *                     self._old_dist[3] = old3             # <<<<<<<<<<<<<<
  *                     self._last_length = last_length
  *                     self._write_buf()
 */
-        __pyx_t_8 = __Pyx_PyLong_From_int(__pyx_v_old3); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 719, __pyx_L1_error)
+        __pyx_t_8 = __Pyx_PyLong_From_int(__pyx_v_old3); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 720, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_8);
-        __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_old_dist); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 719, __pyx_L1_error)
+        __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_old_dist); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 720, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_5);
-        if (unlikely((__Pyx_SetItemInt(__pyx_t_5, 3, __pyx_t_8, long, 1, __Pyx_PyLong_From_long, 0, 0, 0, 1, __Pyx_ReferenceSharing_OwnStrongReference) < 0))) __PYX_ERR(0, 719, __pyx_L1_error)
+        if (unlikely((__Pyx_SetItemInt(__pyx_t_5, 3, __pyx_t_8, long, 1, __Pyx_PyLong_From_long, 0, 0, 0, 1, __Pyx_ReferenceSharing_OwnStrongReference) < 0))) __PYX_ERR(0, 720, __pyx_L1_error)
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
         __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
 
-        /* "refinery/lib/unrar/unpack50.pyx":720
+        /* "refinery/lib/unrar/unpack50.pyx":721
  *                     self._old_dist[2] = old2
  *                     self._old_dist[3] = old3
  *                     self._last_length = last_length             # <<<<<<<<<<<<<<
  *                     self._write_buf()
  *                     write_border = self._write_border
 */
-        __pyx_t_8 = __Pyx_PyLong_From_int(__pyx_v_last_length); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 720, __pyx_L1_error)
+        __pyx_t_8 = __Pyx_PyLong_From_int(__pyx_v_last_length); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 721, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_8);
-        if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_last_length, __pyx_t_8) < (0)) __PYX_ERR(0, 720, __pyx_L1_error)
+        if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_last_length, __pyx_t_8) < (0)) __PYX_ERR(0, 721, __pyx_L1_error)
         __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
 
-        /* "refinery/lib/unrar/unpack50.pyx":721
+        /* "refinery/lib/unrar/unpack50.pyx":722
  *                     self._old_dist[3] = old3
  *                     self._last_length = last_length
  *                     self._write_buf()             # <<<<<<<<<<<<<<
@@ -30747,46 +30747,46 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
           PyObject *__pyx_callargs[2] = {__pyx_t_5, NULL};
           __pyx_t_8 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_write_buf, __pyx_callargs+__pyx_t_6, (1-__pyx_t_6) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-          if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 721, __pyx_L1_error)
+          if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 722, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_8);
         }
         __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
 
-        /* "refinery/lib/unrar/unpack50.pyx":722
+        /* "refinery/lib/unrar/unpack50.pyx":723
  *                     self._last_length = last_length
  *                     self._write_buf()
  *                     write_border = self._write_border             # <<<<<<<<<<<<<<
  *                     if len(self._filters) >= MAX_UNPACK_FILTERS:
  *                         self._filters.clear()
 */
-        __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_write_border); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 722, __pyx_L1_error)
+        __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_write_border); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 723, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_8);
-        __pyx_t_2 = __Pyx_PyLong_As_int(__pyx_t_8); if (unlikely((__pyx_t_2 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 722, __pyx_L1_error)
+        __pyx_t_2 = __Pyx_PyLong_As_int(__pyx_t_8); if (unlikely((__pyx_t_2 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 723, __pyx_L1_error)
         __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
         __pyx_v_write_border = __pyx_t_2;
 
-        /* "refinery/lib/unrar/unpack50.pyx":723
+        /* "refinery/lib/unrar/unpack50.pyx":724
  *                     self._write_buf()
  *                     write_border = self._write_border
  *                     if len(self._filters) >= MAX_UNPACK_FILTERS:             # <<<<<<<<<<<<<<
  *                         self._filters.clear()
  *                 self._filters.append(flt)
 */
-        __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_filters); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 723, __pyx_L1_error)
+        __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_filters); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 724, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_8);
-        __pyx_t_11 = PyObject_Length(__pyx_t_8); if (unlikely(__pyx_t_11 == ((Py_ssize_t)-1))) __PYX_ERR(0, 723, __pyx_L1_error)
+        __pyx_t_11 = PyObject_Length(__pyx_t_8); if (unlikely(__pyx_t_11 == ((Py_ssize_t)-1))) __PYX_ERR(0, 724, __pyx_L1_error)
         __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
         __pyx_t_3 = (__pyx_t_11 >= __pyx_v_8refinery_3lib_5unrar_8unpack50_MAX_UNPACK_FILTERS);
         if (__pyx_t_3) {
 
-          /* "refinery/lib/unrar/unpack50.pyx":724
+          /* "refinery/lib/unrar/unpack50.pyx":725
  *                     write_border = self._write_border
  *                     if len(self._filters) >= MAX_UNPACK_FILTERS:
  *                         self._filters.clear()             # <<<<<<<<<<<<<<
  *                 self._filters.append(flt)
  *                 continue
 */
-          __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_filters); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 724, __pyx_L1_error)
+          __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_filters); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 725, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_1);
           __pyx_t_5 = __pyx_t_1;
           __Pyx_INCREF(__pyx_t_5);
@@ -30796,12 +30796,12 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
             __pyx_t_8 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_clear, __pyx_callargs+__pyx_t_6, (1-__pyx_t_6) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
             __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
             __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-            if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 724, __pyx_L1_error)
+            if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 725, __pyx_L1_error)
             __Pyx_GOTREF(__pyx_t_8);
           }
           __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
 
-          /* "refinery/lib/unrar/unpack50.pyx":723
+          /* "refinery/lib/unrar/unpack50.pyx":724
  *                     self._write_buf()
  *                     write_border = self._write_border
  *                     if len(self._filters) >= MAX_UNPACK_FILTERS:             # <<<<<<<<<<<<<<
@@ -30810,7 +30810,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
         }
 
-        /* "refinery/lib/unrar/unpack50.pyx":715
+        /* "refinery/lib/unrar/unpack50.pyx":716
  *                     and ((self._wr_ptr - unp_ptr) & mask) <= flt.block_start)
  *                 flt.block_start = (flt.block_start + unp_ptr) & mask
  *                 if len(self._filters) >= MAX_UNPACK_FILTERS:             # <<<<<<<<<<<<<<
@@ -30819,19 +30819,19 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
       }
 
-      /* "refinery/lib/unrar/unpack50.pyx":725
+      /* "refinery/lib/unrar/unpack50.pyx":726
  *                     if len(self._filters) >= MAX_UNPACK_FILTERS:
  *                         self._filters.clear()
  *                 self._filters.append(flt)             # <<<<<<<<<<<<<<
  *                 continue
  * 
 */
-      __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_filters); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 725, __pyx_L1_error)
+      __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_filters); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 726, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_8);
-      __pyx_t_12 = __Pyx_PyObject_Append(__pyx_t_8, __pyx_v_flt); if (unlikely(__pyx_t_12 == ((int)-1))) __PYX_ERR(0, 725, __pyx_L1_error)
+      __pyx_t_12 = __Pyx_PyObject_Append(__pyx_t_8, __pyx_v_flt); if (unlikely(__pyx_t_12 == ((int)-1))) __PYX_ERR(0, 726, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
 
-      /* "refinery/lib/unrar/unpack50.pyx":726
+      /* "refinery/lib/unrar/unpack50.pyx":727
  *                         self._filters.clear()
  *                 self._filters.append(flt)
  *                 continue             # <<<<<<<<<<<<<<
@@ -30840,7 +30840,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
       goto __pyx_L5_continue;
 
-      /* "refinery/lib/unrar/unpack50.pyx":707
+      /* "refinery/lib/unrar/unpack50.pyx":708
  *                 continue
  * 
  *             if main_slot == 256:             # <<<<<<<<<<<<<<
@@ -30849,7 +30849,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
     }
 
-    /* "refinery/lib/unrar/unpack50.pyx":728
+    /* "refinery/lib/unrar/unpack50.pyx":729
  *                 continue
  * 
  *             if main_slot == 257:             # <<<<<<<<<<<<<<
@@ -30859,7 +30859,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
     __pyx_t_3 = (__pyx_v_main_slot == 0x101);
     if (__pyx_t_3) {
 
-      /* "refinery/lib/unrar/unpack50.pyx":729
+      /* "refinery/lib/unrar/unpack50.pyx":730
  * 
  *             if main_slot == 257:
  *                 if last_length != 0:             # <<<<<<<<<<<<<<
@@ -30869,7 +30869,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
       __pyx_t_3 = (__pyx_v_last_length != 0);
       if (__pyx_t_3) {
 
-        /* "refinery/lib/unrar/unpack50.pyx":730
+        /* "refinery/lib/unrar/unpack50.pyx":731
  *             if main_slot == 257:
  *                 if last_length != 0:
  *                     distance = old0             # <<<<<<<<<<<<<<
@@ -30878,7 +30878,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
         __pyx_v_distance = __pyx_v_old0;
 
-        /* "refinery/lib/unrar/unpack50.pyx":731
+        /* "refinery/lib/unrar/unpack50.pyx":732
  *                 if last_length != 0:
  *                     distance = old0
  *                     length = last_length             # <<<<<<<<<<<<<<
@@ -30887,7 +30887,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
         __pyx_v_length = __pyx_v_last_length;
 
-        /* "refinery/lib/unrar/unpack50.pyx":732
+        /* "refinery/lib/unrar/unpack50.pyx":733
  *                     distance = old0
  *                     length = last_length
  *                     src = (unp_ptr - distance) & mask             # <<<<<<<<<<<<<<
@@ -30896,7 +30896,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
         __pyx_v_src = ((__pyx_v_unp_ptr - __pyx_v_distance) & __pyx_v_mask);
 
-        /* "refinery/lib/unrar/unpack50.pyx":733
+        /* "refinery/lib/unrar/unpack50.pyx":734
  *                     length = last_length
  *                     src = (unp_ptr - distance) & mask
  *                     dst = unp_ptr             # <<<<<<<<<<<<<<
@@ -30905,7 +30905,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
         __pyx_v_dst = __pyx_v_unp_ptr;
 
-        /* "refinery/lib/unrar/unpack50.pyx":734
+        /* "refinery/lib/unrar/unpack50.pyx":735
  *                     src = (unp_ptr - distance) & mask
  *                     dst = unp_ptr
  *                     if src + length <= win_size and dst + length <= win_size:             # <<<<<<<<<<<<<<
@@ -30923,7 +30923,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
         __pyx_L47_bool_binop_done:;
         if (__pyx_t_3) {
 
-          /* "refinery/lib/unrar/unpack50.pyx":735
+          /* "refinery/lib/unrar/unpack50.pyx":736
  *                     dst = unp_ptr
  *                     if src + length <= win_size and dst + length <= win_size:
  *                         if distance >= length:             # <<<<<<<<<<<<<<
@@ -30933,7 +30933,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
           __pyx_t_3 = (__pyx_v_distance >= __pyx_v_length);
           if (__pyx_t_3) {
 
-            /* "refinery/lib/unrar/unpack50.pyx":736
+            /* "refinery/lib/unrar/unpack50.pyx":737
  *                     if src + length <= win_size and dst + length <= win_size:
  *                         if distance >= length:
  *                             memcpy(&win_ptr[dst], &win_ptr[src], length)             # <<<<<<<<<<<<<<
@@ -30942,7 +30942,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
             (void)(memcpy((&(__pyx_v_win_ptr[__pyx_v_dst])), (&(__pyx_v_win_ptr[__pyx_v_src])), __pyx_v_length));
 
-            /* "refinery/lib/unrar/unpack50.pyx":735
+            /* "refinery/lib/unrar/unpack50.pyx":736
  *                     dst = unp_ptr
  *                     if src + length <= win_size and dst + length <= win_size:
  *                         if distance >= length:             # <<<<<<<<<<<<<<
@@ -30952,7 +30952,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
             goto __pyx_L49;
           }
 
-          /* "refinery/lib/unrar/unpack50.pyx":738
+          /* "refinery/lib/unrar/unpack50.pyx":739
  *                             memcpy(&win_ptr[dst], &win_ptr[src], length)
  *                         else:
  *                             copied = 0             # <<<<<<<<<<<<<<
@@ -30962,7 +30962,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
           /*else*/ {
             __pyx_v_copied = 0;
 
-            /* "refinery/lib/unrar/unpack50.pyx":739
+            /* "refinery/lib/unrar/unpack50.pyx":740
  *                         else:
  *                             copied = 0
  *                             while copied < length:             # <<<<<<<<<<<<<<
@@ -30973,7 +30973,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
               __pyx_t_3 = (__pyx_v_copied < __pyx_v_length);
               if (!__pyx_t_3) break;
 
-              /* "refinery/lib/unrar/unpack50.pyx":740
+              /* "refinery/lib/unrar/unpack50.pyx":741
  *                             copied = 0
  *                             while copied < length:
  *                                 chunk = distance if distance < length - copied else length - copied             # <<<<<<<<<<<<<<
@@ -30988,7 +30988,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
               }
               __pyx_v_chunk = __pyx_t_2;
 
-              /* "refinery/lib/unrar/unpack50.pyx":741
+              /* "refinery/lib/unrar/unpack50.pyx":742
  *                             while copied < length:
  *                                 chunk = distance if distance < length - copied else length - copied
  *                                 memcpy(             # <<<<<<<<<<<<<<
@@ -30997,7 +30997,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
               (void)(memcpy((&(__pyx_v_win_ptr[(__pyx_v_dst + __pyx_v_copied)])), (&(__pyx_v_win_ptr[(__pyx_v_src + __pyx_v_copied)])), __pyx_v_chunk));
 
-              /* "refinery/lib/unrar/unpack50.pyx":743
+              /* "refinery/lib/unrar/unpack50.pyx":744
  *                                 memcpy(
  *                                     &win_ptr[dst + copied], &win_ptr[src + copied], chunk)
  *                                 copied += chunk             # <<<<<<<<<<<<<<
@@ -31009,7 +31009,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
           }
           __pyx_L49:;
 
-          /* "refinery/lib/unrar/unpack50.pyx":744
+          /* "refinery/lib/unrar/unpack50.pyx":745
  *                                     &win_ptr[dst + copied], &win_ptr[src + copied], chunk)
  *                                 copied += chunk
  *                         unp_ptr = (dst + length) & mask             # <<<<<<<<<<<<<<
@@ -31018,7 +31018,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
           __pyx_v_unp_ptr = ((__pyx_v_dst + __pyx_v_length) & __pyx_v_mask);
 
-          /* "refinery/lib/unrar/unpack50.pyx":734
+          /* "refinery/lib/unrar/unpack50.pyx":735
  *                     src = (unp_ptr - distance) & mask
  *                     dst = unp_ptr
  *                     if src + length <= win_size and dst + length <= win_size:             # <<<<<<<<<<<<<<
@@ -31028,7 +31028,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
           goto __pyx_L46;
         }
 
-        /* "refinery/lib/unrar/unpack50.pyx":746
+        /* "refinery/lib/unrar/unpack50.pyx":747
  *                         unp_ptr = (dst + length) & mask
  *                     else:
  *                         src = unp_ptr - distance             # <<<<<<<<<<<<<<
@@ -31038,7 +31038,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
         /*else*/ {
           __pyx_v_src = (__pyx_v_unp_ptr - __pyx_v_distance);
 
-          /* "refinery/lib/unrar/unpack50.pyx":747
+          /* "refinery/lib/unrar/unpack50.pyx":748
  *                     else:
  *                         src = unp_ptr - distance
  *                         dst = unp_ptr             # <<<<<<<<<<<<<<
@@ -31047,7 +31047,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
           __pyx_v_dst = __pyx_v_unp_ptr;
 
-          /* "refinery/lib/unrar/unpack50.pyx":748
+          /* "refinery/lib/unrar/unpack50.pyx":749
  *                         src = unp_ptr - distance
  *                         dst = unp_ptr
  *                         while length > 0:             # <<<<<<<<<<<<<<
@@ -31058,7 +31058,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
             __pyx_t_3 = (__pyx_v_length > 0);
             if (!__pyx_t_3) break;
 
-            /* "refinery/lib/unrar/unpack50.pyx":749
+            /* "refinery/lib/unrar/unpack50.pyx":750
  *                         dst = unp_ptr
  *                         while length > 0:
  *                             win_ptr[dst & mask] = win_ptr[src & mask]             # <<<<<<<<<<<<<<
@@ -31067,7 +31067,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
             (__pyx_v_win_ptr[(__pyx_v_dst & __pyx_v_mask)]) = (__pyx_v_win_ptr[(__pyx_v_src & __pyx_v_mask)]);
 
-            /* "refinery/lib/unrar/unpack50.pyx":750
+            /* "refinery/lib/unrar/unpack50.pyx":751
  *                         while length > 0:
  *                             win_ptr[dst & mask] = win_ptr[src & mask]
  *                             src += 1             # <<<<<<<<<<<<<<
@@ -31076,7 +31076,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
             __pyx_v_src = (__pyx_v_src + 1);
 
-            /* "refinery/lib/unrar/unpack50.pyx":751
+            /* "refinery/lib/unrar/unpack50.pyx":752
  *                             win_ptr[dst & mask] = win_ptr[src & mask]
  *                             src += 1
  *                             dst += 1             # <<<<<<<<<<<<<<
@@ -31085,7 +31085,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
             __pyx_v_dst = (__pyx_v_dst + 1);
 
-            /* "refinery/lib/unrar/unpack50.pyx":752
+            /* "refinery/lib/unrar/unpack50.pyx":753
  *                             src += 1
  *                             dst += 1
  *                             length -= 1             # <<<<<<<<<<<<<<
@@ -31095,7 +31095,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
             __pyx_v_length = (__pyx_v_length - 1);
           }
 
-          /* "refinery/lib/unrar/unpack50.pyx":753
+          /* "refinery/lib/unrar/unpack50.pyx":754
  *                             dst += 1
  *                             length -= 1
  *                         unp_ptr = dst & mask             # <<<<<<<<<<<<<<
@@ -31106,7 +31106,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
         }
         __pyx_L46:;
 
-        /* "refinery/lib/unrar/unpack50.pyx":729
+        /* "refinery/lib/unrar/unpack50.pyx":730
  * 
  *             if main_slot == 257:
  *                 if last_length != 0:             # <<<<<<<<<<<<<<
@@ -31115,7 +31115,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
       }
 
-      /* "refinery/lib/unrar/unpack50.pyx":754
+      /* "refinery/lib/unrar/unpack50.pyx":755
  *                             length -= 1
  *                         unp_ptr = dst & mask
  *                 continue             # <<<<<<<<<<<<<<
@@ -31124,7 +31124,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
       goto __pyx_L5_continue;
 
-      /* "refinery/lib/unrar/unpack50.pyx":728
+      /* "refinery/lib/unrar/unpack50.pyx":729
  *                 continue
  * 
  *             if main_slot == 257:             # <<<<<<<<<<<<<<
@@ -31133,7 +31133,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
     }
 
-    /* "refinery/lib/unrar/unpack50.pyx":756
+    /* "refinery/lib/unrar/unpack50.pyx":757
  *                 continue
  * 
  *             if main_slot < 262:             # <<<<<<<<<<<<<<
@@ -31143,7 +31143,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
     __pyx_t_3 = (__pyx_v_main_slot < 0x106);
     if (__pyx_t_3) {
 
-      /* "refinery/lib/unrar/unpack50.pyx":757
+      /* "refinery/lib/unrar/unpack50.pyx":758
  * 
  *             if main_slot < 262:
  *                 dist_num = main_slot - 258             # <<<<<<<<<<<<<<
@@ -31152,7 +31152,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
       __pyx_v_dist_num = (__pyx_v_main_slot - 0x102);
 
-      /* "refinery/lib/unrar/unpack50.pyx":758
+      /* "refinery/lib/unrar/unpack50.pyx":759
  *             if main_slot < 262:
  *                 dist_num = main_slot - 258
  *                 if dist_num == 0:             # <<<<<<<<<<<<<<
@@ -31162,7 +31162,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
       switch (__pyx_v_dist_num) {
         case 0:
 
-        /* "refinery/lib/unrar/unpack50.pyx":759
+        /* "refinery/lib/unrar/unpack50.pyx":760
  *                 dist_num = main_slot - 258
  *                 if dist_num == 0:
  *                     distance = old0             # <<<<<<<<<<<<<<
@@ -31171,7 +31171,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
         __pyx_v_distance = __pyx_v_old0;
 
-        /* "refinery/lib/unrar/unpack50.pyx":758
+        /* "refinery/lib/unrar/unpack50.pyx":759
  *             if main_slot < 262:
  *                 dist_num = main_slot - 258
  *                 if dist_num == 0:             # <<<<<<<<<<<<<<
@@ -31181,7 +31181,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
         break;
         case 1:
 
-        /* "refinery/lib/unrar/unpack50.pyx":761
+        /* "refinery/lib/unrar/unpack50.pyx":762
  *                     distance = old0
  *                 elif dist_num == 1:
  *                     distance = old1             # <<<<<<<<<<<<<<
@@ -31190,7 +31190,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
         __pyx_v_distance = __pyx_v_old1;
 
-        /* "refinery/lib/unrar/unpack50.pyx":762
+        /* "refinery/lib/unrar/unpack50.pyx":763
  *                 elif dist_num == 1:
  *                     distance = old1
  *                     old1 = old0             # <<<<<<<<<<<<<<
@@ -31199,7 +31199,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
         __pyx_v_old1 = __pyx_v_old0;
 
-        /* "refinery/lib/unrar/unpack50.pyx":763
+        /* "refinery/lib/unrar/unpack50.pyx":764
  *                     distance = old1
  *                     old1 = old0
  *                     old0 = distance             # <<<<<<<<<<<<<<
@@ -31208,7 +31208,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
         __pyx_v_old0 = __pyx_v_distance;
 
-        /* "refinery/lib/unrar/unpack50.pyx":760
+        /* "refinery/lib/unrar/unpack50.pyx":761
  *                 if dist_num == 0:
  *                     distance = old0
  *                 elif dist_num == 1:             # <<<<<<<<<<<<<<
@@ -31218,7 +31218,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
         break;
         case 2:
 
-        /* "refinery/lib/unrar/unpack50.pyx":765
+        /* "refinery/lib/unrar/unpack50.pyx":766
  *                     old0 = distance
  *                 elif dist_num == 2:
  *                     distance = old2             # <<<<<<<<<<<<<<
@@ -31227,7 +31227,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
         __pyx_v_distance = __pyx_v_old2;
 
-        /* "refinery/lib/unrar/unpack50.pyx":766
+        /* "refinery/lib/unrar/unpack50.pyx":767
  *                 elif dist_num == 2:
  *                     distance = old2
  *                     old2 = old1             # <<<<<<<<<<<<<<
@@ -31236,7 +31236,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
         __pyx_v_old2 = __pyx_v_old1;
 
-        /* "refinery/lib/unrar/unpack50.pyx":767
+        /* "refinery/lib/unrar/unpack50.pyx":768
  *                     distance = old2
  *                     old2 = old1
  *                     old1 = old0             # <<<<<<<<<<<<<<
@@ -31245,7 +31245,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
         __pyx_v_old1 = __pyx_v_old0;
 
-        /* "refinery/lib/unrar/unpack50.pyx":768
+        /* "refinery/lib/unrar/unpack50.pyx":769
  *                     old2 = old1
  *                     old1 = old0
  *                     old0 = distance             # <<<<<<<<<<<<<<
@@ -31254,7 +31254,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
         __pyx_v_old0 = __pyx_v_distance;
 
-        /* "refinery/lib/unrar/unpack50.pyx":764
+        /* "refinery/lib/unrar/unpack50.pyx":765
  *                     old1 = old0
  *                     old0 = distance
  *                 elif dist_num == 2:             # <<<<<<<<<<<<<<
@@ -31264,7 +31264,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
         break;
         default:
 
-        /* "refinery/lib/unrar/unpack50.pyx":770
+        /* "refinery/lib/unrar/unpack50.pyx":771
  *                     old0 = distance
  *                 else:
  *                     distance = old3             # <<<<<<<<<<<<<<
@@ -31273,7 +31273,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
         __pyx_v_distance = __pyx_v_old3;
 
-        /* "refinery/lib/unrar/unpack50.pyx":771
+        /* "refinery/lib/unrar/unpack50.pyx":772
  *                 else:
  *                     distance = old3
  *                     old3 = old2             # <<<<<<<<<<<<<<
@@ -31282,7 +31282,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
         __pyx_v_old3 = __pyx_v_old2;
 
-        /* "refinery/lib/unrar/unpack50.pyx":772
+        /* "refinery/lib/unrar/unpack50.pyx":773
  *                     distance = old3
  *                     old3 = old2
  *                     old2 = old1             # <<<<<<<<<<<<<<
@@ -31291,7 +31291,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
         __pyx_v_old2 = __pyx_v_old1;
 
-        /* "refinery/lib/unrar/unpack50.pyx":773
+        /* "refinery/lib/unrar/unpack50.pyx":774
  *                     old3 = old2
  *                     old2 = old1
  *                     old1 = old0             # <<<<<<<<<<<<<<
@@ -31300,7 +31300,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
         __pyx_v_old1 = __pyx_v_old0;
 
-        /* "refinery/lib/unrar/unpack50.pyx":774
+        /* "refinery/lib/unrar/unpack50.pyx":775
  *                     old2 = old1
  *                     old1 = old0
  *                     old0 = distance             # <<<<<<<<<<<<<<
@@ -31311,7 +31311,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
         break;
       }
 
-      /* "refinery/lib/unrar/unpack50.pyx":776
+      /* "refinery/lib/unrar/unpack50.pyx":777
  *                     old0 = distance
  * 
  *                 length_slot = _decode_number_fast(inp, tbl.RD)             # <<<<<<<<<<<<<<
@@ -31320,21 +31320,21 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
       __pyx_t_8 = ((PyObject *)__pyx_v_tbl->RD);
       __Pyx_INCREF(__pyx_t_8);
-      __pyx_t_2 = __pyx_f_8refinery_3lib_5unrar_8unpack50__decode_number_fast(__pyx_v_inp, ((struct __pyx_obj_8refinery_3lib_5unrar_8unpack50_DecodeTable *)__pyx_t_8)); if (unlikely(__pyx_t_2 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 776, __pyx_L1_error)
+      __pyx_t_2 = __pyx_f_8refinery_3lib_5unrar_8unpack50__decode_number_fast(__pyx_v_inp, ((struct __pyx_obj_8refinery_3lib_5unrar_8unpack50_DecodeTable *)__pyx_t_8)); if (unlikely(__pyx_t_2 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 777, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
       __pyx_v_length_slot = __pyx_t_2;
 
-      /* "refinery/lib/unrar/unpack50.pyx":777
+      /* "refinery/lib/unrar/unpack50.pyx":778
  * 
  *                 length_slot = _decode_number_fast(inp, tbl.RD)
  *                 length = _slot_to_length(inp, length_slot)             # <<<<<<<<<<<<<<
  *                 last_length = length
  * 
 */
-      __pyx_t_2 = __pyx_f_8refinery_3lib_5unrar_8unpack50__slot_to_length(__pyx_v_inp, __pyx_v_length_slot); if (unlikely(__pyx_t_2 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 777, __pyx_L1_error)
+      __pyx_t_2 = __pyx_f_8refinery_3lib_5unrar_8unpack50__slot_to_length(__pyx_v_inp, __pyx_v_length_slot); if (unlikely(__pyx_t_2 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 778, __pyx_L1_error)
       __pyx_v_length = __pyx_t_2;
 
-      /* "refinery/lib/unrar/unpack50.pyx":778
+      /* "refinery/lib/unrar/unpack50.pyx":779
  *                 length_slot = _decode_number_fast(inp, tbl.RD)
  *                 length = _slot_to_length(inp, length_slot)
  *                 last_length = length             # <<<<<<<<<<<<<<
@@ -31343,7 +31343,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
       __pyx_v_last_length = __pyx_v_length;
 
-      /* "refinery/lib/unrar/unpack50.pyx":780
+      /* "refinery/lib/unrar/unpack50.pyx":781
  *                 last_length = length
  * 
  *                 src = (unp_ptr - distance) & mask             # <<<<<<<<<<<<<<
@@ -31352,7 +31352,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
       __pyx_v_src = ((__pyx_v_unp_ptr - __pyx_v_distance) & __pyx_v_mask);
 
-      /* "refinery/lib/unrar/unpack50.pyx":781
+      /* "refinery/lib/unrar/unpack50.pyx":782
  * 
  *                 src = (unp_ptr - distance) & mask
  *                 dst = unp_ptr             # <<<<<<<<<<<<<<
@@ -31361,7 +31361,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
       __pyx_v_dst = __pyx_v_unp_ptr;
 
-      /* "refinery/lib/unrar/unpack50.pyx":782
+      /* "refinery/lib/unrar/unpack50.pyx":783
  *                 src = (unp_ptr - distance) & mask
  *                 dst = unp_ptr
  *                 if src + length <= win_size and dst + length <= win_size:             # <<<<<<<<<<<<<<
@@ -31379,7 +31379,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
       __pyx_L56_bool_binop_done:;
       if (__pyx_t_3) {
 
-        /* "refinery/lib/unrar/unpack50.pyx":783
+        /* "refinery/lib/unrar/unpack50.pyx":784
  *                 dst = unp_ptr
  *                 if src + length <= win_size and dst + length <= win_size:
  *                     if distance >= length:             # <<<<<<<<<<<<<<
@@ -31389,7 +31389,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
         __pyx_t_3 = (__pyx_v_distance >= __pyx_v_length);
         if (__pyx_t_3) {
 
-          /* "refinery/lib/unrar/unpack50.pyx":784
+          /* "refinery/lib/unrar/unpack50.pyx":785
  *                 if src + length <= win_size and dst + length <= win_size:
  *                     if distance >= length:
  *                         memcpy(&win_ptr[dst], &win_ptr[src], length)             # <<<<<<<<<<<<<<
@@ -31398,7 +31398,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
           (void)(memcpy((&(__pyx_v_win_ptr[__pyx_v_dst])), (&(__pyx_v_win_ptr[__pyx_v_src])), __pyx_v_length));
 
-          /* "refinery/lib/unrar/unpack50.pyx":783
+          /* "refinery/lib/unrar/unpack50.pyx":784
  *                 dst = unp_ptr
  *                 if src + length <= win_size and dst + length <= win_size:
  *                     if distance >= length:             # <<<<<<<<<<<<<<
@@ -31408,7 +31408,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
           goto __pyx_L58;
         }
 
-        /* "refinery/lib/unrar/unpack50.pyx":786
+        /* "refinery/lib/unrar/unpack50.pyx":787
  *                         memcpy(&win_ptr[dst], &win_ptr[src], length)
  *                     else:
  *                         copied = 0             # <<<<<<<<<<<<<<
@@ -31418,7 +31418,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
         /*else*/ {
           __pyx_v_copied = 0;
 
-          /* "refinery/lib/unrar/unpack50.pyx":787
+          /* "refinery/lib/unrar/unpack50.pyx":788
  *                     else:
  *                         copied = 0
  *                         while copied < length:             # <<<<<<<<<<<<<<
@@ -31429,7 +31429,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
             __pyx_t_3 = (__pyx_v_copied < __pyx_v_length);
             if (!__pyx_t_3) break;
 
-            /* "refinery/lib/unrar/unpack50.pyx":788
+            /* "refinery/lib/unrar/unpack50.pyx":789
  *                         copied = 0
  *                         while copied < length:
  *                             chunk = distance if distance < length - copied else length - copied             # <<<<<<<<<<<<<<
@@ -31444,7 +31444,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
             }
             __pyx_v_chunk = __pyx_t_2;
 
-            /* "refinery/lib/unrar/unpack50.pyx":789
+            /* "refinery/lib/unrar/unpack50.pyx":790
  *                         while copied < length:
  *                             chunk = distance if distance < length - copied else length - copied
  *                             memcpy(&win_ptr[dst + copied], &win_ptr[src + copied], chunk)             # <<<<<<<<<<<<<<
@@ -31453,7 +31453,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
             (void)(memcpy((&(__pyx_v_win_ptr[(__pyx_v_dst + __pyx_v_copied)])), (&(__pyx_v_win_ptr[(__pyx_v_src + __pyx_v_copied)])), __pyx_v_chunk));
 
-            /* "refinery/lib/unrar/unpack50.pyx":790
+            /* "refinery/lib/unrar/unpack50.pyx":791
  *                             chunk = distance if distance < length - copied else length - copied
  *                             memcpy(&win_ptr[dst + copied], &win_ptr[src + copied], chunk)
  *                             copied += chunk             # <<<<<<<<<<<<<<
@@ -31465,7 +31465,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
         }
         __pyx_L58:;
 
-        /* "refinery/lib/unrar/unpack50.pyx":791
+        /* "refinery/lib/unrar/unpack50.pyx":792
  *                             memcpy(&win_ptr[dst + copied], &win_ptr[src + copied], chunk)
  *                             copied += chunk
  *                     unp_ptr = (dst + length) & mask             # <<<<<<<<<<<<<<
@@ -31474,7 +31474,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
         __pyx_v_unp_ptr = ((__pyx_v_dst + __pyx_v_length) & __pyx_v_mask);
 
-        /* "refinery/lib/unrar/unpack50.pyx":782
+        /* "refinery/lib/unrar/unpack50.pyx":783
  *                 src = (unp_ptr - distance) & mask
  *                 dst = unp_ptr
  *                 if src + length <= win_size and dst + length <= win_size:             # <<<<<<<<<<<<<<
@@ -31484,7 +31484,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
         goto __pyx_L55;
       }
 
-      /* "refinery/lib/unrar/unpack50.pyx":793
+      /* "refinery/lib/unrar/unpack50.pyx":794
  *                     unp_ptr = (dst + length) & mask
  *                 else:
  *                     src = unp_ptr - distance             # <<<<<<<<<<<<<<
@@ -31494,7 +31494,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
       /*else*/ {
         __pyx_v_src = (__pyx_v_unp_ptr - __pyx_v_distance);
 
-        /* "refinery/lib/unrar/unpack50.pyx":794
+        /* "refinery/lib/unrar/unpack50.pyx":795
  *                 else:
  *                     src = unp_ptr - distance
  *                     dst = unp_ptr             # <<<<<<<<<<<<<<
@@ -31503,7 +31503,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
         __pyx_v_dst = __pyx_v_unp_ptr;
 
-        /* "refinery/lib/unrar/unpack50.pyx":795
+        /* "refinery/lib/unrar/unpack50.pyx":796
  *                     src = unp_ptr - distance
  *                     dst = unp_ptr
  *                     while length > 0:             # <<<<<<<<<<<<<<
@@ -31514,7 +31514,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
           __pyx_t_3 = (__pyx_v_length > 0);
           if (!__pyx_t_3) break;
 
-          /* "refinery/lib/unrar/unpack50.pyx":796
+          /* "refinery/lib/unrar/unpack50.pyx":797
  *                     dst = unp_ptr
  *                     while length > 0:
  *                         win_ptr[dst & mask] = win_ptr[src & mask]             # <<<<<<<<<<<<<<
@@ -31523,7 +31523,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
           (__pyx_v_win_ptr[(__pyx_v_dst & __pyx_v_mask)]) = (__pyx_v_win_ptr[(__pyx_v_src & __pyx_v_mask)]);
 
-          /* "refinery/lib/unrar/unpack50.pyx":797
+          /* "refinery/lib/unrar/unpack50.pyx":798
  *                     while length > 0:
  *                         win_ptr[dst & mask] = win_ptr[src & mask]
  *                         src += 1             # <<<<<<<<<<<<<<
@@ -31532,7 +31532,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
           __pyx_v_src = (__pyx_v_src + 1);
 
-          /* "refinery/lib/unrar/unpack50.pyx":798
+          /* "refinery/lib/unrar/unpack50.pyx":799
  *                         win_ptr[dst & mask] = win_ptr[src & mask]
  *                         src += 1
  *                         dst += 1             # <<<<<<<<<<<<<<
@@ -31541,7 +31541,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
           __pyx_v_dst = (__pyx_v_dst + 1);
 
-          /* "refinery/lib/unrar/unpack50.pyx":799
+          /* "refinery/lib/unrar/unpack50.pyx":800
  *                         src += 1
  *                         dst += 1
  *                         length -= 1             # <<<<<<<<<<<<<<
@@ -31551,7 +31551,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
           __pyx_v_length = (__pyx_v_length - 1);
         }
 
-        /* "refinery/lib/unrar/unpack50.pyx":800
+        /* "refinery/lib/unrar/unpack50.pyx":801
  *                         dst += 1
  *                         length -= 1
  *                     unp_ptr = dst & mask             # <<<<<<<<<<<<<<
@@ -31562,7 +31562,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
       }
       __pyx_L55:;
 
-      /* "refinery/lib/unrar/unpack50.pyx":801
+      /* "refinery/lib/unrar/unpack50.pyx":802
  *                         length -= 1
  *                     unp_ptr = dst & mask
  *                 continue             # <<<<<<<<<<<<<<
@@ -31571,7 +31571,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
 */
       goto __pyx_L5_continue;
 
-      /* "refinery/lib/unrar/unpack50.pyx":756
+      /* "refinery/lib/unrar/unpack50.pyx":757
  *                 continue
  * 
  *             if main_slot < 262:             # <<<<<<<<<<<<<<
@@ -31583,91 +31583,91 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
   }
   __pyx_L6_break:;
 
-  /* "refinery/lib/unrar/unpack50.pyx":803
+  /* "refinery/lib/unrar/unpack50.pyx":804
  *                 continue
  * 
  *         self._old_dist[0] = old0             # <<<<<<<<<<<<<<
  *         self._old_dist[1] = old1
  *         self._old_dist[2] = old2
 */
-  __pyx_t_8 = __Pyx_PyLong_From_int(__pyx_v_old0); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 803, __pyx_L1_error)
+  __pyx_t_8 = __Pyx_PyLong_From_int(__pyx_v_old0); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 804, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_8);
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_old_dist); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 803, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_old_dist); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 804, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  if (unlikely((__Pyx_SetItemInt(__pyx_t_1, 0, __pyx_t_8, long, 1, __Pyx_PyLong_From_long, 0, 0, 0, 1, __Pyx_ReferenceSharing_OwnStrongReference) < 0))) __PYX_ERR(0, 803, __pyx_L1_error)
+  if (unlikely((__Pyx_SetItemInt(__pyx_t_1, 0, __pyx_t_8, long, 1, __Pyx_PyLong_From_long, 0, 0, 0, 1, __Pyx_ReferenceSharing_OwnStrongReference) < 0))) __PYX_ERR(0, 804, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":804
+  /* "refinery/lib/unrar/unpack50.pyx":805
  * 
  *         self._old_dist[0] = old0
  *         self._old_dist[1] = old1             # <<<<<<<<<<<<<<
  *         self._old_dist[2] = old2
  *         self._old_dist[3] = old3
 */
-  __pyx_t_8 = __Pyx_PyLong_From_int(__pyx_v_old1); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 804, __pyx_L1_error)
+  __pyx_t_8 = __Pyx_PyLong_From_int(__pyx_v_old1); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 805, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_8);
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_old_dist); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 804, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_old_dist); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 805, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  if (unlikely((__Pyx_SetItemInt(__pyx_t_1, 1, __pyx_t_8, long, 1, __Pyx_PyLong_From_long, 0, 0, 0, 1, __Pyx_ReferenceSharing_OwnStrongReference) < 0))) __PYX_ERR(0, 804, __pyx_L1_error)
+  if (unlikely((__Pyx_SetItemInt(__pyx_t_1, 1, __pyx_t_8, long, 1, __Pyx_PyLong_From_long, 0, 0, 0, 1, __Pyx_ReferenceSharing_OwnStrongReference) < 0))) __PYX_ERR(0, 805, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":805
+  /* "refinery/lib/unrar/unpack50.pyx":806
  *         self._old_dist[0] = old0
  *         self._old_dist[1] = old1
  *         self._old_dist[2] = old2             # <<<<<<<<<<<<<<
  *         self._old_dist[3] = old3
  *         self._unp_ptr = unp_ptr
 */
-  __pyx_t_8 = __Pyx_PyLong_From_int(__pyx_v_old2); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 805, __pyx_L1_error)
+  __pyx_t_8 = __Pyx_PyLong_From_int(__pyx_v_old2); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 806, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_8);
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_old_dist); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 805, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_old_dist); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 806, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  if (unlikely((__Pyx_SetItemInt(__pyx_t_1, 2, __pyx_t_8, long, 1, __Pyx_PyLong_From_long, 0, 0, 0, 1, __Pyx_ReferenceSharing_OwnStrongReference) < 0))) __PYX_ERR(0, 805, __pyx_L1_error)
+  if (unlikely((__Pyx_SetItemInt(__pyx_t_1, 2, __pyx_t_8, long, 1, __Pyx_PyLong_From_long, 0, 0, 0, 1, __Pyx_ReferenceSharing_OwnStrongReference) < 0))) __PYX_ERR(0, 806, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":806
+  /* "refinery/lib/unrar/unpack50.pyx":807
  *         self._old_dist[1] = old1
  *         self._old_dist[2] = old2
  *         self._old_dist[3] = old3             # <<<<<<<<<<<<<<
  *         self._unp_ptr = unp_ptr
  *         self._last_length = last_length
 */
-  __pyx_t_8 = __Pyx_PyLong_From_int(__pyx_v_old3); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 806, __pyx_L1_error)
+  __pyx_t_8 = __Pyx_PyLong_From_int(__pyx_v_old3); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 807, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_8);
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_old_dist); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 806, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_old_dist); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 807, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  if (unlikely((__Pyx_SetItemInt(__pyx_t_1, 3, __pyx_t_8, long, 1, __Pyx_PyLong_From_long, 0, 0, 0, 1, __Pyx_ReferenceSharing_OwnStrongReference) < 0))) __PYX_ERR(0, 806, __pyx_L1_error)
+  if (unlikely((__Pyx_SetItemInt(__pyx_t_1, 3, __pyx_t_8, long, 1, __Pyx_PyLong_From_long, 0, 0, 0, 1, __Pyx_ReferenceSharing_OwnStrongReference) < 0))) __PYX_ERR(0, 807, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":807
+  /* "refinery/lib/unrar/unpack50.pyx":808
  *         self._old_dist[2] = old2
  *         self._old_dist[3] = old3
  *         self._unp_ptr = unp_ptr             # <<<<<<<<<<<<<<
  *         self._last_length = last_length
  *         self._write_buf()
 */
-  __pyx_t_8 = __Pyx_PyLong_From_int(__pyx_v_unp_ptr); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 807, __pyx_L1_error)
+  __pyx_t_8 = __Pyx_PyLong_From_int(__pyx_v_unp_ptr); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 808, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_8);
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_unp_ptr, __pyx_t_8) < (0)) __PYX_ERR(0, 807, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_unp_ptr, __pyx_t_8) < (0)) __PYX_ERR(0, 808, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":808
+  /* "refinery/lib/unrar/unpack50.pyx":809
  *         self._old_dist[3] = old3
  *         self._unp_ptr = unp_ptr
  *         self._last_length = last_length             # <<<<<<<<<<<<<<
  *         self._write_buf()
  *         return self._output
 */
-  __pyx_t_8 = __Pyx_PyLong_From_int(__pyx_v_last_length); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 808, __pyx_L1_error)
+  __pyx_t_8 = __Pyx_PyLong_From_int(__pyx_v_last_length); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 809, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_8);
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_last_length, __pyx_t_8) < (0)) __PYX_ERR(0, 808, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_last_length, __pyx_t_8) < (0)) __PYX_ERR(0, 809, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":809
+  /* "refinery/lib/unrar/unpack50.pyx":810
  *         self._unp_ptr = unp_ptr
  *         self._last_length = last_length
  *         self._write_buf()             # <<<<<<<<<<<<<<
@@ -31680,24 +31680,24 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_8unpack50_8Unpack50_6decompress(
     PyObject *__pyx_callargs[2] = {__pyx_t_1, NULL};
     __pyx_t_8 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_write_buf, __pyx_callargs+__pyx_t_6, (1-__pyx_t_6) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
-    if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 809, __pyx_L1_error)
+    if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 810, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_8);
   }
   __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":810
+  /* "refinery/lib/unrar/unpack50.pyx":811
  *         self._last_length = last_length
  *         self._write_buf()
  *         return self._output             # <<<<<<<<<<<<<<
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_output); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 810, __pyx_L1_error)
+  __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_output); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 811, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_8);
   __pyx_r = __pyx_t_8;
   __pyx_t_8 = 0;
   goto __pyx_L0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":561
+  /* "refinery/lib/unrar/unpack50.pyx":562
  *             self._unp_ptr + min(self._win_size, UNPACK_MAX_WRITE)) & mask
  * 
  *     def decompress(self):             # <<<<<<<<<<<<<<
@@ -34737,15 +34737,15 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   __pyx_vtable_8refinery_3lib_5unrar_8unpack50_BitInput.getbits32 = (unsigned int (*)(struct __pyx_obj_8refinery_3lib_5unrar_8unpack50_BitInput *, int __pyx_skip_dispatch))__pyx_f_8refinery_3lib_5unrar_8unpack50_8BitInput_getbits32;
   __pyx_vtable_8refinery_3lib_5unrar_8unpack50_BitInput.addbits = (void (*)(struct __pyx_obj_8refinery_3lib_5unrar_8unpack50_BitInput *, int, int __pyx_skip_dispatch))__pyx_f_8refinery_3lib_5unrar_8unpack50_8BitInput_addbits;
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_mstate->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BitInput = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_8refinery_3lib_5unrar_8unpack50_BitInput_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BitInput)) __PYX_ERR(0, 30, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_8refinery_3lib_5unrar_8unpack50_BitInput_spec, __pyx_mstate->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BitInput) < (0)) __PYX_ERR(0, 30, __pyx_L1_error)
+  __pyx_mstate->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BitInput = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_8refinery_3lib_5unrar_8unpack50_BitInput_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BitInput)) __PYX_ERR(0, 31, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_8refinery_3lib_5unrar_8unpack50_BitInput_spec, __pyx_mstate->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BitInput) < (0)) __PYX_ERR(0, 31, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BitInput = &__pyx_type_8refinery_3lib_5unrar_8unpack50_BitInput;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BitInput) < (0)) __PYX_ERR(0, 30, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BitInput) < (0)) __PYX_ERR(0, 31, __pyx_L1_error)
   #endif
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount((PyObject*)__pyx_mstate->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BitInput);
@@ -34755,20 +34755,20 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
     __pyx_mstate->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BitInput->tp_getattro = PyObject_GenericGetAttr;
   }
   #endif
-  if (__Pyx_SetVtable(__pyx_mstate->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BitInput, __pyx_vtabptr_8refinery_3lib_5unrar_8unpack50_BitInput) < (0)) __PYX_ERR(0, 30, __pyx_L1_error)
-  if (__Pyx_MergeVtables(__pyx_mstate->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BitInput) < (0)) __PYX_ERR(0, 30, __pyx_L1_error)
-  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_BitInput, (PyObject *) __pyx_mstate->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BitInput) < (0)) __PYX_ERR(0, 30, __pyx_L1_error)
-  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BitInput) < (0)) __PYX_ERR(0, 30, __pyx_L1_error)
+  if (__Pyx_SetVtable(__pyx_mstate->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BitInput, __pyx_vtabptr_8refinery_3lib_5unrar_8unpack50_BitInput) < (0)) __PYX_ERR(0, 31, __pyx_L1_error)
+  if (__Pyx_MergeVtables(__pyx_mstate->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BitInput) < (0)) __PYX_ERR(0, 31, __pyx_L1_error)
+  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_BitInput, (PyObject *) __pyx_mstate->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BitInput) < (0)) __PYX_ERR(0, 31, __pyx_L1_error)
+  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BitInput) < (0)) __PYX_ERR(0, 31, __pyx_L1_error)
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_mstate->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_DecodeTable = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_8refinery_3lib_5unrar_8unpack50_DecodeTable_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_DecodeTable)) __PYX_ERR(0, 89, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_8refinery_3lib_5unrar_8unpack50_DecodeTable_spec, __pyx_mstate->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_DecodeTable) < (0)) __PYX_ERR(0, 89, __pyx_L1_error)
+  __pyx_mstate->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_DecodeTable = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_8refinery_3lib_5unrar_8unpack50_DecodeTable_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_DecodeTable)) __PYX_ERR(0, 90, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_8refinery_3lib_5unrar_8unpack50_DecodeTable_spec, __pyx_mstate->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_DecodeTable) < (0)) __PYX_ERR(0, 90, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_DecodeTable = &__pyx_type_8refinery_3lib_5unrar_8unpack50_DecodeTable;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_DecodeTable) < (0)) __PYX_ERR(0, 89, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_DecodeTable) < (0)) __PYX_ERR(0, 90, __pyx_L1_error)
   #endif
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount((PyObject*)__pyx_mstate->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_DecodeTable);
@@ -34778,18 +34778,18 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
     __pyx_mstate->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_DecodeTable->tp_getattro = PyObject_GenericGetAttr;
   }
   #endif
-  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_DecodeTable, (PyObject *) __pyx_mstate->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_DecodeTable) < (0)) __PYX_ERR(0, 89, __pyx_L1_error)
-  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_DecodeTable) < (0)) __PYX_ERR(0, 89, __pyx_L1_error)
+  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_DecodeTable, (PyObject *) __pyx_mstate->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_DecodeTable) < (0)) __PYX_ERR(0, 90, __pyx_L1_error)
+  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_DecodeTable) < (0)) __PYX_ERR(0, 90, __pyx_L1_error)
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_mstate->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BlockHeader = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_8refinery_3lib_5unrar_8unpack50_BlockHeader_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BlockHeader)) __PYX_ERR(0, 254, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_8refinery_3lib_5unrar_8unpack50_BlockHeader_spec, __pyx_mstate->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BlockHeader) < (0)) __PYX_ERR(0, 254, __pyx_L1_error)
+  __pyx_mstate->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BlockHeader = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_8refinery_3lib_5unrar_8unpack50_BlockHeader_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BlockHeader)) __PYX_ERR(0, 255, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_8refinery_3lib_5unrar_8unpack50_BlockHeader_spec, __pyx_mstate->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BlockHeader) < (0)) __PYX_ERR(0, 255, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BlockHeader = &__pyx_type_8refinery_3lib_5unrar_8unpack50_BlockHeader;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BlockHeader) < (0)) __PYX_ERR(0, 254, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BlockHeader) < (0)) __PYX_ERR(0, 255, __pyx_L1_error)
   #endif
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount((PyObject*)__pyx_mstate->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BlockHeader);
@@ -34799,18 +34799,18 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
     __pyx_mstate->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BlockHeader->tp_getattro = PyObject_GenericGetAttr;
   }
   #endif
-  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_BlockHeader, (PyObject *) __pyx_mstate->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BlockHeader) < (0)) __PYX_ERR(0, 254, __pyx_L1_error)
-  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BlockHeader) < (0)) __PYX_ERR(0, 254, __pyx_L1_error)
+  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_BlockHeader, (PyObject *) __pyx_mstate->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BlockHeader) < (0)) __PYX_ERR(0, 255, __pyx_L1_error)
+  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BlockHeader) < (0)) __PYX_ERR(0, 255, __pyx_L1_error)
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_mstate->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BlockTables = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_8refinery_3lib_5unrar_8unpack50_BlockTables_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BlockTables)) __PYX_ERR(0, 272, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_8refinery_3lib_5unrar_8unpack50_BlockTables_spec, __pyx_mstate->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BlockTables) < (0)) __PYX_ERR(0, 272, __pyx_L1_error)
+  __pyx_mstate->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BlockTables = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_8refinery_3lib_5unrar_8unpack50_BlockTables_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BlockTables)) __PYX_ERR(0, 273, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_8refinery_3lib_5unrar_8unpack50_BlockTables_spec, __pyx_mstate->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BlockTables) < (0)) __PYX_ERR(0, 273, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BlockTables = &__pyx_type_8refinery_3lib_5unrar_8unpack50_BlockTables;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BlockTables) < (0)) __PYX_ERR(0, 272, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BlockTables) < (0)) __PYX_ERR(0, 273, __pyx_L1_error)
   #endif
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount((PyObject*)__pyx_mstate->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BlockTables);
@@ -34820,8 +34820,8 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
     __pyx_mstate->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BlockTables->tp_getattro = PyObject_GenericGetAttr;
   }
   #endif
-  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_BlockTables, (PyObject *) __pyx_mstate->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BlockTables) < (0)) __PYX_ERR(0, 272, __pyx_L1_error)
-  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BlockTables) < (0)) __PYX_ERR(0, 272, __pyx_L1_error)
+  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_BlockTables, (PyObject *) __pyx_mstate->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BlockTables) < (0)) __PYX_ERR(0, 273, __pyx_L1_error)
+  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BlockTables) < (0)) __PYX_ERR(0, 273, __pyx_L1_error)
   __pyx_vtabptr_array = &__pyx_vtable_array;
   __pyx_vtable_array.get_memview = (PyObject *(*)(struct __pyx_array_obj *))__pyx_array_get_memview;
   #if CYTHON_USE_TYPE_SPECS
@@ -35771,7 +35771,7 @@ __Pyx_RefNannySetupContext("PyInit_unpack50", 0);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
   /* "refinery/lib/unrar/unpack50.pyx":13
- * from cpython.bytearray cimport PyByteArray_AS_STRING
+ * from libc.string cimport memcpy, memset
  * 
  * from refinery.lib.unrar.filters import FilterType, UnpackFilter, apply_filter             # <<<<<<<<<<<<<<
  * from refinery.lib.unrar.unpack import RarUnpacker
@@ -35799,7 +35799,7 @@ __Pyx_RefNannySetupContext("PyInit_unpack50", 0);
  * from refinery.lib.unrar.filters import FilterType, UnpackFilter, apply_filter
  * from refinery.lib.unrar.unpack import RarUnpacker             # <<<<<<<<<<<<<<
  * 
- * cdef int NC = 306
+ * 
 */
   {
     PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_RarUnpacker};
@@ -35818,8 +35818,8 @@ __Pyx_RefNannySetupContext("PyInit_unpack50", 0);
   }
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":16
- * from refinery.lib.unrar.unpack import RarUnpacker
+  /* "refinery/lib/unrar/unpack50.pyx":17
+ * 
  * 
  * cdef int NC = 306             # <<<<<<<<<<<<<<
  * cdef int DC = 64
@@ -35827,7 +35827,7 @@ __Pyx_RefNannySetupContext("PyInit_unpack50", 0);
 */
   __pyx_v_8refinery_3lib_5unrar_8unpack50_NC = 0x132;
 
-  /* "refinery/lib/unrar/unpack50.pyx":17
+  /* "refinery/lib/unrar/unpack50.pyx":18
  * 
  * cdef int NC = 306
  * cdef int DC = 64             # <<<<<<<<<<<<<<
@@ -35836,7 +35836,7 @@ __Pyx_RefNannySetupContext("PyInit_unpack50", 0);
 */
   __pyx_v_8refinery_3lib_5unrar_8unpack50_DC = 64;
 
-  /* "refinery/lib/unrar/unpack50.pyx":18
+  /* "refinery/lib/unrar/unpack50.pyx":19
  * cdef int NC = 306
  * cdef int DC = 64
  * cdef int LDC = 16             # <<<<<<<<<<<<<<
@@ -35845,7 +35845,7 @@ __Pyx_RefNannySetupContext("PyInit_unpack50", 0);
 */
   __pyx_v_8refinery_3lib_5unrar_8unpack50_LDC = 16;
 
-  /* "refinery/lib/unrar/unpack50.pyx":19
+  /* "refinery/lib/unrar/unpack50.pyx":20
  * cdef int DC = 64
  * cdef int LDC = 16
  * cdef int RC = 44             # <<<<<<<<<<<<<<
@@ -35854,7 +35854,7 @@ __Pyx_RefNannySetupContext("PyInit_unpack50", 0);
 */
   __pyx_v_8refinery_3lib_5unrar_8unpack50_RC = 44;
 
-  /* "refinery/lib/unrar/unpack50.pyx":20
+  /* "refinery/lib/unrar/unpack50.pyx":21
  * cdef int LDC = 16
  * cdef int RC = 44
  * cdef int BC = 20             # <<<<<<<<<<<<<<
@@ -35863,7 +35863,7 @@ __Pyx_RefNannySetupContext("PyInit_unpack50", 0);
 */
   __pyx_v_8refinery_3lib_5unrar_8unpack50_BC = 20;
 
-  /* "refinery/lib/unrar/unpack50.pyx":21
+  /* "refinery/lib/unrar/unpack50.pyx":22
  * cdef int RC = 44
  * cdef int BC = 20
  * cdef int HUFF_TABLE_SIZE = NC + DC + RC + LDC             # <<<<<<<<<<<<<<
@@ -35872,7 +35872,7 @@ __Pyx_RefNannySetupContext("PyInit_unpack50", 0);
 */
   __pyx_v_8refinery_3lib_5unrar_8unpack50_HUFF_TABLE_SIZE = (((__pyx_v_8refinery_3lib_5unrar_8unpack50_NC + __pyx_v_8refinery_3lib_5unrar_8unpack50_DC) + __pyx_v_8refinery_3lib_5unrar_8unpack50_RC) + __pyx_v_8refinery_3lib_5unrar_8unpack50_LDC);
 
-  /* "refinery/lib/unrar/unpack50.pyx":22
+  /* "refinery/lib/unrar/unpack50.pyx":23
  * cdef int BC = 20
  * cdef int HUFF_TABLE_SIZE = NC + DC + RC + LDC
  * cdef int LARGEST_TABLE_SIZE = 306             # <<<<<<<<<<<<<<
@@ -35881,7 +35881,7 @@ __Pyx_RefNannySetupContext("PyInit_unpack50", 0);
 */
   __pyx_v_8refinery_3lib_5unrar_8unpack50_LARGEST_TABLE_SIZE = 0x132;
 
-  /* "refinery/lib/unrar/unpack50.pyx":23
+  /* "refinery/lib/unrar/unpack50.pyx":24
  * cdef int HUFF_TABLE_SIZE = NC + DC + RC + LDC
  * cdef int LARGEST_TABLE_SIZE = 306
  * cdef int MAX_QUICK_DECODE_BITS = 10             # <<<<<<<<<<<<<<
@@ -35890,7 +35890,7 @@ __Pyx_RefNannySetupContext("PyInit_unpack50", 0);
 */
   __pyx_v_8refinery_3lib_5unrar_8unpack50_MAX_QUICK_DECODE_BITS = 10;
 
-  /* "refinery/lib/unrar/unpack50.pyx":24
+  /* "refinery/lib/unrar/unpack50.pyx":25
  * cdef int LARGEST_TABLE_SIZE = 306
  * cdef int MAX_QUICK_DECODE_BITS = 10
  * cdef int MAX_UNPACK_FILTERS = 8192             # <<<<<<<<<<<<<<
@@ -35899,7 +35899,7 @@ __Pyx_RefNannySetupContext("PyInit_unpack50", 0);
 */
   __pyx_v_8refinery_3lib_5unrar_8unpack50_MAX_UNPACK_FILTERS = 0x2000;
 
-  /* "refinery/lib/unrar/unpack50.pyx":25
+  /* "refinery/lib/unrar/unpack50.pyx":26
  * cdef int MAX_QUICK_DECODE_BITS = 10
  * cdef int MAX_UNPACK_FILTERS = 8192
  * cdef int MAX_FILTER_BLOCK_SIZE = 0x400000             # <<<<<<<<<<<<<<
@@ -35908,7 +35908,7 @@ __Pyx_RefNannySetupContext("PyInit_unpack50", 0);
 */
   __pyx_v_8refinery_3lib_5unrar_8unpack50_MAX_FILTER_BLOCK_SIZE = 0x400000;
 
-  /* "refinery/lib/unrar/unpack50.pyx":26
+  /* "refinery/lib/unrar/unpack50.pyx":27
  * cdef int MAX_UNPACK_FILTERS = 8192
  * cdef int MAX_FILTER_BLOCK_SIZE = 0x400000
  * cdef int UNPACK_MAX_WRITE = 0x400000             # <<<<<<<<<<<<<<
@@ -35917,7 +35917,7 @@ __Pyx_RefNannySetupContext("PyInit_unpack50", 0);
 */
   __pyx_v_8refinery_3lib_5unrar_8unpack50_UNPACK_MAX_WRITE = 0x400000;
 
-  /* "refinery/lib/unrar/unpack50.pyx":27
+  /* "refinery/lib/unrar/unpack50.pyx":28
  * cdef int MAX_FILTER_BLOCK_SIZE = 0x400000
  * cdef int UNPACK_MAX_WRITE = 0x400000
  * cdef int MAX_INC_LZ_MATCH = 0x1001 + 3             # <<<<<<<<<<<<<<
@@ -35926,64 +35926,64 @@ __Pyx_RefNannySetupContext("PyInit_unpack50", 0);
 */
   __pyx_v_8refinery_3lib_5unrar_8unpack50_MAX_INC_LZ_MATCH = 0x1004;
 
-  /* "refinery/lib/unrar/unpack50.pyx":55
+  /* "refinery/lib/unrar/unpack50.pyx":56
  *         return r if r > 0 else 0
  * 
  *     def init(self):             # <<<<<<<<<<<<<<
  *         self.in_addr = 0
  *         self.in_bit = 0
 */
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_8refinery_3lib_5unrar_8unpack50_8BitInput_3init, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_BitInput_init, NULL, __pyx_mstate_global->__pyx_n_u_refinery_lib_unrar_unpack50, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[0])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 55, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_8refinery_3lib_5unrar_8unpack50_8BitInput_3init, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_BitInput_init, NULL, __pyx_mstate_global->__pyx_n_u_refinery_lib_unrar_unpack50, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[0])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 56, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_4);
   #endif
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BitInput, __pyx_mstate_global->__pyx_n_u_init, __pyx_t_4) < (0)) __PYX_ERR(0, 55, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BitInput, __pyx_mstate_global->__pyx_n_u_init, __pyx_t_4) < (0)) __PYX_ERR(0, 56, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":59
+  /* "refinery/lib/unrar/unpack50.pyx":60
  *         self.in_bit = 0
  * 
  *     cpdef int getbits(self):             # <<<<<<<<<<<<<<
  *         cdef int addr = self.in_addr
  *         cdef int bit = self.in_bit
 */
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_8refinery_3lib_5unrar_8unpack50_8BitInput_5getbits, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_BitInput_getbits, NULL, __pyx_mstate_global->__pyx_n_u_refinery_lib_unrar_unpack50, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[1])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 59, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_8refinery_3lib_5unrar_8unpack50_8BitInput_5getbits, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_BitInput_getbits, NULL, __pyx_mstate_global->__pyx_n_u_refinery_lib_unrar_unpack50, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[1])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 60, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_4);
   #endif
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BitInput, __pyx_mstate_global->__pyx_n_u_getbits, __pyx_t_4) < (0)) __PYX_ERR(0, 59, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BitInput, __pyx_mstate_global->__pyx_n_u_getbits, __pyx_t_4) < (0)) __PYX_ERR(0, 60, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":70
+  /* "refinery/lib/unrar/unpack50.pyx":71
  *         return (val >> (8 - bit)) & 0xFFFF
  * 
  *     cpdef unsigned int getbits32(self):             # <<<<<<<<<<<<<<
  *         cdef int addr = self.in_addr
  *         cdef int bit = self.in_bit
 */
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_8refinery_3lib_5unrar_8unpack50_8BitInput_7getbits32, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_BitInput_getbits32, NULL, __pyx_mstate_global->__pyx_n_u_refinery_lib_unrar_unpack50, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[2])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 70, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_8refinery_3lib_5unrar_8unpack50_8BitInput_7getbits32, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_BitInput_getbits32, NULL, __pyx_mstate_global->__pyx_n_u_refinery_lib_unrar_unpack50, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[2])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 71, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_4);
   #endif
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BitInput, __pyx_mstate_global->__pyx_n_u_getbits32, __pyx_t_4) < (0)) __PYX_ERR(0, 70, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BitInput, __pyx_mstate_global->__pyx_n_u_getbits32, __pyx_t_4) < (0)) __PYX_ERR(0, 71, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":83
+  /* "refinery/lib/unrar/unpack50.pyx":84
  *         return <unsigned int>((val >> (8 - bit)) & 0xFFFFFFFF)
  * 
  *     cpdef void addbits(self, int bits):             # <<<<<<<<<<<<<<
  *         cdef int total = (self.in_addr << 3) + self.in_bit + bits
  *         self.in_addr = total >> 3
 */
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_8refinery_3lib_5unrar_8unpack50_8BitInput_9addbits, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_BitInput_addbits, NULL, __pyx_mstate_global->__pyx_n_u_refinery_lib_unrar_unpack50, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[3])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 83, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_8refinery_3lib_5unrar_8unpack50_8BitInput_9addbits, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_BitInput_addbits, NULL, __pyx_mstate_global->__pyx_n_u_refinery_lib_unrar_unpack50, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[3])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 84, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_4);
   #endif
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BitInput, __pyx_mstate_global->__pyx_n_u_addbits, __pyx_t_4) < (0)) __PYX_ERR(0, 83, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BitInput, __pyx_mstate_global->__pyx_n_u_addbits, __pyx_t_4) < (0)) __PYX_ERR(0, 84, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
   /* "(tree fragment)":1
@@ -36040,49 +36040,49 @@ __Pyx_RefNannySetupContext("PyInit_unpack50", 0);
   if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_DecodeTable, __pyx_mstate_global->__pyx_n_u_setstate_cython, __pyx_t_4) < (0)) __PYX_ERR(1, 16, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":109
+  /* "refinery/lib/unrar/unpack50.pyx":110
  * 
  * 
  * cpdef void make_decode_tables(             # <<<<<<<<<<<<<<
  *     bytearray length_table, DecodeTable dec, int size,
  * ):
 */
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_8refinery_3lib_5unrar_8unpack50_1make_decode_tables, 0, __pyx_mstate_global->__pyx_n_u_make_decode_tables, NULL, __pyx_mstate_global->__pyx_n_u_refinery_lib_unrar_unpack50, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[8])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 109, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_8refinery_3lib_5unrar_8unpack50_1make_decode_tables, 0, __pyx_mstate_global->__pyx_n_u_make_decode_tables, NULL, __pyx_mstate_global->__pyx_n_u_refinery_lib_unrar_unpack50, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[8])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 110, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_4);
   #endif
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_make_decode_tables, __pyx_t_4) < (0)) __PYX_ERR(0, 109, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_make_decode_tables, __pyx_t_4) < (0)) __PYX_ERR(0, 110, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":201
+  /* "refinery/lib/unrar/unpack50.pyx":202
  * 
  * 
  * def decode_number(inp, DecodeTable dec):             # <<<<<<<<<<<<<<
  *     """
  *     Decode a Huffman symbol.
 */
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_8refinery_3lib_5unrar_8unpack50_3decode_number, 0, __pyx_mstate_global->__pyx_n_u_decode_number, NULL, __pyx_mstate_global->__pyx_n_u_refinery_lib_unrar_unpack50, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[9])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 201, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_8refinery_3lib_5unrar_8unpack50_3decode_number, 0, __pyx_mstate_global->__pyx_n_u_decode_number, NULL, __pyx_mstate_global->__pyx_n_u_refinery_lib_unrar_unpack50, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[9])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 202, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_4);
   #endif
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_decode_number, __pyx_t_4) < (0)) __PYX_ERR(0, 201, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_decode_number, __pyx_t_4) < (0)) __PYX_ERR(0, 202, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":247
+  /* "refinery/lib/unrar/unpack50.pyx":248
  * 
  * 
  * def slot_to_length(BitInput inp, int slot):             # <<<<<<<<<<<<<<
  *     """
  *     Convert a length slot to actual length.
 */
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_8refinery_3lib_5unrar_8unpack50_5slot_to_length, 0, __pyx_mstate_global->__pyx_n_u_slot_to_length, NULL, __pyx_mstate_global->__pyx_n_u_refinery_lib_unrar_unpack50, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[10])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 247, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_8refinery_3lib_5unrar_8unpack50_5slot_to_length, 0, __pyx_mstate_global->__pyx_n_u_slot_to_length, NULL, __pyx_mstate_global->__pyx_n_u_refinery_lib_unrar_unpack50, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[10])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 248, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_4);
   #endif
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_slot_to_length, __pyx_t_4) < (0)) __PYX_ERR(0, 247, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_slot_to_length, __pyx_t_4) < (0)) __PYX_ERR(0, 248, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
   /* "(tree fragment)":1
@@ -36139,177 +36139,177 @@ __Pyx_RefNannySetupContext("PyInit_unpack50", 0);
   if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_8refinery_3lib_5unrar_8unpack50_BlockTables, __pyx_mstate_global->__pyx_n_u_setstate_cython, __pyx_t_4) < (0)) __PYX_ERR(1, 16, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":327
+  /* "refinery/lib/unrar/unpack50.pyx":328
  * 
  * 
  * def read_block_header(BitInput inp, BlockHeader header):             # <<<<<<<<<<<<<<
  *     """
  *     Read a RAR5 compression block header.
 */
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_8refinery_3lib_5unrar_8unpack50_7read_block_header, 0, __pyx_mstate_global->__pyx_n_u_read_block_header, NULL, __pyx_mstate_global->__pyx_n_u_refinery_lib_unrar_unpack50, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[15])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 327, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_8refinery_3lib_5unrar_8unpack50_7read_block_header, 0, __pyx_mstate_global->__pyx_n_u_read_block_header, NULL, __pyx_mstate_global->__pyx_n_u_refinery_lib_unrar_unpack50, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[15])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 328, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_4);
   #endif
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_read_block_header, __pyx_t_4) < (0)) __PYX_ERR(0, 327, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_read_block_header, __pyx_t_4) < (0)) __PYX_ERR(0, 328, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":408
+  /* "refinery/lib/unrar/unpack50.pyx":409
  * 
  * 
  * def read_tables(BitInput inp, BlockHeader header, BlockTables tables):             # <<<<<<<<<<<<<<
  *     """
  *     Read Huffman tables from a block.
 */
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_8refinery_3lib_5unrar_8unpack50_9read_tables, 0, __pyx_mstate_global->__pyx_n_u_read_tables, NULL, __pyx_mstate_global->__pyx_n_u_refinery_lib_unrar_unpack50, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[16])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 408, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_8refinery_3lib_5unrar_8unpack50_9read_tables, 0, __pyx_mstate_global->__pyx_n_u_read_tables, NULL, __pyx_mstate_global->__pyx_n_u_refinery_lib_unrar_unpack50, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[16])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 409, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_4);
   #endif
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_read_tables, __pyx_t_4) < (0)) __PYX_ERR(0, 408, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_read_tables, __pyx_t_4) < (0)) __PYX_ERR(0, 409, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":426
+  /* "refinery/lib/unrar/unpack50.pyx":427
  * 
  * 
  * def read_filter_data(BitInput inp):             # <<<<<<<<<<<<<<
  *     """
  *     Read a variable-length filter data value.
 */
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_8refinery_3lib_5unrar_8unpack50_11read_filter_data, 0, __pyx_mstate_global->__pyx_n_u_read_filter_data, NULL, __pyx_mstate_global->__pyx_n_u_refinery_lib_unrar_unpack50, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[17])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 426, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_8refinery_3lib_5unrar_8unpack50_11read_filter_data, 0, __pyx_mstate_global->__pyx_n_u_read_filter_data, NULL, __pyx_mstate_global->__pyx_n_u_refinery_lib_unrar_unpack50, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[17])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 427, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_4);
   #endif
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_read_filter_data, __pyx_t_4) < (0)) __PYX_ERR(0, 426, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_read_filter_data, __pyx_t_4) < (0)) __PYX_ERR(0, 427, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":433
+  /* "refinery/lib/unrar/unpack50.pyx":434
  * 
  * 
  * def read_filter(BitInput inp):             # <<<<<<<<<<<<<<
  *     """
  *     Read a RAR5 filter definition.
 */
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_8refinery_3lib_5unrar_8unpack50_13read_filter, 0, __pyx_mstate_global->__pyx_n_u_read_filter, NULL, __pyx_mstate_global->__pyx_n_u_refinery_lib_unrar_unpack50, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[18])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 433, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_8refinery_3lib_5unrar_8unpack50_13read_filter, 0, __pyx_mstate_global->__pyx_n_u_read_filter, NULL, __pyx_mstate_global->__pyx_n_u_refinery_lib_unrar_unpack50, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[18])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 434, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_4);
   #endif
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_read_filter, __pyx_t_4) < (0)) __PYX_ERR(0, 433, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_read_filter, __pyx_t_4) < (0)) __PYX_ERR(0, 434, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":453
+  /* "refinery/lib/unrar/unpack50.pyx":454
  * 
  * 
  * class Unpack50(RarUnpacker):             # <<<<<<<<<<<<<<
  *     """
  *     RAR 5.0 decompression engine
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_RarUnpacker); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 453, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_RarUnpacker); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 454, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_5 = PyTuple_Pack(1, __pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 453, __pyx_L1_error)
+  __pyx_t_5 = PyTuple_Pack(1, __pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 454, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  __pyx_t_4 = __Pyx_PEP560_update_bases(__pyx_t_5); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 453, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PEP560_update_bases(__pyx_t_5); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 454, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_10 = __Pyx_CalculateMetaclass(NULL, __pyx_t_4); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 453, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_CalculateMetaclass(NULL, __pyx_t_4); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 454, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  __pyx_t_11 = __Pyx_Py3MetaclassPrepare(__pyx_t_10, __pyx_t_4, __pyx_mstate_global->__pyx_n_u_Unpack50, __pyx_mstate_global->__pyx_n_u_Unpack50, (PyObject *) NULL, __pyx_mstate_global->__pyx_n_u_refinery_lib_unrar_unpack50, __pyx_mstate_global->__pyx_kp_u_RAR_5_0_decompression_engine); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 453, __pyx_L1_error)
+  __pyx_t_11 = __Pyx_Py3MetaclassPrepare(__pyx_t_10, __pyx_t_4, __pyx_mstate_global->__pyx_n_u_Unpack50, __pyx_mstate_global->__pyx_n_u_Unpack50, (PyObject *) NULL, __pyx_mstate_global->__pyx_n_u_refinery_lib_unrar_unpack50, __pyx_mstate_global->__pyx_kp_u_RAR_5_0_decompression_engine); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 454, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_11);
   if (__pyx_t_4 != __pyx_t_5) {
-    if (unlikely((PyDict_SetItemString(__pyx_t_11, "__orig_bases__", __pyx_t_5) < 0))) __PYX_ERR(0, 453, __pyx_L1_error)
+    if (unlikely((PyDict_SetItemString(__pyx_t_11, "__orig_bases__", __pyx_t_5) < 0))) __PYX_ERR(0, 454, __pyx_L1_error)
   }
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":463
+  /* "refinery/lib/unrar/unpack50.pyx":464
  *         int unp_size,
  *         int win_size,
  *         bint solid=False,             # <<<<<<<<<<<<<<
  *     ):
  *         self._inp = BitInput(data)
 */
-  __pyx_t_5 = __Pyx_PyBool_FromLong(((int)0)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 463, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyBool_FromLong(((int)0)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 464, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
 
-  /* "refinery/lib/unrar/unpack50.pyx":458
+  /* "refinery/lib/unrar/unpack50.pyx":459
  *     """
  * 
  *     def __init__(             # <<<<<<<<<<<<<<
  *         self,
  *         data,
 */
-  __pyx_t_12 = PyTuple_Pack(1, __pyx_t_5); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 458, __pyx_L1_error)
+  __pyx_t_12 = PyTuple_Pack(1, __pyx_t_5); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 459, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_12);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_8refinery_3lib_5unrar_8unpack50_8Unpack50_1__init__, 0, __pyx_mstate_global->__pyx_n_u_Unpack50___init, NULL, __pyx_mstate_global->__pyx_n_u_refinery_lib_unrar_unpack50, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[19])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 458, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_8refinery_3lib_5unrar_8unpack50_8Unpack50_1__init__, 0, __pyx_mstate_global->__pyx_n_u_Unpack50___init, NULL, __pyx_mstate_global->__pyx_n_u_refinery_lib_unrar_unpack50, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[19])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 459, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_5);
   #endif
   __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_5, __pyx_t_12);
   __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_init_2, __pyx_t_5) < (0)) __PYX_ERR(0, 458, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_init_2, __pyx_t_5) < (0)) __PYX_ERR(0, 459, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":483
+  /* "refinery/lib/unrar/unpack50.pyx":484
  *         self._write_border = min(self._win_size, UNPACK_MAX_WRITE) & self._win_mask
  * 
  *     def init_solid(self, data, int dest_size):             # <<<<<<<<<<<<<<
  *         """
  *         Reinitialize for the next file in a solid archive chain.
 */
-  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_8refinery_3lib_5unrar_8unpack50_8Unpack50_3init_solid, 0, __pyx_mstate_global->__pyx_n_u_Unpack50_init_solid, NULL, __pyx_mstate_global->__pyx_n_u_refinery_lib_unrar_unpack50, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[20])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 483, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_8refinery_3lib_5unrar_8unpack50_8Unpack50_3init_solid, 0, __pyx_mstate_global->__pyx_n_u_Unpack50_init_solid, NULL, __pyx_mstate_global->__pyx_n_u_refinery_lib_unrar_unpack50, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[20])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 484, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_5);
   #endif
-  if (__Pyx_SetNameInClass(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_init_solid, __pyx_t_5) < (0)) __PYX_ERR(0, 483, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_init_solid, __pyx_t_5) < (0)) __PYX_ERR(0, 484, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":493
+  /* "refinery/lib/unrar/unpack50.pyx":494
  *         self._solid = True
  * 
  *     def _write_buf(self):             # <<<<<<<<<<<<<<
  *         """
  *         Apply filters and flush the write buffer.
 */
-  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_8refinery_3lib_5unrar_8unpack50_8Unpack50_5_write_buf, 0, __pyx_mstate_global->__pyx_n_u_Unpack50__write_buf, NULL, __pyx_mstate_global->__pyx_n_u_refinery_lib_unrar_unpack50, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[21])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 493, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_8refinery_3lib_5unrar_8unpack50_8Unpack50_5_write_buf, 0, __pyx_mstate_global->__pyx_n_u_Unpack50__write_buf, NULL, __pyx_mstate_global->__pyx_n_u_refinery_lib_unrar_unpack50, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[21])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 494, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_5);
   #endif
-  if (__Pyx_SetNameInClass(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_write_buf, __pyx_t_5) < (0)) __PYX_ERR(0, 493, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_write_buf, __pyx_t_5) < (0)) __PYX_ERR(0, 494, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":561
+  /* "refinery/lib/unrar/unpack50.pyx":562
  *             self._unp_ptr + min(self._win_size, UNPACK_MAX_WRITE)) & mask
  * 
  *     def decompress(self):             # <<<<<<<<<<<<<<
  *         """
  *         Run the RAR5 decompression and return the extracted data.
 */
-  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_8refinery_3lib_5unrar_8unpack50_8Unpack50_7decompress, 0, __pyx_mstate_global->__pyx_n_u_Unpack50_decompress, NULL, __pyx_mstate_global->__pyx_n_u_refinery_lib_unrar_unpack50, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[22])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 561, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_8refinery_3lib_5unrar_8unpack50_8Unpack50_7decompress, 0, __pyx_mstate_global->__pyx_n_u_Unpack50_decompress, NULL, __pyx_mstate_global->__pyx_n_u_refinery_lib_unrar_unpack50, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[22])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 562, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_5);
   #endif
-  if (__Pyx_SetNameInClass(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_decompress, __pyx_t_5) < (0)) __PYX_ERR(0, 561, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_decompress, __pyx_t_5) < (0)) __PYX_ERR(0, 562, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "refinery/lib/unrar/unpack50.pyx":453
+  /* "refinery/lib/unrar/unpack50.pyx":454
  * 
  * 
  * class Unpack50(RarUnpacker):             # <<<<<<<<<<<<<<
  *     """
  *     RAR 5.0 decompression engine
 */
-  __pyx_t_5 = __Pyx_Py3ClassCreate(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_Unpack50, __pyx_t_4, __pyx_t_11, NULL, 0, 0); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 453, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_Py3ClassCreate(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_Unpack50, __pyx_t_4, __pyx_t_11, NULL, 0, 0); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 454, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_5);
   #endif
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_Unpack50, __pyx_t_5) < (0)) __PYX_ERR(0, 453, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_Unpack50, __pyx_t_5) < (0)) __PYX_ERR(0, 454, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
@@ -36421,7 +36421,7 @@ __Pyx_RefNannySetupContext("PyInit_unpack50", 0);
 
 static int __Pyx_InitCachedBuiltins(__pyx_mstatetype *__pyx_mstate) {
   CYTHON_UNUSED_VAR(__pyx_mstate);
-  __pyx_builtin_enumerate = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_enumerate); if (!__pyx_builtin_enumerate) __PYX_ERR(0, 506, __pyx_L1_error)
+  __pyx_builtin_enumerate = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_enumerate); if (!__pyx_builtin_enumerate) __PYX_ERR(0, 507, __pyx_L1_error)
   __pyx_builtin___import__ = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_import); if (!__pyx_builtin___import__) __PYX_ERR(1, 101, __pyx_L1_error)
   __pyx_builtin_Ellipsis = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_Ellipsis); if (!__pyx_builtin_Ellipsis) __PYX_ERR(1, 409, __pyx_L1_error)
   __pyx_builtin_id = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_id); if (!__pyx_builtin_id) __PYX_ERR(1, 619, __pyx_L1_error)
@@ -36645,22 +36645,22 @@ static int __Pyx_CreateCodeObjects(__pyx_mstatetype *__pyx_mstate) {
   PyObject* tuple_dedup_map = PyDict_New();
   if (unlikely(!tuple_dedup_map)) return -1;
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 55};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 56};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self};
     __pyx_mstate_global->__pyx_codeobj_tab[0] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_refinery_lib_unrar_unpack50_pyx, __pyx_mstate->__pyx_n_u_init, __pyx_mstate->__pyx_kp_b_iso88591_A_Kq_Ja, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[0])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 59};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 60};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self};
     __pyx_mstate_global->__pyx_codeobj_tab[1] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_refinery_lib_unrar_unpack50_pyx, __pyx_mstate->__pyx_n_u_getbits, __pyx_mstate->__pyx_kp_b_iso88591_A_A_t1_A_T_ay_Rz_T_auBfE_2Rz_T_a, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[1])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 70};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 71};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self};
     __pyx_mstate_global->__pyx_codeobj_tab[2] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_refinery_lib_unrar_unpack50_pyx, __pyx_mstate->__pyx_n_u_getbits32, __pyx_mstate->__pyx_kp_b_iso88591_A_A_t1_A_T_ay_Rz_T_auBfE_2Rz_T_a_2, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[2])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 83};
+    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 84};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_bits};
     __pyx_mstate_global->__pyx_codeobj_tab[3] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_refinery_lib_unrar_unpack50_pyx, __pyx_mstate->__pyx_n_u_addbits, __pyx_mstate->__pyx_kp_b_iso88591_A_is_Rt82Q_KvS_JfBa, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[3])) goto bad;
   }
@@ -36685,17 +36685,17 @@ static int __Pyx_CreateCodeObjects(__pyx_mstatetype *__pyx_mstate) {
     __pyx_mstate_global->__pyx_codeobj_tab[7] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_stringsource, __pyx_mstate->__pyx_n_u_setstate_cython, __pyx_mstate->__pyx_kp_b_iso88591__7, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[7])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {3, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 109};
+    const __Pyx_PyCode_New_function_description descr = {3, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 110};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_length_table, __pyx_mstate->__pyx_n_u_dec, __pyx_mstate->__pyx_n_u_size};
     __pyx_mstate_global->__pyx_codeobj_tab[8] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_refinery_lib_unrar_unpack50_pyx, __pyx_mstate->__pyx_n_u_make_decode_tables, __pyx_mstate->__pyx_kp_b_iso88591_Cr_U_1_A_Rxq_a_U_1_auA_5_5_U_3a, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[8])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 8, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 201};
+    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 8, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 202};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_inp, __pyx_mstate->__pyx_n_u_dec, __pyx_mstate->__pyx_n_u_bit_field, __pyx_mstate->__pyx_n_u_code, __pyx_mstate->__pyx_n_u_bits, __pyx_mstate->__pyx_n_u_i, __pyx_mstate->__pyx_n_u_dist, __pyx_mstate->__pyx_n_u_pos};
     __pyx_mstate_global->__pyx_codeobj_tab[9] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_refinery_lib_unrar_unpack50_pyx, __pyx_mstate->__pyx_n_u_decode_number, __pyx_mstate->__pyx_kp_b_iso88591_z_q_U_83b_z_3k_Q_z_S_Q_81Cz_s_A, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[9])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 247};
+    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 248};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_inp, __pyx_mstate->__pyx_n_u_slot};
     __pyx_mstate_global->__pyx_codeobj_tab[10] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_refinery_lib_unrar_unpack50_pyx, __pyx_mstate->__pyx_n_u_slot_to_length, __pyx_mstate->__pyx_kp_b_iso88591_5, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[10])) goto bad;
   }
@@ -36720,42 +36720,42 @@ static int __Pyx_CreateCodeObjects(__pyx_mstatetype *__pyx_mstate) {
     __pyx_mstate_global->__pyx_codeobj_tab[14] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_stringsource, __pyx_mstate->__pyx_n_u_setstate_cython, __pyx_mstate->__pyx_kp_b_iso88591__7, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[14])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 327};
+    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 328};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_inp, __pyx_mstate->__pyx_n_u_header};
     __pyx_mstate_global->__pyx_codeobj_tab[15] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_refinery_lib_unrar_unpack50_pyx, __pyx_mstate->__pyx_n_u_read_block_header, __pyx_mstate->__pyx_kp_b_iso88591_Qe1, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[15])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {3, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 408};
+    const __Pyx_PyCode_New_function_description descr = {3, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 409};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_inp, __pyx_mstate->__pyx_n_u_header, __pyx_mstate->__pyx_n_u_tables};
     __pyx_mstate_global->__pyx_codeobj_tab[16] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_refinery_lib_unrar_unpack50_pyx, __pyx_mstate->__pyx_n_u_read_tables, __pyx_mstate->__pyx_kp_b_iso88591_q_XQ, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[16])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 426};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 427};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_inp};
     __pyx_mstate_global->__pyx_codeobj_tab[17] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_refinery_lib_unrar_unpack50_pyx, __pyx_mstate->__pyx_n_u_read_filter_data, __pyx_mstate->__pyx_kp_b_iso88591_AQ, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[17])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 433};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 434};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_inp, __pyx_mstate->__pyx_n_u_flt};
     __pyx_mstate_global->__pyx_codeobj_tab[18] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_refinery_lib_unrar_unpack50_pyx, __pyx_mstate->__pyx_n_u_read_filter, __pyx_mstate->__pyx_kp_b_iso88591_a_q_s_1_y_83c_Rq_xq_s_Q_HCs_b_b, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[18])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {5, 0, 0, 5, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 458};
+    const __Pyx_PyCode_New_function_description descr = {5, 0, 0, 5, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 459};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_data, __pyx_mstate->__pyx_n_u_unp_size, __pyx_mstate->__pyx_n_u_win_size, __pyx_mstate->__pyx_n_u_solid};
     __pyx_mstate_global->__pyx_codeobj_tab[19] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_refinery_lib_unrar_unpack50_pyx, __pyx_mstate->__pyx_n_u_init_2, __pyx_mstate->__pyx_kp_b_iso88591_A_HHAQ_N_AZq_M_Ky_Q_Ja_M_S_1_A_L, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[19])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {3, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 483};
+    const __Pyx_PyCode_New_function_description descr = {3, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 484};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_data, __pyx_mstate->__pyx_n_u_dest_size_2};
     __pyx_mstate_global->__pyx_codeobj_tab[20] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_refinery_lib_unrar_unpack50_pyx, __pyx_mstate->__pyx_n_u_init_solid, __pyx_mstate->__pyx_kp_b_iso88591_A_HHAQ_N_Ky_L_Ja, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[20])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 17, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 493};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 17, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 494};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_mask, __pyx_mstate->__pyx_n_u_full_write_size, __pyx_mstate->__pyx_n_u_write_size_left, __pyx_mstate->__pyx_n_u_block_start, __pyx_mstate->__pyx_n_u_block_length, __pyx_mstate->__pyx_n_u_block_end, __pyx_mstate->__pyx_n_u_first_part, __pyx_mstate->__pyx_n_u_i, __pyx_mstate->__pyx_n_u_j, __pyx_mstate->__pyx_n_u_written_border, __pyx_mstate->__pyx_n_u_win, __pyx_mstate->__pyx_n_u_flt, __pyx_mstate->__pyx_n_u_mem, __pyx_mstate->__pyx_n_u_out_mem, __pyx_mstate->__pyx_n_u_f, __pyx_mstate->__pyx_n_u_f};
     __pyx_mstate_global->__pyx_codeobj_tab[21] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_refinery_lib_unrar_unpack50_pyx, __pyx_mstate->__pyx_n_u_write_buf, __pyx_mstate->__pyx_kp_b_iso88591_A_Q_t1_d_4z_2Q_Cwiq_A_s_Q_s_S_Rt, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[21])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 30, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 561};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 30, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 562};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_inp, __pyx_mstate->__pyx_n_u_mask, __pyx_mstate->__pyx_n_u_inp_len, __pyx_mstate->__pyx_n_u_main_slot, __pyx_mstate->__pyx_n_u_length, __pyx_mstate->__pyx_n_u_dist_slot, __pyx_mstate->__pyx_n_u_d_bits, __pyx_mstate->__pyx_n_u_distance, __pyx_mstate->__pyx_n_u_length_slot, __pyx_mstate->__pyx_n_u_dist_num, __pyx_mstate->__pyx_n_u_low_dist, __pyx_mstate->__pyx_n_u_old0, __pyx_mstate->__pyx_n_u_old1, __pyx_mstate->__pyx_n_u_old2, __pyx_mstate->__pyx_n_u_old3, __pyx_mstate->__pyx_n_u_unp_ptr_2, __pyx_mstate->__pyx_n_u_last_length_2, __pyx_mstate->__pyx_n_u_win_size, __pyx_mstate->__pyx_n_u_write_border_2, __pyx_mstate->__pyx_n_u_win_ptr, __pyx_mstate->__pyx_n_u_src, __pyx_mstate->__pyx_n_u_dst, __pyx_mstate->__pyx_n_u_copied, __pyx_mstate->__pyx_n_u_chunk, __pyx_mstate->__pyx_n_u_win, __pyx_mstate->__pyx_n_u_hdr, __pyx_mstate->__pyx_n_u_tbl, __pyx_mstate->__pyx_n_u_old_dist_2, __pyx_mstate->__pyx_n_u_flt};
     __pyx_mstate_global->__pyx_codeobj_tab[22] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_refinery_lib_unrar_unpack50_pyx, __pyx_mstate->__pyx_n_u_decompress, __pyx_mstate->__pyx_kp_b_iso88591_A_D_A_d_8_4q_4_t1_4q_4_1E_5T_4q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[22])) goto bad;
   }

@@ -41,9 +41,9 @@ class PredictionDataset(APIObject):
     Attributes
     ----------
     id : str
-        the id of the dataset
+        the ID of the dataset
     project_id : str
-        the id of the project the dataset belongs to
+        the ID of the project the dataset belongs to
     created : str
         the time the dataset was created
     name : str
@@ -198,9 +198,9 @@ class PredictionDataset(APIObject):
         Parameters
         ----------
         project_id:
-            the id of the project to query
+            the ID of the project to query
         dataset_id:
-            the id of the dataset to retrieve
+            the ID of the dataset to retrieve
 
         Returns
         -------

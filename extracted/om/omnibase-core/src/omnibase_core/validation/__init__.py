@@ -122,6 +122,9 @@ from .envelope_validator import EnvelopeValidator
 
 # Import Any type validator (OMN-1291)
 from .validator_any_type import ValidatorAnyType
+from .validator_banned_compose_vars import (
+    ValidatorBannedComposeVars,
+)
 
 # Import validator base class (OMN-1291)
 from .validator_base import (
@@ -257,7 +260,8 @@ def __getattr__(name: str) -> type:
     ):
         import omnibase_core.validation.validator_contract_linter as vcl
 
-        return getattr(vcl, name)
+        attr: type = getattr(vcl, name)
+        return attr
 
     raise AttributeError(  # error-ok: required for __getattr__ protocol
         f"module {__name__!r} has no attribute {name!r}"
@@ -489,6 +493,8 @@ __all__ = [
     # Local path validator — detect machine-specific absolute paths
     "ValidatorLocalPaths",
     "ModelLocalPathViolation",
+    # Banned compose vars validator — compose↔contract topic drift (OMN-9062)
+    "ValidatorBannedComposeVars",
     # Naming Convention validator (OMN-1291)
     "ValidatorNamingConvention",
     "RULE_FILE_NAMING",

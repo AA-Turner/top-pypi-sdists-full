@@ -3,9 +3,11 @@ from __future__ import annotations
 import collections.abc
 import dataclasses
 import datetime as dt
+import enum
 import json
 import os
 import random
+import types
 import typing
 import warnings
 from functools import cached_property
@@ -45,20 +47,33 @@ from chalk._gen.chalk.protosql.v1.sql_service_pb2_grpc import SqlServiceStub
 from chalk._gen.chalk.scalinggroup.v1 import service_pb2 as scalinggroup_service_pb2
 from chalk._gen.chalk.scalinggroup.v1.service_pb2_grpc import ScalingGroupManagerServiceStub
 from chalk._gen.chalk.server.v1.auth_pb2_grpc import AuthServiceStub
-from chalk._gen.chalk.server.v1.builder_pb2 import StartBranchResponse
+from chalk._gen.chalk.server.v1.builder_pb2 import (
+    ActivateDeploymentRequest,
+    DeployKubeComponentsRequest,
+    IndexDeploymentRequest,
+    RebuildDeploymentRequest,
+    RedeployDeploymentRequest,
+    StartBranchResponse,
+    StartShadowBuildFromDeploymentRequest,
+)
 from chalk._gen.chalk.server.v1.builder_pb2_grpc import BuilderServiceStub
 from chalk._gen.chalk.server.v1.dataframe_pb2_grpc import DataFrameServiceStub as ApiDataFrameServiceStub
 from chalk._gen.chalk.server.v1.dataplanejobqueue_pb2 import (
     GetJobQueueOperationSummaryRequest,
     GetJobQueueOperationSummaryResponse,
 )
+from chalk._gen.chalk.server.v1.dataplanejobqueue_pb2 import JobQueueKind as ProtoJobQueueKind
+from chalk._gen.chalk.server.v1.dataplanejobqueue_pb2 import JobQueueState as ProtoJobQueueState
+from chalk._gen.chalk.server.v1.dataplanejobqueue_pb2 import ListDataPlaneJobQueueRequest
 from chalk._gen.chalk.server.v1.dataplanejobqueue_pb2_grpc import DataPlaneJobQueueServiceStub
 from chalk._gen.chalk.server.v1.dataplaneworkflows_pb2_grpc import DataPlaneWorkflowsServiceStub
 from chalk._gen.chalk.server.v1.deploy_pb2 import (
     CreateBranchFromSourceDeploymentRequest,
     CreateBranchFromSourceDeploymentResponse,
+    GetActiveDeploymentsRequest,
 )
 from chalk._gen.chalk.server.v1.deploy_pb2_grpc import DeployServiceStub
+from chalk._gen.chalk.server.v1.environment_pb2 import DeploymentBuildProfile
 from chalk._gen.chalk.server.v1.graph_pb2 import (
     GetCodegenFeaturesFromGraphRequest,
     GetCodegenFeaturesFromGraphResponse,
@@ -125,6 +140,7 @@ from chalk.client.models import (
     DownloadModelArtifactResult,
     GetRegisteredModelResponse,
     GetRegisteredModelVersionResponse,
+    JobQueueItem,
 )
 from chalk.client.models import ManualTriggerScheduledQueryResponse as ManualTriggerScheduledQueryResponseDataclass
 from chalk.client.models import (
@@ -134,6 +150,7 @@ from chalk.client.models import (
     OfflineQueryInfo,
     OnlineQuery,
     OnlineQueryResponse,
+    RedeployResponse,
     RegisterModelArtifactResponse,
     RegisterModelResponse,
     RegisterModelVersionResponse,
@@ -166,6 +183,7 @@ from chalk.scalinggroup.spec import (
     proto_to_scaling_group,
 )
 from chalk.utils import df_utils
+from chalk.utils.cached_member_fn import cached_member_fn
 from chalk.utils.df_utils import record_batch_to_arrow_ipc
 from chalk.utils.grpc import AuthenticatedChalkClientInterceptor, TokenRefresher, UnauthenticatedChalkClientInterceptor
 from chalk.utils.tracing import add_trace_headers, safe_trace
@@ -181,6 +199,32 @@ if TYPE_CHECKING:
     from chalk._gen.chalk.server.v1.builder_pb2_grpc import BuilderServiceStub
     from chalk._gen.chalk.server.v1.dataframe_pb2 import GetDataFrameRunResponse
     from chalk.client import ChalkError
+
+
+_JOB_STATE_MAP = {
+    "scheduled": ProtoJobQueueState.JOB_QUEUE_STATE_SCHEDULED,
+    "running": ProtoJobQueueState.JOB_QUEUE_STATE_RUNNING,
+    "completed": ProtoJobQueueState.JOB_QUEUE_STATE_COMPLETED,
+    "failed": ProtoJobQueueState.JOB_QUEUE_STATE_FAILED,
+    "canceled": ProtoJobQueueState.JOB_QUEUE_STATE_CANCELED,
+    "not_ready": ProtoJobQueueState.JOB_QUEUE_STATE_NOT_READY,
+    "waiting": ProtoJobQueueState.JOB_QUEUE_STATE_WAITING,
+}
+
+_JOB_KIND_MAP = {
+    "async_offline_query": ProtoJobQueueKind.JOB_QUEUE_KIND_ASYNC_OFFLINE_QUERY,
+    "scheduled_query": ProtoJobQueueKind.JOB_QUEUE_KIND_SCHEDULED_QUERY,
+    "script_task": ProtoJobQueueKind.JOB_QUEUE_KIND_SCRIPT_TASK,
+    "chalksql_run": ProtoJobQueueKind.JOB_QUEUE_KIND_CHALKSQL_RUN,
+    "dataframe_run": ProtoJobQueueKind.JOB_QUEUE_KIND_DATAFRAME_RUN,
+}
+
+_BUILD_PROFILE_MAP = {
+    "o3_no_profiling": DeploymentBuildProfile.DEPLOYMENT_BUILD_PROFILE_O3_NO_PROFILING,
+    "o3_profiling": DeploymentBuildProfile.DEPLOYMENT_BUILD_PROFILE_O3_PROFILING,
+    "o2_no_profiling": DeploymentBuildProfile.DEPLOYMENT_BUILD_PROFILE_O2_NO_PROFILING,
+    "o2_profiling": DeploymentBuildProfile.DEPLOYMENT_BUILD_PROFILE_O2_PROFILING,
+}
 
 
 @dataclasses.dataclass
@@ -292,6 +336,11 @@ T = TypeVar("T")
 U = TypeVar("U")
 
 
+class _EngineTarget(enum.Enum):
+    GRPC_ENGINE = enum.auto()
+    API_SERVER = enum.auto()
+
+
 class StubProvider:
     @property
     def server_channel(self) -> Optional[grpc.Channel]:
@@ -303,6 +352,24 @@ class StubProvider:
             self._server_channel.close()
         if self._engine_channel is not None:
             self._engine_channel.close()
+
+    def _get_engine_channel_for_target(self, target: _EngineTarget) -> grpc.Channel:
+        if target == _EngineTarget.GRPC_ENGINE:
+            channel = self._engine_channel
+            if channel is None:
+                raise ValueError(
+                    "The GRPC engine service is not available. If you would like to set up a GRPC service, please contact Chalk."
+                )
+            return channel
+        elif target == _EngineTarget.API_SERVER:
+            channel = self._server_channel
+            if channel is None:
+                raise ValueError(
+                    "The GRPC API-Server service is not available. Are you running against a local client?"
+                )
+            return channel
+        else:
+            raise ValueError(f"Unsupported target: {target}")
 
     @cached_property
     def deploy_stub(self):
@@ -322,13 +389,10 @@ class StubProvider:
             raise RuntimeError("Unable to connect to API server.")
         return TeamServiceStub(self._server_channel)
 
-    @cached_property
-    def query_stub(self) -> QueryServiceStub:
-        if self._engine_channel is None:
-            raise ValueError(
-                "The GRPC engine service is not available. If you would like to set up a GRPC service, please contact Chalk."
-            )
-        return QueryServiceStub(self._engine_channel)
+    @cached_member_fn
+    def query_stub(self, engine_target: _EngineTarget) -> QueryServiceStub:
+        channel = self._get_engine_channel_for_target(engine_target)
+        return QueryServiceStub(channel)
 
     @cached_property
     def offline_query_stub(self) -> OfflineQueryMetadataServiceStub:
@@ -370,29 +434,20 @@ class StubProvider:
             )
         return NamedQueryServiceStub(self._server_channel)
 
-    @cached_property
-    def sql_stub(self) -> SqlServiceStub:
-        if self._engine_channel is None:
-            raise ValueError(
-                "The GRPC engine service is not available. If you would like to set up a GRPC service, please contact Chalk."
-            )
-        return SqlServiceStub(self._engine_channel)
+    @cached_member_fn
+    def sql_stub(self, engine_target: _EngineTarget) -> SqlServiceStub:
+        channel = self._get_engine_channel_for_target(engine_target)
+        return SqlServiceStub(channel)
 
-    @cached_property
-    def dataframe_stub(self) -> DataFrameServiceStub:
-        if self._engine_channel is None:
-            raise ValueError(
-                "The GRPC engine service is not available. If you would like to set up a GRPC service, please contact Chalk."
-            )
-        return DataFrameServiceStub(self._engine_channel)
+    @cached_member_fn
+    def dataframe_stub(self, engine_target: _EngineTarget) -> DataFrameServiceStub:
+        channel = self._get_engine_channel_for_target(engine_target)
+        return DataFrameServiceStub(channel)
 
-    @cached_property
-    def streaming_stub(self) -> SimpleStreamingServiceStub:
-        if self._engine_channel is None:
-            raise ValueError(
-                "The GRPC engine service is not available. If you would like to set up a GRPC service, please contact Chalk."
-            )
-        return SimpleStreamingServiceStub(self._engine_channel)
+    @cached_member_fn
+    def streaming_stub(self, engine_target: _EngineTarget) -> SimpleStreamingServiceStub:
+        channel = self._get_engine_channel_for_target(engine_target)
+        return SimpleStreamingServiceStub(channel)
 
     @cached_property
     def model_stub(self) -> ModelRegistryServiceStub:
@@ -648,8 +703,8 @@ class StubRefresher:
     def call_team_stub(self, fn: Callable[[TeamServiceStub], T]) -> T:
         return self._retry_callable(fn, lambda: self._stub.team_stub)
 
-    def call_query_stub(self, fn: Callable[[QueryServiceStub], T]) -> T:
-        return self._retry_callable(fn, lambda: self._stub.query_stub)
+    def call_query_stub(self, fn: Callable[[QueryServiceStub], T], target: _EngineTarget) -> T:
+        return self._retry_callable(fn, lambda: self._stub.query_stub(target))
 
     def call_offline_query_stub(self, fn: Callable[[OfflineQueryMetadataServiceStub], T]) -> T:
         return self._retry_callable(fn, lambda: self._stub.offline_query_stub)
@@ -666,11 +721,11 @@ class StubRefresher:
     def call_get_named_query_metadata(self, fn: Callable[[NamedQueryServiceStub], T]) -> T:
         return self._retry_callable(fn, lambda: self._stub.named_query_stub)
 
-    def call_sql_stub(self, fn: Callable[[SqlServiceStub], T]) -> T:
-        return self._retry_callable(fn, lambda: self._stub.sql_stub)
+    def call_sql_stub(self, fn: Callable[[SqlServiceStub], T], target: _EngineTarget) -> T:
+        return self._retry_callable(fn, lambda: self._stub.sql_stub(target))
 
-    def call_dataframe_stub(self, fn: Callable[[DataFrameServiceStub], T]) -> T:
-        return self._retry_callable(fn, lambda: self._stub.dataframe_stub)
+    def call_dataframe_stub(self, fn: Callable[[DataFrameServiceStub], T], target: _EngineTarget) -> T:
+        return self._retry_callable(fn, lambda: self._stub.dataframe_stub(target))
 
     def call_api_dataframe_stub(self, fn: Callable[[ApiDataFrameServiceStub], T]) -> T:
         return self._retry_callable(fn, lambda: self._stub.api_dataframe_stub)
@@ -696,8 +751,8 @@ class StubRefresher:
     def call_job_queue_stub(self, fn: Callable[[DataPlaneJobQueueServiceStub], T]) -> T:
         return self._retry_callable(fn, lambda: self._stub.job_queue_stub)
 
-    def call_streaming_stub(self, fn: Callable[[SimpleStreamingServiceStub], T]) -> T:
-        return self._retry_callable(fn, lambda: self._stub.streaming_stub)
+    def call_streaming_stub(self, fn: Callable[[SimpleStreamingServiceStub], T], target: _EngineTarget) -> T:
+        return self._retry_callable(fn, lambda: self._stub.streaming_stub(target))
 
     def get_server_channel(self) -> Optional[grpc.Channel]:
         """Get the server gRPC channel."""
@@ -735,6 +790,7 @@ class ChalkGRPCClient:
         query_server: str | None = None,
         input_compression: typing.Literal["lz4", "zstd", "uncompressed"] = "lz4",
         channel_options: List[Tuple[str, str | int]] | None = None,
+        branch: str | None = None,
         **kwargs: Any,
     ):
         """Create a `ChalkGRPCClient` with the given credentials.
@@ -788,6 +844,7 @@ class ChalkGRPCClient:
         self._client_id = token_config.clientId
         self._client_secret = token_config.clientSecret
         self._environment = token_config.activeEnvironment
+        self._branch = branch
         self._api_server = token_config.apiServer
 
         self._stub_refresher = StubRefresher(
@@ -830,7 +887,8 @@ class ChalkGRPCClient:
         3
         """
         return self._stub_refresher.call_query_stub(
-            lambda x: x.Ping(query_server_pb2.PingRequest(num=num if num is not None else random.randint(0, 999)))
+            lambda x: x.Ping(query_server_pb2.PingRequest(num=num if num is not None else random.randint(0, 999))),
+            _EngineTarget.GRPC_ENGINE,
         ).num
 
     def online_query(
@@ -855,6 +913,7 @@ class ChalkGRPCClient:
         headers: Mapping[str, str] | Sequence[tuple[str, str | bytes]] | None = None,
         query_context: Mapping[str, Union[str, int, float, bool, None]] | str | None = None,
         trace: bool = False,
+        branch: str | None | types.EllipsisType = ...,
     ) -> OnlineQueryResponse:
         """Compute features values using online resolvers.
 
@@ -926,6 +985,10 @@ class ChalkGRPCClient:
             This context wraps a JSON-compatible dictionary or JSON string with type restrictions.
             See https://docs.chalk.ai/api-docs#ChalkContext for more information.
 
+        branch
+            Sends this query to a branch with the given name. If omitted, uses the client's current branch. If explicitly None,
+            runs this query on the mainline deployment (i.e. no branch)
+
         Other Parameters
         ----------------
         meta
@@ -957,6 +1020,7 @@ class ChalkGRPCClient:
         ...     staleness={User.fico_score: "10m"},
         ... )
         """
+        branch = self._branch if branch is ... else branch
         bulk_response = self._online_query_grpc_request(
             input=input,
             output=output,
@@ -978,8 +1042,13 @@ class ChalkGRPCClient:
             headers=headers,
             query_context=_validate_context_dict(query_context),
             trace=trace,
+            branch=branch,
         )
         return OnlineQueryConverter.online_query_bulk_response_decode_to_single(bulk_response)
+
+    @classmethod
+    def _engine_target(cls, branch: str | None) -> _EngineTarget:
+        return _EngineTarget.GRPC_ENGINE if branch is None else _EngineTarget.API_SERVER
 
     def _online_query_grpc_request(
         self,
@@ -1004,6 +1073,7 @@ class ChalkGRPCClient:
         headers: Mapping[str, str] | Sequence[tuple[str, str | bytes]] | None = None,
         query_context: Mapping[str, Union[str, int, float, bool, None]] | None = None,
         trace: bool = False,
+        branch: str | None = None,
     ) -> online_query_pb2.OnlineQueryBulkResponse:
         with safe_trace("_online_query_grpc_request"):
             request = self._make_query_bulk_request(
@@ -1029,13 +1099,17 @@ class ChalkGRPCClient:
                 extra_headers: dict[str, str] = {}
                 extra_headers = add_trace_headers(extra_headers)
                 headers = _merge_headers(extra_headers, headers)
+
+            if branch:
+                headers = _merge_headers(headers, {CHALK_BRANCH_ID_HEADER: branch})
             metadata = _canonicalize_headers(headers)
             return self._stub_refresher.call_query_stub(
                 lambda x: x.OnlineQueryBulk(
                     request,
                     timeout=request_timeout,
                     metadata=metadata,
-                )
+                ),
+                self._engine_target(branch),
             )
 
     def online_query_bulk(
@@ -1059,6 +1133,7 @@ class ChalkGRPCClient:
         request_timeout: Optional[float] = None,
         headers: Mapping[str, str | bytes] | Sequence[tuple[str, str | bytes]] | None = None,
         query_context: Mapping[str, Union[str, int, float, bool, None]] | str | None = None,
+        branch: str | None | types.EllipsisType = ...,
         *,
         input_sql: str | None = None,
     ) -> BulkOnlineQueryResult:
@@ -1070,6 +1145,7 @@ class ChalkGRPCClient:
             raise TypeError(
                 "When using `input_sql`, `now` is not allowed: instead, to provide a query time, you can have the SQL query output a column named `__ts__`"
             )
+        branch = self._branch if branch is ... else branch
 
         response, call = self._online_query_bulk_grpc_request(
             input=input,
@@ -1092,6 +1168,7 @@ class ChalkGRPCClient:
             request_timeout=request_timeout,
             headers=headers,
             query_context=_validate_context_dict(query_context),
+            branch=branch,
         )
         return OnlineQueryConverter.online_query_bulk_response_decode(
             response, trace_id=get_trace_id_from_response(call)
@@ -1120,6 +1197,7 @@ class ChalkGRPCClient:
         request_timeout: Optional[float] = None,
         headers: Mapping[str, str | bytes] | Sequence[tuple[str, str | bytes]] | None = None,
         query_context: Mapping[str, Union[str, int, float, bool, None]] | None = None,
+        branch: Optional[str] = None,
     ) -> Tuple[online_query_pb2.OnlineQueryBulkResponse, grpc.Call]:
         """Returns the raw GRPC response and metadata"""
 
@@ -1143,12 +1221,14 @@ class ChalkGRPCClient:
             planner_options=planner_options or {},
             query_context=query_context,
         )
+        headers = _merge_headers(headers, {CHALK_BRANCH_ID_HEADER: branch} if branch is not None else {})
         return self._stub_refresher.call_query_stub(
             lambda x: x.OnlineQueryBulk.with_call(
                 request,
                 timeout=request_timeout,
                 metadata=_canonicalize_headers(headers),
-            )
+            ),
+            self._engine_target(branch),
         )
 
     def upload_features_bulk(
@@ -1165,7 +1245,8 @@ class ChalkGRPCClient:
                 request,
                 timeout=request_timeout,
                 metadata=_canonicalize_headers(headers),
-            )
+            ),
+            _EngineTarget.GRPC_ENGINE,
         )
         return UploadFeaturesBulkConverter.upload_features_bulk_response_decode(
             response,
@@ -1180,7 +1261,7 @@ class ChalkGRPCClient:
         update_mataggs: bool = False,
         write_offline: bool = False,
         write_online: Optional[bool] = None,
-        branch: Optional[str] = None,
+        branch: None | str | types.EllipsisType = None,
     ) -> UploadFeaturesResponse:
         """Upload data to Chalk to be inserted into the online & offline stores.
 
@@ -1222,9 +1303,12 @@ class ChalkGRPCClient:
             inputs_table=get_features_feather_bytes(inputs, self._INPUT_ENCODE_OPTIONS),
             options=options,
         )
+        if branch is ...:
+            branch = self._branch
         merged_headers = _merge_headers(headers, {CHALK_BRANCH_ID_HEADER: branch} if branch is not None else None)
         response, call = self._stub_refresher.call_query_stub(
-            lambda x: x.UploadFeatures.with_call(request, timeout=request_timeout, metadata=merged_headers)
+            lambda x: x.UploadFeatures.with_call(request, timeout=request_timeout, metadata=merged_headers),
+            self._engine_target(branch),
         )
         trace_id = get_trace_id_from_response(call)
         py_errors = [ChalkErrorConverter.chalk_error_decode(err) for err in response.errors]
@@ -1247,6 +1331,7 @@ class ChalkGRPCClient:
         request_timeout: Optional[float] = None,
         headers: Mapping[str, str] | Sequence[tuple[str, str | bytes]] | None = None,
         query_context: Mapping[str, Union[str, int, float, bool, None]] | str | None = None,
+        branch: str | None | types.EllipsisType = None,
     ) -> BulkOnlineQueryResponse:
         """Execute a series of independent requests in parallel."""
         requests: List[GenericSingleQuery] = []
@@ -1276,6 +1361,9 @@ class ChalkGRPCClient:
                 query_context=query_context,
             )
             requests.append(GenericSingleQuery(bulk_request=request))
+        if branch is ...:
+            branch = self._branch
+        headers = _merge_headers(headers, {CHALK_BRANCH_ID_HEADER: branch} if branch is not None else branch)
         response, call = self._stub_refresher.call_query_stub(
             lambda x: x.OnlineQueryMulti.with_call(
                 online_query_pb2.OnlineQueryMultiRequest(
@@ -1283,7 +1371,8 @@ class ChalkGRPCClient:
                 ),
                 timeout=request_timeout,
                 metadata=_canonicalize_headers(headers),
-            )
+            ),
+            self._engine_target(branch),
         )
         return OnlineQueryConverter.online_query_multi_response_decode(
             response, trace_id=get_trace_id_from_response(call)
@@ -1565,6 +1654,173 @@ class ChalkGRPCClient:
 
         return None
 
+    def list_jobs(
+        self,
+        state: Optional[
+            Literal["scheduled", "running", "completed", "failed", "canceled", "not_ready", "waiting"]
+        ] = None,
+        kind: Optional[
+            Literal["async_offline_query", "scheduled_query", "script_task", "chalksql_run", "dataframe_run"]
+        ] = None,
+        operation_id: Optional[str] = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> List[JobQueueItem]:
+        """
+        List jobs in the data plane job queue.
+
+        Parameters
+        ----------
+        state
+            Filter by job state.
+        kind
+            Filter by job kind.
+        operation_id
+            Filter by operation ID.
+        limit
+            Maximum number of jobs to return. Defaults to 50.
+        offset
+            Offset for pagination. Defaults to 0.
+
+        Returns
+        -------
+        List[JobQueueItem]
+            The list of jobs.
+        """
+        request = ListDataPlaneJobQueueRequest(limit=limit, offset=offset)
+        if state is not None:
+            if state not in _JOB_STATE_MAP:
+                raise ValueError(f"Invalid state: {state}. Valid states: {', '.join(_JOB_STATE_MAP)}")
+            request.state = _JOB_STATE_MAP[state]
+        if kind is not None:
+            if kind not in _JOB_KIND_MAP:
+                raise ValueError(f"Invalid kind: {kind}. Valid kinds: {', '.join(_JOB_KIND_MAP)}")
+            request.kind = _JOB_KIND_MAP[kind]
+        if operation_id:
+            request.operation_id = operation_id
+
+        try:
+            proto_resp = self._stub_refresher.call_job_queue_stub(lambda x: x.ListDataPlaneJobQueue(request))
+        except Exception as e:
+            raise RuntimeError(f"Could not list jobs. {e}") from e
+        return [JobQueueItem.from_proto(job) for job in proto_resp.jobs]
+
+    def _get_active_deployment_id(self) -> str:
+        resp = self._stub_refresher.call_deploy_stub(lambda x: x.GetActiveDeployments(GetActiveDeploymentsRequest()))
+        if not resp.deployments:
+            raise RuntimeError("No active deployment found for this environment.")
+        return resp.deployments[0].id
+
+    def redeploy(
+        self,
+        deployment_id: Optional[str] = None,
+        build_profile: Optional[Literal["o3_no_profiling", "o3_profiling", "o2_no_profiling", "o2_profiling"]] = None,
+        deployment_tags: Optional[List[str]] = None,
+        base_image_override: Optional[str] = None,
+        force_rebuild_dockerfile: bool = False,
+        display_description: Optional[str] = None,
+    ) -> RedeployResponse:
+        """Full rebuild and deploy using this deployment's source."""
+        if deployment_id is None:
+            deployment_id = self._get_active_deployment_id()
+        resolved_build_profile = self._resolve_build_profile(build_profile)
+        try:
+            req = RedeployDeploymentRequest(
+                existing_deployment_id=deployment_id,
+                deployment_tags=deployment_tags or [],
+                base_image_override=base_image_override or "",
+                build_profile=resolved_build_profile,
+                force_rebuild_dockerfile=force_rebuild_dockerfile,
+                display_description=display_description or "",
+            )
+            resp = self._stub_refresher.call_builder_stub(lambda x: x.RedeployDeployment(req))
+            return RedeployResponse(
+                kind="redeploy", deployment_id=resp.deployment_id or None, build_id=resp.build_id or None
+            )
+        except (ValueError, RuntimeError):
+            raise
+        except Exception as e:
+            raise RuntimeError(f"Could not redeploy deployment '{deployment_id}'. {e}") from e
+
+    def rollback_deployment(self, deployment_id: str) -> RedeployResponse:
+        """Instantly redeploy using this deployment's pre-built image."""
+        try:
+            req = ActivateDeploymentRequest(existing_deployment_id=deployment_id)
+            self._stub_refresher.call_builder_stub(lambda x: x.ActivateDeployment(req))
+            return RedeployResponse(kind="rollback")
+        except (ValueError, RuntimeError):
+            raise
+        except Exception as e:
+            raise RuntimeError(f"Could not rollback deployment '{deployment_id}'. {e}") from e
+
+    def rebuild_deployment(
+        self,
+        deployment_id: str,
+        new_image_tag: str,
+        build_profile: Optional[Literal["o3_no_profiling", "o3_profiling", "o2_no_profiling", "o2_profiling"]] = None,
+        base_image_override: Optional[str] = None,
+        force_rebuild_dockerfile: bool = False,
+    ) -> RedeployResponse:
+        """Build a new image from this deployment's source without deploying."""
+        resolved_build_profile = self._resolve_build_profile(build_profile)
+        try:
+            req = RebuildDeploymentRequest(
+                existing_deployment_id=deployment_id,
+                new_image_tag=new_image_tag,
+                base_image_override=base_image_override or "",
+                build_profile=resolved_build_profile,
+                force_rebuild_dockerfile=force_rebuild_dockerfile,
+            )
+            resp = self._stub_refresher.call_builder_stub(lambda x: x.RebuildDeployment(req))
+            return RedeployResponse(kind="rebuild", build_id=resp.build_id or None)
+        except (ValueError, RuntimeError):
+            raise
+        except Exception as e:
+            raise RuntimeError(f"Could not rebuild deployment '{deployment_id}'. {e}") from e
+
+    def patch_deployment(self, deployment_id: Optional[str] = None) -> RedeployResponse:
+        """Patch deployment config and restart pods without a new build."""
+        if deployment_id is None:
+            deployment_id = self._get_active_deployment_id()
+        try:
+            req = DeployKubeComponentsRequest(existing_deployment_id=deployment_id)
+            resp = self._stub_refresher.call_builder_stub(lambda x: x.DeployKubeComponents(req))
+            return RedeployResponse(kind="patch", nonfatal_errors=list(resp.nonfatal_errors) or None)
+        except (ValueError, RuntimeError):
+            raise
+        except Exception as e:
+            raise RuntimeError(f"Could not patch deployment '{deployment_id}'. {e}") from e
+
+    def _reindex(self, deployment_id: str) -> RedeployResponse:
+        try:
+            req = IndexDeploymentRequest(existing_deployment_id=deployment_id, shadow=False)
+            resp = self._stub_refresher.call_builder_stub(lambda x: x.IndexDeployment(req))
+            return RedeployResponse(kind="reindex", build_id=resp.build_id or None)
+        except (ValueError, RuntimeError):
+            raise
+        except Exception as e:
+            raise RuntimeError(f"Could not reindex deployment '{deployment_id}'. {e}") from e
+
+    def _shadow_build(self, deployment_id: str) -> RedeployResponse:
+        try:
+            req = StartShadowBuildFromDeploymentRequest(existing_deployment_id=deployment_id)
+            resp = self._stub_refresher.call_builder_stub(lambda x: x.StartShadowBuildFromDeployment(req))
+            return RedeployResponse(kind="shadow_build", build_id=resp.build_id or None)
+        except (ValueError, RuntimeError):
+            raise
+        except Exception as e:
+            raise RuntimeError(f"Could not start shadow build from deployment '{deployment_id}'. {e}") from e
+
+    @staticmethod
+    def _resolve_build_profile(
+        build_profile: Optional[str],
+    ):
+        if build_profile is None:
+            return None
+        if build_profile not in _BUILD_PROFILE_MAP:
+            raise ValueError(f"Invalid build_profile: {build_profile!r}. Valid values: {', '.join(_BUILD_PROFILE_MAP)}")
+        return _BUILD_PROFILE_MAP[build_profile]
+
     def get_named_query_metadata(
         self,
         name: str,
@@ -1787,7 +2043,7 @@ class ChalkGRPCClient:
             enabled = persistence_settings.get("enabled", False)
             request.persistence_settings.CopyFrom(ExecuteSqlResultPersistenceSettings(enabled=enabled))
 
-        return self._stub_refresher.call_sql_stub(lambda x: x.ExecuteSqlQuery(request))
+        return self._stub_refresher.call_sql_stub(lambda x: x.ExecuteSqlQuery(request), _EngineTarget.GRPC_ENGINE)
 
     def execute_dataframe_plan(
         self,
@@ -1995,16 +2251,21 @@ class ChalkGRPCClient:
         return last_resp
 
     def explain_sql(self, sql: str):
-        return self._stub_refresher.call_sql_stub(lambda x: x.PlanSqlQuery(PlanSqlQueryRequest(query=sql)))
+        return self._stub_refresher.call_sql_stub(
+            lambda x: x.PlanSqlQuery(PlanSqlQueryRequest(query=sql)), _EngineTarget.GRPC_ENGINE
+        )
 
     def get_sql_catalogs(self):
-        return self._stub_refresher.call_sql_stub(lambda x: x.GetDbCatalogs(GetDbCatalogsRequest()))
+        return self._stub_refresher.call_sql_stub(
+            lambda x: x.GetDbCatalogs(GetDbCatalogsRequest()), _EngineTarget.GRPC_ENGINE
+        )
 
     def get_sql_schemas(self, catalog: str | None = None, db_schema_filter_pattern: str | None = None):
         return self._stub_refresher.call_sql_stub(
             lambda x: x.GetDbSchemas(
                 GetDbSchemasRequest(catalog=catalog, db_schema_filter_pattern=db_schema_filter_pattern)
-            )
+            ),
+            _EngineTarget.GRPC_ENGINE,
         )
 
     def get_sql_tables(
@@ -2022,12 +2283,13 @@ class ChalkGRPCClient:
                     table_name_filter_pattern=table_name_filter_pattern,
                     include_schemas=include_schemas,
                 )
-            )
+            ),
+            _EngineTarget.GRPC_ENGINE,
         )
 
     def execute_plan(self, *, lazy_frame_calls: expr_pb.LogicalExprNode) -> ExecutePlanResponse:
         return self._stub_refresher.call_dataframe_stub(
-            lambda x: x.ExecutePlan(ExecutePlanRequest(lazy_frame_calls=lazy_frame_calls))
+            lambda x: x.ExecutePlan(ExecutePlanRequest(lazy_frame_calls=lazy_frame_calls)), _EngineTarget.GRPC_ENGINE
         )
 
     def get_model(
@@ -3207,7 +3469,8 @@ class ChalkGRPCClient:
             lambda x: x.TestStreamingResolver(
                 request,
                 timeout=request_timeout,
-            )
+            ),
+            _EngineTarget.GRPC_ENGINE,
         )
 
         # Convert proto response to StreamResolverTestResponse

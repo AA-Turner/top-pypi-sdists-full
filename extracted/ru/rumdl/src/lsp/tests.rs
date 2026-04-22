@@ -6668,3 +6668,243 @@ async fn test_initialize_advertises_nav_capabilities_when_enabled() {
         "rename_provider must be advertised by default"
     );
 }
+
+/// Resolve the config file path that the LSP's per-file resolver picked,
+/// by calling `resolve_config_for_file` and then inspecting the cache.
+/// Used by parity tests to compare LSP and CLI resolution on the same tree.
+async fn lsp_resolve_config_path(server: &RumdlLanguageServer, file: &std::path::Path) -> Option<PathBuf> {
+    let _ = server.resolve_config_for_file(file).await;
+    let search_dir = file.parent().unwrap_or(file).to_path_buf();
+    server
+        .config_cache
+        .read()
+        .await
+        .get(&search_dir)
+        .and_then(|e| e.config_file.clone())
+}
+
+/// Verifies that the LSP's per-file resolver and the CLI's
+/// `discover_config_for_dir` pick the same config file on a variety of
+/// layouts (same filename set, same per-directory precedence, same
+/// closer-ancestor-wins behaviour across levels, same pyproject.toml
+/// `[tool.rumdl]` gating). Any future drift between the two paths — the
+/// class of bug behind rumdl-vscode#115 — will fail this test.
+#[tokio::test]
+async fn test_lsp_cli_resolver_parity_on_fixtures() {
+    use crate::config::SourcedConfig;
+    use std::fs;
+    use tempfile::tempdir;
+
+    struct Fixture {
+        name: &'static str,
+        /// (relative_path, contents); empty contents means "create the file empty"
+        files: &'static [(&'static str, &'static str)],
+        /// Relative path to the markdown file whose directory we resolve from
+        from: &'static str,
+    }
+
+    let fixtures = &[
+        Fixture {
+            name: "dotconfig_rumdl_at_root",
+            files: &[(".config/rumdl.toml", "[global]\n"), ("sub/deeper/test.md", "")],
+            from: "sub/deeper/test.md",
+        },
+        Fixture {
+            name: "rumdl_toml_at_root",
+            files: &[("rumdl.toml", "[global]\n"), ("sub/test.md", "")],
+            from: "sub/test.md",
+        },
+        Fixture {
+            name: "closer_wins_rumdl_over_dotconfig",
+            files: &[
+                (".config/rumdl.toml", "[global]\n"),
+                ("sub/rumdl.toml", "[global]\n"),
+                ("sub/deeper/test.md", ""),
+            ],
+            from: "sub/deeper/test.md",
+        },
+        Fixture {
+            name: "closer_markdownlint_beats_farther_rumdl",
+            files: &[
+                (".config/rumdl.toml", "[global]\n"),
+                ("sub/.markdownlint.json", "{}"),
+                ("sub/deeper/test.md", ""),
+            ],
+            from: "sub/deeper/test.md",
+        },
+        Fixture {
+            name: "rumdl_beats_markdownlint_same_dir",
+            files: &[
+                ("sub/.config/rumdl.toml", "[global]\n"),
+                ("sub/.markdownlint.json", "{}"),
+                ("sub/test.md", ""),
+            ],
+            from: "sub/test.md",
+        },
+        Fixture {
+            name: "pyproject_without_tool_rumdl_is_skipped",
+            files: &[
+                ("pyproject.toml", "[tool.black]\nline-length = 100\n"),
+                (".config/rumdl.toml", "[global]\n"),
+                ("sub/test.md", ""),
+            ],
+            from: "sub/test.md",
+        },
+        Fixture {
+            name: "pyproject_with_tool_rumdl_beats_nothing",
+            files: &[("pyproject.toml", "[tool.rumdl]\n"), ("sub/test.md", "")],
+            from: "sub/test.md",
+        },
+    ];
+
+    for fx in fixtures {
+        let temp = tempdir().unwrap();
+        let project = std::fs::canonicalize(temp.path()).unwrap();
+
+        for (rel, contents) in fx.files {
+            let path = project.join(rel);
+            fs::create_dir_all(path.parent().unwrap()).unwrap();
+            fs::write(&path, contents).unwrap();
+        }
+
+        let md_file = project.join(fx.from);
+        let md_dir = md_file.parent().unwrap().to_path_buf();
+
+        // CLI resolution
+        let cli_path = SourcedConfig::discover_config_for_dir(&md_dir, &project);
+
+        // LSP resolution (workspace root = project so walk-up bounds match CLI)
+        let server = create_test_server();
+        {
+            let mut roots = server.workspace_roots.write().await;
+            roots.push(project.clone());
+        }
+        let lsp_path = lsp_resolve_config_path(&server, &md_file).await;
+
+        assert_eq!(
+            lsp_path.as_ref().map(|p| std::fs::canonicalize(p).unwrap()),
+            cli_path.as_ref().map(|p| std::fs::canonicalize(p).unwrap()),
+            "LSP and CLI must resolve the same config file for fixture `{}`. \
+             LSP picked {:?}, CLI picked {:?}",
+            fx.name,
+            lsp_path,
+            cli_path,
+        );
+    }
+}
+
+/// Regression test for rumdl-vscode#115: an opt-in rule enabled via
+/// `extend-enable` in a `.config/rumdl.toml` at a parent directory must fire
+/// from the LSP, matching CLI behaviour.
+///
+/// Before the fix, the LSP's walk-up search only looked for `.rumdl.toml`,
+/// `rumdl.toml`, `pyproject.toml`, `.markdownlint.json` — missing
+/// `.config/rumdl.toml` — so it fell through to `Config::default()` and
+/// silently disabled opt-in rules.
+#[tokio::test]
+async fn test_resolve_config_finds_dotconfig_rumdl_toml() {
+    use std::fs;
+    use tempfile::tempdir;
+
+    let temp_dir = tempdir().unwrap();
+    let temp_path = temp_dir.path();
+
+    let project = temp_path.join("project");
+    let dotconfig = project.join(".config");
+    fs::create_dir_all(&dotconfig).unwrap();
+
+    let config_file = dotconfig.join("rumdl.toml");
+    fs::write(
+        &config_file,
+        r#"
+[global]
+extend-enable = ["MD060"]
+
+[MD060]
+style = "aligned"
+"#,
+    )
+    .unwrap();
+
+    // File nested below the config's parent directory
+    let deep_dir = project.join("sub").join("deeper");
+    fs::create_dir_all(&deep_dir).unwrap();
+    let test_file = deep_dir.join("test.md");
+    fs::write(&test_file, "# Test\n").unwrap();
+
+    let server = create_test_server();
+    {
+        let mut roots = server.workspace_roots.write().await;
+        roots.push(project.clone());
+    }
+
+    let config = server.resolve_config_for_file(&test_file).await;
+
+    // MD060 must appear in extend_enable so opt-in filtering picks it up
+    assert!(
+        config.global.extend_enable.iter().any(|r| r == "MD060"),
+        "LSP should discover `.config/rumdl.toml` when walking up from a nested file. \
+         extend_enable was {:?}",
+        config.global.extend_enable
+    );
+
+    // And the rule-specific [MD060] table should be loaded
+    assert!(
+        config.rules.contains_key("MD060"),
+        "LSP should load [MD060] table from `.config/rumdl.toml`"
+    );
+}
+
+/// Regression test for the exact scenario reported in rumdl-vscode#115:
+/// the LSP server is launched without any workspace folder (single-file
+/// open in VS Code), its CWD has no config, and the only relevant config
+/// lives in an ancestor directory as `.config/rumdl.toml`. The resolver
+/// must still find it by walking up to filesystem root.
+#[tokio::test]
+async fn test_resolve_config_no_workspace_finds_dotconfig_rumdl_toml() {
+    use std::fs;
+    use tempfile::tempdir;
+
+    let temp_dir = tempdir().unwrap();
+    // Canonicalize to avoid `/private/tmp` vs `/tmp` mismatches on macOS when
+    // the resolver walks up through symlink'd parents.
+    let temp_path = std::fs::canonicalize(temp_dir.path()).unwrap();
+
+    let project = temp_path.join("project");
+    let dotconfig = project.join(".config");
+    fs::create_dir_all(&dotconfig).unwrap();
+    fs::write(
+        dotconfig.join("rumdl.toml"),
+        r#"
+[global]
+extend-enable = ["MD060"]
+
+[MD060]
+style = "aligned"
+"#,
+    )
+    .unwrap();
+
+    let deep_dir = project.join("sub").join("deeper");
+    fs::create_dir_all(&deep_dir).unwrap();
+    let test_file = deep_dir.join("test.md");
+    fs::write(&test_file, "# Test\n").unwrap();
+
+    let server = create_test_server();
+    // Explicitly leave workspace_roots empty — this is the single-file-open
+    // scenario where VS Code launches the LSP with no workspace folder.
+    assert!(server.workspace_roots.read().await.is_empty());
+
+    let config = server.resolve_config_for_file(&test_file).await;
+
+    assert!(
+        config.global.extend_enable.iter().any(|r| r == "MD060"),
+        "With no workspace root, LSP must still walk up to filesystem root \
+         and discover `.config/rumdl.toml`. extend_enable was {:?}",
+        config.global.extend_enable
+    );
+    assert!(
+        config.rules.contains_key("MD060"),
+        "With no workspace root, `[MD060]` table must still load"
+    );
+}

@@ -793,7 +793,10 @@ def _parse_string(value: bytes) -> bytes:
             # the rest of the line is a comment
             break
         elif c in _WHITESPACE_CHARS:
-            whitespace.append(c)
+            if in_quotes:
+                ret.append(c)
+            else:
+                whitespace.append(c)
         else:
             if whitespace:
                 ret.extend(whitespace)
@@ -1579,6 +1582,43 @@ def iter_instead_of(config: Config, push: bool = False) -> Iterable[tuple[str, s
         for needle in needles:
             assert isinstance(needle, bytes)
             yield needle.decode("utf-8"), replacement.decode("utf-8")
+
+
+def get_git_proxy_command(config: Config, host: str) -> str | None:
+    """Look up the core.gitProxy command for the given host.
+
+    The ``core.gitProxy`` variable can appear multiple times, each with an
+    optional ``for <domain>`` suffix.  The first entry whose domain suffix
+    matches the end of *host* wins; an entry without a ``for`` clause is a
+    catch-all default.
+
+    Args:
+      config: A Config instance.
+      host: The hostname being connected to.
+
+    Returns:
+      The proxy command string, or ``None`` if no proxy is configured.
+    """
+    try:
+        values = list(config.get_multivar((b"core",), b"gitProxy"))
+    except KeyError:
+        return None
+
+    default_proxy: str | None = None
+    for raw in values:
+        text = raw.decode("utf-8") if isinstance(raw, bytes) else raw
+        # Entries may look like:
+        #   proxy-command for kernel.org
+        #   default-proxy
+        parts = text.rsplit(" for ", 1)
+        if len(parts) == 2:
+            command, domain = parts[0].strip(), parts[1].strip()
+            if host == domain or host.endswith("." + domain):
+                return command
+        else:
+            default_proxy = text.strip()
+
+    return default_proxy
 
 
 def apply_instead_of(config: Config, orig_url: str, push: bool = False) -> str:

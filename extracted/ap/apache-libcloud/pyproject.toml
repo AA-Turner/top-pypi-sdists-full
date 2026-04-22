@@ -15,7 +15,7 @@
 
 [build-system]
 requires = [
-    "setuptools~=75.3.0",
+    "setuptools>=75.3,<80.11",
     "wheel~=0.45.1"
 ]
 build-backend = "setuptools.build_meta"
@@ -81,16 +81,16 @@ publish = [
 test = [
     "coverage[toml]==7.2.7; python_version >= '3.10'",
     "requests>=2.31.0",
-    "requests_mock==1.11.0",
+    "requests_mock==1.12.1",
     "pytest==8.3.5",
     "pytest-xdist==3.6.1",
     "pytest-timeout==2.3.1",
     "pytest-benchmark[histogram]==5.1.0; python_version >= '3.10'",
-    "cryptography==44.0.2",
-    "pyopenssl==25.0.0",
+    "cryptography==46.0.5",
+    "pyopenssl==26.0.0",
     "fasteners",
     "paramiko==3.5.1; platform_python_implementation != 'PyPy'",
-    "libvirt-python==10.2.0",
+    "libvirt-python==12.0.0",
 ]
 lint = [
     "pep8==1.7.1",
@@ -98,7 +98,7 @@ lint = [
     "astroid==3.3.8; python_version >= '3.10'",
     "pylint==3.3.4; python_version >= '3.10'",
     "bandit[toml]==1.9.3; python_version >= '3.10'",
-    "black==25.1.0; python_version >= '3.10' and implementation_name == \"cpython\"",
+    "black==26.3.1; python_version >= '3.10' and implementation_name == \"cpython\"",
     "isort==6.0.1; python_version >= '3.10'",
     "pyupgrade==3.3.1",
     "rstcheck==6.2.4; python_version >= '3.10'",

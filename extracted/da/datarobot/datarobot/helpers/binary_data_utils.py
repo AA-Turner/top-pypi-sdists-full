@@ -162,7 +162,7 @@ def get_encoded_image_contents_from_urls(
     image_options: ImageOptions class
         Class holding parameters for use in image transformation and formatting.
     continue_on_error: bool
-        If one of rows encounters error while retrieving content (i.e. file does not exist) should
+        If one of rows encounters error while retrieving content (i.e., file does not exist) should
         this error terminate process of downloading consecutive files or should process continue
         skipping this file.
     n_threads: int or None
@@ -211,7 +211,7 @@ def get_encoded_image_contents_from_paths(
     image_options: ImageOptions class
         Class holding parameters for image transformation and formatting
     continue_on_error: bool
-        If one of rows encounters error while retrieving content (i.e. file does not exist) should
+        If one of rows encounters error while retrieving content (i.e., file does not exist) should
         this error terminate process of downloading consecutive files or should process continue
         skipping this file.
     n_threads: int or None
@@ -260,7 +260,7 @@ def get_encoded_file_contents_from_paths(
     paths: Iterable
         Iterable with path locations to open images from
     continue_on_error: bool
-        If one of rows encounters error while retrieving content (i.e. file does not exist) should
+        If one of rows encounters error while retrieving content (i.e., file does not exist) should
         this error terminate process of downloading consecutive files or should process continue
         skipping this file.
     n_threads: int or None

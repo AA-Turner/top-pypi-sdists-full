@@ -60355,18 +60355,18 @@ class scout_compute_api_NumericBucket(ConjureBeanType):
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
-            'min': ConjureFieldDefinition('min', float),
-            'max': ConjureFieldDefinition('max', float),
-            'mean': ConjureFieldDefinition('mean', float),
-            'count': ConjureFieldDefinition('count', int),
-            'variance': ConjureFieldDefinition('variance', float),
-            'first_point': ConjureFieldDefinition('firstPoint', scout_compute_api_NumericPoint),
+            'min': ConjureFieldDefinition('min', OptionalTypeWrapper[float]),
+            'max': ConjureFieldDefinition('max', OptionalTypeWrapper[float]),
+            'mean': ConjureFieldDefinition('mean', OptionalTypeWrapper[float]),
+            'count': ConjureFieldDefinition('count', OptionalTypeWrapper[int]),
+            'variance': ConjureFieldDefinition('variance', OptionalTypeWrapper[float]),
+            'first_point': ConjureFieldDefinition('firstPoint', OptionalTypeWrapper[scout_compute_api_NumericPoint]),
             'last_point': ConjureFieldDefinition('lastPoint', OptionalTypeWrapper[scout_compute_api_NumericPoint])
         }
 
     __slots__: List[str] = ['_min', '_max', '_mean', '_count', '_variance', '_first_point', '_last_point']
 
-    def __init__(self, count: int, first_point: "scout_compute_api_NumericPoint", max: float, mean: float, min: float, variance: float, last_point: Optional["scout_compute_api_NumericPoint"] = None) -> None:
+    def __init__(self, count: Optional[int] = None, first_point: Optional["scout_compute_api_NumericPoint"] = None, last_point: Optional["scout_compute_api_NumericPoint"] = None, max: Optional[float] = None, mean: Optional[float] = None, min: Optional[float] = None, variance: Optional[float] = None) -> None:
         self._min = min
         self._max = max
         self._mean = mean
@@ -60376,29 +60376,29 @@ class scout_compute_api_NumericBucket(ConjureBeanType):
         self._last_point = last_point
 
     @builtins.property
-    def min(self) -> float:
+    def min(self) -> Optional[float]:
         return self._min
 
     @builtins.property
-    def max(self) -> float:
+    def max(self) -> Optional[float]:
         return self._max
 
     @builtins.property
-    def mean(self) -> float:
+    def mean(self) -> Optional[float]:
         return self._mean
 
     @builtins.property
-    def count(self) -> int:
+    def count(self) -> Optional[int]:
         return self._count
 
     @builtins.property
-    def variance(self) -> float:
+    def variance(self) -> Optional[float]:
         """The population variance of the bucket. If the bucket has only one value, this will be 0.
         """
         return self._variance
 
     @builtins.property
-    def first_point(self) -> "scout_compute_api_NumericPoint":
+    def first_point(self) -> Optional["scout_compute_api_NumericPoint"]:
         return self._first_point
 
     @builtins.property

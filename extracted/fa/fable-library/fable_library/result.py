@@ -30,12 +30,12 @@ class _FSharpResult_2[T, TERROR](Union):
 
 @tagged_union(0)
 class Ok[T, TERROR](_FSharpResult_2[T, TERROR]):
-    result_value: T
+    result_value: Any
 
 
 @tagged_union(1)
 class Error[T, TERROR](_FSharpResult_2[T, TERROR]):
-    error_value: TERROR
+    error_value: Any
 
 
 type FSharpResult_2[T, TERROR] = Ok[T, TERROR] | Error[T, TERROR]
@@ -72,7 +72,7 @@ def Result_Bind[A, B, C](
             return Error(result.fields[0])
 
 
-def Result_IsOk[A, B](result: FSharpResult_2[Any, Any]) -> bool:
+def Result_IsOk[A, B](result: FSharpResult_2[A, B]) -> bool:
     match result.tag:
         case 0:
             return True
@@ -81,7 +81,7 @@ def Result_IsOk[A, B](result: FSharpResult_2[Any, Any]) -> bool:
             return False
 
 
-def Result_IsError[A, B](result: FSharpResult_2[Any, Any]) -> bool:
+def Result_IsError[A, B](result: FSharpResult_2[A, B]) -> bool:
     match result.tag:
         case 0:
             return False
@@ -90,7 +90,7 @@ def Result_IsError[A, B](result: FSharpResult_2[Any, Any]) -> bool:
             return True
 
 
-def Result_Contains[A, B](value: A, result: FSharpResult_2[A, Any]) -> bool:
+def Result_Contains[A, B](value: A, result: FSharpResult_2[A, B]) -> bool:
     match result.tag:
         case 0:
             return equals(result.fields[0], value)
@@ -99,7 +99,7 @@ def Result_Contains[A, B](value: A, result: FSharpResult_2[A, Any]) -> bool:
             return False
 
 
-def Result_Count[A, B](result: FSharpResult_2[Any, Any]) -> int32:
+def Result_Count[A, B](result: FSharpResult_2[A, B]) -> int32:
     match result.tag:
         case 0:
             return int32.ONE
@@ -108,7 +108,7 @@ def Result_Count[A, B](result: FSharpResult_2[Any, Any]) -> int32:
             return int32.ZERO
 
 
-def Result_DefaultValue[A, B](default_value: A, result: FSharpResult_2[A, Any]) -> A:
+def Result_DefaultValue[A, B](default_value: A, result: FSharpResult_2[A, B]) -> A:
     match result.tag:
         case 0:
             return result.fields[0]
@@ -126,7 +126,7 @@ def Result_DefaultWith[B, A](def_thunk: Callable[[B], A], result: FSharpResult_2
             return def_thunk(result.fields[0])
 
 
-def Result_Exists[A, B](predicate: Callable[[A], bool], result: FSharpResult_2[A, Any]) -> bool:
+def Result_Exists[A, B](predicate: Callable[[A], bool], result: FSharpResult_2[A, B]) -> bool:
     match result.tag:
         case 0:
             return predicate(result.fields[0])
@@ -135,7 +135,7 @@ def Result_Exists[A, B](predicate: Callable[[A], bool], result: FSharpResult_2[A
             return False
 
 
-def Result_Fold[A, B, S](folder: Callable[[S, A], S], state: S, result: FSharpResult_2[A, Any]) -> S:
+def Result_Fold[A, B, S](folder: Callable[[S, A], S], state: S, result: FSharpResult_2[A, B]) -> S:
     match result.tag:
         case 0:
             return folder(state, result.fields[0])
@@ -144,7 +144,7 @@ def Result_Fold[A, B, S](folder: Callable[[S, A], S], state: S, result: FSharpRe
             return state
 
 
-def Result_FoldBack[A, B, S](folder: Callable[[A, S], S], result: FSharpResult_2[A, Any], state: S) -> S:
+def Result_FoldBack[A, B, S](folder: Callable[[A, S], S], result: FSharpResult_2[A, B], state: S) -> S:
     match result.tag:
         case 0:
             return folder(result.fields[0], state)
@@ -153,7 +153,7 @@ def Result_FoldBack[A, B, S](folder: Callable[[A, S], S], result: FSharpResult_2
             return state
 
 
-def Result_ForAll[A, B](predicate: Callable[[A], bool], result: FSharpResult_2[A, Any]) -> bool:
+def Result_ForAll[A, B](predicate: Callable[[A], bool], result: FSharpResult_2[A, B]) -> bool:
     match result.tag:
         case 0:
             return predicate(result.fields[0])
@@ -162,7 +162,7 @@ def Result_ForAll[A, B](predicate: Callable[[A], bool], result: FSharpResult_2[A
             return True
 
 
-def Result_Iterate[A, B](action: Callable[[A], None], result: FSharpResult_2[A, Any]) -> None:
+def Result_Iterate[A, B](action: Callable[[A], None], result: FSharpResult_2[A, B]) -> None:
     match result.tag:
         case 0:
             action(result.fields[0])
@@ -171,7 +171,7 @@ def Result_Iterate[A, B](action: Callable[[A], None], result: FSharpResult_2[A, 
             pass
 
 
-def Result_ToArray[A, B](result: FSharpResult_2[A, Any]) -> Array[A]:
+def Result_ToArray[A, B](result: FSharpResult_2[A, B]) -> Array[A]:
     match result.tag:
         case 0:
             return Array[Any]([result.fields[0]])
@@ -180,7 +180,7 @@ def Result_ToArray[A, B](result: FSharpResult_2[A, Any]) -> Array[A]:
             return Array[Any]([])
 
 
-def Result_ToList[A, B](result: FSharpResult_2[A, Any]) -> FSharpList[A]:
+def Result_ToList[A, B](result: FSharpResult_2[A, B]) -> FSharpList[A]:
     match result.tag:
         case 0:
             return singleton(result.fields[0])
@@ -189,7 +189,7 @@ def Result_ToList[A, B](result: FSharpResult_2[A, Any]) -> FSharpList[A]:
             return empty()
 
 
-def Result_ToOption[A, B](result: FSharpResult_2[A, Any]) -> Option[A]:
+def Result_ToOption[A, B](result: FSharpResult_2[A, B]) -> Option[A]:
     match result.tag:
         case 0:
             return some(result.fields[0])
@@ -198,7 +198,7 @@ def Result_ToOption[A, B](result: FSharpResult_2[A, Any]) -> Option[A]:
             return None
 
 
-def Result_ToValueOption[A, B](result: FSharpResult_2[A, Any]) -> Option[A]:
+def Result_ToValueOption[A, B](result: FSharpResult_2[A, B]) -> Option[A]:
     match result.tag:
         case 0:
             return some(result.fields[0])

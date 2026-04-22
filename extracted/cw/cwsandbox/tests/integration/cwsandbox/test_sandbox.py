@@ -38,9 +38,14 @@ def test_sandbox_run_factory(sandbox_defaults: SandboxDefaults) -> None:
         assert sandbox.status == "running"
 
 
-def test_sandbox_run_factory_no_defaults() -> None:
+def test_sandbox_run_factory_no_defaults(
+    configured_runner_ids: tuple[str, ...] | None,
+) -> None:
     """Test Sandbox.run factory method without defaults - exercises default config path."""
-    sandbox = Sandbox.run("echo", "hello", "world", tags=[_SESSION_TAG])
+    run_kwargs: dict[str, object] = {"tags": [_SESSION_TAG]}
+    if configured_runner_ids is not None:
+        run_kwargs["runner_ids"] = list(configured_runner_ids)
+    sandbox = Sandbox.run("echo", "hello", "world", **run_kwargs)
 
     try:
         assert sandbox.sandbox_id is not None
@@ -48,10 +53,15 @@ def test_sandbox_run_factory_no_defaults() -> None:
         sandbox.stop().result()
 
 
-def test_sandbox_no_defaults_max_lifetime_only() -> None:
+def test_sandbox_no_defaults_max_lifetime_only(
+    configured_runner_ids: tuple[str, ...] | None,
+) -> None:
     """Test sandbox creation with only max_lifetime_seconds configured."""
     defaults = SandboxDefaults(max_lifetime_seconds=60)
-    sandbox = Sandbox.run("echo", "hello", "world", defaults=defaults, tags=[_SESSION_TAG])
+    run_kwargs: dict[str, object] = {"tags": [_SESSION_TAG]}
+    if configured_runner_ids is not None:
+        run_kwargs["runner_ids"] = list(configured_runner_ids)
+    sandbox = Sandbox.run("echo", "hello", "world", defaults=defaults, **run_kwargs)
 
     try:
         assert sandbox.sandbox_id is not None
@@ -59,20 +69,33 @@ def test_sandbox_no_defaults_max_lifetime_only() -> None:
         sandbox.stop().result()
 
 
-def test_sandbox_no_defaults_tags_only() -> None:
+def test_sandbox_no_defaults_tags_only(
+    configured_runner_ids: tuple[str, ...] | None,
+) -> None:
     """Test sandbox creation with only tags configured."""
     defaults = SandboxDefaults(tags=("isolation-test", _SESSION_TAG))
-    sandbox = Sandbox.run("echo", "hello", "world", defaults=defaults)
+    run_kwargs: dict[str, object] = {}
+    if configured_runner_ids is not None:
+        run_kwargs["runner_ids"] = list(configured_runner_ids)
+    sandbox = Sandbox.run("echo", "hello", "world", defaults=defaults, **run_kwargs)
 
     try:
+        sandbox.wait()
         assert sandbox.sandbox_id is not None
+        if configured_runner_ids is not None:
+            assert sandbox.runner_id in configured_runner_ids
     finally:
         sandbox.stop().result()
 
 
-def test_sandbox_no_defaults_sleep_command() -> None:
+def test_sandbox_no_defaults_sleep_command(
+    configured_runner_ids: tuple[str, ...] | None,
+) -> None:
     """Test sandbox creation with sleep infinity command and no defaults."""
-    sandbox = Sandbox.run("sleep", "infinity", tags=[_SESSION_TAG])
+    run_kwargs: dict[str, object] = {"tags": [_SESSION_TAG]}
+    if configured_runner_ids is not None:
+        run_kwargs["runner_ids"] = list(configured_runner_ids)
+    sandbox = Sandbox.run("sleep", "infinity", **run_kwargs)
 
     try:
         assert sandbox.sandbox_id is not None
@@ -92,15 +115,20 @@ def test_sandbox_file_operations(sandbox_defaults: SandboxDefaults) -> None:
         assert content == test_content
 
 
-def test_sandbox_with_defaults() -> None:
+def test_sandbox_with_defaults(
+    configured_runner_ids: tuple[str, ...] | None,
+) -> None:
     """Test sandbox creation with SandboxDefaults."""
     defaults = SandboxDefaults(
         max_lifetime_seconds=60,
         tags=("test-integration",),
         resources={"cpu": "500m", "memory": "256Mi"},
     )
+    run_kwargs: dict[str, object] = {}
+    if configured_runner_ids is not None:
+        run_kwargs["runner_ids"] = list(configured_runner_ids)
 
-    with Sandbox.run("sleep", "infinity", defaults=defaults) as sandbox:
+    with Sandbox.run("sleep", "infinity", defaults=defaults, **run_kwargs) as sandbox:
         assert sandbox.sandbox_id is not None
 
         result = sandbox.exec(["python", "--version"]).result()
@@ -108,15 +136,18 @@ def test_sandbox_with_defaults() -> None:
         assert "Python 3.11" in result.stdout
 
 
-def test_sandbox_burstable_qos_resources(sandbox_defaults: SandboxDefaults) -> None:
+def test_sandbox_burstable_qos_resources(
+    sandbox_defaults: SandboxDefaults,
+    configured_runner_ids: tuple[str, ...] | None,
+) -> None:
     """Test sandbox creation with distinct requests and limits (Burstable QoS).
 
     Uses ResourceOptions with requests < limits to exercise the overcommit path,
     which maps to separate resource_requests and resource_limits proto fields.
+    Inherits the runner pin via ``sandbox_defaults.with_overrides(...)`` so the
+    bespoke resources do not drop the pin.
     """
-    defaults = SandboxDefaults(
-        max_lifetime_seconds=60,
-        tags=("integration-test",),
+    defaults = sandbox_defaults.with_overrides(
         resources=ResourceOptions(
             requests={"cpu": "500m", "memory": "512Mi"},
             limits={"cpu": "1", "memory": "1Gi"},
@@ -127,6 +158,8 @@ def test_sandbox_burstable_qos_resources(sandbox_defaults: SandboxDefaults) -> N
         sandbox.wait()
         assert sandbox.sandbox_id is not None
         assert sandbox.status == "running"
+        if configured_runner_ids is not None:
+            assert sandbox.runner_id in configured_runner_ids
 
         assert sandbox.resource_requests is not None
         assert sandbox.resource_limits is not None
@@ -186,6 +219,32 @@ def test_sandbox_read_nonexistent_file(sandbox_defaults: SandboxDefaults) -> Non
             sandbox.read_file("/nonexistent/path/to/file.txt").result()
 
         assert exc_info.value.filepath == "/nonexistent/path/to/file.txt"
+
+
+def test_sandbox_file_error_surfaces_aip193_details(
+    sandbox_defaults: SandboxDefaults,
+) -> None:
+    """Test SandboxFileError carries AIP-193 reason and metadata from backend.
+
+    The backend classifies file-op failures with CWSANDBOX_* reason codes and
+    attaches google.rpc.ErrorInfo details. The SDK maps those reasons to
+    specific exception types and exposes reason/metadata/retry_delay attributes.
+    """
+    from datetime import timedelta
+
+    from cwsandbox.exceptions import SandboxFileError
+
+    with Sandbox.run(defaults=sandbox_defaults) as sandbox:
+        with pytest.raises(SandboxFileError) as exc_info:
+            sandbox.read_file("/nonexistent/path/to/file.txt").result()
+
+        error = exc_info.value
+        assert error.reason == "CWSANDBOX_FILE_NOT_FOUND"
+        assert error.metadata.get("filepath") == "/nonexistent/path/to/file.txt"
+        # retry_delay is absent for file errors today, but guard the shape so
+        # a future backend change that starts emitting RetryInfo surfaces
+        # parser regressions through the integration path too.
+        assert error.retry_delay is None or isinstance(error.retry_delay, timedelta)
 
 
 def test_sandbox_file_operations_binary(sandbox_defaults: SandboxDefaults) -> None:
@@ -522,16 +581,30 @@ def test_sandbox_with_runway_and_runner_ids(sandbox_defaults: SandboxDefaults) -
             assert targeted_sandbox.sandbox_id is not None
             assert targeted_sandbox.status == "running"
 
-            # The sandbox should land on the specified runway/tower
-            assert targeted_sandbox.profile_id is not None
-            assert targeted_sandbox.runner_id is not None
+            # The backend must place the sandbox on the requested infrastructure.
+            assert targeted_sandbox.profile_id == discovered_profile_id
+            assert targeted_sandbox.runner_id == discovered_runner_id
 
 
-def test_sandbox_with_empty_runway_and_runner_ids(sandbox_defaults: SandboxDefaults) -> None:
+def test_sandbox_with_empty_runway_and_runner_ids(
+    sandbox_defaults: SandboxDefaults,
+    configured_runner_ids: tuple[str, ...] | None,
+) -> None:
     """Test sandbox creation with empty profile_ids and runner_ids lists.
 
-    Verifies that empty lists are accepted (clearing any defaults).
+    Verifies that empty lists are accepted (clearing any defaults). This test
+    is a documented opt-out from the runner-pin contract in tests/AGENTS.md:
+    its whole purpose is to exercise auto-scheduling by clearing defaults, so
+    it cannot honor the pin. Skipped under runner-pin rollouts to avoid
+    landing on an unpinned runner and masquerading as a regression in the PR
+    under test.
     """
+    if configured_runner_ids is not None:
+        pytest.skip(
+            "Opt-out test clears runner_ids to exercise auto-scheduling; "
+            "skipped under runner-pin rollouts"
+        )
+
     with Sandbox.run(
         profile_ids=[],
         runner_ids=[],

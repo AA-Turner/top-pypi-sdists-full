@@ -11,15 +11,15 @@ dependencies:
   - sphinx
   - sphinx-copybutton
   - sphinx-favicon
-  - nbsphinx
   - ipykernel
   - h5netcdf
   - h5py
   - lat_lon_parser
   - netCDF4
-  - open-radar-data>=0.1.0
+  - open-radar-data>=0.6.0
   - pyproj
-  - xarray>=2024.10.0
+  - pip:
+    - xarray >= 2026.4.0
   - xmltodict
   - cartopy
   - cmweather
@@ -34,3 +34,6 @@ dependencies:
   - pytest-cov
   - pre-commit
   - diff-cover
+  - myst-nb
+  - sphinx-copybutton
+  - linkify-it-py

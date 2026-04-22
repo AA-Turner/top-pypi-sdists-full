@@ -54,6 +54,7 @@ from pulpcore.client.pulpcore.models.header_content_guard import HeaderContentGu
 from pulpcore.client.pulpcore.models.header_content_guard_response import HeaderContentGuardResponse
 from pulpcore.client.pulpcore.models.import_response import ImportResponse
 from pulpcore.client.pulpcore.models.login_response import LoginResponse
+from pulpcore.client.pulpcore.models.login_update_response import LoginUpdateResponse
 from pulpcore.client.pulpcore.models.method_enum import MethodEnum
 from pulpcore.client.pulpcore.models.minimal_task_response import MinimalTaskResponse
 from pulpcore.client.pulpcore.models.multiple_artifact_content_response import MultipleArtifactContentResponse
@@ -128,6 +129,7 @@ from pulpcore.client.pulpcore.models.patched_domain import PatchedDomain
 from pulpcore.client.pulpcore.models.patched_filesystem_exporter import PatchedFilesystemExporter
 from pulpcore.client.pulpcore.models.patched_group import PatchedGroup
 from pulpcore.client.pulpcore.models.patched_header_content_guard import PatchedHeaderContentGuard
+from pulpcore.client.pulpcore.models.patched_login_update import PatchedLoginUpdate
 from pulpcore.client.pulpcore.models.patched_open_pgp_distribution import PatchedOpenPGPDistribution
 from pulpcore.client.pulpcore.models.patched_open_pgp_keyring import PatchedOpenPGPKeyring
 from pulpcore.client.pulpcore.models.patched_pulp_exporter import PatchedPulpExporter

@@ -4,10 +4,10 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "posthog"
-version = "7.12.0"
+version = "7.13.0"
 description = "Integrate PostHog into any python application."
-authors = [{ name = "PostHog", email = "hey@posthog.com" }]
-maintainers = [{ name = "PostHog", email = "hey@posthog.com" }]
+authors = [{ name = "PostHog", email = "engineering@posthog.com" }]
+maintainers = [{ name = "PostHog", email = "engineering@posthog.com" }]
 license = { text = "MIT" }
 readme = "README.md"
 requires-python = ">=3.10"
@@ -25,7 +25,6 @@ classifiers = [
 ]
 dependencies = [
     "requests>=2.7,<3.0",
-    "six>=1.5",
     "python-dateutil>=2.2",
     "backoff>=1.10.0",
     "distro>=1.5.0",
@@ -47,11 +46,9 @@ dev = [
     "lxml",
     "mypy",
     "mypy-baseline",
-    "types-mock",
     "types-python-dateutil",
     "types-requests",
     "types-setuptools",
-    "types-six",
     "pre-commit",
     "pydantic>=2.12.0",
     "ruff",
@@ -63,7 +60,6 @@ dev = [
     "tomli_w",
 ]
 test = [
-    "mock>=2.0.0",
     "freezegun==1.5.1",
     "coverage",
     "pytest",
@@ -108,6 +104,7 @@ packages = [
 
 [tool.uv]
 exclude-newer = "7 days"
+required-version = ">=0.8.0"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

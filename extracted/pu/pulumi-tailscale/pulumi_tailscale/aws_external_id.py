@@ -32,6 +32,7 @@ class _AwsExternalIdState:
                  tailscale_aws_account_id: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering AwsExternalId resources.
+
         :param pulumi.Input[_builtins.str] external_id: The External ID that Tailscale will supply when assuming your role. You must reference this in your IAM role's trust policy. See https://docs.aws.amazon.com/IAM/latest/UserGuide/id*roles*common-scenarios_third-party.html for more information on external IDs.
         :param pulumi.Input[_builtins.str] tailscale_aws_account_id: The AWS account from which Tailscale will assume your role. You must reference this in your IAM role's trust policy. See https://docs.aws.amazon.com/IAM/latest/UserGuide/id*roles*common-scenarios_third-party.html for more information on external IDs.
         """
@@ -83,7 +84,7 @@ class AwsExternalId(pulumi.CustomResource):
         import pulumi_tailscale as tailscale
 
         prod = tailscale.AwsExternalId("prod")
-        tailscale_assume_role = aws.index.iam_policy_document(statement=[{
+        tailscale_assume_role = aws.iam_policy_document(statement=[{
             "actions": ["sts:AssumeRole"],
             "principals": [{
                 "type": "AWS",
@@ -95,7 +96,7 @@ class AwsExternalId(pulumi.CustomResource):
                 "values": [prod.external_id],
             }],
         }])
-        logs_writer_iam_role = aws.index.IamRole("logs_writer",
+        logs_writer_iam_role = aws.IamRole("logs_writer",
             name=logs-writer,
             assume_role_policy=tailscale_assume_role.json)
         configuration_logs = tailscale.LogstreamConfiguration("configuration_logs",
@@ -106,7 +107,7 @@ class AwsExternalId(pulumi.CustomResource):
             s3_authentication_type="rolearn",
             s3_role_arn=logs_writer_iam_role["arn"],
             s3_external_id=prod.external_id)
-        logs_writer = aws.index.iam_policy_document(statement=[{
+        logs_writer = aws.iam_policy_document(statement=[{
             "effect": "Allow",
             "actions": ["s3:*"],
             "resources": [
@@ -114,10 +115,11 @@ class AwsExternalId(pulumi.CustomResource):
                 "arn:aws:s3:::example-bucket/*",
             ],
         }])
-        logs_writer_iam_role_policy = aws.index.IamRolePolicy("logs_writer",
+        logs_writer_iam_role_policy = aws.IamRolePolicy("logs_writer",
             role=logs_writer_iam_role.id,
             policy=logs_writer.json)
         ```
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -139,7 +141,7 @@ class AwsExternalId(pulumi.CustomResource):
         import pulumi_tailscale as tailscale
 
         prod = tailscale.AwsExternalId("prod")
-        tailscale_assume_role = aws.index.iam_policy_document(statement=[{
+        tailscale_assume_role = aws.iam_policy_document(statement=[{
             "actions": ["sts:AssumeRole"],
             "principals": [{
                 "type": "AWS",
@@ -151,7 +153,7 @@ class AwsExternalId(pulumi.CustomResource):
                 "values": [prod.external_id],
             }],
         }])
-        logs_writer_iam_role = aws.index.IamRole("logs_writer",
+        logs_writer_iam_role = aws.IamRole("logs_writer",
             name=logs-writer,
             assume_role_policy=tailscale_assume_role.json)
         configuration_logs = tailscale.LogstreamConfiguration("configuration_logs",
@@ -162,7 +164,7 @@ class AwsExternalId(pulumi.CustomResource):
             s3_authentication_type="rolearn",
             s3_role_arn=logs_writer_iam_role["arn"],
             s3_external_id=prod.external_id)
-        logs_writer = aws.index.iam_policy_document(statement=[{
+        logs_writer = aws.iam_policy_document(statement=[{
             "effect": "Allow",
             "actions": ["s3:*"],
             "resources": [
@@ -170,10 +172,11 @@ class AwsExternalId(pulumi.CustomResource):
                 "arn:aws:s3:::example-bucket/*",
             ],
         }])
-        logs_writer_iam_role_policy = aws.index.IamRolePolicy("logs_writer",
+        logs_writer_iam_role_policy = aws.IamRolePolicy("logs_writer",
             role=logs_writer_iam_role.id,
             policy=logs_writer.json)
         ```
+
 
         :param str resource_name: The name of the resource.
         :param AwsExternalIdArgs args: The arguments to use to populate this resource's properties.

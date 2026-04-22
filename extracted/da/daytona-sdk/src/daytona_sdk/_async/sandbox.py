@@ -83,6 +83,7 @@ class AsyncSandbox(SandboxDto):
         build_info (str): Build information for the Sandbox if it was created from dynamic build.
         created_at (str): When the Sandbox was created.
         updated_at (str): When the Sandbox was last updated.
+        last_activity_at (str): When the Sandbox last had activity.
         network_block_all (bool): Whether to block all network access for the Sandbox.
         network_allow_list (str): Comma-separated list of allowed CIDR network addresses for the Sandbox.
     """
@@ -628,12 +629,12 @@ class AsyncSandbox(SandboxDto):
         while self.state == "resizing":
             await self.refresh_data()
 
-            if self.state != "resizing":
-                return
-
             if self.state in ["error", "build_failed"]:
                 err_msg = f"Sandbox {self.id} resize failed with state: {self.state}, error reason: {self.error_reason}"
                 raise DaytonaError(err_msg)
+
+            if self.state != "resizing":
+                return
 
             await asyncio.sleep(check_interval)
             if asyncio.get_event_loop().time() - start_time > 5:
@@ -761,13 +762,13 @@ class AsyncSandbox(SandboxDto):
         while self.state == "snapshotting":
             await self.refresh_data()
 
-            if self.state != "snapshotting":
-                return
-
             if self.state in ["error", "build_failed"]:
                 raise DaytonaError(
                     f"Sandbox {self.id} snapshot failed with state: {self.state}, error reason: {self.error_reason}"
                 )
+
+            if self.state != "snapshotting":
+                return
 
             await asyncio.sleep(check_interval)
             if asyncio.get_event_loop().time() - start_time > 5:
@@ -799,6 +800,7 @@ class AsyncSandbox(SandboxDto):
         self.build_info: BuildInfo | None = sandbox_dto.build_info
         self.created_at: str | None = sandbox_dto.created_at
         self.updated_at: str | None = sandbox_dto.updated_at
+        self.last_activity_at: str | None = sandbox_dto.last_activity_at
         self.network_block_all: bool = sandbox_dto.network_block_all
         self.network_allow_list: str | None = sandbox_dto.network_allow_list
         self.toolbox_proxy_url: str = sandbox_dto.toolbox_proxy_url

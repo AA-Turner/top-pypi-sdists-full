@@ -44,7 +44,7 @@ from chalk.utils.pl_helpers import is_new_polars, pl_array
 from chalk.utils.pydanticutil.pydantic_compat import is_pydantic_basemodel
 
 if TYPE_CHECKING:
-    import polars as pl
+    from polars._typing import PolarsDataType
 
     from chalk.features.dataframe import DataFrame
 
@@ -393,7 +393,7 @@ def coerce_map_pylist_to_dict(value: Any, pa_type: pa.DataType) -> Any:
 
 def pyarrow_to_polars(
     pa_type: pa.DataType, name: str | None = None, use_fixed_size_list: bool = False
-) -> pl.PolarsDataType:
+) -> PolarsDataType:
     """Convert a PyArrow data type into a Polars DataType
 
     Args:

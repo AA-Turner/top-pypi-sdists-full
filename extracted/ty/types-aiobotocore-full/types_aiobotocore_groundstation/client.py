@@ -30,10 +30,13 @@ from botocore.errorfactory import BaseClientExceptions
 from botocore.exceptions import ClientError as BotocoreClientError
 
 from .paginator import (
+    ListAntennasPaginator,
     ListConfigsPaginator,
     ListContactsPaginator,
+    ListContactVersionsPaginator,
     ListDataflowEndpointGroupsPaginator,
     ListEphemeridesPaginator,
+    ListGroundStationReservationsPaginator,
     ListGroundStationsPaginator,
     ListMissionProfilesPaginator,
     ListSatellitesPaginator,
@@ -55,6 +58,8 @@ from .type_defs import (
     DeleteMissionProfileRequestTypeDef,
     DescribeContactRequestTypeDef,
     DescribeContactResponseTypeDef,
+    DescribeContactVersionRequestTypeDef,
+    DescribeContactVersionResponseTypeDef,
     DescribeEphemerisRequestTypeDef,
     DescribeEphemerisResponseTypeDef,
     EphemerisIdResponseTypeDef,
@@ -72,14 +77,20 @@ from .type_defs import (
     GetMissionProfileResponseTypeDef,
     GetSatelliteRequestTypeDef,
     GetSatelliteResponseTypeDef,
+    ListAntennasRequestTypeDef,
+    ListAntennasResponseTypeDef,
     ListConfigsRequestTypeDef,
     ListConfigsResponseTypeDef,
     ListContactsRequestTypeDef,
     ListContactsResponseTypeDef,
+    ListContactVersionsRequestTypeDef,
+    ListContactVersionsResponseTypeDef,
     ListDataflowEndpointGroupsRequestTypeDef,
     ListDataflowEndpointGroupsResponseTypeDef,
     ListEphemeridesRequestTypeDef,
     ListEphemeridesResponseTypeDef,
+    ListGroundStationReservationsRequestTypeDef,
+    ListGroundStationReservationsResponseTypeDef,
     ListGroundStationsRequestTypeDef,
     ListGroundStationsResponseTypeDef,
     ListMissionProfilesRequestTypeDef,
@@ -97,10 +108,12 @@ from .type_defs import (
     UpdateAgentStatusRequestTypeDef,
     UpdateAgentStatusResponseTypeDef,
     UpdateConfigRequestTypeDef,
+    UpdateContactRequestTypeDef,
+    UpdateContactResponseTypeDef,
     UpdateEphemerisRequestTypeDef,
     UpdateMissionProfileRequestTypeDef,
 )
-from .waiter import ContactScheduledWaiter
+from .waiter import ContactScheduledWaiter, ContactUpdatedWaiter
 
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
@@ -272,6 +285,16 @@ class GroundStationClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_groundstation/client/#describe_contact)
         """
 
+    async def describe_contact_version(
+        self, **kwargs: Unpack[DescribeContactVersionRequestTypeDef]
+    ) -> DescribeContactVersionResponseTypeDef:
+        """
+        Describes a specific version of a contact.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/groundstation/client/describe_contact_version.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_groundstation/client/#describe_contact_version)
+        """
+
     async def describe_ephemeris(
         self, **kwargs: Unpack[DescribeEphemerisRequestTypeDef]
     ) -> DescribeEphemerisResponseTypeDef:
@@ -352,6 +375,16 @@ class GroundStationClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_groundstation/client/#get_satellite)
         """
 
+    async def list_antennas(
+        self, **kwargs: Unpack[ListAntennasRequestTypeDef]
+    ) -> ListAntennasResponseTypeDef:
+        """
+        Returns a list of antennas at a specified ground station.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/groundstation/client/list_antennas.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_groundstation/client/#list_antennas)
+        """
+
     async def list_configs(
         self, **kwargs: Unpack[ListConfigsRequestTypeDef]
     ) -> ListConfigsResponseTypeDef:
@@ -360,6 +393,16 @@ class GroundStationClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/groundstation/client/list_configs.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_groundstation/client/#list_configs)
+        """
+
+    async def list_contact_versions(
+        self, **kwargs: Unpack[ListContactVersionsRequestTypeDef]
+    ) -> ListContactVersionsResponseTypeDef:
+        """
+        Returns a list of versions for a specified contact.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/groundstation/client/list_contact_versions.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_groundstation/client/#list_contact_versions)
         """
 
     async def list_contacts(
@@ -390,6 +433,16 @@ class GroundStationClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/groundstation/client/list_ephemerides.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_groundstation/client/#list_ephemerides)
+        """
+
+    async def list_ground_station_reservations(
+        self, **kwargs: Unpack[ListGroundStationReservationsRequestTypeDef]
+    ) -> ListGroundStationReservationsResponseTypeDef:
+        """
+        Returns a list of reservations for a specified ground station.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/groundstation/client/list_ground_station_reservations.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_groundstation/client/#list_ground_station_reservations)
         """
 
     async def list_ground_stations(
@@ -488,6 +541,16 @@ class GroundStationClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_groundstation/client/#update_config)
         """
 
+    async def update_contact(
+        self, **kwargs: Unpack[UpdateContactRequestTypeDef]
+    ) -> UpdateContactResponseTypeDef:
+        """
+        Updates a specific contact.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/groundstation/client/update_contact.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_groundstation/client/#update_contact)
+        """
+
     async def update_ephemeris(
         self, **kwargs: Unpack[UpdateEphemerisRequestTypeDef]
     ) -> EphemerisIdResponseTypeDef:
@@ -510,8 +573,30 @@ class GroundStationClient(AioBaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_antennas"]
+    ) -> ListAntennasPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/groundstation/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_groundstation/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_configs"]
     ) -> ListConfigsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/groundstation/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_groundstation/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_contact_versions"]
+    ) -> ListContactVersionsPaginator:
         """
         Create a paginator for an operation.
 
@@ -554,6 +639,17 @@ class GroundStationClient(AioBaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_ground_station_reservations"]
+    ) -> ListGroundStationReservationsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/groundstation/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_groundstation/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_ground_stations"]
     ) -> ListGroundStationsPaginator:
         """
@@ -585,9 +681,21 @@ class GroundStationClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_groundstation/client/#get_paginator)
         """
 
+    @overload  # type: ignore[override]
     def get_waiter(  # type: ignore[override]
         self, waiter_name: Literal["contact_scheduled"]
     ) -> ContactScheduledWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/groundstation/client/get_waiter.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_groundstation/client/#get_waiter)
+        """
+
+    @overload  # type: ignore[override]
+    def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["contact_updated"]
+    ) -> ContactUpdatedWaiter:
         """
         Returns an object that can wait for some condition.
 

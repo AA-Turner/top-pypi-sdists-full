@@ -22,6 +22,7 @@ from flax.typing import (
 )
 import jax
 from jax.sharding import PartitionSpec
+from flax.nnx.deprecations import deprecated
 
 A = tp.TypeVar('A')
 F = tp.TypeVar('F', bound=tp.Callable[..., tp.Any])
@@ -182,7 +183,7 @@ def get_abstract_model(init_fn, mesh, *, graph: bool | None = None):
   return gdef, abs_state
 
 
-def abstract_with_sharding(
+def as_abstract(
     tree: A, graph: bool | None = None
 ) -> A:
   """Add sharding information to abstract Variables.
@@ -207,7 +208,7 @@ def abstract_with_sharding(
       abs_model = nnx.eval_shape(
         lambda: nnx.Linear(4, 8, rngs=nnx.Rngs(0),
           kernel_metadata={'out_sharding': ('a', 'b')}))
-      abs_model = nnx.abstract_with_sharding(abs_model)
+      abs_model = nnx.as_abstract(abs_model)
     assert abs_model.kernel.sharding.spec == jax.P('a', 'b')
 
   Args:
@@ -238,3 +239,5 @@ def abstract_with_sharding(
       return abs_var
     return x
   return graphlib.map(add_sharding, tree, graph=graph)
+
+abstract_with_sharding = deprecated(as_abstract)

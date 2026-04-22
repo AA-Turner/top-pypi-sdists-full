@@ -303,7 +303,7 @@ class RESTClientObject(requests.Session, BrowserMixin):
         and is non-trivial to solve, so we are leaving it as-is for now. This
         function uses a multipart encoder to gracefully handle large files
         when making the request. However, an encoder reference remains after
-        the request has finished. So if the request body (i.e. the file) is
+        the request has finished. So if the request body (i.e., the file) is
         accessed through the response after the response has been generated,
         the encoder uses the file descriptor opened here. If this descriptor
         is closed, then we raise an error when the encoder later tries to

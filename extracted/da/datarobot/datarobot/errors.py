@@ -256,7 +256,7 @@ class OverwritingProjectOptionWarning(Warning):
 class NoRedundancyImpactAvailable(Warning):
     """Raised when retrieving old feature impact data
 
-    Redundancy detection was added in v2.13 of the API, and some projects, e.g. multiclass projects
+    Redundancy detection was added in v2.13 of the API, and some projects, e.g., multiclass projects
     do not support redundancy detection. This warning is raised to make
     clear that redundancy detection is unavailable.
     """

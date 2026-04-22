@@ -61,8 +61,6 @@ __all__ = (
     "AdditionalServiceDetailsTypeDef",
     "AdditionalServiceRegistrationStepTypeDef",
     "AgentSpaceTypeDef",
-    "AllowVendedLogDeliveryForResourceInputTypeDef",
-    "AllowVendedLogDeliveryForResourceOutputTypeDef",
     "AssistantMessageBlockTypeDef",
     "AssociateServiceInputTypeDef",
     "AssociateServiceOutputTypeDef",
@@ -160,6 +158,8 @@ __all__ = (
     "MCPServerAuthorizationConfigTypeDef",
     "MCPServerAuthorizationDiscoveryConfigTypeDef",
     "MCPServerBearerTokenConfigTypeDef",
+    "MCPServerConfigurationOutputTypeDef",
+    "MCPServerConfigurationTypeDef",
     "MCPServerDetailsTypeDef",
     "MCPServerGrafanaConfigurationOutputTypeDef",
     "MCPServerGrafanaConfigurationTypeDef",
@@ -319,18 +319,6 @@ class AgentSpaceTypeDef(TypedDict):
     locale: NotRequired[str]
     kmsKeyArn: NotRequired[str]
 
-class AllowVendedLogDeliveryForResourceInputTypeDef(TypedDict):
-    resourceArnBeingAuthorized: str
-    deliverySourceArn: str
-    logType: NotRequired[str]
-
-class ResponseMetadataTypeDef(TypedDict):
-    RequestId: str
-    HTTPStatusCode: int
-    HTTPHeaders: dict[str, str]
-    RetryAttempts: int
-    HostId: NotRequired[str]
-
 class AssistantMessageBlockTypeDef(TypedDict):
     text: NotRequired[str]
     toolUse: NotRequired[dict[str, Any]]
@@ -341,6 +329,13 @@ class GenericWebhookTypeDef(TypedDict):
     webhookType: NotRequired[WebhookTypeType]
     webhookSecret: NotRequired[str]
     apiKey: NotRequired[str]
+
+class ResponseMetadataTypeDef(TypedDict):
+    RequestId: str
+    HTTPStatusCode: int
+    HTTPHeaders: dict[str, str]
+    RetryAttempts: int
+    HostId: NotRequired[str]
 
 class AzureConfigurationTypeDef(TypedDict):
     subscriptionId: str
@@ -373,7 +368,7 @@ class ReferenceInputTypeDef(TypedDict):
 
 class CreateChatRequestTypeDef(TypedDict):
     agentSpaceId: str
-    userId: str
+    userId: NotRequired[str]
     userType: NotRequired[UserTypeType]
 
 class MCPServerAuthorizationDiscoveryConfigTypeDef(TypedDict):
@@ -537,7 +532,7 @@ class ListAssociationsInputTypeDef(TypedDict):
 
 class ListChatsRequestTypeDef(TypedDict):
     agentSpaceId: str
-    userId: str
+    userId: NotRequired[str]
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
 
@@ -634,6 +629,12 @@ class MCPServerOAuthClientCredentialsConfigTypeDef(TypedDict):
     clientName: NotRequired[str]
     exchangeParameters: NotRequired[Mapping[str, str]]
     scopes: NotRequired[Sequence[str]]
+
+class MCPServerConfigurationOutputTypeDef(TypedDict):
+    tools: list[str]
+
+class MCPServerConfigurationTypeDef(TypedDict):
+    tools: Sequence[str]
 
 class MCPServerGrafanaConfigurationOutputTypeDef(TypedDict):
     endpoint: str
@@ -841,10 +842,6 @@ class AdditionalServiceDetailsTypeDef(TypedDict):
 
 class AdditionalServiceRegistrationStepTypeDef(TypedDict):
     oauth: NotRequired[OAuthAdditionalStepDetailsTypeDef]
-
-class AllowVendedLogDeliveryForResourceOutputTypeDef(TypedDict):
-    message: str
-    ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateAgentSpaceOutputTypeDef(TypedDict):
     agentSpace: AgentSpaceTypeDef
@@ -1116,8 +1113,8 @@ class SendMessageRequestTypeDef(TypedDict):
     agentSpaceId: str
     executionId: str
     content: str
-    userId: str
     context: NotRequired[SendMessageContextTypeDef]
+    userId: NotRequired[str]
 
 class SendMessageResponseCompletedEventTypeDef(TypedDict):
     responseId: NotRequired[str]
@@ -1322,7 +1319,10 @@ class ServiceConfigurationOutputTypeDef(TypedDict):
     dynatrace: NotRequired[DynatraceConfigurationOutputTypeDef]
     servicenow: NotRequired[ServiceNowConfigurationOutputTypeDef]
     mcpservernewrelic: NotRequired[MCPServerNewRelicConfigurationTypeDef]
+    mcpserverdatadog: NotRequired[dict[str, Any]]
+    mcpserver: NotRequired[MCPServerConfigurationOutputTypeDef]
     gitlab: NotRequired[GitLabConfigurationTypeDef]
+    mcpserversplunk: NotRequired[dict[str, Any]]
     eventChannel: NotRequired[dict[str, Any]]
     azure: NotRequired[AzureConfigurationTypeDef]
     azuredevops: NotRequired[AzureDevOpsConfigurationTypeDef]
@@ -1337,7 +1337,10 @@ class ServiceConfigurationTypeDef(TypedDict):
     dynatrace: NotRequired[DynatraceConfigurationTypeDef]
     servicenow: NotRequired[ServiceNowConfigurationTypeDef]
     mcpservernewrelic: NotRequired[MCPServerNewRelicConfigurationTypeDef]
+    mcpserverdatadog: NotRequired[Mapping[str, Any]]
+    mcpserver: NotRequired[MCPServerConfigurationTypeDef]
     gitlab: NotRequired[GitLabConfigurationTypeDef]
+    mcpserversplunk: NotRequired[Mapping[str, Any]]
     eventChannel: NotRequired[Mapping[str, Any]]
     azure: NotRequired[AzureConfigurationTypeDef]
     azuredevops: NotRequired[AzureDevOpsConfigurationTypeDef]

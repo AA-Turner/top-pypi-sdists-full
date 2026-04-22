@@ -26,8 +26,8 @@ from __future__ import annotations
 import hashlib
 import importlib
 import os
+from tomli import load as toml_load
 import pickle
-import sys
 from importlib.util import find_spec
 from pathlib import Path
 from typing import IO, TYPE_CHECKING, Any
@@ -42,11 +42,6 @@ from yaml.constructor import ConstructorError
 from zensical.compat.autorefs import get_autorefs_extension
 from zensical.compat.mkdocstrings import get_mkdocstrings_extension
 from zensical.extensions.emoji import to_svg, twemoji
-
-try:
-    import tomllib
-except ModuleNotFoundError:
-    import tomli as tomllib  # type: ignore[no-redef]
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -93,7 +88,7 @@ def parse_zensical_config(path: str) -> dict:
     """Parse zensical.toml configuration file."""
     global _CONFIG  # noqa: PLW0603
     with open(path, "rb") as f:
-        config = tomllib.load(f)
+        config = toml_load(f)
     if "project" in config:
         config = config["project"]
 

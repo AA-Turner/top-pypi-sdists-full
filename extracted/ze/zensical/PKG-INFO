@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: zensical
-Version: 0.0.33
+Version: 0.0.34
 Classifier: Development Status :: 3 - Alpha
 Classifier: Environment :: Web Environment
 Classifier: License :: OSI Approved :: MIT License
@@ -16,7 +16,7 @@ Requires-Dist: markdown>=3.7
 Requires-Dist: pygments>=2.20
 Requires-Dist: pymdown-extensions>=10.21.2
 Requires-Dist: pyyaml>=6.0.2
-Requires-Dist: tomli>=2.0 ; python_full_version < '3.11'
+Requires-Dist: tomli>=2.4.0
 License-File: LICENSE.md
 Summary: A modern static site generator built by the creators of Material for MkDocs
 Home-Page: https://github.com/zensical/zensical

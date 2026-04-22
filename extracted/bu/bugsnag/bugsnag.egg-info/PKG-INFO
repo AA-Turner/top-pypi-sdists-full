@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bugsnag
-Version: 4.8.1
+Version: 4.9.0
 Summary: Automatic error monitoring for django, flask, etc.
 Home-page: https://bugsnag.com/
 Author: Simon Maynard

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: redisvl
-Version: 0.17.1
+Version: 0.18.0
 Summary: Python client library and CLI for using Redis as a vector database
 Project-URL: Homepage, https://github.com/redis/redis-vl-python
 Project-URL: Repository, https://github.com/redis/redis-vl-python
@@ -10,13 +10,12 @@ License-Expression: MIT
 License-File: LICENSE
 Keywords: ai,redis,redis-client,vector-database,vector-search
 Classifier: License :: OSI Approved :: MIT License
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Requires-Python: <3.15,>=3.9.2
+Requires-Python: <3.15,>=3.10
 Requires-Dist: jsonpath-ng>=1.5.0
 Requires-Dist: ml-dtypes<1.0.0,>=0.4.0
 Requires-Dist: numpy<3,>=1.26.0
@@ -47,7 +46,7 @@ Requires-Dist: cohere>=4.44; extra == 'cohere'
 Provides-Extra: langcache
 Requires-Dist: langcache>=0.11.0; extra == 'langcache'
 Provides-Extra: mcp
-Requires-Dist: fastmcp>=2.0.0; (python_version >= '3.10') and extra == 'mcp'
+Requires-Dist: fastmcp>=2.0.0; extra == 'mcp'
 Requires-Dist: pydantic-settings>=2.0; extra == 'mcp'
 Provides-Extra: mistralai
 Requires-Dist: mistralai>=1.0.0; extra == 'mistralai'
@@ -115,7 +114,7 @@ Perfect for building **RAG pipelines** with real-time retrieval, **AI agents** w
 
 ## Installation
 
-Install `redisvl` into your Python (>=3.9) environment using `pip`:
+Install `redisvl` into your Python (>=3.10) environment using `pip`:
 
 ```bash
 pip install redisvl
@@ -126,8 +125,6 @@ Install the MCP server extra when you want to expose an existing Redis index thr
 ```bash
 pip install redisvl[mcp]
 ```
-
-The `redisvl[mcp]` extra requires Python 3.10 or newer.
 
 > For more detailed instructions, visit the [installation guide](https://docs.redisvl.com/en/latest/user_guide/installation.html).
 > For MCP concepts and setup, see the [RedisVL MCP docs](https://docs.redisvl.com/en/latest/concepts/mcp.html) and the [MCP how-to guide](https://docs.redisvl.com/en/latest/user_guide/how_to_guides/mcp.html).

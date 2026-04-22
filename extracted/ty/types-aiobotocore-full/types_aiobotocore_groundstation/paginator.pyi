@@ -12,10 +12,13 @@ Usage::
 
     from types_aiobotocore_groundstation.client import GroundStationClient
     from types_aiobotocore_groundstation.paginator import (
+        ListAntennasPaginator,
         ListConfigsPaginator,
+        ListContactVersionsPaginator,
         ListContactsPaginator,
         ListDataflowEndpointGroupsPaginator,
         ListEphemeridesPaginator,
+        ListGroundStationReservationsPaginator,
         ListGroundStationsPaginator,
         ListMissionProfilesPaginator,
         ListSatellitesPaginator,
@@ -25,10 +28,13 @@ Usage::
     with session.create_client("groundstation") as client:
         client: GroundStationClient
 
+        list_antennas_paginator: ListAntennasPaginator = client.get_paginator("list_antennas")
         list_configs_paginator: ListConfigsPaginator = client.get_paginator("list_configs")
+        list_contact_versions_paginator: ListContactVersionsPaginator = client.get_paginator("list_contact_versions")
         list_contacts_paginator: ListContactsPaginator = client.get_paginator("list_contacts")
         list_dataflow_endpoint_groups_paginator: ListDataflowEndpointGroupsPaginator = client.get_paginator("list_dataflow_endpoint_groups")
         list_ephemerides_paginator: ListEphemeridesPaginator = client.get_paginator("list_ephemerides")
+        list_ground_station_reservations_paginator: ListGroundStationReservationsPaginator = client.get_paginator("list_ground_station_reservations")
         list_ground_stations_paginator: ListGroundStationsPaginator = client.get_paginator("list_ground_stations")
         list_mission_profiles_paginator: ListMissionProfilesPaginator = client.get_paginator("list_mission_profiles")
         list_satellites_paginator: ListSatellitesPaginator = client.get_paginator("list_satellites")
@@ -43,14 +49,20 @@ from typing import TYPE_CHECKING
 from aiobotocore.paginate import AioPageIterator, AioPaginator
 
 from .type_defs import (
+    ListAntennasRequestPaginateTypeDef,
+    ListAntennasResponseTypeDef,
     ListConfigsRequestPaginateTypeDef,
     ListConfigsResponseTypeDef,
     ListContactsRequestPaginateTypeDef,
     ListContactsResponseTypeDef,
+    ListContactVersionsRequestPaginateTypeDef,
+    ListContactVersionsResponseTypeDef,
     ListDataflowEndpointGroupsRequestPaginateTypeDef,
     ListDataflowEndpointGroupsResponseTypeDef,
     ListEphemeridesRequestPaginateTypeDef,
     ListEphemeridesResponseTypeDef,
+    ListGroundStationReservationsRequestPaginateTypeDef,
+    ListGroundStationReservationsResponseTypeDef,
     ListGroundStationsRequestPaginateTypeDef,
     ListGroundStationsResponseTypeDef,
     ListMissionProfilesRequestPaginateTypeDef,
@@ -65,14 +77,35 @@ else:
     from typing_extensions import Unpack
 
 __all__ = (
+    "ListAntennasPaginator",
     "ListConfigsPaginator",
+    "ListContactVersionsPaginator",
     "ListContactsPaginator",
     "ListDataflowEndpointGroupsPaginator",
     "ListEphemeridesPaginator",
+    "ListGroundStationReservationsPaginator",
     "ListGroundStationsPaginator",
     "ListMissionProfilesPaginator",
     "ListSatellitesPaginator",
 )
+
+if TYPE_CHECKING:
+    _ListAntennasPaginatorBase = AioPaginator[ListAntennasResponseTypeDef]
+else:
+    _ListAntennasPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+class ListAntennasPaginator(_ListAntennasPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/groundstation/paginator/ListAntennas.html#GroundStation.Paginator.ListAntennas)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_groundstation/paginators/#listantennaspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListAntennasRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListAntennasResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/groundstation/paginator/ListAntennas.html#GroundStation.Paginator.ListAntennas.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_groundstation/paginators/#listantennaspaginator)
+        """
 
 if TYPE_CHECKING:
     _ListConfigsPaginatorBase = AioPaginator[ListConfigsResponseTypeDef]
@@ -90,6 +123,24 @@ class ListConfigsPaginator(_ListConfigsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/groundstation/paginator/ListConfigs.html#GroundStation.Paginator.ListConfigs.paginate)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_groundstation/paginators/#listconfigspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListContactVersionsPaginatorBase = AioPaginator[ListContactVersionsResponseTypeDef]
+else:
+    _ListContactVersionsPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+class ListContactVersionsPaginator(_ListContactVersionsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/groundstation/paginator/ListContactVersions.html#GroundStation.Paginator.ListContactVersions)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_groundstation/paginators/#listcontactversionspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListContactVersionsRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListContactVersionsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/groundstation/paginator/ListContactVersions.html#GroundStation.Paginator.ListContactVersions.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_groundstation/paginators/#listcontactversionspaginator)
         """
 
 if TYPE_CHECKING:
@@ -146,6 +197,26 @@ class ListEphemeridesPaginator(_ListEphemeridesPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/groundstation/paginator/ListEphemerides.html#GroundStation.Paginator.ListEphemerides.paginate)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_groundstation/paginators/#listephemeridespaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListGroundStationReservationsPaginatorBase = AioPaginator[
+        ListGroundStationReservationsResponseTypeDef
+    ]
+else:
+    _ListGroundStationReservationsPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+class ListGroundStationReservationsPaginator(_ListGroundStationReservationsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/groundstation/paginator/ListGroundStationReservations.html#GroundStation.Paginator.ListGroundStationReservations)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_groundstation/paginators/#listgroundstationreservationspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListGroundStationReservationsRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListGroundStationReservationsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/groundstation/paginator/ListGroundStationReservations.html#GroundStation.Paginator.ListGroundStationReservations.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_groundstation/paginators/#listgroundstationreservationspaginator)
         """
 
 if TYPE_CHECKING:

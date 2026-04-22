@@ -1,68 +1,47 @@
 import asyncio
+from datetime import date
 import httpx
 from typing import Optional, Any, Dict, List
+from propelauth_py.types.user_insights import (
+    ChartMetric,
+    ChartMetricCadence,
+    ChartData,
+    TopInviterReportInterval,
+    ChampionReportInterval,
+    ChurnReportInterval,
+    ReengagementReportInterval,
+    GrowthReportInterval,
+    AttritionReportInterval,
+    OrgReport,
+    OrgReportType,
+    UserReport,
+    UserReportType,
+)
 from propelauth_py.user import UserAndOrgMemberInfo, User
 from propelauth_py.jwt import _validate_access_token_and_get_user
 from propelauth_py.logging_config import configure_logging as _configure_logging
 from propelauth_py.api import (
-    token_verification_metadata,
-    TokenVerificationMetadata,
     OrgQueryOrderBy,
+    TokenVerificationMetadata,
     UserQueryOrderBy,
+    token_verification_metadata,
 )
-from propelauth_py.api.user import (
-    _clear_user_password,
-    _clear_user_password_async,
-    _fetch_user_metadata_by_user_id,
-    _fetch_user_metadata_by_user_id_async,
-    _fetch_user_metadata_by_email,
-    _fetch_user_metadata_by_email_async,
-    _fetch_user_metadata_by_username,
-    _fetch_user_metadata_by_username_async,
-    _fetch_batch_user_metadata_by_user_ids,
-    _fetch_batch_user_metadata_by_user_ids_async,
-    _fetch_batch_user_metadata_by_emails,
-    _fetch_batch_user_metadata_by_emails_async,
-    _fetch_batch_user_metadata_by_usernames,
-    _fetch_batch_user_metadata_by_usernames_async,
-    _fetch_user_signup_query_params_by_user_id,
-    _fetch_user_signup_query_params_by_user_id_async,
-    _fetch_users_by_query,
-    _fetch_users_by_query_async,
-    _fetch_users_in_org,
-    _fetch_users_in_org_async,
-    _create_user,
-    _create_user_async,
-    _logout_all_user_sessions,
-    _logout_all_user_sessions_async,
-    _update_user_email,
-    _update_user_email_async,
-    _update_user_metadata,
-    _update_user_metadata_async,
-    _delete_user,
-    _delete_user_async,
-    _disable_user,
-    _disable_user_async,
-    _enable_user,
-    _enable_user_async,
-    _update_user_password,
-    _update_user_password_async,
-    _disable_user_2fa,
-    _disable_user_2fa_async,
-    _enable_user_can_create_orgs,
-    _enable_user_can_create_orgs_async,
-    _disable_user_can_create_orgs,
-    _disable_user_can_create_orgs_async,
-    _validate_personal_api_key,
-    _validate_personal_api_key_async,
-    _invite_user_to_org,
-    _invite_user_to_org_async,
-    _invite_user_to_org_by_user_id,
-    _invite_user_to_org_by_user_id_async,
-    _resend_email_confirmation,
-    _resend_email_confirmation_async,
-    _fetch_user_mfa_methods,
-    _fetch_user_mfa_methods_async
+from propelauth_py.api.access_token import (
+    _create_access_token,
+    _create_access_token_async,
+)
+from propelauth_py.api.employee import (
+    FetchEmployeeResponse,
+    _fetch_employee_by_id,
+    _fetch_employee_by_id_async,
+)
+from propelauth_py.api.user_insights import (
+    _fetch_user_report,
+    _fetch_user_report_async,
+    _fetch_org_report,
+    _fetch_org_report_async,
+    _fetch_chart_metric_data,
+    _fetch_chart_metric_data_async,
 )
 from propelauth_py.api.access_token import _create_access_token, _create_access_token_async
 from propelauth_py.api.end_user_api_keys import (
@@ -72,18 +51,18 @@ from propelauth_py.api.end_user_api_keys import (
     _delete_api_key_async,
     _fetch_api_key,
     _fetch_api_key_async,
+    _fetch_api_key_usage,
+    _fetch_api_key_usage_async,
     _fetch_archived_api_keys,
     _fetch_archived_api_keys_async,
     _fetch_current_api_keys,
     _fetch_current_api_keys_async,
+    _import_api_key,
+    _import_api_key_async,
     _update_api_key,
     _update_api_key_async,
     _validate_api_key,
     _validate_api_key_async,
-    _fetch_api_key_usage,
-    _fetch_api_key_usage_async,
-    _import_api_key,
-    _import_api_key_async,
     _validate_imported_api_key,
     _validate_imported_api_key_async,
 )
@@ -93,19 +72,6 @@ from propelauth_py.api.migrate_user import (
     _migrate_user_from_external_source_async,
     _migrate_user_password,
     _migrate_user_password_async,
-)
-from propelauth_py.api.step_up_mfa.verify_totp_challenge import (
-    _verify_step_up_totp_challenge,
-    _verify_step_up_totp_challenge_async
-)
-from propelauth_py.api.step_up_mfa.verify_grant import _verify_step_up_grant, _verify_step_up_grant_async
-from propelauth_py.api.step_up_mfa.send_sms_mfa_code import _send_sms_mfa_code, _send_sms_mfa_code_async
-from propelauth_py.api.step_up_mfa.verify_sms_challenge import _verify_sms_challenge, _verify_sms_challenge_async
-from propelauth_py.types.step_up_mfa import (
-    StepUpMfaGrantType,
-    StepUpMfaVerifyTotpResponse,
-    SendSmsMfaCodeResponse,
-    VerifySmsChallengeResponse
 )
 from propelauth_py.api.org import (
     _add_user_to_org,
@@ -120,6 +86,8 @@ from propelauth_py.api.org import (
     _create_org_saml_connection_link_async,
     _delete_org,
     _delete_org_async,
+    _delete_saml_connection,
+    _delete_saml_connection_async,
     _disallow_org_to_setup_saml_connection,
     _disallow_org_to_setup_saml_connection_async,
     _fetch_custom_role_mappings,
@@ -130,41 +98,115 @@ from propelauth_py.api.org import (
     _fetch_org_by_query_async,
     _fetch_pending_invites,
     _fetch_pending_invites_async,
+    _fetch_saml_sp_metadata,
+    _fetch_saml_sp_metadata_async,
     _remove_user_from_org,
     _remove_user_from_org_async,
     _revoke_pending_org_invite,
     _revoke_pending_org_invite_async,
+    _saml_go_live,
+    _saml_go_live_async,
+    _set_saml_idp_metadata,
+    _set_saml_idp_metadata_async,
+    _set_oidc_idp_metadata,
+    _set_oidc_idp_metadata_async,
     _subscribe_org_to_role_mapping,
     _subscribe_org_to_role_mapping_async,
     _update_org_metadata,
     _update_org_metadata_async,
     _validate_org_api_key,
     _validate_org_api_key_async,
-    _fetch_saml_sp_metadata,
-    _fetch_saml_sp_metadata_async,
-    _set_saml_idp_metadata,
-    _set_saml_idp_metadata_async,
-    _saml_go_live,
-    _saml_go_live_async,
-    _delete_saml_connection,
-    _delete_saml_connection_async,
 )
-from propelauth_py.api.employee import (
-    _fetch_employee_by_id,
-    _fetch_employee_by_id_async,
-    FetchEmployeeResponse
+from propelauth_py.api.scim import (
+    _fetch_org_scim_groups,
+    _fetch_org_scim_groups_async,
+    _fetch_scim_group,
+    _fetch_scim_group_async,
+)
+from propelauth_py.api.step_up_mfa.send_sms_mfa_code import (
+    _send_sms_mfa_code,
+    _send_sms_mfa_code_async,
+)
+from propelauth_py.api.step_up_mfa.verify_grant import (
+    _verify_step_up_grant,
+    _verify_step_up_grant_async,
+)
+from propelauth_py.api.step_up_mfa.verify_sms_challenge import (
+    _verify_sms_challenge,
+    _verify_sms_challenge_async,
+)
+from propelauth_py.api.step_up_mfa.verify_totp_challenge import (
+    _verify_step_up_totp_challenge,
+    _verify_step_up_totp_challenge_async,
 )
 from propelauth_py.api.token_verification_metadata import (
     _fetch_token_verification_metadata,
 )
-
+from propelauth_py.api.user import (
+    _clear_user_password,
+    _clear_user_password_async,
+    _create_user,
+    _create_user_async,
+    _delete_user,
+    _delete_user_async,
+    _disable_user,
+    _disable_user_2fa,
+    _disable_user_2fa_async,
+    _disable_user_async,
+    _disable_user_can_create_orgs,
+    _disable_user_can_create_orgs_async,
+    _enable_user,
+    _enable_user_async,
+    _enable_user_can_create_orgs,
+    _enable_user_can_create_orgs_async,
+    _fetch_batch_user_metadata_by_emails,
+    _fetch_batch_user_metadata_by_emails_async,
+    _fetch_batch_user_metadata_by_user_ids,
+    _fetch_batch_user_metadata_by_user_ids_async,
+    _fetch_batch_user_metadata_by_usernames,
+    _fetch_batch_user_metadata_by_usernames_async,
+    _fetch_user_metadata_by_email,
+    _fetch_user_metadata_by_email_async,
+    _fetch_user_metadata_by_user_id,
+    _fetch_user_metadata_by_user_id_async,
+    _fetch_user_metadata_by_username,
+    _fetch_user_metadata_by_username_async,
+    _fetch_user_mfa_methods,
+    _fetch_user_mfa_methods_async,
+    _fetch_user_signup_query_params_by_user_id,
+    _fetch_user_signup_query_params_by_user_id_async,
+    _fetch_users_by_query,
+    _fetch_users_by_query_async,
+    _fetch_users_in_org,
+    _fetch_users_in_org_async,
+    _invite_user_to_org,
+    _invite_user_to_org_async,
+    _invite_user_to_org_by_user_id,
+    _invite_user_to_org_by_user_id_async,
+    _logout_all_user_sessions,
+    _logout_all_user_sessions_async,
+    _resend_email_confirmation,
+    _resend_email_confirmation_async,
+    _update_user_email,
+    _update_user_email_async,
+    _update_user_metadata,
+    _update_user_metadata_async,
+    _update_user_password,
+    _update_user_password_async,
+    _validate_personal_api_key,
+    _validate_personal_api_key_async,
+    _fetch_user_oauth_tokens,
+    _fetch_user_oauth_tokens_async,
+    _fetch_fresh_token_from_provider,
+    _fetch_fresh_token_from_provider_async,
+)
 from propelauth_py.auth_fns import (
+    _extract_token_from_authorization_header,
     validate_all_permissions_and_get_org,
     validate_exact_org_role_and_get_org,
     validate_minimum_org_role_and_get_org,
     validate_org_access_and_get_org_member_info,
     validate_permission_and_get_org,
-    _extract_token_from_authorization_header,
     wrap_validate_access_token_and_get_user,
     wrap_validate_access_token_and_get_user_with_org,
     wrap_validate_access_token_and_get_user_with_org_by_all_permissions,
@@ -173,11 +215,21 @@ from propelauth_py.auth_fns import (
     wrap_validate_access_token_and_get_user_with_org_by_permission,
 )
 from propelauth_py.errors import (
-    ForbiddenException,
-    UnauthorizedException,
-    EndUserApiKeyRateLimitedException,
     EndUserApiKeyException,
+    EndUserApiKeyRateLimitedException,
+    ForbiddenException,
     RateLimitedException,
+    UnauthorizedException,
+)
+from propelauth_py.jwt import _validate_access_token_and_get_user
+from propelauth_py.logging_config import configure_logging as _configure_logging
+from propelauth_py.types.end_user_api_keys import (
+    ApiKeyFull,
+    ApiKeyNew,
+    ApiKeyResultPage,
+    ApiKeyUsage,
+    ApiKeyValidation,
+    ImportedApiKeyNew,
 )
 from propelauth_py.types.login_method import (
     EmailConfirmationLinkLoginMethod,
@@ -191,35 +243,51 @@ from propelauth_py.types.login_method import (
     SocialSsoLoginMethod,
     UnknownLoginMethod,
 )
-from propelauth_py.types.end_user_api_keys import (
-    ApiKeyFull,
-    ApiKeyResultPage,
-    ApiKeyNew,
-    ApiKeyValidation,
-    ApiKeyUsage,
-    ImportedApiKeyNew,
+from propelauth_py.types.saml_types import (
+    SamlIdpMetadata,
+    SetOidcIdpMetadataRequestBase,
+    SetOidcIdpMetadataRequest,
+    SetGenericOidcMetadataRequest,
+    SetOktaOidcMetadataRequest,
+    SetAzureOidcMetadataRequest,
+)
+from propelauth_py.types.scim import (
+    FetchOrgScimGroupsRequest,
+    FetchScimGroupRequest,
+    ScimGroup,
+    ScimGroupMember,
+    ScimGroupResult,
+    ScimGroupResultPage,
+)
+from propelauth_py.types.step_up_mfa import (
+    SendSmsMfaCodeResponse,
+    StepUpMfaGrantType,
+    StepUpMfaVerifyTotpResponse,
+    VerifySmsChallengeResponse,
 )
 from propelauth_py.types.user import (
+    CreatedOrg,
+    CreatedUser,
+    FetchUserMfaMethodsResponse,
+    MfaPhones,
+    MfaPhoneType,
+    MfaTotpType,
     Org,
-    OrgFromApiKey,
     Organization,
+    OrgApiKeyValidation,
+    OrgFromApiKey,
     OrgQueryResponse,
     PendingInvite,
     PendingInvitesPage,
-    CreatedOrg,
-    UserMetadata,
-    OrgApiKeyValidation,
-    CreatedUser,
-    UsersPagedResponse,
     PersonalApiKeyValidation,
+    UserMetadata,
     UserSignupQueryParams,
-    MfaTotpType,
-    MfaPhones,
-    MfaPhoneType,
-    FetchUserMfaMethodsResponse
+    UsersPagedResponse,
+    SocialLoginTokenProvider,
+    SocialLoginToken,
+    SocialLoginTokensResponse
 )
-from propelauth_py.types.saml_types import SamlIdpMetadata
-
+from propelauth_py.user import User, UserAndOrgMemberInfo
 from propelauth_py.validation import _validate_and_extract_auth_hostname
 
 
@@ -403,12 +471,27 @@ class Auth:
             properties,
             ignore_domain_restrictions,
         )
-        
+
     def fetch_user_mfa_methods(self, user_id: str):
         return _fetch_user_mfa_methods(
             self.auth_hostname,
             self.integration_api_key,
             user_id,
+        )
+        
+    def fetch_user_oauth_tokens(self, user_id: str):
+        return _fetch_user_oauth_tokens(
+            self.auth_hostname,
+            self.integration_api_key,
+            user_id,
+        )
+        
+    def fetch_fresh_token_from_provider(self, user_id: str, provider: SocialLoginTokenProvider):
+        return _fetch_fresh_token_from_provider(
+            self.auth_hostname,
+            self.integration_api_key,
+            user_id,
+            provider
         )
 
     def invite_user_to_org(
@@ -422,7 +505,7 @@ class Auth:
             role,
             additional_roles,
         )
-        
+
     def invite_user_to_org_by_user_id(
         self, user_id: str, org_id: str, role: str, additional_roles: List[str] = []
     ):
@@ -512,7 +595,8 @@ class Auth:
         expires_in_hours: Optional[int] = None,
         create_new_user_if_one_doesnt_exist: Optional[bool] = None,
         user_signup_query_parameters: Optional[Dict[str, str]] = None,
-        expire_after_first_use: Optional[bool] = None
+        expire_after_first_use: Optional[bool] = None,
+        requires_interstitial: Optional[bool] = None,
     ):
         return _create_magic_link(
             self.auth_hostname,
@@ -522,7 +606,8 @@ class Auth:
             expires_in_hours,
             create_new_user_if_one_doesnt_exist,
             user_signup_query_parameters,
-            expire_after_first_use
+            expire_after_first_use,
+            requires_interstitial
         )
 
     def create_access_token(
@@ -614,6 +699,9 @@ class Auth:
         domain: Optional[str] = None,
         require_2fa_by: Optional[str] = None,
         extra_domains: Optional[List[str]] = None,
+        password_rotation_enabled: Optional[bool] = None,
+        password_rotation_history_size: Optional[int] = None,
+        password_rotation_period: Optional[int] = None,
     ):
         return _update_org_metadata(
             self.auth_hostname,
@@ -628,6 +716,9 @@ class Auth:
             domain=domain,
             require_2fa_by=require_2fa_by,
             extra_domains=extra_domains,
+            password_rotation_enabled=password_rotation_enabled,
+            password_rotation_history_size=password_rotation_history_size,
+            password_rotation_period=password_rotation_period,
         )
 
     def subscribe_org_to_role_mapping(self, org_id: str, custom_role_mapping_name: str):
@@ -651,6 +742,13 @@ class Auth:
             self.integration_api_key,
             org_id,
             saml_idp_metadata,
+        )
+
+    def set_oidc_idp_metadata(self, request: SetOidcIdpMetadataRequest):
+        return _set_oidc_idp_metadata(
+            self.auth_hostname,
+            self.integration_api_key,
+            request
         )
 
     def saml_go_live(self, org_id: str):
@@ -792,6 +890,7 @@ class Auth:
         user_id: Optional[str] = None,
         expires_at_seconds: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
+        display_name: Optional[str] = None,
     ):
         return _create_api_key(
             self.auth_hostname,
@@ -800,6 +899,7 @@ class Auth:
             user_id,
             expires_at_seconds,
             metadata,
+            display_name
         )
 
     def update_api_key(
@@ -807,7 +907,7 @@ class Auth:
         api_key_id: str,
         expires_at_seconds: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
-        set_to_never_expire: Optional[bool] = None
+        set_to_never_expire: Optional[bool] = None,
     ):
         return _update_api_key(
             self.auth_hostname,
@@ -815,7 +915,7 @@ class Auth:
             api_key_id,
             expires_at_seconds,
             metadata,
-            set_to_never_expire
+            set_to_never_expire,
         )
 
     def delete_api_key(self, api_key_id: str):
@@ -842,16 +942,21 @@ class Auth:
         )
 
     def fetch_api_key_usage(
-        self, 
-        date: str, 
-        org_id: Optional[str] = None, 
-        user_id: Optional[str] = None, 
-        api_key_id: Optional[str] = None
+        self,
+        date: str,
+        org_id: Optional[str] = None,
+        user_id: Optional[str] = None,
+        api_key_id: Optional[str] = None,
     ):
         return _fetch_api_key_usage(
-            self.auth_hostname, self.integration_api_key, date, org_id, user_id, api_key_id
+            self.auth_hostname,
+            self.integration_api_key,
+            date,
+            org_id,
+            user_id,
+            api_key_id,
         )
-        
+
     def import_api_key(
         self,
         api_key_token: str,
@@ -859,6 +964,7 @@ class Auth:
         user_id: Optional[str] = None,
         expires_at_seconds: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
+        display_name: Optional[str] = None,
     ):
         return _import_api_key(
             self.auth_hostname,
@@ -868,6 +974,7 @@ class Auth:
             user_id,
             expires_at_seconds,
             metadata,
+            display_name
         )
 
     def verify_step_up_totp_challenge(
@@ -936,9 +1043,9 @@ class Auth:
         return _verify_step_up_grant(
             self.auth_hostname, self.integration_api_key, action_type, user_id, grant
         )
-        
+
     def send_sms_mfa_code(
-        self, 
+        self,
         action_type: str,
         user_id: str,
         mfa_phone_id: str,
@@ -952,29 +1059,198 @@ class Auth:
             user_id,
             mfa_phone_id,
             grant_type,
-            valid_for_seconds
+            valid_for_seconds,
         )
-        
+
     def verify_sms_challenge(
-        self, 
+        self,
         challenge_id: str,
         user_id: str,
         code: str,
     ):
         return _verify_sms_challenge(
+            self.auth_hostname, self.integration_api_key, challenge_id, user_id, code
+        )
+    
+    # User Insights Reports APIs
+    
+    def fetch_user_top_inviter_report(
+        self,
+        report_interval: Optional[TopInviterReportInterval] = None,
+        page_size: Optional[int] = None,
+        page_number: Optional[int] = None,
+    ) -> UserReport:
+        return _fetch_user_report(
             self.auth_hostname,
             self.integration_api_key,
-            challenge_id,
-            user_id,
-            code
+            UserReportType.TOP_INVITERS,
+            report_interval,
+            page_size,
+            page_number
+        )
+        
+    def fetch_user_champion_report(
+        self,
+        report_interval: Optional[ChampionReportInterval] = None,
+        page_size: Optional[int] = None,
+        page_number: Optional[int] = None,
+    ) -> UserReport:
+        return _fetch_user_report(
+            self.auth_hostname,
+            self.integration_api_key,
+            UserReportType.CHAMPION,
+            report_interval,
+            page_size,
+            page_number
+        )
+        
+    def fetch_user_churn_report(
+        self,
+        report_interval: Optional[ChurnReportInterval] = None,
+        page_size: Optional[int] = None,
+        page_number: Optional[int] = None,
+    ) -> UserReport:
+        return _fetch_user_report(
+            self.auth_hostname,
+            self.integration_api_key,
+            UserReportType.CHURN,
+            report_interval,
+            page_size,
+            page_number
+        )
+        
+        
+    def fetch_user_reengagement_report(
+        self,
+        report_interval: Optional[ReengagementReportInterval] = None,
+        page_size: Optional[int] = None,
+        page_number: Optional[int] = None,
+    ) -> UserReport:
+        return _fetch_user_report(
+            self.auth_hostname,
+            self.integration_api_key,
+            UserReportType.REENGAGEMENT,
+            report_interval,
+            page_size,
+            page_number
+        )
+        
+        
+    def fetch_org_churn_report(
+        self,
+        report_interval: Optional[ChurnReportInterval] = None,
+        page_size: Optional[int] = None,
+        page_number: Optional[int] = None,
+    ) -> OrgReport:
+        return _fetch_org_report(
+            self.auth_hostname,
+            self.integration_api_key,
+            OrgReportType.CHURN,
+            report_interval,
+            page_size,
+            page_number
+        )
+        
+    def fetch_org_reengagement_report(
+        self,
+        report_interval: Optional[ReengagementReportInterval] = None,
+        page_size: Optional[int] = None,
+        page_number: Optional[int] = None,
+    ) -> OrgReport:
+        return _fetch_org_report(
+            self.auth_hostname,
+            self.integration_api_key,
+            OrgReportType.REENGAGEMENT,
+            report_interval,
+            page_size,
+            page_number
+        )
+        
+        
+    def fetch_org_growth_report(
+        self,
+        report_interval: Optional[GrowthReportInterval] = None,
+        page_size: Optional[int] = None,
+        page_number: Optional[int] = None,
+    ) -> OrgReport:
+        return _fetch_org_report(
+            self.auth_hostname,
+            self.integration_api_key,
+            OrgReportType.GROWTH,
+            report_interval,
+            page_size,
+            page_number
+        )
+        
+        
+    def fetch_org_attrition_report(
+        self,
+        report_interval: Optional[AttritionReportInterval] = None,
+        page_size: Optional[int] = None,
+        page_number: Optional[int] = None,
+    ) -> OrgReport:
+        return _fetch_org_report(
+            self.auth_hostname,
+            self.integration_api_key,
+            OrgReportType.ATTRITION,
+            report_interval,
+            page_size,
+            page_number
+        )
+    
+    def fetch_chart_metric_data(
+        self,
+        chart_metric: ChartMetric,
+        cadence: Optional[ChartMetricCadence] = None,
+        start_date: Optional[date] = None,
+        end_date: Optional[date] = None,
+    ) -> ChartData:
+        return _fetch_chart_metric_data(
+            self.auth_hostname,
+            self.integration_api_key,
+            chart_metric,
+            cadence,
+            start_date,
+            end_date
         )
         
     # Employee APIs
     def fetch_employee_by_id(self, employee_id: str):
         return _fetch_employee_by_id(
+            self.auth_hostname, self.integration_api_key, employee_id
+        )
+
+    # SCIM APIs
+    def fetch_scim_group(
+        self, 
+        org_id: str,
+        group_id: str,
+        members_page_size: int = 10,
+        members_page_number: int = 0,
+    ) -> ScimGroup:
+        return _fetch_scim_group(
+            self.auth_hostname, 
+            self.integration_api_key,
+            org_id=org_id,
+            group_id=group_id,
+            members_page_size=members_page_size,
+            members_page_number=members_page_number,
+        )
+
+    def fetch_org_scim_groups(
+        self,
+        org_id: str,
+        user_id: Optional[str] = None,
+        page_size: int = 10,
+        page_number: int = 0,
+    ) -> ScimGroupResultPage:
+        return _fetch_org_scim_groups(
             self.auth_hostname,
             self.integration_api_key,
-            employee_id
+            org_id=org_id,
+            user_id=user_id,
+            page_size=page_size,
+            page_number=page_number,
         )
 
     def validate_access_token_and_get_user(self, authorization_header: Optional[str]):
@@ -1077,7 +1353,6 @@ class Auth:
         self, user: User, required_org_id: str, permissions: List[str]
     ):
         return validate_all_permissions_and_get_org(user, required_org_id, permissions)
-    
 
 
 class AsyncAuth(Auth):
@@ -1089,9 +1364,9 @@ class AsyncAuth(Auth):
         httpx_client: Optional[httpx.AsyncClient] = None,
     ):
         super().__init__(
-            auth_hostname = auth_hostname, 
-            integration_api_key = integration_api_key,
-            token_verification_metadata = token_verification_metadata
+            auth_hostname=auth_hostname,
+            integration_api_key=integration_api_key,
+            token_verification_metadata=token_verification_metadata,
         )
 
         self.is_httpx_client_provided = httpx_client is not None
@@ -1099,7 +1374,7 @@ class AsyncAuth(Auth):
             self.httpx_client = httpx_client
         else:
             self.httpx_client = httpx.AsyncClient()
-    
+
     async def __aenter__(self):
         return self
 
@@ -1116,8 +1391,6 @@ class AsyncAuth(Auth):
                             Set to True to enable, False to disable, or None to keep current setting
         """
         configure_logging(log_exceptions=log_exceptions)
-
-
 
     ####################
     #     API KEYS     #
@@ -1138,18 +1411,12 @@ class AsyncAuth(Auth):
             api_key_token=api_key_token,
             httpx_client=self.httpx_client,
         )
-        
-    async def fetch_api_key(
-        self, 
-        api_key_id: str
-    ):
+
+    async def fetch_api_key(self, api_key_id: str):
         return await _fetch_api_key_async(
-            self.httpx_client, 
-            self.auth_hostname, 
-            self.integration_api_key, 
-            api_key_id
+            self.httpx_client, self.auth_hostname, self.integration_api_key, api_key_id
         )
-    
+
     async def fetch_current_api_keys(
         self,
         org_id: Optional[str] = None,
@@ -1170,7 +1437,7 @@ class AsyncAuth(Auth):
             page_number,
             api_key_type,
         )
-        
+
     async def fetch_archived_api_keys(
         self,
         org_id: Optional[str] = None,
@@ -1191,13 +1458,14 @@ class AsyncAuth(Auth):
             page_number,
             api_key_type=api_key_type,
         )
-        
+
     async def create_api_key(
         self,
         org_id: Optional[str] = None,
         user_id: Optional[str] = None,
         expires_at_seconds: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
+        display_name: Optional[str] = None,
     ):
         return await _create_api_key_async(
             self.httpx_client,
@@ -1207,14 +1475,15 @@ class AsyncAuth(Auth):
             user_id,
             expires_at_seconds,
             metadata,
+            display_name,
         )
-        
+
     async def update_api_key(
         self,
         api_key_id: str,
         expires_at_seconds: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
-        set_to_never_expire: Optional[bool] = None
+        set_to_never_expire: Optional[bool] = None,
     ):
         return await _update_api_key_async(
             self.httpx_client,
@@ -1223,37 +1492,31 @@ class AsyncAuth(Auth):
             api_key_id,
             expires_at_seconds,
             metadata,
-            set_to_never_expire
+            set_to_never_expire,
         )
-        
-    async def delete_api_key(
-        self,
-        api_key_id: str
-    ):
+
+    async def delete_api_key(self, api_key_id: str):
         return await _delete_api_key_async(
-            self.httpx_client, 
-            self.auth_hostname, 
-            self.integration_api_key, 
-            api_key_id
+            self.httpx_client, self.auth_hostname, self.integration_api_key, api_key_id
         )
-        
+
     async def fetch_api_key_usage(
-        self, 
-        date: str, 
-        org_id: Optional[str] = None, 
-        user_id: Optional[str] = None, 
-        api_key_id: Optional[str] = None
+        self,
+        date: str,
+        org_id: Optional[str] = None,
+        user_id: Optional[str] = None,
+        api_key_id: Optional[str] = None,
     ):
         return await _fetch_api_key_usage_async(
-            self.httpx_client, 
-            self.auth_hostname, 
-            self.integration_api_key, 
-            date, 
-            org_id, 
-            user_id, 
-            api_key_id
+            self.httpx_client,
+            self.auth_hostname,
+            self.integration_api_key,
+            date,
+            org_id,
+            user_id,
+            api_key_id,
         )
-        
+
     async def import_api_key(
         self,
         api_key_token: str,
@@ -1261,6 +1524,7 @@ class AsyncAuth(Auth):
         user_id: Optional[str] = None,
         expires_at_seconds: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
+        display_name: Optional[str] = None,
     ):
         return await _import_api_key_async(
             self.httpx_client,
@@ -1271,13 +1535,13 @@ class AsyncAuth(Auth):
             user_id,
             expires_at_seconds,
             metadata,
+            display_name
         )
-    
-    
+
     ####################
     #   Access Tokens  #
     ####################
-    
+
     async def create_access_token(
         self,
         user_id: str,
@@ -1292,11 +1556,11 @@ class AsyncAuth(Auth):
             duration_in_minutes,
             active_org_id,
         )
-        
+
     ####################
     #    Magic Links   #
     ####################
-    
+
     async def create_magic_link(
         self,
         email: str,
@@ -1304,7 +1568,8 @@ class AsyncAuth(Auth):
         expires_in_hours: Optional[int] = None,
         create_new_user_if_one_doesnt_exist: Optional[bool] = None,
         user_signup_query_parameters: Optional[Dict[str, str]] = None,
-        expire_after_first_use: Optional[bool] = None
+        expire_after_first_use: Optional[bool] = None,
+        requires_interstitial: Optional[bool] = None,
     ):
         return await _create_magic_link_async(
             self.httpx_client,
@@ -1315,13 +1580,14 @@ class AsyncAuth(Auth):
             expires_in_hours,
             create_new_user_if_one_doesnt_exist,
             user_signup_query_parameters,
-            expire_after_first_use
+            expire_after_first_use,
+            requires_interstitial,
         )
-        
+
     ####################
     #   Migrate User   #
     ####################
-    
+
     async def migrate_user_from_external_source(
         self,
         email: str,
@@ -1354,7 +1620,7 @@ class AsyncAuth(Auth):
             picture_url,
             properties,
         )
-        
+
     async def migrate_user_password(
         self,
         user_id: str,
@@ -1362,22 +1628,18 @@ class AsyncAuth(Auth):
     ):
         return await _migrate_user_password_async(
             self.httpx_client,
-            self.auth_hostname, 
-            self.integration_api_key, 
-            user_id, 
-            password_hash
+            self.auth_hostname,
+            self.integration_api_key,
+            user_id,
+            password_hash,
         )
-        
+
     ####################
     #   Organizations  #
     ####################
-    
+
     async def add_user_to_org(
-        self, 
-        user_id: str, 
-        org_id: str, 
-        role: str, 
-        additional_roles: List[str] = []
+        self, user_id: str, org_id: str, role: str, additional_roles: List[str] = []
     ):
         return await _add_user_to_org_async(
             self.httpx_client,
@@ -1388,24 +1650,14 @@ class AsyncAuth(Auth):
             role,
             additional_roles,
         )
-        
-    async def allow_org_to_setup_saml_connection(
-        self, 
-        org_id: str
-    ):
+
+    async def allow_org_to_setup_saml_connection(self, org_id: str):
         return await _allow_org_to_setup_saml_connection_async(
-            self.httpx_client,
-            self.auth_hostname, 
-            self.integration_api_key, 
-            org_id
+            self.httpx_client, self.auth_hostname, self.integration_api_key, org_id
         )
-        
+
     async def change_user_role_in_org(
-        self, 
-        user_id: str, 
-        org_id: str, 
-        role: str, 
-        additional_roles: List[str] = []
+        self, user_id: str, org_id: str, role: str, additional_roles: List[str] = []
     ):
         return await _change_user_role_in_org_async(
             self.httpx_client,
@@ -1416,7 +1668,7 @@ class AsyncAuth(Auth):
             role,
             additional_roles,
         )
-        
+
     async def create_org(
         self,
         name: str,
@@ -1439,59 +1691,40 @@ class AsyncAuth(Auth):
             custom_role_mapping_name,
             legacy_org_id,
         )
-        
+
     async def create_org_saml_connection_link(
-        self, 
-        org_id: str, 
-        expires_in_seconds=None
+        self, org_id: str, expires_in_seconds=None
     ):
         return await _create_org_saml_connection_link_async(
             self.httpx_client,
-            self.auth_hostname, 
-            self.integration_api_key, 
-            org_id, 
+            self.auth_hostname,
+            self.integration_api_key,
+            org_id,
             expires_in_seconds,
         )
-        
-    async def delete_org(
-        self, 
-        org_id: str
-    ):
+
+    async def delete_org(self, org_id: str):
         return await _delete_org_async(
-            self.httpx_client,
-            self.auth_hostname, 
-            self.integration_api_key, org_id
+            self.httpx_client, self.auth_hostname, self.integration_api_key, org_id
         )
-        
-    async def disallow_org_to_setup_saml_connection(
-        self, 
-        org_id: str
-    ):
+
+    async def disallow_org_to_setup_saml_connection(self, org_id: str):
         return await _disallow_org_to_setup_saml_connection_async(
-            self.httpx_client,
-            self.auth_hostname, 
-            self.integration_api_key,
-            org_id
+            self.httpx_client, self.auth_hostname, self.integration_api_key, org_id
         )
-        
+
     async def fetch_custom_role_mappings(self):
         return await _fetch_custom_role_mappings_async(
             self.httpx_client,
             self.auth_hostname,
             self.integration_api_key,
         )
-        
-    async def fetch_org(
-        self, 
-        org_id: str
-    ):
+
+    async def fetch_org(self, org_id: str):
         return await _fetch_org_async(
-            self.httpx_client,
-            self.auth_hostname, 
-            self.integration_api_key, 
-            org_id
+            self.httpx_client, self.auth_hostname, self.integration_api_key, org_id
         )
-        
+
     async def fetch_org_by_query(
         self,
         page_size: int = 10,
@@ -1514,10 +1747,7 @@ class AsyncAuth(Auth):
         )
 
     async def fetch_pending_invites(
-        self, 
-        page_number: int = 0,
-        page_size: int = 10,
-        org_id: Optional[str] = None
+        self, page_number: int = 0, page_size: int = 10, org_id: Optional[str] = None
     ):
         return await _fetch_pending_invites_async(
             self.httpx_client,
@@ -1527,37 +1757,27 @@ class AsyncAuth(Auth):
             page_size,
             org_id,
         )
-        
-    async def remove_user_from_org(
-        self,
-        user_id: str,
-        org_id: str
-    ):
+
+    async def remove_user_from_org(self, user_id: str, org_id: str):
         return await _remove_user_from_org_async(
             self.httpx_client,
-            self.auth_hostname, 
+            self.auth_hostname,
             self.integration_api_key,
             user_id,
-            org_id
+            org_id,
         )
-        
-    async def revoke_pending_org_invite(
-        self,
-        org_id: str,
-        invitee_email: str
-    ):
+
+    async def revoke_pending_org_invite(self, org_id: str, invitee_email: str):
         return await _revoke_pending_org_invite_async(
             self.httpx_client,
-            self.auth_hostname, 
+            self.auth_hostname,
             self.integration_api_key,
             org_id,
-            invitee_email
+            invitee_email,
         )
-        
+
     async def subscribe_org_to_role_mapping(
-        self, 
-        org_id: str, 
-        custom_role_mapping_name: str
+        self, org_id: str, custom_role_mapping_name: str
     ):
         return await _subscribe_org_to_role_mapping_async(
             self.httpx_client,
@@ -1566,7 +1786,7 @@ class AsyncAuth(Auth):
             org_id,
             custom_role_mapping_name,
         )
-        
+
     async def update_org_metadata(
         self,
         org_id: str,
@@ -1579,6 +1799,9 @@ class AsyncAuth(Auth):
         domain: Optional[str] = None,
         require_2fa_by: Optional[str] = None,
         extra_domains: Optional[List[str]] = None,
+        password_rotation_enabled: Optional[bool] = None,
+        password_rotation_history_size: Optional[int] = None,
+        password_rotation_period: Optional[int] = None,
     ):
         return await _update_org_metadata_async(
             self.httpx_client,
@@ -1594,34 +1817,29 @@ class AsyncAuth(Auth):
             domain=domain,
             require_2fa_by=require_2fa_by,
             extra_domains=extra_domains,
+            password_rotation_enabled=password_rotation_enabled,
+            password_rotation_history_size=password_rotation_history_size,
+            password_rotation_period=password_rotation_period,
         )
-        
-    async def validate_org_api_key(
-        self,
-        api_key_token: str
-    ):
+
+    async def validate_org_api_key(self, api_key_token: str):
         return await _validate_org_api_key_async(
             self.httpx_client,
-            self.auth_hostname, 
+            self.auth_hostname,
             self.integration_api_key,
-            api_key_token
+            api_key_token,
         )
-        
-    async def fetch_saml_sp_metadata(
-        self, 
-        org_id: str
-    ):
+
+    async def fetch_saml_sp_metadata(self, org_id: str):
         return await _fetch_saml_sp_metadata_async(
             self.httpx_client,
             self.auth_hostname,
             self.integration_api_key,
             org_id,
         )
-        
+
     async def set_saml_idp_metadata(
-        self, 
-        org_id: str, 
-        saml_idp_metadata: SamlIdpMetadata
+        self, org_id: str, saml_idp_metadata: SamlIdpMetadata
     ):
         return await _set_saml_idp_metadata_async(
             self.httpx_client,
@@ -1631,126 +1849,110 @@ class AsyncAuth(Auth):
             saml_idp_metadata,
         )
         
-    async def saml_go_live(
-        self,
-        org_id: str
-    ):
+    async def set_oidc_idp_metadata(self, request: SetOidcIdpMetadataRequest):
+        return await _set_oidc_idp_metadata_async(
+            self.httpx_client,
+            self.auth_hostname,
+            self.integration_api_key,
+            request
+        )
+
+    async def saml_go_live(self, org_id: str):
         return await _saml_go_live_async(
             self.httpx_client,
             self.auth_hostname,
             self.integration_api_key,
             org_id,
         )
-        
-    async def delete_saml_connection(
-        self,
-        org_id: str
-    ):
+
+    async def delete_saml_connection(self, org_id: str):
         return await _delete_saml_connection_async(
             self.httpx_client,
             self.auth_hostname,
             self.integration_api_key,
             org_id,
         )
-        
+
     ####################
     #      Users       #
     ####################
-    
+
     async def clear_user_password(self, user_id: str):
         return await _clear_user_password_async(
-            self.httpx_client,
-            self.auth_hostname, 
-            self.integration_api_key,
-            user_id
+            self.httpx_client, self.auth_hostname, self.integration_api_key, user_id
         )
-        
+
     async def fetch_user_metadata_by_user_id(
-        self, 
-        user_id: str, 
-        include_orgs: bool = False
+        self, user_id: str, include_orgs: bool = False
     ):
         return await _fetch_user_metadata_by_user_id_async(
             self.httpx_client,
             self.auth_hostname,
             self.integration_api_key,
             user_id,
-            include_orgs
+            include_orgs,
         )
-        
+
     async def fetch_user_metadata_by_email(
-        self,
-        email: str,
-        include_orgs: bool = False
+        self, email: str, include_orgs: bool = False
     ):
         return await _fetch_user_metadata_by_email_async(
             self.httpx_client,
             self.auth_hostname,
             self.integration_api_key,
             email,
-            include_orgs
+            include_orgs,
         )
-        
+
     async def fetch_user_metadata_by_username(
-        self, 
-        username: str, 
-        include_orgs: bool = False
+        self, username: str, include_orgs: bool = False
     ):
         return await _fetch_user_metadata_by_username_async(
             self.httpx_client,
             self.auth_hostname,
             self.integration_api_key,
             username,
-            include_orgs
+            include_orgs,
         )
-        
+
     async def fetch_batch_user_metadata_by_user_ids(
-        self, 
-        user_ids: List[str], 
-        include_orgs: bool = False
+        self, user_ids: List[str], include_orgs: bool = False
     ):
         return await _fetch_batch_user_metadata_by_user_ids_async(
             self.httpx_client,
             self.auth_hostname,
             self.integration_api_key,
             user_ids,
-            include_orgs
+            include_orgs,
         )
-        
+
     async def fetch_batch_user_metadata_by_emails(
-        self,
-        emails: List[str],
-        include_orgs: bool = False
+        self, emails: List[str], include_orgs: bool = False
     ):
         return await _fetch_batch_user_metadata_by_emails_async(
             self.httpx_client,
             self.auth_hostname,
             self.integration_api_key,
             emails,
-            include_orgs
+            include_orgs,
         )
-        
+
     async def fetch_batch_user_metadata_by_usernames(
-        self, 
-        usernames: List[str], 
-        include_orgs: bool = False
+        self, usernames: List[str], include_orgs: bool = False
     ):
         return await _fetch_batch_user_metadata_by_usernames_async(
             self.httpx_client,
             self.auth_hostname,
             self.integration_api_key,
             usernames,
-            include_orgs
+            include_orgs,
         )
-        
+
     async def fetch_user_signup_query_params_by_user_id(self, user_id: str):
         return await _fetch_user_signup_query_params_by_user_id_async(
-            self.httpx_client,
-            self.auth_hostname,
-            self.integration_api_key,
-            user_id
+            self.httpx_client, self.auth_hostname, self.integration_api_key, user_id
         )
-        
+
     async def fetch_users_by_query(
         self,
         page_size: int = 10,
@@ -1771,7 +1973,7 @@ class AsyncAuth(Auth):
             include_orgs,
             legacy_user_id,
         )
-        
+
     async def fetch_users_in_org(
         self,
         org_id: str,
@@ -1790,7 +1992,7 @@ class AsyncAuth(Auth):
             include_orgs,
             role,
         )
-        
+
     async def create_user(
         self,
         email: str,
@@ -1819,7 +2021,7 @@ class AsyncAuth(Auth):
             properties,
             ignore_domain_restrictions,
         )
-        
+
     async def logout_all_user_sessions(self, user_id: str):
         return await _logout_all_user_sessions_async(
             self.httpx_client,
@@ -1827,12 +2029,9 @@ class AsyncAuth(Auth):
             self.integration_api_key,
             user_id,
         )
-        
+
     async def update_user_email(
-        self,
-        user_id: str,
-        new_email: str,
-        require_email_confirmation: bool
+        self, user_id: str, new_email: str, require_email_confirmation: bool
     ):
         return await _update_user_email_async(
             self.httpx_client,
@@ -1869,39 +2068,27 @@ class AsyncAuth(Auth):
             update_password_required=update_password_required,
             legacy_user_id=legacy_user_id,
         )
-        
+
     async def delete_user(self, user_id: str):
         return await _delete_user_async(
-            self.httpx_client,
-            self.auth_hostname,
-            self.integration_api_key,
-            user_id
+            self.httpx_client, self.auth_hostname, self.integration_api_key, user_id
         )
 
     async def disable_user(self, user_id: str):
         return await _disable_user_async(
-            self.httpx_client,
-            self.auth_hostname,
-            self.integration_api_key,
-            user_id
+            self.httpx_client, self.auth_hostname, self.integration_api_key, user_id
         )
 
     async def enable_user(self, user_id: str):
         return await _enable_user_async(
-            self.httpx_client,
-            self.auth_hostname,
-            self.integration_api_key,
-            user_id
+            self.httpx_client, self.auth_hostname, self.integration_api_key, user_id
         )
 
     async def disable_user_2fa(self, user_id: str):
         return await _disable_user_2fa_async(
-            self.httpx_client,
-            self.auth_hostname,
-            self.integration_api_key,
-            user_id
+            self.httpx_client, self.auth_hostname, self.integration_api_key, user_id
         )
-        
+
     async def update_user_password(
         self,
         user_id: str,
@@ -1916,37 +2103,27 @@ class AsyncAuth(Auth):
             password,
             ask_user_to_update_password_on_login,
         )
-        
+
     async def enable_user_can_create_orgs(self, user_id: str):
         return await _enable_user_can_create_orgs_async(
-            self.httpx_client,
-            self.auth_hostname,
-            self.integration_api_key,
-            user_id
+            self.httpx_client, self.auth_hostname, self.integration_api_key, user_id
         )
 
     async def disable_user_can_create_orgs(self, user_id: str):
         return await _disable_user_can_create_orgs_async(
-            self.httpx_client,
-            self.auth_hostname,
-            self.integration_api_key,
-            user_id
+            self.httpx_client, self.auth_hostname, self.integration_api_key, user_id
         )
-        
+
     async def validate_personal_api_key(self, api_key_token: str):
         return await _validate_personal_api_key_async(
             self.httpx_client,
             self.auth_hostname,
             self.integration_api_key,
-            api_key_token
+            api_key_token,
         )
-        
+
     async def invite_user_to_org(
-        self, 
-        email: str, 
-        org_id: str, 
-        role: str, 
-        additional_roles: List[str] = []
+        self, email: str, org_id: str, role: str, additional_roles: List[str] = []
     ):
         return await _invite_user_to_org_async(
             self.httpx_client,
@@ -1957,13 +2134,9 @@ class AsyncAuth(Auth):
             role,
             additional_roles,
         )
-        
+
     async def invite_user_to_org_by_user_id(
-        self, 
-        user_id: str, 
-        org_id: str, 
-        role: str, 
-        additional_roles: List[str] = []
+        self, user_id: str, org_id: str, role: str, additional_roles: List[str] = []
     ):
         return await _invite_user_to_org_by_user_id_async(
             self.httpx_client,
@@ -1982,7 +2155,7 @@ class AsyncAuth(Auth):
             self.integration_api_key,
             user_id,
         )
-        
+
     async def fetch_user_mfa_methods(self, user_id: str):
         return await _fetch_user_mfa_methods_async(
             self.httpx_client,
@@ -1991,11 +2164,30 @@ class AsyncAuth(Auth):
             user_id,
         )
         
+    async def fetch_user_oauth_tokens(self, user_id: str):
+        return await _fetch_user_oauth_tokens_async(
+            self.httpx_client,
+            self.auth_hostname,
+            self.integration_api_key,
+            user_id,
+        )
+        
+    async def fetch_fresh_token_from_provider(self, user_id: str, provider: SocialLoginTokenProvider):
+        return await _fetch_fresh_token_from_provider_async(
+            self.httpx_client,
+            self.auth_hostname,
+            self.integration_api_key,
+            user_id,
+            provider,
+        )
+
     ####################
     #    Step Up MFA   #
     ####################
-    
-    async def verify_step_up_grant(self, action_type: str, user_id: str, grant: str) -> bool:
+
+    async def verify_step_up_grant(
+        self, action_type: str, user_id: str, grant: str
+    ) -> bool:
         """Verify a step-up MFA grant for a sensitive operation.
 
         This function verifies if the provided grant is valid for the given user and action type.
@@ -2021,9 +2213,9 @@ class AsyncAuth(Auth):
             self.integration_api_key,
             action_type,
             user_id,
-            grant
+            grant,
         )
-        
+
     async def verify_step_up_totp_challenge(
         self,
         action_type: str,
@@ -2067,9 +2259,9 @@ class AsyncAuth(Auth):
             grant_type,
             valid_for_seconds,
         )
-        
+
     async def send_sms_mfa_code(
-        self, 
+        self,
         action_type: str,
         user_id: str,
         mfa_phone_id: str,
@@ -2084,11 +2276,11 @@ class AsyncAuth(Auth):
             user_id,
             mfa_phone_id,
             grant_type,
-            valid_for_seconds
+            valid_for_seconds,
         )
-        
+
     async def verify_sms_challenge(
-        self, 
+        self,
         challenge_id: str,
         user_id: str,
         code: str,
@@ -2099,17 +2291,202 @@ class AsyncAuth(Auth):
             self.integration_api_key,
             challenge_id,
             user_id,
-            code
+            code,
+        )
+        
+
+    # User Insights Reports APIs
+    
+    async def fetch_user_top_inviter_report(
+        self,
+        report_interval: Optional[TopInviterReportInterval] = None,
+        page_size: Optional[int] = None,
+        page_number: Optional[int] = None,
+    ) -> UserReport:
+        return await _fetch_user_report_async(
+            self.httpx_client,
+            self.auth_hostname,
+            self.integration_api_key,
+            UserReportType.TOP_INVITERS,
+            report_interval,
+            page_size,
+            page_number
+        )
+        
+    async def fetch_user_champion_report(
+        self,
+        report_interval: Optional[ChampionReportInterval] = None,
+        page_size: Optional[int] = None,
+        page_number: Optional[int] = None,
+    ) -> UserReport:
+        return await _fetch_user_report_async(
+            self.httpx_client,
+            self.auth_hostname,
+            self.integration_api_key,
+            UserReportType.CHAMPION,
+            report_interval,
+            page_size,
+            page_number
+        )
+        
+    async def fetch_user_churn_report(
+        self,
+        report_interval: Optional[ChurnReportInterval] = None,
+        page_size: Optional[int] = None,
+        page_number: Optional[int] = None,
+    ) -> UserReport:
+        return await _fetch_user_report_async(
+            self.httpx_client,
+            self.auth_hostname,
+            self.integration_api_key,
+            UserReportType.CHURN,
+            report_interval,
+            page_size,
+            page_number
+        )
+        
+        
+    async def fetch_user_reengagement_report(
+        self,
+        report_interval: Optional[ReengagementReportInterval] = None,
+        page_size: Optional[int] = None,
+        page_number: Optional[int] = None,
+    ) -> UserReport:
+        return await _fetch_user_report_async(
+            self.httpx_client,
+            self.auth_hostname,
+            self.integration_api_key,
+            UserReportType.REENGAGEMENT,
+            report_interval,
+            page_size,
+            page_number
+        )
+        
+        
+    async def fetch_org_churn_report(
+        self,
+        report_interval: Optional[ChurnReportInterval] = None,
+        page_size: Optional[int] = None,
+        page_number: Optional[int] = None,
+    ) -> OrgReport:
+        return await _fetch_org_report_async(
+            self.httpx_client,
+            self.auth_hostname,
+            self.integration_api_key,
+            OrgReportType.CHURN,
+            report_interval,
+            page_size,
+            page_number
+        )
+        
+    async def fetch_org_reengagement_report(
+        self,
+        report_interval: Optional[ReengagementReportInterval] = None,
+        page_size: Optional[int] = None,
+        page_number: Optional[int] = None,
+    ) -> OrgReport:
+        return await _fetch_org_report_async(
+            self.httpx_client,
+            self.auth_hostname,
+            self.integration_api_key,
+            OrgReportType.REENGAGEMENT,
+            report_interval,
+            page_size,
+            page_number
+        )
+        
+        
+    async def fetch_org_growth_report(
+        self,
+        report_interval: Optional[GrowthReportInterval] = None,
+        page_size: Optional[int] = None,
+        page_number: Optional[int] = None,
+    ) -> OrgReport:
+        return await _fetch_org_report_async(
+            self.httpx_client,
+            self.auth_hostname,
+            self.integration_api_key,
+            OrgReportType.GROWTH,
+            report_interval,
+            page_size,
+            page_number
+        )
+        
+        
+    async def fetch_org_attrition_report(
+        self,
+        report_interval: Optional[AttritionReportInterval] = None,
+        page_size: Optional[int] = None,
+        page_number: Optional[int] = None,
+    ) -> OrgReport:
+        return await _fetch_org_report_async(
+            self.httpx_client,
+            self.auth_hostname,
+            self.integration_api_key,
+            OrgReportType.ATTRITION,
+            report_interval,
+            page_size,
+            page_number
+        )
+    
+    async def fetch_chart_metric_data(
+        self,
+        chart_metric: ChartMetric,
+        cadence: Optional[ChartMetricCadence] = None,
+        start_date: Optional[date] = None,
+        end_date: Optional[date] = None,
+    ) -> ChartData:
+        return await _fetch_chart_metric_data_async(
+            self.httpx_client,
+            self.auth_hostname,
+            self.integration_api_key,
+            chart_metric,
+            cadence,
+            start_date,
+            end_date
         )
         
     # Employee APIs
     async def fetch_employee_by_id(self, employee_id: str):
         return await _fetch_employee_by_id_async(
+            self.httpx_client, self.auth_hostname, self.integration_api_key, employee_id
+        )
+        
+    # SCIM APIs
+    async def fetch_scim_group(
+        self, 
+        org_id: str,
+        group_id: str,
+        members_page_size: int = 10,
+        members_page_number: int = 0,
+        ) -> ScimGroup:
+        return await _fetch_scim_group_async(
             self.httpx_client,
             self.auth_hostname,
             self.integration_api_key,
-            employee_id
+            org_id=org_id,
+            group_id=group_id,
+            members_page_size=members_page_size,
+            members_page_number=members_page_number,
         )
+
+    async def fetch_org_scim_groups(
+        self,
+        org_id: str,
+        user_id: Optional[str] = None,
+        page_size: int = 10,
+        page_number: int = 0,
+    ) -> ScimGroupResultPage:
+        return await _fetch_org_scim_groups_async(
+            self.httpx_client,
+            self.auth_hostname,
+            self.integration_api_key,
+            org_id=org_id,
+            user_id=user_id,
+            page_size=page_size,
+            page_number=page_number,
+        )
+
 
 def init_base_auth(
     auth_url: str,
@@ -2139,4 +2516,6 @@ def init_base_async_auth(
     token_verification_metadata = _fetch_token_verification_metadata(
         auth_hostname, integration_api_key, token_verification_metadata
     )
-    return AsyncAuth(auth_hostname, integration_api_key, token_verification_metadata, httpx_client)
+    return AsyncAuth(
+        auth_hostname, integration_api_key, token_verification_metadata, httpx_client
+    )

@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: apache-libcloud
-Version: 3.9.0
+Version: 3.9.1
 Summary: A standard Python library that abstracts away differences among multiple cloud provider APIs. For more information and documentation, please see https://libcloud.apache.org
 Author-email: Apache Software Foundation <dev@libcloud.apache.org>
 License: Apache License (2.0)
@@ -35,6 +35,7 @@ Description-Content-Type: text/x-rst
 License-File: LICENSE
 License-File: NOTICE
 Requires-Dist: requests>=2.26.0
+Dynamic: license-file
 
 Apache Libcloud - a unified interface for the cloud
 ====================================================

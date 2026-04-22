@@ -76,9 +76,9 @@ class PredictJob(AbstractSpecificJob):
     Attributes
     ----------
     id : int
-        the id of the job
+        the ID of the job
     project_id : str
-        the id of the project the job belongs to
+        the ID of the project the job belongs to
     status : str
         the status of the job - will be one of ``datarobot.enums.QUEUE_STATUS``
     job_type : str
@@ -123,7 +123,7 @@ class PredictJob(AbstractSpecificJob):
         Raises
         ------
         ValueError:
-            If the generic Job was not a predict job, e.g. job_type != JOB_TYPE.PREDICT
+            If the generic Job was not a predict job, e.g., job_type != JOB_TYPE.PREDICT
         """
         return super().from_job(job)
 

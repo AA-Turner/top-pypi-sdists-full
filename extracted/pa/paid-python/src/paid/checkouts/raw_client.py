@@ -16,6 +16,7 @@ from ..errors.forbidden_error import ForbiddenError
 from ..errors.internal_server_error import InternalServerError
 from ..errors.not_found_error import NotFoundError
 from ..types.checkout import Checkout
+from ..types.checkout_details import CheckoutDetails
 from ..types.checkout_list_response import CheckoutListResponse
 from ..types.checkout_product_input import CheckoutProductInput
 from ..types.empty_response import EmptyResponse
@@ -253,7 +254,7 @@ class RawCheckoutsClient:
 
     def get_checkout(
         self, id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> HttpResponse[Checkout]:
+    ) -> HttpResponse[CheckoutDetails]:
         """
         Get a checkout by ID
 
@@ -266,7 +267,7 @@ class RawCheckoutsClient:
 
         Returns
         -------
-        HttpResponse[Checkout]
+        HttpResponse[CheckoutDetails]
             200
         """
         _response = self._client_wrapper.httpx_client.request(
@@ -277,9 +278,9 @@ class RawCheckoutsClient:
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    Checkout,
+                    CheckoutDetails,
                     parse_obj_as(
-                        type_=Checkout,  # type: ignore
+                        type_=CheckoutDetails,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -621,7 +622,7 @@ class AsyncRawCheckoutsClient:
 
     async def get_checkout(
         self, id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> AsyncHttpResponse[Checkout]:
+    ) -> AsyncHttpResponse[CheckoutDetails]:
         """
         Get a checkout by ID
 
@@ -634,7 +635,7 @@ class AsyncRawCheckoutsClient:
 
         Returns
         -------
-        AsyncHttpResponse[Checkout]
+        AsyncHttpResponse[CheckoutDetails]
             200
         """
         _response = await self._client_wrapper.httpx_client.request(
@@ -645,9 +646,9 @@ class AsyncRawCheckoutsClient:
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    Checkout,
+                    CheckoutDetails,
                     parse_obj_as(
-                        type_=Checkout,  # type: ignore
+                        type_=CheckoutDetails,  # type: ignore
                         object_=_response.json(),
                     ),
                 )

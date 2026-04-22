@@ -163,3 +163,10 @@ module = [
     "datarobot.enums",
 ]
 ignore_errors = true
+
+[tool.pymarkdown]
+plugins.MD013.enabled = false # Line length [Expected: 80, Actual: <value>] (line-length)
+plugins.MD024.enabled = false # Multiple headings cannot contain the same content. (no-duplicate-heading,no-duplicate-header)
+# For our docs to render correctly (as seen at link) we need list indentation in multiples of 4
+# https://docs.datarobot.com/en/docs/api/reference/changelogs/py-changelog/index.html
+plugins.MD007.enabled = false # Unordered list indentation [Expected: 2, Actual=4] (ul-indent)

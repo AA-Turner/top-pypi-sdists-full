@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: awslabs.amazon-mq-mcp-server
-Version: 2.0.19
+Version: 2.0.20
 Summary: A Model Context Protocol server for AmazonMQ to provision and manage your AMQ brokers
 Project-URL: Homepage, https://awslabs.github.io/mcp/
 Project-URL: Documentation, https://awslabs.github.io/mcp/servers/amazon_mq-mcp-server/

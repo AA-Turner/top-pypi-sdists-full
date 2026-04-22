@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: mypy-boto3-sagemaker
-Version: 1.42.91
-Summary: Type annotations for boto3 SageMaker 1.42.91 service generated with mypy-boto3-builder 8.12.0
+Version: 1.42.93
+Summary: Type annotations for boto3 SageMaker 1.42.93 service generated with mypy-boto3-builder 8.12.0
 Author-email: Vlad Emelianov <vlad.emelianov.nz@gmail.com>
 License-Expression: MIT
 Project-URL: Homepage, https://github.com/youtype/mypy_boto3_builder
@@ -42,7 +42,7 @@ Dynamic: license-file
 
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
-Type annotations for [boto3 SageMaker 1.42.91](https://pypi.org/project/boto3/)
+Type annotations for [boto3 SageMaker 1.42.93](https://pypi.org/project/boto3/)
 compatible with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -105,7 +105,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.42.91' mypy-boto3-builder`
+   `uvx --with 'boto3==1.42.93' mypy-boto3-builder`
 2. Select `boto3-stubs` AWS SDK.
 3. Add `SageMaker` service.
 4. Use provided commands to install generated packages.
@@ -341,6 +341,9 @@ from mypy_boto3_sagemaker import SageMakerClient
 from mypy_boto3_sagemaker.paginator import (
     CreateHubContentPresignedUrlsPaginator,
     DescribeTrainingPlanExtensionHistoryPaginator,
+    ListAIBenchmarkJobsPaginator,
+    ListAIRecommendationJobsPaginator,
+    ListAIWorkloadConfigsPaginator,
     ListActionsPaginator,
     ListAlgorithmsPaginator,
     ListAliasesPaginator,
@@ -434,6 +437,15 @@ create_hub_content_presigned_urls_paginator: CreateHubContentPresignedUrlsPagina
 )
 describe_training_plan_extension_history_paginator: DescribeTrainingPlanExtensionHistoryPaginator = client.get_paginator(
     "describe_training_plan_extension_history"
+)
+list_ai_benchmark_jobs_paginator: ListAIBenchmarkJobsPaginator = client.get_paginator(
+    "list_ai_benchmark_jobs"
+)
+list_ai_recommendation_jobs_paginator: ListAIRecommendationJobsPaginator = client.get_paginator(
+    "list_ai_recommendation_jobs"
+)
+list_ai_workload_configs_paginator: ListAIWorkloadConfigsPaginator = client.get_paginator(
+    "list_ai_workload_configs"
 )
 list_actions_paginator: ListActionsPaginator = client.get_paginator("list_actions")
 list_algorithms_paginator: ListAlgorithmsPaginator = client.get_paginator("list_algorithms")
@@ -689,10 +701,10 @@ Full list of `SageMaker` Literals can be found in
 [docs](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/literals/).
 
 ```python
-from mypy_boto3_sagemaker.literals import AccountDefaultStatusType
+from mypy_boto3_sagemaker.literals import AIBenchmarkJobStatusType
 
 
-def check_value(value: AccountDefaultStatusType) -> bool: ...
+def check_value(value: AIBenchmarkJobStatusType) -> bool: ...
 ```
 
 <a id="type-definitions"></a>
@@ -707,12 +719,12 @@ Full list of `SageMaker` TypeDefs can be found in
 
 ```python
 # TypedDict usage example
-from mypy_boto3_sagemaker.type_defs import AcceleratorPartitionConfigTypeDef
+from mypy_boto3_sagemaker.type_defs import AIBenchmarkInferenceComponentTypeDef
 
 
-def get_value() -> AcceleratorPartitionConfigTypeDef:
+def get_value() -> AIBenchmarkInferenceComponentTypeDef:
     return {
-        "Type": ...,
+        "Identifier": ...,
     }
 ```
 

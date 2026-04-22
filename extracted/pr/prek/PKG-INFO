@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: prek
-Version: 0.3.9
+Version: 0.3.10
 Classifier: Development Status :: 4 - Beta
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
@@ -87,7 +87,7 @@ On Linux and macOS:
 <!-- --8<-- [start: linux-standalone-install] -->
 
 ```bash
-curl --proto '=https' --tlsv1.2 -LsSf https://github.com/j178/prek/releases/download/v0.3.9/prek-installer.sh | sh
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/j178/prek/releases/download/v0.3.10/prek-installer.sh | sh
 ```
 
 <!-- --8<-- [end: linux-standalone-install] -->
@@ -97,7 +97,7 @@ On Windows:
 <!-- --8<-- [start: windows-standalone-install] -->
 
 ```powershell
-powershell -ExecutionPolicy ByPass -c "irm https://github.com/j178/prek/releases/download/v0.3.9/prek-installer.ps1 | iex"
+powershell -ExecutionPolicy ByPass -c "irm https://github.com/j178/prek/releases/download/v0.3.10/prek-installer.ps1 | iex"
 ```
 
 <!-- --8<-- [end: windows-standalone-install] -->
@@ -341,6 +341,21 @@ prek is also available via [`taiki-e/install-action`](https://github.com/taiki-e
 
 </details>
 
+<details>
+<summary>prek skill for agents</summary>
+
+<!-- --8<-- [start: gh-skill-install] -->
+
+To let agents use `prek`, install the `prek` skill with `gh skill` (`v2.90.0+`):
+
+```bash
+gh skill install j178/prek prek
+```
+
+<!-- --8<-- [end: gh-skill-install] -->
+
+</details>
+
 <!-- --8<-- [start: self-update] -->
 
 If installed via the standalone installer, prek can update itself to the latest version:
@@ -362,66 +377,66 @@ prek self update
 
 ### prek is faster
 
-- It is [multiple times faster](https://prek.j178.dev/benchmark/) than `pre-commit` and takes up half the disk space.
-- It redesigned how hook environments and toolchains are managed, they are all shared between hooks, which reduces the disk space usage and speeds up the installation process.
-- Repositories are cloned in parallel, and hooks are installed in parallel if their dependencies are disjoint.
-- Hooks can run in parallel by priority (hooks with the same [`priority`](https://prek.j178.dev/configuration/#priority) may run concurrently), reducing end-to-end runtime.
+- It is [multiple times faster](https://prek.j178.dev/benchmark/) than `pre-commit` while also using less disk space.
+- Hook environments and toolchains are shared across hooks instead of being duplicated per repository, which reduces both install time and cache size.
+- Repositories are fetched in parallel, hook environments are prepared in parallel when their dependencies do not overlap, and hooks can run concurrently by [`priority`](https://prek.j178.dev/configuration/#priority).
 - It uses [`uv`](https://github.com/astral-sh/uv) for creating Python virtualenvs and installing dependencies, which is known for its speed and efficiency.
-- It implements some common hooks in Rust, [built in prek](https://prek.j178.dev/builtin/), which are faster than their Python counterparts.
+- It implements some common hooks in Rust as [builtins](https://prek.j178.dev/builtin/), which are faster than their Python counterparts.
 - It supports `repo: builtin` for offline, zero-setup hooks, which is not available in `pre-commit`.
 
-### prek provides a better user experience
+### prek is easier to work with
 
-- No need to install Python or any other runtime, just download a single binary.
-- No hassle with your Python version or virtual environments, prek automatically installs the required Python version and creates a virtual environment for you.
-- Built-in support for [workspaces](https://prek.j178.dev/workspace/) (or monorepos), each subproject can have its own `.pre-commit-config.yaml` file.
-- [`prek run`](https://prek.j178.dev/cli/#prek-run) has some nifty improvements over `pre-commit run`, such as:
-    - `prek run --directory <dir>` runs hooks for files in the specified directory, no need to use `git ls-files -- <dir> | xargs pre-commit run --files` anymore.
-    - `prek run --last-commit` runs hooks for files changed in the last commit.
-    - `prek run [HOOK] [HOOK]` selects and runs multiple hooks.
-- [`prek list`](https://prek.j178.dev/cli/#prek-list) command lists all available hooks, their ids, and descriptions, providing a better overview of the configured hooks.
-- [`prek auto-update`](https://prek.j178.dev/cli/#prek-auto-update) supports `--cooldown-days` to mitigate open source supply chain attacks.
-- prek provides shell completions for `prek run <hook_id>` command, making it easier to run specific hooks without remembering their ids.
+- No need to install Python or any other runtime just to use `prek`; it is a single binary.
+- `prek` automatically installs the toolchains it needs for supported languages, so you spend less time managing Python versions, Node runtimes, Ruby installs, and similar setup.
+- It supports native [`prek.toml`](https://prek.j178.dev/configuration/) in addition to pre-commit YAML, and [`prek util yaml-to-toml`](https://prek.j178.dev/cli/#prek-util-yaml-to-toml) helps migrate existing configs.
+- Built-in support for [workspaces](https://prek.j178.dev/workspace/) means monorepos can keep separate configs per project and still run everything from one command.
+- [`prek install`](https://prek.j178.dev/cli/#prek-install) and [`prek uninstall`](https://prek.j178.dev/cli/#prek-uninstall) honor repo-local and worktree-local `core.hooksPath`.
+- [`prek run`](https://prek.j178.dev/cli/#prek-run) supports selecting or skipping multiple projects or hooks in workspace mode, instead of only accepting a single optional hook id, and adds quality-of-life improvements such as `--dry-run`, `--directory`, `--last-commit`, and `--no-fail-fast`.
+- [`prek list`](https://prek.j178.dev/cli/#prek-list), [`prek util identify`](https://prek.j178.dev/cli/#prek-util-identify), and [`prek util list-builtins`](https://prek.j178.dev/cli/#prek-util-list-builtins) make it easier to inspect configured hooks, debug file matching, and discover builtins.
+
+### prek includes security-focused safeguards
+
+- [`prek auto-update`](https://prek.j178.dev/cli/#prek-auto-update) supports `--cooldown-days`, so you can keep newly published releases on hold for a cooling-off period before adopting them.
+- [`prek auto-update`](https://prek.j178.dev/cli/#prek-auto-update) validates pinned SHA revisions against the fetched upstream refs, including impostor-commit detection, and keeps `# frozen:` comments in sync with the configured commit.
+- [`prek auto-update --check`](https://prek.j178.dev/cli/#prek-auto-update--check) is useful in CI when you want updates or frozen-reference mismatches to fail the job without rewriting the config.
 
 For more detailed improvements prek offers, take a look at [Difference from pre-commit](https://prek.j178.dev/diff/).
 
 ## Who is using prek?
 
-prek is pretty new, but it is already being used or recommend by some projects and organizations:
+prek is pretty new, but it is already being used or recommended by some projects and organizations.
+GitHub stars are current as of April 15, 2026.
 
-- [apache/airflow](https://github.com/apache/airflow/issues/44995)
-- [python/cpython](https://github.com/python/cpython/issues/143148)
-- [pdm-project/pdm](https://github.com/pdm-project/pdm/pull/3593)
-- [fastapi/fastapi](https://github.com/fastapi/fastapi/pull/14572)
-- [fastapi/typer](https://github.com/fastapi/typer/pull/1453)
-- [fastapi/asyncer](https://github.com/fastapi/asyncer/pull/437)
-- [astral-sh/ruff](https://github.com/astral-sh/ruff/pull/22505)
-- [astral-sh/ty](https://github.com/astral-sh/ty/pull/2469)
-- [openclaw/openclaw](https://github.com/openclaw/openclaw/pull/1720)
-- [home-assistant/core](https://github.com/home-assistant/core/pull/160427)
-- [python-telegram-bot/python-telegram-bot](https://github.com/python-telegram-bot/python-telegram-bot/pull/5142)
-- [DetachHead/basedpyright](https://github.com/DetachHead/basedpyright/pull/1413)
-- [OpenLineage/OpenLineage](https://github.com/OpenLineage/OpenLineage/pull/3965)
-- [authlib/authlib](https://github.com/authlib/authlib/pull/804)
-- [django/djangoproject.com](https://github.com/django/djangoproject.com/pull/2252)
-- [Future-House/paper-qa](https://github.com/Future-House/paper-qa/pull/1098)
-- [requests-cache/requests-cache](https://github.com/requests-cache/requests-cache/pull/1116)
-- [Goldziher/kreuzberg](https://github.com/Goldziher/kreuzberg/pull/142)
-- [python-attrs/attrs](https://github.com/python-attrs/attrs/commit/c95b177682e76a63478d29d040f9cb36a8d31915)
-- [jlowin/fastmcp](https://github.com/jlowin/fastmcp/pull/2309)
-- [apache/iceberg-python](https://github.com/apache/iceberg-python/pull/2533)
-- [apache/iggy](https://github.com/apache/iggy/pull/2383)
-- [apache/lucene](https://github.com/apache/lucene/pull/15629)
-- [jcrist/msgspec](https://github.com/jcrist/msgspec/pull/918)
-- [python-humanize/humanize](https://github.com/python-humanize/humanize/pull/276)
-- [MoonshotAI/kimi-cli](https://github.com/MoonshotAI/kimi-cli/pull/535)
-- [simple-icons/simple-icons](https://github.com/simple-icons/simple-icons/pull/14245)
-- [ast-grep/ast-grep](https://github.com/ast-grep/ast-grep.github.io/commit/e30818144b2967a7f9172c8cf2f4596bba219bf5)
-- [commitizen-tools/commitizen](https://github.com/commitizen-tools/commitizen)
-- [cocoindex-io/cocoindex](https://github.com/cocoindex-io/cocoindex/pull/1564)
-- [cachix/devenv](https://github.com/cachix/devenv/pull/2304)
-- [copper-project/copper-rs](https://github.com/copper-project/copper-rs/pull/783)
-- [bramstroker/homeassistant-powercalc](https://github.com/bramstroker/homeassistant-powercalc/pull/3978)
+- [apache/airflow](https://github.com/apache/airflow/issues/44995) <sub>45,050 stars</sub>
+- [python/cpython](https://github.com/python/cpython/issues/143148) <sub>72,330 stars</sub>
+- [pdm-project/pdm](https://github.com/pdm-project/pdm/pull/3593) <sub>8,553 stars</sub>
+- [fastapi/fastapi](https://github.com/fastapi/fastapi/pull/14572) <sub>97,209 stars</sub>
+- [fastapi/typer](https://github.com/fastapi/typer/pull/1453) <sub>19,210 stars</sub>
+- [fastapi/asyncer](https://github.com/fastapi/asyncer/pull/437) <sub>2,407 stars</sub>
+- [astral-sh/ruff](https://github.com/astral-sh/ruff/pull/22505) <sub>47,070 stars</sub>
+- [astral-sh/ty](https://github.com/astral-sh/ty/pull/2469) <sub>18,308 stars</sub>
+- [openclaw/openclaw](https://github.com/openclaw/openclaw/pull/1720) <sub>357,512 stars</sub>
+- [home-assistant/core](https://github.com/home-assistant/core/pull/160427) <sub>86,029 stars</sub>
+- [python-telegram-bot/python-telegram-bot](https://github.com/python-telegram-bot/python-telegram-bot/pull/5142) <sub>29,025 stars</sub>
+- [DetachHead/basedpyright](https://github.com/DetachHead/basedpyright/pull/1413) <sub>3,267 stars</sub>
+- [OpenLineage/OpenLineage](https://github.com/OpenLineage/OpenLineage/pull/3965) <sub>2,406 stars</sub>
+- [authlib/authlib](https://github.com/authlib/authlib/pull/804) <sub>5,271 stars</sub>
+- [django/djangoproject.com](https://github.com/django/djangoproject.com/pull/2252) <sub>1,994 stars</sub>
+- [Future-House/paper-qa](https://github.com/Future-House/paper-qa/pull/1098) <sub>8,377 stars</sub>
+- [Goldziher/kreuzberg](https://github.com/Goldziher/kreuzberg/pull/142) <sub>7,550 stars</sub>
+- [python-attrs/attrs](https://github.com/python-attrs/attrs/commit/c95b177682e76a63478d29d040f9cb36a8d31915) <sub>5,770 stars</sub>
+- [jlowin/fastmcp](https://github.com/jlowin/fastmcp/pull/2309) <sub>24,539 stars</sub>
+- [apache/iggy](https://github.com/apache/iggy/pull/2383) <sub>4,116 stars</sub>
+- [apache/lucene](https://github.com/apache/lucene/pull/15629) <sub>3,401 stars</sub>
+- [jcrist/msgspec](https://github.com/jcrist/msgspec/pull/918) <sub>3,692 stars</sub>
+- [MoonshotAI/kimi-cli](https://github.com/MoonshotAI/kimi-cli/pull/535) <sub>7,800 stars</sub>
+- [simple-icons/simple-icons](https://github.com/simple-icons/simple-icons/pull/14245) <sub>24,873 stars</sub>
+- [ast-grep/ast-grep](https://github.com/ast-grep/ast-grep.github.io/commit/e30818144b2967a7f9172c8cf2f4596bba219bf5) <sub>13,413 stars</sub>
+- [commitizen-tools/commitizen](https://github.com/commitizen-tools/commitizen) <sub>3,377 stars</sub>
+- [cocoindex-io/cocoindex](https://github.com/cocoindex-io/cocoindex/pull/1564) <sub>6,865 stars</sub>
+- [cachix/devenv](https://github.com/cachix/devenv/pull/2304) <sub>6,665 stars</sub>
+- [pyodide/pyodide](https://github.com/pyodide/pyodide/pull/6182) <sub>14,527 stars</sub>
+- [prowler-cloud/prowler](https://github.com/prowler-cloud/prowler/pull/10601) <sub>13,592 stars</sub>
 
 <!-- --8<-- [end: why] -->
 

@@ -634,6 +634,11 @@ def assert_equal_sparse(
     exact: bool = False,
     elem_name: str | None = None,
 ):
+    if exact and sparse.issparse(b) and hasattr(a, "indptr") and hasattr(b, "indptr"):
+        assert a.indptr.dtype == b.indptr.dtype, f"{elem_name}: indptr dtype mismatch"
+        assert a.indices.dtype == b.indices.dtype, (
+            f"{elem_name}: indices dtype mismatch"
+        )
     a = asarray(a)
     assert_equal(b, a, exact=exact, elem_name=elem_name)
 
@@ -1115,10 +1120,6 @@ class AccessTrackingStoreBase(LocalStore):
     _accessed_keys: defaultdict[str, list[str]]
 
     def __init__(self, *args, **kwargs):
-        # Needed for zarr v3 to prevent a read-only copy being made
-        # https://github.com/zarr-developers/zarr-python/pull/3156
-        if not is_zarr_v2() and "read_only" not in kwargs:
-            kwargs["read_only"] = True
         super().__init__(*args, **kwargs)
         self._access_count = Counter()
         self._accessed = defaultdict(set)

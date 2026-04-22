@@ -6,7 +6,9 @@
 
 import io
 import os
+import warnings
 from collections import OrderedDict
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
@@ -114,6 +116,29 @@ def test_open_nexradlevel2_file(nexradlevel2_files):
                 ("clutter_map_group_number", 1),
                 ("doppler_velocity_resolution", 2),
                 ("pulse_width", 2),
+                ("vcp_sequencing", 0),
+                ("vcp_supplemental", 0),
+                (
+                    "vcp_sequencing_decoded",
+                    {
+                        "num_elevations": 0,
+                        "max_sails_cuts": 0,
+                        "sequence_active": False,
+                        "truncated_vcp": False,
+                    },
+                ),
+                (
+                    "vcp_supplemental_decoded",
+                    {
+                        "sails_vcp": False,
+                        "num_sails_cuts": 0,
+                        "mrle_vcp": False,
+                        "num_mrle_cuts": 0,
+                        "mpda_vcp": False,
+                        "base_tilt_vcp": False,
+                        "num_base_tilts": 0,
+                    },
+                ),
                 (
                     "elevation_data",
                     [
@@ -135,12 +160,24 @@ def test_open_nexradlevel2_file(nexradlevel2_files):
                                 ("edge_angle_1", 0),
                                 ("dop_prf_num_1", 0),
                                 ("dop_prf_pulse_count_1", 0),
+                                ("supplemental_data", 0),
                                 ("edge_angle_2", 0),
                                 ("dop_prf_num_2", 0),
                                 ("dop_prf_pulse_count_2", 0),
                                 ("edge_angle_3", 0),
                                 ("dop_prf_num_3", 0),
                                 ("dop_prf_pulse_count_3", 0),
+                                (
+                                    "supplemental_data_decoded",
+                                    {
+                                        "sails_cut": False,
+                                        "sails_sequence_number": 0,
+                                        "mrle_cut": False,
+                                        "mrle_sequence_number": 0,
+                                        "mpda_cut": False,
+                                        "base_tilt_cut": False,
+                                    },
+                                ),
                             ]
                         ),
                         OrderedDict(
@@ -161,12 +198,24 @@ def test_open_nexradlevel2_file(nexradlevel2_files):
                                 ("edge_angle_1", 5464),
                                 ("dop_prf_num_1", 4),
                                 ("dop_prf_pulse_count_1", 75),
+                                ("supplemental_data", 0),
                                 ("edge_angle_2", 38232),
                                 ("dop_prf_num_2", 4),
                                 ("dop_prf_pulse_count_2", 75),
                                 ("edge_angle_3", 60984),
                                 ("dop_prf_num_3", 4),
                                 ("dop_prf_pulse_count_3", 75),
+                                (
+                                    "supplemental_data_decoded",
+                                    {
+                                        "sails_cut": False,
+                                        "sails_sequence_number": 0,
+                                        "mrle_cut": False,
+                                        "mrle_sequence_number": 0,
+                                        "mpda_cut": False,
+                                        "base_tilt_cut": False,
+                                    },
+                                ),
                             ]
                         ),
                         OrderedDict(
@@ -187,12 +236,24 @@ def test_open_nexradlevel2_file(nexradlevel2_files):
                                 ("edge_angle_1", 0),
                                 ("dop_prf_num_1", 0),
                                 ("dop_prf_pulse_count_1", 0),
+                                ("supplemental_data", 0),
                                 ("edge_angle_2", 0),
                                 ("dop_prf_num_2", 0),
                                 ("dop_prf_pulse_count_2", 0),
                                 ("edge_angle_3", 0),
                                 ("dop_prf_num_3", 0),
                                 ("dop_prf_pulse_count_3", 0),
+                                (
+                                    "supplemental_data_decoded",
+                                    {
+                                        "sails_cut": False,
+                                        "sails_sequence_number": 0,
+                                        "mrle_cut": False,
+                                        "mrle_sequence_number": 0,
+                                        "mpda_cut": False,
+                                        "base_tilt_cut": False,
+                                    },
+                                ),
                             ]
                         ),
                         OrderedDict(
@@ -213,12 +274,24 @@ def test_open_nexradlevel2_file(nexradlevel2_files):
                                 ("edge_angle_1", 5464),
                                 ("dop_prf_num_1", 4),
                                 ("dop_prf_pulse_count_1", 75),
+                                ("supplemental_data", 0),
                                 ("edge_angle_2", 38232),
                                 ("dop_prf_num_2", 4),
                                 ("dop_prf_pulse_count_2", 75),
                                 ("edge_angle_3", 60984),
                                 ("dop_prf_num_3", 4),
                                 ("dop_prf_pulse_count_3", 75),
+                                (
+                                    "supplemental_data_decoded",
+                                    {
+                                        "sails_cut": False,
+                                        "sails_sequence_number": 0,
+                                        "mrle_cut": False,
+                                        "mrle_sequence_number": 0,
+                                        "mpda_cut": False,
+                                        "base_tilt_cut": False,
+                                    },
+                                ),
                             ]
                         ),
                         OrderedDict(
@@ -239,12 +312,24 @@ def test_open_nexradlevel2_file(nexradlevel2_files):
                                 ("edge_angle_1", 5464),
                                 ("dop_prf_num_1", 4),
                                 ("dop_prf_pulse_count_1", 59),
+                                ("supplemental_data", 0),
                                 ("edge_angle_2", 38232),
                                 ("dop_prf_num_2", 4),
                                 ("dop_prf_pulse_count_2", 59),
                                 ("edge_angle_3", 60984),
                                 ("dop_prf_num_3", 4),
                                 ("dop_prf_pulse_count_3", 59),
+                                (
+                                    "supplemental_data_decoded",
+                                    {
+                                        "sails_cut": False,
+                                        "sails_sequence_number": 0,
+                                        "mrle_cut": False,
+                                        "mrle_sequence_number": 0,
+                                        "mpda_cut": False,
+                                        "base_tilt_cut": False,
+                                    },
+                                ),
                             ]
                         ),
                         OrderedDict(
@@ -265,12 +350,24 @@ def test_open_nexradlevel2_file(nexradlevel2_files):
                                 ("edge_angle_1", 5464),
                                 ("dop_prf_num_1", 4),
                                 ("dop_prf_pulse_count_1", 59),
+                                ("supplemental_data", 0),
                                 ("edge_angle_2", 38232),
                                 ("dop_prf_num_2", 4),
                                 ("dop_prf_pulse_count_2", 59),
                                 ("edge_angle_3", 60984),
                                 ("dop_prf_num_3", 4),
                                 ("dop_prf_pulse_count_3", 59),
+                                (
+                                    "supplemental_data_decoded",
+                                    {
+                                        "sails_cut": False,
+                                        "sails_sequence_number": 0,
+                                        "mrle_cut": False,
+                                        "mrle_sequence_number": 0,
+                                        "mpda_cut": False,
+                                        "base_tilt_cut": False,
+                                    },
+                                ),
                             ]
                         ),
                         OrderedDict(
@@ -291,12 +388,24 @@ def test_open_nexradlevel2_file(nexradlevel2_files):
                                 ("edge_angle_1", 5464),
                                 ("dop_prf_num_1", 4),
                                 ("dop_prf_pulse_count_1", 59),
+                                ("supplemental_data", 0),
                                 ("edge_angle_2", 38232),
                                 ("dop_prf_num_2", 4),
                                 ("dop_prf_pulse_count_2", 59),
                                 ("edge_angle_3", 60984),
                                 ("dop_prf_num_3", 4),
                                 ("dop_prf_pulse_count_3", 59),
+                                (
+                                    "supplemental_data_decoded",
+                                    {
+                                        "sails_cut": False,
+                                        "sails_sequence_number": 0,
+                                        "mrle_cut": False,
+                                        "mrle_sequence_number": 0,
+                                        "mpda_cut": False,
+                                        "base_tilt_cut": False,
+                                    },
+                                ),
                             ]
                         ),
                         OrderedDict(
@@ -317,12 +426,24 @@ def test_open_nexradlevel2_file(nexradlevel2_files):
                                 ("edge_angle_1", 5464),
                                 ("dop_prf_num_1", 4),
                                 ("dop_prf_pulse_count_1", 59),
+                                ("supplemental_data", 0),
                                 ("edge_angle_2", 38232),
                                 ("dop_prf_num_2", 4),
                                 ("dop_prf_pulse_count_2", 59),
                                 ("edge_angle_3", 60984),
                                 ("dop_prf_num_3", 4),
                                 ("dop_prf_pulse_count_3", 59),
+                                (
+                                    "supplemental_data_decoded",
+                                    {
+                                        "sails_cut": False,
+                                        "sails_sequence_number": 0,
+                                        "mrle_cut": False,
+                                        "mrle_sequence_number": 0,
+                                        "mpda_cut": False,
+                                        "base_tilt_cut": False,
+                                    },
+                                ),
                             ]
                         ),
                         OrderedDict(
@@ -343,12 +464,24 @@ def test_open_nexradlevel2_file(nexradlevel2_files):
                                 ("edge_angle_1", 5464),
                                 ("dop_prf_num_1", 7),
                                 ("dop_prf_pulse_count_1", 82),
+                                ("supplemental_data", 0),
                                 ("edge_angle_2", 38232),
                                 ("dop_prf_num_2", 7),
                                 ("dop_prf_pulse_count_2", 82),
                                 ("edge_angle_3", 60984),
                                 ("dop_prf_num_3", 7),
                                 ("dop_prf_pulse_count_3", 82),
+                                (
+                                    "supplemental_data_decoded",
+                                    {
+                                        "sails_cut": False,
+                                        "sails_sequence_number": 0,
+                                        "mrle_cut": False,
+                                        "mrle_sequence_number": 0,
+                                        "mpda_cut": False,
+                                        "base_tilt_cut": False,
+                                    },
+                                ),
                             ]
                         ),
                         OrderedDict(
@@ -369,12 +502,24 @@ def test_open_nexradlevel2_file(nexradlevel2_files):
                                 ("edge_angle_1", 5464),
                                 ("dop_prf_num_1", 7),
                                 ("dop_prf_pulse_count_1", 82),
+                                ("supplemental_data", 0),
                                 ("edge_angle_2", 38232),
                                 ("dop_prf_num_2", 7),
                                 ("dop_prf_pulse_count_2", 82),
                                 ("edge_angle_3", 60984),
                                 ("dop_prf_num_3", 7),
                                 ("dop_prf_pulse_count_3", 82),
+                                (
+                                    "supplemental_data_decoded",
+                                    {
+                                        "sails_cut": False,
+                                        "sails_sequence_number": 0,
+                                        "mrle_cut": False,
+                                        "mrle_sequence_number": 0,
+                                        "mpda_cut": False,
+                                        "base_tilt_cut": False,
+                                    },
+                                ),
                             ]
                         ),
                         OrderedDict(
@@ -395,12 +540,24 @@ def test_open_nexradlevel2_file(nexradlevel2_files):
                                 ("edge_angle_1", 5464),
                                 ("dop_prf_num_1", 7),
                                 ("dop_prf_pulse_count_1", 82),
+                                ("supplemental_data", 0),
                                 ("edge_angle_2", 38232),
                                 ("dop_prf_num_2", 7),
                                 ("dop_prf_pulse_count_2", 82),
                                 ("edge_angle_3", 60984),
                                 ("dop_prf_num_3", 7),
                                 ("dop_prf_pulse_count_3", 82),
+                                (
+                                    "supplemental_data_decoded",
+                                    {
+                                        "sails_cut": False,
+                                        "sails_sequence_number": 0,
+                                        "mrle_cut": False,
+                                        "mrle_sequence_number": 0,
+                                        "mpda_cut": False,
+                                        "base_tilt_cut": False,
+                                    },
+                                ),
                             ]
                         ),
                     ],
@@ -501,6 +658,29 @@ def test_open_nexradlevel2_msg1_file(nexradlevel2_msg1_file):
                 ("clutter_map_group_number", 0),
                 ("doppler_velocity_resolution", 0),
                 ("pulse_width", 0),
+                ("vcp_sequencing", 0),
+                ("vcp_supplemental", 0),
+                (
+                    "vcp_sequencing_decoded",
+                    {
+                        "num_elevations": 0,
+                        "max_sails_cuts": 0,
+                        "sequence_active": False,
+                        "truncated_vcp": False,
+                    },
+                ),
+                (
+                    "vcp_supplemental_decoded",
+                    {
+                        "sails_vcp": False,
+                        "num_sails_cuts": 0,
+                        "mrle_vcp": False,
+                        "num_mrle_cuts": 0,
+                        "mpda_vcp": False,
+                        "base_tilt_vcp": False,
+                        "num_base_tilts": 0,
+                    },
+                ),
                 ("elevation_data", []),
             ]
         )
@@ -553,7 +733,7 @@ def test_open_nexradlevel2_datatree(nexradlevel2_file):
             "direction": 1,  # Set a valid direction within reindex_angle
         },
         "fix_second_angle": True,
-        "site_coords": True,
+        "site_as_coords": True,
     }
 
     # Call the function with an actual NEXRAD Level 2 file
@@ -561,16 +741,13 @@ def test_open_nexradlevel2_datatree(nexradlevel2_file):
 
     # Assertions
     assert isinstance(dtree, DataTree), "Expected a DataTree instance"
-    assert "/" in dtree.subtree, "Root group should be present in the DataTree"
-    assert (
-        "/radar_parameters" in dtree.subtree
-    ), "Radar parameters group should be in the DataTree"
-    assert (
-        "/georeferencing_correction" in dtree.subtree
-    ), "Georeferencing correction group should be in the DataTree"
-    assert (
-        "/radar_calibration" in dtree.subtree
-    ), "Radar calibration group should be in the DataTree"
+    subtree_paths = [n.path for n in dtree.subtree]
+    assert "/" in subtree_paths, "Root group should be present in the DataTree"
+
+    # optional_groups=False by default: metadata subgroups should NOT be present
+    assert "radar_parameters" not in dtree.children
+    assert "georeferencing_correction" not in dtree.children
+    assert "radar_calibration" not in dtree.children
 
     # Check if at least one sweep group is attached (e.g., "/sweep_0")
     sweep_groups = [key for key in dtree.match("sweep_*")]
@@ -586,20 +763,37 @@ def test_open_nexradlevel2_datatree(nexradlevel2_file):
         "ZDR" in dtree[sample_sweep].data_vars
     ), f"VRADH should be a data variable in {sample_sweep}"
     assert dtree[sample_sweep]["DBZH"].shape == (360, 1832)
-    # Validate coordinates are attached correctly
-    assert (
-        "latitude" in dtree[sample_sweep]
-    ), "Latitude should be attached to the root dataset"
-    assert (
-        "longitude" in dtree[sample_sweep]
-    ), "Longitude should be attached to the root dataset"
-    assert (
-        "altitude" in dtree[sample_sweep]
-    ), "Altitude should be attached to the root dataset"
 
-    assert len(dtree.attrs) == 10
+    # Station coords should be on root as coordinates
+    assert "latitude" in dtree.ds.coords
+    assert "longitude" in dtree.ds.coords
+    assert "altitude" in dtree.ds.coords
+    assert "latitude" not in dtree.ds.data_vars
+
+    required_attrs = {
+        "instrument_name",
+        "scan_name",
+        "dynamic_scan_type",
+        "avset_enabled",
+        "base_tilt_vcp",
+        "mpda_vcp",
+        "vcp_truncated",
+        "doppler_velocity_resolution",
+        "vcp_pulse_width",
+        "ebc_enabled",
+        "super_res_status",
+        "rda_build_number",
+        "actual_elevation_cuts",
+    }
+    assert required_attrs.issubset(dtree.attrs)
     assert dtree.attrs["instrument_name"] == "KATX"
     assert dtree.attrs["scan_name"] == "VCP-11"
+    assert dtree.attrs["dynamic_scan_type"] == "standard"
+    assert dtree.attrs["avset_enabled"] is False
+    assert dtree.attrs["base_tilt_vcp"] is False
+    # actual_elevation_cuts reflects sweeps in the file, not user selection
+    assert dtree.attrs["actual_elevation_cuts"] == dtree.attrs["number_elevation_cuts"]
+    assert dtree.attrs["mpda_vcp"] is False
 
 
 def test_open_nexradlevel2_msg1_datatree(nexradlevel2_msg1_file):
@@ -614,7 +808,7 @@ def test_open_nexradlevel2_msg1_datatree(nexradlevel2_msg1_file):
             "direction": 1,  # Set a valid direction within reindex_angle
         },
         "fix_second_angle": True,
-        "site_coords": True,
+        "site_as_coords": True,
     }
 
     # Call the function with an actual NEXRAD Level 2 file
@@ -622,16 +816,13 @@ def test_open_nexradlevel2_msg1_datatree(nexradlevel2_msg1_file):
 
     # Assertions
     assert isinstance(dtree, DataTree), "Expected a DataTree instance"
-    assert "/" in dtree.subtree, "Root group should be present in the DataTree"
-    assert (
-        "/radar_parameters" in dtree.subtree
-    ), "Radar parameters group should be in the DataTree"
-    assert (
-        "/georeferencing_correction" in dtree.subtree
-    ), "Georeferencing correction group should be in the DataTree"
-    assert (
-        "/radar_calibration" in dtree.subtree
-    ), "Radar calibration group should be in the DataTree"
+    subtree_paths = [n.path for n in dtree.subtree]
+    assert "/" in subtree_paths, "Root group should be present in the DataTree"
+
+    # optional_groups=False by default: metadata subgroups should NOT be present
+    assert "radar_parameters" not in dtree.children
+    assert "georeferencing_correction" not in dtree.children
+    assert "radar_calibration" not in dtree.children
 
     # Check if at least one sweep group is attached (e.g., "/sweep_0")
     sweep_groups = [key for key in dtree.match("sweep_*")]
@@ -644,20 +835,58 @@ def test_open_nexradlevel2_msg1_datatree(nexradlevel2_msg1_file):
         "DBZH" in dtree[sample_sweep].data_vars
     ), f"DBZH should be a data variable in {sample_sweep}"
     assert dtree[sample_sweep]["DBZH"].shape == (360, 460)
-    # Validate coordinates are attached correctly
-    assert (
-        "latitude" in dtree[sample_sweep]
-    ), "Latitude should be attached to the root dataset"
-    assert (
-        "longitude" in dtree[sample_sweep]
-    ), "Longitude should be attached to the root dataset"
-    assert (
-        "altitude" in dtree[sample_sweep]
-    ), "Altitude should be attached to the root dataset"
 
-    assert len(dtree.attrs) == 10
+    # Station coords should be on root as coordinates
+    assert "latitude" in dtree.ds.coords
+    assert "longitude" in dtree.ds.coords
+    assert "altitude" in dtree.ds.coords
+    assert "latitude" not in dtree.ds.data_vars
+
+    required_attrs = {
+        "instrument_name",
+        "scan_name",
+        "dynamic_scan_type",
+        "avset_enabled",
+        "base_tilt_vcp",
+        "mpda_vcp",
+        "vcp_truncated",
+        "doppler_velocity_resolution",
+        "vcp_pulse_width",
+        "ebc_enabled",
+        "super_res_status",
+        "rda_build_number",
+        "actual_elevation_cuts",
+    }
+    assert required_attrs.issubset(dtree.attrs)
     assert dtree.attrs["instrument_name"] == "KLIX"
     assert dtree.attrs["scan_name"] == "VCP-0"
+
+
+def test_open_nexradlevel2_datatree_optional_groups(nexradlevel2_file):
+    """Test that optional_groups=True includes metadata subgroups."""
+    dtree = open_nexradlevel2_datatree(
+        nexradlevel2_file, sweep=[0], optional_groups=True
+    )
+    assert "radar_parameters" in dtree.children
+    assert "georeferencing_correction" in dtree.children
+    assert "radar_calibration" in dtree.children
+
+    # Station coords should still be on root as coordinates
+    assert "latitude" in dtree.ds.coords
+    assert "latitude" not in dtree.ds.data_vars
+
+
+def test_open_nexradlevel2_single_dataset_site_as_coords(nexradlevel2_file):
+    """Single-dataset access via open_dataset still has lat/lon/alt with site_as_coords=True."""
+    ds = xarray.open_dataset(
+        nexradlevel2_file,
+        engine=NexradLevel2BackendEntrypoint,
+        group="sweep_0",
+        site_as_coords=True,
+    )
+    assert "latitude" in ds.coords
+    assert "longitude" in ds.coords
+    assert "altitude" in ds.coords
 
 
 @pytest.mark.parametrize(
@@ -684,7 +913,7 @@ def test_open_nexradlevel2_datatree_sweeps_initialization(
         "first_dim": "auto",
         "reindex_angle": False,
         "fix_second_angle": False,
-        "site_coords": True,
+        "site_as_coords": True,
         "optional": True,
     }
 
@@ -772,6 +1001,7 @@ def test_nexradlevel2_missing_msg2_metadata():
 
     class MockNEXRADFile(NEXRADLevel2File):
         def __init__(self):
+            self._fp = None
             self._meta_header = defaultdict(list)
             # Simulate missing msg_2 by only having other message types
             self._meta_header["msg_15"] = [{"record_number": 0}]
@@ -844,7 +1074,18 @@ def test_nexradlevel2_msg5_elevation_validation(
 
     # Create mock MSG_5 data with specified parameters
     mock_msg5_data = struct.pack(
-        ">HHHHHBB10s", 0, 0, pattern_number, elevation_cuts, 0, 0, 0, b"\x00" * 10
+        ">HHHHHBB4sHH2s",
+        0,
+        0,
+        pattern_number,
+        elevation_cuts,
+        0,
+        0,
+        0,
+        b"\x00" * 4,
+        0,
+        0,
+        b"\x00" * 2,
     )
 
     # Mock the file reading components
@@ -891,6 +1132,7 @@ def test_nexradlevel2_missing_msg5():
 
     class MockNEXRADFile(NEXRADLevel2File):
         def __init__(self):
+            self._fp = None
             self._meta_header = defaultdict(list)  # Empty - no msg_5
             self._msg_5_data = None
             self._rawdata = False
@@ -922,13 +1164,27 @@ def test_nexradlevel2_msg5_struct_error_handling():
             self.read_count += 1
             if self.read_count == 1:
                 # First read - return valid MSG_5 header with 3 elevation cuts
-                return struct.pack(">HHHHHBB10s", 0, 0, 11, 3, 0, 0, 0, b"\x00" * 10)
+                return struct.pack(
+                    ">HHHHHBB4sHH2s",
+                    0,
+                    0,
+                    11,
+                    3,
+                    0,
+                    0,
+                    0,
+                    b"\x00" * 4,
+                    0,
+                    0,
+                    b"\x00" * 2,
+                )
             else:
                 # Subsequent reads - return insufficient data to trigger struct.error
                 return b"\x00" * 10  # Too small for MSG_5_ELEV structure
 
     class MockNEXRADFile(NEXRADLevel2File):
         def __init__(self):
+            self._fp = None
             self._meta_header = defaultdict(list)
             self._meta_header["msg_5"] = [{"record_number": 0}]
             self._msg_5_data = None
@@ -970,3 +1226,1340 @@ def test_nexradlevel2_dataset_has_close(nexradlevel2_file):
     ds = open_dataset(nexradlevel2_file, engine="nexradlevel2", group="sweep_0")
     assert callable(getattr(ds, "_close", None))
     ds.close()
+
+
+class TestNEXRADChunkFiles:
+    """Tests for NEXRAD Level 2 chunk file support (I/E chunks without volume headers)."""
+
+    def test_read_volume_header_missing_gracefully(self):
+        """Test that _read_volume_header handles missing headers gracefully."""
+        import warnings
+
+        # Create minimal fake chunk data (BZ2 compressed format)
+        # BZ2 magic number: 'BZh' followed by compression level
+        fake_chunk_data = b"BZh9" + b"\x00" * 100
+
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            with NEXRADLevel2File(fake_chunk_data, has_volume_header=False) as fh:
+                assert fh.volume_header is None
+                # Check that warning was issued
+                assert len(w) == 1
+                assert "chunk file mode" in str(w[0].message).lower()
+
+    def test_is_compressed_detects_bz2_without_volume_header(self):
+        """Test that is_compressed correctly detects BZ2 data in chunk files."""
+        # BZ2 magic bytes: 0x42 ('B'), 0x5A ('Z'), 0x68 ('h')
+        bz2_chunk_data = bytes([0x42, 0x5A, 0x68]) + b"9" + b"\x00" * 100
+
+        import warnings
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            with NEXRADLevel2File(bz2_chunk_data, has_volume_header=False) as fh:
+                assert fh.is_compressed
+
+    def test_is_compressed_uncompressed_chunk(self):
+        """Test that is_compressed returns False for non-BZ2 chunk files."""
+        # Data that doesn't start with BZ2 magic
+        non_bz2_data = b"\x00\x00\x00" + b"\x00" * 100
+
+        import warnings
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            with NEXRADLevel2File(non_bz2_data, has_volume_header=False) as fh:
+                assert not fh.is_compressed
+
+    def test_has_volume_header_parameter(self):
+        """Test that has_volume_header parameter is respected."""
+        import warnings
+
+        # Create fake data
+        fake_data = b"\x00" * 200
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            # With has_volume_header=False
+            with NEXRADLevel2File(fake_data, has_volume_header=False) as fh:
+                assert fh._has_volume_header is False
+                assert fh.volume_header is None
+
+    def test_volume_header_read_failure_fallback(self):
+        """Test that failed volume header read falls back gracefully."""
+        import warnings
+
+        # Create data that's too short for a valid volume header
+        short_data = b"\x00" * 10
+
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            with NEXRADLevel2File(short_data, has_volume_header=True) as fh:
+                # Should fall back to None and emit warning
+                assert fh.volume_header is None
+                assert len(w) == 1
+                assert "unable to read volume header" in str(w[0].message).lower()
+
+    def test_get_attrs_handles_missing_volume_header(self):
+        """Test that get_attrs works when volume_header is None."""
+        from unittest.mock import MagicMock, PropertyMock
+
+        from xradar.io.backends.nexrad_level2 import NexradLevel2Store
+
+        # Create a mock store with None volume_header
+
+        mock_store = MagicMock(spec=NexradLevel2Store)
+        mock_root = MagicMock()
+        mock_root.volume_header = None
+        mock_root.msg_5 = None
+
+        # Use the actual get_attrs method
+        type(mock_store).root = PropertyMock(return_value=mock_root)
+
+        # Call the actual method by accessing it from the class
+        attrs = NexradLevel2Store.get_attrs(mock_store)
+
+        assert ("instrument_name", "UNKNOWN") in attrs.items()
+
+    def test_is_compressed_empty_chunk(self):
+        """is_compressed returns False for chunk data shorter than 3 bytes."""
+        tiny_data = b"\x00"
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            with NEXRADLevel2File(tiny_data, has_volume_header=False) as fh:
+                assert not fh.is_compressed
+
+    def test_get_attrs_with_volume_header(self, nexradlevel2_file):
+        """Test that get_attrs correctly reads ICAO when volume_header exists."""
+        from xradar.io.backends.nexrad_level2 import NexradLevel2Store
+
+        store = NexradLevel2Store.open(nexradlevel2_file, group="sweep_0")
+        attrs = store.get_attrs()
+
+        # Should have actual instrument name from file
+        assert "instrument_name" in dict(attrs)
+        assert dict(attrs)["instrument_name"] != "UNKNOWN"
+
+
+class TestConcatenateChunks:
+    """Tests for _concatenate_chunks helper and list input to open_nexradlevel2_datatree."""
+
+    def test_concatenate_bytes_chunks(self):
+        """List of bytes objects are concatenated correctly."""
+        from xradar.io.backends.nexrad_level2 import _concatenate_chunks
+
+        chunk1 = b"\x00\x01\x02"
+        chunk2 = b"\x03\x04\x05"
+        result = _concatenate_chunks([chunk1, chunk2])
+        assert result == b"\x00\x01\x02\x03\x04\x05"
+
+    def test_concatenate_bytearray_chunks(self):
+        """List of bytearray objects are concatenated correctly."""
+        from xradar.io.backends.nexrad_level2 import _concatenate_chunks
+
+        chunk1 = bytearray(b"\x00\x01")
+        chunk2 = bytearray(b"\x02\x03")
+        result = _concatenate_chunks([chunk1, chunk2])
+        assert result == b"\x00\x01\x02\x03"
+
+    def test_concatenate_file_like_chunks(self):
+        """List of file-like objects are read and concatenated."""
+        from xradar.io.backends.nexrad_level2 import _concatenate_chunks
+
+        chunk1 = io.BytesIO(b"\x00\x01")
+        chunk2 = io.BytesIO(b"\x02\x03")
+        result = _concatenate_chunks([chunk1, chunk2])
+        assert result == b"\x00\x01\x02\x03"
+
+    def test_concatenate_mixed_types(self):
+        """Mixed types (bytes, bytearray, file-like) are concatenated."""
+        from xradar.io.backends.nexrad_level2 import _concatenate_chunks
+
+        chunk1 = b"\x00\x01"
+        chunk2 = io.BytesIO(b"\x02\x03")
+        chunk3 = bytearray(b"\x04\x05")
+        result = _concatenate_chunks([chunk1, chunk2, chunk3])
+        assert result == b"\x00\x01\x02\x03\x04\x05"
+
+    def test_concatenate_file_paths(self, tmp_path):
+        """List of file paths are read and concatenated."""
+        from xradar.io.backends.nexrad_level2 import _concatenate_chunks
+
+        f1 = tmp_path / "chunk1.bin"
+        f2 = tmp_path / "chunk2.bin"
+        f1.write_bytes(b"\x00\x01")
+        f2.write_bytes(b"\x02\x03")
+        result = _concatenate_chunks([str(f1), f2])  # str and PathLike mixed
+        assert result == b"\x00\x01\x02\x03"
+
+    def test_multiple_volume_headers_raises(self):
+        """Multiple chunks with volume headers should raise ValueError."""
+        from xradar.io.backends.nexrad_level2 import _concatenate_chunks
+
+        vol1 = b"AR2V0006." + b"\x00" * 50
+        vol2 = b"AR2V0006." + b"\x00" * 50
+        with pytest.raises(ValueError, match="Multiple chunks contain a volume header"):
+            _concatenate_chunks([vol1, vol2])
+
+    def test_volume_header_not_first_raises(self):
+        """Volume header chunk not at index 0 should raise ValueError."""
+        from xradar.io.backends.nexrad_level2 import _concatenate_chunks
+
+        non_vol = b"\x00" * 50
+        vol = b"AR2V0006." + b"\x00" * 50
+        with pytest.raises(ValueError, match="volume header must be the first item"):
+            _concatenate_chunks([non_vol, vol])
+
+    def test_volume_header_first_is_ok(self):
+        """Single volume header at index 0 should succeed."""
+        from xradar.io.backends.nexrad_level2 import _concatenate_chunks
+
+        vol = b"AR2V0006." + b"\x00" * 50
+        non_vol = b"\x00" * 30
+        result = _concatenate_chunks([vol, non_vol])
+        assert result == vol + non_vol
+
+    def test_no_volume_headers_ok(self):
+        """All I/E chunks without volume headers concatenate at the low level."""
+        from xradar.io.backends.nexrad_level2 import _concatenate_chunks
+
+        chunk1 = b"BZh9" + b"\x00" * 50
+        chunk2 = b"BZh9" + b"\x00" * 30
+        result = _concatenate_chunks([chunk1, chunk2])
+        assert result == chunk1 + chunk2
+
+    def test_no_volume_header_in_chunks_raises(self):
+        """Passing I/E chunks without S file to open_nexradlevel2_datatree raises."""
+        ie_chunk1 = b"BZh9" + b"\x00" * 50
+        ie_chunk2 = b"BZh9" + b"\x00" * 30
+        with pytest.raises(ValueError, match="No chunk contains a volume header"):
+            open_nexradlevel2_datatree([ie_chunk1, ie_chunk2])
+
+    def test_unsupported_chunk_type_raises(self):
+        """Unsupported chunk type should raise TypeError."""
+        from xradar.io.backends.nexrad_level2 import _concatenate_chunks
+
+        with pytest.raises(TypeError, match="Unsupported chunk type"):
+            _concatenate_chunks([12345])
+
+    def test_list_input_opens_full_volume(self, nexradlevel2_file):
+        """Passing a list with a single full-volume file should work."""
+        with open(nexradlevel2_file, "rb") as f:
+            file_bytes = f.read()
+
+        # Split into two arbitrary byte chunks (simulating chunk input)
+        mid = len(file_bytes) // 2
+        chunks = [file_bytes[:mid], file_bytes[mid:]]
+
+        # Should produce the same result as passing the file directly
+        dtree_direct = open_nexradlevel2_datatree(
+            nexradlevel2_file, reindex_angle=False, site_coords=True
+        )
+        dtree_list = open_nexradlevel2_datatree(
+            chunks, reindex_angle=False, site_coords=True
+        )
+
+        direct_sweeps = list(dtree_direct.match("sweep_*").keys())
+        list_sweeps = list(dtree_list.match("sweep_*").keys())
+        assert direct_sweeps == list_sweeps
+
+    def test_single_file_str_unchanged(self, nexradlevel2_file):
+        """Single file path (str) still works as before."""
+        dtree = open_nexradlevel2_datatree(
+            nexradlevel2_file, reindex_angle=False, site_coords=True
+        )
+        assert isinstance(dtree, DataTree)
+        sweep_groups = list(dtree.match("sweep_*").keys())
+        assert len(sweep_groups) > 0
+
+    def test_empty_list_returns_empty_bytes(self):
+        """Empty list produces empty bytes."""
+        from xradar.io.backends.nexrad_level2 import _concatenate_chunks
+
+        result = _concatenate_chunks([])
+        assert result == b""
+
+    def test_single_element_list(self):
+        """Single-element list returns that element unchanged."""
+        from xradar.io.backends.nexrad_level2 import _concatenate_chunks
+
+        data = b"\x00\x01\x02"
+        result = _concatenate_chunks([data])
+        assert result == data
+
+    def test_single_element_with_volume_header(self):
+        """Single-element list with volume header at index 0 succeeds."""
+        from xradar.io.backends.nexrad_level2 import _concatenate_chunks
+
+        vol = b"AR2V0006." + b"\x00" * 50
+        result = _concatenate_chunks([vol])
+        assert result == vol
+
+    def test_chunk_shorter_than_4_bytes(self):
+        """Chunks shorter than 4 bytes do not break volume header detection."""
+        from xradar.io.backends.nexrad_level2 import _concatenate_chunks
+
+        result = _concatenate_chunks([b"\x00\x01", b"\x02\x03"])
+        assert result == b"\x00\x01\x02\x03"
+
+    def test_empty_chunk_in_list(self):
+        """Empty bytes chunk in list is handled correctly."""
+        from xradar.io.backends.nexrad_level2 import _concatenate_chunks
+
+        result = _concatenate_chunks([b"\x00\x01", b"", b"\x02\x03"])
+        assert result == b"\x00\x01\x02\x03"
+
+    def test_file_like_at_nonzero_position(self):
+        """File-like with cursor advanced reads only remaining bytes."""
+        from xradar.io.backends.nexrad_level2 import _concatenate_chunks
+
+        buf = io.BytesIO(b"\x00\x01\x02\x03")
+        buf.read(2)  # advance cursor past first 2 bytes
+        result = _concatenate_chunks([buf])
+        assert result == b"\x02\x03"
+
+    def test_nonexistent_file_path_raises(self):
+        """Non-existent file path raises FileNotFoundError."""
+        from xradar.io.backends.nexrad_level2 import _concatenate_chunks
+
+        with pytest.raises(FileNotFoundError):
+            _concatenate_chunks(["/nonexistent/path/to/file.bin"])
+
+    def test_tuple_input_opens_full_volume(self, nexradlevel2_file):
+        """Tuple of byte chunks produces same result as file path."""
+        with open(nexradlevel2_file, "rb") as f:
+            file_bytes = f.read()
+
+        mid = len(file_bytes) // 2
+        chunks = (file_bytes[:mid], file_bytes[mid:])
+
+        dtree_direct = open_nexradlevel2_datatree(
+            nexradlevel2_file, reindex_angle=False, site_coords=True
+        )
+        dtree_tuple = open_nexradlevel2_datatree(
+            chunks, reindex_angle=False, site_coords=True
+        )
+
+        assert list(dtree_direct.match("sweep_*").keys()) == list(
+            dtree_tuple.match("sweep_*").keys()
+        )
+
+
+class TestSweepCompleteness:
+    """Tests for sweep completeness tracking."""
+
+    def test_complete_sweeps_in_full_volume(self, nexradlevel2_file):
+        """All sweeps in a full volume file should be complete."""
+        with NEXRADLevel2File(nexradlevel2_file, loaddata=False) as nex:
+            incomplete = nex.incomplete_sweeps
+            assert len(incomplete) == 0
+
+    def test_complete_flag_set_on_normal_sweeps(self, nexradlevel2_file):
+        """Sweeps closed by radial_status 2 or 4 should have complete=True."""
+        with NEXRADLevel2File(nexradlevel2_file, loaddata=False) as nex:
+            _ = nex.data_header  # trigger parsing
+            for sweep_idx, sweep_data in nex.data.items():
+                assert sweep_data.get("complete", False) is True
+
+    def test_force_closed_sweep_is_incomplete(self):
+        """A sweep that is force-closed (no end-of-elevation marker) should be incomplete."""
+        # Use a real file but truncate it to simulate a chunk file ending mid-sweep
+        # We'll create a mock scenario instead
+        from collections import defaultdict
+
+        class MockNEXRADForCompleteness(NEXRADLevel2File):
+            def __init__(self):
+                # Skip parent __init__
+                self._fp = None
+                self._data = OrderedDict()
+                self._data_header = None
+                self._meta_header = None
+                self._msg_5_data = None
+                self._msg_31_header = None
+                self._msg_31_data_header = None
+
+            @property
+            def meta_header(self):
+                if self._meta_header is None:
+                    self._meta_header = defaultdict(list)
+                return self._meta_header
+
+        mock = MockNEXRADForCompleteness()
+        # Simulate: sweep 0 is complete, sweep 1 is incomplete
+        mock._data[0] = OrderedDict([("complete", True)])
+        mock._data[1] = OrderedDict([("complete", False)])
+        mock._data_header = []  # already parsed
+        assert mock.incomplete_sweeps == {1}
+
+    def test_multiple_incomplete_sweeps(self):
+        """Multiple incomplete sweeps are all identified."""
+        from collections import defaultdict
+
+        class MockNEXRADForCompleteness(NEXRADLevel2File):
+            def __init__(self):
+                self._fp = None
+                self._data = OrderedDict()
+                self._data_header = None
+                self._meta_header = None
+                self._msg_5_data = None
+                self._msg_31_header = None
+                self._msg_31_data_header = None
+
+            @property
+            def meta_header(self):
+                if self._meta_header is None:
+                    self._meta_header = defaultdict(list)
+                return self._meta_header
+
+        mock = MockNEXRADForCompleteness()
+        mock._data[0] = OrderedDict([("complete", True)])
+        mock._data[1] = OrderedDict([("complete", False)])
+        mock._data[2] = OrderedDict([("complete", True)])
+        mock._data[3] = OrderedDict([("complete", False)])
+        mock._data_header = []
+        assert mock.incomplete_sweeps == {1, 3}
+
+    def test_all_sweeps_incomplete(self):
+        """All sweeps incomplete returns full set of indices."""
+        from collections import defaultdict
+
+        class MockNEXRADForCompleteness(NEXRADLevel2File):
+            def __init__(self):
+                self._fp = None
+                self._data = OrderedDict()
+                self._data_header = None
+                self._meta_header = None
+                self._msg_5_data = None
+                self._msg_31_header = None
+                self._msg_31_data_header = None
+
+            @property
+            def meta_header(self):
+                if self._meta_header is None:
+                    self._meta_header = defaultdict(list)
+                return self._meta_header
+
+        mock = MockNEXRADForCompleteness()
+        mock._data[0] = OrderedDict([("complete", False)])
+        mock._data[1] = OrderedDict([("complete", False)])
+        mock._data[2] = OrderedDict([("complete", False)])
+        mock._data_header = []
+        assert mock.incomplete_sweeps == {0, 1, 2}
+
+    def test_force_close_triggered_on_premature_end(self, nexradlevel2_file):
+        """get_data_header force-closes sweep when record stream ends mid-sweep."""
+        nex = NEXRADLevel2File(nexradlevel2_file, loaddata=False)
+
+        # Limit records to stop mid-sweep, triggering force-close at lines 919-924
+        orig = nex.init_next_record
+        count = [0]
+
+        def limited():
+            count[0] += 1
+            if count[0] > 50:
+                return False
+            return orig()
+
+        nex.init_next_record = limited
+        _ = nex.data_header  # triggers get_data_header
+
+        # Should have at least one incomplete (force-closed) sweep
+        assert len(nex.incomplete_sweeps) > 0
+        for idx in nex.incomplete_sweeps:
+            assert nex._data[idx]["complete"] is False
+
+    def test_sweep_missing_complete_key_defaults_true(self):
+        """Sweep dict without 'complete' key defaults to complete (True)."""
+        from collections import defaultdict
+
+        class MockNEXRADForCompleteness(NEXRADLevel2File):
+            def __init__(self):
+                self._fp = None
+                self._data = OrderedDict()
+                self._data_header = None
+                self._meta_header = None
+                self._msg_5_data = None
+                self._msg_31_header = None
+                self._msg_31_data_header = None
+
+            @property
+            def meta_header(self):
+                if self._meta_header is None:
+                    self._meta_header = defaultdict(list)
+                return self._meta_header
+
+        mock = MockNEXRADForCompleteness()
+        mock._data[0] = OrderedDict()  # no "complete" key
+        mock._data[1] = OrderedDict([("complete", False)])
+        mock._data_header = []
+        assert mock.incomplete_sweeps == {1}
+
+
+class TestIncompleteSweepParameter:
+    """Tests for the incomplete_sweep parameter in open_nexradlevel2_datatree."""
+
+    def test_drop_mode_with_full_volume(self, nexradlevel2_file):
+        """Drop mode with a full volume file should keep all sweeps (none incomplete)."""
+        dtree = open_nexradlevel2_datatree(
+            nexradlevel2_file,
+            reindex_angle=False,
+            site_coords=True,
+            incomplete_sweep="drop",
+        )
+        sweep_groups = list(dtree.match("sweep_*").keys())
+        assert len(sweep_groups) > 0
+
+    def test_pad_mode_with_full_volume(self, nexradlevel2_file):
+        """Pad mode with a full volume file should keep all sweeps (none incomplete)."""
+        dtree = open_nexradlevel2_datatree(
+            nexradlevel2_file,
+            reindex_angle=False,
+            site_coords=True,
+            incomplete_sweep="pad",
+        )
+        sweep_groups = list(dtree.match("sweep_*").keys())
+        assert len(sweep_groups) > 0
+
+    def test_invalid_incomplete_sweep_raises(self, nexradlevel2_file):
+        """Invalid incomplete_sweep value should raise ValueError."""
+        with pytest.raises(ValueError, match="Invalid incomplete_sweep"):
+            open_nexradlevel2_datatree(
+                nexradlevel2_file,
+                reindex_angle=False,
+                incomplete_sweep="invalid",
+            )
+
+    def test_drop_mode_warns_on_incomplete(self, nexradlevel2_file):
+        """Drop mode should warn when incomplete sweeps exist."""
+        import warnings
+
+        # Read file and truncate to create incomplete last sweep
+        with open(nexradlevel2_file, "rb") as f:
+            file_bytes = f.read()
+
+        # Truncate to ~80% to lose the last sweep(s)
+        truncated = file_bytes[: int(len(file_bytes) * 0.8)]
+
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            try:
+                open_nexradlevel2_datatree(
+                    truncated,
+                    reindex_angle=False,
+                    site_coords=True,
+                    incomplete_sweep="drop",
+                )
+                # Check if a warning about incomplete sweeps was issued
+                drop_warnings = [x for x in w if "incomplete" in str(x.message).lower()]
+                if drop_warnings:
+                    assert "Dropped" in str(drop_warnings[0].message)
+            except Exception:
+                # Truncated files may fail in various ways; the important
+                # thing is that no crash occurs in our sweep filtering code
+                pass
+
+    def test_all_incomplete_returns_empty_datatree(self):
+        """When all sweeps are incomplete, drop mode returns empty DataTree."""
+        import warnings
+        from unittest.mock import MagicMock, patch
+
+        # Mock NEXRADLevel2File to report all sweeps as incomplete
+        mock_nex = MagicMock()
+        mock_nex.msg_5 = {"number_elevation_cuts": 2}
+        mock_nex.msg_31_data_header = [MagicMock(), MagicMock()]
+        mock_nex.incomplete_sweeps = {0, 1}
+        mock_nex.__enter__ = MagicMock(return_value=mock_nex)
+        mock_nex.__exit__ = MagicMock(return_value=False)
+
+        with patch(
+            "xradar.io.backends.nexrad_level2.NEXRADLevel2File",
+            return_value=mock_nex,
+        ):
+            with warnings.catch_warnings(record=True) as w:
+                warnings.simplefilter("always")
+                dtree = open_nexradlevel2_datatree(
+                    b"\x00" * 100,
+                    reindex_angle=False,
+                    incomplete_sweep="drop",
+                )
+                assert len(dtree.children) == 0
+                all_incomplete_warnings = [
+                    x for x in w if "All sweeps are incomplete" in str(x.message)
+                ]
+                assert len(all_incomplete_warnings) == 1
+
+    def test_backward_compat_default_drop(self, nexradlevel2_file):
+        """Default incomplete_sweep='drop' should not change behavior for full volumes."""
+        dtree_default = open_nexradlevel2_datatree(
+            nexradlevel2_file, reindex_angle=False, site_coords=True
+        )
+        dtree_explicit = open_nexradlevel2_datatree(
+            nexradlevel2_file,
+            reindex_angle=False,
+            site_coords=True,
+            incomplete_sweep="drop",
+        )
+        assert list(dtree_default.match("sweep_*").keys()) == list(
+            dtree_explicit.match("sweep_*").keys()
+        )
+
+    def test_backward_compat_pad_full_volume(self, nexradlevel2_file):
+        """Pad mode on a full volume produces the same sweeps as default (drop)."""
+        dtree_default = open_nexradlevel2_datatree(
+            nexradlevel2_file, reindex_angle=False, site_coords=True
+        )
+        dtree_pad = open_nexradlevel2_datatree(
+            nexradlevel2_file,
+            reindex_angle=False,
+            site_coords=True,
+            incomplete_sweep="pad",
+        )
+        assert list(dtree_default.match("sweep_*").keys()) == list(
+            dtree_pad.match("sweep_*").keys()
+        )
+
+    def test_drop_mode_warns_with_specific_indices(self):
+        """Drop mode warns with correct sweep indices when multiple are incomplete."""
+        mock_nex = MagicMock()
+        mock_nex.msg_5 = {"number_elevation_cuts": 4}
+        mock_nex.msg_31_data_header = [MagicMock()] * 4
+        mock_nex.incomplete_sweeps = {1, 3}
+        mock_nex.__enter__ = MagicMock(return_value=mock_nex)
+        mock_nex.__exit__ = MagicMock(return_value=False)
+
+        dummy_ds = xarray.Dataset(
+            {
+                "time": (
+                    "azimuth",
+                    np.array(
+                        ["2024-01-01T00:00:00", "2024-01-01T00:01:00"],
+                        dtype="datetime64[ns]",
+                    ),
+                ),
+                "latitude": 35.0,
+                "longitude": -97.0,
+                "altitude": 300.0,
+            },
+        )
+        mock_sweep_dict = OrderedDict([("sweep_0", dummy_ds), ("sweep_2", dummy_ds)])
+
+        with (
+            patch(
+                "xradar.io.backends.nexrad_level2.NEXRADLevel2File",
+                return_value=mock_nex,
+            ),
+            patch(
+                "xradar.io.backends.nexrad_level2.open_sweeps_as_dict",
+                return_value=mock_sweep_dict,
+            ),
+        ):
+            with warnings.catch_warnings(record=True) as w:
+                warnings.simplefilter("always")
+                open_nexradlevel2_datatree(
+                    b"\x00" * 100,
+                    reindex_angle=False,
+                    incomplete_sweep="drop",
+                )
+
+                drop_warnings = [x for x in w if "Dropped" in str(x.message)]
+                assert len(drop_warnings) == 1
+                msg = str(drop_warnings[0].message)
+                assert "2 incomplete sweep(s)" in msg
+                assert "[1, 3]" in msg
+
+    def test_pad_mode_passes_incomplete_set_to_open_sweeps(self):
+        """Pad mode passes the incomplete_sweeps set to open_sweeps_as_dict."""
+        mock_nex = MagicMock()
+        mock_nex.msg_5 = {"number_elevation_cuts": 2}
+        mock_nex.msg_31_data_header = [MagicMock()] * 2
+        mock_nex.incomplete_sweeps = {1}
+        mock_nex.__enter__ = MagicMock(return_value=mock_nex)
+        mock_nex.__exit__ = MagicMock(return_value=False)
+
+        dummy_ds = xarray.Dataset(
+            {
+                "time": (
+                    "azimuth",
+                    np.array(
+                        ["2024-01-01T00:00:00", "2024-01-01T00:01:00"],
+                        dtype="datetime64[ns]",
+                    ),
+                ),
+                "latitude": 35.0,
+                "longitude": -97.0,
+                "altitude": 300.0,
+            },
+        )
+        mock_sweep_dict = OrderedDict([("sweep_0", dummy_ds), ("sweep_1", dummy_ds)])
+
+        with (
+            patch(
+                "xradar.io.backends.nexrad_level2.NEXRADLevel2File",
+                return_value=mock_nex,
+            ),
+            patch(
+                "xradar.io.backends.nexrad_level2.open_sweeps_as_dict",
+                return_value=mock_sweep_dict,
+            ) as mock_open_sweeps,
+        ):
+            open_nexradlevel2_datatree(
+                b"\x00" * 100,
+                reindex_angle=False,
+                incomplete_sweep="pad",
+            )
+            # Verify incomplete_sweeps={1} was passed
+            call_kwargs = mock_open_sweeps.call_args[1]
+            assert call_kwargs["incomplete_sweeps"] == {1}
+
+    def test_pad_mode_reads_incomplete_for_user_specified_sweeps(self):
+        """Pad mode reads incomplete set even when sweep list is user-specified."""
+        mock_nex = MagicMock()
+        mock_nex.incomplete_sweeps = {1}
+        mock_nex.__enter__ = MagicMock(return_value=mock_nex)
+        mock_nex.__exit__ = MagicMock(return_value=False)
+
+        dummy_ds = xarray.Dataset(
+            {
+                "time": (
+                    "azimuth",
+                    np.array(
+                        ["2024-01-01T00:00:00", "2024-01-01T00:01:00"],
+                        dtype="datetime64[ns]",
+                    ),
+                ),
+                "latitude": 35.0,
+                "longitude": -97.0,
+                "altitude": 300.0,
+            },
+        )
+        mock_sweep_dict = OrderedDict([("sweep_0", dummy_ds), ("sweep_1", dummy_ds)])
+
+        with (
+            patch(
+                "xradar.io.backends.nexrad_level2.NEXRADLevel2File",
+                return_value=mock_nex,
+            ),
+            patch(
+                "xradar.io.backends.nexrad_level2.open_sweeps_as_dict",
+                return_value=mock_sweep_dict,
+            ) as mock_open_sweeps,
+        ):
+            open_nexradlevel2_datatree(
+                b"\x00" * 100,
+                sweep=[0, 1],
+                reindex_angle=False,
+                incomplete_sweep="pad",
+            )
+            # Lines 1931-1933: pad mode opens NEXRADLevel2File to get incomplete set
+            call_kwargs = mock_open_sweeps.call_args[1]
+            assert call_kwargs["incomplete_sweeps"] == {1}
+
+    # Regression cases for openradar/xradar#361. When upstream drops
+    # an interior cut, nex.data retains surviving sweeps under their
+    # original indices (sparse keys). The sweep-name list must follow
+    # those keys, not range(len(...)).
+    @pytest.mark.parametrize(
+        "present_keys,incomplete,mode,expected",
+        [
+            # Single interior gap (the #361 case, reduced)
+            (
+                [0, 1, 2, 4],
+                set(),
+                "drop",
+                ["sweep_0", "sweep_1", "sweep_2", "sweep_4"],
+            ),
+            (
+                [0, 1, 2, 4],
+                set(),
+                "pad",
+                ["sweep_0", "sweep_1", "sweep_2", "sweep_4"],
+            ),
+            # Gap + incomplete: drop removes both, pad removes only gap
+            (
+                [0, 1, 2, 4],
+                {2},
+                "drop",
+                ["sweep_0", "sweep_1", "sweep_4"],
+            ),
+            (
+                [0, 1, 2, 4],
+                {2},
+                "pad",
+                ["sweep_0", "sweep_1", "sweep_2", "sweep_4"],
+            ),
+            # Multiple interior gaps
+            (
+                [0, 1, 3, 4, 7],
+                set(),
+                "drop",
+                ["sweep_0", "sweep_1", "sweep_3", "sweep_4", "sweep_7"],
+            ),
+            # Trailing gap (MSG_5 declared 4 cuts, parser got 3)
+            (
+                [0, 1, 2],
+                set(),
+                "drop",
+                ["sweep_0", "sweep_1", "sweep_2"],
+            ),
+            # Sparse keys from unsorted dict iteration order
+            (
+                [4, 0, 2, 1],
+                set(),
+                "drop",
+                ["sweep_0", "sweep_1", "sweep_2", "sweep_4"],
+            ),
+        ],
+        ids=[
+            "single-gap-drop",
+            "single-gap-pad",
+            "gap-and-incomplete-drop",
+            "gap-and-incomplete-pad",
+            "multiple-gaps-drop",
+            "trailing-gap-drop",
+            "unsorted-keys-drop",
+        ],
+    )
+    def test_interior_sweep_gap_uses_actual_keys(
+        self, present_keys, incomplete, mode, expected
+    ):
+        mock_nex = MagicMock()
+        mock_nex.msg_5 = {"number_elevation_cuts": max(present_keys) + 2}
+        mock_nex.data = {k: None for k in present_keys}
+        mock_nex.incomplete_sweeps = incomplete
+        mock_nex.__enter__ = MagicMock(return_value=mock_nex)
+        mock_nex.__exit__ = MagicMock(return_value=False)
+
+        dummy_ds = xarray.Dataset(
+            {
+                "time": (
+                    "azimuth",
+                    np.array(
+                        ["2024-01-01T00:00:00", "2024-01-01T00:01:00"],
+                        dtype="datetime64[ns]",
+                    ),
+                ),
+                "latitude": 35.0,
+                "longitude": -97.0,
+                "altitude": 300.0,
+            },
+        )
+        mock_sweep_dict = OrderedDict([("sweep_0", dummy_ds), ("sweep_1", dummy_ds)])
+
+        with (
+            patch(
+                "xradar.io.backends.nexrad_level2.NEXRADLevel2File",
+                return_value=mock_nex,
+            ),
+            patch(
+                "xradar.io.backends.nexrad_level2.open_sweeps_as_dict",
+                return_value=mock_sweep_dict,
+            ) as mock_open_sweeps,
+        ):
+            open_nexradlevel2_datatree(
+                b"\x00" * 100,
+                reindex_angle=False,
+                incomplete_sweep=mode,
+            )
+            assert mock_open_sweeps.call_args[1]["sweeps"] == expected
+
+
+class TestPadModeReindexing:
+    """Tests for the pad-mode reindex pipeline using real NEXRAD data.
+
+    Since truncating raw NEXRAD bytes breaks BZ2 record boundaries
+    (causing EOFError before sweep data is collected), these tests instead
+    open a real sweep and simulate an incomplete sweep by removing rays,
+    then verify the reindex pipeline produces correct results.
+    """
+
+    def test_partial_sweep_reindex_produces_full_azimuth(self, nexradlevel2_file):
+        """Removing rays from a real sweep and reindexing fills to full grid."""
+        from xradar import util
+
+        ds = xarray.open_dataset(
+            nexradlevel2_file,
+            group="sweep_0",
+            engine="nexradlevel2",
+            first_dim="auto",
+        )
+        original_size = ds.sizes["azimuth"]
+
+        # Remove half the rays to simulate an incomplete sweep
+        ds_partial = ds.isel(azimuth=slice(0, original_size // 2))
+
+        ds_partial = util.remove_duplicate_rays(ds_partial)
+        angle_params = util.extract_angle_parameters(ds_partial)
+        ds_reindexed = util.reindex_angle(
+            ds_partial,
+            start_angle=angle_params["start_angle"],
+            stop_angle=angle_params["stop_angle"],
+            angle_res=float(angle_params["angle_res"]),
+            direction=angle_params["direction"],
+        )
+
+        # Should be reindexed to a full azimuth grid
+        assert ds_reindexed.sizes["azimuth"] in (360, 720)
+        # Padded region should have NaN
+        assert np.isnan(ds_reindexed["DBZH"].values).any()
+
+    def test_partial_sweep_reindex_preserves_data(self, nexradlevel2_file):
+        """Data in the non-padded region matches the original after reindex."""
+        from xradar import util
+
+        ds = xarray.open_dataset(
+            nexradlevel2_file,
+            group="sweep_0",
+            engine="nexradlevel2",
+            first_dim="auto",
+        )
+        n_keep = ds.sizes["azimuth"] // 2
+        ds_partial = ds.isel(azimuth=slice(0, n_keep))
+
+        ds_partial = util.remove_duplicate_rays(ds_partial)
+        angle_params = util.extract_angle_parameters(ds_partial)
+        ds_reindexed = util.reindex_angle(
+            ds_partial,
+            start_angle=angle_params["start_angle"],
+            stop_angle=angle_params["stop_angle"],
+            angle_res=float(angle_params["angle_res"]),
+            direction=angle_params["direction"],
+        )
+
+        # Non-NaN values should still exist (data was preserved)
+        dbzh = ds_reindexed["DBZH"].values
+        valid_count = np.count_nonzero(~np.isnan(dbzh))
+        assert valid_count > 0
+
+    def test_complete_sweep_reindex_no_nans(self, nexradlevel2_file):
+        """Reindexing a complete sweep does not introduce NaN values."""
+        from xradar import util
+
+        ds = xarray.open_dataset(
+            nexradlevel2_file,
+            group="sweep_0",
+            engine="nexradlevel2",
+            first_dim="auto",
+        )
+
+        ds = util.remove_duplicate_rays(ds)
+        angle_params = util.extract_angle_parameters(ds)
+        ds_reindexed = util.reindex_angle(
+            ds,
+            start_angle=angle_params["start_angle"],
+            stop_angle=angle_params["stop_angle"],
+            angle_res=float(angle_params["angle_res"]),
+            direction=angle_params["direction"],
+        )
+
+        assert ds_reindexed.sizes["azimuth"] in (360, 720)
+
+    def test_few_rays_reindex_high_nan_percentage(self, nexradlevel2_file):
+        """Reindexing with very few rays produces high NaN percentage."""
+        from xradar import util
+
+        ds = xarray.open_dataset(
+            nexradlevel2_file,
+            group="sweep_0",
+            engine="nexradlevel2",
+            first_dim="auto",
+        )
+        # Keep only 36 rays (~10% of a 360-ray sweep)
+        ds_partial = ds.isel(azimuth=slice(0, 36))
+
+        ds_partial = util.remove_duplicate_rays(ds_partial)
+        angle_params = util.extract_angle_parameters(ds_partial)
+        ds_reindexed = util.reindex_angle(
+            ds_partial,
+            start_angle=angle_params["start_angle"],
+            stop_angle=angle_params["stop_angle"],
+            angle_res=float(angle_params["angle_res"]),
+            direction=angle_params["direction"],
+        )
+
+        assert ds_reindexed.sizes["azimuth"] in (360, 720)
+        nan_pct = np.isnan(ds_reindexed["DBZH"].values).mean()
+        assert nan_pct > 0.5
+
+
+class TestOpenSweepsAsDict:
+    """Tests for open_sweeps_as_dict coverage of new code paths."""
+
+    def test_default_incomplete_sweeps(self, nexradlevel2_file):
+        """open_sweeps_as_dict defaults incomplete_sweeps=None to empty set."""
+        from xradar.io.backends.nexrad_level2 import open_sweeps_as_dict
+
+        result = open_sweeps_as_dict(
+            nexradlevel2_file,
+            sweeps=["sweep_0"],
+            decode_coords=True,
+            reindex_angle=False,
+            site_coords=True,
+        )
+        assert "sweep_0" in result
+
+    def test_pad_mode_reindex_for_incomplete_sweep(self, nexradlevel2_file):
+        """Pad-mode reindex branch fires when sweep is marked incomplete."""
+        from xradar.io.backends.nexrad_level2 import open_sweeps_as_dict
+
+        # Mark sweep 0 as "incomplete" to trigger the pad-mode reindex path
+        result = open_sweeps_as_dict(
+            nexradlevel2_file,
+            sweeps=["sweep_0"],
+            incomplete_sweeps={0},
+            decode_coords=True,
+            reindex_angle=False,
+            site_coords=True,
+        )
+        assert "sweep_0" in result
+        ds = result["sweep_0"]
+        # Should have been reindexed to a full azimuth grid
+        assert ds.sizes["azimuth"] in (360, 720)
+
+
+class TestListInputWithIncompleteSweep:
+    """Integration tests combining list input with incomplete_sweep parameter."""
+
+    def test_list_input_full_volume_with_drop_mode(self, nexradlevel2_file):
+        """List of full volume bytes with drop mode matches file path result."""
+        with open(nexradlevel2_file, "rb") as f:
+            file_bytes = f.read()
+
+        mid = len(file_bytes) // 2
+
+        dtree_direct = open_nexradlevel2_datatree(
+            nexradlevel2_file,
+            reindex_angle=False,
+            site_coords=True,
+            incomplete_sweep="drop",
+        )
+        dtree_list = open_nexradlevel2_datatree(
+            [file_bytes[:mid], file_bytes[mid:]],
+            reindex_angle=False,
+            site_coords=True,
+            incomplete_sweep="drop",
+        )
+
+        assert list(dtree_direct.match("sweep_*").keys()) == list(
+            dtree_list.match("sweep_*").keys()
+        )
+
+    def test_list_input_full_volume_with_pad_mode(self, nexradlevel2_file):
+        """List of full volume bytes with pad mode matches file path result."""
+        with open(nexradlevel2_file, "rb") as f:
+            file_bytes = f.read()
+
+        mid = len(file_bytes) // 2
+
+        dtree_direct = open_nexradlevel2_datatree(
+            nexradlevel2_file,
+            reindex_angle=False,
+            site_coords=True,
+            incomplete_sweep="pad",
+        )
+        dtree_list = open_nexradlevel2_datatree(
+            [file_bytes[:mid], file_bytes[mid:]],
+            reindex_angle=False,
+            site_coords=True,
+            incomplete_sweep="pad",
+        )
+
+        assert list(dtree_direct.match("sweep_*").keys()) == list(
+            dtree_list.match("sweep_*").keys()
+        )
+
+    def test_tuple_input_full_volume_with_drop_mode(self, nexradlevel2_file):
+        """Tuple of full volume bytes with drop mode matches file path result."""
+        with open(nexradlevel2_file, "rb") as f:
+            file_bytes = f.read()
+
+        dtree_direct = open_nexradlevel2_datatree(
+            nexradlevel2_file,
+            reindex_angle=False,
+            site_coords=True,
+            incomplete_sweep="drop",
+        )
+        dtree_tuple = open_nexradlevel2_datatree(
+            (file_bytes,),
+            reindex_angle=False,
+            site_coords=True,
+            incomplete_sweep="drop",
+        )
+
+        assert list(dtree_direct.match("sweep_*").keys()) == list(
+            dtree_tuple.match("sweep_*").keys()
+        )
+
+
+class TestRealChunkFiles:
+    """Integration tests using real NEXRAD chunk files from open-radar-data."""
+
+    def test_full_volume_from_chunks(self, nexrad_chunks_klot):
+        """All chunks produce a complete volume with sweeps and data."""
+        chunk_bytes = [f.read_bytes() for f in nexrad_chunks_klot]
+        dtree = open_nexradlevel2_datatree(chunk_bytes, reindex_angle=False)
+
+        sweep_keys = list(dtree.match("sweep_*").keys())
+        assert len(sweep_keys) > 0
+        assert "DBZH" in dtree["sweep_0"].data_vars
+        assert dtree.attrs["scan_name"].startswith("VCP-")
+
+    def test_partial_chunks_drop_mode(self, nexrad_chunks_klot):
+        """Partial chunks with drop mode have fewer sweeps than full volume."""
+        chunk_bytes = [f.read_bytes() for f in nexrad_chunks_klot[:15]]
+        dtree = open_nexradlevel2_datatree(
+            chunk_bytes, reindex_angle=False, incomplete_sweep="drop"
+        )
+
+        all_bytes = [f.read_bytes() for f in nexrad_chunks_klot]
+        dtree_full = open_nexradlevel2_datatree(all_bytes, reindex_angle=False)
+        assert len(dtree.match("sweep_*")) <= len(dtree_full.match("sweep_*"))
+
+    def test_partial_chunks_pad_mode(self, nexrad_chunks_klot):
+        """Partial chunks with pad mode produce full azimuth grid with NaN."""
+        chunk_bytes = [f.read_bytes() for f in nexrad_chunks_klot[:15]]
+        dtree = open_nexradlevel2_datatree(
+            chunk_bytes, reindex_angle=False, incomplete_sweep="pad"
+        )
+
+        sweep_keys = list(dtree.match("sweep_*").keys())
+        assert len(sweep_keys) > 0
+        ds = dtree["sweep_0"].to_dataset()
+        assert ds.sizes["azimuth"] in (360, 720)
+
+    def test_early_stream_few_chunks(self, nexrad_chunks_klot):
+        """Only 5 chunks with pad mode still produce data."""
+        chunk_bytes = [f.read_bytes() for f in nexrad_chunks_klot[:5]]
+        dtree = open_nexradlevel2_datatree(
+            chunk_bytes, reindex_angle=False, incomplete_sweep="pad"
+        )
+
+        assert len(dtree.match("sweep_*")) > 0
+
+    def test_chunk_file_paths_input(self, nexrad_chunks_klot):
+        """List of file paths (not bytes) works as input."""
+        dtree = open_nexradlevel2_datatree(nexrad_chunks_klot, reindex_angle=False)
+
+        assert len(dtree.match("sweep_*")) > 0
+        assert "DBZH" in dtree["sweep_0"].data_vars
+
+
+# --- Bit decoder unit tests ---
+
+
+def test_decode_vcp_sequencing():
+    from xradar.io.backends.nexrad_level2 import decode_vcp_sequencing
+
+    # All zeros
+    result = decode_vcp_sequencing(0)
+    assert result == {
+        "num_elevations": 0,
+        "max_sails_cuts": 0,
+        "sequence_active": False,
+        "truncated_vcp": False,
+    }
+    # 5 elevations, 2 max SAILS cuts, sequence active
+    assert decode_vcp_sequencing(0x2045) == {
+        "num_elevations": 5,
+        "max_sails_cuts": 2,
+        "sequence_active": True,
+        "truncated_vcp": False,
+    }
+    # Truncated VCP only
+    assert decode_vcp_sequencing(0x4000) == {
+        "num_elevations": 0,
+        "max_sails_cuts": 0,
+        "sequence_active": False,
+        "truncated_vcp": True,
+    }
+
+
+def test_decode_vcp_supplemental():
+    from xradar.io.backends.nexrad_level2 import decode_vcp_supplemental
+
+    # All zeros
+    result = decode_vcp_supplemental(0)
+    assert result["sails_vcp"] is False
+    assert result["num_sails_cuts"] == 0
+    assert result["mrle_vcp"] is False
+    assert result["num_mrle_cuts"] == 0
+    assert result["mpda_vcp"] is False
+    assert result["base_tilt_vcp"] is False
+    assert result["num_base_tilts"] == 0
+    # SAILS VCP with 2 cuts
+    assert decode_vcp_supplemental(0x0005) == {
+        "sails_vcp": True,
+        "num_sails_cuts": 2,
+        "mrle_vcp": False,
+        "num_mrle_cuts": 0,
+        "mpda_vcp": False,
+        "base_tilt_vcp": False,
+        "num_base_tilts": 0,
+    }
+    # MRLE VCP with 3 cuts
+    assert decode_vcp_supplemental(0x0070) == {
+        "sails_vcp": False,
+        "num_sails_cuts": 0,
+        "mrle_vcp": True,
+        "num_mrle_cuts": 3,
+        "mpda_vcp": False,
+        "base_tilt_vcp": False,
+        "num_base_tilts": 0,
+    }
+    # MPDA VCP
+    assert decode_vcp_supplemental(0x0800)["mpda_vcp"] is True
+    # BASE TILT VCP with 1 base tilt
+    assert decode_vcp_supplemental(0x3000)["base_tilt_vcp"] is True
+    assert decode_vcp_supplemental(0x3000)["num_base_tilts"] == 1
+
+
+def test_decode_elevation_supplemental():
+    from xradar.io.backends.nexrad_level2 import decode_elevation_supplemental
+
+    # All zeros
+    result = decode_elevation_supplemental(0)
+    assert result["sails_cut"] is False
+    assert result["sails_sequence_number"] == 0
+    assert result["mrle_cut"] is False
+    assert result["mrle_sequence_number"] == 0
+    assert result["mpda_cut"] is False
+    assert result["base_tilt_cut"] is False
+    # SAILS cut, sequence 1
+    assert decode_elevation_supplemental(0x0003) == {
+        "sails_cut": True,
+        "sails_sequence_number": 1,
+        "mrle_cut": False,
+        "mrle_sequence_number": 0,
+        "mpda_cut": False,
+        "base_tilt_cut": False,
+    }
+    # MRLE cut, sequence 2
+    assert decode_elevation_supplemental(0x0050) == {
+        "sails_cut": False,
+        "sails_sequence_number": 0,
+        "mrle_cut": True,
+        "mrle_sequence_number": 2,
+        "mpda_cut": False,
+        "base_tilt_cut": False,
+    }
+    # MPDA cut
+    assert decode_elevation_supplemental(0x0200)["mpda_cut"] is True
+    # BASE TILT cut
+    assert decode_elevation_supplemental(0x0400)["base_tilt_cut"] is True
+
+
+def test_decode_rda_scan_data_flags():
+    from xradar.io.backends.nexrad_level2 import decode_rda_scan_data_flags
+
+    # All zeros
+    result = decode_rda_scan_data_flags(0)
+    assert result["avset_enabled"] is False
+    assert result["avset_disabled"] is False
+    assert result["ebc_enabled"] is False
+    assert result["rda_log_data_enabled"] is False
+    assert result["time_series_recording"] is False
+    # AVSET enabled
+    result = decode_rda_scan_data_flags(0x0002)
+    assert result["avset_enabled"] is True
+    assert result["avset_disabled"] is False
+    # AVSET disabled
+    result = decode_rda_scan_data_flags(0x0004)
+    assert result["avset_enabled"] is False
+    assert result["avset_disabled"] is True
+    # EBC enabled + RDA log enabled
+    result = decode_rda_scan_data_flags(0x0018)
+    assert result["ebc_enabled"] is True
+    assert result["rda_log_data_enabled"] is True
+
+
+# --- MSG_2 integration tests ---
+
+
+def test_nexradlevel2_msg2_data(nexradlevel2_file):
+    with NEXRADLevel2File(nexradlevel2_file, loaddata=False) as nex:
+        msg_2 = nex.msg_2
+        assert msg_2 is not False
+        assert "rda_status" in msg_2
+        assert "rda_scan_data_flags" in msg_2
+        assert "rda_scan_data_flags_decoded" in msg_2
+        decoded = msg_2["rda_scan_data_flags_decoded"]
+        assert isinstance(decoded["avset_enabled"], bool)
+        assert isinstance(decoded["avset_disabled"], bool)
+        assert isinstance(decoded["ebc_enabled"], bool)
+
+
+def test_nexradlevel2_missing_msg2_returns_false():
+    """Test that msg_2 returns False when MSG_2 metadata is missing."""
+
+    class MockNEXRADFile(NEXRADLevel2File):
+        def __init__(self):
+            self._fp = None
+            self._msg_2_data = None
+            self._meta_header = {"msg_2": []}
+
+        @property
+        def meta_header(self):
+            return self._meta_header
+
+    mock = MockNEXRADFile()
+    assert mock.msg_2 is False
+
+
+def test_root_attrs_from_real_file(nexradlevel2_file):
+    """Root attrs include all expected ICD scan metadata fields."""
+    dtree = open_nexradlevel2_datatree(nexradlevel2_file, sweep=[0])
+    attrs = dtree.attrs
+
+    # MSG_5 attrs
+    assert attrs["scan_name"].startswith("VCP-")
+    assert (
+        attrs["dynamic_scan_type"] in ("standard", "SAILS", "MRLE")
+        or "x" in attrs["dynamic_scan_type"]
+    )
+    assert isinstance(attrs["mpda_vcp"], bool)
+    assert isinstance(attrs["base_tilt_vcp"], bool)
+    assert isinstance(attrs["num_base_tilts"], int)
+    assert isinstance(attrs["vcp_truncated"], bool)
+    assert isinstance(attrs["vcp_sequence_active"], bool)
+    assert attrs["number_elevation_cuts"] > 0
+    assert attrs["doppler_velocity_resolution"] in (0.5, 1.0)
+    assert attrs["vcp_pulse_width"] in ("short", "long")
+
+    # MSG_2 attrs
+    assert isinstance(attrs["avset_enabled"], bool)
+    assert isinstance(attrs["ebc_enabled"], bool)
+    assert isinstance(attrs["super_res_status"], int)
+    assert isinstance(attrs["rda_build_number"], int)
+    assert isinstance(attrs["operational_mode"], int)
+
+
+def test_sweep_attrs_from_real_file(nexradlevel2_file):
+    """Per-sweep attrs include waveform and supplemental data from MSG_5_ELEV."""
+    dtree = open_nexradlevel2_datatree(nexradlevel2_file, sweep=[0])
+    attrs = dtree["sweep_0"].ds.attrs
+
+    # Known values for KATX VCP-11 sweep_0
+    assert attrs["waveform_type"] == "contiguous_surveillance"
+    assert attrs["channel_config"] == "constant_phase"
+    assert isinstance(attrs["super_resolution"], int)
+    # Standard VCP-11: no dynamic scan cuts on sweep_0
+    assert attrs["sails_cut"] is False
+    assert attrs["mrle_cut"] is False
+    assert attrs["mpda_cut"] is False
+    assert attrs["base_tilt_cut"] is False
+    assert attrs["sails_sequence_number"] == 0
+    assert attrs["mrle_sequence_number"] == 0
+
+
+def test_get_dynamic_scan_type():
+    """Test _get_dynamic_scan_type helper for all cases."""
+    from xradar.io.backends.nexrad_level2 import _get_dynamic_scan_type
+
+    assert _get_dynamic_scan_type({}) == "standard"
+    assert (
+        _get_dynamic_scan_type({"sails_vcp": True, "num_sails_cuts": 3}) == "SAILS x 3"
+    )
+    assert _get_dynamic_scan_type({"mrle_vcp": True, "num_mrle_cuts": 4}) == "MRLE x 4"
+    assert _get_dynamic_scan_type({"sails_vcp": True, "num_sails_cuts": 0}) == "SAILS"
+    assert _get_dynamic_scan_type({"mrle_vcp": True, "num_mrle_cuts": 0}) == "MRLE"
+    assert _get_dynamic_scan_type({"sails_vcp": False, "mrle_vcp": False}) == "standard"

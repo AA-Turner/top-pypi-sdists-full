@@ -434,7 +434,7 @@ class ProjectOptions(AdvancedOptions, APIObject):
         we insert into blueprints and how
     include_bias_mitigation_feature_as_predictor_variable : bool or None, optional
         Whether we should also use the mitigation feature as in input to the modeler just like
-        any other categorical used for training, i.e. do we want the model to "train on" this
+        any other categorical used for training, i.e., do we want the model to "train on" this
         feature in addition to using it for bias mitigation
     min_clusters: Optional[int]
         The minimum number of clusters allowed when training clustering models.
@@ -460,7 +460,7 @@ class ProjectOptions(AdvancedOptions, APIObject):
         clusters in Autopilot model(s) for unsupervised clustering projects.
     use_project_settings : bool
         Whether to use project settings
-        (i.e. backtests configuration has been modified by the user).
+        (i.e., backtests configuration has been modified by the user).
     use_supervised_feature_reduction: Optional[bool]
         Whether to use time series supervised feature reduction.
     class_mapping_aggregation_settings: ClassMappingAggregationSettings, optional

@@ -44,6 +44,7 @@ from .literals import (
     KeyTypeType,
     MaintenanceDayType,
     MaintenanceTypeType,
+    MediaLiveChannelPipelineIdType,
     MediaLiveInputPipelineIdType,
     MediaLiveTransitEncryptionKeyTypeType,
     MediaStreamTypeType,
@@ -272,6 +273,8 @@ __all__ = (
     "MediaConnectFlowRouterInputConfigurationTypeDef",
     "MediaConnectFlowRouterOutputConfigurationOutputTypeDef",
     "MediaConnectFlowRouterOutputConfigurationTypeDef",
+    "MediaLiveChannelRouterInputConfigurationOutputTypeDef",
+    "MediaLiveChannelRouterInputConfigurationTypeDef",
     "MediaLiveInputRouterOutputConfigurationOutputTypeDef",
     "MediaLiveInputRouterOutputConfigurationTypeDef",
     "MediaLiveTransitEncryptionKeyConfigurationOutputTypeDef",
@@ -778,11 +781,11 @@ class ListReservationsRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 class RouterInputFilterTypeDef(TypedDict):
-    RegionNames: NotRequired[Sequence[str]]
-    InputTypes: NotRequired[Sequence[RouterInputTypeType]]
     NameContains: NotRequired[Sequence[str]]
+    RegionNames: NotRequired[Sequence[str]]
     NetworkInterfaceArns: NotRequired[Sequence[str]]
     RoutingScopes: NotRequired[Sequence[RoutingScopeType]]
+    InputTypes: NotRequired[Sequence[RouterInputTypeType]]
 
 class RouterNetworkInterfaceFilterTypeDef(TypedDict):
     RegionNames: NotRequired[Sequence[str]]
@@ -807,11 +810,11 @@ ListedRouterNetworkInterfaceTypeDef = TypedDict(
 
 class RouterOutputFilterTypeDef(TypedDict):
     RegionNames: NotRequired[Sequence[str]]
-    OutputTypes: NotRequired[Sequence[RouterOutputTypeType]]
-    NameContains: NotRequired[Sequence[str]]
     NetworkInterfaceArns: NotRequired[Sequence[str]]
-    RoutedInputArns: NotRequired[Sequence[str]]
     RoutingScopes: NotRequired[Sequence[RoutingScopeType]]
+    OutputTypes: NotRequired[Sequence[RouterOutputTypeType]]
+    RoutedInputArns: NotRequired[Sequence[str]]
+    NameContains: NotRequired[Sequence[str]]
 
 class ListTagsForGlobalResourceRequestTypeDef(TypedDict):
     ResourceArn: str
@@ -1859,9 +1862,10 @@ class StartRouterOutputResponseTypeDef(TypedDict):
 
 class RouterInputStreamDetailsTypeDef(TypedDict):
     Standard: NotRequired[StandardRouterInputStreamDetailsTypeDef]
+    MediaLiveChannel: NotRequired[dict[str, Any]]
     Failover: NotRequired[FailoverRouterInputStreamDetailsTypeDef]
-    Merge: NotRequired[MergeRouterInputStreamDetailsTypeDef]
     MediaConnectFlow: NotRequired[dict[str, Any]]
+    Merge: NotRequired[MergeRouterInputStreamDetailsTypeDef]
 
 NdiConfigUnionTypeDef = Union[NdiConfigTypeDef, NdiConfigOutputTypeDef]
 
@@ -1993,10 +1997,22 @@ class FlowTransitEncryptionTypeDef(TypedDict):
     EncryptionKeyConfiguration: FlowTransitEncryptionKeyConfigurationUnionTypeDef
     EncryptionKeyType: NotRequired[FlowTransitEncryptionKeyTypeType]
 
+class MediaLiveChannelRouterInputConfigurationOutputTypeDef(TypedDict):
+    SourceTransitDecryption: MediaLiveTransitEncryptionOutputTypeDef
+    MediaLiveChannelArn: NotRequired[str]
+    MediaLivePipelineId: NotRequired[MediaLiveChannelPipelineIdType]
+    MediaLiveChannelOutputName: NotRequired[str]
+
 class MediaLiveInputRouterOutputConfigurationOutputTypeDef(TypedDict):
     DestinationTransitEncryption: MediaLiveTransitEncryptionOutputTypeDef
     MediaLiveInputArn: NotRequired[str]
     MediaLivePipelineId: NotRequired[MediaLiveInputPipelineIdType]
+
+class MediaLiveChannelRouterInputConfigurationTypeDef(TypedDict):
+    SourceTransitDecryption: MediaLiveTransitEncryptionTypeDef
+    MediaLiveChannelArn: NotRequired[str]
+    MediaLivePipelineId: NotRequired[MediaLiveChannelPipelineIdType]
+    MediaLiveChannelOutputName: NotRequired[str]
 
 class MediaLiveInputRouterOutputConfigurationTypeDef(TypedDict):
     DestinationTransitEncryption: MediaLiveTransitEncryptionTypeDef
@@ -2008,22 +2024,22 @@ RouterInputTransitEncryptionUnionTypeDef = Union[
 ]
 
 class FailoverRouterInputProtocolConfigurationTypeDef(TypedDict):
-    Rtp: NotRequired[RtpRouterInputConfigurationTypeDef]
     Rist: NotRequired[RistRouterInputConfigurationTypeDef]
     SrtListener: NotRequired[SrtListenerRouterInputConfigurationTypeDef]
     SrtCaller: NotRequired[SrtCallerRouterInputConfigurationTypeDef]
+    Rtp: NotRequired[RtpRouterInputConfigurationTypeDef]
 
 class RouterInputProtocolConfigurationTypeDef(TypedDict):
-    Rtp: NotRequired[RtpRouterInputConfigurationTypeDef]
     Rist: NotRequired[RistRouterInputConfigurationTypeDef]
     SrtListener: NotRequired[SrtListenerRouterInputConfigurationTypeDef]
     SrtCaller: NotRequired[SrtCallerRouterInputConfigurationTypeDef]
+    Rtp: NotRequired[RtpRouterInputConfigurationTypeDef]
 
 class RouterOutputProtocolConfigurationTypeDef(TypedDict):
-    Rtp: NotRequired[RtpRouterOutputConfigurationTypeDef]
     Rist: NotRequired[RistRouterOutputConfigurationTypeDef]
     SrtListener: NotRequired[SrtListenerRouterOutputConfigurationTypeDef]
     SrtCaller: NotRequired[SrtCallerRouterOutputConfigurationTypeDef]
+    Rtp: NotRequired[RtpRouterOutputConfigurationTypeDef]
 
 class AddFlowMediaStreamsRequestTypeDef(TypedDict):
     FlowArn: str
@@ -2362,15 +2378,17 @@ UpdateFlowSourceRequestTypeDef = TypedDict(
 
 class RouterInputConfigurationOutputTypeDef(TypedDict):
     Standard: NotRequired[StandardRouterInputConfigurationTypeDef]
+    MediaLiveChannel: NotRequired[MediaLiveChannelRouterInputConfigurationOutputTypeDef]
     Failover: NotRequired[FailoverRouterInputConfigurationOutputTypeDef]
-    Merge: NotRequired[MergeRouterInputConfigurationOutputTypeDef]
     MediaConnectFlow: NotRequired[MediaConnectFlowRouterInputConfigurationOutputTypeDef]
+    Merge: NotRequired[MergeRouterInputConfigurationOutputTypeDef]
 
 class RouterInputConfigurationTypeDef(TypedDict):
     Standard: NotRequired[StandardRouterInputConfigurationTypeDef]
+    MediaLiveChannel: NotRequired[MediaLiveChannelRouterInputConfigurationTypeDef]
     Failover: NotRequired[FailoverRouterInputConfigurationTypeDef]
-    Merge: NotRequired[MergeRouterInputConfigurationTypeDef]
     MediaConnectFlow: NotRequired[MediaConnectFlowRouterInputConfigurationTypeDef]
+    Merge: NotRequired[MergeRouterInputConfigurationTypeDef]
 
 class RouterOutputConfigurationOutputTypeDef(TypedDict):
     Standard: NotRequired[StandardRouterOutputConfigurationTypeDef]

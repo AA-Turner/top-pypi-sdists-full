@@ -13,6 +13,11 @@ import time
 from collections.abc import Callable
 from typing import Any
 
+from pydantic import BaseModel
+
+from omnibase_core.enums.enum_core_error_code import EnumCoreErrorCode
+from omnibase_core.models.errors.model_onex_error import ModelOnexError
+
 logger = logging.getLogger(__name__)
 
 
@@ -51,7 +56,9 @@ class HandlerBusAdapter:
             payload_dict = json.loads(msg.value) if isinstance(msg.value, bytes) else {}
             correlation_id = payload_dict.get("correlation_id")
             input_model = self.input_model_cls(**payload_dict)
-        except Exception:
+        except (
+            Exception
+        ):  # fallback-ok: bus adapter must not crash consumer on bad messages
             logger.exception(
                 "HandlerBusAdapter: deserialization failed for %s (correlation_id=%s)",
                 self.handler_name,
@@ -74,7 +81,9 @@ class HandlerBusAdapter:
                 result = await handle_method(**input_model.model_dump())
             else:
                 result = handle_method(**input_model.model_dump())
-        except Exception:
+        except (
+            Exception
+        ):  # fallback-ok: bus adapter must not crash consumer on handler errors
             elapsed = time.monotonic() - start
             logger.exception(
                 "HandlerBusAdapter: %s raised after %.2fs (correlation_id=%s)",
@@ -95,21 +104,36 @@ class HandlerBusAdapter:
         )
 
         # 3. Publish output
-        if result is not None and self.output_topic:
-            try:
+        if result is None:
+            return
+        if not self.output_topic:
+            return
+        try:
+            if isinstance(result, BaseModel):
                 output_bytes = result.model_dump_json().encode("utf-8")
-                await self.bus.publish(self.output_topic, None, output_bytes)
-                logger.info(
-                    "HandlerBusAdapter: published to %s (correlation_id=%s)",
-                    self.output_topic,
-                    correlation_id,
+            elif isinstance(result, dict):
+                output_bytes = json.dumps(result).encode("utf-8")
+            else:
+                raise ModelOnexError(
+                    message=(
+                        f"HandlerBusAdapter: handler {self.handler.__class__.__name__!r}"
+                        f" returned unsupported type {type(result).__name__!r};"
+                        " expected BaseModel, dict, or None"
+                    ),
+                    error_code=EnumCoreErrorCode.HANDLER_EXECUTION_ERROR,
                 )
-            except Exception:
-                logger.exception(
-                    "HandlerBusAdapter: publish failed for %s -> %s (correlation_id=%s)",
-                    self.handler_name,
-                    self.output_topic,
-                    correlation_id,
-                )
-                if self.on_error:
-                    self.on_error()
+            await self.bus.publish(self.output_topic, None, output_bytes)
+            logger.info(
+                "HandlerBusAdapter: published to %s (correlation_id=%s)",
+                self.output_topic,
+                correlation_id,
+            )
+        except Exception:
+            logger.exception(
+                "HandlerBusAdapter: publish failed for %s -> %s (correlation_id=%s)",
+                self.handler_name,
+                self.output_topic,
+                correlation_id,
+            )
+            if self.on_error:
+                self.on_error()

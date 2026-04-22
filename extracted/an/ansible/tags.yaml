@@ -7,16 +7,16 @@ amazon.aws:
   version: 10.3.0
 ansible.netcommon:
   repository: https://github.com/ansible-collections/ansible.netcommon
-  tag: v8.4.0
-  version: 8.4.0
+  tag: v8.5.0
+  version: 8.5.0
 ansible.posix:
   repository: https://github.com/ansible-collections/ansible.posix
   tag: 2.1.0
   version: 2.1.0
 ansible.utils:
   repository: https://github.com/ansible-collections/ansible.utils
-  tag: v6.0.1
-  version: 6.0.1
+  tag: v6.0.2
+  version: 6.0.2
 ansible.windows:
   repository: https://github.com/ansible-collections/ansible.windows
   tag: 3.5.0
@@ -41,8 +41,8 @@ check_point.mgmt:
 chocolatey.chocolatey:
   collection_directory: ./chocolatey
   repository: https://github.com/chocolatey/chocolatey-ansible
-  tag: 1.5.3
-  version: 1.5.3
+  tag: 1.6.0
+  version: 1.6.0
 cisco.aci:
   repository: https://github.com/CiscoDevNet/ansible-aci
   tag: v2.13.0
@@ -53,20 +53,20 @@ cisco.dnac:
   version: 6.48.0
 cisco.intersight:
   repository: https://github.com/CiscoDevNet/intersight-ansible
-  tag: 2.16.0
-  version: 2.16.0
+  tag: 2.18.0
+  version: 2.18.0
 cisco.ios:
   repository: https://github.com/ansible-collections/cisco.ios
   tag: v11.3.0
   version: 11.3.0
 cisco.iosxr:
   repository: https://github.com/ansible-collections/cisco.iosxr
-  tag: v12.1.1
-  version: 12.1.1
+  tag: v12.2.1
+  version: 12.2.1
 cisco.meraki:
   repository: https://github.com/meraki/dashboard-api-ansible
-  tag: v2.23.1
-  version: 2.23.1
+  tag: v2.23.2
+  version: 2.23.2
 cisco.mso:
   repository: https://github.com/CiscoDevNet/ansible-mso
   tag: v2.13.0
@@ -97,20 +97,20 @@ community.clickhouse:
   version: 2.1.0
 community.crypto:
   repository: https://github.com/ansible-collections/community.crypto
-  tag: 3.1.1
-  version: 3.1.1
+  tag: 3.2.0
+  version: 3.2.0
 community.dns:
   repository: https://github.com/ansible-collections/community.dns
-  tag: 3.5.3
-  version: 3.5.3
+  tag: 3.5.4
+  version: 3.5.4
 community.docker:
   repository: https://github.com/ansible-collections/community.docker
-  tag: 5.1.0
-  version: 5.1.0
+  tag: 5.2.0
+  version: 5.2.0
 community.general:
   repository: https://github.com/ansible-collections/community.general
-  tag: 12.5.0
-  version: 12.5.0
+  tag: 12.6.0
+  version: 12.6.0
 community.grafana:
   repository: https://github.com/ansible-collections/grafana
   tag: 2.3.0
@@ -129,8 +129,8 @@ community.library_inventory_filtering_v1:
   version: 1.1.5
 community.libvirt:
   repository: https://github.com/ansible-collections/community.libvirt
-  tag: 2.1.0
-  version: 2.1.0
+  tag: 2.2.0
+  version: 2.2.0
 community.mongodb:
   repository: https://github.com/ansible-collections/community.mongodb
   tag: 1.7.12
@@ -161,16 +161,16 @@ community.rabbitmq:
   version: 1.6.0
 community.routeros:
   repository: https://github.com/ansible-collections/community.routeros
-  tag: 3.18.0
-  version: 3.18.0
+  tag: 3.20.0
+  version: 3.20.0
 community.sap_libs:
   repository: https://github.com/sap-linuxlab/community.sap_libs
   tag: 1.7.0
   version: 1.7.0
 community.sops:
   repository: https://github.com/ansible-collections/community.sops
-  tag: 2.2.7
-  version: 2.2.7
+  tag: 2.3.0
+  version: 2.3.0
 community.vmware:
   repository: https://github.com/ansible-collections/community.vmware
   tag: 6.2.0
@@ -181,12 +181,12 @@ community.windows:
   version: 3.1.0
 community.zabbix:
   repository: https://github.com/ansible-collections/community.zabbix
-  tag: 4.1.1
-  version: 4.1.1
+  tag: 4.2.0
+  version: 4.2.0
 containers.podman:
   repository: https://github.com/containers/ansible-podman-collections
-  tag: 1.19.0
-  version: 1.19.0
+  tag: 1.19.2
+  version: 1.19.2
 cyberark.conjur:
   repository: https://github.com/cyberark/ansible-conjur-collection
   tag: v1.3.9
@@ -201,8 +201,8 @@ dellemc.enterprise_sonic:
   version: 3.2.0
 dellemc.openmanage:
   repository: https://github.com/dell/dellemc-openmanage-ansible-modules
-  tag: v10.0.1
-  version: 10.0.1
+  tag: v10.0.2
+  version: 10.0.2
 dellemc.powerflex:
   repository: https://github.com/dell/ansible-powerflex
   tag: 3.0.0
@@ -222,20 +222,20 @@ fortinet.fortimanager:
   version: 2.13.0
 fortinet.fortios:
   repository: https://github.com/fortinet-ansible-dev/ansible-galaxy-fortios-collection
-  tag: 2.5.0
-  version: 2.5.0
+  tag: 2.5.1
+  version: 2.5.1
 google.cloud:
   repository: https://github.com/ansible-collections/google.cloud
-  tag: v1.12.0
-  version: 1.12.0
+  tag: v1.13.0
+  version: 1.13.0
 grafana.grafana:
   repository: https://github.com/grafana/grafana-ansible-collection
   tag: 6.0.6
   version: 6.0.6
 graphiant.naas:
   repository: https://github.com/Graphiant-Inc/graphiant-playbooks
-  tag: v26.2.4
-  version: 26.2.4
+  tag: v26.3.0
+  version: 26.3.0
 hetzner.hcloud:
   repository: https://github.com/ansible-collections/hetzner.hcloud
   tag: 6.8.0
@@ -250,8 +250,8 @@ hitachivantara.vspone_object:
   version: 1.1.1
 ibm.storage_virtualize:
   repository: https://github.com/ansible-collections/ibm.storage_virtualize
-  tag: 3.2.0
-  version: 3.2.0
+  tag: 3.3.0
+  version: 3.3.0
 ieisystem.inmanage:
   repository: https://github.com/ieisystem/ieisystem.inmanage
   tag: 4.0.0
@@ -286,8 +286,8 @@ kubevirt.core:
   version: 2.2.4
 lowlydba.sqlserver:
   repository: https://github.com/LowlyDBA/lowlydba.sqlserver
-  tag: 2.7.0
-  version: 2.7.0
+  tag: 2.8.1
+  version: 2.8.1
 microsoft.ad:
   repository: https://github.com/ansible-collections/microsoft.ad
   tag: 1.10.0
@@ -354,8 +354,8 @@ telekom_mms.icinga_director:
   version: 2.5.1
 theforeman.foreman:
   repository: https://github.com/theforeman/foreman-ansible-modules
-  tag: v5.10.0
-  version: 5.10.0
+  tag: v5.11.0
+  version: 5.11.0
 vmware.vmware:
   repository: https://github.com/ansible-collections/vmware.vmware
   tag: 2.8.0

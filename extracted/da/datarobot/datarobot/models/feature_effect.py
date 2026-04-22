@@ -274,7 +274,7 @@ class FeatureEffects(APIObject):
 
     @staticmethod
     def _repack_insights_response(server_data, insight_name):
-        """Repack the JSON sent by the GET /insights/ endpoint to match the format expected by the
+        """Repack the JSON sent by the GET `/insights/` endpoint to match the format expected by the
         insight APIObject class.
 
         Parameters
@@ -311,7 +311,7 @@ class FeatureEffects(APIObject):
             The directly translated dict of JSON from the server. No casing fixes have
             taken place
         use_insights_format : Optional[bool]
-            Whether to repack the data from the format used in the GET /insights/featureEffects/ URL
+            Whether to repack the data from the format used in the GET `/insights/featureEffects/` URL
             to the format used in the legacy URL.
         """
         if use_insights_format:
@@ -408,7 +408,7 @@ class FeatureEffectsMulticlass(APIObject):
         row_count : int
             The number of rows from dataset to use for Feature Impact calculation.
         backtest_index : str
-            The backtest index for datetime models. e.g. 0, 1, ..., 20, holdout, startstop
+            The backtest index for datetime models. e.g., 0, 1, ..., 20, holdout, startstop
         top_n_features : int or None
             Number of top features (ranked by Feature Impact) to use to calculate Feature Effects.
         features : list or None
@@ -450,9 +450,9 @@ class FeatureEffectsMulticlass(APIObject):
         model_id: str
             model id
         source: str
-            datasource, optional defaults to 'training' (e.g. 'validation', 'training', 'holdout')
+            datasource, optional defaults to 'training' (e.g., 'validation', 'training', 'holdout')
         backtest_index: str
-            backtest index, required for datetime models (e.g. 0, 1, ..., 20, holdout, startstop)
+            backtest index, required for datetime models (e.g., 0, 1, ..., 20, holdout, startstop)
         class_: str
             target class name
 

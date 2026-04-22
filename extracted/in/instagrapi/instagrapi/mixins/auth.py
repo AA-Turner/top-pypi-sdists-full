@@ -318,6 +318,29 @@ class LoginMixin(PreLoginFlowMixin, PostLoginFlowMixin):
         self.settings = None
         self.override_app_version = False
 
+    def _clear_session_state(
+        self,
+        *,
+        clear_private_cookies: bool = False,
+        clear_public_cookies: bool = False,
+        clear_authorization_data: bool = False,
+        clear_authorization_header: bool = False,
+        clear_last_login: bool = False,
+        reset_relogin_attempt: bool = False,
+    ) -> None:
+        if clear_authorization_data:
+            self.authorization_data = {}
+        if clear_last_login:
+            self.last_login = None
+        if reset_relogin_attempt:
+            self.relogin_attempt = 0
+        if clear_authorization_header:
+            self.private.headers.pop("Authorization", None)
+        if clear_private_cookies:
+            self.private.cookies.clear()
+        if clear_public_cookies:
+            self.public.cookies.clear()
+
     def init(self) -> bool:
         """
         Initialize Login helpers
@@ -331,6 +354,8 @@ class LoginMixin(PreLoginFlowMixin, PostLoginFlowMixin):
             self.private.cookies = requests.utils.cookiejar_from_dict(
                 self.settings["cookies"]
             )
+        else:
+            self._clear_session_state(clear_private_cookies=True)
         self.authorization_data = self.settings.get("authorization_data", {})
         self.last_login = self.settings.get("last_login")
         timezone_offset = self.settings.get("timezone_offset", self.timezone_offset)
@@ -368,7 +393,12 @@ class LoginMixin(PreLoginFlowMixin, PostLoginFlowMixin):
         self.set_ig_www_claim(self.settings.get("ig_www_claim"))
         # init headers
         headers = self.base_headers
-        headers.update({"Authorization": self.authorization})
+        if self.authorization:
+            headers.update({"Authorization": self.authorization})
+        else:
+            self.private.headers.pop("Authorization", None)
+        if not self.ig_u_rur:
+            self.private.headers.pop("IG-U-RUR", None)
         self.private.headers.update(headers)
         return True
 
@@ -387,9 +417,11 @@ class LoginMixin(PreLoginFlowMixin, PostLoginFlowMixin):
             A boolean value
         """
         assert isinstance(sessionid, str) and len(sessionid) > 30, "Invalid sessionid"
+        user_match = re.search(r"^\d+", sessionid)
+        assert user_match, "Invalid sessionid"
         self.settings["cookies"] = {"sessionid": sessionid}
         self.init()
-        user_id = re.search(r"^\d+", sessionid).group()
+        user_id = user_match.group()
         self.authorization_data = {
             "ds_user_id": user_id,
             "sessionid": sessionid,
@@ -400,7 +432,7 @@ class LoginMixin(PreLoginFlowMixin, PostLoginFlowMixin):
         except (PrivateError, ValidationError):
             user = self.user_short_gql(int(user_id))
         self.username = user.username
-        self.cookie_dict["ds_user_id"] = user.pk
+        self.private.cookies.set("ds_user_id", str(user.pk))
         return True
 
     def login(
@@ -436,9 +468,12 @@ class LoginMixin(PreLoginFlowMixin, PostLoginFlowMixin):
             raise BadCredentials("Both username and password must be provided.")
 
         if relogin:
-            self.authorization_data = {}
-            self.private.headers.pop("Authorization", None)
-            self.private.cookies.clear()
+            self._clear_session_state(
+                clear_authorization_data=True,
+                clear_authorization_header=True,
+                clear_private_cookies=True,
+                clear_public_cookies=True,
+            )
             if self.relogin_attempt > 1:
                 raise ReloginAttemptExceeded()
             self.relogin_attempt += 1
@@ -460,7 +495,7 @@ class LoginMixin(PreLoginFlowMixin, PostLoginFlowMixin):
             % int(self.country_code),
             "phone_id": self.phone_id,
             "enc_password": enc_password,
-            "username": username,
+            "username": self.username,
             "adid": self.advertising_id,
             "guid": self.uuid,
             "device_id": self.android_device_id,
@@ -485,7 +520,7 @@ class LoginMixin(PreLoginFlowMixin, PostLoginFlowMixin):
                 "phone_id": self.phone_id,
                 "_csrftoken": self.token,
                 "two_factor_identifier": two_factor_identifier,
-                "username": username,
+                "username": self.username,
                 "trust_this_device": "0",
                 "guid": self.uuid,
                 "device_id": self.android_device_id,
@@ -501,6 +536,7 @@ class LoginMixin(PreLoginFlowMixin, PostLoginFlowMixin):
         if logged:
             self.login_flow()
             self.last_login = time.time()
+            self.relogin_attempt = 0
             return True
         return False
 
@@ -995,10 +1031,22 @@ class LoginMixin(PreLoginFlowMixin, PostLoginFlowMixin):
 
     def logout(self) -> bool:
         result = self.private_request("accounts/logout/", {"one_tap_app_login": True})
-        return result["status"] == "ok"
+        if result["status"] == "ok":
+            self._clear_session_state(
+                clear_authorization_data=True,
+                clear_last_login=True,
+                reset_relogin_attempt=True,
+                clear_authorization_header=True,
+                clear_private_cookies=True,
+                clear_public_cookies=True,
+            )
+            return True
+        return False
 
     def parse_authorization(self, authorization) -> dict:
         """Parse authorization header"""
+        if not authorization:
+            return {}
         try:
             b64part = authorization.rsplit(":", 1)[-1]
             if not b64part:

@@ -21,7 +21,7 @@ T = TypeVar("T", bound="RunStatsBucket")
 class RunStatsBucket:
     """
     Attributes:
-        bucket_start (datetime.datetime): Start of the time bucket (UTC)
+        bucket_start (datetime.datetime): datetime with the constraint that the value must have timezone info
         data (RunBucketData): Bucket payload data
     """
 

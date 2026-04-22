@@ -27,13 +27,13 @@ class DataDriver(APIObject):
     Attributes
     ----------
     id : str
-        the id of the driver.
+        the ID of the driver.
     class_name : str
         the Java class name for the driver.
     canonical_name : str
         the user-friendly name of the driver.
     creator : str
-        the id of the user who created the driver.
+        the ID of the user who created the driver.
     base_names : List[str]
         a list of the file name(s) of the jar files.
     """

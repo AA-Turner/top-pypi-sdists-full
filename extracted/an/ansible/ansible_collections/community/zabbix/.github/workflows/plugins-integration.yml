@@ -25,24 +25,38 @@ jobs:
           - version: "7.2"
           - version: "7.4"
         ansible:
-          # https://docs.ansible.com/ansible/latest/reference_appendices/release_and_maintenance.html#ansible-core-changelogs
+          # https://docs.ansible.com/projects/ansible/latest/reference_appendices/release_and_maintenance.html#ansible-core-changelogs
           - stable-2.16
           - stable-2.17
           - stable-2.18
           - stable-2.19
+          - stable-2.20
           - devel
         python:
           - '3.10'
           - '3.11'
           - '3.12'
           - '3.13'
+          - '3.14'
         exclude:
+          - ansible: stable-2.20
+            python: '3.11'
+          - ansible: stable-2.20
+            python: '3.10'
+          - ansible: stable-2.19
+            python: '3.14'
           - ansible: stable-2.19
             python: '3.10'
           - ansible: stable-2.18
+            python: '3.14'
+          - ansible: stable-2.18
             python: '3.10'
           - ansible: stable-2.17
+            python: '3.14'
+          - ansible: stable-2.17
             python: '3.13'
+          - ansible: stable-2.16
+            python: '3.14'
           - ansible: stable-2.16
             python: '3.13'
           - ansible: devel
@@ -52,12 +66,12 @@ jobs:
 
     steps:
       - name: Check out code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           path: ansible_collections/community/zabbix
 
       - name: Set up Python ${{ matrix.python }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python }}
 
@@ -72,7 +86,7 @@ jobs:
       # the Zabbix server. To do this we spin up a Docker container using the `matrix`
       # of version and ports specified earlier.
       - name: Zabbix container server provisioning
-        uses: hoverkraft-tech/compose-action@v2.0.1
+        uses: hoverkraft-tech/compose-action@v2.5.0
         with:
           compose-file: "./ansible_collections/community/zabbix/docker-compose.yml"
         env:
@@ -91,6 +105,6 @@ jobs:
         working-directory: ./ansible_collections/community/zabbix
 
       # See the repots at https://codecov.io/gh/ansible-collections/community.zabbix
-      - uses: codecov/codecov-action@v4
+      - uses: codecov/codecov-action@v6
         with:
           fail_ci_if_error: false

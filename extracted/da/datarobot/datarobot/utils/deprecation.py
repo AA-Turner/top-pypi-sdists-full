@@ -44,7 +44,7 @@ def deprecation_warning(
     will_change_version: str
        The _earliest_ version by which this function will be changed in non compatible way
     message : Optional[str]
-        Any specific information to add (i.e. preferred functions to
+        Any specific information to add (i.e., preferred functions to
         use, etc.) If not specified, the warning will just indicate the
         function that was called, when it became deprecated and when
         it will be removed. Best practice is to make this message a full
@@ -81,7 +81,7 @@ def deprecated(
     will_change_version : str
         The _earliest_ version by which this function will be changed in backward incompatible way
     message : Optional[str]
-        Any specific information to add (i.e. preferred functions to
+        Any specific information to add (i.e., preferred functions to
         use, etc.) If not specified, the warning will just indicate the
         function that was called, when it became deprecated and when
         it will be removed. Best practice is to make this message a full

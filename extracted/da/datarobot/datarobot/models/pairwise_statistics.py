@@ -178,7 +178,7 @@ class PairwiseProbabilitiesBase(PairwiseStatisticsBase, metaclass=ABCMeta):  # p
         -------
         dict(pandas.DataFrame)
             The keys of the returned dictionary are the relevance configurations
-            e.g. (0, 0), (0, 1) etc. The values are the static_values for this relevance
+            e.g., (0, 0), (0, 1) etc. The values are the static_values for this relevance
             configuration as pandas.DataFrame.
         """
         grouped_statistic_values = defaultdict(lambda: defaultdict(dict))

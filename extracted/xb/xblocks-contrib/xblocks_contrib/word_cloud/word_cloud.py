@@ -15,7 +15,7 @@ from xblock.fields import Boolean, Dict, Integer, List, Scope, String
 from xblock.utils.resources import ResourceLoader
 from xblock.utils.studio_editable import StudioEditableXBlockMixin
 
-from xblocks_contrib.common.xml_utils import LegacyXmlMixin
+from xblocks_contrib.legacy_utils.xml_utils import LegacyXmlMixin
 
 resource_loader = ResourceLoader(__name__)
 

@@ -836,7 +836,7 @@ class DataQualityExport(APIObject):
         actual_pattern: Optional[str]
             The keywords to search in an actual value for a text generation target.
         order_by: Optional[str]
-            The field to sort by (e.g. associationId, timestamp, or customMetrics). Use a leading '-'
+            The field to sort by (e.g., associationId, timestamp, or customMetrics). Use a leading '-'
             to indicate descending order. When ordering by a custom-metric, must also specify 'order_metric'.
             The default is None, which equates to '-timestamp'.
         order_metric: Optional[str]

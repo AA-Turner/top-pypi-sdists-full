@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: awslabs.amazon-sns-sqs-mcp-server
-Version: 2.0.17
+Version: 2.0.18
 Summary: A Model Context Protocol server for Amazon SNS and SQS to provision and manage your messaging services
 Project-URL: Homepage, https://awslabs.github.io/mcp/
 Project-URL: Documentation, https://awslabs.github.io/mcp/servers/amazon-sns-sqs-mcp-server/

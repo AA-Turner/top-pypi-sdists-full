@@ -11,13 +11,14 @@ dependencies:
   - dask
   - h5netcdf
   - h5py
+  - jupytext
   - lat_lon_parser
   - matplotlib-base
   - nbconvert
   - netCDF4
   - notebook
   - numpy
-  - open-radar-data>=0.4.2
+  - open-radar-data>=0.6.0
   - pip
   - pyproj
   - pytest
@@ -27,7 +28,8 @@ dependencies:
   - pytest-xdist
   - scipy
   - setuptools
-  - xarray>=2024.10.0
+  - pip:
+    - xarray >= 2026.4.0
   - xmltodict
   - boto3
   - arm_pyart

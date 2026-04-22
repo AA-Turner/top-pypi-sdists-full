@@ -24,7 +24,6 @@ from ouroboros.mcp.tools.authoring_handlers import (
     GenerateSeedHandler,
     InterviewHandler,
 )
-from ouroboros.mcp.tools.channel_workflow_handler import ChannelWorkflowHandler
 from ouroboros.mcp.tools.evaluation_handlers import (
     ChecklistVerifyHandler,
     EvaluateHandler,
@@ -66,6 +65,7 @@ def execute_seed_handler(
     llm_backend: str | None = None,
     mcp_manager: object | None = None,
     mcp_tool_prefix: str = "",
+    opencode_mode: str | None = None,
 ) -> ExecuteSeedHandler:
     """Create an ExecuteSeedHandler instance."""
     return ExecuteSeedHandler(
@@ -73,6 +73,7 @@ def execute_seed_handler(
         llm_backend=llm_backend,
         mcp_manager=mcp_manager,
         mcp_tool_prefix=mcp_tool_prefix,
+        opencode_mode=opencode_mode,
     )
 
 
@@ -82,6 +83,7 @@ def start_execute_seed_handler(
     llm_backend: str | None = None,
     mcp_manager: object | None = None,
     mcp_tool_prefix: str = "",
+    opencode_mode: str | None = None,
 ) -> StartExecuteSeedHandler:
     """Create a StartExecuteSeedHandler instance."""
     execute_handler = ExecuteSeedHandler(
@@ -89,8 +91,13 @@ def start_execute_seed_handler(
         llm_backend=llm_backend,
         mcp_manager=mcp_manager,
         mcp_tool_prefix=mcp_tool_prefix,
+        opencode_mode=opencode_mode,
     )
-    return StartExecuteSeedHandler(execute_handler=execute_handler)
+    return StartExecuteSeedHandler(
+        execute_handler=execute_handler,
+        agent_runtime_backend=runtime_backend,
+        opencode_mode=opencode_mode,
+    )
 
 
 def session_status_handler() -> SessionStatusHandler:
@@ -128,9 +135,18 @@ def query_events_handler() -> QueryEventsHandler:
     return QueryEventsHandler()
 
 
-def generate_seed_handler(*, llm_backend: str | None = None) -> GenerateSeedHandler:
+def generate_seed_handler(
+    *,
+    llm_backend: str | None = None,
+    runtime_backend: str | None = None,
+    opencode_mode: str | None = None,
+) -> GenerateSeedHandler:
     """Create a GenerateSeedHandler instance."""
-    return GenerateSeedHandler(llm_backend=llm_backend)
+    return GenerateSeedHandler(
+        llm_backend=llm_backend,
+        agent_runtime_backend=runtime_backend,
+        opencode_mode=opencode_mode,
+    )
 
 
 def measure_drift_handler() -> MeasureDriftHandler:
@@ -138,53 +154,44 @@ def measure_drift_handler() -> MeasureDriftHandler:
     return MeasureDriftHandler()
 
 
-def interview_handler(*, llm_backend: str | None = None) -> InterviewHandler:
-    """Create an InterviewHandler instance."""
-    return InterviewHandler(llm_backend=llm_backend)
-
-
-def channel_workflow_handler(
+def interview_handler(
     *,
-    runtime_backend: str | None = None,
     llm_backend: str | None = None,
-    interview_handler: InterviewHandler | None = None,
-    generate_seed_handler: GenerateSeedHandler | None = None,
-    start_execute_seed_handler: StartExecuteSeedHandler | None = None,
-    job_wait_handler: JobWaitHandler | None = None,
-    job_status_handler: JobStatusHandler | None = None,
-    job_result_handler: JobResultHandler | None = None,
-    default_repo: str | None = None,
-) -> ChannelWorkflowHandler:
-    """Create a ChannelWorkflowHandler instance.
-
-    When handler instances are provided they are reused, ensuring shared
-    job state with the rest of the tool set.
-    """
-    if start_execute_seed_handler is None:
-        execute_handler = ExecuteSeedHandler(
-            agent_runtime_backend=runtime_backend,
-            llm_backend=llm_backend,
-        )
-        start_execute_seed_handler = StartExecuteSeedHandler(execute_handler=execute_handler)
-    return ChannelWorkflowHandler(
-        interview_handler=interview_handler or InterviewHandler(llm_backend=llm_backend),
-        generate_seed_handler=generate_seed_handler or GenerateSeedHandler(llm_backend=llm_backend),
-        start_execute_seed_handler=start_execute_seed_handler,
-        job_wait_handler=job_wait_handler or JobWaitHandler(),
-        job_status_handler=job_status_handler or JobStatusHandler(),
-        job_result_handler=job_result_handler or JobResultHandler(),
-        default_repo=default_repo,
+    runtime_backend: str | None = None,
+    opencode_mode: str | None = None,
+) -> InterviewHandler:
+    """Create an InterviewHandler instance."""
+    return InterviewHandler(
+        llm_backend=llm_backend,
+        agent_runtime_backend=runtime_backend,
+        opencode_mode=opencode_mode,
     )
 
 
-def lateral_think_handler() -> LateralThinkHandler:
+def lateral_think_handler(
+    *,
+    runtime_backend: str | None = None,
+    opencode_mode: str | None = None,
+) -> LateralThinkHandler:
     """Create a LateralThinkHandler instance."""
-    return LateralThinkHandler()
+    return LateralThinkHandler(
+        agent_runtime_backend=runtime_backend,
+        opencode_mode=opencode_mode,
+    )
 
 
-def evaluate_handler(*, llm_backend: str | None = None) -> EvaluateHandler:
+def evaluate_handler(
+    *,
+    llm_backend: str | None = None,
+    runtime_backend: str | None = None,
+    opencode_mode: str | None = None,
+) -> EvaluateHandler:
     """Create an EvaluateHandler instance."""
-    return EvaluateHandler(llm_backend=llm_backend)
+    return EvaluateHandler(
+        llm_backend=llm_backend,
+        agent_runtime_backend=runtime_backend,
+        opencode_mode=opencode_mode,
+    )
 
 
 def checklist_verify_handler(
@@ -199,14 +206,32 @@ def checklist_verify_handler(
     )
 
 
-def evolve_step_handler() -> EvolveStepHandler:
+def evolve_step_handler(
+    *,
+    runtime_backend: str | None = None,
+    opencode_mode: str | None = None,
+) -> EvolveStepHandler:
     """Create an EvolveStepHandler instance."""
-    return EvolveStepHandler()
+    return EvolveStepHandler(
+        agent_runtime_backend=runtime_backend,
+        opencode_mode=opencode_mode,
+    )
 
 
-def start_evolve_step_handler() -> StartEvolveStepHandler:
+def start_evolve_step_handler(
+    *,
+    runtime_backend: str | None = None,
+    opencode_mode: str | None = None,
+) -> StartEvolveStepHandler:
     """Create a StartEvolveStepHandler instance."""
-    return StartEvolveStepHandler()
+    return StartEvolveStepHandler(
+        evolve_handler=EvolveStepHandler(
+            agent_runtime_backend=runtime_backend,
+            opencode_mode=opencode_mode,
+        ),
+        agent_runtime_backend=runtime_backend,
+        opencode_mode=opencode_mode,
+    )
 
 
 def lineage_status_handler() -> LineageStatusHandler:
@@ -248,7 +273,6 @@ OuroborosToolHandlers = tuple[
     | CancelExecutionHandler
     | BrownfieldHandler
     | PMInterviewHandler
-    | ChannelWorkflowHandler
     | QAHandler,
     ...,
 ]
@@ -260,26 +284,47 @@ def get_ouroboros_tools(
     llm_backend: str | None = None,
     mcp_manager: object | None = None,
     mcp_tool_prefix: str = "",
+    opencode_mode: str | None = None,
 ) -> OuroborosToolHandlers:
     """Create the default set of Ouroboros MCP tool handlers.
 
-    Shared handler instances are passed to ``channel_workflow_handler``
-    so the channel workflow surface uses the same job/event stores as
-    the top-level tools.
+    ``opencode_mode`` is threaded into every handler that dispatches a
+    ``_subagent`` envelope. When ``runtime_backend`` is an OpenCode variant
+    AND ``opencode_mode`` is ``"plugin"`` the handler returns the envelope.
+    In every other combination (including ``opencode_mode=None``) the handler
+    falls through to its real in-process path. See
+    ``ouroboros.mcp.tools.subagent.should_dispatch_via_plugin``.
     """
     execute_seed = ExecuteSeedHandler(
         agent_runtime_backend=runtime_backend,
         llm_backend=llm_backend,
         mcp_manager=mcp_manager,
         mcp_tool_prefix=mcp_tool_prefix,
+        opencode_mode=opencode_mode,
     )
-    start_execute = StartExecuteSeedHandler(execute_handler=execute_seed)
+    start_execute = StartExecuteSeedHandler(
+        execute_handler=execute_seed,
+        agent_runtime_backend=runtime_backend,
+        opencode_mode=opencode_mode,
+    )
     job_status = JobStatusHandler()
     job_wait = JobWaitHandler()
     job_result = JobResultHandler()
-    interview = InterviewHandler(llm_backend=llm_backend)
-    generate_seed = GenerateSeedHandler(llm_backend=llm_backend)
-    evaluate = EvaluateHandler(llm_backend=llm_backend)
+    interview = InterviewHandler(
+        llm_backend=llm_backend,
+        agent_runtime_backend=runtime_backend,
+        opencode_mode=opencode_mode,
+    )
+    generate_seed = GenerateSeedHandler(
+        llm_backend=llm_backend,
+        agent_runtime_backend=runtime_backend,
+        opencode_mode=opencode_mode,
+    )
+    evaluate = EvaluateHandler(
+        llm_backend=llm_backend,
+        agent_runtime_backend=runtime_backend,
+        opencode_mode=opencode_mode,
+    )
     return (
         execute_seed,
         start_execute,
@@ -295,25 +340,36 @@ def get_ouroboros_tools(
         interview,
         evaluate,
         ChecklistVerifyHandler(evaluate_handler=evaluate, llm_backend=llm_backend),
-        LateralThinkHandler(),
-        EvolveStepHandler(),
-        StartEvolveStepHandler(),
+        LateralThinkHandler(
+            agent_runtime_backend=runtime_backend,
+            opencode_mode=opencode_mode,
+        ),
+        EvolveStepHandler(
+            agent_runtime_backend=runtime_backend,
+            opencode_mode=opencode_mode,
+        ),
+        StartEvolveStepHandler(
+            evolve_handler=EvolveStepHandler(
+                agent_runtime_backend=runtime_backend,
+                opencode_mode=opencode_mode,
+            ),
+            agent_runtime_backend=runtime_backend,
+            opencode_mode=opencode_mode,
+        ),
         LineageStatusHandler(),
         EvolveRewindHandler(),
         CancelExecutionHandler(),
         BrownfieldHandler(),
-        PMInterviewHandler(llm_backend=llm_backend),
-        channel_workflow_handler(
-            runtime_backend=runtime_backend,
+        PMInterviewHandler(
             llm_backend=llm_backend,
-            interview_handler=interview,
-            generate_seed_handler=generate_seed,
-            start_execute_seed_handler=start_execute,
-            job_wait_handler=job_wait,
-            job_status_handler=job_status,
-            job_result_handler=job_result,
+            agent_runtime_backend=runtime_backend,
+            opencode_mode=opencode_mode,
         ),
-        QAHandler(llm_backend=llm_backend),
+        QAHandler(
+            llm_backend=llm_backend,
+            agent_runtime_backend=runtime_backend,
+            opencode_mode=opencode_mode,
+        ),
     )
 
 

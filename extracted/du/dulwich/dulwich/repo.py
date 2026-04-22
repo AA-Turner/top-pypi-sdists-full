@@ -601,6 +601,11 @@ class BaseRepo:
         if symlinks is False:
             cf.set("core", "symlinks", symlinks)
 
+        # On macOS, set precomposeunicode to true since HFS+/APFS
+        # returns filenames in NFD (decomposed) Unicode form
+        if sys.platform == "darwin":
+            cf.set("core", "precomposeunicode", True)
+
         cf.set("core", "bare", bare)
         cf.set("core", "logallrefupdates", True)
 
@@ -1475,7 +1480,11 @@ class Repo(BaseRepo):
                     has_reftable_extension = True
                 else:
                     raise UnsupportedExtension(f"refStorage = {value.decode()}")
-            elif extension.lower() not in (b"worktreeconfig", b"objectformat"):
+            elif extension.lower() not in (
+                b"worktreeconfig",
+                b"objectformat",
+                b"relativeworktrees",
+            ):
                 raise UnsupportedExtension(extension.decode("utf-8"))
 
         if object_store is None:

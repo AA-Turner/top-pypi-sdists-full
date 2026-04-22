@@ -1425,6 +1425,86 @@ class cmd_log(Command):
             action="store_true",
             help="Print name/status for each changed file",
         )
+        parser.add_argument(
+            "--name-only",
+            action="store_true",
+            help="Print only names of changed files",
+        )
+        parser.add_argument(
+            "--oneline",
+            action="store_true",
+            help="Show each commit on a single line",
+        )
+        parser.add_argument(
+            "--abbrev-commit",
+            action="store_true",
+            help="Abbreviate commit hashes",
+        )
+        parser.add_argument(
+            "--author",
+            type=str,
+            default=None,
+            help="Filter by author (regex pattern)",
+        )
+        parser.add_argument(
+            "--committer",
+            type=str,
+            default=None,
+            help="Filter by committer (regex pattern)",
+        )
+        parser.add_argument(
+            "--grep",
+            type=str,
+            default=None,
+            help="Filter by commit message (regex pattern)",
+        )
+        parser.add_argument(
+            "--since",
+            "--after",
+            type=str,
+            default=None,
+            help="Show commits after date",
+        )
+        parser.add_argument(
+            "--until",
+            "--before",
+            type=str,
+            default=None,
+            help="Show commits before date",
+        )
+        parser.add_argument(
+            "-n",
+            "--max-count",
+            type=int,
+            default=None,
+            help="Maximum number of commits to show",
+        )
+        parser.add_argument(
+            "--no-merges",
+            action="store_true",
+            help="Exclude merge commits",
+        )
+        parser.add_argument(
+            "--merges",
+            action="store_true",
+            help="Only show merge commits",
+        )
+        parser.add_argument(
+            "--stat",
+            action="store_true",
+            help="Show diffstat for each commit",
+        )
+        parser.add_argument(
+            "-p",
+            "--patch",
+            action="store_true",
+            help="Show patch (diff) for each commit",
+        )
+        parser.add_argument(
+            "--follow",
+            action="store_true",
+            help="Follow file renames",
+        )
         parser.add_argument("paths", nargs="*", help="Paths to show log for")
         parsed_args = parser.parse_args(args)
 
@@ -1436,6 +1516,20 @@ class cmd_log(Command):
                     paths=parsed_args.paths,
                     reverse=parsed_args.reverse,
                     name_status=parsed_args.name_status,
+                    name_only=parsed_args.name_only,
+                    max_entries=parsed_args.max_count,
+                    author=parsed_args.author,
+                    committer=parsed_args.committer,
+                    grep=parsed_args.grep,
+                    since=parsed_args.since,
+                    until=parsed_args.until,
+                    no_merges=parsed_args.no_merges,
+                    merges=parsed_args.merges,
+                    oneline=parsed_args.oneline,
+                    abbrev_commit=parsed_args.abbrev_commit,
+                    stat=parsed_args.stat,
+                    patch=parsed_args.patch,
+                    follow=parsed_args.follow,
                     outstream=outstream,
                 )
 
@@ -3661,12 +3755,82 @@ class cmd_push(Command):
         """
         parser = argparse.ArgumentParser()
         parser.add_argument("-f", "--force", action="store_true", help="Force")
+        parser.add_argument(
+            "--atomic",
+            action="store_true",
+            help="Request atomic push (all refs update or none do)",
+        )
+        parser.add_argument(
+            "-o",
+            "--push-option",
+            action="append",
+            dest="push_options",
+            metavar="OPTION",
+            default=[],
+            help="Push option to transmit to the server (e.g. for AGit flow)",
+        )
+        parser.add_argument(
+            "--all",
+            action="store_true",
+            help="Push all branches",
+        )
+        parser.add_argument(
+            "--tags",
+            action="store_true",
+            help="Push all tags",
+        )
+        parser.add_argument(
+            "-d",
+            "--delete",
+            action="store_true",
+            help="Delete the specified remote refs",
+        )
+        parser.add_argument(
+            "-n",
+            "--dry-run",
+            action="store_true",
+            help="Do everything except actually send the updates",
+        )
+        parser.add_argument(
+            "--prune",
+            action="store_true",
+            help="Remove remote branches that don't exist locally",
+        )
+        parser.add_argument(
+            "-u",
+            "--set-upstream",
+            action="store_true",
+            help="Set upstream tracking information",
+        )
+        parser.add_argument(
+            "--follow-tags",
+            action="store_true",
+            help="Push annotated tags reachable from pushed commits",
+        )
+        parser.add_argument(
+            "--mirror",
+            action="store_true",
+            help="Mirror all refs (implies --force)",
+        )
         parser.add_argument("to_location", type=str)
         parser.add_argument("refspec", type=str, nargs="*")
         args = parser.parse_args(argv)
         try:
             porcelain.push(
-                ".", args.to_location, args.refspec or None, force=args.force
+                ".",
+                args.to_location,
+                args.refspec or None,
+                force=args.force,
+                push_options=args.push_options or None,
+                atomic=args.atomic,
+                all=args.all,
+                tags=args.tags,
+                delete=args.delete,
+                dry_run=args.dry_run,
+                prune=args.prune,
+                set_upstream=args.set_upstream,
+                follow_tags=args.follow_tags,
+                mirror=args.mirror,
             )
         except porcelain.DivergedBranches:
             sys.stderr.write("Diverged branches; specify --force to override")
@@ -5444,7 +5608,6 @@ class cmd_gc(Command):
         Args:
             args: Command line arguments
         """
-        import datetime
         import time
 
         parser = argparse.ArgumentParser()
@@ -5483,24 +5646,17 @@ class cmd_gc(Command):
         )
         parsed_args = parser.parse_args(args)
 
-        # Parse prune grace period
-        grace_period = None
+        # Parse prune grace period from command line
+        grace_period: int | None = None
         if parsed_args.prune:
-            from .approxidate import parse_relative_time
+            from .approxidate import parse_approxidate
 
             try:
-                grace_period = parse_relative_time(parsed_args.prune)
+                timestamp = parse_approxidate(parsed_args.prune)
+                grace_period = max(0, int(time.time() - timestamp))
             except ValueError:
-                # Try to parse as absolute date
-                try:
-                    date = datetime.datetime.strptime(parsed_args.prune, "%Y-%m-%d")
-                    grace_period = int(time.time() - date.timestamp())
-                except ValueError:
-                    logger.error("Invalid prune date: %s", parsed_args.prune)
-                    return 1
-        elif not parsed_args.no_prune:
-            # Default to 2 weeks
-            grace_period = 1209600
+                logger.error("Invalid prune date: %s", parsed_args.prune)
+                return 1
 
         # Progress callback
         def progress(msg: str) -> None:
@@ -7251,8 +7407,174 @@ class cmd_rerere(Command):
             )
 
 
+class cmd_apply(Command):
+    """Apply a patch to files and/or to the index."""
+
+    def run(self, args: Sequence[str]) -> None:
+        """Execute the apply command.
+
+        Args:
+            args: Command line arguments
+        """
+        parser = argparse.ArgumentParser()
+        parser.add_argument(
+            "patch",
+            nargs="?",
+            default=None,
+            help="Patch file to apply (reads from stdin if not specified)",
+        )
+        parser.add_argument(
+            "--cached",
+            "--index",
+            action="store_true",
+            dest="cached",
+            help="Apply the patch only to the index",
+        )
+        parser.add_argument(
+            "--reverse",
+            "-R",
+            action="store_true",
+            help="Apply the patch in reverse",
+        )
+        parser.add_argument(
+            "--check",
+            action="store_true",
+            help="Only check if the patches are applicable",
+        )
+        parser.add_argument(
+            "-p",
+            "--strip",
+            type=int,
+            default=1,
+            metavar="NUM",
+            help="Remove NUM leading path components (default: 1)",
+        )
+        parser.add_argument(
+            "--3way",
+            "-3",
+            action="store_true",
+            dest="three_way",
+            help="Fall back to 3-way merge if the patch does not apply cleanly",
+        )
+
+        parsed_args = parser.parse_args(args)
+
+        porcelain.apply_patch(
+            repo=".",
+            patch_file=parsed_args.patch,
+            cached=parsed_args.cached,
+            reverse=parsed_args.reverse,
+            check=parsed_args.check,
+            strip=parsed_args.strip,
+            three_way=parsed_args.three_way,
+        )
+
+        if parsed_args.check:
+            sys.stdout.write("Patch can be applied cleanly.\n")
+
+
+class cmd_am(Command):
+    """Apply patches from mailbox-style email messages."""
+
+    def run(self, args: Sequence[str]) -> None:
+        parser = argparse.ArgumentParser()
+        parser.add_argument(
+            "patches",
+            nargs="*",
+            default=None,
+            help="Mailbox file(s) to apply (reads from stdin if not specified)",
+        )
+        parser.add_argument(
+            "--3way",
+            "-3",
+            action="store_true",
+            dest="three_way",
+            help="Fall back to 3-way merge if the patch does not apply cleanly",
+        )
+        parser.add_argument(
+            "-k",
+            "--keep",
+            action="store_true",
+            dest="keep_subject",
+            help="Keep subject intact without munging",
+        )
+        parser.add_argument(
+            "--scissors",
+            "-c",
+            action="store_true",
+            help="Remove everything before scissors line",
+        )
+        parser.add_argument(
+            "--message-id",
+            action="store_true",
+            dest="message_id",
+            help="Include Message-ID in commit message",
+        )
+        parser.add_argument(
+            "-p",
+            "--strip",
+            type=int,
+            default=1,
+            metavar="NUM",
+            help="Remove NUM leading path components (default: 1)",
+        )
+
+        # Recovery operations (mutually exclusive)
+        recovery = parser.add_mutually_exclusive_group()
+        recovery.add_argument(
+            "--continue",
+            action="store_true",
+            dest="am_continue",
+            help="Continue applying patches after resolving a conflict",
+        )
+        recovery.add_argument(
+            "--skip",
+            action="store_true",
+            help="Skip the current patch and continue",
+        )
+        recovery.add_argument(
+            "--abort",
+            action="store_true",
+            help="Abort and restore the original state",
+        )
+        recovery.add_argument(
+            "--quit",
+            action="store_true",
+            help="Quit without reverting changes",
+        )
+
+        parsed_args = parser.parse_args(args)
+
+        if parsed_args.am_continue:
+            shas = porcelain.am_continue(repo=".")
+            for sha in shas:
+                sys.stdout.write(sha.decode("ascii") + "\n")
+        elif parsed_args.skip:
+            shas = porcelain.am_skip(repo=".")
+            for sha in shas:
+                sys.stdout.write(sha.decode("ascii") + "\n")
+        elif parsed_args.abort:
+            porcelain.am_abort(repo=".")
+        elif parsed_args.quit:
+            porcelain.am_quit(repo=".")
+        else:
+            shas = porcelain.am(
+                repo=".",
+                patches=parsed_args.patches or None,
+                three_way=parsed_args.three_way,
+                keep_subject=parsed_args.keep_subject,
+                scissors=parsed_args.scissors,
+                message_id=parsed_args.message_id,
+                strip=parsed_args.strip,
+            )
+            for sha in shas:
+                sys.stdout.write(sha.decode("ascii") + "\n")
+
+
 commands = {
     "add": cmd_add,
+    "am": cmd_am,
+    "apply": cmd_apply,
     "annotate": cmd_annotate,
     "archive": cmd_archive,
     "bisect": cmd_bisect,

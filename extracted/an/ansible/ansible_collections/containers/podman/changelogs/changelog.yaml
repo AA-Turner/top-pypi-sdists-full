@@ -518,6 +518,21 @@ releases:
       name: podman_quadlet_info
       namespace: ''
     release_date: '2026-02-02'
+  1.19.1:
+    changes:
+      bugfixes:
+      - podman_network - Add diff and idempotency to ip_ranges in net_config
+      minor_changes:
+      - Add --platform option to podman_image
+      release_summary: Fix podman network and add platform option to podman_image
+    release_date: '2026-04-07'
+  1.19.2:
+    changes:
+      bugfixes:
+      - podman_container - Fix quadlet_options placement when restart_policy is set
+      release_summary: Fix quadlet_options being incorrectly placed under Service
+        section
+    release_date: '2026-04-10'
   1.2.0:
     changes:
       minor_changes:

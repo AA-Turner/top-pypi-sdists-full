@@ -1,8 +1,12 @@
 import ast
+import os
+import shutil
 import textwrap
 import tempfile
 import warnings
 from pathlib import Path
+
+import pytest
 
 from skylos.rules.quality.logic import (
     EmptyErrorHandlerRule,
@@ -20,6 +24,7 @@ from skylos.rules.quality.logic import (
     ErrorDisclosureRule,
     BroadFilePermissionsRule,
 )
+from skylos.rules.quality.phantom_refs import scan_repo_phantom_security_references
 from skylos.rules.quality.unused_deps import scan_unused_dependencies
 
 
@@ -34,175 +39,193 @@ def check_code(rule, code, filename="test.py"):
     return findings
 
 
-class TestEmptyErrorHandler:
-    def test_except_pass(self):
-        code = """
-        try:
-            x = 1
-        except:
-            pass
-        """
-        findings = check_code(EmptyErrorHandlerRule(), code)
-        assert len(findings) >= 1
-        assert any(f["rule_id"] == "SKY-L007" for f in findings)
+def scan_repo_code(files):
+    tmpdir = tempfile.mkdtemp()
+    try:
+        root = Path(tmpdir)
+        (root / "pyproject.toml").write_text("[tool.skylos]\n", encoding="utf-8")
+        for rel_path, content in files.items():
+            target = root / rel_path
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(textwrap.dedent(content), encoding="utf-8")
+        py_files = sorted(root.rglob("*.py"))
+        return scan_repo_phantom_security_references(root, py_files)
+    finally:
+        shutil.rmtree(tmpdir, ignore_errors=True)
 
-    def test_except_exception_pass(self):
-        code = """
-        try:
-            x = 1
-        except Exception:
-            pass
-        """
-        findings = check_code(EmptyErrorHandlerRule(), code)
-        assert len(findings) >= 1
-        assert any(f["rule_id"] == "SKY-L007" for f in findings)
 
-    def test_except_continue(self):
-        code = """
-        for i in range(10):
-            try:
-                x = 1
-            except:
-                continue
-        """
+class TestEmptyErrorHandlerFindings:
+    @pytest.mark.parametrize(
+        ("code", "expected_severity"),
+        [
+            pytest.param(
+                """
+                try:
+                    x = 1
+                except:
+                    pass
+                """,
+                None,
+                id="except-pass",
+            ),
+            pytest.param(
+                """
+                try:
+                    x = 1
+                except Exception:
+                    pass
+                """,
+                None,
+                id="except-exception-pass",
+            ),
+            pytest.param(
+                """
+                for i in range(10):
+                    try:
+                        x = 1
+                    except:
+                        continue
+                """,
+                None,
+                id="except-continue",
+            ),
+            pytest.param(
+                """
+                def foo():
+                    try:
+                        x = 1
+                    except ValueError:
+                        return
+                """,
+                "HIGH",
+                id="except-return",
+            ),
+            pytest.param(
+                """
+                def foo():
+                    try:
+                        x = 1
+                    except ValueError:
+                        return None
+                """,
+                "HIGH",
+                id="except-return-none",
+            ),
+            pytest.param(
+                """
+                try:
+                    x = 1
+                except:
+                    ...
+                """,
+                None,
+                id="except-ellipsis",
+            ),
+            pytest.param(
+                """
+                try:
+                    x = 1
+                except:
+                    "this is a comment-like string"
+                """,
+                None,
+                id="comment-only-handler",
+            ),
+            pytest.param(
+                """
+                import contextlib
+                with contextlib.suppress(Exception):
+                    do_something()
+                """,
+                None,
+                id="suppress-exception",
+            ),
+            pytest.param(
+                """
+                import contextlib
+                with contextlib.suppress(BaseException):
+                    do_something()
+                """,
+                None,
+                id="suppress-base-exception",
+            ),
+        ],
+    )
+    def test_swallowing_handlers_are_flagged(self, code, expected_severity):
         findings = check_code(EmptyErrorHandlerRule(), code)
-        assert len(findings) >= 1
-        assert any(f["rule_id"] == "SKY-L007" for f in findings)
+        l007 = [f for f in findings if f["rule_id"] == "SKY-L007"]
+        assert l007
+        if expected_severity is not None:
+            assert any(f["severity"] == expected_severity for f in l007)
 
-    def test_except_return(self):
-        code = """
-        def foo():
-            try:
-                x = 1
-            except ValueError:
-                return
-        """
-        findings = check_code(EmptyErrorHandlerRule(), code)
-        assert len(findings) >= 1
-        rid_findings = [f for f in findings if f["rule_id"] == "SKY-L007"]
-        assert any(f["severity"] == "HIGH" for f in rid_findings)
 
-    def test_except_return_none(self):
-        code = """
-        def foo():
-            try:
-                x = 1
-            except ValueError:
-                return None
-        """
-        findings = check_code(EmptyErrorHandlerRule(), code)
-        assert len(findings) >= 1
-        rid_findings = [f for f in findings if f["rule_id"] == "SKY-L007"]
-        assert any(f["severity"] == "HIGH" for f in rid_findings)
-
-    def test_except_ellipsis(self):
-        code = """
-        try:
-            x = 1
-        except:
-            ...
-        """
-        findings = check_code(EmptyErrorHandlerRule(), code)
-        assert len(findings) >= 1
-        assert any(f["rule_id"] == "SKY-L007" for f in findings)
-
-    def test_handler_only_comments(self):
-        code = """
-        try:
-            x = 1
-        except:
-            "this is a comment-like string"
-        """
-        findings = check_code(EmptyErrorHandlerRule(), code)
-        assert len(findings) >= 1
-        assert any(f["rule_id"] == "SKY-L007" for f in findings)
-
-    def test_contextlib_suppress_exception(self):
-        code = """
-        import contextlib
-        with contextlib.suppress(Exception):
-            do_something()
-        """
-        findings = check_code(EmptyErrorHandlerRule(), code)
-        assert len(findings) >= 1
-        assert any(f["rule_id"] == "SKY-L007" for f in findings)
-
-    def test_contextlib_suppress_base_exception(self):
-        code = """
-        import contextlib
-        with contextlib.suppress(BaseException):
-            do_something()
-        """
-        findings = check_code(EmptyErrorHandlerRule(), code)
-        assert len(findings) >= 1
-        assert any(f["rule_id"] == "SKY-L007" for f in findings)
-
-    def test_handler_with_logging_not_flagged(self):
-        code = """
-        try:
-            x = 1
-        except Exception:
-            logger.error("failed")
-        """
+class TestEmptyErrorHandlerSafeCases:
+    @pytest.mark.parametrize(
+        "code",
+        [
+            pytest.param(
+                """
+                try:
+                    x = 1
+                except Exception:
+                    logger.error("failed")
+                """,
+                id="logging",
+            ),
+            pytest.param(
+                """
+                try:
+                    x = 1
+                except Exception:
+                    raise
+                """,
+                id="reraise",
+            ),
+            pytest.param(
+                """
+                try:
+                    x = 1
+                except Exception as e:
+                    print(e)
+                    handle_error(e)
+                """,
+                id="actual-code",
+            ),
+            pytest.param(
+                """
+                try:
+                    x = 1
+                except KeyboardInterrupt:
+                    pass
+                """,
+                id="keyboard-interrupt",
+            ),
+            pytest.param(
+                """
+                try:
+                    x = 1
+                except SystemExit:
+                    pass
+                """,
+                id="system-exit",
+            ),
+            pytest.param(
+                """
+                import contextlib
+                with contextlib.suppress(FileNotFoundError):
+                    os.remove("tmp.txt")
+                """,
+                id="specific-suppress",
+            ),
+        ],
+    )
+    def test_non_swallowing_handlers_are_not_flagged(self, code):
         findings = check_code(EmptyErrorHandlerRule(), code)
         l007 = [f for f in findings if f["rule_id"] == "SKY-L007"]
         assert len(l007) == 0
 
-    def test_handler_with_reraise_not_flagged(self):
-        code = """
-        try:
-            x = 1
-        except Exception:
-            raise
-        """
-        findings = check_code(EmptyErrorHandlerRule(), code)
-        l007 = [f for f in findings if f["rule_id"] == "SKY-L007"]
-        assert len(l007) == 0
 
-    def test_handler_with_actual_code_not_flagged(self):
-        code = """
-        try:
-            x = 1
-        except Exception as e:
-            print(e)
-            handle_error(e)
-        """
-        findings = check_code(EmptyErrorHandlerRule(), code)
-        l007 = [f for f in findings if f["rule_id"] == "SKY-L007"]
-        assert len(l007) == 0
-
-    def test_keyboard_interrupt_not_flagged(self):
-        code = """
-        try:
-            x = 1
-        except KeyboardInterrupt:
-            pass
-        """
-        findings = check_code(EmptyErrorHandlerRule(), code)
-        l007 = [f for f in findings if f["rule_id"] == "SKY-L007"]
-        assert len(l007) == 0
-
-    def test_system_exit_not_flagged(self):
-        code = """
-        try:
-            x = 1
-        except SystemExit:
-            pass
-        """
-        findings = check_code(EmptyErrorHandlerRule(), code)
-        l007 = [f for f in findings if f["rule_id"] == "SKY-L007"]
-        assert len(l007) == 0
-
-    def test_contextlib_suppress_specific_not_flagged(self):
-        code = """
-        import contextlib
-        with contextlib.suppress(FileNotFoundError):
-            os.remove("tmp.txt")
-        """
-        findings = check_code(EmptyErrorHandlerRule(), code)
-        l007 = [f for f in findings if f["rule_id"] == "SKY-L007"]
-        assert len(l007) == 0
-
+class TestEmptyErrorHandlerOutputShape:
     def test_output_shape_for_except_and_broad_suppress(self):
         rule = EmptyErrorHandlerRule()
         context = {"filename": "sample.py", "mod": "sample"}
@@ -264,27 +287,88 @@ class TestEmptyErrorHandler:
         ]
 
 
-class TestMissingResourceCleanup:
-    def test_open_without_with(self):
-        code = """
-        def foo():
-            f = open("x.txt")
-            data = f.read()
-        """
-        findings = check_code(MissingResourceCleanupRule(), code)
-        assert len(findings) >= 1
-        assert any(f["rule_id"] == "SKY-L008" for f in findings)
-
-    def test_open_with_with_not_flagged(self):
-        code = """
-        def foo():
-            with open("x.txt") as f:
+class TestMissingResourceCleanupOpenCases:
+    @pytest.mark.parametrize(
+        ("code", "is_flagged"),
+        [
+            pytest.param(
+                """
+                def foo():
+                    f = open("x.txt")
+                    data = f.read()
+                """,
+                True,
+                id="open-without-with",
+            ),
+            pytest.param(
+                """
+                def foo():
+                    with open("x.txt") as f:
+                        data = f.read()
+                """,
+                False,
+                id="open-with-with",
+            ),
+            pytest.param(
+                """
+                def get_file():
+                    f = open("x.txt")
+                    return f
+                """,
+                False,
+                id="return-open",
+            ),
+            pytest.param(
+                """
+                def gen_file():
+                    f = open("x.txt")
+                    yield f
+                """,
+                False,
+                id="yield-open",
+            ),
+            pytest.param(
+                """
+                def foo():
+                    try:
+                        f = open("x.txt")
+                        data = f.read()
+                    finally:
+                        f.close()
+                """,
+                False,
+                id="close-in-finally",
+            ),
+            pytest.param(
+                """
+                f = open("config.txt")
                 data = f.read()
-        """
+                """,
+                True,
+                id="module-level-open",
+            ),
+            pytest.param(
+                """
+                def foo():
+                    with open("a.txt") as a:
+                        with open("b.txt") as b:
+                            pass
+                """,
+                False,
+                id="nested-open-with",
+            ),
+        ],
+    )
+    def test_open_cleanup_patterns(self, code, is_flagged):
         findings = check_code(MissingResourceCleanupRule(), code)
         l008 = [f for f in findings if f["rule_id"] == "SKY-L008"]
-        assert len(l008) == 0
+        if is_flagged:
+            assert l008
+        else:
+            assert len(l008) == 0
 
+
+class TestMissingResourceCleanupConnectionAndFlowCases:
     def test_sqlite_connect_without_with(self):
         code = """
         import sqlite3
@@ -296,103 +380,56 @@ class TestMissingResourceCleanup:
         assert len(findings) >= 1
         assert any(f["rule_id"] == "SKY-L008" for f in findings)
 
-    def test_return_open_not_flagged(self):
-        code = """
-        def get_file():
-            f = open("x.txt")
-            return f
-        """
-        findings = check_code(MissingResourceCleanupRule(), code)
-        l008 = [f for f in findings if f["rule_id"] == "SKY-L008"]
-        assert len(l008) == 0
 
-    def test_yield_open_not_flagged(self):
-        code = """
-        def gen_file():
-            f = open("x.txt")
-            yield f
-        """
-        findings = check_code(MissingResourceCleanupRule(), code)
-        l008 = [f for f in findings if f["rule_id"] == "SKY-L008"]
-        assert len(l008) == 0
-
-    def test_close_in_finally_not_flagged(self):
-        code = """
-        def foo():
-            try:
-                f = open("x.txt")
-                data = f.read()
-            finally:
-                f.close()
-        """
-        findings = check_code(MissingResourceCleanupRule(), code)
-        l008 = [f for f in findings if f["rule_id"] == "SKY-L008"]
-        assert len(l008) == 0
-
-    def test_socket_without_with(self):
-        code = """
-        import socket
-        def foo():
-            s = socket.socket()
-            s.connect(("localhost", 80))
-        """
-        findings = check_code(MissingResourceCleanupRule(), code)
-        assert len(findings) >= 1
-        assert any(f["rule_id"] == "SKY-L008" for f in findings)
-
-    def test_requests_session_without_with(self):
-        code = """
-        import requests
-        def foo():
-            s = requests.Session()
-            s.get("http://example.com")
-        """
+class TestMissingResourceCleanupAdditionalResourceCases:
+    @pytest.mark.parametrize(
+        "code",
+        [
+            pytest.param(
+                """
+                import socket
+                def foo():
+                    s = socket.socket()
+                    s.connect(("localhost", 80))
+                """,
+                id="socket",
+            ),
+            pytest.param(
+                """
+                import requests
+                def foo():
+                    s = requests.Session()
+                    s.get("http://example.com")
+                """,
+                id="requests-session",
+            ),
+            pytest.param(
+                """
+                import psycopg2
+                def foo():
+                    conn = psycopg2.connect("dbname=test")
+                    cur = conn.cursor()
+                """,
+                id="psycopg2",
+            ),
+            pytest.param(
+                """
+                import tempfile
+                def foo():
+                    f = tempfile.NamedTemporaryFile()
+                    f.write(b"data")
+                """,
+                id="tempfile",
+            ),
+        ],
+    )
+    def test_resource_variants_without_with_are_flagged(self, code):
         findings = check_code(MissingResourceCleanupRule(), code)
         assert len(findings) >= 1
         assert any(f["rule_id"] == "SKY-L008" for f in findings)
 
-    def test_psycopg2_without_with(self):
-        code = """
-        import psycopg2
-        def foo():
-            conn = psycopg2.connect("dbname=test")
-            cur = conn.cursor()
-        """
-        findings = check_code(MissingResourceCleanupRule(), code)
-        assert len(findings) >= 1
-        assert any(f["rule_id"] == "SKY-L008" for f in findings)
 
-    def test_module_level_open_flagged(self):
-        code = """
-        f = open("config.txt")
-        data = f.read()
-        """
-        findings = check_code(MissingResourceCleanupRule(), code)
-        assert len(findings) >= 1
-        assert any(f["rule_id"] == "SKY-L008" for f in findings)
-
-    def test_open_inside_with_block_not_flagged(self):
-        code = """
-        def foo():
-            with open("a.txt") as a:
-                with open("b.txt") as b:
-                    pass
-        """
-        findings = check_code(MissingResourceCleanupRule(), code)
-        l008 = [f for f in findings if f["rule_id"] == "SKY-L008"]
-        assert len(l008) == 0
-
-    def test_tempfile_without_with(self):
-        code = """
-        import tempfile
-        def foo():
-            f = tempfile.NamedTemporaryFile()
-            f.write(b"data")
-        """
-        findings = check_code(MissingResourceCleanupRule(), code)
-        assert len(findings) >= 1
-        assert any(f["rule_id"] == "SKY-L008" for f in findings)
-
+class TestMissingResourceCleanupOutputShape:
     def test_output_shape_for_assignment_and_expression_resources(self):
         rule = MissingResourceCleanupRule()
         context = {"filename": "sample.py", "mod": "sample"}
@@ -451,83 +488,78 @@ class TestMissingResourceCleanup:
         ]
 
 
-class TestDebugLeftover:
-    def test_print_flagged(self):
-        code = 'print("debug")'
-        findings = check_code(DebugLeftoverRule(), code)
-        assert len(findings) >= 1
-        assert any(f["rule_id"] == "SKY-L009" for f in findings)
-
-    def test_breakpoint_flagged(self):
-        code = "breakpoint()"
-        findings = check_code(DebugLeftoverRule(), code)
-        assert len(findings) >= 1
+class TestDebugLeftoverFindings:
+    @pytest.mark.parametrize(
+        ("code", "filename", "expected_severity"),
+        [
+            pytest.param('print("debug")', "test.py", None, id="print"),
+            pytest.param("breakpoint()", "test.py", "HIGH", id="breakpoint"),
+            pytest.param(
+                """
+                import pdb
+                pdb.set_trace()
+                """,
+                "test.py",
+                None,
+                id="pdb",
+            ),
+            pytest.param(
+                """
+                from icecream import ic
+                ic(some_var)
+                """,
+                "test.py",
+                None,
+                id="icecream",
+            ),
+            pytest.param(
+                """
+                import ipdb
+                ipdb.set_trace()
+                """,
+                "test.py",
+                None,
+                id="ipdb",
+            ),
+            pytest.param("breakpoint()", "cli.py", None, id="cli-breakpoint"),
+            pytest.param(
+                """
+                from pprint import pprint
+                pprint(data)
+                """,
+                "test.py",
+                None,
+                id="pprint",
+            ),
+        ],
+    )
+    def test_debug_leftovers_are_flagged(self, code, filename, expected_severity):
+        findings = check_code(DebugLeftoverRule(), code, filename=filename)
         l009 = [f for f in findings if f["rule_id"] == "SKY-L009"]
-        assert any(f["severity"] == "HIGH" for f in l009)
+        assert l009
+        if expected_severity is not None:
+            assert any(f["severity"] == expected_severity for f in l009)
 
-    def test_pdb_set_trace_flagged(self):
-        code = """
-        import pdb
-        pdb.set_trace()
-        """
-        findings = check_code(DebugLeftoverRule(), code)
-        assert len(findings) >= 1
-        assert any(f["rule_id"] == "SKY-L009" for f in findings)
 
-    def test_ic_flagged(self):
-        code = """
-        from icecream import ic
-        ic(some_var)
-        """
-        findings = check_code(DebugLeftoverRule(), code)
-        assert len(findings) >= 1
-        assert any(f["rule_id"] == "SKY-L009" for f in findings)
-
-    def test_ipdb_set_trace_flagged(self):
-        code = """
-        import ipdb
-        ipdb.set_trace()
-        """
-        findings = check_code(DebugLeftoverRule(), code)
-        assert len(findings) >= 1
-        assert any(f["rule_id"] == "SKY-L009" for f in findings)
-
-    def test_print_in_cli_not_flagged(self):
-        code = 'print("Hello user")'
-        findings = check_code(DebugLeftoverRule(), code, filename="cli.py")
+class TestDebugLeftoverSafeCases:
+    @pytest.mark.parametrize(
+        ("code", "filename"),
+        [
+            pytest.param('print("Hello user")', "cli.py", id="cli"),
+            pytest.param('print("test output")', "test_something.py", id="test-file"),
+            pytest.param('print("main output")', "__main__.py", id="dunder-main"),
+            pytest.param('print("running script")', "scripts/deploy.py", id="scripts-dir"),
+        ],
+    )
+    def test_allowed_prints_are_not_flagged(self, code, filename):
+        findings = check_code(DebugLeftoverRule(), code, filename=filename)
         l009 = [f for f in findings if f["rule_id"] == "SKY-L009"]
         assert len(l009) == 0
 
-    def test_print_in_test_file_not_flagged(self):
-        code = 'print("test output")'
-        findings = check_code(DebugLeftoverRule(), code, filename="test_something.py")
-        l009 = [f for f in findings if f["rule_id"] == "SKY-L009"]
-        assert len(l009) == 0
 
-    def test_print_in_main_not_flagged(self):
-        code = 'print("main output")'
-        findings = check_code(DebugLeftoverRule(), code, filename="__main__.py")
-        l009 = [f for f in findings if f["rule_id"] == "SKY-L009"]
-        assert len(l009) == 0
-
-    def test_print_in_scripts_dir_not_flagged(self):
-        code = 'print("running script")'
-        findings = check_code(DebugLeftoverRule(), code, filename="scripts/deploy.py")
-        l009 = [f for f in findings if f["rule_id"] == "SKY-L009"]
-        assert len(l009) == 0
-
-    def test_breakpoint_in_cli_still_flagged(self):
-        code = "breakpoint()"
-        findings = check_code(DebugLeftoverRule(), code, filename="cli.py")
-        l009 = [f for f in findings if f["rule_id"] == "SKY-L009"]
-        assert len(l009) >= 1
-
-    def test_pprint_flagged(self):
-        code = """
-        from pprint import pprint
-        pprint(data)
-        """
-        findings = check_code(DebugLeftoverRule(), code)
+class TestDebugLeftoverAdditionalFindings:
+    def test_debug_leftover_regression_coverage(self):
+        findings = check_code(DebugLeftoverRule(), "breakpoint()", filename="cli.py")
         assert any(f["rule_id"] == "SKY-L009" for f in findings)
 
 
@@ -657,150 +689,180 @@ def check_code_with_source(rule, code, filename="test.py"):
 
 
 class TestSecurityTodo:
-    def test_todo_auth(self):
-        code = """
-        # TODO: add authentication check here
-        def get_users():
-            return db.query("SELECT * FROM users")
-        """
-        findings = check_code_with_source(SecurityTodoRule(), code)
-        assert any(f["rule_id"] == "SKY-L010" for f in findings)
-
-    def test_fixme_validate(self):
-        code = """
-        def search(q):
-            # FIXME: sanitize and validate input
-            return db.execute(f"SELECT * FROM items WHERE name = '{q}'")
-        """
-        findings = check_code_with_source(SecurityTodoRule(), code)
-        assert any(f["rule_id"] == "SKY-L010" for f in findings)
-
-    def test_hack_disable_ssl(self):
-        code = """
-        import requests
-        # HACK: disable ssl verify for now
-        requests.get("https://api.example.com", verify=False)
-        """
-        findings = check_code_with_source(SecurityTodoRule(), code)
-        assert any(f["rule_id"] == "SKY-L010" for f in findings)
-
-    def test_todo_password(self):
-        code = """
-        # TODO: stop hardcoding password
-        PASSWORD = "admin123"
-        """
-        findings = check_code_with_source(SecurityTodoRule(), code)
-        assert any(f["rule_id"] == "SKY-L010" for f in findings)
-
-    def test_temp_bypass(self):
-        code = """
-        # TEMP: bypass auth security check
-        def api_call():
-            pass
-        """
-        findings = check_code_with_source(SecurityTodoRule(), code)
-        assert any(f["rule_id"] == "SKY-L010" for f in findings)
-
-    def test_normal_todo_not_flagged(self):
-        code = """
-        for i in range(10):
-            pass
-        """
+    @pytest.mark.parametrize(
+        ("code", "is_flagged"),
+        [
+            pytest.param(
+                """
+                # TODO: add authentication check here
+                def get_users():
+                    return db.query("SELECT * FROM users")
+                """,
+                True,
+                id="todo-auth",
+            ),
+            pytest.param(
+                """
+                def search(q):
+                    # FIXME: sanitize and validate input
+                    return db.execute(f"SELECT * FROM items WHERE name = '{q}'")
+                """,
+                True,
+                id="fixme-validate",
+            ),
+            pytest.param(
+                """
+                import requests
+                # HACK: disable ssl verify for now
+                requests.get("https://api.example.com", verify=False)
+                """,
+                True,
+                id="hack-disable-ssl",
+            ),
+            pytest.param(
+                """
+                # TODO: stop hardcoding password
+                PASSWORD = "admin123"
+                """,
+                True,
+                id="todo-password",
+            ),
+            pytest.param(
+                """
+                # TEMP: bypass auth security check
+                def api_call():
+                    pass
+                """,
+                True,
+                id="temp-bypass",
+            ),
+            pytest.param(
+                """
+                for i in range(10):
+                    pass
+                """,
+                False,
+                id="ordinary-loop",
+            ),
+            pytest.param(
+                """
+                x = 1
+                """,
+                False,
+                id="plain-assignment",
+            ),
+        ],
+    )
+    def test_security_todo_detection(self, code, is_flagged):
         findings = check_code_with_source(SecurityTodoRule(), code)
         l010 = [f for f in findings if f["rule_id"] == "SKY-L010"]
-        assert len(l010) == 0
-
-    def test_normal_fixme_not_flagged(self):
-        code = """
-        x = 1
-        """
-        findings = check_code_with_source(SecurityTodoRule(), code)
-        l010 = [f for f in findings if f["rule_id"] == "SKY-L010"]
-        assert len(l010) == 0
+        if is_flagged:
+            assert l010
+        else:
+            assert len(l010) == 0
 
 
 class TestDisabledSecurity:
-    def test_verify_false(self):
-        code = """
-        import requests
-        requests.get("https://api.example.com", verify=False)
-        """
-        findings = check_code(DisabledSecurityRule(), code)
-        assert any(f["rule_id"] == "SKY-L011" for f in findings)
+    @pytest.mark.parametrize(
+        ("code", "filename", "is_flagged"),
+        [
+            pytest.param(
+                """
+                import requests
+                requests.get("https://api.example.com", verify=False)
+                """,
+                "test.py",
+                True,
+                id="verify-false",
+            ),
+            pytest.param(
+                """
+                import requests
+                requests.get("https://api.example.com", verify=True)
+                """,
+                "test.py",
+                False,
+                id="verify-true",
+            ),
+            pytest.param(
+                """
+                import ssl
+                ctx = ssl._create_unverified_context()
+                """,
+                "test.py",
+                True,
+                id="unverified-context",
+            ),
+            pytest.param(
+                """
+                from django.views.decorators.csrf import csrf_exempt
 
-    def test_verify_true_not_flagged(self):
-        code = """
-        import requests
-        requests.get("https://api.example.com", verify=True)
-        """
-        findings = check_code(DisabledSecurityRule(), code)
+                @csrf_exempt
+                def my_view(request):
+                    pass
+                """,
+                "test.py",
+                True,
+                id="csrf-exempt",
+            ),
+            pytest.param(
+                """
+                DEBUG = True
+                """,
+                "test.py",
+                True,
+                id="debug-true",
+            ),
+            pytest.param(
+                """
+                DEBUG = False
+                """,
+                "test.py",
+                False,
+                id="debug-false",
+            ),
+            pytest.param(
+                """
+                ALLOWED_HOSTS = ["*"]
+                """,
+                "test.py",
+                True,
+                id="allowed-hosts-wildcard",
+            ),
+            pytest.param(
+                """
+                ALLOWED_HOSTS = ["example.com", "www.example.com"]
+                """,
+                "test.py",
+                False,
+                id="allowed-hosts-specific",
+            ),
+            pytest.param(
+                """
+                some_func(check_hostname=False)
+                """,
+                "test.py",
+                True,
+                id="check-hostname-false",
+            ),
+            pytest.param(
+                """
+                import requests
+                requests.get("https://api.example.com", verify=False)
+                """,
+                "test_api.py",
+                False,
+                id="test-file",
+            ),
+        ],
+    )
+    def test_disabled_security_detection(self, code, filename, is_flagged):
+        findings = check_code(DisabledSecurityRule(), code, filename=filename)
         l011 = [f for f in findings if f["rule_id"] == "SKY-L011"]
-        assert len(l011) == 0
-
-    def test_create_unverified_context(self):
-        code = """
-        import ssl
-        ctx = ssl._create_unverified_context()
-        """
-        findings = check_code(DisabledSecurityRule(), code)
-        assert any(f["rule_id"] == "SKY-L011" for f in findings)
-
-    def test_csrf_exempt(self):
-        code = """
-        from django.views.decorators.csrf import csrf_exempt
-
-        @csrf_exempt
-        def my_view(request):
-            pass
-        """
-        findings = check_code(DisabledSecurityRule(), code)
-        assert any(f["rule_id"] == "SKY-L011" for f in findings)
-
-    def test_debug_true(self):
-        code = """
-        DEBUG = True
-        """
-        findings = check_code(DisabledSecurityRule(), code)
-        assert any(f["rule_id"] == "SKY-L011" for f in findings)
-
-    def test_debug_false_not_flagged(self):
-        code = """
-        DEBUG = False
-        """
-        findings = check_code(DisabledSecurityRule(), code)
-        l011 = [f for f in findings if f["rule_id"] == "SKY-L011"]
-        assert len(l011) == 0
-
-    def test_allowed_hosts_wildcard(self):
-        code = """
-        ALLOWED_HOSTS = ["*"]
-        """
-        findings = check_code(DisabledSecurityRule(), code)
-        assert any(f["rule_id"] == "SKY-L011" for f in findings)
-
-    def test_allowed_hosts_specific_not_flagged(self):
-        code = """
-        ALLOWED_HOSTS = ["example.com", "www.example.com"]
-        """
-        findings = check_code(DisabledSecurityRule(), code)
-        l011 = [f for f in findings if f["rule_id"] == "SKY-L011"]
-        assert len(l011) == 0
-
-    def test_check_hostname_false(self):
-        code2 = """
-        some_func(check_hostname=False)
-        """
-        findings = check_code(DisabledSecurityRule(), code2)
-        assert any(f["rule_id"] == "SKY-L011" for f in findings)
-
-    def test_test_file_not_flagged(self):
-        code = """
-        import requests
-        requests.get("https://api.example.com", verify=False)
-        """
-        findings = check_code(DisabledSecurityRule(), code, filename="test_api.py")
-        l011 = [f for f in findings if f["rule_id"] == "SKY-L011"]
-        assert len(l011) == 0
+        if is_flagged:
+            assert l011
+        else:
+            assert len(l011) == 0
 
 
 class TestPhantomCall:
@@ -828,6 +890,9 @@ class TestPhantomCall:
         """
         findings = check_code(PhantomCallRule(), code)
         assert any(f["rule_id"] == "SKY-L012" for f in findings)
+        l012 = [f for f in findings if f["rule_id"] == "SKY-L012"]
+        assert l012[0]["vibe_category"] == "hallucinated_reference"
+        assert l012[0]["ai_likelihood"] == "high"
 
     def test_defined_locally_not_flagged(self):
         code = """
@@ -883,161 +948,464 @@ class TestPhantomCall:
         l012 = [f for f in findings if f["rule_id"] == "SKY-L012"]
         assert len(l012) == 3
 
+    def test_repo_local_module_attribute_call_phantom(self):
+        findings = scan_repo_code(
+            {
+                "app/__init__.py": "",
+                "app/security.py": """
+                    def authenticate(request):
+                        return request
+                """,
+                "app/views.py": """
+                    from app import security
+
+                    def handler(request):
+                        return security.require_auth(request)
+                """,
+            }
+        )
+
+        l012 = [f for f in findings if f["rule_id"] == "SKY-L012"]
+        assert len(l012) == 1
+        assert l012[0]["name"] == "security.require_auth"
+        assert l012[0]["simple_name"] == "require_auth"
+
+    def test_repo_dynamic_module_not_flagged(self):
+        findings = scan_repo_code(
+            {
+                "guards/__init__.py": """
+                    def __getattr__(name):
+                        return lambda *args, **kwargs: None
+                """,
+                "app.py": """
+                    import guards
+
+                    def handler(request):
+                        return guards.require_auth(request)
+                """,
+            }
+        )
+
+        l012 = [f for f in findings if f["rule_id"] == "SKY-L012"]
+        assert len(l012) == 0
+
+    def test_repo_function_local_import_is_detected(self):
+        findings = scan_repo_code(
+            {
+                "app/__init__.py": "",
+                "app/security.py": """
+                    def authenticate(request):
+                        return request
+                """,
+                "app/views.py": """
+                    def handler(request):
+                        from app import security
+                        return security.require_auth(request)
+                """,
+            }
+        )
+
+        l012 = [f for f in findings if f["rule_id"] == "SKY-L012"]
+        assert len(l012) == 1
+        assert l012[0]["name"] == "security.require_auth"
+
+    def test_repo_root_package_import_chain_is_detected(self):
+        findings = scan_repo_code(
+            {
+                "app/__init__.py": "",
+                "app/security.py": """
+                    def authenticate(request):
+                        return request
+                """,
+                "app/views.py": """
+                    import app.security
+
+                    def handler(request):
+                        return app.security.require_auth(request)
+                """,
+            }
+        )
+
+        l012 = [f for f in findings if f["rule_id"] == "SKY-L012"]
+        assert len(l012) == 1
+        assert l012[0]["name"] == "app.security.require_auth"
+
+    def test_repo_shadowed_import_name_not_flagged(self):
+        findings = scan_repo_code(
+            {
+                "app/__init__.py": "",
+                "app/security.py": """
+                    def authenticate(request):
+                        return request
+                """,
+                "app/views.py": """
+                    from app import security
+
+                    def handler(security):
+                        return security.require_auth(request=None)
+                """,
+            }
+        )
+
+        l012 = [f for f in findings if f["rule_id"] == "SKY-L012"]
+        assert len(l012) == 0
+
+    def test_repo_imported_module_with_parse_error_not_flagged(self):
+        findings = scan_repo_code(
+            {
+                "app/__init__.py": "",
+                "app/security.py": """
+                    def broken(
+                """,
+                "app/views.py": """
+                    from app import security
+
+                    def handler(request):
+                        return security.require_auth(request)
+                """,
+            }
+        )
+
+        l012 = [f for f in findings if f["rule_id"] == "SKY-L012"]
+        assert len(l012) == 0
+
+    def test_repo_symlinked_external_python_file_not_scanned(self):
+        tmpdir = tempfile.mkdtemp()
+        external_dir = tempfile.mkdtemp()
+        try:
+            root = Path(tmpdir)
+            external = Path(external_dir) / "security.py"
+            external.write_text(
+                textwrap.dedent(
+                    """
+                    def broken(
+                    """
+                ),
+                encoding="utf-8",
+            )
+            (root / "pyproject.toml").write_text("[tool.skylos]\n", encoding="utf-8")
+            app = root / "app"
+            app.mkdir()
+            (app / "__init__.py").write_text("", encoding="utf-8")
+            os.symlink(external, app / "security.py")
+            (app / "views.py").write_text(
+                textwrap.dedent(
+                    """
+                    from app import security
+
+                    def handler(request):
+                        return security.require_auth(request)
+                    """
+                ),
+                encoding="utf-8",
+            )
+
+            py_files = sorted(root.rglob("*.py"))
+            findings = scan_repo_phantom_security_references(root, py_files)
+            l012 = [f for f in findings if f["rule_id"] == "SKY-L012"]
+            assert len(l012) == 0
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+            shutil.rmtree(external_dir, ignore_errors=True)
+
+    def test_repo_class_body_shadowed_alias_not_flagged(self):
+        findings = scan_repo_code(
+            {
+                "app/__init__.py": "",
+                "app/security.py": """
+                    def authenticate(request):
+                        return request
+                """,
+                "app/views.py": """
+                    from app import security
+
+                    class WrappedView:
+                        security = object()
+
+                        @security.require_auth
+                        def get(self):
+                            return "ok"
+                """,
+            }
+        )
+
+        l023 = [f for f in findings if f["rule_id"] == "SKY-L023"]
+        assert len(l023) == 0
+
+    def test_repo_class_body_import_is_detected(self):
+        findings = scan_repo_code(
+            {
+                "app/__init__.py": "",
+                "app/security.py": """
+                    def authenticate(fn):
+                        return fn
+                """,
+                "app/views.py": """
+                    class WrappedView:
+                        from app import security
+
+                        @security.require_auth
+                        def get(self):
+                            return "ok"
+                """,
+            }
+        )
+
+        l023 = [f for f in findings if f["rule_id"] == "SKY-L023"]
+        assert len(l023) == 1
+        assert l023[0]["name"] == "security.require_auth"
+
+    def test_repo_class_body_import_does_not_leak_into_method_body(self):
+        findings = scan_repo_code(
+            {
+                "app/__init__.py": "",
+                "app/security.py": """
+                    def authenticate(request):
+                        return request
+                """,
+                "app/views.py": """
+                    class WrappedView:
+                        from app import security
+
+                        def get(self, request):
+                            return security.require_auth(request)
+                """,
+            }
+        )
+
+        l012 = [f for f in findings if f["rule_id"] == "SKY-L012"]
+        assert len(l012) == 0
+
+    def test_repo_class_body_shadow_does_not_hide_module_call_in_method_body(self):
+        findings = scan_repo_code(
+            {
+                "app/__init__.py": "",
+                "app/security.py": """
+                    def authenticate(request):
+                        return request
+                """,
+                "app/views.py": """
+                    from app import security
+
+                    class WrappedView:
+                        security = object()
+
+                        def get(self, request):
+                            return security.require_auth(request)
+                """,
+            }
+        )
+
+        l012 = [f for f in findings if f["rule_id"] == "SKY-L012"]
+        assert len(l012) == 1
+        assert l012[0]["name"] == "security.require_auth"
+
 
 class TestInsecureRandom:
-    def test_random_for_token(self):
-        code = """
-        import random
-        token = random.randint(100000, 999999)
-        """
-        findings = check_code(InsecureRandomRule(), code)
-        assert any(f["rule_id"] == "SKY-L013" for f in findings)
-
-    def test_random_for_password(self):
-        code = """
-        import random
-        password = random.choice("abcdefghij")
-        """
-        findings = check_code(InsecureRandomRule(), code)
-        assert any(f["rule_id"] == "SKY-L013" for f in findings)
-
-    def test_random_for_session(self):
-        code = """
-        import random
-        session_id = random.randbytes(16)
-        """
-        findings = check_code(InsecureRandomRule(), code)
-        assert any(f["rule_id"] == "SKY-L013" for f in findings)
-
-    def test_random_for_csrf(self):
-        code = """
-        import random
-        csrf_token = random.randrange(0, 2**128)
-        """
-        findings = check_code(InsecureRandomRule(), code)
-        assert any(f["rule_id"] == "SKY-L013" for f in findings)
-
-    def test_random_non_security_not_flagged(self):
-        code = """
-        import random
-        color = random.choice(["red", "blue", "green"])
-        """
-        findings = check_code(InsecureRandomRule(), code)
+    @pytest.mark.parametrize(
+        ("code", "filename", "is_flagged"),
+        [
+            pytest.param(
+                """
+                import random
+                token = random.randint(100000, 999999)
+                """,
+                "test.py",
+                True,
+                id="token-randint",
+            ),
+            pytest.param(
+                """
+                import random
+                password = random.choice("abcdefghij")
+                """,
+                "test.py",
+                True,
+                id="password-choice",
+            ),
+            pytest.param(
+                """
+                import random
+                session_id = random.randbytes(16)
+                """,
+                "test.py",
+                True,
+                id="session-randbytes",
+            ),
+            pytest.param(
+                """
+                import random
+                csrf_token = random.randrange(0, 2**128)
+                """,
+                "test.py",
+                True,
+                id="csrf-randrange",
+            ),
+            pytest.param(
+                """
+                import random
+                color = random.choice(["red", "blue", "green"])
+                """,
+                "test.py",
+                False,
+                id="non-security-random",
+            ),
+            pytest.param(
+                """
+                import secrets
+                token = secrets.token_urlsafe(32)
+                """,
+                "test.py",
+                False,
+                id="secrets-module",
+            ),
+            pytest.param(
+                """
+                import random
+                token = random.randint(0, 9999)
+                """,
+                "test_auth.py",
+                False,
+                id="test-file",
+            ),
+            pytest.param(
+                """
+                import random
+                self.api_key = random.randint(0, 999999)
+                """,
+                "test.py",
+                True,
+                id="attribute-target",
+            ),
+        ],
+    )
+    def test_insecure_random_detection(self, code, filename, is_flagged):
+        findings = check_code(InsecureRandomRule(), code, filename=filename)
         l013 = [f for f in findings if f["rule_id"] == "SKY-L013"]
-        assert len(l013) == 0
-
-    def test_secrets_module_not_flagged(self):
-        code = """
-        import secrets
-        token = secrets.token_urlsafe(32)
-        """
-        findings = check_code(InsecureRandomRule(), code)
-        l013 = [f for f in findings if f["rule_id"] == "SKY-L013"]
-        assert len(l013) == 0
-
-    def test_test_file_not_flagged(self):
-        code = """
-        import random
-        token = random.randint(0, 9999)
-        """
-        findings = check_code(InsecureRandomRule(), code, filename="test_auth.py")
-        l013 = [f for f in findings if f["rule_id"] == "SKY-L013"]
-        assert len(l013) == 0
-
-    def test_attribute_target(self):
-        code = """
-        import random
-        self.api_key = random.randint(0, 999999)
-        """
-        findings = check_code(InsecureRandomRule(), code)
-        assert any(f["rule_id"] == "SKY-L013" for f in findings)
+        if is_flagged:
+            assert l013
+        else:
+            assert len(l013) == 0
 
 
 class TestHardcodedCredential:
-    def test_password_assignment(self):
-        code = """
-        password = "admin123"
-        """
-        findings = check_code(HardcodedCredentialRule(), code)
-        assert any(f["rule_id"] == "SKY-L014" for f in findings)
-
-    def test_api_key_assignment(self):
-        code = """
-        api_key = "sk-1234567890abcdef"
-        """
-        findings = check_code(HardcodedCredentialRule(), code)
-        assert any(f["rule_id"] == "SKY-L014" for f in findings)
-
-    def test_db_password_assignment(self):
-        code = """
-        db_password = "mysecretpass"
-        """
-        findings = check_code(HardcodedCredentialRule(), code)
-        assert any(f["rule_id"] == "SKY-L014" for f in findings)
-
-    def test_dsn_with_credentials(self):
-        code = """
-        database_url = "postgresql://admin:secretpass@localhost:5432/mydb"
-        """
-        findings = check_code(HardcodedCredentialRule(), code)
-        assert any(f["rule_id"] == "SKY-L014" for f in findings)
-
-    def test_placeholder_downgraded(self):
-        code = """
-        password = "changeme"
-        """
-        findings = check_code(HardcodedCredentialRule(), code)
+    @pytest.mark.parametrize(
+        ("code", "filename", "is_flagged", "expected_severity"),
+        [
+            pytest.param(
+                """
+                password = "admin123"
+                """,
+                "test.py",
+                True,
+                None,
+                id="password-assignment",
+            ),
+            pytest.param(
+                """
+                api_key = "sk-1234567890abcdef"
+                """,
+                "test.py",
+                True,
+                None,
+                id="api-key",
+            ),
+            pytest.param(
+                """
+                db_password = "mysecretpass"
+                """,
+                "test.py",
+                True,
+                None,
+                id="db-password",
+            ),
+            pytest.param(
+                """
+                database_url = "postgresql://admin:secretpass@localhost:5432/mydb"
+                """,
+                "test.py",
+                True,
+                None,
+                id="dsn-with-credentials",
+            ),
+            pytest.param(
+                """
+                password = "changeme"
+                """,
+                "test.py",
+                True,
+                "MEDIUM",
+                id="placeholder-downgraded",
+            ),
+            pytest.param(
+                """
+                import os
+                password = os.getenv("DB_PASSWORD")
+                """,
+                "test.py",
+                False,
+                None,
+                id="env-lookup",
+            ),
+            pytest.param(
+                """
+                password = ""
+                """,
+                "test.py",
+                False,
+                None,
+                id="empty-string",
+            ),
+            pytest.param(
+                """
+                def connect(password="admin123"):
+                    pass
+                """,
+                "test.py",
+                True,
+                None,
+                id="function-default",
+            ),
+            pytest.param(
+                """
+                username = "admin"
+                """,
+                "test.py",
+                False,
+                None,
+                id="non-credential-var",
+            ),
+            pytest.param(
+                """
+                my_app_password = "hunter2"
+                """,
+                "test.py",
+                True,
+                None,
+                id="suffix-match",
+            ),
+            pytest.param(
+                """
+                password = "testpass123"
+                """,
+                "test_auth.py",
+                False,
+                None,
+                id="test-file",
+            ),
+        ],
+    )
+    def test_hardcoded_credential_detection(
+        self, code, filename, is_flagged, expected_severity
+    ):
+        findings = check_code(HardcodedCredentialRule(), code, filename=filename)
         l014 = [f for f in findings if f["rule_id"] == "SKY-L014"]
-        assert len(l014) >= 1
-        assert l014[0]["severity"] == "MEDIUM"
-
-    def test_env_lookup_not_flagged(self):
-        code = """
-        import os
-        password = os.getenv("DB_PASSWORD")
-        """
-        findings = check_code(HardcodedCredentialRule(), code)
-        l014 = [f for f in findings if f["rule_id"] == "SKY-L014"]
-        assert len(l014) == 0
-
-    def test_empty_string_not_flagged(self):
-        code = """
-        password = ""
-        """
-        findings = check_code(HardcodedCredentialRule(), code)
-        l014 = [f for f in findings if f["rule_id"] == "SKY-L014"]
-        assert len(l014) == 0
-
-    def test_function_default_credential(self):
-        code = """
-        def connect(password="admin123"):
-            pass
-        """
-        findings = check_code(HardcodedCredentialRule(), code)
-        assert any(f["rule_id"] == "SKY-L014" for f in findings)
-
-    def test_non_credential_var_not_flagged(self):
-        code = """
-        username = "admin"
-        """
-        findings = check_code(HardcodedCredentialRule(), code)
-        l014 = [f for f in findings if f["rule_id"] == "SKY-L014"]
-        assert len(l014) == 0
-
-    def test_suffix_match(self):
-        code = """
-        my_app_password = "hunter2"
-        """
-        findings = check_code(HardcodedCredentialRule(), code)
-        assert any(f["rule_id"] == "SKY-L014" for f in findings)
-
-    def test_test_file_not_flagged(self):
-        code = """
-        password = "testpass123"
-        """
-        findings = check_code(HardcodedCredentialRule(), code, filename="test_auth.py")
-        l014 = [f for f in findings if f["rule_id"] == "SKY-L014"]
-        assert len(l014) == 0
+        if is_flagged:
+            assert l014
+            if expected_severity is not None:
+                assert l014[0]["severity"] == expected_severity
+        else:
+            assert len(l014) == 0
 
 
 class TestErrorDisclosure:
@@ -1291,6 +1659,115 @@ class TestPhantomDecorator:
         findings = check_code(PhantomDecoratorRule(), code)
         l023 = [f for f in findings if f["rule_id"] == "SKY-L023"]
         assert len(l023) == 2
+
+    def test_repo_local_module_decorator_phantom(self):
+        findings = scan_repo_code(
+            {
+                "pkg/__init__.py": "",
+                "pkg/guards.py": """
+                    def authenticate(fn):
+                        return fn
+                """,
+                "pkg/views.py": """
+                    from . import guards as auth
+
+                    @auth.require_auth
+                    def secret():
+                        return "secret"
+                """,
+            }
+        )
+
+        l023 = [f for f in findings if f["rule_id"] == "SKY-L023"]
+        assert len(l023) == 1
+        assert l023[0]["name"] == "auth.require_auth"
+        assert l023[0]["simple_name"] == "require_auth"
+
+    def test_repo_reexported_package_member_not_flagged(self):
+        findings = scan_repo_code(
+            {
+                "pkg/__init__.py": """
+                    from .guards import require_auth
+                """,
+                "pkg/guards.py": """
+                    def require_auth(fn):
+                        return fn
+                """,
+                "pkg/views.py": """
+                    import pkg
+
+                    @pkg.require_auth
+                    def secret():
+                        return "secret"
+                """,
+            }
+        )
+
+        l023 = [f for f in findings if f["rule_id"] == "SKY-L023"]
+        assert len(l023) == 0
+
+    def test_repo_module_alias_reexport_resolves(self):
+        findings = scan_repo_code(
+            {
+                "pkg/__init__.py": """
+                    from . import guards as security
+                """,
+                "pkg/guards.py": """
+                    def authenticate(fn):
+                        return fn
+                """,
+                "pkg/views.py": """
+                    import pkg
+
+                    @pkg.security.require_auth
+                    def secret():
+                        return "secret"
+                """,
+            }
+        )
+
+        l023 = [f for f in findings if f["rule_id"] == "SKY-L023"]
+        assert len(l023) == 1
+        assert l023[0]["name"] == "pkg.security.require_auth"
+
+    def test_repo_star_reexport_not_flagged(self):
+        findings = scan_repo_code(
+            {
+                "pkg/__init__.py": """
+                    from .guards import *
+                """,
+                "pkg/guards.py": """
+                    def require_auth(fn):
+                        return fn
+                """,
+                "pkg/views.py": """
+                    import pkg
+
+                    @pkg.require_auth
+                    def secret():
+                        return "secret"
+                """,
+            }
+        )
+
+        l023 = [f for f in findings if f["rule_id"] == "SKY-L023"]
+        assert len(l023) == 0
+
+    def test_third_party_module_attribute_not_flagged(self):
+        findings = scan_repo_code(
+            {
+                "app.py": """
+                    import flask_login
+
+                    @flask_login.require_auth
+                    def secret():
+                        return "secret"
+                """
+            }
+        )
+
+        l023 = [f for f in findings if f["rule_id"] == "SKY-L023"]
+        assert len(l023) == 0
 
 
 class TestUnfinishedGeneration:

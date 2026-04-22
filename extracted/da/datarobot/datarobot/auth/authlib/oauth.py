@@ -100,7 +100,7 @@ class OAuthProviderConfig(BaseModel):
     userinfo_endpoint: str | None = None
     """The URL to fetch user information after authorization."""
     code_challenge_method: str | None = None
-    """The code challenge to use for PKCE authorization code flow, e.g. 'S256'."""
+    """The code challenge to use for PKCE authorization code flow, e.g., 'S256'."""
 
     userinfo_mapper: UserInfoMapper | None = None
     """A custom function to map user information from the userinfo endpoint in case it's not in the OIDC format."""

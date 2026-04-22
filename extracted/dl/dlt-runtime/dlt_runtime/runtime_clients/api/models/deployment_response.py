@@ -19,11 +19,12 @@ class DeploymentResponse:
     Attributes:
         content_hash (str): The hash of the file of the uploaded tarball
         created_by (UUID): The ID of the identity who created the entity
-        date_added (datetime.datetime): The date the entity was added
-        date_updated (datetime.datetime): The date the entity was updated
+        date_added (datetime.datetime): datetime with the constraint that the value must have timezone info
+        date_updated (datetime.datetime): datetime with the constraint that the value must have timezone info
         file_count (int): The number of files in the uploaded tarball
         file_names (str): The names of the files in the uploaded tarball (comma-separated)
         id (UUID): The unique ID of the entity
+        requirements_size (int): Size of the workspace requirements manifest blob in bytes
         size (int): The size of the uploaded tarball in bytes
         version (int): The version of the deployment. Will increment for each new version of the entity
         workspace_id (UUID): The ID of the workspace the entity belongs to
@@ -36,6 +37,7 @@ class DeploymentResponse:
     file_count: int
     file_names: str
     id: UUID
+    requirements_size: int
     size: int
     version: int
     workspace_id: UUID
@@ -56,6 +58,8 @@ class DeploymentResponse:
 
         id = str(self.id)
 
+        requirements_size = self.requirements_size
+
         size = self.size
 
         version = self.version
@@ -73,6 +77,7 @@ class DeploymentResponse:
                 "file_count": file_count,
                 "file_names": file_names,
                 "id": id,
+                "requirements_size": requirements_size,
                 "size": size,
                 "version": version,
                 "workspace_id": workspace_id,
@@ -98,6 +103,8 @@ class DeploymentResponse:
 
         id = UUID(d.pop("id"))
 
+        requirements_size = d.pop("requirements_size")
+
         size = d.pop("size")
 
         version = d.pop("version")
@@ -112,6 +119,7 @@ class DeploymentResponse:
             file_count=file_count,
             file_names=file_names,
             id=id,
+            requirements_size=requirements_size,
             size=size,
             version=version,
             workspace_id=workspace_id,

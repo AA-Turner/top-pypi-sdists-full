@@ -1,16 +1,12 @@
 from collections.abc import Mapping
 from io import BytesIO
-from typing import (
-    Any,
-    TypeVar,
-    Union,
-)
+from typing import Any, TypeVar
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 from .. import types
-from ..types import UNSET, File, FileTypes, Unset
+from ..types import File
 
 T = TypeVar("T", bound="CreateDeploymentBody")
 
@@ -19,30 +15,36 @@ T = TypeVar("T", bound="CreateDeploymentBody")
 class CreateDeploymentBody:
     """
     Attributes:
-        file (Union[Unset, File]):
+        files (File):
+        requirements (File):
     """
 
-    file: Union[Unset, File] = UNSET
+    files: File
+    requirements: File
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        file: Union[Unset, FileTypes] = UNSET
-        if not isinstance(self.file, Unset):
-            file = self.file.to_tuple()
+        files = self.files.to_tuple()
+
+        requirements = self.requirements.to_tuple()
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
-        field_dict.update({})
-        if file is not UNSET:
-            field_dict["file"] = file
+        field_dict.update(
+            {
+                "files": files,
+                "requirements": requirements,
+            }
+        )
 
         return field_dict
 
     def to_multipart(self) -> types.RequestFiles:
         files: types.RequestFiles = []
 
-        if not isinstance(self.file, Unset):
-            files.append(("file", self.file.to_tuple()))
+        files.append(("files", self.files.to_tuple()))
+
+        files.append(("requirements", self.requirements.to_tuple()))
 
         for prop_name, prop in self.additional_properties.items():
             files.append((prop_name, (None, str(prop).encode(), "text/plain")))
@@ -52,15 +54,13 @@ class CreateDeploymentBody:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        _file = d.pop("file", UNSET)
-        file: Union[Unset, File]
-        if isinstance(_file, Unset):
-            file = UNSET
-        else:
-            file = File(payload=BytesIO(_file))
+        files = File(payload=BytesIO(d.pop("files")))
+
+        requirements = File(payload=BytesIO(d.pop("requirements")))
 
         create_deployment_body = cls(
-            file=file,
+            files=files,
+            requirements=requirements,
         )
 
         create_deployment_body.additional_properties = d

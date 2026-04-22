@@ -30,6 +30,9 @@ __all__ = [
     "FIRST_FEW_BYTES",
     "DiffAlgorithmNotAvailable",
     "MailinfoResult",
+    "PatchApplicationFailure",
+    "apply_patch_hunks",
+    "apply_patches",
     "commit_patch_id",
     "gen_diff_header",
     "get_summary",
@@ -51,6 +54,7 @@ __all__ = [
 import email.message
 import email.parser
 import email.utils
+import os
 import re
 import time
 from collections.abc import Generator, Sequence
@@ -65,12 +69,17 @@ from typing import (
 
 if TYPE_CHECKING:
     from .object_store import BaseObjectStore
+    from .repo import Repo
 
 from .objects import S_ISGITLINK, Blob, Commit, ObjectID, RawObjectID
 
 FIRST_FEW_BYTES = 8000
 
 DEFAULT_DIFF_ALGORITHM = "myers"
+
+
+class PatchApplicationFailure(Exception):
+    """Raised when a patch does not apply cleanly."""
 
 
 class DiffAlgorithmNotAvailable(Exception):
@@ -881,6 +890,853 @@ def _find_scissors_line(lines: list[bytes]) -> int | None:
             return i
 
     return None
+
+
+def git_base85_decode(data: bytes) -> bytes:
+    """Decode Git's base85-encoded binary data.
+
+    Git uses a custom base85 encoding with its own alphabet and line format.
+    Each line starts with a length byte followed by base85-encoded data.
+
+    Args:
+        data: Base85-encoded data as bytes (may contain multiple lines)
+
+    Returns:
+        Decoded binary data
+
+    Raises:
+        ValueError: If the data is invalid
+    """
+    # Git's base85 alphabet (different from RFC 1924)
+    alphabet = b"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz!#$%&()*+-;<=>?@^_`{|}~"
+
+    # Create decode table
+    decode_table = {}
+    for i, c in enumerate(alphabet):
+        decode_table[c] = i
+
+    result = bytearray()
+    lines = data.strip().split(b"\n")
+
+    for line in lines:
+        if not line:
+            continue
+
+        # First character encodes the length of decoded data for this line
+        if line[0] not in decode_table:
+            continue
+
+        encoded_len = decode_table[line[0]]
+        if encoded_len == 0:
+            continue
+
+        # Decode the rest of the line
+        encoded_data = line[1:]
+
+        # Process in groups of 5 characters (which encode 4 bytes)
+        i = 0
+        decoded_this_line = 0
+        while i < len(encoded_data) and decoded_this_line < encoded_len:
+            # Get up to 5 characters
+            group = encoded_data[i : i + 5]
+            if len(group) == 0:
+                break
+
+            # Decode 5 base85 digits to a 32-bit value
+            value = 0
+            for c in group:
+                if c not in decode_table:
+                    raise ValueError(f"Invalid base85 character: {chr(c)}")
+                value = value * 85 + decode_table[c]
+
+            # Convert to 4 bytes (big-endian)
+            bytes_to_add = min(4, encoded_len - decoded_this_line)
+            decoded_bytes = value.to_bytes(4, byteorder="big")
+            result.extend(decoded_bytes[:bytes_to_add])
+            decoded_this_line += bytes_to_add
+            i += 5
+
+    return bytes(result)
+
+
+@dataclass
+class PatchHunk:
+    """Represents a single hunk in a unified diff.
+
+    Attributes:
+        old_start: Starting line number in old file
+        old_count: Number of lines in old file
+        new_start: Starting line number in new file
+        new_count: Number of lines in new file
+        lines: List of diff lines (prefixed with ' ', '+', or '-')
+    """
+
+    old_start: int
+    old_count: int
+    new_start: int
+    new_count: int
+    lines: list[bytes]
+
+
+@dataclass
+class FilePatch:
+    """Represents a patch for a single file.
+
+    Attributes:
+        old_path: Path to old file (None for new files)
+        new_path: Path to new file (None for deleted files)
+        old_mode: Mode of old file (None for new files)
+        new_mode: Mode of new file (None for deleted files)
+        hunks: List of PatchHunk objects
+        binary: True if this is a binary patch
+        rename_from: Original path for renames (None if not a rename)
+        rename_to: New path for renames (None if not a rename)
+        copy_from: Source path for copies (None if not a copy)
+        copy_to: Destination path for copies (None if not a copy)
+        binary_old: Old binary content for binary patches (base85 encoded)
+        binary_new: New binary content for binary patches (base85 encoded)
+    """
+
+    old_path: bytes | None
+    new_path: bytes | None
+    old_mode: int | None
+    new_mode: int | None
+    hunks: list[PatchHunk]
+    binary: bool = False
+    rename_from: bytes | None = None
+    rename_to: bytes | None = None
+    copy_from: bytes | None = None
+    copy_to: bytes | None = None
+    binary_old: bytes | None = None
+    binary_new: bytes | None = None
+
+
+def parse_unified_diff(diff_text: bytes) -> list[FilePatch]:
+    """Parse a unified diff into FilePatch objects.
+
+    Args:
+        diff_text: Unified diff content as bytes
+
+    Returns:
+        List of FilePatch objects
+    """
+    patches: list[FilePatch] = []
+    lines = diff_text.split(b"\n")
+    i = 0
+
+    while i < len(lines):
+        line = lines[i]
+
+        # Look for diff header
+        if line.startswith(b"diff --git "):
+            # Parse file patch
+            old_path = None
+            new_path = None
+            old_mode = None
+            new_mode = None
+            hunks: list[PatchHunk] = []
+            binary = False
+            rename_from = None
+            rename_to = None
+            copy_from = None
+            copy_to = None
+            binary_old = None
+            binary_new = None
+
+            # Parse extended headers
+            i += 1
+            while i < len(lines):
+                line = lines[i]
+
+                if line.startswith(b"old file mode "):
+                    old_mode = int(line.split()[-1], 8)
+                    i += 1
+                elif line.startswith(b"new file mode "):
+                    new_mode = int(line.split()[-1], 8)
+                    i += 1
+                elif line.startswith(b"deleted file mode "):
+                    old_mode = int(line.split()[-1], 8)
+                    i += 1
+                elif line.startswith(b"new mode "):
+                    new_mode = int(line.split()[-1], 8)
+                    i += 1
+                elif line.startswith(b"old mode "):
+                    old_mode = int(line.split()[-1], 8)
+                    i += 1
+                elif line.startswith(b"rename from "):
+                    rename_from = line[12:].strip()
+                    i += 1
+                elif line.startswith(b"rename to "):
+                    rename_to = line[10:].strip()
+                    i += 1
+                elif line.startswith(b"copy from "):
+                    copy_from = line[10:].strip()
+                    i += 1
+                elif line.startswith(b"copy to "):
+                    copy_to = line[8:].strip()
+                    i += 1
+                elif line.startswith(b"similarity index "):
+                    # Just skip similarity index for now
+                    i += 1
+                elif line.startswith(b"dissimilarity index "):
+                    # Just skip dissimilarity index for now
+                    i += 1
+                elif line.startswith(b"index "):
+                    i += 1
+                elif line.startswith(b"--- "):
+                    # Parse old file path
+                    path = line[4:].split(b"\t")[0]
+                    if path != b"/dev/null":
+                        old_path = path
+                    i += 1
+                elif line.startswith(b"+++ "):
+                    # Parse new file path
+                    path = line[4:].split(b"\t")[0]
+                    if path != b"/dev/null":
+                        new_path = path
+                    i += 1
+                    break
+                elif line.startswith(b"Binary files"):
+                    binary = True
+                    i += 1
+                    break
+                elif line.startswith(b"GIT binary patch"):
+                    binary = True
+                    i += 1
+                    # Parse binary patch data
+                    while i < len(lines):
+                        line = lines[i]
+                        if line.startswith(b"literal "):
+                            # New binary data
+                            # size = int(line[8:].strip())  # Size information, not currently used
+                            i += 1
+                            binary_data = b""
+                            while i < len(lines):
+                                line = lines[i]
+                                if (
+                                    line.startswith(
+                                        (b"literal ", b"delta ", b"diff --git ")
+                                    )
+                                    or not line.strip()
+                                ):
+                                    break
+                                binary_data += line + b"\n"
+                                i += 1
+                            binary_new = binary_data
+                        elif line.startswith(b"delta "):
+                            # Delta patch (not supported yet)
+                            i += 1
+                            while i < len(lines):
+                                line = lines[i]
+                                if (
+                                    line.startswith(
+                                        (b"literal ", b"delta ", b"diff --git ")
+                                    )
+                                    or not line.strip()
+                                ):
+                                    break
+                                i += 1
+                        else:
+                            break
+                    break
+                else:
+                    i += 1
+                    break
+
+            # Parse hunks
+            if not binary:
+                while i < len(lines):
+                    line = lines[i]
+
+                    if line.startswith(b"@@ "):
+                        # Parse hunk header
+                        match = re.match(
+                            rb"@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@", line
+                        )
+                        if match:
+                            old_start = int(match.group(1))
+                            old_count = int(match.group(2)) if match.group(2) else 1
+                            new_start = int(match.group(3))
+                            new_count = int(match.group(4)) if match.group(4) else 1
+
+                            # Parse hunk lines
+                            hunk_lines: list[bytes] = []
+                            i += 1
+                            while i < len(lines):
+                                line = lines[i]
+                                if line.startswith((b" ", b"+", b"-", b"\\")):
+                                    hunk_lines.append(line)
+                                    i += 1
+                                else:
+                                    break
+
+                            hunks.append(
+                                PatchHunk(
+                                    old_start=old_start,
+                                    old_count=old_count,
+                                    new_start=new_start,
+                                    new_count=new_count,
+                                    lines=hunk_lines,
+                                )
+                            )
+                        else:
+                            i += 1
+                    elif line.startswith(b"diff --git "):
+                        # Next file patch
+                        break
+                    else:
+                        i += 1
+                        if not line.strip():
+                            # Empty line, might be end of patch or separator
+                            break
+
+            patches.append(
+                FilePatch(
+                    old_path=old_path,
+                    new_path=new_path,
+                    old_mode=old_mode,
+                    new_mode=new_mode,
+                    hunks=hunks,
+                    binary=binary,
+                    rename_from=rename_from,
+                    rename_to=rename_to,
+                    copy_from=copy_from,
+                    copy_to=copy_to,
+                    binary_old=binary_old,
+                    binary_new=binary_new,
+                )
+            )
+        else:
+            i += 1
+
+    return patches
+
+
+def apply_patch_hunks(
+    patch: FilePatch,
+    original_lines: list[bytes],
+) -> list[bytes] | None:
+    """Apply patch hunks to file content.
+
+    Args:
+        patch: FilePatch object to apply
+        original_lines: Original file content as list of lines
+
+    Returns:
+        Patched file content as list of lines, or None if patch cannot be applied
+    """
+    result = original_lines[:]
+    offset = 0  # Track line offset as we apply hunks
+
+    for hunk in patch.hunks:
+        # Adjust hunk position by offset
+        # old_start is 1-indexed; 0 means the hunk inserts at the beginning
+        target_line = max(hunk.old_start - 1, 0) + offset
+
+        # Extract old and new content from hunk
+        old_content: list[bytes] = []
+        new_content: list[bytes] = []
+
+        for line in hunk.lines:
+            if line.startswith(b"\\"):
+                # Skip "\ No newline at end of file" markers
+                continue
+            elif line.startswith(b" "):
+                # Context line - add newline if not present
+                content = line[1:]
+                if not content.endswith(b"\n"):
+                    content += b"\n"
+                old_content.append(content)
+                new_content.append(content)
+            elif line.startswith(b"-"):
+                # Deletion - add newline if not present
+                content = line[1:]
+                if not content.endswith(b"\n"):
+                    content += b"\n"
+                old_content.append(content)
+            elif line.startswith(b"+"):
+                # Addition - add newline if not present
+                content = line[1:]
+                if not content.endswith(b"\n"):
+                    content += b"\n"
+                new_content.append(content)
+
+        # Verify context matches
+        if target_line < 0 or target_line + len(old_content) > len(result):
+            # TODO: Implement fuzzy matching
+            return None
+
+        for i, old_line in enumerate(old_content):
+            if result[target_line + i] != old_line:
+                # Context doesn't match
+                # TODO: Implement fuzzy matching
+                return None
+
+        # Apply the patch
+        result[target_line : target_line + len(old_content)] = new_content
+
+        # Update offset for next hunk
+        offset += len(new_content) - len(old_content)
+
+    return result
+
+
+def _apply_rename_or_copy(
+    r: "Repo",
+    src_path: bytes,
+    dst_path: bytes,
+    strip: int,
+    patch: FilePatch,
+    is_rename: bool,
+    cached: bool,
+    check: bool,
+) -> tuple[list[bytes] | None, bool]:
+    """Apply a rename or copy operation.
+
+    Args:
+        r: Repository object
+        src_path: Source path
+        dst_path: Destination path
+        strip: Number of path components to strip
+        patch: FilePatch object
+        is_rename: True for rename, False for copy
+        cached: Apply to index only, not working tree
+        check: Check only, don't apply
+
+    Returns:
+        A tuple of (``original_lines``, ``should_continue``) where:
+        - ``original_lines``: Content lines if hunks need to be applied, None otherwise
+        - ``should_continue``: True to skip to next patch, False to continue processing
+    """
+    from .index import ConflictedIndexEntry, IndexEntry, index_entry_from_stat
+
+    # Strip path components
+    src_stripped = src_path
+    dst_stripped = dst_path
+    if strip > 0:
+        src_parts = src_path.split(b"/")
+        if len(src_parts) > strip:
+            src_stripped = b"/".join(src_parts[strip:])
+        dst_parts = dst_path.split(b"/")
+        if len(dst_parts) > strip:
+            dst_stripped = b"/".join(dst_parts[strip:])
+
+    repo_path_bytes = r.path.encode("utf-8") if isinstance(r.path, str) else r.path
+    src_fs_path = os.path.join(repo_path_bytes, src_stripped)
+    dst_fs_path = os.path.join(repo_path_bytes, dst_stripped)
+
+    # Read content from source file
+    op_name = "rename" if is_rename else "copy"
+    if os.path.exists(src_fs_path):
+        with open(src_fs_path, "rb") as f:
+            content = f.read()
+    else:
+        # Try to read from index
+        index = r.open_index()
+        if src_stripped in index:
+            entry = index[src_stripped]
+            if not isinstance(entry, ConflictedIndexEntry):
+                obj = r.object_store[entry.sha]
+                if isinstance(obj, Blob):
+                    content = obj.data
+                else:
+                    raise ValueError(
+                        f"Cannot {op_name}: source {src_stripped.decode('utf-8', errors='replace')} not found"
+                    )
+            else:
+                raise ValueError(
+                    f"Cannot {op_name}: source {src_stripped.decode('utf-8', errors='replace')} is conflicted"
+                )
+        else:
+            raise ValueError(
+                f"Cannot {op_name}: source {src_stripped.decode('utf-8', errors='replace')} not found"
+            )
+
+    # If there are hunks, return content as lines for further processing
+    if patch.hunks:
+        return content.splitlines(keepends=True), False
+
+    # No hunks - pure rename/copy
+    if check:
+        return None, True
+
+    # Write to destination
+    if not cached:
+        os.makedirs(os.path.dirname(dst_fs_path), exist_ok=True)
+        with open(dst_fs_path, "wb") as f:
+            f.write(content)
+        if patch.new_mode is not None:
+            os.chmod(dst_fs_path, patch.new_mode)
+
+    # Update index
+    index = r.open_index()
+    blob = Blob.from_string(content)
+    r.object_store.add_object(blob)
+
+    if not cached and os.path.exists(dst_fs_path):
+        st = os.stat(dst_fs_path)
+        entry = index_entry_from_stat(st, blob.id, 0)
+    else:
+        entry = IndexEntry(
+            ctime=(0, 0),
+            mtime=(0, 0),
+            dev=0,
+            ino=0,
+            mode=patch.new_mode or 0o100644,
+            uid=0,
+            gid=0,
+            size=len(content),
+            sha=blob.id,
+            flags=0,
+        )
+
+    index[dst_stripped] = entry
+
+    # For renames, remove the old file
+    if is_rename:
+        if not cached and os.path.exists(src_fs_path):
+            os.remove(src_fs_path)
+        if src_stripped in index:
+            del index[src_stripped]
+
+    index.write()
+    return None, True
+
+
+def apply_patches(
+    r: "Repo",
+    patches: list[FilePatch],
+    cached: bool = False,
+    reverse: bool = False,
+    check: bool = False,
+    strip: int = 1,
+    three_way: bool = False,
+) -> None:
+    """Apply a list of file patches to a repository.
+
+    Args:
+        r: Repository object
+        patches: List of FilePatch objects to apply
+        cached: Apply patch to index only, not working tree
+        reverse: Apply patch in reverse
+        check: Only check if patch can be applied, don't apply
+        strip: Number of leading path components to strip (default: 1)
+        three_way: Fall back to 3-way merge if patch does not apply cleanly
+
+    Raises:
+        ValueError: If patch cannot be applied
+    """
+    from .index import ConflictedIndexEntry, IndexEntry, index_entry_from_stat
+
+    for patch in patches:
+        # Determine the file path
+        # For renames/copies without hunks, old_path/new_path may be None
+        # Use local variables to avoid mutating the patch object
+        old_path = patch.old_path
+        new_path = patch.new_path
+
+        if new_path is None and old_path is None:
+            if patch.rename_to is not None:
+                # Use rename_to for the target path
+                new_path = patch.rename_to
+                old_path = patch.rename_from
+            elif patch.copy_to is not None:
+                # Use copy_to for the target path
+                new_path = patch.copy_to
+                old_path = patch.copy_from
+            else:
+                raise ValueError("Patch has no file path")
+
+        # Choose path based on operation
+        file_path: bytes
+        if new_path is None:
+            # Deletion
+            if old_path is None:
+                raise ValueError("Patch has no file path")
+            file_path = old_path
+        elif old_path is None:
+            # Addition
+            file_path = new_path
+        else:
+            # Modification (use new path)
+            file_path = new_path
+
+        # Strip path components
+        if strip > 0:
+            parts = file_path.split(b"/")
+            if len(parts) > strip:
+                file_path = b"/".join(parts[strip:])
+
+        # Convert to filesystem path
+        tree_path = file_path
+        fs_path = os.path.join(
+            r.path.encode("utf-8") if isinstance(r.path, str) else r.path, file_path
+        )
+
+        # Handle renames and copies
+        original_lines: list[bytes] | None = None
+        if patch.rename_from is not None and patch.rename_to is not None:
+            original_lines, should_continue = _apply_rename_or_copy(
+                r,
+                patch.rename_from,
+                patch.rename_to,
+                strip,
+                patch,
+                is_rename=True,
+                cached=cached,
+                check=check,
+            )
+            if should_continue:
+                continue
+        elif patch.copy_from is not None and patch.copy_to is not None:
+            original_lines, should_continue = _apply_rename_or_copy(
+                r,
+                patch.copy_from,
+                patch.copy_to,
+                strip,
+                patch,
+                is_rename=False,
+                cached=cached,
+                check=check,
+            )
+            if should_continue:
+                continue
+
+        # Handle binary patches
+        if patch.binary:
+            if patch.binary_new is not None:
+                # Decode binary patch
+                try:
+                    binary_content = git_base85_decode(patch.binary_new)
+                except (ValueError, KeyError) as e:
+                    raise ValueError(f"Failed to decode binary patch: {e}")
+
+                if check:
+                    # Just checking, don't actually apply
+                    continue
+
+                # Write binary file
+                if not cached:
+                    os.makedirs(os.path.dirname(fs_path), exist_ok=True)
+                    with open(fs_path, "wb") as f:
+                        f.write(binary_content)
+                    if patch.new_mode is not None:
+                        os.chmod(fs_path, patch.new_mode)
+
+                # Update index
+                index = r.open_index()
+                blob = Blob.from_string(binary_content)
+                r.object_store.add_object(blob)
+
+                if not cached and os.path.exists(fs_path):
+                    st = os.stat(fs_path)
+                    entry = index_entry_from_stat(st, blob.id, 0)
+                else:
+                    entry = IndexEntry(
+                        ctime=(0, 0),
+                        mtime=(0, 0),
+                        dev=0,
+                        ino=0,
+                        mode=patch.new_mode or 0o100644,
+                        uid=0,
+                        gid=0,
+                        size=len(binary_content),
+                        sha=blob.id,
+                        flags=0,
+                    )
+
+                index[tree_path] = entry
+                index.write()
+                continue
+            else:
+                # Old-style "Binary files differ" message without actual patch data
+                raise NotImplementedError(
+                    "Binary patch detected but no patch data provided (use git diff --binary)"
+                )
+
+        # Read original file content (unless already loaded from rename/copy)
+        if original_lines is None:
+            if patch.old_path is None:
+                # New file
+                original_lines = []
+            else:
+                if os.path.exists(fs_path):
+                    with open(fs_path, "rb") as f:
+                        content = f.read()
+                    original_lines = content.splitlines(keepends=True)
+                else:
+                    # File doesn't exist - check if it's in the index
+                    try:
+                        index = r.open_index()
+                        if tree_path in index:
+                            index_entry: IndexEntry | ConflictedIndexEntry = index[
+                                tree_path
+                            ]
+                            if not isinstance(index_entry, ConflictedIndexEntry):
+                                obj = r.object_store[index_entry.sha]
+                                if isinstance(obj, Blob):
+                                    original_lines = obj.data.splitlines(keepends=True)
+                                else:
+                                    original_lines = []
+                            else:
+                                original_lines = []
+                        else:
+                            original_lines = []
+                    except (KeyError, FileNotFoundError):
+                        original_lines = []
+
+        # Reverse patch if requested
+        if reverse:
+            # Swap old and new in hunks
+            for hunk in patch.hunks:
+                hunk.old_start, hunk.new_start = hunk.new_start, hunk.old_start
+                hunk.old_count, hunk.new_count = hunk.new_count, hunk.old_count
+                # Swap +/- prefixes
+                reversed_lines = []
+                for line in hunk.lines:
+                    if line.startswith(b"+"):
+                        reversed_lines.append(b"-" + line[1:])
+                    elif line.startswith(b"-"):
+                        reversed_lines.append(b"+" + line[1:])
+                    else:
+                        reversed_lines.append(line)
+                hunk.lines = reversed_lines
+
+        # Apply the patch
+        assert original_lines is not None
+        result = apply_patch_hunks(patch, original_lines)
+
+        if result is None and three_way:
+            # Try 3-way merge fallback
+            from .merge import merge_blobs
+
+            # Reconstruct base version from the patch
+            # Base is what you get by taking only the old lines from hunks
+            base_lines = []
+            theirs_lines = []
+
+            for hunk in patch.hunks:
+                for line in hunk.lines:
+                    if line.startswith(b"\\"):
+                        # Skip "\ No newline at end of file" markers
+                        continue
+                    elif line.startswith(b" "):
+                        # Context line - in both base and theirs
+                        content = line[1:]
+                        if not content.endswith(b"\n"):
+                            content += b"\n"
+                        base_lines.append(content)
+                        theirs_lines.append(content)
+                    elif line.startswith(b"-"):
+                        # Deletion - only in base
+                        content = line[1:]
+                        if not content.endswith(b"\n"):
+                            content += b"\n"
+                        base_lines.append(content)
+                    elif line.startswith(b"+"):
+                        # Addition - only in theirs
+                        content = line[1:]
+                        if not content.endswith(b"\n"):
+                            content += b"\n"
+                        theirs_lines.append(content)
+
+            # Create blobs for merging
+            base_content = b"".join(base_lines)
+            ours_content = b"".join(original_lines)
+            theirs_content = b"".join(theirs_lines)
+
+            base_blob = Blob.from_string(base_content) if base_content else None
+            ours_blob = Blob.from_string(ours_content) if ours_content else None
+            theirs_blob = Blob.from_string(theirs_content)
+
+            # Perform 3-way merge
+            merged_content, _had_conflicts = merge_blobs(
+                base_blob, ours_blob, theirs_blob, path=tree_path
+            )
+
+            result = merged_content.splitlines(keepends=True)
+
+            # Note: if _had_conflicts is True, the result contains conflict markers
+            # Git would exit with error code, but we continue processing
+        elif result is None:
+            raise PatchApplicationFailure(
+                f"Patch does not apply to {file_path.decode('utf-8', errors='replace')}"
+            )
+
+        if check:
+            # Just checking, don't actually apply
+            continue
+
+        # Write result
+        result_content = b"".join(result)
+
+        if patch.new_path is None:
+            # File deletion
+            if not cached and os.path.exists(fs_path):
+                os.remove(fs_path)
+            # Remove from index
+            index = r.open_index()
+            if tree_path in index:
+                del index[tree_path]
+                index.write()
+        else:
+            # File addition or modification
+            if not cached:
+                # Write to working tree
+                os.makedirs(os.path.dirname(fs_path), exist_ok=True)
+                with open(fs_path, "wb") as f:
+                    f.write(result_content)
+
+                # Update file mode if specified
+                if patch.new_mode is not None:
+                    os.chmod(fs_path, patch.new_mode)
+
+            # Update index
+            index = r.open_index()
+            blob = Blob.from_string(result_content)
+            r.object_store.add_object(blob)
+
+            # Get file stat for index entry
+            if not cached and os.path.exists(fs_path):
+                st = os.stat(fs_path)
+                entry = index_entry_from_stat(st, blob.id, 0)
+            else:
+                # Create a minimal index entry for cached-only changes
+                entry = IndexEntry(
+                    ctime=(0, 0),
+                    mtime=(0, 0),
+                    dev=0,
+                    ino=0,
+                    mode=patch.new_mode or 0o100644,
+                    uid=0,
+                    gid=0,
+                    size=len(result_content),
+                    sha=blob.id,
+                    flags=0,
+                )
+
+            index[tree_path] = entry
+
+            # Handle cleanup for renames with hunks
+            if patch.rename_from is not None and patch.rename_to is not None:
+                # Remove old file after successful rename
+                old_rename_path = patch.rename_from
+                if strip > 0:
+                    old_parts = old_rename_path.split(b"/")
+                    if len(old_parts) > strip:
+                        old_rename_path = b"/".join(old_parts[strip:])
+
+                old_fs_path = os.path.join(
+                    r.path.encode("utf-8") if isinstance(r.path, str) else r.path,
+                    old_rename_path,
+                )
+
+                if not cached and os.path.exists(old_fs_path):
+                    os.remove(old_fs_path)
+                if old_rename_path in index:
+                    del index[old_rename_path]
+
+            index.write()
 
 
 def mailinfo(

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from chalk.features._encoding._feature_converters import GenericFeatureConverter  # pyright: ignore[reportUnusedImport]
 from chalk.features._encoding._feature_converters import (  # noqa: F401  # pyright: ignore[reportUnusedImport]; noqa: F401  # pyright: ignore[reportUnusedImport]; noqa: F401
     _DEFAULT_FEATURE_ENCODING_OPTIONS,
     _FROM_NEW,

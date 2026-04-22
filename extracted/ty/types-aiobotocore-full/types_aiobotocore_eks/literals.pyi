@@ -91,6 +91,7 @@ __all__ = (
     "UpdateTypeType",
     "VersionStatusType",
     "WaiterName",
+    "WarmPoolStateType",
 )
 
 AMITypesType = Literal[
@@ -323,6 +324,11 @@ UpdateParamTypeType = Literal[
     "UpdatedTier",
     "UpgradePolicy",
     "Version",
+    "WarmPoolEnabled",
+    "WarmPoolMaxGroupPreparedCapacity",
+    "WarmPoolMinSize",
+    "WarmPoolReuseOnScaleIn",
+    "WarmPoolState",
     "ZonalShiftConfig",
 ]
 UpdateStatusType = Literal["Cancelled", "Failed", "InProgress", "Successful"]
@@ -346,6 +352,7 @@ UpdateTypeType = Literal[
     "ZonalShiftConfigUpdate",
 ]
 VersionStatusType = Literal["EXTENDED_SUPPORT", "STANDARD_SUPPORT", "UNSUPPORTED"]
+WarmPoolStateType = Literal["HIBERNATED", "RUNNING", "STOPPED"]
 EKSServiceName = Literal["eks"]
 ServiceName = Literal[
     "accessanalyzer",
@@ -532,6 +539,7 @@ ServiceName = Literal[
     "inspector",
     "inspector-scan",
     "inspector2",
+    "interconnect",
     "internetmonitor",
     "invoicing",
     "iot",
@@ -588,6 +596,7 @@ ServiceName = Literal[
     "marketplace-agreement",
     "marketplace-catalog",
     "marketplace-deployment",
+    "marketplace-discovery",
     "marketplace-entitlement",
     "marketplace-reporting",
     "marketplacecommerceanalytics",
@@ -685,6 +694,7 @@ ServiceName = Literal[
     "rum",
     "s3",
     "s3control",
+    "s3files",
     "s3outposts",
     "s3tables",
     "s3vectors",

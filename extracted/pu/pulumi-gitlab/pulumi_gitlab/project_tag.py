@@ -27,6 +27,7 @@ class ProjectTagArgs:
                  name: Optional[pulumi.Input[_builtins.str]] = None):
         """
         The set of arguments for constructing a ProjectTag resource.
+
         :param pulumi.Input[_builtins.str] project: The ID or URL-encoded path of the project owned by the authenticated user.
         :param pulumi.Input[_builtins.str] ref: Create tag using commit SHA, another tag name, or branch name. This attribute is not available for imported resources.
         :param pulumi.Input[_builtins.str] message: The message of the annotated tag.
@@ -101,6 +102,7 @@ class _ProjectTagState:
                  target: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering ProjectTag resources.
+
         :param pulumi.Input[Sequence[pulumi.Input['ProjectTagCommitArgs']]] commits: The commit associated with the tag.
         :param pulumi.Input[_builtins.str] message: The message of the annotated tag.
         :param pulumi.Input[_builtins.str] name: The name of a tag.
@@ -259,27 +261,18 @@ class ProjectTag(pulumi.CustomResource):
 
         ## Import
 
-        Starting in Terraform v1.5.0, you can use an import block to import `gitlab_project_tag`. For example:
-
-        terraform
-
-        import {
-
-          to = gitlab_project_tag.example
-
-          id = "see CLI command below for ID"
-
-        }
+        Starting in Terraform v1.5.0, you can use an import block to import `ProjectTag`. For example:
 
         Importing using the CLI is supported with the following syntax:
 
-        Gitlab project tags can be imported with a key composed of `<project_id>:<tag_name>`, e.g.
+        Gitlab project tags can be imported with a key composed of `<project_id>:<tag_name>`, for example:
 
         ```sh
         $ pulumi import gitlab:index/projectTag:ProjectTag example "12345:develop"
         ```
 
-        NOTE: the `ref` attribute won't be available for imported `gitlab_project_tag` resources.
+        NOTE: the `ref` attribute won't be available for imported `ProjectTag` resources.
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -318,27 +311,18 @@ class ProjectTag(pulumi.CustomResource):
 
         ## Import
 
-        Starting in Terraform v1.5.0, you can use an import block to import `gitlab_project_tag`. For example:
-
-        terraform
-
-        import {
-
-          to = gitlab_project_tag.example
-
-          id = "see CLI command below for ID"
-
-        }
+        Starting in Terraform v1.5.0, you can use an import block to import `ProjectTag`. For example:
 
         Importing using the CLI is supported with the following syntax:
 
-        Gitlab project tags can be imported with a key composed of `<project_id>:<tag_name>`, e.g.
+        Gitlab project tags can be imported with a key composed of `<project_id>:<tag_name>`, for example:
 
         ```sh
         $ pulumi import gitlab:index/projectTag:ProjectTag example "12345:develop"
         ```
 
-        NOTE: the `ref` attribute won't be available for imported `gitlab_project_tag` resources.
+        NOTE: the `ref` attribute won't be available for imported `ProjectTag` resources.
+
 
         :param str resource_name: The name of the resource.
         :param ProjectTagArgs args: The arguments to use to populate this resource's properties.

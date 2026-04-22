@@ -1,18 +1,27 @@
 # -*- coding: utf-8 -*-
 """
-This module provides the command-line interface for PyPDFForm.
+This module defines the root command-line interface for PyPDFForm.
 
-It defines the CLI application using Typer, providing commands for
-interacting with PyPDFForm functionality from the terminal.
+It creates the Typer application, attaches the `create`, `inspect`, and `update`
+command groups, and exposes top-level options shared by those commands. The root
+callback collects global flags in the Typer context so each subcommand can
+initialize `PdfWrapper` with consistent settings.
+
+Commands:
+    - `fill`: Fill an existing PDF form from JSON data.
+    - `create`: Create PDFs, fields, annotations, raw elements, and grid views.
+    - `inspect`: Print form metadata and field data as JSON.
+    - `update`: Modify PDF metadata, field names, properties, geometry, and scripts.
 """
 
 import json
+from pathlib import Path
 from typing import Annotated
 
 import typer
 
 from .. import PdfWrapper, Widgets, __version__
-from .coordinate import coordinate_cli
+from .common import INPUT_PDF, OPTIONAL_OUTPUT_PDF, json_file_option
 from .create import create_cli
 from .inspect import inspect_cli
 from .update import update_cli
@@ -21,120 +30,48 @@ cli_app = typer.Typer(
     context_settings={"help_option_names": ["--help", "-h"]}, no_args_is_help=True
 )
 cli_app.add_typer(
-    coordinate_cli,
-    name="coordinate",
-    help="Subcommands for interacting with PDF coordinates and dimensions.",
-)
-cli_app.add_typer(
     create_cli,
     name="create",
-    help="Subcommands for creating elements on PDF forms.",
+    help="Create PDFs and PDF elements.",
 )
 cli_app.add_typer(
     inspect_cli,
     name="inspect",
-    help="Subcommands for inspecting PDF forms.",
+    help="Inspect PDF form information.",
 )
 cli_app.add_typer(
     update_cli,
     name="update",
-    help="Subcommands for updating PDF files and their elements.",
+    help="Update PDF metadata, fields, and scripts.",
 )
 
 
 def version_callback(value: bool) -> None:
     """
-    Callback function to handle the version option.
+    Handles the global version option.
 
-    This is triggered when the --version or -v flag is passed to the CLI.
-    It prints the current version of PyPDFForm and exits the application.
+    This callback is invoked eagerly by Typer when `--version` or `-v` is
+    passed. When the option is enabled, it prints the current PyPDFForm version
+    and exits before command parsing continues.
 
     Args:
-        value (bool): The value passed to the version option. If True,
-            the version information is displayed and the application exits.
+        value (bool): Whether the version flag was supplied.
+
+    Raises:
+        typer.Exit: Raised after printing the version so the CLI exits without
+            running another command.
     """
     if value:
-        print(f"v{__version__}")
+        typer.echo(f"v{__version__}")
         raise typer.Exit
 
 
-def need_appearances_callback(ctx: typer.Context, value: bool) -> None:
-    """
-    Callback function to handle the need_appearances option.
-
-    This is triggered when the --need-appearances flag is passed to the CLI.
-    It stores the value in the context object for use by subcommands.
-
-    Args:
-        ctx (typer.Context): The Typer context object used to pass data
-            between callbacks and commands.
-        value (bool): The value passed to the need_appearances option.
-            If True, PDF viewers will be instructed to generate appearance
-            streams for the output.
-    """
-    if not ctx.obj:
-        ctx.obj = {}
-    ctx.obj["need_appearances"] = value
-
-
-def generate_appearance_streams_callback(ctx: typer.Context, value: bool) -> None:
-    """
-    Callback function to handle the generate_appearance_streams option.
-
-    This is triggered when the --generate-appearance-streams flag is passed
-    to the CLI. It stores the value in the context object for use by subcommands.
-
-    Args:
-        ctx (typer.Context): The Typer context object used to pass data
-            between callbacks and commands.
-        value (bool): The value passed to the generate_appearance_streams
-            option. If True, appearance streams will be explicitly generated
-            for all form fields in output PDFs using pikepdf.
-    """
-    if not ctx.obj:
-        ctx.obj = {}
-    ctx.obj["generate_appearance_streams"] = value
-
-
-def preserve_metadata_callback(ctx: typer.Context, value: bool) -> None:
-    """
-    Callback function to handle the preserve_metadata option.
-
-    This is triggered when the --preserve-metadata flag is passed to the CLI.
-    It stores the value in the context object for use by subcommands.
-
-    Args:
-        ctx (typer.Context): The Typer context object used to pass data
-            between callbacks and commands.
-        value (bool): The value passed to the preserve_metadata option.
-            If True, metadata will be preserved in output PDFs.
-    """
-    if not ctx.obj:
-        ctx.obj = {}
-    ctx.obj["preserve_metadata"] = value
-
-
-def use_full_widget_name_callback(ctx: typer.Context, value: bool) -> None:
-    """
-    Callback function to handle the use_full_widget_name option.
-
-    This is triggered when the --use-full-widget-name flag is passed to the CLI.
-    It stores the value in the context object for use by subcommands.
-
-    Args:
-        ctx (typer.Context): The Typer context object used to pass data
-            between callbacks and commands.
-        value (bool): The value passed to the use_full_widget_name option.
-            If True, fully qualified names (including parent field names)
-            will be used when looking up form fields.
-    """
-    if not ctx.obj:
-        ctx.obj = {}
-    ctx.obj["use_full_widget_name"] = value
-
-
-@cli_app.callback(invoke_without_command=True, help="PyPDFForm command-line interface.")
+@cli_app.callback(
+    invoke_without_command=True,
+    help="Create, fill, inspect, and update PDF forms.",
+)
 def main(
+    ctx: typer.Context,
     version: Annotated[  # pylint: disable=W0613
         bool,
         typer.Option(
@@ -142,80 +79,63 @@ def main(
             "-v",
             callback=version_callback,
             is_eager=True,
-            help="Show the current version of the CLI and exit.",
+            help="Show the PyPDFForm version and exit.",
         ),
     ] = False,
-    need_appearances: Annotated[  # pylint: disable=W0613
+    need_appearances: Annotated[
         bool,
         typer.Option(
             "--need-appearances",
-            callback=need_appearances_callback,
-            help="Instruct PDF viewers to generate appearance streams for any output PDF.",
+            help="Ask PDF viewers to render form field appearances.",
         ),
     ] = False,
-    generate_appearance_streams: Annotated[  # pylint: disable=W0613
+    generate_appearance_streams: Annotated[
         bool,
         typer.Option(
             "--generate-appearance-streams",
-            callback=generate_appearance_streams_callback,
-            help="Generate appearance streams for any output PDF.",
+            help="Generate form field appearance streams.",
         ),
     ] = False,
-    preserve_metadata: Annotated[  # pylint: disable=W0613
+    preserve_metadata: Annotated[
         bool,
         typer.Option(
             "--preserve-metadata",
-            callback=preserve_metadata_callback,
-            help="Preserve PDF metadata in the output.",
+            help="Preserve input PDF metadata.",
         ),
     ] = False,
-    use_full_widget_name: Annotated[  # pylint: disable=W0613
+    use_full_widget_name: Annotated[
         bool,
         typer.Option(
             "--use-full-widget-name",
-            callback=use_full_widget_name_callback,
-            help="Use fully qualified names when accessing form fields.",
+            help="Use full form field names for lookup.",
         ),
     ] = False,
 ) -> None:
-    # pylint: disable=C0116
-    ...
+    """Create, fill, inspect, and update PDF forms."""
+    ctx.obj = {
+        "need_appearances": need_appearances,
+        "generate_appearance_streams": generate_appearance_streams,
+        "preserve_metadata": preserve_metadata,
+        "use_full_widget_name": use_full_widget_name,
+    }
 
 
 @cli_app.command(no_args_is_help=True)
 def fill(
     ctx: typer.Context,
-    pdf: Annotated[str, typer.Argument(help="Path to the input PDF file.")],
-    data: Annotated[
-        str,
-        typer.Option(
-            "--file",
-            "-f",
-            help="Path to the JSON file representing the filling data.",
-        ),
-    ],
-    output: Annotated[
-        str,
-        typer.Option(
-            "--output",
-            "-o",
-            help="Path to save the output PDF. Defaults to the original path if not specified.",
-        ),
-    ] = None,
+    pdf: INPUT_PDF,
+    data: Annotated[Path, json_file_option("JSON file with form field values.")],
+    output: OPTIONAL_OUTPUT_PDF = None,
     flatten: Annotated[
         bool,
-        typer.Option(
-            "--flatten", help="Whether to flatten the filled PDF form or not."
-        ),
+        typer.Option("--flatten", help="Flatten form fields after filling."),
     ] = None,
 ) -> None:
-    """
-    Fill a PDF form.
-    """
+    """Fill a PDF form with JSON data."""
     with open(data, "r", encoding="utf-8") as f:
         input_data = json.load(f)
 
-    obj = PdfWrapper(pdf, **ctx.obj)
+    obj = PdfWrapper(str(pdf), **ctx.obj)
     for k, each in obj.widgets.items():
         if k in input_data and isinstance(each, (Widgets.Image, Widgets.Signature)):
             each.preserve_aspect_ratio = input_data.get(k, {}).get(

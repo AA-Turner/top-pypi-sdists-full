@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openinference-instrumentation-vertexai
-Version: 0.1.12
+Version: 0.1.13
 Summary: OpenInference VertexAI Instrumentation
 Project-URL: homepage, https://github.com/Arize-ai/openinference/tree/main/python/instrumentation/openinference-instrumentation-vertexai
 Author-email: OpenInference Authors <oss@arize.com>
@@ -11,12 +11,11 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: <3.14,>=3.9
+Requires-Python: <3.14,>=3.10
 Requires-Dist: openinference-instrumentation>=0.1.27
 Requires-Dist: openinference-semantic-conventions>=0.1.17
 Requires-Dist: opentelemetry-api
@@ -25,9 +24,6 @@ Requires-Dist: opentelemetry-semantic-conventions
 Requires-Dist: wrapt
 Provides-Extra: instruments
 Requires-Dist: google-cloud-aiplatform>=1.49.0; extra == 'instruments'
-Provides-Extra: test
-Requires-Dist: opentelemetry-sdk; extra == 'test'
-Requires-Dist: vertexai==1.49.0; extra == 'test'
 Description-Content-Type: text/markdown
 
 # OpenInference Google VertexAI Instrumentation

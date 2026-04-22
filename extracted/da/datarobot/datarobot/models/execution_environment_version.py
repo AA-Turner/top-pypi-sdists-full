@@ -51,9 +51,9 @@ class ExecutionEnvironmentVersion(APIObject):
     Attributes
     ----------
     id: str
-        the id of the execution environment version
+        the ID of the execution environment version
     environment_id: str
-        the id of the execution environment the version belongs to
+        the ID of the execution environment the version belongs to
     build_status: str
         the status of the execution environment version build
     image_id: str
@@ -136,7 +136,7 @@ class ExecutionEnvironmentVersion(APIObject):
         Parameters
         ----------
         execution_environment_id: str
-            the id of the execution environment
+            the ID of the execution environment
         docker_context_path: Optional[str]
             The path to a Docker context archive or folder. This parameter has lower priority
             than `docker_image_uri` if they are both provided.
@@ -220,7 +220,7 @@ class ExecutionEnvironmentVersion(APIObject):
         Parameters
         ----------
         execution_environment_id: str
-            the id of the execution environment
+            the ID of the execution environment
         build_status: Optional[str]
             build status of the execution environment version to filter by.
             See datarobot.enums.EXECUTION_ENVIRONMENT_VERSION_BUILD_STATUS for valid options
@@ -250,9 +250,9 @@ class ExecutionEnvironmentVersion(APIObject):
         Parameters
         ----------
         execution_environment_id: str
-            the id of the execution environment
+            the ID of the execution environment
         version_id: str
-            the id of the execution environment version to retrieve
+            the ID of the execution environment version to retrieve
 
         Returns
         -------
@@ -354,9 +354,9 @@ class ExecutionEnvironmentVersion(APIObject):
         Parameters
         ----------
         execution_environment_id: str
-            the id of the execution environment
+            the ID of the execution environment
         version_id: str
-            the id of the execution environment version to retrieve
+            the ID of the execution environment version to retrieve
         max_wait: int
             max time to wait in seconds
 

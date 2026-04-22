@@ -1112,6 +1112,17 @@ class CreateBranchResponse(BaseModel):
     errors: Optional[List[ChalkError]] = None
 
 
+class RedeployResponse(BaseModel):
+    kind: str
+    """The kind of redeploy operation that was performed."""
+    deployment_id: Optional[str] = None
+    """The new deployment ID. Populated for kind='redeploy'."""
+    build_id: Optional[str] = None
+    """The build/job ID. Populated for kind='rebuild', 'reindex', and 'shadow_build'."""
+    nonfatal_errors: Optional[List[str]] = None
+    """Non-fatal errors encountered. Populated for kind='patch'."""
+
+
 class ColumnMetadata(BaseModel):
     """This entire model is deprecated."""
 
@@ -2087,6 +2098,67 @@ class ScheduledQueryRun:
             status=status_map.get(proto_run.status, ScheduledQueryRunStatus.UNSPECIFIED),
             blocker_operation_id=proto_run.blocker_operation_id,
             workflow_execution_id=proto_run.workflow_execution_id or None,
+        )
+
+
+@dataclasses.dataclass
+class JobQueueItem:
+    """A single job in the data plane job queue."""
+
+    id: int
+    job_name: Optional[str] = None
+    state: Optional[str] = None
+    kind: Optional[str] = None
+    operation_id: Optional[str] = None
+    environment_id: Optional[str] = None
+    deployment_id: Optional[str] = None
+    resource_group: Optional[str] = None
+    workflow_execution_id: Optional[str] = None
+    created_at: Optional[datetime] = None
+    scheduled_at: Optional[datetime] = None
+    finalized_at: Optional[datetime] = None
+
+    @staticmethod
+    def from_proto(proto: Any) -> "JobQueueItem":
+        from datetime import timezone
+
+        def _ts(ts: Any) -> Optional[datetime]:
+            if ts and (ts.seconds or ts.nanos):
+                return datetime.fromtimestamp(ts.seconds + ts.nanos / 1e9, tz=timezone.utc)
+            return None
+
+        _state_map = {
+            0: "UNSPECIFIED",
+            1: "SCHEDULED",
+            2: "RUNNING",
+            3: "COMPLETED",
+            4: "FAILED",
+            5: "CANCELED",
+            6: "NOT_READY",
+            7: "WAITING",
+        }
+        _kind_map = {
+            0: "UNSPECIFIED",
+            1: "ASYNC_OFFLINE_QUERY",
+            2: "SCHEDULED_QUERY",
+            3: "SCRIPT_TASK",
+            4: "CHALKSQL_RUN",
+            5: "DATAFRAME_RUN",
+        }
+
+        return JobQueueItem(
+            id=proto.id,
+            job_name=proto.job_name if proto.HasField("job_name") else None,
+            state=_state_map.get(proto.state, "UNSPECIFIED"),
+            kind=_kind_map.get(proto.kind, "UNSPECIFIED"),
+            operation_id=proto.operation_id if proto.HasField("operation_id") else None,
+            environment_id=proto.environment_id or None,
+            deployment_id=proto.deployment_id or None,
+            resource_group=proto.resource_group or None,
+            workflow_execution_id=proto.workflow_execution_id if proto.HasField("workflow_execution_id") else None,
+            created_at=_ts(proto.created_at),
+            scheduled_at=_ts(proto.scheduled_at) if proto.HasField("scheduled_at") else None,
+            finalized_at=_ts(proto.finalized_at) if proto.HasField("finalized_at") else None,
         )
 
 

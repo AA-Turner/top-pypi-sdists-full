@@ -50,6 +50,11 @@ class TestResolveLLMBackend:
         with pytest.raises(ValueError, match="Unsupported LLM backend"):
             resolve_llm_backend("invalid")
 
+    def test_rejects_hermes_backend(self) -> None:
+        """Hermes is runtime-only until an LLM adapter exists."""
+        with pytest.raises(ValueError, match="Unsupported LLM backend"):
+            resolve_llm_backend("hermes")
+
 
 class TestCreateLLMAdapter:
     """Tests for adapter construction."""
@@ -224,3 +229,69 @@ class TestResolveLLMPermissionMode:
             resolve_llm_permission_mode(backend="opencode", use_case="interview")
             == "bypassPermissions"
         )
+
+
+class TestGeminiSoftToolEnforcement:
+    """Gemini accepts ``allowed_tools`` but enforces them softly.
+
+    The Gemini CLI has no ``--allowed-tools`` flag, so the adapter injects
+    the envelope as a system-prompt directive and detects out-of-envelope
+    ``tool_use`` events post-hoc.  The factory's job is to (a) still
+    construct the adapter — failing fast would turn every interview or
+    evaluation on Gemini into a hard error with no recovery path — and
+    (b) make the soft-enforcement trade-off visible at construction time
+    so operators can tell it apart from hard-enforced sessions.
+    """
+
+    def _stub_gemini_cli(self, monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+        fake_cli = tmp_path / "gemini"
+        fake_cli.write_text("#!/bin/sh\necho ok\n", encoding="utf-8")
+        fake_cli.chmod(0o755)
+        monkeypatch.setenv("OUROBOROS_GEMINI_CLI_PATH", str(fake_cli))
+
+    def test_gemini_backend_accepts_allowed_tools_with_soft_enforcement(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path
+    ) -> None:
+        """Factory still builds a working adapter when Gemini gets an envelope."""
+        self._stub_gemini_cli(monkeypatch, tmp_path)
+
+        adapter = create_llm_adapter(
+            backend="gemini",
+            allowed_tools=["Read", "Grep", "Glob", "WebFetch", "WebSearch"],
+        )
+
+        assert adapter.__class__.__name__ == "GeminiCLIAdapter"
+        # The adapter keeps the envelope for prompt injection + post-hoc
+        # violation detection.
+        assert adapter._allowed_tools == (  # type: ignore[attr-defined]
+            "Read",
+            "Grep",
+            "Glob",
+            "WebFetch",
+            "WebSearch",
+        )
+
+    def test_gemini_backend_accepts_empty_allowed_tools(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path
+    ) -> None:
+        """An explicit empty envelope still produces a working adapter —
+        the prompt directive becomes "no tools allowed" instead of a
+        named allowlist.
+        """
+        self._stub_gemini_cli(monkeypatch, tmp_path)
+
+        adapter = create_llm_adapter(backend="gemini", allowed_tools=[])
+
+        assert adapter.__class__.__name__ == "GeminiCLIAdapter"
+        assert adapter._allowed_tools == ()  # type: ignore[attr-defined]
+
+    def test_gemini_backend_accepts_unrestricted_callers(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path
+    ) -> None:
+        """``allowed_tools=None`` means "caller did not request enforcement"."""
+        self._stub_gemini_cli(monkeypatch, tmp_path)
+
+        adapter = create_llm_adapter(backend="gemini", allowed_tools=None)
+
+        assert adapter.__class__.__name__ == "GeminiCLIAdapter"
+        assert adapter._allowed_tools is None  # type: ignore[attr-defined]

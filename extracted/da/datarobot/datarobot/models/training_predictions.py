@@ -145,7 +145,7 @@ class TrainingPredictionsIterator(RowsIterator):
         (New in version v2.11) how many time steps are between the forecast point and the
         timestamp in time series project; None for non-time series projects
     series_id : str or None
-        (New in version v2.11) the id of the series in a multiseries project;
+        (New in version v2.11) the ID of the series in a multiseries project;
         may be NaN for single series projects; None for non-time series projects
     prediction_explanations : list of dict or None
         (New in version v2.21) The prediction explanations for each feature. The total elements in
@@ -195,7 +195,7 @@ class TrainingPredictionsIterator(RowsIterator):
             the model's average prediction over the training data. SHAP values are deviations from
             the base value.
         - warnings (`dict or None`)
-            SHAP values calculation warnings (e.g. additivity check failures in XGBoost models).
+            SHAP values calculation warnings (e.g., additivity check failures in XGBoost models).
             Schema described as ``ShapWarnings``.
 
     ``ShapWarnings`` dictionary contains these keys:

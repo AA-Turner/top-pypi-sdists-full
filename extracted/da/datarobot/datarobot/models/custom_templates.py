@@ -165,7 +165,7 @@ class TemplateMetadata(APIObject):
 
 class CustomTemplate(APIObject):
     """
-    Template for custom activity (e.g. custom-metrics, applications).
+    Template for custom activity (e.g., custom-metrics, applications).
     """
 
     _path = "customTemplates/"

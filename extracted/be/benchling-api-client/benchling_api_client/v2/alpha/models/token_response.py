@@ -15,6 +15,8 @@ class TokenResponse:
 
     _access_token: Union[Unset, str] = UNSET
     _expires_in: Union[Unset, int] = UNSET
+    _refresh_token: Union[Unset, str] = UNSET
+    _refresh_token_expires_in: Union[Unset, int] = UNSET
     _token_type: Union[Unset, TokenResponseTokenType] = UNSET
     additional_properties: Dict[str, Any] = attr.ib(init=False, factory=dict)
 
@@ -22,6 +24,8 @@ class TokenResponse:
         fields = []
         fields.append("access_token={}".format(repr(self._access_token)))
         fields.append("expires_in={}".format(repr(self._expires_in)))
+        fields.append("refresh_token={}".format(repr(self._refresh_token)))
+        fields.append("refresh_token_expires_in={}".format(repr(self._refresh_token_expires_in)))
         fields.append("token_type={}".format(repr(self._token_type)))
         fields.append("additional_properties={}".format(repr(self.additional_properties)))
         return "TokenResponse({})".format(", ".join(fields))
@@ -29,6 +33,8 @@ class TokenResponse:
     def to_dict(self) -> Dict[str, Any]:
         access_token = self._access_token
         expires_in = self._expires_in
+        refresh_token = self._refresh_token
+        refresh_token_expires_in = self._refresh_token_expires_in
         token_type: Union[Unset, int] = UNSET
         if not isinstance(self._token_type, Unset):
             token_type = self._token_type.value
@@ -40,6 +46,10 @@ class TokenResponse:
             field_dict["access_token"] = access_token
         if expires_in is not UNSET:
             field_dict["expires_in"] = expires_in
+        if refresh_token is not UNSET:
+            field_dict["refresh_token"] = refresh_token
+        if refresh_token_expires_in is not UNSET:
+            field_dict["refresh_token_expires_in"] = refresh_token_expires_in
         if token_type is not UNSET:
             field_dict["token_type"] = token_type
 
@@ -71,6 +81,28 @@ class TokenResponse:
                 raise
             expires_in = cast(Union[Unset, int], UNSET)
 
+        def get_refresh_token() -> Union[Unset, str]:
+            refresh_token = d.pop("refresh_token")
+            return refresh_token
+
+        try:
+            refresh_token = get_refresh_token()
+        except KeyError:
+            if strict:
+                raise
+            refresh_token = cast(Union[Unset, str], UNSET)
+
+        def get_refresh_token_expires_in() -> Union[Unset, int]:
+            refresh_token_expires_in = d.pop("refresh_token_expires_in")
+            return refresh_token_expires_in
+
+        try:
+            refresh_token_expires_in = get_refresh_token_expires_in()
+        except KeyError:
+            if strict:
+                raise
+            refresh_token_expires_in = cast(Union[Unset, int], UNSET)
+
         def get_token_type() -> Union[Unset, TokenResponseTokenType]:
             token_type = UNSET
             _token_type = d.pop("token_type")
@@ -92,6 +124,8 @@ class TokenResponse:
         token_response = cls(
             access_token=access_token,
             expires_in=expires_in,
+            refresh_token=refresh_token,
+            refresh_token_expires_in=refresh_token_expires_in,
             token_type=token_type,
         )
 
@@ -145,6 +179,35 @@ class TokenResponse:
     @expires_in.deleter
     def expires_in(self) -> None:
         self._expires_in = UNSET
+
+    @property
+    def refresh_token(self) -> str:
+        if isinstance(self._refresh_token, Unset):
+            raise NotPresentError(self, "refresh_token")
+        return self._refresh_token
+
+    @refresh_token.setter
+    def refresh_token(self, value: str) -> None:
+        self._refresh_token = value
+
+    @refresh_token.deleter
+    def refresh_token(self) -> None:
+        self._refresh_token = UNSET
+
+    @property
+    def refresh_token_expires_in(self) -> int:
+        """ Number of seconds that refresh token is valid for """
+        if isinstance(self._refresh_token_expires_in, Unset):
+            raise NotPresentError(self, "refresh_token_expires_in")
+        return self._refresh_token_expires_in
+
+    @refresh_token_expires_in.setter
+    def refresh_token_expires_in(self, value: int) -> None:
+        self._refresh_token_expires_in = value
+
+    @refresh_token_expires_in.deleter
+    def refresh_token_expires_in(self) -> None:
+        self._refresh_token_expires_in = UNSET
 
     @property
     def token_type(self) -> TokenResponseTokenType:

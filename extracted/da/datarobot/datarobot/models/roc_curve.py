@@ -172,7 +172,7 @@ class RocCurve(APIObject, RocCurveThresholdMixin):
     ) -> RocCurve:
         """
         Overwrite APIObject.from_server_data to handle roc curve data retrieved
-        from either legacy URL or /insights/ new URL.
+        from either legacy URL or `/insights/` new URL.
 
         Parameters
         ----------
@@ -183,7 +183,7 @@ class RocCurve(APIObject, RocCurveThresholdMixin):
             List, set or tuple of the dotted namespace notations for attributes to keep within the
             object structure even if their values are None
         use_insights_format : Optional[bool]
-            Whether to repack the data from the format used in the GET /insights/RocCur/ URL
+            Whether to repack the data from the format used in the GET `/insights/RocCur/` URL
             to the format used in the legacy URL.
         """
         if use_insights_format:
@@ -193,7 +193,7 @@ class RocCurve(APIObject, RocCurveThresholdMixin):
 
     @staticmethod
     def _repack_insights_response(server_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Repack the JSON sent by the GET /insights/ endpoint to match the format expected by the
+        """Repack the JSON sent by the GET `/insights/` endpoint to match the format expected by the
         insight APIObject class.
 
         Parameters
@@ -243,7 +243,7 @@ class SlicedRocCurve(RocCurve):
     ) -> "RocCurve":
         """
         Overwrite RocCurve.from_server_data to set `use_insights_format=True` by default
-        This is necessary for the correct transformation of data received from /insights endpoints
+        This is necessary for the correct transformation of data received from the `/insights/` endpoints
 
         Parameters
         ----------
@@ -254,7 +254,7 @@ class SlicedRocCurve(RocCurve):
             List, set or tuple of the dotted namespace notations for attributes to keep within the
             object structure even if their values are None
         use_insights_format : Optional[bool]
-            Whether to repack the data from the format used in the GET /insights/liftChart/ URL
+            Whether to repack the data from the format used in the GET `/insights/liftChart/` URL
             to the format used in the legacy URL.
         """
         if data.get("count"):

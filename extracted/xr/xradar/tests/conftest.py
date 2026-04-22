@@ -14,6 +14,14 @@ def file_or_filelike(request):
 
 
 @pytest.fixture(scope="session")
+def cfradial1_sgp_dtree():
+    import xradar as xd
+
+    filename = DATASETS.fetch("sample_sgp_data.nc")
+    return xd.io.open_cfradial1_datatree(filename)
+
+
+@pytest.fixture(scope="session")
 def cfradial1_file(tmp_path_factory):
     return DATASETS.fetch("cfrad.20080604_002217_000_SPOL_v36_SUR.nc")
 
@@ -76,6 +84,18 @@ def iris1_file():
 @pytest.fixture(scope="session")
 def nexradlevel2_file():
     return DATASETS.fetch("KATX20130717_195021_V06")
+
+
+@pytest.fixture(scope="session")
+def nexrad_chunks_klot(tmp_path_factory):
+    import tarfile
+
+    archive = DATASETS.fetch("nexrad_level2_chunks_KLOT.tar.gz")
+    extract_dir = tmp_path_factory.mktemp("nexrad_chunks")
+    with tarfile.open(archive) as tar:
+        tar.extractall(extract_dir, filter="data")
+    chunk_dir = extract_dir / "nexrad_chunks_KLOT"
+    return sorted(chunk_dir.iterdir())
 
 
 @pytest.fixture(scope="session")

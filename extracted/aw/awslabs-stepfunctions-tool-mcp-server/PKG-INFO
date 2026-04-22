@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: awslabs.stepfunctions-tool-mcp-server
-Version: 0.1.21
+Version: 0.1.22
 Summary: An AWS Labs Model Context Protocol (MCP) server for AWS Step Functions
 Project-URL: Homepage, https://awslabs.github.io/mcp/
 Project-URL: Documentation, https://awslabs.github.io/mcp/servers/stepfunctions-tool-mcp-server/

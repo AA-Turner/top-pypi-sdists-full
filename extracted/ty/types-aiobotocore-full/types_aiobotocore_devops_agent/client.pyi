@@ -39,8 +39,6 @@ from .paginator import (
     ListServicesPaginator,
 )
 from .type_defs import (
-    AllowVendedLogDeliveryForResourceInputTypeDef,
-    AllowVendedLogDeliveryForResourceOutputTypeDef,
     AssociateServiceInputTypeDef,
     AssociateServiceOutputTypeDef,
     CreateAgentSpaceInputTypeDef,
@@ -176,16 +174,6 @@ class DevOpsAgentServiceClient(AioBaseClient):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/devops-agent/client/generate_presigned_url.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_devops_agent/client/#generate_presigned_url)
-        """
-
-    async def allow_vended_log_delivery_for_resource(
-        self, **kwargs: Unpack[AllowVendedLogDeliveryForResourceInputTypeDef]
-    ) -> AllowVendedLogDeliveryForResourceOutputTypeDef:
-        """
-        Authorize Ingestion Hub subscription operation.
-
-        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/devops-agent/client/allow_vended_log_delivery_for_resource.html)
-        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_devops_agent/client/#allow_vended_log_delivery_for_resource)
         """
 
     async def associate_service(

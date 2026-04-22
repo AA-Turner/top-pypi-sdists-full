@@ -15,7 +15,7 @@ from .util import UNIT, Disposable, Unit, compare, compare_primitives, get_enume
 from .util import equals as equals_1
 
 
-def _expr230() -> TypeInfo:
+def _expr231() -> TypeInfo:
     return class_type(
         "System.Collections.Generic.KeyNotFoundException", None, KeyNotFoundException, class_type("System.Exception")
     )
@@ -27,7 +27,7 @@ class KeyNotFoundException(Exception):
         pass
 
 
-KeyNotFoundException_reflection = _expr230
+KeyNotFoundException_reflection = _expr231
 
 
 def KeyNotFoundException__ctor_Z721C83C5(message: str) -> KeyNotFoundException:
@@ -38,31 +38,31 @@ def KeyNotFoundException__ctor(__unit: Unit = UNIT) -> KeyNotFoundException:
     return KeyNotFoundException__ctor_Z721C83C5(SR_Arg_KeyNotFound)
 
 
-def _expr231(gen0: TypeInfo) -> TypeInfo:
+def _expr232(gen0: TypeInfo) -> TypeInfo:
     return class_type("System.Collections.Generic.Comparer`1", Array([gen0]), Comparer_1)
 
 
 class Comparer_1[T]:
     def __init__(self, comparison: Callable[[T, T], int32]) -> None:
-        self.comparison: Callable[[T, T], int32] = comparison
+        self.comparison: Callable[[Any, Any], int32] = comparison
 
     def Compare(self, x: T, y: T) -> int32:
-        _: Comparer_1[T] = self
+        _: Comparer_1[Any] = self
         return (
-            (int32.ZERO if equals_1(y, cast(T, None)) else int32.NEG_ONE)
-            if equals_1(x, cast(T, None))
-            else (int32.ONE if equals_1(y, cast(T, None)) else _.comparison(x, y))
+            (int32.ZERO if equals_1(y, cast(Any, None)) else int32.NEG_ONE)
+            if equals_1(x, cast(Any, None))
+            else (int32.ONE if equals_1(y, cast(Any, None)) else _.comparison(x, y))
         )
 
 
-Comparer_1_reflection = _expr231
+Comparer_1_reflection = _expr232
 
 
 def Comparer_1__ctor_47C913C[T](comparison: Callable[[T, T], int32]) -> Comparer_1[T]:
     return Comparer_1(comparison)
 
 
-def Comparer_1_get_Default[T](__unit: Unit = UNIT) -> Comparer_1[Any]:
+def Comparer_1_get_Default[T](__unit: Unit = UNIT) -> Comparer_1[T]:
     return Comparer_1__ctor_47C913C(compare)
 
 
@@ -74,29 +74,29 @@ def Comparer_1__Compare_5BDDA0[T](_: Comparer_1[T], x: T, y: T) -> int32:
     return _.comparison(x, y)
 
 
-def _expr232(gen0: TypeInfo) -> TypeInfo:
+def _expr233(gen0: TypeInfo) -> TypeInfo:
     return class_type("System.Collections.Generic.EqualityComparer`1", Array([gen0]), EqualityComparer_1)
 
 
 class EqualityComparer_1[T]:
     def __init__(self, equals: Callable[[T, T], bool], get_hash_code: Callable[[T], int32]) -> None:
-        self.equals: Callable[[T, T], bool] = equals
-        self.get_hash_code: Callable[[T], int32] = get_hash_code
+        self.equals: Callable[[Any, Any], bool] = equals
+        self.get_hash_code: Callable[[Any], int32] = get_hash_code
 
     def Equals(self, x: T, y: T) -> bool:
-        _: EqualityComparer_1[T] = self
+        _: EqualityComparer_1[Any] = self
         return (
-            (True if equals_1(y, cast(T, None)) else False)
-            if equals_1(x, cast(T, None))
-            else (False if equals_1(y, cast(T, None)) else _.equals(x, y))
+            (True if equals_1(y, cast(Any, None)) else False)
+            if equals_1(x, cast(Any, None))
+            else (False if equals_1(y, cast(Any, None)) else _.equals(x, y))
         )
 
     def GetHashCode(self, x: T = UNIT) -> int32:
-        _: EqualityComparer_1[T] = self
+        _: EqualityComparer_1[Any] = self
         return _.get_hash_code(x)
 
 
-EqualityComparer_1_reflection = _expr232
+EqualityComparer_1_reflection = _expr233
 
 
 def EqualityComparer_1__ctor_Z6EE254AB[T](
@@ -105,11 +105,11 @@ def EqualityComparer_1__ctor_Z6EE254AB[T](
     return EqualityComparer_1(equals, get_hash_code)
 
 
-def EqualityComparer_1_get_Default[T](__unit: Unit = UNIT) -> EqualityComparer_1[Any]:
-    def _arrow233(obj: T = UNIT) -> int32:
+def EqualityComparer_1_get_Default[T](__unit: Unit = UNIT) -> EqualityComparer_1[T]:
+    def _arrow234(obj: T = UNIT) -> int32:
         return structural_hash(obj)
 
-    return EqualityComparer_1__ctor_Z6EE254AB(equals_1, _arrow233)
+    return EqualityComparer_1__ctor_Z6EE254AB(equals_1, _arrow234)
 
 
 def EqualityComparer_1_Create_Z6EE254AB[T](
@@ -126,74 +126,70 @@ def EqualityComparer_1__GetHashCode_2B595[T](_: EqualityComparer_1[T], x: T) -> 
     return _.get_hash_code(x)
 
 
-def _expr238(gen0: TypeInfo) -> TypeInfo:
+def _expr239(gen0: TypeInfo) -> TypeInfo:
     return class_type("System.Collections.Generic.Stack`1", Array([gen0]), Stack_1)
 
 
-class Stack_1[T](EnumerableBase[T]):
+class Stack_1[T](EnumerableBase[Any]):
     def __init__(self, initial_contents: Array[T], initial_count: int32) -> None:
-        self.contents: Array[T] = initial_contents
+        self.contents: Array[Any] = initial_contents
         self.count: int32 = initial_count
 
     def GetEnumerator(self, __unit: Unit = UNIT) -> IEnumerator[T]:
-        _: Stack_1[T] = self
+        _: Stack_1[Any] = self
 
-        def _arrow237(__unit: Unit = UNIT) -> IEnumerable_1[T]:
+        def _arrow238(__unit: Unit = UNIT) -> IEnumerable_1[T]:
             index: int32 = _.count - int32.ONE
 
-            def _arrow234(__unit: Unit = UNIT) -> bool:
+            def _arrow235(__unit: Unit = UNIT) -> bool:
                 return index >= int32.ZERO
 
-            def _arrow236(__unit: Unit = UNIT) -> IEnumerable_1[T]:
-                def _arrow235(__unit: Unit = UNIT) -> IEnumerable_1[T]:
+            def _arrow237(__unit: Unit = UNIT) -> IEnumerable_1[T]:
+                def _arrow236(__unit: Unit = UNIT) -> IEnumerable_1[T]:
                     nonlocal index
                     index = index - int32.ONE
                     return empty()
 
-                return append(singleton(_.contents[index]), delay(_arrow235))
+                return append(singleton(_.contents[index]), delay(_arrow236))
 
-            return enumerate_while(_arrow234, delay(_arrow236))
+            return enumerate_while(_arrow235, delay(_arrow237))
 
-        return get_enumerator(delay(_arrow237))
+        return get_enumerator(delay(_arrow238))
 
     def System_Collections_IEnumerable_GetEnumerator(self, __unit: Unit = UNIT) -> IEnumerator[Any]:
-        this: Stack_1[T] = self
+        this: Stack_1[Any] = self
         return get_enumerator(this)
 
 
-Stack_1_reflection = _expr238
+Stack_1_reflection = _expr239
 
 
 def Stack_1__ctor_Z3B4C077E[T](initial_contents: Array[T], initial_count: int32) -> Stack_1[T]:
     return Stack_1(initial_contents, initial_count)
 
 
-def Stack_1__ctor_Z524259A4[T](initial_capacity: int32) -> Stack_1[Any]:
+def Stack_1__ctor_Z524259A4[T](initial_capacity: int32) -> Stack_1[T]:
     return Stack_1__ctor_Z3B4C077E(zero_create(initial_capacity, cast(Any, None)), int32.ZERO)
 
 
-def Stack_1__ctor[T](__unit: Unit = UNIT) -> Stack_1[Any]:
+def Stack_1__ctor[T](__unit: Unit = UNIT) -> Stack_1[T]:
     return Stack_1__ctor_Z524259A4(int32.FOUR)
 
 
 def Stack_1__ctor_BB573A[T](xs: IEnumerable_1[T]) -> Stack_1[T]:
-    arr: Array[T] = of_seq(xs)
+    arr: Array[Any] = of_seq(xs)
     return Stack_1__ctor_Z3B4C077E(arr, int32(len(arr)))
 
 
-def Stack_1__Ensure_Z524259A4[T](_: Stack_1[Any], new_size: int32) -> None:
+def Stack_1__Ensure_Z524259A4[T](_: Stack_1[T], new_size: int32) -> None:
     old_size: int32 = int32(len(_.contents))
     if new_size > old_size:
-        old: Array[T] = _.contents
-
-        def _arrow239(x: int32, y: int32, _: Any = _, new_size: Any = new_size) -> int32:
-            return compare_primitives(x, y)
-
-        _.contents = zero_create(max(_arrow239, new_size, old_size * int32.TWO), cast(Any, None))
+        old: Array[Any] = _.contents
+        _.contents = zero_create(max(compare_primitives, new_size, old_size * int32.TWO), cast(Any, None))
         copy_to(old, int32.ZERO, _.contents, int32.ZERO, _.count)
 
 
-def Stack_1__get_Count[T](_: Stack_1[Any]) -> int32:
+def Stack_1__get_Count[T](_: Stack_1[T]) -> int32:
     return _.count
 
 
@@ -243,12 +239,12 @@ def Stack_1__Push_2B595[T](this: Stack_1[T], x: T) -> None:
     this.count = this.count + int32.ONE
 
 
-def Stack_1__Clear[T](_: Stack_1[Any]) -> None:
+def Stack_1__Clear[T](_: Stack_1[T]) -> None:
     _.count = int32.ZERO
-    fill(_.contents, int32.ZERO, int32(len(_.contents)), cast(T, None))
+    fill(_.contents, int32.ZERO, int32(len(_.contents)), cast(Any, None))
 
 
-def Stack_1__TrimExcess[T](this: Stack_1[Any]) -> None:
+def Stack_1__TrimExcess[T](this: Stack_1[T]) -> None:
     if (float64(this.count) / float64(int32(len(this.contents)))) > float64(0.9):
         Stack_1__Ensure_Z524259A4(this, this.count)
 
@@ -264,19 +260,19 @@ def _expr241(gen0: TypeInfo) -> TypeInfo:
     return class_type("System.Collections.Generic.Queue`1", Array([gen0]), Queue_1)
 
 
-class Queue_1[T](EnumerableBase[T]):
+class Queue_1[T](EnumerableBase[Any]):
     def __init__(self, initial_contents: Array[T], initial_count: int32) -> None:
-        self.contents: Array[T] = initial_contents
+        self.contents: Array[Any] = initial_contents
         self.count: int32 = initial_count
         self.head: int32 = int32.ZERO
         self.tail: int32 = int32.ZERO if (initial_count == int32(len(self.contents))) else initial_count
 
     def GetEnumerator(self, __unit: Unit = UNIT) -> IEnumerator[T]:
-        _: Queue_1[T] = self
+        _: Queue_1[Any] = self
         return get_enumerator(Queue_1__toSeq(_))
 
     def System_Collections_IEnumerable_GetEnumerator(self, __unit: Unit = UNIT) -> IEnumerator[Any]:
-        this: Queue_1[T] = self
+        this: Queue_1[Any] = self
         return get_enumerator(this)
 
 
@@ -287,23 +283,23 @@ def Queue_1__ctor_Z3B4C077E[T](initial_contents: Array[T], initial_count: int32)
     return Queue_1(initial_contents, initial_count)
 
 
-def Queue_1__ctor_Z524259A4[T](initial_capacity: int32) -> Queue_1[Any]:
+def Queue_1__ctor_Z524259A4[T](initial_capacity: int32) -> Queue_1[T]:
     if initial_capacity < int32.ZERO:
         raise ArgumentOutOfRangeException__ctor_Z721C83C5("capacity is less than 0")
 
     return Queue_1__ctor_Z3B4C077E(zero_create(initial_capacity, cast(Any, None)), int32.ZERO)
 
 
-def Queue_1__ctor[T](__unit: Unit = UNIT) -> Queue_1[Any]:
+def Queue_1__ctor[T](__unit: Unit = UNIT) -> Queue_1[T]:
     return Queue_1__ctor_Z524259A4(int32.FOUR)
 
 
 def Queue_1__ctor_BB573A[T](xs: IEnumerable_1[T]) -> Queue_1[T]:
-    arr: Array[T] = of_seq(xs)
+    arr: Array[Any] = of_seq(xs)
     return Queue_1__ctor_Z3B4C077E(arr, int32(len(arr)))
 
 
-def Queue_1__get_Count[T](_: Queue_1[Any]) -> int32:
+def Queue_1__get_Count[T](_: Queue_1[T]) -> int32:
     return _.count
 
 
@@ -320,7 +316,7 @@ def Queue_1__Dequeue[T](_: Queue_1[T]) -> T:
     if _.count == int32.ZERO:
         raise Exception("Queue is empty")
 
-    value: T = _.contents[_.head]
+    value: Any = _.contents[_.head]
     _.head = (_.head + int32.ONE) % Queue_1__size(_)
     _.count = _.count - int32.ONE
     return value
@@ -364,14 +360,14 @@ def Queue_1__Contains_2B595[T](_: Queue_1[T], x: T) -> bool:
     return found
 
 
-def Queue_1__Clear[T](_: Queue_1[Any]) -> None:
+def Queue_1__Clear[T](_: Queue_1[T]) -> None:
     _.count = int32.ZERO
     _.head = int32.ZERO
     _.tail = int32.ZERO
-    fill(_.contents, int32.ZERO, Queue_1__size(_), cast(T, None))
+    fill(_.contents, int32.ZERO, Queue_1__size(_), cast(Any, None))
 
 
-def Queue_1__TrimExcess[T](_: Queue_1[Any]) -> None:
+def Queue_1__TrimExcess[T](_: Queue_1[T]) -> None:
     if (float64(_.count) / float64(int32(len(_.contents)))) > float64(0.9):
         Queue_1__ensure_Z524259A4(_, _.count)
 
@@ -384,21 +380,21 @@ def Queue_1__CopyTo_Z3B4C077E[T](_: Queue_1[T], target: Array[T], start: int32) 
     i: int32 = start
     with Disposable(get_enumerator(Queue_1__toSeq(_))) as enumerator:
         while enumerator.System_Collections_IEnumerator_MoveNext():
-            item: T = enumerator.System_Collections_Generic_IEnumerator_1_get_Current()
+            item: Any = enumerator.System_Collections_Generic_IEnumerator_1_get_Current()
             target[i] = item
             i = i + int32.ONE
 
 
-def Queue_1__size[T](this: Queue_1[Any]) -> int32:
+def Queue_1__size[T](this: Queue_1[T]) -> int32:
     return int32(len(this.contents))
 
 
-def Queue_1__toIndex_Z524259A4[T](this: Queue_1[Any], i: int32) -> int32:
+def Queue_1__toIndex_Z524259A4[T](this: Queue_1[T], i: int32) -> int32:
     return (this.head + i) % Queue_1__size(this)
 
 
-def Queue_1__ensure_Z524259A4[T](this: Queue_1[Any], required_size: int32) -> None:
-    new_buffer: Array[T] = zero_create(required_size, cast(Any, None))
+def Queue_1__ensure_Z524259A4[T](this: Queue_1[T], required_size: int32) -> None:
+    new_buffer: Array[Any] = zero_create(required_size, cast(Any, None))
     if this.head < this.tail:
         copy_to(this.contents, this.head, new_buffer, int32.ZERO, this.count)
 

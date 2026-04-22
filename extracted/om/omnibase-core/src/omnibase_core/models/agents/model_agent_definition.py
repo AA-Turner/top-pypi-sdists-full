@@ -69,6 +69,7 @@ class ModelAgentDefinition(BaseModel):
     model_config = ConfigDict(frozen=True, extra="ignore", from_attributes=True)
 
     # Required fields (>90% presence)
+    # string-version-ok: YAML-deserialization boundary; agent definition files on disk carry plain version strings
     schema_version: str = Field(..., description="Schema version")
     agent_type: str = Field(..., description="Agent type identifier")
     agent_identity: ModelAgentIdentity
@@ -87,6 +88,15 @@ class ModelAgentDefinition(BaseModel):
     success_metrics: ModelSuccessMetrics | None = None
     integration_points: ModelIntegrationPoints | None = None
     transformation_context: ModelTransformationContext | None = None
+    # Dispatch-claim registry fields (OMN-8921)
+    is_verifier: bool = Field(
+        default=False,
+        description="When True, this agent is a verification-only agent and may not dispatch further Agent() calls",
+    )
+    dispatch_category: str | None = Field(
+        default=None,
+        description="Optional category tag for dispatch claim deduplication (e.g. 'fix_containers', 'merge_sweep')",
+    )
 
 
 __all__ = ["ModelAgentDefinition"]

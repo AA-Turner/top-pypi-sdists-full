@@ -222,12 +222,20 @@ class Model:
     @objective.setter
     def objective(
         self, obj: Objective | LinearExpression | QuadraticExpression
-    ) -> Objective:
+    ) -> None:
+        """
+        Set the objective function.
+
+        Parameters
+        ----------
+        obj : Objective, LinearExpression, or QuadraticExpression
+            The objective to assign to the model. If not an Objective instance,
+            it will be wrapped in an Objective.
+        """
         if not isinstance(obj, Objective):
             obj = Objective(obj, self)
 
         self._objective = obj
-        return self._objective
 
     @property
     def sense(self) -> str:
@@ -238,6 +246,9 @@ class Model:
 
     @sense.setter
     def sense(self, value: str) -> None:
+        """
+        Set the sense of the objective function.
+        """
         self.objective.sense = value
 
     @property
@@ -252,7 +263,12 @@ class Model:
 
     @parameters.setter
     def parameters(self, value: Dataset | Mapping) -> None:
-        self._parameters = Dataset(value)
+        """
+        Set the parameters of the model.
+        """
+        self._parameters = (
+            value.copy() if isinstance(value, Dataset) else Dataset(value)
+        )
 
     @property
     def solution(self) -> Dataset:
@@ -277,6 +293,9 @@ class Model:
 
     @status.setter
     def status(self, value: str) -> None:
+        """
+        Set the status of the model.
+        """
         self._status = ModelStatus[value].value
 
     @property
@@ -288,11 +307,13 @@ class Model:
 
     @termination_condition.setter
     def termination_condition(self, value: str) -> None:
-        # TODO: remove if-clause, only kept for backward compatibility
-        if value:
-            self._termination_condition = TerminationCondition[value].value
-        else:
+        """
+        Set the termination condition of the model.
+        """
+        if value == "":
             self._termination_condition = value
+        else:
+            self._termination_condition = TerminationCondition[value].value
 
     @property
     def chunk(self) -> T_Chunks:
@@ -303,6 +324,9 @@ class Model:
 
     @chunk.setter
     def chunk(self, value: T_Chunks) -> None:
+        """
+        Set the chunk sizes of the model.
+        """
         self._chunk = value
 
     @property
@@ -320,6 +344,9 @@ class Model:
 
     @force_dim_names.setter
     def force_dim_names(self, value: bool) -> None:
+        """
+        Set whether to force custom dimension names for variables and constraints.
+        """
         self._force_dim_names = bool(value)
 
     @property
@@ -332,6 +359,9 @@ class Model:
 
     @auto_mask.setter
     def auto_mask(self, value: bool) -> None:
+        """
+        Set whether to automatically mask variables and constraints with NaN values.
+        """
         self._auto_mask = bool(value)
 
     @property
@@ -343,6 +373,9 @@ class Model:
 
     @solver_dir.setter
     def solver_dir(self, value: str | Path) -> None:
+        """
+        Set the solver directory of the model.
+        """
         if not isinstance(value, str | Path):
             raise TypeError("'solver_dir' must path-like.")
         self._solver_dir = Path(value)
@@ -1560,38 +1593,39 @@ class Model:
         return labels
 
     def _compute_infeasibilities_xpress(self, solver_model: Any) -> list[int]:
-        """Compute infeasibilities for Xpress solver."""
-        # Compute all IIS
-        try:  # Try new API first
-            solver_model.IISAll()
-        except AttributeError:  # Fallback to old API
-            solver_model.iisall()
+        """
+        Compute infeasibilities for Xpress solver.
 
-        # Get the number of IIS found
-        num_iis = solver_model.attributes.numiis
-        if num_iis == 0:
+        This function correctly maps solver constraint positions to linopy
+        constraint labels, handling masked constraints where some labels may
+        be skipped (e.g., labels [0, 2, 4] with gaps instead of sequential
+        [0, 1, 2]).
+        """
+        # Compute a single IIS (matches Gurobi behavior; multiple IIS would
+        # otherwise get flattened into an ambiguous union). Mode 2 prioritises
+        # a fast IIS search over minimality.
+        try:  # Try new API first
+            solver_model.firstIIS(2)
+        except AttributeError:  # Fallback to old API
+            solver_model.iisfirst(2)
+
+        if solver_model.attributes.numiis == 0:
             return []
 
+        clabels = self.matrices.clabels
+        constraint_position_map = {}
+        for position, constraint_obj in enumerate(solver_model.getConstraint()):
+            if 0 <= position < len(clabels):
+                constraint_label = clabels[position]
+                if constraint_label >= 0:
+                    constraint_position_map[constraint_obj] = constraint_label
+
         labels = set()
+        for constraint_obj in self._extract_iis_constraints(solver_model, 1):
+            if constraint_obj in constraint_position_map:
+                labels.add(constraint_position_map[constraint_obj])
 
-        # Create constraint mapping for efficient lookups
-        constraint_to_index = {
-            constraint: idx
-            for idx, constraint in enumerate(solver_model.getConstraint())
-        }
-
-        # Retrieve each IIS
-        for iis_num in range(1, num_iis + 1):
-            iis_constraints = self._extract_iis_constraints(solver_model, iis_num)
-
-            # Convert constraint objects to indices
-            for constraint_obj in iis_constraints:
-                if constraint_obj in constraint_to_index:
-                    labels.add(constraint_to_index[constraint_obj])
-                # Note: Silently skip constraints not found in mapping
-                # This can happen if the model structure changed after solving
-
-        return sorted(list(labels))
+        return sorted(labels)
 
     def _extract_iis_constraints(self, solver_model: Any, iis_num: int) -> list[Any]:
         """

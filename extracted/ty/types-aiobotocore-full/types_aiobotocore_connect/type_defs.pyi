@@ -3609,6 +3609,16 @@ class ListTestCaseExecutionRecordsRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
 
+class ListTestCaseExecutionsRequestTypeDef(TypedDict):
+    InstanceId: str
+    TestCaseId: NotRequired[str]
+    TestCaseName: NotRequired[str]
+    StartTime: NotRequired[int]
+    EndTime: NotRequired[int]
+    Status: NotRequired[TestCaseExecutionStatusType]
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+
 class TestCaseExecutionTypeDef(TypedDict):
     StartTime: NotRequired[datetime]
     EndTime: NotRequired[datetime]
@@ -5602,16 +5612,6 @@ class DataTableValueTypeDef(TypedDict):
     LastModifiedTime: NotRequired[TimestampTypeDef]
     LastModifiedRegion: NotRequired[str]
 
-class ListTestCaseExecutionsRequestTypeDef(TypedDict):
-    InstanceId: str
-    TestCaseId: NotRequired[str]
-    TestCaseName: NotRequired[str]
-    StartTime: NotRequired[TimestampTypeDef]
-    EndTime: NotRequired[TimestampTypeDef]
-    Status: NotRequired[TestCaseExecutionStatusType]
-    NextToken: NotRequired[str]
-    MaxResults: NotRequired[int]
-
 SearchContactsTimeRangeTypeDef = TypedDict(
     "SearchContactsTimeRangeTypeDef",
     {
@@ -6701,7 +6701,9 @@ class ReferenceSummaryTypeDef(TypedDict):
     Url: NotRequired[UrlReferenceTypeDef]
     Attachment: NotRequired[AttachmentReferenceTypeDef]
     EmailMessage: NotRequired[EmailMessageReferenceTypeDef]
+    EmailMessageRedacted: NotRequired[EmailMessageReferenceTypeDef]
     EmailMessagePlainText: NotRequired[EmailMessageReferenceTypeDef]
+    EmailMessagePlainTextRedacted: NotRequired[EmailMessageReferenceTypeDef]
     String: NotRequired[StringReferenceTypeDef]
     Number: NotRequired[NumberReferenceTypeDef]
     Date: NotRequired[DateReferenceTypeDef]
@@ -6926,6 +6928,7 @@ class AgentInfoTypeDef(TypedDict):
     AfterContactWorkEndTimestamp: NotRequired[datetime]
     AgentInitiatedHoldDuration: NotRequired[int]
     StateTransitions: NotRequired[list[StateTransitionTypeDef]]
+    VoiceEnhancementMode: NotRequired[VoiceEnhancementModeType]
 
 class StartWebRTCContactRequestTypeDef(TypedDict):
     ContactFlowId: str

@@ -76,6 +76,7 @@ from .common import (
     UINT1,
     UINT2,
     UINT4,
+    _apply_site_as_coords,
     _attach_sweep_groups,
     _calculate_angle_res,
     _get_fmt_string,
@@ -722,7 +723,7 @@ class FurunoBackendEntrypoint(BackendEntrypoint):
         first_dim="auto",
         reindex_angle=False,
         fix_second_angle=False,
-        site_coords=True,
+        site_as_coords=True,
         obsmode=None,
     ):
         store = FurunoStore.open(
@@ -770,14 +771,7 @@ class FurunoBackendEntrypoint(BackendEntrypoint):
             ds = ds.sortby("time")
 
         # assign geo-coords
-        if site_coords:
-            ds = ds.assign_coords(
-                {
-                    "latitude": ds.latitude,
-                    "longitude": ds.longitude,
-                    "altitude": ds.altitude,
-                }
-            )
+        ds = _apply_site_as_coords(ds, site_as_coords)
         ds.attrs.update(store.get_calibration_parameters())
 
         # ensure close works
@@ -809,7 +803,7 @@ def open_furuno_datatree(filename_or_obj, **kwargs):
         reindex_angle. Only invoked if `decode_coord=True`.
     fix_second_angle : bool
         If True, fixes erroneous second angle data. Defaults to ``False``.
-    site_coords : bool
+    site_as_coords : bool
         Attach radar site-coordinates to Dataset, defaults to ``True``.
     kwargs : dict
         Additional kwargs are fed to :py:func:`xarray.open_dataset`.
@@ -822,17 +816,21 @@ def open_furuno_datatree(filename_or_obj, **kwargs):
     # handle kwargs, extract first_dim
     backend_kwargs = kwargs.pop("backend_kwargs", {})
     optional = backend_kwargs.pop("optional", True)
+    optional_groups = kwargs.pop("optional_groups", False)
     kwargs["backend_kwargs"] = backend_kwargs
 
     ls_ds = [xr.open_dataset(filename_or_obj, engine="furuno", **kwargs)]
 
     dtree: dict = {
         "/": _get_required_root_dataset(ls_ds, optional=optional),
-        "/radar_parameters": _get_subgroup(ls_ds, radar_parameters_subgroup),
-        "/georeferencing_correction": _get_subgroup(
-            ls_ds, georeferencing_correction_subgroup
-        ),
-        "/radar_calibration": _get_radar_calibration(ls_ds, radar_calibration_subgroup),
     }
+    if optional_groups:
+        dtree["/radar_parameters"] = _get_subgroup(ls_ds, radar_parameters_subgroup)
+        dtree["/georeferencing_correction"] = _get_subgroup(
+            ls_ds, georeferencing_correction_subgroup
+        )
+        dtree["/radar_calibration"] = _get_radar_calibration(
+            ls_ds, radar_calibration_subgroup
+        )
     dtree = _attach_sweep_groups(dtree, ls_ds)
     return DataTree.from_dict(dtree)

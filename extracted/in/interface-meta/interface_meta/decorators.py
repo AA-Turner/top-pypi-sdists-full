@@ -1,10 +1,18 @@
-import warnings
+from __future__ import annotations
+
+from collections.abc import Callable
+from typing import TypeVar, overload
 
 from .interface import InterfaceMeta
 from .utils.inspection import set_skip
 
+_FuncT = TypeVar("_FuncT")
 
-def inherit_docs(method=None, mro=True):
+
+def inherit_docs(
+    method: str | None = None,
+    mro: bool = True,
+) -> Callable[[_FuncT], _FuncT]:
     """
     Indicate to `InterfaceMeta` how the wrapped method should be documented.
 
@@ -21,35 +29,30 @@ def inherit_docs(method=None, mro=True):
     Use this decorator as `@inherit_docs([method=...], [mro=...])`.
 
     Args:
-        method (str, None): A method from which documentation for implementation
+        method: A method from which documentation for implementation
             specific quirks should be extracted. [Useful when implementations
             of an interface are supposed to change underlying methods rather
             than the public method itself].
-        mro (bool): Whether to include documentation from all levels of the
+        mro: Whether to include documentation from all levels of the
             MRO, starting from the most primitive class that implementated it.
             All higher levels will be considered as "quirks" to the interface's
             definition.
 
     Returns:
-        function: A function wrapper that attaches attributes `_quirks_method` and
+        A function wrapper that attaches attributes `_quirks_method` and
         `_quirks_mro` to the method, for interpretation by `InterfaceMeta`.
     """
     return InterfaceMeta.inherit_docs(method=method, mro=mro)
 
 
-def quirk_docs(method=None, mro=True):
-    """
-    DEPRECATED: Please use `inherit_docs` instead.
-    """
-    warnings.warn(
-        "The `interface_meta.quirk_docs` decorator has been replaced by `implemented_by` and "
-        "will be removed in version 2.0.",
-        DeprecationWarning,
-    )
-    return inherit_docs(method=method, mro=mro)
-
-
-def override(func=None, force=False, f=None):
+@overload
+def override(func: _FuncT, force: bool = ...) -> _FuncT: ...
+@overload
+def override(func: None = None, force: bool = ...) -> Callable[[_FuncT], _FuncT]: ...
+def override(
+    func: _FuncT | None = None,
+    force: bool = False,
+) -> _FuncT | Callable[[_FuncT], _FuncT]:
     """
     Indicate to `InterfaceMeta` that this method has intentionally overridden an interface method.
 
@@ -61,36 +64,30 @@ def override(func=None, force=False, f=None):
     A recommended convention is to use this decorator as the outermost decorator.
 
     Args:
-        func (function, None): The function, if method is decorated by the decorator
+        func: The function, if method is decorated by the decorator
             without arguments (e.g. @override), else None.
-        force (bool): Whether to force override of method even if the API does
+        force: Whether to force override of method even if the API does
             note match. Note that in this case, documentation is not inherited
             from the MRO.
-        f (function, None): Deprecated predecessor of `func`. Maintained for
-            backward compatibility until v2.0.
 
     Returns:
-        function: The wrapped function of function wrapper depending on which
+        The wrapped function or function wrapper depending on which
             arguments are present.
     """
-    if f is not None:
-        warnings.warn(
-            "The `f` argument to the `interface_meta.override` decorator has been renamed `func`. This "
-            "backward compatibility shim will be removed in 2.0.",
-            DeprecationWarning,
-        )
-    return InterfaceMeta.override(func=func or f, force=force)
+    if func is not None:
+        return InterfaceMeta.override(func=func, force=force)
+    return InterfaceMeta.override(force=force)
 
 
-def skip(func):
+def skip(func: _FuncT) -> _FuncT:
     """
     Indicate to `InterfaceMeta` that this method should be skipped.
 
     Args:
-        func (function): The function/member to mark as skipped.
+        func: The function/member to mark as skipped.
 
     Returns:
-        function: The marked function/member (same instance as that passed in).
+        The marked function/member (same instance as that passed in).
     """
     set_skip(func, skip=True)
     return func

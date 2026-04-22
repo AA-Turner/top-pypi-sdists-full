@@ -35,11 +35,11 @@ class ObjectExpr6(IEqualityComparer):
 LanguagePrimitives_GenericEqualityERComparer: IEqualityComparer = ObjectExpr6()
 
 
-def LanguagePrimitives_FastGenericComparer[T](__unit: Unit = UNIT) -> IComparer_1[Any]:
+def LanguagePrimitives_FastGenericComparer[T](__unit: Unit = UNIT) -> IComparer_1[T]:
     return ComparisonIdentity_Structural()
 
 
-def LanguagePrimitives_FastGenericComparerFromTable[T](__unit: Unit = UNIT) -> IComparer_1[Any]:
+def LanguagePrimitives_FastGenericComparerFromTable[T](__unit: Unit = UNIT) -> IComparer_1[T]:
     return ComparisonIdentity_Structural()
 
 
@@ -59,7 +59,7 @@ def Operators_FailurePattern(exn: Exception) -> str | None:
     return str(exn)
 
 
-def Operators_NullArg[_A](argument_name: str) -> Any:
+def Operators_NullArg[_A](argument_name: str) -> _A:
     raise ArgumentNullException__ctor_Z721C83C5(argument_name)
 
 
@@ -68,40 +68,40 @@ def Operators_Using[T: IDisposable, R](resource: T, action: Callable[[T], R]) ->
         return action(resource)
 
     finally:
-        if equals(resource, cast(T, None)):
+        if equals(resource, cast(Any, None)):
             pass
 
         else:
-            copy_of_struct: T = resource
+            copy_of_struct: Any = resource
             dispose(copy_of_struct)
 
 
-def Operators_Lock[_A, _B](_lockObj: Any, action: Callable[[], _B]) -> _B:
+def Operators_Lock[_A, _B](_lockObj: _A, action: Callable[[], _B]) -> _B:
     return action()
 
 
-def Operators_IsNull[T](value: Any = UNIT) -> bool:
-    if equals(value, cast(T, None)):
+def Operators_IsNull[T](value: T = UNIT) -> bool:
+    if equals(value, cast(Any, None)):
         return True
 
     else:
         return False
 
 
-def Operators_IsNotNull[T](value: Any = UNIT) -> bool:
-    if equals(value, cast(T, None)):
+def Operators_IsNotNull[T](value: T = UNIT) -> bool:
+    if equals(value, cast(Any, None)):
         return False
 
     else:
         return True
 
 
-def Operators_IsNullV[T: Any](value: Any | None) -> bool:
+def Operators_IsNullV[T: Any](value: T | None) -> bool:
     return not (value is not None)
 
 
 def Operators_NonNull[T](value: T = UNIT) -> T:
-    if equals(value, cast(T, None)):
+    if equals(value, cast(Any, None)):
         raise NullReferenceException__ctor()
 
     else:
@@ -117,7 +117,7 @@ def Operators_NonNullV[T: Any](value: T | None) -> T:
 
 
 def Operators_NullMatchPattern[T](value: T = UNIT) -> FSharpChoice_2[None, T]:
-    if equals(value, cast(T, None)):
+    if equals(value, cast(Any, None)):
         return Choice1Of2(None)
 
     else:
@@ -133,7 +133,7 @@ def Operators_NullValueMatchPattern[T: Any](value: T | None) -> FSharpChoice_2[N
 
 
 def Operators_NonNullQuickPattern[T](value: T = UNIT) -> T:
-    if equals(value, cast(T, None)):
+    if equals(value, cast(Any, None)):
         raise NullReferenceException__ctor()
 
     else:
@@ -156,12 +156,12 @@ def Operators_WithNullV[T: Any](value: T = UNIT) -> T:
     return value
 
 
-def Operators_NullV[T: Any](__unit: Unit = UNIT) -> Any | None:
-    return cast(T | None, None)
+def Operators_NullV[T: Any](__unit: Unit = UNIT) -> T | None:
+    return cast(Any | None, None)
 
 
 def Operators_NullArgCheck[T](argument_name: str, value: T) -> T:
-    if equals(value, cast(T, None)):
+    if equals(value, cast(Any, None)):
         raise ArgumentNullException__ctor_Z721C83C5(argument_name)
 
     else:
@@ -175,7 +175,7 @@ def ExtraTopLevelOperators_LazyPattern[_A](input: Any) -> _A:
 def PrintfModule_PrintFormatToStringBuilderThen[_A, _B](
     continuation: Callable[[], _A], builder: Any, format: Any
 ) -> _B:
-    def append(s: str, continuation: Any = continuation, builder: Any = builder, format: Any = format) -> _A:
+    def append(s: str, continuation: Any = continuation, builder: Any = builder) -> _A:
         ignore(StringBuilder__Append_Z721C83C5(builder, s))
         return continuation()
 
@@ -183,7 +183,7 @@ def PrintfModule_PrintFormatToStringBuilderThen[_A, _B](
 
 
 def PrintfModule_PrintFormatToStringBuilder[_A](builder: Any, format: Any) -> _A:
-    def _arrow7(builder: Any = builder, format: Any = format) -> None:
+    def _arrow7(__unit: Unit = UNIT) -> None:
         ignore(None)
 
     return PrintfModule_PrintFormatToStringBuilderThen(_arrow7, builder, format)

@@ -15,7 +15,7 @@
 """  # noqa: E501
 
 
-__version__ = "3.108.1"
+__version__ = "3.109.0"
 
 # Define package exports
 __all__ = [
@@ -119,6 +119,7 @@ __all__ = [
     "HeaderContentGuardResponse",
     "ImportResponse",
     "LoginResponse",
+    "LoginUpdateResponse",
     "MethodEnum",
     "MinimalTaskResponse",
     "MultipleArtifactContentResponse",
@@ -193,6 +194,7 @@ __all__ = [
     "PatchedFilesystemExporter",
     "PatchedGroup",
     "PatchedHeaderContentGuard",
+    "PatchedLoginUpdate",
     "PatchedOpenPGPDistribution",
     "PatchedOpenPGPKeyring",
     "PatchedPulpExporter",
@@ -364,6 +366,7 @@ from pulpcore.client.pulpcore.models.header_content_guard import HeaderContentGu
 from pulpcore.client.pulpcore.models.header_content_guard_response import HeaderContentGuardResponse as HeaderContentGuardResponse
 from pulpcore.client.pulpcore.models.import_response import ImportResponse as ImportResponse
 from pulpcore.client.pulpcore.models.login_response import LoginResponse as LoginResponse
+from pulpcore.client.pulpcore.models.login_update_response import LoginUpdateResponse as LoginUpdateResponse
 from pulpcore.client.pulpcore.models.method_enum import MethodEnum as MethodEnum
 from pulpcore.client.pulpcore.models.minimal_task_response import MinimalTaskResponse as MinimalTaskResponse
 from pulpcore.client.pulpcore.models.multiple_artifact_content_response import MultipleArtifactContentResponse as MultipleArtifactContentResponse
@@ -438,6 +441,7 @@ from pulpcore.client.pulpcore.models.patched_domain import PatchedDomain as Patc
 from pulpcore.client.pulpcore.models.patched_filesystem_exporter import PatchedFilesystemExporter as PatchedFilesystemExporter
 from pulpcore.client.pulpcore.models.patched_group import PatchedGroup as PatchedGroup
 from pulpcore.client.pulpcore.models.patched_header_content_guard import PatchedHeaderContentGuard as PatchedHeaderContentGuard
+from pulpcore.client.pulpcore.models.patched_login_update import PatchedLoginUpdate as PatchedLoginUpdate
 from pulpcore.client.pulpcore.models.patched_open_pgp_distribution import PatchedOpenPGPDistribution as PatchedOpenPGPDistribution
 from pulpcore.client.pulpcore.models.patched_open_pgp_keyring import PatchedOpenPGPKeyring as PatchedOpenPGPKeyring
 from pulpcore.client.pulpcore.models.patched_pulp_exporter import PatchedPulpExporter as PatchedPulpExporter

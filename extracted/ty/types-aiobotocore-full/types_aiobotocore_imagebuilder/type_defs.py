@@ -321,6 +321,7 @@ __all__ = (
     "PutImagePolicyResponseTypeDef",
     "PutImageRecipePolicyRequestTypeDef",
     "PutImageRecipePolicyResponseTypeDef",
+    "RegisterImageOptionsTypeDef",
     "RemediationRecommendationTypeDef",
     "RemediationTypeDef",
     "ResourceStateTypeDef",
@@ -355,6 +356,7 @@ __all__ = (
     "UpdateLifecyclePolicyResponseTypeDef",
     "VulnerabilityIdAggregationTypeDef",
     "VulnerablePackageTypeDef",
+    "WindowsConfigurationTypeDef",
     "WorkflowConfigurationOutputTypeDef",
     "WorkflowConfigurationTypeDef",
     "WorkflowConfigurationUnionTypeDef",
@@ -779,6 +781,15 @@ ImportComponentRequestTypeDef = TypedDict(
         "tags": NotRequired[Mapping[str, str]],
     },
 )
+
+
+class RegisterImageOptionsTypeDef(TypedDict):
+    secureBootEnabled: NotRequired[bool]
+    uefiData: NotRequired[str]
+
+
+class WindowsConfigurationTypeDef(TypedDict):
+    imageIndex: int
 
 
 class LaunchPermissionConfigurationTypeDef(TypedDict):
@@ -1530,20 +1541,6 @@ class DistributeImageRequestTypeDef(TypedDict):
     loggingConfiguration: NotRequired[ImageLoggingConfigurationTypeDef]
 
 
-class ImportDiskImageRequestTypeDef(TypedDict):
-    name: str
-    semanticVersion: str
-    platform: str
-    osVersion: str
-    infrastructureConfigurationArn: str
-    uri: str
-    clientToken: str
-    description: NotRequired[str]
-    executionRole: NotRequired[str]
-    loggingConfiguration: NotRequired[ImageLoggingConfigurationTypeDef]
-    tags: NotRequired[Mapping[str, str]]
-
-
 class ImportVmImageRequestTypeDef(TypedDict):
     name: str
     semanticVersion: str
@@ -1721,6 +1718,22 @@ class ListImagesResponseTypeDef(TypedDict):
     imageVersionList: list[ImageVersionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+
+class ImportDiskImageRequestTypeDef(TypedDict):
+    name: str
+    semanticVersion: str
+    platform: str
+    osVersion: str
+    infrastructureConfigurationArn: str
+    uri: str
+    clientToken: str
+    description: NotRequired[str]
+    executionRole: NotRequired[str]
+    loggingConfiguration: NotRequired[ImageLoggingConfigurationTypeDef]
+    tags: NotRequired[Mapping[str, str]]
+    registerImageOptions: NotRequired[RegisterImageOptionsTypeDef]
+    windowsConfiguration: NotRequired[WindowsConfigurationTypeDef]
 
 
 LaunchPermissionConfigurationUnionTypeDef = Union[
@@ -2222,6 +2235,7 @@ class ImagePipelineTypeDef(TypedDict):
     dateNextRun: NotRequired[str]
     tags: NotRequired[dict[str, str]]
     imageScanningConfiguration: NotRequired[ImageScanningConfigurationOutputTypeDef]
+    imageTags: NotRequired[dict[str, str]]
     executionRole: NotRequired[str]
     workflows: NotRequired[list[WorkflowConfigurationOutputTypeDef]]
     loggingConfiguration: NotRequired[PipelineLoggingConfigurationTypeDef]
@@ -2554,6 +2568,7 @@ class CreateImagePipelineRequestTypeDef(TypedDict):
     schedule: NotRequired[ScheduleTypeDef]
     status: NotRequired[PipelineStatusType]
     tags: NotRequired[Mapping[str, str]]
+    imageTags: NotRequired[Mapping[str, str]]
     imageScanningConfiguration: NotRequired[ImageScanningConfigurationUnionTypeDef]
     workflows: NotRequired[Sequence[WorkflowConfigurationUnionTypeDef]]
     executionRole: NotRequired[str]
@@ -2591,6 +2606,7 @@ class UpdateImagePipelineRequestTypeDef(TypedDict):
     workflows: NotRequired[Sequence[WorkflowConfigurationUnionTypeDef]]
     loggingConfiguration: NotRequired[PipelineLoggingConfigurationTypeDef]
     executionRole: NotRequired[str]
+    imageTags: NotRequired[Mapping[str, str]]
 
 
 class GetImageResponseTypeDef(TypedDict):

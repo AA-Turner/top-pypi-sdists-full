@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tabicl
-Version: 2.0.3
+Version: 2.1.0
 Summary: TabICL: A state-of-the-art tabular foundation model
 Author: Jingang Qu, David Holzmüller, Marine Le Morvan, Gaël Varoquaux
 License: BSD 3-Clause License
@@ -250,6 +250,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering
 Requires-Python: >=3.10
 Requires-Dist: einops>=0.7
@@ -263,11 +264,33 @@ Requires-Dist: tqdm>=4.64.0
 Provides-Extra: all
 Requires-Dist: gluonts>=0.16.0; extra == 'all'
 Requires-Dist: matplotlib>=3.10.3; extra == 'all'
+Requires-Dist: numba; extra == 'all'
+Requires-Dist: pandas; extra == 'all'
 Requires-Dist: pandas>=2.1.2; extra == 'all'
+Requires-Dist: pydata-sphinx-theme; extra == 'all'
+Requires-Dist: shap>=0.42; extra == 'all'
+Requires-Dist: shapiq>=1.0; extra == 'all'
+Requires-Dist: skrub; extra == 'all'
+Requires-Dist: sphinx; extra == 'all'
+Requires-Dist: sphinx-copybutton; extra == 'all'
+Requires-Dist: sphinx-gallery; extra == 'all'
+Requires-Dist: sphinxext-opengraph; extra == 'all'
 Requires-Dist: statsmodels>=0.14.5; extra == 'all'
 Requires-Dist: transformers; extra == 'all'
 Requires-Dist: wandb; extra == 'all'
 Requires-Dist: xgboost; extra == 'all'
+Provides-Extra: doc
+Requires-Dist: matplotlib>=3.10.3; extra == 'doc'
+Requires-Dist: numba; extra == 'doc'
+Requires-Dist: pandas; extra == 'doc'
+Requires-Dist: pydata-sphinx-theme; extra == 'doc'
+Requires-Dist: shap>=0.42; extra == 'doc'
+Requires-Dist: shapiq>=1.0; extra == 'doc'
+Requires-Dist: skrub; extra == 'doc'
+Requires-Dist: sphinx; extra == 'doc'
+Requires-Dist: sphinx-copybutton; extra == 'doc'
+Requires-Dist: sphinx-gallery; extra == 'doc'
+Requires-Dist: sphinxext-opengraph; extra == 'doc'
 Provides-Extra: forecast
 Requires-Dist: gluonts>=0.16.0; extra == 'forecast'
 Requires-Dist: matplotlib>=3.10.3; extra == 'forecast'
@@ -277,6 +300,13 @@ Provides-Extra: pretrain
 Requires-Dist: transformers; extra == 'pretrain'
 Requires-Dist: wandb; extra == 'pretrain'
 Requires-Dist: xgboost; extra == 'pretrain'
+Provides-Extra: shap
+Requires-Dist: matplotlib>=3.10.3; extra == 'shap'
+Requires-Dist: numba; extra == 'shap'
+Requires-Dist: shap>=0.42; extra == 'shap'
+Requires-Dist: shapiq>=1.0; extra == 'shap'
+Provides-Extra: test
+Requires-Dist: pandas; extra == 'test'
 Description-Content-Type: text/markdown
 
 [![test](https://github.com/soda-inria/tabicl/actions/workflows/testing.yml/badge.svg)](https://github.com/soda-inria/tabicl/actions/workflows/testing.yml)
@@ -311,7 +341,7 @@ with 300 to 100,000 training samples and up to 2,000 features.
 It can scale to even larger datasets (e.g., 500K samples) through CPU and disk offloading, 
 though its accuracy may degrade at some point.
 
-<img src="./figures/pareto_front_improvability_tabarena.png" width="70%" alt="Model comparison on TabArena" style="display: block; margin: auto;">
+<img src="./docs/figures/pareto_front_improvability_tabarena.png" width="70%" alt="Model comparison on TabArena" style="display: block; margin: auto;">
 
 ## Installation
 
@@ -322,9 +352,16 @@ pip install tabicl
 Optional dependencies can be installed as needed:
 ```bash
 pip install tabicl[forecast]   # time series forecasting
+pip install tabicl[shap]       # SHAP-based explainability
 pip install tabicl[pretrain]   # pre-training
 pip install tabicl[all]        # everything
 ```
+
+On Intel Macs, installing PyTorch via `pip` may fail. In that case, install it first with:
+```bash
+conda install pytorch -c pytorch
+```
+Then install `tabicl` as above.
 
 ## Basic usage
 
@@ -413,7 +450,6 @@ clf = TabICLClassifier(
 - **TabICLv1.1**: TabICLv1 post-trained on an early version of the v2 prior. Classification only.
 - **TabICLv1**: Original model. Classification only.
   TabICLv1 and v1.1 originally used `n_estimators=32`; we reduced the default to 8 afterwards.
-
 ## Time series forecasting
 
 TabICL can be used for zero-shot time series forecasting via `TabICLForecaster`.
@@ -430,7 +466,7 @@ from tabicl import TabICLForecaster
 
 forecaster = TabICLForecaster(
     max_context_length=4096,  # max historical timesteps to use as context
-    temporal_features=None,  # timestep index, calendar patterns, and seasonality
+    temporal_features=None,  # None = ["index", "datetime", "periodic"]; also accepts a list mixing string names and TimeTransform instances
     point_estimate="mean",  # point prediction method: "mean" or "median"
     tabicl_config=None,  # passed to TabICLRegressor; None uses default settings
 )
@@ -464,9 +500,38 @@ pred_df = forecaster.predict_df(context_df, prediction_length=prediction_length)
 fig, axes = plot_forecast(context_df=context_df, pred_df=pred_df, test_df=test_df)
 ```
 
-<img src="./figures/tabiclv2_time_series.png" width="60%" alt="Runtimes for different hardware and sample sizes" style="display: block; margin: auto;">
+<img src="./docs/figures/tabiclv2_time_series.png" width="60%" alt="Runtimes for different hardware and sample sizes" style="display: block; margin: auto;">
 
 `TabICLForecaster` is heavily inspired by [TabPFN-TS](https://arxiv.org/abs/2501.02945v3). We may later improve it to enhance the ability of TabICL for time series forecasting.
+
+## Explainability
+
+TabICL integrates with [SHAP](https://github.com/shap/shap) via `tabicl.shap`. It uses a single all-NaN row as the SHAP background, exploiting TabICL's native NaN handling so that masked features are genuinely removed from the model's perspective instead of being replaced by a reference value.
+
+### SHAP values
+
+```python
+from sklearn.datasets import load_breast_cancer
+from sklearn.model_selection import train_test_split
+from tabicl import TabICLClassifier
+from tabicl.shap import get_shap_values, plot_shap
+
+X, y = load_breast_cancer(return_X_y=True)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.8, random_state=42)
+
+clf = TabICLClassifier()
+clf.fit(X_train, y_train)
+
+shap_values = get_shap_values(
+    estimator=clf,                                       # fitted TabICLClassifier or TabICLRegressor
+    X_test=X_test[:10],                                  # samples to explain
+    attribute_names=load_breast_cancer().feature_names,  # feature names
+)
+
+plot_shap(shap_values)
+```
+
+`get_shap_values` also accepts any extra keyword arguments and forwards them to the underlying `shap.Explainer`.
 
 ## Pre-training
 
@@ -480,11 +545,6 @@ Pre-training code for v2 will be released upon publication.
 We provide a minimal implementation of the TabICLv2 architecture 
 [here](https://github.com/soda-inria/nanotabicl), 
 for educational and experimental purposes.
-
-## TODO
-
-- [ ] Documentation
-- [ ] Multi-GPU parallel inference
 
 ## FAQ
 
@@ -503,7 +563,7 @@ On modern GPUs, TabICL can handle a million samples
 in a few minutes without RAM overflow
 thanks to CPU and disk offloading.
 
-<img src="./figures/runtime_tabpfnv25_tabiclv2.png" width="70%" alt="Runtimes for different hardware and sample sizes" style="display: block; margin: auto;">
+<img src="./docs/figures/runtime_tabpfnv25_tabiclv2.png" width="70%" alt="Runtimes for different hardware and sample sizes" style="display: block; margin: auto;">
 
 **What dataset sizes work well?** 
 TabICLv2 is pre-trained on datasets between 300 and 48K training samples.
@@ -511,25 +571,25 @@ However, it can generalize to larger datasets to some extent,
 and we see good results even on some datasets with 600K samples. 
 We have not tested if TabICL generalizes to datasets smaller than 300 samples.
 
-<img src="./figures/tabiclv2_perf_vs_n_samples.png" width="70%" alt="Average rank vs. number of samples" style="display: block; margin: auto;">
+<img src="./docs/figures/tabiclv2_perf_vs_n_samples.png" width="70%" alt="Average rank vs. number of samples" style="display: block; margin: auto;">
 
 **What about the number of columns?**
 TabICLv2 is pre-trained on datasets between 2 and 100 columns. 
 We see good generalization to more columns and don't know where the limit is.
 
-<img src="./figures/tabiclv2_perf_vs_n_features.png" width="70%" alt="Average rank vs. number of features" style="display: block; margin: auto;">
+<img src="./docs/figures/tabiclv2_perf_vs_n_features.png" width="70%" alt="Average rank vs. number of features" style="display: block; margin: auto;">
 
 ## Preprocessing
 
 ### Simple built-in preprocessing
-If the input `X` to TabICL is a pandas DataFrame, TabICL will automatically:
-- Detect and ordinal encode categorical columns (including string, object, category, and boolean types)
+For `X`, TabICL accepts pandas dataframes or numpy arrays.
+It applies the following preprocessing:
+- Detect and ordinal encode categorical columns 
+  (including string, object, category, and boolean types). For numpy arrays,
+  all columns have the same datatype (the one of the array). 
+  Columns with integers are detected as numerical.
 - Create a separate category for missing values in categorical features
 - Perform mean imputation for missing numerical values (encoded as NaN)
-
-If the input `X` is a numpy array, TabICL assumes that ordinal encoding and missing value imputation have already been performed.
-
-For both input types, TabICL applies additional preprocessing:
 - Outlier detection and removal
 - Feature scaling and normalization
 - Feature shuffling for ensemble diversity

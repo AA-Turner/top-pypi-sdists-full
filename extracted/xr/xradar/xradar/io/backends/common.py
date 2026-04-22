@@ -60,11 +60,45 @@ def _fix_angle(da):
     return da
 
 
+_STATION_VARS = {"latitude", "longitude", "altitude"}
+
+
+def _apply_site_as_coords(ds, site_as_coords):
+    """Promote or demote station coordinates on a sweep Dataset.
+
+    When *site_as_coords* is true the latitude / longitude / altitude
+    variables are promoted to coordinates.  When false they are demoted
+    back to data variables so the root node owns the single authoritative
+    copy in a DataTree context.
+
+    Parameters
+    ----------
+    ds : xr.Dataset
+        Sweep dataset to modify.
+    site_as_coords : bool
+        If True, promote station vars to coordinates.
+        If False, demote them to data variables.
+
+    Returns
+    -------
+    xr.Dataset
+    """
+    if site_as_coords:
+        present = _STATION_VARS & (set(ds.data_vars) | set(ds.coords))
+        if present:
+            return ds.assign_coords({v: ds[v] for v in present})
+        return ds
+    to_demote = _STATION_VARS & set(ds.coords)
+    if to_demote:
+        return ds.reset_coords(list(to_demote))
+    return ds
+
+
 def _attach_sweep_groups(dtree, sweeps):
     """Attach sweep groups to DataTree."""
     for i, sw in enumerate(sweeps):
-        # remove attributes only from Dataset's not DataArrays
-        dtree[f"sweep_{i}"] = xr.DataTree(sw.drop_attrs(deep=False))
+        sw = sw.drop_vars(_STATION_VARS, errors="ignore").drop_attrs(deep=False)
+        dtree[f"sweep_{i}"] = xr.DataTree(sw)
     return dtree
 
 
@@ -89,7 +123,15 @@ def _get_h5group_names(filename, engine):
 
 
 def _assign_root(sweeps):
-    """(Re-)Create root object according CfRadial2 standard"""
+    """(Re-)Create root object according CfRadial2 standard.
+
+    Returns
+    -------
+    root : xr.Dataset
+        Root dataset with station vars promoted to coordinates.
+    sweeps : list[xr.Dataset]
+        Input list with station vars dropped from sweep datasets (index 1+).
+    """
     # extract time coverage
     times = np.array(
         [[ts.time.values.min(), ts.time.values.max()] for ts in sweeps[1:]]
@@ -122,6 +164,12 @@ def _assign_root(sweeps):
         }
     ).reset_coords()
 
+    # Promote station location to coordinates on the root node.
+    # Sweep children inherit these via DataTree coordinate inheritance.
+    promote = _STATION_VARS & set(root.data_vars)
+    if promote:
+        root = root.set_coords(list(promote))
+
     # assign root attributes
     attrs = {}
     attrs["Conventions"] = sweeps[0].attrs.get("Conventions", "None")
@@ -143,7 +191,12 @@ def _assign_root(sweeps):
     root = root.assign_attrs(attrs)
     # todo: pull in only CF attributes
     root = root.assign_attrs(sweeps[1].attrs)
-    return root
+
+    # Drop station vars from sweeps so the root owns the single copy.
+    cleaned = [sweeps[0]] + [
+        ds.drop_vars(_STATION_VARS, errors="ignore") for ds in sweeps[1:]
+    ]
+    return root, cleaned
 
 
 def _get_fmt_string(dictionary, retsub=False, byte_order="<"):
@@ -256,7 +309,13 @@ def _get_required_root_dataset(ls_ds, optional=True):
     # Creating the root group using _assign_root function
     ls = ls_ds.copy()
     ls.insert(0, xr.Dataset())
-    root = _assign_root(ls)
+    root, ls = _assign_root(ls)
+
+    # Drop station coords from _vars to avoid merge conflict
+    # (they are already placed as coordinates on root by _assign_root)
+    to_drop = _STATION_VARS & set(_vars.data_vars)
+    if to_drop:
+        _vars = _vars.drop_vars(to_drop)
 
     # merging both the created and the variables within each dataset
     root = xr.merge([root, _vars], compat="override")
@@ -302,6 +361,23 @@ def _get_radar_calibration(ls_ds: list[xr.Dataset], subdict: dict) -> xr.Dataset
         return xr.Dataset({key: xr.DataArray(value) for key, value in var_dict.items()})
     else:
         return xr.Dataset()
+
+
+def _prepare_backend_ds(ds):
+    """wrap variables in CopyOnWriteArray and create indexes
+
+    Needed for hdf5-based `odim` and `gamic` backends to work with
+    file-like objects (see https://github.com/openradar/xradar/issues/189),
+    as the wrapping in standard xarray pipeline happens after returning the
+    dataset.
+    """
+    for name, variable in ds.variables.items():
+        if name not in ds._indexes:
+            data = xr.core.indexing.CopyOnWriteArray(variable._data)
+            variable.data = data
+    # create indexes
+    ds = ds.set_index({dim: dim for dim in ds.dims})
+    return ds
 
 
 # IRIS Data Types and corresponding python struct format characters

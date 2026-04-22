@@ -31,6 +31,7 @@ Functions:
     get_cli_path: Get Claude CLI path from env var or config
     get_codex_cli_path: Get Codex CLI path from env var or config
     get_opencode_cli_path: Get OpenCode CLI path from env var or config
+    get_hermes_cli_path: Get Hermes CLI path from env var or config
 """
 
 import ast
@@ -519,6 +520,52 @@ def get_opencode_cli_path() -> str | None:
         pass
 
     return None
+
+
+def get_hermes_cli_path() -> str | None:
+    """Get Hermes CLI path from environment variable or config file.
+
+    Priority:
+        1. OUROBOROS_HERMES_CLI_PATH environment variable
+        2. config.yaml orchestrator.hermes_cli_path
+        3. None (resolve from PATH at runtime)
+
+    Returns:
+        Path to Hermes CLI binary or None.
+    """
+    env_path = os.environ.get("OUROBOROS_HERMES_CLI_PATH", "").strip()
+    if env_path:
+        return str(Path(env_path).expanduser())
+
+    try:
+        config = load_config()
+        hermes_path = getattr(config.orchestrator, "hermes_cli_path", None)
+        if hermes_path:
+            return hermes_path
+    except ConfigError:
+        pass
+
+    return None
+
+
+def get_opencode_mode() -> str | None:
+    """Get configured OpenCode integration mode from config file.
+
+    Priority:
+        1. config.yaml orchestrator.opencode_mode
+        2. None (no explicit mode — runtime gate requires "plugin" to dispatch)
+
+    No environment override by design. Users switch by re-running
+    ``ouroboros setup --opencode-mode=<plugin|subprocess>``.
+
+    Returns:
+        "plugin", "subprocess", or None.
+    """
+    try:
+        config = load_config()
+        return config.orchestrator.opencode_mode
+    except ConfigError:
+        return None
 
 
 def get_gemini_cli_path() -> str | None:

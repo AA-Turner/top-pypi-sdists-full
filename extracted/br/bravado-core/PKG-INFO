@@ -1,25 +1,34 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: bravado-core
-Version: 6.1.1
+Version: 6.3.1
 Summary: Library for adding Swagger support to clients and servers
-Home-page: https://github.com/Yelp/bravado-core
-Author: Digium, Inc. and Yelp, Inc.
-Author-email: opensource+bravado-core@yelp.com
-License: BSD 3-Clause License
+Author-email: "Digium, Inc. and Yelp, Inc." <opensource+bravado-core@yelp.com>
+License: BSD 3-Clause
+Project-URL: Homepage, https://github.com/Yelp/bravado-core
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
-Requires-Python: >=3.7
-Description-Content-Type: text/markdown
+Requires-Python: >=3.8
+Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
+Requires-Dist: jsonref
+Requires-Dist: jsonschema[format-nongpl]>=2.5.1
+Requires-Dist: python-dateutil
+Requires-Dist: pyyaml
+Requires-Dist: requests
+Requires-Dist: simplejson
+Requires-Dist: six
+Requires-Dist: swagger-spec-validator>=2.0.1
+Requires-Dist: pytz
+Requires-Dist: msgpack>=0.5.2
+Dynamic: license-file
 
 .. image:: https://github.com/Yelp/bravado-core/workflows/build/badge.svg?branch=master
   :target: https://github.com/Yelp/bravado-core/actions?query=workflow%3Abuild

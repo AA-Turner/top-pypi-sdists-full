@@ -38,6 +38,13 @@ from ouroboros.core.errors import ValidationError
 from ouroboros.core.initial_context import resolve_initial_context_input
 from ouroboros.core.types import Result
 from ouroboros.mcp.errors import MCPServerError, MCPToolError
+from ouroboros.mcp.tools.subagent import (
+    build_generate_seed_subagent,
+    build_interview_subagent,
+    build_subagent_result,
+    emit_subagent_dispatched_event,
+    should_dispatch_via_plugin,
+)
 from ouroboros.mcp.types import (
     ContentType,
     MCPContentItem,
@@ -46,11 +53,19 @@ from ouroboros.mcp.types import (
     MCPToolResult,
     ToolInputType,
 )
+from ouroboros.orchestrator.policy import (
+    PolicyContext,
+    PolicyExecutionPhase,
+    PolicySessionRole,
+    allowed_runtime_builtin_tool_names,
+)
 from ouroboros.persistence.event_store import EventStore
 from ouroboros.providers import create_llm_adapter
 from ouroboros.providers.base import LLMAdapter
 
 log = structlog.get_logger(__name__)
+
+_DATA_DIR = Path.home() / ".ouroboros" / "data"
 
 _LIVE_AMBIGUITY_MAX_RETRIES = 3
 
@@ -79,6 +94,18 @@ _INTERVIEW_COMPLETION_PHRASES = (
     "no ambiguity remains",
     "no ambiguity left",
 )
+
+
+def _interview_allowed_tools(runtime_backend: str | None) -> list[str]:
+    """Return the policy-derived read-only tool envelope for interviews."""
+    return allowed_runtime_builtin_tool_names(
+        PolicyContext(
+            runtime_backend=runtime_backend,
+            session_role=PolicySessionRole.INTERVIEW,
+            execution_phase=PolicyExecutionPhase.INTERVIEW,
+        )
+    )
+
 
 _INTERVIEW_COMPLETION_NEGATIONS = (
     "not done",
@@ -278,6 +305,62 @@ def _stored_ambiguity_snapshot_is_degraded(state: InterviewState) -> bool:
     return False
 
 
+def _format_interview_transcript(state: InterviewState) -> str:
+    """Format persisted interview rounds as a readable transcript for subagent context."""
+    if not state.rounds:
+        return ""
+    lines: list[str] = []
+    if state.initial_context:
+        lines.append(f"**Initial Context:** {state.initial_context}")
+        lines.append("")
+    for r in state.rounds:
+        lines.append(f"**Q{r.round_number}:** {r.question}")
+        if r.user_response:
+            lines.append(f"**A{r.round_number}:** {r.user_response}")
+        lines.append("")
+    return "\n".join(lines).rstrip()
+
+
+async def _plugin_save_state(state_dir: Path, state: InterviewState) -> Result[Path, str]:
+    """Persist interview state without needing InterviewEngine (no LLM dep).
+
+    Used exclusively in the plugin dispatch path where litellm may not be
+    installed. Returns Result so callers can propagate persistence failures.
+    """
+    try:
+        file_path = state_dir / f"interview_{state.interview_id}.json"
+        state.mark_updated()
+        content = state.model_dump_json(indent=2)
+
+        def _sync_write() -> None:
+            file_path.write_text(content, encoding="utf-8")
+
+        await asyncio.to_thread(_sync_write)
+        return Result.ok(file_path)
+    except (OSError, ValueError) as e:
+        return Result.err(f"Failed to save interview state: {e}")
+
+
+async def _plugin_load_state(state_dir: Path, interview_id: str) -> Result[InterviewState, str]:
+    """Load interview state without needing InterviewEngine (no LLM dep).
+
+    Used exclusively in the plugin dispatch path.
+    """
+    file_path = state_dir / f"interview_{interview_id}.json"
+    if not file_path.exists():
+        return Result.err(f"Interview state not found: {interview_id}")
+    try:
+
+        def _sync_read() -> str:
+            return file_path.read_text(encoding="utf-8")
+
+        content = await asyncio.to_thread(_sync_read)
+        state = InterviewState.model_validate_json(content)
+        return Result.ok(state)
+    except (OSError, ValueError) as e:
+        return Result.err(f"Failed to load interview state: {e}")
+
+
 @dataclass
 class GenerateSeedHandler:
     """Handler for the ouroboros_generate_seed tool.
@@ -290,6 +373,10 @@ class GenerateSeedHandler:
     seed_generator: SeedGenerator | None = field(default=None, repr=False)
     llm_adapter: LLMAdapter | None = field(default=None, repr=False)
     llm_backend: str | None = field(default=None, repr=False)
+    event_store: EventStore | None = field(default=None, repr=False)
+    data_dir: Path | None = field(default=None, repr=False)
+    agent_runtime_backend: str | None = field(default=None, repr=False)
+    opencode_mode: str | None = field(default=None, repr=False)
 
     def _build_ambiguity_score_from_value(self, ambiguity_score_value: float) -> AmbiguityScore:
         """Build an ambiguity score object from an explicit numeric override."""
@@ -396,6 +483,80 @@ class GenerateSeedHandler:
             session_id=session_id,
             ambiguity_score=ambiguity_score_value,
         )
+
+        # --- Subagent dispatch: gate on runtime + opencode_mode ---
+        if should_dispatch_via_plugin(self.agent_runtime_backend, self.opencode_mode):
+            # Plugin mode: validate interview readiness server-side before
+            # delegating.  The subprocess path loads state + computes/checks
+            # ambiguity via litellm.  Plugin can't compute ambiguity (no
+            # litellm), so we accept three evidence sources:
+            #   1. Caller-supplied ambiguity_score (from parent LLM output)
+            #   2. Persisted score on state (set by prior subprocess run)
+            #   3. Round count — at least one answered round means the
+            #      interview happened; the child validates completeness.
+            state_dir = self.data_dir or _DATA_DIR
+            load_result = await _plugin_load_state(state_dir, session_id)
+            if load_result.is_err:
+                return Result.err(
+                    MCPToolError(
+                        f"Failed to load interview state: {load_result.error}",
+                        tool_name="ouroboros_generate_seed",
+                    )
+                )
+            interview_state = load_result.value
+
+            # Determine best available ambiguity score for the gate.
+            _THRESHOLD = 0.2
+            effective_score = ambiguity_score_value  # caller-supplied
+            if effective_score is None:
+                effective_score = interview_state.ambiguity_score  # persisted
+
+            if not interview_state.is_complete:
+                answered_rounds = [r for r in interview_state.rounds if r.user_response is not None]
+                if effective_score is not None:
+                    # Have a score — enforce threshold
+                    if effective_score > _THRESHOLD:
+                        return Result.err(
+                            MCPToolError(
+                                f"Ambiguity score {effective_score:.2f} exceeds "
+                                f"threshold {_THRESHOLD}. Continue interviewing "
+                                f"to reduce ambiguity before seed generation.",
+                                tool_name="ouroboros_generate_seed",
+                            )
+                        )
+                elif not answered_rounds:
+                    # No score AND no rounds — nothing to generate from
+                    return Result.err(
+                        MCPToolError(
+                            "Interview has no answered rounds and no ambiguity "
+                            "score. Complete at least one interview round before "
+                            "generating a seed.",
+                            tool_name="ouroboros_generate_seed",
+                        )
+                    )
+
+            transcript = _format_interview_transcript(interview_state)
+
+            payload = build_generate_seed_subagent(
+                session_id=session_id,
+                ambiguity_score=effective_score,
+                transcript=transcript,
+            )
+            await emit_subagent_dispatched_event(
+                self.event_store,
+                session_id=session_id,
+                payload=payload,
+            )
+            return build_subagent_result(
+                payload,
+                response_shape={
+                    "session_id": session_id,
+                    "status": "delegated_to_subagent",
+                    "dispatch_mode": "plugin",
+                },
+            )
+
+        # Fall-through: real in-process seed generation (subprocess / non-opencode runtimes).
 
         try:
             # Use injected or create services
@@ -542,6 +703,9 @@ class InterviewHandler:
     event_store: EventStore | None = field(default=None, repr=False)
     llm_adapter: LLMAdapter | None = field(default=None, repr=False)
     llm_backend: str | None = field(default=None, repr=False)
+    agent_runtime_backend: str | None = field(default=None, repr=False)
+    opencode_mode: str | None = field(default=None, repr=False)
+    data_dir: Path | None = field(default=None, repr=False)
 
     def __post_init__(self) -> None:
         """Initialize event store."""
@@ -728,7 +892,10 @@ class InterviewHandler:
             description=(
                 "Interactive interview for requirement clarification. "
                 "Start a new interview with initial_context, resume with session_id, "
-                "or record an answer to the current question."
+                "or record an answer to the current question. "
+                "In plugin mode, returns a delegation receipt "
+                "(status=delegated_to_subagent) and the interview executes in an "
+                "OpenCode Task pane — the real session_id is returned there."
             ),
             parameters=(
                 MCPToolParameter(
@@ -758,6 +925,19 @@ class InterviewHandler:
                     ),
                     required=False,
                 ),
+                MCPToolParameter(
+                    name="last_question",
+                    type=ToolInputType.STRING,
+                    description=(
+                        "The question text from the previous child session's response. "
+                        "In plugin mode each dispatch creates a new child session whose "
+                        "questions are not automatically persisted server-side. Pass the "
+                        "child's last question here when submitting an answer so the "
+                        "interview transcript preserves the real question text instead "
+                        "of a placeholder."
+                    ),
+                    required=False,
+                ),
             ),
         )
 
@@ -776,6 +956,158 @@ class InterviewHandler:
         initial_context = arguments.get("initial_context")
         session_id = arguments.get("session_id")
         answer = arguments.get("answer")
+        last_question = arguments.get("last_question")
+
+        # --- Argument validation (before any dispatch) ---
+        # Determine action from arguments
+        if initial_context:
+            action = "start"
+        elif answer:
+            action = "answer"
+        else:
+            action = "resume"
+
+        # Reject invalid combos early — applies to both plugin and subprocess paths.
+        if action != "start" and not session_id:
+            return Result.err(
+                MCPToolError(
+                    "Must provide initial_context to start or session_id to resume",
+                    tool_name="ouroboros_interview",
+                )
+            )
+
+        # --- Subagent dispatch: gate on runtime + opencode_mode ---
+        if should_dispatch_via_plugin(self.agent_runtime_backend, self.opencode_mode):
+            # Plugin mode: persist state server-side WITHOUT creating an LLM adapter.
+            # Only state I/O is needed here — the subagent handles all LLM work.
+            # This avoids importing litellm (optional dep) on plugin-only installs.
+            state_dir = self.data_dir or _DATA_DIR
+            state_dir.mkdir(parents=True, exist_ok=True)
+
+            transcript = ""
+            real_session_id = session_id
+
+            if action == "start" and initial_context:
+                cwd = arguments.get("cwd") or os.getcwd()
+                resolved_context = resolve_initial_context_input(initial_context, cwd=cwd)
+                if resolved_context.is_err:
+                    return Result.err(
+                        MCPToolError(
+                            str(resolved_context.error),
+                            tool_name="ouroboros_interview",
+                        )
+                    )
+                # Pure state creation — mirrors InterviewEngine.start_interview()
+                from ouroboros.core.security import InputValidator
+
+                is_valid, error_msg = InputValidator.validate_initial_context(
+                    resolved_context.value
+                )
+                if not is_valid:
+                    return Result.err(MCPToolError(error_msg, tool_name="ouroboros_interview"))
+                from uuid import uuid4
+
+                interview_id = f"interview_{uuid4().hex[:16]}"
+                state = InterviewState(
+                    interview_id=interview_id,
+                    initial_context=resolved_context.value,
+                )
+                # Detect brownfield
+                if cwd:
+                    from ouroboros.bigbang.explore import detect_brownfield
+
+                    if detect_brownfield(cwd):
+                        state.is_brownfield = True
+                        state.codebase_paths = [{"path": cwd, "role": "primary"}]
+
+                # Persist — propagate failure instead of silently ignoring
+                save_result = await _plugin_save_state(state_dir, state)
+                if save_result.is_err:
+                    return Result.err(
+                        MCPToolError(str(save_result.error), tool_name="ouroboros_interview")
+                    )
+                real_session_id = state.interview_id
+
+            elif session_id:
+                load_result = await _plugin_load_state(state_dir, session_id)
+                if load_result.is_err:
+                    return Result.err(
+                        MCPToolError(str(load_result.error), tool_name="ouroboros_interview")
+                    )
+                state = load_result.value
+                # Record answer into persisted state.
+                # In plugin mode each dispatch = new child session. The child
+                # generates questions but can't write back to server-side state.
+                # We must always persist user answers for transcript continuity.
+                #
+                # The ``last_question`` parameter solves the question-text gap:
+                # the parent LLM sees the child's response (which contains the
+                # question) and passes it back here so we can persist the real
+                # question text instead of a placeholder.
+                if answer:
+                    if state.rounds and state.rounds[-1].user_response is None:
+                        # Round exists with question but no answer yet — fill it.
+                        # If last_question was provided, update the question text
+                        # in case the existing one is a stale placeholder from a
+                        # previous partial persistence.
+                        if last_question:
+                            state.rounds[-1].question = last_question
+                        state.rounds[-1].user_response = answer
+                    else:
+                        # No rounds yet or all answered — append new round.
+                        # Use last_question when available; fall back to a
+                        # descriptive placeholder for backward compatibility
+                        # (callers that don't supply last_question yet).
+                        from ouroboros.bigbang.interview import InterviewRound
+
+                        question_text = (
+                            last_question if last_question else "(continued from subagent)"
+                        )
+                        state.rounds.append(
+                            InterviewRound(
+                                round_number=len(state.rounds) + 1,
+                                question=question_text,
+                                user_response=answer,
+                            )
+                        )
+                    state.mark_updated()
+                    save_result = await _plugin_save_state(state_dir, state)
+                    if save_result.is_err:
+                        return Result.err(
+                            MCPToolError(str(save_result.error), tool_name="ouroboros_interview")
+                        )
+                # Build transcript from persisted rounds
+                transcript = _format_interview_transcript(state)
+
+            payload = build_interview_subagent(
+                session_id=real_session_id or "new",
+                action=action,
+                initial_context=initial_context,
+                answer=answer,
+                cwd=arguments.get("cwd"),
+                transcript=transcript,
+            )
+            await emit_subagent_dispatched_event(
+                self.event_store,
+                session_id=real_session_id,
+                payload=payload,
+            )
+            return build_subagent_result(
+                payload,
+                response_shape={
+                    "session_id": real_session_id,
+                    "action": action,
+                    "status": "delegated_to_subagent",
+                    "dispatch_mode": "plugin",
+                    "next_turn_hint": (
+                        "When the user answers, pass the child session's "
+                        "question text as 'last_question' alongside 'answer' "
+                        "to preserve interview transcript fidelity."
+                    ),
+                },
+            )
+
+        # Fall-through: real in-process interview engine (subprocess / non-opencode runtimes).
 
         # Use injected or create interview engine
         # max_turns=1: MCP is a pure question generator. No tool use needed.
@@ -784,11 +1116,11 @@ class InterviewHandler:
             backend=self.llm_backend,
             max_turns=1,
             use_case="interview",
-            allowed_tools=[],
+            allowed_tools=_interview_allowed_tools(self.llm_backend),
         )
         engine = self.interview_engine or InterviewEngine(
             llm_adapter=llm_adapter,
-            state_dir=Path.home() / ".ouroboros" / "data",
+            state_dir=self.data_dir or _DATA_DIR,
             model=get_clarification_model(self.llm_backend),
         )
 

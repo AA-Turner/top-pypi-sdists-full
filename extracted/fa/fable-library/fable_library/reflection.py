@@ -57,7 +57,7 @@ class TypeInfo:
     def __hash__(self) -> int:
         hashes: list[int32] = [int32(hash(x)) for x in self.generics or []]
         hashes.append(int32(hash(self.fullname)))
-        return combine_hash_codes(hashes)
+        return int(combine_hash_codes(hashes))
 
 
 def class_type(

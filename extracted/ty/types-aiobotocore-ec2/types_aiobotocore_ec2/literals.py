@@ -75,6 +75,7 @@ __all__ = (
     "CapacityBlockInterconnectStatusType",
     "CapacityBlockResourceStateType",
     "CapacityManagerDataExportStatusType",
+    "CapacityManagerMonitoredTagKeyStatusType",
     "CapacityManagerStatusType",
     "CapacityReservationBillingRequestStatusType",
     "CapacityReservationDeliveryPreferenceType",
@@ -310,6 +311,7 @@ __all__ = (
     "GetAwsNetworkPerformanceDataPaginatorName",
     "GetCapacityManagerMetricDataPaginatorName",
     "GetCapacityManagerMetricDimensionsPaginatorName",
+    "GetCapacityManagerMonitoredTagKeysPaginatorName",
     "GetGroupsForCapacityReservationPaginatorName",
     "GetInstanceTypesFromInstanceRequirementsPaginatorName",
     "GetIpamAddressHistoryPaginatorName",
@@ -826,6 +828,9 @@ CapacityBlockResourceStateType = Literal[
     "unavailable",
 ]
 CapacityManagerDataExportStatusType = Literal["delivered", "failed", "in-progress", "pending"]
+CapacityManagerMonitoredTagKeyStatusType = Literal[
+    "activated", "activating", "deactivating", "suspended"
+]
 CapacityManagerStatusType = Literal["disabled", "enabled"]
 CapacityReservationBillingRequestStatusType = Literal[
     "accepted", "cancelled", "expired", "pending", "rejected", "revoked"
@@ -1161,6 +1166,7 @@ FastSnapshotRestoreStateCodeType = Literal[
 ]
 FilterByDimensionType = Literal[
     "account-id",
+    "account-name",
     "availability-zone-id",
     "instance-family",
     "instance-platform",
@@ -1219,6 +1225,7 @@ GetAssociatedIpv6PoolCidrsPaginatorName = Literal["get_associated_ipv6_pool_cidr
 GetAwsNetworkPerformanceDataPaginatorName = Literal["get_aws_network_performance_data"]
 GetCapacityManagerMetricDataPaginatorName = Literal["get_capacity_manager_metric_data"]
 GetCapacityManagerMetricDimensionsPaginatorName = Literal["get_capacity_manager_metric_dimensions"]
+GetCapacityManagerMonitoredTagKeysPaginatorName = Literal["get_capacity_manager_monitored_tag_keys"]
 GetGroupsForCapacityReservationPaginatorName = Literal["get_groups_for_capacity_reservation"]
 GetInstanceTypesFromInstanceRequirementsPaginatorName = Literal[
     "get_instance_types_from_instance_requirements"
@@ -1262,6 +1269,7 @@ GetTransitGatewayRouteTablePropagationsPaginatorName = Literal[
 GetVpnConnectionDeviceTypesPaginatorName = Literal["get_vpn_connection_device_types"]
 GroupByType = Literal[
     "account-id",
+    "account-name",
     "availability-zone-id",
     "instance-family",
     "instance-platform",
@@ -3640,6 +3648,7 @@ ServiceName = Literal[
     "inspector",
     "inspector-scan",
     "inspector2",
+    "interconnect",
     "internetmonitor",
     "invoicing",
     "iot",
@@ -3696,6 +3705,7 @@ ServiceName = Literal[
     "marketplace-agreement",
     "marketplace-catalog",
     "marketplace-deployment",
+    "marketplace-discovery",
     "marketplace-entitlement",
     "marketplace-reporting",
     "marketplacecommerceanalytics",
@@ -3793,6 +3803,7 @@ ServiceName = Literal[
     "rum",
     "s3",
     "s3control",
+    "s3files",
     "s3outposts",
     "s3tables",
     "s3vectors",
@@ -4022,6 +4033,7 @@ PaginatorName = Literal[
     "get_aws_network_performance_data",
     "get_capacity_manager_metric_data",
     "get_capacity_manager_metric_dimensions",
+    "get_capacity_manager_monitored_tag_keys",
     "get_groups_for_capacity_reservation",
     "get_instance_types_from_instance_requirements",
     "get_ipam_address_history",

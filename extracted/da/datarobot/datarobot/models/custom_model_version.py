@@ -515,6 +515,8 @@ class CustomModelVersion(APIObject):
         The information about the training data assigned to the model version.
     holdout_data: HoldoutData, optional
         The information about the holdout data assigned to the model version.
+    runtime_parameters: List[RuntimeParameter], optional
+        The runtime parameter definitions attached to this model version.
     """
 
     _path = "customModels/{}/versions/"
@@ -808,6 +810,7 @@ class CustomModelVersion(APIObject):
         max_wait: Optional[int] = DEFAULT_MAX_WAIT,
         runtime_parameter_values: Optional[List[RuntimeParameterValue]] = None,
         base_environment_version_id: Optional[str] = None,
+        runtime_parameters: Optional[List[RuntimeParameter]] = None,
     ) -> CustomModelVersion:
         """Create a custom model version containing files from a previous version.
 
@@ -893,6 +896,15 @@ class CustomModelVersion(APIObject):
             of the model-metadata.yaml file. This list will be merged with any existing
             runtime values set from the prior version, so it is possible to specify a `null` value
             to unset specific parameters and fall back to the defaultValue from the definition.
+            Mutually exclusive with ``runtime_parameters``.
+        runtime_parameters: List[RuntimeParameter], optional
+            Full parameter definitions to create or replace on this version. Unlike
+            ``runtime_parameter_values`` (which only sets override values), this field
+            performs a snapshot replacement — any parameter not present in the list is
+            deleted from the version.
+            Mutually exclusive with ``runtime_parameter_values``.
+            Requires the server to have the runtime parameters batch update feature enabled;
+            if unsupported, the server will return a ``ClientError``.
 
         Returns
         -------
@@ -977,6 +989,7 @@ class CustomModelVersion(APIObject):
             keep_training_holdout_data=keep_training_holdout_data,
             max_wait=max_wait,
             runtime_parameter_values=runtime_parameter_values,
+            runtime_parameters=runtime_parameters,
         )
 
     @classmethod
@@ -1000,6 +1013,7 @@ class CustomModelVersion(APIObject):
         keep_training_holdout_data: Optional[bool],
         max_wait: Optional[int],
         runtime_parameter_values: Optional[List[RuntimeParameterValue]] = None,
+        runtime_parameters: Optional[List[RuntimeParameter]] = None,
     ) -> CustomModelVersion:
         # TODO: pass model object
         """Create a custom model version"""
@@ -1044,6 +1058,14 @@ class CustomModelVersion(APIObject):
             if keep_training_holdout_data and (training_dataset_id or holdout_dataset_id):
                 raise InvalidUsageError(
                     "It is not allowed to keep existing training/holdout data and to provide a new ones."
+                )
+
+            if runtime_parameters is not None and runtime_parameter_values is not None:
+                raise InvalidUsageError(
+                    "`runtime_parameters` and `runtime_parameter_values` are mutually exclusive. "
+                    "Use `runtime_parameters` for full parameter definition management "
+                    "(requires server support for the runtime parameters batch update feature), "
+                    "or `runtime_parameter_values` to set override values on existing definitions only."
                 )
 
             upload_data: List[Tuple[str, Any]] = [
@@ -1118,6 +1140,12 @@ class CustomModelVersion(APIObject):
                     json.dumps([
                         {camelize(k): v for k, v in param.to_dict().items()} for param in runtime_parameter_values
                     ]),
+                ))
+
+            if runtime_parameters is not None:
+                upload_data.append((
+                    "runtimeParameters",
+                    json.dumps([{camelize(k): v for k, v in param.to_dict().items()} for param in runtime_parameters]),
                 ))
 
             encoder = MultipartEncoder(fields=upload_data)

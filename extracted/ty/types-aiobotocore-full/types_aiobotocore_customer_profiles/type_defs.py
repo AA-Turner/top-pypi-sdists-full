@@ -57,14 +57,18 @@ from .literals import (
     ReadinessStatusType,
     RecommenderFilterStatusType,
     RecommenderRecipeNameType,
+    RecommenderSchemaStatusType,
     RecommenderStatusType,
     RuleBasedMatchingStatusType,
     S3ConnectorOperatorType,
     SalesforceConnectorOperatorType,
     ScopeType,
     SegmentSnapshotStatusType,
+    SegmentSortDataTypeType,
+    SegmentSortOrderType,
     SegmentTypeType,
     ServiceNowConnectorOperatorType,
+    SortAttributeTypeType,
     SourceConnectorTypeType,
     StandardIdentifierType,
     StatisticType,
@@ -149,6 +153,8 @@ __all__ = (
     "CreateRecommenderFilterResponseTypeDef",
     "CreateRecommenderRequestTypeDef",
     "CreateRecommenderResponseTypeDef",
+    "CreateRecommenderSchemaRequestTypeDef",
+    "CreateRecommenderSchemaResponseTypeDef",
     "CreateSegmentDefinitionRequestTypeDef",
     "CreateSegmentDefinitionResponseTypeDef",
     "CreateSegmentEstimateRequestTypeDef",
@@ -184,6 +190,7 @@ __all__ = (
     "DeleteRecommenderFilterRequestTypeDef",
     "DeleteRecommenderFilterResponseTypeDef",
     "DeleteRecommenderRequestTypeDef",
+    "DeleteRecommenderSchemaRequestTypeDef",
     "DeleteSegmentDefinitionRequestTypeDef",
     "DeleteSegmentDefinitionResponseTypeDef",
     "DeleteWorkflowRequestTypeDef",
@@ -270,6 +277,8 @@ __all__ = (
     "GetRecommenderFilterResponseTypeDef",
     "GetRecommenderRequestTypeDef",
     "GetRecommenderResponseTypeDef",
+    "GetRecommenderSchemaRequestTypeDef",
+    "GetRecommenderSchemaResponseTypeDef",
     "GetSegmentDefinitionRequestTypeDef",
     "GetSegmentDefinitionResponseTypeDef",
     "GetSegmentEstimateRequestTypeDef",
@@ -351,6 +360,9 @@ __all__ = (
     "ListRecommenderRecipesRequestPaginateTypeDef",
     "ListRecommenderRecipesRequestTypeDef",
     "ListRecommenderRecipesResponseTypeDef",
+    "ListRecommenderSchemasRequestPaginateTypeDef",
+    "ListRecommenderSchemasRequestTypeDef",
+    "ListRecommenderSchemasResponseTypeDef",
     "ListRecommendersRequestPaginateTypeDef",
     "ListRecommendersRequestTypeDef",
     "ListRecommendersResponseTypeDef",
@@ -422,6 +434,8 @@ __all__ = (
     "RecommenderFilterTypeDef",
     "RecommenderPromotionalFilterTypeDef",
     "RecommenderRecipeTypeDef",
+    "RecommenderSchemaFieldTypeDef",
+    "RecommenderSchemaSummaryTypeDef",
     "RecommenderSummaryTypeDef",
     "RecommenderUpdateTypeDef",
     "ResponseMetadataTypeDef",
@@ -440,7 +454,11 @@ __all__ = (
     "SegmentGroupStructureTypeDef",
     "SegmentGroupTypeDef",
     "SegmentGroupUnionTypeDef",
+    "SegmentSortOutputTypeDef",
+    "SegmentSortTypeDef",
+    "SegmentSortUnionTypeDef",
     "ServiceNowSourcePropertiesTypeDef",
+    "SortAttributeTypeDef",
     "SourceConnectorPropertiesTypeDef",
     "SourceFlowConfigTypeDef",
     "SourceSegmentTypeDef",
@@ -688,8 +706,15 @@ class CreateRecommenderFilterRequestTypeDef(TypedDict):
     DomainName: str
     RecommenderFilterName: str
     RecommenderFilterExpression: str
+    RecommenderSchemaName: NotRequired[str]
     Description: NotRequired[str]
     Tags: NotRequired[Mapping[str, str]]
+
+
+class RecommenderSchemaFieldTypeDef(TypedDict):
+    TargetFieldName: str
+    ContentType: NotRequired[ContentTypeType]
+    FeatureType: NotRequired[FeatureTypeType]
 
 
 class CreateSegmentSnapshotRequestTypeDef(TypedDict):
@@ -783,6 +808,11 @@ class DeleteRecommenderFilterRequestTypeDef(TypedDict):
 class DeleteRecommenderRequestTypeDef(TypedDict):
     DomainName: str
     RecommenderName: str
+
+
+class DeleteRecommenderSchemaRequestTypeDef(TypedDict):
+    DomainName: str
+    RecommenderSchemaName: str
 
 
 class DeleteSegmentDefinitionRequestTypeDef(TypedDict):
@@ -1052,6 +1082,11 @@ class GetRecommenderRequestTypeDef(TypedDict):
 class TrainingMetricsTypeDef(TypedDict):
     Time: NotRequired[datetime]
     Metrics: NotRequired[dict[TrainingMetricNameType, float]]
+
+
+class GetRecommenderSchemaRequestTypeDef(TypedDict):
+    DomainName: str
+    RecommenderSchemaName: str
 
 
 class GetSegmentDefinitionRequestTypeDef(TypedDict):
@@ -1348,6 +1383,7 @@ class ListRecommenderFiltersRequestTypeDef(TypedDict):
 
 class RecommenderFilterSummaryTypeDef(TypedDict):
     RecommenderFilterName: NotRequired[str]
+    RecommenderSchemaName: NotRequired[str]
     RecommenderFilterExpression: NotRequired[str]
     CreatedAt: NotRequired[datetime]
     Description: NotRequired[str]
@@ -1364,6 +1400,12 @@ class ListRecommenderRecipesRequestTypeDef(TypedDict):
 class RecommenderRecipeTypeDef(TypedDict):
     name: NotRequired[RecommenderRecipeNameType]
     description: NotRequired[str]
+
+
+class ListRecommenderSchemasRequestTypeDef(TypedDict):
+    DomainName: str
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
 
 
 class ListRecommendersRequestTypeDef(TypedDict):
@@ -1487,6 +1529,17 @@ class SalesforceSourcePropertiesTypeDef(TypedDict):
     Object: str
     EnableDynamicFieldUpdate: NotRequired[bool]
     IncludeDeletedRecords: NotRequired[bool]
+
+
+SortAttributeTypeDef = TypedDict(
+    "SortAttributeTypeDef",
+    {
+        "Name": str,
+        "Order": SegmentSortOrderType,
+        "DataType": NotRequired[SegmentSortDataTypeType],
+        "Type": NotRequired[SortAttributeTypeType],
+    },
+)
 
 
 class ServiceNowSourcePropertiesTypeDef(TypedDict):
@@ -1738,6 +1791,7 @@ class GetProfileHistoryRecordResponseTypeDef(TypedDict):
 class GetRecommenderFilterResponseTypeDef(TypedDict):
     RecommenderFilterName: str
     RecommenderFilterExpression: str
+    RecommenderSchemaName: str
     CreatedAt: datetime
     Status: RecommenderFilterStatusType
     Description: str
@@ -1965,6 +2019,38 @@ class EngagementPreferencesTypeDef(TypedDict):
 class DataStoreResponseTypeDef(TypedDict):
     Enabled: NotRequired[bool]
     Readiness: NotRequired[ReadinessTypeDef]
+
+
+class CreateRecommenderSchemaRequestTypeDef(TypedDict):
+    DomainName: str
+    RecommenderSchemaName: str
+    Fields: Mapping[str, Sequence[RecommenderSchemaFieldTypeDef]]
+    Tags: NotRequired[Mapping[str, str]]
+
+
+class CreateRecommenderSchemaResponseTypeDef(TypedDict):
+    RecommenderSchemaArn: str
+    RecommenderSchemaName: str
+    Fields: dict[str, list[RecommenderSchemaFieldTypeDef]]
+    CreatedAt: datetime
+    Status: RecommenderSchemaStatusType
+    Tags: dict[str, str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetRecommenderSchemaResponseTypeDef(TypedDict):
+    RecommenderSchemaName: str
+    Fields: dict[str, list[RecommenderSchemaFieldTypeDef]]
+    CreatedAt: datetime
+    Status: RecommenderSchemaStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class RecommenderSchemaSummaryTypeDef(TypedDict):
+    RecommenderSchemaName: str
+    Fields: dict[str, list[RecommenderSchemaFieldTypeDef]]
+    CreatedAt: datetime
+    Status: RecommenderSchemaStatusType
 
 
 class CreateUploadJobRequestTypeDef(TypedDict):
@@ -2218,6 +2304,11 @@ class ListRecommenderRecipesRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
+class ListRecommenderSchemasRequestPaginateTypeDef(TypedDict):
+    DomainName: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
 class ListRecommendersRequestPaginateTypeDef(TypedDict):
     DomainName: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
@@ -2380,6 +2471,14 @@ class RangeTypeDef(TypedDict):
     TimestampFormat: NotRequired[str]
 
 
+class SegmentSortOutputTypeDef(TypedDict):
+    Attributes: list[SortAttributeTypeDef]
+
+
+class SegmentSortTypeDef(TypedDict):
+    Attributes: Sequence[SortAttributeTypeDef]
+
+
 class SourceConnectorPropertiesTypeDef(TypedDict):
     Marketo: NotRequired[MarketoSourcePropertiesTypeDef]
     S3: NotRequired[S3SourcePropertiesTypeDef]
@@ -2520,6 +2619,12 @@ EngagementPreferencesUnionTypeDef = Union[
 ]
 
 
+class ListRecommenderSchemasResponseTypeDef(TypedDict):
+    RecommenderSchemas: list[RecommenderSchemaSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
 class ListEventStreamsResponseTypeDef(TypedDict):
     Items: list[EventStreamSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -2535,12 +2640,14 @@ class RecommenderConfigOutputTypeDef(TypedDict):
     EventsConfig: NotRequired[EventsConfigOutputTypeDef]
     TrainingFrequency: NotRequired[int]
     InferenceConfig: NotRequired[InferenceConfigTypeDef]
+    IncludedColumns: NotRequired[dict[str, list[str]]]
 
 
 class RecommenderConfigTypeDef(TypedDict):
     EventsConfig: NotRequired[EventsConfigTypeDef]
     TrainingFrequency: NotRequired[int]
     InferenceConfig: NotRequired[InferenceConfigTypeDef]
+    IncludedColumns: NotRequired[Mapping[str, Sequence[str]]]
 
 
 class EventTriggerConditionOutputTypeDef(TypedDict):
@@ -2660,6 +2767,9 @@ class ConditionsTypeDef(TypedDict):
     Range: NotRequired[RangeTypeDef]
     ObjectCount: NotRequired[int]
     Threshold: NotRequired[ThresholdTypeDef]
+
+
+SegmentSortUnionTypeDef = Union[SegmentSortTypeDef, SegmentSortOutputTypeDef]
 
 
 class SourceFlowConfigTypeDef(TypedDict):
@@ -2939,6 +3049,7 @@ class GetSegmentMembershipResponseTypeDef(TypedDict):
 class GetRecommenderResponseTypeDef(TypedDict):
     RecommenderName: str
     RecommenderRecipeName: RecommenderRecipeNameType
+    RecommenderSchemaName: str
     RecommenderConfig: RecommenderConfigOutputTypeDef
     Description: str
     Status: RecommenderStatusType
@@ -2954,6 +3065,7 @@ class GetRecommenderResponseTypeDef(TypedDict):
 class RecommenderSummaryTypeDef(TypedDict):
     RecommenderName: NotRequired[str]
     RecipeName: NotRequired[RecommenderRecipeNameType]
+    RecommenderSchemaName: NotRequired[str]
     RecommenderConfig: NotRequired[RecommenderConfigOutputTypeDef]
     CreatedAt: NotRequired[datetime]
     Description: NotRequired[str]
@@ -2970,6 +3082,7 @@ class CreateRecommenderRequestTypeDef(TypedDict):
     RecommenderRecipeName: RecommenderRecipeNameType
     RecommenderConfig: NotRequired[RecommenderConfigUnionTypeDef]
     Description: NotRequired[str]
+    RecommenderSchemaName: NotRequired[str]
     Tags: NotRequired[Mapping[str, str]]
 
 
@@ -3125,6 +3238,7 @@ class GetSegmentDefinitionResponseTypeDef(TypedDict):
     DisplayName: str
     Description: str
     SegmentGroups: SegmentGroupOutputTypeDef
+    SegmentSort: SegmentSortOutputTypeDef
     SegmentDefinitionArn: str
     CreatedAt: datetime
     Tags: dict[str, str]
@@ -3207,4 +3321,5 @@ class CreateSegmentDefinitionRequestTypeDef(TypedDict):
     Description: NotRequired[str]
     SegmentGroups: NotRequired[SegmentGroupUnionTypeDef]
     SegmentSqlQuery: NotRequired[str]
+    SegmentSort: NotRequired[SegmentSortUnionTypeDef]
     Tags: NotRequired[Mapping[str, str]]

@@ -16,13 +16,13 @@ from ...types import Response
 
 def _get_kwargs(
     workspace_id: UUID,
-    script_id_or_name: str,
+    script_id_or_ref: str,
 ) -> dict[str, Any]:
     _kwargs: dict[str, Any] = {
         "method": "put",
-        "url": "/v1/workspaces/{workspace_id}/scripts/{script_id_or_name}/archive".format(
+        "url": "/v1/workspaces/{workspace_id}/scripts/{script_id_or_ref}/archive".format(
             workspace_id=workspace_id,
-            script_id_or_name=script_id_or_name,
+            script_id_or_ref=script_id_or_ref,
         ),
     }
 
@@ -92,7 +92,7 @@ def _build_response(
 
 def sync_detailed(
     workspace_id: UUID,
-    script_id_or_name: str,
+    script_id_or_ref: str,
     *,
     client: Union[AuthenticatedClient, Client],
 ) -> Response[
@@ -114,7 +114,7 @@ def sync_detailed(
 
     Args:
         workspace_id (UUID):
-        script_id_or_name (str):
+        script_id_or_ref (str):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -126,7 +126,7 @@ def sync_detailed(
 
     kwargs = _get_kwargs(
         workspace_id=workspace_id,
-        script_id_or_name=script_id_or_name,
+        script_id_or_ref=script_id_or_ref,
     )
 
     response = client.get_httpx_client().request(
@@ -138,7 +138,7 @@ def sync_detailed(
 
 def sync(
     workspace_id: UUID,
-    script_id_or_name: str,
+    script_id_or_ref: str,
     *,
     client: Union[AuthenticatedClient, Client],
 ) -> Optional[
@@ -160,7 +160,7 @@ def sync(
 
     Args:
         workspace_id (UUID):
-        script_id_or_name (str):
+        script_id_or_ref (str):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -172,14 +172,14 @@ def sync(
 
     return sync_detailed(
         workspace_id=workspace_id,
-        script_id_or_name=script_id_or_name,
+        script_id_or_ref=script_id_or_ref,
         client=client,
     ).parsed
 
 
 async def asyncio_detailed(
     workspace_id: UUID,
-    script_id_or_name: str,
+    script_id_or_ref: str,
     *,
     client: Union[AuthenticatedClient, Client],
 ) -> Response[
@@ -201,7 +201,7 @@ async def asyncio_detailed(
 
     Args:
         workspace_id (UUID):
-        script_id_or_name (str):
+        script_id_or_ref (str):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -213,7 +213,7 @@ async def asyncio_detailed(
 
     kwargs = _get_kwargs(
         workspace_id=workspace_id,
-        script_id_or_name=script_id_or_name,
+        script_id_or_ref=script_id_or_ref,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -223,7 +223,7 @@ async def asyncio_detailed(
 
 async def asyncio(
     workspace_id: UUID,
-    script_id_or_name: str,
+    script_id_or_ref: str,
     *,
     client: Union[AuthenticatedClient, Client],
 ) -> Optional[
@@ -245,7 +245,7 @@ async def asyncio(
 
     Args:
         workspace_id (UUID):
-        script_id_or_name (str):
+        script_id_or_ref (str):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -258,7 +258,7 @@ async def asyncio(
     return (
         await asyncio_detailed(
             workspace_id=workspace_id,
-            script_id_or_name=script_id_or_name,
+            script_id_or_ref=script_id_or_ref,
             client=client,
         )
     ).parsed

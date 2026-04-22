@@ -2,7 +2,6 @@ from agilicus.output.json import output_json, output_json_to_file, convert_to_js
 from agilicus.output.table import output_entry
 from agilicus.output.table import make_columns
 from agilicus.output.table import format_table
-from colorama import Fore
 import configparser
 import json
 import requests
@@ -186,9 +185,7 @@ def prompt(ctx):
     else:
         prompt = org.get("subdomain")
 
-    if context.get_value(ctx, "NO_PROMPT_COLOUR"):
-        return f"{prompt}$ "
-    return f"{Fore.BLUE}{prompt}$ {Fore.RESET}"
+    return click.style(f"{prompt}$ ", fg="blue")
 
 
 def connector_completion(ctx, args, incomplete):
@@ -1439,6 +1436,27 @@ def list_environments(ctx, organisation, org_id, filter, **kwargs):
         print(table.get_string(fields=filter.split(",")))
     else:
         print(table)
+
+
+@cli.command(name="list-external-networks")
+@click.option("--org-id", default=None)
+@click.option(
+    "--page-on",
+    multiple=True,
+    type=click.Choice(apps.application_service_page_fields),
+    default=None,
+)
+@click.option("--page-at-key", multiple=True, type=str, default=None)
+@click.option(
+    "--search-direction", type=click.Choice(search_direction_values), default=None
+)
+@click.option("--get-all", default=False, is_flag=True)
+@click.option("--page-size", default=None, type=int)
+@click.option("--limit", default=None, type=int)
+@click.pass_context
+def list_external_networks(ctx, **kwargs):
+    services = apps.list_external_networks(ctx, **kwargs)
+    print(apps.format_external_networks(ctx, services))
 
 
 @cli.command(name="list-application-services")

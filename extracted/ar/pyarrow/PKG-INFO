@@ -1,19 +1,21 @@
 Metadata-Version: 2.4
 Name: pyarrow
-Version: 23.0.1
+Version: 24.0.0
 Summary: Python library for Apache Arrow
-Maintainer-email: Apache Arrow Developers <dev@arrow.apache.org>
+Maintainer-Email: Apache Arrow Developers <dev@arrow.apache.org>
 License-Expression: Apache-2.0
-Project-URL: Homepage, https://arrow.apache.org/
-Project-URL: Documentation, https://arrow.apache.org/docs/python
-Project-URL: Repository, https://github.com/apache/arrow
-Project-URL: Issues, https://github.com/apache/arrow/issues
+License-File: LICENSE.txt
+License-File: NOTICE.txt
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Free Threading :: 2 - Beta
+Project-URL: Homepage, https://arrow.apache.org/
+Project-URL: Documentation, https://arrow.apache.org/docs/python
+Project-URL: Repository, https://github.com/apache/arrow
+Project-URL: Issues, https://github.com/apache/arrow/issues
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 

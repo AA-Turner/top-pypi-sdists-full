@@ -52,6 +52,7 @@ class FlowExecutor:
         log: logging.Logger | None = None,
         *,
         backend: FlowBackend | None = None,
+        base_url: str | None = None,
     ):
         if flow is None:
             raise TypeError("FlowExecutor requires a `flow` argument")
@@ -68,7 +69,7 @@ class FlowExecutor:
         self.screenshots_dir = screenshots_dir
         if self.screenshots_dir:
             self.screenshots_dir.mkdir(parents=True, exist_ok=True)
-        self.base_url: str | None = None
+        self.base_url: str | None = base_url
         self.log = log or logger
 
     async def _resolve_url(self, url: str) -> str:

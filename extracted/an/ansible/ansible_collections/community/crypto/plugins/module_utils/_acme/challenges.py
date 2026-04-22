@@ -26,6 +26,9 @@ from ansible_collections.community.crypto.plugins.module_utils._acme.errors impo
 from ansible_collections.community.crypto.plugins.module_utils._acme.utils import (
     nopad_b64,
 )
+from ansible_collections.community.crypto.plugins.module_utils._caa import (
+    _check_domain_name,
+)
 
 if t.TYPE_CHECKING:
     from ansible.module_utils.basic import AnsibleModule  # pragma: no cover
@@ -104,6 +107,44 @@ class Challenge:
     def get_validation_data(
         self, *, client: ACMEClient, identifier_type: str, identifier: str
     ) -> dict[str, t.Any] | None:
+        if self.type == "dns-persist-01":
+            # https://www.ietf.org/archive/id/draft-ietf-acme-dns-persist-01.html#section-3.1
+            account_uri = self.data.get("accounturi")
+            issuer_domain_names = self.data.get("issuer-domain-names")
+            if account_uri is None:
+                # In version 00 of the draft, accounturi isn't present.
+                # Since that's what Pebble currently implements,
+                # let's fake the value if we have it.
+                # (https://www.ietf.org/archive/id/draft-ietf-acme-dns-persist-00.html#section-6)
+                account_uri = client.account_uri
+            if (
+                not isinstance(account_uri, str)
+                or not isinstance(issuer_domain_names, list)
+                or not all(isinstance(idn, str) for idn in issuer_domain_names)
+            ):
+                return None
+            if not (1 <= len(issuer_domain_names) <= 10):
+                client.module.warn(
+                    f"The dns-persist-01 challenge for DNS:{identifier} has {len(issuer_domain_names)}"
+                    " issuer domain names, which is not in [1, 10]. Ignoring malformed challenge."
+                )
+                return None
+            for idn in issuer_domain_names:
+                try:
+                    _check_domain_name(idn)
+                    if idn != idn.lower() or len(idn) > 253:
+                        raise ValueError()
+                except ValueError:
+                    client.module.warn(
+                        f"The dns-persist-01 challenge for DNS:{identifier} has an invalid"
+                        f" issuer domain name {idn!r}. Ignoring malformed challenge."
+                    )
+                    return None
+            return {
+                "account_uri": account_uri,
+                "issuer_domain_names": issuer_domain_names,
+            }
+
         if self.token is None:
             return None
 
@@ -122,6 +163,26 @@ class Challenge:
                 return None
             # https://tools.ietf.org/html/rfc8555#section-8.4
             resource = "_acme-challenge"
+            value = nopad_b64(hashlib.sha256(to_bytes(key_authorization)).digest())
+            record = f"{resource}.{identifier[2:] if identifier.startswith('*.') else identifier}"
+            return {
+                "resource": resource,
+                "resource_value": value,
+                "record": record,
+            }
+
+        if self.type == "dns-account-01":
+            if identifier_type != "dns" or client.account_uri is None:
+                return None
+            # https://datatracker.ietf.org/doc/html/draft-ietf-acme-dns-account-label-02#section-3.2
+            prefix = (
+                base64.b32encode(
+                    hashlib.sha256(client.account_uri.encode("utf8")).digest()[:10]
+                )
+                .decode("ascii")
+                .lower()
+            )
+            resource = f"_{prefix}._acme-challenge"
             value = nopad_b64(hashlib.sha256(to_bytes(key_authorization)).digest())
             record = f"{resource}.{identifier[2:] if identifier.startswith('*.') else identifier}"
             return {
@@ -289,13 +350,8 @@ class Authorization:
                 data[challenge.type] = validation_data
         return data
 
-    def raise_error(self, *, error_msg: str, module: AnsibleModule) -> t.NoReturn:
-        """
-        Aborts with a specific error for a challenge.
-        """
+    def get_error_details(self) -> str | None:
         error_details = []
-        # multiple challenges could have failed at this point, gather error
-        # details for all of them before failing
         for challenge in self.challenges:
             if challenge.status == "invalid":
                 msg = f"Challenge {challenge.type}"
@@ -306,9 +362,17 @@ class Authorization:
                     )
                     msg = f"{msg}: {problem}"
                 error_details.append(msg)
+        return "; ".join(error_details) if error_details else None
+
+    def raise_error(self, *, error_msg: str, module: AnsibleModule) -> t.NoReturn:
+        """
+        Aborts with a specific error for a challenge.
+        """
+        error_details = self.get_error_details()
+        error_details_str = f" {error_details}" if error_details else ""
         raise ACMEProtocolException(
             module=module,
-            msg=f"Failed to validate challenge for {self.combined_identifier}: {error_msg}. {'; '.join(error_details)}",
+            msg=f"Failed to validate challenge for {self.combined_identifier}: {error_msg}.{error_details_str}",
             extras={
                 "identifier": self.combined_identifier,
                 "authorization": self.data,
@@ -360,6 +424,11 @@ class Authorization:
         """
         return self.status in ("valid", "pending")
 
+    def is_in_final_state(self, *, allow_valid: bool = True) -> bool:
+        if allow_valid and self.status == "valid":
+            return True
+        return self.status in ("invalid", "revoked", "deactivated", "expired")
+
     def deactivate(self, *, client: ACMEClient) -> bool | None:
         """
         Deactivates this authorization.
@@ -372,13 +441,9 @@ class Authorization:
         result, info = client.send_signed_request(
             self.url, authz_deactivate, fail_on_error=False
         )
-        if (
-            200 <= info["status"] < 300
-            and isinstance(result, dict)
-            and result.get("status") == "deactivated"
-        ):
-            self.status = "deactivated"
-            return True
+        if 200 <= info["status"] < 300 and isinstance(result, dict):
+            self._setup(client=client, data=result)
+            return self.status == "deactivated"
         return False
 
     @classmethod

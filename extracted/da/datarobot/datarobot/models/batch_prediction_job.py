@@ -40,6 +40,7 @@ from datarobot.utils import (
     logger,
     pagination,
     parse_time,
+    rawdict,
     to_api,
 )
 
@@ -85,7 +86,7 @@ class BatchPredictionJob(AbstractBatchJob):
     Attributes
     ----------
     id : str
-        the id of the job
+        the ID of the job
     """
 
     _job_spec = t.Dict({
@@ -271,7 +272,7 @@ class BatchPredictionJob(AbstractBatchJob):
 
         if column_names_remapping is not None:
             cls._column_names_remapping.check(column_names_remapping)
-            job_data["columnNamesRemapping"] = dict(column_names_remapping)
+            job_data["columnNamesRemapping"] = rawdict(column_names_remapping)
 
         if include_probabilities_classes:
             job_data["includeProbabilitiesClasses"] = list(include_probabilities_classes)
@@ -1175,6 +1176,11 @@ class BatchPredictionJob(AbstractBatchJob):
         df : pandas.DataFrame
             The dataframe to score
 
+        read_timeout : int, default 660
+            Maximum time in seconds to wait for the batch job to expose a download link
+            (while polling job status), and read timeout in seconds for the streaming HTTP
+            download of results. The same value is used for both steps.
+
         Returns
         -------
         BatchPredictionJob
@@ -1841,7 +1847,7 @@ class BatchPredictionJobDefinition(APIObject):  # pylint: disable=missing-class-
             The ``schedule`` payload defines at what intervals the job should run, which can be
             combined in various ways to construct complex scheduling terms if needed. In all of
             the elements in the objects, you can supply either an asterisk ``["*"]`` denoting
-            "every" time denomination or an array of integers (e.g. ``[1, 2, 3]``) to define
+            "every" time denomination or an array of integers (e.g., ``[1, 2, 3]``) to define
             a specific interval.
 
             The ``schedule`` payload is split up in the following items:

@@ -14,7 +14,7 @@ dependencies:
   - lat_lon_parser
   - netCDF4
   - numpy
-  - open-radar-data>=0.4.2
+  - open-radar-data>=0.6.0
   - pip
   - pyproj
   - pytest
@@ -24,5 +24,6 @@ dependencies:
   - pytest-xdist
   - scipy
   - setuptools
-  - xarray>=2024.10.0
+  - pip:
+    - xarray >= 2026.4.0
   - xmltodict

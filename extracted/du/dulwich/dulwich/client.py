@@ -170,7 +170,12 @@ from .bundle_uri import (
     fetch_bundle_uri,
     parse_bundle_list,
 )
-from .config import Config, apply_instead_of, get_xdg_config_home_path
+from .config import (
+    Config,
+    apply_instead_of,
+    get_git_proxy_command,
+    get_xdg_config_home_path,
+)
 from .credentials import match_partial_url, match_urls
 from .errors import GitProtocolError, HangupException, NotGitRepository, SendPackError
 from .object_format import DEFAULT_OBJECT_FORMAT
@@ -187,6 +192,7 @@ from .protocol import (
     _RBUFSIZE,
     CAPABILITIES_REF,
     CAPABILITY_AGENT,
+    CAPABILITY_ATOMIC,
     CAPABILITY_DELETE_REFS,
     CAPABILITY_FETCH,
     CAPABILITY_FILTER,
@@ -195,6 +201,7 @@ from .protocol import (
     CAPABILITY_MULTI_ACK_DETAILED,
     CAPABILITY_OFS_DELTA,
     CAPABILITY_PACKFILE_URIS,
+    CAPABILITY_PUSH_OPTIONS,
     CAPABILITY_QUIET,
     CAPABILITY_REPORT_STATUS,
     CAPABILITY_SHALLOW,
@@ -341,6 +348,8 @@ UPLOAD_CAPABILITIES = [
 RECEIVE_CAPABILITIES = [
     CAPABILITY_REPORT_STATUS,
     CAPABILITY_DELETE_REFS,
+    CAPABILITY_ATOMIC,
+    CAPABILITY_PUSH_OPTIONS,
     *COMMON_CAPABILITIES,
 ]
 
@@ -451,9 +460,7 @@ def build_ls_refs_request_v2(
         ref_prefix = DEFAULT_REF_PREFIX
 
     # Check if server supports unborn refs
-    supports_unborn = any(
-        b"ls-refs=unborn" in cap or b"ls-refs" in cap for cap in server_capabilities
-    )
+    supports_unborn = any(b"ls-refs=unborn" in cap for cap in server_capabilities)
 
     # Command packets (before delimiter)
     cmd_packets = [b"command=ls-refs\n", b"agent=" + agent_string()]
@@ -778,10 +785,13 @@ class _v1ReceivePackHeader:
         capabilities: Sequence[bytes],
         old_refs: Mapping[Ref, ObjectID],
         new_refs: Mapping[Ref, ObjectID],
+        push_options: Sequence[bytes] | None = None,
     ) -> None:
         self.want: set[ObjectID] = set()
         self.have: set[ObjectID] = set()
-        self._it = self._handle_receive_pack_head(capabilities, old_refs, new_refs)
+        self._it = self._handle_receive_pack_head(
+            capabilities, old_refs, new_refs, push_options
+        )
         self.sent_capabilities = False
 
     def __iter__(self) -> Iterator[bytes | None]:
@@ -792,6 +802,7 @@ class _v1ReceivePackHeader:
         capabilities: Sequence[bytes],
         old_refs: Mapping[Ref, ObjectID],
         new_refs: Mapping[Ref, ObjectID],
+        push_options: Sequence[bytes] | None = None,
     ) -> Iterator[bytes | None]:
         """Handle the head of a 'git-receive-pack' request.
 
@@ -799,6 +810,7 @@ class _v1ReceivePackHeader:
           capabilities: List of negotiated capabilities
           old_refs: Old refs, as received from the server
           new_refs: Refs to change
+          push_options: Optional list of push options to send to the server
 
         Returns:
           (have, want) tuple
@@ -838,7 +850,16 @@ class _v1ReceivePackHeader:
                     self.sent_capabilities = True
             if new_sha1 not in self.have and new_sha1 != ZERO_SHA:
                 self.want.add(new_sha1)
+        # flush-pkt after ref commands
         yield None
+        # If push-options capability was negotiated and options were provided,
+        # send each option followed by a flush-pkt.
+        if CAPABILITY_PUSH_OPTIONS in capabilities and push_options:
+            for option in push_options:
+                if isinstance(option, str):
+                    option = option.encode()
+                yield option
+            yield None
 
 
 def _read_side_band64k_data(pkt_seq: Iterable[bytes]) -> Iterator[tuple[int, bytes]]:
@@ -1364,6 +1385,8 @@ class GitClient:
         update_refs: Callable[[dict[Ref, ObjectID]], dict[Ref, ObjectID]],
         generate_pack_data: "GeneratePackDataFunc",
         progress: Callable[[bytes], None] | None = None,
+        push_options: Sequence[bytes] | None = None,
+        atomic: bool = False,
     ) -> SendPackResult:
         """Upload a pack to a remote repository.
 
@@ -1375,12 +1398,16 @@ class GitClient:
           generate_pack_data: Function that can return a tuple
             with number of objects and list of pack data to include
           progress: Optional progress function
+          push_options: Optional list of push options to send to the server
+          atomic: If True, request atomic push (all refs update or none do)
 
         Returns:
           SendPackResult object
 
         Raises:
           SendPackError: if server rejects the pack data
+          GitProtocolError: if atomic push is requested but server doesn't
+            support it
 
         """
         raise NotImplementedError(self.send_pack)
@@ -1999,6 +2026,8 @@ class TraditionalGitClient(GitClient):
         update_refs: Callable[[dict[Ref, ObjectID]], dict[Ref, ObjectID]],
         generate_pack_data: "GeneratePackDataFunc",
         progress: Callable[[bytes], None] | None = None,
+        push_options: Sequence[bytes] | None = None,
+        atomic: bool = False,
     ) -> SendPackResult:
         """Upload a pack to a remote repository.
 
@@ -2010,12 +2039,16 @@ class TraditionalGitClient(GitClient):
           generate_pack_data: Function that can return a tuple with
             number of objects and pack data to upload.
           progress: Optional callback called with progress updates
+          push_options: Optional list of push options to send to the server
+          atomic: If True, request atomic push (all refs update or none do)
 
         Returns:
           SendPackResult
 
         Raises:
           SendPackError: if server rejects the pack data
+          GitProtocolError: if atomic push is requested but server doesn't
+            support it
 
         """
         self.protocol_version = DEFAULT_GIT_PROTOCOL_VERSION_SEND
@@ -2032,6 +2065,20 @@ class TraditionalGitClient(GitClient):
             if CAPABILITY_REPORT_STATUS in negotiated_capabilities:
                 self._report_status_parser = ReportStatusParser()
             report_status_parser = self._report_status_parser
+
+            # Only advertise push-options if we have options to send and
+            # the server supports them.
+            if push_options and CAPABILITY_PUSH_OPTIONS in negotiated_capabilities:
+                negotiated_capabilities.add(CAPABILITY_PUSH_OPTIONS)
+            else:
+                negotiated_capabilities.discard(CAPABILITY_PUSH_OPTIONS)
+
+            if atomic:
+                if CAPABILITY_ATOMIC not in server_capabilities:
+                    raise GitProtocolError("Server does not support atomic push")
+                negotiated_capabilities.add(CAPABILITY_ATOMIC)
+            else:
+                negotiated_capabilities.discard(CAPABILITY_ATOMIC)
 
             try:
                 new_refs = orig_new_refs = update_refs(old_refs)
@@ -2078,6 +2125,7 @@ class TraditionalGitClient(GitClient):
                 list(negotiated_capabilities),
                 old_refs,
                 new_refs,
+                push_options=push_options,
             )
 
             for pkt in header_handler:
@@ -2421,6 +2469,7 @@ class TCPGitClient(TraditionalGitClient):
         report_activity: Callable[[int, str], None] | None = None,
         quiet: bool = False,
         include_tags: bool = False,
+        proxy_command: str | None = None,
     ) -> None:
         """Initialize a TCPGitClient.
 
@@ -2431,11 +2480,15 @@ class TCPGitClient(TraditionalGitClient):
           report_activity: Optional callback for reporting transport activity
           quiet: Whether to suppress progress output
           include_tags: Whether to include tags
+          proxy_command: Optional proxy command (core.gitProxy).
+            The command is run with host and port as arguments and
+            communicates over stdin/stdout.
         """
         if port is None:
             port = TCP_GIT_PORT
         self._host = host
         self._port = port
+        self._proxy_command = proxy_command
         super().__init__(
             thin_packs=thin_packs,
             report_activity=report_activity,
@@ -2467,12 +2520,15 @@ class TCPGitClient(TraditionalGitClient):
           dumb: Whether to use dumb protocol (not used for TCPGitClient)
           username: Username for authentication (not used for TCPGitClient)
           password: Password for authentication (not used for TCPGitClient)
-          config: Configuration object (not used for TCPGitClient)
+          config: Configuration object
 
         Returns:
           A TCPGitClient instance
         """
         assert parsedurl.hostname is not None
+        proxy_command = None
+        if config is not None:
+            proxy_command = get_git_proxy_command(config, parsedurl.hostname)
         return cls(
             parsedurl.hostname,
             port=parsedurl.port,
@@ -2480,6 +2536,7 @@ class TCPGitClient(TraditionalGitClient):
             report_activity=report_activity,
             quiet=quiet,
             include_tags=include_tags,
+            proxy_command=proxy_command,
         )
 
     def get_url(self, path: str) -> str:
@@ -2511,6 +2568,10 @@ class TCPGitClient(TraditionalGitClient):
             raise TypeError(cmd)
         if not isinstance(path, bytes):
             path = path.encode(self._remote_path_encoding)
+
+        if self._proxy_command is not None:
+            return self._connect_via_proxy(cmd, path, protocol_version)
+
         sockaddrs = socket.getaddrinfo(
             self._host, self._port, socket.AF_UNSPEC, socket.SOCK_STREAM
         )
@@ -2568,6 +2629,55 @@ class TCPGitClient(TraditionalGitClient):
             b"git-" + cmd, path, b"host=" + self._host.encode("ascii") + version_str
         )
         return proto, lambda: _fileno_can_read(s.fileno()), None
+
+    def _connect_via_proxy(
+        self,
+        cmd: bytes,
+        path: bytes,
+        protocol_version: int | None = None,
+    ) -> tuple[Protocol, Callable[[], bool], IO[bytes] | None]:
+        """Connect to a git server via a proxy command.
+
+        The proxy command is invoked with the host and port as arguments.
+        It communicates with the git server over its stdin/stdout, acting
+        as a transparent tunnel.
+        """
+        assert self._proxy_command is not None
+        import shlex
+
+        argv = [*shlex.split(self._proxy_command), self._host, str(self._port)]
+        p = subprocess.Popen(
+            argv,
+            bufsize=0,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        pw = SubprocessWrapper(p)
+        proto = Protocol(
+            pw.read,
+            pw.write,
+            pw.close,
+            report_activity=self._report_activity,
+        )
+        if path.startswith(b"/~"):
+            path = path[1:]
+        if cmd == b"upload-pack":
+            if protocol_version is None:
+                self.protocol_version = DEFAULT_GIT_PROTOCOL_VERSION_FETCH
+            else:
+                self.protocol_version = protocol_version
+        else:
+            self.protocol_version = DEFAULT_GIT_PROTOCOL_VERSION_SEND
+
+        if cmd == b"upload-pack" and self.protocol_version == 2:
+            version_str = b"\0\0version=%d\0" % self.protocol_version
+        else:
+            version_str = b""
+        proto.send_cmd(
+            b"git-" + cmd, path, b"host=" + self._host.encode("ascii") + version_str
+        )
+        return proto, pw.can_read, p.stderr
 
 
 class SubprocessWrapper:
@@ -2818,6 +2928,8 @@ class LocalGitClient(GitClient):
         update_refs: Callable[[dict[Ref, ObjectID]], dict[Ref, ObjectID]],
         generate_pack_data: "GeneratePackDataFunc",
         progress: Callable[[bytes], None] | None = None,
+        push_options: Sequence[bytes] | None = None,
+        atomic: bool = False,
     ) -> SendPackResult:
         """Upload a pack to a local on-disk repository.
 
@@ -2830,6 +2942,8 @@ class LocalGitClient(GitClient):
           generate_pack_data: Function that generates pack data given
             have and want object sets
           progress: Optional progress function
+          push_options: Optional list of push options (not used for local repos)
+          atomic: If True, use atomic ref updates (all succeed or all fail)
 
         Returns:
           SendPackResult
@@ -2867,6 +2981,29 @@ class LocalGitClient(GitClient):
             )
 
             ref_status: dict[bytes, str | None] = {}
+
+            if atomic:
+                # Validate all ref updates first before applying any
+                for refname, new_sha1 in new_refs.items():
+                    old_sha1 = old_refs.get(refname, ZERO_SHA)
+                    if new_sha1 != ZERO_SHA:
+                        current = target.refs.get_peeled(refname)
+                        if current is not None and current != old_sha1:
+                            ref_status[refname] = (
+                                f"unable to set {refname!r} to {new_sha1!r}"
+                            )
+                    else:
+                        current = target.refs.get_peeled(refname)
+                        if current is not None and current != old_sha1:
+                            ref_status[refname] = "unable to remove"
+                if ref_status:
+                    # Atomic push: if any ref would fail, fail them all
+                    for refname in new_refs:
+                        if refname not in ref_status:
+                            ref_status[refname] = "atomic push failed"
+                    return SendPackResult(
+                        _to_optional_dict(new_refs), ref_status=ref_status
+                    )
 
             for refname, new_sha1 in new_refs.items():
                 old_sha1 = old_refs.get(refname, ZERO_SHA)
@@ -3333,6 +3470,8 @@ class BundleClient(GitClient):
         update_refs: Callable[[dict[Ref, ObjectID]], dict[Ref, ObjectID]],
         generate_pack_data: "GeneratePackDataFunc",
         progress: Callable[[bytes], None] | None = None,
+        push_options: Sequence[bytes] | None = None,
+        atomic: bool = False,
     ) -> SendPackResult:
         """Upload is not supported for bundle files."""
         raise NotImplementedError("Bundle files are read-only")
@@ -4533,6 +4672,8 @@ class AbstractHttpGitClient(GitClient):
         update_refs: Callable[[dict[Ref, ObjectID]], dict[Ref, ObjectID]],
         generate_pack_data: "GeneratePackDataFunc",
         progress: Callable[[bytes], None] | None = None,
+        push_options: Sequence[bytes] | None = None,
+        atomic: bool = False,
     ) -> SendPackResult:
         """Upload a pack to a remote repository.
 
@@ -4544,12 +4685,16 @@ class AbstractHttpGitClient(GitClient):
           generate_pack_data: Function that can return a tuple
             with number of elements and pack data to upload.
           progress: Optional progress function
+          push_options: Optional list of push options to send to the server
+          atomic: If True, request atomic push (all refs update or none do)
 
         Returns:
           SendPackResult
 
         Raises:
           SendPackError: if server rejects the pack data
+          GitProtocolError: if atomic push is requested but server doesn't
+            support it
 
         """
         url = self._get_url(path)
@@ -4564,6 +4709,20 @@ class AbstractHttpGitClient(GitClient):
 
         if CAPABILITY_REPORT_STATUS in negotiated_capabilities:
             self._report_status_parser = ReportStatusParser()
+
+        # Only advertise push-options if we have options to send and
+        # the server supports them.
+        if push_options and CAPABILITY_PUSH_OPTIONS in negotiated_capabilities:
+            negotiated_capabilities.add(CAPABILITY_PUSH_OPTIONS)
+        else:
+            negotiated_capabilities.discard(CAPABILITY_PUSH_OPTIONS)
+
+        if atomic:
+            if CAPABILITY_ATOMIC not in server_capabilities:
+                raise GitProtocolError("Server does not support atomic push")
+            negotiated_capabilities.add(CAPABILITY_ATOMIC)
+        else:
+            negotiated_capabilities.discard(CAPABILITY_ATOMIC)
 
         # Assert that old_refs has no None values
         assert all(v is not None for v in old_refs.values()), (
@@ -4587,7 +4746,10 @@ class AbstractHttpGitClient(GitClient):
 
         def body_generator() -> Iterator[bytes]:
             header_handler = _v1ReceivePackHeader(
-                list(negotiated_capabilities), old_refs_typed, new_refs
+                list(negotiated_capabilities),
+                old_refs_typed,
+                new_refs,
+                push_options=push_options,
             )
             for pkt in header_handler:
                 yield pkt_line(pkt)
@@ -5179,6 +5341,7 @@ def _get_transport_and_path_from_url(
                 report_activity=report_activity,
                 quiet=quiet,
                 include_tags=include_tags,
+                config=config,
             ),
             parsed.path,
         )

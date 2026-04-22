@@ -42,6 +42,7 @@ __all__ = (
     "FailbackReplicationErrorType",
     "FailbackStateType",
     "InitiatedByType",
+    "InternetProtocolType",
     "JobLogEventType",
     "JobStatusType",
     "JobTypeType",
@@ -183,6 +184,7 @@ InitiatedByType = Literal[
     "TERMINATE_RECOVERY_INSTANCES",
     "UPDATE_NETWORK_RECOVERY",
 ]
+InternetProtocolType = Literal["IPV4", "IPV6"]
 JobLogEventType = Literal[
     "CLEANUP_END",
     "CLEANUP_FAIL",
@@ -477,6 +479,7 @@ ServiceName = Literal[
     "inspector",
     "inspector-scan",
     "inspector2",
+    "interconnect",
     "internetmonitor",
     "invoicing",
     "iot",
@@ -533,6 +536,7 @@ ServiceName = Literal[
     "marketplace-agreement",
     "marketplace-catalog",
     "marketplace-deployment",
+    "marketplace-discovery",
     "marketplace-entitlement",
     "marketplace-reporting",
     "marketplacecommerceanalytics",
@@ -630,6 +634,7 @@ ServiceName = Literal[
     "rum",
     "s3",
     "s3control",
+    "s3files",
     "s3outposts",
     "s3tables",
     "s3vectors",

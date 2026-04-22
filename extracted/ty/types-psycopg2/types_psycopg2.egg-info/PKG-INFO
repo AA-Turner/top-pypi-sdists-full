@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: types-psycopg2
-Version: 2.9.21.20260408
+Version: 2.9.21.20260422
 Summary: Typing stubs for psycopg2
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/python/typeshed
@@ -21,7 +21,7 @@ This is a [type stub package](https://typing.python.org/en/latest/tutorials/exte
 for the [`psycopg2`](https://github.com/psycopg/psycopg2) package. It can be used by type checkers
 to check code that uses `psycopg2`. This version of
 `types-psycopg2` aims to provide accurate annotations for
-`psycopg2==2.9.11`.
+`psycopg2==2.9.12`.
 
 This package is part of the [typeshed project](https://github.com/python/typeshed).
 All fixes for types and metadata should be contributed there.
@@ -35,4 +35,4 @@ This package was tested with the following type checkers:
 * [pyright](https://github.com/microsoft/pyright) 1.1.408
 
 It was generated from typeshed commit
-[`563213272e5db2a858e37bdf6938b0c8742ec192`](https://github.com/python/typeshed/commit/563213272e5db2a858e37bdf6938b0c8742ec192).
+[`0ea291592ae8b39bc0153e6d064ddf0477a40f3b`](https://github.com/python/typeshed/commit/0ea291592ae8b39bc0153e6d064ddf0477a40f3b).

@@ -3,7 +3,7 @@ Type annotations for compute-optimizer service Client.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_compute_optimizer/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -170,7 +170,7 @@ class ComputeOptimizerClient(BaseClient):
         self, **kwargs: Unpack[ExportAutoScalingGroupRecommendationsRequestTypeDef]
     ) -> ExportAutoScalingGroupRecommendationsResponseTypeDef:
         """
-        Exports optimization recommendations for Amazon EC2 Auto Scaling groups.
+        Exports optimization recommendations for Auto Scaling groups.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/compute-optimizer/client/export_auto_scaling_group_recommendations.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_compute_optimizer/client/#export_auto_scaling_group_recommendations)
@@ -251,7 +251,7 @@ class ComputeOptimizerClient(BaseClient):
         self, **kwargs: Unpack[GetAutoScalingGroupRecommendationsRequestTypeDef]
     ) -> GetAutoScalingGroupRecommendationsResponseTypeDef:
         """
-        Returns Amazon EC2 Auto Scaling group recommendations.
+        Returns Auto Scaling group recommendations.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/compute-optimizer/client/get_auto_scaling_group_recommendations.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_compute_optimizer/client/#get_auto_scaling_group_recommendations)

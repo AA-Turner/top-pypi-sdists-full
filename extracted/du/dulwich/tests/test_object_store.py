@@ -861,6 +861,163 @@ class DiskObjectStoreTests(PackBasedObjectStoreTests, TestCase):
             # fsync should have been called at least once (for pack file and index)
             self.assertGreater(mock_fsync.call_count, 0)
 
+    def test_packed_git_limit_config(self) -> None:
+        from dulwich.config import ConfigDict
+
+        config = ConfigDict()
+        config[(b"core",)] = {b"packedGitLimit": b"1048576"}
+        store = DiskObjectStore.from_config(self.store_dir, config)
+        self.addCleanup(store.close)
+        self.assertEqual(1048576, store.packed_git_limit)
+
+    def test_packed_git_limit_evicts_lru_packs(self) -> None:
+        store = DiskObjectStore(self.store_dir, packed_git_limit=1)
+        self.addCleanup(store.close)
+
+        # Add two blobs in separate packs
+        b1 = make_object(Blob, data=b"data for pack one")
+        f, commit, abort = store.add_pack()
+        try:
+            write_pack_objects(
+                f.write, [(b1, None)], object_format=DEFAULT_OBJECT_FORMAT
+            )
+        except BaseException:
+            abort()
+            raise
+        else:
+            commit()
+
+        b2 = make_object(Blob, data=b"data for pack two")
+        f, commit, abort = store.add_pack()
+        try:
+            write_pack_objects(
+                f.write, [(b2, None)], object_format=DEFAULT_OBJECT_FORMAT
+            )
+        except BaseException:
+            abort()
+            raise
+        else:
+            commit()
+
+        # Access b1 — this triggers mmap and eviction due to tiny limit
+        self.assertEqual((Blob.type_num, b"data for pack one"), store.get_raw(b1.id))
+
+        # Access b2 — the first pack should have been evicted, but b2 is still
+        # accessible because _update_pack_cache will re-open it if needed
+        self.assertEqual((Blob.type_num, b"data for pack two"), store.get_raw(b2.id))
+
+    def test_packed_git_limit_no_limit(self) -> None:
+        store = DiskObjectStore(self.store_dir)
+        self.addCleanup(store.close)
+        self.assertIsNone(store.packed_git_limit)
+
+        # Add and access objects — no eviction should happen
+        b1 = make_object(Blob, data=b"data one")
+        f, commit, abort = store.add_pack()
+        try:
+            write_pack_objects(
+                f.write, [(b1, None)], object_format=DEFAULT_OBJECT_FORMAT
+            )
+        except BaseException:
+            abort()
+            raise
+        else:
+            commit()
+
+        self.assertEqual((Blob.type_num, b"data one"), store.get_raw(b1.id))
+
+    def test_pack_mmap_size(self) -> None:
+        from dulwich.pack import Pack
+
+        store = DiskObjectStore(self.store_dir)
+        self.addCleanup(store.close)
+
+        b1 = make_object(Blob, data=b"test mmap size data")
+        f, commit, abort = store.add_pack()
+        try:
+            write_pack_objects(
+                f.write, [(b1, None)], object_format=DEFAULT_OBJECT_FORMAT
+            )
+        except BaseException:
+            abort()
+            raise
+        else:
+            commit()
+
+        # Force pack data/index to load
+        store.get_raw(b1.id)
+
+        for pack in store.packs:
+            if isinstance(pack, Pack):
+                # After accessing data, mmap_size should be > 0
+                self.assertGreater(pack.mmap_size, 0)
+
+    def test_delta_base_cache_limit_config(self) -> None:
+        from dulwich.config import ConfigDict
+
+        config = ConfigDict()
+        config[(b"core",)] = {b"deltaBaseCacheLimit": b"2097152"}
+        store = DiskObjectStore.from_config(self.store_dir, config)
+        self.addCleanup(store.close)
+        self.assertEqual(2097152, store.delta_base_cache_limit)
+
+    def test_delta_base_cache_limit_default(self) -> None:
+        store = DiskObjectStore(self.store_dir)
+        self.addCleanup(store.close)
+        self.assertIsNone(store.delta_base_cache_limit)
+
+    def test_delta_base_cache_limit_passed_to_pack(self) -> None:
+        store = DiskObjectStore(self.store_dir, delta_base_cache_limit=1024)
+        self.addCleanup(store.close)
+
+        b1 = make_object(Blob, data=b"delta base cache test data")
+        f, commit, abort = store.add_pack()
+        try:
+            write_pack_objects(
+                f.write, [(b1, None)], object_format=DEFAULT_OBJECT_FORMAT
+            )
+        except BaseException:
+            abort()
+            raise
+        else:
+            commit()
+
+        # Access the object to force pack loading
+        store.get_raw(b1.id)
+
+        # Check that each pack received the configured cache limit
+        for pack in store.packs:
+            self.assertEqual(1024, pack.delta_base_cache_limit)
+            self.assertEqual(1024, pack.data._offset_cache._max_size)
+
+    def test_delta_base_cache_limit_uses_default(self) -> None:
+        from dulwich.pack import DEFAULT_DELTA_BASE_CACHE_LIMIT
+
+        store = DiskObjectStore(self.store_dir)
+        self.addCleanup(store.close)
+
+        b1 = make_object(Blob, data=b"default cache test data")
+        f, commit, abort = store.add_pack()
+        try:
+            write_pack_objects(
+                f.write, [(b1, None)], object_format=DEFAULT_OBJECT_FORMAT
+            )
+        except BaseException:
+            abort()
+            raise
+        else:
+            commit()
+
+        # Access the object to force pack loading
+        store.get_raw(b1.id)
+
+        # When no limit is set, should use the default
+        for pack in store.packs:
+            self.assertEqual(
+                DEFAULT_DELTA_BASE_CACHE_LIMIT,
+                pack.data._offset_cache._max_size,
+            )
+
 
 class TreeLookupPathTests(TestCase):
     def setUp(self) -> None:

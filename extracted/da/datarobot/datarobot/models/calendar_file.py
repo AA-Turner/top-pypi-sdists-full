@@ -50,7 +50,7 @@ class CalendarFile(APIObject):
     calendar_end_date : str
         The last date in the calendar.
     created  : str
-        The date this calendar was created, i.e. uploaded to DR.
+        The date this calendar was created, i.e., uploaded to DR.
     name : str
         The name of the calendar.
     num_event_types : int
@@ -406,7 +406,7 @@ class CalendarFile(APIObject):
         Raises
         ------
         DataError
-            Raised if the calendar_id is invalid, i.e. the specified CalendarFile does not exist.
+            Raised if the calendar_id is invalid, i.e., the specified CalendarFile does not exist.
 
         Examples
         --------

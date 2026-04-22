@@ -629,7 +629,7 @@ class Dataset(APIObject, BrowserMixin):
         Returns when the dataset has been successfully processed. If optional
         parameters are not specified the query is applied to the dataset_id
         and dataset_version_id stored in the query generator. If specified they
-        will override the stored dataset_id/dataset_version_id, e.g. to prep a
+        will override the stored dataset_id/dataset_version_id, e.g., to prep a
         prediction dataset.
 
         Parameters
@@ -642,7 +642,7 @@ class Dataset(APIObject, BrowserMixin):
             The id of the dataset version to apply the query to. If not specified the
             latest version associated with dataset_id (if specified) is used.
         max_wait : int
-            optional, the maximum number of seconds to wait before giving up.
+            Optional; the maximum number of seconds to wait before giving up.
         use_cases: list[UseCase] | UseCase | list[string] | string, optional
             A list of UseCase objects, UseCase object,
             list of Use Case IDs or a single Use Case ID to add this new dataset to. Must be a kwarg.
@@ -721,7 +721,7 @@ class Dataset(APIObject, BrowserMixin):
         Parameters
         ----------
         dataset_id : string
-            the id of the dataset
+            the ID of the dataset
 
         Returns
         -------
@@ -1123,7 +1123,7 @@ class Dataset(APIObject, BrowserMixin):
         Writes it to either the file or a filelike object that can write bytes.
 
         Only one of file_path or filelike can be provided and it must be provided as a
-        keyword argument (i.e. file_path='path-to-write-to'). If a file-like object is
+        keyword argument (i.e., file_path='path-to-write-to'). If a file-like object is
         provided, the user is responsible for closing it when they are done.
 
         The user must also have permission to download data.

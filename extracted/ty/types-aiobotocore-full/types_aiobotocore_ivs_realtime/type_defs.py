@@ -147,6 +147,7 @@ __all__ = (
     "PublicKeySummaryTypeDef",
     "PublicKeyTypeDef",
     "RecordingConfigurationTypeDef",
+    "RedundantIngestCredentialTypeDef",
     "ResponseMetadataTypeDef",
     "S3DestinationConfigurationOutputTypeDef",
     "S3DestinationConfigurationTypeDef",
@@ -245,20 +246,8 @@ class CreateIngestConfigurationRequestTypeDef(TypedDict):
     userId: NotRequired[str]
     attributes: NotRequired[Mapping[str, str]]
     insecureIngest: NotRequired[bool]
+    redundantIngest: NotRequired[bool]
     tags: NotRequired[Mapping[str, str]]
-
-
-class IngestConfigurationTypeDef(TypedDict):
-    arn: str
-    ingestProtocol: IngestProtocolType
-    streamKey: str
-    stageArn: str
-    participantId: str
-    state: IngestConfigurationStateType
-    name: NotRequired[str]
-    userId: NotRequired[str]
-    attributes: NotRequired[dict[str, str]]
-    tags: NotRequired[dict[str, str]]
 
 
 class CreateParticipantTokenRequestTypeDef(TypedDict):
@@ -373,6 +362,8 @@ class ParticipantTypeDef(TypedDict):
     replicationState: NotRequired[ReplicationStateType]
     sourceStageArn: NotRequired[str]
     sourceSessionId: NotRequired[str]
+    redundantIngest: NotRequired[bool]
+    ingestConfigurationArn: NotRequired[str]
 
 
 class GetPublicKeyRequestTypeDef(TypedDict):
@@ -429,6 +420,12 @@ class IngestConfigurationSummaryTypeDef(TypedDict):
     state: IngestConfigurationStateType
     name: NotRequired[str]
     userId: NotRequired[str]
+    redundantIngest: NotRequired[bool]
+
+
+class RedundantIngestCredentialTypeDef(TypedDict):
+    participantId: NotRequired[str]
+    streamKey: NotRequired[str]
 
 
 class PipConfigurationTypeDef(TypedDict):
@@ -516,6 +513,8 @@ class ParticipantSummaryTypeDef(TypedDict):
     replicationState: NotRequired[ReplicationStateType]
     sourceStageArn: NotRequired[str]
     sourceSessionId: NotRequired[str]
+    redundantIngest: NotRequired[bool]
+    ingestConfigurationArn: NotRequired[str]
 
 
 class ListPublicKeysRequestTypeDef(TypedDict):
@@ -600,6 +599,7 @@ class UntagResourceRequestTypeDef(TypedDict):
 class UpdateIngestConfigurationRequestTypeDef(TypedDict):
     arn: str
     stageArn: NotRequired[str]
+    redundantIngest: NotRequired[bool]
 
 
 class AutoParticipantRecordingConfigurationOutputTypeDef(TypedDict):
@@ -684,21 +684,6 @@ class StopParticipantReplicationResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
-class CreateIngestConfigurationResponseTypeDef(TypedDict):
-    ingestConfiguration: IngestConfigurationTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class GetIngestConfigurationResponseTypeDef(TypedDict):
-    ingestConfiguration: IngestConfigurationTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class UpdateIngestConfigurationResponseTypeDef(TypedDict):
-    ingestConfiguration: IngestConfigurationTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
 class CreateParticipantTokenResponseTypeDef(TypedDict):
     participantToken: ParticipantTokenTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -771,6 +756,21 @@ class ListIngestConfigurationsResponseTypeDef(TypedDict):
     ingestConfigurations: list[IngestConfigurationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+
+class IngestConfigurationTypeDef(TypedDict):
+    arn: str
+    ingestProtocol: IngestProtocolType
+    streamKey: str
+    stageArn: str
+    participantId: str
+    state: IngestConfigurationStateType
+    name: NotRequired[str]
+    userId: NotRequired[str]
+    redundantIngest: NotRequired[bool]
+    redundantIngestCredentials: NotRequired[list[RedundantIngestCredentialTypeDef]]
+    attributes: NotRequired[dict[str, str]]
+    tags: NotRequired[dict[str, str]]
 
 
 class LayoutConfigurationTypeDef(TypedDict):
@@ -890,6 +890,21 @@ class ListParticipantEventsResponseTypeDef(TypedDict):
     events: list[EventTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+
+class CreateIngestConfigurationResponseTypeDef(TypedDict):
+    ingestConfiguration: IngestConfigurationTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetIngestConfigurationResponseTypeDef(TypedDict):
+    ingestConfiguration: IngestConfigurationTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class UpdateIngestConfigurationResponseTypeDef(TypedDict):
+    ingestConfiguration: IngestConfigurationTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class CreateStageResponseTypeDef(TypedDict):

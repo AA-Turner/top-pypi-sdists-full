@@ -92,6 +92,28 @@ class TestSPMD(parameterized.TestCase):
     assert m.w.shape == (8, 2)
     assert m.w.sharding.shard_shape(m.w.shape) == (8, 2)
 
+  def test_separate_opt_sharding(self):
+    mesh = jax.make_mesh((2, 2), ("row", "col"),
+                         axis_types=(jax.sharding.AxisType.Auto, jax.sharding.AxisType.Auto))
+    with jax.set_mesh(mesh):
+      model = nnx.Linear(4, 2, rngs=nnx.Rngs(0), kernel_metadata={'optimizer_sharding': ('row', 'col')})
+      optimizer = nnx.Optimizer(model, optax.adam(1e-3), wrt=nnx.Param)
+
+      assert model.kernel.sharding.is_equivalent_to(
+        NamedSharding(mesh, P()), ndim=2)
+      assert optimizer.opt_state[0].mu['kernel'].sharding.is_equivalent_to(
+        NamedSharding(mesh, P('row', 'col')), ndim=2)
+
+      def loss(model, x):
+        return jnp.sum(model(x))
+
+      def train_step(model, x):
+        grads = jax.grad(loss)(model, x)
+        optimizer.update(model, grads)
+
+      train_step(model, jnp.ones(4))
+      train_step(model, jnp.ones(4))
+
   def test_shard_optimizer_state(self):
     class Foo(nnx.Module):
       def __init__(self):
@@ -128,41 +150,52 @@ class TestSPMD(parameterized.TestCase):
   def test_add_remove_axis_in_transform(self):
     test = self
     kadds, kremoves, badds, bremoves = [], [], [], []
+    class CustomVar(nnx.Param):
+      def add_axis(self, axis_index, axis_name):
+        kadds.append((axis_index, axis_name))
+        super().add_axis(axis_index, axis_name)
+
+      def remove_axis(self, axis_index, axis_name):
+        kremoves.append((axis_index, axis_name))
+        super().remove_axis(axis_index, axis_name)
+
+    class CustomBiasVar(nnx.Param):
+      def add_axis(self, axis_index, axis_name):
+        badds.append((axis_index, axis_name))
+        super().add_axis(axis_index, axis_name)
+
+      def remove_axis(self, axis_index, axis_name):
+        bremoves.append((axis_index, axis_name))
+        super().remove_axis(axis_index, axis_name)
+
     class MLP(nnx.Module):
 
-      @nnx.split_rngs(splits=5)
+      @nnx.split_rngs(splits=5, graph=True, graph_updates=True)
       @nnx.vmap(
           in_axes=(0, 0),
           transform_metadata={nnx.PARTITION_NAME: 'layers', 'nickname': 'nick'},
+          graph=True, graph_updates=True,
       )
       def __init__(self, rngs: nnx.Rngs):
-        self.linear = nnx.Linear(
-          4,
-          4,
-          kernel_init=nnx.with_metadata(
-            nnx.initializers.lecun_normal(),
+        self.kernel = CustomVar(
+            nnx.initializers.lecun_normal()(rngs.params(), (4, 4)),
             out_sharding=('din', 'dout'),
             nickname=('in', 'out'),
-            on_add_axis=lambda _, idx, name: kadds.append((idx, name)),
-            on_remove_axis=lambda _, idx, name: kremoves.append((idx, name)),
-          ),
-          bias_init=nnx.with_metadata(
-            nnx.initializers.zeros_init(),  # no sharding annotation here!
-            on_add_axis=lambda _, idx, name: badds.append((idx, name)),
-            on_remove_axis=lambda _, idx, name: bremoves.append((idx, name)),
-          ),
-          rngs=rngs,
+        )
+        self.bias = CustomBiasVar(
+            nnx.initializers.zeros_init()(rngs.params(), (4,))
         )
 
       @nnx.scan(
           in_axes=(0, nnx.Carry),
-          transform_metadata={nnx.PARTITION_NAME: 'layers'}
+          transform_metadata={nnx.PARTITION_NAME: 'layers'},
+          graph=True, graph_updates=True,
       )
       def __call__(self, x: jax.Array):
-        x = self.linear(x)
+        x = x @ self.kernel + self.bias[None, :]
         # test sharding layer axes is not present inside scan
-        test.assertEqual(self.linear.kernel.shape, (4, 4))
-        test.assertEqual(self.linear.kernel.out_sharding, ('din', 'dout'))
+        test.assertEqual(self.kernel.shape, (4, 4))
+        test.assertEqual(self.kernel.out_sharding, ('din', 'dout'))
         # at least a remove_axis was already called to remove the layer axis
         test.assertEqual(kremoves[-1], (0, 'layers'))
         test.assertEqual(bremoves[-1], (0, 'layers'))
@@ -176,10 +209,10 @@ class TestSPMD(parameterized.TestCase):
     )
     with jax.set_mesh(mesh):
       m = MLP(rngs=nnx.Rngs(0))
-    self.assertEqual(m.linear.kernel.shape, (5, 4, 4))
-    self.assertEqual(m.linear.kernel.out_sharding, ('layers', 'din', 'dout'))
-    self.assertEqual(m.linear.kernel.nickname, ('nick', 'in', 'out'))
-    self.assertEqual(m.linear.bias.shape, (5, 4))
+    self.assertEqual(m.kernel.shape, (5, 4, 4))
+    self.assertEqual(m.kernel.out_sharding, ('layers', 'din', 'dout'))
+    self.assertEqual(m.kernel.nickname, ('nick', 'in', 'out'))
+    self.assertEqual(m.bias.shape, (5, 4))
     # One add_axis called to add the `nnx.vmap` dimension
     self.assertEqual(kadds, [(0, 'layers')])
     self.assertEqual(kremoves, [])
@@ -218,6 +251,29 @@ class TestSPMD(parameterized.TestCase):
     self.assertEqual(v2.out_sharding, ('dmid', 'din', 'dout'))
     self.assertEqual(v2[...], 10)
 
+  def test_transform_metadata_decorator_none_partition(self):
+    v = nnx.Param(
+      jnp.array(1),
+      out_sharding=(None, 'dout'),
+      eager_sharding=False,
+    )
+
+    @nnx.transform_metadata(in_axes=0, out_axes=1, partition=None)
+    def f(v):
+      v[...] += 1
+      self.assertEqual(v.out_sharding, ('dout',))
+      v2 = nnx.Param(
+        jnp.array(10),
+        out_sharding=('dmid', 'dout'),
+        eager_sharding=False,
+      )
+      return v2
+
+    v2 = f(v)
+    self.assertEqual(v.out_sharding, (None, 'dout'))
+    self.assertEqual(v[...], 2)
+    self.assertEqual(v2.out_sharding, ('dmid', None, 'dout'))
+    self.assertEqual(v2[...], 10)
 
   @parameterized.product(use_eager_sharding=[True, False])
   def test_eager_sharding_context(self, use_eager_sharding):
@@ -285,8 +341,8 @@ class TestSPMD(parameterized.TestCase):
       replicated_array = jnp.arange(8).reshape(2, 4).astype(jnp.float32)
       sharded_array = reshard(replicated_array, P("X", None))
       layers = [
-        nnx.Dropout(rate=0.5, rngs=nnx.Rngs(0)),
-        nnx.Dropout(rate=0.5, broadcast_dims=(1,), rngs=nnx.Rngs(0)),
+        nnx.Dropout(rate=0.5, deterministic=False, rngs=nnx.Rngs(0)),
+        nnx.Dropout(rate=0.5, deterministic=False, broadcast_dims=(1,), rngs=nnx.Rngs(0)),
       ]
       for layer in layers:
         assert 'float32[2@X,4]' in str(jax.typeof(layer(sharded_array)))
@@ -350,7 +406,7 @@ class TestSPMD(parameterized.TestCase):
         ('batch', 'model'),
         axis_types=(jax.sharding.AxisType.Auto,) * len(('batch', 'model')),
     )
-    gdef, abs_state = nnx.get_abstract_model(lambda: Foo(nnx.Rngs(0)), mesh)
+    gdef, abs_state = nnx.compat.get_abstract_model(lambda: Foo(nnx.Rngs(0)), mesh)
     assert len(jax.tree.leaves(abs_state)) == 1
     assert jax.tree.leaves(abs_state)[0].sharding.is_equivalent_to(
       NamedSharding(mesh, P(None, 'model')), ndim=2)
@@ -389,8 +445,8 @@ class TestSPMD(parameterized.TestCase):
     axis_types = (jax.sharding.AxisType.Explicit, jax.sharding.AxisType.Explicit)
     mesh1 = jax.make_mesh((2, 2), ("a", "b"), axis_types)
     class Model(nnx.Module):
-        def __init__(self):
-          self.p1 = nnx.Param(
+      def __init__(self):
+        self.p1 = nnx.Param(
             reshard(jnp.ones((4,4)), NamedSharding(mesh1, P('a', 'b'))),
             mesh=mesh1)
 
@@ -403,11 +459,11 @@ class TestSPMD(parameterized.TestCase):
     mesh2 = jax.make_mesh((1, 4), ("c", "d"), (jax.sharding.AxisType.Auto, jax.sharding.AxisType.Auto))
 
     class Model(nnx.Module):
-        def __init__(self):
-            self.p1 = nnx.Linear(16, 16, rngs=nnx.Rngs(0), kernel_metadata={"out_sharding": ("a", "b"), "mesh": mesh1})
-            self.p2 = nnx.Linear(16, 16, rngs=nnx.Rngs(0), kernel_metadata={"out_sharding": ("c", "d"), "mesh": mesh2})
+      def __init__(self):
+        self.p1 = nnx.Linear(16, 16, rngs=nnx.Rngs(0), kernel_metadata={"out_sharding": ("a", "b"), "mesh": mesh1})
+        self.p2 = nnx.Linear(16, 16, rngs=nnx.Rngs(0), kernel_metadata={"out_sharding": ("c", "d"), "mesh": mesh2})
 
-    abs_model = nnx.eval_shape(lambda: Model())
+    abs_model = nnx.as_abstract(nnx.eval_shape(lambda: Model()))
     assert isinstance(abs_model.p1.kernel.sharding, jax.sharding.NamedSharding)
     assert abs_model.p1.kernel.sharding.mesh.axis_names == mesh1.axis_names
     assert abs_model.p1.kernel.sharding.spec == jax.P("a", "b")
@@ -417,12 +473,12 @@ class TestSPMD(parameterized.TestCase):
 
   def test_eval_shape_with_sharding1(self):
     class Model(nnx.Module):
-        def __init__(self):
-            self.linear = nnx.Linear(10, 10, rngs=nnx.Rngs(0), kernel_metadata={"out_sharding": ("a", "b")})
+      def __init__(self):
+        self.linear = nnx.Linear(10, 10, rngs=nnx.Rngs(0), kernel_metadata={"out_sharding": ("a", "b")})
 
     mesh = jax.make_mesh((2, 2), ("a", "b"), (jax.sharding.AxisType.Auto, jax.sharding.AxisType.Auto))
     with jax.set_mesh(mesh):
-        abs_model = nnx.eval_shape(lambda: Model())
+      abs_model = nnx.as_abstract(nnx.eval_shape(lambda: Model()))
     assert isinstance(abs_model.linear.kernel.sharding, jax.sharding.NamedSharding)
     assert abs_model.linear.kernel.sharding.mesh.axis_names == mesh.axis_names
     assert abs_model.linear.kernel.sharding.spec == jax.P("a", "b")
@@ -450,7 +506,9 @@ class TestSPMD(parameterized.TestCase):
     # Test with NamedSharding
     ns = NamedSharding(mesh, P('data', None))
     v_namedsharding = nnx.Variable(value, out_sharding=ns)
-    self.assertEqual(v_namedsharding.sharding, ns)
+    self.assertTrue(
+        v_namedsharding.sharding.is_equivalent_to(ns, v_namedsharding.ndim)
+    )
 
     # Test with Format
     if axis_type_name == 'auto':
@@ -472,7 +530,7 @@ class TestSPMD(parameterized.TestCase):
               kernel_metadata={'out_sharding': ('a', 'b')},
           )
       )
-      abs_model = nnx.abstract_with_sharding(abs_model)
+      abs_model = nnx.as_abstract(abs_model)
 
     self.assertIsInstance(abs_model.kernel, nnx.Param)
     self.assertEqual(abs_model.kernel.sharding.spec, P('a', 'b'))
@@ -509,7 +567,7 @@ class TestSPMD(parameterized.TestCase):
         )
 
     abs_model = nnx.eval_shape(lambda: Model())
-    abs_model = nnx.abstract_with_sharding(abs_model)
+    abs_model = nnx.as_abstract(abs_model)
 
     self.assertEqual(abs_model.p1.kernel.sharding.spec, P('a', 'b'))
     self.assertEqual(abs_model.p1.kernel.sharding.mesh, mesh1)
@@ -518,7 +576,7 @@ class TestSPMD(parameterized.TestCase):
 
   def test_get_abstract_no_sharding_metadata(self):
     abs_model = nnx.eval_shape(lambda: nnx.Linear(4, 8, rngs=nnx.Rngs(0)))
-    abs_model = nnx.abstract_with_sharding(abs_model)
+    abs_model = nnx.as_abstract(abs_model)
 
     self.assertIsInstance(abs_model.kernel, nnx.Param)
     self.assertIsNone(

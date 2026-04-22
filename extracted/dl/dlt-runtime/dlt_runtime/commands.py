@@ -4,7 +4,6 @@ from collections.abc import Iterator
 
 # Other libraries
 from dlt.common.configuration.plugins import SupportsCliCommand
-from dlt_runtime.runtime_clients.api.models import InteractiveScriptType
 
 
 def _has_visible_subparsers(parser: argparse.ArgumentParser) -> bool:
@@ -75,6 +74,14 @@ class RuntimeCommand(SupportsCliCommand):
             action="store_true",
             help="Show all commands including subcommands",
         )
+        parser.add_argument(
+            "--timestamps",
+            action="store_true",
+            help=(
+                "Show exact ISO timestamps and precise durations (e.g. 1.291 s)"
+                " instead of humanized relative times."
+            ),
+        )
 
         subparsers = parser.add_subparsers(
             title="Available subcommands", dest="runtime_command", required=False
@@ -131,37 +138,39 @@ class RuntimeCommand(SupportsCliCommand):
         )
         self._configure_unpublish_parser(unpublish_cmd)
 
-        schedule_cmd = subparsers.add_parser(
-            "schedule",
-            help=(
-                "Deploy and schedule a script with a cron timetable, or cancel the scheduled script"
-                " from future runs"
-            ),
+        trigger_cmd = subparsers.add_parser(
+            "trigger",
+            help="Trigger jobs matching selectors (does not sync or deploy)",
             description=(
-                "Schedule a batch script to run on a cron timetable, or cancel the scheduled script"
-                " from future runs."
+                "Trigger runs for jobs matching the given selectors. "
+                "Does not sync code or deploy jobs. "
+                "Examples: 'tag:backfill', 'manual:jobs.etl.*', 'schedule:*'"
             ),
         )
-        self._configure_schedule_parser(schedule_cmd)
+        self._configure_trigger_parser(trigger_cmd)
 
-        unschedule_cmd = subparsers.add_parser(
-            "unschedule",
-            help="Remove the cron schedule from a script",
-            description="Remove the cron schedule from a script, stopping future scheduled runs.",
+        run_pipeline_cmd = subparsers.add_parser(
+            "run-pipeline",
+            help="Run a job by pipeline name",
+            description="Run a job that uses the given pipeline. Uses 'pipeline_name:' trigger selector.",
         )
-        self._configure_unschedule_parser(unschedule_cmd)
+        self._configure_run_pipeline_parser(run_pipeline_cmd)
 
         logs_cmd = subparsers.add_parser(
             "logs",
             help="Show logs for latest or selected job run (shortcut for 'job-run logs')",
-            description="Show logs for the latest run of a job or a specific run number.",
+            description="Show logs for the latest run of a job or a specific run number. Use -f/--follow to stream logs in real-time.",
         )
         self._configure_logs_parser(logs_cmd)
 
         cancel_cmd = subparsers.add_parser(
             "cancel",
-            help="Cancel latest or selected job run (shortcut for 'job-run cancel')",
-            description="Cancel the latest run of a job or a specific run number.",
+            help="Cancel active runs for matching jobs",
+            description=(
+                "Cancel active (non-terminal) runs for jobs matching selectors or names."
+                " Accepts one or more selectors (batch, schedule:*, tag:ops, etc.)"
+                " or job names. Use --dry-run to preview."
+            ),
         )
         self._configure_cancel_parser(cancel_cmd)
 
@@ -171,8 +180,30 @@ class RuntimeCommand(SupportsCliCommand):
             description="Open link to the Runtime dashboard for current remote workspace.",
         )
 
-        subparsers.add_parser(
+        deploy_cmd = subparsers.add_parser(
             "deploy",
+            help="Sync code/config and deploy jobs from __deployment__ manifest",
+            description="Sync workspace files, generate job manifest from __deployment__.py, and reconcile jobs with the runtime. Use --dry-run to preview changes.",
+        )
+        deploy_cmd.add_argument(
+            "--file",
+            type=str,
+            default=None,
+            help="Python file to use as manifest source (instead of __deployment__)",
+        )
+        deploy_cmd.add_argument(
+            "--dry-run",
+            action="store_true",
+            help="Preview changes without applying them",
+        )
+        deploy_cmd.add_argument(
+            "--show-manifest",
+            action="store_true",
+            help="Dump the expanded deployment manifest as YAML and exit",
+        )
+
+        subparsers.add_parser(
+            "sync",
             help="Sync code and configuration to Runtime without running anything (shortcut for 'deployment sync' + 'configuration sync')",
             description="Upload deployment and configuration if changed.",
         )
@@ -254,25 +285,57 @@ class RuntimeCommand(SupportsCliCommand):
         switch_parser.add_argument(
             "workspace",
             type=str,
-            help="Workspace name or ID to switch to",
+            nargs="?",
+            default=None,
+            help=(
+                "Workspace name or ID to switch to. If omitted, an interactive "
+                "picker is shown with an option to create a new workspace."
+            ),
         )
 
     def _configure_launch_parser(self, launch_cmd: argparse.ArgumentParser) -> None:
-        launch_cmd.add_argument("script_path", help="Local path to the script")
+        launch_cmd.add_argument(
+            "selector_or_job_ref",
+            nargs="?",
+            default=None,
+            help="Selector or job ref to pick a job from the manifest",
+        )
+        launch_cmd.add_argument(
+            "--file",
+            type=str,
+            default=None,
+            help="Python file to use as manifest source (instead of __deployment__)",
+        )
         launch_cmd.add_argument(
             "-f",
             "--follow",
             action="store_true",
             help="Follow status changes and stream logs until the run completes",
         )
+        launch_cmd.add_argument(
+            "--refresh",
+            action="store_true",
+            help="Re-run from scratch (full reload). Cascades to freshness-graph downstream jobs.",
+        )
 
     def _configure_serve_parser(self, serve_cmd: argparse.ArgumentParser) -> None:
-        serve_cmd.add_argument("script_path", help="Local path to the notebook/app")
         serve_cmd.add_argument(
-            "--app-type",
-            choices=[v.value for v in InteractiveScriptType],
-            default=InteractiveScriptType.MARIMO.value,
-            help="Specify if the interactive job is a marimo notebook, Streamlit app, or MCP server",
+            "selector_or_job_ref",
+            nargs="?",
+            default=None,
+            help="Selector or job ref to pick an interactive app from the manifest",
+        )
+        serve_cmd.add_argument(
+            "--file",
+            type=str,
+            default=None,
+            help="Python file to use as manifest source (instead of __deployment__)",
+        )
+        serve_cmd.add_argument(
+            "-f",
+            "--follow",
+            action="store_true",
+            help="Stream logs until the app stops",
         )
 
     def _configure_publish_parser(self, publish_cmd: argparse.ArgumentParser) -> None:
@@ -283,29 +346,52 @@ class RuntimeCommand(SupportsCliCommand):
             help="Revoke the public link for the notebook/app",
         )
 
-    def _configure_schedule_parser(self, schedule_cmd: argparse.ArgumentParser) -> None:
-        schedule_cmd.add_argument("script_path", help="Local path to the script")
-        schedule_cmd.add_argument(
-            "cron_expr_or_cancel",
-            help=(
-                "Either a cron schedule string if you want to schedule the script, or the literal"
-                " 'cancel' command if you want to cancel it"
-            ),
+    def _configure_trigger_parser(self, trigger_cmd: argparse.ArgumentParser) -> None:
+        trigger_cmd.add_argument(
+            "selectors",
+            nargs="+",
+            help="Trigger selectors (fnmatch patterns), e.g. 'tag:backfill', 'manual:jobs.etl.*'",
         )
-        schedule_cmd.add_argument(
-            "--current",
+        trigger_cmd.add_argument(
+            "--dry-run",
             action="store_true",
-            help="When cancelling the schedule, also cancel the currently running instance if any",
+            help="Preview matched jobs without creating runs",
+        )
+        trigger_cmd.add_argument(
+            "--profile",
+            type=str,
+            default=None,
+            help="Profile override for all triggered runs",
+        )
+        trigger_cmd.add_argument(
+            "--refresh",
+            action="store_true",
+            help="Force a refresh on every triggered job (jobs skipped by freshness are not refreshed).",
         )
 
-    def _configure_unschedule_parser(
-        self, unschedule_cmd: argparse.ArgumentParser
+    def _configure_run_pipeline_parser(
+        self, run_pipeline_cmd: argparse.ArgumentParser
     ) -> None:
-        unschedule_cmd.add_argument("script_path", help="Local path to the script")
-        unschedule_cmd.add_argument(
-            "--current",
+        run_pipeline_cmd.add_argument(
+            "pipeline_name",
+            help="Name of the pipeline to run",
+        )
+        run_pipeline_cmd.add_argument(
+            "--job-ref",
+            type=str,
+            default=None,
+            help="Specific job ref if multiple jobs use the same pipeline",
+        )
+        run_pipeline_cmd.add_argument(
+            "-f",
+            "--follow",
             action="store_true",
-            help="Also cancel the currently running instance if any",
+            help="Follow status changes and stream logs until the run completes",
+        )
+        run_pipeline_cmd.add_argument(
+            "--refresh",
+            action="store_true",
+            help="Re-run from scratch (full reload). Cascades to freshness-graph downstream jobs.",
         )
 
     def _configure_unpublish_parser(
@@ -314,17 +400,33 @@ class RuntimeCommand(SupportsCliCommand):
         unpublish_cmd.add_argument("script_path", help="Local path to the notebook/app")
 
     def _configure_logs_parser(self, logs_cmd: argparse.ArgumentParser) -> None:
-        logs_cmd.add_argument("script_path_or_job_name", help="Local path or job name")
+        logs_cmd.add_argument(
+            "selector_or_job_name",
+            help=("Job name, script path, or selector (e.g. batch, schedule:*)."),
+        )
         logs_cmd.add_argument(
             "run_number", nargs="?", type=int, help="Run number (optional)"
+        )
+        logs_cmd.add_argument(
+            "-f",
+            "--follow",
+            action="store_true",
+            help="Follow logs in real-time until the run completes",
         )
 
     def _configure_cancel_parser(self, cancel_cmd: argparse.ArgumentParser) -> None:
         cancel_cmd.add_argument(
-            "script_path_or_job_name", help="Local path or job name"
+            "selector_or_job_name",
+            nargs="+",
+            help=(
+                "Job name, script path, or selector (e.g. batch, schedule:*)."
+                " Multiple values cancel active runs for all matching jobs."
+            ),
         )
         cancel_cmd.add_argument(
-            "run_number", nargs="?", type=int, help="Run number (optional)"
+            "--dry-run",
+            action="store_true",
+            help="Show what would be cancelled without actually cancelling",
         )
 
     def _configure_deployments_parser(
@@ -358,51 +460,40 @@ class RuntimeCommand(SupportsCliCommand):
 
     def _configure_jobs_parser(self, job_cmd: argparse.ArgumentParser) -> None:
         job_cmd.add_argument(
-            "script_path_or_job_name",
-            nargs="?",
-            help="Local script path or job name. Required for all commands except `list`",
+            "selector_or_job_name",
+            nargs="*",
+            help=(
+                "Job name, script path, or selector (e.g. batch, schedule:*)."
+                " Multiple selectors narrow the listing. Required for `info`."
+            ),
         )
         job_subparsers = job_cmd.add_subparsers(
             title="Available subcommands", dest="operation", required=False
         )
         job_subparsers.add_parser(
             "list",
-            help="List the jobs registered in the workspace",
-            description="List the jobs registered in the workspace",
+            help="List jobs (filter with selectors: batch, schedule:*, tag:ops, ...)",
+            description=(
+                "List jobs registered in the workspace."
+                " Pass selectors before `list` to filter:"
+                " batch, interactive, schedule:*, tag:<name>, manual:*, etc."
+            ),
         )
         job_subparsers.add_parser(
             "info",
             help="Show job info",
             description="Display detailed information about the job",
         )
-        create_cmd = job_subparsers.add_parser(
-            "create",
-            help="Create a job without running it",
-            description="Manually create the job",
-        )
-        create_cmd.add_argument("--name", nargs="?", help="Job name to create")
-        create_cmd.add_argument(
-            "--schedule",
-            nargs="?",
-            help="Cron schedule for the job if it's a scheduled one",
-        )
-        create_cmd.add_argument(
-            "--interactive",
-            action="store_true",
-            help="Run the job interactively, e.g. for a notebook",
-        )
-        create_cmd.add_argument(
-            "--app-type",
-            choices=[v.value for v in InteractiveScriptType],
-            help="Specify if the interactive app is a marimo notebook, Streamlit app, or MCP server.",
-        )
-        create_cmd.add_argument("--description", nargs="?", help="Job description")
 
     def _configure_job_runs_parser(self, job_run_cmd: argparse.ArgumentParser) -> None:
         job_run_cmd.add_argument(
-            "script_path_or_job_name",
+            "selector_or_job_name",
             nargs="?",
-            help="Local script path or job name. Required for all commands except `list`",
+            help=(
+                "Job name, script path, or selector (e.g. batch, schedule:*)."
+                " For `list`: filters runs by matching jobs."
+                " Required for `info`, `logs`, `cancel`."
+            ),
         )
         job_run_cmd.add_argument(
             "run_number",
@@ -418,25 +509,29 @@ class RuntimeCommand(SupportsCliCommand):
         )
         job_run_subparsers.add_parser(
             "list",
-            help="List the job runs registered in the workspace",
-            description="List the job runs registered in the workspace",
+            help="List job runs (filter with a selector: batch, schedule:*, ...)",
+            description=(
+                "List job runs registered in the workspace."
+                " Pass a selector before `list` to filter by matching jobs."
+            ),
         )
         job_run_subparsers.add_parser(
             "info",
             help="Show job run info",
             description="Display detailed information about the job run",
         )
-        job_run_subparsers.add_parser(
-            "create",
-            help="Create a job run without running it",
-            description="Manually create the job run",
-        )
-        job_run_subparsers.add_parser(
+        logs_sub = job_run_subparsers.add_parser(
             "logs",
             help="Show logs for the latest or selected job run",
             description=(
-                "Show logs for the latest or selected job run. Will follow logs if the run is not in a terminal state."
+                "Show logs for the latest or selected job run. Use -f/--follow to stream logs in real-time until completion."
             ),
+        )
+        logs_sub.add_argument(
+            "-f",
+            "--follow",
+            action="store_true",
+            help="Follow logs in real-time until the run completes",
         )
         job_run_subparsers.add_parser(
             "cancel",
@@ -478,8 +573,12 @@ class RuntimeCommand(SupportsCliCommand):
         from dlt._workspace.cli import echo as fmt
 
         import dlt_runtime._runtime_command as cmd
+        from dlt_runtime._runtime_command_views import set_show_exact_timestamps
         from dlt_runtime.runtime import get_api_client
         from dlt_runtime.version import __version__
+
+        # Apply --timestamps flag to all view formatting before any subcommand runs.
+        set_show_exact_timestamps(bool(getattr(args, "timestamps", False)))
 
         # Command tree: shown for --help-all OR when no subcommand is given
         if args.help_all or not args.runtime_command:
@@ -523,15 +622,36 @@ class RuntimeCommand(SupportsCliCommand):
             api_client = get_api_client(auth_service)
             if args.runtime_command == "launch":
                 cmd.launch(
-                    args.script_path,
+                    selector_or_job_ref=args.selector_or_job_ref,
+                    file=getattr(args, "file", None),
                     follow=bool(args.follow),
+                    refresh=bool(getattr(args, "refresh", False)),
                     auth_service=auth_service,
                     api_client=api_client,
                 )
             elif args.runtime_command == "serve":
                 cmd.serve(
-                    args.script_path,
-                    args.app_type,
+                    selector_or_job_ref=args.selector_or_job_ref,
+                    file=getattr(args, "file", None),
+                    follow=bool(getattr(args, "follow", False)),
+                    auth_service=auth_service,
+                    api_client=api_client,
+                )
+            elif args.runtime_command == "trigger":
+                cmd.trigger(
+                    selectors=args.selectors,
+                    dry_run=bool(getattr(args, "dry_run", False)),
+                    profile=getattr(args, "profile", None),
+                    refresh=bool(getattr(args, "refresh", False)),
+                    auth_service=auth_service,
+                    api_client=api_client,
+                )
+            elif args.runtime_command == "run-pipeline":
+                cmd.run_pipeline(
+                    pipeline_name=args.pipeline_name,
+                    job_ref=getattr(args, "job_ref", None),
+                    follow=bool(getattr(args, "follow", False)),
+                    refresh=bool(getattr(args, "refresh", False)),
                     auth_service=auth_service,
                     api_client=api_client,
                 )
@@ -553,50 +673,33 @@ class RuntimeCommand(SupportsCliCommand):
                     auth_service=auth_service,
                     api_client=api_client,
                 )
-            elif args.runtime_command == "unschedule":
-                cmd.unschedule(
-                    args.script_path,
-                    cancel_current=bool(getattr(args, "current", False)),
-                    auth_service=auth_service,
-                    api_client=api_client,
-                )
-            elif args.runtime_command == "schedule":
-                if args.cron_expr_or_cancel == "cancel":
-                    fmt.warning(
-                        "'dlt runtime schedule <script> cancel' is deprecated."
-                        " Use 'dlt runtime unschedule <script>' instead."
-                    )
-                    cmd.schedule_cancel(
-                        args.script_path,
-                        cancel_current=bool(args.current),
-                        auth_service=auth_service,
-                        api_client=api_client,
-                    )
-                else:
-                    cmd.schedule(
-                        args.script_path,
-                        args.cron_expr_or_cancel,
-                        auth_service=auth_service,
-                        api_client=api_client,
-                    )
             elif args.runtime_command == "logs":
                 cmd.logs(
-                    args.script_path_or_job_name,
+                    args.selector_or_job_name,
                     args.run_number,
+                    follow=bool(args.follow),
                     auth_service=auth_service,
                     api_client=api_client,
                 )
             elif args.runtime_command == "cancel":
                 cmd.cancel(
-                    args.script_path_or_job_name,
-                    args.run_number,
+                    args.selector_or_job_name,
+                    dry_run=bool(getattr(args, "dry_run", False)),
                     auth_service=auth_service,
                     api_client=api_client,
                 )
             elif args.runtime_command == "dashboard":
                 cmd.open_dashboard(auth_service=auth_service, api_client=api_client)
             elif args.runtime_command == "deploy":
-                cmd.deploy(auth_service=auth_service, api_client=api_client)
+                cmd.deploy_manifest(
+                    file=getattr(args, "file", None),
+                    dry_run=bool(getattr(args, "dry_run", False)),
+                    show_manifest=bool(getattr(args, "show_manifest", False)),
+                    auth_service=auth_service,
+                    api_client=api_client,
+                )
+            elif args.runtime_command == "sync":
+                cmd.sync_workspace(auth_service=auth_service, api_client=api_client)
             elif args.runtime_command == "info":
                 cmd.runtime_info(auth_service=auth_service, api_client=api_client)
             elif args.runtime_command == "deployment":
@@ -621,18 +724,16 @@ class RuntimeCommand(SupportsCliCommand):
                         api_client=api_client,
                     )
             elif args.runtime_command in ("job", "jobs"):
+                _names = args.selector_or_job_name or []
                 if args.operation == "list" or not args.operation:
-                    cmd.jobs_list(auth_service=auth_service, api_client=api_client)
-                elif args.operation == "info":
-                    cmd.job_info(
-                        args.script_path_or_job_name,
+                    cmd.jobs_list(
+                        selectors=_names or None,
                         auth_service=auth_service,
                         api_client=api_client,
                     )
-                elif args.operation == "create":
-                    cmd.job_create(
-                        args.script_path_or_job_name,
-                        args,
+                elif args.operation == "info":
+                    cmd.job_info(
+                        _names[0] if _names else None,
                         auth_service=auth_service,
                         api_client=api_client,
                     )
@@ -661,33 +762,28 @@ class RuntimeCommand(SupportsCliCommand):
                 # list runs across workspace or for a job
                 if args.operation == "list" or not args.operation:
                     cmd.get_runs(
-                        args.script_path_or_job_name,
-                        auth_service=auth_service,
-                        api_client=api_client,
-                    )
-                elif args.operation == "create":
-                    cmd.create_job_run(
-                        args.script_path_or_job_name,
+                        args.selector_or_job_name,
                         auth_service=auth_service,
                         api_client=api_client,
                     )
                 elif args.operation == "info":
                     cmd.get_job_run_info(
-                        args.script_path_or_job_name,
+                        args.selector_or_job_name,
                         args.run_number,
                         auth_service=auth_service,
                         api_client=api_client,
                     )
                 elif args.operation == "logs":
                     cmd.job_run_logs(
-                        args.script_path_or_job_name,
+                        args.selector_or_job_name,
                         args.run_number,
+                        follow=bool(args.follow),
                         auth_service=auth_service,
                         api_client=api_client,
                     )
                 elif args.operation == "cancel":
                     cmd.cancel_job_run(
-                        args.script_path_or_job_name,
+                        args.selector_or_job_name,
                         args.run_number,
                         auth_service=auth_service,
                         api_client=api_client,

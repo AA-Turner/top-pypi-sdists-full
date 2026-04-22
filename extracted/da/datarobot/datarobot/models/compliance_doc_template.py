@@ -318,7 +318,7 @@ class ComplianceDocTemplate(APIObject):
         Parameters
         ----------
         template_id :  str
-            the id of the template to retrieve
+            the ID of the template to retrieve
 
         Returns
         -------

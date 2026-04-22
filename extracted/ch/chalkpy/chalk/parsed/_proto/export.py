@@ -316,6 +316,16 @@ def export_from_registry(*, include_captured_global_values: bool = False) -> exp
                 target=proto_target,
                 query_tags=backfill.query_tags,
                 resource_group=backfill.resource_group,
+                lower_bound=(
+                    datetime_to_proto_timestamp(backfill.lower_bound)
+                    if backfill.lower_bound is not None
+                    else backfill.lower_bound
+                ),
+                upper_bound=(
+                    datetime_to_proto_timestamp(backfill.upper_bound)
+                    if backfill.upper_bound is not None
+                    else backfill.upper_bound
+                ),
             )
         )
 

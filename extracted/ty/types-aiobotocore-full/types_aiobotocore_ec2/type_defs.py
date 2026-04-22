@@ -72,6 +72,7 @@ from .literals import (
     CapacityBlockInterconnectStatusType,
     CapacityBlockResourceStateType,
     CapacityManagerDataExportStatusType,
+    CapacityManagerMonitoredTagKeyStatusType,
     CapacityManagerStatusType,
     CapacityReservationBillingRequestStatusType,
     CapacityReservationDeliveryPreferenceType,
@@ -635,6 +636,8 @@ __all__ = (
     "CapacityManagerConditionTypeDef",
     "CapacityManagerDataExportResponseTypeDef",
     "CapacityManagerDimensionTypeDef",
+    "CapacityManagerMonitoredTagKeyTypeDef",
+    "CapacityManagerTagDimensionTypeDef",
     "CapacityReservationBillingRequestTypeDef",
     "CapacityReservationCommitmentInfoTypeDef",
     "CapacityReservationFleetCancellationStateTypeDef",
@@ -1993,6 +1996,9 @@ __all__ = (
     "GetCapacityManagerMetricDimensionsRequestPaginateTypeDef",
     "GetCapacityManagerMetricDimensionsRequestTypeDef",
     "GetCapacityManagerMetricDimensionsResultTypeDef",
+    "GetCapacityManagerMonitoredTagKeysRequestPaginateTypeDef",
+    "GetCapacityManagerMonitoredTagKeysRequestTypeDef",
+    "GetCapacityManagerMonitoredTagKeysResultTypeDef",
     "GetCapacityReservationUsageRequestTypeDef",
     "GetCapacityReservationUsageResultTypeDef",
     "GetCoipPoolUsageRequestTypeDef",
@@ -3076,6 +3082,8 @@ __all__ = (
     "UnsuccessfulInstanceCreditSpecificationItemTypeDef",
     "UnsuccessfulItemErrorTypeDef",
     "UnsuccessfulItemTypeDef",
+    "UpdateCapacityManagerMonitoredTagKeysRequestTypeDef",
+    "UpdateCapacityManagerMonitoredTagKeysResultTypeDef",
     "UpdateCapacityManagerOrganizationsAccessRequestTypeDef",
     "UpdateCapacityManagerOrganizationsAccessResultTypeDef",
     "UpdateInterruptibleCapacityReservationAllocationRequestTypeDef",
@@ -4007,24 +4015,17 @@ class DimensionConditionTypeDef(TypedDict):
     Values: NotRequired[Sequence[str]]
 
 
-class CapacityManagerDimensionTypeDef(TypedDict):
-    ResourceRegion: NotRequired[str]
-    AvailabilityZoneId: NotRequired[str]
-    AccountId: NotRequired[str]
-    InstanceFamily: NotRequired[str]
-    InstanceType: NotRequired[str]
-    InstancePlatform: NotRequired[str]
-    ReservationArn: NotRequired[str]
-    ReservationId: NotRequired[str]
-    ReservationType: NotRequired[ReservationTypeType]
-    ReservationCreateTimestamp: NotRequired[datetime]
-    ReservationStartTimestamp: NotRequired[datetime]
-    ReservationEndTimestamp: NotRequired[datetime]
-    ReservationEndDateType: NotRequired[ReservationEndDateTypeType]
-    Tenancy: NotRequired[CapacityTenancyType]
-    ReservationState: NotRequired[ReservationStateType]
-    ReservationInstanceMatchCriteria: NotRequired[str]
-    ReservationUnusedFinancialOwner: NotRequired[str]
+class CapacityManagerTagDimensionTypeDef(TypedDict):
+    Key: NotRequired[str]
+    Value: NotRequired[str]
+
+
+class CapacityManagerMonitoredTagKeyTypeDef(TypedDict):
+    TagKey: NotRequired[str]
+    Status: NotRequired[CapacityManagerMonitoredTagKeyStatusType]
+    StatusMessage: NotRequired[str]
+    CapacityManagerProvided: NotRequired[bool]
+    EarliestDatapointTimestamp: NotRequired[datetime]
 
 
 class CapacityReservationInfoTypeDef(TypedDict):
@@ -6700,6 +6701,12 @@ class GetCapacityManagerAttributesRequestTypeDef(TypedDict):
     DryRun: NotRequired[bool]
 
 
+class GetCapacityManagerMonitoredTagKeysRequestTypeDef(TypedDict):
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+    DryRun: NotRequired[bool]
+
+
 class GetCapacityReservationUsageRequestTypeDef(TypedDict):
     CapacityReservationId: str
     NextToken: NotRequired[str]
@@ -9202,6 +9209,13 @@ class UnsuccessfulItemErrorTypeDef(TypedDict):
     Message: NotRequired[str]
 
 
+class UpdateCapacityManagerMonitoredTagKeysRequestTypeDef(TypedDict):
+    ActivateTagKeys: NotRequired[Sequence[str]]
+    DeactivateTagKeys: NotRequired[Sequence[str]]
+    DryRun: NotRequired[bool]
+    ClientToken: NotRequired[str]
+
+
 class UpdateCapacityManagerOrganizationsAccessRequestTypeDef(TypedDict):
     OrganizationsAccess: bool
     DryRun: NotRequired[bool]
@@ -11634,10 +11648,37 @@ class CapacityManagerConditionTypeDef(TypedDict):
     DimensionCondition: NotRequired[DimensionConditionTypeDef]
 
 
-class GetCapacityManagerMetricDimensionsResultTypeDef(TypedDict):
-    MetricDimensionResults: list[CapacityManagerDimensionTypeDef]
+class CapacityManagerDimensionTypeDef(TypedDict):
+    ResourceRegion: NotRequired[str]
+    AvailabilityZoneId: NotRequired[str]
+    AccountId: NotRequired[str]
+    AccountName: NotRequired[str]
+    InstanceFamily: NotRequired[str]
+    InstanceType: NotRequired[str]
+    InstancePlatform: NotRequired[str]
+    ReservationArn: NotRequired[str]
+    ReservationId: NotRequired[str]
+    ReservationType: NotRequired[ReservationTypeType]
+    ReservationCreateTimestamp: NotRequired[datetime]
+    ReservationStartTimestamp: NotRequired[datetime]
+    ReservationEndTimestamp: NotRequired[datetime]
+    ReservationEndDateType: NotRequired[ReservationEndDateTypeType]
+    Tenancy: NotRequired[CapacityTenancyType]
+    ReservationState: NotRequired[ReservationStateType]
+    ReservationInstanceMatchCriteria: NotRequired[str]
+    ReservationUnusedFinancialOwner: NotRequired[str]
+    Tags: NotRequired[list[CapacityManagerTagDimensionTypeDef]]
+
+
+class GetCapacityManagerMonitoredTagKeysResultTypeDef(TypedDict):
+    CapacityManagerTagKeys: list[CapacityManagerMonitoredTagKeyTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+
+class UpdateCapacityManagerMonitoredTagKeysResultTypeDef(TypedDict):
+    CapacityManagerTagKeys: list[CapacityManagerMonitoredTagKeyTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class CapacityReservationBillingRequestTypeDef(TypedDict):
@@ -12297,6 +12338,11 @@ class GetAwsNetworkPerformanceDataRequestPaginateTypeDef(TypedDict):
     DataQueries: NotRequired[Sequence[DataQueryTypeDef]]
     StartTime: NotRequired[TimestampTypeDef]
     EndTime: NotRequired[TimestampTypeDef]
+    DryRun: NotRequired[bool]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class GetCapacityManagerMonitoredTagKeysRequestPaginateTypeDef(TypedDict):
     DryRun: NotRequired[bool]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
@@ -16419,12 +16465,6 @@ class MediaDeviceInfoTypeDef(TypedDict):
     MemoryInfo: NotRequired[MediaDeviceMemoryInfoTypeDef]
 
 
-class MetricDataResultTypeDef(TypedDict):
-    Dimension: NotRequired[CapacityManagerDimensionTypeDef]
-    Timestamp: NotRequired[datetime]
-    MetricValues: NotRequired[list[MetricValueTypeDef]]
-
-
 class ModifyIpamRequestTypeDef(TypedDict):
     IpamId: str
     DryRun: NotRequired[bool]
@@ -18429,6 +18469,18 @@ class GetCapacityManagerMetricDimensionsRequestTypeDef(TypedDict):
     DryRun: NotRequired[bool]
 
 
+class GetCapacityManagerMetricDimensionsResultTypeDef(TypedDict):
+    MetricDimensionResults: list[CapacityManagerDimensionTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class MetricDataResultTypeDef(TypedDict):
+    Dimension: NotRequired[CapacityManagerDimensionTypeDef]
+    Timestamp: NotRequired[datetime]
+    MetricValues: NotRequired[list[MetricValueTypeDef]]
+
+
 class DescribeCapacityReservationBillingRequestsResultTypeDef(TypedDict):
     CapacityReservationBillingRequests: list[CapacityReservationBillingRequestTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -19508,12 +19560,6 @@ class DescribeMacModificationTasksResultTypeDef(TypedDict):
 class MediaAcceleratorInfoTypeDef(TypedDict):
     Accelerators: NotRequired[list[MediaDeviceInfoTypeDef]]
     TotalMediaMemoryInMiB: NotRequired[int]
-
-
-class GetCapacityManagerMetricDataResultTypeDef(TypedDict):
-    MetricDataResults: list[MetricDataResultTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    NextToken: NotRequired[str]
 
 
 class ReservedInstancesModificationTypeDef(TypedDict):
@@ -21897,6 +21943,12 @@ class PurchaseCapacityBlockResultTypeDef(TypedDict):
     CapacityReservation: CapacityReservationTypeDef
     CapacityBlocks: list[CapacityBlockTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetCapacityManagerMetricDataResultTypeDef(TypedDict):
+    MetricDataResults: list[MetricDataResultTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
 
 
 class DescribeClientVpnEndpointsResultTypeDef(TypedDict):

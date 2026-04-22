@@ -3,7 +3,7 @@ Type annotations for network-firewall service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_network_firewall/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -1347,6 +1347,7 @@ class FirewallPolicyResponseTypeDef(TypedDict):
     Tags: NotRequired[list[TagTypeDef]]
     ConsumedStatelessRuleCapacity: NotRequired[int]
     ConsumedStatefulRuleCapacity: NotRequired[int]
+    ConsumedStatefulDomainCapacity: NotRequired[int]
     NumberOfAssociations: NotRequired[int]
     EncryptionConfiguration: NotRequired[EncryptionConfigurationTypeDef]
     LastModifiedTime: NotRequired[datetime]

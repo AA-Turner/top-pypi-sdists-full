@@ -2672,7 +2672,7 @@ return 0;
 #endif
 /* #### Code section: module_code ### */
 
-/* "refinery/lib/unrar/filters.pyx":44
+/* "refinery/lib/unrar/filters.pyx":45
  * 
  * 
  * def apply_filter(             # <<<<<<<<<<<<<<
@@ -2723,68 +2723,68 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_data,&__pyx_mstate_global->__pyx_n_u_filter_type,&__pyx_mstate_global->__pyx_n_u_channels,&__pyx_mstate_global->__pyx_n_u_file_offset,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 44, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 45, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  4:
         values[3] = __Pyx_ArgRef_FASTCALL(__pyx_args, 3);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 44, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 45, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 44, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 45, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 44, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 45, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 44, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 45, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "apply_filter", 0) < (0)) __PYX_ERR(0, 44, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "apply_filter", 0) < (0)) __PYX_ERR(0, 45, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 2; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("apply_filter", 0, 2, 4, i); __PYX_ERR(0, 44, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("apply_filter", 0, 2, 4, i); __PYX_ERR(0, 45, __pyx_L3_error) }
       }
     } else {
       switch (__pyx_nargs) {
         case  4:
         values[3] = __Pyx_ArgRef_FASTCALL(__pyx_args, 3);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 44, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 45, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 44, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 45, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 44, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 45, __pyx_L3_error)
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 44, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 45, __pyx_L3_error)
         break;
         default: goto __pyx_L5_argtuple_error;
       }
     }
     __pyx_v_data = ((PyObject*)values[0]);
-    __pyx_v_filter_type = __Pyx_PyLong_As_int(values[1]); if (unlikely((__pyx_v_filter_type == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 46, __pyx_L3_error)
+    __pyx_v_filter_type = __Pyx_PyLong_As_int(values[1]); if (unlikely((__pyx_v_filter_type == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 47, __pyx_L3_error)
     if (values[2]) {
-      __pyx_v_channels = __Pyx_PyLong_As_int(values[2]); if (unlikely((__pyx_v_channels == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 47, __pyx_L3_error)
+      __pyx_v_channels = __Pyx_PyLong_As_int(values[2]); if (unlikely((__pyx_v_channels == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 48, __pyx_L3_error)
     } else {
       __pyx_v_channels = ((int)((int)0));
     }
     if (values[3]) {
-      __pyx_v_file_offset = __Pyx_PyLong_As_int(values[3]); if (unlikely((__pyx_v_file_offset == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 48, __pyx_L3_error)
+      __pyx_v_file_offset = __Pyx_PyLong_As_int(values[3]); if (unlikely((__pyx_v_file_offset == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 49, __pyx_L3_error)
     } else {
       __pyx_v_file_offset = ((int)((int)0));
     }
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("apply_filter", 0, 2, 4, __pyx_nargs); __PYX_ERR(0, 44, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("apply_filter", 0, 2, 4, __pyx_nargs); __PYX_ERR(0, 45, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -2795,7 +2795,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_data), (&PyByteArray_Type), 1, "data", 1))) __PYX_ERR(0, 45, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_data), (&PyByteArray_Type), 1, "data", 1))) __PYX_ERR(0, 46, __pyx_L1_error)
   __pyx_r = __pyx_pf_8refinery_3lib_5unrar_7filters_apply_filter(__pyx_self, __pyx_v_data, __pyx_v_filter_type, __pyx_v_channels, __pyx_v_file_offset);
 
   /* function exit code */
@@ -2829,7 +2829,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_7filters_apply_filter(CYTHON_UNU
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("apply_filter", 0);
 
-  /* "refinery/lib/unrar/filters.pyx":53
+  /* "refinery/lib/unrar/filters.pyx":54
  *     Apply a RAR5 filter to decompressed data.
  *     """
  *     if filter_type in (FilterType.FILTER_E8, FilterType.FILTER_E8E9):             # <<<<<<<<<<<<<<
@@ -2837,41 +2837,41 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_7filters_apply_filter(CYTHON_UNU
  *     if filter_type == FilterType.FILTER_ARM:
 */
   __pyx_t_1 = __pyx_v_filter_type;
-  __pyx_t_3 = __Pyx_PyLong_From_int(__pyx_t_1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 53, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyLong_From_int(__pyx_t_1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 54, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_FilterType); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 53, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_FilterType); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 54, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_FILTER_E8); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 53, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_FILTER_E8); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 54, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  __pyx_t_4 = PyObject_RichCompare(__pyx_t_3, __pyx_t_5, Py_EQ); __Pyx_XGOTREF(__pyx_t_4); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 53, __pyx_L1_error)
+  __pyx_t_4 = PyObject_RichCompare(__pyx_t_3, __pyx_t_5, Py_EQ); __Pyx_XGOTREF(__pyx_t_4); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 54, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 53, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 54, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   if (!__pyx_t_6) {
   } else {
     __pyx_t_2 = __pyx_t_6;
     goto __pyx_L4_bool_binop_done;
   }
-  __pyx_t_4 = __Pyx_PyLong_From_int(__pyx_t_1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 53, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyLong_From_int(__pyx_t_1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 54, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_FilterType); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 53, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_FilterType); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 54, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_FILTER_E8E9); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 53, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_FILTER_E8E9); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 54, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  __pyx_t_5 = PyObject_RichCompare(__pyx_t_4, __pyx_t_3, Py_EQ); __Pyx_XGOTREF(__pyx_t_5); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 53, __pyx_L1_error)
+  __pyx_t_5 = PyObject_RichCompare(__pyx_t_4, __pyx_t_3, Py_EQ); __Pyx_XGOTREF(__pyx_t_5); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 54, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_5); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 53, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_5); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 54, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __pyx_t_2 = __pyx_t_6;
   __pyx_L4_bool_binop_done:;
   __pyx_t_6 = __pyx_t_2;
   if (__pyx_t_6) {
 
-    /* "refinery/lib/unrar/filters.pyx":54
+    /* "refinery/lib/unrar/filters.pyx":55
  *     """
  *     if filter_type in (FilterType.FILTER_E8, FilterType.FILTER_E8E9):
  *         return _filter_e8(data, filter_type == FilterType.FILTER_E8E9, file_offset)             # <<<<<<<<<<<<<<
@@ -2879,25 +2879,25 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_7filters_apply_filter(CYTHON_UNU
  *         return _filter_arm(data, file_offset)
 */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_filter_type); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 54, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_filter_type); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 55, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
-    __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_FilterType); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 54, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_FilterType); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 55, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_FILTER_E8E9); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 54, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_FILTER_E8E9); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 55, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __pyx_t_3 = PyObject_RichCompare(__pyx_t_5, __pyx_t_4, Py_EQ); __Pyx_XGOTREF(__pyx_t_3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 54, __pyx_L1_error)
+    __pyx_t_3 = PyObject_RichCompare(__pyx_t_5, __pyx_t_4, Py_EQ); __Pyx_XGOTREF(__pyx_t_3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 55, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_6 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 54, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_6 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 55, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __pyx_t_3 = __pyx_f_8refinery_3lib_5unrar_7filters__filter_e8(__pyx_v_data, __pyx_t_6, __pyx_v_file_offset); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 54, __pyx_L1_error)
+    __pyx_t_3 = __pyx_f_8refinery_3lib_5unrar_7filters__filter_e8(__pyx_v_data, __pyx_t_6, __pyx_v_file_offset); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 55, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_r = __pyx_t_3;
     __pyx_t_3 = 0;
     goto __pyx_L0;
 
-    /* "refinery/lib/unrar/filters.pyx":53
+    /* "refinery/lib/unrar/filters.pyx":54
  *     Apply a RAR5 filter to decompressed data.
  *     """
  *     if filter_type in (FilterType.FILTER_E8, FilterType.FILTER_E8E9):             # <<<<<<<<<<<<<<
@@ -2906,28 +2906,28 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_7filters_apply_filter(CYTHON_UNU
 */
   }
 
-  /* "refinery/lib/unrar/filters.pyx":55
+  /* "refinery/lib/unrar/filters.pyx":56
  *     if filter_type in (FilterType.FILTER_E8, FilterType.FILTER_E8E9):
  *         return _filter_e8(data, filter_type == FilterType.FILTER_E8E9, file_offset)
  *     if filter_type == FilterType.FILTER_ARM:             # <<<<<<<<<<<<<<
  *         return _filter_arm(data, file_offset)
  *     if filter_type == FilterType.FILTER_DELTA:
 */
-  __pyx_t_3 = __Pyx_PyLong_From_int(__pyx_v_filter_type); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 55, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyLong_From_int(__pyx_v_filter_type); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 56, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_FilterType); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 55, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_FilterType); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 56, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_FILTER_ARM); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 55, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_FILTER_ARM); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 56, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  __pyx_t_4 = PyObject_RichCompare(__pyx_t_3, __pyx_t_5, Py_EQ); __Pyx_XGOTREF(__pyx_t_4); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 55, __pyx_L1_error)
+  __pyx_t_4 = PyObject_RichCompare(__pyx_t_3, __pyx_t_5, Py_EQ); __Pyx_XGOTREF(__pyx_t_4); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 56, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 55, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 56, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   if (__pyx_t_6) {
 
-    /* "refinery/lib/unrar/filters.pyx":56
+    /* "refinery/lib/unrar/filters.pyx":57
  *         return _filter_e8(data, filter_type == FilterType.FILTER_E8E9, file_offset)
  *     if filter_type == FilterType.FILTER_ARM:
  *         return _filter_arm(data, file_offset)             # <<<<<<<<<<<<<<
@@ -2935,13 +2935,13 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_7filters_apply_filter(CYTHON_UNU
  *         return _filter_delta(data, channels)
 */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_4 = __pyx_f_8refinery_3lib_5unrar_7filters__filter_arm(__pyx_v_data, __pyx_v_file_offset); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 56, __pyx_L1_error)
+    __pyx_t_4 = __pyx_f_8refinery_3lib_5unrar_7filters__filter_arm(__pyx_v_data, __pyx_v_file_offset); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 57, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_r = __pyx_t_4;
     __pyx_t_4 = 0;
     goto __pyx_L0;
 
-    /* "refinery/lib/unrar/filters.pyx":55
+    /* "refinery/lib/unrar/filters.pyx":56
  *     if filter_type in (FilterType.FILTER_E8, FilterType.FILTER_E8E9):
  *         return _filter_e8(data, filter_type == FilterType.FILTER_E8E9, file_offset)
  *     if filter_type == FilterType.FILTER_ARM:             # <<<<<<<<<<<<<<
@@ -2950,28 +2950,28 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_7filters_apply_filter(CYTHON_UNU
 */
   }
 
-  /* "refinery/lib/unrar/filters.pyx":57
+  /* "refinery/lib/unrar/filters.pyx":58
  *     if filter_type == FilterType.FILTER_ARM:
  *         return _filter_arm(data, file_offset)
  *     if filter_type == FilterType.FILTER_DELTA:             # <<<<<<<<<<<<<<
  *         return _filter_delta(data, channels)
  *     return data
 */
-  __pyx_t_4 = __Pyx_PyLong_From_int(__pyx_v_filter_type); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 57, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyLong_From_int(__pyx_v_filter_type); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 58, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_FilterType); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 57, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_FilterType); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 58, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_FILTER_DELTA); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 57, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_FILTER_DELTA); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 58, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  __pyx_t_5 = PyObject_RichCompare(__pyx_t_4, __pyx_t_3, Py_EQ); __Pyx_XGOTREF(__pyx_t_5); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 57, __pyx_L1_error)
+  __pyx_t_5 = PyObject_RichCompare(__pyx_t_4, __pyx_t_3, Py_EQ); __Pyx_XGOTREF(__pyx_t_5); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 58, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_5); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 57, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_5); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 58, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   if (__pyx_t_6) {
 
-    /* "refinery/lib/unrar/filters.pyx":58
+    /* "refinery/lib/unrar/filters.pyx":59
  *         return _filter_arm(data, file_offset)
  *     if filter_type == FilterType.FILTER_DELTA:
  *         return _filter_delta(data, channels)             # <<<<<<<<<<<<<<
@@ -2979,13 +2979,13 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_7filters_apply_filter(CYTHON_UNU
  * 
 */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_5 = __pyx_f_8refinery_3lib_5unrar_7filters__filter_delta(__pyx_v_data, __pyx_v_channels); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 58, __pyx_L1_error)
+    __pyx_t_5 = __pyx_f_8refinery_3lib_5unrar_7filters__filter_delta(__pyx_v_data, __pyx_v_channels); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 59, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __pyx_r = __pyx_t_5;
     __pyx_t_5 = 0;
     goto __pyx_L0;
 
-    /* "refinery/lib/unrar/filters.pyx":57
+    /* "refinery/lib/unrar/filters.pyx":58
  *     if filter_type == FilterType.FILTER_ARM:
  *         return _filter_arm(data, file_offset)
  *     if filter_type == FilterType.FILTER_DELTA:             # <<<<<<<<<<<<<<
@@ -2994,7 +2994,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_7filters_apply_filter(CYTHON_UNU
 */
   }
 
-  /* "refinery/lib/unrar/filters.pyx":59
+  /* "refinery/lib/unrar/filters.pyx":60
  *     if filter_type == FilterType.FILTER_DELTA:
  *         return _filter_delta(data, channels)
  *     return data             # <<<<<<<<<<<<<<
@@ -3006,7 +3006,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_7filters_apply_filter(CYTHON_UNU
   __pyx_r = __pyx_v_data;
   goto __pyx_L0;
 
-  /* "refinery/lib/unrar/filters.pyx":44
+  /* "refinery/lib/unrar/filters.pyx":45
  * 
  * 
  * def apply_filter(             # <<<<<<<<<<<<<<
@@ -3027,7 +3027,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_7filters_apply_filter(CYTHON_UNU
   return __pyx_r;
 }
 
-/* "refinery/lib/unrar/filters.pyx":62
+/* "refinery/lib/unrar/filters.pyx":63
  * 
  * 
  * cdef bytearray _filter_e8(bytearray data, bint include_e9, int file_offset):             # <<<<<<<<<<<<<<
@@ -3057,7 +3057,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__filter_e8(PyObject *__p
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_filter_e8", 0);
 
-  /* "refinery/lib/unrar/filters.pyx":63
+  /* "refinery/lib/unrar/filters.pyx":64
  * 
  * cdef bytearray _filter_e8(bytearray data, bint include_e9, int file_offset):
  *     cdef unsigned char *ptr = <unsigned char *>PyByteArray_AS_STRING(data)             # <<<<<<<<<<<<<<
@@ -3066,7 +3066,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__filter_e8(PyObject *__p
 */
   __pyx_v_ptr = ((unsigned char *)PyByteArray_AS_STRING(__pyx_v_data));
 
-  /* "refinery/lib/unrar/filters.pyx":64
+  /* "refinery/lib/unrar/filters.pyx":65
  * cdef bytearray _filter_e8(bytearray data, bint include_e9, int file_offset):
  *     cdef unsigned char *ptr = <unsigned char *>PyByteArray_AS_STRING(data)
  *     cdef int data_size = len(data)             # <<<<<<<<<<<<<<
@@ -3075,12 +3075,12 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__filter_e8(PyObject *__p
 */
   if (unlikely(__pyx_v_data == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "object of type 'NoneType' has no len()");
-    __PYX_ERR(0, 64, __pyx_L1_error)
+    __PYX_ERR(0, 65, __pyx_L1_error)
   }
-  __pyx_t_1 = __Pyx_PyByteArray_GET_SIZE(__pyx_v_data); if (unlikely(__pyx_t_1 == ((Py_ssize_t)-1))) __PYX_ERR(0, 64, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyByteArray_GET_SIZE(__pyx_v_data); if (unlikely(__pyx_t_1 == ((Py_ssize_t)-1))) __PYX_ERR(0, 65, __pyx_L1_error)
   __pyx_v_data_size = __pyx_t_1;
 
-  /* "refinery/lib/unrar/filters.pyx":65
+  /* "refinery/lib/unrar/filters.pyx":66
  *     cdef unsigned char *ptr = <unsigned char *>PyByteArray_AS_STRING(data)
  *     cdef int data_size = len(data)
  *     cdef int file_size = 0x1000000             # <<<<<<<<<<<<<<
@@ -3089,7 +3089,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__filter_e8(PyObject *__p
 */
   __pyx_v_file_size = 0x1000000;
 
-  /* "refinery/lib/unrar/filters.pyx":66
+  /* "refinery/lib/unrar/filters.pyx":67
  *     cdef int data_size = len(data)
  *     cdef int file_size = 0x1000000
  *     cdef int cur_pos = 0             # <<<<<<<<<<<<<<
@@ -3098,7 +3098,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__filter_e8(PyObject *__p
 */
   __pyx_v_cur_pos = 0;
 
-  /* "refinery/lib/unrar/filters.pyx":70
+  /* "refinery/lib/unrar/filters.pyx":71
  *     cdef unsigned int offset, addr, val
  * 
  *     while cur_pos + 4 < data_size:             # <<<<<<<<<<<<<<
@@ -3109,7 +3109,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__filter_e8(PyObject *__p
     __pyx_t_2 = ((__pyx_v_cur_pos + 4) < __pyx_v_data_size);
     if (!__pyx_t_2) break;
 
-    /* "refinery/lib/unrar/filters.pyx":71
+    /* "refinery/lib/unrar/filters.pyx":72
  * 
  *     while cur_pos + 4 < data_size:
  *         b = ptr[cur_pos]             # <<<<<<<<<<<<<<
@@ -3118,7 +3118,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__filter_e8(PyObject *__p
 */
     __pyx_v_b = (__pyx_v_ptr[__pyx_v_cur_pos]);
 
-    /* "refinery/lib/unrar/filters.pyx":72
+    /* "refinery/lib/unrar/filters.pyx":73
  *     while cur_pos + 4 < data_size:
  *         b = ptr[cur_pos]
  *         cur_pos += 1             # <<<<<<<<<<<<<<
@@ -3127,7 +3127,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__filter_e8(PyObject *__p
 */
     __pyx_v_cur_pos = (__pyx_v_cur_pos + 1);
 
-    /* "refinery/lib/unrar/filters.pyx":73
+    /* "refinery/lib/unrar/filters.pyx":74
  *         b = ptr[cur_pos]
  *         cur_pos += 1
  *         if b == 0xE8 or (include_e9 and b == 0xE9):             # <<<<<<<<<<<<<<
@@ -3150,7 +3150,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__filter_e8(PyObject *__p
     __pyx_L6_bool_binop_done:;
     if (__pyx_t_2) {
 
-      /* "refinery/lib/unrar/filters.pyx":74
+      /* "refinery/lib/unrar/filters.pyx":75
  *         cur_pos += 1
  *         if b == 0xE8 or (include_e9 and b == 0xE9):
  *             offset = (cur_pos + file_offset) % file_size             # <<<<<<<<<<<<<<
@@ -3159,7 +3159,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__filter_e8(PyObject *__p
 */
       __pyx_v_offset = ((__pyx_v_cur_pos + __pyx_v_file_offset) % __pyx_v_file_size);
 
-      /* "refinery/lib/unrar/filters.pyx":79
+      /* "refinery/lib/unrar/filters.pyx":80
  *                 | (<unsigned int>ptr[cur_pos + 1] << 8)
  *                 | (<unsigned int>ptr[cur_pos + 2] << 16)
  *                 | (<unsigned int>ptr[cur_pos + 3] << 24)             # <<<<<<<<<<<<<<
@@ -3168,55 +3168,55 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__filter_e8(PyObject *__p
 */
       __pyx_v_addr = (((((unsigned int)(__pyx_v_ptr[__pyx_v_cur_pos])) | (((unsigned int)(__pyx_v_ptr[(__pyx_v_cur_pos + 1)])) << 8)) | (((unsigned int)(__pyx_v_ptr[(__pyx_v_cur_pos + 2)])) << 16)) | (((unsigned int)(__pyx_v_ptr[(__pyx_v_cur_pos + 3)])) << 24));
 
-      /* "refinery/lib/unrar/filters.pyx":81
+      /* "refinery/lib/unrar/filters.pyx":82
  *                 | (<unsigned int>ptr[cur_pos + 3] << 24)
  *             )
  *             if addr & 0x80000000:             # <<<<<<<<<<<<<<
  *                 if (addr + offset) & 0x80000000 == 0:
  *                     val = (addr + file_size) & 0xFFFFFFFF
 */
-      __pyx_t_4 = __Pyx_PyLong_From_unsigned_int(__pyx_v_addr); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 81, __pyx_L1_error)
+      __pyx_t_4 = __Pyx_PyLong_From_unsigned_int(__pyx_v_addr); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 82, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
-      __pyx_t_5 = PyNumber_And(__pyx_t_4, __pyx_mstate_global->__pyx_int_2147483648); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 81, __pyx_L1_error)
+      __pyx_t_5 = PyNumber_And(__pyx_t_4, __pyx_mstate_global->__pyx_int_2147483648); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 82, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_5); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 81, __pyx_L1_error)
+      __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_5); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 82, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
       if (__pyx_t_2) {
 
-        /* "refinery/lib/unrar/filters.pyx":82
+        /* "refinery/lib/unrar/filters.pyx":83
  *             )
  *             if addr & 0x80000000:
  *                 if (addr + offset) & 0x80000000 == 0:             # <<<<<<<<<<<<<<
  *                     val = (addr + file_size) & 0xFFFFFFFF
  *                     ptr[cur_pos] = val & 0xFF
 */
-        __pyx_t_5 = __Pyx_PyLong_From_unsigned_int((__pyx_v_addr + __pyx_v_offset)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 82, __pyx_L1_error)
+        __pyx_t_5 = __Pyx_PyLong_From_unsigned_int((__pyx_v_addr + __pyx_v_offset)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 83, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_5);
-        __pyx_t_4 = PyNumber_And(__pyx_t_5, __pyx_mstate_global->__pyx_int_2147483648); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 82, __pyx_L1_error)
+        __pyx_t_4 = PyNumber_And(__pyx_t_5, __pyx_mstate_global->__pyx_int_2147483648); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 83, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_4);
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-        __pyx_t_2 = (__Pyx_PyLong_BoolEqObjC(__pyx_t_4, __pyx_mstate_global->__pyx_int_0, 0, 0)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 82, __pyx_L1_error)
+        __pyx_t_2 = (__Pyx_PyLong_BoolEqObjC(__pyx_t_4, __pyx_mstate_global->__pyx_int_0, 0, 0)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 83, __pyx_L1_error)
         __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
         if (__pyx_t_2) {
 
-          /* "refinery/lib/unrar/filters.pyx":83
+          /* "refinery/lib/unrar/filters.pyx":84
  *             if addr & 0x80000000:
  *                 if (addr + offset) & 0x80000000 == 0:
  *                     val = (addr + file_size) & 0xFFFFFFFF             # <<<<<<<<<<<<<<
  *                     ptr[cur_pos] = val & 0xFF
  *                     ptr[cur_pos + 1] = (val >> 8) & 0xFF
 */
-          __pyx_t_4 = __Pyx_PyLong_From_unsigned_int((__pyx_v_addr + __pyx_v_file_size)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 83, __pyx_L1_error)
+          __pyx_t_4 = __Pyx_PyLong_From_unsigned_int((__pyx_v_addr + __pyx_v_file_size)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 84, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_4);
-          __pyx_t_5 = PyNumber_And(__pyx_t_4, __pyx_mstate_global->__pyx_int_4294967295); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 83, __pyx_L1_error)
+          __pyx_t_5 = PyNumber_And(__pyx_t_4, __pyx_mstate_global->__pyx_int_4294967295); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 84, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_5);
           __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-          __pyx_t_6 = __Pyx_PyLong_As_unsigned_int(__pyx_t_5); if (unlikely((__pyx_t_6 == (unsigned int)-1) && PyErr_Occurred())) __PYX_ERR(0, 83, __pyx_L1_error)
+          __pyx_t_6 = __Pyx_PyLong_As_unsigned_int(__pyx_t_5); if (unlikely((__pyx_t_6 == (unsigned int)-1) && PyErr_Occurred())) __PYX_ERR(0, 84, __pyx_L1_error)
           __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
           __pyx_v_val = __pyx_t_6;
 
-          /* "refinery/lib/unrar/filters.pyx":84
+          /* "refinery/lib/unrar/filters.pyx":85
  *                 if (addr + offset) & 0x80000000 == 0:
  *                     val = (addr + file_size) & 0xFFFFFFFF
  *                     ptr[cur_pos] = val & 0xFF             # <<<<<<<<<<<<<<
@@ -3225,7 +3225,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__filter_e8(PyObject *__p
 */
           (__pyx_v_ptr[__pyx_v_cur_pos]) = (__pyx_v_val & 0xFF);
 
-          /* "refinery/lib/unrar/filters.pyx":85
+          /* "refinery/lib/unrar/filters.pyx":86
  *                     val = (addr + file_size) & 0xFFFFFFFF
  *                     ptr[cur_pos] = val & 0xFF
  *                     ptr[cur_pos + 1] = (val >> 8) & 0xFF             # <<<<<<<<<<<<<<
@@ -3234,7 +3234,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__filter_e8(PyObject *__p
 */
           (__pyx_v_ptr[(__pyx_v_cur_pos + 1)]) = ((__pyx_v_val >> 8) & 0xFF);
 
-          /* "refinery/lib/unrar/filters.pyx":86
+          /* "refinery/lib/unrar/filters.pyx":87
  *                     ptr[cur_pos] = val & 0xFF
  *                     ptr[cur_pos + 1] = (val >> 8) & 0xFF
  *                     ptr[cur_pos + 2] = (val >> 16) & 0xFF             # <<<<<<<<<<<<<<
@@ -3243,7 +3243,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__filter_e8(PyObject *__p
 */
           (__pyx_v_ptr[(__pyx_v_cur_pos + 2)]) = ((__pyx_v_val >> 16) & 0xFF);
 
-          /* "refinery/lib/unrar/filters.pyx":87
+          /* "refinery/lib/unrar/filters.pyx":88
  *                     ptr[cur_pos + 1] = (val >> 8) & 0xFF
  *                     ptr[cur_pos + 2] = (val >> 16) & 0xFF
  *                     ptr[cur_pos + 3] = (val >> 24) & 0xFF             # <<<<<<<<<<<<<<
@@ -3252,7 +3252,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__filter_e8(PyObject *__p
 */
           (__pyx_v_ptr[(__pyx_v_cur_pos + 3)]) = ((__pyx_v_val >> 24) & 0xFF);
 
-          /* "refinery/lib/unrar/filters.pyx":82
+          /* "refinery/lib/unrar/filters.pyx":83
  *             )
  *             if addr & 0x80000000:
  *                 if (addr + offset) & 0x80000000 == 0:             # <<<<<<<<<<<<<<
@@ -3261,7 +3261,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__filter_e8(PyObject *__p
 */
         }
 
-        /* "refinery/lib/unrar/filters.pyx":81
+        /* "refinery/lib/unrar/filters.pyx":82
  *                 | (<unsigned int>ptr[cur_pos + 3] << 24)
  *             )
  *             if addr & 0x80000000:             # <<<<<<<<<<<<<<
@@ -3271,7 +3271,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__filter_e8(PyObject *__p
         goto __pyx_L9;
       }
 
-      /* "refinery/lib/unrar/filters.pyx":89
+      /* "refinery/lib/unrar/filters.pyx":90
  *                     ptr[cur_pos + 3] = (val >> 24) & 0xFF
  *             else:
  *                 if (addr - file_size) & 0x80000000:             # <<<<<<<<<<<<<<
@@ -3279,32 +3279,32 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__filter_e8(PyObject *__p
  *                     ptr[cur_pos] = val & 0xFF
 */
       /*else*/ {
-        __pyx_t_5 = __Pyx_PyLong_From_unsigned_int((__pyx_v_addr - __pyx_v_file_size)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 89, __pyx_L1_error)
+        __pyx_t_5 = __Pyx_PyLong_From_unsigned_int((__pyx_v_addr - __pyx_v_file_size)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 90, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_5);
-        __pyx_t_4 = PyNumber_And(__pyx_t_5, __pyx_mstate_global->__pyx_int_2147483648); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 89, __pyx_L1_error)
+        __pyx_t_4 = PyNumber_And(__pyx_t_5, __pyx_mstate_global->__pyx_int_2147483648); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 90, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_4);
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-        __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 89, __pyx_L1_error)
+        __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 90, __pyx_L1_error)
         __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
         if (__pyx_t_2) {
 
-          /* "refinery/lib/unrar/filters.pyx":90
+          /* "refinery/lib/unrar/filters.pyx":91
  *             else:
  *                 if (addr - file_size) & 0x80000000:
  *                     val = (addr - offset) & 0xFFFFFFFF             # <<<<<<<<<<<<<<
  *                     ptr[cur_pos] = val & 0xFF
  *                     ptr[cur_pos + 1] = (val >> 8) & 0xFF
 */
-          __pyx_t_4 = __Pyx_PyLong_From_unsigned_int((__pyx_v_addr - __pyx_v_offset)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 90, __pyx_L1_error)
+          __pyx_t_4 = __Pyx_PyLong_From_unsigned_int((__pyx_v_addr - __pyx_v_offset)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 91, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_4);
-          __pyx_t_5 = PyNumber_And(__pyx_t_4, __pyx_mstate_global->__pyx_int_4294967295); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 90, __pyx_L1_error)
+          __pyx_t_5 = PyNumber_And(__pyx_t_4, __pyx_mstate_global->__pyx_int_4294967295); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 91, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_5);
           __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-          __pyx_t_6 = __Pyx_PyLong_As_unsigned_int(__pyx_t_5); if (unlikely((__pyx_t_6 == (unsigned int)-1) && PyErr_Occurred())) __PYX_ERR(0, 90, __pyx_L1_error)
+          __pyx_t_6 = __Pyx_PyLong_As_unsigned_int(__pyx_t_5); if (unlikely((__pyx_t_6 == (unsigned int)-1) && PyErr_Occurred())) __PYX_ERR(0, 91, __pyx_L1_error)
           __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
           __pyx_v_val = __pyx_t_6;
 
-          /* "refinery/lib/unrar/filters.pyx":91
+          /* "refinery/lib/unrar/filters.pyx":92
  *                 if (addr - file_size) & 0x80000000:
  *                     val = (addr - offset) & 0xFFFFFFFF
  *                     ptr[cur_pos] = val & 0xFF             # <<<<<<<<<<<<<<
@@ -3313,7 +3313,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__filter_e8(PyObject *__p
 */
           (__pyx_v_ptr[__pyx_v_cur_pos]) = (__pyx_v_val & 0xFF);
 
-          /* "refinery/lib/unrar/filters.pyx":92
+          /* "refinery/lib/unrar/filters.pyx":93
  *                     val = (addr - offset) & 0xFFFFFFFF
  *                     ptr[cur_pos] = val & 0xFF
  *                     ptr[cur_pos + 1] = (val >> 8) & 0xFF             # <<<<<<<<<<<<<<
@@ -3322,7 +3322,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__filter_e8(PyObject *__p
 */
           (__pyx_v_ptr[(__pyx_v_cur_pos + 1)]) = ((__pyx_v_val >> 8) & 0xFF);
 
-          /* "refinery/lib/unrar/filters.pyx":93
+          /* "refinery/lib/unrar/filters.pyx":94
  *                     ptr[cur_pos] = val & 0xFF
  *                     ptr[cur_pos + 1] = (val >> 8) & 0xFF
  *                     ptr[cur_pos + 2] = (val >> 16) & 0xFF             # <<<<<<<<<<<<<<
@@ -3331,7 +3331,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__filter_e8(PyObject *__p
 */
           (__pyx_v_ptr[(__pyx_v_cur_pos + 2)]) = ((__pyx_v_val >> 16) & 0xFF);
 
-          /* "refinery/lib/unrar/filters.pyx":94
+          /* "refinery/lib/unrar/filters.pyx":95
  *                     ptr[cur_pos + 1] = (val >> 8) & 0xFF
  *                     ptr[cur_pos + 2] = (val >> 16) & 0xFF
  *                     ptr[cur_pos + 3] = (val >> 24) & 0xFF             # <<<<<<<<<<<<<<
@@ -3340,7 +3340,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__filter_e8(PyObject *__p
 */
           (__pyx_v_ptr[(__pyx_v_cur_pos + 3)]) = ((__pyx_v_val >> 24) & 0xFF);
 
-          /* "refinery/lib/unrar/filters.pyx":89
+          /* "refinery/lib/unrar/filters.pyx":90
  *                     ptr[cur_pos + 3] = (val >> 24) & 0xFF
  *             else:
  *                 if (addr - file_size) & 0x80000000:             # <<<<<<<<<<<<<<
@@ -3351,7 +3351,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__filter_e8(PyObject *__p
       }
       __pyx_L9:;
 
-      /* "refinery/lib/unrar/filters.pyx":95
+      /* "refinery/lib/unrar/filters.pyx":96
  *                     ptr[cur_pos + 2] = (val >> 16) & 0xFF
  *                     ptr[cur_pos + 3] = (val >> 24) & 0xFF
  *             cur_pos += 4             # <<<<<<<<<<<<<<
@@ -3360,7 +3360,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__filter_e8(PyObject *__p
 */
       __pyx_v_cur_pos = (__pyx_v_cur_pos + 4);
 
-      /* "refinery/lib/unrar/filters.pyx":73
+      /* "refinery/lib/unrar/filters.pyx":74
  *         b = ptr[cur_pos]
  *         cur_pos += 1
  *         if b == 0xE8 or (include_e9 and b == 0xE9):             # <<<<<<<<<<<<<<
@@ -3370,7 +3370,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__filter_e8(PyObject *__p
     }
   }
 
-  /* "refinery/lib/unrar/filters.pyx":96
+  /* "refinery/lib/unrar/filters.pyx":97
  *                     ptr[cur_pos + 3] = (val >> 24) & 0xFF
  *             cur_pos += 4
  *     return data             # <<<<<<<<<<<<<<
@@ -3382,7 +3382,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__filter_e8(PyObject *__p
   __pyx_r = __pyx_v_data;
   goto __pyx_L0;
 
-  /* "refinery/lib/unrar/filters.pyx":62
+  /* "refinery/lib/unrar/filters.pyx":63
  * 
  * 
  * cdef bytearray _filter_e8(bytearray data, bint include_e9, int file_offset):             # <<<<<<<<<<<<<<
@@ -3402,7 +3402,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__filter_e8(PyObject *__p
   return __pyx_r;
 }
 
-/* "refinery/lib/unrar/filters.pyx":99
+/* "refinery/lib/unrar/filters.pyx":100
  * 
  * 
  * cdef bytearray _filter_arm(bytearray data, int file_offset):             # <<<<<<<<<<<<<<
@@ -3427,7 +3427,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__filter_arm(PyObject *__
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_filter_arm", 0);
 
-  /* "refinery/lib/unrar/filters.pyx":100
+  /* "refinery/lib/unrar/filters.pyx":101
  * 
  * cdef bytearray _filter_arm(bytearray data, int file_offset):
  *     cdef unsigned char *ptr = <unsigned char *>PyByteArray_AS_STRING(data)             # <<<<<<<<<<<<<<
@@ -3436,7 +3436,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__filter_arm(PyObject *__
 */
   __pyx_v_ptr = ((unsigned char *)PyByteArray_AS_STRING(__pyx_v_data));
 
-  /* "refinery/lib/unrar/filters.pyx":101
+  /* "refinery/lib/unrar/filters.pyx":102
  * cdef bytearray _filter_arm(bytearray data, int file_offset):
  *     cdef unsigned char *ptr = <unsigned char *>PyByteArray_AS_STRING(data)
  *     cdef int data_size = len(data)             # <<<<<<<<<<<<<<
@@ -3445,12 +3445,12 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__filter_arm(PyObject *__
 */
   if (unlikely(__pyx_v_data == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "object of type 'NoneType' has no len()");
-    __PYX_ERR(0, 101, __pyx_L1_error)
+    __PYX_ERR(0, 102, __pyx_L1_error)
   }
-  __pyx_t_1 = __Pyx_PyByteArray_GET_SIZE(__pyx_v_data); if (unlikely(__pyx_t_1 == ((Py_ssize_t)-1))) __PYX_ERR(0, 101, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyByteArray_GET_SIZE(__pyx_v_data); if (unlikely(__pyx_t_1 == ((Py_ssize_t)-1))) __PYX_ERR(0, 102, __pyx_L1_error)
   __pyx_v_data_size = __pyx_t_1;
 
-  /* "refinery/lib/unrar/filters.pyx":105
+  /* "refinery/lib/unrar/filters.pyx":106
  *     cdef unsigned int offset
  * 
  *     for cur_pos in range(0, data_size - 3, 4):             # <<<<<<<<<<<<<<
@@ -3462,7 +3462,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__filter_arm(PyObject *__
   for (__pyx_t_4 = 0; __pyx_t_4 < __pyx_t_3; __pyx_t_4+=4) {
     __pyx_v_cur_pos = __pyx_t_4;
 
-    /* "refinery/lib/unrar/filters.pyx":106
+    /* "refinery/lib/unrar/filters.pyx":107
  * 
  *     for cur_pos in range(0, data_size - 3, 4):
  *         if ptr[cur_pos + 3] == 0xEB:             # <<<<<<<<<<<<<<
@@ -3472,7 +3472,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__filter_arm(PyObject *__
     __pyx_t_5 = ((__pyx_v_ptr[(__pyx_v_cur_pos + 3)]) == 0xEB);
     if (__pyx_t_5) {
 
-      /* "refinery/lib/unrar/filters.pyx":110
+      /* "refinery/lib/unrar/filters.pyx":111
  *                 <unsigned int>ptr[cur_pos]
  *                 + <unsigned int>ptr[cur_pos + 1] * 0x100
  *                 + <unsigned int>ptr[cur_pos + 2] * 0x10000             # <<<<<<<<<<<<<<
@@ -3481,7 +3481,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__filter_arm(PyObject *__
 */
       __pyx_v_offset = ((((unsigned int)(__pyx_v_ptr[__pyx_v_cur_pos])) + (((unsigned int)(__pyx_v_ptr[(__pyx_v_cur_pos + 1)])) * 0x100)) + (((unsigned int)(__pyx_v_ptr[(__pyx_v_cur_pos + 2)])) * 0x10000));
 
-      /* "refinery/lib/unrar/filters.pyx":112
+      /* "refinery/lib/unrar/filters.pyx":113
  *                 + <unsigned int>ptr[cur_pos + 2] * 0x10000
  *             )
  *             offset -= (file_offset + cur_pos) // 4             # <<<<<<<<<<<<<<
@@ -3490,7 +3490,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__filter_arm(PyObject *__
 */
       __pyx_v_offset = (__pyx_v_offset - ((__pyx_v_file_offset + __pyx_v_cur_pos) / 4));
 
-      /* "refinery/lib/unrar/filters.pyx":113
+      /* "refinery/lib/unrar/filters.pyx":114
  *             )
  *             offset -= (file_offset + cur_pos) // 4
  *             ptr[cur_pos] = offset & 0xFF             # <<<<<<<<<<<<<<
@@ -3499,7 +3499,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__filter_arm(PyObject *__
 */
       (__pyx_v_ptr[__pyx_v_cur_pos]) = (__pyx_v_offset & 0xFF);
 
-      /* "refinery/lib/unrar/filters.pyx":114
+      /* "refinery/lib/unrar/filters.pyx":115
  *             offset -= (file_offset + cur_pos) // 4
  *             ptr[cur_pos] = offset & 0xFF
  *             ptr[cur_pos + 1] = (offset >> 8) & 0xFF             # <<<<<<<<<<<<<<
@@ -3508,7 +3508,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__filter_arm(PyObject *__
 */
       (__pyx_v_ptr[(__pyx_v_cur_pos + 1)]) = ((__pyx_v_offset >> 8) & 0xFF);
 
-      /* "refinery/lib/unrar/filters.pyx":115
+      /* "refinery/lib/unrar/filters.pyx":116
  *             ptr[cur_pos] = offset & 0xFF
  *             ptr[cur_pos + 1] = (offset >> 8) & 0xFF
  *             ptr[cur_pos + 2] = (offset >> 16) & 0xFF             # <<<<<<<<<<<<<<
@@ -3517,7 +3517,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__filter_arm(PyObject *__
 */
       (__pyx_v_ptr[(__pyx_v_cur_pos + 2)]) = ((__pyx_v_offset >> 16) & 0xFF);
 
-      /* "refinery/lib/unrar/filters.pyx":106
+      /* "refinery/lib/unrar/filters.pyx":107
  * 
  *     for cur_pos in range(0, data_size - 3, 4):
  *         if ptr[cur_pos + 3] == 0xEB:             # <<<<<<<<<<<<<<
@@ -3527,7 +3527,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__filter_arm(PyObject *__
     }
   }
 
-  /* "refinery/lib/unrar/filters.pyx":116
+  /* "refinery/lib/unrar/filters.pyx":117
  *             ptr[cur_pos + 1] = (offset >> 8) & 0xFF
  *             ptr[cur_pos + 2] = (offset >> 16) & 0xFF
  *     return data             # <<<<<<<<<<<<<<
@@ -3539,7 +3539,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__filter_arm(PyObject *__
   __pyx_r = __pyx_v_data;
   goto __pyx_L0;
 
-  /* "refinery/lib/unrar/filters.pyx":99
+  /* "refinery/lib/unrar/filters.pyx":100
  * 
  * 
  * cdef bytearray _filter_arm(bytearray data, int file_offset):             # <<<<<<<<<<<<<<
@@ -3557,7 +3557,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__filter_arm(PyObject *__
   return __pyx_r;
 }
 
-/* "refinery/lib/unrar/filters.pyx":119
+/* "refinery/lib/unrar/filters.pyx":120
  * 
  * 
  * cdef bytearray _filter_delta(bytearray data, int channels):             # <<<<<<<<<<<<<<
@@ -3590,7 +3590,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__filter_delta(PyObject *
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_filter_delta", 0);
 
-  /* "refinery/lib/unrar/filters.pyx":120
+  /* "refinery/lib/unrar/filters.pyx":121
  * 
  * cdef bytearray _filter_delta(bytearray data, int channels):
  *     cdef int data_size = len(data)             # <<<<<<<<<<<<<<
@@ -3599,12 +3599,12 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__filter_delta(PyObject *
 */
   if (unlikely(__pyx_v_data == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "object of type 'NoneType' has no len()");
-    __PYX_ERR(0, 120, __pyx_L1_error)
+    __PYX_ERR(0, 121, __pyx_L1_error)
   }
-  __pyx_t_1 = __Pyx_PyByteArray_GET_SIZE(__pyx_v_data); if (unlikely(__pyx_t_1 == ((Py_ssize_t)-1))) __PYX_ERR(0, 120, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyByteArray_GET_SIZE(__pyx_v_data); if (unlikely(__pyx_t_1 == ((Py_ssize_t)-1))) __PYX_ERR(0, 121, __pyx_L1_error)
   __pyx_v_data_size = __pyx_t_1;
 
-  /* "refinery/lib/unrar/filters.pyx":126
+  /* "refinery/lib/unrar/filters.pyx":127
  *     cdef unsigned char prev_byte
  * 
  *     if channels < 1:             # <<<<<<<<<<<<<<
@@ -3614,7 +3614,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__filter_delta(PyObject *
   __pyx_t_2 = (__pyx_v_channels < 1);
   if (__pyx_t_2) {
 
-    /* "refinery/lib/unrar/filters.pyx":127
+    /* "refinery/lib/unrar/filters.pyx":128
  * 
  *     if channels < 1:
  *         return data             # <<<<<<<<<<<<<<
@@ -3626,7 +3626,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__filter_delta(PyObject *
     __pyx_r = __pyx_v_data;
     goto __pyx_L0;
 
-    /* "refinery/lib/unrar/filters.pyx":126
+    /* "refinery/lib/unrar/filters.pyx":127
  *     cdef unsigned char prev_byte
  * 
  *     if channels < 1:             # <<<<<<<<<<<<<<
@@ -3635,7 +3635,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__filter_delta(PyObject *
 */
   }
 
-  /* "refinery/lib/unrar/filters.pyx":128
+  /* "refinery/lib/unrar/filters.pyx":129
  *     if channels < 1:
  *         return data
  *     dst = bytearray(data_size)             # <<<<<<<<<<<<<<
@@ -3643,7 +3643,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__filter_delta(PyObject *
  *     dst_ptr = <unsigned char *>PyByteArray_AS_STRING(dst)
 */
   __pyx_t_4 = NULL;
-  __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_data_size); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 128, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_data_size); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 129, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __pyx_t_6 = 1;
   {
@@ -3651,13 +3651,13 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__filter_delta(PyObject *
     __pyx_t_3 = __Pyx_PyObject_FastCall((PyObject*)(&PyByteArray_Type), __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 128, __pyx_L1_error)
+    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 129, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
   }
   __pyx_v_dst = ((PyObject*)__pyx_t_3);
   __pyx_t_3 = 0;
 
-  /* "refinery/lib/unrar/filters.pyx":129
+  /* "refinery/lib/unrar/filters.pyx":130
  *         return data
  *     dst = bytearray(data_size)
  *     src = <unsigned char *>PyByteArray_AS_STRING(data)             # <<<<<<<<<<<<<<
@@ -3666,7 +3666,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__filter_delta(PyObject *
 */
   __pyx_v_src = ((unsigned char *)PyByteArray_AS_STRING(__pyx_v_data));
 
-  /* "refinery/lib/unrar/filters.pyx":130
+  /* "refinery/lib/unrar/filters.pyx":131
  *     dst = bytearray(data_size)
  *     src = <unsigned char *>PyByteArray_AS_STRING(data)
  *     dst_ptr = <unsigned char *>PyByteArray_AS_STRING(dst)             # <<<<<<<<<<<<<<
@@ -3675,7 +3675,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__filter_delta(PyObject *
 */
   __pyx_v_dst_ptr = ((unsigned char *)PyByteArray_AS_STRING(__pyx_v_dst));
 
-  /* "refinery/lib/unrar/filters.pyx":131
+  /* "refinery/lib/unrar/filters.pyx":132
  *     src = <unsigned char *>PyByteArray_AS_STRING(data)
  *     dst_ptr = <unsigned char *>PyByteArray_AS_STRING(dst)
  *     src_pos = 0             # <<<<<<<<<<<<<<
@@ -3684,7 +3684,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__filter_delta(PyObject *
 */
   __pyx_v_src_pos = 0;
 
-  /* "refinery/lib/unrar/filters.pyx":132
+  /* "refinery/lib/unrar/filters.pyx":133
  *     dst_ptr = <unsigned char *>PyByteArray_AS_STRING(dst)
  *     src_pos = 0
  *     for cur_channel in range(channels):             # <<<<<<<<<<<<<<
@@ -3696,7 +3696,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__filter_delta(PyObject *
   for (__pyx_t_9 = 0; __pyx_t_9 < __pyx_t_8; __pyx_t_9+=1) {
     __pyx_v_cur_channel = __pyx_t_9;
 
-    /* "refinery/lib/unrar/filters.pyx":133
+    /* "refinery/lib/unrar/filters.pyx":134
  *     src_pos = 0
  *     for cur_channel in range(channels):
  *         prev_byte = 0             # <<<<<<<<<<<<<<
@@ -3705,7 +3705,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__filter_delta(PyObject *
 */
     __pyx_v_prev_byte = 0;
 
-    /* "refinery/lib/unrar/filters.pyx":134
+    /* "refinery/lib/unrar/filters.pyx":135
  *     for cur_channel in range(channels):
  *         prev_byte = 0
  *         dest_pos = cur_channel             # <<<<<<<<<<<<<<
@@ -3714,7 +3714,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__filter_delta(PyObject *
 */
     __pyx_v_dest_pos = __pyx_v_cur_channel;
 
-    /* "refinery/lib/unrar/filters.pyx":135
+    /* "refinery/lib/unrar/filters.pyx":136
  *         prev_byte = 0
  *         dest_pos = cur_channel
  *         while dest_pos < data_size:             # <<<<<<<<<<<<<<
@@ -3725,7 +3725,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__filter_delta(PyObject *
       __pyx_t_2 = (__pyx_v_dest_pos < __pyx_v_data_size);
       if (!__pyx_t_2) break;
 
-      /* "refinery/lib/unrar/filters.pyx":136
+      /* "refinery/lib/unrar/filters.pyx":137
  *         dest_pos = cur_channel
  *         while dest_pos < data_size:
  *             prev_byte = (prev_byte - src[src_pos]) & 0xFF             # <<<<<<<<<<<<<<
@@ -3734,7 +3734,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__filter_delta(PyObject *
 */
       __pyx_v_prev_byte = ((__pyx_v_prev_byte - (__pyx_v_src[__pyx_v_src_pos])) & 0xFF);
 
-      /* "refinery/lib/unrar/filters.pyx":137
+      /* "refinery/lib/unrar/filters.pyx":138
  *         while dest_pos < data_size:
  *             prev_byte = (prev_byte - src[src_pos]) & 0xFF
  *             dst_ptr[dest_pos] = prev_byte             # <<<<<<<<<<<<<<
@@ -3743,7 +3743,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__filter_delta(PyObject *
 */
       (__pyx_v_dst_ptr[__pyx_v_dest_pos]) = __pyx_v_prev_byte;
 
-      /* "refinery/lib/unrar/filters.pyx":138
+      /* "refinery/lib/unrar/filters.pyx":139
  *             prev_byte = (prev_byte - src[src_pos]) & 0xFF
  *             dst_ptr[dest_pos] = prev_byte
  *             src_pos += 1             # <<<<<<<<<<<<<<
@@ -3752,7 +3752,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__filter_delta(PyObject *
 */
       __pyx_v_src_pos = (__pyx_v_src_pos + 1);
 
-      /* "refinery/lib/unrar/filters.pyx":139
+      /* "refinery/lib/unrar/filters.pyx":140
  *             dst_ptr[dest_pos] = prev_byte
  *             src_pos += 1
  *             dest_pos += channels             # <<<<<<<<<<<<<<
@@ -3763,7 +3763,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__filter_delta(PyObject *
     }
   }
 
-  /* "refinery/lib/unrar/filters.pyx":140
+  /* "refinery/lib/unrar/filters.pyx":141
  *             src_pos += 1
  *             dest_pos += channels
  *     return dst             # <<<<<<<<<<<<<<
@@ -3775,7 +3775,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__filter_delta(PyObject *
   __pyx_r = __pyx_v_dst;
   goto __pyx_L0;
 
-  /* "refinery/lib/unrar/filters.pyx":119
+  /* "refinery/lib/unrar/filters.pyx":120
  * 
  * 
  * cdef bytearray _filter_delta(bytearray data, int channels):             # <<<<<<<<<<<<<<
@@ -3797,7 +3797,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__filter_delta(PyObject *
   return __pyx_r;
 }
 
-/* "refinery/lib/unrar/filters.pyx":163
+/* "refinery/lib/unrar/filters.pyx":164
  * 
  * 
  * def identify_v3_filter(code_crc):             # <<<<<<<<<<<<<<
@@ -3845,32 +3845,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_code_crc,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 163, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 164, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 163, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 164, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "identify_v3_filter", 0) < (0)) __PYX_ERR(0, 163, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "identify_v3_filter", 0) < (0)) __PYX_ERR(0, 164, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("identify_v3_filter", 1, 1, 1, i); __PYX_ERR(0, 163, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("identify_v3_filter", 1, 1, 1, i); __PYX_ERR(0, 164, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 163, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 164, __pyx_L3_error)
     }
     __pyx_v_code_crc = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("identify_v3_filter", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 163, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("identify_v3_filter", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 164, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -3905,7 +3905,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_7filters_2identify_v3_filter(CYT
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("identify_v3_filter", 0);
 
-  /* "refinery/lib/unrar/filters.pyx":167
+  /* "refinery/lib/unrar/filters.pyx":168
  *     Identify a RAR3 VM filter by its bytecode CRC32.
  *     """
  *     return _V3_FILTER_CRC.get(code_crc, V3FilterType.VMSF_NONE)             # <<<<<<<<<<<<<<
@@ -3914,14 +3914,14 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_7filters_2identify_v3_filter(CYT
 */
   __Pyx_XDECREF(__pyx_r);
   __pyx_t_2 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_V3_FILTER_CRC); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 167, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_V3_FILTER_CRC); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 168, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_get); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 167, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_get); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 168, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_V3FilterType); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 167, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_V3FilterType); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 168, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_VMSF_NONE); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 167, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_VMSF_NONE); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 168, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __pyx_t_6 = 1;
@@ -3942,14 +3942,14 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_7filters_2identify_v3_filter(CYT
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 167, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 168, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "refinery/lib/unrar/filters.pyx":163
+  /* "refinery/lib/unrar/filters.pyx":164
  * 
  * 
  * def identify_v3_filter(code_crc):             # <<<<<<<<<<<<<<
@@ -3972,7 +3972,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_7filters_2identify_v3_filter(CYT
   return __pyx_r;
 }
 
-/* "refinery/lib/unrar/filters.pyx":170
+/* "refinery/lib/unrar/filters.pyx":171
  * 
  * 
  * def execute_v3_filter(             # <<<<<<<<<<<<<<
@@ -4023,32 +4023,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_filter_type,&__pyx_mstate_global->__pyx_n_u_data,&__pyx_mstate_global->__pyx_n_u_block_length,&__pyx_mstate_global->__pyx_n_u_initial_register_values,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 170, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 171, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  4:
         values[3] = __Pyx_ArgRef_FASTCALL(__pyx_args, 3);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 170, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 171, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 170, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 171, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 170, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 171, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 170, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 171, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "execute_v3_filter", 0) < (0)) __PYX_ERR(0, 170, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "execute_v3_filter", 0) < (0)) __PYX_ERR(0, 171, __pyx_L3_error)
 
-      /* "refinery/lib/unrar/filters.pyx":174
+      /* "refinery/lib/unrar/filters.pyx":175
  *     bytearray data,
  *     int block_length,
  *     list initial_register_values=None,             # <<<<<<<<<<<<<<
@@ -4057,34 +4057,34 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
 */
       if (!values[3]) values[3] = __Pyx_NewRef(((PyObject*)Py_None));
       for (Py_ssize_t i = __pyx_nargs; i < 3; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("execute_v3_filter", 0, 3, 4, i); __PYX_ERR(0, 170, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("execute_v3_filter", 0, 3, 4, i); __PYX_ERR(0, 171, __pyx_L3_error) }
       }
     } else {
       switch (__pyx_nargs) {
         case  4:
         values[3] = __Pyx_ArgRef_FASTCALL(__pyx_args, 3);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 170, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 171, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 170, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 171, __pyx_L3_error)
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 170, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 171, __pyx_L3_error)
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 170, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 171, __pyx_L3_error)
         break;
         default: goto __pyx_L5_argtuple_error;
       }
       if (!values[3]) values[3] = __Pyx_NewRef(((PyObject*)Py_None));
     }
-    __pyx_v_filter_type = __Pyx_PyLong_As_int(values[0]); if (unlikely((__pyx_v_filter_type == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 171, __pyx_L3_error)
+    __pyx_v_filter_type = __Pyx_PyLong_As_int(values[0]); if (unlikely((__pyx_v_filter_type == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 172, __pyx_L3_error)
     __pyx_v_data = ((PyObject*)values[1]);
-    __pyx_v_block_length = __Pyx_PyLong_As_int(values[2]); if (unlikely((__pyx_v_block_length == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 173, __pyx_L3_error)
+    __pyx_v_block_length = __Pyx_PyLong_As_int(values[2]); if (unlikely((__pyx_v_block_length == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 174, __pyx_L3_error)
     __pyx_v_initial_register_values = ((PyObject*)values[3]);
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("execute_v3_filter", 0, 3, 4, __pyx_nargs); __PYX_ERR(0, 170, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("execute_v3_filter", 0, 3, 4, __pyx_nargs); __PYX_ERR(0, 171, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -4095,11 +4095,11 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_data), (&PyByteArray_Type), 1, "data", 1))) __PYX_ERR(0, 172, __pyx_L1_error)
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_initial_register_values), (&PyList_Type), 1, "initial_register_values", 1))) __PYX_ERR(0, 174, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_data), (&PyByteArray_Type), 1, "data", 1))) __PYX_ERR(0, 173, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_initial_register_values), (&PyList_Type), 1, "initial_register_values", 1))) __PYX_ERR(0, 175, __pyx_L1_error)
   __pyx_r = __pyx_pf_8refinery_3lib_5unrar_7filters_4execute_v3_filter(__pyx_self, __pyx_v_filter_type, __pyx_v_data, __pyx_v_block_length, __pyx_v_initial_register_values);
 
-  /* "refinery/lib/unrar/filters.pyx":170
+  /* "refinery/lib/unrar/filters.pyx":171
  * 
  * 
  * def execute_v3_filter(             # <<<<<<<<<<<<<<
@@ -4139,7 +4139,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_7filters_4execute_v3_filter(CYTH
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("execute_v3_filter", 0);
 
-  /* "refinery/lib/unrar/filters.pyx":179
+  /* "refinery/lib/unrar/filters.pyx":180
  *     Execute a RAR3 standard filter.
  *     """
  *     ir = initial_register_values             # <<<<<<<<<<<<<<
@@ -4149,28 +4149,28 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_7filters_4execute_v3_filter(CYTH
   __Pyx_INCREF(__pyx_v_initial_register_values);
   __pyx_v_ir = __pyx_v_initial_register_values;
 
-  /* "refinery/lib/unrar/filters.pyx":180
+  /* "refinery/lib/unrar/filters.pyx":181
  *     """
  *     ir = initial_register_values
  *     if filter_type == V3FilterType.VMSF_E8:             # <<<<<<<<<<<<<<
  *         return _v3_filter_e8(data, block_length, False, ir)
  *     elif filter_type == V3FilterType.VMSF_E8E9:
 */
-  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_filter_type); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 180, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_filter_type); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 181, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_V3FilterType); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 180, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_V3FilterType); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 181, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_VMSF_E8); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 180, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_VMSF_E8); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 181, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = PyObject_RichCompare(__pyx_t_1, __pyx_t_3, Py_EQ); __Pyx_XGOTREF(__pyx_t_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 180, __pyx_L1_error)
+  __pyx_t_2 = PyObject_RichCompare(__pyx_t_1, __pyx_t_3, Py_EQ); __Pyx_XGOTREF(__pyx_t_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 181, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 180, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 181, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   if (__pyx_t_4) {
 
-    /* "refinery/lib/unrar/filters.pyx":181
+    /* "refinery/lib/unrar/filters.pyx":182
  *     ir = initial_register_values
  *     if filter_type == V3FilterType.VMSF_E8:
  *         return _v3_filter_e8(data, block_length, False, ir)             # <<<<<<<<<<<<<<
@@ -4178,13 +4178,13 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_7filters_4execute_v3_filter(CYTH
  *         return _v3_filter_e8(data, block_length, True, ir)
 */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_2 = __pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_e8(__pyx_v_data, __pyx_v_block_length, 0, __pyx_v_ir); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 181, __pyx_L1_error)
+    __pyx_t_2 = __pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_e8(__pyx_v_data, __pyx_v_block_length, 0, __pyx_v_ir); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 182, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __pyx_r = __pyx_t_2;
     __pyx_t_2 = 0;
     goto __pyx_L0;
 
-    /* "refinery/lib/unrar/filters.pyx":180
+    /* "refinery/lib/unrar/filters.pyx":181
  *     """
  *     ir = initial_register_values
  *     if filter_type == V3FilterType.VMSF_E8:             # <<<<<<<<<<<<<<
@@ -4193,28 +4193,28 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_7filters_4execute_v3_filter(CYTH
 */
   }
 
-  /* "refinery/lib/unrar/filters.pyx":182
+  /* "refinery/lib/unrar/filters.pyx":183
  *     if filter_type == V3FilterType.VMSF_E8:
  *         return _v3_filter_e8(data, block_length, False, ir)
  *     elif filter_type == V3FilterType.VMSF_E8E9:             # <<<<<<<<<<<<<<
  *         return _v3_filter_e8(data, block_length, True, ir)
  *     elif filter_type == V3FilterType.VMSF_ITANIUM:
 */
-  __pyx_t_2 = __Pyx_PyLong_From_int(__pyx_v_filter_type); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 182, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyLong_From_int(__pyx_v_filter_type); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 183, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_V3FilterType); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 182, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_V3FilterType); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 183, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_VMSF_E8E9); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 182, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_VMSF_E8E9); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 183, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_3 = PyObject_RichCompare(__pyx_t_2, __pyx_t_1, Py_EQ); __Pyx_XGOTREF(__pyx_t_3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 182, __pyx_L1_error)
+  __pyx_t_3 = PyObject_RichCompare(__pyx_t_2, __pyx_t_1, Py_EQ); __Pyx_XGOTREF(__pyx_t_3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 183, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 182, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 183, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   if (__pyx_t_4) {
 
-    /* "refinery/lib/unrar/filters.pyx":183
+    /* "refinery/lib/unrar/filters.pyx":184
  *         return _v3_filter_e8(data, block_length, False, ir)
  *     elif filter_type == V3FilterType.VMSF_E8E9:
  *         return _v3_filter_e8(data, block_length, True, ir)             # <<<<<<<<<<<<<<
@@ -4222,13 +4222,13 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_7filters_4execute_v3_filter(CYTH
  *         return _v3_filter_itanium(data, block_length, ir)
 */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_3 = __pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_e8(__pyx_v_data, __pyx_v_block_length, 1, __pyx_v_ir); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 183, __pyx_L1_error)
+    __pyx_t_3 = __pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_e8(__pyx_v_data, __pyx_v_block_length, 1, __pyx_v_ir); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 184, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_r = __pyx_t_3;
     __pyx_t_3 = 0;
     goto __pyx_L0;
 
-    /* "refinery/lib/unrar/filters.pyx":182
+    /* "refinery/lib/unrar/filters.pyx":183
  *     if filter_type == V3FilterType.VMSF_E8:
  *         return _v3_filter_e8(data, block_length, False, ir)
  *     elif filter_type == V3FilterType.VMSF_E8E9:             # <<<<<<<<<<<<<<
@@ -4237,28 +4237,28 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_7filters_4execute_v3_filter(CYTH
 */
   }
 
-  /* "refinery/lib/unrar/filters.pyx":184
+  /* "refinery/lib/unrar/filters.pyx":185
  *     elif filter_type == V3FilterType.VMSF_E8E9:
  *         return _v3_filter_e8(data, block_length, True, ir)
  *     elif filter_type == V3FilterType.VMSF_ITANIUM:             # <<<<<<<<<<<<<<
  *         return _v3_filter_itanium(data, block_length, ir)
  *     elif filter_type == V3FilterType.VMSF_DELTA:
 */
-  __pyx_t_3 = __Pyx_PyLong_From_int(__pyx_v_filter_type); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 184, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyLong_From_int(__pyx_v_filter_type); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 185, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_V3FilterType); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 184, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_V3FilterType); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 185, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_VMSF_ITANIUM); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 184, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_VMSF_ITANIUM); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 185, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = PyObject_RichCompare(__pyx_t_3, __pyx_t_2, Py_EQ); __Pyx_XGOTREF(__pyx_t_1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 184, __pyx_L1_error)
+  __pyx_t_1 = PyObject_RichCompare(__pyx_t_3, __pyx_t_2, Py_EQ); __Pyx_XGOTREF(__pyx_t_1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 185, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 184, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 185, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (__pyx_t_4) {
 
-    /* "refinery/lib/unrar/filters.pyx":185
+    /* "refinery/lib/unrar/filters.pyx":186
  *         return _v3_filter_e8(data, block_length, True, ir)
  *     elif filter_type == V3FilterType.VMSF_ITANIUM:
  *         return _v3_filter_itanium(data, block_length, ir)             # <<<<<<<<<<<<<<
@@ -4266,13 +4266,13 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_7filters_4execute_v3_filter(CYTH
  *         return _v3_filter_delta(data, block_length, ir)
 */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_1 = __pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_itanium(__pyx_v_data, __pyx_v_block_length, __pyx_v_ir); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 185, __pyx_L1_error)
+    __pyx_t_1 = __pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_itanium(__pyx_v_data, __pyx_v_block_length, __pyx_v_ir); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 186, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __pyx_r = __pyx_t_1;
     __pyx_t_1 = 0;
     goto __pyx_L0;
 
-    /* "refinery/lib/unrar/filters.pyx":184
+    /* "refinery/lib/unrar/filters.pyx":185
  *     elif filter_type == V3FilterType.VMSF_E8E9:
  *         return _v3_filter_e8(data, block_length, True, ir)
  *     elif filter_type == V3FilterType.VMSF_ITANIUM:             # <<<<<<<<<<<<<<
@@ -4281,28 +4281,28 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_7filters_4execute_v3_filter(CYTH
 */
   }
 
-  /* "refinery/lib/unrar/filters.pyx":186
+  /* "refinery/lib/unrar/filters.pyx":187
  *     elif filter_type == V3FilterType.VMSF_ITANIUM:
  *         return _v3_filter_itanium(data, block_length, ir)
  *     elif filter_type == V3FilterType.VMSF_DELTA:             # <<<<<<<<<<<<<<
  *         return _v3_filter_delta(data, block_length, ir)
  *     elif filter_type == V3FilterType.VMSF_RGB:
 */
-  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_filter_type); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 186, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_filter_type); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 187, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_V3FilterType); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 186, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_V3FilterType); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 187, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_VMSF_DELTA); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 186, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_VMSF_DELTA); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 187, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = PyObject_RichCompare(__pyx_t_1, __pyx_t_3, Py_EQ); __Pyx_XGOTREF(__pyx_t_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 186, __pyx_L1_error)
+  __pyx_t_2 = PyObject_RichCompare(__pyx_t_1, __pyx_t_3, Py_EQ); __Pyx_XGOTREF(__pyx_t_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 187, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 186, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 187, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   if (__pyx_t_4) {
 
-    /* "refinery/lib/unrar/filters.pyx":187
+    /* "refinery/lib/unrar/filters.pyx":188
  *         return _v3_filter_itanium(data, block_length, ir)
  *     elif filter_type == V3FilterType.VMSF_DELTA:
  *         return _v3_filter_delta(data, block_length, ir)             # <<<<<<<<<<<<<<
@@ -4310,13 +4310,13 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_7filters_4execute_v3_filter(CYTH
  *         return _v3_filter_rgb(data, block_length, ir)
 */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_2 = __pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_delta(__pyx_v_data, __pyx_v_block_length, __pyx_v_ir); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 187, __pyx_L1_error)
+    __pyx_t_2 = __pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_delta(__pyx_v_data, __pyx_v_block_length, __pyx_v_ir); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 188, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __pyx_r = __pyx_t_2;
     __pyx_t_2 = 0;
     goto __pyx_L0;
 
-    /* "refinery/lib/unrar/filters.pyx":186
+    /* "refinery/lib/unrar/filters.pyx":187
  *     elif filter_type == V3FilterType.VMSF_ITANIUM:
  *         return _v3_filter_itanium(data, block_length, ir)
  *     elif filter_type == V3FilterType.VMSF_DELTA:             # <<<<<<<<<<<<<<
@@ -4325,28 +4325,28 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_7filters_4execute_v3_filter(CYTH
 */
   }
 
-  /* "refinery/lib/unrar/filters.pyx":188
+  /* "refinery/lib/unrar/filters.pyx":189
  *     elif filter_type == V3FilterType.VMSF_DELTA:
  *         return _v3_filter_delta(data, block_length, ir)
  *     elif filter_type == V3FilterType.VMSF_RGB:             # <<<<<<<<<<<<<<
  *         return _v3_filter_rgb(data, block_length, ir)
  *     elif filter_type == V3FilterType.VMSF_AUDIO:
 */
-  __pyx_t_2 = __Pyx_PyLong_From_int(__pyx_v_filter_type); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 188, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyLong_From_int(__pyx_v_filter_type); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 189, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_V3FilterType); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 188, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_V3FilterType); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 189, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_VMSF_RGB); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 188, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_VMSF_RGB); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 189, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_3 = PyObject_RichCompare(__pyx_t_2, __pyx_t_1, Py_EQ); __Pyx_XGOTREF(__pyx_t_3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 188, __pyx_L1_error)
+  __pyx_t_3 = PyObject_RichCompare(__pyx_t_2, __pyx_t_1, Py_EQ); __Pyx_XGOTREF(__pyx_t_3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 189, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 188, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 189, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   if (__pyx_t_4) {
 
-    /* "refinery/lib/unrar/filters.pyx":189
+    /* "refinery/lib/unrar/filters.pyx":190
  *         return _v3_filter_delta(data, block_length, ir)
  *     elif filter_type == V3FilterType.VMSF_RGB:
  *         return _v3_filter_rgb(data, block_length, ir)             # <<<<<<<<<<<<<<
@@ -4354,13 +4354,13 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_7filters_4execute_v3_filter(CYTH
  *         return _v3_filter_audio(data, block_length, ir)
 */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_3 = __pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_rgb(__pyx_v_data, __pyx_v_block_length, __pyx_v_ir); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 189, __pyx_L1_error)
+    __pyx_t_3 = __pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_rgb(__pyx_v_data, __pyx_v_block_length, __pyx_v_ir); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 190, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_r = __pyx_t_3;
     __pyx_t_3 = 0;
     goto __pyx_L0;
 
-    /* "refinery/lib/unrar/filters.pyx":188
+    /* "refinery/lib/unrar/filters.pyx":189
  *     elif filter_type == V3FilterType.VMSF_DELTA:
  *         return _v3_filter_delta(data, block_length, ir)
  *     elif filter_type == V3FilterType.VMSF_RGB:             # <<<<<<<<<<<<<<
@@ -4369,28 +4369,28 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_7filters_4execute_v3_filter(CYTH
 */
   }
 
-  /* "refinery/lib/unrar/filters.pyx":190
+  /* "refinery/lib/unrar/filters.pyx":191
  *     elif filter_type == V3FilterType.VMSF_RGB:
  *         return _v3_filter_rgb(data, block_length, ir)
  *     elif filter_type == V3FilterType.VMSF_AUDIO:             # <<<<<<<<<<<<<<
  *         return _v3_filter_audio(data, block_length, ir)
  *     raise NotImplementedError(F'Non-standard RAR3 VM filter type: {filter_type}')
 */
-  __pyx_t_3 = __Pyx_PyLong_From_int(__pyx_v_filter_type); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 190, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyLong_From_int(__pyx_v_filter_type); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 191, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_V3FilterType); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 190, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_V3FilterType); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 191, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_VMSF_AUDIO); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 190, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_VMSF_AUDIO); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 191, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = PyObject_RichCompare(__pyx_t_3, __pyx_t_2, Py_EQ); __Pyx_XGOTREF(__pyx_t_1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 190, __pyx_L1_error)
+  __pyx_t_1 = PyObject_RichCompare(__pyx_t_3, __pyx_t_2, Py_EQ); __Pyx_XGOTREF(__pyx_t_1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 191, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 190, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 191, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (__pyx_t_4) {
 
-    /* "refinery/lib/unrar/filters.pyx":191
+    /* "refinery/lib/unrar/filters.pyx":192
  *         return _v3_filter_rgb(data, block_length, ir)
  *     elif filter_type == V3FilterType.VMSF_AUDIO:
  *         return _v3_filter_audio(data, block_length, ir)             # <<<<<<<<<<<<<<
@@ -4398,13 +4398,13 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_7filters_4execute_v3_filter(CYTH
  * 
 */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_1 = __pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_audio(__pyx_v_data, __pyx_v_block_length, __pyx_v_ir); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 191, __pyx_L1_error)
+    __pyx_t_1 = __pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_audio(__pyx_v_data, __pyx_v_block_length, __pyx_v_ir); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 192, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __pyx_r = __pyx_t_1;
     __pyx_t_1 = 0;
     goto __pyx_L0;
 
-    /* "refinery/lib/unrar/filters.pyx":190
+    /* "refinery/lib/unrar/filters.pyx":191
  *     elif filter_type == V3FilterType.VMSF_RGB:
  *         return _v3_filter_rgb(data, block_length, ir)
  *     elif filter_type == V3FilterType.VMSF_AUDIO:             # <<<<<<<<<<<<<<
@@ -4413,7 +4413,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_7filters_4execute_v3_filter(CYTH
 */
   }
 
-  /* "refinery/lib/unrar/filters.pyx":192
+  /* "refinery/lib/unrar/filters.pyx":193
  *     elif filter_type == V3FilterType.VMSF_AUDIO:
  *         return _v3_filter_audio(data, block_length, ir)
  *     raise NotImplementedError(F'Non-standard RAR3 VM filter type: {filter_type}')             # <<<<<<<<<<<<<<
@@ -4421,9 +4421,9 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_7filters_4execute_v3_filter(CYTH
  * 
 */
   __pyx_t_2 = NULL;
-  __pyx_t_3 = __Pyx_PyUnicode_From_int(__pyx_v_filter_type, 0, ' ', 'd'); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 192, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyUnicode_From_int(__pyx_v_filter_type, 0, ' ', 'd'); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 193, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_5 = __Pyx_PyUnicode_Concat(__pyx_mstate_global->__pyx_kp_u_Non_standard_RAR3_VM_filter_type, __pyx_t_3); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 192, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyUnicode_Concat(__pyx_mstate_global->__pyx_kp_u_Non_standard_RAR3_VM_filter_type, __pyx_t_3); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 193, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __pyx_t_6 = 1;
@@ -4432,14 +4432,14 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_7filters_4execute_v3_filter(CYTH
     __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_NotImplementedError)), __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 192, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 193, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __Pyx_Raise(__pyx_t_1, 0, 0, 0);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __PYX_ERR(0, 192, __pyx_L1_error)
+  __PYX_ERR(0, 193, __pyx_L1_error)
 
-  /* "refinery/lib/unrar/filters.pyx":170
+  /* "refinery/lib/unrar/filters.pyx":171
  * 
  * 
  * def execute_v3_filter(             # <<<<<<<<<<<<<<
@@ -4462,7 +4462,7 @@ static PyObject *__pyx_pf_8refinery_3lib_5unrar_7filters_4execute_v3_filter(CYTH
   return __pyx_r;
 }
 
-/* "refinery/lib/unrar/filters.pyx":195
+/* "refinery/lib/unrar/filters.pyx":196
  * 
  * 
  * cdef bytearray _v3_filter_e8(             # <<<<<<<<<<<<<<
@@ -4492,7 +4492,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_e8(PyObject *
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_v3_filter_e8", 0);
 
-  /* "refinery/lib/unrar/filters.pyx":201
+  /* "refinery/lib/unrar/filters.pyx":202
  *     list initial_register_values,
  * ):
  *     cdef unsigned char *ptr = <unsigned char *>PyByteArray_AS_STRING(data)             # <<<<<<<<<<<<<<
@@ -4501,7 +4501,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_e8(PyObject *
 */
   __pyx_v_ptr = ((unsigned char *)PyByteArray_AS_STRING(__pyx_v_data));
 
-  /* "refinery/lib/unrar/filters.pyx":202
+  /* "refinery/lib/unrar/filters.pyx":203
  * ):
  *     cdef unsigned char *ptr = <unsigned char *>PyByteArray_AS_STRING(data)
  *     cdef int file_size = 0x1000000             # <<<<<<<<<<<<<<
@@ -4510,7 +4510,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_e8(PyObject *
 */
   __pyx_v_file_size = 0x1000000;
 
-  /* "refinery/lib/unrar/filters.pyx":203
+  /* "refinery/lib/unrar/filters.pyx":204
  *     cdef unsigned char *ptr = <unsigned char *>PyByteArray_AS_STRING(data)
  *     cdef int file_size = 0x1000000
  *     cdef int file_offset = 0             # <<<<<<<<<<<<<<
@@ -4519,7 +4519,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_e8(PyObject *
 */
   __pyx_v_file_offset = 0;
 
-  /* "refinery/lib/unrar/filters.pyx":204
+  /* "refinery/lib/unrar/filters.pyx":205
  *     cdef int file_size = 0x1000000
  *     cdef int file_offset = 0
  *     cdef int cur_pos = 0             # <<<<<<<<<<<<<<
@@ -4528,7 +4528,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_e8(PyObject *
 */
   __pyx_v_cur_pos = 0;
 
-  /* "refinery/lib/unrar/filters.pyx":208
+  /* "refinery/lib/unrar/filters.pyx":209
  *     cdef unsigned int offset, addr, val
  * 
  *     if initial_register_values is not None:             # <<<<<<<<<<<<<<
@@ -4538,7 +4538,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_e8(PyObject *
   __pyx_t_1 = (__pyx_v_initial_register_values != ((PyObject*)Py_None));
   if (__pyx_t_1) {
 
-    /* "refinery/lib/unrar/filters.pyx":209
+    /* "refinery/lib/unrar/filters.pyx":210
  * 
  *     if initial_register_values is not None:
  *         file_offset = <int>initial_register_values[6]             # <<<<<<<<<<<<<<
@@ -4547,12 +4547,12 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_e8(PyObject *
 */
     if (unlikely(__pyx_v_initial_register_values == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-      __PYX_ERR(0, 209, __pyx_L1_error)
+      __PYX_ERR(0, 210, __pyx_L1_error)
     }
-    __pyx_t_2 = __Pyx_PyLong_As_int(__Pyx_PyList_GET_ITEM(__pyx_v_initial_register_values, 6)); if (unlikely((__pyx_t_2 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 209, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyLong_As_int(__Pyx_PyList_GET_ITEM(__pyx_v_initial_register_values, 6)); if (unlikely((__pyx_t_2 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 210, __pyx_L1_error)
     __pyx_v_file_offset = ((int)__pyx_t_2);
 
-    /* "refinery/lib/unrar/filters.pyx":208
+    /* "refinery/lib/unrar/filters.pyx":209
  *     cdef unsigned int offset, addr, val
  * 
  *     if initial_register_values is not None:             # <<<<<<<<<<<<<<
@@ -4561,7 +4561,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_e8(PyObject *
 */
   }
 
-  /* "refinery/lib/unrar/filters.pyx":211
+  /* "refinery/lib/unrar/filters.pyx":212
  *         file_offset = <int>initial_register_values[6]
  * 
  *     while cur_pos + 4 < data_size:             # <<<<<<<<<<<<<<
@@ -4572,7 +4572,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_e8(PyObject *
     __pyx_t_1 = ((__pyx_v_cur_pos + 4) < __pyx_v_data_size);
     if (!__pyx_t_1) break;
 
-    /* "refinery/lib/unrar/filters.pyx":212
+    /* "refinery/lib/unrar/filters.pyx":213
  * 
  *     while cur_pos + 4 < data_size:
  *         b = ptr[cur_pos]             # <<<<<<<<<<<<<<
@@ -4581,7 +4581,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_e8(PyObject *
 */
     __pyx_v_b = (__pyx_v_ptr[__pyx_v_cur_pos]);
 
-    /* "refinery/lib/unrar/filters.pyx":213
+    /* "refinery/lib/unrar/filters.pyx":214
  *     while cur_pos + 4 < data_size:
  *         b = ptr[cur_pos]
  *         cur_pos += 1             # <<<<<<<<<<<<<<
@@ -4590,7 +4590,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_e8(PyObject *
 */
     __pyx_v_cur_pos = (__pyx_v_cur_pos + 1);
 
-    /* "refinery/lib/unrar/filters.pyx":214
+    /* "refinery/lib/unrar/filters.pyx":215
  *         b = ptr[cur_pos]
  *         cur_pos += 1
  *         if b == 0xE8 or (include_e9 and b == 0xE9):             # <<<<<<<<<<<<<<
@@ -4613,23 +4613,23 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_e8(PyObject *
     __pyx_L7_bool_binop_done:;
     if (__pyx_t_1) {
 
-      /* "refinery/lib/unrar/filters.pyx":215
+      /* "refinery/lib/unrar/filters.pyx":216
  *         cur_pos += 1
  *         if b == 0xE8 or (include_e9 and b == 0xE9):
  *             offset = (cur_pos + file_offset) & 0xFFFFFFFF             # <<<<<<<<<<<<<<
  *             addr = (
  *                 <unsigned int>ptr[cur_pos]
 */
-      __pyx_t_4 = __Pyx_PyLong_From_int((__pyx_v_cur_pos + __pyx_v_file_offset)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 215, __pyx_L1_error)
+      __pyx_t_4 = __Pyx_PyLong_From_int((__pyx_v_cur_pos + __pyx_v_file_offset)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 216, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
-      __pyx_t_5 = PyNumber_And(__pyx_t_4, __pyx_mstate_global->__pyx_int_4294967295); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 215, __pyx_L1_error)
+      __pyx_t_5 = PyNumber_And(__pyx_t_4, __pyx_mstate_global->__pyx_int_4294967295); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 216, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      __pyx_t_6 = __Pyx_PyLong_As_unsigned_int(__pyx_t_5); if (unlikely((__pyx_t_6 == (unsigned int)-1) && PyErr_Occurred())) __PYX_ERR(0, 215, __pyx_L1_error)
+      __pyx_t_6 = __Pyx_PyLong_As_unsigned_int(__pyx_t_5); if (unlikely((__pyx_t_6 == (unsigned int)-1) && PyErr_Occurred())) __PYX_ERR(0, 216, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
       __pyx_v_offset = __pyx_t_6;
 
-      /* "refinery/lib/unrar/filters.pyx":220
+      /* "refinery/lib/unrar/filters.pyx":221
  *                 | (<unsigned int>ptr[cur_pos + 1] << 8)
  *                 | (<unsigned int>ptr[cur_pos + 2] << 16)
  *                 | (<unsigned int>ptr[cur_pos + 3] << 24)             # <<<<<<<<<<<<<<
@@ -4638,55 +4638,55 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_e8(PyObject *
 */
       __pyx_v_addr = (((((unsigned int)(__pyx_v_ptr[__pyx_v_cur_pos])) | (((unsigned int)(__pyx_v_ptr[(__pyx_v_cur_pos + 1)])) << 8)) | (((unsigned int)(__pyx_v_ptr[(__pyx_v_cur_pos + 2)])) << 16)) | (((unsigned int)(__pyx_v_ptr[(__pyx_v_cur_pos + 3)])) << 24));
 
-      /* "refinery/lib/unrar/filters.pyx":222
+      /* "refinery/lib/unrar/filters.pyx":223
  *                 | (<unsigned int>ptr[cur_pos + 3] << 24)
  *             )
  *             if addr & 0x80000000:             # <<<<<<<<<<<<<<
  *                 if (addr + offset) & 0x80000000 == 0:
  *                     val = (addr + file_size) & 0xFFFFFFFF
 */
-      __pyx_t_5 = __Pyx_PyLong_From_unsigned_int(__pyx_v_addr); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 222, __pyx_L1_error)
+      __pyx_t_5 = __Pyx_PyLong_From_unsigned_int(__pyx_v_addr); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 223, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
-      __pyx_t_4 = PyNumber_And(__pyx_t_5, __pyx_mstate_global->__pyx_int_2147483648); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 222, __pyx_L1_error)
+      __pyx_t_4 = PyNumber_And(__pyx_t_5, __pyx_mstate_global->__pyx_int_2147483648); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 223, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-      __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 222, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 223, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
       if (__pyx_t_1) {
 
-        /* "refinery/lib/unrar/filters.pyx":223
+        /* "refinery/lib/unrar/filters.pyx":224
  *             )
  *             if addr & 0x80000000:
  *                 if (addr + offset) & 0x80000000 == 0:             # <<<<<<<<<<<<<<
  *                     val = (addr + file_size) & 0xFFFFFFFF
  *                     ptr[cur_pos] = val & 0xFF
 */
-        __pyx_t_4 = __Pyx_PyLong_From_unsigned_int((__pyx_v_addr + __pyx_v_offset)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 223, __pyx_L1_error)
+        __pyx_t_4 = __Pyx_PyLong_From_unsigned_int((__pyx_v_addr + __pyx_v_offset)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 224, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_4);
-        __pyx_t_5 = PyNumber_And(__pyx_t_4, __pyx_mstate_global->__pyx_int_2147483648); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 223, __pyx_L1_error)
+        __pyx_t_5 = PyNumber_And(__pyx_t_4, __pyx_mstate_global->__pyx_int_2147483648); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 224, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_5);
         __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-        __pyx_t_1 = (__Pyx_PyLong_BoolEqObjC(__pyx_t_5, __pyx_mstate_global->__pyx_int_0, 0, 0)); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 223, __pyx_L1_error)
+        __pyx_t_1 = (__Pyx_PyLong_BoolEqObjC(__pyx_t_5, __pyx_mstate_global->__pyx_int_0, 0, 0)); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 224, __pyx_L1_error)
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
         if (__pyx_t_1) {
 
-          /* "refinery/lib/unrar/filters.pyx":224
+          /* "refinery/lib/unrar/filters.pyx":225
  *             if addr & 0x80000000:
  *                 if (addr + offset) & 0x80000000 == 0:
  *                     val = (addr + file_size) & 0xFFFFFFFF             # <<<<<<<<<<<<<<
  *                     ptr[cur_pos] = val & 0xFF
  *                     ptr[cur_pos + 1] = (val >> 8) & 0xFF
 */
-          __pyx_t_5 = __Pyx_PyLong_From_unsigned_int((__pyx_v_addr + __pyx_v_file_size)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 224, __pyx_L1_error)
+          __pyx_t_5 = __Pyx_PyLong_From_unsigned_int((__pyx_v_addr + __pyx_v_file_size)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 225, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_5);
-          __pyx_t_4 = PyNumber_And(__pyx_t_5, __pyx_mstate_global->__pyx_int_4294967295); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 224, __pyx_L1_error)
+          __pyx_t_4 = PyNumber_And(__pyx_t_5, __pyx_mstate_global->__pyx_int_4294967295); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 225, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_4);
           __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-          __pyx_t_6 = __Pyx_PyLong_As_unsigned_int(__pyx_t_4); if (unlikely((__pyx_t_6 == (unsigned int)-1) && PyErr_Occurred())) __PYX_ERR(0, 224, __pyx_L1_error)
+          __pyx_t_6 = __Pyx_PyLong_As_unsigned_int(__pyx_t_4); if (unlikely((__pyx_t_6 == (unsigned int)-1) && PyErr_Occurred())) __PYX_ERR(0, 225, __pyx_L1_error)
           __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
           __pyx_v_val = __pyx_t_6;
 
-          /* "refinery/lib/unrar/filters.pyx":225
+          /* "refinery/lib/unrar/filters.pyx":226
  *                 if (addr + offset) & 0x80000000 == 0:
  *                     val = (addr + file_size) & 0xFFFFFFFF
  *                     ptr[cur_pos] = val & 0xFF             # <<<<<<<<<<<<<<
@@ -4695,7 +4695,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_e8(PyObject *
 */
           (__pyx_v_ptr[__pyx_v_cur_pos]) = (__pyx_v_val & 0xFF);
 
-          /* "refinery/lib/unrar/filters.pyx":226
+          /* "refinery/lib/unrar/filters.pyx":227
  *                     val = (addr + file_size) & 0xFFFFFFFF
  *                     ptr[cur_pos] = val & 0xFF
  *                     ptr[cur_pos + 1] = (val >> 8) & 0xFF             # <<<<<<<<<<<<<<
@@ -4704,7 +4704,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_e8(PyObject *
 */
           (__pyx_v_ptr[(__pyx_v_cur_pos + 1)]) = ((__pyx_v_val >> 8) & 0xFF);
 
-          /* "refinery/lib/unrar/filters.pyx":227
+          /* "refinery/lib/unrar/filters.pyx":228
  *                     ptr[cur_pos] = val & 0xFF
  *                     ptr[cur_pos + 1] = (val >> 8) & 0xFF
  *                     ptr[cur_pos + 2] = (val >> 16) & 0xFF             # <<<<<<<<<<<<<<
@@ -4713,7 +4713,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_e8(PyObject *
 */
           (__pyx_v_ptr[(__pyx_v_cur_pos + 2)]) = ((__pyx_v_val >> 16) & 0xFF);
 
-          /* "refinery/lib/unrar/filters.pyx":228
+          /* "refinery/lib/unrar/filters.pyx":229
  *                     ptr[cur_pos + 1] = (val >> 8) & 0xFF
  *                     ptr[cur_pos + 2] = (val >> 16) & 0xFF
  *                     ptr[cur_pos + 3] = (val >> 24) & 0xFF             # <<<<<<<<<<<<<<
@@ -4722,7 +4722,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_e8(PyObject *
 */
           (__pyx_v_ptr[(__pyx_v_cur_pos + 3)]) = ((__pyx_v_val >> 24) & 0xFF);
 
-          /* "refinery/lib/unrar/filters.pyx":223
+          /* "refinery/lib/unrar/filters.pyx":224
  *             )
  *             if addr & 0x80000000:
  *                 if (addr + offset) & 0x80000000 == 0:             # <<<<<<<<<<<<<<
@@ -4731,7 +4731,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_e8(PyObject *
 */
         }
 
-        /* "refinery/lib/unrar/filters.pyx":222
+        /* "refinery/lib/unrar/filters.pyx":223
  *                 | (<unsigned int>ptr[cur_pos + 3] << 24)
  *             )
  *             if addr & 0x80000000:             # <<<<<<<<<<<<<<
@@ -4741,7 +4741,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_e8(PyObject *
         goto __pyx_L10;
       }
 
-      /* "refinery/lib/unrar/filters.pyx":230
+      /* "refinery/lib/unrar/filters.pyx":231
  *                     ptr[cur_pos + 3] = (val >> 24) & 0xFF
  *             else:
  *                 if (addr - file_size) & 0x80000000:             # <<<<<<<<<<<<<<
@@ -4749,32 +4749,32 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_e8(PyObject *
  *                     ptr[cur_pos] = val & 0xFF
 */
       /*else*/ {
-        __pyx_t_4 = __Pyx_PyLong_From_unsigned_int((__pyx_v_addr - __pyx_v_file_size)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 230, __pyx_L1_error)
+        __pyx_t_4 = __Pyx_PyLong_From_unsigned_int((__pyx_v_addr - __pyx_v_file_size)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 231, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_4);
-        __pyx_t_5 = PyNumber_And(__pyx_t_4, __pyx_mstate_global->__pyx_int_2147483648); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 230, __pyx_L1_error)
+        __pyx_t_5 = PyNumber_And(__pyx_t_4, __pyx_mstate_global->__pyx_int_2147483648); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 231, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_5);
         __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-        __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_t_5); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 230, __pyx_L1_error)
+        __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_t_5); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 231, __pyx_L1_error)
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
         if (__pyx_t_1) {
 
-          /* "refinery/lib/unrar/filters.pyx":231
+          /* "refinery/lib/unrar/filters.pyx":232
  *             else:
  *                 if (addr - file_size) & 0x80000000:
  *                     val = (addr - offset) & 0xFFFFFFFF             # <<<<<<<<<<<<<<
  *                     ptr[cur_pos] = val & 0xFF
  *                     ptr[cur_pos + 1] = (val >> 8) & 0xFF
 */
-          __pyx_t_5 = __Pyx_PyLong_From_unsigned_int((__pyx_v_addr - __pyx_v_offset)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 231, __pyx_L1_error)
+          __pyx_t_5 = __Pyx_PyLong_From_unsigned_int((__pyx_v_addr - __pyx_v_offset)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 232, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_5);
-          __pyx_t_4 = PyNumber_And(__pyx_t_5, __pyx_mstate_global->__pyx_int_4294967295); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 231, __pyx_L1_error)
+          __pyx_t_4 = PyNumber_And(__pyx_t_5, __pyx_mstate_global->__pyx_int_4294967295); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 232, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_4);
           __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-          __pyx_t_6 = __Pyx_PyLong_As_unsigned_int(__pyx_t_4); if (unlikely((__pyx_t_6 == (unsigned int)-1) && PyErr_Occurred())) __PYX_ERR(0, 231, __pyx_L1_error)
+          __pyx_t_6 = __Pyx_PyLong_As_unsigned_int(__pyx_t_4); if (unlikely((__pyx_t_6 == (unsigned int)-1) && PyErr_Occurred())) __PYX_ERR(0, 232, __pyx_L1_error)
           __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
           __pyx_v_val = __pyx_t_6;
 
-          /* "refinery/lib/unrar/filters.pyx":232
+          /* "refinery/lib/unrar/filters.pyx":233
  *                 if (addr - file_size) & 0x80000000:
  *                     val = (addr - offset) & 0xFFFFFFFF
  *                     ptr[cur_pos] = val & 0xFF             # <<<<<<<<<<<<<<
@@ -4783,7 +4783,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_e8(PyObject *
 */
           (__pyx_v_ptr[__pyx_v_cur_pos]) = (__pyx_v_val & 0xFF);
 
-          /* "refinery/lib/unrar/filters.pyx":233
+          /* "refinery/lib/unrar/filters.pyx":234
  *                     val = (addr - offset) & 0xFFFFFFFF
  *                     ptr[cur_pos] = val & 0xFF
  *                     ptr[cur_pos + 1] = (val >> 8) & 0xFF             # <<<<<<<<<<<<<<
@@ -4792,7 +4792,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_e8(PyObject *
 */
           (__pyx_v_ptr[(__pyx_v_cur_pos + 1)]) = ((__pyx_v_val >> 8) & 0xFF);
 
-          /* "refinery/lib/unrar/filters.pyx":234
+          /* "refinery/lib/unrar/filters.pyx":235
  *                     ptr[cur_pos] = val & 0xFF
  *                     ptr[cur_pos + 1] = (val >> 8) & 0xFF
  *                     ptr[cur_pos + 2] = (val >> 16) & 0xFF             # <<<<<<<<<<<<<<
@@ -4801,7 +4801,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_e8(PyObject *
 */
           (__pyx_v_ptr[(__pyx_v_cur_pos + 2)]) = ((__pyx_v_val >> 16) & 0xFF);
 
-          /* "refinery/lib/unrar/filters.pyx":235
+          /* "refinery/lib/unrar/filters.pyx":236
  *                     ptr[cur_pos + 1] = (val >> 8) & 0xFF
  *                     ptr[cur_pos + 2] = (val >> 16) & 0xFF
  *                     ptr[cur_pos + 3] = (val >> 24) & 0xFF             # <<<<<<<<<<<<<<
@@ -4810,7 +4810,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_e8(PyObject *
 */
           (__pyx_v_ptr[(__pyx_v_cur_pos + 3)]) = ((__pyx_v_val >> 24) & 0xFF);
 
-          /* "refinery/lib/unrar/filters.pyx":230
+          /* "refinery/lib/unrar/filters.pyx":231
  *                     ptr[cur_pos + 3] = (val >> 24) & 0xFF
  *             else:
  *                 if (addr - file_size) & 0x80000000:             # <<<<<<<<<<<<<<
@@ -4821,7 +4821,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_e8(PyObject *
       }
       __pyx_L10:;
 
-      /* "refinery/lib/unrar/filters.pyx":236
+      /* "refinery/lib/unrar/filters.pyx":237
  *                     ptr[cur_pos + 2] = (val >> 16) & 0xFF
  *                     ptr[cur_pos + 3] = (val >> 24) & 0xFF
  *             cur_pos += 4             # <<<<<<<<<<<<<<
@@ -4830,7 +4830,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_e8(PyObject *
 */
       __pyx_v_cur_pos = (__pyx_v_cur_pos + 4);
 
-      /* "refinery/lib/unrar/filters.pyx":214
+      /* "refinery/lib/unrar/filters.pyx":215
  *         b = ptr[cur_pos]
  *         cur_pos += 1
  *         if b == 0xE8 or (include_e9 and b == 0xE9):             # <<<<<<<<<<<<<<
@@ -4840,7 +4840,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_e8(PyObject *
     }
   }
 
-  /* "refinery/lib/unrar/filters.pyx":237
+  /* "refinery/lib/unrar/filters.pyx":238
  *                     ptr[cur_pos + 3] = (val >> 24) & 0xFF
  *             cur_pos += 4
  *     return data             # <<<<<<<<<<<<<<
@@ -4852,7 +4852,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_e8(PyObject *
   __pyx_r = __pyx_v_data;
   goto __pyx_L0;
 
-  /* "refinery/lib/unrar/filters.pyx":195
+  /* "refinery/lib/unrar/filters.pyx":196
  * 
  * 
  * cdef bytearray _v3_filter_e8(             # <<<<<<<<<<<<<<
@@ -4872,7 +4872,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_e8(PyObject *
   return __pyx_r;
 }
 
-/* "refinery/lib/unrar/filters.pyx":240
+/* "refinery/lib/unrar/filters.pyx":241
  * 
  * 
  * cdef bytearray _v3_filter_itanium(bytearray data, int data_size, list init_r):             # <<<<<<<<<<<<<<
@@ -4917,7 +4917,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_itanium(PyObj
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_v3_filter_itanium", 0);
 
-  /* "refinery/lib/unrar/filters.pyx":241
+  /* "refinery/lib/unrar/filters.pyx":242
  * 
  * cdef bytearray _v3_filter_itanium(bytearray data, int data_size, list init_r):
  *     cdef unsigned char *ptr = <unsigned char *>PyByteArray_AS_STRING(data)             # <<<<<<<<<<<<<<
@@ -4926,7 +4926,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_itanium(PyObj
 */
   __pyx_v_ptr = ((unsigned char *)PyByteArray_AS_STRING(__pyx_v_data));
 
-  /* "refinery/lib/unrar/filters.pyx":242
+  /* "refinery/lib/unrar/filters.pyx":243
  * cdef bytearray _v3_filter_itanium(bytearray data, int data_size, list init_r):
  *     cdef unsigned char *ptr = <unsigned char *>PyByteArray_AS_STRING(data)
  *     cdef int file_offset = 0             # <<<<<<<<<<<<<<
@@ -4935,7 +4935,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_itanium(PyObj
 */
   __pyx_v_file_offset = 0;
 
-  /* "refinery/lib/unrar/filters.pyx":246
+  /* "refinery/lib/unrar/filters.pyx":247
  *     cdef int i, j, start_pos, bit_pos, idx
  *     cdef unsigned int mask_index, cmd_mask
  *     cdef int data_len = len(data)             # <<<<<<<<<<<<<<
@@ -4944,12 +4944,12 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_itanium(PyObj
 */
   if (unlikely(__pyx_v_data == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "object of type 'NoneType' has no len()");
-    __PYX_ERR(0, 246, __pyx_L1_error)
+    __PYX_ERR(0, 247, __pyx_L1_error)
   }
-  __pyx_t_1 = __Pyx_PyByteArray_GET_SIZE(__pyx_v_data); if (unlikely(__pyx_t_1 == ((Py_ssize_t)-1))) __PYX_ERR(0, 246, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyByteArray_GET_SIZE(__pyx_v_data); if (unlikely(__pyx_t_1 == ((Py_ssize_t)-1))) __PYX_ERR(0, 247, __pyx_L1_error)
   __pyx_v_data_len = __pyx_t_1;
 
-  /* "refinery/lib/unrar/filters.pyx":248
+  /* "refinery/lib/unrar/filters.pyx":249
  *     cdef int data_len = len(data)
  * 
  *     if init_r is not None:             # <<<<<<<<<<<<<<
@@ -4959,7 +4959,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_itanium(PyObj
   __pyx_t_2 = (__pyx_v_init_r != ((PyObject*)Py_None));
   if (__pyx_t_2) {
 
-    /* "refinery/lib/unrar/filters.pyx":249
+    /* "refinery/lib/unrar/filters.pyx":250
  * 
  *     if init_r is not None:
  *         file_offset = <int>init_r[6]             # <<<<<<<<<<<<<<
@@ -4968,12 +4968,12 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_itanium(PyObj
 */
     if (unlikely(__pyx_v_init_r == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-      __PYX_ERR(0, 249, __pyx_L1_error)
+      __PYX_ERR(0, 250, __pyx_L1_error)
     }
-    __pyx_t_3 = __Pyx_PyLong_As_int(__Pyx_PyList_GET_ITEM(__pyx_v_init_r, 6)); if (unlikely((__pyx_t_3 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 249, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyLong_As_int(__Pyx_PyList_GET_ITEM(__pyx_v_init_r, 6)); if (unlikely((__pyx_t_3 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 250, __pyx_L1_error)
     __pyx_v_file_offset = ((int)__pyx_t_3);
 
-    /* "refinery/lib/unrar/filters.pyx":248
+    /* "refinery/lib/unrar/filters.pyx":249
  *     cdef int data_len = len(data)
  * 
  *     if init_r is not None:             # <<<<<<<<<<<<<<
@@ -4982,7 +4982,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_itanium(PyObj
 */
   }
 
-  /* "refinery/lib/unrar/filters.pyx":250
+  /* "refinery/lib/unrar/filters.pyx":251
  *     if init_r is not None:
  *         file_offset = <int>init_r[6]
  *     aligned_size = data_size & ~0xF             # <<<<<<<<<<<<<<
@@ -4991,7 +4991,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_itanium(PyObj
 */
   __pyx_v_aligned_size = (__pyx_v_data_size & (~0xF));
 
-  /* "refinery/lib/unrar/filters.pyx":252
+  /* "refinery/lib/unrar/filters.pyx":253
  *     aligned_size = data_size & ~0xF
  * 
  *     byte_masks = (4, 4, 6, 6, 0, 0, 7, 7, 4, 4, 0, 0, 4, 4, 0, 0)             # <<<<<<<<<<<<<<
@@ -5001,7 +5001,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_itanium(PyObj
   __Pyx_INCREF(__pyx_mstate_global->__pyx_tuple[0]);
   __pyx_v_byte_masks = __pyx_mstate_global->__pyx_tuple[0];
 
-  /* "refinery/lib/unrar/filters.pyx":254
+  /* "refinery/lib/unrar/filters.pyx":255
  *     byte_masks = (4, 4, 6, 6, 0, 0, 7, 7, 4, 4, 0, 0, 4, 4, 0, 0)
  * 
  *     for i in range(0, aligned_size, 16):             # <<<<<<<<<<<<<<
@@ -5013,7 +5013,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_itanium(PyObj
   for (__pyx_t_5 = 0; __pyx_t_5 < __pyx_t_4; __pyx_t_5+=16) {
     __pyx_v_i = __pyx_t_5;
 
-    /* "refinery/lib/unrar/filters.pyx":255
+    /* "refinery/lib/unrar/filters.pyx":256
  * 
  *     for i in range(0, aligned_size, 16):
  *         mask_index = ptr[i] & 0x1F             # <<<<<<<<<<<<<<
@@ -5022,7 +5022,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_itanium(PyObj
 */
     __pyx_v_mask_index = ((__pyx_v_ptr[__pyx_v_i]) & 0x1F);
 
-    /* "refinery/lib/unrar/filters.pyx":256
+    /* "refinery/lib/unrar/filters.pyx":257
  *     for i in range(0, aligned_size, 16):
  *         mask_index = ptr[i] & 0x1F
  *         if mask_index >= 16:             # <<<<<<<<<<<<<<
@@ -5032,7 +5032,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_itanium(PyObj
     __pyx_t_2 = (__pyx_v_mask_index >= 16);
     if (__pyx_t_2) {
 
-      /* "refinery/lib/unrar/filters.pyx":257
+      /* "refinery/lib/unrar/filters.pyx":258
  *         mask_index = ptr[i] & 0x1F
  *         if mask_index >= 16:
  *             continue             # <<<<<<<<<<<<<<
@@ -5041,7 +5041,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_itanium(PyObj
 */
       goto __pyx_L4_continue;
 
-      /* "refinery/lib/unrar/filters.pyx":256
+      /* "refinery/lib/unrar/filters.pyx":257
  *     for i in range(0, aligned_size, 16):
  *         mask_index = ptr[i] & 0x1F
  *         if mask_index >= 16:             # <<<<<<<<<<<<<<
@@ -5050,20 +5050,20 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_itanium(PyObj
 */
     }
 
-    /* "refinery/lib/unrar/filters.pyx":258
+    /* "refinery/lib/unrar/filters.pyx":259
  *         if mask_index >= 16:
  *             continue
  *         cmd_mask = byte_masks[mask_index]             # <<<<<<<<<<<<<<
  *         if cmd_mask == 0:
  *             continue
 */
-    __pyx_t_6 = __Pyx_GetItemInt(__pyx_v_byte_masks, __pyx_v_mask_index, unsigned int, 0, __Pyx_PyLong_From_unsigned_int, 0, 0, 0, 1, __Pyx_ReferenceSharing_OwnStrongReference); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 258, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_GetItemInt(__pyx_v_byte_masks, __pyx_v_mask_index, unsigned int, 0, __Pyx_PyLong_From_unsigned_int, 0, 0, 0, 1, __Pyx_ReferenceSharing_OwnStrongReference); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 259, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
-    __pyx_t_7 = __Pyx_PyLong_As_unsigned_int(__pyx_t_6); if (unlikely((__pyx_t_7 == (unsigned int)-1) && PyErr_Occurred())) __PYX_ERR(0, 258, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyLong_As_unsigned_int(__pyx_t_6); if (unlikely((__pyx_t_7 == (unsigned int)-1) && PyErr_Occurred())) __PYX_ERR(0, 259, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     __pyx_v_cmd_mask = __pyx_t_7;
 
-    /* "refinery/lib/unrar/filters.pyx":259
+    /* "refinery/lib/unrar/filters.pyx":260
  *             continue
  *         cmd_mask = byte_masks[mask_index]
  *         if cmd_mask == 0:             # <<<<<<<<<<<<<<
@@ -5073,7 +5073,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_itanium(PyObj
     __pyx_t_2 = (__pyx_v_cmd_mask == 0);
     if (__pyx_t_2) {
 
-      /* "refinery/lib/unrar/filters.pyx":260
+      /* "refinery/lib/unrar/filters.pyx":261
  *         cmd_mask = byte_masks[mask_index]
  *         if cmd_mask == 0:
  *             continue             # <<<<<<<<<<<<<<
@@ -5082,7 +5082,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_itanium(PyObj
 */
       goto __pyx_L4_continue;
 
-      /* "refinery/lib/unrar/filters.pyx":259
+      /* "refinery/lib/unrar/filters.pyx":260
  *             continue
  *         cmd_mask = byte_masks[mask_index]
  *         if cmd_mask == 0:             # <<<<<<<<<<<<<<
@@ -5091,7 +5091,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_itanium(PyObj
 */
     }
 
-    /* "refinery/lib/unrar/filters.pyx":261
+    /* "refinery/lib/unrar/filters.pyx":262
  *         if cmd_mask == 0:
  *             continue
  *         for j in range(3):             # <<<<<<<<<<<<<<
@@ -5101,7 +5101,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_itanium(PyObj
     for (__pyx_t_8 = 0; __pyx_t_8 < 3; __pyx_t_8+=1) {
       __pyx_v_j = __pyx_t_8;
 
-      /* "refinery/lib/unrar/filters.pyx":262
+      /* "refinery/lib/unrar/filters.pyx":263
  *             continue
  *         for j in range(3):
  *             if not (cmd_mask & (1 << j)):             # <<<<<<<<<<<<<<
@@ -5111,7 +5111,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_itanium(PyObj
       __pyx_t_2 = (!((__pyx_v_cmd_mask & (1 << __pyx_v_j)) != 0));
       if (__pyx_t_2) {
 
-        /* "refinery/lib/unrar/filters.pyx":263
+        /* "refinery/lib/unrar/filters.pyx":264
  *         for j in range(3):
  *             if not (cmd_mask & (1 << j)):
  *                 continue             # <<<<<<<<<<<<<<
@@ -5120,7 +5120,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_itanium(PyObj
 */
         goto __pyx_L8_continue;
 
-        /* "refinery/lib/unrar/filters.pyx":262
+        /* "refinery/lib/unrar/filters.pyx":263
  *             continue
  *         for j in range(3):
  *             if not (cmd_mask & (1 << j)):             # <<<<<<<<<<<<<<
@@ -5129,7 +5129,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_itanium(PyObj
 */
       }
 
-      /* "refinery/lib/unrar/filters.pyx":264
+      /* "refinery/lib/unrar/filters.pyx":265
  *             if not (cmd_mask & (1 << j)):
  *                 continue
  *             start_pos = i + 5 * j + 5             # <<<<<<<<<<<<<<
@@ -5138,7 +5138,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_itanium(PyObj
 */
       __pyx_v_start_pos = ((__pyx_v_i + (5 * __pyx_v_j)) + 5);
 
-      /* "refinery/lib/unrar/filters.pyx":265
+      /* "refinery/lib/unrar/filters.pyx":266
  *                 continue
  *             start_pos = i + 5 * j + 5
  *             if start_pos + 4 > data_size:             # <<<<<<<<<<<<<<
@@ -5148,7 +5148,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_itanium(PyObj
       __pyx_t_2 = ((__pyx_v_start_pos + 4) > __pyx_v_data_size);
       if (__pyx_t_2) {
 
-        /* "refinery/lib/unrar/filters.pyx":266
+        /* "refinery/lib/unrar/filters.pyx":267
  *             start_pos = i + 5 * j + 5
  *             if start_pos + 4 > data_size:
  *                 break             # <<<<<<<<<<<<<<
@@ -5157,7 +5157,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_itanium(PyObj
 */
         goto __pyx_L9_break;
 
-        /* "refinery/lib/unrar/filters.pyx":265
+        /* "refinery/lib/unrar/filters.pyx":266
  *                 continue
  *             start_pos = i + 5 * j + 5
  *             if start_pos + 4 > data_size:             # <<<<<<<<<<<<<<
@@ -5166,7 +5166,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_itanium(PyObj
 */
       }
 
-      /* "refinery/lib/unrar/filters.pyx":267
+      /* "refinery/lib/unrar/filters.pyx":268
  *             if start_pos + 4 > data_size:
  *                 break
  *             bit_pos = (start_pos & 0xF) * 8             # <<<<<<<<<<<<<<
@@ -5175,7 +5175,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_itanium(PyObj
 */
       __pyx_v_bit_pos = ((__pyx_v_start_pos & 0xF) * 8);
 
-      /* "refinery/lib/unrar/filters.pyx":268
+      /* "refinery/lib/unrar/filters.pyx":269
  *                 break
  *             bit_pos = (start_pos & 0xF) * 8
  *             idx = start_pos & ~0xF             # <<<<<<<<<<<<<<
@@ -5184,7 +5184,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_itanium(PyObj
 */
       __pyx_v_idx = (__pyx_v_start_pos & (~0xF));
 
-      /* "refinery/lib/unrar/filters.pyx":269
+      /* "refinery/lib/unrar/filters.pyx":270
  *             bit_pos = (start_pos & 0xF) * 8
  *             idx = start_pos & ~0xF
  *             if idx + 16 > data_len:             # <<<<<<<<<<<<<<
@@ -5194,7 +5194,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_itanium(PyObj
       __pyx_t_2 = ((__pyx_v_idx + 16) > __pyx_v_data_len);
       if (__pyx_t_2) {
 
-        /* "refinery/lib/unrar/filters.pyx":270
+        /* "refinery/lib/unrar/filters.pyx":271
  *             idx = start_pos & ~0xF
  *             if idx + 16 > data_len:
  *                 break             # <<<<<<<<<<<<<<
@@ -5203,7 +5203,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_itanium(PyObj
 */
         goto __pyx_L9_break;
 
-        /* "refinery/lib/unrar/filters.pyx":269
+        /* "refinery/lib/unrar/filters.pyx":270
  *             bit_pos = (start_pos & 0xF) * 8
  *             idx = start_pos & ~0xF
  *             if idx + 16 > data_len:             # <<<<<<<<<<<<<<
@@ -5212,7 +5212,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_itanium(PyObj
 */
       }
 
-      /* "refinery/lib/unrar/filters.pyx":271
+      /* "refinery/lib/unrar/filters.pyx":272
  *             if idx + 16 > data_len:
  *                 break
  *             val = int.from_bytes(data[idx:idx + 16], 'little')             # <<<<<<<<<<<<<<
@@ -5223,9 +5223,9 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_itanium(PyObj
       __Pyx_INCREF(__pyx_t_9);
       if (unlikely(__pyx_v_data == Py_None)) {
         PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-        __PYX_ERR(0, 271, __pyx_L1_error)
+        __PYX_ERR(0, 272, __pyx_L1_error)
       }
-      __pyx_t_10 = PySequence_GetSlice(__pyx_v_data, __pyx_v_idx, (__pyx_v_idx + 16)); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 271, __pyx_L1_error)
+      __pyx_t_10 = PySequence_GetSlice(__pyx_v_data, __pyx_v_idx, (__pyx_v_idx + 16)); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 272, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_10);
       __pyx_t_11 = 0;
       {
@@ -5233,210 +5233,210 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_itanium(PyObj
         __pyx_t_6 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_from_bytes, __pyx_callargs+__pyx_t_11, (3-__pyx_t_11) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
         __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-        if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 271, __pyx_L1_error)
+        if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 272, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_6);
       }
       __Pyx_XDECREF_SET(__pyx_v_val, __pyx_t_6);
       __pyx_t_6 = 0;
 
-      /* "refinery/lib/unrar/filters.pyx":272
+      /* "refinery/lib/unrar/filters.pyx":273
  *                 break
  *             val = int.from_bytes(data[idx:idx + 16], 'little')
  *             op_code = (val >> bit_pos) & 0xFFFFFFFFFF             # <<<<<<<<<<<<<<
  *             if ((op_code >> 37) & 0xF) == 5:
  *                 addr = (((op_code >> 13) & 0xFFFFF) | ((op_code >> 36) & 1) << 20) << 4
 */
-      __pyx_t_6 = __Pyx_PyLong_From_int(__pyx_v_bit_pos); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 272, __pyx_L1_error)
+      __pyx_t_6 = __Pyx_PyLong_From_int(__pyx_v_bit_pos); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 273, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_6);
-      __pyx_t_10 = PyNumber_Rshift(__pyx_v_val, __pyx_t_6); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 272, __pyx_L1_error)
+      __pyx_t_10 = PyNumber_Rshift(__pyx_v_val, __pyx_t_6); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 273, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_10);
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-      __pyx_t_6 = PyNumber_And(__pyx_t_10, __pyx_mstate_global->__pyx_int_1099511627775); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 272, __pyx_L1_error)
+      __pyx_t_6 = PyNumber_And(__pyx_t_10, __pyx_mstate_global->__pyx_int_1099511627775); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 273, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_6);
       __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
       __Pyx_XDECREF_SET(__pyx_v_op_code, __pyx_t_6);
       __pyx_t_6 = 0;
 
-      /* "refinery/lib/unrar/filters.pyx":273
+      /* "refinery/lib/unrar/filters.pyx":274
  *             val = int.from_bytes(data[idx:idx + 16], 'little')
  *             op_code = (val >> bit_pos) & 0xFFFFFFFFFF
  *             if ((op_code >> 37) & 0xF) == 5:             # <<<<<<<<<<<<<<
  *                 addr = (((op_code >> 13) & 0xFFFFF) | ((op_code >> 36) & 1) << 20) << 4
  *                 addr -= file_offset + i
 */
-      __pyx_t_6 = __Pyx_PyLong_RshiftObjC(__pyx_v_op_code, __pyx_mstate_global->__pyx_int_37, 37, 0, 0); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 273, __pyx_L1_error)
+      __pyx_t_6 = __Pyx_PyLong_RshiftObjC(__pyx_v_op_code, __pyx_mstate_global->__pyx_int_37, 37, 0, 0); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 274, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_6);
-      __pyx_t_10 = __Pyx_PyLong_AndObjC(__pyx_t_6, __pyx_mstate_global->__pyx_int_15, 0xF, 0, 0); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 273, __pyx_L1_error)
+      __pyx_t_10 = __Pyx_PyLong_AndObjC(__pyx_t_6, __pyx_mstate_global->__pyx_int_15, 0xF, 0, 0); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 274, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_10);
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-      __pyx_t_2 = (__Pyx_PyLong_BoolEqObjC(__pyx_t_10, __pyx_mstate_global->__pyx_int_5, 5, 0)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 273, __pyx_L1_error)
+      __pyx_t_2 = (__Pyx_PyLong_BoolEqObjC(__pyx_t_10, __pyx_mstate_global->__pyx_int_5, 5, 0)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 274, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
       if (__pyx_t_2) {
 
-        /* "refinery/lib/unrar/filters.pyx":274
+        /* "refinery/lib/unrar/filters.pyx":275
  *             op_code = (val >> bit_pos) & 0xFFFFFFFFFF
  *             if ((op_code >> 37) & 0xF) == 5:
  *                 addr = (((op_code >> 13) & 0xFFFFF) | ((op_code >> 36) & 1) << 20) << 4             # <<<<<<<<<<<<<<
  *                 addr -= file_offset + i
  *                 addr = (addr >> 4) & 0x1FFFFF
 */
-        __pyx_t_10 = __Pyx_PyLong_RshiftObjC(__pyx_v_op_code, __pyx_mstate_global->__pyx_int_13, 13, 0, 0); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 274, __pyx_L1_error)
+        __pyx_t_10 = __Pyx_PyLong_RshiftObjC(__pyx_v_op_code, __pyx_mstate_global->__pyx_int_13, 13, 0, 0); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 275, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_10);
-        __pyx_t_6 = __Pyx_PyLong_AndObjC(__pyx_t_10, __pyx_mstate_global->__pyx_int_1048575, 0xFFFFF, 0, 0); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 274, __pyx_L1_error)
+        __pyx_t_6 = __Pyx_PyLong_AndObjC(__pyx_t_10, __pyx_mstate_global->__pyx_int_1048575, 0xFFFFF, 0, 0); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 275, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_6);
         __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-        __pyx_t_10 = __Pyx_PyLong_RshiftObjC(__pyx_v_op_code, __pyx_mstate_global->__pyx_int_36, 36, 0, 0); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 274, __pyx_L1_error)
+        __pyx_t_10 = __Pyx_PyLong_RshiftObjC(__pyx_v_op_code, __pyx_mstate_global->__pyx_int_36, 36, 0, 0); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 275, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_10);
-        __pyx_t_9 = __Pyx_PyLong_AndObjC(__pyx_t_10, __pyx_mstate_global->__pyx_int_1, 1, 0, 0); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 274, __pyx_L1_error)
+        __pyx_t_9 = __Pyx_PyLong_AndObjC(__pyx_t_10, __pyx_mstate_global->__pyx_int_1, 1, 0, 0); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 275, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_9);
         __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-        __pyx_t_10 = __Pyx_PyLong_LshiftObjC(__pyx_t_9, __pyx_mstate_global->__pyx_int_20, 20, 0, 0); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 274, __pyx_L1_error)
+        __pyx_t_10 = __Pyx_PyLong_LshiftObjC(__pyx_t_9, __pyx_mstate_global->__pyx_int_20, 20, 0, 0); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 275, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_10);
         __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-        __pyx_t_9 = PyNumber_Or(__pyx_t_6, __pyx_t_10); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 274, __pyx_L1_error)
+        __pyx_t_9 = PyNumber_Or(__pyx_t_6, __pyx_t_10); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 275, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_9);
         __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
         __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-        __pyx_t_10 = __Pyx_PyLong_LshiftObjC(__pyx_t_9, __pyx_mstate_global->__pyx_int_4, 4, 0, 0); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 274, __pyx_L1_error)
+        __pyx_t_10 = __Pyx_PyLong_LshiftObjC(__pyx_t_9, __pyx_mstate_global->__pyx_int_4, 4, 0, 0); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 275, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_10);
         __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
         __Pyx_XDECREF_SET(__pyx_v_addr, __pyx_t_10);
         __pyx_t_10 = 0;
 
-        /* "refinery/lib/unrar/filters.pyx":275
+        /* "refinery/lib/unrar/filters.pyx":276
  *             if ((op_code >> 37) & 0xF) == 5:
  *                 addr = (((op_code >> 13) & 0xFFFFF) | ((op_code >> 36) & 1) << 20) << 4
  *                 addr -= file_offset + i             # <<<<<<<<<<<<<<
  *                 addr = (addr >> 4) & 0x1FFFFF
  *                 raw = op_code & ~(0x1FFFFF << 13)
 */
-        __pyx_t_10 = __Pyx_PyLong_From_int((__pyx_v_file_offset + __pyx_v_i)); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 275, __pyx_L1_error)
+        __pyx_t_10 = __Pyx_PyLong_From_int((__pyx_v_file_offset + __pyx_v_i)); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 276, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_10);
-        __pyx_t_9 = PyNumber_InPlaceSubtract(__pyx_v_addr, __pyx_t_10); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 275, __pyx_L1_error)
+        __pyx_t_9 = PyNumber_InPlaceSubtract(__pyx_v_addr, __pyx_t_10); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 276, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_9);
         __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
         __Pyx_DECREF_SET(__pyx_v_addr, __pyx_t_9);
         __pyx_t_9 = 0;
 
-        /* "refinery/lib/unrar/filters.pyx":276
+        /* "refinery/lib/unrar/filters.pyx":277
  *                 addr = (((op_code >> 13) & 0xFFFFF) | ((op_code >> 36) & 1) << 20) << 4
  *                 addr -= file_offset + i
  *                 addr = (addr >> 4) & 0x1FFFFF             # <<<<<<<<<<<<<<
  *                 raw = op_code & ~(0x1FFFFF << 13)
  *                 raw |= ((addr & 0xFFFFF) << 13) | ((addr >> 20) << 36)
 */
-        __pyx_t_9 = __Pyx_PyLong_RshiftObjC(__pyx_v_addr, __pyx_mstate_global->__pyx_int_4, 4, 0, 0); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 276, __pyx_L1_error)
+        __pyx_t_9 = __Pyx_PyLong_RshiftObjC(__pyx_v_addr, __pyx_mstate_global->__pyx_int_4, 4, 0, 0); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 277, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_9);
-        __pyx_t_10 = __Pyx_PyLong_AndObjC(__pyx_t_9, __pyx_mstate_global->__pyx_int_2097151, 0x1FFFFF, 0, 0); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 276, __pyx_L1_error)
+        __pyx_t_10 = __Pyx_PyLong_AndObjC(__pyx_t_9, __pyx_mstate_global->__pyx_int_2097151, 0x1FFFFF, 0, 0); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 277, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_10);
         __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
         __Pyx_DECREF_SET(__pyx_v_addr, __pyx_t_10);
         __pyx_t_10 = 0;
 
-        /* "refinery/lib/unrar/filters.pyx":277
+        /* "refinery/lib/unrar/filters.pyx":278
  *                 addr -= file_offset + i
  *                 addr = (addr >> 4) & 0x1FFFFF
  *                 raw = op_code & ~(0x1FFFFF << 13)             # <<<<<<<<<<<<<<
  *                 raw |= ((addr & 0xFFFFF) << 13) | ((addr >> 20) << 36)
  *                 mask = ((1 << 41) - 1) << bit_pos
 */
-        __pyx_t_10 = PyNumber_Invert(__pyx_mstate_global->__pyx_int_17179860992); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 277, __pyx_L1_error)
+        __pyx_t_10 = PyNumber_Invert(__pyx_mstate_global->__pyx_int_17179860992); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 278, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_10);
-        __pyx_t_9 = PyNumber_And(__pyx_v_op_code, __pyx_t_10); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 277, __pyx_L1_error)
+        __pyx_t_9 = PyNumber_And(__pyx_v_op_code, __pyx_t_10); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 278, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_9);
         __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
         __Pyx_XDECREF_SET(__pyx_v_raw, __pyx_t_9);
         __pyx_t_9 = 0;
 
-        /* "refinery/lib/unrar/filters.pyx":278
+        /* "refinery/lib/unrar/filters.pyx":279
  *                 addr = (addr >> 4) & 0x1FFFFF
  *                 raw = op_code & ~(0x1FFFFF << 13)
  *                 raw |= ((addr & 0xFFFFF) << 13) | ((addr >> 20) << 36)             # <<<<<<<<<<<<<<
  *                 mask = ((1 << 41) - 1) << bit_pos
  *                 val = (val & ~mask) | ((raw & ((1 << 41) - 1)) << bit_pos)
 */
-        __pyx_t_9 = __Pyx_PyLong_AndObjC(__pyx_v_addr, __pyx_mstate_global->__pyx_int_1048575, 0xFFFFF, 0, 0); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 278, __pyx_L1_error)
+        __pyx_t_9 = __Pyx_PyLong_AndObjC(__pyx_v_addr, __pyx_mstate_global->__pyx_int_1048575, 0xFFFFF, 0, 0); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 279, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_9);
-        __pyx_t_10 = __Pyx_PyLong_LshiftObjC(__pyx_t_9, __pyx_mstate_global->__pyx_int_13, 13, 0, 0); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 278, __pyx_L1_error)
+        __pyx_t_10 = __Pyx_PyLong_LshiftObjC(__pyx_t_9, __pyx_mstate_global->__pyx_int_13, 13, 0, 0); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 279, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_10);
         __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-        __pyx_t_9 = __Pyx_PyLong_RshiftObjC(__pyx_v_addr, __pyx_mstate_global->__pyx_int_20, 20, 0, 0); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 278, __pyx_L1_error)
+        __pyx_t_9 = __Pyx_PyLong_RshiftObjC(__pyx_v_addr, __pyx_mstate_global->__pyx_int_20, 20, 0, 0); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 279, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_9);
-        __pyx_t_6 = __Pyx_PyLong_LshiftObjC(__pyx_t_9, __pyx_mstate_global->__pyx_int_36, 36, 0, 0); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 278, __pyx_L1_error)
+        __pyx_t_6 = __Pyx_PyLong_LshiftObjC(__pyx_t_9, __pyx_mstate_global->__pyx_int_36, 36, 0, 0); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 279, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_6);
         __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-        __pyx_t_9 = PyNumber_Or(__pyx_t_10, __pyx_t_6); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 278, __pyx_L1_error)
+        __pyx_t_9 = PyNumber_Or(__pyx_t_10, __pyx_t_6); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 279, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_9);
         __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
         __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-        __pyx_t_6 = PyNumber_InPlaceOr(__pyx_v_raw, __pyx_t_9); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 278, __pyx_L1_error)
+        __pyx_t_6 = PyNumber_InPlaceOr(__pyx_v_raw, __pyx_t_9); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 279, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_6);
         __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
         __Pyx_DECREF_SET(__pyx_v_raw, __pyx_t_6);
         __pyx_t_6 = 0;
 
-        /* "refinery/lib/unrar/filters.pyx":279
+        /* "refinery/lib/unrar/filters.pyx":280
  *                 raw = op_code & ~(0x1FFFFF << 13)
  *                 raw |= ((addr & 0xFFFFF) << 13) | ((addr >> 20) << 36)
  *                 mask = ((1 << 41) - 1) << bit_pos             # <<<<<<<<<<<<<<
  *                 val = (val & ~mask) | ((raw & ((1 << 41) - 1)) << bit_pos)
  *                 data[idx:idx + 16] = val.to_bytes(16, 'little')
 */
-        __pyx_t_6 = __Pyx_PyLong_From_int(__pyx_v_bit_pos); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 279, __pyx_L1_error)
+        __pyx_t_6 = __Pyx_PyLong_From_int(__pyx_v_bit_pos); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 280, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_6);
-        __pyx_t_9 = PyNumber_Lshift(__pyx_mstate_global->__pyx_int_2199023255551, __pyx_t_6); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 279, __pyx_L1_error)
+        __pyx_t_9 = PyNumber_Lshift(__pyx_mstate_global->__pyx_int_2199023255551, __pyx_t_6); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 280, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_9);
         __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
         __Pyx_XDECREF_SET(__pyx_v_mask, __pyx_t_9);
         __pyx_t_9 = 0;
 
-        /* "refinery/lib/unrar/filters.pyx":280
+        /* "refinery/lib/unrar/filters.pyx":281
  *                 raw |= ((addr & 0xFFFFF) << 13) | ((addr >> 20) << 36)
  *                 mask = ((1 << 41) - 1) << bit_pos
  *                 val = (val & ~mask) | ((raw & ((1 << 41) - 1)) << bit_pos)             # <<<<<<<<<<<<<<
  *                 data[idx:idx + 16] = val.to_bytes(16, 'little')
  *     return data
 */
-        __pyx_t_9 = PyNumber_Invert(__pyx_v_mask); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 280, __pyx_L1_error)
+        __pyx_t_9 = PyNumber_Invert(__pyx_v_mask); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 281, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_9);
-        __pyx_t_6 = PyNumber_And(__pyx_v_val, __pyx_t_9); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 280, __pyx_L1_error)
+        __pyx_t_6 = PyNumber_And(__pyx_v_val, __pyx_t_9); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 281, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_6);
         __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-        __pyx_t_9 = PyNumber_And(__pyx_v_raw, __pyx_mstate_global->__pyx_int_2199023255551); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 280, __pyx_L1_error)
+        __pyx_t_9 = PyNumber_And(__pyx_v_raw, __pyx_mstate_global->__pyx_int_2199023255551); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 281, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_9);
-        __pyx_t_10 = __Pyx_PyLong_From_int(__pyx_v_bit_pos); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 280, __pyx_L1_error)
+        __pyx_t_10 = __Pyx_PyLong_From_int(__pyx_v_bit_pos); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 281, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_10);
-        __pyx_t_12 = PyNumber_Lshift(__pyx_t_9, __pyx_t_10); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 280, __pyx_L1_error)
+        __pyx_t_12 = PyNumber_Lshift(__pyx_t_9, __pyx_t_10); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 281, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_12);
         __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
         __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-        __pyx_t_10 = PyNumber_Or(__pyx_t_6, __pyx_t_12); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 280, __pyx_L1_error)
+        __pyx_t_10 = PyNumber_Or(__pyx_t_6, __pyx_t_12); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 281, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_10);
         __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
         __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
         __Pyx_DECREF_SET(__pyx_v_val, __pyx_t_10);
         __pyx_t_10 = 0;
 
-        /* "refinery/lib/unrar/filters.pyx":281
+        /* "refinery/lib/unrar/filters.pyx":282
  *                 mask = ((1 << 41) - 1) << bit_pos
  *                 val = (val & ~mask) | ((raw & ((1 << 41) - 1)) << bit_pos)
  *                 data[idx:idx + 16] = val.to_bytes(16, 'little')             # <<<<<<<<<<<<<<
  *     return data
  * 
 */
-        __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_v_val, __pyx_mstate_global->__pyx_n_u_to_bytes); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 281, __pyx_L1_error)
+        __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_v_val, __pyx_mstate_global->__pyx_n_u_to_bytes); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 282, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_10);
-        __pyx_t_12 = __Pyx_PyObject_Call(__pyx_t_10, __pyx_mstate_global->__pyx_tuple[1], NULL); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 281, __pyx_L1_error)
+        __pyx_t_12 = __Pyx_PyObject_Call(__pyx_t_10, __pyx_mstate_global->__pyx_tuple[1], NULL); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 282, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_12);
         __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
         if (unlikely(__pyx_v_data == Py_None)) {
           PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-          __PYX_ERR(0, 281, __pyx_L1_error)
+          __PYX_ERR(0, 282, __pyx_L1_error)
         }
-        if (__Pyx_PyObject_SetSlice(__pyx_v_data, __pyx_t_12, __pyx_v_idx, (__pyx_v_idx + 16), NULL, NULL, NULL, 1, 1, 0) < (0)) __PYX_ERR(0, 281, __pyx_L1_error)
+        if (__Pyx_PyObject_SetSlice(__pyx_v_data, __pyx_t_12, __pyx_v_idx, (__pyx_v_idx + 16), NULL, NULL, NULL, 1, 1, 0) < (0)) __PYX_ERR(0, 282, __pyx_L1_error)
         __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
 
-        /* "refinery/lib/unrar/filters.pyx":273
+        /* "refinery/lib/unrar/filters.pyx":274
  *             val = int.from_bytes(data[idx:idx + 16], 'little')
  *             op_code = (val >> bit_pos) & 0xFFFFFFFFFF
  *             if ((op_code >> 37) & 0xF) == 5:             # <<<<<<<<<<<<<<
@@ -5450,7 +5450,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_itanium(PyObj
     __pyx_L4_continue:;
   }
 
-  /* "refinery/lib/unrar/filters.pyx":282
+  /* "refinery/lib/unrar/filters.pyx":283
  *                 val = (val & ~mask) | ((raw & ((1 << 41) - 1)) << bit_pos)
  *                 data[idx:idx + 16] = val.to_bytes(16, 'little')
  *     return data             # <<<<<<<<<<<<<<
@@ -5462,7 +5462,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_itanium(PyObj
   __pyx_r = __pyx_v_data;
   goto __pyx_L0;
 
-  /* "refinery/lib/unrar/filters.pyx":240
+  /* "refinery/lib/unrar/filters.pyx":241
  * 
  * 
  * cdef bytearray _v3_filter_itanium(bytearray data, int data_size, list init_r):             # <<<<<<<<<<<<<<
@@ -5490,7 +5490,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_itanium(PyObj
   return __pyx_r;
 }
 
-/* "refinery/lib/unrar/filters.pyx":285
+/* "refinery/lib/unrar/filters.pyx":286
  * 
  * 
  * cdef bytearray _v3_filter_delta(bytearray data, int data_size, list init_r):             # <<<<<<<<<<<<<<
@@ -5511,7 +5511,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_delta(PyObjec
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_v3_filter_delta", 0);
 
-  /* "refinery/lib/unrar/filters.pyx":286
+  /* "refinery/lib/unrar/filters.pyx":287
  * 
  * cdef bytearray _v3_filter_delta(bytearray data, int data_size, list init_r):
  *     cdef int channels = 1             # <<<<<<<<<<<<<<
@@ -5520,7 +5520,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_delta(PyObjec
 */
   __pyx_v_channels = 1;
 
-  /* "refinery/lib/unrar/filters.pyx":287
+  /* "refinery/lib/unrar/filters.pyx":288
  * cdef bytearray _v3_filter_delta(bytearray data, int data_size, list init_r):
  *     cdef int channels = 1
  *     if init_r is not None:             # <<<<<<<<<<<<<<
@@ -5530,7 +5530,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_delta(PyObjec
   __pyx_t_1 = (__pyx_v_init_r != ((PyObject*)Py_None));
   if (__pyx_t_1) {
 
-    /* "refinery/lib/unrar/filters.pyx":288
+    /* "refinery/lib/unrar/filters.pyx":289
  *     cdef int channels = 1
  *     if init_r is not None:
  *         channels = <int>init_r[0]             # <<<<<<<<<<<<<<
@@ -5539,12 +5539,12 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_delta(PyObjec
 */
     if (unlikely(__pyx_v_init_r == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-      __PYX_ERR(0, 288, __pyx_L1_error)
+      __PYX_ERR(0, 289, __pyx_L1_error)
     }
-    __pyx_t_2 = __Pyx_PyLong_As_int(__Pyx_PyList_GET_ITEM(__pyx_v_init_r, 0)); if (unlikely((__pyx_t_2 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 288, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyLong_As_int(__Pyx_PyList_GET_ITEM(__pyx_v_init_r, 0)); if (unlikely((__pyx_t_2 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 289, __pyx_L1_error)
     __pyx_v_channels = ((int)__pyx_t_2);
 
-    /* "refinery/lib/unrar/filters.pyx":287
+    /* "refinery/lib/unrar/filters.pyx":288
  * cdef bytearray _v3_filter_delta(bytearray data, int data_size, list init_r):
  *     cdef int channels = 1
  *     if init_r is not None:             # <<<<<<<<<<<<<<
@@ -5553,7 +5553,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_delta(PyObjec
 */
   }
 
-  /* "refinery/lib/unrar/filters.pyx":289
+  /* "refinery/lib/unrar/filters.pyx":290
  *     if init_r is not None:
  *         channels = <int>init_r[0]
  *     return _filter_delta(data[:data_size], channels)             # <<<<<<<<<<<<<<
@@ -5563,18 +5563,18 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_delta(PyObjec
   __Pyx_XDECREF(__pyx_r);
   if (unlikely(__pyx_v_data == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-    __PYX_ERR(0, 289, __pyx_L1_error)
+    __PYX_ERR(0, 290, __pyx_L1_error)
   }
-  __pyx_t_3 = PySequence_GetSlice(__pyx_v_data, 0, __pyx_v_data_size); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 289, __pyx_L1_error)
+  __pyx_t_3 = PySequence_GetSlice(__pyx_v_data, 0, __pyx_v_data_size); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 290, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = __pyx_f_8refinery_3lib_5unrar_7filters__filter_delta(((PyObject*)__pyx_t_3), __pyx_v_channels); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 289, __pyx_L1_error)
+  __pyx_t_4 = __pyx_f_8refinery_3lib_5unrar_7filters__filter_delta(((PyObject*)__pyx_t_3), __pyx_v_channels); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 290, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __pyx_r = ((PyObject*)__pyx_t_4);
   __pyx_t_4 = 0;
   goto __pyx_L0;
 
-  /* "refinery/lib/unrar/filters.pyx":285
+  /* "refinery/lib/unrar/filters.pyx":286
  * 
  * 
  * cdef bytearray _v3_filter_delta(bytearray data, int data_size, list init_r):             # <<<<<<<<<<<<<<
@@ -5594,7 +5594,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_delta(PyObjec
   return __pyx_r;
 }
 
-/* "refinery/lib/unrar/filters.pyx":292
+/* "refinery/lib/unrar/filters.pyx":293
  * 
  * 
  * cdef bytearray _v3_filter_rgb(bytearray data, int data_size, list init_r):             # <<<<<<<<<<<<<<
@@ -5643,7 +5643,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_rgb(PyObject 
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_v3_filter_rgb", 0);
 
-  /* "refinery/lib/unrar/filters.pyx":293
+  /* "refinery/lib/unrar/filters.pyx":294
  * 
  * cdef bytearray _v3_filter_rgb(bytearray data, int data_size, list init_r):
  *     cdef int width = 3             # <<<<<<<<<<<<<<
@@ -5652,7 +5652,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_rgb(PyObject 
 */
   __pyx_v_width = 3;
 
-  /* "refinery/lib/unrar/filters.pyx":294
+  /* "refinery/lib/unrar/filters.pyx":295
  * cdef bytearray _v3_filter_rgb(bytearray data, int data_size, list init_r):
  *     cdef int width = 3
  *     cdef int pos_r = 0             # <<<<<<<<<<<<<<
@@ -5661,7 +5661,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_rgb(PyObject 
 */
   __pyx_v_pos_r = 0;
 
-  /* "refinery/lib/unrar/filters.pyx":295
+  /* "refinery/lib/unrar/filters.pyx":296
  *     cdef int width = 3
  *     cdef int pos_r = 0
  *     cdef int channels = 3             # <<<<<<<<<<<<<<
@@ -5670,7 +5670,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_rgb(PyObject 
 */
   __pyx_v_channels = 3;
 
-  /* "refinery/lib/unrar/filters.pyx":298
+  /* "refinery/lib/unrar/filters.pyx":299
  *     cdef unsigned char *src
  *     cdef unsigned char *dst_ptr
  *     cdef int src_pos = 0             # <<<<<<<<<<<<<<
@@ -5679,7 +5679,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_rgb(PyObject 
 */
   __pyx_v_src_pos = 0;
 
-  /* "refinery/lib/unrar/filters.pyx":304
+  /* "refinery/lib/unrar/filters.pyx":305
  *     cdef int border
  * 
  *     if init_r is not None:             # <<<<<<<<<<<<<<
@@ -5689,7 +5689,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_rgb(PyObject 
   __pyx_t_1 = (__pyx_v_init_r != ((PyObject*)Py_None));
   if (__pyx_t_1) {
 
-    /* "refinery/lib/unrar/filters.pyx":305
+    /* "refinery/lib/unrar/filters.pyx":306
  * 
  *     if init_r is not None:
  *         width = <int>init_r[0] - 3             # <<<<<<<<<<<<<<
@@ -5698,12 +5698,12 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_rgb(PyObject 
 */
     if (unlikely(__pyx_v_init_r == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-      __PYX_ERR(0, 305, __pyx_L1_error)
+      __PYX_ERR(0, 306, __pyx_L1_error)
     }
-    __pyx_t_2 = __Pyx_PyLong_As_int(__Pyx_PyList_GET_ITEM(__pyx_v_init_r, 0)); if (unlikely((__pyx_t_2 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 305, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyLong_As_int(__Pyx_PyList_GET_ITEM(__pyx_v_init_r, 0)); if (unlikely((__pyx_t_2 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 306, __pyx_L1_error)
     __pyx_v_width = (((int)__pyx_t_2) - 3);
 
-    /* "refinery/lib/unrar/filters.pyx":306
+    /* "refinery/lib/unrar/filters.pyx":307
  *     if init_r is not None:
  *         width = <int>init_r[0] - 3
  *         pos_r = <int>init_r[1]             # <<<<<<<<<<<<<<
@@ -5712,12 +5712,12 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_rgb(PyObject 
 */
     if (unlikely(__pyx_v_init_r == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-      __PYX_ERR(0, 306, __pyx_L1_error)
+      __PYX_ERR(0, 307, __pyx_L1_error)
     }
-    __pyx_t_2 = __Pyx_PyLong_As_int(__Pyx_PyList_GET_ITEM(__pyx_v_init_r, 1)); if (unlikely((__pyx_t_2 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 306, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyLong_As_int(__Pyx_PyList_GET_ITEM(__pyx_v_init_r, 1)); if (unlikely((__pyx_t_2 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 307, __pyx_L1_error)
     __pyx_v_pos_r = ((int)__pyx_t_2);
 
-    /* "refinery/lib/unrar/filters.pyx":304
+    /* "refinery/lib/unrar/filters.pyx":305
  *     cdef int border
  * 
  *     if init_r is not None:             # <<<<<<<<<<<<<<
@@ -5726,7 +5726,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_rgb(PyObject 
 */
   }
 
-  /* "refinery/lib/unrar/filters.pyx":308
+  /* "refinery/lib/unrar/filters.pyx":309
  *         pos_r = <int>init_r[1]
  * 
  *     dst = bytearray(data_size)             # <<<<<<<<<<<<<<
@@ -5734,7 +5734,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_rgb(PyObject 
  *     dst_ptr = <unsigned char *>PyByteArray_AS_STRING(dst)
 */
   __pyx_t_4 = NULL;
-  __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_data_size); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 308, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_data_size); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 309, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __pyx_t_6 = 1;
   {
@@ -5742,13 +5742,13 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_rgb(PyObject 
     __pyx_t_3 = __Pyx_PyObject_FastCall((PyObject*)(&PyByteArray_Type), __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 308, __pyx_L1_error)
+    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 309, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
   }
   __pyx_v_dst = ((PyObject*)__pyx_t_3);
   __pyx_t_3 = 0;
 
-  /* "refinery/lib/unrar/filters.pyx":309
+  /* "refinery/lib/unrar/filters.pyx":310
  * 
  *     dst = bytearray(data_size)
  *     src = <unsigned char *>PyByteArray_AS_STRING(data)             # <<<<<<<<<<<<<<
@@ -5757,7 +5757,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_rgb(PyObject 
 */
   __pyx_v_src = ((unsigned char *)PyByteArray_AS_STRING(__pyx_v_data));
 
-  /* "refinery/lib/unrar/filters.pyx":310
+  /* "refinery/lib/unrar/filters.pyx":311
  *     dst = bytearray(data_size)
  *     src = <unsigned char *>PyByteArray_AS_STRING(data)
  *     dst_ptr = <unsigned char *>PyByteArray_AS_STRING(dst)             # <<<<<<<<<<<<<<
@@ -5766,7 +5766,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_rgb(PyObject 
 */
   __pyx_v_dst_ptr = ((unsigned char *)PyByteArray_AS_STRING(__pyx_v_dst));
 
-  /* "refinery/lib/unrar/filters.pyx":312
+  /* "refinery/lib/unrar/filters.pyx":313
  *     dst_ptr = <unsigned char *>PyByteArray_AS_STRING(dst)
  * 
  *     for cur_channel in range(channels):             # <<<<<<<<<<<<<<
@@ -5778,7 +5778,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_rgb(PyObject 
   for (__pyx_t_8 = 0; __pyx_t_8 < __pyx_t_7; __pyx_t_8+=1) {
     __pyx_v_cur_channel = __pyx_t_8;
 
-    /* "refinery/lib/unrar/filters.pyx":313
+    /* "refinery/lib/unrar/filters.pyx":314
  * 
  *     for cur_channel in range(channels):
  *         prev_byte = 0             # <<<<<<<<<<<<<<
@@ -5787,7 +5787,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_rgb(PyObject 
 */
     __pyx_v_prev_byte = 0;
 
-    /* "refinery/lib/unrar/filters.pyx":314
+    /* "refinery/lib/unrar/filters.pyx":315
  *     for cur_channel in range(channels):
  *         prev_byte = 0
  *         for i in range(cur_channel, data_size, channels):             # <<<<<<<<<<<<<<
@@ -5795,11 +5795,11 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_rgb(PyObject 
  *             upper_pos = i - width
 */
     __pyx_t_5 = NULL;
-    __pyx_t_4 = __Pyx_PyLong_From_int(__pyx_v_cur_channel); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 314, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyLong_From_int(__pyx_v_cur_channel); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 315, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_9 = __Pyx_PyLong_From_int(__pyx_v_data_size); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 314, __pyx_L1_error)
+    __pyx_t_9 = __Pyx_PyLong_From_int(__pyx_v_data_size); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 315, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
-    __pyx_t_10 = __Pyx_PyLong_From_int(__pyx_v_channels); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 314, __pyx_L1_error)
+    __pyx_t_10 = __Pyx_PyLong_From_int(__pyx_v_channels); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 315, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_10);
     __pyx_t_6 = 1;
     {
@@ -5809,12 +5809,12 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_rgb(PyObject 
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
       __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
       __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 314, __pyx_L1_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 315, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
     }
-    __pyx_t_10 = PyObject_GetIter(__pyx_t_3); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 314, __pyx_L1_error)
+    __pyx_t_10 = PyObject_GetIter(__pyx_t_3); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 315, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_10);
-    __pyx_t_11 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_10); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 314, __pyx_L1_error)
+    __pyx_t_11 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_10); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 315, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     for (;;) {
       {
@@ -5822,18 +5822,18 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_rgb(PyObject 
         if (unlikely(!__pyx_t_3)) {
           PyObject* exc_type = PyErr_Occurred();
           if (exc_type) {
-            if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 314, __pyx_L1_error)
+            if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 315, __pyx_L1_error)
             PyErr_Clear();
           }
           break;
         }
       }
       __Pyx_GOTREF(__pyx_t_3);
-      __pyx_t_12 = __Pyx_PyLong_As_int(__pyx_t_3); if (unlikely((__pyx_t_12 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 314, __pyx_L1_error)
+      __pyx_t_12 = __Pyx_PyLong_As_int(__pyx_t_3); if (unlikely((__pyx_t_12 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 315, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
       __pyx_v_i = __pyx_t_12;
 
-      /* "refinery/lib/unrar/filters.pyx":315
+      /* "refinery/lib/unrar/filters.pyx":316
  *         prev_byte = 0
  *         for i in range(cur_channel, data_size, channels):
  *             predicted = prev_byte             # <<<<<<<<<<<<<<
@@ -5842,7 +5842,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_rgb(PyObject 
 */
       __pyx_v_predicted = __pyx_v_prev_byte;
 
-      /* "refinery/lib/unrar/filters.pyx":316
+      /* "refinery/lib/unrar/filters.pyx":317
  *         for i in range(cur_channel, data_size, channels):
  *             predicted = prev_byte
  *             upper_pos = i - width             # <<<<<<<<<<<<<<
@@ -5851,7 +5851,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_rgb(PyObject 
 */
       __pyx_v_upper_pos = (__pyx_v_i - __pyx_v_width);
 
-      /* "refinery/lib/unrar/filters.pyx":317
+      /* "refinery/lib/unrar/filters.pyx":318
  *             predicted = prev_byte
  *             upper_pos = i - width
  *             if upper_pos >= channels:             # <<<<<<<<<<<<<<
@@ -5861,7 +5861,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_rgb(PyObject 
       __pyx_t_1 = (__pyx_v_upper_pos >= __pyx_v_channels);
       if (__pyx_t_1) {
 
-        /* "refinery/lib/unrar/filters.pyx":318
+        /* "refinery/lib/unrar/filters.pyx":319
  *             upper_pos = i - width
  *             if upper_pos >= channels:
  *                 upper_left = dst_ptr[upper_pos - channels] if upper_pos >= channels else 0             # <<<<<<<<<<<<<<
@@ -5876,7 +5876,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_rgb(PyObject 
         }
         __pyx_v_upper_left = __pyx_t_13;
 
-        /* "refinery/lib/unrar/filters.pyx":319
+        /* "refinery/lib/unrar/filters.pyx":320
  *             if upper_pos >= channels:
  *                 upper_left = dst_ptr[upper_pos - channels] if upper_pos >= channels else 0
  *                 upper = dst_ptr[upper_pos]             # <<<<<<<<<<<<<<
@@ -5885,7 +5885,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_rgb(PyObject 
 */
         __pyx_v_upper = (__pyx_v_dst_ptr[__pyx_v_upper_pos]);
 
-        /* "refinery/lib/unrar/filters.pyx":320
+        /* "refinery/lib/unrar/filters.pyx":321
  *                 upper_left = dst_ptr[upper_pos - channels] if upper_pos >= channels else 0
  *                 upper = dst_ptr[upper_pos]
  *                 predicted = <int>prev_byte + <int>upper - <int>upper_left             # <<<<<<<<<<<<<<
@@ -5894,7 +5894,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_rgb(PyObject 
 */
         __pyx_v_predicted = ((((int)__pyx_v_prev_byte) + ((int)__pyx_v_upper)) - ((int)__pyx_v_upper_left));
 
-        /* "refinery/lib/unrar/filters.pyx":321
+        /* "refinery/lib/unrar/filters.pyx":322
  *                 upper = dst_ptr[upper_pos]
  *                 predicted = <int>prev_byte + <int>upper - <int>upper_left
  *                 pa = predicted - <int>prev_byte             # <<<<<<<<<<<<<<
@@ -5903,7 +5903,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_rgb(PyObject 
 */
         __pyx_v_pa = (__pyx_v_predicted - ((int)__pyx_v_prev_byte));
 
-        /* "refinery/lib/unrar/filters.pyx":322
+        /* "refinery/lib/unrar/filters.pyx":323
  *                 predicted = <int>prev_byte + <int>upper - <int>upper_left
  *                 pa = predicted - <int>prev_byte
  *                 if pa < 0:             # <<<<<<<<<<<<<<
@@ -5913,7 +5913,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_rgb(PyObject 
         __pyx_t_1 = (__pyx_v_pa < 0);
         if (__pyx_t_1) {
 
-          /* "refinery/lib/unrar/filters.pyx":323
+          /* "refinery/lib/unrar/filters.pyx":324
  *                 pa = predicted - <int>prev_byte
  *                 if pa < 0:
  *                     pa = -pa             # <<<<<<<<<<<<<<
@@ -5922,7 +5922,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_rgb(PyObject 
 */
           __pyx_v_pa = (-__pyx_v_pa);
 
-          /* "refinery/lib/unrar/filters.pyx":322
+          /* "refinery/lib/unrar/filters.pyx":323
  *                 predicted = <int>prev_byte + <int>upper - <int>upper_left
  *                 pa = predicted - <int>prev_byte
  *                 if pa < 0:             # <<<<<<<<<<<<<<
@@ -5931,7 +5931,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_rgb(PyObject 
 */
         }
 
-        /* "refinery/lib/unrar/filters.pyx":324
+        /* "refinery/lib/unrar/filters.pyx":325
  *                 if pa < 0:
  *                     pa = -pa
  *                 pb = predicted - <int>upper             # <<<<<<<<<<<<<<
@@ -5940,7 +5940,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_rgb(PyObject 
 */
         __pyx_v_pb = (__pyx_v_predicted - ((int)__pyx_v_upper));
 
-        /* "refinery/lib/unrar/filters.pyx":325
+        /* "refinery/lib/unrar/filters.pyx":326
  *                     pa = -pa
  *                 pb = predicted - <int>upper
  *                 if pb < 0:             # <<<<<<<<<<<<<<
@@ -5950,7 +5950,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_rgb(PyObject 
         __pyx_t_1 = (__pyx_v_pb < 0);
         if (__pyx_t_1) {
 
-          /* "refinery/lib/unrar/filters.pyx":326
+          /* "refinery/lib/unrar/filters.pyx":327
  *                 pb = predicted - <int>upper
  *                 if pb < 0:
  *                     pb = -pb             # <<<<<<<<<<<<<<
@@ -5959,7 +5959,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_rgb(PyObject 
 */
           __pyx_v_pb = (-__pyx_v_pb);
 
-          /* "refinery/lib/unrar/filters.pyx":325
+          /* "refinery/lib/unrar/filters.pyx":326
  *                     pa = -pa
  *                 pb = predicted - <int>upper
  *                 if pb < 0:             # <<<<<<<<<<<<<<
@@ -5968,7 +5968,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_rgb(PyObject 
 */
         }
 
-        /* "refinery/lib/unrar/filters.pyx":327
+        /* "refinery/lib/unrar/filters.pyx":328
  *                 if pb < 0:
  *                     pb = -pb
  *                 pc = predicted - <int>upper_left             # <<<<<<<<<<<<<<
@@ -5977,7 +5977,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_rgb(PyObject 
 */
         __pyx_v_pc = (__pyx_v_predicted - ((int)__pyx_v_upper_left));
 
-        /* "refinery/lib/unrar/filters.pyx":328
+        /* "refinery/lib/unrar/filters.pyx":329
  *                     pb = -pb
  *                 pc = predicted - <int>upper_left
  *                 if pc < 0:             # <<<<<<<<<<<<<<
@@ -5987,7 +5987,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_rgb(PyObject 
         __pyx_t_1 = (__pyx_v_pc < 0);
         if (__pyx_t_1) {
 
-          /* "refinery/lib/unrar/filters.pyx":329
+          /* "refinery/lib/unrar/filters.pyx":330
  *                 pc = predicted - <int>upper_left
  *                 if pc < 0:
  *                     pc = -pc             # <<<<<<<<<<<<<<
@@ -5996,7 +5996,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_rgb(PyObject 
 */
           __pyx_v_pc = (-__pyx_v_pc);
 
-          /* "refinery/lib/unrar/filters.pyx":328
+          /* "refinery/lib/unrar/filters.pyx":329
  *                     pb = -pb
  *                 pc = predicted - <int>upper_left
  *                 if pc < 0:             # <<<<<<<<<<<<<<
@@ -6005,7 +6005,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_rgb(PyObject 
 */
         }
 
-        /* "refinery/lib/unrar/filters.pyx":330
+        /* "refinery/lib/unrar/filters.pyx":331
  *                 if pc < 0:
  *                     pc = -pc
  *                 if pa <= pb and pa <= pc:             # <<<<<<<<<<<<<<
@@ -6023,7 +6023,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_rgb(PyObject 
         __pyx_L13_bool_binop_done:;
         if (__pyx_t_1) {
 
-          /* "refinery/lib/unrar/filters.pyx":331
+          /* "refinery/lib/unrar/filters.pyx":332
  *                     pc = -pc
  *                 if pa <= pb and pa <= pc:
  *                     predicted = prev_byte             # <<<<<<<<<<<<<<
@@ -6032,7 +6032,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_rgb(PyObject 
 */
           __pyx_v_predicted = __pyx_v_prev_byte;
 
-          /* "refinery/lib/unrar/filters.pyx":330
+          /* "refinery/lib/unrar/filters.pyx":331
  *                 if pc < 0:
  *                     pc = -pc
  *                 if pa <= pb and pa <= pc:             # <<<<<<<<<<<<<<
@@ -6042,7 +6042,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_rgb(PyObject 
           goto __pyx_L12;
         }
 
-        /* "refinery/lib/unrar/filters.pyx":332
+        /* "refinery/lib/unrar/filters.pyx":333
  *                 if pa <= pb and pa <= pc:
  *                     predicted = prev_byte
  *                 elif pb <= pc:             # <<<<<<<<<<<<<<
@@ -6052,7 +6052,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_rgb(PyObject 
         __pyx_t_1 = (__pyx_v_pb <= __pyx_v_pc);
         if (__pyx_t_1) {
 
-          /* "refinery/lib/unrar/filters.pyx":333
+          /* "refinery/lib/unrar/filters.pyx":334
  *                     predicted = prev_byte
  *                 elif pb <= pc:
  *                     predicted = upper             # <<<<<<<<<<<<<<
@@ -6061,7 +6061,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_rgb(PyObject 
 */
           __pyx_v_predicted = __pyx_v_upper;
 
-          /* "refinery/lib/unrar/filters.pyx":332
+          /* "refinery/lib/unrar/filters.pyx":333
  *                 if pa <= pb and pa <= pc:
  *                     predicted = prev_byte
  *                 elif pb <= pc:             # <<<<<<<<<<<<<<
@@ -6071,7 +6071,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_rgb(PyObject 
           goto __pyx_L12;
         }
 
-        /* "refinery/lib/unrar/filters.pyx":335
+        /* "refinery/lib/unrar/filters.pyx":336
  *                     predicted = upper
  *                 else:
  *                     predicted = upper_left             # <<<<<<<<<<<<<<
@@ -6083,7 +6083,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_rgb(PyObject 
         }
         __pyx_L12:;
 
-        /* "refinery/lib/unrar/filters.pyx":317
+        /* "refinery/lib/unrar/filters.pyx":318
  *             predicted = prev_byte
  *             upper_pos = i - width
  *             if upper_pos >= channels:             # <<<<<<<<<<<<<<
@@ -6092,7 +6092,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_rgb(PyObject 
 */
       }
 
-      /* "refinery/lib/unrar/filters.pyx":336
+      /* "refinery/lib/unrar/filters.pyx":337
  *                 else:
  *                     predicted = upper_left
  *             if src_pos < data_size:             # <<<<<<<<<<<<<<
@@ -6102,7 +6102,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_rgb(PyObject 
       __pyx_t_1 = (__pyx_v_src_pos < __pyx_v_data_size);
       if (__pyx_t_1) {
 
-        /* "refinery/lib/unrar/filters.pyx":337
+        /* "refinery/lib/unrar/filters.pyx":338
  *                     predicted = upper_left
  *             if src_pos < data_size:
  *                 prev_byte = (predicted - src[src_pos]) & 0xFF             # <<<<<<<<<<<<<<
@@ -6111,7 +6111,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_rgb(PyObject 
 */
         __pyx_v_prev_byte = ((__pyx_v_predicted - (__pyx_v_src[__pyx_v_src_pos])) & 0xFF);
 
-        /* "refinery/lib/unrar/filters.pyx":338
+        /* "refinery/lib/unrar/filters.pyx":339
  *             if src_pos < data_size:
  *                 prev_byte = (predicted - src[src_pos]) & 0xFF
  *                 dst_ptr[i] = prev_byte             # <<<<<<<<<<<<<<
@@ -6120,7 +6120,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_rgb(PyObject 
 */
         (__pyx_v_dst_ptr[__pyx_v_i]) = __pyx_v_prev_byte;
 
-        /* "refinery/lib/unrar/filters.pyx":339
+        /* "refinery/lib/unrar/filters.pyx":340
  *                 prev_byte = (predicted - src[src_pos]) & 0xFF
  *                 dst_ptr[i] = prev_byte
  *                 src_pos += 1             # <<<<<<<<<<<<<<
@@ -6129,7 +6129,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_rgb(PyObject 
 */
         __pyx_v_src_pos = (__pyx_v_src_pos + 1);
 
-        /* "refinery/lib/unrar/filters.pyx":336
+        /* "refinery/lib/unrar/filters.pyx":337
  *                 else:
  *                     predicted = upper_left
  *             if src_pos < data_size:             # <<<<<<<<<<<<<<
@@ -6138,7 +6138,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_rgb(PyObject 
 */
       }
 
-      /* "refinery/lib/unrar/filters.pyx":314
+      /* "refinery/lib/unrar/filters.pyx":315
  *     for cur_channel in range(channels):
  *         prev_byte = 0
  *         for i in range(cur_channel, data_size, channels):             # <<<<<<<<<<<<<<
@@ -6149,7 +6149,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_rgb(PyObject 
     __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
   }
 
-  /* "refinery/lib/unrar/filters.pyx":341
+  /* "refinery/lib/unrar/filters.pyx":342
  *                 src_pos += 1
  * 
  *     if data_size >= 3:             # <<<<<<<<<<<<<<
@@ -6159,7 +6159,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_rgb(PyObject 
   __pyx_t_1 = (__pyx_v_data_size >= 3);
   if (__pyx_t_1) {
 
-    /* "refinery/lib/unrar/filters.pyx":342
+    /* "refinery/lib/unrar/filters.pyx":343
  * 
  *     if data_size >= 3:
  *         border = data_size - 2             # <<<<<<<<<<<<<<
@@ -6168,7 +6168,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_rgb(PyObject 
 */
     __pyx_v_border = (__pyx_v_data_size - 2);
 
-    /* "refinery/lib/unrar/filters.pyx":343
+    /* "refinery/lib/unrar/filters.pyx":344
  *     if data_size >= 3:
  *         border = data_size - 2
  *         i = pos_r             # <<<<<<<<<<<<<<
@@ -6177,7 +6177,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_rgb(PyObject 
 */
     __pyx_v_i = __pyx_v_pos_r;
 
-    /* "refinery/lib/unrar/filters.pyx":344
+    /* "refinery/lib/unrar/filters.pyx":345
  *         border = data_size - 2
  *         i = pos_r
  *         while i < border:             # <<<<<<<<<<<<<<
@@ -6188,7 +6188,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_rgb(PyObject 
       __pyx_t_1 = (__pyx_v_i < __pyx_v_border);
       if (!__pyx_t_1) break;
 
-      /* "refinery/lib/unrar/filters.pyx":345
+      /* "refinery/lib/unrar/filters.pyx":346
  *         i = pos_r
  *         while i < border:
  *             g = dst_ptr[i + 1]             # <<<<<<<<<<<<<<
@@ -6197,7 +6197,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_rgb(PyObject 
 */
       __pyx_v_g = (__pyx_v_dst_ptr[(__pyx_v_i + 1)]);
 
-      /* "refinery/lib/unrar/filters.pyx":346
+      /* "refinery/lib/unrar/filters.pyx":347
  *         while i < border:
  *             g = dst_ptr[i + 1]
  *             dst_ptr[i + 0] = (dst_ptr[i + 0] + g) & 0xFF             # <<<<<<<<<<<<<<
@@ -6206,7 +6206,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_rgb(PyObject 
 */
       (__pyx_v_dst_ptr[(__pyx_v_i + 0)]) = (((__pyx_v_dst_ptr[(__pyx_v_i + 0)]) + __pyx_v_g) & 0xFF);
 
-      /* "refinery/lib/unrar/filters.pyx":347
+      /* "refinery/lib/unrar/filters.pyx":348
  *             g = dst_ptr[i + 1]
  *             dst_ptr[i + 0] = (dst_ptr[i + 0] + g) & 0xFF
  *             dst_ptr[i + 2] = (dst_ptr[i + 2] + g) & 0xFF             # <<<<<<<<<<<<<<
@@ -6215,7 +6215,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_rgb(PyObject 
 */
       (__pyx_v_dst_ptr[(__pyx_v_i + 2)]) = (((__pyx_v_dst_ptr[(__pyx_v_i + 2)]) + __pyx_v_g) & 0xFF);
 
-      /* "refinery/lib/unrar/filters.pyx":348
+      /* "refinery/lib/unrar/filters.pyx":349
  *             dst_ptr[i + 0] = (dst_ptr[i + 0] + g) & 0xFF
  *             dst_ptr[i + 2] = (dst_ptr[i + 2] + g) & 0xFF
  *             i += 3             # <<<<<<<<<<<<<<
@@ -6225,7 +6225,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_rgb(PyObject 
       __pyx_v_i = (__pyx_v_i + 3);
     }
 
-    /* "refinery/lib/unrar/filters.pyx":341
+    /* "refinery/lib/unrar/filters.pyx":342
  *                 src_pos += 1
  * 
  *     if data_size >= 3:             # <<<<<<<<<<<<<<
@@ -6234,7 +6234,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_rgb(PyObject 
 */
   }
 
-  /* "refinery/lib/unrar/filters.pyx":350
+  /* "refinery/lib/unrar/filters.pyx":351
  *             i += 3
  * 
  *     return dst             # <<<<<<<<<<<<<<
@@ -6246,7 +6246,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_rgb(PyObject 
   __pyx_r = __pyx_v_dst;
   goto __pyx_L0;
 
-  /* "refinery/lib/unrar/filters.pyx":292
+  /* "refinery/lib/unrar/filters.pyx":293
  * 
  * 
  * cdef bytearray _v3_filter_rgb(bytearray data, int data_size, list init_r):             # <<<<<<<<<<<<<<
@@ -6270,7 +6270,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_rgb(PyObject 
   return __pyx_r;
 }
 
-/* "refinery/lib/unrar/filters.pyx":353
+/* "refinery/lib/unrar/filters.pyx":354
  * 
  * 
  * cdef inline int _s32(unsigned int v):             # <<<<<<<<<<<<<<
@@ -6281,7 +6281,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_rgb(PyObject 
 static CYTHON_INLINE int __pyx_f_8refinery_3lib_5unrar_7filters__s32(unsigned int __pyx_v_v) {
   int __pyx_r;
 
-  /* "refinery/lib/unrar/filters.pyx":354
+  /* "refinery/lib/unrar/filters.pyx":355
  * 
  * cdef inline int _s32(unsigned int v):
  *     return <int>v             # <<<<<<<<<<<<<<
@@ -6291,7 +6291,7 @@ static CYTHON_INLINE int __pyx_f_8refinery_3lib_5unrar_7filters__s32(unsigned in
   __pyx_r = ((int)__pyx_v_v);
   goto __pyx_L0;
 
-  /* "refinery/lib/unrar/filters.pyx":353
+  /* "refinery/lib/unrar/filters.pyx":354
  * 
  * 
  * cdef inline int _s32(unsigned int v):             # <<<<<<<<<<<<<<
@@ -6304,7 +6304,7 @@ static CYTHON_INLINE int __pyx_f_8refinery_3lib_5unrar_7filters__s32(unsigned in
   return __pyx_r;
 }
 
-/* "refinery/lib/unrar/filters.pyx":357
+/* "refinery/lib/unrar/filters.pyx":358
  * 
  * 
  * cdef bytearray _v3_filter_audio(bytearray data, int data_size, list init_r):             # <<<<<<<<<<<<<<
@@ -6355,7 +6355,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_audio(PyObjec
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_v3_filter_audio", 0);
 
-  /* "refinery/lib/unrar/filters.pyx":358
+  /* "refinery/lib/unrar/filters.pyx":359
  * 
  * cdef bytearray _v3_filter_audio(bytearray data, int data_size, list init_r):
  *     cdef int channels = 1             # <<<<<<<<<<<<<<
@@ -6364,7 +6364,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_audio(PyObjec
 */
   __pyx_v_channels = 1;
 
-  /* "refinery/lib/unrar/filters.pyx":361
+  /* "refinery/lib/unrar/filters.pyx":362
  *     cdef unsigned char *src
  *     cdef unsigned char *dst_ptr
  *     cdef int src_pos = 0             # <<<<<<<<<<<<<<
@@ -6373,7 +6373,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_audio(PyObjec
 */
   __pyx_v_src_pos = 0;
 
-  /* "refinery/lib/unrar/filters.pyx":362
+  /* "refinery/lib/unrar/filters.pyx":363
  *     cdef unsigned char *dst_ptr
  *     cdef int src_pos = 0
  *     cdef unsigned int _U32 = 0xFFFFFFFF             # <<<<<<<<<<<<<<
@@ -6382,7 +6382,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_audio(PyObjec
 */
   __pyx_v__U32 = 0xFFFFFFFF;
 
-  /* "refinery/lib/unrar/filters.pyx":372
+  /* "refinery/lib/unrar/filters.pyx":373
  *     cdef int num_min_dif, j
  * 
  *     if init_r is not None:             # <<<<<<<<<<<<<<
@@ -6392,7 +6392,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_audio(PyObjec
   __pyx_t_1 = (__pyx_v_init_r != ((PyObject*)Py_None));
   if (__pyx_t_1) {
 
-    /* "refinery/lib/unrar/filters.pyx":373
+    /* "refinery/lib/unrar/filters.pyx":374
  * 
  *     if init_r is not None:
  *         channels = <int>init_r[0]             # <<<<<<<<<<<<<<
@@ -6401,12 +6401,12 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_audio(PyObjec
 */
     if (unlikely(__pyx_v_init_r == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-      __PYX_ERR(0, 373, __pyx_L1_error)
+      __PYX_ERR(0, 374, __pyx_L1_error)
     }
-    __pyx_t_2 = __Pyx_PyLong_As_int(__Pyx_PyList_GET_ITEM(__pyx_v_init_r, 0)); if (unlikely((__pyx_t_2 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 373, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyLong_As_int(__Pyx_PyList_GET_ITEM(__pyx_v_init_r, 0)); if (unlikely((__pyx_t_2 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 374, __pyx_L1_error)
     __pyx_v_channels = ((int)__pyx_t_2);
 
-    /* "refinery/lib/unrar/filters.pyx":372
+    /* "refinery/lib/unrar/filters.pyx":373
  *     cdef int num_min_dif, j
  * 
  *     if init_r is not None:             # <<<<<<<<<<<<<<
@@ -6415,7 +6415,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_audio(PyObjec
 */
   }
 
-  /* "refinery/lib/unrar/filters.pyx":374
+  /* "refinery/lib/unrar/filters.pyx":375
  *     if init_r is not None:
  *         channels = <int>init_r[0]
  *     if channels == 0:             # <<<<<<<<<<<<<<
@@ -6425,7 +6425,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_audio(PyObjec
   __pyx_t_1 = (__pyx_v_channels == 0);
   if (__pyx_t_1) {
 
-    /* "refinery/lib/unrar/filters.pyx":375
+    /* "refinery/lib/unrar/filters.pyx":376
  *         channels = <int>init_r[0]
  *     if channels == 0:
  *         channels = 1             # <<<<<<<<<<<<<<
@@ -6434,7 +6434,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_audio(PyObjec
 */
     __pyx_v_channels = 1;
 
-    /* "refinery/lib/unrar/filters.pyx":374
+    /* "refinery/lib/unrar/filters.pyx":375
  *     if init_r is not None:
  *         channels = <int>init_r[0]
  *     if channels == 0:             # <<<<<<<<<<<<<<
@@ -6443,7 +6443,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_audio(PyObjec
 */
   }
 
-  /* "refinery/lib/unrar/filters.pyx":377
+  /* "refinery/lib/unrar/filters.pyx":378
  *         channels = 1
  * 
  *     dst = bytearray(data_size)             # <<<<<<<<<<<<<<
@@ -6451,7 +6451,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_audio(PyObjec
  *     dst_ptr = <unsigned char *>PyByteArray_AS_STRING(dst)
 */
   __pyx_t_4 = NULL;
-  __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_data_size); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 377, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_data_size); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 378, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __pyx_t_6 = 1;
   {
@@ -6459,13 +6459,13 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_audio(PyObjec
     __pyx_t_3 = __Pyx_PyObject_FastCall((PyObject*)(&PyByteArray_Type), __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 377, __pyx_L1_error)
+    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 378, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
   }
   __pyx_v_dst = ((PyObject*)__pyx_t_3);
   __pyx_t_3 = 0;
 
-  /* "refinery/lib/unrar/filters.pyx":378
+  /* "refinery/lib/unrar/filters.pyx":379
  * 
  *     dst = bytearray(data_size)
  *     src = <unsigned char *>PyByteArray_AS_STRING(data)             # <<<<<<<<<<<<<<
@@ -6474,7 +6474,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_audio(PyObjec
 */
   __pyx_v_src = ((unsigned char *)PyByteArray_AS_STRING(__pyx_v_data));
 
-  /* "refinery/lib/unrar/filters.pyx":379
+  /* "refinery/lib/unrar/filters.pyx":380
  *     dst = bytearray(data_size)
  *     src = <unsigned char *>PyByteArray_AS_STRING(data)
  *     dst_ptr = <unsigned char *>PyByteArray_AS_STRING(dst)             # <<<<<<<<<<<<<<
@@ -6483,7 +6483,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_audio(PyObjec
 */
   __pyx_v_dst_ptr = ((unsigned char *)PyByteArray_AS_STRING(__pyx_v_dst));
 
-  /* "refinery/lib/unrar/filters.pyx":381
+  /* "refinery/lib/unrar/filters.pyx":382
  *     dst_ptr = <unsigned char *>PyByteArray_AS_STRING(dst)
  * 
  *     for cur_channel in range(channels):             # <<<<<<<<<<<<<<
@@ -6495,7 +6495,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_audio(PyObjec
   for (__pyx_t_8 = 0; __pyx_t_8 < __pyx_t_7; __pyx_t_8+=1) {
     __pyx_v_cur_channel = __pyx_t_8;
 
-    /* "refinery/lib/unrar/filters.pyx":382
+    /* "refinery/lib/unrar/filters.pyx":383
  * 
  *     for cur_channel in range(channels):
  *         prev_byte = 0             # <<<<<<<<<<<<<<
@@ -6504,7 +6504,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_audio(PyObjec
 */
     __pyx_v_prev_byte = 0;
 
-    /* "refinery/lib/unrar/filters.pyx":383
+    /* "refinery/lib/unrar/filters.pyx":384
  *     for cur_channel in range(channels):
  *         prev_byte = 0
  *         prev_delta = 0             # <<<<<<<<<<<<<<
@@ -6513,7 +6513,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_audio(PyObjec
 */
     __pyx_v_prev_delta = 0;
 
-    /* "refinery/lib/unrar/filters.pyx":384
+    /* "refinery/lib/unrar/filters.pyx":385
  *         prev_byte = 0
  *         prev_delta = 0
  *         d1 = 0             # <<<<<<<<<<<<<<
@@ -6522,7 +6522,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_audio(PyObjec
 */
     __pyx_v_d1 = 0;
 
-    /* "refinery/lib/unrar/filters.pyx":385
+    /* "refinery/lib/unrar/filters.pyx":386
  *         prev_delta = 0
  *         d1 = 0
  *         d2 = 0             # <<<<<<<<<<<<<<
@@ -6531,7 +6531,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_audio(PyObjec
 */
     __pyx_v_d2 = 0;
 
-    /* "refinery/lib/unrar/filters.pyx":386
+    /* "refinery/lib/unrar/filters.pyx":387
  *         d1 = 0
  *         d2 = 0
  *         k1 = 0             # <<<<<<<<<<<<<<
@@ -6540,7 +6540,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_audio(PyObjec
 */
     __pyx_v_k1 = 0;
 
-    /* "refinery/lib/unrar/filters.pyx":387
+    /* "refinery/lib/unrar/filters.pyx":388
  *         d2 = 0
  *         k1 = 0
  *         k2 = 0             # <<<<<<<<<<<<<<
@@ -6549,7 +6549,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_audio(PyObjec
 */
     __pyx_v_k2 = 0;
 
-    /* "refinery/lib/unrar/filters.pyx":388
+    /* "refinery/lib/unrar/filters.pyx":389
  *         k1 = 0
  *         k2 = 0
  *         k3 = 0             # <<<<<<<<<<<<<<
@@ -6558,7 +6558,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_audio(PyObjec
 */
     __pyx_v_k3 = 0;
 
-    /* "refinery/lib/unrar/filters.pyx":389
+    /* "refinery/lib/unrar/filters.pyx":390
  *         k2 = 0
  *         k3 = 0
  *         memset(dif, 0, 7 * sizeof(unsigned int))             # <<<<<<<<<<<<<<
@@ -6567,7 +6567,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_audio(PyObjec
 */
     (void)(memset(__pyx_v_dif, 0, (7 * (sizeof(unsigned int)))));
 
-    /* "refinery/lib/unrar/filters.pyx":390
+    /* "refinery/lib/unrar/filters.pyx":391
  *         k3 = 0
  *         memset(dif, 0, 7 * sizeof(unsigned int))
  *         byte_count = 0             # <<<<<<<<<<<<<<
@@ -6576,7 +6576,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_audio(PyObjec
 */
     __pyx_v_byte_count = 0;
 
-    /* "refinery/lib/unrar/filters.pyx":392
+    /* "refinery/lib/unrar/filters.pyx":393
  *         byte_count = 0
  * 
  *         i = cur_channel             # <<<<<<<<<<<<<<
@@ -6585,7 +6585,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_audio(PyObjec
 */
     __pyx_v_i = __pyx_v_cur_channel;
 
-    /* "refinery/lib/unrar/filters.pyx":393
+    /* "refinery/lib/unrar/filters.pyx":394
  * 
  *         i = cur_channel
  *         while i < data_size:             # <<<<<<<<<<<<<<
@@ -6596,7 +6596,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_audio(PyObjec
       __pyx_t_1 = (__pyx_v_i < __pyx_v_data_size);
       if (!__pyx_t_1) break;
 
-      /* "refinery/lib/unrar/filters.pyx":394
+      /* "refinery/lib/unrar/filters.pyx":395
  *         i = cur_channel
  *         while i < data_size:
  *             if src_pos >= data_size:             # <<<<<<<<<<<<<<
@@ -6606,7 +6606,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_audio(PyObjec
       __pyx_t_1 = (__pyx_v_src_pos >= __pyx_v_data_size);
       if (__pyx_t_1) {
 
-        /* "refinery/lib/unrar/filters.pyx":395
+        /* "refinery/lib/unrar/filters.pyx":396
  *         while i < data_size:
  *             if src_pos >= data_size:
  *                 break             # <<<<<<<<<<<<<<
@@ -6615,7 +6615,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_audio(PyObjec
 */
         goto __pyx_L8_break;
 
-        /* "refinery/lib/unrar/filters.pyx":394
+        /* "refinery/lib/unrar/filters.pyx":395
  *         i = cur_channel
  *         while i < data_size:
  *             if src_pos >= data_size:             # <<<<<<<<<<<<<<
@@ -6624,7 +6624,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_audio(PyObjec
 */
       }
 
-      /* "refinery/lib/unrar/filters.pyx":396
+      /* "refinery/lib/unrar/filters.pyx":397
  *             if src_pos >= data_size:
  *                 break
  *             d3 = d2             # <<<<<<<<<<<<<<
@@ -6633,27 +6633,27 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_audio(PyObjec
 */
       __pyx_v_d3 = __pyx_v_d2;
 
-      /* "refinery/lib/unrar/filters.pyx":397
+      /* "refinery/lib/unrar/filters.pyx":398
  *                 break
  *             d3 = d2
  *             d2 = _s32(prev_delta - <unsigned int>d1)             # <<<<<<<<<<<<<<
  *             d1 = _s32(prev_delta)
  * 
 */
-      __pyx_t_9 = __pyx_f_8refinery_3lib_5unrar_7filters__s32((__pyx_v_prev_delta - ((unsigned int)__pyx_v_d1))); if (unlikely(__pyx_t_9 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 397, __pyx_L1_error)
+      __pyx_t_9 = __pyx_f_8refinery_3lib_5unrar_7filters__s32((__pyx_v_prev_delta - ((unsigned int)__pyx_v_d1))); if (unlikely(__pyx_t_9 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 398, __pyx_L1_error)
       __pyx_v_d2 = __pyx_t_9;
 
-      /* "refinery/lib/unrar/filters.pyx":398
+      /* "refinery/lib/unrar/filters.pyx":399
  *             d3 = d2
  *             d2 = _s32(prev_delta - <unsigned int>d1)
  *             d1 = _s32(prev_delta)             # <<<<<<<<<<<<<<
  * 
  *             predicted = (8 * prev_byte + <unsigned int>k1 * <unsigned int>d1
 */
-      __pyx_t_9 = __pyx_f_8refinery_3lib_5unrar_7filters__s32(__pyx_v_prev_delta); if (unlikely(__pyx_t_9 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 398, __pyx_L1_error)
+      __pyx_t_9 = __pyx_f_8refinery_3lib_5unrar_7filters__s32(__pyx_v_prev_delta); if (unlikely(__pyx_t_9 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 399, __pyx_L1_error)
       __pyx_v_d1 = __pyx_t_9;
 
-      /* "refinery/lib/unrar/filters.pyx":402
+      /* "refinery/lib/unrar/filters.pyx":403
  *             predicted = (8 * prev_byte + <unsigned int>k1 * <unsigned int>d1
  *                 + <unsigned int>k2 * <unsigned int>d2
  *                 + <unsigned int>k3 * <unsigned int>d3) & _U32             # <<<<<<<<<<<<<<
@@ -6662,7 +6662,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_audio(PyObjec
 */
       __pyx_v_predicted = (((((8 * __pyx_v_prev_byte) + (((unsigned int)__pyx_v_k1) * ((unsigned int)__pyx_v_d1))) + (((unsigned int)__pyx_v_k2) * ((unsigned int)__pyx_v_d2))) + (((unsigned int)__pyx_v_k3) * ((unsigned int)__pyx_v_d3))) & __pyx_v__U32);
 
-      /* "refinery/lib/unrar/filters.pyx":403
+      /* "refinery/lib/unrar/filters.pyx":404
  *                 + <unsigned int>k2 * <unsigned int>d2
  *                 + <unsigned int>k3 * <unsigned int>d3) & _U32
  *             predicted = (predicted >> 3) & 0xFF             # <<<<<<<<<<<<<<
@@ -6671,7 +6671,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_audio(PyObjec
 */
       __pyx_v_predicted = ((__pyx_v_predicted >> 3) & 0xFF);
 
-      /* "refinery/lib/unrar/filters.pyx":405
+      /* "refinery/lib/unrar/filters.pyx":406
  *             predicted = (predicted >> 3) & 0xFF
  * 
  *             cur_byte = src[src_pos]             # <<<<<<<<<<<<<<
@@ -6680,7 +6680,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_audio(PyObjec
 */
       __pyx_v_cur_byte = (__pyx_v_src[__pyx_v_src_pos]);
 
-      /* "refinery/lib/unrar/filters.pyx":406
+      /* "refinery/lib/unrar/filters.pyx":407
  * 
  *             cur_byte = src[src_pos]
  *             src_pos += 1             # <<<<<<<<<<<<<<
@@ -6689,7 +6689,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_audio(PyObjec
 */
       __pyx_v_src_pos = (__pyx_v_src_pos + 1);
 
-      /* "refinery/lib/unrar/filters.pyx":408
+      /* "refinery/lib/unrar/filters.pyx":409
  *             src_pos += 1
  * 
  *             predicted = (predicted - cur_byte) & 0xFF             # <<<<<<<<<<<<<<
@@ -6698,7 +6698,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_audio(PyObjec
 */
       __pyx_v_predicted = ((__pyx_v_predicted - __pyx_v_cur_byte) & 0xFF);
 
-      /* "refinery/lib/unrar/filters.pyx":409
+      /* "refinery/lib/unrar/filters.pyx":410
  * 
  *             predicted = (predicted - cur_byte) & 0xFF
  *             dst_ptr[i] = <unsigned char>predicted             # <<<<<<<<<<<<<<
@@ -6707,7 +6707,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_audio(PyObjec
 */
       (__pyx_v_dst_ptr[__pyx_v_i]) = ((unsigned char)__pyx_v_predicted);
 
-      /* "refinery/lib/unrar/filters.pyx":411
+      /* "refinery/lib/unrar/filters.pyx":412
  *             dst_ptr[i] = <unsigned char>predicted
  * 
  *             delta = (predicted - prev_byte) & 0xFF             # <<<<<<<<<<<<<<
@@ -6716,7 +6716,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_audio(PyObjec
 */
       __pyx_v_delta = ((__pyx_v_predicted - __pyx_v_prev_byte) & 0xFF);
 
-      /* "refinery/lib/unrar/filters.pyx":412
+      /* "refinery/lib/unrar/filters.pyx":413
  * 
  *             delta = (predicted - prev_byte) & 0xFF
  *             if delta >= 128:             # <<<<<<<<<<<<<<
@@ -6726,7 +6726,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_audio(PyObjec
       __pyx_t_1 = (__pyx_v_delta >= 0x80);
       if (__pyx_t_1) {
 
-        /* "refinery/lib/unrar/filters.pyx":413
+        /* "refinery/lib/unrar/filters.pyx":414
  *             delta = (predicted - prev_byte) & 0xFF
  *             if delta >= 128:
  *                 prev_delta = (delta - 256) & _U32             # <<<<<<<<<<<<<<
@@ -6735,7 +6735,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_audio(PyObjec
 */
         __pyx_v_prev_delta = ((__pyx_v_delta - 0x100) & __pyx_v__U32);
 
-        /* "refinery/lib/unrar/filters.pyx":412
+        /* "refinery/lib/unrar/filters.pyx":413
  * 
  *             delta = (predicted - prev_byte) & 0xFF
  *             if delta >= 128:             # <<<<<<<<<<<<<<
@@ -6745,7 +6745,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_audio(PyObjec
         goto __pyx_L10;
       }
 
-      /* "refinery/lib/unrar/filters.pyx":415
+      /* "refinery/lib/unrar/filters.pyx":416
  *                 prev_delta = (delta - 256) & _U32
  *             else:
  *                 prev_delta = delta             # <<<<<<<<<<<<<<
@@ -6757,7 +6757,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_audio(PyObjec
       }
       __pyx_L10:;
 
-      /* "refinery/lib/unrar/filters.pyx":416
+      /* "refinery/lib/unrar/filters.pyx":417
  *             else:
  *                 prev_delta = delta
  *             prev_byte = predicted             # <<<<<<<<<<<<<<
@@ -6766,7 +6766,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_audio(PyObjec
 */
       __pyx_v_prev_byte = __pyx_v_predicted;
 
-      /* "refinery/lib/unrar/filters.pyx":418
+      /* "refinery/lib/unrar/filters.pyx":419
  *             prev_byte = predicted
  * 
  *             d = <int>cur_byte if cur_byte < 128 else <int>cur_byte - 256             # <<<<<<<<<<<<<<
@@ -6781,87 +6781,87 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_audio(PyObjec
       }
       __pyx_v_d = __pyx_t_10;
 
-      /* "refinery/lib/unrar/filters.pyx":419
+      /* "refinery/lib/unrar/filters.pyx":420
  * 
  *             d = <int>cur_byte if cur_byte < 128 else <int>cur_byte - 256
  *             d = _s32(<unsigned int>d << 3)             # <<<<<<<<<<<<<<
  * 
  *             dif[0] = (dif[0] + <unsigned int>abs(d)) & _U32
 */
-      __pyx_t_9 = __pyx_f_8refinery_3lib_5unrar_7filters__s32((((unsigned int)__pyx_v_d) << 3)); if (unlikely(__pyx_t_9 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 419, __pyx_L1_error)
+      __pyx_t_9 = __pyx_f_8refinery_3lib_5unrar_7filters__s32((((unsigned int)__pyx_v_d) << 3)); if (unlikely(__pyx_t_9 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 420, __pyx_L1_error)
       __pyx_v_d = __pyx_t_9;
 
-      /* "refinery/lib/unrar/filters.pyx":421
+      /* "refinery/lib/unrar/filters.pyx":422
  *             d = _s32(<unsigned int>d << 3)
  * 
  *             dif[0] = (dif[0] + <unsigned int>abs(d)) & _U32             # <<<<<<<<<<<<<<
  *             dif[1] = (dif[1] + <unsigned int>abs(d - d1)) & _U32
  *             dif[2] = (dif[2] + <unsigned int>abs(d + d1)) & _U32
 */
-      __pyx_t_9 = abs(__pyx_v_d); if (unlikely(__pyx_t_9 == ((int)-1))) __PYX_ERR(0, 421, __pyx_L1_error)
+      __pyx_t_9 = abs(__pyx_v_d); if (unlikely(__pyx_t_9 == ((int)-1))) __PYX_ERR(0, 422, __pyx_L1_error)
       (__pyx_v_dif[0]) = (((__pyx_v_dif[0]) + ((unsigned int)__pyx_t_9)) & __pyx_v__U32);
 
-      /* "refinery/lib/unrar/filters.pyx":422
+      /* "refinery/lib/unrar/filters.pyx":423
  * 
  *             dif[0] = (dif[0] + <unsigned int>abs(d)) & _U32
  *             dif[1] = (dif[1] + <unsigned int>abs(d - d1)) & _U32             # <<<<<<<<<<<<<<
  *             dif[2] = (dif[2] + <unsigned int>abs(d + d1)) & _U32
  *             dif[3] = (dif[3] + <unsigned int>abs(d - d2)) & _U32
 */
-      __pyx_t_9 = abs((__pyx_v_d - __pyx_v_d1)); if (unlikely(__pyx_t_9 == ((int)-1))) __PYX_ERR(0, 422, __pyx_L1_error)
+      __pyx_t_9 = abs((__pyx_v_d - __pyx_v_d1)); if (unlikely(__pyx_t_9 == ((int)-1))) __PYX_ERR(0, 423, __pyx_L1_error)
       (__pyx_v_dif[1]) = (((__pyx_v_dif[1]) + ((unsigned int)__pyx_t_9)) & __pyx_v__U32);
 
-      /* "refinery/lib/unrar/filters.pyx":423
+      /* "refinery/lib/unrar/filters.pyx":424
  *             dif[0] = (dif[0] + <unsigned int>abs(d)) & _U32
  *             dif[1] = (dif[1] + <unsigned int>abs(d - d1)) & _U32
  *             dif[2] = (dif[2] + <unsigned int>abs(d + d1)) & _U32             # <<<<<<<<<<<<<<
  *             dif[3] = (dif[3] + <unsigned int>abs(d - d2)) & _U32
  *             dif[4] = (dif[4] + <unsigned int>abs(d + d2)) & _U32
 */
-      __pyx_t_9 = abs((__pyx_v_d + __pyx_v_d1)); if (unlikely(__pyx_t_9 == ((int)-1))) __PYX_ERR(0, 423, __pyx_L1_error)
+      __pyx_t_9 = abs((__pyx_v_d + __pyx_v_d1)); if (unlikely(__pyx_t_9 == ((int)-1))) __PYX_ERR(0, 424, __pyx_L1_error)
       (__pyx_v_dif[2]) = (((__pyx_v_dif[2]) + ((unsigned int)__pyx_t_9)) & __pyx_v__U32);
 
-      /* "refinery/lib/unrar/filters.pyx":424
+      /* "refinery/lib/unrar/filters.pyx":425
  *             dif[1] = (dif[1] + <unsigned int>abs(d - d1)) & _U32
  *             dif[2] = (dif[2] + <unsigned int>abs(d + d1)) & _U32
  *             dif[3] = (dif[3] + <unsigned int>abs(d - d2)) & _U32             # <<<<<<<<<<<<<<
  *             dif[4] = (dif[4] + <unsigned int>abs(d + d2)) & _U32
  *             dif[5] = (dif[5] + <unsigned int>abs(d - d3)) & _U32
 */
-      __pyx_t_9 = abs((__pyx_v_d - __pyx_v_d2)); if (unlikely(__pyx_t_9 == ((int)-1))) __PYX_ERR(0, 424, __pyx_L1_error)
+      __pyx_t_9 = abs((__pyx_v_d - __pyx_v_d2)); if (unlikely(__pyx_t_9 == ((int)-1))) __PYX_ERR(0, 425, __pyx_L1_error)
       (__pyx_v_dif[3]) = (((__pyx_v_dif[3]) + ((unsigned int)__pyx_t_9)) & __pyx_v__U32);
 
-      /* "refinery/lib/unrar/filters.pyx":425
+      /* "refinery/lib/unrar/filters.pyx":426
  *             dif[2] = (dif[2] + <unsigned int>abs(d + d1)) & _U32
  *             dif[3] = (dif[3] + <unsigned int>abs(d - d2)) & _U32
  *             dif[4] = (dif[4] + <unsigned int>abs(d + d2)) & _U32             # <<<<<<<<<<<<<<
  *             dif[5] = (dif[5] + <unsigned int>abs(d - d3)) & _U32
  *             dif[6] = (dif[6] + <unsigned int>abs(d + d3)) & _U32
 */
-      __pyx_t_9 = abs((__pyx_v_d + __pyx_v_d2)); if (unlikely(__pyx_t_9 == ((int)-1))) __PYX_ERR(0, 425, __pyx_L1_error)
+      __pyx_t_9 = abs((__pyx_v_d + __pyx_v_d2)); if (unlikely(__pyx_t_9 == ((int)-1))) __PYX_ERR(0, 426, __pyx_L1_error)
       (__pyx_v_dif[4]) = (((__pyx_v_dif[4]) + ((unsigned int)__pyx_t_9)) & __pyx_v__U32);
 
-      /* "refinery/lib/unrar/filters.pyx":426
+      /* "refinery/lib/unrar/filters.pyx":427
  *             dif[3] = (dif[3] + <unsigned int>abs(d - d2)) & _U32
  *             dif[4] = (dif[4] + <unsigned int>abs(d + d2)) & _U32
  *             dif[5] = (dif[5] + <unsigned int>abs(d - d3)) & _U32             # <<<<<<<<<<<<<<
  *             dif[6] = (dif[6] + <unsigned int>abs(d + d3)) & _U32
  * 
 */
-      __pyx_t_9 = abs((__pyx_v_d - __pyx_v_d3)); if (unlikely(__pyx_t_9 == ((int)-1))) __PYX_ERR(0, 426, __pyx_L1_error)
+      __pyx_t_9 = abs((__pyx_v_d - __pyx_v_d3)); if (unlikely(__pyx_t_9 == ((int)-1))) __PYX_ERR(0, 427, __pyx_L1_error)
       (__pyx_v_dif[5]) = (((__pyx_v_dif[5]) + ((unsigned int)__pyx_t_9)) & __pyx_v__U32);
 
-      /* "refinery/lib/unrar/filters.pyx":427
+      /* "refinery/lib/unrar/filters.pyx":428
  *             dif[4] = (dif[4] + <unsigned int>abs(d + d2)) & _U32
  *             dif[5] = (dif[5] + <unsigned int>abs(d - d3)) & _U32
  *             dif[6] = (dif[6] + <unsigned int>abs(d + d3)) & _U32             # <<<<<<<<<<<<<<
  * 
  *             if (byte_count & 0x1F) == 0:
 */
-      __pyx_t_9 = abs((__pyx_v_d + __pyx_v_d3)); if (unlikely(__pyx_t_9 == ((int)-1))) __PYX_ERR(0, 427, __pyx_L1_error)
+      __pyx_t_9 = abs((__pyx_v_d + __pyx_v_d3)); if (unlikely(__pyx_t_9 == ((int)-1))) __PYX_ERR(0, 428, __pyx_L1_error)
       (__pyx_v_dif[6]) = (((__pyx_v_dif[6]) + ((unsigned int)__pyx_t_9)) & __pyx_v__U32);
 
-      /* "refinery/lib/unrar/filters.pyx":429
+      /* "refinery/lib/unrar/filters.pyx":430
  *             dif[6] = (dif[6] + <unsigned int>abs(d + d3)) & _U32
  * 
  *             if (byte_count & 0x1F) == 0:             # <<<<<<<<<<<<<<
@@ -6871,7 +6871,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_audio(PyObjec
       __pyx_t_1 = ((__pyx_v_byte_count & 0x1F) == 0);
       if (__pyx_t_1) {
 
-        /* "refinery/lib/unrar/filters.pyx":430
+        /* "refinery/lib/unrar/filters.pyx":431
  * 
  *             if (byte_count & 0x1F) == 0:
  *                 min_dif = dif[0]             # <<<<<<<<<<<<<<
@@ -6880,7 +6880,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_audio(PyObjec
 */
         __pyx_v_min_dif = (__pyx_v_dif[0]);
 
-        /* "refinery/lib/unrar/filters.pyx":431
+        /* "refinery/lib/unrar/filters.pyx":432
  *             if (byte_count & 0x1F) == 0:
  *                 min_dif = dif[0]
  *                 num_min_dif = 0             # <<<<<<<<<<<<<<
@@ -6889,7 +6889,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_audio(PyObjec
 */
         __pyx_v_num_min_dif = 0;
 
-        /* "refinery/lib/unrar/filters.pyx":432
+        /* "refinery/lib/unrar/filters.pyx":433
  *                 min_dif = dif[0]
  *                 num_min_dif = 0
  *                 dif[0] = 0             # <<<<<<<<<<<<<<
@@ -6898,7 +6898,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_audio(PyObjec
 */
         (__pyx_v_dif[0]) = 0;
 
-        /* "refinery/lib/unrar/filters.pyx":433
+        /* "refinery/lib/unrar/filters.pyx":434
  *                 num_min_dif = 0
  *                 dif[0] = 0
  *                 for j in range(1, 7):             # <<<<<<<<<<<<<<
@@ -6908,7 +6908,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_audio(PyObjec
         for (__pyx_t_9 = 1; __pyx_t_9 < 7; __pyx_t_9+=1) {
           __pyx_v_j = __pyx_t_9;
 
-          /* "refinery/lib/unrar/filters.pyx":434
+          /* "refinery/lib/unrar/filters.pyx":435
  *                 dif[0] = 0
  *                 for j in range(1, 7):
  *                     if dif[j] < min_dif:             # <<<<<<<<<<<<<<
@@ -6918,7 +6918,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_audio(PyObjec
           __pyx_t_1 = ((__pyx_v_dif[__pyx_v_j]) < __pyx_v_min_dif);
           if (__pyx_t_1) {
 
-            /* "refinery/lib/unrar/filters.pyx":435
+            /* "refinery/lib/unrar/filters.pyx":436
  *                 for j in range(1, 7):
  *                     if dif[j] < min_dif:
  *                         min_dif = dif[j]             # <<<<<<<<<<<<<<
@@ -6927,7 +6927,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_audio(PyObjec
 */
             __pyx_v_min_dif = (__pyx_v_dif[__pyx_v_j]);
 
-            /* "refinery/lib/unrar/filters.pyx":436
+            /* "refinery/lib/unrar/filters.pyx":437
  *                     if dif[j] < min_dif:
  *                         min_dif = dif[j]
  *                         num_min_dif = j             # <<<<<<<<<<<<<<
@@ -6936,7 +6936,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_audio(PyObjec
 */
             __pyx_v_num_min_dif = __pyx_v_j;
 
-            /* "refinery/lib/unrar/filters.pyx":434
+            /* "refinery/lib/unrar/filters.pyx":435
  *                 dif[0] = 0
  *                 for j in range(1, 7):
  *                     if dif[j] < min_dif:             # <<<<<<<<<<<<<<
@@ -6945,7 +6945,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_audio(PyObjec
 */
           }
 
-          /* "refinery/lib/unrar/filters.pyx":437
+          /* "refinery/lib/unrar/filters.pyx":438
  *                         min_dif = dif[j]
  *                         num_min_dif = j
  *                     dif[j] = 0             # <<<<<<<<<<<<<<
@@ -6955,7 +6955,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_audio(PyObjec
           (__pyx_v_dif[__pyx_v_j]) = 0;
         }
 
-        /* "refinery/lib/unrar/filters.pyx":438
+        /* "refinery/lib/unrar/filters.pyx":439
  *                         num_min_dif = j
  *                     dif[j] = 0
  *                 if num_min_dif == 1:             # <<<<<<<<<<<<<<
@@ -6965,7 +6965,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_audio(PyObjec
         switch (__pyx_v_num_min_dif) {
           case 1:
 
-          /* "refinery/lib/unrar/filters.pyx":439
+          /* "refinery/lib/unrar/filters.pyx":440
  *                     dif[j] = 0
  *                 if num_min_dif == 1:
  *                     if k1 >= -16:             # <<<<<<<<<<<<<<
@@ -6975,7 +6975,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_audio(PyObjec
           __pyx_t_1 = (__pyx_v_k1 >= -16L);
           if (__pyx_t_1) {
 
-            /* "refinery/lib/unrar/filters.pyx":440
+            /* "refinery/lib/unrar/filters.pyx":441
  *                 if num_min_dif == 1:
  *                     if k1 >= -16:
  *                         k1 -= 1             # <<<<<<<<<<<<<<
@@ -6984,7 +6984,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_audio(PyObjec
 */
             __pyx_v_k1 = (__pyx_v_k1 - 1);
 
-            /* "refinery/lib/unrar/filters.pyx":439
+            /* "refinery/lib/unrar/filters.pyx":440
  *                     dif[j] = 0
  *                 if num_min_dif == 1:
  *                     if k1 >= -16:             # <<<<<<<<<<<<<<
@@ -6993,7 +6993,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_audio(PyObjec
 */
           }
 
-          /* "refinery/lib/unrar/filters.pyx":438
+          /* "refinery/lib/unrar/filters.pyx":439
  *                         num_min_dif = j
  *                     dif[j] = 0
  *                 if num_min_dif == 1:             # <<<<<<<<<<<<<<
@@ -7003,7 +7003,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_audio(PyObjec
           break;
           case 2:
 
-          /* "refinery/lib/unrar/filters.pyx":442
+          /* "refinery/lib/unrar/filters.pyx":443
  *                         k1 -= 1
  *                 elif num_min_dif == 2:
  *                     if k1 < 16:             # <<<<<<<<<<<<<<
@@ -7013,7 +7013,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_audio(PyObjec
           __pyx_t_1 = (__pyx_v_k1 < 16);
           if (__pyx_t_1) {
 
-            /* "refinery/lib/unrar/filters.pyx":443
+            /* "refinery/lib/unrar/filters.pyx":444
  *                 elif num_min_dif == 2:
  *                     if k1 < 16:
  *                         k1 += 1             # <<<<<<<<<<<<<<
@@ -7022,7 +7022,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_audio(PyObjec
 */
             __pyx_v_k1 = (__pyx_v_k1 + 1);
 
-            /* "refinery/lib/unrar/filters.pyx":442
+            /* "refinery/lib/unrar/filters.pyx":443
  *                         k1 -= 1
  *                 elif num_min_dif == 2:
  *                     if k1 < 16:             # <<<<<<<<<<<<<<
@@ -7031,7 +7031,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_audio(PyObjec
 */
           }
 
-          /* "refinery/lib/unrar/filters.pyx":441
+          /* "refinery/lib/unrar/filters.pyx":442
  *                     if k1 >= -16:
  *                         k1 -= 1
  *                 elif num_min_dif == 2:             # <<<<<<<<<<<<<<
@@ -7041,7 +7041,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_audio(PyObjec
           break;
           case 3:
 
-          /* "refinery/lib/unrar/filters.pyx":445
+          /* "refinery/lib/unrar/filters.pyx":446
  *                         k1 += 1
  *                 elif num_min_dif == 3:
  *                     if k2 >= -16:             # <<<<<<<<<<<<<<
@@ -7051,7 +7051,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_audio(PyObjec
           __pyx_t_1 = (__pyx_v_k2 >= -16L);
           if (__pyx_t_1) {
 
-            /* "refinery/lib/unrar/filters.pyx":446
+            /* "refinery/lib/unrar/filters.pyx":447
  *                 elif num_min_dif == 3:
  *                     if k2 >= -16:
  *                         k2 -= 1             # <<<<<<<<<<<<<<
@@ -7060,7 +7060,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_audio(PyObjec
 */
             __pyx_v_k2 = (__pyx_v_k2 - 1);
 
-            /* "refinery/lib/unrar/filters.pyx":445
+            /* "refinery/lib/unrar/filters.pyx":446
  *                         k1 += 1
  *                 elif num_min_dif == 3:
  *                     if k2 >= -16:             # <<<<<<<<<<<<<<
@@ -7069,7 +7069,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_audio(PyObjec
 */
           }
 
-          /* "refinery/lib/unrar/filters.pyx":444
+          /* "refinery/lib/unrar/filters.pyx":445
  *                     if k1 < 16:
  *                         k1 += 1
  *                 elif num_min_dif == 3:             # <<<<<<<<<<<<<<
@@ -7079,7 +7079,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_audio(PyObjec
           break;
           case 4:
 
-          /* "refinery/lib/unrar/filters.pyx":448
+          /* "refinery/lib/unrar/filters.pyx":449
  *                         k2 -= 1
  *                 elif num_min_dif == 4:
  *                     if k2 < 16:             # <<<<<<<<<<<<<<
@@ -7089,7 +7089,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_audio(PyObjec
           __pyx_t_1 = (__pyx_v_k2 < 16);
           if (__pyx_t_1) {
 
-            /* "refinery/lib/unrar/filters.pyx":449
+            /* "refinery/lib/unrar/filters.pyx":450
  *                 elif num_min_dif == 4:
  *                     if k2 < 16:
  *                         k2 += 1             # <<<<<<<<<<<<<<
@@ -7098,7 +7098,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_audio(PyObjec
 */
             __pyx_v_k2 = (__pyx_v_k2 + 1);
 
-            /* "refinery/lib/unrar/filters.pyx":448
+            /* "refinery/lib/unrar/filters.pyx":449
  *                         k2 -= 1
  *                 elif num_min_dif == 4:
  *                     if k2 < 16:             # <<<<<<<<<<<<<<
@@ -7107,7 +7107,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_audio(PyObjec
 */
           }
 
-          /* "refinery/lib/unrar/filters.pyx":447
+          /* "refinery/lib/unrar/filters.pyx":448
  *                     if k2 >= -16:
  *                         k2 -= 1
  *                 elif num_min_dif == 4:             # <<<<<<<<<<<<<<
@@ -7117,7 +7117,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_audio(PyObjec
           break;
           case 5:
 
-          /* "refinery/lib/unrar/filters.pyx":451
+          /* "refinery/lib/unrar/filters.pyx":452
  *                         k2 += 1
  *                 elif num_min_dif == 5:
  *                     if k3 >= -16:             # <<<<<<<<<<<<<<
@@ -7127,7 +7127,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_audio(PyObjec
           __pyx_t_1 = (__pyx_v_k3 >= -16L);
           if (__pyx_t_1) {
 
-            /* "refinery/lib/unrar/filters.pyx":452
+            /* "refinery/lib/unrar/filters.pyx":453
  *                 elif num_min_dif == 5:
  *                     if k3 >= -16:
  *                         k3 -= 1             # <<<<<<<<<<<<<<
@@ -7136,7 +7136,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_audio(PyObjec
 */
             __pyx_v_k3 = (__pyx_v_k3 - 1);
 
-            /* "refinery/lib/unrar/filters.pyx":451
+            /* "refinery/lib/unrar/filters.pyx":452
  *                         k2 += 1
  *                 elif num_min_dif == 5:
  *                     if k3 >= -16:             # <<<<<<<<<<<<<<
@@ -7145,7 +7145,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_audio(PyObjec
 */
           }
 
-          /* "refinery/lib/unrar/filters.pyx":450
+          /* "refinery/lib/unrar/filters.pyx":451
  *                     if k2 < 16:
  *                         k2 += 1
  *                 elif num_min_dif == 5:             # <<<<<<<<<<<<<<
@@ -7155,7 +7155,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_audio(PyObjec
           break;
           case 6:
 
-          /* "refinery/lib/unrar/filters.pyx":454
+          /* "refinery/lib/unrar/filters.pyx":455
  *                         k3 -= 1
  *                 elif num_min_dif == 6:
  *                     if k3 < 16:             # <<<<<<<<<<<<<<
@@ -7165,7 +7165,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_audio(PyObjec
           __pyx_t_1 = (__pyx_v_k3 < 16);
           if (__pyx_t_1) {
 
-            /* "refinery/lib/unrar/filters.pyx":455
+            /* "refinery/lib/unrar/filters.pyx":456
  *                 elif num_min_dif == 6:
  *                     if k3 < 16:
  *                         k3 += 1             # <<<<<<<<<<<<<<
@@ -7174,7 +7174,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_audio(PyObjec
 */
             __pyx_v_k3 = (__pyx_v_k3 + 1);
 
-            /* "refinery/lib/unrar/filters.pyx":454
+            /* "refinery/lib/unrar/filters.pyx":455
  *                         k3 -= 1
  *                 elif num_min_dif == 6:
  *                     if k3 < 16:             # <<<<<<<<<<<<<<
@@ -7183,7 +7183,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_audio(PyObjec
 */
           }
 
-          /* "refinery/lib/unrar/filters.pyx":453
+          /* "refinery/lib/unrar/filters.pyx":454
  *                     if k3 >= -16:
  *                         k3 -= 1
  *                 elif num_min_dif == 6:             # <<<<<<<<<<<<<<
@@ -7194,7 +7194,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_audio(PyObjec
           default: break;
         }
 
-        /* "refinery/lib/unrar/filters.pyx":429
+        /* "refinery/lib/unrar/filters.pyx":430
  *             dif[6] = (dif[6] + <unsigned int>abs(d + d3)) & _U32
  * 
  *             if (byte_count & 0x1F) == 0:             # <<<<<<<<<<<<<<
@@ -7203,7 +7203,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_audio(PyObjec
 */
       }
 
-      /* "refinery/lib/unrar/filters.pyx":457
+      /* "refinery/lib/unrar/filters.pyx":458
  *                         k3 += 1
  * 
  *             byte_count += 1             # <<<<<<<<<<<<<<
@@ -7212,7 +7212,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_audio(PyObjec
 */
       __pyx_v_byte_count = (__pyx_v_byte_count + 1);
 
-      /* "refinery/lib/unrar/filters.pyx":458
+      /* "refinery/lib/unrar/filters.pyx":459
  * 
  *             byte_count += 1
  *             i += channels             # <<<<<<<<<<<<<<
@@ -7223,7 +7223,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_audio(PyObjec
     __pyx_L8_break:;
   }
 
-  /* "refinery/lib/unrar/filters.pyx":459
+  /* "refinery/lib/unrar/filters.pyx":460
  *             byte_count += 1
  *             i += channels
  *     return dst             # <<<<<<<<<<<<<<
@@ -7233,7 +7233,7 @@ static PyObject *__pyx_f_8refinery_3lib_5unrar_7filters__v3_filter_audio(PyObjec
   __pyx_r = __pyx_v_dst;
   goto __pyx_L0;
 
-  /* "refinery/lib/unrar/filters.pyx":357
+  /* "refinery/lib/unrar/filters.pyx":358
  * 
  * 
  * cdef bytearray _v3_filter_audio(bytearray data, int data_size, list init_r):             # <<<<<<<<<<<<<<
@@ -7630,11 +7630,11 @@ __Pyx_RefNannySetupContext("PyInit_filters", 0);
   /*--- Execution code ---*/
 
   /* "refinery/lib/unrar/filters.pyx":16
- * from cpython.bytearray cimport PyByteArray_AS_STRING
+ * from libc.string cimport memset
  * 
  * import enum             # <<<<<<<<<<<<<<
- * from dataclasses import dataclass
  * 
+ * from dataclasses import dataclass
 */
   __pyx_t_1 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_enum, 0, 0, NULL, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 16, __pyx_L1_error)
   __pyx_t_2 = __pyx_t_1;
@@ -7642,226 +7642,226 @@ __Pyx_RefNannySetupContext("PyInit_filters", 0);
   if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_enum, __pyx_t_2) < (0)) __PYX_ERR(0, 16, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "refinery/lib/unrar/filters.pyx":17
- * 
+  /* "refinery/lib/unrar/filters.pyx":18
  * import enum
+ * 
  * from dataclasses import dataclass             # <<<<<<<<<<<<<<
  * 
  * 
 */
   {
     PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_dataclass};
-    __pyx_t_1 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_dataclasses, __pyx_imported_names, 1, NULL, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 17, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_dataclasses, __pyx_imported_names, 1, NULL, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 18, __pyx_L1_error)
   }
   __pyx_t_2 = __pyx_t_1;
   __Pyx_GOTREF(__pyx_t_2);
   {
     PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_dataclass};
     __pyx_t_3 = 0; {
-      __pyx_t_4 = __Pyx_ImportFrom(__pyx_t_2, __pyx_imported_names[__pyx_t_3]); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 17, __pyx_L1_error)
+      __pyx_t_4 = __Pyx_ImportFrom(__pyx_t_2, __pyx_imported_names[__pyx_t_3]); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 18, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
-      if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_imported_names[__pyx_t_3], __pyx_t_4) < (0)) __PYX_ERR(0, 17, __pyx_L1_error)
+      if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_imported_names[__pyx_t_3], __pyx_t_4) < (0)) __PYX_ERR(0, 18, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     }
   }
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "refinery/lib/unrar/filters.pyx":20
+  /* "refinery/lib/unrar/filters.pyx":21
  * 
  * 
  * class FilterType(enum.IntEnum):             # <<<<<<<<<<<<<<
  *     FILTER_DELTA = 0
  *     FILTER_E8 = 1
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_enum); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 20, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_enum); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 21, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_IntEnum); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 20, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_IntEnum); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 21, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = PyTuple_Pack(1, __pyx_t_4); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 20, __pyx_L1_error)
+  __pyx_t_2 = PyTuple_Pack(1, __pyx_t_4); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 21, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  __pyx_t_4 = __Pyx_PEP560_update_bases(__pyx_t_2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 20, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PEP560_update_bases(__pyx_t_2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 21, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_5 = __Pyx_CalculateMetaclass(NULL, __pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 20, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_CalculateMetaclass(NULL, __pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 21, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_6 = __Pyx_Py3MetaclassPrepare(__pyx_t_5, __pyx_t_4, __pyx_mstate_global->__pyx_n_u_FilterType, __pyx_mstate_global->__pyx_n_u_FilterType, (PyObject *) NULL, __pyx_mstate_global->__pyx_n_u_refinery_lib_unrar_filters, (PyObject *) NULL); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 20, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_Py3MetaclassPrepare(__pyx_t_5, __pyx_t_4, __pyx_mstate_global->__pyx_n_u_FilterType, __pyx_mstate_global->__pyx_n_u_FilterType, (PyObject *) NULL, __pyx_mstate_global->__pyx_n_u_refinery_lib_unrar_filters, (PyObject *) NULL); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 21, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   if (__pyx_t_4 != __pyx_t_2) {
-    if (unlikely((PyDict_SetItemString(__pyx_t_6, "__orig_bases__", __pyx_t_2) < 0))) __PYX_ERR(0, 20, __pyx_L1_error)
+    if (unlikely((PyDict_SetItemString(__pyx_t_6, "__orig_bases__", __pyx_t_2) < 0))) __PYX_ERR(0, 21, __pyx_L1_error)
   }
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "refinery/lib/unrar/filters.pyx":21
+  /* "refinery/lib/unrar/filters.pyx":22
  * 
  * class FilterType(enum.IntEnum):
  *     FILTER_DELTA = 0             # <<<<<<<<<<<<<<
  *     FILTER_E8 = 1
  *     FILTER_E8E9 = 2
 */
-  if (__Pyx_SetNameInClass(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_FILTER_DELTA, __pyx_mstate_global->__pyx_int_0) < (0)) __PYX_ERR(0, 21, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_FILTER_DELTA, __pyx_mstate_global->__pyx_int_0) < (0)) __PYX_ERR(0, 22, __pyx_L1_error)
 
-  /* "refinery/lib/unrar/filters.pyx":22
+  /* "refinery/lib/unrar/filters.pyx":23
  * class FilterType(enum.IntEnum):
  *     FILTER_DELTA = 0
  *     FILTER_E8 = 1             # <<<<<<<<<<<<<<
  *     FILTER_E8E9 = 2
  *     FILTER_ARM = 3
 */
-  if (__Pyx_SetNameInClass(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_FILTER_E8, __pyx_mstate_global->__pyx_int_1) < (0)) __PYX_ERR(0, 22, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_FILTER_E8, __pyx_mstate_global->__pyx_int_1) < (0)) __PYX_ERR(0, 23, __pyx_L1_error)
 
-  /* "refinery/lib/unrar/filters.pyx":23
+  /* "refinery/lib/unrar/filters.pyx":24
  *     FILTER_DELTA = 0
  *     FILTER_E8 = 1
  *     FILTER_E8E9 = 2             # <<<<<<<<<<<<<<
  *     FILTER_ARM = 3
  *     FILTER_AUDIO = 4
 */
-  if (__Pyx_SetNameInClass(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_FILTER_E8E9, __pyx_mstate_global->__pyx_int_2) < (0)) __PYX_ERR(0, 23, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_FILTER_E8E9, __pyx_mstate_global->__pyx_int_2) < (0)) __PYX_ERR(0, 24, __pyx_L1_error)
 
-  /* "refinery/lib/unrar/filters.pyx":24
+  /* "refinery/lib/unrar/filters.pyx":25
  *     FILTER_E8 = 1
  *     FILTER_E8E9 = 2
  *     FILTER_ARM = 3             # <<<<<<<<<<<<<<
  *     FILTER_AUDIO = 4
  *     FILTER_RGB = 5
 */
-  if (__Pyx_SetNameInClass(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_FILTER_ARM, __pyx_mstate_global->__pyx_int_3) < (0)) __PYX_ERR(0, 24, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_FILTER_ARM, __pyx_mstate_global->__pyx_int_3) < (0)) __PYX_ERR(0, 25, __pyx_L1_error)
 
-  /* "refinery/lib/unrar/filters.pyx":25
+  /* "refinery/lib/unrar/filters.pyx":26
  *     FILTER_E8E9 = 2
  *     FILTER_ARM = 3
  *     FILTER_AUDIO = 4             # <<<<<<<<<<<<<<
  *     FILTER_RGB = 5
  *     FILTER_ITANIUM = 6
 */
-  if (__Pyx_SetNameInClass(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_FILTER_AUDIO, __pyx_mstate_global->__pyx_int_4) < (0)) __PYX_ERR(0, 25, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_FILTER_AUDIO, __pyx_mstate_global->__pyx_int_4) < (0)) __PYX_ERR(0, 26, __pyx_L1_error)
 
-  /* "refinery/lib/unrar/filters.pyx":26
+  /* "refinery/lib/unrar/filters.pyx":27
  *     FILTER_ARM = 3
  *     FILTER_AUDIO = 4
  *     FILTER_RGB = 5             # <<<<<<<<<<<<<<
  *     FILTER_ITANIUM = 6
  *     FILTER_PPM = 7
 */
-  if (__Pyx_SetNameInClass(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_FILTER_RGB, __pyx_mstate_global->__pyx_int_5) < (0)) __PYX_ERR(0, 26, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_FILTER_RGB, __pyx_mstate_global->__pyx_int_5) < (0)) __PYX_ERR(0, 27, __pyx_L1_error)
 
-  /* "refinery/lib/unrar/filters.pyx":27
+  /* "refinery/lib/unrar/filters.pyx":28
  *     FILTER_AUDIO = 4
  *     FILTER_RGB = 5
  *     FILTER_ITANIUM = 6             # <<<<<<<<<<<<<<
  *     FILTER_PPM = 7
  *     FILTER_NONE = 8
 */
-  if (__Pyx_SetNameInClass(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_FILTER_ITANIUM, __pyx_mstate_global->__pyx_int_6) < (0)) __PYX_ERR(0, 27, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_FILTER_ITANIUM, __pyx_mstate_global->__pyx_int_6) < (0)) __PYX_ERR(0, 28, __pyx_L1_error)
 
-  /* "refinery/lib/unrar/filters.pyx":28
+  /* "refinery/lib/unrar/filters.pyx":29
  *     FILTER_RGB = 5
  *     FILTER_ITANIUM = 6
  *     FILTER_PPM = 7             # <<<<<<<<<<<<<<
  *     FILTER_NONE = 8
  * 
 */
-  if (__Pyx_SetNameInClass(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_FILTER_PPM, __pyx_mstate_global->__pyx_int_7) < (0)) __PYX_ERR(0, 28, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_FILTER_PPM, __pyx_mstate_global->__pyx_int_7) < (0)) __PYX_ERR(0, 29, __pyx_L1_error)
 
-  /* "refinery/lib/unrar/filters.pyx":29
+  /* "refinery/lib/unrar/filters.pyx":30
  *     FILTER_ITANIUM = 6
  *     FILTER_PPM = 7
  *     FILTER_NONE = 8             # <<<<<<<<<<<<<<
  * 
  * 
 */
-  if (__Pyx_SetNameInClass(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_FILTER_NONE, __pyx_mstate_global->__pyx_int_8) < (0)) __PYX_ERR(0, 29, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_FILTER_NONE, __pyx_mstate_global->__pyx_int_8) < (0)) __PYX_ERR(0, 30, __pyx_L1_error)
 
-  /* "refinery/lib/unrar/filters.pyx":20
+  /* "refinery/lib/unrar/filters.pyx":21
  * 
  * 
  * class FilterType(enum.IntEnum):             # <<<<<<<<<<<<<<
  *     FILTER_DELTA = 0
  *     FILTER_E8 = 1
 */
-  __pyx_t_2 = __Pyx_Py3ClassCreate(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_FilterType, __pyx_t_4, __pyx_t_6, NULL, 0, 0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 20, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_Py3ClassCreate(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_FilterType, __pyx_t_4, __pyx_t_6, NULL, 0, 0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 21, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_2);
   #endif
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_FilterType, __pyx_t_2) < (0)) __PYX_ERR(0, 20, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_FilterType, __pyx_t_2) < (0)) __PYX_ERR(0, 21, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "refinery/lib/unrar/filters.pyx":33
+  /* "refinery/lib/unrar/filters.pyx":34
  * 
  * @dataclass
  * class UnpackFilter:             # <<<<<<<<<<<<<<
  *     """
  *     A pending filter to be applied during decompression.
 */
-  __pyx_t_4 = __Pyx_Py3MetaclassPrepare((PyObject *) NULL, __pyx_mstate_global->__pyx_empty_tuple, __pyx_mstate_global->__pyx_n_u_UnpackFilter, __pyx_mstate_global->__pyx_n_u_UnpackFilter, (PyObject *) NULL, __pyx_mstate_global->__pyx_n_u_refinery_lib_unrar_filters, __pyx_mstate_global->__pyx_kp_u_A_pending_filter_to_be_applied); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 33, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_Py3MetaclassPrepare((PyObject *) NULL, __pyx_mstate_global->__pyx_empty_tuple, __pyx_mstate_global->__pyx_n_u_UnpackFilter, __pyx_mstate_global->__pyx_n_u_UnpackFilter, (PyObject *) NULL, __pyx_mstate_global->__pyx_n_u_refinery_lib_unrar_filters, __pyx_mstate_global->__pyx_kp_u_A_pending_filter_to_be_applied); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 34, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_5 = __Pyx_PyDict_NewPresized(5); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 33, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyDict_NewPresized(5); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 34, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_type, __pyx_mstate_global->__pyx_n_u_int) < (0)) __PYX_ERR(0, 33, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_block_start, __pyx_mstate_global->__pyx_n_u_int) < (0)) __PYX_ERR(0, 33, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_block_length, __pyx_mstate_global->__pyx_n_u_int) < (0)) __PYX_ERR(0, 33, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_channels, __pyx_mstate_global->__pyx_n_u_int) < (0)) __PYX_ERR(0, 33, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_next_window, __pyx_mstate_global->__pyx_n_u_int) < (0)) __PYX_ERR(0, 33, __pyx_L1_error)
-  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_annotations, __pyx_t_5) < (0)) __PYX_ERR(0, 33, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_type, __pyx_mstate_global->__pyx_n_u_int) < (0)) __PYX_ERR(0, 34, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_block_start, __pyx_mstate_global->__pyx_n_u_int) < (0)) __PYX_ERR(0, 34, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_block_length, __pyx_mstate_global->__pyx_n_u_int) < (0)) __PYX_ERR(0, 34, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_channels, __pyx_mstate_global->__pyx_n_u_int) < (0)) __PYX_ERR(0, 34, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_next_window, __pyx_mstate_global->__pyx_n_u_int) < (0)) __PYX_ERR(0, 34, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_annotations, __pyx_t_5) < (0)) __PYX_ERR(0, 34, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "refinery/lib/unrar/filters.pyx":37
+  /* "refinery/lib/unrar/filters.pyx":38
  *     A pending filter to be applied during decompression.
  *     """
  *     type: int = FilterType.FILTER_NONE             # <<<<<<<<<<<<<<
  *     block_start: int = 0
  *     block_length: int = 0
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_FilterType); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 37, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_FilterType); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 38, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_FILTER_NONE); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 37, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_FILTER_NONE); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 38, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_type, __pyx_t_6) < (0)) __PYX_ERR(0, 37, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_type, __pyx_t_6) < (0)) __PYX_ERR(0, 38, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-  /* "refinery/lib/unrar/filters.pyx":38
+  /* "refinery/lib/unrar/filters.pyx":39
  *     """
  *     type: int = FilterType.FILTER_NONE
  *     block_start: int = 0             # <<<<<<<<<<<<<<
  *     block_length: int = 0
  *     channels: int = 0
 */
-  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_block_start, __pyx_mstate_global->__pyx_int_0) < (0)) __PYX_ERR(0, 38, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_block_start, __pyx_mstate_global->__pyx_int_0) < (0)) __PYX_ERR(0, 39, __pyx_L1_error)
 
-  /* "refinery/lib/unrar/filters.pyx":39
+  /* "refinery/lib/unrar/filters.pyx":40
  *     type: int = FilterType.FILTER_NONE
  *     block_start: int = 0
  *     block_length: int = 0             # <<<<<<<<<<<<<<
  *     channels: int = 0
  *     next_window: int = 0
 */
-  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_block_length, __pyx_mstate_global->__pyx_int_0) < (0)) __PYX_ERR(0, 39, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_block_length, __pyx_mstate_global->__pyx_int_0) < (0)) __PYX_ERR(0, 40, __pyx_L1_error)
 
-  /* "refinery/lib/unrar/filters.pyx":40
+  /* "refinery/lib/unrar/filters.pyx":41
  *     block_start: int = 0
  *     block_length: int = 0
  *     channels: int = 0             # <<<<<<<<<<<<<<
  *     next_window: int = 0
  * 
 */
-  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_channels, __pyx_mstate_global->__pyx_int_0) < (0)) __PYX_ERR(0, 40, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_channels, __pyx_mstate_global->__pyx_int_0) < (0)) __PYX_ERR(0, 41, __pyx_L1_error)
 
-  /* "refinery/lib/unrar/filters.pyx":41
+  /* "refinery/lib/unrar/filters.pyx":42
  *     block_length: int = 0
  *     channels: int = 0
  *     next_window: int = 0             # <<<<<<<<<<<<<<
  * 
  * 
 */
-  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_next_window, __pyx_mstate_global->__pyx_int_0) < (0)) __PYX_ERR(0, 41, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_next_window, __pyx_mstate_global->__pyx_int_0) < (0)) __PYX_ERR(0, 42, __pyx_L1_error)
 
-  /* "refinery/lib/unrar/filters.pyx":32
+  /* "refinery/lib/unrar/filters.pyx":33
  * 
  * 
  * @dataclass             # <<<<<<<<<<<<<<
@@ -7869,17 +7869,17 @@ __Pyx_RefNannySetupContext("PyInit_filters", 0);
  *     """
 */
   __pyx_t_5 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_dataclass); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 32, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_dataclass); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 33, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
 
-  /* "refinery/lib/unrar/filters.pyx":33
+  /* "refinery/lib/unrar/filters.pyx":34
  * 
  * @dataclass
  * class UnpackFilter:             # <<<<<<<<<<<<<<
  *     """
  *     A pending filter to be applied during decompression.
 */
-  __pyx_t_7 = __Pyx_Py3ClassCreate(((PyObject*)&PyType_Type), __pyx_mstate_global->__pyx_n_u_UnpackFilter, __pyx_mstate_global->__pyx_empty_tuple, __pyx_t_4, NULL, 0, 0); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 33, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_Py3ClassCreate(((PyObject*)&PyType_Type), __pyx_mstate_global->__pyx_n_u_UnpackFilter, __pyx_mstate_global->__pyx_empty_tuple, __pyx_t_4, NULL, 0, 0); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 34, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_7);
@@ -7891,284 +7891,284 @@ __Pyx_RefNannySetupContext("PyInit_filters", 0);
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 32, __pyx_L1_error)
+    if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 33, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
   }
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_UnpackFilter, __pyx_t_6) < (0)) __PYX_ERR(0, 33, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_UnpackFilter, __pyx_t_6) < (0)) __PYX_ERR(0, 34, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "refinery/lib/unrar/filters.pyx":47
+  /* "refinery/lib/unrar/filters.pyx":48
  *     bytearray data,
  *     int filter_type,
  *     int channels=0,             # <<<<<<<<<<<<<<
  *     int file_offset=0,
  * ):
 */
-  __pyx_t_4 = __Pyx_PyLong_From_int(((int)0)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 47, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyLong_From_int(((int)0)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 48, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
 
-  /* "refinery/lib/unrar/filters.pyx":48
+  /* "refinery/lib/unrar/filters.pyx":49
  *     int filter_type,
  *     int channels=0,
  *     int file_offset=0,             # <<<<<<<<<<<<<<
  * ):
  *     """
 */
-  __pyx_t_6 = __Pyx_PyLong_From_int(((int)0)); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 48, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyLong_From_int(((int)0)); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 49, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
 
-  /* "refinery/lib/unrar/filters.pyx":44
+  /* "refinery/lib/unrar/filters.pyx":45
  * 
  * 
  * def apply_filter(             # <<<<<<<<<<<<<<
  *     bytearray data,
  *     int filter_type,
 */
-  __pyx_t_2 = PyTuple_Pack(2, __pyx_t_4, __pyx_t_6); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 44, __pyx_L1_error)
+  __pyx_t_2 = PyTuple_Pack(2, __pyx_t_4, __pyx_t_6); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 45, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-  __pyx_t_6 = __Pyx_CyFunction_New(&__pyx_mdef_8refinery_3lib_5unrar_7filters_1apply_filter, 0, __pyx_mstate_global->__pyx_n_u_apply_filter, NULL, __pyx_mstate_global->__pyx_n_u_refinery_lib_unrar_filters, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[0])); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 44, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_CyFunction_New(&__pyx_mdef_8refinery_3lib_5unrar_7filters_1apply_filter, 0, __pyx_mstate_global->__pyx_n_u_apply_filter, NULL, __pyx_mstate_global->__pyx_n_u_refinery_lib_unrar_filters, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[0])); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 45, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_6);
   #endif
   __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_6, __pyx_t_2);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_apply_filter, __pyx_t_6) < (0)) __PYX_ERR(0, 44, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_apply_filter, __pyx_t_6) < (0)) __PYX_ERR(0, 45, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-  /* "refinery/lib/unrar/filters.pyx":143
+  /* "refinery/lib/unrar/filters.pyx":144
  * 
  * 
  * class V3FilterType(enum.IntEnum):             # <<<<<<<<<<<<<<
  *     VMSF_NONE = 0
  *     VMSF_E8 = 1
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_enum); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 143, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_enum); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 144, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_IntEnum); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 143, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_IntEnum); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 144, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-  __pyx_t_6 = PyTuple_Pack(1, __pyx_t_2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 143, __pyx_L1_error)
+  __pyx_t_6 = PyTuple_Pack(1, __pyx_t_2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 144, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = __Pyx_PEP560_update_bases(__pyx_t_6); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 143, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PEP560_update_bases(__pyx_t_6); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 144, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_4 = __Pyx_CalculateMetaclass(NULL, __pyx_t_2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 143, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CalculateMetaclass(NULL, __pyx_t_2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 144, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_7 = __Pyx_Py3MetaclassPrepare(__pyx_t_4, __pyx_t_2, __pyx_mstate_global->__pyx_n_u_V3FilterType, __pyx_mstate_global->__pyx_n_u_V3FilterType, (PyObject *) NULL, __pyx_mstate_global->__pyx_n_u_refinery_lib_unrar_filters, (PyObject *) NULL); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 143, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_Py3MetaclassPrepare(__pyx_t_4, __pyx_t_2, __pyx_mstate_global->__pyx_n_u_V3FilterType, __pyx_mstate_global->__pyx_n_u_V3FilterType, (PyObject *) NULL, __pyx_mstate_global->__pyx_n_u_refinery_lib_unrar_filters, (PyObject *) NULL); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 144, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
   if (__pyx_t_2 != __pyx_t_6) {
-    if (unlikely((PyDict_SetItemString(__pyx_t_7, "__orig_bases__", __pyx_t_6) < 0))) __PYX_ERR(0, 143, __pyx_L1_error)
+    if (unlikely((PyDict_SetItemString(__pyx_t_7, "__orig_bases__", __pyx_t_6) < 0))) __PYX_ERR(0, 144, __pyx_L1_error)
   }
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-  /* "refinery/lib/unrar/filters.pyx":144
+  /* "refinery/lib/unrar/filters.pyx":145
  * 
  * class V3FilterType(enum.IntEnum):
  *     VMSF_NONE = 0             # <<<<<<<<<<<<<<
  *     VMSF_E8 = 1
  *     VMSF_E8E9 = 2
 */
-  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_VMSF_NONE, __pyx_mstate_global->__pyx_int_0) < (0)) __PYX_ERR(0, 144, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_VMSF_NONE, __pyx_mstate_global->__pyx_int_0) < (0)) __PYX_ERR(0, 145, __pyx_L1_error)
 
-  /* "refinery/lib/unrar/filters.pyx":145
+  /* "refinery/lib/unrar/filters.pyx":146
  * class V3FilterType(enum.IntEnum):
  *     VMSF_NONE = 0
  *     VMSF_E8 = 1             # <<<<<<<<<<<<<<
  *     VMSF_E8E9 = 2
  *     VMSF_ITANIUM = 3
 */
-  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_VMSF_E8, __pyx_mstate_global->__pyx_int_1) < (0)) __PYX_ERR(0, 145, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_VMSF_E8, __pyx_mstate_global->__pyx_int_1) < (0)) __PYX_ERR(0, 146, __pyx_L1_error)
 
-  /* "refinery/lib/unrar/filters.pyx":146
+  /* "refinery/lib/unrar/filters.pyx":147
  *     VMSF_NONE = 0
  *     VMSF_E8 = 1
  *     VMSF_E8E9 = 2             # <<<<<<<<<<<<<<
  *     VMSF_ITANIUM = 3
  *     VMSF_RGB = 4
 */
-  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_VMSF_E8E9, __pyx_mstate_global->__pyx_int_2) < (0)) __PYX_ERR(0, 146, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_VMSF_E8E9, __pyx_mstate_global->__pyx_int_2) < (0)) __PYX_ERR(0, 147, __pyx_L1_error)
 
-  /* "refinery/lib/unrar/filters.pyx":147
+  /* "refinery/lib/unrar/filters.pyx":148
  *     VMSF_E8 = 1
  *     VMSF_E8E9 = 2
  *     VMSF_ITANIUM = 3             # <<<<<<<<<<<<<<
  *     VMSF_RGB = 4
  *     VMSF_AUDIO = 5
 */
-  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_VMSF_ITANIUM, __pyx_mstate_global->__pyx_int_3) < (0)) __PYX_ERR(0, 147, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_VMSF_ITANIUM, __pyx_mstate_global->__pyx_int_3) < (0)) __PYX_ERR(0, 148, __pyx_L1_error)
 
-  /* "refinery/lib/unrar/filters.pyx":148
+  /* "refinery/lib/unrar/filters.pyx":149
  *     VMSF_E8E9 = 2
  *     VMSF_ITANIUM = 3
  *     VMSF_RGB = 4             # <<<<<<<<<<<<<<
  *     VMSF_AUDIO = 5
  *     VMSF_DELTA = 6
 */
-  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_VMSF_RGB, __pyx_mstate_global->__pyx_int_4) < (0)) __PYX_ERR(0, 148, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_VMSF_RGB, __pyx_mstate_global->__pyx_int_4) < (0)) __PYX_ERR(0, 149, __pyx_L1_error)
 
-  /* "refinery/lib/unrar/filters.pyx":149
+  /* "refinery/lib/unrar/filters.pyx":150
  *     VMSF_ITANIUM = 3
  *     VMSF_RGB = 4
  *     VMSF_AUDIO = 5             # <<<<<<<<<<<<<<
  *     VMSF_DELTA = 6
  * 
 */
-  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_VMSF_AUDIO, __pyx_mstate_global->__pyx_int_5) < (0)) __PYX_ERR(0, 149, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_VMSF_AUDIO, __pyx_mstate_global->__pyx_int_5) < (0)) __PYX_ERR(0, 150, __pyx_L1_error)
 
-  /* "refinery/lib/unrar/filters.pyx":150
+  /* "refinery/lib/unrar/filters.pyx":151
  *     VMSF_RGB = 4
  *     VMSF_AUDIO = 5
  *     VMSF_DELTA = 6             # <<<<<<<<<<<<<<
  * 
  * 
 */
-  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_VMSF_DELTA, __pyx_mstate_global->__pyx_int_6) < (0)) __PYX_ERR(0, 150, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_VMSF_DELTA, __pyx_mstate_global->__pyx_int_6) < (0)) __PYX_ERR(0, 151, __pyx_L1_error)
 
-  /* "refinery/lib/unrar/filters.pyx":143
+  /* "refinery/lib/unrar/filters.pyx":144
  * 
  * 
  * class V3FilterType(enum.IntEnum):             # <<<<<<<<<<<<<<
  *     VMSF_NONE = 0
  *     VMSF_E8 = 1
 */
-  __pyx_t_6 = __Pyx_Py3ClassCreate(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_V3FilterType, __pyx_t_2, __pyx_t_7, NULL, 0, 0); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 143, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_Py3ClassCreate(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_V3FilterType, __pyx_t_2, __pyx_t_7, NULL, 0, 0); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 144, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_6);
   #endif
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_V3FilterType, __pyx_t_6) < (0)) __PYX_ERR(0, 143, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_V3FilterType, __pyx_t_6) < (0)) __PYX_ERR(0, 144, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "refinery/lib/unrar/filters.pyx":154
+  /* "refinery/lib/unrar/filters.pyx":155
  * 
  * _V3_FILTER_CRC = {
  *     0xAD576887: V3FilterType.VMSF_E8,             # <<<<<<<<<<<<<<
  *     0x3CD7E57E: V3FilterType.VMSF_E8E9,
  *     0x3769893F: V3FilterType.VMSF_ITANIUM,
 */
-  __pyx_t_2 = __Pyx_PyDict_NewPresized(6); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 154, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyDict_NewPresized(6); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 155, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_V3FilterType); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 154, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_V3FilterType); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 155, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_VMSF_E8); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 154, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_VMSF_E8); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 155, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_int_2908186759, __pyx_t_7) < (0)) __PYX_ERR(0, 154, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_int_2908186759, __pyx_t_7) < (0)) __PYX_ERR(0, 155, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
 
-  /* "refinery/lib/unrar/filters.pyx":155
+  /* "refinery/lib/unrar/filters.pyx":156
  * _V3_FILTER_CRC = {
  *     0xAD576887: V3FilterType.VMSF_E8,
  *     0x3CD7E57E: V3FilterType.VMSF_E8E9,             # <<<<<<<<<<<<<<
  *     0x3769893F: V3FilterType.VMSF_ITANIUM,
  *     0x0E06077D: V3FilterType.VMSF_DELTA,
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_V3FilterType); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 155, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_V3FilterType); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 156, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_VMSF_E8E9); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 155, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_VMSF_E8E9); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 156, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_int_1020781950, __pyx_t_4) < (0)) __PYX_ERR(0, 154, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_int_1020781950, __pyx_t_4) < (0)) __PYX_ERR(0, 155, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "refinery/lib/unrar/filters.pyx":156
+  /* "refinery/lib/unrar/filters.pyx":157
  *     0xAD576887: V3FilterType.VMSF_E8,
  *     0x3CD7E57E: V3FilterType.VMSF_E8E9,
  *     0x3769893F: V3FilterType.VMSF_ITANIUM,             # <<<<<<<<<<<<<<
  *     0x0E06077D: V3FilterType.VMSF_DELTA,
  *     0x1C2C5DC8: V3FilterType.VMSF_RGB,
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_V3FilterType); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 156, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_V3FilterType); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 157, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_VMSF_ITANIUM); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 156, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_VMSF_ITANIUM); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 157, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_int_929663295, __pyx_t_7) < (0)) __PYX_ERR(0, 154, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_int_929663295, __pyx_t_7) < (0)) __PYX_ERR(0, 155, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
 
-  /* "refinery/lib/unrar/filters.pyx":157
+  /* "refinery/lib/unrar/filters.pyx":158
  *     0x3CD7E57E: V3FilterType.VMSF_E8E9,
  *     0x3769893F: V3FilterType.VMSF_ITANIUM,
  *     0x0E06077D: V3FilterType.VMSF_DELTA,             # <<<<<<<<<<<<<<
  *     0x1C2C5DC8: V3FilterType.VMSF_RGB,
  *     0xBC85E701: V3FilterType.VMSF_AUDIO,
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_V3FilterType); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 157, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_V3FilterType); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 158, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_VMSF_DELTA); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 157, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_VMSF_DELTA); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 158, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_int_235276157, __pyx_t_4) < (0)) __PYX_ERR(0, 154, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_int_235276157, __pyx_t_4) < (0)) __PYX_ERR(0, 155, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "refinery/lib/unrar/filters.pyx":158
+  /* "refinery/lib/unrar/filters.pyx":159
  *     0x3769893F: V3FilterType.VMSF_ITANIUM,
  *     0x0E06077D: V3FilterType.VMSF_DELTA,
  *     0x1C2C5DC8: V3FilterType.VMSF_RGB,             # <<<<<<<<<<<<<<
  *     0xBC85E701: V3FilterType.VMSF_AUDIO,
  * }
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_V3FilterType); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 158, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_V3FilterType); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 159, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_VMSF_RGB); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 158, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_VMSF_RGB); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 159, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_int_472669640, __pyx_t_7) < (0)) __PYX_ERR(0, 154, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_int_472669640, __pyx_t_7) < (0)) __PYX_ERR(0, 155, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
 
-  /* "refinery/lib/unrar/filters.pyx":159
+  /* "refinery/lib/unrar/filters.pyx":160
  *     0x0E06077D: V3FilterType.VMSF_DELTA,
  *     0x1C2C5DC8: V3FilterType.VMSF_RGB,
  *     0xBC85E701: V3FilterType.VMSF_AUDIO,             # <<<<<<<<<<<<<<
  * }
  * 
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_V3FilterType); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 159, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_V3FilterType); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 160, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_VMSF_AUDIO); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 159, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_VMSF_AUDIO); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 160, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_int_3162892033, __pyx_t_4) < (0)) __PYX_ERR(0, 154, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_int_3162892033, __pyx_t_4) < (0)) __PYX_ERR(0, 155, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_V3_FILTER_CRC, __pyx_t_2) < (0)) __PYX_ERR(0, 153, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_V3_FILTER_CRC, __pyx_t_2) < (0)) __PYX_ERR(0, 154, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "refinery/lib/unrar/filters.pyx":163
+  /* "refinery/lib/unrar/filters.pyx":164
  * 
  * 
  * def identify_v3_filter(code_crc):             # <<<<<<<<<<<<<<
  *     """
  *     Identify a RAR3 VM filter by its bytecode CRC32.
 */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_8refinery_3lib_5unrar_7filters_3identify_v3_filter, 0, __pyx_mstate_global->__pyx_n_u_identify_v3_filter, NULL, __pyx_mstate_global->__pyx_n_u_refinery_lib_unrar_filters, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[1])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 163, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_8refinery_3lib_5unrar_7filters_3identify_v3_filter, 0, __pyx_mstate_global->__pyx_n_u_identify_v3_filter, NULL, __pyx_mstate_global->__pyx_n_u_refinery_lib_unrar_filters, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[1])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 164, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_2);
   #endif
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_identify_v3_filter, __pyx_t_2) < (0)) __PYX_ERR(0, 163, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_identify_v3_filter, __pyx_t_2) < (0)) __PYX_ERR(0, 164, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "refinery/lib/unrar/filters.pyx":170
+  /* "refinery/lib/unrar/filters.pyx":171
  * 
  * 
  * def execute_v3_filter(             # <<<<<<<<<<<<<<
  *     int filter_type,
  *     bytearray data,
 */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_8refinery_3lib_5unrar_7filters_5execute_v3_filter, 0, __pyx_mstate_global->__pyx_n_u_execute_v3_filter, NULL, __pyx_mstate_global->__pyx_n_u_refinery_lib_unrar_filters, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[2])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 170, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_8refinery_3lib_5unrar_7filters_5execute_v3_filter, 0, __pyx_mstate_global->__pyx_n_u_execute_v3_filter, NULL, __pyx_mstate_global->__pyx_n_u_refinery_lib_unrar_filters, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[2])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 171, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_2);
   #endif
   __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_2, __pyx_mstate_global->__pyx_tuple[2]);
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_execute_v3_filter, __pyx_t_2) < (0)) __PYX_ERR(0, 170, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_execute_v3_filter, __pyx_t_2) < (0)) __PYX_ERR(0, 171, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
   /* "refinery/lib/unrar/filters.pyx":1
@@ -8238,36 +8238,36 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
   CYTHON_UNUSED_VAR(__pyx_mstate);
   __Pyx_RefNannySetupContext("__Pyx_InitCachedConstants", 0);
 
-  /* "refinery/lib/unrar/filters.pyx":252
+  /* "refinery/lib/unrar/filters.pyx":253
  *     aligned_size = data_size & ~0xF
  * 
  *     byte_masks = (4, 4, 6, 6, 0, 0, 7, 7, 4, 4, 0, 0, 4, 4, 0, 0)             # <<<<<<<<<<<<<<
  * 
  *     for i in range(0, aligned_size, 16):
 */
-  __pyx_mstate_global->__pyx_tuple[0] = PyTuple_Pack(16, __pyx_mstate_global->__pyx_int_4, __pyx_mstate_global->__pyx_int_4, __pyx_mstate_global->__pyx_int_6, __pyx_mstate_global->__pyx_int_6, __pyx_mstate_global->__pyx_int_0, __pyx_mstate_global->__pyx_int_0, __pyx_mstate_global->__pyx_int_7, __pyx_mstate_global->__pyx_int_7, __pyx_mstate_global->__pyx_int_4, __pyx_mstate_global->__pyx_int_4, __pyx_mstate_global->__pyx_int_0, __pyx_mstate_global->__pyx_int_0, __pyx_mstate_global->__pyx_int_4, __pyx_mstate_global->__pyx_int_4, __pyx_mstate_global->__pyx_int_0, __pyx_mstate_global->__pyx_int_0); if (unlikely(!__pyx_mstate_global->__pyx_tuple[0])) __PYX_ERR(0, 252, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[0] = PyTuple_Pack(16, __pyx_mstate_global->__pyx_int_4, __pyx_mstate_global->__pyx_int_4, __pyx_mstate_global->__pyx_int_6, __pyx_mstate_global->__pyx_int_6, __pyx_mstate_global->__pyx_int_0, __pyx_mstate_global->__pyx_int_0, __pyx_mstate_global->__pyx_int_7, __pyx_mstate_global->__pyx_int_7, __pyx_mstate_global->__pyx_int_4, __pyx_mstate_global->__pyx_int_4, __pyx_mstate_global->__pyx_int_0, __pyx_mstate_global->__pyx_int_0, __pyx_mstate_global->__pyx_int_4, __pyx_mstate_global->__pyx_int_4, __pyx_mstate_global->__pyx_int_0, __pyx_mstate_global->__pyx_int_0); if (unlikely(!__pyx_mstate_global->__pyx_tuple[0])) __PYX_ERR(0, 253, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[0]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[0]);
 
-  /* "refinery/lib/unrar/filters.pyx":281
+  /* "refinery/lib/unrar/filters.pyx":282
  *                 mask = ((1 << 41) - 1) << bit_pos
  *                 val = (val & ~mask) | ((raw & ((1 << 41) - 1)) << bit_pos)
  *                 data[idx:idx + 16] = val.to_bytes(16, 'little')             # <<<<<<<<<<<<<<
  *     return data
  * 
 */
-  __pyx_mstate_global->__pyx_tuple[1] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_int_16, __pyx_mstate_global->__pyx_n_u_little); if (unlikely(!__pyx_mstate_global->__pyx_tuple[1])) __PYX_ERR(0, 281, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[1] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_int_16, __pyx_mstate_global->__pyx_n_u_little); if (unlikely(!__pyx_mstate_global->__pyx_tuple[1])) __PYX_ERR(0, 282, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[1]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[1]);
 
-  /* "refinery/lib/unrar/filters.pyx":170
+  /* "refinery/lib/unrar/filters.pyx":171
  * 
  * 
  * def execute_v3_filter(             # <<<<<<<<<<<<<<
  *     int filter_type,
  *     bytearray data,
 */
-  __pyx_mstate_global->__pyx_tuple[2] = PyTuple_Pack(1, Py_None); if (unlikely(!__pyx_mstate_global->__pyx_tuple[2])) __PYX_ERR(0, 170, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[2] = PyTuple_Pack(1, Py_None); if (unlikely(!__pyx_mstate_global->__pyx_tuple[2])) __PYX_ERR(0, 171, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[2]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[2]);
   #if CYTHON_IMMORTAL_CONSTANTS
@@ -8428,17 +8428,17 @@ static int __Pyx_CreateCodeObjects(__pyx_mstatetype *__pyx_mstate) {
   PyObject* tuple_dedup_map = PyDict_New();
   if (unlikely(!tuple_dedup_map)) return -1;
   {
-    const __Pyx_PyCode_New_function_description descr = {4, 0, 0, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 44};
+    const __Pyx_PyCode_New_function_description descr = {4, 0, 0, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 45};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_data, __pyx_mstate->__pyx_n_u_filter_type, __pyx_mstate->__pyx_n_u_channels, __pyx_mstate->__pyx_n_u_file_offset};
     __pyx_mstate_global->__pyx_codeobj_tab[0] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_refinery_lib_unrar_filters_pyx, __pyx_mstate->__pyx_n_u_apply_filter, __pyx_mstate->__pyx_kp_b_iso88591_4z_Zq_z_Cz_q_3j_6_3j_AV1_1, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[0])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 163};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 164};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_code_crc};
     __pyx_mstate_global->__pyx_codeobj_tab[1] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_refinery_lib_unrar_filters_pyx, __pyx_mstate->__pyx_n_u_identify_v3_filter, __pyx_mstate->__pyx_kp_b_iso88591_Qj_A, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[1])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {4, 0, 0, 5, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 170};
+    const __Pyx_PyCode_New_function_description descr = {4, 0, 0, 5, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 171};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_filter_type, __pyx_mstate->__pyx_n_u_data, __pyx_mstate->__pyx_n_u_block_length, __pyx_mstate->__pyx_n_u_initial_register_values, __pyx_mstate->__pyx_n_u_ir};
     __pyx_mstate_global->__pyx_codeobj_tab[2] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_refinery_lib_unrar_filters_pyx, __pyx_mstate->__pyx_n_u_execute_v3_filter, __pyx_mstate->__pyx_kp_b_iso88591_3l_AV_S_A_AV_q_S_A_a_S_A_q_nA_S, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[2])) goto bad;
   }

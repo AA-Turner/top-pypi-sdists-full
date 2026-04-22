@@ -59,6 +59,8 @@ __all__ = (
     "PowerDrawKvaType",
     "PowerFeedDropType",
     "PowerPhaseType",
+    "PricingResultType",
+    "QuotePricingTypeType",
     "RegionName",
     "ResourceServiceName",
     "ServiceName",
@@ -75,8 +77,8 @@ __all__ = (
 
 AWSServiceNameType = Literal["AWS", "EC2", "ELASTICACHE", "ELB", "RDS", "ROUTE53"]
 AddressTypeType = Literal["OPERATING_ADDRESS", "SHIPPING_ADDRESS"]
-AssetStateType = Literal["ACTIVE", "ISOLATED", "RETIRING"]
-AssetTypeType = Literal["COMPUTE"]
+AssetStateType = Literal["ACTIVE", "INSTALLING", "ISOLATED", "RETIRING"]
+AssetTypeType = Literal["COMPUTE", "NETWORKING", "POWERSHELF", "STORAGE", "SWITCH"]
 BlockingResourceTypeType = Literal[
     "EC2_INSTANCE",
     "LGW_ROUTE_TABLE",
@@ -104,7 +106,7 @@ CapacityTaskStatusType = Literal[
 ]
 CatalogItemClassType = Literal["RACK", "SERVER"]
 CatalogItemStatusType = Literal["AVAILABLE", "DISCONTINUED"]
-ComputeAssetStateType = Literal["ACTIVE", "ISOLATED", "RETIRING"]
+ComputeAssetStateType = Literal["ACTIVE", "INSTALLING", "ISOLATED", "RETIRING"]
 DecommissionRequestStatusType = Literal["BLOCKED", "REQUESTED", "SKIPPED"]
 FiberOpticCableTypeType = Literal["MULTI_MODE", "SINGLE_MODE"]
 GetOutpostBillingInformationPaginatorName = Literal["get_outpost_billing_information"]
@@ -169,8 +171,10 @@ PowerConnectorType = Literal["AH530P7W", "AH532P6W", "CS8365C", "IEC309", "L6_30
 PowerDrawKvaType = Literal["POWER_10_KVA", "POWER_15_KVA", "POWER_30_KVA", "POWER_5_KVA"]
 PowerFeedDropType = Literal["ABOVE_RACK", "BELOW_RACK"]
 PowerPhaseType = Literal["SINGLE_PHASE", "THREE_PHASE"]
+PricingResultType = Literal["PRICED", "UNABLE_TO_PRICE"]
+QuotePricingTypeType = Literal["SUBSCRIPTION"]
 ShipmentCarrierType = Literal["DBS", "DHL", "EXPEDITORS", "FEDEX", "UPS"]
-SubscriptionStatusType = Literal["ACTIVE", "CANCELLED", "INACTIVE"]
+SubscriptionStatusType = Literal["ACTIVE", "CANCELLED", "INACTIVE", "PENDING"]
 SubscriptionTypeType = Literal["CAPACITY_INCREASE", "ORIGINAL", "RENEWAL"]
 SupportedHardwareTypeType = Literal["RACK", "SERVER"]
 SupportedStorageEnumType = Literal["EBS", "S3"]
@@ -374,6 +378,7 @@ ServiceName = Literal[
     "inspector",
     "inspector-scan",
     "inspector2",
+    "interconnect",
     "internetmonitor",
     "invoicing",
     "iot",
@@ -430,6 +435,7 @@ ServiceName = Literal[
     "marketplace-agreement",
     "marketplace-catalog",
     "marketplace-deployment",
+    "marketplace-discovery",
     "marketplace-entitlement",
     "marketplace-reporting",
     "marketplacecommerceanalytics",
@@ -527,6 +533,7 @@ ServiceName = Literal[
     "rum",
     "s3",
     "s3control",
+    "s3files",
     "s3outposts",
     "s3tables",
     "s3vectors",

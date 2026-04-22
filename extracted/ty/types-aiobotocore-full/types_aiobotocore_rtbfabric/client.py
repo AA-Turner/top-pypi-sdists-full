@@ -90,9 +90,12 @@ from .type_defs import (
 )
 from .waiter import (
     InboundExternalLinkActiveWaiter,
+    InboundExternalLinkDeletedWaiter,
     LinkAcceptedWaiter,
     LinkActiveWaiter,
+    LinkDeletedWaiter,
     OutboundExternalLinkActiveWaiter,
+    OutboundExternalLinkDeletedWaiter,
     RequesterGatewayActiveWaiter,
     RequesterGatewayDeletedWaiter,
     ResponderGatewayActiveWaiter,
@@ -464,6 +467,17 @@ class RTBFabricClient(AioBaseClient):
 
     @overload  # type: ignore[override]
     def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["inbound_external_link_deleted"]
+    ) -> InboundExternalLinkDeletedWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rtbfabric/client/get_waiter.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_rtbfabric/client/#get_waiter)
+        """
+
+    @overload  # type: ignore[override]
+    def get_waiter(  # type: ignore[override]
         self, waiter_name: Literal["link_accepted"]
     ) -> LinkAcceptedWaiter:
         """
@@ -486,8 +500,30 @@ class RTBFabricClient(AioBaseClient):
 
     @overload  # type: ignore[override]
     def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["link_deleted"]
+    ) -> LinkDeletedWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rtbfabric/client/get_waiter.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_rtbfabric/client/#get_waiter)
+        """
+
+    @overload  # type: ignore[override]
+    def get_waiter(  # type: ignore[override]
         self, waiter_name: Literal["outbound_external_link_active"]
     ) -> OutboundExternalLinkActiveWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rtbfabric/client/get_waiter.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_rtbfabric/client/#get_waiter)
+        """
+
+    @overload  # type: ignore[override]
+    def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["outbound_external_link_deleted"]
+    ) -> OutboundExternalLinkDeletedWaiter:
         """
         Returns an object that can wait for some condition.
 

@@ -128,7 +128,7 @@ class FairnessScoresOverTime(APIObject, MonitoringDataQueryBuilderMixin):
         Parameters
         ----------
         deployment_id : str
-            the id of the deployment
+            the ID of the deployment
         model_id : str
             id of models to retrieve fairness score stats
         start_time : datetime

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: splunk-opentelemetry
-Version: 2.9.0
+Version: 2.10.0
 Project-URL: Documentation, https://github.com/signalfx/splunk-otel-python#readme
 Project-URL: Issues, https://github.com/signalfx/splunk-otel-python/issues
 Project-URL: Source, https://github.com/signalfx/splunk-otel-python
@@ -13,18 +13,20 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Requires-Python: >=3.9
-Requires-Dist: opentelemetry-api==1.39.1
-Requires-Dist: opentelemetry-exporter-otlp-proto-grpc==1.39.1
-Requires-Dist: opentelemetry-exporter-otlp-proto-http==1.39.1
-Requires-Dist: opentelemetry-instrumentation-system-metrics==0.60b1
-Requires-Dist: opentelemetry-instrumentation==0.60b1
-Requires-Dist: opentelemetry-propagator-b3==1.39.1
-Requires-Dist: opentelemetry-sdk==1.39.1
-Requires-Dist: opentelemetry-semantic-conventions==0.60b1
-Requires-Dist: protobuf>=6.31.1
+Requires-Dist: opentelemetry-api==1.41.0
+Requires-Dist: opentelemetry-exporter-otlp-proto-grpc==1.41.0
+Requires-Dist: opentelemetry-exporter-otlp-proto-http==1.41.0
+Requires-Dist: opentelemetry-instrumentation-logging==0.62b0
+Requires-Dist: opentelemetry-instrumentation-system-metrics==0.62b0
+Requires-Dist: opentelemetry-instrumentation==0.62b0
+Requires-Dist: opentelemetry-propagator-b3==1.41.0
+Requires-Dist: opentelemetry-sdk==1.41.0
+Requires-Dist: opentelemetry-semantic-conventions==0.62b0
+Requires-Dist: protobuf>=6.33.5
 Description-Content-Type: text/markdown
 
 # splunk-opentelemetry

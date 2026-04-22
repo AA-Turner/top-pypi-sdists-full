@@ -39,6 +39,7 @@ __doc__ = __doc__.format("\n   ".join(__all__))
 import bz2
 import os
 import struct
+import warnings
 from collections import OrderedDict, defaultdict
 
 import numpy as np
@@ -54,6 +55,7 @@ from xarray.core.variable import Variable
 
 from xradar import util
 from xradar.io.backends.common import (
+    _apply_site_as_coords,
     _assign_root,
     _get_radar_calibration,
     _get_subgroup,
@@ -82,6 +84,74 @@ from .iris import (
 )
 
 NEXRADL2_LOCK = SerializableLock()
+
+#: NEXRAD volume header magic prefix
+_VOLUME_HEADER_PREFIX = b"AR2V"
+
+
+def _concatenate_chunks(file_list):
+    """Concatenate a list of NEXRAD Level 2 chunk files into a single bytes object.
+
+    Each item in the list can be:
+    - ``bytes`` or ``bytearray``: raw chunk data
+    - A file-like object with a ``.read()`` method
+    - A ``str`` or ``os.PathLike`` path to a local file
+
+    .. warning::
+
+       Chunks **must** be passed in chronological order (S file first,
+       then I/E chunks in sequence: ``.001``, ``.002``, …).
+       Out-of-order chunks will produce **silently corrupted data** for
+       uncompressed files or **BZ2 decompression errors** for compressed
+       files.  This function does not reorder chunks.
+
+    Validation
+    ----------
+    - If more than one chunk starts with a volume header (``AR2V`` prefix),
+      a ``ValueError`` is raised (multiple full volumes).
+    - If exactly one chunk has a volume header it must be the first item.
+
+    Parameters
+    ----------
+    file_list : list
+        Ordered list of chunk sources.  The S file (volume header) must be
+        first, followed by I/E chunks in their natural sequence order.
+
+    Returns
+    -------
+    data : bytes
+        Concatenated raw bytes.
+    """
+    chunks: list[bytes] = []
+    for item in file_list:
+        if isinstance(item, (bytes, bytearray)):
+            chunks.append(bytes(item))
+        elif hasattr(item, "read"):
+            chunks.append(item.read())
+        elif isinstance(item, (str, os.PathLike)):
+            with open(item, "rb") as f:
+                chunks.append(f.read())
+        else:
+            raise TypeError(f"Unsupported chunk type: {type(item)}")
+
+    # Validate volume headers
+    vol_header_indices = [
+        i for i, c in enumerate(chunks) if c[:4].startswith(_VOLUME_HEADER_PREFIX)
+    ]
+
+    if len(vol_header_indices) > 1:
+        raise ValueError(
+            f"Multiple chunks contain a volume header (indices {vol_header_indices}). "
+            "Pass chunks from a single volume only."
+        )
+
+    if len(vol_header_indices) == 1 and vol_header_indices[0] != 0:
+        raise ValueError(
+            "The chunk with a volume header must be the first item in the list "
+            f"(found at index {vol_header_indices[0]})."
+        )
+
+    return b"".join(chunks)
 
 
 #: mapping from NEXRAD names to CfRadial2/ODIM
@@ -144,7 +214,7 @@ class NEXRADFile:
 
     """
 
-    def __init__(self, filename, mode="r", loaddata=False):
+    def __init__(self, filename, mode="r", loaddata=False, has_volume_header=True):
         """initalize the object."""
         self._fp = None
         self._filename = filename
@@ -152,6 +222,7 @@ class NEXRADFile:
         self._rawdata = False
         self._loaddata = loaddata
         self._bz2_indices = None
+        self._has_volume_header = has_volume_header
 
         if isinstance(filename, (bytes, bytearray)):
             self._fh = np.frombuffer(filename, dtype=np.uint8)
@@ -163,8 +234,27 @@ class NEXRADFile:
             self._fh = np.memmap(self._fp.name, mode=mode)
         else:
             raise TypeError(f"Unsupported input type: {type(filename)}")
-        self.volume_header = self.get_header(VOLUME_HEADER)
+        self.volume_header = self._read_volume_header()
         return
+
+    def _read_volume_header(self):
+        """Read volume header, handling missing headers for chunk files."""
+        if not self._has_volume_header:
+            warnings.warn(
+                "Reading file without volume header (chunk file mode).",
+                UserWarning,
+            )
+            return None
+
+        try:
+            return self.get_header(VOLUME_HEADER)
+        except (struct.error, ValueError, OSError) as e:
+            warnings.warn(
+                f"Unable to read volume header: {e}. Reading as chunk file.",
+                UserWarning,
+            )
+            self._filepos = 0  # Reset file position
+            return None
 
     @property
     def filename(self):
@@ -218,6 +308,13 @@ class NEXRADFile:
     @property
     def is_compressed(self):
         """File contains bz2 compressed data."""
+        if self.volume_header is None:
+            # For chunk files without volume header, check for BZ2 magic number
+            if len(self._fh) >= 3:
+                return (
+                    self._fh[0] == 0x42 and self._fh[1] == 0x5A and self._fh[2] == 0x68
+                )
+            return False
         size = self._fh[24:28].view(dtype=">u4")[0]
         return size > 0
 
@@ -323,7 +420,9 @@ class NEXRADRecordFile(NEXRADFile):
         if recnum < 134:
             start = recnum * RECORD_BYTES
             if not self.is_compressed:
-                start += 24
+                # Only add volume header offset if header exists
+                if self.volume_header is not None:
+                    start += 24
             stop = start + RECORD_BYTES
         else:
             if self.is_compressed:
@@ -439,6 +538,7 @@ class NEXRADLevel2File(NEXRADRecordFile):
         self._msg_5_data = None
         # message 2
         # RDA Status Data
+        self._msg_2_data = None
 
         # message 31 headers
         # Digital Radar Data Generic Format
@@ -495,9 +595,27 @@ class NEXRADLevel2File(NEXRADRecordFile):
         return self._msg_5_data
 
     @property
+    def msg_2(self):
+        """Retrieve MSG2 (RDA Status) data."""
+        if self._msg_2_data is None:
+            self._msg_2_data = self.get_msg_2_data()
+        return self._msg_2_data
+
+    @property
     def data(self):
         """Retrieve data."""
         return self._data
+
+    @property
+    def incomplete_sweeps(self):
+        """Return set of sweep indices that are incomplete.
+
+        A sweep is incomplete when it was force-closed because the data
+        ended mid-sweep (e.g. chunk files that don't cover a full VCP).
+        """
+        # Trigger data_header parsing so self._data is populated
+        _ = self.data_header
+        return {k for k, v in self._data.items() if not v.get("complete", True)}
 
     def get_sweep(self, sweep_number, moments=None):
         """Retrieve sweep according sweep_number."""
@@ -575,6 +693,12 @@ class NEXRADLevel2File(NEXRADRecordFile):
             self._rawdata,
             byte_order=">",
         )
+        msg_5["vcp_sequencing_decoded"] = decode_vcp_sequencing(
+            msg_5.get("vcp_sequencing", 0)
+        )
+        msg_5["vcp_supplemental_decoded"] = decode_vcp_supplemental(
+            msg_5.get("vcp_supplemental", 0)
+        )
         msg_5["elevation_data"] = []
 
         # Validate number_elevation_cuts is reasonable
@@ -594,11 +718,33 @@ class NEXRADLevel2File(NEXRADRecordFile):
                     self._rawdata,
                     byte_order=">",
                 )
+                msg_5_elev["supplemental_data_decoded"] = decode_elevation_supplemental(
+                    msg_5_elev.get("supplemental_data", 0)
+                )
                 msg_5["elevation_data"].append(msg_5_elev)
         except (struct.error, EOFError):
             pass
 
         return msg_5
+
+    def get_msg_2_data(self):
+        """Get MSG2 (RDA Status) data."""
+        if self.meta_header["msg_2"]:
+            recnum = self.meta_header["msg_2"][0]["record_number"]
+        else:
+            return False
+        self.init_record(recnum)
+        self.rh.pos += LEN_MSG_HEADER + 12
+        msg_2 = _unpack_dictionary(
+            self._rh.read(LEN_MSG_2, width=1),
+            MSG_2,
+            self._rawdata,
+            byte_order=">",
+        )
+        msg_2["rda_scan_data_flags_decoded"] = decode_rda_scan_data_flags(
+            msg_2.get("rda_scan_data_flags", 0)
+        )
+        return msg_2
 
     def get_message_header(self):
         """Read and unpack message header."""
@@ -700,6 +846,7 @@ class NEXRADLevel2File(NEXRADRecordFile):
                     # 4 - end of volume
                     sweep["record_end"] = self.rh.recnum
                     sweep["intermediate_records"] = sweep_intermediate_records
+                    sweep["complete"] = True
                     self._data[current_sweep] = sweep
                     _msg_31_header.append(sweep_msg_31_header)
                 if status in [0, 3, 5]:
@@ -812,6 +959,15 @@ class NEXRADLevel2File(NEXRADRecordFile):
                 sweep_msg_31_header.append(msg_31_header)
             else:
                 sweep_intermediate_records.append(msg_header)
+
+        # Close any in-progress sweep that never saw an end-of-elevation marker.
+        # This happens with chunk files where the data ends mid-sweep.
+        if current_sweep >= 0 and current_sweep not in self._data:
+            sweep["record_end"] = self.rh.recnum
+            sweep["intermediate_records"] = sweep_intermediate_records
+            sweep["complete"] = False
+            self._data[current_sweep] = sweep
+            _msg_31_header.append(sweep_msg_31_header)
 
         return data_header, _msg_31_header, _msg_31_data_header
 
@@ -942,7 +1098,10 @@ MSG_5 = OrderedDict(
         ("clutter_map_group_number", UINT2),
         ("doppler_velocity_resolution", CODE1),  # 2: 0.5 degrees, 4: 1.0 degrees
         ("pulse_width", CODE1),  # 2: short, 4: long
-        ("spare", {"fmt": "10s"}),  # halfwords 7-11 (10 bytes, 5 halfwords)
+        ("spare_7_8", {"fmt": "4s"}),  # HW 7-8: Reserved
+        ("vcp_sequencing", CODE2),  # HW 9: VCP sequencing values (ICD Note 15)
+        ("vcp_supplemental", CODE2),  # HW 10: SAILS/MRLE/MPDA flags (ICD Note 16)
+        ("spare_11", {"fmt": "2s"}),  # HW 11: Reserved
     ]
 )
 LEN_MSG_5 = struct.calcsize(_get_fmt_string(MSG_5, byte_order=">"))
@@ -965,7 +1124,7 @@ MSG_5_ELEV = OrderedDict(
         ("edge_angle_1", CODE2),
         ("dop_prf_num_1", UINT2),
         ("dop_prf_pulse_count_1", UINT2),
-        ("spare_1", {"fmt": "2s"}),
+        ("supplemental_data", CODE2),  # E15: SAILS/MRLE/MPDA per-cut flags
         ("edge_angle_2", CODE2),
         ("dop_prf_num_2", UINT2),
         ("dop_prf_pulse_count_2", UINT2),
@@ -977,6 +1136,139 @@ MSG_5_ELEV = OrderedDict(
     ]
 )
 LEN_MSG_5_ELEV = struct.calcsize(_get_fmt_string(MSG_5_ELEV, byte_order=">"))
+
+
+_WAVEFORM_TYPES = {
+    0: "not_applicable",
+    1: "contiguous_surveillance",
+    2: "contiguous_doppler",
+    3: "batch",
+    4: "staggered_pulse_pair",
+}
+
+_CHANNEL_CONFIGS = {
+    0: "constant_phase",
+    1: "random_phase",
+    2: "sz2_phase_coding",
+}
+
+
+def _assign_sweep_attrs(dtree, elev_data):
+    """Inject per-sweep attrs from MSG_5_ELEV data onto sweep nodes.
+
+    The elev_data list index aligns with sweep_{i} naming because both
+    are ordered by elevation cut index in the VCP definition.
+    """
+    if not elev_data:
+        return
+    for i, elev in enumerate(elev_data):
+        sweep_key = f"sweep_{i}"
+        if sweep_key not in dtree.children:
+            continue
+        wf = elev.get("waveform_type", 0)
+        ch = elev.get("channel_config", 0)
+        sup = elev.get("supplemental_data_decoded", {})
+        dtree[sweep_key].ds.attrs.update(
+            {
+                "waveform_type": _WAVEFORM_TYPES.get(wf, str(wf)),
+                "channel_config": _CHANNEL_CONFIGS.get(ch, str(ch)),
+                "super_resolution": elev.get("super_resolution", 0),
+                "sails_cut": sup.get("sails_cut", False),
+                "sails_sequence_number": sup.get("sails_sequence_number", 0),
+                "mrle_cut": sup.get("mrle_cut", False),
+                "mrle_sequence_number": sup.get("mrle_sequence_number", 0),
+                "mpda_cut": sup.get("mpda_cut", False),
+                "base_tilt_cut": sup.get("base_tilt_cut", False),
+            }
+        )
+
+
+def _get_dynamic_scan_type(supplemental):
+    """Derive dynamic scan type string from VCP supplemental decoded dict.
+
+    SAILS and MRLE are mutually exclusive per ICD Note 16.
+    """
+    if supplemental.get("sails_vcp"):
+        n = supplemental.get("num_sails_cuts", 0)
+        return f"SAILS x {n}" if n else "SAILS"
+    elif supplemental.get("mrle_vcp"):
+        n = supplemental.get("num_mrle_cuts", 0)
+        return f"MRLE x {n}" if n else "MRLE"
+    return "standard"
+
+
+def decode_vcp_sequencing(value):
+    """Decode VCP Sequencing Values (MSG_5 HW 9, ICD 2620002AA Note 15)."""
+    return {
+        "num_elevations": value & 0x1F,  # Bits 0-4
+        "max_sails_cuts": (value >> 5) & 0x03,  # Bits 5-6
+        "sequence_active": bool(value & 0x2000),  # Bit 13
+        "truncated_vcp": bool(value & 0x4000),  # Bit 14
+    }
+
+
+def decode_vcp_supplemental(value):
+    """Decode VCP Supplemental Data (MSG_5 HW 10, ICD 2620002AA Note 16)."""
+    return {
+        "sails_vcp": bool(value & 0x0001),  # Bit 0
+        "num_sails_cuts": (value >> 1) & 0x07,  # Bits 1-3
+        "mrle_vcp": bool(value & 0x0010),  # Bit 4
+        "num_mrle_cuts": (value >> 5) & 0x07,  # Bits 5-7
+        # Bits 8-10: Spares per ICD
+        "mpda_vcp": bool(value & 0x0800),  # Bit 11
+        "base_tilt_vcp": bool(value & 0x1000),  # Bit 12
+        "num_base_tilts": (value >> 13) & 0x07,  # Bits 13-15
+    }
+
+
+def decode_elevation_supplemental(value):
+    """Decode per-elevation supplemental data (MSG_5_ELEV E15, ICD Note 17)."""
+    return {
+        "sails_cut": bool(value & 0x0001),  # Bit 0
+        "sails_sequence_number": (value >> 1) & 0x07,  # Bits 1-3
+        "mrle_cut": bool(value & 0x0010),  # Bit 4
+        "mrle_sequence_number": (value >> 5) & 0x07,  # Bits 5-7
+        # Bit 8: Spare
+        "mpda_cut": bool(value & 0x0200),  # Bit 9
+        "base_tilt_cut": bool(value & 0x0400),  # Bit 10
+    }
+
+
+def decode_rda_scan_data_flags(value):
+    """Decode RDA Scan and Data Flags (MSG_2 HW 14, ICD 2620002AA Note 10).
+
+    Bits 1 and 2 are mutually exclusive and represent AVSET status.
+    """
+    return {
+        "avset_enabled": bool(value & 0x0002),  # Bit 1
+        "avset_disabled": bool(value & 0x0004),  # Bit 2
+        "ebc_enabled": bool(value & 0x0008),  # Bit 3
+        "rda_log_data_enabled": bool(value & 0x0010),  # Bit 4
+        "time_series_recording": bool(value & 0x0020),  # Bit 5
+    }
+
+
+# Table IV RDA Status Data (Message Type 2)
+# pages 3-12 to 3-16
+MSG_2 = OrderedDict(
+    [
+        ("rda_status", CODE2),  # HW 1
+        ("operability_status", CODE2),  # HW 2
+        ("control_status", CODE2),  # HW 3
+        ("aux_power_gen_state", CODE2),  # HW 4
+        ("avg_xmtr_power", UINT2),  # HW 5
+        ("horiz_ref_calib_corr", SINT2),  # HW 6
+        ("data_xmission_enabled", CODE2),  # HW 7
+        ("vcp_number", SINT2),  # HW 8
+        ("rda_control_auth", CODE2),  # HW 9
+        ("rda_build_number", UINT2),  # HW 10
+        ("operational_mode", CODE2),  # HW 11
+        ("super_res_status", CODE2),  # HW 12
+        ("cmd_status", CODE2),  # HW 13
+        ("rda_scan_data_flags", CODE2),  # HW 14: AVSET/EBC bits
+    ]
+)
+LEN_MSG_2 = struct.calcsize(_get_fmt_string(MSG_2, byte_order=">"))
 
 MSG_18 = OrderedDict(
     [
@@ -1546,15 +1838,52 @@ class NexradLevel2Store(AbstractDataStore):
         )
 
     def get_attrs(self):
-        _attributes = [
-            ("instrument_name", self.root.volume_header["icao"].decode()),
-        ]
-        if self.root.msg_5:
-            _attributes.append(
-                ("scan_name", f"VCP-{self.root.msg_5['pattern_number']}")
-            )
+        attrs = {}
 
-        return FrozenDict(_attributes)
+        vh = self.root.volume_header
+        attrs["instrument_name"] = vh["icao"].decode() if vh else "UNKNOWN"
+
+        if self.root.msg_5:
+            attrs.update(self._attrs_from_msg_5(self.root.msg_5))
+
+        msg_2 = self.root.msg_2
+        if msg_2:
+            attrs.update(self._attrs_from_msg_2(msg_2))
+
+        return FrozenDict(attrs)
+
+    @staticmethod
+    def _attrs_from_msg_5(msg_5):
+        """Extract root attributes from MSG_5 (VCP definition)."""
+        supplemental = msg_5.get("vcp_supplemental_decoded", {})
+        sequencing = msg_5.get("vcp_sequencing_decoded", {})
+        vel_res = msg_5.get("doppler_velocity_resolution", 0)
+        pw = msg_5.get("pulse_width", 0)
+        return {
+            "scan_name": f"VCP-{msg_5['pattern_number']}",
+            "dynamic_scan_type": _get_dynamic_scan_type(supplemental),
+            "mpda_vcp": supplemental.get("mpda_vcp", False),
+            "base_tilt_vcp": supplemental.get("base_tilt_vcp", False),
+            "num_base_tilts": supplemental.get("num_base_tilts", 0),
+            "vcp_truncated": sequencing.get("truncated_vcp", False),
+            "vcp_sequence_active": sequencing.get("sequence_active", False),
+            "number_elevation_cuts": msg_5.get("number_elevation_cuts", 0),
+            "doppler_velocity_resolution": 0.5 if vel_res == 2 else 1.0,
+            # ICD MSG_5 HW6: 2=short, 4=long
+            "vcp_pulse_width": "short" if pw == 2 else "long" if pw == 4 else str(pw),
+        }
+
+    @staticmethod
+    def _attrs_from_msg_2(msg_2):
+        """Extract root attributes from MSG_2 (RDA Status)."""
+        flags = msg_2.get("rda_scan_data_flags_decoded", {})
+        return {
+            "avset_enabled": flags.get("avset_enabled", False),
+            "ebc_enabled": flags.get("ebc_enabled", False),
+            "super_res_status": msg_2.get("super_res_status", 0),
+            "rda_build_number": msg_2.get("rda_build_number", 0),
+            "operational_mode": msg_2.get("operational_mode", 0),
+        }
 
 
 class NexradLevel2BackendEntrypoint(BackendEntrypoint):
@@ -1581,7 +1910,7 @@ class NexradLevel2BackendEntrypoint(BackendEntrypoint):
         first_dim="auto",
         reindex_angle=False,
         fix_second_angle=False,
-        site_coords=True,
+        site_as_coords=True,
         optional=True,
     ):
         store = NexradLevel2Store.open(
@@ -1628,14 +1957,7 @@ class NexradLevel2BackendEntrypoint(BackendEntrypoint):
             ds = ds.sortby(dim0)
 
         # assign geo-coords
-        if site_coords:
-            ds = ds.assign_coords(
-                {
-                    "latitude": ds.latitude,
-                    "longitude": ds.longitude,
-                    "altitude": ds.altitude,
-                }
-            )
+        ds = _apply_site_as_coords(ds, site_as_coords)
 
         # ensure close works
         ds._close = store.close
@@ -1656,8 +1978,10 @@ def open_nexradlevel2_datatree(
     first_dim="auto",
     reindex_angle=False,
     fix_second_angle=False,
-    site_coords=True,
+    site_as_coords=True,
     optional=True,
+    optional_groups=False,
+    incomplete_sweep="drop",
     lock=None,
     **kwargs,
 ):
@@ -1669,9 +1993,14 @@ def open_nexradlevel2_datatree(
 
     Parameters
     ----------
-    filename_or_obj : str, Path, file-like, or DataStore
+    filename_or_obj : str, Path, file-like, bytes, list, or DataStore
         The path or file-like object representing the radar file.
         Path-like objects are interpreted as local or remote paths.
+        A list or tuple of chunk sources (bytes, file-like, or paths)
+        will be concatenated before reading.  When passing chunks, the
+        S file (volume header) **must** be the first element and I/E
+        chunks **must** follow in sequence order (``.001``, ``.002``, …).
+        Out-of-order chunks produce corrupted data or decompression errors.
 
     mask_and_scale : bool, optional
         If True, replaces values in the dataset that match `_FillValue` with NaN
@@ -1718,12 +2047,24 @@ def open_nexradlevel2_datatree(
         If True, corrects errors in the second angle data, such as misaligned
         elevation or azimuth values. Default is False.
 
-    site_coords : bool, optional
+    site_as_coords : bool, optional
         Attaches radar site coordinates to the dataset if True. Default is True.
 
     optional : bool, optional
         If True, suppresses errors for optional dataset attributes, making them
         optional instead of required. Default is True.
+
+    optional_groups : bool, optional
+        If True, includes ``/radar_parameters``, ``/georeferencing_correction``
+        and ``/radar_calibration`` metadata subgroups in the DataTree. These
+        groups are often empty or sparsely populated. Default is False.
+
+    incomplete_sweep : {"drop", "pad"}, optional
+        How to handle incomplete sweeps (sweeps that were force-closed because
+        the data ended mid-sweep, e.g. chunk files).
+        ``"drop"`` (default) excludes incomplete sweeps and emits a warning.
+        ``"pad"`` includes them, reindexing to a full azimuth grid with
+        NaN-filled rays for missing positions.
 
     kwargs : dict
         Additional keyword arguments passed to `xarray.open_dataset`.
@@ -1734,6 +2075,36 @@ def open_nexradlevel2_datatree(
         An `xarray.DataTree` representing the radar data organized by sweeps.
     """
     from xarray.core.treenode import NodePath
+
+    # Handle list/tuple of chunk files or bytes
+    if isinstance(filename_or_obj, (list, tuple)):
+        filename_or_obj = _concatenate_chunks(filename_or_obj)
+        # Validate that the concatenated data starts with a volume header.
+        # The first chunk must be the S file (volume scan start).
+        if not filename_or_obj[:4].startswith(_VOLUME_HEADER_PREFIX):
+            raise ValueError(
+                "No chunk contains a volume header (AR2V prefix). "
+                "The first chunk must be the S file (volume scan start) which "
+                "contains the volume header and metadata. I/E chunks alone "
+                "cannot be decoded without it."
+            )
+
+    # Single metadata read for sweep count, completeness, and elevation data
+    with NEXRADLevel2File(filename_or_obj, loaddata=False) as nex:
+        # Reading incomplete_sweeps also triggers data_header parsing,
+        # populating nex.data. Must run before sorted(nex.data) below.
+        incomplete = nex.incomplete_sweeps
+        # Use the sweep indices actually present, not range(len(...)):
+        # upstream-dropped interior sweeps leave sparse keys (e.g.
+        # [0..9, 11]) that would otherwise KeyError downstream. See #361.
+        present_keys = sorted(nex.data)
+        act_sweeps = len(present_keys)
+        if nex.msg_5:
+            exp_sweeps = nex.msg_5["number_elevation_cuts"]
+            elev_data = nex.msg_5.get("elevation_data", [])
+        else:
+            exp_sweeps = 0
+            elev_data = []
 
     if isinstance(sweep, str):
         sweep = NodePath(sweep).name
@@ -1750,23 +2121,34 @@ def open_nexradlevel2_datatree(
                 "Invalid type in 'sweep' list. Expected integers (e.g., [0, 1, 2]) or strings (e.g. [/sweep_0, sweep_1])."
             )
     else:
-        with NEXRADLevel2File(filename_or_obj, loaddata=False) as nex:
-            # Expected number of elevation cuts from the VCP definition
-            if nex.msg_5:
-                exp_sweeps = nex.msg_5["number_elevation_cuts"]
-            else:
-                exp_sweeps = 0
-            # Actual number of sweeps recorded in the file
-            act_sweeps = len(nex.msg_31_data_header)
-            # Check for AVSET mode: If AVSET was active, the actual number of sweeps (act_sweeps)
-            # will be fewer than the expected number (exp_sweeps), as higher elevations were skipped.
-            # More info https://www.test.roc.noaa.gov/radar-techniques/avset.php
-            # https://www.test.roc.noaa.gov/public-documents/engineering-branch/new-technology/misc/avset/AVSET_AMS_RADAR_CONF_Final.pdf
-            if exp_sweeps > act_sweeps:
-                # Adjust nsweeps to the actual number of recorded sweeps
-                exp_sweeps = act_sweeps
+        # Check for AVSET mode: actual sweeps may be fewer than VCP definition
+        if exp_sweeps > act_sweeps:
+            exp_sweeps = act_sweeps
 
-        sweeps = [f"sweep_{i}" for i in range(act_sweeps)]
+        if incomplete_sweep == "drop":
+            sweeps = [f"sweep_{i}" for i in present_keys if i not in incomplete]
+            if incomplete:
+                warnings.warn(
+                    f"Dropped {len(incomplete)} incomplete sweep(s): "
+                    f"{sorted(incomplete)}. Use incomplete_sweep='pad' to "
+                    f"include them with NaN-filled rays.",
+                    UserWarning,
+                    stacklevel=2,
+                )
+            if not sweeps:
+                warnings.warn(
+                    "All sweeps are incomplete. Returning empty DataTree.",
+                    UserWarning,
+                    stacklevel=2,
+                )
+                return DataTree()
+        elif incomplete_sweep == "pad":
+            sweeps = [f"sweep_{i}" for i in present_keys]
+        else:
+            raise ValueError(
+                f"Invalid incomplete_sweep={incomplete_sweep!r}. "
+                "Expected 'drop' or 'pad'."
+            )
 
     sweep_dict = open_sweeps_as_dict(
         filename_or_obj=filename_or_obj,
@@ -1781,29 +2163,34 @@ def open_nexradlevel2_datatree(
         first_dim=first_dim,
         reindex_angle=reindex_angle,
         fix_second_angle=fix_second_angle,
-        site_coords=site_coords,
+        site_as_coords=False,
         optional=optional,
+        incomplete_sweeps=incomplete,
         lock=lock,
         **kwargs,
     )
-    ls_ds: list[xr.Dataset] = [sweep_dict[sweep] for sweep in sweep_dict.keys()]
-    ls_ds.insert(0, xr.Dataset())
-    dtree: dict = {
-        "/": _assign_root(ls_ds),
-        "/radar_parameters": _get_subgroup(ls_ds, radar_parameters_subgroup),
-        "/georeferencing_correction": _get_subgroup(
+    ls_ds: list[xr.Dataset] = [xr.Dataset()] + list(sweep_dict.values())
+    root, ls_ds = _assign_root(ls_ds)
+    dtree: dict = {"/": root}
+    if optional_groups:
+        dtree["/radar_parameters"] = _get_subgroup(ls_ds, radar_parameters_subgroup)
+        dtree["/georeferencing_correction"] = _get_subgroup(
             ls_ds, georeferencing_correction_subgroup
-        ),
-        "/radar_calibration": _get_radar_calibration(ls_ds, radar_calibration_subgroup),
-    }
-    # todo: refactor _assign_root and _get_subgroup to recieve dict instead of list of datasets.
-    # avoiding remove the attributes in the following line
-    sweep_dict = {
-        sweep_path: sweep_dict[sweep_path].drop_attrs(deep=False)
-        for sweep_path in sweep_dict.keys()
-    }
-    dtree = dtree | sweep_dict
-    return DataTree.from_dict(dtree)
+        )
+        dtree["/radar_calibration"] = _get_radar_calibration(
+            ls_ds, radar_calibration_subgroup
+        )
+    # Build from ls_ds (station vars already stripped by _assign_root).
+    dtree |= {key: ds.drop_attrs(deep=False) for key, ds in zip(sweep_dict, ls_ds[1:])}
+    result = DataTree.from_dict(dtree)
+
+    # Inject per-sweep attrs from MSG_5_ELEV (ICD Table XI)
+    _assign_sweep_attrs(result, elev_data)
+
+    # Actual sweeps recorded in the file (from MSG_31 headers, not user selection)
+    result.ds.attrs["actual_elevation_cuts"] = act_sweeps
+
+    return result
 
 
 def open_sweeps_as_dict(
@@ -1819,11 +2206,15 @@ def open_sweeps_as_dict(
     first_dim="auto",
     reindex_angle=False,
     fix_second_angle=False,
-    site_coords=True,
+    site_as_coords=True,
     optional=True,
+    incomplete_sweeps=None,
     lock=None,
     **kwargs,
 ):
+    if incomplete_sweeps is None:
+        incomplete_sweeps = set()
+
     stores = NexradLevel2Store.open_groups(
         filename=filename_or_obj,
         lock=lock,
@@ -1831,6 +2222,9 @@ def open_sweeps_as_dict(
     )
     groups_dict = {}
     for path_group, store in stores.items():
+        # Extract sweep index from group name (e.g. "sweep_3" -> 3)
+        sweep_idx = int(path_group.split("_")[-1])
+
         store_entrypoint = StoreBackendEntrypoint()
         with close_on_error(store):
             group_ds = store_entrypoint.open_dataset(
@@ -1851,7 +2245,20 @@ def open_sweeps_as_dict(
             group_ds.encoding["engine"] = "nexradlevel2"
 
             # handle duplicates and reindex
-            if decode_coords and reindex_angle is not False:
+            # For incomplete sweeps in pad mode, auto-detect angle parameters
+            # and force reindex even when reindex_angle=False
+            if decode_coords and sweep_idx in incomplete_sweeps:
+                group_ds = group_ds.pipe(util.remove_duplicate_rays)
+                angle_params = util.extract_angle_parameters(group_ds)
+                reindex_kwargs = {
+                    "start_angle": angle_params["start_angle"],
+                    "stop_angle": angle_params["stop_angle"],
+                    "angle_res": float(angle_params["angle_res"]),
+                    "direction": angle_params["direction"],
+                }
+                group_ds = group_ds.pipe(util.reindex_angle, **reindex_kwargs)
+                group_ds = group_ds.pipe(util.ipol_time, **reindex_kwargs)
+            elif decode_coords and reindex_angle is not False:
                 group_ds = group_ds.pipe(util.remove_duplicate_rays)
                 group_ds = group_ds.pipe(util.reindex_angle, **reindex_angle)
                 group_ds = group_ds.pipe(util.ipol_time, **reindex_angle)
@@ -1867,14 +2274,7 @@ def open_sweeps_as_dict(
                 group_ds = group_ds.sortby(dim0)
 
             # assign geo-coords
-            if site_coords:
-                group_ds = group_ds.assign_coords(
-                    {
-                        "latitude": group_ds.latitude,
-                        "longitude": group_ds.longitude,
-                        "altitude": group_ds.altitude,
-                    }
-                )
+            group_ds = _apply_site_as_coords(group_ds, site_as_coords)
 
             groups_dict[path_group] = group_ds
     return groups_dict

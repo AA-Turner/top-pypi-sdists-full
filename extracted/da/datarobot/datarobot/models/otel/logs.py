@@ -90,9 +90,9 @@ class OtelLogEntry(APIObject):
         Parameters
         ----------
         entity_type: str
-            The entity type of the log entries (e.g. deployment or use_case).
+            The entity type of the log entries (e.g., deployment or use_case).
         entity_id: str
-            The entity ID of the log entries (e.g. `123456`).
+            The entity ID of the log entries (e.g., `123456`).
         start_time: Optional[datetime | date | str]
             The start time of the log list.
         end_time: Optional[datetime | date | str]
@@ -158,9 +158,9 @@ class OtelLogEntry(APIObject):
         Parameters
         ----------
         entity_type: str
-            The entity type of the log entries (e.g. deployment or use_case).
+            The entity type of the log entries (e.g., deployment or use_case).
         entity_id: str
-            The entity ID of the log entries (e.g. `123456`).
+            The entity ID of the log entries (e.g., `123456`).
         start_time: Optional[datetime | date | str]
             The start time of the logs to delete.
         end_time: Optional[datetime | date | str]

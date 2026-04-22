@@ -14,6 +14,9 @@ Usage::
     from types_boto3_sagemaker.paginator import (
         CreateHubContentPresignedUrlsPaginator,
         DescribeTrainingPlanExtensionHistoryPaginator,
+        ListAIBenchmarkJobsPaginator,
+        ListAIRecommendationJobsPaginator,
+        ListAIWorkloadConfigsPaginator,
         ListActionsPaginator,
         ListAlgorithmsPaginator,
         ListAliasesPaginator,
@@ -103,6 +106,9 @@ Usage::
 
     create_hub_content_presigned_urls_paginator: CreateHubContentPresignedUrlsPaginator = client.get_paginator("create_hub_content_presigned_urls")
     describe_training_plan_extension_history_paginator: DescribeTrainingPlanExtensionHistoryPaginator = client.get_paginator("describe_training_plan_extension_history")
+    list_ai_benchmark_jobs_paginator: ListAIBenchmarkJobsPaginator = client.get_paginator("list_ai_benchmark_jobs")
+    list_ai_recommendation_jobs_paginator: ListAIRecommendationJobsPaginator = client.get_paginator("list_ai_recommendation_jobs")
+    list_ai_workload_configs_paginator: ListAIWorkloadConfigsPaginator = client.get_paginator("list_ai_workload_configs")
     list_actions_paginator: ListActionsPaginator = client.get_paginator("list_actions")
     list_algorithms_paginator: ListAlgorithmsPaginator = client.get_paginator("list_algorithms")
     list_aliases_paginator: ListAliasesPaginator = client.get_paginator("list_aliases")
@@ -202,6 +208,12 @@ from .type_defs import (
     DescribeTrainingPlanExtensionHistoryResponseTypeDef,
     ListActionsRequestPaginateTypeDef,
     ListActionsResponseTypeDef,
+    ListAIBenchmarkJobsRequestPaginateTypeDef,
+    ListAIBenchmarkJobsResponseTypeDef,
+    ListAIRecommendationJobsRequestPaginateTypeDef,
+    ListAIRecommendationJobsResponseTypeDef,
+    ListAIWorkloadConfigsRequestPaginateTypeDef,
+    ListAIWorkloadConfigsResponseTypeDef,
     ListAlgorithmsInputPaginateTypeDef,
     ListAlgorithmsOutputTypeDef,
     ListAliasesRequestPaginateTypeDef,
@@ -374,6 +386,9 @@ else:
 __all__ = (
     "CreateHubContentPresignedUrlsPaginator",
     "DescribeTrainingPlanExtensionHistoryPaginator",
+    "ListAIBenchmarkJobsPaginator",
+    "ListAIRecommendationJobsPaginator",
+    "ListAIWorkloadConfigsPaginator",
     "ListActionsPaginator",
     "ListAlgorithmsPaginator",
     "ListAliasesPaginator",
@@ -498,6 +513,60 @@ class DescribeTrainingPlanExtensionHistoryPaginator(
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/paginator/DescribeTrainingPlanExtensionHistory.html#SageMaker.Paginator.DescribeTrainingPlanExtensionHistory.paginate)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sagemaker/paginators/#describetrainingplanextensionhistorypaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListAIBenchmarkJobsPaginatorBase = Paginator[ListAIBenchmarkJobsResponseTypeDef]
+else:
+    _ListAIBenchmarkJobsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListAIBenchmarkJobsPaginator(_ListAIBenchmarkJobsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/paginator/ListAIBenchmarkJobs.html#SageMaker.Paginator.ListAIBenchmarkJobs)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sagemaker/paginators/#listaibenchmarkjobspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListAIBenchmarkJobsRequestPaginateTypeDef]
+    ) -> PageIterator[ListAIBenchmarkJobsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/paginator/ListAIBenchmarkJobs.html#SageMaker.Paginator.ListAIBenchmarkJobs.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sagemaker/paginators/#listaibenchmarkjobspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListAIRecommendationJobsPaginatorBase = Paginator[ListAIRecommendationJobsResponseTypeDef]
+else:
+    _ListAIRecommendationJobsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListAIRecommendationJobsPaginator(_ListAIRecommendationJobsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/paginator/ListAIRecommendationJobs.html#SageMaker.Paginator.ListAIRecommendationJobs)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sagemaker/paginators/#listairecommendationjobspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListAIRecommendationJobsRequestPaginateTypeDef]
+    ) -> PageIterator[ListAIRecommendationJobsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/paginator/ListAIRecommendationJobs.html#SageMaker.Paginator.ListAIRecommendationJobs.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sagemaker/paginators/#listairecommendationjobspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListAIWorkloadConfigsPaginatorBase = Paginator[ListAIWorkloadConfigsResponseTypeDef]
+else:
+    _ListAIWorkloadConfigsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListAIWorkloadConfigsPaginator(_ListAIWorkloadConfigsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/paginator/ListAIWorkloadConfigs.html#SageMaker.Paginator.ListAIWorkloadConfigs)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sagemaker/paginators/#listaiworkloadconfigspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListAIWorkloadConfigsRequestPaginateTypeDef]
+    ) -> PageIterator[ListAIWorkloadConfigsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/paginator/ListAIWorkloadConfigs.html#SageMaker.Paginator.ListAIWorkloadConfigs.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sagemaker/paginators/#listaiworkloadconfigspaginator)
         """
 
 if TYPE_CHECKING:

@@ -1,15 +1,20 @@
 Metadata-Version: 2.4
-Name: openfeature_sdk
-Version: 0.8.4
+Name: openfeature-sdk
+Version: 0.9.0
 Summary: Standardizing Feature Flagging for Everyone
-Keywords: openfeature,feature,flags,toggles
+Keywords: feature,flags,openfeature,toggles
 Author: OpenFeature
 Author-email: OpenFeature <openfeature-core@groups.io>
 License-Expression: Apache-2.0
 License-File: LICENSE
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3
-Requires-Python: >=3.9
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.10
 Project-URL: Homepage, https://github.com/open-feature/python-sdk
 Description-Content-Type: text/markdown
 
@@ -34,8 +39,8 @@ Description-Content-Type: text/markdown
 
   <!-- x-release-please-start-version -->
 
-  <a href="https://github.com/open-feature/python-sdk/releases/tag/v0.8.4">
-    <img alt="Latest version" src="https://img.shields.io/static/v1?label=release&message=v0.8.4&color=blue&style=for-the-badge" />
+  <a href="https://github.com/open-feature/python-sdk/releases/tag/v0.9.0">
+    <img alt="Latest version" src="https://img.shields.io/static/v1?label=release&message=v0.9.0&color=blue&style=for-the-badge" />
   </a>
 
   <!-- x-release-please-end -->
@@ -49,7 +54,7 @@ Description-Content-Type: text/markdown
   </a>
 
   <a href="https://www.python.org/downloads/">
-    <img alt="Min python version" src="https://img.shields.io/badge/python->=3.9-blue.svg" />
+    <img alt="Min python version" src="https://img.shields.io/badge/python->=3.10-blue.svg" />
   </a>
 
   <a href="https://www.repostatus.org/#wip">
@@ -66,7 +71,7 @@ Description-Content-Type: text/markdown
 
 ### Requirements
 
-- Python 3.9+
+- Python 3.10+
 
 ### Install
 
@@ -75,13 +80,13 @@ Description-Content-Type: text/markdown
 #### Pip install
 
 ```bash
-pip install openfeature-sdk==0.8.4
+pip install openfeature-sdk==0.9.0
 ```
 
 #### requirements.txt
 
 ```bash
-openfeature-sdk==0.8.4
+openfeature-sdk==0.9.0
 ```
 
 ```python
@@ -122,6 +127,7 @@ print("Value: " + str(flag_value))
 | ✅      | [Logging](#logging)                                                 | Integrate with popular logging packages.                                                                                              |
 | ✅      | [Domains](#domains)                                                 | Logically bind clients with providers.                                                                                                |
 | ✅      | [Eventing](#eventing)                                               | React to state changes in the provider or flag management system.                                                                     |
+| ✅      | [Tracking](#tracking)                                               | Associate user actions with feature flag evaluations.                                                                                |
 | ✅      | [Shutdown](#shutdown)                                               | Gracefully clean up a provider during application shutdown.                                                                           |
 | ✅      | [Transaction Context Propagation](#transaction-context-propagation) | Set a specific [evaluation context](https://openfeature.dev/docs/reference/concepts/evaluation-context) for a transaction (e.g. an HTTP request or a thread) |
 | ✅      | [Extending](#extending)                                             | Extend OpenFeature with custom providers and hooks.                                                                                   |
@@ -156,11 +162,11 @@ If the flag management system you're using supports targeting, you can provide t
 ```python
 from openfeature.api import (
     get_client,
-    get_provider,
     set_provider,
     get_evaluation_context,
     set_evaluation_context,
 )
+from openfeature.evaluation_context import EvaluationContext
 
 global_context = EvaluationContext(
     targeting_key="targeting_key1", attributes={"application": "value1"}
@@ -173,7 +179,7 @@ request_context = EvaluationContext(
 set_evaluation_context(global_context)
 
 # merge second context
-client = get_client(name="No-op Provider")
+client = get_client(domain="No-op Provider")
 client.get_string_value("email", "fallback", request_context)
 ```
 
@@ -186,6 +192,7 @@ If the hook you're looking for hasn't been created yet, see the [develop a hook]
 Once you've added a hook as a dependency, it can be registered at the global, client, or flag invocation level.
 
 ```python
+from openfeature import api
 from openfeature.api import add_hooks
 from openfeature.flag_evaluation import FlagEvaluationOptions
 
@@ -193,17 +200,49 @@ from openfeature.flag_evaluation import FlagEvaluationOptions
 add_hooks([MyHook()])
 
 # or configure them in the client
-client = OpenFeatureClient()
+client = api.get_client()
 client.add_hooks([MyHook()])
 
 # or at the invocation-level
 options = FlagEvaluationOptions(hooks=[MyHook()])
-client.get_boolean_flag("my-flag", False, flag_evaluation_options=options)
+client.get_boolean_value("my-flag", False, flag_evaluation_options=options)
 ```
+### Tracking
+
+The [tracking API](https://openfeature.dev/specification/sections/tracking/) allows you to use OpenFeature abstractions and objects to associate user actions with feature flag evaluations.
+This is essential for robust experimentation powered by feature flags.
+For example, a flag enhancing the appearance of a UI component might drive user engagement to a new feature; to test this hypothesis, telemetry collected by a [hook](#hooks) or [provider](#providers) can be associated with telemetry reported in the client's `track` function.
+
+```python
+from openfeature.track import TrackingEventDetails
+
+# initialize a client
+client = api.get_client()
+
+# trigger tracking event action
+client.track(
+    'visited-promo-page',
+    evaluation_context=EvaluationContext(),
+    tracking_event_details=TrackingEventDetails(99.77).add("currencyCode", "USD"),
+    )
+```
+
+Note that some providers may not support tracking; check the documentation for your provider for more information.
 
 ### Logging
 
 The OpenFeature SDK logs to the `openfeature` logger using the `logging` package from the Python Standard Library.
+
+#### Logging Hook
+
+The Python SDK includes a `LoggingHook`, which logs detailed information at key points during flag evaluation, using the `logging` package. This hook can be particularly helpful for troubleshooting and debugging; simply attach it at the global, client or invocation level and ensure your log level is set to "debug".
+
+```python
+from openfeature import api
+from openfeature.hook.logging_hook import LoggingHook
+
+api.add_hooks([LoggingHook()])
+```
 
 ### Domains
 
@@ -236,7 +275,7 @@ Please refer to the documentation of the provider you're using to see what event
 
 ```python
 from openfeature import api
-from openfeature.provider import ProviderEvent
+from openfeature.event import EventDetails, ProviderEvent
 
 def on_provider_ready(event_details: EventDetails):
     print(f"Provider {event_details.provider_name} is ready")
@@ -485,10 +524,11 @@ Implement your own hook by creating a hook that inherits from the `Hook` class.
 Any of the evaluation life-cycle stages (`before`/`after`/`error`/`finally_after`) can be override to add the desired business logic.
 
 ```python
-from openfeature.hook import Hook
+from openfeature.hook import Hook, HookContext, HookHints
+from openfeature.flag_evaluation import FlagEvaluationDetails, FlagValueType
 
 class MyHook(Hook):
-    def after(self, hook_context: HookContext, details: FlagEvaluationDetails, hints: dict):
+    def after(self, hook_context: HookContext, details: FlagEvaluationDetails[FlagValueType], hints: HookHints):
         print("This runs after the flag has been evaluated")
 
 ```

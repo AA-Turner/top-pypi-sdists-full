@@ -74,6 +74,7 @@ from skylos.rules.quality.logic import (
     BooleanTrapRule,
     BroadExceptionRule,
 )
+from skylos.rules.quality.phantom_refs import scan_repo_phantom_security_references
 from skylos.rules.quality.performance import PerformanceRule
 from skylos.rules.quality.unreachable import UnreachableCodeRule
 from skylos.rules.quality.async_blocking import AsyncBlockingRule
@@ -99,6 +100,23 @@ logging.basicConfig(
 )
 logger = logging.getLogger("Skylos")
 
+_SECRET_CONFIG_SUFFIXES = {
+    ".yaml",
+    ".yml",
+    ".json",
+    ".toml",
+    ".ini",
+    ".cfg",
+    ".conf",
+}
+
+
+def _is_secret_config_candidate(path: Path) -> bool:
+    name = path.name.lower()
+    if name == ".env" or name.startswith(".env."):
+        return True
+    return path.suffix.lower() in _SECRET_CONFIG_SUFFIXES
+
 _GREP_VERIFY_TYPE_PRIORITY = {
     "method": 0,
     "function": 1,
@@ -116,6 +134,43 @@ try:
     _heuristic_weights = get_tuned_weights()
 except (ImportError, OSError, ValueError):
     pass
+
+
+def _definition_module_and_class(defn):
+    if getattr(defn, "type", None) != "method" or "." not in defn.name:
+        return "", ""
+
+    parts = defn.name.split(".")
+    if len(parts) < 3:
+        return "", ""
+    return ".".join(parts[:-2]), parts[-2]
+
+
+def _resolve_analysis_root(path_like: Path) -> Path:
+    current = path_like.resolve()
+    if not current.is_dir():
+        current = current.parent
+
+    probe = current
+    for _ in range(20):
+        if (probe / "pyproject.toml").exists():
+            return probe
+        if (probe / "setup.py").exists():
+            return probe
+        if (probe / ".git").exists():
+            return probe
+        if probe.parent == probe:
+            break
+        probe = probe.parent
+
+    try:
+        git_root = find_git_root(current)
+        if git_root:
+            return Path(git_root).resolve()
+    except Exception:
+        pass
+
+    return current
 
 
 def _grep_verify_rescue_priority(candidate: dict) -> tuple:
@@ -371,7 +426,7 @@ class Skylos:
             self.defs, self.ts_consumed_exports
         )
 
-    def _find_dead_ts_files(self, files, exclude_folders):
+    def _find_dead_ts_files(self, files, exclude_folders, workspace_inventory=None):
         if not hasattr(self, "ts_consumed_exports"):
             return []
         return find_dead_ts_files(
@@ -379,14 +434,20 @@ class Skylos:
             exclude_folders,
             getattr(self, "_ts_importers_of", {}),
             getattr(self, "_ts_wildcard_edges", {}),
+            project_root=str(self._project_root),
+            workspace_inventory=workspace_inventory,
         )
 
-    def _find_unused_ts_exports(self):
+    def _find_unused_ts_exports(self, files, exclude_folders, workspace_inventory=None):
         if not hasattr(self, "_ts_demoted_exports"):
             return []
         return find_unused_ts_exports(
             self._ts_demoted_exports,
             getattr(self, "_ts_wildcard_edges", {}),
+            files=files,
+            exclude_folders=exclude_folders,
+            project_root=str(self._project_root),
+            workspace_inventory=workspace_inventory,
         )
 
     def _propagate_transitive_dead(self):
@@ -709,6 +770,13 @@ class Skylos:
                     def_obj.references += 1
 
         used_attr_names = getattr(self, "_all_used_attr_names", set())
+        used_attr_context = getattr(self, "_all_used_attr_context", set())
+        same_class_private_attr_uses = set()
+        if used_attr_context:
+            for attr_name, mod, cls_ctx, _line_no in used_attr_context:
+                if cls_ctx and attr_name.startswith("_"):
+                    same_class_private_attr_uses.add((mod, cls_ctx, attr_name))
+
         if used_attr_names:
             for defn in self.defs.values():
                 if defn.references > 0:
@@ -719,11 +787,14 @@ class Skylos:
                     pass
                 else:
                     continue
+                if defn.type == "method" and defn.simple_name.startswith("_"):
+                    defn_mod, defn_cls = _definition_module_and_class(defn)
+                    if (defn_mod, defn_cls, defn.simple_name) in same_class_private_attr_uses:
+                        continue
                 if defn.simple_name in used_attr_names:
                     defn.references += 1
                     defn._attr_name_ref_count += 1
 
-        used_attr_context = getattr(self, "_all_used_attr_context", set())
         if used_attr_context:
             context_by_attr = defaultdict(list)
             for attr_name, mod, cls_ctx, line_no in used_attr_context:
@@ -992,6 +1063,7 @@ class Skylos:
         all_raw_imports,
         path,
         unused_ts_exports=None,
+        workspace_inventory=None,
     ):
         """Assemble the final result dict from analysis outputs."""
         unused = []
@@ -1067,6 +1139,28 @@ class Skylos:
                 "languages": self._count_languages(files),
             },
         }
+
+        if workspace_inventory is not None:
+            project_root = (
+                self._project_root
+                if hasattr(self, "_project_root")
+                else Path(
+                    path[0] if isinstance(path, (list, tuple)) else path
+                ).resolve()
+            )
+            result["workspaces"] = workspace_inventory.to_dict(project_root)
+            result["analysis_summary"]["monorepo_detected"] = (
+                workspace_inventory.is_monorepo
+            )
+            result["analysis_summary"]["workspace_count"] = len(
+                workspace_inventory.packages
+            )
+            result["analysis_summary"]["workspace_total_packages"] = (
+                workspace_inventory.total_packages
+            )
+            result["analysis_summary"]["workspace_diagnostic_count"] = len(
+                workspace_inventory.diagnostics
+            )
 
         if enable_secrets and all_secrets:
             result["secrets"] = all_secrets
@@ -1218,24 +1312,46 @@ class Skylos:
 
         clear_go_cache()
 
+        if isinstance(path, (list, tuple)):
+            _first = Path(path[0]).resolve()
+            all_resolved = [Path(p).resolve() for p in path]
+            project_root = Path(os.path.commonpath(all_resolved))
+        else:
+            _first = Path(path).resolve()
+            project_root = _first
+        if not project_root.is_dir():
+            project_root = project_root.parent
+        if project_root.exists():
+            project_root = _resolve_analysis_root(project_root)
+
         files, root = self._discover_files(path, exclude_folders)
+
+        from skylos.visitors.languages.typescript.workspace import (
+            discover_workspace_inventory,
+        )
+
+        workspace_inventory = discover_workspace_inventory(project_root)
 
         if not files:
             logger.warning(f"No Python files found in {path}")
-            return json.dumps(
-                {
-                    "unused_functions": [],
-                    "unused_imports": [],
-                    "unused_classes": [],
-                    "unused_variables": [],
-                    "unused_parameters": [],
-                    "unused_files": [],
-                    "analysis_summary": {
-                        "total_files": 0,
-                        "excluded_folders": exclude_folders if exclude_folders else [],
-                    },
-                }
-            )
+            result = {
+                "unused_functions": [],
+                "unused_imports": [],
+                "unused_classes": [],
+                "unused_variables": [],
+                "unused_parameters": [],
+                "unused_files": [],
+                "analysis_summary": {
+                    "total_files": 0,
+                    "excluded_folders": exclude_folders if exclude_folders else [],
+                    "monorepo_detected": workspace_inventory.is_monorepo,
+                    "workspace_count": len(workspace_inventory.packages),
+                    "workspace_total_packages": workspace_inventory.total_packages,
+                    "workspace_diagnostic_count": len(workspace_inventory.diagnostics),
+                },
+                "workspaces": workspace_inventory.to_dict(project_root),
+            }
+            return json.dumps(result)
 
         logger.info(f"Analyzing {len(files)} files...")
 
@@ -1256,16 +1372,6 @@ class Skylos:
         global_pattern_tracker.traced_calls.clear()
         global_pattern_tracker.traced_by_file.clear()
         global_pattern_tracker._traced_by_basename.clear()
-
-        if isinstance(path, (list, tuple)):
-            _first = Path(path[0]).resolve()
-            all_resolved = [Path(p).resolve() for p in path]
-            project_root = Path(os.path.commonpath(all_resolved))
-        else:
-            _first = Path(path).resolve()
-            project_root = _first
-        if not project_root.is_dir():
-            project_root = project_root.parent
 
         project_cfg = load_config(project_root)
         project_ignore = set(project_cfg.get("ignore", []))
@@ -1471,21 +1577,26 @@ class Skylos:
                             logger.debug("Secret scan failed for file", exc_info=True)
 
             if enable_secrets and _secrets_scan_ctx is not None:
-                _CONFIG_SUFFIXES = {
-                    ".env",
-                    ".yaml",
-                    ".yml",
-                    ".json",
-                    ".toml",
-                    ".ini",
-                    ".cfg",
-                    ".conf",
-                }
-                scanned = {str(f) for f in files}
-                for cfg_file in root.rglob("*"):
-                    if cfg_file.suffix.lower() not in _CONFIG_SUFFIXES:
+                scanned = {str(Path(f).resolve()) for f in files}
+                if changed_files is not None:
+                    cfg_candidates = []
+                    for raw_path in changed_files:
+                        cfg_file = Path(raw_path)
+                        if not cfg_file.is_absolute():
+                            cfg_file = (root / cfg_file).resolve()
+                        else:
+                            cfg_file = cfg_file.resolve()
+                        cfg_candidates.append(cfg_file)
+                else:
+                    cfg_candidates = root.rglob("*")
+
+                for cfg_file in cfg_candidates:
+                    cfg_file = Path(cfg_file)
+                    if not cfg_file.is_file():
                         continue
-                    if str(cfg_file) in scanned:
+                    if not _is_secret_config_candidate(cfg_file):
+                        continue
+                    if str(cfg_file.resolve()) in scanned:
                         continue
                     if any(ex in cfg_file.parts for ex in (exclude_folders or [])):
                         continue
@@ -1815,6 +1926,44 @@ class Skylos:
                         ud_findings = scan_unused_dependencies(_ud_root, _ud_py_files)
                         if ud_findings:
                             all_quality.extend(ud_findings)
+
+                    if (
+                        "SKY-L012" not in project_ignore
+                        or "SKY-L023" not in project_ignore
+                    ) and project_root.exists():
+                        repo_py_files = discover_source_files(
+                            project_root,
+                            {".py"},
+                            exclude_folders=exclude_folders,
+                        )
+                        phantom_findings = scan_repo_phantom_security_references(
+                            project_root,
+                            repo_py_files,
+                            target_files=_ud_py_files,
+                        )
+                        if phantom_findings:
+                            phantom_findings = [
+                                f
+                                for f in phantom_findings
+                                if f.get("rule_id") not in project_ignore
+                            ]
+                            unsuppressed_findings = []
+                            for finding in phantom_findings:
+                                f_ignore = per_file_ignore_lines.get(
+                                    str(finding.get("file", "")), set()
+                                )
+                                if finding.get("line") in f_ignore:
+                                    all_suppressed.append(
+                                        {
+                                            **finding,
+                                            "category": "quality",
+                                            "reason": "inline ignore comment",
+                                        }
+                                    )
+                                    continue
+                                unsuppressed_findings.append(finding)
+                            phantom_findings = unsuppressed_findings
+                            all_quality.extend(phantom_findings)
             except Exception:
                 if os.getenv("SKYLOS_DEBUG"):
                     logger.error(traceback.format_exc())
@@ -1889,10 +2038,16 @@ class Skylos:
                 progress_callback(0, 1, Path("PHASE: grep verify"))
             self._grep_verify()
 
-        dead_ts_files = self._find_dead_ts_files(files, exclude_folders)
+        dead_ts_files = self._find_dead_ts_files(
+            files, exclude_folders, workspace_inventory=workspace_inventory
+        )
         empty_files.extend(dead_ts_files)
 
-        unused_ts_exports = self._find_unused_ts_exports()
+        unused_ts_exports = self._find_unused_ts_exports(
+            files,
+            exclude_folders,
+            workspace_inventory=workspace_inventory,
+        )
 
         result = self._build_result(
             files,
@@ -1911,6 +2066,7 @@ class Skylos:
             all_raw_imports,
             path,
             unused_ts_exports=unused_ts_exports,
+            workspace_inventory=workspace_inventory,
         )
 
         return json.dumps(result, indent=2)
@@ -2366,6 +2522,22 @@ if __name__ == "__main__":
     )
 
     print("Summary:")
+    workspace_data = data.get("workspaces") or {}
+    has_workspace_report = bool(
+        workspace_data.get("root_package")
+        or workspace_data.get("packages")
+        or workspace_data.get("diagnostics")
+    )
+    if has_workspace_report:
+        print(
+            " * Workspaces: "
+            f"{workspace_data.get('total_packages', 0)} packages "
+            f"({workspace_data.get('package_count', 0)} child workspaces)"
+        )
+        if workspace_data.get("diagnostic_count"):
+            print(
+                f" * Workspace diagnostics: {workspace_data.get('diagnostic_count', 0)}"
+            )
     if data["unused_functions"]:
         print(f" * Unreachable functions: {len(data['unused_functions'])}")
     if data["unused_imports"]:
@@ -2439,6 +2611,20 @@ if __name__ == "__main__":
             line = s.get("line", 1)
             sev = s.get("severity", "HIGH")
             print(f" {i}. {msg} [{rid}] ({file}:{line}) Severity: {sev}")
+
+    if has_workspace_report:
+        print("\n - Workspaces")
+        print("============")
+        root_pkg = workspace_data.get("root_package")
+        if root_pkg:
+            print(
+                f" Root: {root_pkg.get('name')} "
+                f"({root_pkg.get('relative_path', root_pkg.get('path'))})"
+            )
+        for pkg in workspace_data.get("packages", []):
+            print(f" * {pkg.get('name')} ({pkg.get('relative_path', pkg.get('path'))})")
+        for diag in workspace_data.get("diagnostics", [])[:5]:
+            print(f" ! {diag.get('message')}")
 
     print("\n" + "─" * 50)
     if enable_danger:

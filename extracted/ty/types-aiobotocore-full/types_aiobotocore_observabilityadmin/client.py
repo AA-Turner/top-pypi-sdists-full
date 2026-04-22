@@ -85,6 +85,8 @@ from .type_defs import (
     ListTelemetryRulesInputTypeDef,
     ListTelemetryRulesOutputTypeDef,
     StartTelemetryEnrichmentOutputTypeDef,
+    StartTelemetryEvaluationForOrganizationInputTypeDef,
+    StartTelemetryEvaluationInputTypeDef,
     StopTelemetryEnrichmentOutputTypeDef,
     TagResourceInputTypeDef,
     TestTelemetryPipelineInputTypeDef,
@@ -435,7 +437,9 @@ class CloudWatchObservabilityAdminServiceClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_observabilityadmin/client/#start_telemetry_enrichment)
         """
 
-    async def start_telemetry_evaluation(self) -> EmptyResponseMetadataTypeDef:
+    async def start_telemetry_evaluation(
+        self, **kwargs: Unpack[StartTelemetryEvaluationInputTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
         """
         This action begins onboarding the caller Amazon Web Services account to the
         telemetry config feature.
@@ -444,7 +448,9 @@ class CloudWatchObservabilityAdminServiceClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_observabilityadmin/client/#start_telemetry_evaluation)
         """
 
-    async def start_telemetry_evaluation_for_organization(self) -> EmptyResponseMetadataTypeDef:
+    async def start_telemetry_evaluation_for_organization(
+        self, **kwargs: Unpack[StartTelemetryEvaluationForOrganizationInputTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
         """
         This actions begins onboarding the organization and all member accounts to the
         telemetry config feature.

@@ -70,6 +70,7 @@ from .literals import (
     UserVerificationTypeType,
     VerifiedAttributeTypeType,
     VerifySoftwareTokenResponseTypeType,
+    WebAuthnFactorConfigurationTypeType,
 )
 
 if sys.version_info >= (3, 12):
@@ -388,6 +389,7 @@ __all__ = (
     "VerifyUserAttributeRequestTypeDef",
     "WebAuthnConfigurationTypeTypeDef",
     "WebAuthnCredentialDescriptionTypeDef",
+    "WebAuthnMfaSettingsTypeTypeDef",
 )
 
 
@@ -559,6 +561,10 @@ class SMSMfaSettingsTypeTypeDef(TypedDict):
 class SoftwareTokenMfaSettingsTypeTypeDef(TypedDict):
     Enabled: NotRequired[bool]
     PreferredMfa: NotRequired[bool]
+
+
+class WebAuthnMfaSettingsTypeTypeDef(TypedDict):
+    Enabled: NotRequired[bool]
 
 
 class AdminSetUserPasswordRequestTypeDef(TypedDict):
@@ -1012,6 +1018,7 @@ class SoftwareTokenMfaConfigTypeTypeDef(TypedDict):
 class WebAuthnConfigurationTypeTypeDef(TypedDict):
     RelyingPartyId: NotRequired[str]
     UserVerification: NotRequired[UserVerificationTypeType]
+    FactorConfiguration: NotRequired[WebAuthnFactorConfigurationTypeType]
 
 
 class GetUserRequestTypeDef(TypedDict):
@@ -1545,6 +1552,7 @@ class AdminSetUserMFAPreferenceRequestTypeDef(TypedDict):
     SMSMfaSettings: NotRequired[SMSMfaSettingsTypeTypeDef]
     SoftwareTokenMfaSettings: NotRequired[SoftwareTokenMfaSettingsTypeTypeDef]
     EmailMfaSettings: NotRequired[EmailMfaSettingsTypeTypeDef]
+    WebAuthnMfaSettings: NotRequired[WebAuthnMfaSettingsTypeTypeDef]
 
 
 class SetUserMFAPreferenceRequestTypeDef(TypedDict):
@@ -1552,6 +1560,7 @@ class SetUserMFAPreferenceRequestTypeDef(TypedDict):
     SMSMfaSettings: NotRequired[SMSMfaSettingsTypeTypeDef]
     SoftwareTokenMfaSettings: NotRequired[SoftwareTokenMfaSettingsTypeTypeDef]
     EmailMfaSettings: NotRequired[EmailMfaSettingsTypeTypeDef]
+    WebAuthnMfaSettings: NotRequired[WebAuthnMfaSettingsTypeTypeDef]
 
 
 class UserPoolAddOnsTypeTypeDef(TypedDict):

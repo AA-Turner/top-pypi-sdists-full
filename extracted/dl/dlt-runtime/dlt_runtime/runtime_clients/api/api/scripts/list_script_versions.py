@@ -16,7 +16,7 @@ from ...types import UNSET, Response, Unset
 
 def _get_kwargs(
     workspace_id: UUID,
-    script_id_or_name: str,
+    script_id_or_ref: str,
     *,
     limit: Union[Unset, int] = 100,
     offset: Union[Unset, int] = 0,
@@ -31,9 +31,9 @@ def _get_kwargs(
 
     _kwargs: dict[str, Any] = {
         "method": "get",
-        "url": "/v1/workspaces/{workspace_id}/scripts/{script_id_or_name}/versions".format(
+        "url": "/v1/workspaces/{workspace_id}/scripts/{script_id_or_ref}/versions".format(
             workspace_id=workspace_id,
-            script_id_or_name=script_id_or_name,
+            script_id_or_ref=script_id_or_ref,
         ),
         "params": params,
     }
@@ -104,7 +104,7 @@ def _build_response(
 
 def sync_detailed(
     workspace_id: UUID,
-    script_id_or_name: str,
+    script_id_or_ref: str,
     *,
     client: Union[AuthenticatedClient, Client],
     limit: Union[Unset, int] = 100,
@@ -128,7 +128,7 @@ def sync_detailed(
 
     Args:
         workspace_id (UUID):
-        script_id_or_name (str):
+        script_id_or_ref (str):
         limit (Union[Unset, int]): Maximum number of items to return. Default: 100.
         offset (Union[Unset, int]): Number of items to skip. Default: 0.
 
@@ -142,7 +142,7 @@ def sync_detailed(
 
     kwargs = _get_kwargs(
         workspace_id=workspace_id,
-        script_id_or_name=script_id_or_name,
+        script_id_or_ref=script_id_or_ref,
         limit=limit,
         offset=offset,
     )
@@ -156,7 +156,7 @@ def sync_detailed(
 
 def sync(
     workspace_id: UUID,
-    script_id_or_name: str,
+    script_id_or_ref: str,
     *,
     client: Union[AuthenticatedClient, Client],
     limit: Union[Unset, int] = 100,
@@ -180,7 +180,7 @@ def sync(
 
     Args:
         workspace_id (UUID):
-        script_id_or_name (str):
+        script_id_or_ref (str):
         limit (Union[Unset, int]): Maximum number of items to return. Default: 100.
         offset (Union[Unset, int]): Number of items to skip. Default: 0.
 
@@ -194,7 +194,7 @@ def sync(
 
     return sync_detailed(
         workspace_id=workspace_id,
-        script_id_or_name=script_id_or_name,
+        script_id_or_ref=script_id_or_ref,
         client=client,
         limit=limit,
         offset=offset,
@@ -203,7 +203,7 @@ def sync(
 
 async def asyncio_detailed(
     workspace_id: UUID,
-    script_id_or_name: str,
+    script_id_or_ref: str,
     *,
     client: Union[AuthenticatedClient, Client],
     limit: Union[Unset, int] = 100,
@@ -227,7 +227,7 @@ async def asyncio_detailed(
 
     Args:
         workspace_id (UUID):
-        script_id_or_name (str):
+        script_id_or_ref (str):
         limit (Union[Unset, int]): Maximum number of items to return. Default: 100.
         offset (Union[Unset, int]): Number of items to skip. Default: 0.
 
@@ -241,7 +241,7 @@ async def asyncio_detailed(
 
     kwargs = _get_kwargs(
         workspace_id=workspace_id,
-        script_id_or_name=script_id_or_name,
+        script_id_or_ref=script_id_or_ref,
         limit=limit,
         offset=offset,
     )
@@ -253,7 +253,7 @@ async def asyncio_detailed(
 
 async def asyncio(
     workspace_id: UUID,
-    script_id_or_name: str,
+    script_id_or_ref: str,
     *,
     client: Union[AuthenticatedClient, Client],
     limit: Union[Unset, int] = 100,
@@ -277,7 +277,7 @@ async def asyncio(
 
     Args:
         workspace_id (UUID):
-        script_id_or_name (str):
+        script_id_or_ref (str):
         limit (Union[Unset, int]): Maximum number of items to return. Default: 100.
         offset (Union[Unset, int]): Number of items to skip. Default: 0.
 
@@ -292,7 +292,7 @@ async def asyncio(
     return (
         await asyncio_detailed(
             workspace_id=workspace_id,
-            script_id_or_name=script_id_or_name,
+            script_id_or_ref=script_id_or_ref,
             client=client,
             limit=limit,
             offset=offset,

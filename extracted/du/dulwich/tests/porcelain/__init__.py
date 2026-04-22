@@ -22,6 +22,7 @@
 """Tests for dulwich.porcelain."""
 
 import contextlib
+import importlib.util
 import os
 import platform
 import re
@@ -42,6 +43,7 @@ from dulwich.diff_tree import tree_changes
 from dulwich.errors import CommitError
 from dulwich.object_store import DEFAULT_TEMPFILE_GRACE_PERIOD
 from dulwich.objects import ZERO_SHA, Blob, Commit, Tag, Tree
+from dulwich.patch import PatchApplicationFailure
 from dulwich.porcelain import (
     CheckoutError,  # Hypothetical or real error class
     CountObjectsResult,
@@ -53,7 +55,7 @@ from dulwich.server import DictBackend
 from dulwich.tests.utils import build_commit_graph, make_commit, make_object
 from dulwich.web import make_server, make_wsgi_chain
 
-from .. import TestCase
+from .. import DependencyMissing, TestCase
 
 try:
     import gpg
@@ -2603,6 +2605,153 @@ Author: Test Author <test@nodomain.com>
 Committer: Test Committer <test@nodomain.com>
 Date:   Fri Jan 01 2010 00:00:00 +0000
 """,
+        )
+
+    def test_oneline(self) -> None:
+        _c1, _c2, c3 = build_commit_graph(
+            self.repo.object_store, [[1], [2, 1], [3, 1, 2]]
+        )
+        self.repo.refs[b"HEAD"] = c3.id
+        outstream = StringIO()
+        porcelain.log(self.repo.path, outstream=outstream, oneline=True)
+        lines = outstream.getvalue().strip().split("\n")
+        self.assertEqual(3, len(lines))
+        # Each line should be: abbreviated_hash message
+        for line in lines:
+            parts = line.split(" ", 1)
+            self.assertEqual(7, len(parts[0]))  # abbreviated hash
+
+    def test_abbrev_commit(self) -> None:
+        c1 = make_commit(message=b"Test commit")
+        self.repo.object_store.add_object(c1)
+        self.repo.refs[b"HEAD"] = c1.id
+        outstream = StringIO()
+        porcelain.log(self.repo.path, outstream=outstream, abbrev_commit=True)
+        output = outstream.getvalue()
+        # The commit line should have an abbreviated hash (7 chars)
+        for line in output.split("\n"):
+            if line.startswith("commit: "):
+                commit_hash = line.split(": ", 1)[1]
+                self.assertEqual(7, len(commit_hash))
+
+    def test_author_filter(self) -> None:
+        c1 = make_commit(author=b"Alice <alice@example.com>", message=b"By Alice")
+        c2 = make_commit(
+            author=b"Bob <bob@example.com>",
+            message=b"By Bob",
+            parents=[c1.id],
+        )
+        self.repo.object_store.add_object(c1)
+        self.repo.object_store.add_object(c2)
+        self.repo.refs[b"HEAD"] = c2.id
+        outstream = StringIO()
+        porcelain.log(self.repo.path, outstream=outstream, author="Alice")
+        output = outstream.getvalue()
+        self.assertIn("By Alice", output)
+        self.assertNotIn("By Bob", output)
+
+    def test_committer_filter(self) -> None:
+        c1 = make_commit(
+            committer=b"Alice <alice@example.com>", message=b"Committed by Alice"
+        )
+        c2 = make_commit(
+            committer=b"Bob <bob@example.com>",
+            message=b"Committed by Bob",
+            parents=[c1.id],
+        )
+        self.repo.object_store.add_object(c1)
+        self.repo.object_store.add_object(c2)
+        self.repo.refs[b"HEAD"] = c2.id
+        outstream = StringIO()
+        porcelain.log(self.repo.path, outstream=outstream, committer="Alice")
+        output = outstream.getvalue()
+        self.assertIn("Committed by Alice", output)
+        self.assertNotIn("Committed by Bob", output)
+
+    def test_grep_filter(self) -> None:
+        c1 = make_commit(message=b"Fix bug in parser")
+        c2 = make_commit(message=b"Add new feature", parents=[c1.id])
+        self.repo.object_store.add_object(c1)
+        self.repo.object_store.add_object(c2)
+        self.repo.refs[b"HEAD"] = c2.id
+        outstream = StringIO()
+        porcelain.log(self.repo.path, outstream=outstream, grep="bug")
+        output = outstream.getvalue()
+        self.assertIn("Fix bug in parser", output)
+        self.assertNotIn("Add new feature", output)
+
+    def test_no_merges(self) -> None:
+        _c1, _c2, c3 = build_commit_graph(
+            self.repo.object_store, [[1], [2, 1], [3, 1, 2]]
+        )
+        self.repo.refs[b"HEAD"] = c3.id
+        outstream = StringIO()
+        porcelain.log(self.repo.path, outstream=outstream, no_merges=True)
+        output = outstream.getvalue()
+        # c3 is a merge commit (parents: c1, c2), should be excluded
+        self.assertNotIn("Commit 3", output)
+        self.assertIn("Commit 1", output)
+        self.assertIn("Commit 2", output)
+
+    def test_merges_only(self) -> None:
+        _c1, _c2, c3 = build_commit_graph(
+            self.repo.object_store, [[1], [2, 1], [3, 1, 2]]
+        )
+        self.repo.refs[b"HEAD"] = c3.id
+        outstream = StringIO()
+        porcelain.log(self.repo.path, outstream=outstream, merges=True)
+        output = outstream.getvalue()
+        # Only c3 is a merge commit
+        self.assertIn("Commit 3", output)
+        self.assertNotIn("Commit 1", output)
+        self.assertNotIn("Commit 2", output)
+
+    def test_max_entries_with_filter(self) -> None:
+        c1 = make_commit(author=b"Alice <alice@example.com>", message=b"Alice 1")
+        c2 = make_commit(
+            author=b"Alice <alice@example.com>",
+            message=b"Alice 2",
+            parents=[c1.id],
+        )
+        c3 = make_commit(
+            author=b"Alice <alice@example.com>",
+            message=b"Alice 3",
+            parents=[c2.id],
+        )
+        self.repo.object_store.add_object(c1)
+        self.repo.object_store.add_object(c2)
+        self.repo.object_store.add_object(c3)
+        self.repo.refs[b"HEAD"] = c3.id
+        outstream = StringIO()
+        porcelain.log(
+            self.repo.path,
+            outstream=outstream,
+            author="Alice",
+            max_entries=2,
+        )
+        output = outstream.getvalue()
+        self.assertEqual(2, output.count("-" * 50))
+
+    def test_name_only(self) -> None:
+        # Create a commit with actual file changes
+        c1 = self._commit_file("testfile.txt", b"content")
+        self.repo.refs[b"HEAD"] = c1
+        outstream = StringIO()
+        porcelain.log(self.repo.path, outstream=outstream, name_only=True)
+        output = outstream.getvalue()
+        self.assertIn("testfile.txt", output)
+
+    def _commit_file(self, filename: str, content: bytes) -> bytes:
+        """Helper to create a commit with a file."""
+        fullpath = os.path.join(self.repo.path, filename)
+        with open(fullpath, "wb") as f:
+            f.write(content)
+        porcelain.add(self.repo, paths=[fullpath])
+        return porcelain.commit(
+            self.repo,
+            message=b"Add " + filename.encode(),
+            author=b"Test Author <test@nodomain.com>",
+            committer=b"Test Committer <test@nodomain.com>",
         )
 
 
@@ -5778,6 +5927,388 @@ class PushTests(PorcelainTestCase):
         self.assertIn(b"refs/heads/should-not-be-deleted", self.repo.refs)
 
 
+class PushOptionsTests(PorcelainTestCase):
+    """Tests for the new push options (--all, --tags, --delete, etc.)."""
+
+    def _setup_clone(self):
+        """Helper to create a commit and clone."""
+        errstream = BytesIO()
+        porcelain.commit(
+            repo=self.repo.path,
+            message=b"init",
+            author=b"author <email>",
+            committer=b"committer <email>",
+        )
+        clone_path = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, clone_path)
+        target_repo = porcelain.clone(
+            self.repo.path, target=clone_path, errstream=errstream
+        )
+        target_repo.close()
+        return clone_path
+
+    def test_push_all(self) -> None:
+        """Test --all pushes all branches."""
+        clone_path = self._setup_clone()
+
+        # Create multiple branches in the clone
+        with Repo(clone_path) as r_clone:
+            head_id = r_clone[b"HEAD"].id
+            r_clone.refs[b"refs/heads/feature1"] = head_id
+            r_clone.refs[b"refs/heads/feature2"] = head_id
+
+        porcelain.push(
+            clone_path,
+            self.repo.path,
+            outstream=BytesIO(),
+            errstream=BytesIO(),
+            all=True,
+        )
+
+        # All branches should be pushed to remote
+        self.assertIn(b"refs/heads/feature1", self.repo.refs)
+        self.assertIn(b"refs/heads/feature2", self.repo.refs)
+
+    def test_push_tags(self) -> None:
+        """Test --tags pushes all tags."""
+        clone_path = self._setup_clone()
+
+        # Create tags in the clone
+        with Repo(clone_path) as r_clone:
+            head_id = r_clone[b"HEAD"].id
+            r_clone.refs[b"refs/tags/v1.0"] = head_id
+            r_clone.refs[b"refs/tags/v2.0"] = head_id
+
+        porcelain.push(
+            clone_path,
+            self.repo.path,
+            outstream=BytesIO(),
+            errstream=BytesIO(),
+            tags=True,
+        )
+
+        # All tags should be pushed to remote
+        self.assertIn(b"refs/tags/v1.0", self.repo.refs)
+        self.assertIn(b"refs/tags/v2.0", self.repo.refs)
+
+    def test_push_delete_flag(self) -> None:
+        """Test --delete removes remote refs."""
+        clone_path = self._setup_clone()
+
+        # Create a branch on the remote
+        head_id = self.repo[b"HEAD"].id
+        self.repo.refs[b"refs/heads/to-delete"] = head_id
+        self.assertIn(b"refs/heads/to-delete", self.repo.refs)
+
+        porcelain.push(
+            clone_path,
+            self.repo.path,
+            refspecs=[b"refs/heads/to-delete"],
+            outstream=BytesIO(),
+            errstream=BytesIO(),
+            delete=True,
+        )
+
+        self.assertNotIn(b"refs/heads/to-delete", self.repo.refs)
+
+    def test_push_delete_requires_refspecs(self) -> None:
+        """Test --delete without refspecs raises an error."""
+        clone_path = self._setup_clone()
+
+        self.assertRaises(
+            porcelain.Error,
+            porcelain.push,
+            clone_path,
+            self.repo.path,
+            outstream=BytesIO(),
+            errstream=BytesIO(),
+            delete=True,
+        )
+
+    def test_push_prune(self) -> None:
+        """Test --prune removes remote branches not in local."""
+        clone_path = self._setup_clone()
+
+        # Create a branch on the remote that doesn't exist in clone
+        head_id = self.repo[b"HEAD"].id
+        self.repo.refs[b"refs/heads/orphan"] = head_id
+        self.assertIn(b"refs/heads/orphan", self.repo.refs)
+
+        porcelain.push(
+            clone_path,
+            self.repo.path,
+            outstream=BytesIO(),
+            errstream=BytesIO(),
+            prune=True,
+        )
+
+        self.assertNotIn(b"refs/heads/orphan", self.repo.refs)
+
+    def test_push_dry_run(self) -> None:
+        """Test --dry-run doesn't actually push."""
+        clone_path = self._setup_clone()
+
+        # Create a new branch in clone
+        with Repo(clone_path) as r_clone:
+            head_id = r_clone[b"HEAD"].id
+            r_clone.refs[b"refs/heads/dry-run-branch"] = head_id
+
+        errstream = BytesIO()
+        porcelain.push(
+            clone_path,
+            self.repo.path,
+            refspecs=[b"refs/heads/dry-run-branch"],
+            outstream=BytesIO(),
+            errstream=errstream,
+            dry_run=True,
+        )
+
+        # Branch should NOT be pushed (dry run)
+        self.assertNotIn(b"refs/heads/dry-run-branch", self.repo.refs)
+        # Should mention dry run in output
+        self.assertIn(b"dry run", errstream.getvalue())
+
+    def test_push_set_upstream(self) -> None:
+        """Test --set-upstream sets tracking info."""
+        clone_path = self._setup_clone()
+
+        porcelain.push(
+            clone_path,
+            "origin",
+            refspecs=[b"refs/heads/master"],
+            outstream=BytesIO(),
+            errstream=BytesIO(),
+            set_upstream=True,
+        )
+
+        # Check that tracking info was set
+        with Repo(clone_path) as r_clone:
+            config = r_clone.get_config()
+            remote = config.get((b"branch", b"master"), b"remote")
+            merge = config.get((b"branch", b"master"), b"merge")
+            self.assertEqual(remote, b"origin")
+            self.assertEqual(merge, b"refs/heads/master")
+
+    def test_push_mirror_flag(self) -> None:
+        """Test --mirror flag pushes all refs and deletes missing ones."""
+        clone_path = self._setup_clone()
+
+        # Create extra refs in clone
+        with Repo(clone_path) as r_clone:
+            head_id = r_clone[b"HEAD"].id
+            r_clone.refs[b"refs/heads/feature"] = head_id
+            r_clone.refs[b"refs/tags/v1.0"] = head_id
+
+        # Create a branch on remote that doesn't exist in clone
+        self.repo.refs[b"refs/heads/old-branch"] = self.repo[b"HEAD"].id
+
+        porcelain.push(
+            clone_path,
+            self.repo.path,
+            outstream=BytesIO(),
+            errstream=BytesIO(),
+            mirror=True,
+        )
+
+        # All local refs should be on remote
+        self.assertIn(b"refs/heads/feature", self.repo.refs)
+        self.assertIn(b"refs/tags/v1.0", self.repo.refs)
+        # Remote-only branch should be deleted
+        self.assertNotIn(b"refs/heads/old-branch", self.repo.refs)
+
+    def test_push_all_does_not_push_tags(self) -> None:
+        """Test --all only pushes branches, not tags."""
+        clone_path = self._setup_clone()
+
+        with Repo(clone_path) as r_clone:
+            head_id = r_clone[b"HEAD"].id
+            r_clone.refs[b"refs/heads/feature"] = head_id
+            r_clone.refs[b"refs/tags/v1.0"] = head_id
+
+        porcelain.push(
+            clone_path,
+            self.repo.path,
+            outstream=BytesIO(),
+            errstream=BytesIO(),
+            all=True,
+        )
+
+        self.assertIn(b"refs/heads/feature", self.repo.refs)
+        self.assertNotIn(b"refs/tags/v1.0", self.repo.refs)
+
+    def test_push_tags_with_refspecs(self) -> None:
+        """Test --tags combined with refspecs pushes both."""
+        clone_path = self._setup_clone()
+
+        with Repo(clone_path) as r_clone:
+            head_id = r_clone[b"HEAD"].id
+            r_clone.refs[b"refs/heads/feature"] = head_id
+            r_clone.refs[b"refs/tags/v1.0"] = head_id
+
+        porcelain.push(
+            clone_path,
+            self.repo.path,
+            refspecs=[b"refs/heads/feature"],
+            outstream=BytesIO(),
+            errstream=BytesIO(),
+            tags=True,
+        )
+
+        # Both the explicit branch and all tags should be pushed
+        self.assertIn(b"refs/heads/feature", self.repo.refs)
+        self.assertIn(b"refs/tags/v1.0", self.repo.refs)
+
+    def test_push_prune_keeps_tags(self) -> None:
+        """Test --prune only removes branches, not tags."""
+        clone_path = self._setup_clone()
+
+        head_id = self.repo[b"HEAD"].id
+        self.repo.refs[b"refs/heads/orphan-branch"] = head_id
+        self.repo.refs[b"refs/tags/orphan-tag"] = head_id
+
+        porcelain.push(
+            clone_path,
+            self.repo.path,
+            outstream=BytesIO(),
+            errstream=BytesIO(),
+            prune=True,
+        )
+
+        # Branch not in local should be pruned
+        self.assertNotIn(b"refs/heads/orphan-branch", self.repo.refs)
+        # Tag should NOT be pruned (prune only affects branches)
+        self.assertIn(b"refs/tags/orphan-tag", self.repo.refs)
+
+    def test_push_delete_short_name(self) -> None:
+        """Test --delete with a short branch name resolves correctly."""
+        clone_path = self._setup_clone()
+
+        head_id = self.repo[b"HEAD"].id
+        self.repo.refs[b"refs/heads/to-delete"] = head_id
+
+        porcelain.push(
+            clone_path,
+            self.repo.path,
+            refspecs=[b"to-delete"],
+            outstream=BytesIO(),
+            errstream=BytesIO(),
+            delete=True,
+        )
+
+        self.assertNotIn(b"refs/heads/to-delete", self.repo.refs)
+
+    def test_push_follow_tags(self) -> None:
+        """Test --follow-tags pushes reachable annotated tags."""
+        clone_path = self._setup_clone()
+
+        # Create a new commit in clone
+        handle, fullpath = tempfile.mkstemp(dir=clone_path)
+        os.close(handle)
+        porcelain.add(repo=clone_path, paths=[fullpath])
+        new_id = porcelain.commit(
+            repo=clone_path,
+            message=b"new commit",
+            author=b"author <email>",
+            committer=b"committer <email>",
+        )
+
+        # Create an annotated tag on the commit
+        porcelain.tag_create(
+            clone_path,
+            tag=b"v1.0",
+            message=b"release v1.0",
+            author=b"author <email>",
+            annotated=True,
+        )
+
+        # Push only the branch with --follow-tags
+        porcelain.push(
+            clone_path,
+            self.repo.path,
+            refspecs=[b"refs/heads/master"],
+            outstream=BytesIO(),
+            errstream=BytesIO(),
+            follow_tags=True,
+        )
+
+        # The annotated tag should also be pushed
+        self.assertIn(b"refs/tags/v1.0", self.repo.refs)
+        # And the commit should be there
+        self.assertEqual(self.repo.refs[b"refs/heads/master"], new_id)
+
+    def test_push_follow_tags_skips_lightweight(self) -> None:
+        """Test --follow-tags does NOT push lightweight tags."""
+        clone_path = self._setup_clone()
+
+        handle, fullpath = tempfile.mkstemp(dir=clone_path)
+        os.close(handle)
+        porcelain.add(repo=clone_path, paths=[fullpath])
+        porcelain.commit(
+            repo=clone_path,
+            message=b"new commit",
+            author=b"author <email>",
+            committer=b"committer <email>",
+        )
+
+        # Create a lightweight (non-annotated) tag
+        porcelain.tag_create(
+            clone_path,
+            tag=b"lightweight",
+            annotated=False,
+        )
+
+        porcelain.push(
+            clone_path,
+            self.repo.path,
+            refspecs=[b"refs/heads/master"],
+            outstream=BytesIO(),
+            errstream=BytesIO(),
+            follow_tags=True,
+        )
+
+        # Lightweight tag should NOT be pushed
+        self.assertNotIn(b"refs/tags/lightweight", self.repo.refs)
+
+    def test_push_follow_tags_skips_already_on_remote(self) -> None:
+        """Test --follow-tags skips tags already present on remote."""
+        clone_path = self._setup_clone()
+
+        handle, fullpath = tempfile.mkstemp(dir=clone_path)
+        os.close(handle)
+        porcelain.add(repo=clone_path, paths=[fullpath])
+        porcelain.commit(
+            repo=clone_path,
+            message=b"new commit",
+            author=b"author <email>",
+            committer=b"committer <email>",
+        )
+
+        # Create an annotated tag
+        porcelain.tag_create(
+            clone_path,
+            tag=b"v1.0",
+            message=b"release v1.0",
+            author=b"author <email>",
+            annotated=True,
+        )
+
+        # Pre-set the tag on the remote to a different value
+        self.repo.refs[b"refs/tags/v1.0"] = self.repo[b"HEAD"].id
+        original_tag_sha = self.repo.refs[b"refs/tags/v1.0"]
+
+        porcelain.push(
+            clone_path,
+            self.repo.path,
+            refspecs=[b"refs/heads/master"],
+            outstream=BytesIO(),
+            errstream=BytesIO(),
+            follow_tags=True,
+        )
+
+        # Tag should NOT be overwritten (already on remote)
+        self.assertEqual(self.repo.refs[b"refs/tags/v1.0"], original_tag_sha)
+
+
 class PullTests(PorcelainTestCase):
     def setUp(self) -> None:
         super().setUp()
@@ -7061,6 +7592,73 @@ class StatusTests(PorcelainTestCase):
             "Top-level file 'sample.txt' should be in status.untracked",
         )
 
+    def test_get_untracked_paths_precompose_unicode(self) -> None:
+        """Test that precompose_unicode normalizes NFD paths to NFC."""
+        import unicodedata
+
+        # NFC (precomposed) and NFD (decomposed) forms of "ä"
+        nfc_name = unicodedata.normalize("NFC", "t\u00e4st.txt")
+        nfd_name = unicodedata.normalize("NFD", "t\u00e4st.txt")
+
+        # Create a file with NFC name, add and commit it
+        fullpath = os.path.join(self.repo.path, nfc_name)
+        with open(fullpath, "w") as f:
+            f.write("content\n")
+        porcelain.add(self.repo.path, paths=[fullpath])
+        porcelain.commit(
+            repo=self.repo.path,
+            message=b"Add unicode file",
+            author=b"Test <test@example.com>",
+        )
+
+        # Now rename the file to NFD form (simulating what macOS HFS+/APFS does)
+        nfd_path = os.path.join(self.repo.path, nfd_name)
+        if nfc_name != nfd_name:
+            # Only rename if the filesystem actually distinguishes NFC/NFD
+            try:
+                os.rename(fullpath, nfd_path)
+            except OSError:
+                # Filesystem normalizes names (e.g., macOS) — skip rename test
+                return
+
+            if not os.path.exists(nfd_path):
+                return
+
+            # Without precompose_unicode, the NFD file should appear as untracked
+            # (since the index has the NFC version)
+            index = self.repo.open_index()
+            untracked_without = set(
+                porcelain.get_untracked_paths(
+                    self.repo.path,
+                    self.repo.path,
+                    index,
+                    precompose_unicode=False,
+                )
+            )
+            self.assertIn(nfd_name, untracked_without)
+
+            # With precompose_unicode, the NFD file should be recognized as tracked
+            untracked_with = set(
+                porcelain.get_untracked_paths(
+                    self.repo.path,
+                    self.repo.path,
+                    index,
+                    precompose_unicode=True,
+                )
+            )
+            self.assertNotIn(nfd_name, untracked_with)
+            self.assertNotIn(nfc_name, untracked_with)
+
+    def test_status_precompose_unicode_config(self) -> None:
+        """Test that status reads core.precomposeunicode from config."""
+        config = self.repo.get_config()
+        config.set(b"core", b"precomposeunicode", b"true")
+        config.write_to_path()
+
+        # Verify the config is read (status should not error)
+        results = porcelain.status(self.repo)
+        self.assertIsNotNone(results)
+
 
 # TODO(jelmer): Add test for dulwich.porcelain.daemon
 
@@ -7145,8 +7743,8 @@ class ReceivePackTests(PorcelainTestCase):
         outlines = outf.getvalue().splitlines()
         self.assertEqual(
             [
-                b"00a4319b56ce3aee2d489f759736a79cc552c9bb86d9 HEAD\x00 report-status "
-                b"delete-refs quiet ofs-delta side-band-64k "
+                b"00ab319b56ce3aee2d489f759736a79cc552c9bb86d9 HEAD\x00 report-status "
+                b"delete-refs quiet atomic ofs-delta side-band-64k "
                 b"no-done object-format=sha1 symref=HEAD:refs/heads/master",
                 b"003f319b56ce3aee2d489f759736a79cc552c9bb86d9 refs/heads/master",
                 b"0000",
@@ -11476,3 +12074,701 @@ Body
             result = porcelain.mailinfo(input_path=email_path)
             self.assertEqual("Test", result.subject)
             self.assertEqual("test@example.com", result.author_email)
+
+
+class ApplyPatchTests(PorcelainTestCase):
+    def test_apply_simple_modification(self) -> None:
+        """Test applying a simple patch to the working tree."""
+        # Create a file and commit it
+        file_path = os.path.join(self.repo_path, "test.txt")
+        with open(file_path, "wb") as f:
+            f.write(b"line 1\nline 2\nline 3\n")
+        porcelain.add(self.repo_path, paths=["test.txt"])
+        porcelain.commit(self.repo_path, message=b"initial")
+
+        # Create a patch
+        patch_content = b"""\
+diff --git a/test.txt b/test.txt
+index 1234567..abcdefg 100644
+--- a/test.txt
++++ b/test.txt
+@@ -1,3 +1,3 @@
+ line 1
+-line 2
++line two
+ line 3
+"""
+        patch_file = os.path.join(self.repo_path, "change.patch")
+        with open(patch_file, "wb") as f:
+            f.write(patch_content)
+
+        porcelain.apply_patch(self.repo_path, patch_file=patch_file)
+
+        with open(file_path, "rb") as f:
+            result = f.read()
+        self.assertEqual(result, b"line 1\nline two\nline 3\n")
+
+    def test_apply_new_file(self) -> None:
+        """Test applying a patch that creates a new file."""
+        # Create an initial commit with a dummy file
+        dummy_path = os.path.join(self.repo_path, "dummy.txt")
+        with open(dummy_path, "wb") as f:
+            f.write(b"dummy\n")
+        porcelain.add(self.repo_path, paths=["dummy.txt"])
+        porcelain.commit(self.repo_path, message=b"initial")
+
+        patch_content = b"""\
+diff --git a/newfile.txt b/newfile.txt
+new file mode 100644
+index 0000000..1234567
+--- /dev/null
++++ b/newfile.txt
+@@ -0,0 +1,2 @@
++new line 1
++new line 2
+"""
+        patch_file = os.path.join(self.repo_path, "new.patch")
+        with open(patch_file, "wb") as f:
+            f.write(patch_content)
+
+        porcelain.apply_patch(self.repo_path, patch_file=patch_file)
+
+        new_file_path = os.path.join(self.repo_path, "newfile.txt")
+        self.assertTrue(os.path.exists(new_file_path))
+        with open(new_file_path, "rb") as f:
+            result = f.read()
+        self.assertEqual(result, b"new line 1\nnew line 2\n")
+
+    def test_apply_check_only(self) -> None:
+        """Test checking if a patch can be applied without applying it."""
+        file_path = os.path.join(self.repo_path, "test.txt")
+        with open(file_path, "wb") as f:
+            f.write(b"line 1\nline 2\nline 3\n")
+        porcelain.add(self.repo_path, paths=["test.txt"])
+        porcelain.commit(self.repo_path, message=b"initial")
+
+        patch_content = b"""\
+diff --git a/test.txt b/test.txt
+--- a/test.txt
++++ b/test.txt
+@@ -1,3 +1,3 @@
+ line 1
+-line 2
++line two
+ line 3
+"""
+        patch_file = os.path.join(self.repo_path, "change.patch")
+        with open(patch_file, "wb") as f:
+            f.write(patch_content)
+
+        porcelain.apply_patch(self.repo_path, patch_file=patch_file, check=True)
+
+        # File should not be modified
+        with open(file_path, "rb") as f:
+            result = f.read()
+        self.assertEqual(result, b"line 1\nline 2\nline 3\n")
+
+    def test_apply_reverse(self) -> None:
+        """Test applying a patch in reverse."""
+        file_path = os.path.join(self.repo_path, "test.txt")
+        with open(file_path, "wb") as f:
+            f.write(b"line 1\nline two\nline 3\n")
+        porcelain.add(self.repo_path, paths=["test.txt"])
+        porcelain.commit(self.repo_path, message=b"initial")
+
+        # Patch that changes "line 2" to "line two" - apply in reverse
+        patch_content = b"""\
+diff --git a/test.txt b/test.txt
+--- a/test.txt
++++ b/test.txt
+@@ -1,3 +1,3 @@
+ line 1
+-line 2
++line two
+ line 3
+"""
+        patch_file = os.path.join(self.repo_path, "change.patch")
+        with open(patch_file, "wb") as f:
+            f.write(patch_content)
+
+        porcelain.apply_patch(self.repo_path, patch_file=patch_file, reverse=True)
+
+        with open(file_path, "rb") as f:
+            result = f.read()
+        self.assertEqual(result, b"line 1\nline 2\nline 3\n")
+
+    def test_apply_from_file_object(self) -> None:
+        """Test applying a patch from a file-like object."""
+        file_path = os.path.join(self.repo_path, "test.txt")
+        with open(file_path, "wb") as f:
+            f.write(b"hello\n")
+        porcelain.add(self.repo_path, paths=["test.txt"])
+        porcelain.commit(self.repo_path, message=b"initial")
+
+        patch_content = b"""\
+diff --git a/test.txt b/test.txt
+--- a/test.txt
++++ b/test.txt
+@@ -1 +1 @@
+-hello
++goodbye
+"""
+
+        porcelain.apply_patch(self.repo_path, patch_file=BytesIO(patch_content))
+
+        with open(file_path, "rb") as f:
+            result = f.read()
+        self.assertEqual(result, b"goodbye\n")
+
+    def test_apply_rename(self) -> None:
+        """Test applying a patch that renames a file."""
+        # Create a file and commit it
+        old_file = os.path.join(self.repo_path, "old.txt")
+        with open(old_file, "wb") as f:
+            f.write(b"content\n")
+        porcelain.add(self.repo_path, paths=["old.txt"])
+        porcelain.commit(self.repo_path, message=b"initial")
+
+        # Create a rename patch
+        patch_content = b"""\
+diff --git a/old.txt b/new.txt
+similarity index 100%
+rename from old.txt
+rename to new.txt
+"""
+        patch_file = os.path.join(self.repo_path, "rename.patch")
+        with open(patch_file, "wb") as f:
+            f.write(patch_content)
+
+        porcelain.apply_patch(self.repo_path, patch_file=patch_file)
+
+        # Old file should be gone, new file should exist
+        self.assertFalse(os.path.exists(old_file))
+        new_file = os.path.join(self.repo_path, "new.txt")
+        self.assertTrue(os.path.exists(new_file))
+        with open(new_file, "rb") as f:
+            self.assertEqual(f.read(), b"content\n")
+
+    def test_apply_rename_with_modification(self) -> None:
+        """Test applying a patch that renames and modifies a file."""
+        old_file = os.path.join(self.repo_path, "old.txt")
+        with open(old_file, "wb") as f:
+            f.write(b"line 1\nline 2\n")
+        porcelain.add(self.repo_path, paths=["old.txt"])
+        porcelain.commit(self.repo_path, message=b"initial")
+
+        patch_content = b"""\
+diff --git a/old.txt b/new.txt
+similarity index 90%
+rename from old.txt
+rename to new.txt
+--- a/old.txt
++++ b/new.txt
+@@ -1,2 +1,2 @@
+ line 1
+-line 2
++modified line 2
+"""
+        patch_file = os.path.join(self.repo_path, "rename_mod.patch")
+        with open(patch_file, "wb") as f:
+            f.write(patch_content)
+
+        porcelain.apply_patch(self.repo_path, patch_file=patch_file)
+
+        self.assertFalse(os.path.exists(old_file))
+        new_file = os.path.join(self.repo_path, "new.txt")
+        self.assertTrue(os.path.exists(new_file))
+        with open(new_file, "rb") as f:
+            self.assertEqual(f.read(), b"line 1\nmodified line 2\n")
+
+    def test_apply_copy(self) -> None:
+        """Test applying a patch that copies a file."""
+        src_file = os.path.join(self.repo_path, "source.txt")
+        with open(src_file, "wb") as f:
+            f.write(b"original content\n")
+        porcelain.add(self.repo_path, paths=["source.txt"])
+        porcelain.commit(self.repo_path, message=b"initial")
+
+        patch_content = b"""\
+diff --git a/source.txt b/copy.txt
+similarity index 100%
+copy from source.txt
+copy to copy.txt
+"""
+        patch_file = os.path.join(self.repo_path, "copy.patch")
+        with open(patch_file, "wb") as f:
+            f.write(patch_content)
+
+        porcelain.apply_patch(self.repo_path, patch_file=patch_file)
+
+        # Both files should exist
+        self.assertTrue(os.path.exists(src_file))
+        copy_file = os.path.join(self.repo_path, "copy.txt")
+        self.assertTrue(os.path.exists(copy_file))
+        with open(copy_file, "rb") as f:
+            self.assertEqual(f.read(), b"original content\n")
+
+    def test_apply_three_way(self) -> None:
+        """Test applying a patch with 3-way merge fallback."""
+        if importlib.util.find_spec("merge3") is None:
+            raise DependencyMissing("merge3")
+
+        file_path = os.path.join(self.repo_path, "test.txt")
+        with open(file_path, "wb") as f:
+            f.write(b"line 1\nlocal change\nline 3\n")
+        porcelain.add(self.repo_path, paths=["test.txt"])
+        porcelain.commit(self.repo_path, message=b"initial")
+
+        # Patch that won't apply cleanly but can be merged
+        patch_content = b"""\
+diff --git a/test.txt b/test.txt
+--- a/test.txt
++++ b/test.txt
+@@ -1,3 +1,3 @@
+ line 1
+-line 2
++patch change
+ line 3
+"""
+        patch_file = os.path.join(self.repo_path, "change.patch")
+        with open(patch_file, "wb") as f:
+            f.write(patch_content)
+
+        # Without 3-way, this should fail
+        with self.assertRaises(PatchApplicationFailure):
+            porcelain.apply_patch(self.repo_path, patch_file=patch_file)
+
+        # Reset file
+        with open(file_path, "wb") as f:
+            f.write(b"line 1\nlocal change\nline 3\n")
+
+        # With 3-way, it should merge
+        porcelain.apply_patch(self.repo_path, patch_file=patch_file, three_way=True)
+
+        # Should have conflict markers or merged result
+        with open(file_path, "rb") as f:
+            result = f.read()
+        # The merge should have occurred (may have conflict markers)
+        self.assertIsNotNone(result)
+
+
+class AmTests(PorcelainTestCase):
+    def _make_email_patch(
+        self,
+        subject: str,
+        diff: bytes,
+        author_name: str = "Test Author",
+        author_email: str = "test@example.com",
+        date: str = "Mon, 1 Jan 2024 12:00:00 +0000",
+        body: str = "",
+    ) -> bytes:
+        """Build a raw email-format patch message."""
+        lines = [
+            f"From: {author_name} <{author_email}>",
+            f"Date: {date}",
+            f"Subject: {subject}",
+            "",
+        ]
+        if body:
+            lines.append(body)
+            lines.append("")
+        lines.append("---")
+        raw = "\n".join(lines).encode("utf-8") + b"\n" + diff
+        return raw
+
+    def test_am_single_patch(self) -> None:
+        """Test applying a single email-format patch."""
+        # Create a file and commit it
+        file_path = os.path.join(self.repo_path, "test.txt")
+        with open(file_path, "wb") as f:
+            f.write(b"line 1\nline 2\nline 3\n")
+        porcelain.add(self.repo_path, paths=["test.txt"])
+        porcelain.commit(self.repo_path, message=b"initial")
+
+        diff = b"""\
+diff --git a/test.txt b/test.txt
+index 1234567..abcdefg 100644
+--- a/test.txt
++++ b/test.txt
+@@ -1,3 +1,3 @@
+ line 1
+-line 2
++line two
+ line 3
+"""
+        email_patch = self._make_email_patch(
+            subject="[PATCH] Change line 2",
+            diff=diff,
+            body="This changes line 2 to line two.",
+        )
+
+        import io
+
+        shas = porcelain.am(self.repo_path, patches=[io.BytesIO(email_patch)])
+        self.assertEqual(len(shas), 1)
+
+        # Verify file content
+        with open(file_path, "rb") as f:
+            result = f.read()
+        self.assertEqual(result, b"line 1\nline two\nline 3\n")
+
+        # Verify commit metadata
+        with porcelain.open_repo_closing(self.repo_path) as r:
+            commit_obj = r[shas[0]]
+            self.assertEqual(commit_obj.author, b"Test Author <test@example.com>")
+            self.assertIn(b"Change line 2", commit_obj.message)
+            self.assertIn(b"This changes line 2 to line two.", commit_obj.message)
+
+    def test_am_multiple_patches(self) -> None:
+        """Test applying an mbox with multiple patches."""
+        # Create a file and commit it
+        file_path = os.path.join(self.repo_path, "test.txt")
+        with open(file_path, "wb") as f:
+            f.write(b"line 1\nline 2\nline 3\n")
+        porcelain.add(self.repo_path, paths=["test.txt"])
+        porcelain.commit(self.repo_path, message=b"initial")
+
+        # Build an mbox with two patches
+        patch1 = self._make_email_patch(
+            subject="[PATCH 1/2] Change line 2",
+            diff=b"""\
+diff --git a/test.txt b/test.txt
+index 1234567..abcdefg 100644
+--- a/test.txt
++++ b/test.txt
+@@ -1,3 +1,3 @@
+ line 1
+-line 2
++line two
+ line 3
+""",
+        )
+        patch2 = self._make_email_patch(
+            subject="[PATCH 2/2] Change line 3",
+            diff=b"""\
+diff --git a/test.txt b/test.txt
+index abcdefg..1234567 100644
+--- a/test.txt
++++ b/test.txt
+@@ -1,3 +1,3 @@
+ line 1
+ line two
+-line 3
++line three
+""",
+            date="Mon, 1 Jan 2024 13:00:00 +0000",
+        )
+
+        # Build mbox format
+        mbox_content = b"From nobody Mon Jan  1 12:00:00 2024\n" + patch1
+        mbox_content += b"\nFrom nobody Mon Jan  1 13:00:00 2024\n" + patch2
+
+        # Write to a file
+        mbox_path = os.path.join(self.repo_path, "patches.mbox")
+        with open(mbox_path, "wb") as f:
+            f.write(mbox_content)
+
+        shas = porcelain.am(self.repo_path, patches=mbox_path)
+        self.assertEqual(len(shas), 2)
+
+        # Verify final file content
+        with open(file_path, "rb") as f:
+            result = f.read()
+        self.assertEqual(result, b"line 1\nline two\nline three\n")
+
+    def test_am_subject_munging(self) -> None:
+        """Test that [PATCH] prefix is stripped from commit message."""
+        file_path = os.path.join(self.repo_path, "test.txt")
+        with open(file_path, "wb") as f:
+            f.write(b"line 1\nline 2\nline 3\n")
+        porcelain.add(self.repo_path, paths=["test.txt"])
+        porcelain.commit(self.repo_path, message=b"initial")
+
+        diff = b"""\
+diff --git a/test.txt b/test.txt
+index 1234567..abcdefg 100644
+--- a/test.txt
++++ b/test.txt
+@@ -1,3 +1,3 @@
+ line 1
+-line 2
++line two
+ line 3
+"""
+        email_patch = self._make_email_patch(
+            subject="[PATCH v2 1/1] Improve line 2",
+            diff=diff,
+        )
+
+        import io
+
+        shas = porcelain.am(self.repo_path, patches=[io.BytesIO(email_patch)])
+        self.assertEqual(len(shas), 1)
+
+        # Subject should have [PATCH v2 1/1] stripped
+        with porcelain.open_repo_closing(self.repo_path) as r:
+            commit_obj = r[shas[0]]
+            # Should start with the actual subject, not the [PATCH...] prefix
+            self.assertTrue(commit_obj.message.startswith(b"Improve line 2"))
+
+    def test_am_abort(self) -> None:
+        """Test aborting am restores original HEAD."""
+        from dulwich.am import AmConflict
+
+        # Create a file and commit it
+        file_path = os.path.join(self.repo_path, "test.txt")
+        with open(file_path, "wb") as f:
+            f.write(b"line 1\nline 2\nline 3\n")
+        porcelain.add(self.repo_path, paths=["test.txt"])
+        orig_sha = porcelain.commit(self.repo_path, message=b"initial")
+
+        # First patch applies fine
+        patch1 = self._make_email_patch(
+            subject="[PATCH 1/2] Change line 2",
+            diff=b"""\
+diff --git a/test.txt b/test.txt
+index 1234567..abcdefg 100644
+--- a/test.txt
++++ b/test.txt
+@@ -1,3 +1,3 @@
+ line 1
+-line 2
++line two
+ line 3
+""",
+        )
+        # Second patch conflicts (expects "line 2" but it's now "line two")
+        patch2 = self._make_email_patch(
+            subject="[PATCH 2/2] Also change line 2",
+            diff=b"""\
+diff --git a/test.txt b/test.txt
+index 1234567..abcdefg 100644
+--- a/test.txt
++++ b/test.txt
+@@ -1,3 +1,3 @@
+ line 1
+-line 2
++line TWO
+ line 3
+""",
+            date="Mon, 1 Jan 2024 13:00:00 +0000",
+        )
+
+        import io
+
+        with self.assertRaises(AmConflict):
+            porcelain.am(
+                self.repo_path,
+                patches=[io.BytesIO(patch1), io.BytesIO(patch2)],
+            )
+
+        # Abort should restore to original HEAD
+        porcelain.am_abort(self.repo_path)
+
+        with porcelain.open_repo_closing(self.repo_path) as r:
+            self.assertEqual(r.head(), orig_sha)
+
+        # Working tree should be restored
+        with open(file_path, "rb") as f:
+            result = f.read()
+        self.assertEqual(result, b"line 1\nline 2\nline 3\n")
+
+    def test_am_continue(self) -> None:
+        """Test continuing am after resolving a conflict."""
+        from dulwich.am import AmConflict
+
+        # Create a file and commit it
+        file_path = os.path.join(self.repo_path, "test.txt")
+        with open(file_path, "wb") as f:
+            f.write(b"line 1\nline 2\nline 3\n")
+        porcelain.add(self.repo_path, paths=["test.txt"])
+        porcelain.commit(self.repo_path, message=b"initial")
+
+        # First patch applies fine
+        patch1 = self._make_email_patch(
+            subject="[PATCH 1/2] Change line 2",
+            diff=b"""\
+diff --git a/test.txt b/test.txt
+index 1234567..abcdefg 100644
+--- a/test.txt
++++ b/test.txt
+@@ -1,3 +1,3 @@
+ line 1
+-line 2
++line two
+ line 3
+""",
+        )
+        # Second patch conflicts
+        patch2 = self._make_email_patch(
+            subject="[PATCH 2/2] Also change line 2",
+            diff=b"""\
+diff --git a/test.txt b/test.txt
+index 1234567..abcdefg 100644
+--- a/test.txt
++++ b/test.txt
+@@ -1,3 +1,3 @@
+ line 1
+-line 2
++line TWO
+ line 3
+""",
+            date="Mon, 1 Jan 2024 13:00:00 +0000",
+        )
+
+        import io
+
+        with self.assertRaises(AmConflict):
+            porcelain.am(
+                self.repo_path,
+                patches=[io.BytesIO(patch1), io.BytesIO(patch2)],
+            )
+
+        # Manually resolve: write the desired result and stage it
+        with open(file_path, "wb") as f:
+            f.write(b"line 1\nline TWO\nline 3\n")
+        porcelain.add(self.repo_path, paths=["test.txt"])
+
+        # Continue should create the commit
+        shas = porcelain.am_continue(self.repo_path)
+        self.assertEqual(len(shas), 1)
+
+        # Verify the commit
+        with porcelain.open_repo_closing(self.repo_path) as r:
+            commit_obj = r[shas[0]]
+            self.assertIn(b"Also change line 2", commit_obj.message)
+
+        with open(file_path, "rb") as f:
+            result = f.read()
+        self.assertEqual(result, b"line 1\nline TWO\nline 3\n")
+
+    def test_am_skip(self) -> None:
+        """Test skipping a patch during am."""
+        from dulwich.am import AmConflict
+
+        # Create a file and commit it
+        file_path = os.path.join(self.repo_path, "test.txt")
+        with open(file_path, "wb") as f:
+            f.write(b"line 1\nline 2\nline 3\n")
+        porcelain.add(self.repo_path, paths=["test.txt"])
+        porcelain.commit(self.repo_path, message=b"initial")
+
+        # First patch applies fine
+        patch1 = self._make_email_patch(
+            subject="[PATCH 1/2] Change line 2",
+            diff=b"""\
+diff --git a/test.txt b/test.txt
+index 1234567..abcdefg 100644
+--- a/test.txt
++++ b/test.txt
+@@ -1,3 +1,3 @@
+ line 1
+-line 2
++line two
+ line 3
+""",
+        )
+        # Second patch conflicts
+        patch2 = self._make_email_patch(
+            subject="[PATCH 2/2] Also change line 2",
+            diff=b"""\
+diff --git a/test.txt b/test.txt
+index 1234567..abcdefg 100644
+--- a/test.txt
++++ b/test.txt
+@@ -1,3 +1,3 @@
+ line 1
+-line 2
++line TWO
+ line 3
+""",
+            date="Mon, 1 Jan 2024 13:00:00 +0000",
+        )
+
+        import io
+
+        with self.assertRaises(AmConflict):
+            porcelain.am(
+                self.repo_path,
+                patches=[io.BytesIO(patch1), io.BytesIO(patch2)],
+            )
+
+        # Skip the conflicting patch
+        shas = porcelain.am_skip(self.repo_path)
+        self.assertEqual(len(shas), 0)  # No more patches after skipping the last one
+
+        # File should be back to what patch1 left it as
+        with open(file_path, "rb") as f:
+            result = f.read()
+        self.assertEqual(result, b"line 1\nline two\nline 3\n")
+
+        # State should be cleaned up
+        with porcelain.open_repo_closing(self.repo_path) as r:
+            state_dir = os.path.join(r.controldir(), "rebase-apply")
+            self.assertFalse(os.path.exists(state_dir))
+
+    def test_am_quit(self) -> None:
+        """Test quitting am keeps partial progress."""
+        from dulwich.am import AmConflict
+
+        # Create a file and commit it
+        file_path = os.path.join(self.repo_path, "test.txt")
+        with open(file_path, "wb") as f:
+            f.write(b"line 1\nline 2\nline 3\n")
+        porcelain.add(self.repo_path, paths=["test.txt"])
+        porcelain.commit(self.repo_path, message=b"initial")
+
+        # First patch applies fine
+        patch1 = self._make_email_patch(
+            subject="[PATCH 1/2] Change line 2",
+            diff=b"""\
+diff --git a/test.txt b/test.txt
+index 1234567..abcdefg 100644
+--- a/test.txt
++++ b/test.txt
+@@ -1,3 +1,3 @@
+ line 1
+-line 2
++line two
+ line 3
+""",
+        )
+        # Second patch conflicts
+        patch2 = self._make_email_patch(
+            subject="[PATCH 2/2] Also change line 2",
+            diff=b"""\
+diff --git a/test.txt b/test.txt
+index 1234567..abcdefg 100644
+--- a/test.txt
++++ b/test.txt
+@@ -1,3 +1,3 @@
+ line 1
+-line 2
++line TWO
+ line 3
+""",
+            date="Mon, 1 Jan 2024 13:00:00 +0000",
+        )
+
+        import io
+
+        with self.assertRaises(AmConflict):
+            porcelain.am(
+                self.repo_path,
+                patches=[io.BytesIO(patch1), io.BytesIO(patch2)],
+            )
+
+        # Remember HEAD before quit (should include patch1's commit)
+        with porcelain.open_repo_closing(self.repo_path) as r:
+            head_before_quit = r.head()
+
+        porcelain.am_quit(self.repo_path)
+
+        # HEAD should be unchanged (partial progress kept)
+        with porcelain.open_repo_closing(self.repo_path) as r:
+            self.assertEqual(r.head(), head_before_quit)
+
+        # State should be cleaned up
+        with porcelain.open_repo_closing(self.repo_path) as r:
+            state_dir = os.path.join(r.controldir(), "rebase-apply")
+            self.assertFalse(os.path.exists(state_dir))

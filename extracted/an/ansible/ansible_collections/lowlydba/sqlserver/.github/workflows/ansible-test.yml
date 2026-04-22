@@ -32,8 +32,11 @@ on:
 
 # Cancel existing runs on new commits to a branch
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
+
+# Deny all permissions at workflow level - scope per job
+permissions: {}
 
 env:
   NAMESPACE: lowlydba
@@ -47,15 +50,17 @@ jobs:
 
   sanity:
     name: Sanity (Ⓐ${{ matrix.ansible }})
+    continue-on-error: ${{ matrix.ansible == 'devel' }}
+    permissions:
+      contents: write  # Required for uploading coverage reports
     strategy:
       matrix:
         # https://docs.ansible.com/ansible/latest/reference_appendices/release_and_maintenance.html#ansible-core-support-matrix
         ansible:
           # It's important that Sanity is tested against all stable-X.Y branches
           # Testing against `devel` may fail as new tests are added.
-          - stable-2.17 # November 2025 EOL
-          - stable-2.18 # May 2026 EOL
           - stable-2.19
+          - stable-2.20
           - devel
     runs-on: ubuntu-latest
     steps:
@@ -63,12 +68,13 @@ jobs:
       # .../ansible_collections/${{env.NAMESPACE}}/${{env.COLLECTION_NAME}}/
 
       - name: Check out code
-        uses: actions/checkout@v5
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           path: ansible_collections/${{env.NAMESPACE}}/${{env.COLLECTION_NAME}}
+          persist-credentials: false
 
       - name: Run confidence tests
-        uses: ansible-community/ansible-test-gh-action@v1.17.0
+        uses: ansible-community/ansible-test-gh-action@d3a8ec7a59694e25e210fcd44738910149537f0e # v1.17.0
         with:
           ansible-core-version: ${{ matrix.ansible }}
           testing-type: sanity
@@ -79,11 +85,11 @@ jobs:
         working-directory: ./ansible_collections/${{env.NAMESPACE}}/${{env.COLLECTION_NAME}}
 
       # See the reports at https://codecov.io/gh/lowlydba/lowlydba.sqlserver
-      - uses: codecov/codecov-action@v5.4.3
+      - uses: codecov/codecov-action@57e3a136b779b570ffcdbf80b3bdc90e7fab3de2 # v6.0.0
         with:
           fail_ci_if_error: false
         env:
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }} # zizmor: ignore[secrets-outside-env] -- Codecov token needed for uploading coverage; workflow_dispatch only
 
   ###
   # Integration tests (RECOMMENDED)
@@ -97,9 +103,12 @@ jobs:
   integration:
     runs-on: ubuntu-latest
     name: I (Ⓐ${{ matrix.ansible }}+py${{ matrix.python }})
+    continue-on-error: ${{ matrix.ansible == 'devel' }}
+    permissions:
+      contents: write  # Required for uploading coverage reports
     services:
       sqlserver:
-        image: mcr.microsoft.com/mssql/server:2022-latest
+        image: mcr.microsoft.com/mssql/server:2022-latest # zizmor: ignore[unpinned-images] -- Trusted publisher for this CI use case
         ports:
           - 1433:1433
         env:
@@ -109,41 +118,27 @@ jobs:
       fail-fast: false
       matrix:
         ansible:
-          - stable-2.17
-          - stable-2.18
           - stable-2.19
+          - stable-2.20
           - devel
         python:
           - 3.10
 
     steps:
       - name: Check out code
-        uses: actions/checkout@v5
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           path: ansible_collections/${{env.NAMESPACE}}/${{env.COLLECTION_NAME}}
+          persist-credentials: false
 
       - name: Set integration test options
         working-directory: ./ansible_collections/${{env.NAMESPACE}}/${{env.COLLECTION_NAME}}/tests/integration
         run: cp integration_config.sample.yml integration_config.yml
 
-      # Prevent dbatools v2+ issues with newer docker image for 2.13
-      - name: Run integration tests - v2.13 workaround
-        if: ${{ matrix.ansible == 'stable-2.13' }}
-        uses: ansible-community/ansible-test-gh-action@v1.17.0
-        with:
-          docker-image: 'quay.io/ansible/default-test-container:6.13.0'
-          ansible-core-version: ${{ matrix.ansible }}
-          target-python-version: 3.9
-          testing-type: integration
-          test-deps: community.general
-          pull-request-change-detection: false
-
       - name: Run integration tests
-        if: ${{ matrix.ansible != 'stable-2.13'}}
-        uses: ansible-community/ansible-test-gh-action@v1.17.0
+        uses: ansible-community/ansible-test-gh-action@d3a8ec7a59694e25e210fcd44738910149537f0e # v1.17.0
         with:
           ansible-core-version: ${{ matrix.ansible }}
-          #target-python-version: ${{ matrix.python }}
           testing-type: integration
           test-deps: community.general
           pull-request-change-detection: false
@@ -154,8 +149,18 @@ jobs:
         working-directory: ./ansible_collections/${{env.NAMESPACE}}/${{env.COLLECTION_NAME}}
 
       # See the reports at https://codecov.io/gh/lowlydba/lowlydba.sqlserver
-      - uses: codecov/codecov-action@v5.4.3
+      - uses: codecov/codecov-action@57e3a136b779b570ffcdbf80b3bdc90e7fab3de2 # v6.0.0
         with:
           fail_ci_if_error: false
         env:
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }} # zizmor: ignore[secrets-outside-env] -- Codecov token needed for uploading coverage; workflow_dispatch only
+
+  ci-test-rollup:
+    name: Are we good?
+    runs-on: ubuntu-slim
+    needs: [sanity, integration]
+    if: always()
+    steps:
+      - uses: lowlydba/are-we-good@7efad05442f92a1203940ca8b79dd4fb930e75d4 # v1.0.2
+        with:
+          jobs: ${{ toJSON(needs) }}

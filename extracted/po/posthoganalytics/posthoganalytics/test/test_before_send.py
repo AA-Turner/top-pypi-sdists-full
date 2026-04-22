@@ -1,7 +1,7 @@
 import importlib
 import unittest
+from unittest import mock
 
-import mock
 import posthog
 
 from posthoganalytics.client import Client

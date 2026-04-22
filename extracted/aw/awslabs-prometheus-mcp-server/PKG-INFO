@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: awslabs.prometheus-mcp-server
-Version: 0.2.14
+Version: 0.2.15
 Summary: MCP server for interacting with AWS Managed Prometheus
 Project-URL: homepage, https://awslabs.github.io/mcp/
 Project-URL: docs, https://awslabs.github.io/mcp/servers/prometheus-mcp-server/

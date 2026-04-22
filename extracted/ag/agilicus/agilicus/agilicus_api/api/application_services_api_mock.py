@@ -30,6 +30,7 @@ class ApplicationServicesApiMock:
         self.mock_list_application_services = MagicMock()
         self.mock_list_database_resources = MagicMock()
         self.mock_list_desktop_resources = MagicMock()
+        self.mock_list_external_networks = MagicMock()
         self.mock_list_file_share_services = MagicMock()
         self.mock_list_service_forwarders = MagicMock()
         self.mock_list_ssh_resources = MagicMock()
@@ -201,6 +202,12 @@ class ApplicationServicesApiMock:
         This method mocks the original api ApplicationServicesApi.list_desktop_resources with MagicMock.
         """
         return self.mock_list_desktop_resources(self, *args, **kwargs)
+
+    def list_external_networks(self, *args, **kwargs):
+        """
+        This method mocks the original api ApplicationServicesApi.list_external_networks with MagicMock.
+        """
+        return self.mock_list_external_networks(self, *args, **kwargs)
 
     def list_file_share_services(self, *args, **kwargs):
         """

@@ -16,8 +16,8 @@ description:
     Authority such as L(Let's Encrypt,https://letsencrypt.org/).
     This module does not support ACME v1, the original version of the ACME protocol
     before standardization.
-  - The current implementation supports the V(http-01), V(dns-01) and V(tls-alpn-01)
-    challenges.
+  - The current implementation supports the V(http-01), V(dns-01), V(dns-account-01), V(dns-persist-01),
+    and V(tls-alpn-01) challenges.
   - This module needs to be used in conjunction with the
     M(community.crypto.acme_certificate_order_validate) and.
     M(community.crypto.acme_certificate_order_finalize) module.
@@ -29,15 +29,23 @@ description:
   - Between the call of this module and M(community.crypto.acme_certificate_order_finalize),
     you have to fulfill the required steps for the chosen challenge by whatever means necessary.
     For V(http-01) that means creating the necessary challenge file on the destination webserver.
-    For V(dns-01) the necessary dns record has to be created. For V(tls-alpn-01) the necessary
-    certificate has to be created and served. It is I(not) the responsibility of this module to
-    perform these steps.
+    For V(dns-01), V(dns-account-01), and V(dns-persist-01) the necessary DNS records have to be created.
+    For V(tls-alpn-01) the necessary certificate has to be created and served.
+    It is I(not) the responsibility of this module to perform these steps.
   - For details on how to fulfill these challenges, you might have to read through
     L(the main ACME specification,https://tools.ietf.org/html/rfc8555#section-8)
     and the L(TLS-ALPN-01 specification,https://www.rfc-editor.org/rfc/rfc8737.html#section-3).
     Also, consider the examples provided for this module.
   - The module includes support for IP identifiers according to
-    the L(RFC 8738,https://www.rfc-editor.org/rfc/rfc8738.html) ACME extension.
+    L(RFC 8738,https://www.rfc-editor.org/rfc/rfc8738.html) ACME extension.
+  - The module B(experimentally) supports the V(dns-account-01) challenge type according to
+    L(acme-dns-account-label draft 02, https://datatracker.ietf.org/doc/html/draft-ietf-acme-dns-account-label-02).
+    Note that the supported draft version can change at any time,
+    and changes will only be considered breaking once the draft reached RFC status.
+  - The module B(experimentally) supports the V(dns-persist-01) challenge type according to
+    L(acme-dns-persist draft 01, https://www.ietf.org/archive/id/draft-ietf-acme-dns-persist-01.html).
+    Note that the supported draft version can change at any time,
+    and changes will only be considered breaking once the draft reached RFC status.
 seealso:
   - module: community.crypto.acme_certificate_order_validate
     description: Validate pending authorizations of an ACME order.
@@ -122,7 +130,7 @@ options:
     description:
       - Chose a specific profile for certificate selection. The available profiles depend on the CA.
       - See L(a blog post by Let's Encrypt, https://letsencrypt.org/2025/01/09/acme-profiles/) and
-        L(draft-aaron-acme-profiles-00, https://datatracker.ietf.org/doc/draft-aaron-acme-profiles/)
+        L(draft-aaron-acme-profiles-01, https://datatracker.ietf.org/doc/draft-aaron-acme-profiles/)
         for more information.
     type: str
   order_creation_error_strategy:
@@ -303,6 +311,7 @@ challenge_data:
             resource:
               description:
                 - Always contains the string V(_acme-challenge).
+              returned: success
               type: str
               sample: _acme-challenge
             resource_value:
@@ -316,6 +325,62 @@ challenge_data:
               returned: success
               type: str
               sample: _acme-challenge.example.com
+        dns-account-01:
+          description:
+            - Information for V(dns-account-01) authorization.
+            - A DNS TXT record needs to be created with the record name RV(challenge_data[].challenges.dns-01.record)
+              and value RV(challenge_data[].challenges.dns-01.resource_value).
+            - B(Note) that this return value is B(experimental) and can change in a breaking way also in minor releases,
+              until the acme-dns-account-label draft is in a more stable state.
+          returned: if the identifier supports V(dns-account-01) authorization
+          version_added: 3.2.0
+          type: dict
+          contains:
+            resource:
+              description:
+                - Always ends with the string V(._acme-challenge).
+              returned: success
+              type: str
+              sample: _ujmmovf2vn55tgye._acme-challenge
+            resource_value:
+              description:
+                - The value the resource has to produce for the validation.
+              returned: success
+              type: str
+              sample: IlirfxKKXA...17Dt3juxGJ-PCt92wr-oA
+            record:
+              description: The full DNS record's name for the challenge.
+              returned: success
+              type: str
+              sample: _ujmmovf2vn55tgye._acme-challenge.example.com
+        dns-persist-01:
+          description:
+            - Information for V(dns-persist-01) authorization.
+            - A DNS TXT record needs to be created with the record name V(_validation-persist.<domain>).
+              See the P(community.crypto.acme_dns_persist_record#filter) for how to create the record's content.
+            - B(Note) that this return value is B(experimental) and can change in a breaking way also in minor releases,
+              until the acme-dns-persist draft is in a more stable state.
+          returned: if the identifier supports V(dns-persist-01) authorization
+          version_added: 3.2.0
+          type: dict
+          contains:
+            account_uri:
+              description:
+                - The account URI that must be mentioned in the DNS TXT record.
+                - B(Note) that the type of this return value might change in a breaking way also in minor releases,
+                  until the acme-dns-persist draft is in a more stable state.
+                  This challenge field is currently under discussion in the ACME WG.
+              returned: success
+              type: str
+              sample: https://ca.example/acct/123
+            issuer_domain_names:
+              description:
+                - One of the issuer domain names must be mentioned in the DNS TXT record.
+              returned: success
+              type: list
+              elements: str
+              sample:
+                - letsencrypt.org
         tls-alpn-01:
           description:
             - Information for V(tls-alpn-01) authorization.
@@ -357,6 +422,13 @@ challenge_data_dns:
     - Only challenges which are not yet valid are returned.
   returned: success
   type: dict
+challenge_data_dns_account:
+  description:
+    - List of TXT values per DNS record for V(dns-account-01) challenges.
+    - Only challenges which are not yet valid are returned.
+  returned: success
+  type: dict
+  version_added: 3.2.0
 order_uri:
   description: ACME order URI.
   returned: success
@@ -426,13 +498,14 @@ def main() -> t.NoReturn:
         finally:
             if module.params["deactivate_authzs"] and order and not done:
                 client.deactivate_authzs(order)
-        data, data_dns = client.get_challenges_data(order)
+        data, data_dns, data_dns_account = client.get_challenges_data(order)
         module.exit_json(
             changed=True,
             order_uri=order.url,
             account_uri=client.client.account_uri,
             challenge_data=data,
             challenge_data_dns=data_dns,
+            challenge_data_dns_account=data_dns_account,
         )
     except ModuleFailException as e:
         e.do_fail(module=module)

@@ -1,6 +1,7 @@
 import datetime
 from collections.abc import Mapping
 from typing import (
+    TYPE_CHECKING,
     Any,
     TypeVar,
     Union,
@@ -14,6 +15,12 @@ from dateutil.parser import isoparse
 
 from ..types import UNSET, Unset
 
+if TYPE_CHECKING:
+    from ..models.workspace_response_predefined_profiles import (
+        WorkspaceResponsePredefinedProfiles,
+    )
+
+
 T = TypeVar("T", bound="WorkspaceResponse")
 
 
@@ -22,11 +29,13 @@ class WorkspaceResponse:
     """The most recently accessed workspace
 
     Attributes:
-        date_added (datetime.datetime): The date the entity was added
-        date_updated (datetime.datetime): The date the entity was updated
+        date_added (datetime.datetime): datetime with the constraint that the value must have timezone info
+        date_updated (datetime.datetime): datetime with the constraint that the value must have timezone info
         id (UUID): The unique ID of the entity
         name (str): The name of the workspace
         description (Union[None, Unset, str]): The description of the workspace
+        predefined_profiles (Union[Unset, WorkspaceResponsePredefinedProfiles]): Predefined profile names keyed by
+            access level name, e.g. {'DATA_WRITE': 'prod', 'DATA_READ': 'access'}
     """
 
     date_added: datetime.datetime
@@ -34,6 +43,7 @@ class WorkspaceResponse:
     id: UUID
     name: str
     description: Union[None, Unset, str] = UNSET
+    predefined_profiles: Union[Unset, "WorkspaceResponsePredefinedProfiles"] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -51,6 +61,10 @@ class WorkspaceResponse:
         else:
             description = self.description
 
+        predefined_profiles: Union[Unset, dict[str, Any]] = UNSET
+        if not isinstance(self.predefined_profiles, Unset):
+            predefined_profiles = self.predefined_profiles.to_dict()
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -63,11 +77,17 @@ class WorkspaceResponse:
         )
         if description is not UNSET:
             field_dict["description"] = description
+        if predefined_profiles is not UNSET:
+            field_dict["predefined_profiles"] = predefined_profiles
 
         return field_dict
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.workspace_response_predefined_profiles import (
+            WorkspaceResponsePredefinedProfiles,
+        )
+
         d = dict(src_dict)
         date_added = isoparse(d.pop("date_added"))
 
@@ -86,12 +106,22 @@ class WorkspaceResponse:
 
         description = _parse_description(d.pop("description", UNSET))
 
+        _predefined_profiles = d.pop("predefined_profiles", UNSET)
+        predefined_profiles: Union[Unset, WorkspaceResponsePredefinedProfiles]
+        if isinstance(_predefined_profiles, Unset):
+            predefined_profiles = UNSET
+        else:
+            predefined_profiles = WorkspaceResponsePredefinedProfiles.from_dict(
+                _predefined_profiles
+            )
+
         workspace_response = cls(
             date_added=date_added,
             date_updated=date_updated,
             id=id,
             name=name,
             description=description,
+            predefined_profiles=predefined_profiles,
         )
 
         workspace_response.additional_properties = d

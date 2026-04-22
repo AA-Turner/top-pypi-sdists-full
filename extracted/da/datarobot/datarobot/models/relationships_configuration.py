@@ -191,7 +191,7 @@ class RelationshipsConfiguration(APIObject):
         t.Key("id"): String,
         t.Key("features"): t.List(String),
         t.Key("name"): String,
-        t.Key("description"): String,
+        t.Key("description", optional=True): t.Or(String, t.Null),
         t.Key("dataset_id"): String,
         t.Key("user_created"): t.Bool,
         t.Key("creation_date"): parse_time,

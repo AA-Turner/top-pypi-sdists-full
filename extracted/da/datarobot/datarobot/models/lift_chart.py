@@ -105,7 +105,7 @@ class LiftChart(APIObject):
 
     @staticmethod
     def _repack_insights_response(server_data: LiftChartServerData):
-        """Repack the JSON sent by the GET /insights/ endpoint to match the format expected by the
+        """Repack the JSON sent by the GET `/insights/` endpoint to match the format expected by the
         insight APIObject class.
 
         Parameters
@@ -141,7 +141,7 @@ class LiftChart(APIObject):
     def from_server_data(cls, data, keep_attrs=None, use_insights_format=False, **kwargs):
         """
         Overwrite APIObject.from_server_data to handle lift chart data retrieved
-        from either legacy URL or /insights/ new URL.
+        from either legacy URL or `/insights/` new URL.
 
         Parameters
         ----------
@@ -149,7 +149,7 @@ class LiftChart(APIObject):
             The directly translated dict of JSON from the server. No casing fixes have
             taken place
         use_insights_format : Optional[bool]
-            Whether to repack the data from the format used in the GET /insights/liftChart/ URL
+            Whether to repack the data from the format used in the GET `/insights/liftChart/` URL
             to the format used in the legacy URL.
         """
         if use_insights_format:
@@ -172,7 +172,7 @@ class SlicedLiftChart(LiftChart):
     ) -> "LiftChart":
         """
         Overwrite LiftChart.from_server_data to set `use_insights_format=True` by default
-        This is necessary for the correct transformation of data received from /insights endpoints
+        This is necessary for the correct transformation of data received from the `/insights/` endpoints
 
         Parameters
         ----------
@@ -183,7 +183,7 @@ class SlicedLiftChart(LiftChart):
             List, set or tuple of the dotted namespace notations for attributes to keep within the
             object structure even if their values are None
         use_insights_format : Optional[bool]
-            Whether to repack the data from the format used in the GET /insights/liftChart/ URL
+            Whether to repack the data from the format used in the GET `/insights/liftChart/` URL
             to the format used in the legacy URL.
         """
         if data.get("count"):

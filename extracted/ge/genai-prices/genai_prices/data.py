@@ -264,6 +264,27 @@ providers: list[Provider] = [
                 ],
             ),
             ModelInfo(
+                id='claude-opus-4-7',
+                match=ClauseOr(
+                    or_=[
+                        ClauseStartsWith(starts_with='claude-opus-4-7'),
+                        ClauseStartsWith(starts_with='claude-opus-4.7'),
+                        ClauseStartsWith(starts_with='claude-4-7-opus'),
+                        ClauseStartsWith(starts_with='claude-4.7-opus'),
+                    ]
+                ),
+                name='Claude Opus 4.7',
+                description='Our most capable model for complex reasoning and agentic coding',
+                context_window=1000000,
+                price_comments='Flat pricing across full 1M context window (no tiered pricing). Ref: https://platform.claude.com/docs/en/about-claude/pricing#long-context-pricing',
+                prices=ModelPrice(
+                    input_mtok=Decimal('5'),
+                    cache_write_mtok=Decimal('6.25'),
+                    cache_read_mtok=Decimal('0.5'),
+                    output_mtok=Decimal('25'),
+                ),
+            ),
+            ModelInfo(
                 id='claude-sonnet-4-0',
                 match=ClauseOr(
                     or_=[
@@ -513,6 +534,16 @@ providers: list[Provider] = [
                 ),
             ),
             ModelInfo(
+                id='global.anthropic.claude-opus-4-7-v1:0',
+                match=ClauseContains(contains='global.anthropic.claude-opus-4-7'),
+                prices=ModelPrice(
+                    input_mtok=Decimal('5'),
+                    cache_write_mtok=Decimal('6.25'),
+                    cache_read_mtok=Decimal('0.5'),
+                    output_mtok=Decimal('25'),
+                ),
+            ),
+            ModelInfo(
                 id='global.anthropic.claude-sonnet-4-20250514-v1:0',
                 match=ClauseContains(contains='global.anthropic.claude-sonnet-4-20250514'),
                 prices=ModelPrice(
@@ -639,6 +670,24 @@ providers: list[Provider] = [
                 match=ClauseContains(contains='mistral.pixtral-large-2502'),
                 name='Pixtral Large (25.02)',
                 prices=ModelPrice(input_mtok=Decimal('2'), output_mtok=Decimal('6')),
+            ),
+            ModelInfo(
+                id='nvidia.nemotron-nano-3-30b:0',
+                match=ClauseContains(contains='nvidia.nemotron-nano-3-30b'),
+                name='Nemotron 3 Nano 30B',
+                prices=ModelPrice(input_mtok=Decimal('0.06'), output_mtok=Decimal('0.24')),
+            ),
+            ModelInfo(
+                id='nvidia.nemotron-nano-9b-v2:0',
+                match=ClauseContains(contains='nvidia.nemotron-nano-9b-v2'),
+                name='Nemotron 2 Nano 9B',
+                prices=ModelPrice(input_mtok=Decimal('0.06'), output_mtok=Decimal('0.23')),
+            ),
+            ModelInfo(
+                id='nvidia.nemotron-super-3-120b:0',
+                match=ClauseContains(contains='nvidia.nemotron-super-3-120b'),
+                name='Nemotron 3 Super 120B',
+                prices=ModelPrice(input_mtok=Decimal('0.15'), output_mtok=Decimal('0.65')),
             ),
             ModelInfo(
                 id='openai.gpt-oss-120b-1:0',
@@ -843,6 +892,27 @@ providers: list[Provider] = [
                         base=Decimal('0.55'), tiers=[Tier(start=200000, price=Decimal('1.1'))]
                     ),
                     output_mtok=TieredPrices(base=Decimal('27.5'), tiers=[Tier(start=200000, price=Decimal('41.25'))]),
+                ),
+            ),
+            ModelInfo(
+                id='regional.anthropic.claude-opus-4-7-v1:0',
+                match=ClauseOr(
+                    or_=[
+                        ClauseStartsWith(starts_with='anthropic.claude-opus-4-7'),
+                        ClauseStartsWith(starts_with='claude-opus-4-7'),
+                        ClauseContains(contains='us.anthropic.claude-opus-4-7'),
+                        ClauseContains(contains='au.anthropic.claude-opus-4-7'),
+                        ClauseContains(contains='apac.anthropic.claude-opus-4-7'),
+                        ClauseContains(contains='eu.anthropic.claude-opus-4-7'),
+                        ClauseContains(contains='us-gov.anthropic.claude-opus-4-7'),
+                        ClauseContains(contains='jp.anthropic.claude-opus-4-7'),
+                    ]
+                ),
+                prices=ModelPrice(
+                    input_mtok=Decimal('5.5'),
+                    cache_write_mtok=Decimal('6.875'),
+                    cache_read_mtok=Decimal('0.55'),
+                    output_mtok=Decimal('27.5'),
                 ),
             ),
             ModelInfo(
@@ -1714,6 +1784,25 @@ providers: list[Provider] = [
                     ),
                     cache_read_mtok=TieredPrices(base=Decimal('0.5'), tiers=[Tier(start=200000, price=Decimal('1'))]),
                     output_mtok=TieredPrices(base=Decimal('25'), tiers=[Tier(start=200000, price=Decimal('37.5'))]),
+                ),
+            ),
+            ModelInfo(
+                id='claude-opus-4-7',
+                match=ClauseOr(
+                    or_=[
+                        ClauseContains(contains='claude-4-7-opus'),
+                        ClauseContains(contains='claude-opus-4-7'),
+                        ClauseContains(contains='claude-4.7-opus'),
+                        ClauseContains(contains='claude-opus-4.7'),
+                    ]
+                ),
+                context_window=1000000,
+                price_comments='Flat pricing across full 1M context window. Ref: https://cloud.google.com/vertex-ai/generative-ai/pricing#claude-models',
+                prices=ModelPrice(
+                    input_mtok=Decimal('5'),
+                    cache_write_mtok=Decimal('6.25'),
+                    cache_read_mtok=Decimal('0.5'),
+                    output_mtok=Decimal('25'),
                 ),
             ),
             ModelInfo(
@@ -5976,6 +6065,10 @@ providers: list[Provider] = [
                 match=ClauseOr(
                     or_=[
                         ClauseEquals(equals='anthropic/claude-haiku-4.5'),
+                        ClauseEquals(equals='anthropic/claude-4.5-haiku-20251001'),
+                        ClauseEquals(equals='anthropic/claude-4.5-haiku-20251001:beta'),
+                        ClauseEquals(equals='anthropic/claude-haiku-4.5-20251001'),
+                        ClauseEquals(equals='anthropic/claude-haiku-4.5-20251001:beta'),
                         ClauseEquals(equals='anthropic/claude-haiku-4.5:beta'),
                     ]
                 ),
@@ -5991,6 +6084,10 @@ providers: list[Provider] = [
                 match=ClauseOr(
                     or_=[
                         ClauseEquals(equals='anthropic/claude-opus-4.5'),
+                        ClauseEquals(equals='anthropic/claude-4.5-opus-20251124'),
+                        ClauseEquals(equals='anthropic/claude-4.5-opus-20251124:beta'),
+                        ClauseEquals(equals='anthropic/claude-opus-4.5-20251124'),
+                        ClauseEquals(equals='anthropic/claude-opus-4.5-20251124:beta'),
                         ClauseEquals(equals='anthropic/claude-opus-4.5:beta'),
                     ]
                 ),
@@ -6006,16 +6103,37 @@ providers: list[Provider] = [
                 match=ClauseOr(
                     or_=[
                         ClauseEquals(equals='anthropic/claude-opus-4.6'),
+                        ClauseEquals(equals='anthropic/claude-4.6-opus-20260205'),
+                        ClauseEquals(equals='anthropic/claude-4.6-opus-20260205:beta'),
+                        ClauseEquals(equals='anthropic/claude-opus-4.6-20260205'),
+                        ClauseEquals(equals='anthropic/claude-opus-4.6-20260205:beta'),
                         ClauseEquals(equals='anthropic/claude-opus-4.6:beta'),
                     ]
                 ),
+                context_window=1000000,
+                price_comments='Flat pricing across full 1M context window (no tiered pricing). Ref: https://platform.claude.com/docs/en/about-claude/pricing#long-context-pricing',
                 prices=ModelPrice(
-                    input_mtok=TieredPrices(base=Decimal('5'), tiers=[Tier(start=200000, price=Decimal('10'))]),
-                    cache_write_mtok=TieredPrices(
-                        base=Decimal('6.25'), tiers=[Tier(start=200000, price=Decimal('12.5'))]
-                    ),
-                    cache_read_mtok=TieredPrices(base=Decimal('0.5'), tiers=[Tier(start=200000, price=Decimal('1'))]),
-                    output_mtok=TieredPrices(base=Decimal('25'), tiers=[Tier(start=200000, price=Decimal('37.5'))]),
+                    input_mtok=Decimal('5'),
+                    cache_write_mtok=Decimal('6.25'),
+                    cache_read_mtok=Decimal('0.5'),
+                    output_mtok=Decimal('25'),
+                ),
+            ),
+            ModelInfo(
+                id='anthropic/claude-opus-4.7',
+                match=ClauseOr(
+                    or_=[
+                        ClauseEquals(equals='anthropic/claude-opus-4.7'),
+                        ClauseEquals(equals='anthropic/claude-opus-4.7:beta'),
+                    ]
+                ),
+                context_window=1000000,
+                price_comments='Flat pricing across full 1M context window (no tiered pricing). Ref: https://platform.claude.com/docs/en/about-claude/pricing#long-context-pricing',
+                prices=ModelPrice(
+                    input_mtok=Decimal('5'),
+                    cache_write_mtok=Decimal('6.25'),
+                    cache_read_mtok=Decimal('0.5'),
+                    output_mtok=Decimal('25'),
                 ),
             ),
             ModelInfo(
@@ -6023,10 +6141,15 @@ providers: list[Provider] = [
                 match=ClauseOr(
                     or_=[
                         ClauseEquals(equals='anthropic/claude-sonnet-4.5'),
+                        ClauseEquals(equals='anthropic/claude-4.5-sonnet-20250929'),
+                        ClauseEquals(equals='anthropic/claude-4.5-sonnet-20250929:beta'),
+                        ClauseEquals(equals='anthropic/claude-sonnet-4.5-20250929'),
+                        ClauseEquals(equals='anthropic/claude-sonnet-4.5-20250929:beta'),
                         ClauseEquals(equals='anthropic/claude-sonnet-4.5:beta'),
                     ]
                 ),
                 context_window=1000000,
+                price_comments='Tiered pricing: Unlike 4.6 models, Sonnet 4.5 has long-context surcharge. Ref: https://platform.claude.com/docs/en/about-claude/pricing#long-context-pricing',
                 prices=ModelPrice(
                     input_mtok=TieredPrices(base=Decimal('3'), tiers=[Tier(start=200000, price=Decimal('6'))]),
                     cache_write_mtok=TieredPrices(
@@ -6041,9 +6164,15 @@ providers: list[Provider] = [
                 match=ClauseOr(
                     or_=[
                         ClauseEquals(equals='anthropic/claude-sonnet-4.6'),
+                        ClauseEquals(equals='anthropic/claude-4.6-sonnet-20260217'),
+                        ClauseEquals(equals='anthropic/claude-4.6-sonnet-20260217:beta'),
+                        ClauseEquals(equals='anthropic/claude-sonnet-4.6-20260217'),
+                        ClauseEquals(equals='anthropic/claude-sonnet-4.6-20260217:beta'),
                         ClauseEquals(equals='anthropic/claude-sonnet-4.6:beta'),
                     ]
                 ),
+                context_window=1000000,
+                price_comments='Flat pricing across full 1M context window (no tiered pricing). Ref: https://platform.claude.com/docs/en/about-claude/pricing#long-context-pricing',
                 prices=ModelPrice(
                     input_mtok=Decimal('3'),
                     cache_write_mtok=Decimal('3.75'),

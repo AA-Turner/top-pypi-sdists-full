@@ -88,7 +88,7 @@ class BatchMonitoringJob(AbstractBatchJob):
     Attributes
     ----------
     id : str
-        the id of the job
+        the ID of the job
     """
 
     _job_spec = t.Dict({
@@ -685,7 +685,7 @@ class BatchMonitoringJobDefinition(APIObject):  # pylint: disable=missing-class-
             The ``schedule`` payload defines at what intervals the job should run, which can be
             combined in various ways to construct complex scheduling terms if needed. In all
             the elements in the objects, you can supply either an asterisk ``["*"]`` denoting
-            "every" time denomination or an array of integers (e.g. ``[1, 2, 3]``) to define
+            "every" time denomination or an array of integers (e.g., ``[1, 2, 3]``) to define
             a specific interval.
 
             The ``schedule`` payload is split up in the following items:

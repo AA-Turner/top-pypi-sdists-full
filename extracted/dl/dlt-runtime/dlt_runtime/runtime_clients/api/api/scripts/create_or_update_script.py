@@ -115,10 +115,10 @@ def sync_detailed(
     """CreateOrUpdateScript
 
 
-    Creates a new script for a workspace. Script names must be unique within a workspace. Scripts have
-    versions, and the highest version is the active version. Scripts define entry points for the
-    currently active deployment and can be deactivated to prevent scheduled runs or public endpoint
-    access.
+    Creates or updates a script for a workspace. The script is keyed by ``job_ref`` within the
+    workspace. Every write creates a new ScriptVersion (the highest version is the active one).
+    Scripts define entry points for the currently active deployment and can be archived to
+    prevent scheduled runs or public endpoint access.
 
     Requires WRITE permission on the organization level.
 
@@ -163,10 +163,10 @@ def sync(
     """CreateOrUpdateScript
 
 
-    Creates a new script for a workspace. Script names must be unique within a workspace. Scripts have
-    versions, and the highest version is the active version. Scripts define entry points for the
-    currently active deployment and can be deactivated to prevent scheduled runs or public endpoint
-    access.
+    Creates or updates a script for a workspace. The script is keyed by ``job_ref`` within the
+    workspace. Every write creates a new ScriptVersion (the highest version is the active one).
+    Scripts define entry points for the currently active deployment and can be archived to
+    prevent scheduled runs or public endpoint access.
 
     Requires WRITE permission on the organization level.
 
@@ -206,10 +206,10 @@ async def asyncio_detailed(
     """CreateOrUpdateScript
 
 
-    Creates a new script for a workspace. Script names must be unique within a workspace. Scripts have
-    versions, and the highest version is the active version. Scripts define entry points for the
-    currently active deployment and can be deactivated to prevent scheduled runs or public endpoint
-    access.
+    Creates or updates a script for a workspace. The script is keyed by ``job_ref`` within the
+    workspace. Every write creates a new ScriptVersion (the highest version is the active one).
+    Scripts define entry points for the currently active deployment and can be archived to
+    prevent scheduled runs or public endpoint access.
 
     Requires WRITE permission on the organization level.
 
@@ -252,10 +252,10 @@ async def asyncio(
     """CreateOrUpdateScript
 
 
-    Creates a new script for a workspace. Script names must be unique within a workspace. Scripts have
-    versions, and the highest version is the active version. Scripts define entry points for the
-    currently active deployment and can be deactivated to prevent scheduled runs or public endpoint
-    access.
+    Creates or updates a script for a workspace. The script is keyed by ``job_ref`` within the
+    workspace. Every write creates a new ScriptVersion (the highest version is the active one).
+    Scripts define entry points for the currently active deployment and can be archived to
+    prevent scheduled runs or public endpoint access.
 
     Requires WRITE permission on the organization level.
 

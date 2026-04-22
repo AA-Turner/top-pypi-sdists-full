@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tabpfn-common-utils
-Version: 0.2.19
+Version: 0.2.20
 Summary: Utilities shared between TabPFN codebases
 Project-URL: Homepage, https://github.com/priorlabs/tabpfn_common_utils
 Project-URL: Issues, https://github.com/priorlabs/tabpfn_common_utils/issues
@@ -22,18 +22,8 @@ Requires-Dist: pandas>=1.4.0
 Requires-Dist: platformdirs>=4
 Requires-Dist: posthog>=6.7
 Requires-Dist: requests>=2.32.5
-Requires-Dist: ruff>=0.11.6
 Requires-Dist: scikit-learn>=1.2.0
 Requires-Dist: typing-extensions>=4.12
-Provides-Extra: build
-Requires-Dist: build>=1.0.0; extra == 'build'
-Requires-Dist: hatchling>=1.25; extra == 'build'
-Requires-Dist: twine>=5.0.0; extra == 'build'
-Provides-Extra: dev
-Requires-Dist: pyright>=1.1.399; extra == 'dev'
-Requires-Dist: pytest-cov>=5; extra == 'dev'
-Requires-Dist: pytest>=8.3; extra == 'dev'
-Requires-Dist: ruff>=0.9; extra == 'dev'
 Provides-Extra: telemetry-interactive
 Description-Content-Type: text/markdown
 

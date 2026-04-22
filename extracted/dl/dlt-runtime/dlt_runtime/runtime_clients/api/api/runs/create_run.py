@@ -7,11 +7,11 @@ import httpx
 from ... import errors
 from ...client import AuthenticatedClient, Client
 from ...models.create_run_request import CreateRunRequest
-from ...models.detailed_run_response import DetailedRunResponse
 from ...models.error_response_400 import ErrorResponse400
 from ...models.error_response_401 import ErrorResponse401
 from ...models.error_response_403 import ErrorResponse403
 from ...models.error_response_404 import ErrorResponse404
+from ...models.triggered_job import TriggeredJob
 from ...types import Response
 
 
@@ -41,15 +41,15 @@ def _parse_response(
     *, client: Union[AuthenticatedClient, Client], response: httpx.Response
 ) -> Optional[
     Union[
-        DetailedRunResponse,
         ErrorResponse400,
         ErrorResponse401,
         ErrorResponse403,
         ErrorResponse404,
+        TriggeredJob,
     ]
 ]:
     if response.status_code == 201:
-        response_201 = DetailedRunResponse.from_dict(response.json())
+        response_201 = TriggeredJob.from_dict(response.json())
 
         return response_201
 
@@ -83,11 +83,11 @@ def _build_response(
     *, client: Union[AuthenticatedClient, Client], response: httpx.Response
 ) -> Response[
     Union[
-        DetailedRunResponse,
         ErrorResponse400,
         ErrorResponse401,
         ErrorResponse403,
         ErrorResponse404,
+        TriggeredJob,
     ]
 ]:
     return Response(
@@ -105,11 +105,11 @@ def sync_detailed(
     body: CreateRunRequest,
 ) -> Response[
     Union[
-        DetailedRunResponse,
         ErrorResponse400,
         ErrorResponse401,
         ErrorResponse403,
         ErrorResponse404,
+        TriggeredJob,
     ]
 ]:
     """CreateRun
@@ -140,7 +140,7 @@ def sync_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Union[DetailedRunResponse, ErrorResponse400, ErrorResponse401, ErrorResponse403, ErrorResponse404]]
+        Response[Union[ErrorResponse400, ErrorResponse401, ErrorResponse403, ErrorResponse404, TriggeredJob]]
     """
 
     kwargs = _get_kwargs(
@@ -162,11 +162,11 @@ def sync(
     body: CreateRunRequest,
 ) -> Optional[
     Union[
-        DetailedRunResponse,
         ErrorResponse400,
         ErrorResponse401,
         ErrorResponse403,
         ErrorResponse404,
+        TriggeredJob,
     ]
 ]:
     """CreateRun
@@ -197,7 +197,7 @@ def sync(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Union[DetailedRunResponse, ErrorResponse400, ErrorResponse401, ErrorResponse403, ErrorResponse404]
+        Union[ErrorResponse400, ErrorResponse401, ErrorResponse403, ErrorResponse404, TriggeredJob]
     """
 
     return sync_detailed(
@@ -214,11 +214,11 @@ async def asyncio_detailed(
     body: CreateRunRequest,
 ) -> Response[
     Union[
-        DetailedRunResponse,
         ErrorResponse400,
         ErrorResponse401,
         ErrorResponse403,
         ErrorResponse404,
+        TriggeredJob,
     ]
 ]:
     """CreateRun
@@ -249,7 +249,7 @@ async def asyncio_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Union[DetailedRunResponse, ErrorResponse400, ErrorResponse401, ErrorResponse403, ErrorResponse404]]
+        Response[Union[ErrorResponse400, ErrorResponse401, ErrorResponse403, ErrorResponse404, TriggeredJob]]
     """
 
     kwargs = _get_kwargs(
@@ -269,11 +269,11 @@ async def asyncio(
     body: CreateRunRequest,
 ) -> Optional[
     Union[
-        DetailedRunResponse,
         ErrorResponse400,
         ErrorResponse401,
         ErrorResponse403,
         ErrorResponse404,
+        TriggeredJob,
     ]
 ]:
     """CreateRun
@@ -304,7 +304,7 @@ async def asyncio(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Union[DetailedRunResponse, ErrorResponse400, ErrorResponse401, ErrorResponse403, ErrorResponse404]
+        Union[ErrorResponse400, ErrorResponse401, ErrorResponse403, ErrorResponse404, TriggeredJob]
     """
 
     return (

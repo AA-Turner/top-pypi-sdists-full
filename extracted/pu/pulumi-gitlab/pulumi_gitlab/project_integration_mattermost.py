@@ -44,9 +44,10 @@ class ProjectIntegrationMattermostArgs:
                  wiki_page_events: Optional[pulumi.Input[_builtins.bool]] = None):
         """
         The set of arguments for constructing a ProjectIntegrationMattermost resource.
+
         :param pulumi.Input[_builtins.str] project: ID of the project you want to activate integration on.
         :param pulumi.Input[_builtins.str] webhook: Webhook URL (Example, https://mattermost.yourdomain.com/hooks/...). This value cannot be imported.
-        :param pulumi.Input[_builtins.str] branches_to_be_notified: Branches to send notifications for. Valid options are "all", "default", "protected", and "default*and*protected".
+        :param pulumi.Input[_builtins.str] branches_to_be_notified: Branches to send notifications for. Valid values are `all`, `default`, `protected`, `default_and_protected`.
         :param pulumi.Input[_builtins.str] confidential_issue_channel: The name of the channel to receive confidential issue events notifications.
         :param pulumi.Input[_builtins.bool] confidential_issues_events: Enable notifications for confidential issues events.
         :param pulumi.Input[_builtins.str] confidential_note_channel: The name of the channel to receive confidential note events notifications.
@@ -141,7 +142,7 @@ class ProjectIntegrationMattermostArgs:
     @pulumi.getter(name="branchesToBeNotified")
     def branches_to_be_notified(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        Branches to send notifications for. Valid options are "all", "default", "protected", and "default*and*protected".
+        Branches to send notifications for. Valid values are `all`, `default`, `protected`, `default_and_protected`.
         """
         return pulumi.get(self, "branches_to_be_notified")
 
@@ -418,7 +419,8 @@ class _ProjectIntegrationMattermostState:
                  wiki_page_events: Optional[pulumi.Input[_builtins.bool]] = None):
         """
         Input properties used for looking up and filtering ProjectIntegrationMattermost resources.
-        :param pulumi.Input[_builtins.str] branches_to_be_notified: Branches to send notifications for. Valid options are "all", "default", "protected", and "default*and*protected".
+
+        :param pulumi.Input[_builtins.str] branches_to_be_notified: Branches to send notifications for. Valid values are `all`, `default`, `protected`, `default_and_protected`.
         :param pulumi.Input[_builtins.str] confidential_issue_channel: The name of the channel to receive confidential issue events notifications.
         :param pulumi.Input[_builtins.bool] confidential_issues_events: Enable notifications for confidential issues events.
         :param pulumi.Input[_builtins.str] confidential_note_channel: The name of the channel to receive confidential note events notifications.
@@ -493,7 +495,7 @@ class _ProjectIntegrationMattermostState:
     @pulumi.getter(name="branchesToBeNotified")
     def branches_to_be_notified(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        Branches to send notifications for. Valid options are "all", "default", "protected", and "default*and*protected".
+        Branches to send notifications for. Valid values are `all`, `default`, `protected`, `default_and_protected`.
         """
         return pulumi.get(self, "branches_to_be_notified")
 
@@ -821,29 +823,20 @@ class ProjectIntegrationMattermost(pulumi.CustomResource):
 
         ## Import
 
-        Starting in Terraform v1.5.0, you can use an import block to import `gitlab_project_integration_mattermost`. For example:
-
-        terraform
-
-        import {
-
-          to = gitlab_project_integration_mattermost.example
-
-          id = "see CLI command below for ID"
-
-        }
+        Starting in Terraform v1.5.0, you can use an import block to import `ProjectIntegrationMattermost`. For example:
 
         Importing using the CLI is supported with the following syntax:
 
-        You can import a gitlab_project_integration_mattermost.mattermost state using the project ID, e.g.
+        You can import a gitlab_project_integration_mattermost.mattermost state using the project ID, for example:
 
         ```sh
         $ pulumi import gitlab:index/projectIntegrationMattermost:ProjectIntegrationMattermost mattermost 1
         ```
 
+
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
-        :param pulumi.Input[_builtins.str] branches_to_be_notified: Branches to send notifications for. Valid options are "all", "default", "protected", and "default*and*protected".
+        :param pulumi.Input[_builtins.str] branches_to_be_notified: Branches to send notifications for. Valid values are `all`, `default`, `protected`, `default_and_protected`.
         :param pulumi.Input[_builtins.str] confidential_issue_channel: The name of the channel to receive confidential issue events notifications.
         :param pulumi.Input[_builtins.bool] confidential_issues_events: Enable notifications for confidential issues events.
         :param pulumi.Input[_builtins.str] confidential_note_channel: The name of the channel to receive confidential note events notifications.
@@ -898,25 +891,16 @@ class ProjectIntegrationMattermost(pulumi.CustomResource):
 
         ## Import
 
-        Starting in Terraform v1.5.0, you can use an import block to import `gitlab_project_integration_mattermost`. For example:
-
-        terraform
-
-        import {
-
-          to = gitlab_project_integration_mattermost.example
-
-          id = "see CLI command below for ID"
-
-        }
+        Starting in Terraform v1.5.0, you can use an import block to import `ProjectIntegrationMattermost`. For example:
 
         Importing using the CLI is supported with the following syntax:
 
-        You can import a gitlab_project_integration_mattermost.mattermost state using the project ID, e.g.
+        You can import a gitlab_project_integration_mattermost.mattermost state using the project ID, for example:
 
         ```sh
         $ pulumi import gitlab:index/projectIntegrationMattermost:ProjectIntegrationMattermost mattermost 1
         ```
+
 
         :param str resource_name: The name of the resource.
         :param ProjectIntegrationMattermostArgs args: The arguments to use to populate this resource's properties.
@@ -989,9 +973,11 @@ class ProjectIntegrationMattermost(pulumi.CustomResource):
             __props__.__dict__["username"] = username
             if webhook is None and not opts.urn:
                 raise TypeError("Missing required property 'webhook'")
-            __props__.__dict__["webhook"] = webhook
+            __props__.__dict__["webhook"] = None if webhook is None else pulumi.Output.secret(webhook)
             __props__.__dict__["wiki_page_channel"] = wiki_page_channel
             __props__.__dict__["wiki_page_events"] = wiki_page_events
+        secret_opts = pulumi.ResourceOptions(additional_secret_outputs=["webhook"])
+        opts = pulumi.ResourceOptions.merge(opts, secret_opts)
         super(ProjectIntegrationMattermost, __self__).__init__(
             'gitlab:index/projectIntegrationMattermost:ProjectIntegrationMattermost',
             resource_name,
@@ -1032,7 +1018,7 @@ class ProjectIntegrationMattermost(pulumi.CustomResource):
         :param str resource_name: The unique name of the resulting resource.
         :param pulumi.Input[str] id: The unique provider ID of the resource to lookup.
         :param pulumi.ResourceOptions opts: Options for the resource.
-        :param pulumi.Input[_builtins.str] branches_to_be_notified: Branches to send notifications for. Valid options are "all", "default", "protected", and "default*and*protected".
+        :param pulumi.Input[_builtins.str] branches_to_be_notified: Branches to send notifications for. Valid values are `all`, `default`, `protected`, `default_and_protected`.
         :param pulumi.Input[_builtins.str] confidential_issue_channel: The name of the channel to receive confidential issue events notifications.
         :param pulumi.Input[_builtins.bool] confidential_issues_events: Enable notifications for confidential issues events.
         :param pulumi.Input[_builtins.str] confidential_note_channel: The name of the channel to receive confidential note events notifications.
@@ -1089,13 +1075,13 @@ class ProjectIntegrationMattermost(pulumi.CustomResource):
     @pulumi.getter(name="branchesToBeNotified")
     def branches_to_be_notified(self) -> pulumi.Output[_builtins.str]:
         """
-        Branches to send notifications for. Valid options are "all", "default", "protected", and "default*and*protected".
+        Branches to send notifications for. Valid values are `all`, `default`, `protected`, `default_and_protected`.
         """
         return pulumi.get(self, "branches_to_be_notified")
 
     @_builtins.property
     @pulumi.getter(name="confidentialIssueChannel")
-    def confidential_issue_channel(self) -> pulumi.Output[Optional[_builtins.str]]:
+    def confidential_issue_channel(self) -> pulumi.Output[_builtins.str]:
         """
         The name of the channel to receive confidential issue events notifications.
         """
@@ -1111,7 +1097,7 @@ class ProjectIntegrationMattermost(pulumi.CustomResource):
 
     @_builtins.property
     @pulumi.getter(name="confidentialNoteChannel")
-    def confidential_note_channel(self) -> pulumi.Output[Optional[_builtins.str]]:
+    def confidential_note_channel(self) -> pulumi.Output[_builtins.str]:
         """
         The name of the channel to receive confidential note events notifications.
         """
@@ -1127,7 +1113,7 @@ class ProjectIntegrationMattermost(pulumi.CustomResource):
 
     @_builtins.property
     @pulumi.getter(name="issueChannel")
-    def issue_channel(self) -> pulumi.Output[Optional[_builtins.str]]:
+    def issue_channel(self) -> pulumi.Output[_builtins.str]:
         """
         The name of the channel to receive issue events notifications.
         """
@@ -1143,7 +1129,7 @@ class ProjectIntegrationMattermost(pulumi.CustomResource):
 
     @_builtins.property
     @pulumi.getter(name="mergeRequestChannel")
-    def merge_request_channel(self) -> pulumi.Output[Optional[_builtins.str]]:
+    def merge_request_channel(self) -> pulumi.Output[_builtins.str]:
         """
         The name of the channel to receive merge request events notifications.
         """
@@ -1159,7 +1145,7 @@ class ProjectIntegrationMattermost(pulumi.CustomResource):
 
     @_builtins.property
     @pulumi.getter(name="noteChannel")
-    def note_channel(self) -> pulumi.Output[Optional[_builtins.str]]:
+    def note_channel(self) -> pulumi.Output[_builtins.str]:
         """
         The name of the channel to receive note events notifications.
         """
@@ -1183,7 +1169,7 @@ class ProjectIntegrationMattermost(pulumi.CustomResource):
 
     @_builtins.property
     @pulumi.getter(name="pipelineChannel")
-    def pipeline_channel(self) -> pulumi.Output[Optional[_builtins.str]]:
+    def pipeline_channel(self) -> pulumi.Output[_builtins.str]:
         """
         The name of the channel to receive pipeline events notifications.
         """
@@ -1207,7 +1193,7 @@ class ProjectIntegrationMattermost(pulumi.CustomResource):
 
     @_builtins.property
     @pulumi.getter(name="pushChannel")
-    def push_channel(self) -> pulumi.Output[Optional[_builtins.str]]:
+    def push_channel(self) -> pulumi.Output[_builtins.str]:
         """
         The name of the channel to receive push events notifications.
         """
@@ -1223,7 +1209,7 @@ class ProjectIntegrationMattermost(pulumi.CustomResource):
 
     @_builtins.property
     @pulumi.getter(name="tagPushChannel")
-    def tag_push_channel(self) -> pulumi.Output[Optional[_builtins.str]]:
+    def tag_push_channel(self) -> pulumi.Output[_builtins.str]:
         """
         The name of the channel to receive tag push events notifications.
         """
@@ -1239,7 +1225,7 @@ class ProjectIntegrationMattermost(pulumi.CustomResource):
 
     @_builtins.property
     @pulumi.getter
-    def username(self) -> pulumi.Output[Optional[_builtins.str]]:
+    def username(self) -> pulumi.Output[_builtins.str]:
         """
         Username to use.
         """
@@ -1255,7 +1241,7 @@ class ProjectIntegrationMattermost(pulumi.CustomResource):
 
     @_builtins.property
     @pulumi.getter(name="wikiPageChannel")
-    def wiki_page_channel(self) -> pulumi.Output[Optional[_builtins.str]]:
+    def wiki_page_channel(self) -> pulumi.Output[_builtins.str]:
         """
         The name of the channel to receive wiki page events notifications.
         """

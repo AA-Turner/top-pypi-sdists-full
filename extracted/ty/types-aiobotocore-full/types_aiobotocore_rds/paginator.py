@@ -50,6 +50,7 @@ Usage::
         DescribePendingMaintenanceActionsPaginator,
         DescribeReservedDBInstancesOfferingsPaginator,
         DescribeReservedDBInstancesPaginator,
+        DescribeServerlessV2PlatformVersionsPaginator,
         DescribeSourceRegionsPaginator,
         DescribeTenantDatabasesPaginator,
         DownloadDBLogFilePortionPaginator,
@@ -97,6 +98,7 @@ Usage::
         describe_pending_maintenance_actions_paginator: DescribePendingMaintenanceActionsPaginator = client.get_paginator("describe_pending_maintenance_actions")
         describe_reserved_db_instances_offerings_paginator: DescribeReservedDBInstancesOfferingsPaginator = client.get_paginator("describe_reserved_db_instances_offerings")
         describe_reserved_db_instances_paginator: DescribeReservedDBInstancesPaginator = client.get_paginator("describe_reserved_db_instances")
+        describe_serverless_v2_platform_versions_paginator: DescribeServerlessV2PlatformVersionsPaginator = client.get_paginator("describe_serverless_v2_platform_versions")
         describe_source_regions_paginator: DescribeSourceRegionsPaginator = client.get_paginator("describe_source_regions")
         describe_tenant_databases_paginator: DescribeTenantDatabasesPaginator = client.get_paginator("describe_tenant_databases")
         download_db_log_file_portion_paginator: DownloadDBLogFilePortionPaginator = client.get_paginator("download_db_log_file_portion")
@@ -177,6 +179,7 @@ from .type_defs import (
     DescribePendingMaintenanceActionsMessagePaginateTypeDef,
     DescribeReservedDBInstancesMessagePaginateTypeDef,
     DescribeReservedDBInstancesOfferingsMessagePaginateTypeDef,
+    DescribeServerlessV2PlatformVersionsMessagePaginateTypeDef,
     DescribeSourceRegionsMessagePaginateTypeDef,
     DescribeTenantDatabasesMessagePaginateTypeDef,
     DownloadDBLogFilePortionDetailsTypeDef,
@@ -191,6 +194,7 @@ from .type_defs import (
     PendingMaintenanceActionsMessageTypeDef,
     ReservedDBInstanceMessageTypeDef,
     ReservedDBInstancesOfferingMessageTypeDef,
+    ServerlessV2PlatformVersionsMessageTypeDef,
     SourceRegionMessageTypeDef,
     TenantDatabasesMessageTypeDef,
 )
@@ -240,6 +244,7 @@ __all__ = (
     "DescribePendingMaintenanceActionsPaginator",
     "DescribeReservedDBInstancesOfferingsPaginator",
     "DescribeReservedDBInstancesPaginator",
+    "DescribeServerlessV2PlatformVersionsPaginator",
     "DescribeSourceRegionsPaginator",
     "DescribeTenantDatabasesPaginator",
     "DownloadDBLogFilePortionPaginator",
@@ -1069,6 +1074,31 @@ class DescribeReservedDBInstancesPaginator(_DescribeReservedDBInstancesPaginator
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rds/paginator/DescribeReservedDBInstances.html#RDS.Paginator.DescribeReservedDBInstances.paginate)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_rds/paginators/#describereserveddbinstancespaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _DescribeServerlessV2PlatformVersionsPaginatorBase = AioPaginator[
+        ServerlessV2PlatformVersionsMessageTypeDef
+    ]
+else:
+    _DescribeServerlessV2PlatformVersionsPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+
+class DescribeServerlessV2PlatformVersionsPaginator(
+    _DescribeServerlessV2PlatformVersionsPaginatorBase
+):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rds/paginator/DescribeServerlessV2PlatformVersions.html#RDS.Paginator.DescribeServerlessV2PlatformVersions)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_rds/paginators/#describeserverlessv2platformversionspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[DescribeServerlessV2PlatformVersionsMessagePaginateTypeDef]
+    ) -> AioPageIterator[ServerlessV2PlatformVersionsMessageTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rds/paginator/DescribeServerlessV2PlatformVersions.html#RDS.Paginator.DescribeServerlessV2PlatformVersions.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_rds/paginators/#describeserverlessv2platformversionspaginator)
         """
 
 

@@ -191,6 +191,7 @@ from .literals import (
     Eac3StereoDownmixType,
     Eac3SurroundExModeType,
     Eac3SurroundModeType,
+    ElementalInferenceFeedManagementStateType,
     EmbeddedConvert608To708Type,
     EmbeddedTerminateCaptionsType,
     EmbeddedTimecodeOverrideType,
@@ -591,6 +592,8 @@ __all__ = (
     "DynamicAudioSelectorTypeDef",
     "Eac3AtmosSettingsTypeDef",
     "Eac3SettingsTypeDef",
+    "ElementalInferenceConfigurationTypeDef",
+    "ElementalInferenceFeedTypeDef",
     "EmbeddedDestinationSettingsTypeDef",
     "EmbeddedSourceSettingsTypeDef",
     "EncryptionContractConfigurationTypeDef",
@@ -704,6 +707,8 @@ __all__ = (
     "MsSmoothEncryptionSettingsTypeDef",
     "MsSmoothGroupSettingsOutputTypeDef",
     "MsSmoothGroupSettingsTypeDef",
+    "MultiViewInputTypeDef",
+    "MultiViewSettingsTypeDef",
     "MxfSettingsTypeDef",
     "MxfXavcProfileSettingsTypeDef",
     "NexGuardFileMarkerSettingsTypeDef",
@@ -1406,6 +1411,10 @@ class DynamicAudioSelectorTypeDef(TypedDict):
     Offset: NotRequired[int]
     SelectorType: NotRequired[DynamicAudioSelectorTypeType]
 
+class ElementalInferenceFeedTypeDef(TypedDict):
+    Arn: NotRequired[str]
+    FeedManagementState: NotRequired[ElementalInferenceFeedManagementStateType]
+
 class EncryptionContractConfigurationTypeDef(TypedDict):
     SpekeAudioPreset: NotRequired[PresetSpeke20AudioType]
     SpekeVideoPreset: NotRequired[PresetSpeke20VideoType]
@@ -1748,6 +1757,9 @@ class MsSmoothAdditionalManifestOutputTypeDef(TypedDict):
 class MsSmoothAdditionalManifestTypeDef(TypedDict):
     ManifestNameModifier: NotRequired[str]
     SelectedOutputs: NotRequired[Sequence[str]]
+
+class MultiViewInputTypeDef(TypedDict):
+    FileInput: NotRequired[str]
 
 class MxfXavcProfileSettingsTypeDef(TypedDict):
     DurationMode: NotRequired[MxfXavcDurationModeType]
@@ -2174,6 +2186,7 @@ class CreateQueueRequestTypeDef(TypedDict):
     Name: str
     ConcurrentJobs: NotRequired[int]
     Description: NotRequired[str]
+    MaximumConcurrentFeeds: NotRequired[int]
     PricingPlan: NotRequired[PricingPlanType]
     ReservationPlanSettings: NotRequired[ReservationPlanSettingsTypeDef]
     Status: NotRequired[QueueStatusType]
@@ -2183,6 +2196,7 @@ class UpdateQueueRequestTypeDef(TypedDict):
     Name: str
     ConcurrentJobs: NotRequired[int]
     Description: NotRequired[str]
+    MaximumConcurrentFeeds: NotRequired[int]
     ReservationPlanSettings: NotRequired[ReservationPlanSettingsTypeDef]
     Status: NotRequired[QueueStatusType]
 
@@ -2238,6 +2252,10 @@ DolbyVisionTypeDef = TypedDict(
         "Profile": NotRequired[DolbyVisionProfileType],
     },
 )
+
+class ElementalInferenceConfigurationTypeDef(TypedDict):
+    Features: NotRequired[list[Literal["SMART_CROP"]]]
+    Feeds: NotRequired[list[ElementalInferenceFeedTypeDef]]
 
 class SpekeKeyProviderCmafOutputTypeDef(TypedDict):
     CertificateArn: NotRequired[str]
@@ -2619,6 +2637,9 @@ class MotionImageInserterTypeDef(TypedDict):
     Playback: NotRequired[MotionImagePlaybackType]
     StartTime: NotRequired[str]
 
+class MultiViewSettingsTypeDef(TypedDict):
+    Input: NotRequired[MultiViewInputTypeDef]
+
 class MxfSettingsTypeDef(TypedDict):
     AfdSignaling: NotRequired[MxfAfdSignalingType]
     Profile: NotRequired[MxfProfileType]
@@ -2650,6 +2671,7 @@ QueueTypeDef = TypedDict(
         "CreatedAt": NotRequired[datetime],
         "Description": NotRequired[str],
         "LastUpdated": NotRequired[datetime],
+        "MaximumConcurrentFeeds": NotRequired[int],
         "PricingPlan": NotRequired[PricingPlanType],
         "ProgressingJobsCount": NotRequired[int],
         "ReservationPlan": NotRequired[ReservationPlanTypeDef],
@@ -3279,6 +3301,7 @@ class VideoDescriptionTypeDef(TypedDict):
 class ContainerTypeDef(TypedDict):
     Duration: NotRequired[float]
     Format: NotRequired[FormatType]
+    StartTimecode: NotRequired[str]
     Tracks: NotRequired[list[TrackTypeDef]]
 
 class VideoOverlayInputOutputTypeDef(TypedDict):
@@ -3431,6 +3454,7 @@ class InputOutputTypeDef(TypedDict):
     ImageInserter: NotRequired[ImageInserterOutputTypeDef]
     InputClippings: NotRequired[list[InputClippingTypeDef]]
     InputScanType: NotRequired[InputScanTypeType]
+    MultiViewSettings: NotRequired[list[MultiViewSettingsTypeDef]]
     Position: NotRequired[RectangleTypeDef]
     ProgramNumber: NotRequired[int]
     PsiControl: NotRequired[InputPsiControlType]
@@ -3458,6 +3482,7 @@ class InputTemplateOutputTypeDef(TypedDict):
     ImageInserter: NotRequired[ImageInserterOutputTypeDef]
     InputClippings: NotRequired[list[InputClippingTypeDef]]
     InputScanType: NotRequired[InputScanTypeType]
+    MultiViewSettings: NotRequired[list[MultiViewSettingsTypeDef]]
     Position: NotRequired[RectangleTypeDef]
     ProgramNumber: NotRequired[int]
     PsiControl: NotRequired[InputPsiControlType]
@@ -3482,6 +3507,7 @@ class InputTemplateTypeDef(TypedDict):
     ImageInserter: NotRequired[ImageInserterTypeDef]
     InputClippings: NotRequired[Sequence[InputClippingTypeDef]]
     InputScanType: NotRequired[InputScanTypeType]
+    MultiViewSettings: NotRequired[Sequence[MultiViewSettingsTypeDef]]
     Position: NotRequired[RectangleTypeDef]
     ProgramNumber: NotRequired[int]
     PsiControl: NotRequired[InputPsiControlType]
@@ -3508,6 +3534,7 @@ class InputTypeDef(TypedDict):
     ImageInserter: NotRequired[ImageInserterTypeDef]
     InputClippings: NotRequired[Sequence[InputClippingTypeDef]]
     InputScanType: NotRequired[InputScanTypeType]
+    MultiViewSettings: NotRequired[Sequence[MultiViewSettingsTypeDef]]
     Position: NotRequired[RectangleTypeDef]
     ProgramNumber: NotRequired[int]
     PsiControl: NotRequired[InputPsiControlType]
@@ -3623,6 +3650,7 @@ class JobTypeDef(TypedDict):
     ClientRequestToken: NotRequired[str]
     CreatedAt: NotRequired[datetime]
     CurrentPhase: NotRequired[JobPhaseType]
+    ElementalInferenceConfiguration: NotRequired[ElementalInferenceConfigurationTypeDef]
     ErrorCode: NotRequired[int]
     ErrorMessage: NotRequired[str]
     HopDestinations: NotRequired[list[HopDestinationTypeDef]]

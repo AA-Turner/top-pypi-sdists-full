@@ -17,7 +17,7 @@ from xblock.fields import UNIQUE_ID, Scope, String
 from xblock.utils.resources import ResourceLoader
 from xblock.utils.studio_editable import StudioEditableXBlockMixin
 
-from xblocks_contrib.common.xml_utils import LegacyXmlMixin
+from xblocks_contrib.legacy_utils.xml_utils import LegacyXmlMixin
 
 log = logging.getLogger(__name__)
 loader = ResourceLoader(__name__)

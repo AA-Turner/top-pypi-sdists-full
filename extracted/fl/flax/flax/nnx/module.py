@@ -27,7 +27,6 @@ from flax.nnx import (
 )
 from flax.nnx import variablelib as variableslib
 from flax.nnx.pytreelib import Pytree, PytreeMeta
-from flax.nnx.graphlib import GraphState
 from flax.nnx.statelib import split_state, State
 import functools as ft
 from flax.typing import Key, Path, PathParts
@@ -37,7 +36,7 @@ import warnings
 A = tp.TypeVar('A')
 B = tp.TypeVar('B')
 M = tp.TypeVar('M', bound='Module')
-S = tp.TypeVar('S', bound=tp.Union[GraphState, tuple[GraphState, ...]])
+S = tp.TypeVar('S', bound=tp.Union[State, tuple[State, ...]])
 V = tp.TypeVar('V', bound=variableslib.Variable[tp.Any])
 F = tp.TypeVar('F', bound=tp.Callable[..., tp.Any])
 
@@ -177,7 +176,7 @@ class Module(Pytree, metaclass=ModuleMeta):
       setattr(self, name, variable_type(reduced_value))
     warnings.warn(
         """Using 'Module.sow()' outside of 'nnx.capture()' is deprecated; see
-        https://flax.readthedocs.io/en/stable/capturing_intermediates.html for more information.
+        https://flax.readthedocs.io/en/latest/guides/extracting_intermediates.html for more information.
         """,
         DeprecationWarning,
         stacklevel=2,
@@ -270,7 +269,7 @@ class Module(Pytree, metaclass=ModuleMeta):
       setattr(self, name, variable_type(old_value))
     warnings.warn("""
       Using 'Module.perturb()' outside of 'nnx.capture()' is deprecated; see
-      https://flax.readthedocs.io/en/stable/capturing_intermediates.html for more information.
+      https://flax.readthedocs.io/en/latest/guides/extracting_intermediates.html for more information.
       """,
       DeprecationWarning,
       stacklevel=2)
@@ -451,8 +450,8 @@ def view(node: A, /, *, only: filterlib.Filter = ..., raise_if_not_found: bool =
     >>> class Block(nnx.Module):
     ...   def __init__(self, din, dout, *, rngs: nnx.Rngs):
     ...     self.linear = nnx.Linear(din, dout, rngs=rngs)
-    ...     self.dropout = nnx.Dropout(0.5, deterministic=False)
-    ...     self.batch_norm = nnx.BatchNorm(10, use_running_average=False, rngs=rngs)
+    ...     self.dropout = nnx.Dropout(0.5)
+    ...     self.batch_norm = nnx.BatchNorm(10, rngs=rngs)
     ...
     >>> block = Block(2, 5, rngs=nnx.Rngs(0))
     >>> block.dropout.deterministic, block.batch_norm.use_running_average
@@ -766,6 +765,7 @@ def iter_modules(
       yield path, value
 
 iter_children = graphlib.iter_children
+iter_module_children = graphlib.iter_module_children
 
 P = tp.ParamSpec("P")
 R = tp.TypeVar("R")

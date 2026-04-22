@@ -140,9 +140,9 @@ class ServiceStats(APIObject, MonitoringDataQueryBuilderMixin):
         Parameters
         ----------
         deployment_id : str
-            the id of the deployment
+            the ID of the deployment
         model_id : Optional[str]
-            the id of the model
+            the ID of the model
         start_time : datetime, optional
             start of the time period
         end_time : datetime, optional
@@ -256,11 +256,11 @@ class ServiceStatsOverTime(APIObject, MonitoringDataQueryBuilderMixin):
         Parameters
         ----------
         deployment_id : str
-            the id of the deployment
+            the ID of the deployment
         metric : SERVICE_STAT_METRIC, optional
             the service stat metric to retrieve
         model_id : Optional[str | List[str]]
-            the id of the model
+            the ID of the model
         start_time : datetime, optional
             start of the time period
         end_time : datetime, optional

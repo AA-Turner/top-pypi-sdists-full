@@ -137,11 +137,14 @@ __all__ = (
     "PipelineOutputErrorTypeDef",
     "PipelineOutputTypeDef",
     "RecordTypeDef",
+    "RegionStatusTypeDef",
     "ResponseMetadataTypeDef",
     "SingleHeaderTypeDef",
     "SourceLogsConfigurationTypeDef",
     "SourceTypeDef",
     "StartTelemetryEnrichmentOutputTypeDef",
+    "StartTelemetryEvaluationForOrganizationInputTypeDef",
+    "StartTelemetryEvaluationInputTypeDef",
     "StopTelemetryEnrichmentOutputTypeDef",
     "TagResourceInputTypeDef",
     "TelemetryConfigurationTypeDef",
@@ -282,6 +285,12 @@ class GetCentralizationRuleForOrganizationInputTypeDef(TypedDict):
 class GetS3TableIntegrationInputTypeDef(TypedDict):
     Arn: str
 
+class RegionStatusTypeDef(TypedDict):
+    Region: NotRequired[str]
+    Status: NotRequired[str]
+    FailureReason: NotRequired[str]
+    RuleArn: NotRequired[str]
+
 class GetTelemetryPipelineInputTypeDef(TypedDict):
     PipelineIdentifier: str
 
@@ -381,6 +390,14 @@ RecordTypeDef = TypedDict(
     },
 )
 
+class StartTelemetryEvaluationForOrganizationInputTypeDef(TypedDict):
+    Regions: NotRequired[Sequence[str]]
+    AllRegions: NotRequired[bool]
+
+class StartTelemetryEvaluationInputTypeDef(TypedDict):
+    Regions: NotRequired[Sequence[str]]
+    AllRegions: NotRequired[bool]
+
 class TagResourceInputTypeDef(TypedDict):
     ResourceARN: str
     Tags: Mapping[str, str]
@@ -459,16 +476,6 @@ class GetTelemetryEnrichmentStatusOutputTypeDef(TypedDict):
     AwsResourceExplorerManagedViewArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
-class GetTelemetryEvaluationStatusForOrganizationOutputTypeDef(TypedDict):
-    Status: StatusType
-    FailureReason: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class GetTelemetryEvaluationStatusOutputTypeDef(TypedDict):
-    Status: StatusType
-    FailureReason: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
 class ListCentralizationRulesForOrganizationOutputTypeDef(TypedDict):
     CentralizationRuleSummaries: list[CentralizationRuleSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -535,6 +542,20 @@ class FieldToMatchTypeDef(TypedDict):
     UriPath: NotRequired[str]
     QueryString: NotRequired[str]
     Method: NotRequired[str]
+
+class GetTelemetryEvaluationStatusForOrganizationOutputTypeDef(TypedDict):
+    Status: StatusType
+    FailureReason: str
+    HomeRegion: str
+    RegionStatuses: list[RegionStatusTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GetTelemetryEvaluationStatusOutputTypeDef(TypedDict):
+    Status: StatusType
+    FailureReason: str
+    HomeRegion: str
+    RegionStatuses: list[RegionStatusTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class ListS3TableIntegrationsOutputTypeDef(TypedDict):
     IntegrationSummaries: list[IntegrationSummaryTypeDef]
@@ -738,6 +759,8 @@ class TelemetryRuleOutputTypeDef(TypedDict):
     DestinationConfiguration: NotRequired[TelemetryDestinationConfigurationOutputTypeDef]
     Scope: NotRequired[str]
     SelectionCriteria: NotRequired[str]
+    Regions: NotRequired[list[str]]
+    AllRegions: NotRequired[bool]
 
 class TelemetryRuleTypeDef(TypedDict):
     TelemetryType: TelemetryTypeType
@@ -746,6 +769,8 @@ class TelemetryRuleTypeDef(TypedDict):
     DestinationConfiguration: NotRequired[TelemetryDestinationConfigurationTypeDef]
     Scope: NotRequired[str]
     SelectionCriteria: NotRequired[str]
+    Regions: NotRequired[Sequence[str]]
+    AllRegions: NotRequired[bool]
 
 class GetTelemetryRuleForOrganizationOutputTypeDef(TypedDict):
     RuleName: str
@@ -753,6 +778,9 @@ class GetTelemetryRuleForOrganizationOutputTypeDef(TypedDict):
     CreatedTimeStamp: int
     LastUpdateTimeStamp: int
     TelemetryRule: TelemetryRuleOutputTypeDef
+    HomeRegion: str
+    IsReplicated: bool
+    RegionStatuses: list[RegionStatusTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetTelemetryRuleOutputTypeDef(TypedDict):
@@ -761,6 +789,9 @@ class GetTelemetryRuleOutputTypeDef(TypedDict):
     CreatedTimeStamp: int
     LastUpdateTimeStamp: int
     TelemetryRule: TelemetryRuleOutputTypeDef
+    HomeRegion: str
+    IsReplicated: bool
+    RegionStatuses: list[RegionStatusTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 TelemetryRuleUnionTypeDef = Union[TelemetryRuleTypeDef, TelemetryRuleOutputTypeDef]

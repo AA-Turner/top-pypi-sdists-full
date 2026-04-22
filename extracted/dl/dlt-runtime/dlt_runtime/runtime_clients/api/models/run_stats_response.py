@@ -27,8 +27,8 @@ class RunStatsResponse:
             full period.
         buckets (list['RunStatsBucket']): Time series buckets. Single entry covering the full period when no bucket
             param is set.
-        period_end (datetime.datetime): End of the reporting period (UTC)
-        period_start (datetime.datetime): Start of the reporting period (UTC)
+        period_end (datetime.datetime): datetime with the constraint that the value must have timezone info
+        period_start (datetime.datetime): datetime with the constraint that the value must have timezone info
         tz (str): IANA timezone used for bucket alignment
     """
 

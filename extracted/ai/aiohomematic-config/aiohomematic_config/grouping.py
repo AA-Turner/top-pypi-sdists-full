@@ -198,7 +198,9 @@ class ParameterGrouper:
                         locale=self._locale,
                     )
                 if not label:
-                    label = group_def.label.get(self._locale) or group_def.label.get("en", group_def.id)
+                    label = group_def.label.get(self._locale) or group_def.label.get("en")
+                if not label:
+                    label = self._translate(group_id="other", fallback="Other Settings")
                 groups.append(
                     ParameterGroup(
                         id=group_def.id,
