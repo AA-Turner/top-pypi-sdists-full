@@ -15,6 +15,7 @@ from isolate.backends import (
 )
 from isolate.backends.common import sha256_digest_of
 from isolate.backends.settings import DEFAULT_SETTINGS, IsolateSettings
+from isolate.connections.common import validate_entrypoint
 from isolate.server import interface
 from isolate.server.definitions import (
     BoundFunction,
@@ -104,10 +105,6 @@ class IsolateServerConnection(EnvironmentConnection):
         *args: Any,
         **kwargs: Any,
     ) -> CallResultType:  # type: ignore[type-var]
-        if self._channel is None:
-            self._acquire_channel()
-
-        stub = IsolateStub(self._channel)
         request = BoundFunction(
             function=interface.to_serialized_object(
                 executable,
@@ -117,7 +114,28 @@ class IsolateServerConnection(EnvironmentConnection):
             environments=self.definitions,
             stream_logs=True,  # Default to streaming logs
         )
+        return self._run_request(request)
 
+    def run_entrypoint(
+        self,
+        entrypoint: str,
+        *,
+        run_on_main_thread: bool = False,
+    ) -> CallResultType:  # type: ignore[type-var]
+        validate_entrypoint(entrypoint)
+        request = BoundFunction(
+            entrypoint=entrypoint,
+            environments=self.definitions,
+            stream_logs=True,
+            run_on_main_thread=run_on_main_thread,
+        )
+        return self._run_request(request)
+
+    def _run_request(self, request: BoundFunction) -> CallResultType:  # type: ignore[type-var]
+        if self._channel is None:
+            self._acquire_channel()
+
+        stub = IsolateStub(self._channel)
         return_value = []
         for result in stub.Run(request):
             for raw_log in result.logs:

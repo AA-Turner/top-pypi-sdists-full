@@ -999,6 +999,42 @@ class TestLifespanStartup:
                 assert app.state.db is mock_db
 
     @pytest.mark.asyncio
+    async def test_lifespan_emits_hook_snapshot_when_audit_enabled(self, tmp_path: Path) -> None:
+        from anteroom.app import lifespan
+
+        app = FastAPI()
+        config = _make_config(data_dir=tmp_path)
+        app.state.config = config
+
+        mock_db = MagicMock()
+        mock_db._conn = MagicMock()
+
+        with (
+            patch("anteroom.app.init_db", return_value=mock_db),
+            patch("anteroom.app.get_effective_dimensions", return_value=384),
+            patch("anteroom.app.EventBus") as mock_event_bus_cls,
+            patch("anteroom.app.ToolRegistry"),
+            patch("anteroom.app.register_default_tools"),
+            patch("anteroom.app.create_embedding_service", return_value=None),
+            patch("anteroom.services.vector_index.VectorIndexManager", return_value=MagicMock(enabled=False)),
+            patch("anteroom.services.storage.register_user"),
+            patch("anteroom.services.storage.delete_empty_conversations"),
+            patch("anteroom.services.audit.create_audit_writer") as mock_audit,
+            patch("anteroom.services.lineage.emit_hook_snapshot") as mock_snapshot,
+            patch("anteroom.services.starter_packs.install_starter_packs", return_value=[]),
+            patch("anteroom.services.artifact_registry.ArtifactRegistry") as mock_reg_cls,
+        ):
+            mock_audit.return_value = MagicMock(enabled=True, log_dir=tmp_path / "audit")
+            mock_reg = MagicMock()
+            mock_reg.count = 0
+            mock_reg_cls.return_value = mock_reg
+            mock_event_bus = MagicMock()
+            mock_event_bus_cls.return_value = mock_event_bus
+
+            async with lifespan(app):
+                mock_snapshot.assert_called_once_with(app.state.audit_writer, config.hooks)
+
+    @pytest.mark.asyncio
     async def test_lifespan_shuts_down_db(self, tmp_path: Path) -> None:
         from anteroom.app import lifespan
 

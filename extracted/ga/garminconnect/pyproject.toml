@@ -1,6 +1,6 @@
 [project]
 name = "garminconnect"
-version = "0.3.2"
+version = "0.3.3"
 description = "Python 3 API wrapper for Garmin Connect"
 authors = [
     { name = "Ron Klinkien", email = "ron@cyberjunky.nl" },
@@ -28,7 +28,7 @@ keywords = [
     "api",
     "garmin",
 ]
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 
 [project.license]
 text = "MIT"
@@ -55,6 +55,8 @@ linting = [
     "mypy",
     "isort",
     "types-requests",
+    "pre-commit",
+    "codespell",
 ]
 testing = [
     "coverage",
@@ -77,9 +79,20 @@ addopts = "--ignore=__pypackages__ --ignore-glob=*.yaml"
 
 [tool.mypy]
 ignore_missing_imports = true
-python_version = "3.10"
+python_version = "3.12"
 disallow_untyped_defs = true
 warn_unused_ignores = true
+
+[[tool.mypy.overrides]]
+module = [
+    "test_garmin",
+    "test_garmin_unit",
+    "test_retry_decorator",
+    "test_workout_constants",
+    "conftest",
+]
+disallow_untyped_defs = false
+warn_unused_ignores = false
 
 [tool.isort]
 profile = "black"
@@ -191,7 +204,7 @@ example = [
 
 [tool.ruff]
 line-length = 88
-target-version = "py310"
+target-version = "py312"
 exclude = [
     ".git",
     ".venv",
@@ -264,6 +277,7 @@ unfixable = []
 "tests/*" = [
     "ARG",
     "S101",
+    "D103",
 ]
 "garminconnect/fit.py" = [
     "D",

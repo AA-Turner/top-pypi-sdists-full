@@ -61,6 +61,9 @@ class TestAHelpPromptContract:
     def test_has_source_code_index(self, prompt: str) -> None:
         assert "Source Code Index" in prompt
 
+    def test_glob_files_mentions_directories(self, prompt: str) -> None:
+        assert "Find files and directories by glob pattern" in prompt
+
     def test_has_introspect_guidance(self, prompt: str) -> None:
         assert "introspect section=package" in prompt
 

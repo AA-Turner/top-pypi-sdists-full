@@ -1,3 +1,4 @@
+# GENERATED FILE: Edit 'pyproject.in.toml' instead.
 [build-system]
 build-backend = "flit_core.buildapi"
 requires = ["flit_core >=3.2,<5"]
@@ -29,7 +30,7 @@ license = {text = "MPL 2.0"}
 name = "pathspec"
 readme = "README-dist.rst"
 requires-python = ">=3.9"
-version = "1.0.4"
+version = "1.1.0"
 
 [project.optional-dependencies]
 hyperscan = [
@@ -41,15 +42,20 @@ optional = [
 re2 = [
 	"google-re2 >=1.1",
 ]
-tests = [
-	"pytest >=9",
-	"typing-extensions >=4.15",
+
+[dependency-groups]
+dev = [
+	"pytest >=8",
+	"pytest-benchmark >=5",
+	"tomli; python_version<'3.11'",
+	"typing-extensions >=4.4",
 ]
 
 [project.urls]
-"Source Code" = "https://github.com/cpburnz/python-pathspec"
+"Change Log" = "https://python-path-specification.readthedocs.io/en/latest/changes.html"
 "Documentation" = "https://python-path-specification.readthedocs.io/en/latest/index.html"
 "Issue Tracker" = "https://github.com/cpburnz/python-pathspec/issues"
+"Source Code" = "https://github.com/cpburnz/python-pathspec"
 
 [tool.flit.sdist]
 include = [

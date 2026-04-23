@@ -1,6 +1,6 @@
-"""Rich renderer for the ``/attribution`` slash command (#923).
+"""Rich renderer for the ``/attribution`` slash command (#923, #1462).
 
-Emits five compact tables covering the five attribution sections plus a
+Emits six compact tables covering the six attribution sections plus a
 header line of section counts. All rendering goes through ``textContent``-
 equivalent paths (Rich's built-in escaping) — user-derived values are
 already scanner-processed by ``services.attribution.build_attribution``.
@@ -12,6 +12,8 @@ from typing import Any
 
 from rich.console import Console
 from rich.table import Table
+
+from .attribution_counts import _attribution_count
 
 
 def _fmt_distance(d: Any) -> str:
@@ -60,15 +62,27 @@ def render_attribution_detail(console: Console, snapshot: Any) -> None:
     sources = _get("sources")
     tools = _get("tools")
     packs = _get("packs")
+    instructions = _get("instructions")
 
     console.print()
+    # Prefer canonical count fields (#1473); fall back to truncation-aware
+    # computation for older persisted snapshots that lack them.
+    turns_count = _attribution_count(snapshot, "turns")
+    memory_count = _attribution_count(snapshot, "memory")
+    sources_count = _attribution_count(snapshot, "sources")
+    tools_count = _attribution_count(snapshot, "tools")
+    packs_count = _attribution_count(snapshot, "packs")
+    instructions_count = _attribution_count(snapshot, "instructions")
     header_parts = [
-        f"{len(turns)} turns",
-        f"{len(memory)} memories",
-        f"{len(sources)} sources",
-        f"{len(tools)} tools",
-        f"{len(packs)} packs",
+        f"{turns_count} turns",
+        f"{memory_count} memories",
+        f"{sources_count} sources",
+        f"{tools_count} tools",
+        f"{packs_count} packs",
     ]
+    if instructions_count:
+        noun = "instruction file" if instructions_count == 1 else "instruction files"
+        header_parts.append(f"{instructions_count} {noun}")
     if dlp:
         header_parts.append(f"DLP:{dlp}")
     if of:
@@ -81,6 +95,7 @@ def render_attribution_detail(console: Console, snapshot: Any) -> None:
     _render_section_sources(console, sources)
     _render_section_tools(console, tools)
     _render_section_packs(console, packs)
+    _render_section_instructions(console, instructions)
 
 
 def _truncated_marker_row(items: list[dict[str, Any]], width: int) -> list[str] | None:
@@ -183,4 +198,32 @@ def _render_section_packs(console: Console, items: list[dict[str, Any]]) -> None
     if trunc:
         rows.append(trunc)
     console.print(_section_table("", ["Namespace", "Name", "Scope"], rows))
+    console.print()
+
+
+def _render_section_instructions(console: Console, items: list[dict[str, Any]]) -> None:
+    """Render the instructions section for `/attribution` detail (#1462)."""
+    console.print("[bold]Project instructions[/bold]")
+    if not items:
+        console.print("  (none)")
+        console.print()
+        return
+    rows: list[list[str]] = []
+    for entry in _real_rows(items):
+        tokens = entry.get("estimated_tokens", 0)
+        try:
+            tokens_str = f"{int(tokens):,}"
+        except (TypeError, ValueError):
+            tokens_str = "-"
+        rows.append(
+            [
+                str(entry.get("path", "")),
+                str(entry.get("scope", "")),
+                tokens_str,
+            ]
+        )
+    trunc = _truncated_marker_row(items, 3)
+    if trunc:
+        rows.append(trunc)
+    console.print(_section_table("", ["Path", "Scope", "Tokens"], rows))
     console.print()

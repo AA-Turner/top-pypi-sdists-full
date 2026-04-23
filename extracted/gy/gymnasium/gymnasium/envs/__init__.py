@@ -4,6 +4,13 @@ from typing import Any
 
 from gymnasium.envs.registration import make, pprint_registry, register, registry, spec
 
+__all__ = [
+    "make",
+    "pprint_registry",
+    "register",
+    "registry",
+    "spec",
+]
 
 # Classic
 # ----------------------------------------
@@ -158,7 +165,7 @@ register(
 )
 
 register(
-    id="Taxi-v3",
+    id="Taxi-v4",
     entry_point="gymnasium.envs.toy_text.taxi:TaxiEnv",
     reward_threshold=8,  # optimum = 8.46
     max_episode_steps=200,

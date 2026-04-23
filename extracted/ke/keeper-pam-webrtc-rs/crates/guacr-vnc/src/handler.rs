@@ -926,28 +926,26 @@ impl VncClient {
                     }
                 }
             }
-            "mouse" => {
-                if instr.args.len() >= 3 {
-                    // Protocol order: x, y, mask (per Guacamole protocol spec)
-                    if let (Ok(x), Ok(y), Ok(mask)) = (
-                        instr.args[0].parse::<i32>(),
-                        instr.args[1].parse::<i32>(),
-                        instr.args[2].parse::<u8>(),
-                    ) {
-                        // Security: Check read-only mode for mouse clicks
-                        if self.read_only && !is_mouse_event_allowed_readonly(mask as u32) {
-                            trace!("VNC: Mouse click blocked (read-only mode)");
-                            return Ok(());
-                        }
-
-                        // Feed mouse state to drag detector
-                        self.drag_detector.notify_mouse_event(x, y, mask);
-
-                        let x = x.max(0).min(self.width as i32 - 1) as u16;
-                        let y = y.max(0).min(self.height as i32 - 1) as u16;
-
-                        VncProtocol::send_pointer_event(stream, x, y, mask).await?;
+            "mouse" if instr.args.len() >= 3 => {
+                // Protocol order: x, y, mask (per Guacamole protocol spec)
+                if let (Ok(x), Ok(y), Ok(mask)) = (
+                    instr.args[0].parse::<i32>(),
+                    instr.args[1].parse::<i32>(),
+                    instr.args[2].parse::<u8>(),
+                ) {
+                    // Security: Check read-only mode for mouse clicks
+                    if self.read_only && !is_mouse_event_allowed_readonly(mask as u32) {
+                        trace!("VNC: Mouse click blocked (read-only mode)");
+                        return Ok(());
                     }
+
+                    // Feed mouse state to drag detector
+                    self.drag_detector.notify_mouse_event(x, y, mask);
+
+                    let x = x.max(0).min(self.width as i32 - 1) as u16;
+                    let y = y.max(0).min(self.height as i32 - 1) as u16;
+
+                    VncProtocol::send_pointer_event(stream, x, y, mask).await?;
                 }
             }
             "size" => {

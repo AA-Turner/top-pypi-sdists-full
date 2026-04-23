@@ -20,11 +20,13 @@ class GetUninvoicedContractsRequest(google.protobuf.message.Message):
 
     CURRENT_TS_FIELD_NUMBER: builtins.int
     MAX_ITEMS_FIELD_NUMBER: builtins.int
+    OFFSET_FIELD_NUMBER: builtins.int
     max_items: builtins.int
     """Maximum number of contracts to return in the response. If more contracts
     match the request than this limit, the response will have truncated set
     to true.
     """
+    offset: builtins.int
     @property
     def current_ts(self) -> google.protobuf.timestamp_pb2.Timestamp:
         """Returns Contracts whose current billing period ends before this time and
@@ -36,9 +38,11 @@ class GetUninvoicedContractsRequest(google.protobuf.message.Message):
         *,
         current_ts: google.protobuf.timestamp_pb2.Timestamp | None = ...,
         max_items: builtins.int = ...,
+        offset: builtins.int | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["current_ts", b"current_ts"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["current_ts", b"current_ts", "max_items", b"max_items"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["_offset", b"_offset", "current_ts", b"current_ts", "offset", b"offset"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["_offset", b"_offset", "current_ts", b"current_ts", "max_items", b"max_items", "offset", b"offset"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing.Literal["_offset", b"_offset"]) -> typing.Literal["offset"] | None: ...
 
 global___GetUninvoicedContractsRequest = GetUninvoicedContractsRequest
 

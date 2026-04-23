@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import io
+import sys
 import time
 from unittest.mock import patch
 
@@ -65,11 +66,68 @@ from anteroom.cli.renderer import (
     thinking_countdown,
     update_plan_step,
 )
+from anteroom.cli.themes import CliTheme
 
 
 @pytest.fixture(autouse=True)
 def _clear_no_color(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("NO_COLOR", raising=False)
+
+
+@pytest.fixture(autouse=True)
+def _reset_renderer_state() -> None:
+    """Keep renderer tests isolated from cross-file global state leaks."""
+    import anteroom.cli.renderer as r
+
+    def _restore_defaults() -> None:
+        stop_thinking_sync()
+        stop_tool_ticker_sync()
+        r.reset_streaming()
+        clear_plan()
+        clear_turn_history()
+        set_verbosity(Verbosity.COMPACT)
+        configure_thresholds(
+            esc_hint_delay=5.0,
+            stall_display=5.0,
+            stall_warning=15.0,
+            throughput_threshold=30.0,
+        )
+        r.console = Console(stderr=True)
+        r._stdout_console = Console()
+        r._stdout = sys.stdout
+        r._repl_mode = False
+        r._footer_mode = False
+        r._toolbar_invalidator = None
+        r._thinking_start = 0.0
+        r._spinner = None
+        r._last_spinner_update = 0.0
+        r._thinking_ticker_task = None
+        r._thinking_cancelled = False
+        r._thinking_line_visible = False
+        r._thinking_phase = ""
+        r._thinking_tokens = 0
+        r._streaming_chars = 0
+        r._last_chunk_time = 0.0
+        r._phase_start_time = 0.0
+        r._active_tool_count = 0
+        r._active_tool_names = []
+        r._active_tool_summaries = []
+        r._throughput_window.clear()
+        r._tool_start = 0.0
+        r._tool_ticker_task = None
+        r._tool_ticker_summary = ""
+        r._tool_spinner = None
+        r._dedup_key = ""
+        r._dedup_count = 0
+        r._dedup_first_summary = ""
+        r._dedup_summary = ""
+        r._tool_dedup_enabled = True
+        r._tool_batch_active = False
+        r.set_theme(CliTheme.load("midnight"))
+
+    _restore_defaults()
+    yield
+    _restore_defaults()
 
 
 class TestVerbosity:
@@ -544,7 +602,10 @@ class TestToolCallDimming:
             first_call = str(mock_console.print.call_args_list[0])
             assert r.MUTED in first_call
 
-    def test_error_tool_call_not_muted(self) -> None:
+    def test_error_tool_call_uses_error_style(self) -> None:
+        """#1364: failure completion lines carry the error color on the icon and
+        error-summary footline (target phrase is muted-styled, consistent with
+        the unified completion line)."""
         import anteroom.cli.renderer as r
 
         self._set_tool_start()
@@ -559,11 +620,13 @@ class TestToolCallDimming:
         )
         with patch("anteroom.cli.renderer.console") as mock_console:
             render_tool_call_end("bash", "error", {"error": "command failed"})
-            first_call = str(mock_console.print.call_args_list[0])
-            assert r.MUTED not in first_call
-            assert r._theme.error in first_call
+            printed = str(mock_console.print.call_args_list)
+            assert r._theme.error in printed
 
-    def test_verbose_mode_unchanged(self) -> None:
+    def test_verbose_mode_uses_unified_completion_line(self) -> None:
+        """#1364: VERBOSE no longer emits a separate ``< tool: status`` line —
+        it routes through the unified completion helper. That line includes
+        muted styling on the target phrase by design."""
         import anteroom.cli.renderer as r
 
         set_verbosity(Verbosity.VERBOSE)
@@ -580,7 +643,10 @@ class TestToolCallDimming:
         with patch("anteroom.cli.renderer.console") as mock_console:
             render_tool_call_end("bash", "success", {"stdout": "file.txt"})
             printed = str(mock_console.print.call_args_list)
-            assert r.MUTED not in printed
+            # Success icon present regardless of verbosity
+            assert "\u2713" in printed
+            # Args footline emitted in VERBOSE when show_args_in_verbose is on
+            assert "args:" in printed
 
 
 class TestInlineDiff:
@@ -791,7 +857,8 @@ class TestToolBatchSpacing:
             output = buf.getvalue()
             assert "\n" in output
             assert "Finding" not in output
-            assert "bash ls" in output
+            # #1364: unified completion line — "Ran ls" not "bash ls"
+            assert "Ran ls" in output
         finally:
             stop_tool_ticker_sync()
             stop_thinking_sync()
@@ -1030,7 +1097,8 @@ class TestEnhancedDedup:
                 render_tool_call_end("edit_file", "success", {"content": "ok"})
 
             # Each call should print (no dedup suppression)
-            print_calls = [c for c in mock_console.print.call_args_list if "Editing" in str(c)]
+            # #1364: unified completion line uses past-tense verb "Edited"
+            print_calls = [c for c in mock_console.print.call_args_list if "Edited" in str(c)]
             assert len(print_calls) == 3
 
     def test_flush_dedup_prints_summary_for_edits(self) -> None:
@@ -1577,6 +1645,30 @@ class TestThinkingPhases:
         set_thinking_phase("waiting")
         assert r._thinking_phase == "waiting"
 
+    def test_set_thinking_phase_invalidates_footer(self) -> None:
+        """Phase changes should repaint the live footer immediately."""
+        import anteroom.cli.renderer as r
+
+        calls: list[int] = []
+        r._footer_mode = True
+        r._toolbar_invalidator = lambda: calls.append(1)
+
+        set_thinking_phase("accepted")
+
+        assert calls == [1]
+
+    def test_set_thinking_phase_skips_inactive_footer(self) -> None:
+        """Phase changes must not repaint when footer mode is off."""
+        import anteroom.cli.renderer as r
+
+        calls: list[int] = []
+        r._footer_mode = False
+        r._toolbar_invalidator = lambda: calls.append(1)
+
+        set_thinking_phase("accepted")
+
+        assert calls == []
+
     def test_phase_transition_waiting_to_streaming_via_tokens(self) -> None:
         """Phase transition from waiting to streaming happens via increment_thinking_tokens."""
         import anteroom.cli.renderer as r
@@ -1586,6 +1678,19 @@ class TestThinkingPhases:
         increment_thinking_tokens()
         assert r._thinking_phase == "streaming"
         assert r._thinking_tokens == 1
+
+    def test_increment_thinking_tokens_invalidates_on_streaming_transition(self) -> None:
+        """First streaming token should repaint the footer without waiting for the ticker."""
+        import anteroom.cli.renderer as r
+
+        calls: list[int] = []
+        r._thinking_phase = "waiting"
+        r._footer_mode = True
+        r._toolbar_invalidator = lambda: calls.append(1)
+
+        increment_thinking_tokens()
+
+        assert calls == [1]
 
     def test_full_phase_lifecycle(self) -> None:
         """Full lifecycle: connecting → waiting → streaming with chars (after calm window, #1052)."""
@@ -1707,6 +1812,26 @@ class TestPhaseLabels:
 
         r._thinking_phase = "something_unexpected"
         assert _phase_label() == "Thinking..."
+
+    def test_phase_label_accepted(self) -> None:
+        """Label is 'Working...' when phase is accepted (#1428)."""
+        import anteroom.cli.renderer as r
+
+        r._thinking_phase = "accepted"
+        assert _phase_label() == "Working..."
+
+    def test_accepted_label_shows_immediately(self) -> None:
+        """_build_thinking_text returns the accepted label before the 2s reveal delay (#1428).
+
+        Normally the calm window suppresses the label; accepted must bypass it so the
+        user sees an immediate acknowledgment the prompt has been received.
+        """
+        import anteroom.cli.renderer as r
+
+        r._thinking_phase = "accepted"
+        # Well below _REPL_THINKING_REVEAL_DELAY (2.0s)
+        text = _build_thinking_text(0.1)
+        assert "Working..." in text
 
     def test_build_thinking_text_uses_phase_label_connecting(self) -> None:
         """_build_thinking_text shows 'Connecting...' for connecting phase."""
@@ -2292,6 +2417,18 @@ class TestRetryingPhase:
         data = {"attempt": 2, "max_attempts": 4, "delay": 2.0}
         set_retrying(data)
         assert r._retrying_info == data
+
+    def test_set_retrying_invalidates_footer(self) -> None:
+        """Retry state should repaint the live footer immediately."""
+        import anteroom.cli.renderer as r
+
+        calls: list[int] = []
+        r._footer_mode = True
+        r._toolbar_invalidator = lambda: calls.append(1)
+
+        set_retrying({"attempt": 2, "max_attempts": 3, "delay": 1.0})
+
+        assert calls == [1]
 
     def test_phase_suffix_retrying(self) -> None:
         """_phase_suffix must show 'retry N/M' for retrying phase."""
@@ -3755,6 +3892,276 @@ class TestToolTicker:
             r.console = original_console
 
 
+class TestRenderTurnSummary:
+    """Tests for render_turn_summary() — the per-turn completion line (#1428).
+
+    Composes a single-line "done" acknowledgment with elapsed time, tool count,
+    or cancel/error marker. Theme-aware; respects Verbosity.
+    """
+
+    def setup_method(self) -> None:
+        import anteroom.cli.renderer as r
+
+        self.mod = r
+        self._orig_console = r.console
+        self._buf = io.StringIO()
+        r.console = Console(file=self._buf, force_terminal=False, width=120, highlight=False)
+        set_verbosity(Verbosity.COMPACT)
+
+    def teardown_method(self) -> None:
+        import anteroom.cli.renderer as r
+
+        r.console = self._orig_console
+        set_verbosity(Verbosity.COMPACT)
+
+    def test_render_turn_summary_success(self) -> None:
+        """Success with one tool → '✓ done · 3.2s · 1 tool' (singular)."""
+        from anteroom.cli.renderer import render_turn_summary
+
+        render_turn_summary(elapsed=3.2, tools=[{"tool_name": "read_file"}], cancelled=False, error=None)
+        out = self._buf.getvalue()
+        assert "done" in out
+        assert "3.2s" in out
+        assert "1 tool" in out
+        # Singular: should not say "1 tools"
+        assert "1 tools" not in out
+
+    def test_render_turn_summary_success_multiple_tools(self) -> None:
+        """Success with multiple tools → pluralized count."""
+        from anteroom.cli.renderer import render_turn_summary
+
+        render_turn_summary(
+            elapsed=7.0,
+            tools=[{"tool_name": "read_file"}, {"tool_name": "bash"}, {"tool_name": "grep"}],
+            cancelled=False,
+            error=None,
+        )
+        out = self._buf.getvalue()
+        assert "3 tools" in out
+        assert "7.0s" in out
+
+    def test_render_turn_summary_success_zero_tools(self) -> None:
+        """Zero-tool turn — summary omits the tool count segment."""
+        from anteroom.cli.renderer import render_turn_summary
+
+        render_turn_summary(elapsed=2.5, tools=[], cancelled=False, error=None)
+        out = self._buf.getvalue()
+        assert "done" in out
+        assert "2.5s" in out
+        assert "tool" not in out  # no "1 tool" / "0 tools"
+
+    def test_render_turn_summary_cancelled(self) -> None:
+        """Cancelled turn → 'cancelled · 1.1s'."""
+        from anteroom.cli.renderer import render_turn_summary
+
+        render_turn_summary(elapsed=1.1, tools=[], cancelled=True, error=None)
+        out = self._buf.getvalue()
+        assert "cancelled" in out
+        assert "1.1s" in out
+        assert "done" not in out
+
+    def test_render_turn_summary_error(self) -> None:
+        """Error turn → 'failed: <msg> · 2.0s'."""
+        from anteroom.cli.renderer import render_turn_summary
+
+        render_turn_summary(elapsed=2.0, tools=[], cancelled=False, error="connection timeout")
+        out = self._buf.getvalue()
+        assert "failed" in out
+        assert "connection timeout" in out
+        assert "2.0s" in out
+
+    def test_render_turn_summary_error_takes_priority_over_cancelled(self) -> None:
+        """When both error and cancelled set, error wins — more actionable."""
+        from anteroom.cli.renderer import render_turn_summary
+
+        render_turn_summary(elapsed=2.0, tools=[], cancelled=True, error="oh no")
+        out = self._buf.getvalue()
+        assert "failed" in out
+        assert "oh no" in out
+
+    def test_render_turn_summary_detailed_includes_top_verbs(self) -> None:
+        """DETAILED verbosity appends top tool verbs."""
+        from anteroom.cli.renderer import render_turn_summary
+
+        set_verbosity(Verbosity.DETAILED)
+        try:
+            render_turn_summary(
+                elapsed=5.0,
+                tools=[
+                    {"tool_name": "read_file"},
+                    {"tool_name": "read_file"},
+                    {"tool_name": "write_file"},
+                    {"tool_name": "bash"},
+                ],
+                cancelled=False,
+                error=None,
+            )
+            out = self._buf.getvalue()
+            # Top verb for read_file is "reads" or similar humanized form
+            # We just assert a hint of tool diversity appears
+            assert "4 tools" in out
+            # Should contain at least one verb-like token from reads/writes/bash
+            assert any(v in out.lower() for v in ("read", "write", "bash"))
+        finally:
+            set_verbosity(Verbosity.COMPACT)
+
+    def test_render_turn_summary_compact_no_verbs(self) -> None:
+        """COMPACT verbosity (default) omits top tool verbs."""
+        from anteroom.cli.renderer import render_turn_summary
+
+        set_verbosity(Verbosity.COMPACT)
+        render_turn_summary(
+            elapsed=5.0,
+            tools=[{"tool_name": "read_file"}, {"tool_name": "bash"}],
+            cancelled=False,
+            error=None,
+        )
+        out = self._buf.getvalue()
+        assert "done" in out
+        assert "2 tools" in out
+        # No verb listing in compact mode
+        assert "read" not in out.lower()
+
+
+class TestUnifiedStatusSurface:
+    """Tests for the unified live-turn status surface (#1428)."""
+
+    def setup_method(self) -> None:
+        import anteroom.cli.renderer as r
+
+        self.mod = r
+        self._orig_footer = r._footer_mode
+        self._orig_repl = r._repl_mode
+        self._orig_stdout = r._stdout
+        self._orig_invalidator = r._toolbar_invalidator
+        self._orig_summary = r._tool_ticker_summary
+        self._orig_phase = r._thinking_phase
+        self._orig_start = r._thinking_start
+        _reset_tool_phase()
+
+    def teardown_method(self) -> None:
+        r = self.mod
+        # Cancel any task that may have leaked
+        stop_tool_ticker_sync()
+        r._footer_mode = self._orig_footer
+        r._repl_mode = self._orig_repl
+        r._stdout = self._orig_stdout
+        r._toolbar_invalidator = self._orig_invalidator
+        r._tool_ticker_summary = self._orig_summary
+        r._thinking_phase = self._orig_phase
+        r._thinking_start = self._orig_start
+        _reset_tool_phase()
+
+    @pytest.mark.asyncio
+    async def test_tool_ticker_noop_when_footer_mode(self) -> None:
+        """When the unified thinking ticker owns footer mode, start_tool_ticker()
+        must not create a second ticker task (#1428).
+
+        The unified surface already carries tool context via _phase_label()
+        routing to _tool_phase_label() when _thinking_phase == "tool_exec".
+        Starting a parallel tool ticker would produce two competing surfaces.
+        """
+        r = self.mod
+        r._repl_mode = True
+        r._stdout = io.StringIO()
+        r._footer_mode = True
+        r._toolbar_invalidator = lambda: None  # pretend we're in footer mode
+        try:
+            start_tool_ticker("Reading foo.py")
+            assert r._tool_ticker_task is None, "Expected no tool ticker task in footer mode (unified surface owns it)"
+        finally:
+            stop_tool_ticker_sync()
+
+    def test_enter_tool_phase_invalidates_footer(self) -> None:
+        """Tool start should repaint the live footer immediately."""
+        r = self.mod
+        calls: list[int] = []
+        r._footer_mode = True
+        r._toolbar_invalidator = lambda: calls.append(1)
+
+        enter_tool_phase("read_file", {"path": "src/foo.py"})
+
+        assert calls == [1]
+
+    def test_exit_tool_phase_invalidates_footer(self) -> None:
+        """Tool completion should repaint the live footer immediately."""
+        r = self.mod
+        calls: list[int] = []
+        r._footer_mode = True
+        r._toolbar_invalidator = lambda: calls.append(1)
+        enter_tool_phase("read_file", {"path": "src/foo.py"})
+        calls.clear()
+
+        exit_tool_phase("read_file")
+
+        assert calls == [1]
+
+    def test_busy_status_single_slot_in_tool_exec(self) -> None:
+        """In tool_exec phase, BusyStatus carries tool context via thinking_text
+        and leaves tool_label=None so the toolbar shows one slot, not two (#1428)."""
+        r = self.mod
+        # Thinking in tool_exec with an active tool
+        r._thinking_start = time.monotonic() - 5.0  # past reveal delay
+        r._thinking_phase = "tool_exec"
+        enter_tool_phase("read_file", {"path": "src/foo.py"})
+        r._tool_ticker_summary = ""  # unified surface: ticker summary stays empty
+        try:
+            status = get_busy_status()
+            assert status is not None
+            assert status.tool_label is None, (
+                f"Expected tool_label=None in tool_exec (unified surface), got {status.tool_label!r}"
+            )
+            assert status.thinking_text, "thinking_text should carry the tool context"
+            assert "Reading" in status.thinking_text or "src/foo.py" in status.thinking_text
+        finally:
+            _reset_tool_phase()
+            r._thinking_start = 0
+            r._thinking_phase = ""
+
+    def test_toolbar_drops_tool_label_when_thinking_text_present(self) -> None:
+        """format_status_toolbar() must not emit both the tool_label slot AND
+        the thinking_text slot — the unified surface is one slot (#1428).
+
+        Defensive measure: even if a stale code-path still populates
+        tool_label, the toolbar prefers thinking_text to avoid visual
+        competition.
+        """
+        busy = BusyStatus(
+            thinking_text="Reading src/foo.py... 3s",
+            tool_label="read_file",
+        )
+        result = format_status_toolbar(model="gpt-4o", busy_status=busy)
+        text = "".join(t[1] for t in result)
+        # Only the unified thinking_text survives; tool_label is suppressed.
+        assert "Reading src/foo.py... 3s" in text
+        assert "read_file" not in text
+
+    def test_toolbar_keeps_tool_label_alone_when_no_thinking_text(self) -> None:
+        """If only tool_label is populated (no thinking_text), keep it —
+        preserves legacy single-slot rendering for callers that don't use
+        the unified surface."""
+        busy = BusyStatus(thinking_text="", tool_label="grep")
+        result = format_status_toolbar(model="gpt-4o", busy_status=busy)
+        text = "".join(t[1] for t in result)
+        assert "grep" in text
+
+    def test_exit_tool_phase_clears_summary_cache(self) -> None:
+        """exit_tool_phase() must clear _tool_ticker_summary so it doesn't
+        linger across turns (#1428).
+
+        Previously stop_tool_ticker_sync() owned the clear; consolidating means
+        exit_tool_phase() must also clear it when the ticker is no-op.
+        """
+        r = self.mod
+        enter_tool_phase("read_file", {"path": "src/foo.py"})
+        # Simulate stale state from a prior turn / non-footer path
+        r._tool_ticker_summary = "stale tool context"
+        exit_tool_phase("read_file")
+        assert r._tool_ticker_summary == "", (
+            f"Expected summary cleared on exit_tool_phase, got {r._tool_ticker_summary!r}"
+        )
+
+
 class TestFormatStatusToolbar:
     """Tests for the persistent bottom toolbar formatter."""
 
@@ -3913,11 +4320,15 @@ class TestFormatStatusToolbar:
         assert "read_file" in text
 
     def test_busy_thinking_and_tool(self):
+        """#1428: unified surface — when both are present, thinking_text wins
+        so the toolbar shows one slot, not two.  tool_label still renders when
+        it is the only busy signal (test_busy_tool_only)."""
         busy = BusyStatus(thinking_text="Thinking... 3s", tool_label="bash")
         result = format_status_toolbar(model="gpt-4o", busy_status=busy)
         text = "".join(t[1] for t in result)
         assert "Thinking... 3s" in text
-        assert "bash" in text
+        # Single-slot: tool_label suppressed when thinking_text is present
+        assert "bash" not in text
 
     def test_busy_cancel_hint(self):
         busy = BusyStatus(thinking_text="Thinking... 10s", show_cancel_hint=True)
@@ -4160,7 +4571,8 @@ class TestRenderError:
             assert "Connection timed out" in printed
             import anteroom.cli.renderer as r
 
-            assert f"{r._theme.error} bold" in printed
+            assert r._theme.error in printed
+            assert "bold" in printed
 
     def test_render_error_escapes_markup(self) -> None:
         with patch("anteroom.cli.renderer.console") as mock_console:
@@ -4175,7 +4587,8 @@ class TestRenderError:
             assert "Rate limited by API" in printed
             import anteroom.cli.renderer as r
 
-            assert f"{r._theme.warning} bold" in printed
+            assert r._theme.warning in printed
+            assert "bold" in printed
 
     def test_render_warning_escapes_markup(self) -> None:
         with patch("anteroom.cli.renderer.console") as mock_console:

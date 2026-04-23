@@ -702,6 +702,511 @@ class TestCliConfig:
         config, _ = load_config(cfg)
         assert config.cli.skills.auto_invoke is True
 
+    # --- cli.hierarchy config (#1370) ---
+
+    def test_hierarchy_defaults(self, tmp_path: Path) -> None:
+        cfg = _write_config(tmp_path, {"ai": {"base_url": "http://t", "api_key": "k"}})
+        config, _ = load_config(cfg)
+        assert config.cli.hierarchy.show_timestamps is False
+        assert config.cli.hierarchy.turn_separator_char == "\u2500"
+        assert config.cli.hierarchy.code_block_language_label is True
+
+    def test_hierarchy_show_timestamps_from_yaml(self, tmp_path: Path) -> None:
+        cfg = _write_config(
+            tmp_path,
+            {
+                "ai": {"base_url": "http://t", "api_key": "k"},
+                "cli": {"hierarchy": {"show_timestamps": True}},
+            },
+        )
+        config, _ = load_config(cfg)
+        assert config.cli.hierarchy.show_timestamps is True
+
+    def test_hierarchy_turn_separator_char_from_yaml(self, tmp_path: Path) -> None:
+        cfg = _write_config(
+            tmp_path,
+            {
+                "ai": {"base_url": "http://t", "api_key": "k"},
+                "cli": {"hierarchy": {"turn_separator_char": "="}},
+            },
+        )
+        config, _ = load_config(cfg)
+        assert config.cli.hierarchy.turn_separator_char == "="
+
+    def test_hierarchy_code_block_language_label_from_yaml(self, tmp_path: Path) -> None:
+        cfg = _write_config(
+            tmp_path,
+            {
+                "ai": {"base_url": "http://t", "api_key": "k"},
+                "cli": {"hierarchy": {"code_block_language_label": False}},
+            },
+        )
+        config, _ = load_config(cfg)
+        assert config.cli.hierarchy.code_block_language_label is False
+
+    def test_hierarchy_not_a_dict_falls_back(self, tmp_path: Path) -> None:
+        cfg = _write_config(
+            tmp_path,
+            {"ai": {"base_url": "http://t", "api_key": "k"}, "cli": {"hierarchy": "notadict"}},
+        )
+        config, _ = load_config(cfg)
+        assert config.cli.hierarchy.show_timestamps is False
+        assert config.cli.hierarchy.turn_separator_char == "\u2500"
+        assert config.cli.hierarchy.code_block_language_label is True
+
+    def test_hierarchy_show_timestamps_env_overrides_yaml(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        cfg = _write_config(
+            tmp_path,
+            {
+                "ai": {"base_url": "http://t", "api_key": "k"},
+                "cli": {"hierarchy": {"show_timestamps": False}},
+            },
+        )
+        monkeypatch.setenv("AI_CHAT_CLI_HIERARCHY_SHOW_TIMESTAMPS", "true")
+        config, _ = load_config(cfg)
+        assert config.cli.hierarchy.show_timestamps is True
+
+    def test_hierarchy_turn_separator_char_env_overrides_yaml(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        cfg = _write_config(
+            tmp_path,
+            {
+                "ai": {"base_url": "http://t", "api_key": "k"},
+                "cli": {"hierarchy": {"turn_separator_char": "-"}},
+            },
+        )
+        monkeypatch.setenv("AI_CHAT_CLI_HIERARCHY_TURN_SEPARATOR_CHAR", "*")
+        config, _ = load_config(cfg)
+        assert config.cli.hierarchy.turn_separator_char == "*"
+
+    def test_hierarchy_code_block_language_label_env_overrides_yaml(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        cfg = _write_config(
+            tmp_path,
+            {
+                "ai": {"base_url": "http://t", "api_key": "k"},
+                "cli": {"hierarchy": {"code_block_language_label": True}},
+            },
+        )
+        monkeypatch.setenv("AI_CHAT_CLI_HIERARCHY_CODE_BLOCK_LANGUAGE_LABEL", "false")
+        config, _ = load_config(cfg)
+        assert config.cli.hierarchy.code_block_language_label is False
+
+    # --- cli.streaming config (#1365) ---
+
+    def test_streaming_defaults(self, tmp_path: Path) -> None:
+        cfg = _write_config(tmp_path, {"ai": {"base_url": "http://t", "api_key": "k"}})
+        config, _ = load_config(cfg)
+        assert config.cli.streaming.enabled is True
+        assert config.cli.streaming.refresh_hz == 20.0
+        assert config.cli.streaming.live_in_exec_mode is False
+        assert config.cli.streaming.code_fence_container is True
+
+    def test_streaming_enabled_from_yaml(self, tmp_path: Path) -> None:
+        cfg = _write_config(
+            tmp_path,
+            {
+                "ai": {"base_url": "http://t", "api_key": "k"},
+                "cli": {"streaming": {"enabled": False}},
+            },
+        )
+        config, _ = load_config(cfg)
+        assert config.cli.streaming.enabled is False
+
+    def test_streaming_refresh_hz_from_yaml(self, tmp_path: Path) -> None:
+        cfg = _write_config(
+            tmp_path,
+            {
+                "ai": {"base_url": "http://t", "api_key": "k"},
+                "cli": {"streaming": {"refresh_hz": 30.0}},
+            },
+        )
+        config, _ = load_config(cfg)
+        assert config.cli.streaming.refresh_hz == 30.0
+
+    def test_streaming_refresh_hz_clamped_high(self, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+        cfg = _write_config(
+            tmp_path,
+            {
+                "ai": {"base_url": "http://t", "api_key": "k"},
+                "cli": {"streaming": {"refresh_hz": 500.0}},
+            },
+        )
+        with caplog.at_level("WARNING", logger="anteroom.config"):
+            config, _ = load_config(cfg)
+        assert config.cli.streaming.refresh_hz == 60.0
+        assert any("refresh_hz" in r.message for r in caplog.records)
+
+    def test_streaming_refresh_hz_clamped_low(self, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+        cfg = _write_config(
+            tmp_path,
+            {
+                "ai": {"base_url": "http://t", "api_key": "k"},
+                "cli": {"streaming": {"refresh_hz": 0.0}},
+            },
+        )
+        with caplog.at_level("WARNING", logger="anteroom.config"):
+            config, _ = load_config(cfg)
+        assert config.cli.streaming.refresh_hz == 1.0
+        assert any("refresh_hz" in r.message for r in caplog.records)
+
+    def test_streaming_live_in_exec_mode_from_yaml(self, tmp_path: Path) -> None:
+        cfg = _write_config(
+            tmp_path,
+            {
+                "ai": {"base_url": "http://t", "api_key": "k"},
+                "cli": {"streaming": {"live_in_exec_mode": True}},
+            },
+        )
+        config, _ = load_config(cfg)
+        assert config.cli.streaming.live_in_exec_mode is True
+
+    def test_streaming_code_fence_container_from_yaml(self, tmp_path: Path) -> None:
+        cfg = _write_config(
+            tmp_path,
+            {
+                "ai": {"base_url": "http://t", "api_key": "k"},
+                "cli": {"streaming": {"code_fence_container": False}},
+            },
+        )
+        config, _ = load_config(cfg)
+        assert config.cli.streaming.code_fence_container is False
+
+    def test_streaming_not_a_dict_falls_back(self, tmp_path: Path) -> None:
+        cfg = _write_config(
+            tmp_path,
+            {"ai": {"base_url": "http://t", "api_key": "k"}, "cli": {"streaming": "notadict"}},
+        )
+        config, _ = load_config(cfg)
+        assert config.cli.streaming.enabled is True
+        assert config.cli.streaming.refresh_hz == 20.0
+        assert config.cli.streaming.live_in_exec_mode is False
+        assert config.cli.streaming.code_fence_container is True
+
+    def test_streaming_env_override_enabled(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        cfg = _write_config(
+            tmp_path,
+            {
+                "ai": {"base_url": "http://t", "api_key": "k"},
+                "cli": {"streaming": {"enabled": True}},
+            },
+        )
+        monkeypatch.setenv("AI_CHAT_CLI_STREAMING_ENABLED", "false")
+        config, _ = load_config(cfg)
+        assert config.cli.streaming.enabled is False
+
+    def test_streaming_env_override_refresh_hz(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        cfg = _write_config(
+            tmp_path,
+            {
+                "ai": {"base_url": "http://t", "api_key": "k"},
+                "cli": {"streaming": {"refresh_hz": 20.0}},
+            },
+        )
+        monkeypatch.setenv("AI_CHAT_CLI_STREAMING_REFRESH_HZ", "45.0")
+        config, _ = load_config(cfg)
+        assert config.cli.streaming.refresh_hz == 45.0
+
+    def test_streaming_env_override_live_in_exec_mode(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        cfg = _write_config(
+            tmp_path,
+            {
+                "ai": {"base_url": "http://t", "api_key": "k"},
+                "cli": {"streaming": {"live_in_exec_mode": False}},
+            },
+        )
+        monkeypatch.setenv("AI_CHAT_CLI_STREAMING_LIVE_IN_EXEC_MODE", "true")
+        config, _ = load_config(cfg)
+        assert config.cli.streaming.live_in_exec_mode is True
+
+    def test_streaming_env_override_code_fence_container(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        cfg = _write_config(
+            tmp_path,
+            {
+                "ai": {"base_url": "http://t", "api_key": "k"},
+                "cli": {"streaming": {"code_fence_container": True}},
+            },
+        )
+        monkeypatch.setenv("AI_CHAT_CLI_STREAMING_CODE_FENCE_CONTAINER", "false")
+        config, _ = load_config(cfg)
+        assert config.cli.streaming.code_fence_container is False
+
+    # --- cli.live_tools config (#1364) ---
+
+    def test_live_tools_defaults(self, tmp_path: Path) -> None:
+        cfg = _write_config(tmp_path, {"ai": {"base_url": "http://t", "api_key": "k"}})
+        config, _ = load_config(cfg)
+        assert config.cli.live_tools.show_args_in_verbose is True
+        assert config.cli.live_tools.show_metric_suffix is True
+        assert config.cli.live_tools.metric_max_chars == 40
+
+    def test_live_tools_show_args_from_yaml(self, tmp_path: Path) -> None:
+        cfg = _write_config(
+            tmp_path,
+            {
+                "ai": {"base_url": "http://t", "api_key": "k"},
+                "cli": {"live_tools": {"show_args_in_verbose": False}},
+            },
+        )
+        config, _ = load_config(cfg)
+        assert config.cli.live_tools.show_args_in_verbose is False
+
+    def test_live_tools_show_metric_from_yaml(self, tmp_path: Path) -> None:
+        cfg = _write_config(
+            tmp_path,
+            {
+                "ai": {"base_url": "http://t", "api_key": "k"},
+                "cli": {"live_tools": {"show_metric_suffix": False}},
+            },
+        )
+        config, _ = load_config(cfg)
+        assert config.cli.live_tools.show_metric_suffix is False
+
+    def test_live_tools_metric_max_chars_from_yaml(self, tmp_path: Path) -> None:
+        cfg = _write_config(
+            tmp_path,
+            {
+                "ai": {"base_url": "http://t", "api_key": "k"},
+                "cli": {"live_tools": {"metric_max_chars": 80}},
+            },
+        )
+        config, _ = load_config(cfg)
+        assert config.cli.live_tools.metric_max_chars == 80
+
+    def test_live_tools_metric_max_chars_clamped_low(self, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+        cfg = _write_config(
+            tmp_path,
+            {
+                "ai": {"base_url": "http://t", "api_key": "k"},
+                "cli": {"live_tools": {"metric_max_chars": 0}},
+            },
+        )
+        with caplog.at_level("WARNING", logger="anteroom.config"):
+            config, _ = load_config(cfg)
+        assert config.cli.live_tools.metric_max_chars == 1
+        assert any("metric_max_chars" in r.message for r in caplog.records)
+
+    def test_live_tools_metric_max_chars_clamped_high(self, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+        cfg = _write_config(
+            tmp_path,
+            {
+                "ai": {"base_url": "http://t", "api_key": "k"},
+                "cli": {"live_tools": {"metric_max_chars": 9999}},
+            },
+        )
+        with caplog.at_level("WARNING", logger="anteroom.config"):
+            config, _ = load_config(cfg)
+        assert config.cli.live_tools.metric_max_chars == 200
+        assert any("metric_max_chars" in r.message for r in caplog.records)
+
+    def test_live_tools_not_a_dict_falls_back(self, tmp_path: Path) -> None:
+        cfg = _write_config(
+            tmp_path,
+            {"ai": {"base_url": "http://t", "api_key": "k"}, "cli": {"live_tools": "notadict"}},
+        )
+        config, _ = load_config(cfg)
+        assert config.cli.live_tools.show_args_in_verbose is True
+        assert config.cli.live_tools.show_metric_suffix is True
+        assert config.cli.live_tools.metric_max_chars == 40
+
+    def test_live_tools_env_override_show_args(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        cfg = _write_config(
+            tmp_path,
+            {
+                "ai": {"base_url": "http://t", "api_key": "k"},
+                "cli": {"live_tools": {"show_args_in_verbose": True}},
+            },
+        )
+        monkeypatch.setenv("AI_CHAT_CLI_LIVE_TOOLS_SHOW_ARGS_IN_VERBOSE", "false")
+        config, _ = load_config(cfg)
+        assert config.cli.live_tools.show_args_in_verbose is False
+
+    def test_live_tools_env_override_show_metric(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        cfg = _write_config(
+            tmp_path,
+            {
+                "ai": {"base_url": "http://t", "api_key": "k"},
+                "cli": {"live_tools": {"show_metric_suffix": True}},
+            },
+        )
+        monkeypatch.setenv("AI_CHAT_CLI_LIVE_TOOLS_SHOW_METRIC_SUFFIX", "false")
+        config, _ = load_config(cfg)
+        assert config.cli.live_tools.show_metric_suffix is False
+
+    def test_live_tools_env_override_metric_max_chars(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        cfg = _write_config(
+            tmp_path,
+            {
+                "ai": {"base_url": "http://t", "api_key": "k"},
+                "cli": {"live_tools": {"metric_max_chars": 40}},
+            },
+        )
+        monkeypatch.setenv("AI_CHAT_CLI_LIVE_TOOLS_METRIC_MAX_CHARS", "60")
+        config, _ = load_config(cfg)
+        assert config.cli.live_tools.metric_max_chars == 60
+
+    # --- cli.density config (#1367) ---
+
+    def test_density_defaults(self, tmp_path: Path) -> None:
+        cfg = _write_config(tmp_path, {"ai": {"base_url": "http://t", "api_key": "k"}})
+        config, _ = load_config(cfg)
+        assert config.cli.density.mode == "normal"
+        assert config.cli.density.collapse_repeats is True
+        assert config.cli.density.diff_context_lines == 3
+        assert config.cli.density.head_lines == 3
+        assert config.cli.density.tail_lines == 2
+
+    def test_density_mode_from_yaml(self, tmp_path: Path) -> None:
+        cfg = _write_config(
+            tmp_path,
+            {
+                "ai": {"base_url": "http://t", "api_key": "k"},
+                "cli": {"density": {"mode": "compact"}},
+            },
+        )
+        config, _ = load_config(cfg)
+        assert config.cli.density.mode == "compact"
+
+    def test_density_mode_invalid_falls_back_to_normal(self, tmp_path: Path) -> None:
+        cfg = _write_config(
+            tmp_path,
+            {
+                "ai": {"base_url": "http://t", "api_key": "k"},
+                "cli": {"density": {"mode": "bogus"}},
+            },
+        )
+        config, _ = load_config(cfg)
+        assert config.cli.density.mode == "normal"
+
+    def test_density_collapse_repeats_from_yaml(self, tmp_path: Path) -> None:
+        cfg = _write_config(
+            tmp_path,
+            {
+                "ai": {"base_url": "http://t", "api_key": "k"},
+                "cli": {"density": {"collapse_repeats": False}},
+            },
+        )
+        config, _ = load_config(cfg)
+        assert config.cli.density.collapse_repeats is False
+
+    def test_density_diff_context_lines_from_yaml(self, tmp_path: Path) -> None:
+        cfg = _write_config(
+            tmp_path,
+            {
+                "ai": {"base_url": "http://t", "api_key": "k"},
+                "cli": {"density": {"diff_context_lines": 5}},
+            },
+        )
+        config, _ = load_config(cfg)
+        assert config.cli.density.diff_context_lines == 5
+
+    def test_density_head_tail_from_yaml(self, tmp_path: Path) -> None:
+        cfg = _write_config(
+            tmp_path,
+            {
+                "ai": {"base_url": "http://t", "api_key": "k"},
+                "cli": {"density": {"head_lines": 6, "tail_lines": 4}},
+            },
+        )
+        config, _ = load_config(cfg)
+        assert config.cli.density.head_lines == 6
+        assert config.cli.density.tail_lines == 4
+
+    def test_density_not_a_dict_falls_back(self, tmp_path: Path) -> None:
+        cfg = _write_config(
+            tmp_path,
+            {"ai": {"base_url": "http://t", "api_key": "k"}, "cli": {"density": "notadict"}},
+        )
+        config, _ = load_config(cfg)
+        assert config.cli.density.mode == "normal"
+        assert config.cli.density.collapse_repeats is True
+        assert config.cli.density.diff_context_lines == 3
+        assert config.cli.density.head_lines == 3
+        assert config.cli.density.tail_lines == 2
+
+    def test_density_env_override_mode(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        cfg = _write_config(
+            tmp_path,
+            {
+                "ai": {"base_url": "http://t", "api_key": "k"},
+                "cli": {"density": {"mode": "normal"}},
+            },
+        )
+        monkeypatch.setenv("AI_CHAT_CLI_DENSITY_MODE", "compact")
+        config, _ = load_config(cfg)
+        assert config.cli.density.mode == "compact"
+
+    def test_density_env_override_collapse_repeats(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        cfg = _write_config(
+            tmp_path,
+            {
+                "ai": {"base_url": "http://t", "api_key": "k"},
+                "cli": {"density": {"collapse_repeats": True}},
+            },
+        )
+        monkeypatch.setenv("AI_CHAT_CLI_DENSITY_COLLAPSE_REPEATS", "false")
+        config, _ = load_config(cfg)
+        assert config.cli.density.collapse_repeats is False
+
+    def test_density_env_override_diff_context_lines(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        cfg = _write_config(
+            tmp_path,
+            {
+                "ai": {"base_url": "http://t", "api_key": "k"},
+                "cli": {"density": {"diff_context_lines": 3}},
+            },
+        )
+        monkeypatch.setenv("AI_CHAT_CLI_DENSITY_DIFF_CONTEXT_LINES", "7")
+        config, _ = load_config(cfg)
+        assert config.cli.density.diff_context_lines == 7
+
+    def test_density_env_override_head_lines(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        cfg = _write_config(
+            tmp_path,
+            {
+                "ai": {"base_url": "http://t", "api_key": "k"},
+                "cli": {"density": {"head_lines": 3}},
+            },
+        )
+        monkeypatch.setenv("AI_CHAT_CLI_DENSITY_HEAD_LINES", "8")
+        config, _ = load_config(cfg)
+        assert config.cli.density.head_lines == 8
+
+    def test_density_env_override_tail_lines(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        cfg = _write_config(
+            tmp_path,
+            {
+                "ai": {"base_url": "http://t", "api_key": "k"},
+                "cli": {"density": {"tail_lines": 2}},
+            },
+        )
+        monkeypatch.setenv("AI_CHAT_CLI_DENSITY_TAIL_LINES", "9")
+        config, _ = load_config(cfg)
+        assert config.cli.density.tail_lines == 9
+
+    def test_density_int_clamped_non_negative(self, tmp_path: Path) -> None:
+        cfg = _write_config(
+            tmp_path,
+            {
+                "ai": {"base_url": "http://t", "api_key": "k"},
+                "cli": {
+                    "density": {
+                        "diff_context_lines": -4,
+                        "head_lines": -1,
+                        "tail_lines": -1,
+                    }
+                },
+            },
+        )
+        config, _ = load_config(cfg)
+        assert config.cli.density.diff_context_lines == 0
+        assert config.cli.density.head_lines == 0
+        assert config.cli.density.tail_lines == 0
+
 
 # ---------------------------------------------------------------------------
 # Usage config (lines 1199-1224)
@@ -2227,6 +2732,29 @@ class TestAuditConfig:
         )
         config, _ = load_config(cfg)
         assert config.audit.events["auth"] is True
+
+    def test_audit_events_workflow_memory_subagent_governable(self, tmp_path: Path) -> None:
+        """Operators must be able to disable workflow/memory/subagent categories via YAML (#1459)."""
+        cfg = _write_config(
+            tmp_path,
+            {
+                "ai": {"base_url": "http://t", "api_key": "k"},
+                "audit": {
+                    "events": {
+                        "workflow": False,
+                        "memory": False,
+                        "subagent": False,
+                    }
+                },
+            },
+        )
+        config, _ = load_config(cfg)
+        assert config.audit.events["workflow"] is False
+        assert config.audit.events["memory"] is False
+        assert config.audit.events["subagent"] is False
+        # Defaults for unspecified categories
+        assert config.audit.events["auth"] is True
+        assert config.audit.events["tool_calls"] is True
 
     def test_audit_not_a_dict_rejected_by_validator(self, tmp_path: Path) -> None:
         cfg = _write_config(

@@ -61,7 +61,7 @@ from aiohomematic_config.schedule_facade import (
 from aiohomematic_config.session import ConfigSession
 from aiohomematic_config.widgets import WidgetType, determine_widget
 
-__all__ = [
+__all__ = [  # noqa: RUF022
     # change_log
     "ConfigChangeEntry",
     "ConfigChangeLog",

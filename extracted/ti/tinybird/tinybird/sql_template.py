@@ -2144,7 +2144,7 @@ def get_var_data(content, node_id=None):
     return [dict(name=k, **v) for k, v in vars.items()]
 
 
-def get_var_names_and_types(t, node_id=None):
+def get_var_names_and_types(t: Template, node_id: Optional[str] = None) -> List[Dict[str, Any]]:
     """
     >>> get_var_names_and_types(Template("SELECT * FROM filter_value WHERE description = {{Float32(with_value, 0.0)}}"))
     [{'name': 'with_value', 'type': 'Float32', 'default': 0.0}]

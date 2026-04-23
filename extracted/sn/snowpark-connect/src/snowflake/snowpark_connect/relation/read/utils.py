@@ -25,6 +25,7 @@ from typing import (  # noqa: F401
 
 from snowflake import snowpark
 from snowflake.snowpark._internal.analyzer import analyzer_utils
+from snowflake.snowpark._internal.analyzer.analyzer_utils import unquote_if_quoted
 from snowflake.snowpark.exceptions import SnowparkClientException
 from snowflake.snowpark_connect.column_name_handler import (
     make_column_names_snowpark_compatible,
@@ -72,6 +73,19 @@ def normalize_stage_path(path: str) -> str:
     Unquoted paths are returned with only the trailing slash removed.
     """
     return path.strip("'").rstrip("/")
+
+
+def normalized_file_source_column_merge_key(name: str) -> str:
+    """Return a comparison key for merging column names across file reads.
+
+    Strips Snowflake/Snowpark identifier quoting, then applies the same
+    case-folding as ``snowflake.snowpark_connect.utils.context._normalize``
+    (``spark.sql.caseSensitive``).
+
+    Shared by CSV ``mergeSchema`` union logic and JSON inferred-schema
+    case-insensitive field deduplication so both paths stay consistent.
+    """
+    return _norm(unquote_if_quoted(name))
 
 
 def generate_stage_path_groups(paths: list[str]) -> list[tuple[str, list[str]]]:
@@ -571,6 +585,24 @@ def _load_file_with_copy_into(
     copy_options: dict[str, Any] = {"force": True}
     if on_error is not None:
         copy_options["ON_ERROR"] = on_error
+
+    if (
+        file_format == "csv"
+        and needs_metadata
+        and copy_transformations is None
+        and not has_partitions
+    ):
+        copy_options["INCLUDE_METADATA"] = {
+            f'"{METADATA_FILENAME_COLUMN}"': "METADATA$FILENAME"
+        }
+        copy_options["MATCH_BY_COLUMN_NAME"] = "CASE_INSENSITIVE"
+
+    # CSV with PARSE_HEADER: name-based column matching (same condition as Spark header).
+    # file_format_options come from ``_snowflake_csv_file_format_options`` (``map_read_csv``) with
+    # ``PARSE_HEADER`` set from the client ``header`` option.
+    csv_parse_header = bool(file_format_options.get("PARSE_HEADER", False))
+    if file_format == "csv" and csv_parse_header and copy_transformations is None:
+        copy_options["MATCH_BY_COLUMN_NAME"] = "CASE_INSENSITIVE"
 
     return source_df.copy_into_table(
         target,

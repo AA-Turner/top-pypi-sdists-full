@@ -91,7 +91,7 @@ def _resolve_struct_field(
     path: list[str], col: Column, typer: ExpressionTyper
 ) -> tuple[Column, str]:
     try:
-        col_type = typer.type(col)[0]
+        col_type = typer.type(col)[0].datatype
     except SnowparkSQLException as e:
         if e.raw_message is not None and "invalid identifier" in e.raw_message:
             exception = AnalysisException(

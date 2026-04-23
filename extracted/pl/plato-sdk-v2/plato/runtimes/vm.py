@@ -172,7 +172,7 @@ class VMRuntime(Runtime):
         hostname, extra_opts = self._ssh_target(env)
         if self._ssh_key_path is not None:
             await self._wait_for_ssh(hostname, extra_opts=extra_opts, timeout=min(timeout, 60))
-        logger.info("VM runtime started: alias=%s job_id=%s hostname=%s", alias, env.job_id, hostname)
+        logger.debug("VM runtime started: alias=%s job_id=%s hostname=%s", alias, env.job_id, hostname)
 
         return RuntimeInfo(
             runtime_id=alias,
@@ -210,7 +210,7 @@ class VMRuntime(Runtime):
             return
         try:
             await self._session.remove_env(env)
-            logger.info("VM runtime stopped: %s", runtime_id)
+            logger.debug("VM runtime stopped: %s", runtime_id)
         except Exception as e:
             logger.warning("Failed to stop VM %s: %s", runtime_id, e)
 

@@ -57,7 +57,10 @@ class TestResourceListPolicy(unittest.TestCase):
                                 threshold = 1.337, 
                                 bound = 'upper_bound', 
                                 query = '', 
-                                metric_name = '', )
+                                metric_name = '', 
+                                interval = arthur_client.api_bindings.models.alert_rule_interval.AlertRuleInterval(
+                                    unit = 'seconds', 
+                                    count = 56, ), )
                             ], 
                         attestation_rules = [
                             arthur_client.api_bindings.models.policy_attestation_rule.PolicyAttestationRule(
@@ -113,7 +116,10 @@ class TestResourceListPolicy(unittest.TestCase):
                                 threshold = 1.337, 
                                 bound = 'upper_bound', 
                                 query = '', 
-                                metric_name = '', )
+                                metric_name = '', 
+                                interval = arthur_client.api_bindings.models.alert_rule_interval.AlertRuleInterval(
+                                    unit = 'seconds', 
+                                    count = 56, ), )
                             ], 
                         attestation_rules = [
                             arthur_client.api_bindings.models.policy_attestation_rule.PolicyAttestationRule(

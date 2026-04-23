@@ -21,6 +21,7 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field, StrictFloat, StrictInt, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional, Union
 from arthur_client.api_bindings.models.alert_bound import AlertBound
+from arthur_client.api_bindings.models.alert_rule_interval import AlertRuleInterval
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -38,7 +39,8 @@ class PolicyAlertRule(BaseModel):
     bound: AlertBound = Field(description="The bound of the alert rule.")
     query: StrictStr = Field(description="The SQL query for the alert rule.")
     metric_name: StrictStr = Field(description="The name of the metric returned by the query.")
-    __properties: ClassVar[List[str]] = ["created_at", "updated_at", "id", "policy_id", "name", "description", "threshold", "bound", "query", "metric_name"]
+    interval: AlertRuleInterval = Field(description="The evaluation interval for the alert rule.")
+    __properties: ClassVar[List[str]] = ["created_at", "updated_at", "id", "policy_id", "name", "description", "threshold", "bound", "query", "metric_name", "interval"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -79,6 +81,9 @@ class PolicyAlertRule(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # override the default output from pydantic by calling `to_dict()` of interval
+        if self.interval:
+            _dict['interval'] = self.interval.to_dict()
         # set to None if description (nullable) is None
         # and model_fields_set contains the field
         if self.description is None and "description" in self.model_fields_set:
@@ -105,7 +110,8 @@ class PolicyAlertRule(BaseModel):
             "threshold": obj.get("threshold"),
             "bound": obj.get("bound"),
             "query": obj.get("query"),
-            "metric_name": obj.get("metric_name")
+            "metric_name": obj.get("metric_name"),
+            "interval": AlertRuleInterval.from_dict(obj["interval"]) if obj.get("interval") is not None else None
         })
         return _obj
 

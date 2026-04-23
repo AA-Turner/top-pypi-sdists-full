@@ -21,16 +21,9 @@ __all__ = [
     "load_tests",
 ]
 
-import atexit
 import doctest
-import os
-
-from pkg_resources import (
-    cleanup_resources,
-    resource_exists,
-    resource_filename,
-    resource_listdir,
-)
+import importlib.util
+from pathlib import Path
 
 DOCTEST_FLAGS = (
     doctest.ELLIPSIS | doctest.NORMALIZE_WHITESPACE | doctest.REPORT_NDIFF
@@ -40,21 +33,18 @@ DOCTEST_FLAGS = (
 def find_doctests(suffix):
     """Find doctests matching a certain suffix."""
     doctest_files = []
-    # Match doctests against the suffix.
-    if resource_exists("lazr.uri", "docs"):
-        for name in resource_listdir("lazr.uri", "docs"):
-            if name.endswith(suffix):
-                doctest_files.append(
-                    os.path.abspath(
-                        resource_filename("lazr.uri", "docs/%s" % name)
-                    )
-                )
+    spec = importlib.util.find_spec("lazr.uri")
+    if not spec or not spec.submodule_search_locations:
+        return doctest_files
+    docs_path = Path(list(spec.submodule_search_locations)[0]) / "docs"
+    for path in docs_path.iterdir():
+        if path.name.endswith(suffix):
+            doctest_files.append(str(path.resolve()))
     return doctest_files
 
 
 def load_tests(loader, tests, pattern):
     """Load all the doctests."""
-    atexit.register(cleanup_resources)
     tests.addTest(
         doctest.DocFileSuite(
             *find_doctests(".rst"),

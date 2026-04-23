@@ -121,6 +121,61 @@ async def _run_repl_with_commands(
     return output
 
 
+async def _capture_repl_completer(
+    tmp_path: Any,
+) -> Any:
+    from anteroom.cli.repl import _run_repl
+
+    db = _make_db(tmp_path)
+    sp = _seed_space(db)
+    config = _make_config(tmp_path)
+    buf = StringIO()
+    captured_console = Console(file=buf, force_terminal=False, width=120)
+
+    captured_kwargs: dict[str, Any] = {}
+
+    async def fake_prompt(*args: Any, **kwargs: Any) -> str:
+        raise EOFError()
+
+    mock_ai = MagicMock()
+    mock_ai.stream_chat = AsyncMock()
+    mock_tool_executor = AsyncMock()
+
+    def make_session(*args: Any, **kwargs: Any) -> Any:
+        captured_kwargs.update(kwargs)
+        mock_session_instance = MagicMock()
+        mock_session_instance.prompt_async = fake_prompt
+        mock_session_instance.default_buffer = MagicMock()
+        mock_session_instance.default_buffer.on_text_changed = MagicMock()
+        return mock_session_instance
+
+    with (
+        patch("anteroom.cli.repl.renderer.console", captured_console),
+        patch("anteroom.cli.repl.renderer.render_error", lambda msg: captured_console.print(f"Error: {msg}")),
+        patch("anteroom.cli.repl.renderer.render_conversation_recap", lambda *a, **k: None),
+        patch("anteroom.cli.renderer.use_stdout_console", lambda: None),
+        patch("anteroom.cli.repl._patch_stdout", _noop_patch_stdout, create=True),
+        patch("prompt_toolkit.patch_stdout.patch_stdout", _noop_patch_stdout),
+        patch("prompt_toolkit.PromptSession", side_effect=make_session),
+    ):
+        try:
+            await _run_repl(
+                config=config,
+                db=db,
+                ai_service=mock_ai,
+                tool_executor=mock_tool_executor,
+                tools_openai=None,
+                extra_system_prompt="",
+                all_tool_names=[],
+                working_dir=str(config.app.data_dir),
+                space=sp,
+            )
+        except (EOFError, KeyboardInterrupt, SystemExit):
+            pass
+
+    return captured_kwargs["completer"]
+
+
 @pytest.mark.asyncio
 class TestSlashCommands:
     # /help opens a prompt_toolkit message_dialog that requires a real terminal.
@@ -268,3 +323,24 @@ class TestSlashCommands:
         row = db.execute("SELECT space_id FROM conversations ORDER BY created_at DESC LIMIT 1").fetchone()
         assert row is not None
         assert row[0] == sp["id"]
+
+    async def test_bare_slash_completer_exposes_ranked_scaffolds(self, tmp_path: Any) -> None:
+        from prompt_toolkit.document import Document
+
+        completer = await _capture_repl_completer(tmp_path)
+        completions = list(completer.get_completions(Document(text="/", cursor_position=1), complete_event=MagicMock()))
+        assert completions
+        assert completions[0].text == "/new "
+        assert completions[0].display_text == "/new <note|document|title>"
+        assert "Conversation" in completions[0].display_meta_text
+
+    async def test_slash_completer_can_match_action_words(self, tmp_path: Any) -> None:
+        from prompt_toolkit.document import Document
+
+        completer = await _capture_repl_completer(tmp_path)
+        completions = list(
+            completer.get_completions(Document(text="/switch", cursor_position=7), complete_event=MagicMock())
+        )
+        assert completions
+        assert completions[0].text == "/space "
+        assert completions[0].display_text == "/space <subcommand>"

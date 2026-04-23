@@ -39,6 +39,21 @@ class UsagePricerRequest(google.protobuf.message.Message):
 global___UsagePricerRequest = UsagePricerRequest
 
 @typing.final
+class GetPriceForContractRequest(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    CONTRACT_ID_FIELD_NUMBER: builtins.int
+    contract_id: builtins.int
+    def __init__(
+        self,
+        *,
+        contract_id: builtins.int = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing.Literal["contract_id", b"contract_id"]) -> None: ...
+
+global___GetPriceForContractRequest = GetPriceForContractRequest
+
+@typing.final
 class SKUUsageSummary(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 

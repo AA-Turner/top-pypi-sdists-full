@@ -37,6 +37,7 @@ from cwsandbox._defaults import (
     STREAMING_OUTPUT_QUEUE_SIZE,
     STREAMING_RESPONSE_QUEUE_SIZE,
     SandboxDefaults,
+    _resolve_selector,
 )
 from cwsandbox._error_info import (
     CWSANDBOX_COMMAND_TIMEOUT,
@@ -463,6 +464,7 @@ class Sandbox:
         request_timeout_seconds: float | None = None,
         max_lifetime_seconds: float | None = None,
         profile_ids: list[str] | None = None,
+        profile_names: list[str] | None = None,
         runner_ids: list[str] | None = None,
         resources: ResourceOptions | dict[str, Any] | None = None,
         mounted_files: list[dict[str, Any]] | None = None,
@@ -487,7 +489,12 @@ class Sandbox:
             request_timeout_seconds: Timeout for API requests (client-side, default: 300s)
             max_lifetime_seconds: Max sandbox lifetime (server-side). If not set,
                 the backend controls the default.
-            profile_ids: Optional list of profile IDs
+            profile_ids: Optional list of profile IDs for infrastructure selection.
+                See SandboxDefaults.profile_ids for semantics. Prefer
+                ``profile_names`` when selecting by name.
+            profile_names: Optional list of profile names for infrastructure
+                selection (preferred over profile_ids). See
+                SandboxDefaults.profile_names for semantics.
             runner_ids: Optional list of runner IDs
             resources: Resource configuration. Accepts ResourceOptions for separate
                 requests/limits, or a flat dict for backward-compatible Guaranteed QoS.
@@ -542,21 +549,9 @@ class Sandbox:
         )
         self._annotations = self._defaults.merge_annotations(annotations)
 
-        self._profile_ids: list[str] | None
-        if profile_ids is not None:
-            self._profile_ids = list(profile_ids)
-        elif self._defaults.profile_ids:
-            self._profile_ids = list(self._defaults.profile_ids)
-        else:
-            self._profile_ids = None
-
-        self._runner_ids: list[str] | None
-        if runner_ids is not None:
-            self._runner_ids = list(runner_ids)
-        elif self._defaults.runner_ids:
-            self._runner_ids = list(self._defaults.runner_ids)
-        else:
-            self._runner_ids = None
+        self._profile_ids = _resolve_selector(profile_ids, self._defaults.profile_ids)
+        self._profile_names = _resolve_selector(profile_names, self._defaults.profile_names)
+        self._runner_ids = _resolve_selector(runner_ids, self._defaults.runner_ids)
 
         self._start_kwargs: dict[str, Any] = {}
         # Use explicit resources or fall back to defaults, then normalize
@@ -651,6 +646,7 @@ class Sandbox:
         max_lifetime_seconds: float | None = None,
         tags: list[str] | None = None,
         profile_ids: list[str] | None = None,
+        profile_names: list[str] | None = None,
         runner_ids: list[str] | None = None,
         resources: ResourceOptions | dict[str, Any] | None = None,
         mounted_files: list[dict[str, Any]] | None = None,
@@ -666,7 +662,8 @@ class Sandbox:
 
         Does NOT wait for RUNNING status. Use .wait() to block until ready.
         If positional args are provided, the first is the command and the rest
-        are its arguments. If no args are provided, uses defaults (tail -f /dev/null).
+        are its arguments. If no args are provided, uses a shell-trapped
+        keep-alive default that responds to SIGTERM on stop.
 
         Args:
             *args: Optional command and arguments (e.g., "echo", "hello", "world").
@@ -676,7 +673,12 @@ class Sandbox:
             request_timeout_seconds: Timeout for API requests (client-side)
             max_lifetime_seconds: Max sandbox lifetime (server-side)
             tags: Optional tags for the sandbox
-            profile_ids: Optional list of profile IDs
+            profile_ids: Optional list of profile IDs for infrastructure selection.
+                See SandboxDefaults.profile_ids for semantics. Prefer
+                ``profile_names`` when selecting by name.
+            profile_names: Optional list of profile names for infrastructure
+                selection (preferred over profile_ids). See
+                SandboxDefaults.profile_names for semantics.
             runner_ids: Optional list of runner IDs
             resources: Resource configuration. Accepts ResourceOptions for separate
                 requests/limits, or a flat dict for backward-compatible Guaranteed QoS.
@@ -698,7 +700,7 @@ class Sandbox:
 
         Examples:
             ```python
-            # Using defaults (tail -f /dev/null)
+            # Using defaults (shell-trapped keep-alive)
             sb = Sandbox.run()
 
             # Fire and forget style
@@ -734,6 +736,7 @@ class Sandbox:
             max_lifetime_seconds=max_lifetime_seconds,
             tags=tags,
             profile_ids=profile_ids,
+            profile_names=profile_names,
             runner_ids=runner_ids,
             resources=resources,
             mounted_files=mounted_files,
@@ -804,6 +807,7 @@ class Sandbox:
         sandbox._tags = None
         sandbox._max_lifetime_seconds = None
         sandbox._profile_ids = None
+        sandbox._profile_names = None
         sandbox._runner_ids = None
         sandbox._environment_variables = {}
         sandbox._annotations = {}
@@ -863,6 +867,7 @@ class Sandbox:
         tags: list[str] | None = None,
         status: str | None = None,
         profile_ids: list[str] | None = None,
+        profile_names: list[str] | None = None,
         runner_ids: list[str] | None = None,
         include_stopped: bool = False,
         base_url: str | None = None,
@@ -882,7 +887,12 @@ class Sandbox:
         Args:
             tags: Filter by tags (sandboxes must have ALL specified tags)
             status: Filter by status ("running", "completed", "failed", etc.)
-            profile_ids: Filter by profile IDs
+            profile_ids: Optional list of profile IDs for infrastructure selection.
+                See SandboxDefaults.profile_ids for semantics. Prefer
+                ``profile_names`` when selecting by name.
+            profile_names: Optional list of profile names for infrastructure
+                selection (preferred over profile_ids). See
+                SandboxDefaults.profile_names for semantics.
             runner_ids: Filter by runner IDs
             include_stopped: If True, include terminal sandboxes (completed,
                 failed, terminated). Defaults to False.
@@ -917,6 +927,7 @@ class Sandbox:
                 tags=tags,
                 status=status,
                 profile_ids=profile_ids,
+                profile_names=profile_names,
                 runner_ids=runner_ids,
                 include_stopped=include_stopped,
                 base_url=base_url,
@@ -932,6 +943,7 @@ class Sandbox:
         tags: builtins.list[str] | None = None,
         status: str | None = None,
         profile_ids: builtins.list[str] | None = None,
+        profile_names: builtins.list[str] | None = None,
         runner_ids: builtins.list[str] | None = None,
         include_stopped: bool = False,
         base_url: str | None = None,
@@ -963,6 +975,8 @@ class Sandbox:
                 request_kwargs["status"] = status_enum.to_proto()
             if profile_ids is not None:
                 request_kwargs["profile_ids"] = profile_ids
+            if profile_names is not None:
+                request_kwargs["profile_names"] = profile_names
             if runner_ids is not None:
                 request_kwargs["runner_ids"] = runner_ids
 
@@ -1785,6 +1799,8 @@ class Sandbox:
                 request_kwargs["max_lifetime_seconds"] = int(self._max_lifetime_seconds)
             if self._profile_ids is not None:
                 request_kwargs["profile_ids"] = self._profile_ids
+            if self._profile_names is not None:
+                request_kwargs["profile_names"] = self._profile_names
             if self._runner_ids is not None:
                 request_kwargs["runner_ids"] = self._runner_ids
             if self._environment_variables:
@@ -3533,16 +3549,15 @@ class Sandbox:
         """Stream logs from the sandbox's main process.
 
         Streams stdout/stderr from the sandbox's **main command** — the
-        entrypoint passed to ``Sandbox.run()`` (or the default
-        ``tail -f /dev/null``). Output from commands started via ``exec()``
-        is **not** included; use ``Process.stdout``/``Process.stderr`` for
-        those.
+        entrypoint passed to ``Sandbox.run()`` (or the default shell-trapped
+        keep-alive). Output from commands started via ``exec()`` is **not**
+        included; use ``Process.stdout``/``Process.stderr`` for those.
 
         .. note::
 
-            Sandboxes created with the default command (``tail -f /dev/null``)
-            do not produce any log output. To see logs here, pass a command
-            that writes to stdout/stderr when calling ``Sandbox.run()``.
+            Sandboxes created with the default keep-alive command do not
+            produce any log output. To see logs here, pass a command that
+            writes to stdout/stderr when calling ``Sandbox.run()``.
 
         Returns a StreamReader that yields log lines as strings. The method
         returns immediately — iteration on the StreamReader blocks until

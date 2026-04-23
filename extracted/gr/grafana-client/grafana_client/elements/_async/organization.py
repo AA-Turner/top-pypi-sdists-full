@@ -28,12 +28,24 @@ class Organization(Base):
 
     async def create_organization(self, organization):
         """
+        Create Organization
+        https://grafana.com/docs/grafana/v12.0/developers/http_api/org/#create-organization
 
         :param organization:
         :return:
         """
         create_orgs_path = "/orgs"
-        return await self.client.POST(create_orgs_path, json={"name": organization["name"]})
+        if isinstance(organization, str):
+            organization_name = organization
+        elif isinstance(organization, dict):
+            if "name" not in organization:
+                raise ValueError("Organization dict must contain 'name' key")
+            organization_name = organization["name"]
+        else:
+            raise TypeError("Organization must be str or dict")
+        if not isinstance(organization_name, str) or not organization_name.strip():
+            raise ValueError("Organization name must be a non-empty string")
+        return await self.client.POST(create_orgs_path, json={"name": organization_name})
 
     async def update_current_organization(self, organization):
         """
@@ -182,6 +194,8 @@ class Organizations(Base):
 
     async def organization_user_add(self, organization_id, user):
         """
+        Add User in Organization
+        https://grafana.com/docs/grafana/v12.0/developers/http_api/org/#add-user-in-organization
 
         :param organization_id:
         :param user:
@@ -192,6 +206,8 @@ class Organizations(Base):
 
     async def organization_user_update(self, organization_id, user_id, user_role):
         """
+        Update Users in Organization
+        https://grafana.com/docs/grafana/v12.0/developers/http_api/org/#update-users-in-organization
 
         :param organization_id:
         :param user_id:
@@ -203,6 +219,8 @@ class Organizations(Base):
 
     async def organization_user_delete(self, organization_id, user_id):
         """
+        Delete User in Organization
+        https://grafana.com/docs/grafana/v12.0/developers/http_api/org/#delete-user-in-organization
 
         :param organization_id:
         :param user_id:
@@ -216,7 +234,7 @@ class Organizations(Base):
         :return:
         """
         warnings.warn("This method is deprecated, please use `organization.get_preferences`", DeprecationWarning)
-        return self.api.organization.get_preferences()
+        return await self.api.organization.get_preferences()
 
     async def organization_preference_update(self, theme="", home_dashboard_id=0, timezone="utc"):
         """
@@ -228,4 +246,4 @@ class Organizations(Base):
         """
         warnings.warn("This method is deprecated, please use `organization.update_preferences`", DeprecationWarning)
         preferences = PersonalPreferences(theme=theme, homeDashboardId=home_dashboard_id, timezone=timezone)
-        return self.api.organization.update_preferences(preferences)
+        return await self.api.organization.update_preferences(preferences)

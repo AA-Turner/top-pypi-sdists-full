@@ -70,6 +70,14 @@ def isolate_server_subprocess(
         s.bind(("127.0.0.1", 0))
         port = s.getsockname()[1]
 
+    env = os.environ.copy()
+    env.update(
+        {
+            "ISOLATE_SHUTDOWN_GRACE_PERIOD": "2",
+            "ISOLATE_AGENT_IDLE_TIMEOUT_SECONDS": str(idle_timeout_seconds),
+        }
+    )
+
     process = subprocess.Popen(
         [
             sys.executable,
@@ -79,10 +87,7 @@ def isolate_server_subprocess(
             "--port",
             str(port),
         ],
-        env={
-            "ISOLATE_SHUTDOWN_GRACE_PERIOD": "2",
-            "ISOLATE_AGENT_IDLE_TIMEOUT_SECONDS": str(idle_timeout_seconds),
-        },
+        env=env,
     )
 
     time.sleep(5)  # Wait for server to start
@@ -111,6 +116,9 @@ def isolate_agent_subprocess(
     # (making fileno() fail with "Bad file descriptor")
     log_file = open(os.devnull, "w")
 
+    env = os.environ.copy()
+    env["ISOLATE_AGENT_IDLE_TIMEOUT_SECONDS"] = str(idle_timeout_seconds)
+
     process = subprocess.Popen(
         [
             sys.executable,
@@ -120,9 +128,7 @@ def isolate_agent_subprocess(
             "--log-fd",
             str(log_file.fileno()),
         ],
-        env={
-            "ISOLATE_AGENT_IDLE_TIMEOUT_SECONDS": str(idle_timeout_seconds),
-        },
+        env=env,
         pass_fds=(log_file.fileno(),),
     )
 

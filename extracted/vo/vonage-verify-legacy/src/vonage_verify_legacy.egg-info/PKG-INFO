@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: vonage-verify-legacy
-Version: 1.0.1
+Version: 1.1.0
 Summary: Vonage legacy verify package
 Author-email: Vonage <devrel@vonage.com>
 Project-URL: homepage, https://github.com/Vonage/vonage-python-sdk

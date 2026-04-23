@@ -14,6 +14,23 @@ from anteroom.db import init_db
 from anteroom.services.background_tasks import BackgroundTaskManager
 
 
+async def _wait_for_status(
+    manager: BackgroundTaskManager,
+    task_id: str,
+    expected: str,
+    *,
+    timeout: float = 1.0,
+) -> dict[str, Any]:
+    deadline = asyncio.get_running_loop().time() + timeout
+    while True:
+        task = manager.get_task(task_id)
+        if task is not None and task["status"] == expected:
+            return task
+        if asyncio.get_running_loop().time() >= deadline:
+            raise AssertionError(f"Task {task_id} did not reach status {expected!r} before timeout")
+        await asyncio.sleep(0.01)
+
+
 @pytest.fixture()
 def db(tmp_path: Path) -> Any:
     return init_db(tmp_path / "test.db")
@@ -101,8 +118,7 @@ class TestStartTask:
             mock_create.return_value = proc
             result = manager.start_task(conv_id, "echo done")
 
-            # Let the collector coroutine run
-            await asyncio.sleep(0.1)
+            await _wait_for_status(manager, result["task_id"], "completed")
 
         task = manager.get_task(result["task_id"])
         assert task is not None
@@ -123,8 +139,8 @@ class TestStartTask:
             "anteroom.services.background_tasks.asyncio.create_subprocess_shell", new_callable=AsyncMock
         ) as mock_create:
             mock_create.return_value = proc
-            manager.start_task(conv_id, "echo ok")
-            await asyncio.sleep(0.1)
+            result = manager.start_task(conv_id, "echo ok")
+            await _wait_for_status(manager, result["task_id"], "completed")
 
         # Should have published task_started and task_completed
         calls = [c[0] for c in event_bus.publish.call_args_list]
@@ -144,7 +160,7 @@ class TestStartTask:
         ) as mock_create:
             mock_create.return_value = proc
             result = manager.start_task(conv_id, "false")
-            await asyncio.sleep(0.1)
+            await _wait_for_status(manager, result["task_id"], "failed")
 
         task = manager.get_task(result["task_id"])
         assert task is not None
@@ -185,8 +201,8 @@ class TestGetAndList:
             proc.returncode = 0
             mock_create.return_value = proc
 
-            manager.start_task(conv_id, "cmd1")
-            await asyncio.sleep(0.1)  # Let it complete
+            result = manager.start_task(conv_id, "cmd1")
+            await _wait_for_status(manager, result["task_id"], "completed")
 
         running = manager.list_tasks(conv_id, status="running")
         completed = manager.list_tasks(conv_id, status="completed")
@@ -269,8 +285,8 @@ class TestCountRunning:
             "anteroom.services.background_tasks.asyncio.create_subprocess_shell", new_callable=AsyncMock
         ) as mock_create:
             mock_create.return_value = proc
-            manager.start_task(conv_id, "echo done")
-            await asyncio.sleep(0.1)
+            result = manager.start_task(conv_id, "echo done")
+            await _wait_for_status(manager, result["task_id"], "completed")
 
         assert manager.count_running() == 0
 
@@ -290,8 +306,8 @@ class TestPollCompleted:
             "anteroom.services.background_tasks.asyncio.create_subprocess_shell", new_callable=AsyncMock
         ) as mock_create:
             mock_create.return_value = proc
-            manager.start_task(conv_id, "echo ok")
-            await asyncio.sleep(0.1)
+            result = manager.start_task(conv_id, "echo ok")
+            await _wait_for_status(manager, result["task_id"], "completed")
 
         completed = manager.poll_completed()
         assert len(completed) == 1
@@ -315,7 +331,7 @@ class TestStdoutPreview:
         ) as mock_create:
             mock_create.return_value = proc
             result = manager.start_task(conv_id, "big output")
-            await asyncio.sleep(0.1)
+            await _wait_for_status(manager, result["task_id"], "completed")
 
         task = manager.get_task(result["task_id"])
         assert task is not None

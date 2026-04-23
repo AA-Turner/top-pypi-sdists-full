@@ -2702,12 +2702,64 @@ class CloudController(BaseController):
     def remove_cloud_resource(
         self, cloud_name: str, resource_name: str, yes: bool,
     ):
-        confirm(
-            f"Please confirm that you would like to remove resource {resource_name} from cloud {cloud_name}.",
-            yes,
-        )
-
         cloud_id, _ = get_cloud_id_and_name(self.api_client, cloud_name=cloud_name)
+        cloud: Cloud = self.api_client.get_cloud_api_v2_clouds_cloud_id_get(
+            cloud_id=cloud_id
+        ).result
+        cloud_resources = self.api_client.get_cloud_resources_api_v2_clouds_cloud_id_resources_get(
+            cloud_id=cloud_id,
+        ).results
+
+        matching = [r for r in cloud_resources if r.name == resource_name]
+        if not matching:
+            raise ClickException(
+                f"No cloud resource named {resource_name!r} found in cloud {cloud_name}."
+            )
+        if len(matching) > 1:
+            raise ClickException(
+                f"Multiple cloud resources named {resource_name!r} found in cloud {cloud_name}."
+            )
+        cloud_resource = matching[0]
+
+        if cloud_resource.is_default:
+            raise ClickException(
+                f"Cloud resource {resource_name} is the primary resource for cloud "
+                f"{cloud_name} and cannot be removed individually. Use "
+                f"`anyscale cloud delete` to delete the cloud."
+            )
+
+        is_managed = self._is_managed_resource(cloud_resource)
+        # MRC clouds can contain resources from different providers, so branch
+        # on the resource's provider — not the cloud's (which reflects the
+        # primary resource).
+        resource_provider = cloud_resource.provider
+
+        # Check the LD gate before any destructive teardown
+        if (
+            is_managed
+            and not self.api_client.check_is_feature_flag_on_api_v2_userinfo_check_is_feature_flag_on_get(
+                "allow-delete-anyscale-managed-cloud-resource"
+            ).result.is_on
+        ):
+            raise ClickException(
+                "Anyscale-managed resources can not be removed. "
+                "Please contact Anyscale support if you need this feature enabled for your organization."
+            )
+
+        if is_managed:
+            confirmation_msg = (
+                f"Please confirm that you would like to remove resource {resource_name} from cloud {cloud_name}. "
+                f"This will tear down the Anyscale-managed {resource_provider} infrastructure backing this resource and is not reversible."
+            )
+        else:
+            confirmation_msg = f"Please confirm that you would like to remove resource {resource_name} from cloud {cloud_name}."
+        confirm(confirmation_msg, yes)
+
+        if is_managed:
+            self._teardown_managed_cloud_resource(
+                cloud=cloud, cloud_resource=cloud_resource, yes=yes,
+            )
+
         try:
             with self.log.spinner("Removing cloud resource..."):
                 self.api_client.remove_cloud_resource_api_v2_clouds_cloud_id_remove_resource_delete(
@@ -2716,13 +2768,51 @@ class CloudController(BaseController):
         except Exception as e:  # noqa: BLE001
             raise ClickException(f"Failed to remove cloud resource: {e}")
 
-        self.log.warning(
-            "The trust policy or service account that provides access to Anyscale's control plane needs to be deleted manually if you no longer wish for Anyscale to have access."
-        )
+        if not is_managed:
+            self.log.warning(
+                "The trust policy or service account that provides access to Anyscale's control plane needs to be deleted manually if you no longer wish for Anyscale to have access."
+            )
 
         self.log.info(
             f"Successfully removed resource {resource_name} from cloud {cloud_name}!"
         )
+
+    def _teardown_managed_cloud_resource(
+        self, cloud: Cloud, cloud_resource: DecoratedCloudResource, yes: bool,
+    ) -> None:
+        """Run the provider-specific teardown for an Anyscale-managed cloud resource.
+
+        On failure, prompt the user to force-delete (leaving the backing
+        infrastructure in place and proceeding to remove the Anyscale record).
+        Branches on the resource's provider — not the cloud's — to handle MRC
+        clouds where resources can span providers.
+        """
+        resource_provider = cloud_resource.provider
+        try:
+            if resource_provider == CloudProviders.AWS:
+                self.delete_aws_managed_cloud(
+                    cloud=cloud, cloud_resource=cloud_resource
+                )
+            elif resource_provider == CloudProviders.GCP:
+                # TLS certs are cloud-scoped (not resource-scoped) and shared
+                # across all resources in the cloud, so we intentionally do not
+                # call delete_gcp_tls_certificates here. Cert cleanup happens
+                # in the full `anyscale cloud delete` path.
+                self.delete_gcp_managed_cloud_resource(cloud_resource=cloud_resource)
+            else:
+                raise ClickException(
+                    f"Removing Anyscale-managed resources is not supported "
+                    f"for cloud resource provider {resource_provider}."
+                )
+        except Exception as e:  # noqa: BLE001
+            confirm(
+                f"Error while trying to clean up {resource_provider} resources:\n{e}\n"
+                f"Please check your {resource_provider} account for relevant errors.\n"
+                "Do you want to force delete this cloud resource? You will need to "
+                "clean up any associated resources on your own.\n"
+                "Continue with force deletion?",
+                yes,
+            )
 
     def _resolve_cloud_resource_id(
         self,
@@ -3106,6 +3196,7 @@ class CloudController(BaseController):
             aws_subnet_ids=aws_config.subnet_ids or [],
             aws_control_plane_role=aws_config.anyscale_iam_role_id,
             aws_data_plane_role=aws_config.cluster_iam_role_id,
+            aws_data_plane_instance_profile=aws_config.cluster_instance_profile_id,
             aws_security_groups=aws_config.security_group_ids,
             aws_s3_id=object_storage.bucket_name[len(S3_STORAGE_PREFIX) :]
             if object_storage and object_storage.bucket_name
@@ -3215,6 +3306,7 @@ class CloudController(BaseController):
         aws_subnet_ids: List[str],
         aws_control_plane_role: Optional[str],
         aws_data_plane_role: Optional[str],
+        aws_data_plane_instance_profile: Optional[str] = None,
         aws_security_groups: Optional[List[str]],
         aws_s3_id: Optional[str],
         aws_efs_id: Optional[str],
@@ -3265,6 +3357,7 @@ class CloudController(BaseController):
             strict=strict,
             cloud_id=cloud_id,
             _use_strict_iam_permissions=_use_strict_iam_permissions,
+            cluster_instance_profile_arn=aws_data_plane_instance_profile,
         )
         verify_aws_security_groups_result = verify_aws_security_groups(
             aws_security_group_ids=aws_security_groups,

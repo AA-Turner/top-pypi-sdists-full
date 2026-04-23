@@ -11,6 +11,7 @@ import pytest
 from anteroom.services.audit import AuditEntry
 from anteroom.services.lineage import (
     emit_memory_promotion,
+    emit_subagent_lifecycle,
     emit_workflow_approval,
     emit_workflow_cancel,
     emit_workflow_decision,
@@ -222,6 +223,81 @@ class TestEmitWorkflowRunLifecycle:
 
     def test_none_writer_is_noop(self) -> None:
         emit_workflow_run_lifecycle(None, "started", run_id="r1")
+
+
+# ---------------------------------------------------------------------------
+# emit_subagent_lifecycle
+# ---------------------------------------------------------------------------
+
+
+class TestEmitSubagentLifecycle:
+    @pytest.mark.parametrize(
+        ("event", "severity"),
+        [
+            ("spawned", "info"),
+            ("started", "info"),
+            ("completed", "info"),
+            ("failed", "warning"),
+            ("cancelled", "warning"),
+        ],
+    )
+    def test_emits_each_lifecycle_event(self, event: str, severity: str) -> None:
+        writer, captured = _capture_writer()
+        emit_subagent_lifecycle(
+            writer,
+            event,
+            run_id="r1",
+            conversation_id="c1",
+            user_id="alice",
+            model="claude-sonnet-4-6",
+        )
+        assert len(captured) == 1
+        entry = captured[0]
+        assert entry.event_type == f"subagent.{event}"
+        assert entry.severity == severity
+        assert entry.user_id == "alice"
+        assert entry.details["run_id"] == "r1"
+        assert entry.details["conversation_id"] == "c1"
+        assert entry.details["model"] == "claude-sonnet-4-6"
+
+    def test_parent_run_id_threaded_when_provided(self) -> None:
+        writer, captured = _capture_writer()
+        emit_subagent_lifecycle(
+            writer,
+            "spawned",
+            run_id="r2",
+            parent_run_id="r1",
+        )
+        assert captured[0].details["parent_run_id"] == "r1"
+
+    def test_empty_optional_fields_omitted_from_payload(self) -> None:
+        writer, captured = _capture_writer()
+        emit_subagent_lifecycle(writer, "started", run_id="r1")
+        details = captured[0].details
+        assert details == {"run_id": "r1"}  # empty optionals not included
+
+    def test_details_merged_into_payload(self) -> None:
+        writer, captured = _capture_writer()
+        emit_subagent_lifecycle(
+            writer,
+            "completed",
+            run_id="r1",
+            details={"duration_ms": 12345, "tool_calls": 7},
+        )
+        details = captured[0].details
+        assert details["run_id"] == "r1"
+        assert details["duration_ms"] == 12345
+        assert details["tool_calls"] == 7
+
+    def test_unknown_event_drops_silently(self, caplog: pytest.LogCaptureFixture) -> None:
+        writer, captured = _capture_writer()
+        with caplog.at_level(logging.WARNING):
+            emit_subagent_lifecycle(writer, "weird", run_id="r1")
+        assert captured == []
+        assert any("unknown event" in m for m in caplog.messages)
+
+    def test_none_writer_is_noop(self) -> None:
+        emit_subagent_lifecycle(None, "started", run_id="r1")
 
 
 # ---------------------------------------------------------------------------

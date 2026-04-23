@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: vonage-http-client
-Version: 1.5.1
+Version: 1.5.2
 Summary: An HTTP client for making requests to Vonage APIs.
 Author-email: Vonage <devrel@vonage.com>
 Project-URL: Homepage, https://github.com/Vonage/vonage-python-sdk

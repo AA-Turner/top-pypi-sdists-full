@@ -38,10 +38,10 @@ class FlowExecutor:
     """Executes configurable flows for simulator interactions (async).
 
     The executor is decoupled from its execution environment via
-    :class:`~plato.v2.async_.flow_backends.FlowBackend`. Passing ``page`` keeps
-    the historical Playwright-backed behaviour; passing ``backend`` allows
-    alternate backends (e.g. ``AgentBrowserBackend``) that drive the flow
-    against a different browser surface.
+    :class:`~plato.v2.async_.flow_backends.FlowBackend`. Passing ``page`` uses
+    the default Playwright-backed path; passing ``backend`` is the extension
+    point for alternate backends that drive the flow against a different
+    browser surface.
     """
 
     def __init__(

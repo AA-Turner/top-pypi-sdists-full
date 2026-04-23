@@ -1,13 +1,19 @@
+import sys
 import unittest
 
-from grafana_client import GrafanaApi
+import pytest
+from verlib2 import Version
 
-from ..compat import requests_mock
+pytestmark = pytest.mark.integration
 
 
+@unittest.skipIf("unittest" in sys.argv[0], "Skipping unittest, please use pytest")
 class DashboardVersionsTestCase(unittest.TestCase):
-    def setUp(self):
-        self.grafana = GrafanaApi(("admin", "admin"), host="localhost", url_path_prefix="", protocol="http")
+    @pytest.fixture(autouse=True)
+    def use_fixtures(self, grafana_api, dashboard_uid: str, dashboard_id: int):
+        self.grafana = grafana_api
+        self.dashboard_id = dashboard_id
+        self.dashboard_uid = dashboard_uid
 
     def test_api_path_success(self):
         api_path = self.grafana.dashboard_versions.api_path(dashboard_id=42)
@@ -18,166 +24,109 @@ class DashboardVersionsTestCase(unittest.TestCase):
             self.grafana.dashboard_versions.api_path()
         self.assertEqual(str(ctx.exception), "Either dashboard_id or dashboard_uid is required")
 
-    @requests_mock.Mocker()
-    def test_get_dashboard_versions_by_id(self, m):
-        m.get(
-            "http://localhost/api/dashboards/id/1/versions",
-            json=[
-                {
-                    "id": 2,
-                    "dashboardId": 1,
-                    "parentVersion": 1,
-                    "restoredFrom": 0,
-                    "version": 2,
-                    "created": "2017-06-08T17:24:33-04:00",
-                    "createdBy": "admin",
-                    "message": "Updated panel title",
-                },
-                {
-                    "id": 1,
-                    "dashboardId": 1,
-                    "parentVersion": 0,
-                    "restoredFrom": 0,
-                    "version": 1,
-                    "created": "2017-06-08T17:23:33-04:00",
-                    "createdBy": "admin",
-                    "message": "Initial save",
-                },
-            ],
+    def test_get_dashboard_versions_by_id(self):
+        if self.grafana.get_version() >= Version("12"):
+            pytest.skip("Grafana 12 no longer supports accessing dashboards by id, use uids instead.")
+        versions = self.grafana.dashboard_versions.get_dashboard_versions_by_id(
+            dashboard_id=self.dashboard_id, limit=10, start=0
         )
-        versions = self.grafana.dashboard_versions.get_dashboard_versions_by_id(dashboard_id=1, limit=10, start=0)
-        self.assertEqual(versions[0]["dashboardId"], 1)
+        if self.grafana.get_version() >= Version("11"):
+            versions = versions["versions"]
+        self.assertEqual(versions[0]["dashboardId"], self.dashboard_id)
 
-    @requests_mock.Mocker()
-    def test_get_dashboard_versions_by_uid(self, m):
-        m.get(
-            "http://localhost/api/dashboards/uid/QA7wKklGz/versions",
-            json=[
-                {
-                    "id": 2,
-                    "dashboardId": 1,
-                    "uid": "QA7wKklGz",
-                    "parentVersion": 1,
-                    "restoredFrom": 0,
-                    "version": 2,
-                    "created": "2017-06-08T17:24:33-04:00",
-                    "createdBy": "admin",
-                    "message": "Updated panel title",
-                },
-                {
-                    "id": 1,
-                    "dashboardId": 1,
-                    "uid": "QA7wKklGz",
-                    "parentVersion": 0,
-                    "restoredFrom": 0,
-                    "version": 1,
-                    "created": "2017-06-08T17:23:33-04:00",
-                    "createdBy": "admin",
-                    "message": "Initial save",
-                },
-            ],
-        )
+    def test_get_dashboard_versions_by_uid(self):
+        if self.grafana.get_version() < Version("9"):
+            pytest.skip("Grafana 8 and earlier do not support accessing dashboard versions by uid.")
         versions = self.grafana.dashboard_versions.get_dashboard_versions_by_uid(
-            dashboard_uid="QA7wKklGz", limit=10, start=0
+            dashboard_uid=self.dashboard_uid, limit=10, start=0
         )
-        self.assertEqual(versions[0]["uid"], "QA7wKklGz")
+        if self.grafana.get_version() >= Version("11"):
+            versions = versions["versions"]
+        self.assertEqual(versions[0]["uid"], self.dashboard_uid)
 
-    @requests_mock.Mocker()
-    def test_get_dashboard_version_by_id(self, m):
-        m.get(
-            "http://localhost/api/dashboards/id/1/versions/1",
-            json={
-                "id": 1,
-                "dashboardId": 1,
-                "parentVersion": 0,
-                "restoredFrom": 0,
-                "version": 1,
-                "created": "2017-04-26T17:18:38-04:00",
-                "message": "Initial save",
-                "data": {"rows": [], "schemaVersion": 14, "timezone": "browser", "title": "test", "version": 1},
-                "createdBy": "admin",
-            },
+    def test_get_dashboard_version_by_id(self):
+        if self.grafana.get_version() >= Version("12"):
+            pytest.skip("Grafana 12 no longer supports accessing dashboards by id, use uids instead.")
+        dashboard = self.grafana.dashboard_versions.get_dashboard_version_by_id(
+            dashboard_id=self.dashboard_id, version_id=1
         )
-        dashboard = self.grafana.dashboard_versions.get_dashboard_version_by_id(dashboard_id=1, version_id=1)
-        self.assertEqual(dashboard["dashboardId"], 1)
+        self.assertEqual(dashboard["dashboardId"], self.dashboard_id)
 
-    @requests_mock.Mocker()
-    def test_get_dashboard_version_by_uid_success(self, m):
-        m.get(
-            "http://localhost/api/dashboards/uid/QA7wKklGz/versions/1",
-            json={
-                "id": 1,
-                "dashboardId": 1,
-                "uid": "QA7wKklGz",
-                "parentVersion": 0,
-                "restoredFrom": 0,
-                "version": 1,
-                "created": "2017-04-26T17:18:38-04:00",
-                "message": "Initial save",
-                "data": {"rows": [], "schemaVersion": 14, "timezone": "browser", "title": "test", "version": 1},
-                "createdBy": "admin",
-            },
-        )
+    def test_get_dashboard_version_by_uid_success(self):
+        if self.grafana.get_version() < Version("9"):
+            pytest.skip("Grafana 8 and earlier do not support accessing dashboard versions by uid.")
         dashboard = self.grafana.dashboard_versions.get_dashboard_version_by_uid(
-            dashboard_uid="QA7wKklGz", version_id=1
+            dashboard_uid=self.dashboard_uid, version_id=1
         )
-        self.assertEqual(dashboard["uid"], "QA7wKklGz")
+        self.assertEqual(dashboard["uid"], self.dashboard_uid)
 
     def test_get_dashboard_version_by_uid_failure(self):
         with self.assertRaises(LookupError) as ctx:
-            self.grafana.dashboard_versions.get_dashboard_version_by_uid(dashboard_uid="QA7wKklGz")
+            self.grafana.dashboard_versions.get_dashboard_version_by_uid(dashboard_uid=self.dashboard_uid)
         self.assertEqual(str(ctx.exception), "version_id is required")
 
-    @requests_mock.Mocker()
-    def test_restore_dashboard_by_id(self, m):
-        m.post(
-            "http://localhost/api/dashboards/id/1/restore",
-            json={"slug": "my-dashboard", "status": "success", "version": 3},
-        )
-        result = self.grafana.dashboard_versions.restore_dashboard_by_id(dashboard_id=1, version_id=1)
+    def test_restore_dashboard_by_id_success(self):
+        if self.grafana.get_version() >= Version("12"):
+            pytest.skip("Grafana 12 no longer supports accessing dashboards by id, use uids instead.")
+        result = self.grafana.dashboard_versions.restore_dashboard_by_id(dashboard_id=self.dashboard_id, version_id=1)
         self.assertEqual(result["status"], "success")
 
-    @requests_mock.Mocker()
-    def test_restore_dashboard_by_uid_success(self, m):
-        m.post(
-            "http://localhost/api/dashboards/uid/QA7wKklGz/restore",
-            json={
-                "id": 70,
-                "slug": "my-dashboard",
-                "status": "success",
-                "uid": "QA7wKklGz",
-                "url": "/d/QA7wKklGz/my-dashboard",
-                "version": 3,
-            },
+    def test_restore_dashboard_by_uid_success(self):
+        if self.grafana.get_version() < Version("9"):
+            pytest.skip("Grafana 8 and earlier do not support accessing dashboards by uid for restoring dashboards.")
+        self.update_dashboard()
+        result = self.grafana.dashboard_versions.restore_dashboard_by_uid(
+            dashboard_uid=self.dashboard_uid, version_id=1
         )
-        result = self.grafana.dashboard_versions.restore_dashboard_by_uid(dashboard_uid="QA7wKklGz", version_id=1)
         self.assertEqual(result["status"], "success")
-        self.assertEqual(result["uid"], "QA7wKklGz")
+        self.assertEqual(result["uid"], self.dashboard_uid)
 
     def test_restore_dashboard_by_uid_failure(self):
         with self.assertRaises(LookupError) as ctx:
-            self.grafana.dashboard_versions.restore_dashboard_by_uid(dashboard_uid="QA7wKklGz")
+            self.grafana.dashboard_versions.restore_dashboard_by_uid(dashboard_uid=self.dashboard_uid)
         self.assertEqual(str(ctx.exception), "version_id is required")
 
-    @requests_mock.Mocker()
-    def test_calculate_diff_success(self, m):
-        m.post(
-            "http://localhost/api/dashboards/calculate-diff",
-            headers={"Content-Type": "text/html; charset=UTF-8"},
-            text="""
-<p id="l1" class="diff-line diff-json-same">
-  <!-- Diff omitted -->
-</p>
-""",
-        )
+    def test_calculate_diff_success(self):
+        if self.grafana.get_version() >= Version("9"):
+            pytest.skip(
+                "Grafana 8 and higher do dashboard diffing entirely in the frontend, "
+                "Grafana 9 deprecated corresponding backend support."
+            )
+        self.update_dashboard()
         result = self.grafana.dashboard_versions.calculate_diff(
-            base_dashboard_id=1, base_version_id=1, new_dashboard_id=1, new_version_id=2
+            base_dashboard_id=self.dashboard_id,
+            base_version_id=1,
+            new_dashboard_id=self.dashboard_id,
+            new_version_id=2,
         )
         self.assertIn("diff-json", result)
 
     def test_calculate_diff_failure(self):
+        if self.grafana.get_version() >= Version("9"):
+            pytest.skip(
+                "Grafana 8 and higher do dashboard diffing entirely in the frontend, "
+                "Grafana 9 deprecated corresponding backend support."
+            )
         with self.assertRaises(LookupError) as ctx:
             self.grafana.dashboard_versions.calculate_diff(
-                base_dashboard_id=1, base_version_id=1, new_dashboard_id=1, new_version_id=2, diff_type="foobar"
+                base_dashboard_id=self.dashboard_id,
+                base_version_id=1,
+                new_dashboard_id=self.dashboard_id,
+                new_version_id=2,
+                diff_type="foobar",
             )
         self.assertEqual(str(ctx.exception), "diff_type must be either 'json' or 'basic'")
+
+    def update_dashboard(self):
+        """
+        Helper to update the default dashboard to receive another version.
+        """
+        self.grafana.dashboard.update_dashboard(
+            {
+                "dashboard": {
+                    "uid": self.dashboard_uid,
+                    "title": "Production Overview NG",
+                },
+                "overwrite": True,
+            }
+        )

@@ -20,7 +20,7 @@ requires = [
     "gitdb==4.0.12",
     "GitPython==3.1.46",
     "hatchling==1.29.0",
-    "packaging==26.0",
+    "packaging==26.1",
     "pathspec==1.0.4",
     "pluggy==1.6.0",
     "smmap==5.0.3",
@@ -64,7 +64,7 @@ classifiers = [
 ]
 
 # Version is defined in src/airflow/__init__.py and it is automatically synchronized by prek hook
-version = "3.2.0"
+version = "3.2.1"
 
 dependencies = [
     "a2wsgi>=1.10.8",
@@ -151,7 +151,7 @@ dependencies = [
     # https://github.com/apache/airflow/issues/56369 , rework universal-pathlib usage
     "universal-pathlib>=0.3.8",
     "uuid6>=2024.7.10",
-    "apache-airflow-task-sdk==1.2.0",
+    "apache-airflow-task-sdk==1.2.1",
     # pre-installed providers
     "apache-airflow-providers-common-compat>=1.7.4",
     "apache-airflow-providers-common-io>=1.6.3",
@@ -195,12 +195,7 @@ dependencies = [
     "memray>=1.19.0",
 ]
 "gunicorn" = [
-    # Temporary upper bound due to Gunicorn 25.1.0 control-socket deadlock
-    # seen in the Airflow API server path (preload + fork).
-    # Upstream tracking:
-    # - https://github.com/benoitc/gunicorn/issues/3529
-    # - https://github.com/benoitc/gunicorn/pull/3520
-    "gunicorn>=23.0.0,<25.1.0",
+    "gunicorn>=23.0.0,!=25.1.0",
 ]
 "otel" = [
     "opentelemetry-exporter-prometheus>=0.47b0",

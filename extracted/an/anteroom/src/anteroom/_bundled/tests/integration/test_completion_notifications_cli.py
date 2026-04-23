@@ -121,8 +121,10 @@ class TestPollDetachedAgents:
                 "id": "cccc3333-4444-5555-6666-777788889999",
                 "status": "completed",
                 "metadata": {
-                    "tool_calls_made": [{"name": "bash"}, {"name": "read_file"}],
-                    "elapsed_seconds": 5.2,
+                    "task_result": {
+                        "tool_calls": ["bash", "read_file"],
+                        "duration_seconds": 5.2,
+                    }
                 },
             }
         ]
@@ -130,10 +132,10 @@ class TestPollDetachedAgents:
         poll_detached_agents(mgr, console)
 
         output = buf.getvalue()
-        assert "[agent]" in output
+        assert "[agent cccc3333]" in output
         assert "cccc3333" in output
-        assert "completed" in output
-        assert "2 calls" in output
+        assert "done" in output
+        assert "2 tools" in output
         assert "5.2s" in output
 
     def test_null_metadata_renders_safely(self) -> None:
@@ -152,10 +154,10 @@ class TestPollDetachedAgents:
         poll_detached_agents(mgr, console)
 
         output = buf.getvalue()
-        assert "[agent]" in output
+        assert "[agent dddd4444]" in output
         assert "dddd4444" in output
         assert "failed" in output
-        assert "0 calls" in output
+        assert "unknown error" in output
 
     def test_no_completions_no_output(self) -> None:
         buf = StringIO()

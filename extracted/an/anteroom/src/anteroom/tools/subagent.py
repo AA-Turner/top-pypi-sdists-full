@@ -77,6 +77,14 @@ DEFINITION: dict[str, Any] = {
                 ),
                 "default": False,
             },
+            "description": {
+                "type": "string",
+                "maxLength": 120,
+                "description": (
+                    "Short human-readable label for this subagent run, shown in run lists "
+                    "and completion notifications. Optional. If omitted, the prompt prefix is used."
+                ),
+            },
         },
         "required": ["prompt"],
         "additionalProperties": False,
@@ -138,9 +146,14 @@ class SubagentLimiter:
         return self._total_spawned
 
 
+MAX_DESCRIPTION_CHARS = 120
+_CONTROL_CHAR_RE = re.compile(r"[\x00-\x1f\x7f]")
+
+
 async def handle(
     prompt: str,
     model: str | None = None,
+    description: str | None = None,
     *,
     _ai_service: AIService | None = None,
     _tool_registry: Any | None = None,
@@ -149,6 +162,7 @@ async def handle(
     _depth: int = 0,
     _event_sink: EventSink | None = None,
     _agent_id: str = "",
+    _parent_tool_call_id: str = "",
     _limiter: SubagentLimiter | None = None,
     _confirm_callback: Any | None = None,
     _config: SubagentConfig | None = None,
@@ -156,15 +170,19 @@ async def handle(
     _detach_manager: Any | None = None,
     _conversation_id: str = "",
     _db: Any = None,
+    _hooks_config: Any | None = None,
+    _audit_writer: Any | None = None,
     **_extra: Any,
 ) -> dict[str, Any]:
-    """Execute a sub-agent with an isolated conversation context."""
-    # TODO(#99): emit ``subagent.spawned`` / ``subagent.completed`` audit
-    # events via the lineage emitter so sub-agent runs produce a tamper-
-    # evident trail alongside workflow runs and memory promotions. The
-    # writer to use is the same ``app.state.audit_writer`` the parent
-    # agent loop already has access to; thread it through ``_tool_registry``
-    # or add a dedicated ``_audit_writer`` kwarg when #99 lands.
+    """Execute a sub-agent with an isolated conversation context.
+
+    Hook inheritance contract (#1493):
+    - Foreground subagents receive ``_hooks_config`` from the parent session —
+      no independent config reload occurs.
+    - Detached subagents snapshot the resolved hook config at launch time via
+      ``DetachedSubagentManager.start``; later config changes do not affect
+      an in-flight run.
+    """
     if _ai_service is None:
         return {"error": "Sub-agent requires AI service context"}
 
@@ -174,6 +192,15 @@ async def handle(
     max_prompt = _config.max_prompt_chars if _config else MAX_PROMPT_CHARS
     if len(prompt) > max_prompt:
         return {"error": f"Prompt exceeds maximum length ({max_prompt} characters)"}
+
+    # Validate and normalise description
+    if description is not None:
+        description = description.strip() or None
+    if description is not None:
+        if len(description) > MAX_DESCRIPTION_CHARS:
+            return {"error": f"description exceeds maximum length ({MAX_DESCRIPTION_CHARS} characters)"}
+        if _CONTROL_CHAR_RE.search(description):
+            return {"error": "description contains invalid control characters"}
 
     # Resolve model-family aliases (#1393)
     if model is not None:
@@ -201,6 +228,8 @@ async def handle(
             result = _detach_manager.start(
                 _conversation_id,
                 prompt,
+                model=model,
+                description=description,
                 ai_service=_ai_service,
                 tool_registry=_tool_registry,
                 mcp_manager=_mcp_manager,
@@ -208,9 +237,16 @@ async def handle(
                 config=_config,
                 limiter=_limiter,
                 db=_db,
+                # Snapshot resolved hook config at launch (#1493): later config
+                # changes will not affect this in-flight detached run.
+                hooks_config=_hooks_config,
+                audit_writer=_audit_writer,
+                parent_conversation_id=_conversation_id,
+                parent_tool_call_id=_parent_tool_call_id,
             )
-            result["_end_turn"] = True
-            return result
+            detached_result = dict(result)
+            detached_result["_end_turn"] = True
+            return detached_result
         except ValueError as exc:
             return {"error": str(exc), "exit_code": -1}
 
@@ -242,9 +278,13 @@ async def handle(
             _depth=_depth,
             _event_sink=_event_sink,
             _agent_id=_agent_id,
+            _parent_tool_call_id=_parent_tool_call_id,
             _limiter=_limiter,
             _confirm_callback=_confirm_callback,
             _config=_config,
+            _hooks_config=_hooks_config,
+            _audit_writer=_audit_writer,
+            _parent_conversation_id=_conversation_id,
         )
     finally:
         _limiter.release()
@@ -261,11 +301,24 @@ async def _run_subagent(
     _depth: int,
     _event_sink: EventSink | None,
     _agent_id: str,
+    _parent_tool_call_id: str,
     _limiter: SubagentLimiter,
     _confirm_callback: Any | None = None,
     _config: SubagentConfig | None = None,
+    _hooks_config: Any | None = None,
+    _audit_writer: Any | None = None,
+    _parent_conversation_id: str = "",
+    _detached_run_id: str = "",
 ) -> dict[str, Any]:
-    """Internal: run the sub-agent after limiter acquisition."""
+    """Internal: run the sub-agent after limiter acquisition.
+
+    ``_hooks_config`` is the already-resolved hook config from the parent
+    session.  Child runs use it directly — no independent config reload.
+
+    ``_parent_conversation_id``, ``_parent_tool_call_id``, ``_agent_id``,
+    and ``_detached_run_id`` are passed as correlation context to every hook
+    execution within this child run (#1493).
+    """
     max_depth = _config.max_depth if _config else MAX_SUBAGENT_DEPTH
     max_iterations = _config.max_iterations if _config else SUBAGENT_MAX_ITERATIONS
     max_output = _config.max_output_chars if _config else MAX_OUTPUT_CHARS
@@ -324,12 +377,35 @@ async def _run_subagent(
             arguments["_cancel_event"] = _cancel_event
             arguments["_depth"] = child_depth
             arguments["_agent_id"] = f"{_agent_id}.{_child_counter}"
+            arguments["_parent_tool_call_id"] = _parent_tool_call_id
             arguments["_event_sink"] = _event_sink
             arguments["_limiter"] = _limiter
             arguments["_confirm_callback"] = _confirm_callback
             arguments["_config"] = _config
+            # Propagate inherited hook config to nested subagents (#1493)
+            arguments["_hooks_config"] = _hooks_config
+            arguments["_audit_writer"] = _audit_writer
+            arguments["_conversation_id"] = _parent_conversation_id
         if _tool_registry.has_tool(tool_name):
-            return dict(await _tool_registry.call_tool(tool_name, arguments, confirm_callback=_confirm_callback))
+            return dict(
+                await _tool_registry.call_tool(
+                    tool_name,
+                    arguments,
+                    confirm_callback=_confirm_callback,
+                    # Pass the inherited hook config and correlation context
+                    # so every tool call within this child run goes through
+                    # the same hook pipeline as the parent (#1493).
+                    _hooks_config=_hooks_config,
+                    _audit_writer=_audit_writer,
+                    _extra_context={
+                        "conversation_id": _parent_conversation_id,
+                        "parent_conversation_id": _parent_conversation_id,
+                        "parent_tool_call_id": _parent_tool_call_id,
+                        "child_agent_id": _agent_id,
+                        "detached_run_id": _detached_run_id,
+                    },
+                )
+            )
         if _mcp_manager:
             verdict = _tool_registry.check_safety(tool_name, arguments)
             if verdict and verdict.needs_approval:
@@ -347,9 +423,55 @@ async def _run_subagent(
                 rl_v = _rl.check(tool_name)
                 if rl_v and rl_v.exceeded and _rl.config.action == "block":
                     return {"error": rl_v.reason, "safety_blocked": True, "rate_limited": True}
+            # Run MCP tool hooks with subagent correlation context (#1493)
+            if _hooks_config is not None:
+                from ..services.hooks import run_pre_tool_hooks as _run_pre_mcp
+
+                _mcp_pre = await _run_pre_mcp(
+                    _hooks_config,
+                    tool_name,
+                    arguments,
+                    audit_writer=_audit_writer,
+                    parent_conversation_id=_parent_conversation_id,
+                    parent_tool_call_id=_parent_tool_call_id,
+                    child_agent_id=_agent_id,
+                    detached_run_id=_detached_run_id,
+                )
+                if _mcp_pre.outcome == "deny":
+                    return {"error": _mcp_pre.message or f"Tool '{tool_name}' blocked by hook", "hook_blocked": True}
+                elif _mcp_pre.outcome == "ask":
+                    # No approval channel in subagent context — block rather than silently
+                    # allow, matching the built-in tool path in call_tool() (#1493).
+                    _ask_msg = _mcp_pre.message or (
+                        f"Hook requires approval for '{tool_name}'"
+                        " but no approval channel is available in subagent context"
+                    )
+                    return {
+                        "error": _ask_msg,
+                        "hook_blocked": True,
+                    }
             mcp_result: dict[str, Any] = dict(await _mcp_manager.call_tool(tool_name, arguments))
             if _rl is not None:
                 _rl.record_call(success="error" not in mcp_result)
+            if _hooks_config is not None:
+                from ..services.hooks import run_post_tool_hooks as _run_post_mcp
+
+                _mcp_post = await _run_post_mcp(
+                    _hooks_config,
+                    tool_name,
+                    arguments,
+                    mcp_result,
+                    audit_writer=_audit_writer,
+                    parent_conversation_id=_parent_conversation_id,
+                    parent_tool_call_id=_parent_tool_call_id,
+                    child_agent_id=_agent_id,
+                    detached_run_id=_detached_run_id,
+                )
+                if _mcp_post.outcome == "deny":
+                    return {
+                        "error": _mcp_post.message or f"Tool '{tool_name}' output blocked by hook",
+                        "hook_blocked": True,
+                    }
             return mcp_result
         raise ValueError(f"Unknown tool: {tool_name}")
 
@@ -366,6 +488,7 @@ async def _run_subagent(
                 kind="subagent_start",
                 data={
                     "agent_id": _agent_id,
+                    "parent_tool_call_id": _parent_tool_call_id,
                     "prompt": prompt[:200],
                     "model": model or child_config.model,
                     "depth": child_depth,
@@ -390,6 +513,11 @@ async def _run_subagent(
             max_iterations=max_iterations,
         ):
             if _event_sink:
+                if _parent_tool_call_id and event.kind in ("tool_call_start", "subagent_end"):
+                    event = AgentEvent(
+                        kind=event.kind,
+                        data={**event.data, "parent_tool_call_id": _parent_tool_call_id},
+                    )
                 await _event_sink(_agent_id, event)
 
             if event.kind == "token":
@@ -435,6 +563,7 @@ async def _run_subagent(
                 kind="subagent_end",
                 data={
                     "agent_id": _agent_id,
+                    "parent_tool_call_id": _parent_tool_call_id,
                     "elapsed_seconds": elapsed,
                     "tool_calls": tool_calls_made,
                     "truncated": truncated,

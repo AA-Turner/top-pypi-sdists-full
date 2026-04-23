@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "anteroom"
-version = "1.168.0"
+version = "1.169.0"
 description = "Anteroom - your gateway to AI conversation"
 readme = "README.md"
 license = "Apache-2.0"
@@ -95,6 +95,7 @@ kitchensink = [
     "ruff>=0.15.4",
     "mypy>=1.15.0",
     "types-PyYAML>=6.0.0",
+    "syrupy>=4.6",
 ]
 dev = [
     "pytest>=8.3.5",
@@ -109,6 +110,7 @@ dev = [
     "types-PyYAML>=6.0.0",
     "pip-audit>=2.9.0",
     "semgrep>=1.152.0",
+    "syrupy>=4.6",
 ]
 
 [project.scripts]
@@ -160,6 +162,9 @@ anteroom = [
     "_bundled/examples/**/*.yaml",
     "_bundled/examples/**/*.yml",
     "_bundled/examples/**/*.md",
+    "_bundled/examples/**/*.py",
+    "_bundled/examples/**/*.sh",
+    "_bundled/examples/**/*.ts",
     "_bundled/scripts/**/*.py",
     "_bundled/scripts/**/*.sh",
     "_bundled/scripts/**/*.yaml",
@@ -170,6 +175,7 @@ anteroom = [
 [tool.ruff]
 target-version = "py310"
 line-length = 120
+exclude = ["tests/js/"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W"]
@@ -198,6 +204,9 @@ no_implicit_optional = true
 warn_redundant_casts = true
 warn_unused_ignores = true
 ignore_missing_imports = true
+# ``src/anteroom/_bundled`` is packaged auxiliary repo content (docs/tests/evals)
+# for ``aroom unpack``, not repo-owned Python source.
+exclude = "^src/anteroom/_bundled/"
 
 [tool.coverage.run]
 source = ["anteroom"]

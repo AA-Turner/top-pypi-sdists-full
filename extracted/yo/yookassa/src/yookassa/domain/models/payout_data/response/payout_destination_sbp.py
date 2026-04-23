@@ -14,6 +14,9 @@ class PayoutDestinationSbp(PayoutDestination):
     __bank_id = None
     """Идентификатор выбранного участника СБП — банка или платежного сервиса, подключенного к сервису. Максимум 12 символов. %[Как получить идентификатор участника СБП](/developers/payouts/making-payouts/sbp) """  # noqa: E501
 
+    __sbp_operation_id = None
+    """Идентификатор операции в СБП (НСПК). Пример: ~`1027088AE4CB48CB81287833347A8777`.  Обязательный параметр для возвратов в статусе ~`succeeded`. В остальных случаях может отсутствовать. """  # noqa: E501
+
     __recipient_checked = None
     """Проверка получателя выплаты."""  # noqa: E501
 
@@ -61,6 +64,24 @@ class PayoutDestinationSbp(PayoutDestination):
         :type value: str
         """
         self.__bank_id = value
+
+    @property
+    def sbp_operation_id(self):
+        """Возвращает sbp_operation_id модели PayoutDestinationSbp.
+
+        :return: sbp_operation_id модели PayoutDestinationSbp.
+        :rtype: str
+        """
+        return self.__sbp_operation_id
+
+    @sbp_operation_id.setter
+    def sbp_operation_id(self, value):
+        """Устанавливает sbp_operation_id модели PayoutDestinationSbp.
+
+        :param value: sbp_operation_id модели PayoutDestinationSbp.
+        :type value: str
+        """
+        self.__sbp_operation_id = value
 
     @property
     def recipient_checked(self):

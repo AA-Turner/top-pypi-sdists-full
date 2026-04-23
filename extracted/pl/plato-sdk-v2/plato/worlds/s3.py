@@ -83,7 +83,7 @@ async def upload_to_s3(
 
             size = data.stat().st_size if isinstance(data, Path) else len(data)
             if put_resp.status_code in (200, 201, 204):
-                logger.info(f"Uploaded {endpoint} ({size} bytes)")
+                logger.debug(f"Uploaded {endpoint} ({size} bytes)")
                 return True
             else:
                 logger.warning(f"{endpoint} upload failed: {put_resp.status_code}")
@@ -144,7 +144,7 @@ async def download_to_file(
                         f.write(chunk)
                         total += len(chunk)
 
-            logger.info(f"Downloaded {endpoint} ({total} bytes) to {dest}")
+            logger.debug(f"Downloaded {endpoint} ({total} bytes) to {dest}")
             return True
 
     except Exception as e:

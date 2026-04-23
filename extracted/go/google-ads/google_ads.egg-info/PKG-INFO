@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: google-ads
-Version: 30.0.0
+Version: 30.1.0
 Summary: Client library for the Google Ads API
 Author-email: Google LLC <googleapis-packages@google.com>
 License:                             Apache License
@@ -232,8 +232,9 @@ Requires-Dist: grpcio-status<2.0.0,>=1.75.1; python_version >= "3.14"
 Requires-Dist: proto-plus<2.0.0,>=1.22.3
 Requires-Dist: proto-plus<2.0.0,>=1.25.0; python_version >= "3.13"
 Requires-Dist: PyYAML<7.0,>=5.1
-Requires-Dist: protobuf<7.0.0,>=4.25.0
-Requires-Dist: protobuf<7.0.0,>=5.26.1; python_version >= "3.13"
+Requires-Dist: protobuf<7.0.0,>=4.25.0; python_version < "3.10"
+Requires-Dist: protobuf<8.0.0,>=4.25.0; python_version >= "3.10"
+Requires-Dist: protobuf>=5.26.1; python_version >= "3.13"
 Provides-Extra: tests
 Requires-Dist: nox>=2025.02.09; extra == "tests"
 Dynamic: license-file

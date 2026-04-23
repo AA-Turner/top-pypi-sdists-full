@@ -173,6 +173,8 @@ from .type_defs import (
     RejectInboundConnectionResponseTypeDef,
     RemoveTagsRequestTypeDef,
     RevokeVpcEndpointAccessRequestTypeDef,
+    RollbackServiceSoftwareUpdateRequestTypeDef,
+    RollbackServiceSoftwareUpdateResponseTypeDef,
     StartDomainMaintenanceRequestTypeDef,
     StartDomainMaintenanceResponseTypeDef,
     StartServiceSoftwareUpdateRequestTypeDef,
@@ -1045,6 +1047,16 @@ class OpenSearchServiceClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearch/client/revoke_vpc_endpoint_access.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_opensearch/client/#revoke_vpc_endpoint_access)
+        """
+
+    def rollback_service_software_update(
+        self, **kwargs: Unpack[RollbackServiceSoftwareUpdateRequestTypeDef]
+    ) -> RollbackServiceSoftwareUpdateResponseTypeDef:
+        """
+        Rolls back a service software update for a domain to the previous version.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearch/client/rollback_service_software_update.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_opensearch/client/#rollback_service_software_update)
         """
 
     def start_domain_maintenance(

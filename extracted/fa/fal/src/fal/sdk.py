@@ -41,6 +41,7 @@ FAL_SERVERLESS_DEFAULT_MIN_CONCURRENCY = 0
 FAL_SERVERLESS_DEFAULT_CONCURRENCY_BUFFER = 0
 FAL_SERVERLESS_DEFAULT_CONCURRENCY_BUFFER_PERC = 0
 ALIAS_AUTH_MODES = ["public", "private", "shared"]
+DEPLOYMENT_STRATEGIES = ["recreate", "rolling"]
 
 logger = get_logger(__name__)
 
@@ -798,7 +799,7 @@ class FalServerlessConnection:
         metadata: dict[str, Any] | None = None,
         deployment_strategy: DeploymentStrategyLiteral,
         scale: bool = True,
-        private_logs: bool = False,
+        private_logs: bool | None = None,
         files: list[File] | None = None,
         skip_retry_conditions: list[RetryConditionLiteral] | None = None,
         environment_name: str | None = None,
@@ -882,7 +883,6 @@ class FalServerlessConnection:
             metadata=struct_metadata,
             deployment_strategy=deployment_strategy_proto,
             scale=scale,
-            private_logs=private_logs,
             files=files,
             source_code=source_code,
             health_check_config=wrapped_health_check_config,
@@ -890,6 +890,8 @@ class FalServerlessConnection:
             environment_name=environment_name,
             termination_grace_period_seconds=termination_grace_period_seconds,
         )
+        if private_logs is not None:
+            request.private_logs = private_logs
         for partial_result in self.stub.RegisterApplication(request):
             yield from_grpc(partial_result)
 
@@ -1054,6 +1056,7 @@ class FalServerlessConnection:
         auth_mode: Optional[AuthModeLiteral],
         *,
         environment_name: str | None = None,
+        deployment_strategy: DeploymentStrategyLiteral | None = None,
     ) -> AliasInfo:
         if auth_mode == "public":
             auth = isolate_proto.ApplicationAuthMode.PUBLIC
@@ -1066,11 +1069,18 @@ class FalServerlessConnection:
 
         full_alias = construct_alias(alias, environment_name)
 
+        deployment_strategy_proto = (
+            DeploymentStrategy[deployment_strategy.upper()].to_proto()
+            if deployment_strategy is not None
+            else None
+        )
+
         request = isolate_proto.SetAliasRequest(
             alias=full_alias,
             revision=revision,
             auth_mode=auth,
             environment_name=environment_name,
+            deployment_strategy=deployment_strategy_proto,
         )
         res = self.stub.SetAlias(request)
         return from_grpc(res.alias_info)

@@ -65,9 +65,11 @@ class TestHandle:
         assert result["truncated"] is False
 
     @pytest.mark.asyncio
-    async def test_directories_excluded(self, tmp_tree: Path) -> None:
+    async def test_directories_included_with_trailing_slash(self, tmp_tree: Path) -> None:
         result = await handle(pattern="*", path=str(tmp_tree))
         files = result["files"]
+        assert result["count"] == 3
+        assert "sub/" in files
         assert "sub" not in files
 
     @pytest.mark.asyncio

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-types
-Version: 0.23.0
+Version: 0.24.0
 Summary: Type stubs for Django
 Project-URL: Repository, https://github.com/sbdchd/django-types
 Author: django-types team & contributors

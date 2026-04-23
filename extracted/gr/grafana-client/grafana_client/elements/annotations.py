@@ -1,3 +1,5 @@
+import warnings
+
 from .base import Base
 
 
@@ -6,7 +8,27 @@ class Annotations(Base):
         super(Annotations, self).__init__(client)
         self.client = client
 
-    def get_annotation(
+    def get_annotation(self, *args, **kwargs):
+        """
+        Find annotations.
+        https://grafana.com/docs/grafana/latest/http_api/annotations/#find-annotations
+
+        :param time_from:
+        :param time_to:
+        :param alert_id:
+        :param dashboard_id:
+        :param dashboard_uid:
+        :param panel_id:
+        :param user_id:
+        :param ann_type: Annotation type. On of alert|annotation
+        :param tags:
+        :param limit:
+        :return:
+        """
+        warnings.warn("This method is deprecated, please use `find_annotations`", DeprecationWarning)
+        return self.find_annotations(*args, **kwargs)
+
+    def find_annotations(
         self,
         time_from=None,
         time_to=None,
@@ -20,6 +42,7 @@ class Annotations(Base):
         limit=None,
     ):
         """
+        Find annotations.
         https://grafana.com/docs/grafana/latest/http_api/annotations/#find-annotations
 
         :param time_from:
@@ -80,10 +103,11 @@ class Annotations(Base):
         panel_id=None,
         time_from=None,
         time_to=None,
-        tags=[],
+        tags=None,
         text=None,
     ):
         """
+        Create annotation.
         https://grafana.com/docs/grafana/latest/http_api/annotations/#create-annotation
 
         :param dashboard_id:
@@ -95,7 +119,7 @@ class Annotations(Base):
         :param text:
         :return:
         """
-
+        tags = tags or []
         annotations_path = "/annotations"
         payload = {
             "panelId": panel_id,
@@ -114,7 +138,7 @@ class Annotations(Base):
     def add_annotation_graphite(
         self,
         what=None,
-        tags=[],
+        tags=None,
         when=None,
         data=None,
     ):
@@ -128,6 +152,7 @@ class Annotations(Base):
         :return:
         """
 
+        tags = tags or []
         annotations_path = "/annotations/graphite"
         payload = {"what": what, "tags": tags, "when": when, "data": data}
 
@@ -138,7 +163,7 @@ class Annotations(Base):
         annotations_id,
         time_from=None,
         time_to=None,
-        tags=[],
+        tags=None,
         text=None,
     ):
         """
@@ -150,6 +175,7 @@ class Annotations(Base):
         :param text:
         :return:
         """
+        tags = tags or []
         annotations_path = f"/annotations/{annotations_id}"
         payload = {"time": time_from, "timeEnd": time_to, "tags": tags, "text": text}
 
@@ -160,7 +186,7 @@ class Annotations(Base):
         annotations_id,
         time_from=None,
         time_to=None,
-        tags=[],
+        tags=None,
         text=None,
     ):
         """
@@ -173,6 +199,7 @@ class Annotations(Base):
         :param text:
         :return:
         """
+        tags = tags or []
         annotations_path = f"/annotations/{annotations_id}"
         payload = {}
 

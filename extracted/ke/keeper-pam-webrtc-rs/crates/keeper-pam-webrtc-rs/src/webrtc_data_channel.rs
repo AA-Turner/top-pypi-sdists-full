@@ -26,6 +26,7 @@ pub const ACTOR_BYTE_BUDGET: usize = 512 * 1024; // 512 KB per tube
 pub const SCTP_HIGH_WATER: usize = 32 * 1024; // 32 KB
 
 const DATACHANNEL_CLOSED_ERROR: &str = "DataChannel closed";
+pub(crate) const QUEUE_FULL_ERROR: &str = "DataChannel queue full";
 
 #[cfg(test)]
 type TestSendHook = Arc<
@@ -424,21 +425,25 @@ impl EventDrivenSender {
         let budget_for_actor = Arc::clone(&budget);
 
         tokio::spawn(async move {
+            // Last-resort escape hatch: if dc.send() hangs longer than this (e.g. the
+            // WebRTC connection is dead but ICE hasn't timed out yet), treat it as a
+            // permanent failure rather than blocking the actor forever.
+            const ACTOR_SEND_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
+
             while let Some(frame) = rx.recv().await {
-                // Permits to release = same value acquired in send_with_natural_backpressure.
                 let permits = (frame.len().min(byte_budget) as u32).max(1) as usize;
-                // dc.send() blocks internally on SCTP congestion (it does not error on
-                // backpressure). Any error returned here is a permanent channel failure —
-                // "sending payload data in non-Established state", "Stream closed",
-                // "DataChannel is not opened", OS-level IOCP errors, etc. Close the
-                // semaphore to wake all blocked senders immediately.
-                match dc_for_actor.send(frame).await {
-                    Ok(_) => {
+                match tokio::time::timeout(ACTOR_SEND_TIMEOUT, dc_for_actor.send(frame)).await {
+                    Ok(Ok(_)) => {
                         budget_for_actor.add_permits(permits);
                     }
-                    Err(e) => {
+                    Ok(Err(e)) => {
                         debug!("Actor send failed, closing channel: {}", e);
-                        budget_for_actor.close(); // wake all blocked senders
+                        budget_for_actor.close();
+                        return;
+                    }
+                    Err(_) => {
+                        debug!("Actor dc.send() timed out after 30s, closing channel");
+                        budget_for_actor.close();
                         return;
                     }
                 }
@@ -454,27 +459,49 @@ impl EventDrivenSender {
         }
     }
 
-    /// Push a frame into the actor's channel.
+    /// Non-blocking send: acquires byte-budget permits and pushes `frame` to the actor.
     ///
-    /// Blocks (awaits) when the byte budget is exhausted — the actor releases
-    /// permits as it drains frames through dc.send(), so this provides natural
-    /// backpressure proportional to actual SCTP throughput.
-    ///
-    /// Returns `Err(DATACHANNEL_CLOSED_ERROR)` when:
-    ///   - the WebRTCDataChannel is marked closing (`is_closing` flag), or
-    ///   - the actor task has exited (semaphore closed after a permanent send error).
-    pub async fn send_with_natural_backpressure(&self, frame: Bytes) -> Result<(), &'static str> {
+    /// Returns immediately with:
+    /// - `Ok(())` — permits acquired, frame queued.
+    /// - `Err(QUEUE_FULL_ERROR)` — budget exhausted; caller should back off and retry.
+    /// - `Err(DATACHANNEL_CLOSED_ERROR)` — channel closing or actor dead.
+    pub fn try_send(&self, frame: Bytes) -> Result<(), &'static str> {
         if self.is_closing.load(Ordering::Acquire) {
             return Err(DATACHANNEL_CLOSED_ERROR);
         }
-        // Clamp to byte_budget so a single oversized frame can never deadlock.
         let permits = (frame.len().min(self.byte_budget) as u32).max(1);
-        self.budget
-            .acquire_many(permits)
-            .await
-            .map_err(|_| DATACHANNEL_CLOSED_ERROR)?
-            .forget(); // released by actor after dc.send() succeeds
-        self.tx.send(frame).map_err(|_| DATACHANNEL_CLOSED_ERROR)
+        match self.budget.try_acquire_many(permits) {
+            Ok(permit) => {
+                permit.forget();
+                match self.tx.send(frame) {
+                    Ok(()) => Ok(()),
+                    Err(_) => {
+                        self.budget.add_permits(permits as usize);
+                        Err(DATACHANNEL_CLOSED_ERROR)
+                    }
+                }
+            }
+            Err(tokio::sync::TryAcquireError::NoPermits) => Err(QUEUE_FULL_ERROR),
+            Err(tokio::sync::TryAcquireError::Closed) => Err(DATACHANNEL_CLOSED_ERROR),
+        }
+    }
+
+    /// Push a frame into the actor's channel, backing off 10 ms when the budget is
+    /// exhausted rather than blocking indefinitely on the semaphore.
+    ///
+    /// The caller is never stuck: if the actor is genuinely dead (semaphore closed
+    /// by the actor's error path, or `is_closing` set), the loop exits immediately
+    /// with `Err(DATACHANNEL_CLOSED_ERROR)`.
+    pub async fn send_with_natural_backpressure(&self, frame: Bytes) -> Result<(), &'static str> {
+        loop {
+            match self.try_send(frame.clone()) {
+                Ok(()) => return Ok(()),
+                Err(QUEUE_FULL_ERROR) => {
+                    tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+                }
+                Err(e) => return Err(e),
+            }
+        }
     }
 
     /// Bytes currently queued (acquired permits not yet released by the actor).

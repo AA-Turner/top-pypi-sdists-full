@@ -33,6 +33,40 @@ _UNTRUSTED_TOOLS = {
 }
 
 
+def _hook_call_kwargs(
+    *,
+    audit_writer: Any | None,
+    extra_context: dict[str, Any] | None,
+    allowed_domains: tuple[str, ...],
+    block_localhost: bool,
+) -> dict[str, Any]:
+    """Build hook kwargs without forcing empty audit/context metadata through.
+
+    Includes subagent correlation IDs (parent_conversation_id, parent_tool_call_id,
+    child_agent_id, detached_run_id) when present in extra_context (#1493).
+    """
+    hook_kwargs: dict[str, Any] = {
+        "allowed_domains": allowed_domains,
+        "block_localhost": block_localhost,
+    }
+    if audit_writer is not None:
+        hook_kwargs["audit_writer"] = audit_writer
+    if extra_context:
+        for source_key, target_key in (
+            ("tool_call_id", "tool_call_id"),
+            ("conversation_id", "conversation_id"),
+            ("user_id", "user_id"),
+            ("parent_conversation_id", "parent_conversation_id"),
+            ("parent_tool_call_id", "parent_tool_call_id"),
+            ("child_agent_id", "child_agent_id"),
+            ("detached_run_id", "detached_run_id"),
+        ):
+            value = extra_context.get(source_key)
+            if value:
+                hook_kwargs[target_key] = value
+    return hook_kwargs
+
+
 class ToolRegistry:
     """Registry of built-in tools with OpenAI function-call format."""
 
@@ -277,6 +311,8 @@ class ToolRegistry:
         confirm_callback: ConfirmCallback | None = None,
         *,
         rule_enforcer_override: RuleEnforcer | None = None,
+        _hooks_config: Any | None = None,
+        _audit_writer: Any | None = None,
         _extra_env: dict[str, str] | None = None,
         _extra_context: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
@@ -287,14 +323,91 @@ class ToolRegistry:
         verdict = self.check_safety(name, arguments, rule_enforcer_override=rule_enforcer_override)
         approval_decision = "auto"
         user_approved_hard_block = False
-        if verdict and verdict.needs_approval:
-            if verdict.hard_denied:
-                logger.warning("Tool hard-denied by config: %s — %s", name, verdict.reason)
+
+        # Static hard deny blocks immediately — hooks cannot override this.
+        if verdict and verdict.hard_denied:
+            logger.warning("Tool hard-denied by config: %s — %s", name, verdict.reason)
+            return {
+                "error": verdict.reason,
+                "safety_blocked": True,
+                "_approval_decision": "hard_denied",
+            }
+
+        # Pre-tool hooks: run after hard-deny gate, before tier-based approval (#1271).
+        hook_allowed_domains: tuple[str, ...] = ()
+        hook_block_localhost = False
+        if _extra_context is not None:
+            hook_config = _extra_context.get("config")
+            hook_ai_config = getattr(hook_config, "ai", None)
+            if hook_ai_config is not None:
+                raw_allowed_domains = getattr(hook_ai_config, "allowed_domains", ()) or ()
+                hook_allowed_domains = tuple(str(domain) for domain in raw_allowed_domains if domain)
+                hook_block_localhost = bool(getattr(hook_ai_config, "block_localhost_api", False))
+
+        if _hooks_config is not None and _hooks_config.pre_tool:
+            from ..services.hooks import classify_pre_hook_result as _classify_hook
+            from ..services.hooks import run_pre_tool_hooks as _run_pre_tool_hooks
+
+            _pre_decision = await _run_pre_tool_hooks(
+                _hooks_config,
+                name,
+                arguments,
+                **_hook_call_kwargs(
+                    audit_writer=_audit_writer,
+                    extra_context=_extra_context,
+                    allowed_domains=hook_allowed_domains,
+                    block_localhost=hook_block_localhost,
+                ),
+            )
+            _hook_bucket = _classify_hook(_pre_decision)
+            if _hook_bucket == "deny":
                 return {
-                    "error": verdict.reason,
-                    "safety_blocked": True,
-                    "_approval_decision": "hard_denied",
+                    "error": _pre_decision.message or f"Tool '{name}' blocked by hook",
+                    "hook_blocked": True,
+                    "_approval_decision": "hook_denied",
                 }
+            if _hook_bucket == "require_approval":
+                _hook_cb = confirm_callback or self._confirm_callback
+                if _hook_cb is None:
+                    # No approval channel: fail closed. This is not a user decision,
+                    # so _approval_decision is "denied" (not hook_escalated_denied).
+                    return {
+                        "error": _pre_decision.message or f"Hook requires approval for '{name}'",
+                        "hook_blocked": True,
+                        "_approval_decision": "denied",
+                    }
+                _hook_verdict = SafetyVerdict(
+                    needs_approval=True,
+                    reason=_pre_decision.message or f"Hook requires approval for '{name}'",
+                    tool_name=name,
+                )
+                _hook_approved = await _hook_cb(_hook_verdict)
+                # Emit hook.approval_resolved so audit trail distinguishes hook-driven
+                # escalations from tier-based approval prompts (#1492).
+                try:
+                    from ..services.lineage import emit_hook_approval_resolved as _emit_hook_resolved
+
+                    _emit_hook_resolved(
+                        _audit_writer,
+                        hook_id=_pre_decision.hook_id or "",
+                        tool_name=name,
+                        resolution="approved" if _hook_approved else "denied",
+                        tool_call_id=(_extra_context or {}).get("tool_call_id", "") or "",
+                        conversation_id=(_extra_context or {}).get("conversation_id", "") or "",
+                        user_id=(_extra_context or {}).get("user_id", "") or "",
+                    )
+                except Exception:
+                    logger.warning("Failed to emit hook.approval_resolved for hook %r", _pre_decision.hook_id)
+                if not _hook_approved:
+                    return {
+                        "error": "Operation denied by user",
+                        "exit_code": -1,
+                        "_approval_decision": "hook_escalated_denied",
+                    }
+                approval_decision = "hook_escalated_approved"
+
+        # Tier-based approval (non-hard-denied needs_approval).
+        if verdict and verdict.needs_approval:
             # Hard-blocked commands with no approval channel: block silently
             # (safety net for auto mode / unattended agents).
             callback = confirm_callback or self._confirm_callback
@@ -311,7 +424,8 @@ class ToolRegistry:
             confirmed = await callback(verdict)
             if not confirmed:
                 return {"error": "Operation denied by user", "exit_code": -1, "_approval_decision": "denied"}
-            approval_decision = "allowed_once"
+            if approval_decision == "auto":
+                approval_decision = "allowed_once"
             if verdict.is_hard_blocked:
                 user_approved_hard_block = True
 
@@ -369,6 +483,30 @@ class ToolRegistry:
         if name == "run_agent" and "detach" in arguments:
             extra_kwargs["_detach"] = arguments.pop("detach")
         result = await handler(**arguments, **extra_kwargs)
+
+        # Post-tool hooks: may observe output and deny continuation (#1271).
+        if _hooks_config is not None and _hooks_config.post_tool:
+            from ..services.hooks import run_post_tool_hooks as _run_post_tool_hooks
+
+            _post_decision = await _run_post_tool_hooks(
+                _hooks_config,
+                name,
+                arguments,
+                result,
+                **_hook_call_kwargs(
+                    audit_writer=_audit_writer,
+                    extra_context=_extra_context,
+                    allowed_domains=hook_allowed_domains,
+                    block_localhost=hook_block_localhost,
+                ),
+            )
+            if _post_decision.outcome == "deny":
+                return {
+                    "error": _post_decision.message or f"Tool '{name}' output blocked by hook",
+                    "hook_blocked": True,
+                    "_approval_decision": "post_hook_denied",
+                }
+
         result["_approval_decision"] = approval_decision
         result["_context_trust"] = "untrusted" if name in _UNTRUSTED_TOOLS else "trusted"
         if name in _UNTRUSTED_TOOLS:

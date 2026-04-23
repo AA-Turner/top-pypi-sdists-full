@@ -1,3 +1,10 @@
+"""
+Role-based access control API is only available in Grafana Cloud or Grafana Enterprise.
+
+https://grafana.com/docs/grafana/latest/administration/roles-and-permissions/access-control/
+https://grafana.com/docs/grafana/latest/developer-resources/api-reference/http-api/access_control/
+"""
+
 from .base import Base
 
 
@@ -14,6 +21,16 @@ class Rbac(Base):
         """
         roles_path = "/access-control/roles"
         return self.client.GET(roles_path)
+
+    def create_rbac_role(self, role):
+        """
+        The Rbac is only available in Grafana Enterprise.
+
+        :param role: Role definition dictionary containing role configuration
+        :return:
+        """
+        roles_path = "/access-control/roles"
+        return self.client.POST(roles_path, json=role)
 
     def add_rbac_role_team(self, team_id, role_uid):
         """

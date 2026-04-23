@@ -30,10 +30,13 @@ __all__ = (
     "ListApplicationsPaginatorName",
     "ListJobRunAttemptsPaginatorName",
     "ListJobRunsPaginatorName",
+    "ListSessionsPaginatorName",
     "PaginatorName",
     "RegionName",
     "ResourceServiceName",
+    "ResourceTypeType",
     "ServiceName",
+    "SessionStateType",
 )
 
 ApplicationStateType = Literal[
@@ -55,6 +58,11 @@ JobRunStateType = Literal[
 ListApplicationsPaginatorName = Literal["list_applications"]
 ListJobRunAttemptsPaginatorName = Literal["list_job_run_attempts"]
 ListJobRunsPaginatorName = Literal["list_job_runs"]
+ListSessionsPaginatorName = Literal["list_sessions"]
+ResourceTypeType = Literal["SESSION"]
+SessionStateType = Literal[
+    "BUSY", "FAILED", "IDLE", "STARTED", "STARTING", "SUBMITTED", "TERMINATED", "TERMINATING"
+]
 EMRServerlessServiceName = Literal["emr-serverless"]
 ServiceName = Literal[
     "accessanalyzer",
@@ -484,7 +492,9 @@ ServiceName = Literal[
 ResourceServiceName = Literal[
     "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
-PaginatorName = Literal["list_applications", "list_job_run_attempts", "list_job_runs"]
+PaginatorName = Literal[
+    "list_applications", "list_job_run_attempts", "list_job_runs", "list_sessions"
+]
 RegionName = Literal[
     "af-south-1",
     "ap-east-1",

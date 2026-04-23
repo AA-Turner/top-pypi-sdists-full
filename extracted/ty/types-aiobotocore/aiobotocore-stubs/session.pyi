@@ -202,6 +202,7 @@ from types_aiobotocore_importexport.client import ImportExportClient
 from types_aiobotocore_inspector.client import InspectorClient
 from types_aiobotocore_inspector2.client import Inspector2Client
 from types_aiobotocore_inspector_scan.client import InspectorscanClient
+from types_aiobotocore_interconnect.client import InterconnectClient
 from types_aiobotocore_internetmonitor.client import CloudWatchInternetMonitorClient
 from types_aiobotocore_invoicing.client import InvoicingClient
 from types_aiobotocore_iot.client import IoTClient
@@ -264,6 +265,7 @@ from types_aiobotocore_managedblockchain_query.client import ManagedBlockchainQu
 from types_aiobotocore_marketplace_agreement.client import AgreementServiceClient
 from types_aiobotocore_marketplace_catalog.client import MarketplaceCatalogClient
 from types_aiobotocore_marketplace_deployment.client import MarketplaceDeploymentServiceClient
+from types_aiobotocore_marketplace_discovery.client import MarketplaceDiscoveryClient
 from types_aiobotocore_marketplace_entitlement.client import MarketplaceEntitlementServiceClient
 from types_aiobotocore_marketplace_reporting.client import MarketplaceReportingServiceClient
 from types_aiobotocore_marketplacecommerceanalytics.client import MarketplaceCommerceAnalyticsClient
@@ -363,6 +365,7 @@ from types_aiobotocore_rtbfabric.client import RTBFabricClient
 from types_aiobotocore_rum.client import CloudWatchRUMClient
 from types_aiobotocore_s3.client import S3Client
 from types_aiobotocore_s3control.client import S3ControlClient
+from types_aiobotocore_s3files.client import S3FilesClient
 from types_aiobotocore_s3outposts.client import S3OutpostsClient
 from types_aiobotocore_s3tables.client import S3TablesClient
 from types_aiobotocore_s3vectors.client import S3VectorsClient
@@ -3996,6 +3999,25 @@ class AioSession(BotocoreSession):
     @overload  # type: ignore[override]
     def create_client(  # type: ignore[override]
         self,
+        service_name: Literal["interconnect"],
+        region_name: str | None = ...,
+        api_version: str | None = ...,
+        use_ssl: bool | None = ...,
+        verify: bool | str | None = ...,
+        endpoint_url: str | None = ...,
+        aws_access_key_id: str | None = ...,
+        aws_secret_access_key: str | None = ...,
+        aws_session_token: str | None = ...,
+        config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
+    ) -> ClientCreatorContext[InterconnectClient]:
+        """
+        Create client for Interconnect service.
+        """
+
+    @overload  # type: ignore[override]
+    def create_client(  # type: ignore[override]
+        self,
         service_name: Literal["internetmonitor"],
         region_name: str | None = ...,
         api_version: str | None = ...,
@@ -5055,6 +5077,25 @@ class AioSession(BotocoreSession):
     ) -> ClientCreatorContext[MarketplaceDeploymentServiceClient]:
         """
         Create client for MarketplaceDeploymentService service.
+        """
+
+    @overload  # type: ignore[override]
+    def create_client(  # type: ignore[override]
+        self,
+        service_name: Literal["marketplace-discovery"],
+        region_name: str | None = ...,
+        api_version: str | None = ...,
+        use_ssl: bool | None = ...,
+        verify: bool | str | None = ...,
+        endpoint_url: str | None = ...,
+        aws_access_key_id: str | None = ...,
+        aws_secret_access_key: str | None = ...,
+        aws_session_token: str | None = ...,
+        config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
+    ) -> ClientCreatorContext[MarketplaceDiscoveryClient]:
+        """
+        Create client for MarketplaceDiscovery service.
         """
 
     @overload  # type: ignore[override]
@@ -6898,6 +6939,25 @@ class AioSession(BotocoreSession):
     ) -> ClientCreatorContext[S3ControlClient]:
         """
         Create client for S3Control service.
+        """
+
+    @overload  # type: ignore[override]
+    def create_client(  # type: ignore[override]
+        self,
+        service_name: Literal["s3files"],
+        region_name: str | None = ...,
+        api_version: str | None = ...,
+        use_ssl: bool | None = ...,
+        verify: bool | str | None = ...,
+        endpoint_url: str | None = ...,
+        aws_access_key_id: str | None = ...,
+        aws_secret_access_key: str | None = ...,
+        aws_session_token: str | None = ...,
+        config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
+    ) -> ClientCreatorContext[S3FilesClient]:
+        """
+        Create client for S3Files service.
         """
 
     @overload  # type: ignore[override]

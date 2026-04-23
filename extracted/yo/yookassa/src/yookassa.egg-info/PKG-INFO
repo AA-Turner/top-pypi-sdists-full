@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.1
 Name: yookassa
-Version: 3.10.0
+Version: 3.10.1
 Summary: YooKassa API SDK Python Library
 Home-page: https://git.yoomoney.ru/projects/SDK/repos/yookassa-sdk-python
 Author: YooMoney
@@ -19,22 +19,6 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3 :: Only
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: requests
-Requires-Dist: urllib3
-Requires-Dist: netaddr
-Requires-Dist: distro
-Requires-Dist: deprecated
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
-Dynamic: license-file
-Dynamic: requires-dist
-Dynamic: summary
 
 
 # YooKassa API Python Client Library

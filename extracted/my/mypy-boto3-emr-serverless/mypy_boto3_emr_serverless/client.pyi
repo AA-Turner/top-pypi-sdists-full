@@ -26,7 +26,12 @@ from botocore.client import BaseClient, ClientMeta
 from botocore.errorfactory import BaseClientExceptions
 from botocore.exceptions import ClientError as BotocoreClientError
 
-from .paginator import ListApplicationsPaginator, ListJobRunAttemptsPaginator, ListJobRunsPaginator
+from .paginator import (
+    ListApplicationsPaginator,
+    ListJobRunAttemptsPaginator,
+    ListJobRunsPaginator,
+    ListSessionsPaginator,
+)
 from .type_defs import (
     CancelJobRunRequestTypeDef,
     CancelJobRunResponseTypeDef,
@@ -39,19 +44,31 @@ from .type_defs import (
     GetDashboardForJobRunResponseTypeDef,
     GetJobRunRequestTypeDef,
     GetJobRunResponseTypeDef,
+    GetResourceDashboardRequestTypeDef,
+    GetResourceDashboardResponseTypeDef,
+    GetSessionEndpointRequestTypeDef,
+    GetSessionEndpointResponseTypeDef,
+    GetSessionRequestTypeDef,
+    GetSessionResponseTypeDef,
     ListApplicationsRequestTypeDef,
     ListApplicationsResponseTypeDef,
     ListJobRunAttemptsRequestTypeDef,
     ListJobRunAttemptsResponseTypeDef,
     ListJobRunsRequestTypeDef,
     ListJobRunsResponseTypeDef,
+    ListSessionsRequestTypeDef,
+    ListSessionsResponseTypeDef,
     ListTagsForResourceRequestTypeDef,
     ListTagsForResourceResponseTypeDef,
     StartApplicationRequestTypeDef,
     StartJobRunRequestTypeDef,
     StartJobRunResponseTypeDef,
+    StartSessionRequestTypeDef,
+    StartSessionResponseTypeDef,
     StopApplicationRequestTypeDef,
     TagResourceRequestTypeDef,
+    TerminateSessionRequestTypeDef,
+    TerminateSessionResponseTypeDef,
     UntagResourceRequestTypeDef,
     UpdateApplicationRequestTypeDef,
     UpdateApplicationResponseTypeDef,
@@ -166,6 +183,36 @@ class EMRServerlessClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_emr_serverless/client/#get_job_run)
         """
 
+    def get_resource_dashboard(
+        self, **kwargs: Unpack[GetResourceDashboardRequestTypeDef]
+    ) -> GetResourceDashboardResponseTypeDef:
+        """
+        Returns a URL that you can use to access the application UIs for a specified
+        resource, such as a session.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/emr-serverless/client/get_resource_dashboard.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_emr_serverless/client/#get_resource_dashboard)
+        """
+
+    def get_session(self, **kwargs: Unpack[GetSessionRequestTypeDef]) -> GetSessionResponseTypeDef:
+        """
+        Displays detailed information about a session.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/emr-serverless/client/get_session.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_emr_serverless/client/#get_session)
+        """
+
+    def get_session_endpoint(
+        self, **kwargs: Unpack[GetSessionEndpointRequestTypeDef]
+    ) -> GetSessionEndpointResponseTypeDef:
+        """
+        Returns the session endpoint URL and a time-limited authentication token for
+        the specified session.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/emr-serverless/client/get_session_endpoint.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_emr_serverless/client/#get_session_endpoint)
+        """
+
     def list_applications(
         self, **kwargs: Unpack[ListApplicationsRequestTypeDef]
     ) -> ListApplicationsResponseTypeDef:
@@ -196,6 +243,16 @@ class EMRServerlessClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_emr_serverless/client/#list_job_runs)
         """
 
+    def list_sessions(
+        self, **kwargs: Unpack[ListSessionsRequestTypeDef]
+    ) -> ListSessionsResponseTypeDef:
+        """
+        Lists sessions for the specified application.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/emr-serverless/client/list_sessions.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_emr_serverless/client/#list_sessions)
+        """
+
     def list_tags_for_resource(
         self, **kwargs: Unpack[ListTagsForResourceRequestTypeDef]
     ) -> ListTagsForResourceResponseTypeDef:
@@ -224,6 +281,16 @@ class EMRServerlessClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_emr_serverless/client/#start_job_run)
         """
 
+    def start_session(
+        self, **kwargs: Unpack[StartSessionRequestTypeDef]
+    ) -> StartSessionResponseTypeDef:
+        """
+        Creates and starts a new session on the specified application.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/emr-serverless/client/start_session.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_emr_serverless/client/#start_session)
+        """
+
     def stop_application(self, **kwargs: Unpack[StopApplicationRequestTypeDef]) -> dict[str, Any]:
         """
         Stops a specified application and releases initial capacity if configured.
@@ -238,6 +305,16 @@ class EMRServerlessClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/emr-serverless/client/tag_resource.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_emr_serverless/client/#tag_resource)
+        """
+
+    def terminate_session(
+        self, **kwargs: Unpack[TerminateSessionRequestTypeDef]
+    ) -> TerminateSessionResponseTypeDef:
+        """
+        Terminates the specified session.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/emr-serverless/client/terminate_session.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_emr_serverless/client/#terminate_session)
         """
 
     def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
@@ -284,6 +361,17 @@ class EMRServerlessClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_job_runs"]
     ) -> ListJobRunsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/emr-serverless/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_emr_serverless/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_sessions"]
+    ) -> ListSessionsPaginator:
         """
         Create a paginator for an operation.
 

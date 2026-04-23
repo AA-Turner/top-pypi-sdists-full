@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: lightsim2grid
-Version: 0.13.0
+Version: 0.13.1
 Summary: LightSim2grid implements a c++ backend targeting the Grid2Op platform.
 Author-Email: Benjamin Donnot <benjamin.donnot@rte-france.com>
 Classifier: Development Status :: 4 - Beta

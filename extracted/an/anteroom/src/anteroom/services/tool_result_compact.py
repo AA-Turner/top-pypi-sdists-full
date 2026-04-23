@@ -7,10 +7,16 @@ structured fields that the model needs (exit_code, error, path, etc.).
 
 The original stored data is never mutated — compaction is applied only to
 the messages sent to the LLM on resume.
+
+This module also exposes :func:`summarize` — a CLI/UI-facing helper (added in
+#1367, stable API consumed by web-UI follow-up #1467) that returns a plain-text
+head/tail slice of a tool result for visual display. It is strictly additive:
+``compact_tool_output`` (the LLM-replay path) is unchanged.
 """
 
 from __future__ import annotations
 
+import hashlib
 import json
 from typing import Any
 
@@ -185,3 +191,209 @@ def compact_tool_output(raw: Any, max_chars: int) -> str:
     if len(out3) <= max_chars:
         return out3
     return _oversize_marker(max_chars)
+
+
+# ---------------------------------------------------------------------------
+# CLI/UI-facing summariser (#1367)
+# ---------------------------------------------------------------------------
+
+
+def _head_tail_slice(text: str, head_lines: int, tail_lines: int) -> str:
+    """Return a plain-text head/tail slice with a ``[+N lines]`` marker.
+
+    Mirrors ``cli/density.densify_output`` for the COMPACT mode. Kept here so
+    callers that want a field-aware summary (web UI, renderer fallback) can
+    reuse it without importing CLI code.
+    """
+    head_lines = max(0, head_lines)
+    tail_lines = max(0, tail_lines)
+    if not text:
+        return ""
+    lines = text.split("\n")
+    if len(lines) <= head_lines + tail_lines:
+        return text
+    omitted = len(lines) - head_lines - tail_lines
+    parts: list[str] = []
+    if head_lines:
+        parts.extend(lines[:head_lines])
+    parts.append(f"... [+{omitted} lines]")
+    if tail_lines:
+        parts.extend(lines[-tail_lines:])
+    return "\n".join(parts)
+
+
+def summarize(
+    raw: Any,
+    *,
+    head_lines: int = 3,
+    tail_lines: int = 2,
+) -> str:
+    """Return a plain-text summary of *raw* for CLI / UI display.
+
+    Added in #1367. Additive to ``compact_tool_output`` — callers that need an
+    LLM-replay JSON bundle must continue to use :func:`compact_tool_output`.
+
+    Behaviour:
+        - ``None`` / empty → empty string.
+        - Plain strings → head/tail slice (``head_lines`` + marker + ``tail_lines``).
+        - Dicts → prefer ``error`` (raised as-is), then ``stdout`` / ``content``
+          / ``text`` / ``output`` / ``result`` in priority order. The selected
+          bulk field is sliced via :func:`_head_tail_slice`.
+        - Other types → ``repr()``.
+
+    The helper never raises; pathological inputs degrade to ``repr(raw)``.
+    """
+    if raw is None:
+        return ""
+
+    if isinstance(raw, str):
+        return _head_tail_slice(raw, head_lines, tail_lines)
+
+    if isinstance(raw, dict):
+        # Surface errors first — callers render them with salience.
+        if "error" in raw and raw["error"]:
+            err = raw["error"]
+            return err if isinstance(err, str) else _safe_dumps(err)
+
+        # Preferred bulk field order.
+        for key in ("stdout", "content", "text", "output", "result"):
+            if key in raw and raw[key]:
+                value = raw[key]
+                if isinstance(value, str):
+                    return _head_tail_slice(value, head_lines, tail_lines)
+                # Non-string bulk — repr as JSON then slice.
+                return _head_tail_slice(_safe_dumps(value), head_lines, tail_lines)
+
+        # Nothing to summarise — return a compact repr of the structured keys.
+        cleaned = {k: v for k, v in raw.items() if not str(k).startswith("_")}
+        return _safe_dumps(cleaned)
+
+    # Fall-through for primitives / unexpected types.
+    try:
+        return str(raw)
+    except Exception:
+        return repr(raw)
+
+
+# ---------------------------------------------------------------------------
+# Web-UI helpers (#1467)
+# ---------------------------------------------------------------------------
+
+# Error-class taxonomy shared by CLI salience and web `tool-error-*` CSS.
+# Keep in sync with docs/web-ui/tool-density.md and tests/js/tool_density.test.js.
+_ERROR_CLASS_EXIT_NONZERO = "exit_nonzero"
+_ERROR_CLASS_EXCEPTION = "exception"
+_ERROR_CLASS_TIMEOUT = "timeout"
+_ERROR_CLASS_DENIED = "denied"
+
+
+def derive_error_class(output: Any, status: str | None) -> str | None:
+    """Classify a tool-call failure into one of four buckets.
+
+    Added in #1467. Pure, never raises.
+
+    Returns one of ``"exit_nonzero"``, ``"exception"``, ``"timeout"``,
+    ``"denied"``, or ``None`` when the call is not considered a failure.
+
+    Heuristics:
+        * ``status == "success"`` → always ``None`` (no error class applied).
+        * Non-dict outputs with a non-success status map to ``exception``.
+        * Dict outputs: inspect ``error``/``denied``/``timeout``/``exit_code``
+          fields in order of specificity.
+
+    Callers in ``routers/chat.py`` gate this helper on ``cli.density.mode``
+    so the zero-config DOM stays byte-identical to today.
+    """
+    if status is None:
+        return None
+    if status == "success":
+        return None
+
+    if not isinstance(output, dict):
+        return _ERROR_CLASS_EXCEPTION
+
+    # Explicit denial (approval declined, hard-block, rate limit)
+    if output.get("denied") or output.get("blocked"):
+        return _ERROR_CLASS_DENIED
+    error_str = output.get("error")
+    if isinstance(error_str, str):
+        lowered = error_str.lower()
+        if "denied" in lowered or "blocked" in lowered or "not allowed" in lowered:
+            return _ERROR_CLASS_DENIED
+        if "timeout" in lowered or "timed out" in lowered:
+            return _ERROR_CLASS_TIMEOUT
+
+    # Explicit timeout signal
+    if output.get("timeout") or output.get("timed_out"):
+        return _ERROR_CLASS_TIMEOUT
+    if status == "timeout":
+        return _ERROR_CLASS_TIMEOUT
+
+    # Non-zero exit code → exit_nonzero
+    for key in ("exit_code", "returncode"):
+        val = output.get(key)
+        if isinstance(val, int) and val != 0:
+            return _ERROR_CLASS_EXIT_NONZERO
+
+    # Fallthrough: generic exception
+    if output.get("error") or output.get("exception"):
+        return _ERROR_CLASS_EXCEPTION
+
+    # Unknown failure shape — treat as exception
+    return _ERROR_CLASS_EXCEPTION
+
+
+def _shape_signature(value: Any) -> Any:
+    """Recursive structural signature capturing keys + types, not bulk content.
+
+    Strings collapse to their type tag; numbers collapse to ``"int"``/``"float"``;
+    dicts preserve key ordering by sorted key; lists capture length + element
+    signatures (up to 8 elements, then a truncation marker).
+    """
+    if value is None:
+        return "null"
+    if isinstance(value, bool):
+        return "bool"
+    if isinstance(value, int):
+        return "int"
+    if isinstance(value, float):
+        return "float"
+    if isinstance(value, str):
+        return "str"
+    if isinstance(value, dict):
+        # Preserve exit_code/returncode values since they drive error-class
+        # classification; other values collapse to their type signature.
+        out: dict[str, Any] = {}
+        for k in sorted(str(x) for x in value.keys()):
+            raw_v = value.get(k)
+            if k in ("exit_code", "returncode") and isinstance(raw_v, int):
+                out[k] = raw_v
+            else:
+                out[k] = _shape_signature(raw_v)
+        return out
+    if isinstance(value, list):
+        if not value:
+            return []
+        head = [_shape_signature(v) for v in value[:8]]
+        if len(value) > 8:
+            head.append(f"...[+{len(value) - 8}]")
+        return head
+    return type(value).__name__
+
+
+def compute_shape_hash(output: Any) -> str:
+    """Return a 16-char SHA-256 hex digest of *output*'s structural shape.
+
+    Added in #1467. Used by the web UI to collapse ≥3 consecutive tool results
+    with identical shape into a single ``.tool-repeat-collapsed`` row. Two
+    tool outputs with the same bulk content but different structured fields
+    (e.g., different ``exit_code``) hash to different values.
+
+    Pure, never raises. ``None`` / pathological inputs hash to a stable value.
+    """
+    try:
+        sig = _shape_signature(output)
+        payload = json.dumps(sig, sort_keys=True, default=str)
+    except Exception:
+        payload = repr(output)
+    return hashlib.sha256(payload.encode("utf-8", errors="replace")).hexdigest()[:16]

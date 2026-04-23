@@ -26,6 +26,7 @@ __all__ = (
     "ChannelTypeType",
     "ContainerFormatType",
     "IVSServiceName",
+    "ListAdConfigurationsPaginatorName",
     "ListChannelsPaginatorName",
     "ListPlaybackKeyPairsPaginatorName",
     "ListRecordingConfigurationsPaginatorName",
@@ -51,6 +52,7 @@ __all__ = (
 ChannelLatencyModeType = Literal["LOW", "NORMAL"]
 ChannelTypeType = Literal["ADVANCED_HD", "ADVANCED_SD", "BASIC", "STANDARD"]
 ContainerFormatType = Literal["FRAGMENTED_MP4", "TS"]
+ListAdConfigurationsPaginatorName = Literal["list_ad_configurations"]
 ListChannelsPaginatorName = Literal["list_channels"]
 ListPlaybackKeyPairsPaginatorName = Literal["list_playback_key_pairs"]
 ListRecordingConfigurationsPaginatorName = Literal["list_recording_configurations"]
@@ -497,6 +499,7 @@ ResourceServiceName = Literal[
     "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
 PaginatorName = Literal[
+    "list_ad_configurations",
     "list_channels",
     "list_playback_key_pairs",
     "list_recording_configurations",

@@ -364,14 +364,14 @@ def _get_or_create_cached_ssh_key_pair() -> tuple[str, str]:
 
     if private_key_path.exists() and public_key_path.exists():
         private_key_path.chmod(0o600)
-        logger.info("Reusing cached SSH key pair at %s", private_key_path)
+        logger.debug("Reusing cached SSH key pair at %s", private_key_path)
         return public_key_path.read_text().strip(), str(private_key_path)
 
     # Clean partial state + stale session cache before regenerating
     for p in (private_key_path, public_key_path, SSH_CACHE_DIR / "authorized_sessions"):
         p.unlink(missing_ok=True)
 
-    logger.info("Generating new SSH key pair at %s", private_key_path)
+    logger.debug("Generating new SSH key pair at %s", private_key_path)
     subprocess.run(
         ["ssh-keygen", "-t", "ed25519", "-f", str(private_key_path), "-N", "", "-q"],
         check=True,
@@ -1495,7 +1495,7 @@ class SandboxClient:
             authorized = set(auth_path.read_text().splitlines()) if auth_path.exists() else set()
 
             if job_info.session_id in authorized:
-                logger.info("SSH key already added to session %s, skipping", job_info.session_id)
+                logger.debug("SSH key already added to session %s, skipping", job_info.session_id)
             else:
                 add_key_request = AddSSHKeyRequest(public_key=public_key, username="root")
                 add_response = sessions_add_ssh_key.sync(

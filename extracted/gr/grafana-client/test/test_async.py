@@ -1,66 +1,54 @@
 import asyncio
-import socket
+
+import pytest
 
 from grafana_client import AsyncGrafanaApi
-from grafana_client.client import GrafanaClientError
+from grafana_client.client import GrafanaServerError
 
-try:
-    from unittest import IsolatedAsyncioTestCase
-except ImportError:
-    pass
-else:
+pytestmark = pytest.mark.integration
 
-    class TestAsync(IsolatedAsyncioTestCase):
-        async def test_basic_async_client(self):
-            try:
-                sock = socket.create_connection(("play.grafana.org", 80), timeout=1)
-            except (ConnectionRefusedError, socket.gaierror, TimeoutError):
-                self.skipTest("Test requires a WAN access to play.grafana.org")
-            else:
-                sock.close()
 
-            async def fetch_dashboard(async_client, uid):
-                return await async_client.dashboard.get_dashboard(uid)
+@pytest.mark.asyncio
+async def test_async_client_success(docker_grafana, dashboard_uid):
 
-            grafana = AsyncGrafanaApi(host="play.grafana.org")
+    # Connect to Grafana.
+    grafana = AsyncGrafanaApi.from_url(docker_grafana)
+    await grafana.connect()
+    version = await grafana.version
+    assert version != "" and "." in version
 
-            await grafana.connect()
+    # Provision dashboard and verify.
+    dashboard = await grafana.dashboard.update_dashboard(
+        {
+            "dashboard": {
+                "uid": dashboard_uid,
+                "title": "Production Overview",
+                "tags": ["foobar"],
+                "timezone": "browser",
+            },
+            "overwrite": True,
+        }
+    )
+    dashboard = await grafana.dashboard.get_dashboard(dashboard["uid"])
+    assert isinstance(dashboard, dict)
+    assert dashboard["meta"]["version"] >= 1
+    assert dashboard["dashboard"]["tags"] == ["foobar"]
 
-            version = await grafana.version
+    # Non-blocking I/O semi-parallel fetch.
+    tasks = []
+    dashboards = await grafana.search.search_dashboards(type_="dash-db")
+    for dashboard in dashboards:
+        tasks.append(grafana.dashboard.get_dashboard(dashboard["uid"]))
+    results = await asyncio.gather(*tasks)
+    assert len(results) >= 1
+    assert all(isinstance(r, dict) and list(r.keys()) for r in results)
 
-            self.assertTrue(version != "" and "." in version)
 
-            folders = await grafana.folder.get_all_folders()
+@pytest.mark.asyncio
+async def test_async_client_exception(docker_grafana):
+    grafana = AsyncGrafanaApi.from_url(docker_grafana)
+    await grafana.version
 
-            self.assertTrue(isinstance(folders, list))
-            self.assertTrue(len(folders) >= 4)
-
-            tasks = []
-
-            for folder in folders[:2]:
-                if folder["id"] > 0:  # someone created an entry with a negative id...
-                    dashboards = await grafana.search.search_dashboards(folder_uids=[folder["uid"]])
-                    for dashboard in dashboards[:4]:
-                        tasks.append(fetch_dashboard(grafana, dashboard["uid"]))
-
-            results = await asyncio.gather(*tasks)
-
-            self.assertEqual(len(results), 4)
-            self.assertTrue(all(isinstance(r, dict) and list(r.keys()) for r in results))
-
-        async def test_exception_async_client(self):
-            try:
-                sock = socket.create_connection(("play.grafana.org", 80), timeout=1)
-            except (ConnectionRefusedError, socket.gaierror, TimeoutError):
-                self.skipTest("Test requires a WAN access to play.grafana.org")
-            else:
-                sock.close()
-
-            grafana = AsyncGrafanaApi(host="play.grafana.org")
-
-            await grafana.version
-
-            with self.assertRaises(GrafanaClientError) as exc:
-                await grafana.admin.change_user_password(0, "impossible")
-
-            self.assertEqual(exc.exception.status_code, 403)
+    with pytest.raises(GrafanaServerError) as exc:
+        await grafana.admin.change_user_password(0, "impossible")
+    assert exc.match("Server Error 500: (Failed to update user password|Could not read user from database)")

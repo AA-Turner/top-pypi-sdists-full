@@ -456,11 +456,13 @@ class JobState(ModelEnum):
     RUNNING = "RUNNING"
     FAILED = "FAILED"
     SUCCEEDED = "SUCCEEDED"
+    TERMINATED = "TERMINATED"
     UNKNOWN = "UNKNOWN"
 
     _TERMINAL_JOB_STATES: ClassVar[List[str]] = [
         SUCCEEDED,
         FAILED,
+        TERMINATED,
     ]
 
     @classmethod
@@ -472,6 +474,7 @@ class JobState(ModelEnum):
         RUNNING: "The job is running. A job will have state RUNNING if a job run fails and there are remaining retries.",
         FAILED: "The job did not finish running or the entrypoint returned an exit code other than 0 after retrying up to max_retries times.",
         SUCCEEDED: "The job finished running and its entrypoint returned exit code 0.",
+        TERMINATED: "The job was terminated before completion.",
         UNKNOWN: "The CLI/SDK received an unexpected state from the API server. In most cases, this means you need to update the CLI.",
     }
 

@@ -8,10 +8,10 @@ from typing import TYPE_CHECKING, Any
 import autograd.numpy as anp
 import numpy as np
 import shapely
-from pydantic import Field, PrivateAttr, model_validator
+from pydantic import Field, model_validator
 
 from tidy3d.components.autograd import TracedSize1D, get_static
-from tidy3d.components.base import cached_property
+from tidy3d.components.base import cached_property, keyed_cache
 from tidy3d.components.geometry import base
 from tidy3d.components.geometry.mesh import TriangleMesh
 from tidy3d.components.geometry.polyslab import PolySlab
@@ -99,7 +99,18 @@ _ICOSAHEDRON_VERTS, _ICOSAHEDRON_FACES = _base_icosahedron()
 def discretization_wavelength(derivative_info: DerivativeInfo, geometry_label: str) -> float:
     """Choose reference wavelength for surface discretization."""
     wvl0_min = derivative_info.wavelength_min
-    wvl_mat = wvl0_min / np.max([1.0, np.max(np.sqrt(abs(derivative_info.eps_in)))])
+    eps_xx = derivative_info.eps_data["eps_xx"]
+    eps_yy = derivative_info.eps_data["eps_yy"]
+    eps_zz = derivative_info.eps_data["eps_zz"]
+    max_refractive_index = np.max(
+        [
+            1.0,
+            np.max(np.sqrt(abs(eps_xx))),
+            np.max(np.sqrt(abs(eps_yy))),
+            np.max(np.sqrt(abs(eps_zz))),
+        ]
+    )
+    wvl_mat = wvl0_min / max_refractive_index
 
     grid_cfg = config.adjoint
 
@@ -128,8 +139,6 @@ class Sphere(base.Centered, base.Circular):
         description="Radius of geometry.",
         json_schema_extra={"units": MICROMETER},
     )
-
-    _icosphere_cache: dict[int, tuple[np.ndarray, float]] = PrivateAttr(default_factory=dict)
 
     @verify_packages_import(["trimesh"])
     def to_triangle_mesh(
@@ -616,11 +625,8 @@ class Sphere(base.Centered, base.Circular):
 
         return basis1, basis2
 
+    @keyed_cache()
     def _icosphere_data(self, subdivisions: int) -> tuple[np.ndarray, float]:
-        cache = self._icosphere_cache
-        if subdivisions in cache:
-            return cache[subdivisions]
-
         vertices = np.asarray(_ICOSAHEDRON_VERTS, dtype=float)
         faces = np.asarray(_ICOSAHEDRON_FACES, dtype=int)
         if subdivisions > 0:
@@ -635,7 +641,6 @@ class Sphere(base.Centered, base.Circular):
 
         triangles = vertices[faces]
         max_edge = self._max_edge_length(triangles)
-        cache[subdivisions] = (triangles, max_edge)
         return triangles, max_edge
 
     @staticmethod
@@ -694,10 +699,13 @@ class Cylinder(base.Centered, base.Circular, base.Planar):
         if isclose(self.sidewall_angle, 0) or not np.isinf(self.length):
             return self
         if self.reference_plane != "middle":
-            raise SetupError(
-                "For a slanted cylinder here is of infinite length, "
-                "defining the reference_plane other than 'middle' "
-                "leads to undefined cylinder behaviors near 'center'."
+            self._raise_validation_error_at_loc(
+                SetupError(
+                    "For a slanted cylinder here is of infinite length, "
+                    "defining the reference_plane other than 'middle' "
+                    "leads to undefined cylinder behaviors near 'center'."
+                ),
+                "reference_plane",
             )
         return self
 

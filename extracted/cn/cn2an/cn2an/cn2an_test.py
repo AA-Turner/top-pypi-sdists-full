@@ -73,6 +73,8 @@ class Cn2anTest(unittest.TestCase):
             "一千零一亿一千零一万一千零一": 100110011001,
             "一千亿一千万一千零一": 100010001001,
             "一千亿零一": 100000000001,
+            "玖仟陆佰陆拾伍圆壹角捌分": 9665.18,
+            "壹佰捌拾壹圆柒角": 181.7,
             "零点零零零零零零零零零零零零零零一": 0.000000000000001,
             "零点零零零零零零零零零零零零零一": 0.00000000000001,
             "零点零零零零零零零零零零零零一": 0.0000000000001,
@@ -116,13 +118,20 @@ class Cn2anTest(unittest.TestCase):
             "十三万五": 135000,
             "两千六": 2600,
             "一百二": 120,
+            "一百十一": 111,
+            "一百十六": 116,
+            "一千一十": 1010,
             "一百二十万三": 1203000,
+            "十万零一千": 101000,
+            "一百九十万零三千九百七十一": 1903971,
+            "一亿五千万零六千三百五十五": 150006355,
             # 繁体
             "兩千六": 2600,
             # 大写
             "壹拾壹元": 11,
             "壹佰壹拾壹圆": 111,
             "壹拾壹圆": 11,
+            "壹拾万零叁仟肆佰伍拾叁": 103453,
             # 特殊
             "〇": 0,
         }
@@ -134,9 +143,22 @@ class Cn2anTest(unittest.TestCase):
             "一百点123": 100.123,
             "10.1万": 101000,
             "-10.1万": -101000,
+            "16.4亿": 1640000000,
             "35.1亿": 3510000000,
+            "1百01": 101,
+            "1万600": 10600,
             "10.1": 10.1,
             "-10.1": -10.1,
+        }
+
+        self.direct_data_dict = {
+            "零一": "01",
+            "零零三": "003",
+            "二〇〇二": "2002",
+            "幺八九": "189",
+            "负零一": "-01",
+            "一二点三零": "12.30",
+            "012": "012",
         }
 
         self.error_smart_datas = [
@@ -145,6 +167,10 @@ class Cn2anTest(unittest.TestCase):
         ]
 
         self.error_normal_datas = [
+            "",
+            "元整",
+            "圆",
+            "负",
             "零点",
             "点零",
             "零点点",
@@ -185,6 +211,10 @@ class Cn2anTest(unittest.TestCase):
         for smart_item in self.smart_data_dict.keys():
             self.assertEqual(self.ca.cn2an(smart_item, "smart"),
                              self.smart_data_dict[smart_item])
+
+        for direct_item in self.direct_data_dict.keys():
+            self.assertEqual(self.ca.cn2an(direct_item, "direct"),
+                             self.direct_data_dict[direct_item])
 
         for error_strict_item in self.error_strict_datas:
             try:

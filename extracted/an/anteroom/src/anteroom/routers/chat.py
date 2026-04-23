@@ -14,13 +14,21 @@ import uuid as uuid_mod
 from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
 from sse_starlette.sse import EventSourceResponse
 
-from ..cli.instructions import load_instructions
+from ..cli.instructions import (
+    estimate_tokens as _estimate_instruction_tokens,
+)
+from ..cli.instructions import (
+    find_global_instructions_path as _find_global_instructions_path,
+)
+from ..cli.instructions import (
+    find_project_instructions_path as _find_project_instructions_path,
+)
 from ..config import CliConfig, CompactionConfig, build_runtime_context
 from ..models import ChatRequest
 from ..services import storage
@@ -29,8 +37,12 @@ from ..services.ai_service import AIService, create_ai_service
 from ..services.async_tasks import silence_task
 from ..services.context_trust import trusted_section_marker, untrusted_section_marker, wrap_untrusted
 from ..services.space_storage import get_space_local_dirs
+from ..services.user_errors import build_user_error
 from ..tools.path_utils import safe_resolve_pathlib
 from ..tools.tool_context import build_tool_extra_context_web
+
+if TYPE_CHECKING:
+    from ..services.memory_recall import RecalledMemory
 
 logger = logging.getLogger(__name__)
 
@@ -496,7 +508,7 @@ async def _build_chat_system_prompt(
     space_id: str | None = None,
     attachment_filenames: list[str] | None = None,
     vec_manager: Any | None = None,
-) -> tuple[str, dict[str, Any]]:
+) -> tuple[str, dict[str, Any], list[RecalledMemory]]:
     """Assemble the extra system prompt from all context sources.
 
     Returns (extra_prompt, metadata) where metadata includes RAG/source status.
@@ -522,10 +534,44 @@ async def _build_chat_system_prompt(
         safe_instr = sanitize_trust_tags(space_instructions)
         extra += "\n\n<space_instructions>\n" + safe_instr + "\n</space_instructions>"
 
-    # ANTEROOM.md conventions
-    file_instructions = load_instructions()
-    if file_instructions:
-        extra += "\n\n" + file_instructions
+    # ANTEROOM.md conventions — the concatenated content goes into the
+    # system prompt; the per-file metadata goes into meta for #1462
+    # attribution. Mirroring the CLI's loader, we populate the metadata
+    # in the same branches that decide whether each file's content is
+    # appended, so the attributed set == the loaded set.
+    #
+    # NOTE: the web path loads project instructions without the CLI's
+    # interactive trust prompt — this matches the prior (pre-#1462)
+    # behaviour of ``load_instructions()`` which this block replaced.
+    # Promoting the web path to trust-gated is tracked separately; it
+    # pre-dates this change.
+    instruction_files_meta: list[dict[str, Any]] = []
+    instruction_parts: list[str] = []
+    _web_global = _find_global_instructions_path()
+    if _web_global is not None:
+        _gpath, _gcontent = _web_global
+        instruction_parts.append(f"# Global Instructions\n{_gcontent}")
+        instruction_files_meta.append(
+            {
+                "path": str(_gpath),
+                "scope": "global",
+                "estimated_tokens": _estimate_instruction_tokens(_gcontent),
+            }
+        )
+    _web_project = _find_project_instructions_path()
+    if _web_project is not None:
+        _ppath, _pcontent = _web_project
+        instruction_parts.append(f"# Project Instructions\n{_pcontent}")
+        instruction_files_meta.append(
+            {
+                "path": str(_ppath),
+                "scope": "project",
+                "estimated_tokens": _estimate_instruction_tokens(_pcontent),
+            }
+        )
+    if instruction_parts:
+        extra += "\n\n" + "\n\n".join(instruction_parts)
+    meta["instruction_files"] = instruction_files_meta
 
     # Inject artifacts (instructions, rules, context) from registry
     if artifact_registry is not None:
@@ -967,7 +1013,10 @@ class ToolExecutorContext:
     uname: str | None
     conversation_id: str
     tools_openai: list[dict[str, Any]]
-    subagent_events: dict[str, list[dict[str, Any]]]
+    # Live SSE queue for subagent_event frames. The stream generator drains
+    # this concurrently with the agent_loop so subagent progress streams
+    # during execution instead of buffering until the parent tool_call_end.
+    subagent_events: asyncio.Queue[dict[str, Any]]
     subagent_limiter: Any
     sa_config: Any
     request_config: Any
@@ -977,17 +1026,62 @@ class ToolExecutorContext:
     bg_manager: Any = None
     detach_manager: Any = None
     subagent_counter: list[int] = field(default_factory=lambda: [0])
-    max_subagent_events: int = 500
+    audit_writer: Any = None
 
 
 async def _web_event_sink_fn(ctx: ToolExecutorContext, agent_id: str, event: Any) -> None:
-    """Buffer sub-agent events for SSE emission, partitioned by agent_id."""
+    """Forward sub-agent events onto the live SSE queue, partitioned by agent_id.
+
+    Wire contract for the ``subagent_event`` SSE frame consumed by the JS
+    renderer in ``static/js/chat.js`` (see ``renderSubagentEvent``):
+
+        {
+          "kind": "subagent_start" | "tool_call_start" | "subagent_end",
+          "agent_id": str,
+          "parent_tool_call_id": str,  # stable root run_agent tool-call id
+          # subagent_start adds: prompt, model, depth
+          # tool_call_start adds: tool_name, id, arguments
+          # subagent_end adds: elapsed_seconds, tool_calls, truncated,
+          #                    error, status (derived: succeeded|failed|cancelled)
+        }
+
+    ``elapsed_seconds``, ``tool_calls``, and ``error`` already come from
+    ``tools/subagent.py``. ``status`` is derived here so the JS renderer has a
+    single terminal-state token per subagent. ``parent_tool_call_id`` binds
+    concurrent subagents to the correct top-level ``run_agent`` wrapper.
+    """
     kind = event.kind
     data = event.data
-    if kind in ("subagent_start", "subagent_end", "tool_call_start"):
-        buf = ctx.subagent_events.setdefault(agent_id, [])
-        if len(buf) < ctx.max_subagent_events:
-            buf.append({"kind": kind, "agent_id": agent_id, **data})
+    if kind not in ("subagent_start", "subagent_end", "tool_call_start"):
+        return
+    frame: dict[str, Any] = {"kind": kind, "agent_id": agent_id, **data}
+    if kind == "subagent_end":
+        frame["status"] = _derive_subagent_status(data)
+    try:
+        ctx.subagent_events.put_nowait(frame)
+    except asyncio.QueueFull:
+        # Bounded queue: drop the oldest to keep up with fast subagents.
+        try:
+            ctx.subagent_events.get_nowait()
+            ctx.subagent_events.put_nowait(frame)
+        except (asyncio.QueueEmpty, asyncio.QueueFull):
+            pass
+
+
+def _derive_subagent_status(data: dict[str, Any]) -> str:
+    """Map the subagent_end payload's error string onto a terminal status token.
+
+    Returns one of ``"succeeded"``, ``"failed"``, ``"cancelled"``. Cancellation
+    is inferred from the error message text because ``tools/subagent.py`` only
+    emits a single ``error`` field on timeout / exception / user cancel.
+    """
+    err = data.get("error")
+    if not err:
+        return "succeeded"
+    err_lower = str(err).lower()
+    if "cancel" in err_lower:
+        return "cancelled"
+    return "failed"
 
 
 def _scope_to_decision(confirm_ctx: WebConfirmContext) -> str:
@@ -1000,6 +1094,7 @@ def _scope_to_decision(confirm_ctx: WebConfirmContext) -> str:
 
 async def _execute_web_tool(ctx: ToolExecutorContext, tool_name: str, arguments: dict[str, Any]) -> dict[str, Any]:
     """Execute a tool call in the web UI context."""
+    tool_call_id = str(arguments.pop("_tool_call_id", "") or "")
 
     async def _confirm(verdict: Any) -> bool:
         return await _web_confirm_tool(ctx.confirm_ctx, verdict)
@@ -1108,19 +1203,24 @@ async def _execute_web_tool(ctx: ToolExecutorContext, tool_name: str, arguments:
             "_runtime_info": _rt_info,
         }
 
+    _hooks = ctx.request_config.hooks
+    _audit_w = ctx.audit_writer
     if ctx.tool_registry.has_tool(tool_name):
         result = await ctx.tool_registry.call_tool(
             tool_name,
             arguments,
             confirm_callback=_confirm,
             rule_enforcer_override=ctx.rule_enforcer,
+            _hooks_config=_hooks if (_hooks.pre_tool or _hooks.post_tool) else None,
+            _audit_writer=_audit_w,
             _extra_context=build_tool_extra_context_web(
                 bg_manager=ctx.bg_manager,
                 detach_manager=ctx.detach_manager,
                 conversation_id=ctx.conversation_id,
                 db=ctx.db,
                 config=ctx.request_config,
-                user_id=ctx.uid,
+                user_id=ctx.uid or "",
+                tool_call_id=tool_call_id,
             ),
         )
         if result.get("_approval_decision") == "allowed_once":
@@ -1128,16 +1228,74 @@ async def _execute_web_tool(ctx: ToolExecutorContext, tool_name: str, arguments:
         return dict(result)
     if ctx.mcp_manager:
         verdict = ctx.tool_registry.check_safety(tool_name, arguments, rule_enforcer_override=ctx.rule_enforcer)
-        if verdict and verdict.needs_approval:
-            if verdict.hard_denied:
+        # Static hard deny blocks before hooks
+        if verdict and verdict.hard_denied:
+            return {
+                "error": f"Tool '{tool_name}' is blocked by configuration",
+                "safety_blocked": True,
+                "_approval_decision": "hard_denied",
+            }
+        # Pre-tool hooks: after hard deny, before tier-based approval (#1271, #1492)
+        _mcp_approval_decision = "auto"
+        if _hooks.pre_tool:
+            from ..services.hooks import classify_pre_hook_result as _classify_pre_web
+            from ..services.hooks import run_pre_tool_hooks as _run_pre_web
+
+            _pre_web = await _run_pre_web(
+                _hooks,
+                tool_name,
+                arguments,
+                audit_writer=_audit_w,
+                tool_call_id=tool_call_id,
+                conversation_id=ctx.conversation_id,
+                user_id=ctx.uid or "",
+                allowed_domains=tuple(ctx.request_config.ai.allowed_domains or ()),
+                block_localhost=bool(ctx.request_config.ai.block_localhost_api),
+            )
+            _web_bucket = _classify_pre_web(_pre_web)
+            if _web_bucket == "deny":
                 return {
-                    "error": f"Tool '{tool_name}' is blocked by configuration",
-                    "safety_blocked": True,
-                    "_approval_decision": "hard_denied",
+                    "error": _pre_web.message or f"Tool '{tool_name}' blocked by hook",
+                    "hook_blocked": True,
+                    "_approval_decision": "hook_denied",
                 }
+            if _web_bucket == "require_approval":
+                from ..tools.safety import SafetyVerdict as _SafetyVerdict
+
+                _hook_v = _SafetyVerdict(
+                    needs_approval=True,
+                    reason=_pre_web.message or f"Hook requires approval for '{tool_name}'",
+                    tool_name=tool_name,
+                )
+                _web_hook_approved = await _confirm(_hook_v)
+                try:
+                    from ..services.lineage import emit_hook_approval_resolved as _emit_web_resolved
+
+                    _emit_web_resolved(
+                        _audit_w,
+                        hook_id=_pre_web.hook_id or "",
+                        tool_name=tool_name,
+                        resolution="approved" if _web_hook_approved else "denied",
+                        tool_call_id=tool_call_id,
+                        conversation_id=ctx.conversation_id,
+                        user_id=ctx.uid or "",
+                    )
+                except Exception:
+                    pass
+                if not _web_hook_approved:
+                    return {
+                        "error": "Operation denied by user",
+                        "exit_code": -1,
+                        "_approval_decision": "hook_escalated_denied",
+                    }
+                _mcp_approval_decision = "hook_escalated_approved"
+        # Tier-based approval
+        if verdict and verdict.needs_approval:
             confirmed = await _confirm(verdict)
             if not confirmed:
                 return {"error": "Operation denied by user", "exit_code": -1, "_approval_decision": "denied"}
+            if _mcp_approval_decision == "auto":
+                _mcp_approval_decision = "allowed_once"
         # Rate limiting for MCP tools (built-in tools checked in call_tool)
         if ctx.rate_limiter:
             rl_v = ctx.rate_limiter.check(tool_name)
@@ -1151,8 +1309,35 @@ async def _execute_web_tool(ctx: ToolExecutorContext, tool_name: str, arguments:
         result = await ctx.mcp_manager.call_tool(tool_name, arguments)
         if ctx.rate_limiter:
             ctx.rate_limiter.record_call(success="error" not in result)
-        decision = _scope_to_decision(ctx.confirm_ctx) if (verdict and verdict.needs_approval) else "auto"
-        result["_approval_decision"] = decision
+        # Post-tool hooks
+        if _hooks.post_tool:
+            from ..services.hooks import run_post_tool_hooks as _run_post_web
+
+            _post_web = await _run_post_web(
+                _hooks,
+                tool_name,
+                arguments,
+                result,
+                audit_writer=_audit_w,
+                tool_call_id=tool_call_id,
+                conversation_id=ctx.conversation_id,
+                user_id=ctx.uid or "",
+                allowed_domains=tuple(ctx.request_config.ai.allowed_domains or ()),
+                block_localhost=bool(ctx.request_config.ai.block_localhost_api),
+            )
+            if _post_web.outcome == "deny":
+                return {
+                    "error": _post_web.message or f"Tool '{tool_name}' output blocked by hook",
+                    "hook_blocked": True,
+                    "_approval_decision": "post_hook_denied",
+                }
+        # Prefer hook-escalated decision; fall back to scope-based for tier-approved tools.
+        if _mcp_approval_decision in ("hook_escalated_approved", "hook_escalated_denied"):
+            result["_approval_decision"] = _mcp_approval_decision
+        elif verdict and verdict.needs_approval:
+            result["_approval_decision"] = _scope_to_decision(ctx.confirm_ctx)
+        else:
+            result["_approval_decision"] = "auto"
         return dict(result)
     raise ValueError(f"Unknown tool: {tool_name}")
 
@@ -1197,7 +1382,7 @@ class StreamContext:
     client_id: str
     tool_registry: Any
     mcp_manager: Any
-    subagent_events: dict[str, list[dict[str, Any]]]
+    subagent_events: asyncio.Queue[dict[str, Any]]
     is_first_message: bool
     first_user_text: str
     conv_title: str
@@ -1273,29 +1458,48 @@ def _fallback_stream_cleanup(gen: Any) -> None:
 _KEEPALIVE_INTERVAL = 15  # seconds between SSE keepalive pings
 
 
-async def _with_keepalive(gen: Any, interval: float = _KEEPALIVE_INTERVAL) -> Any:
+async def _with_keepalive(
+    gen: Any,
+    interval: float = _KEEPALIVE_INTERVAL,
+    subagent_queue: asyncio.Queue[dict[str, Any]] | None = None,
+) -> Any:
     """Wrap an async generator to yield keepalive comments during long pauses.
 
     Prevents browsers and proxies from closing the SSE connection when the
     agent loop blocks (e.g. during ask_user or tool approval waits).
+
+    If ``subagent_queue`` is provided, live subagent event frames from that
+    queue are also multiplexed into the stream (#1460). Frames are wrapped
+    as ``{"subagent_event": frame}`` so the caller can distinguish them from
+    agent-loop events and keepalive comments.
 
     Uses asyncio.wait() instead of wait_for() to avoid cancelling the
     underlying generator coroutine on timeout.
     """
     aiter = gen.__aiter__()
     pending_next: asyncio.Task | None = None
+    pending_queue: asyncio.Task | None = None
     try:
         while True:
             if pending_next is None:
                 pending_next = asyncio.ensure_future(aiter.__anext__())
-            done, _ = await asyncio.wait({pending_next}, timeout=interval)
-            if done:
+            waitset: set[asyncio.Task[Any]] = {pending_next}
+            if subagent_queue is not None:
+                if pending_queue is None:
+                    pending_queue = asyncio.ensure_future(subagent_queue.get())
+                waitset.add(pending_queue)
+            done, _ = await asyncio.wait(waitset, timeout=interval, return_when=asyncio.FIRST_COMPLETED)
+            if pending_queue is not None and pending_queue in done:
+                frame = pending_queue.result()
+                pending_queue = None
+                yield {"subagent_event": frame}
+            if pending_next in done:
                 try:
                     yield pending_next.result()
                 except StopAsyncIteration:
                     break
                 pending_next = None
-            else:
+            elif not done:
                 yield {"comment": "keepalive"}
     finally:
         if pending_next is not None and not pending_next.done():
@@ -1303,6 +1507,12 @@ async def _with_keepalive(gen: Any, interval: float = _KEEPALIVE_INTERVAL) -> An
             try:
                 await pending_next
             except (asyncio.CancelledError, StopAsyncIteration):
+                pass
+        if pending_queue is not None and not pending_queue.done():
+            pending_queue.cancel()
+            try:
+                await pending_queue
+            except asyncio.CancelledError:
                 pass
         # Ensure the inner generator's finally block runs (cleans up
         # _active_streams, _message_queues, _cancel_events, and the
@@ -1316,15 +1526,123 @@ async def _with_keepalive(gen: Any, interval: float = _KEEPALIVE_INTERVAL) -> An
             _fallback_stream_cleanup(gen)
 
 
+# ---------------------------------------------------------------------------
+# Tool-result density summary fields (#1467)
+# ---------------------------------------------------------------------------
+
+_DENSITY_SUMMARY_MODES = frozenset({"compact", "minimal"})
+
+
+def _density_mode(config: Any) -> str:
+    """Return the current ``cli.density.mode`` string, defaulting to ``"normal"``.
+
+    Tolerant of missing config sections so tests and legacy integrations that
+    instantiate a bare ``AppConfig`` continue to work.
+    """
+    cli_cfg = getattr(config, "cli", None)
+    density_cfg = getattr(cli_cfg, "density", None)
+    mode = getattr(density_cfg, "mode", "normal")
+    return mode if isinstance(mode, str) else "normal"
+
+
+def _density_summary_fields_for_start(config: Any, tool_input: Any) -> dict[str, Any]:
+    """Compute additive `tool_call_start` summary fields, gated on density mode.
+
+    Returns a dict containing ``input_preview`` that is either a string summary
+    (when density is ``compact``/``minimal``) or ``None`` (when density is
+    ``normal``/``detailed``). Keys are always present so the SSE payload shape
+    is stable for clients.
+    """
+    mode = _density_mode(config)
+    if mode not in _DENSITY_SUMMARY_MODES:
+        return {"input_preview": None}
+
+    # Local import to avoid a top-of-module cycle with services.
+    from ..services.tool_result_compact import summarize
+
+    cli_cfg = getattr(config, "cli", None)
+    density_cfg = getattr(cli_cfg, "density", None)
+    head = getattr(density_cfg, "head_lines", 3)
+    tail = getattr(density_cfg, "tail_lines", 2)
+
+    try:
+        preview = summarize(tool_input, head_lines=head, tail_lines=tail)
+    except Exception:  # defensive: summarize is documented as non-raising
+        preview = None
+    return {"input_preview": preview if preview else None}
+
+
+def _density_summary_fields_for_end(config: Any, tool_output: Any, status: str | None) -> dict[str, Any]:
+    """Compute additive `tool_call_end` summary fields, gated on density mode.
+
+    All five new fields (``summary``, ``output_preview``, ``error_class``,
+    ``output_shape_hash``) are emitted as either populated values or ``None``.
+    When density is ``normal``/``detailed``, all five are ``None`` — the web
+    UI falls back to raw-JSON rendering (byte-identical to today's behaviour).
+    """
+    mode = _density_mode(config)
+    if mode not in _DENSITY_SUMMARY_MODES:
+        return {
+            "summary": None,
+            "output_preview": None,
+            "error_class": None,
+            "output_shape_hash": None,
+        }
+
+    from ..services.tool_result_compact import (
+        compute_shape_hash,
+        derive_error_class,
+        summarize,
+    )
+
+    cli_cfg = getattr(config, "cli", None)
+    density_cfg = getattr(cli_cfg, "density", None)
+    head = getattr(density_cfg, "head_lines", 3)
+    tail = getattr(density_cfg, "tail_lines", 2)
+
+    try:
+        output_preview = summarize(tool_output, head_lines=head, tail_lines=tail) or None
+    except Exception:
+        output_preview = None
+
+    # ``summary`` is currently a short synonym of ``output_preview`` for the
+    # web UI. Kept as a separate field so renderers (and future minimal-mode
+    # tweaks) can diverge without another wire format change.
+    summary = output_preview
+
+    try:
+        error_class = derive_error_class(tool_output, status)
+    except Exception:
+        error_class = None
+
+    try:
+        shape_hash = compute_shape_hash(tool_output)
+    except Exception:
+        shape_hash = None
+
+    return {
+        "summary": summary,
+        "output_preview": output_preview,
+        "error_class": error_class,
+        "output_shape_hash": shape_hash,
+    }
+
+
 async def _stream_chat_events(ctx: StreamContext) -> Any:
     """Async generator that yields SSE events for the chat stream."""
 
     current_assistant_msg = None
     _pending_tool_inputs: dict[str, Any] = {}
+    _current_group_iteration: int | None = None
     _streamed_content = ""
     _canvas_args_accum: dict[int, str] = {}
     _canvas_content_sent: dict[int, int] = {}
     _canvas_stream_started: set[int] = set()
+    # #1472: authoritative per-turn tool-call list. The stream corresponds to
+    # one user turn across any number of LLM iterations; this accumulator
+    # captures every tool call executed during the turn so attribution's
+    # ``tools`` section is correct even when the final iteration is prose-only.
+    _turn_tool_calls: list[dict[str, Any]] = []
 
     # Spawn background disconnect poller so stale streams are cancelled promptly
     _disconnect_task: asyncio.Task[None] | None = None
@@ -1441,10 +1759,15 @@ async def _stream_chat_events(ctx: StreamContext) -> Any:
             conversation_id=ctx.conversation_id,
         )
         _pending_usage: dict[str, Any] | None = None
-        async for agent_event in _with_keepalive(agent_gen):
-            if isinstance(agent_event, dict) and "comment" in agent_event:
-                yield agent_event
-                continue
+        async for agent_event in _with_keepalive(agent_gen, subagent_queue=ctx.subagent_events):
+            if isinstance(agent_event, dict):
+                if "comment" in agent_event:
+                    yield agent_event
+                    continue
+                if "subagent_event" in agent_event:
+                    # (#1460) Live subagent frame streamed during parent tool execution.
+                    yield {"event": "subagent_event", "data": json.dumps(agent_event["subagent_event"])}
+                    continue
 
             kind = agent_event.kind
             data = agent_event.data
@@ -1514,16 +1837,19 @@ async def _stream_chat_events(ctx: StreamContext) -> Any:
                 _canvas_content_sent.pop(idx, None)
                 _canvas_stream_started.discard(idx)
                 _pending_tool_inputs[data["id"]] = data["arguments"]
+                _start_payload: dict[str, Any] = {
+                    "id": data["id"],
+                    "tool_name": data["tool_name"],
+                    "server_name": "",
+                    "input": data["arguments"],
+                }
+                # #1467: additive density fields, gated on cli.density.mode.
+                # In normal/detailed mode input_preview is None — client
+                # falls back to today's raw-JSON rendering (byte-identical).
+                _start_payload.update(_density_summary_fields_for_start(_app_config, data["arguments"]))
                 yield {
                     "event": "tool_call_start",
-                    "data": json.dumps(
-                        {
-                            "id": data["id"],
-                            "tool_name": data["tool_name"],
-                            "server_name": "",
-                            "input": data["arguments"],
-                        }
-                    ),
+                    "data": json.dumps(_start_payload),
                 }
 
             elif kind == "assistant_message":
@@ -1588,6 +1914,17 @@ async def _stream_chat_events(ctx: StreamContext) -> Any:
                         data.get("id", "?"),
                         data.get("tool_name", "?"),
                     )
+                # #1472: accumulate the per-turn tool list regardless of whether
+                # ``current_assistant_msg`` exists for persistence — attribution
+                # is turn-scoped, not message-scoped.
+                _turn_tool_calls.append(
+                    {
+                        "id": data.get("id", "") or "",
+                        "tool_name": data.get("tool_name", "") or "",
+                        "name": data.get("tool_name", "") or "",
+                        "status": data.get("status", "") or "",
+                    }
+                )
                 if current_assistant_msg:
                     tool_input = _pending_tool_inputs.pop(data["id"], {})
                     if ctx.tool_registry.has_tool(data["tool_name"]):
@@ -1608,6 +1945,7 @@ async def _stream_chat_events(ctx: StreamContext) -> Any:
                         tool_input,
                         data["id"],
                         approval_decision=approval_decision,
+                        iteration=_current_group_iteration,
                     )
                     storage.update_tool_call(ctx.db, data["id"], tool_output, data["status"])
                     # Audit log: tool call event
@@ -1640,9 +1978,36 @@ async def _stream_chat_events(ctx: StreamContext) -> Any:
                             )
                         )
                 sse_output = data["output"]
+                # Emit a hook_outcome notice before tool_call_end when a hook blocked
+                # the tool call (#1491). Additive and backward-compatible: clients that
+                # do not handle hook_outcome simply ignore it.
+                if isinstance(sse_output, dict) and sse_output.get("hook_blocked"):
+                    _hook_approval_dec = sse_output.get("_approval_decision", "hook_denied")
+                    _hook_error_msg = str(sse_output.get("error", "")) or ""
+                    yield {
+                        "event": "hook_outcome",
+                        "data": json.dumps(
+                            {
+                                "tool_name": data.get("tool_name", ""),
+                                "tool_call_id": data.get("id", ""),
+                                "outcome": "deny",
+                                "approval_decision": _hook_approval_dec,
+                                "message": _hook_error_msg,
+                            }
+                        ),
+                    }
+                _end_payload: dict[str, Any] = {
+                    "id": data["id"],
+                    "output": sse_output,
+                    "status": data["status"],
+                }
+                # #1467: additive density fields, gated on cli.density.mode.
+                # In normal/detailed mode all four fields are None — client
+                # falls back to today's raw-JSON rendering (byte-identical).
+                _end_payload.update(_density_summary_fields_for_end(_app_config, sse_output, data["status"]))
                 yield {
                     "event": "tool_call_end",
-                    "data": json.dumps({"id": data["id"], "output": sse_output, "status": data["status"]}),
+                    "data": json.dumps(_end_payload),
                 }
 
                 if (
@@ -1711,16 +2076,8 @@ async def _stream_chat_events(ctx: StreamContext) -> Any:
                                 ),
                             }
 
-                if data["tool_name"] == "run_agent":
-                    for sa_agent_id in list(ctx.subagent_events.keys()):
-                        events = ctx.subagent_events[sa_agent_id]
-                        if any(e["kind"] == "subagent_end" for e in events):
-                            for sa_event in events:
-                                yield {
-                                    "event": "subagent_event",
-                                    "data": json.dumps(sa_event),
-                                }
-                            del ctx.subagent_events[sa_agent_id]
+                # (#1460) Subagent events now stream live via the merge
+                # helper around ``agent_gen``; no post-hoc flush needed.
 
             elif kind == "error":
                 yield {"event": "error", "data": json.dumps(data)}
@@ -1802,6 +2159,9 @@ async def _stream_chat_events(ctx: StreamContext) -> Any:
             elif kind == "queued_message":
                 current_assistant_msg = None
                 _streamed_content = ""
+                # #1472: a queued follow-up message starts a new user turn, so
+                # reset the per-turn tool-call accumulator.
+                _turn_tool_calls = []
                 yield {"event": "queued_message", "data": json.dumps(data)}
 
             elif kind == "done":
@@ -1855,6 +2215,7 @@ async def _stream_chat_events(ctx: StreamContext) -> Any:
                             _pack_inventory,
                             dlp_scanner=_dlp_scanner,
                             output_filter=_output_filter,
+                            turn_tool_calls=list(_turn_tool_calls),
                         )
                         _attr_serialized = serialize_attribution(_attr_snapshot)
                         storage.merge_message_metadata(
@@ -1937,7 +2298,7 @@ async def _stream_chat_events(ctx: StreamContext) -> Any:
 
     except Exception:
         logger.exception("Chat stream error")
-        yield {"event": "error", "data": json.dumps({"message": "An internal error occurred"})}
+        yield {"event": "error", "data": json.dumps(build_user_error("An internal error occurred"))}
     finally:
         if _disconnect_task is not None and not _disconnect_task.done():
             _disconnect_task.cancel()
@@ -2141,11 +2502,12 @@ async def chat(conversation_id: str, request: Request) -> Any:
                 if route.action == "cancel":
                     from ..services.workflow_engine import WorkflowEngine
 
+                    assert route.target_run_id is not None
                     event_bus = getattr(request.app.state, "event_bus", None)
                     updated = await WorkflowEngine.request_cancel(
                         db,
                         route.target_run_id,
-                        event_bus=event_bus,  # type: ignore[arg-type]
+                        event_bus=event_bus,
                     )
 
                     async def _cancel_stream() -> Any:
@@ -2189,11 +2551,12 @@ async def chat(conversation_id: str, request: Request) -> Any:
                 if route.action == "replace":
                     from ..services.workflow_engine import WorkflowEngine
 
+                    assert route.target_run_id is not None
                     event_bus = getattr(request.app.state, "event_bus", None)
                     await WorkflowEngine.request_cancel(
                         db,
                         route.target_run_id,
-                        event_bus=event_bus,  # type: ignore[arg-type]
+                        event_bus=event_bus,
                     )
                     # Fall through to normal chat flow to spawn new work
 
@@ -2595,7 +2958,10 @@ async def chat(conversation_id: str, request: Request) -> Any:
 
     _rate_limiter = ToolRateLimiter(safety_config.tool_rate_limit if safety_config else None)
     tool_registry.set_rate_limiter(_rate_limiter)
-    _subagent_events: dict[str, list[dict[str, Any]]] = {}
+    # Bounded live queue (see ToolExecutorContext.subagent_events). Sized to
+    # absorb bursty tool_call_start frames from several parallel subagents
+    # without blocking the executor; overflow drops the oldest frame.
+    _subagent_events: asyncio.Queue[dict[str, Any]] = asyncio.Queue(maxsize=500)
 
     tool_exec_ctx = ToolExecutorContext(
         tool_registry=tool_registry,
@@ -2617,6 +2983,7 @@ async def chat(conversation_id: str, request: Request) -> Any:
         rule_enforcer=req_rule_enf,
         bg_manager=getattr(request.app.state, "bg_manager", None),
         detach_manager=getattr(request.app.state, "detach_manager", None),
+        audit_writer=getattr(request.app.state, "audit_writer", None),
     )
 
     async def _tool_executor(tool_name: str, arguments: dict[str, Any]) -> dict[str, Any]:

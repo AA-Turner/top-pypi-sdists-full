@@ -300,6 +300,7 @@ def store_temporary_view_as_dataframe(
             dataframe=input_df,
             spark_column_names=spark_columns,
             snowpark_column_names=snowpark_columns,
+            column_metadata=input_container.column_map.column_metadata,
             parent_column_name_map=input_container.column_map,
             cached_schema_getter=lambda: schema,
         )

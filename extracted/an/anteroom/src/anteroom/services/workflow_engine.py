@@ -19,14 +19,14 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import yaml
 
 if TYPE_CHECKING:
     from ..config import WorkflowConfig
     from ..db import ThreadSafeConnection
-    from .workflow_runners import RunnerRegistry, RunnerResult
+    from .workflow_runners import RunnerRegistry, RunnerResult, TranscriptCallback
 
 from .failure_triage import extract_failure_triage
 
@@ -35,6 +35,13 @@ logger = logging.getLogger(__name__)
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _require_run_row(row: dict[str, Any] | None, run_id: str) -> dict[str, Any]:
+    """Narrow workflow-storage helpers that must return a row on valid run paths."""
+    if row is None:
+        raise RuntimeError(f"Workflow run disappeared during execution: {run_id}")
+    return row
 
 
 # ---------------------------------------------------------------------------
@@ -1524,7 +1531,7 @@ class WorkflowEngine:
                     attempt = 1
                     if run is not None:
                         attempt = int(run.get("attempt_count") or 0) + 1
-                    hook_payload = dict(event_data["data"])
+                    hook_payload = dict(cast(dict[str, Any], event_data["data"]))
                     hook_payload["attempt"] = attempt
                     tasks = await workflow_hooks.deliver_hooks(hooks, hook_payload, attempt=attempt)
                     self._pending_hook_tasks.extend(tasks)
@@ -1601,10 +1608,10 @@ class WorkflowEngine:
         rates = self._model_costs.get(model, {})
         if not rates:
             return 0.0
-        input_rate = rates.get("input", 0.0)
-        output_rate = rates.get("output", 0.0)
-        prompt_t = artifacts.get("prompt_tokens", 0)
-        completion_t = artifacts.get("completion_tokens", 0)
+        input_rate = float(rates.get("input", 0.0) or 0.0)
+        output_rate = float(rates.get("output", 0.0) or 0.0)
+        prompt_t = int(artifacts.get("prompt_tokens", 0) or 0)
+        completion_t = int(artifacts.get("completion_tokens", 0) or 0)
         return (prompt_t / 1_000_000) * input_rate + (completion_t / 1_000_000) * output_rate
 
     @staticmethod
@@ -1805,11 +1812,14 @@ class WorkflowEngine:
                 raise RuntimeError(f"Target {target_kind}:{target_ref} is already locked by another run")
 
         # Mark running
-        run = ws.update_workflow_run(
-            self._db,
+        run = _require_run_row(
+            ws.update_workflow_run(
+                self._db,
+                run["id"],
+                status="running",
+                started_at=datetime.now(timezone.utc).isoformat(),
+            ),
             run["id"],
-            status="running",
-            started_at=datetime.now(timezone.utc).isoformat(),
         )
 
         await self._emit_event(
@@ -1834,7 +1844,10 @@ class WorkflowEngine:
             )
         except Exception:
             logger.exception("Workflow run %s failed with exception", run["id"])
-            run = ws.update_workflow_run(self._db, run["id"], status="failed", stop_reason="unhandled_exception")
+            run = _require_run_row(
+                ws.update_workflow_run(self._db, run["id"], status="failed", stop_reason="unhandled_exception"),
+                run["id"],
+            )
             await self._emit_event(
                 run_id=run["id"],
                 event_type="run_failed",
@@ -2302,21 +2315,27 @@ class WorkflowEngine:
                         )
                     if req and req["status"] == "denied":
                         ws.release_lock(self._db, run_id=run_id)
-                        return ws.update_workflow_run(
-                            self._db,
+                        return _require_run_row(
+                            ws.update_workflow_run(
+                                self._db,
+                                run_id,
+                                status="cancelled",
+                                stop_reason="approval_denied",
+                                completed_at=datetime.now(timezone.utc).isoformat(),
+                            ),
                             run_id,
-                            status="cancelled",
-                            stop_reason="approval_denied",
-                            completed_at=datetime.now(timezone.utc).isoformat(),
                         )
                     if req and req["status"] == "expired":
                         ws.release_lock(self._db, run_id=run_id)
-                        return ws.update_workflow_run(
-                            self._db,
+                        return _require_run_row(
+                            ws.update_workflow_run(
+                                self._db,
+                                run_id,
+                                status="cancelled",
+                                stop_reason="approval_expired",
+                                completed_at=datetime.now(timezone.utc).isoformat(),
+                            ),
                             run_id,
-                            status="cancelled",
-                            stop_reason="approval_expired",
-                            completed_at=datetime.now(timezone.utc).isoformat(),
                         )
                     # approved: mark the step for one-shot auto-approval on re-run.
                     # V1 strategy: the pre-loaded callback approves the FIRST
@@ -2349,21 +2368,27 @@ class WorkflowEngine:
                         on_timeout = step_def.on_timeout if step_def else None
                         if on_timeout and on_timeout.get("outcome") == "stop":
                             ws.release_lock(self._db, run_id=run_id)
-                            return ws.update_workflow_run(
-                                self._db,
+                            return _require_run_row(
+                                ws.update_workflow_run(
+                                    self._db,
+                                    run_id,
+                                    status="cancelled",
+                                    stop_reason=on_timeout.get("stop_reason", "human_timeout"),
+                                    completed_at=datetime.now(timezone.utc).isoformat(),
+                                ),
                                 run_id,
-                                status="cancelled",
-                                stop_reason=on_timeout.get("stop_reason", "human_timeout"),
-                                completed_at=datetime.now(timezone.utc).isoformat(),
                             )
                         # Default: treat expired as stop
                         ws.release_lock(self._db, run_id=run_id)
-                        return ws.update_workflow_run(
-                            self._db,
+                        return _require_run_row(
+                            ws.update_workflow_run(
+                                self._db,
+                                run_id,
+                                status="cancelled",
+                                stop_reason="human_decision_expired",
+                                completed_at=datetime.now(timezone.utc).isoformat(),
+                            ),
                             run_id,
-                            status="cancelled",
-                            stop_reason="human_decision_expired",
-                            completed_at=datetime.now(timezone.utc).isoformat(),
                         )
                     if decision and decision["status"] == "resolved":
                         selected = decision.get("selected_option")
@@ -2377,12 +2402,15 @@ class WorkflowEngine:
                             if opt:
                                 if opt["outcome"] == "stop":
                                     ws.release_lock(self._db, run_id=run_id)
-                                    return ws.update_workflow_run(
-                                        self._db,
+                                    return _require_run_row(
+                                        ws.update_workflow_run(
+                                            self._db,
+                                            run_id,
+                                            status="cancelled",
+                                            stop_reason=opt.get("stop_reason", "operator_stopped"),
+                                            completed_at=datetime.now(timezone.utc).isoformat(),
+                                        ),
                                         run_id,
-                                        status="cancelled",
-                                        stop_reason=opt.get("stop_reason", "operator_stopped"),
-                                        completed_at=datetime.now(timezone.utc).isoformat(),
                                     )
                                 elif opt["outcome"] == "branch":
                                     # Skip to the branch target
@@ -2435,11 +2463,14 @@ class WorkflowEngine:
                 )
             except Exception:
                 logger.exception("Compensation resume for run %s failed with exception", run_id)
-                run = ws.update_workflow_run(
-                    self._db,
+                run = _require_run_row(
+                    ws.update_workflow_run(
+                        self._db,
+                        run_id,
+                        status="compensation_failed",
+                        stop_reason="unhandled_exception",
+                    ),
                     run_id,
-                    status="compensation_failed",
-                    stop_reason="unhandled_exception",
                 )
             finally:
                 heartbeat_task.cancel()
@@ -2452,7 +2483,7 @@ class WorkflowEngine:
             return run
 
         # Mark running, write initial heartbeat
-        run = ws.update_workflow_run(self._db, run_id, status="running", stop_reason=None)
+        run = _require_run_row(ws.update_workflow_run(self._db, run_id, status="running", stop_reason=None), run_id)
         ws.update_workflow_run(self._db, run_id, heartbeat_at=_now())
         heartbeat_task = asyncio.create_task(self._heartbeat_loop(run_id))
 
@@ -2469,7 +2500,7 @@ class WorkflowEngine:
             payload=resumed_payload,
             definition=definition,
         )
-        run = ws.get_workflow_run(self._db, run_id) or run
+        run = _require_run_row(ws.get_workflow_run(self._db, run_id), run_id)
 
         # Step 7: Emit replay_from_step audit event (#1106)
         if from_step:
@@ -2503,11 +2534,14 @@ class WorkflowEngine:
             )
         except Exception:
             logger.exception("Resumed workflow run %s failed with exception", run_id)
-            run = ws.update_workflow_run(
-                self._db,
+            run = _require_run_row(
+                ws.update_workflow_run(
+                    self._db,
+                    run_id,
+                    status="failed",
+                    stop_reason="unhandled_exception",
+                ),
                 run_id,
-                status="failed",
-                stop_reason="unhandled_exception",
             )
         finally:
             heartbeat_task.cancel()
@@ -2560,7 +2594,7 @@ class WorkflowEngine:
 
         # Transition to compensating if not already
         if run.get("status") != "compensating":
-            run = ws.update_workflow_run(self._db, run["id"], status="compensating")
+            run = _require_run_row(ws.update_workflow_run(self._db, run["id"], status="compensating"), run["id"])
             await self._emit_event(
                 run_id=run["id"],
                 event_type="compensation_started",
@@ -2716,12 +2750,15 @@ class WorkflowEngine:
 
         # Final status
         if failed_list:
-            run = ws.update_workflow_run(
-                self._db,
+            run = _require_run_row(
+                ws.update_workflow_run(
+                    self._db,
+                    run["id"],
+                    status="compensation_failed",
+                    stop_reason=f"compensation_failed:{','.join(failed_list)}",
+                    completed_at=_now(),
+                ),
                 run["id"],
-                status="compensation_failed",
-                stop_reason=f"compensation_failed:{','.join(failed_list)}",
-                completed_at=_now(),
             )
             await self._emit_event(
                 run_id=run["id"],
@@ -2730,11 +2767,14 @@ class WorkflowEngine:
                 definition=definition,
             )
         else:
-            run = ws.update_workflow_run(
-                self._db,
+            run = _require_run_row(
+                ws.update_workflow_run(
+                    self._db,
+                    run["id"],
+                    status="compensated",
+                    completed_at=_now(),
+                ),
                 run["id"],
-                status="compensated",
-                completed_at=_now(),
             )
             await self._emit_event(
                 run_id=run["id"],
@@ -2798,11 +2838,14 @@ class WorkflowEngine:
         )
 
         # Transition run to waiting_for_input
-        run = ws.update_workflow_run(
-            self._db,
+        run = _require_run_row(
+            ws.update_workflow_run(
+                self._db,
+                run["id"],
+                status="waiting_for_input",
+                current_step_id=step_def.id,
+            ),
             run["id"],
-            status="waiting_for_input",
-            current_step_id=step_def.id,
         )
         await self._emit_event(
             run_id=run["id"],
@@ -2959,13 +3002,16 @@ class WorkflowEngine:
                             budget_usage["elapsed_seconds"] = int(
                                 prior_elapsed + (time.monotonic() - budget_start_time)
                             )
-                        run = ws.update_workflow_run(
-                            self._db,
+                        run = _require_run_row(
+                            ws.update_workflow_run(
+                                self._db,
+                                run["id"],
+                                status="failed",
+                                stop_reason=f"budget_exceeded:{violation}",
+                                completed_at=datetime.now(timezone.utc).isoformat(),
+                                budget_usage_json=budget_usage,
+                            ),
                             run["id"],
-                            status="failed",
-                            stop_reason=f"budget_exceeded:{violation}",
-                            completed_at=datetime.now(timezone.utc).isoformat(),
-                            budget_usage_json=budget_usage,
                         )
                         await self._emit_event(
                             run_id=run["id"],
@@ -3115,12 +3161,15 @@ class WorkflowEngine:
                         step_id=step_def.id,
                         payload={"error": str(exc)},
                     )
-                    run = ws.update_workflow_run(
-                        self._db,
+                    run = _require_run_row(
+                        ws.update_workflow_run(
+                            self._db,
+                            run["id"],
+                            status="failed",
+                            stop_reason=f"step_failed:{step_def.id}",
+                            completed_at=datetime.now(timezone.utc).isoformat(),
+                        ),
                         run["id"],
-                        status="failed",
-                        stop_reason=f"step_failed:{step_def.id}",
-                        completed_at=datetime.now(timezone.utc).isoformat(),
                     )
                     # Resolve run-level summary on failure (#1150)
                     if definition.summary:
@@ -3195,12 +3244,15 @@ class WorkflowEngine:
                         step_id=step_def.id,
                         payload={"result_status": "blocked"},
                     )
-                    run = ws.update_workflow_run(
-                        self._db,
+                    run = _require_run_row(
+                        ws.update_workflow_run(
+                            self._db,
+                            run["id"],
+                            status=run_status,
+                            stop_reason=result.summary or f"blocked_at:{step_def.id}",
+                            current_step_id=step_def.id,
+                        ),
                         run["id"],
-                        status=run_status,
-                        stop_reason=result.summary or f"blocked_at:{step_def.id}",
-                        current_step_id=step_def.id,
                     )
                     # Create checkpoint at approval/block pause (#979)
                     # Include the blocked step's data in the checkpoint snapshot
@@ -3247,12 +3299,15 @@ class WorkflowEngine:
                     # Cancel-race fix (#890): if cancel was requested and the step
                     # "failed" due to cancellation, treat as cancelled, not failed.
                     if ws.is_cancel_requested(self._db, run["id"]):
-                        run = ws.update_workflow_run(
-                            self._db,
+                        run = _require_run_row(
+                            ws.update_workflow_run(
+                                self._db,
+                                run["id"],
+                                status="cancelled",
+                                stop_reason="cancel_requested",
+                                completed_at=datetime.now(timezone.utc).isoformat(),
+                            ),
                             run["id"],
-                            status="cancelled",
-                            stop_reason="cancel_requested",
-                            completed_at=datetime.now(timezone.utc).isoformat(),
                         )
                         ws.release_lock(self._db, run_id=run["id"])
                         await self._emit_event(
@@ -3381,12 +3436,15 @@ class WorkflowEngine:
                         step_id=step_def.id,
                         payload={"result_status": "failed", "summary": result.summary},
                     )
-                    run = ws.update_workflow_run(
-                        self._db,
+                    run = _require_run_row(
+                        ws.update_workflow_run(
+                            self._db,
+                            run["id"],
+                            status="failed",
+                            stop_reason=f"step_failed:{step_def.id}",
+                            completed_at=datetime.now(timezone.utc).isoformat(),
+                        ),
                         run["id"],
-                        status="failed",
-                        stop_reason=f"step_failed:{step_def.id}",
-                        completed_at=datetime.now(timezone.utc).isoformat(),
                     )
                     # Resolve run-level summary on failure (#1150)
                     if definition.summary:
@@ -3567,10 +3625,13 @@ class WorkflowEngine:
                 budget_usage_json=budget_usage,
             )
 
-            run = ws.update_workflow_run(
-                self._db,
+            run = _require_run_row(
+                ws.update_workflow_run(
+                    self._db,
+                    run["id"],
+                    attempt_count=run.get("attempt_count", 0) + 1,
+                ),
                 run["id"],
-                attempt_count=run.get("attempt_count", 0) + 1,
             )
 
             # Create checkpoint after step completion (#979)
@@ -3585,11 +3646,14 @@ class WorkflowEngine:
             )
 
         # All steps completed
-        run = ws.update_workflow_run(
-            self._db,
+        run = _require_run_row(
+            ws.update_workflow_run(
+                self._db,
+                run["id"],
+                status="completed",
+                completed_at=datetime.now(timezone.utc).isoformat(),
+            ),
             run["id"],
-            status="completed",
-            completed_at=datetime.now(timezone.utc).isoformat(),
         )
 
         # Resolve run-level summary on success (#1150)
@@ -3673,7 +3737,7 @@ class WorkflowEngine:
                 context = f"{context}\n\n{failed_ctx}" if context else failed_ctx
 
         # Build transcript callback (#1111)
-        transcript_cb = None
+        transcript_cb: TranscriptCallback | None = None
         transcript_cfg = getattr(self._config, "transcript", None)
         if transcript_cfg is not None and transcript_cfg.enabled:
             from . import workflow_storage as _ws_transcript
@@ -3681,7 +3745,7 @@ class WorkflowEngine:
             _run_id = run["id"]
             _db_ref = self._db
 
-            def transcript_cb(etype: str, sid: str | None, payload: dict[str, Any]) -> None:
+            def _transcript_cb(etype: str, sid: str | None, payload: dict[str, Any]) -> None:
                 _ws_transcript.create_workflow_event(
                     _db_ref,
                     run_id=_run_id,
@@ -3694,6 +3758,8 @@ class WorkflowEngine:
                         self._progress_callback(etype, sid, payload)
                     except Exception:
                         logger.warning("Progress callback error for transcript event", exc_info=True)
+
+            transcript_cb = cast(Any, _transcript_cb)
 
         # Resolve dotted refs ({step.artifacts.x}, {env.VAR}) in working_dir
         # and env values.  Security: only applied to working_dir/env, NOT to
@@ -3736,7 +3802,7 @@ class WorkflowEngine:
 
                 async def _cred_executor(name: str, args: dict[str, Any], **kwargs: Any) -> dict[str, Any]:
                     kwargs.pop("_extra_env", None)  # prevent duplicate kwarg conflict
-                    return await base_executor(name, args, _extra_env=creds_snapshot, **kwargs)
+                    return dict(await base_executor(name, args, _extra_env=creds_snapshot, **kwargs))
 
                 step_tool_executor = _cred_executor
 
@@ -3929,11 +3995,14 @@ class WorkflowEngine:
 
         idem_key = self._resolve_idempotency_key(step_def, run, inputs)
 
-        result = await adapter.publish(
-            content=content,
-            destination=resolved_dest,
-            credentials=resolved_creds,
-            idempotency_key=idem_key,
+        result = cast(
+            RunnerResult,
+            await adapter.publish(
+                content=content,
+                destination=resolved_dest,
+                credentials=resolved_creds,
+                idempotency_key=idem_key,
+            ),
         )
         result.artifacts["idempotency_key"] = idem_key
         return result
@@ -4035,8 +4104,9 @@ class WorkflowEngine:
         # Response caching (#988)
         from . import workflow_cache as wc
 
-        cache_enabled = bool(step_def.cache and step_def.cache.get("enabled", False))
-        cache_ttl = step_def.cache.get("ttl", 3600) if cache_enabled else 0
+        cache_cfg = step_def.cache or {}
+        cache_enabled = bool(cache_cfg.get("enabled", False))
+        cache_ttl = cache_cfg.get("ttl", 3600) if cache_enabled else 0
         space_id = run.get("space_id") or ""
 
         resolved_prompt = prompt

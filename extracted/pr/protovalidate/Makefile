@@ -15,8 +15,8 @@ CONFORMANCE_ARGS ?= --strict_message --expected_failures=test/conformance/noncon
 ADD_LICENSE_HEADER := $(BIN)/license-header \
 		--license-type apache \
 		--copyright-holder "Buf Technologies, Inc." \
-		--year-range "2023-2025"
-PROTOVALIDATE_VERSION ?= 895eefca6d1346f742fc18b9983d40478820906d
+		--year-range "2023-2026"
+PROTOVALIDATE_VERSION ?= v1.2.0
 # Version of the cel-spec that this implementation is conformant with
 # This should be kept in sync with the version in test/test_format.py
 CEL_SPEC_VERSION ?= v0.25.1
@@ -63,6 +63,7 @@ format: install $(BIN)/buf $(BIN)/license-header ## Format code
 	buf format --write .
 	uv run -- ruff format protovalidate test
 	uv run -- ruff check --fix protovalidate test
+	uv run -- tombi format
 
 .PHONY: test
 test: generate install $(TESTDATA_FILE) ## Run unit tests
@@ -78,6 +79,8 @@ lint: install $(BIN)/buf ## Lint code
 	uv run -- ruff format --check --diff protovalidate test
 	uv run -- mypy protovalidate
 	uv run -- ruff check protovalidate test
+	uv run -- tombi format --check
+	uv run -- tombi lint
 	uv lock --check
 
 .PHONY: install
@@ -96,11 +99,11 @@ $(TESTDATA_FILE):
 $(BIN):
 	@mkdir -p $(BIN)
 
-$(BIN)/buf: $(BIN) Makefile
+$(BIN)/buf: Makefile | $(BIN)
 	go install github.com/bufbuild/buf/cmd/buf@v${BUF_VERSION}
 
-$(BIN)/license-header: $(BIN) Makefile
+$(BIN)/license-header: Makefile | $(BIN)
 	go install github.com/bufbuild/buf/private/pkg/licenseheader/cmd/license-header@v${BUF_VERSION}
 
-$(BIN)/protovalidate-conformance: $(BIN) Makefile
+$(BIN)/protovalidate-conformance: Makefile | $(BIN)
 	go install github.com/bufbuild/protovalidate/tools/protovalidate-conformance@$(PROTOVALIDATE_VERSION)

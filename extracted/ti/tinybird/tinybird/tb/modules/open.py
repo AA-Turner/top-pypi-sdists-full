@@ -22,7 +22,7 @@ def open(ctx: Context, workspace: str):
     client = ctx.ensure_object(dict)["client"]
     branch = ctx.ensure_object(dict)["branch"]
 
-    url_host = get_display_cloud_host(client.host)
+    is_local = "localhost" in client.host
 
     if not workspace:
         workspace = config.get("name")
@@ -34,12 +34,18 @@ def open(ctx: Context, workspace: str):
             )
         )
 
-    if branch:
+    if is_local:
+        url_host = get_display_cloud_host(config["host"])
+        click.echo(FeedbackManager.highlight(message=f"» Opening local workspace {workspace} in the browser"))
+        auth_url = f"{url_host}/{workspace}~local~{workspace}"
+    elif branch:
+        url_host = get_display_cloud_host(client.host)
         click.echo(
             FeedbackManager.highlight(message=f"» Opening branch {branch} of workspace {workspace} in the browser")
         )
         auth_url = f"{url_host}/{workspace}~{branch}"
     else:
+        url_host = get_display_cloud_host(client.host)
         click.echo(FeedbackManager.highlight(message=f"» Opening workspace {workspace} in the browser"))
         auth_url = f"{url_host}/{workspace}"
 

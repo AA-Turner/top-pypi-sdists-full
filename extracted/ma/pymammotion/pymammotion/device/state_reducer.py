@@ -35,6 +35,7 @@ from pymammotion.data.model.hash_list import (
 from pymammotion.data.model.pool_state import PoolBottomType, PoolPoint, SpinoSysStatus, SpinoWorkMode, WallMaterial
 from pymammotion.data.model.report_info import BaseScore
 from pymammotion.data.model.work import CurrentTaskSettings
+from pymammotion.data.mqtt.properties import OTAProgressItems
 from pymammotion.proto import (
     AppDownlinkCmdT,
     AppGetAllAreaHashName,
@@ -493,6 +494,7 @@ class MowerStateReducer(StateReducer):
                 info.wifi_rssi = resp.wifi_rssi
                 info.lora_channel = resp.lora_channel
                 info.mqtt_rtk_status = resp.mqtt_rtk_status
+                info.app_connect_type = resp.app_connect_type
                 if resp.score_info is not None:
                     info.score_info = BaseScore(
                         base_score=resp.score_info.base_score,
@@ -600,6 +602,21 @@ class MowerStateReducer(StateReducer):
                 value = str(prop.value)
                 if value:
                     _apply_mower_fw_module(device.device_firmwares, fw_type, value)
+
+        if ota_prop := items.otaProgress:
+            try:
+                ota = OTAProgressItems.from_dict(ota_prop.value)
+                done = ota.progress == 100
+                device.update_check = dataclasses.replace(
+                    device.update_check,
+                    progress=ota.progress,
+                    isupgrading=not done,
+                    upgradeable=False if done else device.update_check.upgradeable,
+                )
+                if done:
+                    device.device_firmwares.device_version = ota.version
+            except (ValueError, KeyError, TypeError):
+                _logger.debug("MowerStateReducer: failed to parse otaProgress property")
 
         return device
 
@@ -952,6 +969,21 @@ class RTKStateReducer(StateReducer):
 
         if lora_prop := items.loraGeneralConfig:
             device.lora_version = str(lora_prop.value)
+
+        if ota_prop := items.otaProgress:
+            try:
+                ota = OTAProgressItems.from_dict(ota_prop.value)
+                done = ota.progress == 100
+                device.update_check = dataclasses.replace(
+                    device.update_check,
+                    progress=ota.progress,
+                    isupgrading=not done,
+                    upgradeable=False if done else device.update_check.upgradeable,
+                )
+                if done:
+                    device.device_version = ota.version
+            except (ValueError, KeyError, TypeError):
+                _logger.debug("RTKStateReducer: failed to parse otaProgress property")
 
         return device
 

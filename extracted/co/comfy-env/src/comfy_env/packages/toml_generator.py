@@ -49,7 +49,8 @@ def config_to_pixi_dict(cfg: ComfyEnvConfig, node_dir: Path, log: Callable[[str]
     pixi_data = copy.deepcopy(cfg.pixi_passthrough)
 
     # Detect CUDA/PyTorch versions and compute PyTorch index URL.
-    # Overrides allow the install logic to force a specific combo (e.g. fallback to cu128/2.8).
+    # Overrides allow the install logic to force a specific combo (e.g. fallback to cu128/2.8,
+    # or CPU mode matching the main env's torch version via `torch_override` with no cuda).
     cuda_version = torch_version = pytorch_index = None
     if cfg.has_cuda and sys.platform != "darwin":
         cuda_version = cuda_override or get_recommended_cuda_version()
@@ -58,8 +59,14 @@ def config_to_pixi_dict(cfg: ComfyEnvConfig, node_dir: Path, log: Callable[[str]
             pytorch_index = f"https://download.pytorch.org/whl/cu{cuda_version.replace('.', '')[:3]}"
             log(f"CUDA {cuda_version} -> PyTorch {torch_version}")
         else:
+            # CPU mode: use torch_override if the caller detected a main-env torch version,
+            # otherwise let the downstream fallback kick in.
+            torch_version = torch_override
             pytorch_index = "https://download.pytorch.org/whl/cpu"
-            log("No GPU detected - using PyTorch CPU index")
+            if torch_version:
+                log(f"No GPU detected - using PyTorch CPU index, matching torch {torch_version}")
+            else:
+                log("No GPU detected - using PyTorch CPU index")
 
     # Pixi always installs its own torch into each isolation env.
     # Add PyTorch packages to pypi-dependencies with per-package index.
@@ -124,6 +131,15 @@ def config_to_pixi_dict(cfg: ComfyEnvConfig, node_dir: Path, log: Callable[[str]
     #   - >=75.0 fixes conda-forge Python version string parsing
     #   - <82 satisfies torch (>=2.10) which requires setuptools<82
     dependencies.setdefault("setuptools", ">=75.0,<82")
+
+    # Windows only: force libblas to the OpenBLAS variant so conda-forge doesn't pull in
+    # mkl -> llvm-openmp -> Library\bin\libiomp5md.dll. That DLL shares the filename of
+    # PyTorch's bundled Intel-OpenMP libiomp5md.dll but exports a different (smaller) symbol
+    # set and causes fbgemm.dll to fail with WinError 127 on 'import torch' inside workers
+    # (the _vcomp_* symbols fbgemm imports only exist in the Intel build shipped with torch).
+    # Using setdefault so author overrides in comfy-env.toml still win.
+    if sys.platform == "win32":
+        dependencies.setdefault("libblas", {"version": "*", "build": "*openblas*"})
 
     # On macOS, strip CUDA-specific pypi deps (e.g. cumm-cu121, spconv-cu121)
     if sys.platform == "darwin":

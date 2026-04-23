@@ -6,6 +6,8 @@ from typing import Any
 
 from rich.table import Table
 
+from ..services.storage import get_run_label
+
 
 def handle_agent_list(db: Any, conversation_id: str, renderer: Any) -> None:
     """List detached agent runs for the current conversation."""
@@ -27,7 +29,7 @@ def handle_agent_list(db: Any, conversation_id: str, renderer: Any) -> None:
     for run in runs:
         rid = run["id"][:8]
         status = run.get("status", "?")
-        title = (run.get("title") or "")[:50]
+        title = get_run_label(run)[:50]
         dur_ms = run.get("duration_ms")
         dur = f"{dur_ms / 1000:.1f}s" if dur_ms else "-"
         style = "green" if status == "completed" else "red" if status == "failed" else "dim"
@@ -59,15 +61,17 @@ def handle_agent_status(db: Any, run_id: str, renderer: Any) -> None:
         return
 
     renderer.console.print(f"[bold]Run {full_id[:8]}[/bold] — {run.get('status', '?')}")
-    renderer.console.print(f"  Title:     {run.get('title', '-')}")
+    renderer.console.print(f"  Label:     {get_run_label(run) or '-'}")
     renderer.console.print(f"  Started:   {run.get('started_at', '-')}")
     renderer.console.print(f"  Completed: {run.get('completed_at', '-')}")
     if run.get("duration_ms"):
         renderer.console.print(f"  Duration:  {run['duration_ms'] / 1000:.1f}s")
+    meta = run.get("metadata") or {}
+    if meta.get("model"):
+        renderer.console.print(f"  Model:     {meta['model']}")
     if run.get("parent_run_id"):
         renderer.console.print(f"  Retry of:  {run['parent_run_id'][:8]}")
 
-    meta = run.get("metadata") or {}
     if meta.get("output"):
         renderer.console.print(f"\n  Output preview:\n  {meta['output'][:500]}")
     if meta.get("error"):
@@ -128,7 +132,7 @@ def handle_agent_retry(db: Any, run_id: str, renderer: Any, **start_kwargs: Any)
 
     full_id = rows[0]["id"]
     try:
-        result = mgr.retry(full_id, **start_kwargs)
+        result = dict(mgr.retry(full_id, **start_kwargs))
         renderer.console.print(f"[green]Retrying as new run {result['run_id'][:8]} (retry of {full_id[:8]})[/green]")
         return result
     except ValueError as exc:

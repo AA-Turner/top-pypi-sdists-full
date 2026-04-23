@@ -46,6 +46,13 @@ def _sample_snapshot() -> AttributionSnapshot:
         sources=[{"label": "README.md", "type": "source_chunk", "source_id": "s-1"}],
         tools=[{"id": "tc-1", "name": "read_file"}],
         packs=[{"namespace": "core", "name": "alpha", "scope": "global"}],
+        instructions=[
+            {
+                "path": "/repo/ANTEROOM.md",
+                "scope": "project",
+                "estimated_tokens": 9894,
+            }
+        ],
         dlp_match_count=0,
         output_filter_match_count=0,
     )
@@ -75,8 +82,26 @@ class TestAttributionFooter:
         assert "1 sources" in out
         assert "1 tools" in out
         assert "1 packs" in out
+        # #1462 — singular noun when exactly one instruction file loaded.
+        assert "1 instruction file" in out
         assert "DLP:" not in out  # no redactions in sample
         assert "OF:" not in out
+
+    def test_instructions_segment_hidden_when_zero(self) -> None:
+        """The footer omits the instructions count when no file loaded,
+        to keep the default footer compact."""
+        out = _capture_footer(AttributionSnapshot())
+        assert "instruction" not in out
+
+    def test_instructions_plural_noun(self) -> None:
+        snap = AttributionSnapshot(
+            instructions=[
+                {"path": "/g.md", "scope": "global", "estimated_tokens": 100},
+                {"path": "/p.md", "scope": "project", "estimated_tokens": 200},
+            ]
+        )
+        out = _capture_footer(snap)
+        assert "2 instruction files" in out
 
     def test_dlp_and_of_counters_surface_when_nonzero(self) -> None:
         snap = AttributionSnapshot(dlp_match_count=2, output_filter_match_count=1)
@@ -105,7 +130,8 @@ class TestAttributionDetail:
         assert "RAG sources" in out
         assert "Tool calls" in out
         assert "Attached packs" in out
-        assert out.count("(none)") >= 5
+        assert "Project instructions" in out
+        assert out.count("(none)") >= 6
 
     def test_typical_snapshot_renders_all_sections(self) -> None:
         out = _capture_detail(_sample_snapshot())
@@ -115,6 +141,12 @@ class TestAttributionDetail:
         assert "README.md" in out
         assert "read_file" in out
         assert "core" in out
+        # #1462 — instructions section renders the path + scope.
+        assert "Project instructions" in out
+        assert "/repo/ANTEROOM.md" in out
+        assert "project" in out
+        # Header summary includes the instructions count.
+        assert "1 instruction file" in out
 
     def test_accepts_dict_from_persisted_metadata(self) -> None:
         """On conversation reload, attribution comes back as a plain dict."""

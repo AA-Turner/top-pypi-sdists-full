@@ -1,10 +1,6 @@
 import warnings
 
-from verlib2 import Version
-
 from .base import Base
-
-VERSION_8 = Version("8")
 
 
 class Dashboard(Base):
@@ -28,8 +24,6 @@ class Dashboard(Base):
         :param dashboard_name:
         :return:
         """
-        if self.api.version and Version(self.api.version) >= VERSION_8:
-            raise DeprecationWarning("Grafana 8 and higher does not support getting dashboards by slug")
         get_dashboard_path = "/dashboards/db/%s" % dashboard_name
         return self.client.GET(get_dashboard_path)
 
@@ -80,6 +74,7 @@ class Dashboard(Base):
         warnings.warn(
             "get_dashboard_permissions is deprecated, use corresponding _by_id or _by_uid methods",
             DeprecationWarning,
+            stacklevel=2,
         )
         return self.get_permissions_by_id(dashboard_id)
 
@@ -87,6 +82,7 @@ class Dashboard(Base):
         warnings.warn(
             "update_dashboard_permissions is deprecated, use corresponding _by_id or _by_uid methods",
             DeprecationWarning,
+            stacklevel=2,
         )
         return self.update_permissions_by_id(dashboard_id, items)
 
@@ -96,11 +92,11 @@ class Dashboard(Base):
     def update_permissions_by_id(self, dashboard_id, items):
         return self.update_permissions_generic(dashboard_id, items, idtype="id")
 
-    def get_permissions_by_uid(self, dashboard_id):
-        return self.get_permissions_generic(dashboard_id)
+    def get_permissions_by_uid(self, dashboard_uid):
+        return self.get_permissions_generic(dashboard_uid)
 
-    def update_permissions_by_uid(self, dashboard_id, items):
-        return self.update_permissions_generic(dashboard_id, items)
+    def update_permissions_by_uid(self, dashboard_uid, items):
+        return self.update_permissions_generic(dashboard_uid, items)
 
     def get_permissions_generic(self, identifier, idtype="uid"):
         permissions_path = f"/dashboards/{idtype}/{identifier}/permissions"
@@ -108,4 +104,13 @@ class Dashboard(Base):
 
     def update_permissions_generic(self, identifier, items, idtype="uid"):
         permissions_path = f"/dashboards/{idtype}/{identifier}/permissions"
-        return self.client.POST(permissions_path, json=items)
+        if isinstance(items, dict):
+            if "items" in items:
+                payload = items
+            else:
+                payload = {"items": [items]}
+        elif isinstance(items, list):
+            payload = {"items": items}
+        else:
+            raise TypeError("items must be a dict or a list")
+        return self.client.POST(permissions_path, json=payload)

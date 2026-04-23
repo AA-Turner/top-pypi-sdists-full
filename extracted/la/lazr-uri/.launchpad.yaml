@@ -1,0 +1,9 @@
+pipeline:
+  - lint
+
+jobs:
+  lint:
+    architectures: amd64
+    packages: [tox, git]
+    run: tox -e lint
+    series: noble  # align with Python versions used in tox configuration

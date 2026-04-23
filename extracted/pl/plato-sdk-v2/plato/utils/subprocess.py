@@ -176,7 +176,6 @@ async def run_ssh_streaming(
                 break
             decoded_line = line.decode("utf-8", errors="replace").rstrip()
             output_lines.append(decoded_line)
-            logger.debug("[%s] %s", hostname, decoded_line)
 
     await process.wait()
     _close_subprocess(process)

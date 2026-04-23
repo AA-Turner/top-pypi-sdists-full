@@ -104,6 +104,13 @@ def is_agent() -> bool:
     return os.environ.get(AGENT_SIGNATURE) == "1"
 
 
+def validate_entrypoint(entrypoint: str) -> None:
+    """Syntax check for ``"module:attr"``. The agent resolves the module."""
+    module, sep, attr = entrypoint.partition(":")
+    if not sep or not module or not attr or ":" in attr:
+        raise ValueError(f"Invalid entrypoint {entrypoint!r}: expected 'module:attr'.")
+
+
 def prepare_exc(
     exc: BaseException,
     *,

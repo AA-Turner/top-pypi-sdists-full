@@ -1,0 +1,26 @@
+from typing import Optional
+
+from normality import ascii_text
+
+from rigour.ids.common import IdentifierFormat
+
+
+class StrictFormat(IdentifierFormat):
+    """A generic identifier type that applies harsh normalization."""
+
+    NAME = "strict"
+    TITLE = "Strict identifier"
+    STRONG = False
+
+    @classmethod
+    def is_valid(cls, value: str) -> bool:
+        norm = cls.normalize(value)
+        return norm is not None and len(norm) > 2
+
+    @classmethod
+    def normalize(cls, value: str) -> Optional[str]:
+        ascii = ascii_text(value)
+        if len(ascii) < 2:
+            return None
+        chars = [c for c in ascii if c.isalnum()]
+        return "".join(chars).upper()

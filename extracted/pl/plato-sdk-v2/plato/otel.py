@@ -40,7 +40,7 @@ import traceback
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from typing import Literal
+from typing import Any, Literal
 
 from opentelemetry import context as context_api
 from opentelemetry import trace
@@ -65,15 +65,25 @@ _log_handler = None
 
 
 class OTelSpanLogHandler(logging.Handler):
-    """Logging handler that creates OTel spans for log messages."""
+    """Logging handler that creates OTel spans for log messages.
 
-    def __init__(self, tracer: Tracer, level: int = logging.INFO):
+    Captures INFO+ from every logger, plus DEBUG from ``plato.*`` loggers.
+    DEBUG-level ``plato.*`` spans are tagged ``plato.debug=True`` so the
+    Chronos UI can hide them by default behind a "Show debug" toggle.
+    Non-``plato.*`` DEBUG records are skipped to avoid flooding the
+    collector with third-party/stdlib noise.
+    """
+
+    def __init__(self, tracer: Tracer, level: int = logging.DEBUG):
         super().__init__(level)
         self.tracer = tracer
 
     def emit(self, record: logging.LogRecord) -> None:
         """Emit a log record as an OTel span."""
         try:
+            if record.levelno < logging.INFO and not record.name.startswith("plato."):
+                return
+
             message = record.getMessage()
             if record.exc_info:
                 exc_type = record.exc_info[0].__name__ if record.exc_info[0] else "Exception"
@@ -100,6 +110,8 @@ class OTelSpanLogHandler(logging.Handler):
 
                 if record.levelno >= logging.ERROR:
                     span.set_attribute("error", True)
+                elif record.levelno == logging.DEBUG:
+                    span.set_attribute("plato.debug", True)
         except Exception:
             pass
 
@@ -154,18 +166,24 @@ def init_tracing(
             logger.debug(f"Using parent context: trace_id={parent_trace_id}, span_id={parent_span_id}")
 
         tracer = trace.get_tracer(service_name)
-        _log_handler = OTelSpanLogHandler(tracer, level=logging.INFO)
+        # Log the init message before attaching the handler so it doesn't
+        # self-instrument into a span during test harnesses that inspect the
+        # first exported span.
+        logger.debug(f"Tracing initialized: service={service_name}, session={session_id}")
+
+        _log_handler = OTelSpanLogHandler(tracer, level=logging.DEBUG)
 
         # Attach to root logger to capture ALL logs (including claude-agent-sdk, etc.)
         root_logger = logging.getLogger()
         root_logger.addHandler(_log_handler)
 
-        # Also ensure plato logger is configured
+        # plato.* loggers run at DEBUG so debug-span emissions reach the handler.
+        # The handler itself filters DEBUG records from non-plato.* loggers to
+        # keep third-party/stdlib debug noise off the wire.
         plato_logger = logging.getLogger("plato")
-        plato_logger.setLevel(logging.INFO)
+        plato_logger.setLevel(logging.DEBUG)
 
         _initialized = True
-        logger.debug(f"Tracing initialized: service={service_name}, session={session_id}")
 
     except ImportError as e:
         logger.warning(f"OpenTelemetry SDK not installed: {e}")
@@ -284,6 +302,31 @@ def instrument(service_name: str = "plato-agent") -> Tracer:
     )
 
     return trace.get_tracer(service_name)
+
+
+# =============================================================================
+# Debug spans
+# =============================================================================
+
+
+@contextmanager
+def start_debug_span(tracer: Tracer, name: str, **attributes: Any) -> Iterator[Span]:
+    """Start a span marked as debug (``plato.debug=True``).
+
+    Use for infrastructure lifecycle spans that are noisy in the default
+    trace view but still useful for debugging — e.g., world reset/step,
+    durable stage execution, verifier runs, e2e/test phases. The Chronos
+    UI hides these by default and exposes them via a "Show debug" toggle.
+
+    Do not use for agent/LLM spans or user-facing error/lifecycle spans
+    (world root, world_error, child_session.launch) — those should remain
+    visible in the default view.
+    """
+    with tracer.start_as_current_span(name) as span:
+        span.set_attribute("plato.debug", True)
+        for key, value in attributes.items():
+            span.set_attribute(key, value)
+        yield span
 
 
 # =============================================================================

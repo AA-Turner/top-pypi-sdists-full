@@ -18,6 +18,7 @@ from snowflake.snowpark._internal.analyzer.analyzer_utils import (
     quote_name_without_upper_casing,
     unquote_if_quoted,
 )
+from snowflake.snowpark.exceptions import SnowparkSQLException
 from snowflake.snowpark.functions import lit
 from snowflake.snowpark.types import BooleanType, StringType
 from snowflake.snowpark_connect.column_qualifier import ColumnQualifier
@@ -523,7 +524,7 @@ class SnowflakeCatalog(AbstractSparkCatalog):
             table_mli = f"{spark_dbName}.{table_mli}"
 
         try:
-            self.getTable(table_mli)
+            self._verify_table_exists(table_mli)
             exists = True
         except AnalysisException as ex:
             if ex.error_class == TABLE_OR_VIEW_NOT_FOUND_ERROR_CLASS:
@@ -797,12 +798,58 @@ class SnowflakeCatalog(AbstractSparkCatalog):
             column_qualifiers=qualifiers,
         )
 
+    def _verify_table_exists(self, spark_tableName: str) -> None:
+        """Verify a table/view exists, raising AnalysisException if not.
+
+        Uses DESCRIBE TABLE through the SQL execution path instead of the
+        REST v2 API (sp_catalog.get_table), which is unreliable under
+        concurrent CI workloads (intermittent 400 Bad Request).
+        """
+        spark_table_name_parts = [
+            quote_name_without_upper_casing(part)
+            for part in split_fully_qualified_spark_name(spark_tableName)
+        ]
+        spark_view_name = ".".join(spark_table_name_parts)
+        if get_temp_view(spark_view_name):
+            return
+
+        catalog, sf_database, sf_schema, table_name = _process_multi_layer_identifier(
+            spark_tableName
+        )
+        if catalog is not None and self != catalog:
+            exception = SnowparkConnectNotImplementedError(
+                "Calling into another catalog is not currently supported"
+            )
+            attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
+            raise exception
+
+        parts = []
+        if sf_database:
+            parts.append(sf_quote(sf_database))
+        if sf_schema:
+            parts.append(sf_quote(sf_schema))
+        parts.append(sf_quote(table_name))
+        fqn = ".".join(parts)
+
+        session = get_or_create_snowpark_session()
+        try:
+            session.sql(f"DESCRIBE TABLE {fqn}").collect()
+        except SnowparkSQLException as e:
+            if hasattr(e, "sql_error_code") and e.sql_error_code == 2003:
+                exception = AnalysisException(
+                    error_class=TABLE_OR_VIEW_NOT_FOUND_ERROR_CLASS,
+                    message_parameters={"relationName": spark_tableName},
+                )
+                attach_custom_error_code(exception, ErrorCodes.TABLE_NOT_FOUND)
+                raise exception
+            raise
+
     def isCached(self, spark_tableName: str) -> pandas.DataFrame:
         """Whether a table is cached by us locally.
 
         Check whether a table exists and then delegate to the local cache.
         """
-        self.getTable(spark_tableName)
+        self._verify_table_exists(spark_tableName)
         return super().isCached(spark_tableName)
 
     def cacheTable(
@@ -814,7 +861,7 @@ class SnowflakeCatalog(AbstractSparkCatalog):
 
         Check whether a table exists and then delegate to the local cache.
         """
-        self.getTable(spark_tableName)
+        self._verify_table_exists(spark_tableName)
         return super().cacheTable(spark_tableName, storageLevel)
 
     def uncacheTable(self, spark_tableName: str) -> pandas.DataFrame:
@@ -822,7 +869,7 @@ class SnowflakeCatalog(AbstractSparkCatalog):
 
         Check whether a table exists and then delegate to the local cache.
         """
-        self.getTable(spark_tableName)
+        self._verify_table_exists(spark_tableName)
         return super().uncacheTable(spark_tableName)
 
     def refreshTable(self, spark_tableName: str) -> pandas.DataFrame:
@@ -830,5 +877,5 @@ class SnowflakeCatalog(AbstractSparkCatalog):
 
         Check whether a table exists and then delegate to the local cache.
         """
-        self.getTable(spark_tableName)
+        self._verify_table_exists(spark_tableName)
         return super().refreshTable(spark_tableName)

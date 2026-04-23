@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: decorative-secrets
-Version: 0.12.13
+Version: 0.12.14
 Summary: Decorators for Multi-Source Secret Retrieval
 Project-URL: Documentation, https://decorative-secrets.enorganic.org
 Project-URL: Repository, https://github.com/enorganic/decorative-secrets
@@ -14,7 +14,7 @@ Provides-Extra: all
 Requires-Dist: azure-keyvault-secrets~=4.10; extra == 'all'
 Requires-Dist: boto3~=1.42; extra == 'all'
 Requires-Dist: databricks-sdk; extra == 'all'
-Requires-Dist: google-cloud-secret-manager~=2.26; extra == 'all'
+Requires-Dist: google-cloud-secret-manager~=2.27; extra == 'all'
 Requires-Dist: onepassword-sdk~=0.4; extra == 'all'
 Requires-Dist: onepasswordconnectsdk~=2.0; extra == 'all'
 Provides-Extra: aws
@@ -24,7 +24,7 @@ Requires-Dist: azure-keyvault-secrets~=4.10; extra == 'azure'
 Provides-Extra: databricks
 Requires-Dist: databricks-sdk; extra == 'databricks'
 Provides-Extra: google
-Requires-Dist: google-cloud-secret-manager~=2.26; extra == 'google'
+Requires-Dist: google-cloud-secret-manager~=2.27; extra == 'google'
 Provides-Extra: onepassword
 Requires-Dist: onepassword-sdk~=0.4; extra == 'onepassword'
 Requires-Dist: onepasswordconnectsdk~=2.0; extra == 'onepassword'

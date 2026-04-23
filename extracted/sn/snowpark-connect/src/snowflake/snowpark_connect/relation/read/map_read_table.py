@@ -25,6 +25,7 @@ from snowflake.snowpark_connect.relation.read.utils import (
     rename_columns_as_snowflake_standard,
 )
 from snowflake.snowpark_connect.type_support import emulate_integral_types
+from snowflake.snowpark_connect.typed_column import FieldType
 from snowflake.snowpark_connect.utils.context import get_processed_views
 from snowflake.snowpark_connect.utils.identifiers import (
     split_fully_qualified_spark_name,
@@ -60,7 +61,8 @@ def post_process_df(
             spark_column_names=true_names,
             snowpark_column_names=snowpark_column_names,
             snowpark_column_types=[
-                emulate_integral_types(f.datatype) for f in df.schema.fields
+                FieldType(emulate_integral_types(f.datatype), f.nullable)
+                for f in df.schema.fields
             ],
             column_qualifiers=[{ColumnQualifier(tuple(name_parts))} for _ in true_names]
             if source_table_name
@@ -90,8 +92,8 @@ def _get_temporary_view(
             column_is_hidden=[True],
         )
 
-    fields_names = [field.name for field in temp_view.dataframe.schema.fields]
-    fields_types = [field.datatype for field in temp_view.dataframe.schema.fields]
+    view_schema_fields = temp_view.dataframe.schema.fields
+    fields_names = [field.name for field in view_schema_fields]
 
     snowpark_column_names = make_column_names_snowpark_compatible(
         temp_view.column_map.get_spark_columns(), plan_id
@@ -119,10 +121,11 @@ def _get_temporary_view(
         parent_column_name_map=temp_view.column_map.get_parent_column_name_map(),
     )
 
+    # TODO: this is a column, do we need _is_column=False?
     schema = StructType(
         [
-            StructField(name, type, _is_column=False)
-            for name, type in zip(snowpark_column_names, fields_types)
+            StructField(snp_name, f.datatype, f.nullable, _is_column=False)
+            for snp_name, f in zip(snowpark_column_names, view_schema_fields)
         ]
     )
     return DataFrameContainer(

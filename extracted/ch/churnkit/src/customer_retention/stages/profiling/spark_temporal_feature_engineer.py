@@ -51,6 +51,12 @@ def _disabled_group(group: FeatureGroup) -> FeatureGroupResult:
 def _lagged_windows_spark(spark_df, entity_col, time_col, value_cols, ref_spark, config):
     import pyspark.sql.functions as F  # noqa: N812
 
+    if not value_cols:
+        raise ValueError(
+            "SparkTemporalFeatureEngineer: lag features requested but value_cols is empty. "
+            "Either populate config.temporal_features.lag_columns from the raw findings' "
+            "numeric columns, or drop lagged_windows from feature_groups."
+        )
     df = spark_df.join(ref_spark, on=entity_col)
     df = df.withColumn("_days_before_ref",
         (_epoch(F.col("reference_date")) - _epoch(F.col(time_col))) / F.lit(86400.0))
@@ -335,14 +341,20 @@ class SparkTemporalFeatureEngineer(TemporalFeatureEngineer):
         ref_spark = self._resolve_ref_dates_spark(
             spark_df, entity_col, time_col, reference_dates, reference_col)
 
-        lag_spark, lag_group = _lagged_windows_spark(
-            spark_df, entity_col, time_col, value_cols, ref_spark, self.config)
+        if value_cols:
+            lag_spark, lag_group = _lagged_windows_spark(
+                spark_df, entity_col, time_col, value_cols, ref_spark, self.config)
+            spark_parts: list = [lag_spark]
+            feature_groups: list[FeatureGroupResult] = [lag_group]
+            self._append_velocity_acceleration(
+                spark_parts, feature_groups, lag_spark, entity_col, value_cols)
+        else:
+            lag_spark = ref_spark.select(entity_col).distinct()
+            spark_parts = [lag_spark]
+            feature_groups = [_disabled_group(FeatureGroup.LAGGED_WINDOWS)]
+            feature_groups.append(_disabled_group(FeatureGroup.VELOCITY))
+            feature_groups.append(_disabled_group(FeatureGroup.ACCELERATION))
 
-        spark_parts: list = [lag_spark]
-        feature_groups: list[FeatureGroupResult] = [lag_group]
-
-        self._append_velocity_acceleration(
-            spark_parts, feature_groups, lag_spark, entity_col, value_cols)
         self._append_distributed_groups(
             spark_parts, feature_groups,
             spark_df, entity_col, time_col, value_cols, ref_spark)

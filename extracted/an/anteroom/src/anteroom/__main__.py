@@ -230,6 +230,103 @@ def _ensure_db_for_pack_ops() -> tuple[Path, "ThreadSafeConnection"]:
     return data_dir, db
 
 
+def _run_config_history(limit: int = 20) -> None:
+    """Display versioned backup history for the personal config."""
+    from rich.console import Console
+    from rich.table import Table
+
+    from .config import _get_config_path
+    from .services.config_history import ConfigHistoryService, get_backup_dir
+
+    config_path = _get_config_path()
+    backup_dir = get_backup_dir(config_path.parent)
+    svc = ConfigHistoryService(backup_dir)
+    all_entries = svc.list_versions()
+
+    console = Console()
+    if not all_entries:
+        console.print("[yellow]No config history found.[/yellow]")
+        console.print(f"History is stored at: {backup_dir}")
+        return
+
+    # Treat limit <= 0 as "no limit" rather than silently showing nothing.
+    entries = all_entries if limit <= 0 else all_entries[:limit]
+    table = Table(title=f"Config History (showing {len(entries)} of {len(all_entries)})")
+    table.add_column("Version ID", style="cyan", no_wrap=True)
+    table.add_column("Timestamp (UTC)", style="green")
+    table.add_column("Source", style="yellow")
+    table.add_column("Hash", style="dim")
+
+    for entry in entries:
+        table.add_row(entry.id, entry.timestamp, entry.source, entry.sha256[:12])
+
+    console.print(table)
+
+
+def _run_config_diff(version_id: str) -> None:
+    """Show a unified diff of a backup version against the current config."""
+    from .config import _get_config_path
+    from .services.config_history import ConfigHistoryService, get_backup_dir
+
+    config_path = _get_config_path()
+    backup_dir = get_backup_dir(config_path.parent)
+    svc = ConfigHistoryService(backup_dir)
+    try:
+        diff = svc.diff(version_id, config_path)
+    except (KeyError, ValueError, FileNotFoundError) as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        sys.exit(1)
+    if diff:
+        print(diff)
+    else:
+        print("No differences — backup matches current config.")
+
+
+def _run_config_restore(version_id: str, *, yes: bool = False) -> None:
+    """Restore the personal config from a backup version."""
+    from rich.console import Console
+
+    from .config import _get_config_path
+    from .services.config_history import ConfigHistoryService, get_backup_dir
+
+    config_path = _get_config_path()
+    backup_dir = get_backup_dir(config_path.parent)
+    svc = ConfigHistoryService(backup_dir)
+
+    console = Console()
+
+    try:
+        diff = svc.diff(version_id, config_path)
+    except (KeyError, ValueError, FileNotFoundError) as exc:
+        console.print(f"[red]Error:[/red] {exc}")
+        sys.exit(1)
+
+    if diff:
+        console.print(diff)
+    else:
+        console.print("[green]Backup matches current config — no changes would be made.[/green]")
+        return
+
+    if not yes:
+        try:
+            answer = input("Restore this version? [y/N] ").strip().lower()
+        except (EOFError, KeyboardInterrupt):
+            print("\nCancelled.")
+            return
+        if answer not in ("y", "yes"):
+            console.print("Cancelled.")
+            return
+
+    try:
+        svc.restore(version_id, config_path)
+    except (KeyError, ValueError, FileNotFoundError) as exc:
+        console.print(f"[red]Error:[/red] {exc}")
+        sys.exit(1)
+
+    console.print(f"[green]Restored config from version {version_id}.[/green]")
+    console.print("[dim]Previous state saved to history (source: pre-restore).[/dim]")
+
+
 def _run_config_validate(team_config_path: Path | None = None) -> None:
     """Run compliance validation and report results."""
     _config_path, config, _enforced = _load_config_or_exit(
@@ -2526,6 +2623,13 @@ def main() -> None:
     config_subparsers.add_parser("validate", help="Check compliance rules without starting the app")
     view_parser = config_subparsers.add_parser("view", help="Display current configuration")
     view_parser.add_argument("--with-sources", action="store_true", help="Show which layer set each value")
+    history_parser = config_subparsers.add_parser("history", help="Show versioned backup history for config.yaml")
+    history_parser.add_argument("--limit", type=int, default=20, help="Maximum number of entries to show (default: 20)")
+    diff_parser = config_subparsers.add_parser("diff", help="Diff a backup version against the current config")
+    diff_parser.add_argument("version_id", help="Version ID from 'aroom config history'")
+    restore_parser = config_subparsers.add_parser("restore", help="Restore config.yaml from a backup version")
+    restore_parser.add_argument("version_id", help="Version ID from 'aroom config history'")
+    restore_parser.add_argument("--yes", "-y", action="store_true", help="Skip confirmation prompt")
 
     # `aroom chat` subcommand
     chat_parser = subparsers.add_parser("chat", help="Interactive CLI chat mode")
@@ -3237,6 +3341,23 @@ def main() -> None:
     art_delete_parser = artifact_subparsers.add_parser("delete", help="Delete an artifact by FQN")
     art_delete_parser.add_argument("fqn", help="Artifact FQN (e.g. @namespace/type/name)")
 
+    # `aroom hook` subcommand
+    hook_parser = subparsers.add_parser("hook", help="Developer tooling for runtime hooks")
+    hook_subparsers = hook_parser.add_subparsers(dest="hook_action")
+    hook_subparsers.add_parser("list", help="List configured hooks with trust status")
+    hook_subparsers.add_parser("validate", help="Validate the resolved hook config snapshot")
+    hook_replay_parser = hook_subparsers.add_parser("replay", help="Dry-run replay of a hook event (no audit emission)")
+    hook_replay_parser.add_argument(
+        "hook_event", metavar="event", choices=("pre_tool", "post_tool"), help="pre_tool or post_tool"
+    )
+    hook_replay_parser.add_argument("--tool", default="*", help="Tool name to simulate (default: *)")
+    hook_replay_parser.add_argument(
+        "--args", dest="arguments", default="{}", metavar="JSON", help="Tool arguments as JSON object"
+    )
+    hook_replay_parser.add_argument(
+        "--output", default=None, metavar="JSON", help="Tool output as JSON object (post_tool)"
+    )
+
     args = parser.parse_args()
 
     # Configure logging early, before any module-level loggers are used.
@@ -3284,6 +3405,15 @@ def main() -> None:
             tc_path = Path(tc_arg) if tc_arg else None
             _run_config_view(team_config_path=tc_path, with_sources=getattr(args, "with_sources", False))
             return
+        if getattr(args, "config_command", None) == "history":
+            _run_config_history(limit=getattr(args, "limit", 20))
+            return
+        if getattr(args, "config_command", None) == "diff":
+            _run_config_diff(args.version_id)
+            return
+        if getattr(args, "config_command", None) == "restore":
+            _run_config_restore(args.version_id, yes=getattr(args, "yes", False))
+            return
         from .cli.setup import run_config_editor
 
         run_config_editor()
@@ -3302,6 +3432,16 @@ def main() -> None:
     # works even before `aroom init`.
     if args.command == "pack":
         _run_pack_dispatch(args)
+        return
+
+    # `aroom hook validate` must run before _load_config_or_exit() so that
+    # invalid hook entries are reported per-hook rather than causing a generic
+    # "Configuration error" exit from the strict config load pipeline.
+    if args.command == "hook" and getattr(args, "hook_action", None) == "validate":
+        from .cli.hook_cli import run_hook_validate_standalone
+
+        _tc_arg = getattr(args, "team_config", None)
+        run_hook_validate_standalone(team_config_path=Path(_tc_arg) if _tc_arg else None)
         return
 
     _team_config_arg = getattr(args, "team_config", None)
@@ -3407,6 +3547,12 @@ def main() -> None:
         from .cli.mission_cli import _run_mission
 
         _run_mission(config, args)
+        return
+
+    if args.command == "hook":
+        from .cli.hook_cli import _run_hook
+
+        _run_hook(config, args)
         return
 
     if args.command == "memory":

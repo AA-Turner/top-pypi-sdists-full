@@ -9,7 +9,7 @@ import uuid
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import ANY, AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi import FastAPI
@@ -588,7 +588,8 @@ class TestBuildChatSystemPrompt:
 
         with (
             patch("anteroom.routers.chat.build_runtime_context", return_value="RUNTIME_CTX"),
-            patch("anteroom.routers.chat.load_instructions", return_value=None),
+            patch("anteroom.routers.chat._find_global_instructions_path", return_value=None),
+            patch("anteroom.routers.chat._find_project_instructions_path", return_value=None),
             patch("anteroom.routers.chat.storage") as mock_storage,
             patch("anteroom.services.codebase_index.create_index_service", return_value=None),
         ):
@@ -631,7 +632,8 @@ class TestBuildChatSystemPrompt:
 
         with (
             patch("anteroom.routers.chat.build_runtime_context", return_value="CTX"),
-            patch("anteroom.routers.chat.load_instructions", return_value=None),
+            patch("anteroom.routers.chat._find_global_instructions_path", return_value=None),
+            patch("anteroom.routers.chat._find_project_instructions_path", return_value=None),
             patch("anteroom.routers.chat.storage") as mock_storage,
             patch("anteroom.services.codebase_index.create_index_service", return_value=None),
         ):
@@ -674,7 +676,8 @@ class TestBuildChatSystemPrompt:
 
         with (
             patch("anteroom.routers.chat.build_runtime_context", return_value="CTX"),
-            patch("anteroom.routers.chat.load_instructions", return_value=None),
+            patch("anteroom.routers.chat._find_global_instructions_path", return_value=None),
+            patch("anteroom.routers.chat._find_project_instructions_path", return_value=None),
             patch("anteroom.routers.chat.storage") as mock_storage,
             patch("anteroom.services.codebase_index.create_index_service", return_value=None),
         ):
@@ -724,7 +727,8 @@ class TestBuildChatSystemPrompt:
 
         with (
             patch("anteroom.routers.chat.build_runtime_context", return_value="CTX"),
-            patch("anteroom.routers.chat.load_instructions", return_value=None),
+            patch("anteroom.routers.chat._find_global_instructions_path", return_value=None),
+            patch("anteroom.routers.chat._find_project_instructions_path", return_value=None),
             patch("anteroom.routers.chat.storage") as mock_storage,
             patch("anteroom.services.codebase_index.create_index_service", return_value=None),
         ):
@@ -775,7 +779,8 @@ class TestBuildChatSystemPrompt:
 
         with (
             patch("anteroom.routers.chat.build_runtime_context", return_value="CTX"),
-            patch("anteroom.routers.chat.load_instructions", return_value=None),
+            patch("anteroom.routers.chat._find_global_instructions_path", return_value=None),
+            patch("anteroom.routers.chat._find_project_instructions_path", return_value=None),
             patch("anteroom.routers.chat.storage") as mock_storage,
             patch("anteroom.services.codebase_index.create_index_service", return_value=None),
         ):
@@ -817,7 +822,11 @@ class TestBuildChatSystemPrompt:
 
         with (
             patch("anteroom.routers.chat.build_runtime_context", return_value="CTX"),
-            patch("anteroom.routers.chat.load_instructions", return_value="MY ANTEROOM INSTRUCTIONS"),
+            patch("anteroom.routers.chat._find_global_instructions_path", return_value=None),
+            patch(
+                "anteroom.routers.chat._find_project_instructions_path",
+                return_value=(Path("/fake/ANTEROOM.md"), "MY ANTEROOM INSTRUCTIONS"),
+            ),
             patch("anteroom.routers.chat.storage") as mock_storage,
             patch("anteroom.services.codebase_index.create_index_service", return_value=None),
         ):
@@ -839,6 +848,115 @@ class TestBuildChatSystemPrompt:
             )
 
         assert "MY ANTEROOM INSTRUCTIONS" in result
+        # #1462 — web path populates prompt_meta["instruction_files"] with
+        # exactly the files that landed in the system prompt.
+        assert _meta["instruction_files"] == [
+            {
+                "path": "/fake/ANTEROOM.md",
+                "scope": "project",
+                # estimate_tokens uses 4-chars-per-token heuristic → 23 chars = 5 tokens
+                "estimated_tokens": len("MY ANTEROOM INSTRUCTIONS") // 4,
+            }
+        ]
+
+    @pytest.mark.asyncio
+    async def test_instruction_files_meta_populated_for_both_scopes(self) -> None:
+        """Global + project both loaded → both entries in the meta list
+        (ordered global-first, matching the CLI loader)."""
+        from anteroom.routers.chat import _build_chat_system_prompt
+
+        ai_service = MagicMock()
+        ai_service.config.model = "gpt-4o"
+        tool_registry = MagicMock()
+        tool_registry.list_tools.return_value = []
+        tool_registry._working_dir = None
+        mcp_manager = MagicMock()
+        mcp_manager.get_server_statuses.return_value = []
+        config = MagicMock()
+        config.app.tls = False
+        config.rag = None
+        config.codebase_index.map_tokens = 1000
+        db = MagicMock()
+
+        with (
+            patch("anteroom.routers.chat.build_runtime_context", return_value="CTX"),
+            patch(
+                "anteroom.routers.chat._find_global_instructions_path",
+                return_value=(Path("/home/u/.anteroom/ANTEROOM.md"), "global rules"),
+            ),
+            patch(
+                "anteroom.routers.chat._find_project_instructions_path",
+                return_value=(Path("/repo/ANTEROOM.md"), "project rules"),
+            ),
+            patch("anteroom.routers.chat.storage") as mock_storage,
+            patch("anteroom.services.codebase_index.create_index_service", return_value=None),
+        ):
+            mock_storage.get_canvas_for_conversation.return_value = None
+            _result, meta, _recalled = await _build_chat_system_prompt(
+                ai_service=ai_service,
+                tool_registry=tool_registry,
+                mcp_manager=mcp_manager,
+                config=config,
+                db=db,
+                conversation_id=str(uuid.uuid4()),
+                space_instructions=None,
+                plan_prompt="",
+                plan_mode=False,
+                message_text="hello",
+                source_ids=[],
+                source_tag=None,
+                source_group_id=None,
+            )
+
+        # Global first, then project — matches the CLI ordering contract.
+        assert [e["scope"] for e in meta["instruction_files"]] == ["global", "project"]
+        # No content-fingerprint field anywhere.
+        for entry in meta["instruction_files"]:
+            assert "trust_hash" not in entry
+
+    @pytest.mark.asyncio
+    async def test_instruction_files_meta_empty_when_no_files(self) -> None:
+        """Neither global nor project on disk → meta has an empty list (not
+        missing). A downstream consumer can rely on the key being present."""
+        from anteroom.routers.chat import _build_chat_system_prompt
+
+        ai_service = MagicMock()
+        ai_service.config.model = "gpt-4o"
+        tool_registry = MagicMock()
+        tool_registry.list_tools.return_value = []
+        tool_registry._working_dir = None
+        mcp_manager = MagicMock()
+        mcp_manager.get_server_statuses.return_value = []
+        config = MagicMock()
+        config.app.tls = False
+        config.rag = None
+        config.codebase_index.map_tokens = 1000
+        db = MagicMock()
+
+        with (
+            patch("anteroom.routers.chat.build_runtime_context", return_value="CTX"),
+            patch("anteroom.routers.chat._find_global_instructions_path", return_value=None),
+            patch("anteroom.routers.chat._find_project_instructions_path", return_value=None),
+            patch("anteroom.routers.chat.storage") as mock_storage,
+            patch("anteroom.services.codebase_index.create_index_service", return_value=None),
+        ):
+            mock_storage.get_canvas_for_conversation.return_value = None
+            _result, meta, _recalled = await _build_chat_system_prompt(
+                ai_service=ai_service,
+                tool_registry=tool_registry,
+                mcp_manager=mcp_manager,
+                config=config,
+                db=db,
+                conversation_id=str(uuid.uuid4()),
+                space_instructions=None,
+                plan_prompt="",
+                plan_mode=False,
+                message_text="hello",
+                source_ids=[],
+                source_tag=None,
+                source_group_id=None,
+            )
+        assert meta["instruction_files"] == []
 
     @pytest.mark.asyncio
     async def test_artifact_registry_builtin_injected(self) -> None:
@@ -867,7 +985,8 @@ class TestBuildChatSystemPrompt:
 
         with (
             patch("anteroom.routers.chat.build_runtime_context", return_value="CTX"),
-            patch("anteroom.routers.chat.load_instructions", return_value=None),
+            patch("anteroom.routers.chat._find_global_instructions_path", return_value=None),
+            patch("anteroom.routers.chat._find_project_instructions_path", return_value=None),
             patch("anteroom.routers.chat.storage") as mock_storage,
             patch("anteroom.services.codebase_index.create_index_service", return_value=None),
         ):
@@ -912,7 +1031,8 @@ class TestBuildChatSystemPrompt:
 
         with (
             patch("anteroom.routers.chat.build_runtime_context", return_value="CTX"),
-            patch("anteroom.routers.chat.load_instructions", return_value=None),
+            patch("anteroom.routers.chat._find_global_instructions_path", return_value=None),
+            patch("anteroom.routers.chat._find_project_instructions_path", return_value=None),
             patch("anteroom.routers.chat.storage") as mock_storage,
             patch("anteroom.services.codebase_index.create_index_service", return_value=None),
             patch("anteroom.services.rag.retrieve_context", return_value=(fake_chunks, None)),
@@ -966,7 +1086,8 @@ class TestBuildChatSystemPrompt:
 
         with (
             patch("anteroom.routers.chat.build_runtime_context", return_value="CTX"),
-            patch("anteroom.routers.chat.load_instructions", return_value=None),
+            patch("anteroom.routers.chat._find_global_instructions_path", return_value=None),
+            patch("anteroom.routers.chat._find_project_instructions_path", return_value=None),
             patch("anteroom.routers.chat.storage") as mock_storage,
             patch("anteroom.services.codebase_index.create_index_service", return_value=None),
             patch("anteroom.services.rag.retrieve_context", return_value=([], None)),
@@ -1013,7 +1134,8 @@ class TestBuildChatSystemPrompt:
 
         with (
             patch("anteroom.routers.chat.build_runtime_context", return_value="CTX"),
-            patch("anteroom.routers.chat.load_instructions", return_value=None),
+            patch("anteroom.routers.chat._find_global_instructions_path", return_value=None),
+            patch("anteroom.routers.chat._find_project_instructions_path", return_value=None),
             patch("anteroom.routers.chat.storage") as mock_storage,
             patch("anteroom.services.codebase_index.create_index_service", return_value=None),
             patch("anteroom.services.rag.retrieve_context", side_effect=RuntimeError("boom")),
@@ -1060,7 +1182,8 @@ class TestBuildChatSystemPrompt:
 
         with (
             patch("anteroom.routers.chat.build_runtime_context", return_value="CTX"),
-            patch("anteroom.routers.chat.load_instructions", return_value=None),
+            patch("anteroom.routers.chat._find_global_instructions_path", return_value=None),
+            patch("anteroom.routers.chat._find_project_instructions_path", return_value=None),
             patch("anteroom.routers.chat.storage") as mock_storage,
             patch("anteroom.services.codebase_index.create_index_service", return_value=None),
         ):
@@ -1107,7 +1230,8 @@ class TestBuildChatSystemPrompt:
 
         with (
             patch("anteroom.routers.chat.build_runtime_context", return_value="CTX"),
-            patch("anteroom.routers.chat.load_instructions", return_value=None),
+            patch("anteroom.routers.chat._find_global_instructions_path", return_value=None),
+            patch("anteroom.routers.chat._find_project_instructions_path", return_value=None),
             patch("anteroom.routers.chat.storage") as mock_storage,
             patch("anteroom.services.codebase_index.create_index_service", return_value=None),
             patch("anteroom.services.rag.retrieve_context", return_value=(fake_chunks, None)),
@@ -1157,7 +1281,8 @@ class TestBuildChatSystemPrompt:
 
         with (
             patch("anteroom.routers.chat.build_runtime_context", return_value="CTX"),
-            patch("anteroom.routers.chat.load_instructions", return_value=None),
+            patch("anteroom.routers.chat._find_global_instructions_path", return_value=None),
+            patch("anteroom.routers.chat._find_project_instructions_path", return_value=None),
             patch("anteroom.routers.chat.storage") as mock_storage,
             patch("anteroom.services.codebase_index.create_index_service", return_value=None),
         ):
@@ -1203,7 +1328,8 @@ class TestBuildChatSystemPrompt:
 
         with (
             patch("anteroom.routers.chat.build_runtime_context", return_value="RUNTIME_CTX"),
-            patch("anteroom.routers.chat.load_instructions", return_value=None),
+            patch("anteroom.routers.chat._find_global_instructions_path", return_value=None),
+            patch("anteroom.routers.chat._find_project_instructions_path", return_value=None),
             patch("anteroom.routers.chat.storage") as mock_storage,
             patch("anteroom.services.codebase_index.create_index_service", return_value=None),
         ):
@@ -1250,7 +1376,8 @@ class TestBuildChatSystemPrompt:
 
         with (
             patch("anteroom.routers.chat.build_runtime_context", return_value="RUNTIME_CTX"),
-            patch("anteroom.routers.chat.load_instructions", return_value=None),
+            patch("anteroom.routers.chat._find_global_instructions_path", return_value=None),
+            patch("anteroom.routers.chat._find_project_instructions_path", return_value=None),
             patch("anteroom.routers.chat.storage") as mock_storage,
             patch("anteroom.services.codebase_index.create_index_service", return_value=None),
         ):
@@ -1429,7 +1556,7 @@ def _make_stream_context(*, conv_id: str | None = None, plan_mode: bool = False)
     ctx.tool_registry.has_tool.return_value = False
     ctx.mcp_manager = MagicMock()
     ctx.prompt_meta = {}
-    ctx.subagent_events = {}
+    ctx.subagent_events = asyncio.Queue()
     ctx.is_first_message = False
     ctx.first_user_text = "hello"
     ctx.conv_title = "Test Conversation"
@@ -2547,7 +2674,7 @@ class TestExecuteWebTool:
             uname="User One",
             conversation_id=str(uuid.uuid4()),
             tools_openai=[],
-            subagent_events={},
+            subagent_events=asyncio.Queue(),
             subagent_limiter=MagicMock(),
             sa_config=MagicMock(),
             request_config=MagicMock(),
@@ -2619,6 +2746,36 @@ class TestExecuteWebTool:
         assert "result" in result
 
     @pytest.mark.asyncio
+    async def test_mcp_hook_threads_egress_policy_from_config(self) -> None:
+        from anteroom.routers.chat import _execute_web_tool
+
+        ctx = self._make_ctx(tool_in_registry=False)
+        ctx.tool_registry.check_safety.return_value = None
+        ctx.request_config = SimpleNamespace(
+            hooks=SimpleNamespace(pre_tool=[object()], post_tool=[]),
+            ai=SimpleNamespace(allowed_domains=["hooks.example.test"], block_localhost_api=True),
+        )
+
+        with patch(
+            "anteroom.services.hooks.run_pre_tool_hooks",
+            new=AsyncMock(return_value=SimpleNamespace(outcome="allow")),
+        ) as run_pre:
+            result = await _execute_web_tool(ctx, "mcp_tool", {"arg": "val"})
+
+        assert result["result"] == "mcp_ok"
+        run_pre.assert_awaited_once_with(
+            ctx.request_config.hooks,
+            "mcp_tool",
+            {"arg": "val"},
+            audit_writer=ANY,
+            tool_call_id="",
+            conversation_id=ctx.conversation_id,
+            user_id="user1",
+            allowed_domains=("hooks.example.test",),
+            block_localhost=True,
+        )
+
+    @pytest.mark.asyncio
     async def test_unknown_tool_raises_value_error(self) -> None:
         from anteroom.routers.chat import _execute_web_tool
 
@@ -2670,3 +2827,157 @@ class TestExecuteWebTool:
         result = await _execute_web_tool(ctx, "mcp_tool", {})
         assert result.get("rate_limited") is True
         assert result.get("safety_blocked") is True
+
+
+# ---------------------------------------------------------------------------
+# MCP hook ask → hook_escalated_approved / hook_escalated_denied parity (#1492)
+# ---------------------------------------------------------------------------
+
+
+class TestMcpHookApprovalParity:
+    """Verify _execute_web_tool uses the same hook/approval contract as call_tool."""
+
+    def _make_ctx(self) -> ToolExecutorContext:
+        confirm_ctx = WebConfirmContext(
+            pending_approvals={},
+            event_bus=None,
+            db_name="personal",
+            conversation_id=str(uuid.uuid4()),
+            approval_timeout=5,
+            request=AsyncMock(),
+            tool_registry=MagicMock(),
+        )
+        tool_registry = MagicMock()
+        tool_registry.has_tool.return_value = False
+        tool_registry.check_safety.return_value = None
+        mcp_manager = MagicMock()
+        mcp_manager.call_tool = AsyncMock(return_value={"result": "mcp_ok"})
+        return ToolExecutorContext(
+            tool_registry=tool_registry,
+            mcp_manager=mcp_manager,
+            confirm_ctx=confirm_ctx,
+            ai_service=MagicMock(),
+            cancel_event=asyncio.Event(),
+            db=MagicMock(),
+            uid="user1",
+            uname="User One",
+            conversation_id=str(uuid.uuid4()),
+            tools_openai=[],
+            subagent_events=asyncio.Queue(),
+            subagent_limiter=MagicMock(),
+            sa_config=MagicMock(),
+            request_config=MagicMock(),
+        )
+
+    @pytest.mark.asyncio
+    async def test_mcp_hook_deny_returns_hook_denied(self) -> None:
+        from anteroom.routers.chat import _execute_web_tool
+        from anteroom.services.hooks import HookDecision
+
+        ctx = self._make_ctx()
+        ctx.request_config = SimpleNamespace(
+            hooks=SimpleNamespace(pre_tool=[object()], post_tool=[]),
+            ai=SimpleNamespace(allowed_domains=[], block_localhost_api=False),
+        )
+        with patch(
+            "anteroom.services.hooks.run_pre_tool_hooks",
+            new=AsyncMock(return_value=HookDecision(outcome="deny", message="hook says no")),
+        ):
+            result = await _execute_web_tool(ctx, "mcp_tool", {})
+
+        assert result.get("hook_blocked") is True
+        assert result.get("_approval_decision") == "hook_denied"
+
+    @pytest.mark.asyncio
+    async def test_mcp_hook_ask_user_approves_hook_escalated_approved(self) -> None:
+        from anteroom.routers.chat import _execute_web_tool
+        from anteroom.services.hooks import HookDecision
+
+        ctx = self._make_ctx()
+        ctx.request_config = SimpleNamespace(
+            hooks=SimpleNamespace(pre_tool=[object()], post_tool=[]),
+            ai=SimpleNamespace(allowed_domains=[], block_localhost_api=False),
+        )
+        # Simulate user approving via confirm_ctx
+        with (
+            patch("anteroom.routers.chat._web_confirm_tool", new=AsyncMock(return_value=True)),
+            patch(
+                "anteroom.services.hooks.run_pre_tool_hooks",
+                new=AsyncMock(return_value=HookDecision(outcome="ask", message="please confirm", hook_id="h-web")),
+            ),
+        ):
+            result = await _execute_web_tool(ctx, "mcp_tool", {})
+
+        assert result.get("result") == "mcp_ok"
+        assert result.get("_approval_decision") == "hook_escalated_approved"
+
+    @pytest.mark.asyncio
+    async def test_mcp_hook_ask_user_denies_hook_escalated_denied(self) -> None:
+        from anteroom.routers.chat import _execute_web_tool
+        from anteroom.services.hooks import HookDecision
+
+        ctx = self._make_ctx()
+        ctx.request_config = SimpleNamespace(
+            hooks=SimpleNamespace(pre_tool=[object()], post_tool=[]),
+            ai=SimpleNamespace(allowed_domains=[], block_localhost_api=False),
+        )
+        with (
+            patch("anteroom.routers.chat._web_confirm_tool", new=AsyncMock(return_value=False)),
+            patch(
+                "anteroom.services.hooks.run_pre_tool_hooks",
+                new=AsyncMock(return_value=HookDecision(outcome="ask", message="please confirm", hook_id="h-web")),
+            ),
+        ):
+            result = await _execute_web_tool(ctx, "mcp_tool", {})
+
+        assert result.get("_approval_decision") == "hook_escalated_denied"
+        assert "error" in result
+
+    @pytest.mark.asyncio
+    async def test_mcp_hook_ask_emits_audit_on_approve(self) -> None:
+        from anteroom.routers.chat import _execute_web_tool
+        from anteroom.services.hooks import HookDecision
+
+        ctx = self._make_ctx()
+        ctx.request_config = SimpleNamespace(
+            hooks=SimpleNamespace(pre_tool=[object()], post_tool=[]),
+            ai=SimpleNamespace(allowed_domains=[], block_localhost_api=False),
+        )
+        with (
+            patch("anteroom.routers.chat._web_confirm_tool", new=AsyncMock(return_value=True)),
+            patch(
+                "anteroom.services.hooks.run_pre_tool_hooks",
+                new=AsyncMock(return_value=HookDecision(outcome="ask", hook_id="h-audit-web")),
+            ),
+            patch("anteroom.services.lineage.emit_hook_approval_resolved") as mock_emit,
+        ):
+            await _execute_web_tool(ctx, "mcp_tool", {})
+
+        mock_emit.assert_called_once()
+        _, kwargs = mock_emit.call_args
+        assert kwargs["hook_id"] == "h-audit-web"
+        assert kwargs["resolution"] == "approved"
+
+    @pytest.mark.asyncio
+    async def test_mcp_hook_ask_emits_audit_on_deny(self) -> None:
+        from anteroom.routers.chat import _execute_web_tool
+        from anteroom.services.hooks import HookDecision
+
+        ctx = self._make_ctx()
+        ctx.request_config = SimpleNamespace(
+            hooks=SimpleNamespace(pre_tool=[object()], post_tool=[]),
+            ai=SimpleNamespace(allowed_domains=[], block_localhost_api=False),
+        )
+        with (
+            patch("anteroom.routers.chat._web_confirm_tool", new=AsyncMock(return_value=False)),
+            patch(
+                "anteroom.services.hooks.run_pre_tool_hooks",
+                new=AsyncMock(return_value=HookDecision(outcome="ask", hook_id="h-deny-web")),
+            ),
+            patch("anteroom.services.lineage.emit_hook_approval_resolved") as mock_emit,
+        ):
+            await _execute_web_tool(ctx, "mcp_tool", {})
+
+        mock_emit.assert_called_once()
+        _, kwargs = mock_emit.call_args
+        assert kwargs["resolution"] == "denied"

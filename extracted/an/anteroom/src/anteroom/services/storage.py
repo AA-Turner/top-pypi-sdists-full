@@ -1370,13 +1370,24 @@ def create_tool_call(
     input_data: dict[str, Any],
     tool_call_id: str | None = None,
     approval_decision: str | None = None,
+    iteration: int | None = None,
 ) -> dict[str, Any]:
     tcid = tool_call_id or _uuid()
     now = _now()
     db.execute(
         "INSERT INTO tool_calls (id, message_id, tool_name, server_name, input_json, status, created_at,"
-        " approval_decision) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-        (tcid, message_id, tool_name, server_name, json.dumps(input_data), "pending", now, approval_decision),
+        " approval_decision, iteration) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (
+            tcid,
+            message_id,
+            tool_name,
+            server_name,
+            json.dumps(input_data),
+            "pending",
+            now,
+            approval_decision,
+            iteration,
+        ),  # noqa: E501
     )
     db.commit()
     return {
@@ -1389,6 +1400,7 @@ def create_tool_call(
         "status": "pending",
         "created_at": now,
         "approval_decision": approval_decision,
+        "iteration": iteration,
     }
 
 
@@ -1406,7 +1418,10 @@ def update_tool_call(
 
 
 def list_tool_calls(db: ThreadSafeConnection, message_id: str) -> list[dict[str, Any]]:
-    rows = db.execute_fetchall("SELECT * FROM tool_calls WHERE message_id = ?", (message_id,))
+    rows = db.execute_fetchall(
+        "SELECT * FROM tool_calls WHERE message_id = ? ORDER BY iteration NULLS FIRST, created_at",
+        (message_id,),
+    )
     result = []
     for r in rows:
         d = dict(r)
@@ -3246,3 +3261,23 @@ def count_active_agent_runs(db: ThreadSafeConnection, conversation_id: str) -> i
         (conversation_id, *terminal),
     )
     return row["cnt"] if row else 0
+
+
+def get_run_label(run: dict[str, Any]) -> str:
+    """Return the best human-readable label for a subagent run (#1461).
+
+    Prefers the explicit 'description' stored in metadata (set at launch time);
+    falls back to the prompt-derived title stored at run creation time.
+    """
+    import json as _json
+
+    meta = run.get("metadata") or {}
+    if isinstance(meta, str):
+        try:
+            meta = _json.loads(meta)
+        except Exception:
+            meta = {}
+    description = meta.get("description")
+    if description:
+        return str(description)
+    return run.get("title") or ""

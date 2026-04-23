@@ -173,6 +173,7 @@ fn extract_heuristic_segments(
     has_layout_hints: bool,
     include_headers: bool,
     include_footers: bool,
+    max_images_per_page: Option<u32>,
 ) -> (Vec<Vec<SegmentData>>, Vec<ImagePosition>, Vec<Vec<f32>>, Vec<f32>) {
     let stage1_start = crate::utils::timing::Instant::now();
     let mut all_page_segments: Vec<Vec<SegmentData>> = vec![Vec::new(); page_count as usize];
@@ -192,7 +193,8 @@ fn extract_heuristic_segments(
 
         page_heights[i] = page.height().value;
         let page_t = crate::utils::timing::Instant::now();
-        let (mut segments, image_positions, paragraph_gap_ys) = objects_to_page_data(&page, i + 1, &mut image_offset);
+        let (mut segments, image_positions, paragraph_gap_ys) =
+            objects_to_page_data(&page, i + 1, &mut image_offset, max_images_per_page);
         let page_ms = page_t.elapsed_ms();
         if page_ms > 1000.0 {
             tracing::warn!(
@@ -545,6 +547,9 @@ pub fn extract_document_structure(
     strip_repeating_text: bool,
     include_headers: bool,
     include_footers: bool,
+    max_images_per_page: Option<u32>,
+    cancel_token: Option<&crate::cancellation::CancellationToken>,
+    inject_placeholders: bool,
 ) -> Result<(crate::types::internal::InternalDocument, bool)> {
     let pages = document.pages();
     let page_count = pages.len();
@@ -615,6 +620,7 @@ pub fn extract_document_structure(
                 has_hints,
                 include_headers,
                 include_footers,
+                max_images_per_page,
             );
             (
                 all_segs,
@@ -633,6 +639,7 @@ pub fn extract_document_structure(
                 has_hints,
                 include_headers,
                 include_footers,
+                max_images_per_page,
             )
         };
 
@@ -1324,11 +1331,16 @@ pub fn extract_document_structure(
     let mut combined_tables: Vec<crate::types::Table> = tables.iter().cloned().chain(layout_tables).collect();
     deduplicate_overlapping_tables(&mut combined_tables);
 
-    // Convert image positions to (page_idx, image_index) pairs for the assembler
-    let image_pos_pairs: Vec<(usize, usize)> = all_image_positions
-        .iter()
-        .map(|img| (img.page_number, img.image_index))
-        .collect();
+    // Convert image positions to (page_idx, image_index) pairs for the assembler.
+    // Skip when inject_placeholders=false: the caller does not want image links in output.
+    let image_pos_pairs: Vec<(usize, usize)> = if inject_placeholders {
+        all_image_positions
+            .iter()
+            .map(|img| (img.page_number, img.image_index))
+            .collect()
+    } else {
+        Vec::new()
+    };
 
     tracing::debug!(
         combined_tables = combined_tables.len(),
@@ -1342,7 +1354,10 @@ pub fn extract_document_structure(
     // Stage 4b: Populate doc.images with actual image data from pdfium.
     // Image elements reference indices into doc.images, which must be populated
     // for markdown/HTML rendering to produce `![desc](image_N.png)` instead of `![]()`.
-    populate_images_from_pdfium(document, &all_image_positions, &mut doc);
+    // Skip when inject_placeholders=false to avoid unnecessary rendering work.
+    if inject_placeholders {
+        populate_images_from_pdfium(document, &all_image_positions, &mut doc, cancel_token);
+    }
 
     let element_count = doc.elements.len();
     tracing::debug!(element_count, "PDF structure pipeline: assembly complete");
@@ -1391,8 +1406,10 @@ pub(crate) struct SegmentStructureConfig<'a> {
     pub include_footers: bool,
     pub used_structure_tree: bool,
     pub image_positions: &'a [(usize, usize)],
+    pub inject_placeholders: bool,
     pub layout_hints: Option<&'a [Vec<LayoutHint>]>,
     pub allow_single_column: bool,
+    pub cancel_token: Option<&'a crate::cancellation::CancellationToken>,
     #[cfg(feature = "layout-detection")]
     pub layout_images: Option<&'a [image::DynamicImage]>,
     #[cfg(feature = "layout-detection")]
@@ -1416,8 +1433,10 @@ pub(crate) fn extract_document_structure_from_segments(
         include_footers,
         used_structure_tree,
         image_positions,
+        inject_placeholders,
         layout_hints,
         allow_single_column,
+        cancel_token,
         #[cfg(feature = "layout-detection")]
         layout_images,
         #[cfg(feature = "layout-detection")]
@@ -1494,6 +1513,10 @@ pub(crate) fn extract_document_structure_from_segments(
 
         #[allow(clippy::needless_range_loop)]
         for page_idx in 0..page_count {
+            if cancel_token.is_some_and(|t| t.is_cancelled()) {
+                tracing::debug!(page_idx, "oxide structure pipeline: cancelled during table page prep");
+                break;
+            }
             let Some(hints) = hints_pages.get(page_idx) else {
                 continue;
             };
@@ -1942,6 +1965,10 @@ pub(crate) fn extract_document_structure_from_segments(
                     "oxide running heuristic table extraction (no TATR)"
                 );
                 for tp in &table_pages {
+                    if cancel_token.is_some_and(|t| t.is_cancelled()) {
+                        tracing::debug!("oxide structure pipeline: cancelled during heuristic table extraction");
+                        break;
+                    }
                     let hints = &hints_pages[tp.page_idx];
                     layout_tables.extend(super::regions::extract_tables_from_layout_hints(
                         &tp.words,
@@ -1959,6 +1986,10 @@ pub(crate) fn extract_document_structure_from_segments(
         {
             // No layout detection — run heuristic fallback sequentially.
             for tp in &table_pages {
+                if cancel_token.is_some_and(|t| t.is_cancelled()) {
+                    tracing::debug!("oxide structure pipeline: cancelled during heuristic table extraction");
+                    break;
+                }
                 let hints = &hints_pages[tp.page_idx];
                 layout_tables.extend(super::regions::extract_tables_from_layout_hints(
                     &tp.words,
@@ -2048,6 +2079,12 @@ pub(crate) fn extract_document_structure_from_segments(
         })
         .collect();
 
+    if cancel_token.is_some_and(|t| t.is_cancelled()) {
+        return Err(crate::pdf::error::PdfError::TextExtractionFailed(
+            "extraction cancelled".to_string(),
+        ));
+    }
+
     #[cfg(not(target_arch = "wasm32"))]
     let mut all_page_paragraphs: Vec<Vec<PdfParagraph>> = page_inputs
         .into_par_iter()
@@ -2088,7 +2125,8 @@ pub(crate) fn extract_document_structure_from_segments(
     // overlapping tables on the same page (same pattern as the pdfium path).
     let mut combined_tables: Vec<crate::types::Table> = tables.iter().cloned().chain(layout_tables).collect();
     deduplicate_overlapping_tables(&mut combined_tables);
-    let mut doc = assemble_internal_document(all_page_paragraphs, &combined_tables, image_positions);
+    let effective_image_positions = if inject_placeholders { image_positions } else { &[] };
+    let mut doc = assemble_internal_document(all_page_paragraphs, &combined_tables, effective_image_positions);
 
     // Stage 5: Element-level text normalization.
     for elem in &mut doc.elements {
@@ -2651,6 +2689,7 @@ fn populate_images_from_pdfium(
     document: &PdfDocument,
     image_positions: &[super::bridge::ImagePosition],
     doc: &mut crate::types::internal::InternalDocument,
+    cancel_token: Option<&crate::cancellation::CancellationToken>,
 ) {
     use bytes::Bytes;
     use image::ImageEncoder;
@@ -2669,6 +2708,21 @@ fn populate_images_from_pdfium(
     let mut extracted_count = 0u32;
 
     for (&page_num, indices) in &by_page {
+        // Check cancellation between pages so a timeout can interrupt a long
+        // pdfium image-extraction run without having to wait for the current
+        // page to finish.  Individual pdfium FFI calls cannot be interrupted,
+        // but we can at least skip remaining pages once cancelled.
+        if cancel_token.is_some_and(|t| t.is_cancelled()) {
+            tracing::debug!(
+                page_num,
+                "populate_images_from_pdfium: cancelled, skipping remaining pages"
+            );
+            for &idx in indices {
+                doc.images.push(empty_image_placeholder(idx, page_num));
+            }
+            continue;
+        }
+
         let page_idx = page_num.saturating_sub(1) as i32;
         let Ok(page) = pages.get(page_idx) else {
             for &idx in indices {

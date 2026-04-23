@@ -79,6 +79,7 @@ class AppConfigResponse(BaseModel):
     identity: dict | None = None
     enforced_fields: list[str] = Field(default_factory=list)
     read_only: bool = False
+    cli: dict | None = None
 
 
 class ConventionsResponse(BaseModel):

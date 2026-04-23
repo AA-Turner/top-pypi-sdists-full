@@ -87,6 +87,7 @@ toolsets = {
         ToolName.RUN,
         ToolName.TEST,
         ToolName.SHOW,
+        ToolName.CLONE,
         ToolName.GET_LINEAGE_DEV,
         ToolName.GET_NODE_DETAILS_DEV,
     },
@@ -100,7 +101,6 @@ toolsets = {
         ToolName.CANCEL_JOB_RUN,
         ToolName.RETRY_JOB_RUN,
         ToolName.LIST_JOB_RUN_ARTIFACTS,
-        ToolName.GET_JOB_RUN_ARTIFACT,
         ToolName.GET_JOB_RUN_ERROR,
     },
     Toolset.DBT_CODEGEN: {

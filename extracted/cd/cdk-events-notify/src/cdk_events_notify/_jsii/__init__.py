@@ -32,7 +32,7 @@ import aws_cdk._jsii
 import constructs._jsii
 
 __jsii_assembly__ = jsii.JSIIAssembly.load(
-    "cdk-events-notify", "2.3.3", __name__[0:-6], "cdk-events-notify@2.3.3.jsii.tgz"
+    "cdk-events-notify", "2.3.4", __name__[0:-6], "cdk-events-notify@2.3.4.jsii.tgz"
 )
 
 __all__ = [

@@ -124,14 +124,39 @@ def prompt_for_missing_keys(
     if values_set == 0:
         return False
 
-    # Save updated config
+    # Snapshot before overwriting (non-fatal)
+    if config_path.exists():
+        try:
+            from .config_history import ConfigHistoryService, get_backup_dir
+
+            ConfigHistoryService(get_backup_dir(config_path.parent)).snapshot(config_path, source="required_keys")
+        except Exception:
+            pass
+
+    # Save updated config atomically
+    import os as _os
+    import tempfile as _tempfile
+
     config_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(config_path, "w", encoding="utf-8") as f:
-        yaml.dump(raw, f, default_flow_style=False, sort_keys=False)
+    content = yaml.dump(raw, default_flow_style=False, sort_keys=False)
+    fd, tmp_str = _tempfile.mkstemp(dir=config_path.parent, suffix=".tmp")
+    _tmp = Path(tmp_str)
     try:
-        config_path.chmod(stat.S_IRUSR | stat.S_IWUSR)
-    except OSError:
-        pass
+        try:
+            _os.fchmod(fd, stat.S_IRUSR | stat.S_IWUSR)
+        except OSError:
+            pass
+        _os.write(fd, content.encode())
+        _os.fsync(fd)
+        _os.close(fd)
+        _os.replace(tmp_str, config_path)
+    except BaseException:
+        try:
+            _os.close(fd)
+        except OSError:
+            pass
+        _tmp.unlink(missing_ok=True)
+        raise
 
     print(f"\n  Updated {config_path} with {values_set} value(s).\n")
     return True

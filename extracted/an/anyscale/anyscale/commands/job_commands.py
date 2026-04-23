@@ -807,7 +807,7 @@ def list(  # noqa: A001 PLR0913 PLR0912
     if states:
         if v2:
             # V2 path: Only accept SDK states
-            allowed = {"STARTING", "RUNNING", "SUCCEEDED", "FAILED"}
+            allowed = {"STARTING", "RUNNING", "SUCCEEDED", "FAILED", "TERMINATED"}
             for state in states:
                 state_upper = state.upper()
                 if state_upper not in allowed:

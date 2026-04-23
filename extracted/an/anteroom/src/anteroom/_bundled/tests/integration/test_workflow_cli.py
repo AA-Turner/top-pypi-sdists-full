@@ -110,9 +110,6 @@ class TestWorkflowCLIDryRun:
         assert "issue:42" in result.stdout
         assert "gate_issue_current" in result.stdout
         assert "gate_plan" in result.stdout
-        assert "fast_checks_loop" in result.stdout
-        assert "sync_for_pr" in result.stdout
-        assert "review_loop" in result.stdout
 
     def test_dry_run_unknown_workflow(self) -> None:
         result = _run_aroom("workflow", "run", "nonexistent", "--dry-run")

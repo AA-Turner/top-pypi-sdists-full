@@ -49,6 +49,7 @@ from snowflake.snowpark_connect.relation.read.metadata_utils import (
     METADATA_FILENAME_COLUMN,
     without_internal_columns,
 )
+from snowflake.snowpark_connect.typed_column import FieldType
 from snowflake.snowpark_connect.utils.identifiers import (
     split_fully_qualified_spark_name,
 )
@@ -59,27 +60,28 @@ from snowflake.snowpark_connect.utils.telemetry import (
 
 def cast_columns(
     df_container: DataFrameContainer,
-    df_dtypes: list[snowpark.types.DataType],
-    target_dtypes: list[snowpark.types.DataType],
+    target_field_types: list[FieldType],
     column_map: ColumnNameMap,
 ):
-    df: snowpark.DataFrame = df_container.dataframe
-    if df_dtypes == target_dtypes:
-        return df_container
-    # Use cached schema if available to avoid triggering extra queries
-    if (
-        hasattr(df_container, "cached_schema_getter")
-        and df_container.cached_schema_getter is not None
-    ):
-        df_schema = df_container.cached_schema_getter()
-    else:
-        df_schema = df.schema  # Get current schema
-    new_columns = []
+    df_schema = get_schema_from_result(df_container)
+    df_datatypes = [f.datatype for f in df_schema.fields]
+    target_datatypes = [t.datatype for t in target_field_types]
 
+    if df_datatypes == target_datatypes:
+        # Types match but nullable may differ — update schema getter in-place
+        schema = DataFrameContainer._create_schema_from_types(
+            column_map.get_snowpark_columns(), target_field_types
+        )
+        if schema is not None:
+            set_schema_getter(df_container.dataframe, lambda s=schema: s)
+        return df_container
+
+    df: snowpark.DataFrame = df_container.dataframe
+    new_columns = []
     for i, field in enumerate(df_schema.fields):
         col_name = field.name
         current_type = field.datatype
-        target_type = target_dtypes[i]
+        target_type = target_datatypes[i]
         new_columns.append(
             _cast_column_if_needed(df, col_name, current_type, target_type)
         )
@@ -89,7 +91,7 @@ def cast_columns(
         dataframe=new_df,
         spark_column_names=column_map.get_spark_columns(),
         snowpark_column_names=column_map.get_snowpark_columns(),
-        snowpark_column_types=target_dtypes,
+        snowpark_column_types=target_field_types,
         column_metadata=column_map.column_metadata,
         parent_column_name_map=column_map,
     )
@@ -177,16 +179,33 @@ def _coerce_set_op_types(
 
     Returns updated (left_result, right_result).
     """
-    left_dtypes = [field.datatype for field in get_schema_from_result(left_df).fields]
-    right_dtypes = [field.datatype for field in get_schema_from_result(right_df).fields]
+    left_fields = get_schema_from_result(left_df).fields
+    right_fields = get_schema_from_result(right_df).fields
+    left_dtypes = [f.datatype for f in left_fields]
+    right_dtypes = [f.datatype for f in right_fields]
+
+    if len(left_dtypes) != len(right_dtypes):
+        exception = AnalysisException(
+            f"{operation_name}: the number of columns must match"
+        )
+        attach_custom_error_code(exception, ErrorCodes.INVALID_OPERATION)
+        raise exception
+
+    # Compute merged nullable per set operation semantics
+    # EXCEPT: rows come from left only → left nullable
+    # INTERSECT: rows that appear in both → nullable = left AND right
+    # UNION: rows from either side → nullable = left OR right
+    op = operation_name.upper()
+    target_nullables = []
+    for lf, rf in zip(left_fields, right_fields):
+        if op == "EXCEPT":
+            target_nullables.append(lf.nullable)
+        elif op == "INTERSECT":
+            target_nullables.append(lf.nullable and rf.nullable)
+        else:  # UNION
+            target_nullables.append(lf.nullable or rf.nullable)
 
     if left_dtypes != right_dtypes:
-        if len(left_dtypes) != len(right_dtypes):
-            exception = AnalysisException(
-                f"{operation_name}: the number of columns must match"
-            )
-            attach_custom_error_code(exception, ErrorCodes.INVALID_OPERATION)
-            raise exception
         target_dtypes = []
         for left_type, right_type in zip(left_dtypes, right_dtypes):
             try:
@@ -203,19 +222,23 @@ def _coerce_set_op_types(
                     )
                     attach_custom_error_code(exception, ErrorCodes.TYPE_MISMATCH)
                 raise exception
+    else:
+        target_dtypes = left_dtypes
 
-        left_df = cast_columns(
-            left_df,
-            left_dtypes,
-            target_dtypes,
-            left_df.column_map,
-        )
-        right_df = cast_columns(
-            right_df,
-            right_dtypes,
-            target_dtypes,
-            right_df.column_map,
-        )
+    target_field_types = [
+        FieldType(dt, nullable) for dt, nullable in zip(target_dtypes, target_nullables)
+    ]
+
+    left_df = cast_columns(
+        left_df,
+        target_field_types,
+        left_df.column_map,
+    )
+    right_df = cast_columns(
+        right_df,
+        target_field_types,
+        right_df.column_map,
+    )
 
     return left_df, right_df
 
@@ -604,9 +627,19 @@ def map_union(
 
         spark_columns = []
         snowpark_columns = []
-
-        snowpark_column_types = [f.datatype for f in result.schema.fields]
         select_exprs = []
+
+        left_nullable_map = {f.name: f.nullable for f in left_renamed_fields}
+        right_nullable_map = {f.name: f.nullable for f in right_renamed_fields}
+        snowpark_column_types = [
+            FieldType(
+                f.datatype,
+                left_nullable_map.get(f.name, True)
+                or right_nullable_map.get(f.name, True),
+            )
+            for f in result.schema.fields
+        ]
+
         for col_ in result.columns:
             spark_col_to_restore, snowpark_col_to_restore = columns_to_restore[
                 union_restorable_name(col_)
@@ -630,18 +663,40 @@ def map_union(
         )
     elif rel.set_op.is_all:
         result = left_df.unionAll(right_df)
+        _left_schema = get_schema_from_result(left_result)
+        _right_schema = get_schema_from_result(right_result)
         return DataFrameContainer(
             result,
             column_map=left_result.column_map,
-            cached_schema_getter=lambda: left_df.schema,
+            cached_schema_getter=lambda: StructType(
+                [
+                    StructField(
+                        lf.name,
+                        lf.datatype,
+                        lf.nullable or rf.nullable,
+                    )
+                    for lf, rf in zip(_left_schema.fields, _right_schema.fields)
+                ]
+            ),
         )
     else:
         result = left_df.union(right_df)
+        _left_schema = get_schema_from_result(left_result)
+        _right_schema = get_schema_from_result(right_result)
         # union operation does not preserve column qualifiers
         return DataFrameContainer(
             result,
             column_map=left_result.column_map,
-            cached_schema_getter=lambda: left_df.schema,
+            cached_schema_getter=lambda: StructType(
+                [
+                    StructField(
+                        lf.name,
+                        lf.datatype,
+                        lf.nullable or rf.nullable,
+                    )
+                    for lf, rf in zip(_left_schema.fields, _right_schema.fields)
+                ]
+            ),
         )
 
 

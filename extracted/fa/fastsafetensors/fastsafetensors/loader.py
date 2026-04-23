@@ -11,10 +11,11 @@ from .common import (
     init_logger,
     set_debug,
 )
-from .copier.gds import new_gds_file_copier
+from .copier import CopierConstructFunc, CopierType, create_copier_constructor
+from .copier.unified import is_unified_memory_system
 from .file_buffer import FilesBufferOnDevice
 from .frameworks import TensorBase, get_framework_op
-from .st_types import Device, DType
+from .st_types import Device, DeviceType, DType
 from .tensor_factory import LazyTensorFactory
 
 gl_set_numa = False
@@ -42,7 +43,7 @@ class BaseSafeTensorsFileLoader:
         self,
         pg: Optional[Any],
         device: Device,
-        copier_constructor,
+        copier_type: CopierType,
         set_numa: bool = True,
         disable_cache: bool = True,
         framework="pytorch",
@@ -55,7 +56,11 @@ class BaseSafeTensorsFileLoader:
         self.frames = OrderedDict[str, TensorFrame]()
         self.disable_cache = disable_cache
         self.init_numa(set_numa)
-        self.copier_constructor = copier_constructor
+        self.copier_constructor: CopierConstructFunc = create_copier_constructor(
+            copier_type=copier_type,
+            device=device,
+            **kwargs,
+        )
 
     def init_numa(self, set_numa: bool = True):
         global gl_set_numa
@@ -113,6 +118,9 @@ class BaseSafeTensorsFileLoader:
         trigger copying all the files to device buffers.
         At this moment, we do not instantiate tensors but just creating copies at device buffers with or without GDS.
         Users can instantiate and/or partition tensors with FilesBufferOnDevice returned by this function.
+        The returned FilesBufferOnDevice owns the backing storage for tensors
+        created from it. Clone/copy those tensors before FilesBufferOnDevice.close()
+        if the tensor data must outlive the buffer.
         """
         self.framework.set_device(self.device)
 
@@ -124,8 +132,11 @@ class BaseSafeTensorsFileLoader:
         factory_idx_bits = math.ceil(math.log2(len(self.meta) + 1))
         lidx = 1
         for _, (meta, rank) in sorted(self.meta.items(), key=lambda x: x[0]):
-            copier = self.copier_constructor(meta, self.device, self.framework)
             self_rank = self.pg.rank() == rank
+            if self_rank:
+                copier = self.copier_constructor(meta, self.device, self.framework)
+            else:
+                copier = None
             factory = LazyTensorFactory(
                 meta,
                 self.device,
@@ -186,25 +197,25 @@ class SafeTensorsFileLoader(BaseSafeTensorsFileLoader):
         self.device = self.framework.get_device(device, self.pg)
 
         fstcpp.set_debug_log(debug_log)
-        if debug_log:
-            set_debug()
-        global loaded_library
-        if not loaded_library:
-            fstcpp.load_library_functions()
-            if not nogds:
-                # no need to init gds and consume 10s+ in none-gds case
-                if fstcpp.init_gds() != 0:
-                    raise Exception(f"[FAIL] init_gds()")
-            loaded_library = True
 
-        copier = new_gds_file_copier(self.device, bbuf_size_kb, max_threads, nogds)
+        if not nogds:
+            copier_type = "gds"
+        elif self.device.type != DeviceType.CPU and is_unified_memory_system():
+            # When GDS is unavailable, prefer the unified copier on systems
+            # with shared CPU/GPU memory (e.g., DGX Spark) over the
+            # bounce-buffer nogds path.
+            copier_type = "unified"
+        else:
+            copier_type = "nogds"
         super().__init__(
             pg,
             self.device,
-            copier,
+            copier_type,
             set_numa,
             disable_cache,
             framework,
+            bbuf_size_kb=bbuf_size_kb,
+            max_threads=max_threads,
             **kwargs,
         )
 
@@ -213,6 +224,9 @@ class fastsafe_open:
     """
     Opens a safetensors lazily and returns tensors as asked
     This is an enhanced version of safe_open in the original safetensors library to consume file list
+    Tensors returned from this context are valid only while the context stays
+    open. Clone/copy returned tensors before leaving the with block if the
+    tensor data must be reused after __exit__ closes the backing buffer.
 
     Args:
         filenames (:obj:`str`|`list[str]`|`dict[int, str]`): The filename(s) or rank-file map to open
@@ -255,9 +269,19 @@ class fastsafe_open:
         return list(self.fb.key_to_rank_lidx.keys())
 
     def get_tensor_wrapped(self, name: str) -> TensorBase:
+        """Return a wrapped tensor by name.
+
+        Clone/copy the returned tensor before leaving the context manager if
+        the tensor data must be used after the context closes.
+        """
         return self.fb.get_tensor_wrapped(name)
 
     def get_tensor(self, name: str) -> Any:
+        """Return a tensor by name.
+
+        Clone/copy the returned tensor before leaving the context manager if
+        the tensor data must be used after the context closes.
+        """
         return self.get_tensor_wrapped(name).get_raw()
 
     def __enter__(self):

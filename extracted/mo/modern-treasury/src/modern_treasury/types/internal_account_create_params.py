@@ -16,10 +16,11 @@ class InternalAccountCreateParams(TypedDict, total=False):
     connection_id: Required[str]
     """The identifier of the financial institution the account belongs to."""
 
-    currency: Required[Literal["USD", "CAD"]]
-    """Either "USD" or "CAD".
+    currency: Required[Literal["USD", "CAD", "USDC", "USDG", "PYUSD"]]
+    """The currency of the internal account.
 
-    Internal accounts created at Increase only supports "USD".
+    Supports "USD" and "CAD" for fiat, and "USDC", "USDG", and "PYUSD" for
+    stablecoin accounts.
     """
 
     name: Required[str]
@@ -114,7 +115,6 @@ class AccountCapability(TypedDict, total=False, extra_items=object):  # type: ig
             "ach",
             "au_becs",
             "bacs",
-            "base",
             "book",
             "card",
             "chats",
@@ -122,7 +122,6 @@ class AccountCapability(TypedDict, total=False, extra_items=object):  # type: ig
             "cross_border",
             "dk_nets",
             "eft",
-            "ethereum",
             "gb_fps",
             "hu_ics",
             "interac",
@@ -132,7 +131,6 @@ class AccountCapability(TypedDict, total=False, extra_items=object):  # type: ig
             "nics",
             "nz_becs",
             "pl_elixir",
-            "polygon",
             "provxchange",
             "ro_sent",
             "rtp",
@@ -143,7 +141,6 @@ class AccountCapability(TypedDict, total=False, extra_items=object):  # type: ig
             "sic",
             "signet",
             "sknbi",
-            "solana",
             "stablecoin",
             "wire",
             "zengin",

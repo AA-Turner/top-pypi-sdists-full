@@ -99,7 +99,7 @@ def route_message(text: str, active_runs: list[dict[str, Any]]) -> RouteResult:
 
 def _extract_spawn_hint(text: str) -> str | None:
     m = _SPAWN_HINT_PATTERN.search(text)
-    return m.group(1).lower() if m else None
+    return str(m.group(1)).lower() if m else None
 
 
 def _ask_user_for_ambiguity(active_runs: list[dict[str, Any]]) -> RouteResult:
@@ -142,19 +142,19 @@ def resolve_disambiguation(
     if pos_match:
         idx = int(pos_match.group(1)) - 1  # 1-indexed
         if 0 <= idx < len(pending_runs):
-            return pending_runs[idx]["id"]
+            return str(pending_runs[idx]["id"])
         return None
 
     ordinals = {"first": 0, "second": 1, "third": 2}
     for word, idx in ordinals.items():
         if word in text_stripped and idx < len(pending_runs):
-            return pending_runs[idx]["id"]
+            return str(pending_runs[idx]["id"])
 
     # 2. Match by workflow_id (case-insensitive): full-text substring first,
     #    then word-level matching for replies like "the code review one".
     matches_by_wf = [r for r in pending_runs if text_stripped in r.get("workflow_id", "").lower()]
     if len(matches_by_wf) == 1:
-        return matches_by_wf[0]["id"]
+        return str(matches_by_wf[0]["id"])
 
     # Word-level: extract significant words (3+ chars, not stop words) and
     # check if any single word uniquely matches exactly one workflow_id.
@@ -163,7 +163,7 @@ def resolve_disambiguation(
     for word in words:
         word_matches = [r for r in pending_runs if word in r.get("workflow_id", "").lower()]
         if len(word_matches) == 1:
-            return word_matches[0]["id"]
+            return str(word_matches[0]["id"])
 
     # 3. Match by run_id prefix (first 4+ hex chars)
     hex_match = re.match(r"^([0-9a-f]{4,})$", text_stripped)
@@ -171,6 +171,6 @@ def resolve_disambiguation(
         prefix = hex_match.group(1)
         matches_by_id = [r for r in pending_runs if r["id"].lower().startswith(prefix)]
         if len(matches_by_id) == 1:
-            return matches_by_id[0]["id"]
+            return str(matches_by_id[0]["id"])
 
     return None

@@ -55,6 +55,16 @@ class CliTheme:
     logo_blue: str = ""  # logo accent color
     code_inline: str = ""  # inline code foreground in markdown
 
+    # -- Visual hierarchy (#1370) --
+    user_gutter: str = ""  # left gutter color for user messages
+    assistant_gutter: str = ""  # left gutter color for AI prose
+    tool_gutter: str = ""  # left gutter color for tool call/result lanes
+    system_gutter: str = ""  # left gutter color for system/info/warning/error
+    code_bg: str = ""  # code-block background frame color
+    code_label: str = ""  # code-block language label color
+    turn_separator: str = ""  # thin horizontal separator between turns
+    timestamp: str = ""  # subtle right-aligned timestamp color
+
     @classmethod
     def load(cls, name: str) -> CliTheme:
         """Load a built-in theme by name, falling back to midnight."""
@@ -133,6 +143,14 @@ _MIDNIGHT = CliTheme(
     toolbar_sep="#505868",
     logo_blue="#3B82F6",
     code_inline="#88C0D0",
+    user_gutter="#C5A059",
+    assistant_gutter="#94A3B8",
+    tool_gutter="#6b7280",
+    system_gutter="#e8b830",
+    code_bg="#1e1e2e",
+    code_label="#88C0D0",
+    turn_separator="#3a3a4e",
+    timestamp="#6b7280",
 )
 
 _DAWN = CliTheme(
@@ -159,6 +177,14 @@ _DAWN = CliTheme(
     toolbar_sep="#D1D5DB",
     logo_blue="#2563EB",
     code_inline="#2E8B57",
+    user_gutter="#B8860B",
+    assistant_gutter="#6B7280",
+    tool_gutter="#9CA3AF",
+    system_gutter="#D97706",
+    code_bg="#FEF9C3",
+    code_label="#2E8B57",
+    turn_separator="#D1D5DB",
+    timestamp="#9CA3AF",
 )
 
 _HIGH_CONTRAST = CliTheme(
@@ -185,6 +211,14 @@ _HIGH_CONTRAST = CliTheme(
     toolbar_sep="#666666",
     logo_blue="#00BFFF",
     code_inline="#00FFFF",
+    user_gutter="#FFFF00",
+    assistant_gutter="#FFFFFF",
+    tool_gutter="#A0A0A0",
+    system_gutter="#FFA500",
+    code_bg="#1A1A1A",
+    code_label="#00FFFF",
+    turn_separator="#666666",
+    timestamp="#C0C0C0",
 )
 
 # Accessible theme: CVD-safe palette (blue/orange instead of red/green).
@@ -213,6 +247,14 @@ _ACCESSIBLE = CliTheme(
     toolbar_sep="#505868",
     logo_blue="#648FFF",
     code_inline="#00CED1",
+    user_gutter="#FFB000",
+    assistant_gutter="#94A3B8",
+    tool_gutter="#6b7280",
+    system_gutter="#FFB000",
+    code_bg="#1e1e2e",
+    code_label="#00CED1",
+    turn_separator="#3a3a4e",
+    timestamp="#6b7280",
 )
 
 # NO_COLOR: reuse midnight colors so Rich markup tags remain valid.

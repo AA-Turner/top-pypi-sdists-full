@@ -3,7 +3,7 @@ members = ["crates/keeper-pam-webrtc-rs", "crates/webrtc-bindings", "crates/guac
 resolver = "2"
 
 [workspace.package]
-version = "2.1.13"
+version = "2.1.14"
 edition = "2021"
 license = "MIT"
 authors = ["Keeper Security Engineering <pam@keepersecurity.com>"]

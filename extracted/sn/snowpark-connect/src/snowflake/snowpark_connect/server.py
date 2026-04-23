@@ -1231,12 +1231,22 @@ def start_jvm():
     # Import both JAR dependency packages
     import snowpark_connect_deps_1
     import snowpark_connect_deps_2
+    from snowflake.snowpark_connect.utils.jvm_classpath import (
+        filter_classpath_jars,
+        log_classpath_filter_summary,
+    )
 
-    # Load all the jar files from both packages
+    # Load jar files from both packages, filtering out jars that are not
+    # reachable from the server-side JVM code paths (Spark streaming,
+    # Kubernetes, Hive, network/shuffle, Kryo, Hadoop, MLlib math, ...).
+    # The stage-side upload path in ``resources_initializer`` looks jars up
+    # by exact name and is unaffected by this filter.
     jar_path_list = (
         snowpark_connect_deps_1.list_jars() + snowpark_connect_deps_2.list_jars()
     )
-    for jar_path in jar_path_list:
+    kept_jars, dropped_jars = filter_classpath_jars(jar_path_list)
+    log_classpath_filter_summary(kept_jars, dropped_jars)
+    for jar_path in kept_jars:
         jpype.addClassPath(jar_path)
 
     # TODO: Should remove convertStrings, but it breaks the JDBC code.

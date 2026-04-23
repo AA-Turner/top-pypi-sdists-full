@@ -7,8 +7,9 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import List, Union
 
+import pyspark.sql.connect.proto.types_pb2 as types_proto
+
 import snowflake.snowpark.types as snowpark_type
-import snowflake.snowpark_connect.includes.python.pyspark.sql.connect.proto.types_pb2 as types_proto
 from snowflake import snowpark
 from snowflake.snowpark_connect.config import get_scala_version
 from snowflake.snowpark_connect.error.error_codes import ErrorCodes

@@ -1,168 +1,113 @@
+import sys
 import unittest
 
+import pytest
+
 from grafana_client import GrafanaApi
+from grafana_client.client import GrafanaBadInputError
 
-from ..compat import requests_mock
+pytestmark = pytest.mark.integration
 
 
+@unittest.skipIf("unittest" in sys.argv[0], "Skipping unittest, please use pytest")
 class ServiceAccountsTestCase(unittest.TestCase):
-    def setUp(self):
-        self.grafana = GrafanaApi(("admin", "admin"), host="localhost", url_path_prefix="", protocol="http")
+    @pytest.fixture(autouse=True)
+    def use_fixtures(
+        self,
+        grafana_api: GrafanaApi,
+        service_account_id: int,
+        service_account_login: str,
+        service_account_token_id: int,
+    ):
+        self.grafana = grafana_api
+        self.account_id = service_account_id
+        self.account_login = service_account_login
+        self.token_id = service_account_token_id
 
-    @requests_mock.Mocker()
-    def test_get(self, m):
-        m.get(
-            "http://localhost/api/serviceaccounts/42?accesscontrol=true",
-            json={
-                "id": 42,
-                "name": "rjuan",
-                "login": "sa-juan",
-                "orgId": 1,
-                "isDisabled": False,
-                "createdAt": "2023-12-15T21:38:59Z",
-                "updatedAt": "2023-12-19T12:46:06Z",
-                "avatarUrl": "/avatar/06b4d9db72de4d293813135da09fd736",
-                "role": "Viewer",
-                "teams": None,
-                "accessControl": {
-                    "serviceaccounts.permissions:read": True,
-                    "serviceaccounts.permissions:write": True,
-                    "serviceaccounts:delete": True,
-                    "serviceaccounts:read": True,
-                    "serviceaccounts:write": True,
-                },
-            },
-        )
-        result = self.grafana.serviceaccount.get(42)
+    def test_get_account(self):
+        result = self.grafana.serviceaccount.get(self.account_id)
+        self.assertEqual(self.account_id, result["id"])
+        self.assertEqual("service", result["name"])
+        self.assertEqual(self.account_login, result["login"])
+        self.assertEqual("Admin", result["role"])
+        self.assertEqual(1, result["orgId"])
+        self.assertEqual(False, result["isDisabled"])
         self.assertEqual(
-            result,
             {
-                "id": 42,
-                "name": "rjuan",
-                "login": "sa-juan",
-                "orgId": 1,
-                "isDisabled": False,
-                "createdAt": "2023-12-15T21:38:59Z",
-                "updatedAt": "2023-12-19T12:46:06Z",
-                "avatarUrl": "/avatar/06b4d9db72de4d293813135da09fd736",
-                "role": "Viewer",
-                "teams": None,
-                "accessControl": {
-                    "serviceaccounts.permissions:read": True,
-                    "serviceaccounts.permissions:write": True,
-                    "serviceaccounts:delete": True,
-                    "serviceaccounts:read": True,
-                    "serviceaccounts:write": True,
-                },
+                "serviceaccounts.permissions:read": True,
+                "serviceaccounts.permissions:write": True,
+                "serviceaccounts:delete": True,
+                "serviceaccounts:read": True,
+                "serviceaccounts:write": True,
             },
+            result["accessControl"],
         )
 
-    @requests_mock.Mocker()
-    def test_create(self, m):
-        m.post(
-            "http://localhost/api/serviceaccounts/",
-            json={"message": "Service account created"},
-        )
+    def test_create_account(self):
         user = self.grafana.serviceaccount.create({"name": "foo", "role": "Admin"})
-        self.assertEqual(user["message"], "Service account created")
+        user_login = user["login"]
+        self.assertTrue(user_login.startswith("sa-"), f"Expected login to start with 'sa-', got {user_login}")
 
-    @requests_mock.Mocker()
-    def test_update(self, m):
-        m.patch(
-            "http://localhost/api/serviceaccounts/42",
-            json={"message": "Service account updated"},
-        )
-        user = self.grafana.serviceaccount.update(42, {"name": "foo", "role": "Admin"})
-        self.assertEqual(user["message"], "Service account updated")
+    def test_update_account(self):
+        response = self.grafana.serviceaccount.update(self.account_id, {"name": "foo", "role": "Admin"})
+        self.assertEqual(response["message"], "Service account updated")
 
-    @requests_mock.Mocker()
-    def test_delete(self, m):
-        m.delete(
-            "http://localhost/api/serviceaccounts/42",
-            json={"message": "Service account deleted"},
-        )
-        user = self.grafana.serviceaccount.delete(42)
-        self.assertEqual(user["message"], "Service account deleted")
+    def test_delete_account(self):
+        response = self.grafana.serviceaccount.delete(self.account_id)
+        self.assertEqual(response["message"], "Service account deleted")
 
-    @requests_mock.Mocker()
-    def test_create_token(self, m):
-        m.post(
-            "http://localhost/api/serviceaccounts/42/tokens",
-            json={"message": "Service account token created"},
-        )
-        user = self.grafana.serviceaccount.create_token(42, {"name": "some-uuid"})
-        self.assertEqual(user["message"], "Service account token created")
+    def test_create_token_success(self):
+        token = self.grafana.serviceaccount.create_token(self.account_id, {"name": "random-token"})
+        self.assertEqual(token["name"], "random-token")
 
-    @requests_mock.Mocker()
-    def test_delete_token(self, m):
-        m.delete(
-            "http://localhost/api/serviceaccounts/42/tokens/2",
-            json={"message": "Service account token deleted"},
+    def test_create_token_duplicate(self):
+        with self.assertRaises(GrafanaBadInputError) as context:
+            self.grafana.serviceaccount.create_token(self.account_id, {"name": "Hotzenplotz"})
+        self.assertEqual(400, context.exception.status_code)
+        self.assertIn(
+            "service account token with given name already exists in the organization", context.exception.message
         )
-        user = self.grafana.serviceaccount.delete_token(42, 2)
-        self.assertEqual(user["message"], "Service account token deleted")
 
-    @requests_mock.Mocker()
-    def test_get_tokens_some(self, m):
-        m.get(
-            "http://localhost/api/serviceaccounts/42/tokens",
-            json=["token1", "token2"],
-        )
-        result = self.grafana.serviceaccount.get_tokens(42)
-        self.assertEqual(len(result), 2)
+    def test_delete_token(self):
+        response = self.grafana.serviceaccount.delete_token(self.account_id, self.token_id)
+        self.assertEqual(response["message"], "Service account token deleted")
 
-    @requests_mock.Mocker()
-    def test_get_tokens_zero(self, m):
-        m.get(
-            "http://localhost/api/serviceaccounts/42/tokens",
-            json=[],
-        )
-        result = self.grafana.serviceaccount.get_tokens(42)
-        self.assertEqual(len(result), 0)
+    def test_get_tokens_success(self):
+        results = self.grafana.serviceaccount.get_tokens(self.account_id)
+        self.assertEqual(1, len(results))
 
-    @requests_mock.Mocker()
-    def test_search(self, m):
-        # TODO: Don't know how the shape of the response looks like.
-        m.get(
-            "http://localhost/api/serviceaccounts/search?query=foo&page=3&perpage=10",
-            json={"foo": "bar"},
-        )
-        result = self.grafana.serviceaccount.search("foo", page=3, perpage=10)
-        self.assertEqual(result, [{"foo": "bar"}])
+    def test_get_tokens_invalid_account(self):
+        results = self.grafana.serviceaccount.get_tokens(9999)
+        self.assertEqual(0, len(results))
 
-    @requests_mock.Mocker()
-    def test_search_one_success(self, m):
-        m.get(
-            "http://localhost/api/serviceaccounts/search?query=foo&page=1",
-            json={"totalCount": 1, "serviceAccounts": [{"foo": "bar"}]},
-        )
-        m.get(
-            "http://localhost/api/serviceaccounts/search?query=foo&page=2",
-            json={"totalCount": 1, "serviceAccounts": []},
-        )
-        result = self.grafana.serviceaccount.search_one("foo")
-        self.assertEqual(result, {"foo": "bar"})
+    def test_search_success(self):
+        results = self.grafana.serviceaccount.search_all("serv")
+        self.assertEqual(1, len(results))
+        self.assertEqual("service", results[0]["name"])
 
-    @requests_mock.Mocker()
-    def test_search_one_find_two(self, m):
-        m.get(
-            "http://localhost/api/serviceaccounts/search?query=foo&page=1",
-            json={"totalCount": 2, "serviceAccounts": [{"foo": "bar"}, {"foo": "baz"}]},
-        )
-        m.get(
-            "http://localhost/api/serviceaccounts/search?query=foo&page=2",
-            json={"totalCount": 2, "serviceAccounts": []},
-        )
+    def test_search_paged_too_far(self):
+        results = self.grafana.serviceaccount.search_all("serv", page=9999)
+        self.assertEqual(0, len(results))
+
+    def test_search_paged_too_short(self):
+        results = self.grafana.serviceaccount.search_all("serv", page=0)
+        self.assertEqual(1, len(results))
+
+    def test_search_paged_invalid(self):
+        results = self.grafana.serviceaccount.search_all("serv", page=-9999)
+        self.assertEqual(1, len(results))
+
+    def test_search_one_success(self):
+        result = self.grafana.serviceaccount.search_one("serv")
+        self.assertEqual("service", result["name"])
+
+    def test_search_one_find_two(self):
+        self.grafana.serviceaccount.create({"name": "service-2", "role": "Admin"})
         with self.assertRaises(ValueError) as ex:
-            self.grafana.serviceaccount.search_one("foo")
+            self.grafana.serviceaccount.search_one("serv")
         self.assertEqual("More than one service account matched", str(ex.exception))
 
-    @requests_mock.Mocker()
-    def test_search_one_find_zero(self, m):
-        m.get(
-            "http://localhost/api/serviceaccounts/search?query=foo&page=1",
-            json={"totalCount": 0, "serviceAccounts": []},
-        )
+    def test_search_one_find_zero(self):
         with self.assertRaises(ValueError) as ex:
             self.grafana.serviceaccount.search_one("foo")
         self.assertEqual("No service account matched", str(ex.exception))

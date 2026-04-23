@@ -13,6 +13,11 @@ from snowflake.snowpark_connect.column_qualifier import ColumnQualifier
 
 _EMPTY_COLUMN = Column("")
 
+# Flipped by test harness print_schema_nullability decorator to
+# honour nullable=False from type resolvers instead of forcing everything
+# nullable.  Default off — all fields report nullable=True.
+column_nullability_enabled = False
+
 
 @dataclass(frozen=True)
 class SelectedProjectionSpec:
@@ -29,6 +34,20 @@ class SelectedProjectionSpec:
     source_column_name: str
     cast_type: snowpark.types.DataType | None = None
     extract_field: str | None = None
+
+
+@dataclass(frozen=True)
+class FieldType:
+    datatype: snowpark.types.DataType
+    nullable: bool = True
+
+
+def _to_field_type(
+    r: snowpark.types.DataType | FieldType, force_nullable: bool
+) -> FieldType:
+    if isinstance(r, FieldType):
+        return FieldType(r.datatype, nullable=True) if force_nullable else r
+    return FieldType(r, nullable=True)
 
 
 class TypedColumn:
@@ -51,14 +70,36 @@ class TypedColumn:
 
     @property
     def typ(self) -> snowpark.types.DataType | None:
-        assert (
-            len(self.types) == 1
-        ), f"Expected exactly single column expression, got {self.col} with types {self.types}"
-        return self.types[0]
+        return self.field_type.datatype
+
+    @cached_property
+    def _field_types(self) -> list[FieldType] | None:
+        result = self._type_resolver()
+        if result is None:
+            return None
+        force_nullable = not column_nullability_enabled
+        return [_to_field_type(r, force_nullable) for r in result]
 
     @cached_property
     def types(self) -> list[snowpark.types.DataType] | None:
-        return self._type_resolver()
+        if self._field_types is None:
+            return None
+        return [ft.datatype for ft in self._field_types]
+
+    @property
+    def nullable(self) -> bool:
+        return self.field_type.nullable
+
+    @property
+    def field_types(self) -> list[FieldType] | None:
+        return self._field_types
+
+    @property
+    def field_type(self) -> FieldType:
+        assert (
+            self._field_types is not None and len(self._field_types) == 1
+        ), f"Expected exactly single column expression, got {self.col} with types {self.types}"
+        return self._field_types[0]
 
     @classmethod
     def empty(cls):

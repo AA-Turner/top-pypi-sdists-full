@@ -6,7 +6,6 @@ import tilelang.language as T
 from tilelang.intrinsics import get_swizzle_layout
 from tilelang.intrinsics.mma_macro_generator import TensorCoreIntrinEmitter
 from tilelang.intrinsics.mfma_macro_generator import MatrixCoreIntrinEmitter
-from tilelang.utils.tensor import map_torch_type
 from tilelang.utils import determine_fp8_type
 
 tilelang.testing.set_random_seed(0)
@@ -192,23 +191,17 @@ def tl_matmul(
 def assert_tl_matmul_correctness(M, N, K, in_dtype, out_dtype, accum_dtype):
     kernel = tl_matmul(M, N, K, in_dtype, out_dtype, accum_dtype)
     src_code = kernel.get_kernel_source()
-    print(src_code)
     # src_code is the generated cuda source
     assert src_code is not None
 
-    in_dtype = map_torch_type(in_dtype)
-    out_dtype = map_torch_type(out_dtype)
-    accum_dtype = map_torch_type(accum_dtype)
+    in_dtype = in_dtype.as_torch()
+    out_dtype = out_dtype.as_torch()
+    accum_dtype = accum_dtype.as_torch()
 
     if in_dtype in {torch.int8, torch.int32}:
         A = torch.randint(-128, 128, (M, K), dtype=torch.int8).to(in_dtype).cuda()
         B = torch.randint(-128, 128, (N, K), dtype=torch.int8).to(in_dtype).cuda()
-    elif in_dtype in {
-        torch.float8_e4m3fn,
-        torch.float8_e4m3fnuz,
-        torch.float8_e5m2,
-        torch.float8_e5m2fnuz,
-    }:
+    elif in_dtype in {torch.float8_e4m3fn, torch.float8_e4m3fnuz, torch.float8_e5m2, torch.float8_e5m2fnuz}:
         A = torch.randn(M, K).to(in_dtype).cuda()
         B = torch.randn(N, K).to(in_dtype).cuda()
     else:
@@ -228,8 +221,6 @@ def assert_tl_matmul_correctness(M, N, K, in_dtype, out_dtype, accum_dtype):
 
     # Get Reference Result
     ref_c = torch.matmul(A.to(accum_dtype), B.T.to(accum_dtype)).to(out_dtype)
-    print(C)
-    print(ref_c)
     torch.testing.assert_close(C, ref_c, rtol=1e-2, atol=1e-2)
 
 
@@ -242,10 +233,9 @@ def main():
 
 def run_regression_perf():
     M, N, K = 4096, 4096, 4096
-    out_dtype, accum_dtype = "float32", "float32"
+    out_dtype, accum_dtype = T.float32, T.float32
     in_dtype = determine_fp8_type()
     kernel_e4m3 = tl_matmul(M, N, K, in_dtype, out_dtype, accum_dtype)
-    print(kernel_e4m3.get_kernel_source())
     profiler_e4m3 = kernel_e4m3.get_profiler(tilelang.TensorSupplyType.Integer)
     if torch.version.hip is None:
         latency_e4m3 = profiler_e4m3.do_bench(backend="cupti")

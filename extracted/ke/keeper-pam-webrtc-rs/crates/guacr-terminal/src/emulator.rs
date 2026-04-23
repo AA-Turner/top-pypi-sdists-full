@@ -534,15 +534,14 @@ impl TerminalEmulator {
                             }
                         }
                     }
-                    0x3c => {
+                    0x3c
                         // '<' - Disable (CSI < u = 4 bytes: ESC [ < u)
-                        if i + 3 < data.len() && data[i + 3] == 0x75 {
+                        if i + 3 < data.len() && data[i + 3] == 0x75 => {
                             // 'u' terminator
                             self.kitty_keyboard_level = 0;
                             self.kitty_keyboard_flags = 0;
                             log::debug!("Kitty keyboard protocol disabled");
                         }
-                    }
                     _ => {}
                 }
             }

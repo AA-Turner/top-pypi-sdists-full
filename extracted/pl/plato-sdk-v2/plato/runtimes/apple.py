@@ -47,7 +47,7 @@ class AppleRuntime(Runtime):
         self._hostnames: dict[str, str] = {}
 
     async def start(self, *, timeout: int = 300, alias: str | None = None) -> RuntimeInfo:
-        logger.info(
+        logger.debug(
             "apple runtime start requested: image=%s alias=%s server=%s ssh_key=%s",
             self.image,
             alias,
@@ -57,7 +57,7 @@ class AppleRuntime(Runtime):
         return await self._start_via_server(timeout=timeout, alias=alias)
 
     async def stop(self, runtime_id: str) -> None:
-        logger.info("apple runtime stop requested: runtime_id=%s server=%s", runtime_id, self._server_url)
+        logger.debug("apple runtime stop requested: runtime_id=%s server=%s", runtime_id, self._server_url)
         await self._stop_via_server(runtime_id)
 
     async def exec(
@@ -72,7 +72,7 @@ class AppleRuntime(Runtime):
         if hostname is None:
             raise RuntimeError(f"Unknown Apple runtime_id: {runtime_id}")
 
-        logger.info(
+        logger.debug(
             "apple runtime exec requested: runtime_id=%s hostname=%s timeout=%ss stream=%s command=%r",
             runtime_id,
             hostname,
@@ -107,7 +107,7 @@ class AppleRuntime(Runtime):
         public_key = Path(str(self._ssh_key_path) + ".pub").read_text().strip()
 
         async with httpx.AsyncClient(timeout=timeout) as client:
-            logger.info("apple runtime POST %s/runtimes/start", self._server_url)
+            logger.debug("apple runtime POST %s/runtimes/start", self._server_url)
             response = await client.post(
                 f"{self._server_url}/runtimes/start",
                 json={
@@ -122,8 +122,8 @@ class AppleRuntime(Runtime):
             response.raise_for_status()
 
         info = RuntimeInfo.model_validate(response.json()).model_copy(update={"ssh_key_path": self._ssh_key_path})
-        logger.info("apple runtime start response: runtime_id=%s hostname=%s", info.runtime_id, info.hostname)
-        logger.info("apple runtime probing ssh readiness: runtime_id=%s hostname=%s", info.runtime_id, info.hostname)
+        logger.debug("apple runtime start response: runtime_id=%s hostname=%s", info.runtime_id, info.hostname)
+        logger.debug("apple runtime probing ssh readiness: runtime_id=%s hostname=%s", info.runtime_id, info.hostname)
         ssh_code, _, ssh_stderr = await run_ssh(
             self._ssh_key_path,
             info.hostname,
@@ -135,7 +135,7 @@ class AppleRuntime(Runtime):
         if ssh_code != 0:
             raise RuntimeError(f"SSH not ready for apple runtime {info.runtime_id}: {ssh_stderr.strip()}")
         self._hostnames[info.runtime_id] = info.hostname
-        logger.info("Apple runtime started via server: runtime_id=%s hostname=%s", info.runtime_id, info.hostname)
+        logger.debug("Apple runtime started via server: runtime_id=%s hostname=%s", info.runtime_id, info.hostname)
         return info
 
     async def _stop_via_server(self, runtime_id: str) -> None:
@@ -143,4 +143,4 @@ class AppleRuntime(Runtime):
             response = await client.delete(f"{self._server_url}/runtimes/{runtime_id}")
             response.raise_for_status()
         self._hostnames.pop(runtime_id, None)
-        logger.info("Apple runtime stopped via server: runtime_id=%s", runtime_id)
+        logger.debug("Apple runtime stopped via server: runtime_id=%s", runtime_id)

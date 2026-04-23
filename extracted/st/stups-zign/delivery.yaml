@@ -1,0 +1,51 @@
+version: '2017-09-20'
+pipeline:
+  - id: build
+    type: script
+    repo_fetch_policy: lazy
+    vm_config:
+      type: linux
+      image: cdp-runtime/python-3.14
+    cache:
+      paths:
+        - ~/.cache # https://pip.pypa.io/en/latest/topics/caching/
+    env:
+      UV_PUBLISH_TOKEN:  # from the k8s secret teapot-pypi-credentials in stups
+        secret_id: stups-cd
+        secret_version: d05a0cf1-48da-4fa9-bf96-bacc8ae03737
+        value_in_pull_requests: ''
+    commands:
+      # https://python.docs.zalando.net/howtos/basic-uv-usage/#reproducible-builds-in-cdp
+      - desc: Dependencies
+        cmd: |
+          uv --version
+          uv lock --check
+          uv sync --frozen
+      - desc: Linters
+        cmd: 'uv run ruff check'
+      - desc: Tests
+        cmd: |
+          env PYTHONPATH=. uv run pytest \
+            --junit-xml xunit-reports/xunit-result-ut.xml \
+            --cov=zign --cov-branch --cov-report html:htmlcov
+          cdp-tool upload-test-results --type junit --name tests $(pwd)/xunit-reports
+          cdp-tool upload-test-results --type html --name coverage $(pwd)/htmlcov
+
+      # CDP’s Python runtime sets UV_PUBLISH_USERNAME to "root" for pypi.zalando.net,
+      # as well as UV_PUBLISH_PASSWORD to the empty string.
+      # This conflicts with UV_PUBLISH_TOKEN in `uv publish`, so we unset them.
+      # (A blank string doesn’t work, uv still thinks we’re providing a username/password.)
+      # The runtime also points UV_PUBLISH_URL to pypi.zalando.net,
+      # but zign needs to be on PyPI so zalando-cli-bundle (also on PyPI) properly references it.
+      # Note: The trailing slash in the publish URL is important!
+      - desc: Release to PyPI
+        cmd: |
+          rm -rf dist/
+          uv build
+          if [[ -z "$UV_PUBLISH_TOKEN" ]]; then
+            echo "Not updating PyPI from an open pull request."
+          else
+            env -u UV_PUBLISH_USERNAME -u UV_PUBLISH_PASSWORD \
+              UV_PUBLISH_URL=https://upload.pypi.org/legacy/ \
+              uv publish || echo "PyPI upload failed — this is fine if you didn’t intend to bump the version."
+          fi

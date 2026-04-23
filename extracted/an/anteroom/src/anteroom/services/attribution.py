@@ -54,10 +54,27 @@ class AttributionSnapshot:
     sources: list[dict[str, Any]] = field(default_factory=list)
     tools: list[dict[str, Any]] = field(default_factory=list)
     packs: list[dict[str, Any]] = field(default_factory=list)
+    # Instruction files actually loaded into the system prompt this
+    # session (#1462). Populated by the interface layer from the
+    # instruction loader's authoritative "what landed" list — not from a
+    # parallel discovery helper. One entry per loaded file; zero/one/two
+    # in practice (global + project).
+    instructions: list[dict[str, Any]] = field(default_factory=list)
     # Section-level counters so the UI can surface "N DLP redactions" /
     # "N output-filter warnings" without embedding raw matches.
     dlp_match_count: int = 0
     output_filter_match_count: int = 0
+    # Canonical real-item counts (#1473). Each value equals the true number
+    # of items BEFORE the SECTION_CAP truncation, so renderers can display
+    # "25 tools" instead of "21 tools" (cap + sentinel) when a section is
+    # truncated. Defaults to 0 so older persisted dicts (missing the fields)
+    # degrade gracefully via the fallback computation in each renderer.
+    turns_count: int = 0
+    memory_count: int = 0
+    sources_count: int = 0
+    tools_count: int = 0
+    packs_count: int = 0
+    instructions_count: int = 0
 
 
 def _apply_safety(
@@ -111,6 +128,27 @@ def _cap(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
     kept = list(items[:SECTION_CAP])
     kept.append({"truncated": len(items) - SECTION_CAP})
     return kept
+
+
+def _real_count(items: list[dict[str, Any]]) -> int:
+    """Count real items in a (possibly capped) section list.
+
+    When a section exceeds SECTION_CAP the list ends with a sentinel
+    ``{"truncated": N}``.  This helper recovers the original count so
+    renderers can display the true number without having to re-derive it.
+
+    Examples::
+
+        _real_count([])                               # → 0
+        _real_count([item1, item2])                   # → 2
+        _real_count([*20_items, {"truncated": 5}])    # → 25
+    """
+    if not items:
+        return 0
+    last = items[-1]
+    truncated_n = last.get("truncated", 0) if isinstance(last, dict) and "truncated" in last else 0
+    real_items = len(items) - (1 if truncated_n else 0)
+    return real_items + truncated_n
 
 
 def _build_turns(prompt_meta: dict[str, Any]) -> list[dict[str, Any]]:
@@ -186,16 +224,34 @@ def _build_tools(
     dlp_scanner: DlpScanner | None,
     output_filter: OutputContentFilter | None,
     counters: dict[str, int],
+    turn_tool_calls: list[dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
-    """Tools come from the STORED message's `tool_calls` list.
+    """Authoritative source for the ``tools`` section.
 
-    Reading from `ai_messages` would over-count because
-    `_load_conversation_messages` at ``cli/repl.py`` emits one extra
+    When ``turn_tool_calls`` is non-None (even if empty) it is treated as
+    the authoritative list of tool calls executed during the current
+    assistant turn — aggregated by the interface layer across every LLM
+    iteration. Callers MUST pass the complete per-turn list when
+    available.
+
+    When ``turn_tool_calls`` is ``None`` (replay path, or snapshots built
+    from persisted history predating this contract), the builder falls
+    back to the stored assistant message's ``tool_calls`` list. This
+    fallback is deliberately lossy for live multi-iteration turns
+    because the stored message only reflects the FINAL iteration (#1472)
+    — so the fallback can undercount or report zero when the final step
+    is pure prose.
+
+    Reading from ``ai_messages`` would over-count because
+    ``_load_conversation_messages`` at ``cli/repl.py`` emits one extra
     ``role="tool"`` entry per stored tool call.
     """
-    if not stored_assistant_message:
-        return []
-    raw = stored_assistant_message.get("tool_calls") or []
+    if turn_tool_calls is not None:
+        raw: list[Any] = list(turn_tool_calls)
+    elif stored_assistant_message:
+        raw = list(stored_assistant_message.get("tool_calls") or [])
+    else:
+        raw = []
     out: list[dict[str, Any]] = []
     for tc in raw:
         if not isinstance(tc, dict):
@@ -260,6 +316,47 @@ def _build_packs(
     return out
 
 
+def _build_instructions(
+    prompt_meta: dict[str, Any],
+    dlp_scanner: DlpScanner | None,
+    output_filter: OutputContentFilter | None,
+    counters: dict[str, int],
+) -> list[dict[str, Any]]:
+    """Surface the instruction files that actually landed in the system prompt (#1462).
+
+    The interface layer (``cli/repl.py``'s ``_load_instructions_with_trust``
+    and ``routers/chat.py``'s ``_build_chat_system_prompt``) populates
+    ``prompt_meta["instruction_files"]`` with one entry per loaded file —
+    NOT one entry per discoverable file. ``--no-project-context`` or a
+    denied trust prompt upstream means the project entry is absent here.
+
+    Expected entry shape: ``{"path": str, "scope": "global"|"project",
+    "estimated_tokens": int}``. The ``path`` is user-controlled (could be
+    anywhere on the filesystem) so it flows through ``_apply_safety`` the
+    same way every other label does.
+
+    Content-fingerprint fields are deliberately omitted: the snapshot is
+    persisted in ``messages.metadata`` and echoed on SSE, so embedding a
+    ``sha256(content)`` hash would expose a version-oracle for
+    confidential instructions. Reviewers who need version correlation can
+    compute it locally from the path.
+    """
+    entries = prompt_meta.get("instruction_files") or []
+    out: list[dict[str, Any]] = []
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        raw_path = entry.get("path", "")
+        out.append(
+            {
+                "path": _apply_safety(str(raw_path), dlp_scanner, output_filter, counters),
+                "scope": str(entry.get("scope", "") or ""),
+                "estimated_tokens": int(entry.get("estimated_tokens", 0) or 0),
+            }
+        )
+    return out
+
+
 def build_attribution(
     prompt_meta: dict[str, Any] | None,
     stored_assistant_message: dict[str, Any] | None,
@@ -267,6 +364,7 @@ def build_attribution(
     *,
     dlp_scanner: DlpScanner | None = None,
     output_filter: OutputContentFilter | None = None,
+    turn_tool_calls: list[dict[str, Any]] | None = None,
 ) -> AttributionSnapshot:
     """Build the per-turn attribution snapshot.
 
@@ -274,6 +372,15 @@ def build_attribution(
     request-scoped safety scanners when the runtime has them; tests
     (and paths where redaction is disabled) pass ``None`` to get
     pass-through behaviour.
+
+    The ``turn_tool_calls`` kwarg is the authoritative source for the
+    ``tools`` section. Callers MUST pass the complete list of tool
+    calls executed during this turn — aggregated across every LLM
+    iteration within the turn. Passing ``None`` falls back to
+    ``stored_assistant_message["tool_calls"]`` for backward-compat
+    replay of pre-existing snapshots; the fallback undercounts live
+    multi-iteration turns because the stored message reflects only the
+    final iteration (#1472).
     """
     pm = prompt_meta or {}
     counters: dict[str, int] = {"dlp": 0, "output_filter": 0}
@@ -281,8 +388,17 @@ def build_attribution(
     turns = _cap(_build_turns(pm))
     memory = _cap(_build_memory(pm, dlp_scanner, output_filter, counters))
     sources = _cap(_build_sources(pm, dlp_scanner, output_filter, counters))
-    tools = _cap(_build_tools(stored_assistant_message, dlp_scanner, output_filter, counters))
+    tools = _cap(
+        _build_tools(
+            stored_assistant_message,
+            dlp_scanner,
+            output_filter,
+            counters,
+            turn_tool_calls=turn_tool_calls,
+        )
+    )
     packs = _cap(_build_packs(pack_list, pm, dlp_scanner, output_filter, counters))
+    instructions = _cap(_build_instructions(pm, dlp_scanner, output_filter, counters))
 
     return AttributionSnapshot(
         turns=turns,
@@ -290,8 +406,17 @@ def build_attribution(
         sources=sources,
         tools=tools,
         packs=packs,
+        instructions=instructions,
         dlp_match_count=counters.get("dlp", 0),
         output_filter_match_count=counters.get("output_filter", 0),
+        # Canonical counts (#1473): computed from the capped lists so renderers
+        # don't have to re-derive them and don't mis-count the sentinel entry.
+        turns_count=_real_count(turns),
+        memory_count=_real_count(memory),
+        sources_count=_real_count(sources),
+        tools_count=_real_count(tools),
+        packs_count=_real_count(packs),
+        instructions_count=_real_count(instructions),
     )
 
 

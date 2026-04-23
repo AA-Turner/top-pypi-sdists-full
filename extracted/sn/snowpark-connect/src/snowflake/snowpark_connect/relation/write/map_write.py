@@ -1602,9 +1602,74 @@ def _build_cast_column(
     """
     if _use_try_cast(source_type, target_type):
         return source_col.try_cast(target_type)
+    # Route unstructured complex targets (VARIANT / unstructured ARRAY / OBJECT)
+    # through the VARIANT bridge. Snowflake stores VARIANT arrays/objects into
+    # ARRAY/OBJECT columns without an explicit element/field type.
+    coerced = _coerce_to_unstructured_complex_target(
+        source_col, source_type, target_type
+    )
+    if coerced is not None:
+        return coerced
     if isinstance(target_type, StructType) and rename_fields:
         return source_col.cast(target_type, rename_fields=True)
     return source_col.cast(target_type)
+
+
+def _is_unstructured_array(t: DataType) -> bool:
+    return isinstance(t, ArrayType) and getattr(t, "element_type", None) is None
+
+
+def _is_unstructured_object(t: DataType) -> bool:
+    # Snowpark represents an unstructured Snowflake OBJECT column as an empty
+    # StructType (StructType([])). Some older paths may also produce
+    # MapType(None, None, structured=False); accept both.
+    if isinstance(t, StructType) and len(t.fields) == 0:
+        return True
+    return (
+        isinstance(t, MapType)
+        and getattr(t, "key_type", None) is None
+        and getattr(t, "value_type", None) is None
+    )
+
+
+def _coerce_to_unstructured_complex_target(
+    source_col: snowpark.Column,
+    source_type: DataType,
+    target_type: DataType,
+) -> snowpark.Column | None:
+    """Return a cast Column when the target is an unstructured complex Snowflake type
+    (VARIANT, unstructured ARRAY, unstructured OBJECT) and the source differs; else None.
+
+    Snowflake accepts a VARIANT value that is an array / object into an ARRAY / OBJECT
+    column respectively, so we always bridge via VARIANT for unstructured ARRAY and
+    OBJECT targets. This keeps the coercion path simple and avoids needing to express
+    an element-less Snowpark ArrayType cast.
+    """
+    if source_type == target_type:
+        return None
+    # If the source type is unknown (e.g. a typer-opaque expression / UDF
+    # return), fall back to a VARIANT bridge when the target is an unstructured
+    # complex column. This keeps implicit-cast behavior consistent for UPDATE /
+    # MERGE assignment RHS expressions whose type cannot be inferred.
+    target_is_unstructured_complex = (
+        isinstance(target_type, VariantType)
+        or _is_unstructured_array(target_type)
+        or _is_unstructured_object(target_type)
+    )
+    if source_type is None and target_is_unstructured_complex:
+        return source_col.cast(VariantType())
+    if isinstance(target_type, VariantType):
+        return source_col.cast(VariantType())
+    if _is_unstructured_array(target_type) and isinstance(source_type, ArrayType):
+        return source_col.cast(VariantType())
+    if _is_unstructured_object(target_type) and isinstance(source_type, StructType):
+        return source_col.cast(VariantType())
+    if _is_unstructured_object(target_type) and isinstance(source_type, MapType):
+        # Only accept MapType sources whose keys are strings.
+        if not isinstance(source_type.key_type, StringType):
+            return None
+        return source_col.cast(VariantType())
+    return None
 
 
 def _validate_schema_for_append(
@@ -1615,6 +1680,25 @@ def _validate_schema_for_append(
 ):
     match (table_schema, data_schema):
         case (_, _) if table_schema == data_schema:
+            return
+
+        case (_, _) if _is_unstructured_object(table_schema) and isinstance(
+            data_schema, StructType
+        ):
+            # Unstructured Snowflake OBJECT target accepts any Spark StructType source.
+            return
+
+        case (_, MapType() as data_map) if _is_unstructured_object(table_schema):
+            # Unstructured Snowflake OBJECT target accepts a Spark MapType source
+            # only when the map key is a StringType — OBJECT keys are strings.
+            if not isinstance(data_map.key_type, StringType):
+                exception = AnalysisException(
+                    f"[INCOMPATIBLE_DATA_FOR_TABLE.CANNOT_SAFELY_CAST] Cannot write incompatible data for the table "
+                    f"{snowpark_table_name}: Cannot safely cast {data_schema.simple_string()} to OBJECT "
+                    f"(Snowflake OBJECT keys must be strings)."
+                )
+                attach_custom_error_code(exception, ErrorCodes.INVALID_OPERATION)
+                raise exception
             return
 
         case (StructType() as table_struct, StructType() as data_struct):
@@ -1690,6 +1774,12 @@ def _validate_schema_for_append(
         ):
             return
 
+        case (ArrayType() as table_array, ArrayType() as data_array) if (
+            _is_unstructured_array(table_array)
+        ):
+            # Unstructured Snowflake ARRAY target accepts any Spark array source.
+            return
+
         case (ArrayType() as table_array, ArrayType() as data_array):
             _validate_schema_for_append(
                 table_array.element_type, data_array.element_type, snowpark_table_name
@@ -1710,8 +1800,15 @@ def _validate_schema_for_append(
         case (VariantType(), _):
             return
         case (_, _):
+
+            def _safe_simple(t: DataType) -> str:
+                try:
+                    return t.simple_string()
+                except Exception:
+                    return repr(t)
+
             exception = AnalysisException(
-                f"[INCOMPATIBLE_DATA_FOR_TABLE.CANNOT_SAFELY_CAST] Cannot write incompatible data for the table {snowpark_table_name}: Cannot safely cast {data_schema.simple_string()} to {table_schema.simple_string()}"
+                f"[INCOMPATIBLE_DATA_FOR_TABLE.CANNOT_SAFELY_CAST] Cannot write incompatible data for the table {snowpark_table_name}: Cannot safely cast {_safe_simple(data_schema)} to {_safe_simple(table_schema)}"
             )
             attach_custom_error_code(exception, ErrorCodes.INVALID_OPERATION)
             raise exception

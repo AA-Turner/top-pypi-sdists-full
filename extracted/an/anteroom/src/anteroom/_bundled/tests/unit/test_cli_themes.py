@@ -83,6 +83,36 @@ class TestBuiltInThemesComplete:
             assert len(value) == 7, f"Theme '{name}' slot '{f.name}' = '{value}' is not #RRGGBB format"
 
 
+class TestVisualHierarchySlots:
+    """Slots added for visual hierarchy between message types (#1370)."""
+
+    _HIERARCHY_SLOTS = (
+        "user_gutter",
+        "assistant_gutter",
+        "tool_gutter",
+        "system_gutter",
+        "code_bg",
+        "code_label",
+        "turn_separator",
+        "timestamp",
+    )
+
+    @pytest.mark.parametrize("name", list(_BUILTIN_THEMES.keys()))
+    @pytest.mark.parametrize("slot", _HIERARCHY_SLOTS)
+    def test_hierarchy_slot_populated(self, name: str, slot: str) -> None:
+        theme = _BUILTIN_THEMES[name]
+        value = getattr(theme, slot, "")
+        assert value, f"Theme '{name}' hierarchy slot '{slot}' must be non-empty"
+
+    @pytest.mark.parametrize("name", list(_BUILTIN_THEMES.keys()))
+    @pytest.mark.parametrize("slot", _HIERARCHY_SLOTS)
+    def test_hierarchy_slot_is_valid_hex(self, name: str, slot: str) -> None:
+        theme = _BUILTIN_THEMES[name]
+        value = getattr(theme, slot, "")
+        assert value.startswith("#"), f"Theme '{name}' slot '{slot}' = '{value}' is not a hex color"
+        assert len(value) == 7, f"Theme '{name}' slot '{slot}' = '{value}' is not #RRGGBB format"
+
+
 class TestHexToAnsiFg:
     def test_valid_hex(self) -> None:
         assert _hex_to_ansi_fg("#C5A059") == "\033[38;2;197;160;89m"

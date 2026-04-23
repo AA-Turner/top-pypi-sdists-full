@@ -42,7 +42,7 @@ class ChronosSessionMixin:
             return
 
         try:
-            self.logger.info("Completing Chronos session %s as %s", self.chronos.session_id, status)
+            self.logger.debug("Completing Chronos session %s as %s", self.chronos.session_id, status)
             async with self._chronos_client() as client:
                 await client.complete(
                     self.chronos.session_id,
@@ -50,7 +50,7 @@ class ChronosSessionMixin:
                     result=result,
                     error_message=error_message,
                 )
-            self.logger.info(f"Reported session {status} to Chronos")
+            self.logger.debug(f"Reported session {status} to Chronos")
         except Exception as e:
             self.logger.warning(f"Failed to report session completion to Chronos: {e}")
 
@@ -126,7 +126,7 @@ class ChronosSessionMixin:
         final_result = getattr(self, "_final_result", None)
         if is_dev or is_test:
             mode = "dev" if is_dev else "test"
-            self.logger.info(
+            self.logger.debug(
                 "Skipping Chronos completion in %s mode (run_error=%s)",
                 mode,
                 type(run_error).__name__ if run_error else "None",
@@ -151,7 +151,7 @@ class ChronosSessionMixin:
         if run_error:
             raise run_error
 
-        self.logger.info(f"World '{self.name}' completed after {self._step_count} steps")
+        self.logger.debug(f"World '{self.name}' completed after {self._step_count} steps")
 
     # -- State persistence -------------------------------------------------
 
@@ -220,7 +220,7 @@ class ChronosSessionMixin:
                 if not use_workspace_specs_mode:
                     return False
             elif not data:
-                self.logger.info("State payload for session %s is empty; starting fresh", sid)
+                self.logger.debug("State payload for session %s is empty; starting fresh", sid)
                 if not use_workspace_specs_mode:
                     return False
             else:
@@ -237,7 +237,7 @@ class ChronosSessionMixin:
                 if use_workspace_specs_mode:
                     ws_entry = workspace_specs.get(name)
                     if ws_entry is None:
-                        self.logger.info(
+                        self.logger.debug(
                             "State workspaces has no entry for tracked workspace '%s'; treating as empty workspace",
                             name,
                         )
@@ -245,7 +245,7 @@ class ChronosSessionMixin:
                     override_repo_from_spec, ref_spec = ws_entry
                     ref_spec = ref_spec.strip()
                     if not ref_spec:
-                        self.logger.info(
+                        self.logger.debug(
                             "State workspaces has no entry for tracked workspace '%s'; treating as empty workspace",
                             name,
                         )
@@ -269,13 +269,13 @@ class ChronosSessionMixin:
                 else:
                     override_repo_from_spec = None
                     if not snap:
-                        self.logger.info(
+                        self.logger.debug(
                             "State has no snapshot for tracked workspace '%s'; treating as empty workspace",
                             name,
                         )
                         continue
                     if not snap.steps:
-                        self.logger.info(
+                        self.logger.debug(
                             "State snapshot for tracked workspace '%s' has no saved step; treating as empty workspace",
                             name,
                         )
@@ -318,7 +318,7 @@ class ChronosSessionMixin:
                         workspace._sts_credentials = {}
                         workspace._sts_expires_at = 0
 
-                    self.logger.info(
+                    self.logger.debug(
                         f"Restoring workspace '{name}' from session '{workspace.session_id}' "
                         f"(repo={workspace.repo_name}, step={exact_step})"
                     )
@@ -339,8 +339,8 @@ class ChronosSessionMixin:
                         trust_git_directory(bare)
                         trust_git_directory(repo)
                         checkout_main_from_bare(bare_repo_path=bare, worktree_path=repo)
-                        self.logger.info(f"Re-checked out repo/ from restored bare repo for workspace '{name}'")
-                    self.logger.info(f"Restored workspace '{name}' from step '{exact_step}'")
+                        self.logger.debug(f"Re-checked out repo/ from restored bare repo for workspace '{name}'")
+                    self.logger.debug(f"Restored workspace '{name}' from step '{exact_step}'")
                     restored_any = True
                     if self._state and name in self._state.workspaces:
                         self._state.workspaces[name].steps = [exact_step]
@@ -440,9 +440,9 @@ class ChronosSessionMixin:
             async with self._chronos_client() as client:
                 data = await client.get_state(session_id)
             if data is None:
-                self.logger.info(f"No state found for session {session_id}")
+                self.logger.debug(f"No state found for session {session_id}")
             else:
-                self.logger.info(f"Downloaded state from session {session_id}")
+                self.logger.debug(f"Downloaded state from session {session_id}")
             return data
         except Exception as e:
             self.logger.warning(f"Failed to download state: {e}")

@@ -113,8 +113,8 @@ class TestMissionDiscoverability:
         """Ensure /mission appears in command descriptions."""
         from anteroom.cli.commands import COMMAND_DESCRIPTIONS
 
-        assert COMMAND_DESCRIPTIONS.get("mission") == "manage missions"
-        assert COMMAND_DESCRIPTIONS.get("missions") == "list missions"
+        assert COMMAND_DESCRIPTIONS.get("mission") == "Inspect and manage missions"
+        assert COMMAND_DESCRIPTIONS.get("missions") == "List missions"
 
     def test_mission_in_subcommand_completions(self) -> None:
         """Ensure /mission subcommands appear in tab-completion."""

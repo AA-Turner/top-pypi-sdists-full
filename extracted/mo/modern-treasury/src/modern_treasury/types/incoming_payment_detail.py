@@ -129,6 +129,13 @@ class IncomingPaymentDetail(BaseModel):
     One of `pending`, `completed`, or `returned`.
     """
 
+    subtype: Optional[str] = None
+    """An additional layer of classification for the type of incoming payment detail.
+
+    For example, a `type` of `stablecoin` may have a `subtype` of `ethereum` or
+    `solana`.
+    """
+
     transaction_id: Optional[str] = None
     """The ID of the reconciled Transaction or `null`."""
 
@@ -139,19 +146,16 @@ class IncomingPaymentDetail(BaseModel):
         "ach",
         "au_becs",
         "bacs",
-        "base",
         "book",
         "check",
         "eft",
-        "ethereum",
         "interac",
         "neft",
         "nz_becs",
-        "polygon",
         "rtp",
         "sepa",
         "signet",
-        "solana",
+        "stablecoin",
         "wire",
         "zengin",
     ]

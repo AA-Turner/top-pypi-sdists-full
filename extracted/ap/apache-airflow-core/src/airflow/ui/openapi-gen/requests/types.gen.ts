@@ -1134,6 +1134,22 @@ export type LastAssetEventResponse = {
 };
 
 /**
+ * Materialize asset request.
+ */
+export type MaterializeAssetBody = {
+    dag_run_id?: string | null;
+    data_interval_start?: string | null;
+    data_interval_end?: string | null;
+    logical_date?: string | null;
+    run_after?: string | null;
+    conf?: {
+    [key: string]: unknown;
+} | null;
+    note?: string | null;
+    partition_key?: string | null;
+};
+
+/**
  * Request body for Clear Task Instances endpoint.
  */
 export type PatchTaskInstanceBody = {
@@ -2199,9 +2215,9 @@ export type TeamResponse = {
  * JSON to modify Chakra's theme.
  */
 export type Theme = {
-    tokens: {
-        [key: string]: ThemeColors;
-    };
+    tokens?: {
+    [key: string]: ThemeColors;
+} | null;
     globalCss?: {
     [key: string]: {
         [key: string]: unknown;
@@ -2211,8 +2227,26 @@ export type Theme = {
     icon_dark_mode?: string | null;
 };
 
+/**
+ * Color tokens for the UI theme. All fields are optional; at least one must be provided.
+ */
 export type ThemeColors = {
-    [key: string]: unknown;
+    brand?: {
+    [key: string]: {
+        [key: string]: OklchColor;
+    };
+} | null;
+    gray?: {
+    [key: string]: {
+        [key: string]: OklchColor;
+    };
+} | null;
+    black?: {
+    [key: string]: OklchColor;
+} | null;
+    white?: {
+    [key: string]: OklchColor;
+} | null;
 };
 
 /**
@@ -2304,6 +2338,7 @@ export type CreateAssetEventResponse = AssetEventResponse;
 
 export type MaterializeAssetData = {
     assetId: number;
+    requestBody?: MaterializeAssetBody | null;
 };
 
 export type MaterializeAssetResponse = DAGRunResponse;

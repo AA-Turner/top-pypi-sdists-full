@@ -1,8 +1,17 @@
+import typing as t
+import warnings
+
 from ..model import PersonalPreferences
 from .base import Base
 
 
 class Users(Base):
+    """
+    User API
+
+    https://grafana.com/docs/grafana/latest/developer-resources/api-reference/http-api/user/
+    """
+
     def __init__(self, client):
         super(Users, self).__init__(client)
         self.client = client
@@ -96,6 +105,12 @@ class Users(Base):
 
 
 class User(Base):
+    """
+    Actual User API
+
+    https://grafana.com/docs/grafana/latest/developer-resources/api-reference/http-api/user/#actual-user
+    """
+
     def __init__(self, client):
         super(User, self).__init__(client)
         self.client = client
@@ -162,21 +177,57 @@ class User(Base):
         get_actual_user_teams_path = "/user/teams"
         return self.client.GET(get_actual_user_teams_path)
 
+    def star_dashboard(self, dashboard_id_or_uid: t.Union[int, str]):
+        """
+        Star a dashboard.
+
+        https://grafana.com/docs/grafana/latest/developer-resources/api-reference/http-api/user/#star-a-dashboard
+        """
+        if isinstance(dashboard_id_or_uid, int):
+            url = "/user/stars/dashboard/%s" % dashboard_id_or_uid
+        else:
+            url = "/user/stars/dashboard/uid/%s" % dashboard_id_or_uid
+        return self.client.POST(url)
+
+    def unstar_dashboard(self, dashboard_id_or_uid: t.Union[int, str]):
+        """
+        Unstar a dashboard.
+
+        https://grafana.com/docs/grafana/latest/developer-resources/api-reference/http-api/user/#unstar-a-dashboard
+        """
+        if isinstance(dashboard_id_or_uid, int):
+            url = "/user/stars/dashboard/%s" % dashboard_id_or_uid
+        else:
+            url = "/user/stars/dashboard/uid/%s" % dashboard_id_or_uid
+        return self.client.DELETE(url)
+
     def star_actual_user_dashboard(self, dashboard_id):
         """
+        Deprecated.
 
         :param dashboard_id:
         :return:
         """
+        warnings.warn(
+            "`star_actual_user_dashboard` is deprecated, use `star_dashboard` instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         star_dashboard = "/user/stars/dashboard/%s" % dashboard_id
         return self.client.POST(star_dashboard)
 
     def unstar_actual_user_dashboard(self, dashboard_id):
         """
+        Deprecated.
 
         :param dashboard_id:
         :return:
         """
+        warnings.warn(
+            "`unstar_actual_user_dashboard` is deprecated, use `unstar_dashboard` instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         unstar_dashboard = "/user/stars/dashboard/%s" % dashboard_id
         return self.client.DELETE(unstar_dashboard)
 
@@ -189,7 +240,7 @@ class User(Base):
         update_preference = "/user/preferences"
         return self.client.GET(update_preference)
 
-    def update_preferences(self, preferences: PersonalPreferences):
+    def update_preferences(self, preferences: t.Union[PersonalPreferences, t.Mapping[str, t.Any]], filter_none=True):
         """
         Update preferences of current user as a whole.
 
@@ -198,30 +249,30 @@ class User(Base):
 
         If you want to update specific preference attributes, without touching the others,
         please use the `patch_preferences` method.
-
-        :param preferences:
-        :return:
         """
         update_preference = "/user/preferences"
-        data = preferences.asdict(filter_none=True)
+        if isinstance(preferences, dict):
+            preferences = PersonalPreferences(**preferences)
+        data = preferences.asdict(filter_none=filter_none)
 
         return self.client.PUT(
             update_preference,
             json=data,
         )
 
-    def patch_preferences(self, preferences: PersonalPreferences):
+    def patch_preferences(
+        self, preferences: t.Union[PersonalPreferences, t.Mapping[str, t.Any]], filter_none: bool = True
+    ):
         """
         Update specific preferences of current user.
 
         From the `preferences` instance, only attributes with values `not None` will be submitted
         and updated.
-
-        :param preferences:
-        :return:
         """
         update_preference = "/user/preferences"
-        data = preferences.asdict(filter_none=True)
+        if isinstance(preferences, dict):
+            preferences = PersonalPreferences(**preferences)
+        data = preferences.asdict(filter_none=filter_none)
 
         return self.client.PATCH(
             update_preference,

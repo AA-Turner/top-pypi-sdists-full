@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: swimlane
-Version: 10.19.0
+Version: 10.19.1
 Summary: Python driver for the Swimlane API
 Home-page: https://github.com/swimlane/swimlane-python
 Author: Swimlane
@@ -20,12 +20,13 @@ Requires-Python: >=3.6
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: cachetools>=4.2.4
-Requires-Dist: certifi==2024.7.4
+Requires-Dist: certifi==2026.2.25
 Requires-Dist: pendulum==2.1.2; python_version <= "3.7"
 Requires-Dist: pendulum==3.0.0; python_version >= "3.8"
 Requires-Dist: pyjwt>=2.4.0
 Requires-Dist: pyuri<0.4,>=0.3
-Requires-Dist: requests[security]<3,>=2
+Requires-Dist: requests[security]<3,>=2; python_version <= "3.7"
+Requires-Dist: requests==2.33.1; python_version >= "3.8"
 Requires-Dist: six>=1.12.0
 Requires-Dist: sortedcontainers==2.4.0
 Requires-Dist: shortid==0.1.2

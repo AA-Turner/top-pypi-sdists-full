@@ -10,6 +10,7 @@ import google.protobuf.internal.containers
 import google.protobuf.message
 import google.protobuf.struct_pb2
 import sys
+import typing
 
 if sys.version_info >= (3, 8):
     import typing as typing_extensions
@@ -23,27 +24,46 @@ class BoundFunction(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     ENVIRONMENTS_FIELD_NUMBER: builtins.int
-    FUNCTION_FIELD_NUMBER: builtins.int
     SETUP_FUNC_FIELD_NUMBER: builtins.int
     STREAM_LOGS_FIELD_NUMBER: builtins.int
+    RUN_ON_MAIN_THREAD_FIELD_NUMBER: builtins.int
+    FUNCTION_FIELD_NUMBER: builtins.int
+    ENTRYPOINT_FIELD_NUMBER: builtins.int
     @property
     def environments(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___EnvironmentDefinition]: ...
     @property
-    def function(self) -> common_pb2.SerializedObject: ...
-    @property
     def setup_func(self) -> common_pb2.SerializedObject: ...
     stream_logs: builtins.bool
+    run_on_main_thread: builtins.bool
+    """Run the resolved callable on the agent's main thread (preserving the
+    event loop, useful for async callables) instead of a thread pool. The
+    agent also honors `_run_on_main_thread` set on the callable itself,
+    for backward compatibility with older clients.
+    """
+    @property
+    def function(self) -> common_pb2.SerializedObject:
+        """A serialized callable to run."""
+    entrypoint: builtins.str
+    """A Python entrypoint of the form "module:attr" (e.g.
+    "pkg.mod:my_func" or "pkg.mod:Cls.method"), resolved by the agent.
+    Both sides may be dotted.
+    """
     def __init__(
         self,
         *,
         environments: collections.abc.Iterable[global___EnvironmentDefinition] | None = ...,
-        function: common_pb2.SerializedObject | None = ...,
         setup_func: common_pb2.SerializedObject | None = ...,
         stream_logs: builtins.bool = ...,
+        run_on_main_thread: builtins.bool = ...,
+        function: common_pb2.SerializedObject | None = ...,
+        entrypoint: builtins.str = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing_extensions.Literal["_setup_func", b"_setup_func", "function", b"function", "setup_func", b"setup_func"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["_setup_func", b"_setup_func", "environments", b"environments", "function", b"function", "setup_func", b"setup_func", "stream_logs", b"stream_logs"]) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["_setup_func", b"_setup_func", "callable", b"callable", "entrypoint", b"entrypoint", "function", b"function", "setup_func", b"setup_func"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["_setup_func", b"_setup_func", "callable", b"callable", "entrypoint", b"entrypoint", "environments", b"environments", "function", b"function", "run_on_main_thread", b"run_on_main_thread", "setup_func", b"setup_func", "stream_logs", b"stream_logs"]) -> None: ...
+    @typing.overload
     def WhichOneof(self, oneof_group: typing_extensions.Literal["_setup_func", b"_setup_func"]) -> typing_extensions.Literal["setup_func"] | None: ...
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing_extensions.Literal["callable", b"callable"]) -> typing_extensions.Literal["function", "entrypoint"] | None: ...
 
 global___BoundFunction = BoundFunction
 

@@ -1,0 +1,182 @@
+import sys
+from typing import Dict, Any, List, Optional, Set
+from functools import cache, total_ordering
+
+from rigour._core import territories_jsonl
+from rigour.data import iter_jsonl_text
+
+
+@total_ordering
+class Territory(object):
+    """A territory - country, sub-national, historic, or supranational."""
+
+    def __init__(
+        self, index: Dict[str, "Territory"], code: str, data: Dict[str, Any]
+    ) -> None:
+        self.index = index
+        self.code = code
+        self.name: str = data["name"]
+        self.full_name: str = data.get("full_name", self.name)
+        self.alpha3: Optional[str] = data.get("alpha3")
+        self.is_country: bool = data.get("is_country", False)
+        self.is_ftm: bool = data.get("is_ftm", False)
+        self.is_jurisdiction: bool = data.get("is_jurisdiction", self.is_country)
+        self.is_historical: bool = data.get("is_historical", False)
+        self._region: Optional[str] = data.get("region", None)
+        self._subregion: Optional[str] = data.get("subregion", None)
+        self._in_sentence: Optional[str] = data.get("in_sentence", None)
+        self.qid: str = str(data.get("qid"))
+        self.other_qids: List[str] = data.get("other_qids", [])
+        self.other_codes: List[str] = data.get("other_codes", [])
+        self._successors: List[str] = data.get("successors", [])
+        self._parent: Optional[str] = data.get("parent")
+        self._claims: List[str] = data.get("claims", [])
+        self._see: List[str] = data.get("see", [])
+        self._langs: List[str] = data.get("langs", [])
+
+    @property
+    def parent(self) -> Optional["Territory"]:
+        """Return the governing territory."""
+        if self._parent is None:
+            return None
+        return self.index[self._parent]
+
+    @property
+    def region(self) -> Optional[str]:
+        """Return the global region name."""
+        if self._region is not None:
+            return self._region
+        if self.parent:
+            return self.parent.region
+        return None
+
+    @property
+    def subregion(self) -> Optional[str]:
+        """Return the subregion name."""
+        if self._subregion is not None:
+            return self._subregion
+        if self.parent:
+            return self.parent.subregion
+        return None
+
+    @property
+    def in_sentence(self) -> str:
+        """Return the name to use in a sentence."""
+        if self._in_sentence:
+            return self._in_sentence
+        return self.name
+
+    @property
+    def successors(self) -> List["Territory"]:
+        """Return a list of successor countries."""
+        return [self.index[s] for s in self._successors]
+
+    @property
+    def claims(self) -> List["Territory"]:
+        """Return a list of contested claims on this territory."""
+        return [self.index[s] for s in self._claims]
+
+    @property
+    def see(self) -> List["Territory"]:
+        """Return a list of related territories."""
+        return [self.index[s] for s in self._see]
+
+    @property
+    def qids(self) -> Set[str]:
+        """Return all the QIDs linked to a territory."""
+        qids = set(self.other_qids)
+        qids.add(self.qid)
+        return qids
+
+    @property
+    def codes(self) -> Set[str]:
+        """Return all the codes linked to a territory."""
+        codes = set(self.other_codes)
+        codes.add(self.code)
+        if self.alpha3:
+            codes.add(self.alpha3)
+        return codes
+
+    @property
+    def ftm_country(self) -> Optional[str]:
+        """Return the FTM country code for this territory."""
+        if self.is_ftm:
+            return self.code
+        if self.parent is not None:
+            return self.parent.ftm_country
+        return None
+
+    @property
+    def langs(self) -> List[str]:
+        """Return the languages for this territory."""
+        if len(self._langs) > 0:
+            return self._langs
+        if self.parent is not None:
+            return self.parent.langs
+        return []
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Return a dictionary (JSON-ready) representation of the territory."""
+        data = {
+            "code": self.code,
+            "name": self.name,
+            "full_name": self.full_name,
+            "alpha3": self.alpha3,
+            "is_country": self.is_country,
+            "is_ftm": self.is_ftm,
+            "ftm_country": self.ftm_country,
+            "is_jurisdiction": self.is_jurisdiction,
+            "is_historical": self.is_historical,
+            "qid": self.qid,
+            "qids": list(self.qids),
+            "codes": list(self.codes),
+        }
+        if self.parent is not None:
+            data["parent"] = self.parent.code
+        if self._region is not None:
+            data["region"] = self._region
+        if self._subregion is not None:
+            data["subregion"] = self._subregion
+        if self._in_sentence is not None:
+            data["in_sentence"] = self._in_sentence
+        if self.successors:
+            data["successors"] = [s.code for s in self.successors]
+        if self.claims:
+            data["claims"] = [c.code for c in self.claims]
+        if self.see:
+            data["see"] = [s.code for s in self.see]
+        if self.langs:
+            data["langs"] = self.langs
+        return data
+
+    def __eq__(self, other: Any) -> bool:
+        try:
+            return self.code == other.code  # type: ignore
+        except AttributeError:
+            return False
+
+    def __hash__(self) -> int:
+        return hash(self.code)
+
+    def __le__(self, other: Any) -> bool:
+        try:
+            return self.code <= other.code  # type: ignore
+        except AttributeError:
+            return True
+
+    def __repr__(self) -> str:
+        return f"<Territory({self.code!r})>"
+
+
+@cache
+def get_index() -> Dict[str, Territory]:
+    index: Dict[str, Territory] = {}
+    for data in iter_jsonl_text(territories_jsonl()):
+        code = sys.intern(data["code"])
+        index[code] = Territory(index, code, data)
+    for territory in list(index.values()):
+        for other in territory.other_codes:
+            index[other] = territory
+        if territory.alpha3:
+            index[territory.alpha3] = territory
+    return index

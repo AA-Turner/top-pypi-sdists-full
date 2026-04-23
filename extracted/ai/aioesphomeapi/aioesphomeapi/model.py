@@ -168,6 +168,15 @@ class InfraredRFReceiveEvent(APIModelBase):
     timings: list[int] = field(default_factory=list)  # pylint: disable=invalid-field-call
 
 
+class RadioFrequencyModulation(enum.IntEnum):
+    OOK = 0
+
+
+class RadioFrequencyCapability(enum.IntFlag):
+    TRANSMITTER = 1 << 0
+    RECEIVER = 1 << 1
+
+
 class VoiceAssistantSubscriptionFlag(enum.IntFlag):
     API_AUDIO = 1 << 2
 
@@ -924,10 +933,12 @@ class ButtonInfo(EntityInfo):
 class LockState(APIIntEnum):
     NONE = 0
     LOCKED = 1
-    UNLOCKED = 3
+    UNLOCKED = 2
     JAMMED = 3
     LOCKING = 4
     UNLOCKING = 5
+    OPENING = 6
+    OPEN = 7
 
 
 class LockCommand(APIIntEnum):
@@ -1278,6 +1289,27 @@ class InfraredInfo(EntityInfo):
     receiver_frequency: int = 0
 
 
+# ==================== RADIO FREQUENCY ====================
+
+
+@_frozen_dataclass_decorator
+class RadioFrequencyInfo(EntityInfo):
+    capabilities: int = 0
+    frequency_min: int = 0  # Minimum tunable frequency in Hz (0 = unspecified; equal to frequency_max → fixed)
+    frequency_max: int = 0  # Maximum tunable frequency in Hz (0 = unspecified)
+    supported_modulations: int = (
+        0  # Bitmask: bit N set means RadioFrequencyModulation(N) is supported
+    )
+
+    def supports_modulation(self, modulation: RadioFrequencyModulation) -> bool:
+        """Return True if the given modulation type is supported.
+
+        The supported_modulations bitmask uses bit N to represent
+        RadioFrequencyModulation value N (e.g. OOK=0 → bit 0).
+        """
+        return bool(self.supported_modulations & (1 << int(modulation)))
+
+
 # ==================== SERIAL PROXY ====================
 
 
@@ -1353,6 +1385,7 @@ COMPONENT_TYPE_TO_INFO: dict[str, type[EntityInfo]] = {
     "event": EventInfo,
     "update": UpdateInfo,
     "infrared": InfraredInfo,
+    "radio_frequency": RadioFrequencyInfo,
 }
 
 
@@ -1946,6 +1979,7 @@ _TYPE_TO_NAME = {
     UpdateInfo: "update",
     WaterHeaterInfo: "water_heater",
     InfraredInfo: "infrared",
+    RadioFrequencyInfo: "radio_frequency",
 }
 
 

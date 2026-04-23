@@ -103,6 +103,20 @@ def _truncate_large_tool_outputs(
     return result.success
 
 
+def _coerce_tool_arguments(raw_arguments: Any) -> dict[str, Any]:
+    """Normalize tool-call arguments to a dict."""
+    if isinstance(raw_arguments, dict):
+        return raw_arguments
+    if isinstance(raw_arguments, str) and raw_arguments:
+        try:
+            parsed = json.loads(raw_arguments)
+        except (json.JSONDecodeError, ValueError):
+            return {}
+        if isinstance(parsed, dict):
+            return parsed
+    return {}
+
+
 async def _compact_messages(
     ai_service: AIService,
     messages: list[dict[str, Any]],
@@ -198,10 +212,16 @@ async def _execute_tool(
     A hard timeout prevents any single tool (including MCP tools) from
     hanging the entire agent loop indefinitely.
     """
+    tool_args = {**_coerce_tool_arguments(tc.get("arguments")), "_tool_call_id": tc["id"]}
+    if tc["function_name"] == "run_agent":
+        # Internal-only association key for web subagent progress (#1460).
+        # This is injected at execution time so it never leaks back into the
+        # assistant-visible tool-call transcript or persisted tool input.
+        tool_args = {**tool_args, "_parent_tool_call_id": tc["id"]}
     try:
         if cancel_event:
             cancel_task = asyncio.create_task(cancel_event.wait())
-            exec_task = asyncio.create_task(tool_executor(tc["function_name"], tc["arguments"]))
+            exec_task = asyncio.create_task(tool_executor(tc["function_name"], tool_args))
             timeout_task = asyncio.create_task(asyncio.sleep(timeout))
             done, pending = await asyncio.wait(
                 {cancel_task, exec_task, timeout_task}, return_when=asyncio.FIRST_COMPLETED
@@ -220,7 +240,7 @@ async def _execute_tool(
                 return tc, {"error": f"Tool execution timed out after {int(timeout)}s"}, "timeout"
             return tc, {"error": "Cancelled by user"}, "cancelled"
         else:
-            result = await asyncio.wait_for(tool_executor(tc["function_name"], tc["arguments"]), timeout=timeout)
+            result = await asyncio.wait_for(tool_executor(tc["function_name"], tool_args), timeout=timeout)
             return tc, result, "success"
     except asyncio.TimeoutError:
         tool_name = tc["function_name"]

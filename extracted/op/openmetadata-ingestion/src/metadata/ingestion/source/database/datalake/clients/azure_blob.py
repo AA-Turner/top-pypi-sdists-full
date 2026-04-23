@@ -13,7 +13,7 @@
 Datalake Azure Blob Client
 """
 from functools import partial
-from typing import Callable, Iterable, Optional, Set, Tuple
+from typing import Callable, Iterable, Optional, Set
 
 from azure.storage.blob import BlobServiceClient
 
@@ -62,7 +62,7 @@ class DatalakeAzureBlobClient(DatalakeBaseClient):
         bucket_name: str,
         prefix: Optional[str],
         skip_cold_storage: bool = False,
-    ) -> Iterable[Tuple[str, Optional[int]]]:
+    ) -> Iterable[str]:
         container_client = self._client.get_container_client(bucket_name)
 
         for file in container_client.list_blobs(name_starts_with=prefix or None):
@@ -74,7 +74,7 @@ class DatalakeAzureBlobClient(DatalakeBaseClient):
                         f"(blob_tier: {blob_tier})"
                     )
                     continue
-            yield file.name, getattr(file, "size", None)
+            yield file.name
 
     def close(self, service_connection):
         self._client.close()

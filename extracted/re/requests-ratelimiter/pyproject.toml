@@ -1,6 +1,6 @@
 [project]
 name = 'requests-ratelimiter'
-version = '0.9.3'
+version = '0.10.0'
 description = 'Rate-limiting for the requests library'
 authors = [{name = 'Jordan Cook'}]
 license = 'MIT'
@@ -71,6 +71,11 @@ output = 'test-reports/coverage.xml'
 
 [tool.mypy]
 ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+markers = [
+    'integration: marks tests that run against a local HTTP server (deselect with -m "not integration")',
+]
 
 [tool.ruff]
 fix = true

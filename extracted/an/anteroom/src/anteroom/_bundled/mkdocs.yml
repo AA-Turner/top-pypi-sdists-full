@@ -156,6 +156,7 @@ nav:
         - packs/pack-commands.md
         - packs/health-check.md
         - packs/how-packs-work.md
+        - packs/behavior-bearing-packs.md
       - Reference:
         - packs/config-reference.md
         - packs/api-reference.md
@@ -217,6 +218,8 @@ nav:
         - specs/api-reference.md
         - specs/troubleshooting.md
   - Configure:
+    - Hooks:
+      - hooks/lifecycle-roadmap.md
     - Configuration:
       - configuration/index.md
       - configuration/config-file.md

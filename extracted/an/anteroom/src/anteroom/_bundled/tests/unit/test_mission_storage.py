@@ -17,6 +17,11 @@ def db(tmp_path: Path) -> Any:
     return init_db(tmp_path / "test.db")
 
 
+def _set_mock_uuids(monkeypatch: pytest.MonkeyPatch, *ids: str) -> None:
+    values = iter(ids)
+    monkeypatch.setattr(ms, "_uuid", lambda: next(values))
+
+
 # ---------------------------------------------------------------------------
 # Sessions
 # ---------------------------------------------------------------------------
@@ -897,14 +902,15 @@ class TestSessionResolution:
         with pytest.raises(ValueError, match="Mission not found"):
             ms.resolve_session_id(db, "does-not-exist")
 
-    def test_resolve_session_id_ambiguous_prefix(self, db: Any) -> None:
-        s1 = ms.create_session(db, title="One")
-        s2 = ms.create_session(db, title="Two")
-        shared = s1["id"][:4]
-        while not s2["id"].startswith(shared):
-            db.execute("DELETE FROM mission_sessions WHERE id = ?", (s2["id"],))
-            db.commit()
-            s2 = ms.create_session(db, title="Two")
+    def test_resolve_session_id_ambiguous_prefix(self, db: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+        shared = "ab12"
+        _set_mock_uuids(
+            monkeypatch,
+            f"{shared}0000-0000-4000-8000-000000000001",
+            f"{shared}0000-0000-4000-8000-000000000002",
+        )
+        ms.create_session(db, title="One")
+        ms.create_session(db, title="Two")
         with pytest.raises(ValueError, match="Ambiguous mission ID prefix"):
             ms.resolve_session_id(db, shared)
 
@@ -930,28 +936,30 @@ class TestItemResolution:
         with pytest.raises(ValueError, match="Item not found"):
             ms.resolve_item_id(db, "does-not-exist")
 
-    def test_resolve_item_id_ambiguous(self, db: Any) -> None:
+    def test_resolve_item_id_ambiguous(self, db: Any, monkeypatch: pytest.MonkeyPatch) -> None:
         s = ms.create_session(db, title="Test")
-        i1 = ms.create_item(db, session_id=s["id"], summary="First")
-        i2 = ms.create_item(db, session_id=s["id"], summary="Second")
-        shared = i1["id"][:4]
-        while not i2["id"].startswith(shared):
-            db.execute("DELETE FROM mission_items WHERE id = ?", (i2["id"],))
-            db.commit()
-            i2 = ms.create_item(db, session_id=s["id"], summary="Second")
+        shared = "cd34"
+        _set_mock_uuids(
+            monkeypatch,
+            f"{shared}0000-0000-4000-8000-000000000001",
+            f"{shared}0000-0000-4000-8000-000000000002",
+        )
+        ms.create_item(db, session_id=s["id"], summary="First")
+        ms.create_item(db, session_id=s["id"], summary="Second")
         with pytest.raises(ValueError, match="Ambiguous item ID prefix"):
             ms.resolve_item_id(db, shared)
 
-    def test_resolve_item_id_session_scoped(self, db: Any) -> None:
+    def test_resolve_item_id_session_scoped(self, db: Any, monkeypatch: pytest.MonkeyPatch) -> None:
         s1 = ms.create_session(db, title="Session A")
         s2 = ms.create_session(db, title="Session B")
+        shared = "ef56"
+        _set_mock_uuids(
+            monkeypatch,
+            f"{shared}0000-0000-4000-8000-000000000001",
+            f"{shared}0000-0000-4000-8000-000000000002",
+        )
         i1 = ms.create_item(db, session_id=s1["id"], summary="Item A")
         i2 = ms.create_item(db, session_id=s2["id"], summary="Item B")
-        shared = i1["id"][:4]
-        while not i2["id"].startswith(shared):
-            db.execute("DELETE FROM mission_items WHERE id = ?", (i2["id"],))
-            db.commit()
-            i2 = ms.create_item(db, session_id=s2["id"], summary="Item B")
         # Without session_id, both match — ambiguous
         with pytest.raises(ValueError, match="Ambiguous item ID prefix"):
             ms.resolve_item_id(db, shared)

@@ -6,8 +6,8 @@
 
 import json
 import time
+from collections.abc import Callable
 from functools import wraps
-from typing import Callable, List, Optional, Union
 
 import aiohttp
 from loguru import logger
@@ -33,7 +33,7 @@ def api_method(func):
 
 
 class _API:
-    def __init__(self, token: Optional[str] = None, is_cli: bool = False):
+    def __init__(self, token: str | None = None, is_cli: bool = False):
         self.token = token
         self.error = None
         self.bubble_next = False
@@ -49,7 +49,7 @@ class _API:
 
         return f"{config.get('api_host', '')}{config.get(path, '')}"
 
-    def _configure_headers(self, override_token: Optional[str] = None) -> dict:
+    def _configure_headers(self, override_token: str | None = None) -> dict:
         headers = {"User-Agent": f"PipecatCloudCLI/{version}"}
         if self.token or override_token:
             headers["Authorization"] = f"Bearer {override_token or self.token}"
@@ -76,7 +76,7 @@ class _API:
         # Refresh 60 seconds before actual expiry to avoid race conditions
         return time.time() > (float(expires_at) - 60)
 
-    async def _refresh_oauth_token(self) -> Optional[str]:
+    async def _refresh_oauth_token(self) -> str | None:
         """Refresh the OAuth access token using the stored refresh token.
 
         Updates both the on-disk config and the in-memory token on this API
@@ -84,12 +84,12 @@ class _API:
         (in which case the request will proceed with the expired token and
         the server will return 401, prompting re-login).
         """
-        from pipecatcloud.cli.config import config as cli_config, update_user_config
-
         # Inline import: auth.py → cli/api.py → api.py creates a circular
         # dependency at module load time. Importing here (at call time)
         # breaks the cycle.
         from pipecatcloud.cli.commands.auth import refresh_access_token
+        from pipecatcloud.cli.config import config as cli_config
+        from pipecatcloud.cli.config import update_user_config
 
         refresh_token = cli_config.get("refresh_token")
         if not refresh_token:
@@ -118,11 +118,11 @@ class _API:
         self,
         method: str,
         url: str,
-        params: Optional[dict] = None,
-        json: Optional[dict] = None,
+        params: dict | None = None,
+        json: dict | None = None,
         not_found_is_empty: bool = False,
-        override_token: Optional[str] = None,
-    ) -> Optional[dict]:
+        override_token: str | None = None,
+    ) -> dict | None:
         # Auto-refresh expired OAuth tokens before making the request.
         # Only runs for CLI usage (self.is_cli) and only when an OAuth
         # refresh_token is stored (token_expires_at is set). Old device-code
@@ -218,7 +218,7 @@ class _API:
 
     # Organizations
 
-    async def _organizations_current(self, org: Optional[str] = None) -> dict | None:
+    async def _organizations_current(self, org: str | None = None) -> dict | None:
         url = self.construct_api_url("organization_path")
 
         results = await self._base_request("GET", url)
@@ -295,23 +295,35 @@ class _API:
         """
         return self.create_api_method(self._api_key_create)
 
-    async def _api_key_delete(self, api_key_id: str, org: str) -> dict:
+    async def _api_key_revoke(self, api_key_id: str, org: str) -> dict:
         url = f"{self.construct_api_url('api_keys_path').format(org=org)}/{api_key_id}"
         return await self._base_request("DELETE", url) or {}
 
     @property
-    def api_key_delete(self):
-        """Delete API keys for an organization.
+    def api_key_revoke(self):
+        """Revoke an API key for an organization.
+
+        The server soft-deletes the key by marking it revoked; the record is
+        preserved so audit fields (e.g. lastUsedAt) remain available.
+
         Args:
-            api_key_id: Human readable name for API key
+            api_key_id: ID of the API key to revoke
             org: Organization ID
         """
-        return self.create_api_method(self._api_key_delete)
+        return self.create_api_method(self._api_key_revoke)
+
+    @property
+    def api_key_delete(self):
+        """Deprecated: use :attr:`api_key_revoke` instead.
+
+        Kept as an alias so older CLI/library callers keep working.
+        """
+        return self.create_api_method(self._api_key_revoke)
 
     # Secret
 
     async def _secrets_list(
-        self, org: str, secret_set: Optional[str] = None, region: Optional[str] = None
+        self, org: str, secret_set: str | None = None, region: str | None = None
     ) -> dict | None:
         if secret_set:
             url = f"{self.construct_api_url('secrets_path').format(org=org)}/{secret_set}"
@@ -343,7 +355,7 @@ class _API:
         return self.create_api_method(self._secrets_list)
 
     async def _secrets_upsert(
-        self, data: dict, set_name: str, org: str, region: Optional[str] = None
+        self, data: dict, set_name: str, org: str, region: str | None = None
     ) -> dict:
         url = f"{self.construct_api_url('secrets_path').format(org=org)}/{set_name}"
 
@@ -415,6 +427,8 @@ class _API:
                 "audioFilter": deploy_config.krisp_viva.audio_filter,
             },
             "forceRedeploy": deploy_config.force_redeploy or None,
+            "websocketAuth": deploy_config.websocket_auth,
+            "maxSessionDuration": deploy_config.max_session_duration,
         }
 
         # Use either build_id (cloud build) or image (user-provided)
@@ -468,7 +482,7 @@ class _API:
         """
         return self.create_api_method(self._agent)
 
-    async def _agents(self, org: str, region: Optional[str] = None) -> List[dict] | None:
+    async def _agents(self, org: str, region: str | None = None) -> list[dict] | None:
         url = f"{self.construct_api_url('services_path').format(org=org)}"
 
         # Build query params if region filter is specified
@@ -495,8 +509,8 @@ class _API:
         agent_name: str,
         api_key: str,
         use_daily: bool,
-        data: Optional[str] = None,
-        daily_properties: Optional[str] = None,
+        data: str | None = None,
+        daily_properties: str | None = None,
     ) -> dict | None:
         url = f"{self.construct_api_url('start_path').format(service=agent_name)}"
 
@@ -531,11 +545,11 @@ class _API:
         agent_name: str,
         org: str,
         limit: int = 100,
-        deployment_id: Optional[str] = None,
-        session_id: Optional[str] = None,
+        deployment_id: str | None = None,
+        session_id: str | None = None,
     ) -> dict | None:
         url = f"{self.construct_api_url('services_logs_path').format(org=org, service=agent_name)}"
-        params: dict[str, Union[int, str]] = {"limit": limit}
+        params: dict[str, int | str] = {"limit": limit}
         if deployment_id:
             params["deploymentId"] = deployment_id
         if session_id:
@@ -662,7 +676,7 @@ class _API:
 
     # Builds
 
-    async def _build_upload_url(self, org: str, region: Optional[str] = None) -> dict:
+    async def _build_upload_url(self, org: str, region: str | None = None) -> dict:
         """Get a presigned URL for uploading build context."""
         url = f"{self.construct_api_url('builds_path').format(org=org)}/upload-url"
         payload = {}
@@ -685,7 +699,7 @@ class _API:
         self,
         org: str,
         upload_id: str,
-        region: Optional[str] = None,
+        region: str | None = None,
         dockerfile_path: str = "Dockerfile",
     ) -> dict:
         """Create a new build from uploaded context."""
@@ -730,9 +744,9 @@ class _API:
     async def _build_list(
         self,
         org: str,
-        context_hash: Optional[str] = None,
-        region: Optional[str] = None,
-        status: Optional[str] = None,
+        context_hash: str | None = None,
+        region: str | None = None,
+        status: str | None = None,
         limit: int = 20,
     ) -> dict:
         """List builds with optional filters."""

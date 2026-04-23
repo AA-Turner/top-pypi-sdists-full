@@ -31,6 +31,11 @@ from ..services import storage
 from ..services.async_tasks import silence_task
 from ..services.export import export_conversation_markdown
 from ..services.rewind import rewind_conversation as rewind_service
+from ..services.tool_result_compact import (
+    compute_shape_hash,
+    derive_error_class,
+    summarize,
+)
 
 router = APIRouter(tags=["conversations"])
 
@@ -41,6 +46,73 @@ def _validate_uuid(value: str) -> str:
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid ID format")
     return value
+
+
+# ---------------------------------------------------------------------------
+# Tool-result density summary fields for replay (#1467)
+# ---------------------------------------------------------------------------
+
+_DENSITY_SUMMARY_MODES = frozenset({"compact", "minimal"})
+
+
+def _apply_density_to_tool_calls(messages: list[dict[str, Any]], config: Any) -> None:
+    """Mutate *messages* to attach #1467 density summary fields to each tool_call.
+
+    Zero-config contract: when ``cli.density.mode ∈ {normal, detailed}`` (the
+    default), the five new fields are set to ``None`` — the web UI falls back
+    to today's raw-JSON rendering, byte-identical to pre-#1467 behaviour.
+
+    When the mode is ``compact``/``minimal``, populated summaries drive the
+    smart web-UI rendering. Fields are **never persisted to SQLite** —
+    computed at serialisation time so heuristics can evolve freely.
+    """
+    cli_cfg = getattr(config, "cli", None)
+    density_cfg = getattr(cli_cfg, "density", None)
+    mode = getattr(density_cfg, "mode", "normal")
+    populate = isinstance(mode, str) and mode in _DENSITY_SUMMARY_MODES
+    head = getattr(density_cfg, "head_lines", 3) if populate else 3
+    tail = getattr(density_cfg, "tail_lines", 2) if populate else 2
+
+    for msg in messages:
+        tcs = msg.get("tool_calls") or []
+        for tc in tcs:
+            tc.setdefault("input_preview", None)
+            tc.setdefault("summary", None)
+            tc.setdefault("output_preview", None)
+            tc.setdefault("error_class", None)
+            tc.setdefault("output_shape_hash", None)
+            if not populate:
+                # Explicitly overwrite in case upstream persisted any.
+                tc["input_preview"] = None
+                tc["summary"] = None
+                tc["output_preview"] = None
+                tc["error_class"] = None
+                tc["output_shape_hash"] = None
+                continue
+
+            # compact/minimal: populate.
+            try:
+                input_preview = summarize(tc.get("input"), head_lines=head, tail_lines=tail) or None
+            except Exception:
+                input_preview = None
+            try:
+                output_preview = summarize(tc.get("output"), head_lines=head, tail_lines=tail) or None
+            except Exception:
+                output_preview = None
+            try:
+                error_class = derive_error_class(tc.get("output"), tc.get("status"))
+            except Exception:
+                error_class = None
+            try:
+                shape_hash = compute_shape_hash(tc.get("output"))
+            except Exception:
+                shape_hash = None
+
+            tc["input_preview"] = input_preview
+            tc["summary"] = output_preview
+            tc["output_preview"] = output_preview
+            tc["error_class"] = error_class
+            tc["output_shape_hash"] = shape_hash
 
 
 def _require_json(request: Request) -> None:
@@ -180,6 +252,11 @@ async def get_conversation(conversation_id: str, request: Request) -> Any:
     if not conv:
         raise HTTPException(status_code=404, detail="Conversation not found")
     messages = storage.list_messages(db, conv["id"])
+    # #1467: apply density-aware tool-call summary fields. Zero-config
+    # (cli.density.mode = normal) → all fields None → web UI renders raw
+    # JSON exactly as today. Fields are computed, not persisted.
+    config = getattr(getattr(request.app, "state", None), "config", None)
+    _apply_density_to_tool_calls(messages, config)
     return {**conv, "messages": messages}
 
 

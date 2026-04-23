@@ -66,7 +66,7 @@ class DatabaseCleaner:
                     configs = [DbConfigResponse(**c) if isinstance(c, dict) else c for c in (configs_raw or [])]
                     valid_configs = [c for c in configs if c.db_database]
                     if valid_configs:
-                        logger.info(
+                        logger.debug(
                             f"[cleanup] {env.alias}: {len(valid_configs)} DB(s): {[c.db_database for c in valid_configs]}"
                         )
                         return env.alias, valid_configs
@@ -101,7 +101,7 @@ class DatabaseCleaner:
                     db_name = config.db_database
                     try:
                         result = await self._cleanup_single_database(env.job_id, config)
-                        logger.info(f"[cleanup] {env.alias}/{db_name}: truncated {result.tables_truncated}")
+                        logger.debug(f"[cleanup] {env.alias}/{db_name}: truncated {result.tables_truncated}")
                         return db_name, result
                     except Exception as e:
                         logger.warning(f"[cleanup] {env.alias}/{db_name}: failed: {e}")
@@ -115,7 +115,7 @@ class DatabaseCleaner:
             try:
                 await env.get_state_fn()
                 cache_cleared = True
-                logger.info(f"[cleanup] {env.alias}: mutation cache cleared")
+                logger.debug(f"[cleanup] {env.alias}: mutation cache cleared")
             except Exception as e:
                 cache_clear_error = str(e)
                 logger.warning(f"[cleanup] {env.alias}: cache clear failed: {e}")
@@ -144,7 +144,7 @@ class DatabaseCleaner:
         try:
             tunnel.start()
             await asyncio.sleep(0.5)  # Let tunnel accept loop settle
-            logger.info(f"[cleanup] Tunnel: localhost:{local_port} -> {job_id}:{config.db_port}/{config.db_database}")
+            logger.debug(f"[cleanup] Tunnel: localhost:{local_port} -> {job_id}:{config.db_port}/{config.db_database}")
 
             db_url = _make_db_url(config, local_port)
             engine = create_async_engine(db_url, pool_pre_ping=True, pool_size=2, max_overflow=2)
@@ -173,7 +173,7 @@ class DatabaseCleaner:
                 text("SELECT schemaname, tablename FROM pg_tables WHERE tablename = 'audit_log'")
             )
             tables = result.fetchall()
-            logger.info(f"[cleanup] PostgreSQL: found {len(tables)} audit_log table(s)")
+            logger.debug(f"[cleanup] PostgreSQL: found {len(tables)} audit_log table(s)")
             for schema, table in tables:
                 await conn.execute(text(f"TRUNCATE TABLE {schema}.{table} RESTART IDENTITY CASCADE"))
                 truncated.append(f"{schema}.{table}")
@@ -186,7 +186,7 @@ class DatabaseCleaner:
                 )
             )
             tables = result.fetchall()
-            logger.info(f"[cleanup] MySQL: found {len(tables)} audit_log table(s)")
+            logger.debug(f"[cleanup] MySQL: found {len(tables)} audit_log table(s)")
             await conn.execute(text("SET FOREIGN_KEY_CHECKS = 0"))
             for schema, table in tables:
                 await conn.execute(text(f"TRUNCATE TABLE `{table}`"))

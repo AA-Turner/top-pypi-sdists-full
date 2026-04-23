@@ -11,12 +11,8 @@ import yaml
 from anteroom.db import _SCHEMA, ThreadSafeConnection
 from anteroom.services.packs import (
     ManifestArtifact,
-    _extract_yaml_frontmatter,
-    _inline_resources,
-    _parse_resource_list_from_frontmatter,
     _read_artifact_content,
     _resolve_artifact_file,
-    _resolve_bundle_resources,
     get_pack,
     get_pack_by_id,
     install_pack,
@@ -28,6 +24,12 @@ from anteroom.services.packs import (
     resolve_pack,
     update_pack,
     validate_manifest,
+)
+from anteroom.services.skill_bundles import (
+    _extract_yaml_frontmatter,
+    _inline_resources,
+    _parse_resource_list_from_frontmatter,
+    _resolve_bundle_resources,
 )
 
 

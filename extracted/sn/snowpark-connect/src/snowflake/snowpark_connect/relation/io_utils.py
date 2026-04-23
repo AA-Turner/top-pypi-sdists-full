@@ -2,13 +2,21 @@
 # Copyright (c) 2012-2025 Snowflake Computing Inc. All rights reserved.
 #
 
+from __future__ import annotations
+
 from os.path import splitext
+from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 
 from pyspark.errors.exceptions.base import AnalysisException
 
+if TYPE_CHECKING:
+    from snowflake import snowpark
+
+from snowflake.snowpark.exceptions import SnowparkSQLException
 from snowflake.snowpark_connect.error.error_codes import ErrorCodes
 from snowflake.snowpark_connect.error.error_utils import attach_custom_error_code
+from snowflake.snowpark_connect.utils.snowpark_connect_logging import logger
 
 CLOUD_PREFIX_TO_CLOUD = {
     "abfss": "azure",
@@ -223,10 +231,9 @@ def parse_azure_url(url: str):
     return account, container, path
 
 
-def is_cloud_path(path: str) -> bool:
+def is_external_cloud_url(path: str) -> bool:
     return (
-        path.startswith("@")  # Snowflake Stage
-        or path.startswith("s3://")
+        path.startswith("s3://")
         or path.startswith("s3a://")  # AWS S3
         or path.startswith("azure://")
         or path.startswith("abfss://")
@@ -236,10 +243,57 @@ def is_cloud_path(path: str) -> bool:
     )
 
 
+def is_cloud_path(path: str) -> bool:
+    return path.startswith("@") or is_external_cloud_url(path)
+
+
 def convert_file_prefix_path(path: str) -> str:
     if path.startswith("file:/"):
         return urlparse(path).path
     return path
+
+
+def get_stage_url_prefix(stage_name: str, session: snowpark.Session) -> str | None:
+    """Return the URL property from DESCRIBE STAGE via RESULT_SCAN."""
+    try:
+        describe_job = session.sql(f"DESCRIBE STAGE {stage_name}").collect_nowait()
+        describe_query_id = describe_job.query_id
+        describe_job.result()
+    except SnowparkSQLException:
+        logger.debug("DESCRIBE STAGE failed for %s, stage may not exist", stage_name)
+        return None
+
+    if not describe_query_id:
+        return None
+
+    scan_sql = (
+        "SELECT COALESCE("
+        "PARSE_JSON(REGEXP_REPLACE(\"property_value\", '/$', ''))[0]::string, "
+        "PARSE_JSON(REGEXP_REPLACE(\"property_value\", '/$', ''))::string, "
+        "REGEXP_REPLACE(\"property_value\", '/$', '')::string"
+        ") AS url "
+        f"FROM TABLE(RESULT_SCAN('{describe_query_id}')) "
+        "WHERE \"property\" = 'URL'"
+    )
+    try:
+        rows = session.sql(scan_sql).collect()
+    except SnowparkSQLException:
+        logger.warning("RESULT_SCAN failed for DESCRIBE STAGE %s", stage_name)
+        return None
+    except Exception:
+        logger.error(
+            "Unexpected error during RESULT_SCAN for stage %s",
+            stage_name,
+            exc_info=True,
+        )
+        return None
+
+    if not rows:
+        return None
+    url = rows[0][0]
+    if url is None:
+        return None
+    return str(url).strip().strip('"').strip("'").rstrip("/")
 
 
 def unescape_glob_metacharacters(path: str | None) -> str | None:

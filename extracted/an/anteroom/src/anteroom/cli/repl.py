@@ -8,6 +8,7 @@ import logging
 import os
 import platform
 import re
+import shlex
 import shutil
 import signal
 import sqlite3 as _sqlite3
@@ -21,6 +22,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
+from prompt_toolkit.completion import Completer
 from rich.markup import escape
 
 from .. import __version__
@@ -35,7 +37,9 @@ from ..services.context_trust import (
     untrusted_section_marker,
     wrap_untrusted,
 )
+from ..services.storage import get_run_label
 from ..services.tool_result_compact import compact_tool_output
+from ..services.user_errors import format_user_error
 from ..tools import ToolRegistry, register_default_tools
 from ..tools.tool_context import build_tool_extra_context
 from . import renderer
@@ -45,7 +49,7 @@ from .instructions import (
     capture_snapshot,
     discover_conventions,
     estimate_tokens,
-    find_global_instructions,
+    find_global_instructions_path,
     find_project_instructions_path,
 )
 from .skills import SkillPolicy, SkillRegistry
@@ -129,6 +133,15 @@ def _resolve_ask_choice(
     return answer
 
 
+def _make_hook_blocked_result(error: str, *, post_tool: bool = False) -> dict[str, Any]:
+    """Return the REPL MCP hook-blocked result shape with parity metadata."""
+    return {
+        "error": error,
+        "hook_blocked": True,
+        "_approval_decision": "post_hook_denied" if post_tool else "hook_denied",
+    }
+
+
 def _make_ask_user_callback(
     *,
     sub_prompt_async: Callable[[str], Any],
@@ -188,6 +201,30 @@ def _make_ask_user_callback(
     return _callback
 
 
+def _resolve_editor_argv(editor_value: str | None = None) -> list[str]:
+    """Parse and validate the configured editor command for shell-free execution."""
+    raw_editor = editor_value or os.environ.get("VISUAL") or os.environ.get("EDITOR") or "vi"
+    try:
+        argv = shlex.split(raw_editor)
+    except ValueError as exc:
+        raise ValueError(f"Invalid editor command: {exc}") from exc
+    if not argv:
+        raise ValueError("Editor command is empty")
+    resolved = shutil.which(argv[0])
+    if not resolved:
+        raise FileNotFoundError(f"Editor not found: {argv[0]}")
+    argv[0] = resolved
+    return argv
+
+
+def _open_in_editor(file_path: str) -> None:
+    """Open ``file_path`` in the configured editor without invoking a shell."""
+    editor_argv = _resolve_editor_argv()
+    # nosemgrep: editor argv is parsed with shlex, resolved via shutil.which,
+    # and executed with shell=False.
+    subprocess.run([*editor_argv, file_path], check=True)
+
+
 def poll_bg_tasks(bg_manager: Any, console: Any) -> None:
     """Poll background tasks and render completion notifications.
 
@@ -217,9 +254,34 @@ def poll_detached_agents(detach_manager: Any, console: Any) -> None:
         rid = run.get("id", "")[:8]
         rstatus = run.get("status", "unknown")
         meta = run.get("metadata") or {}
-        tcalls = len(meta.get("tool_calls_made", []))
-        dur = meta.get("elapsed_seconds", 0)
-        console.print(f"[dim]\\[agent] Run {rid} {rstatus} ({tcalls} calls, {dur:.1f}s)[/dim]")
+        task_result = meta.get("task_result") or {}
+        tcalls = len(task_result.get("tool_calls") or [])
+        dur = task_result.get("duration_seconds") or meta.get("elapsed_seconds") or 0
+        plural = "s" if tcalls != 1 else ""
+        label = get_run_label(run)
+        label_part = f" \u201c{escape(label[:60])}\u201d" if label else ""
+
+        t = renderer._theme
+        if rstatus == "completed":
+            summary_raw = (task_result.get("summary") or "").strip()
+            summary = summary_raw[:80] + "..." if len(summary_raw) > 80 else summary_raw
+            summary_part = f" · {escape(summary)}" if summary else ""
+            console.print(
+                f"[{t.success}]✓[/{t.success}] [{t.chrome}]\\[agent {rid}][/{t.chrome}]"
+                f"[{t.muted}]{label_part}[/{t.muted}]"
+                f" [{t.muted}]done · {dur:.1f}s · {tcalls} tool{plural}{escape(summary_part)}[/{t.muted}]"
+            )
+        elif rstatus == "cancelled":
+            console.print(f"[{t.muted}]⊘ \\[agent {rid}]{label_part} cancelled · {dur:.1f}s[/{t.muted}]")
+        else:
+            error_raw = (task_result.get("error") or meta.get("error") or "unknown error").strip()
+            first_line = error_raw.split("\n")[0]
+            error_preview = first_line[:80] + "..." if len(first_line) > 80 else first_line
+            console.print(
+                f"[{t.error}]✗[/{t.error}] [{t.chrome}]\\[agent {rid}][/{t.chrome}]"
+                f"[{t.muted}]{label_part}[/{t.muted}]"
+                f" [{t.error}]failed · {dur:.1f}s · {escape(error_preview)}[/{t.error}]"
+            )
 
 
 def _add_signal_handler(loop: asyncio.AbstractEventLoop, sig: int, callback: Any) -> bool:
@@ -347,6 +409,228 @@ def _collapse_long_input(user_input: str) -> None:
 
 
 _FILE_REF_RE = re.compile(r"@((?:[^\s\"']+|\"[^\"]+\"|'[^']+'))")
+_QUOTED_TOKEN_RE = re.compile(r"""(?:"[^"]*|'[^']*|[^\s]+)$""")
+
+
+def _detect_large_paste(previous_text: str, current_text: str, *, min_lines: int) -> int:
+    """Return pasted line count when a single buffer change looks like a large paste."""
+    if not current_text or current_text == previous_text:
+        return 0
+    if current_text.startswith(previous_text):
+        delta = current_text[len(previous_text) :]
+    else:
+        delta = current_text
+    line_count = delta.count("\n") + 1
+    if line_count >= min_lines:
+        return line_count
+    return 0
+
+
+def _extract_completion_token(text: str) -> str:
+    """Return the final raw token, preserving any leading quote."""
+    match = _QUOTED_TOKEN_RE.search(text)
+    return match.group(0) if match else text
+
+
+def _quote_completion(text: str, quote: str) -> str:
+    if quote:
+        return f"{quote}{text}{quote}"
+    if " " in text:
+        return f'"{text}"'
+    return text
+
+
+def _iter_path_completions(
+    partial: str,
+    *,
+    working_dir: str,
+    directories_only: bool = False,
+    prefix: str = "",
+) -> list[tuple[str, str]]:
+    """Resolve local filesystem completions for a partial path token."""
+    raw = partial.strip()
+    quote = raw[0] if raw[:1] in {'"', "'"} else ""
+    path_partial = raw[1:] if quote else raw
+    expanded = os.path.expanduser(path_partial or "")
+    base_dir = Path(working_dir)
+    candidate_path = Path(expanded)
+    absolute = candidate_path.is_absolute()
+    if "/" in expanded:
+        parent_raw, stem = expanded.rsplit("/", 1)
+        parent = Path(parent_raw) if absolute else base_dir / parent_raw
+        display_prefix = parent_raw
+    else:
+        parent = (
+            candidate_path
+            if absolute and expanded.endswith("/")
+            else (candidate_path.parent if absolute and expanded else base_dir)
+        )
+        stem = "" if expanded.endswith("/") else (candidate_path.name if absolute and expanded else expanded)
+        display_prefix = "" if not absolute else str(parent)
+        if absolute and expanded and "/" not in expanded:
+            display_prefix = "/"
+    if absolute and expanded.endswith("/"):
+        stem = ""
+        display_prefix = expanded.rstrip("/")
+        parent = Path(display_prefix or "/")
+    results: list[tuple[str, str]] = []
+    try:
+        if parent.is_dir():
+            for entry in sorted(parent.iterdir()):
+                name = entry.name
+                if name.startswith("."):
+                    continue
+                if not name.lower().startswith(stem.lower()):
+                    continue
+                if directories_only and not entry.is_dir():
+                    continue
+                if absolute:
+                    candidate = str(entry)
+                elif display_prefix:
+                    candidate = f"{display_prefix.rstrip('/')}/{name}"
+                else:
+                    candidate = name
+                if entry.is_dir():
+                    candidate += "/"
+                rendered = prefix + _quote_completion(candidate, quote)
+                if not entry.is_dir():
+                    rendered += " "
+                results.append((rendered, "dir" if entry.is_dir() else "path"))
+    except OSError:
+        return []
+    return results
+
+
+class AnteroomCompleter(Completer):
+    """Tab completer for slash commands, path contexts, and conversation slugs."""
+
+    def __init__(
+        self,
+        *,
+        commands: list[str],
+        skill_names: list[str],
+        skill_descriptions: dict[str, str],
+        working_dir: str,
+        db: Any,
+        completion_cls: Any,
+    ) -> None:
+        self._commands = commands
+        self._skill_names = skill_names
+        self._skill_descriptions = skill_descriptions
+        self._working_dir = working_dir
+        self._db = db
+        self._completion_cls = completion_cls
+
+    def update_skill_names(self, skill_names: list[str], skill_descriptions: dict[str, str]) -> None:
+        self._skill_names = skill_names
+        self._skill_descriptions = skill_descriptions
+
+    def _yield_slug_completions(self, partial: str) -> Any:
+        try:
+            slugs = storage.list_conversation_slugs(self._db, limit=50)
+        except Exception:
+            return
+        for slug, title in slugs:
+            if slug.startswith(partial):
+                display = title[:50] if title else ""
+                yield self._completion_cls(slug, start_position=-len(partial), display_meta=display)
+
+    def get_completions(self, document: Any, complete_event: Any) -> Any:
+        from anteroom.cli.command_palette import get_command_palette_suggestions
+        from anteroom.cli.commands import (
+            get_argument_completion_kind,
+            get_subcommand_completions,
+        )
+
+        current_line = document.current_line_before_cursor
+        word = document.get_word_before_cursor(WORD=True)
+        stripped = current_line.lstrip()
+
+        if stripped.startswith("/") and " " not in stripped:
+            prefix = word.lstrip("/")
+            for suggestion in get_command_palette_suggestions(prefix):
+                yield self._completion_cls(
+                    suggestion.insert_text,
+                    start_position=-len(word),
+                    display=suggestion.display_text,
+                    display_meta=suggestion.meta_text,
+                )
+            for sname in self._skill_names:
+                if sname.startswith(prefix):
+                    yield self._completion_cls(
+                        f"/{sname} ",
+                        start_position=-len(word),
+                        display_meta=self._skill_descriptions.get(sname, "skill"),
+                    )
+            return
+
+        if stripped.startswith("/"):
+            parts = stripped.split(None, 2)
+            cmd_name = parts[0].lstrip("/") if parts else ""
+            if len(parts) <= 2:
+                partial = parts[1] if len(parts) == 2 else ""
+                arg_kind = get_argument_completion_kind(cmd_name)
+                if arg_kind == "conversation_slug":
+                    yield from self._yield_slug_completions(partial)
+                    return
+                if arg_kind in {"path", "directory"}:
+                    token = _extract_completion_token(partial)
+                    for candidate, meta in _iter_path_completions(
+                        token,
+                        working_dir=self._working_dir,
+                        directories_only=(arg_kind == "directory"),
+                    ):
+                        yield self._completion_cls(candidate, start_position=-len(token), display_meta=meta)
+                    return
+                for sc in get_subcommand_completions(cmd_name):
+                    if sc.startswith(partial):
+                        yield self._completion_cls(sc + " ", start_position=-len(partial))
+                return
+
+            subcommand = parts[1].lower()
+            arg_text = parts[2]
+            arg_kind = get_argument_completion_kind(cmd_name, subcommand=subcommand)
+            if arg_kind == "conversation_slug":
+                yield from self._yield_slug_completions(arg_text)
+                return
+            if arg_kind in {"path", "directory"}:
+                token = _extract_completion_token(arg_text)
+                for candidate, meta in _iter_path_completions(
+                    token,
+                    working_dir=self._working_dir,
+                    directories_only=(arg_kind == "directory"),
+                ):
+                    yield self._completion_cls(candidate, start_position=-len(token), display_meta=meta)
+                return
+
+        token = _extract_completion_token(current_line)
+        if token.startswith("@"):
+            partial = token[1:]
+            for candidate, meta in _iter_path_completions(
+                partial,
+                working_dir=self._working_dir,
+                prefix="@",
+            ):
+                yield self._completion_cls(candidate, start_position=-len(token), display_meta=meta)
+            return
+
+        if stripped.startswith("/"):
+            parts = stripped.split(None, 1)
+            cmd_name = parts[0].lstrip("/") if parts else ""
+            arg_kind = get_argument_completion_kind(cmd_name)
+            if arg_kind in {"path", "directory"} and len(parts) == 2:
+                token = _extract_completion_token(parts[1])
+                for candidate, meta in _iter_path_completions(
+                    token,
+                    working_dir=self._working_dir,
+                    directories_only=(arg_kind == "directory"),
+                ):
+                    yield self._completion_cls(candidate, start_position=-len(token), display_meta=meta)
+
+    async def get_completions_async(self, document: Any, complete_event: Any) -> Any:
+        """Support prompt_toolkit's async completion path via the sync implementation."""
+        for completion in self.get_completions(document, complete_event):
+            yield completion
 
 
 def _detect_git_branch() -> str | None:
@@ -764,15 +1048,15 @@ def _show_resume_info(db: Any, conv: dict[str, Any], ai_messages: list[dict[str,
         if msg.get("role") != "assistant":
             continue
         meta_raw = msg.get("metadata")
-        meta: Any = meta_raw
+        parsed_meta: Any = meta_raw
         if isinstance(meta_raw, str):
             try:
-                meta = json.loads(meta_raw)
+                parsed_meta = json.loads(meta_raw)
             except (TypeError, ValueError):
-                meta = None
-        if not isinstance(meta, dict):
+                parsed_meta = None
+        if not isinstance(parsed_meta, dict):
             continue
-        ap_items = meta.get("memory_auto_proposed")
+        ap_items = parsed_meta.get("memory_auto_proposed")
         if isinstance(ap_items, list) and ap_items:
             renderer.render_auto_propose_notice(ap_items)
             break
@@ -1302,16 +1586,32 @@ async def _load_instructions_with_trust(
     trust_project: bool = False,
     no_project_context: bool = False,
     data_dir: Path | None = None,
-) -> str | None:
-    """Load global + project instructions with trust gating on project files."""
+) -> tuple[str | None, list[dict[str, Any]]]:
+    """Load global + project instructions with trust gating on project files.
+
+    Returns a ``(content, loaded_meta)`` tuple. ``loaded_meta`` is the
+    authoritative per-turn attribution input for ``build_attribution`` — one
+    entry per instruction file that actually landed in ``parts`` (#1462).
+    ``--no-project-context`` and a denied trust prompt both naturally skip
+    the corresponding append, so no downstream filter is needed.
+    """
     parts: list[str] = []
+    loaded_meta: list[dict[str, Any]] = []
 
     # Global instructions (~/.anteroom/ANTEROOM.md or AGENTS.md) are loaded unconditionally.
     # They share the same trust boundary as the config file itself — if an attacker
     # can write to ~/.anteroom/, they already control the app configuration.
-    global_inst = find_global_instructions()
-    if global_inst:
-        parts.append(f"# Global Instructions\n{global_inst}")
+    global_result = find_global_instructions_path()
+    if global_result is not None:
+        global_path, global_content = global_result
+        parts.append(f"# Global Instructions\n{global_content}")
+        loaded_meta.append(
+            {
+                "path": str(global_path),
+                "scope": "global",
+                "estimated_tokens": estimate_tokens(global_content),
+            }
+        )
 
     if not no_project_context:
         result = find_project_instructions_path(working_dir)
@@ -1332,10 +1632,17 @@ async def _load_instructions_with_trust(
                         f"Large files reduce prompt effectiveness.[/yellow]\n"
                     )
                 parts.append(f"# Project Instructions\n{trusted_content}")
+                loaded_meta.append(
+                    {
+                        "path": str(file_path),
+                        "scope": "project",
+                        "estimated_tokens": tokens,
+                    }
+                )
 
     if not parts:
-        return None
-    return "\n\n".join(parts)
+        return None, loaded_meta
+    return "\n\n".join(parts), loaded_meta
 
 
 async def _embed_after_upload(
@@ -1351,7 +1658,7 @@ async def _embed_after_upload(
     if not worker:
         return None
     try:
-        return await worker.embed_source(source_id)
+        return int(await worker.embed_source(source_id))
     except Exception:
         logger.debug("Inline embed failed for upload; background worker will retry", exc_info=True)
         return None
@@ -1672,9 +1979,11 @@ def _handle_config_command(
         if scope == "space" and not active_space:
             renderer.render_error("No active space. Load a space first with /space load <name>.")
             return
-        if scope == "space" and not active_space.get("source_file"):
-            renderer.render_error("Active space has no YAML file. Cannot write space config.")
-            return
+        if scope == "space":
+            assert active_space is not None
+            if not active_space.get("source_file"):
+                renderer.render_error("Active space has no YAML file. Cannot write space config.")
+                return
 
         # Check write guards (sensitive fields blocked)
         _, enforced = _build_context()
@@ -1697,8 +2006,9 @@ def _handle_config_command(
                 renderer.console.print(f"\n  [bold]{dot_path}[/bold] = {parsed!r}")
                 renderer.console.print(f"  Saved to {_styled_layer('personal')} ({path})")
             elif scope == "space":
-                sp_path = Path(active_space["source_file"])  # type: ignore[index]
-                sp_id = active_space["id"] if active_space else None  # type: ignore[index]
+                assert active_space is not None
+                sp_path = Path(active_space["source_file"])
+                sp_id = active_space["id"]
                 path = write_space_field(dot_path, parsed, sp_path, db=db, space_id=sp_id)
                 renderer.console.print(f"\n  [bold]{dot_path}[/bold] = {parsed!r}")
                 renderer.console.print(f"  Saved to {_styled_layer('space')} ({path})")
@@ -1746,17 +2056,20 @@ def _handle_config_command(
         if scope == "space" and not active_space:
             renderer.render_error("No active space.")
             return
-        if scope == "space" and not active_space.get("source_file"):  # type: ignore[union-attr]
-            renderer.render_error("Active space has no YAML file. Cannot reset space config.")
-            return
+        if scope == "space":
+            assert active_space is not None
+            if not active_space.get("source_file"):
+                renderer.render_error("Active space has no YAML file. Cannot reset space config.")
+                return
 
         try:
             deleted = False
             if scope == "personal":
                 deleted = reset_personal_field(dot_path)
             elif scope == "space":
-                sp_path = Path(active_space["source_file"])  # type: ignore[index]
-                sp_id = active_space["id"] if active_space else None  # type: ignore[index]
+                assert active_space is not None
+                sp_path = Path(active_space["source_file"])
+                sp_id = active_space["id"]
                 deleted = reset_space_field(dot_path, sp_path, db=db, space_id=sp_id)
             elif scope == "project":
                 deleted = reset_project_field(dot_path, working_dir=working_dir)
@@ -2080,6 +2393,7 @@ def _run_memory_subcommand(
                     f"[{CHROME}]Usage: /memory candidates [--status ...] [--namespace ...] [--limit N][/{CHROME}]\n"
                 )
                 return
+            assert _handle_candidates is not None
             _handle_candidates(db, args)
             return
 
@@ -2101,6 +2415,7 @@ def _run_memory_subcommand(
                 )
                 return
             try:
+                assert _handle_approve is not None
                 _handle_approve(config, db, args)
             except SystemExit:
                 pass
@@ -2116,6 +2431,7 @@ def _run_memory_subcommand(
                 renderer.console.print(f"[{CHROME}]Usage: /memory reject <fqn> --reason <text>[/{CHROME}]\n")
                 return
             try:
+                assert _handle_reject is not None
                 _handle_reject(config, db, args)
             except SystemExit:
                 pass
@@ -2135,6 +2451,7 @@ def _run_memory_subcommand(
                 renderer.console.print(f"[{CHROME}]Usage: /memory pin <fqn>[/{CHROME}]\n")
                 return
             try:
+                assert _handle_pin is not None
                 _handle_pin(db, _argparse.Namespace(fqn=rest[0]))
             except SystemExit:
                 pass
@@ -2145,6 +2462,7 @@ def _run_memory_subcommand(
                 renderer.console.print(f"[{CHROME}]Usage: /memory unpin <fqn>[/{CHROME}]\n")
                 return
             try:
+                assert _handle_unpin is not None
                 _handle_unpin(db, _argparse.Namespace(fqn=rest[0]))
             except SystemExit:
                 pass
@@ -2155,6 +2473,7 @@ def _run_memory_subcommand(
             ret_rest = rest[1:]
             if ret_sub == "preview":
                 try:
+                    assert _handle_retention_preview is not None
                     _handle_retention_preview(config, db, _argparse.Namespace())
                 except SystemExit:
                     pass
@@ -2168,6 +2487,7 @@ def _run_memory_subcommand(
                     renderer.console.print(f"[{CHROME}]Usage: /memory retention purge --confirm[/{CHROME}]\n")
                     return
                 try:
+                    assert _handle_retention_purge is not None
                     _handle_retention_purge(config, db, args)
                 except SystemExit:
                     pass
@@ -2379,7 +2699,6 @@ async def _handle_spec_command(
         # --prompt and --from-issue flows need: <flag-value> <ns> <name>
         if _is_prompt or _is_from_issue:
             import os
-            import subprocess as _sp_mod
             import tempfile
 
             # Extract the flag value (prompt text or issue number)
@@ -2455,12 +2774,11 @@ async def _handle_spec_command(
             renderer.console.print(_Syntax(_content, "yaml", theme="monokai"))
             renderer.console.print()
 
-            _editor = os.environ.get("EDITOR", os.environ.get("VISUAL", "vi"))
             try:
                 with tempfile.NamedTemporaryFile(suffix=".yaml", mode="w", delete=False) as _tf:
                     _tf.write(_content)
                     _tf_path = _tf.name
-                _sp_mod.run([_editor, _tf_path], check=True)
+                _open_in_editor(_tf_path)
                 with open(_tf_path) as _f:
                     _content = _f.read()
                 os.unlink(_tf_path)
@@ -2492,7 +2810,6 @@ async def _handle_spec_command(
             renderer.console.print(_msg)
             return
         import os
-        import subprocess
         import tempfile
 
         from ..services.spec_schema import BUGFIX_TEMPLATE, FEATURE_TEMPLATE
@@ -2505,12 +2822,11 @@ async def _handle_spec_command(
             _template = BUGFIX_TEMPLATE
         else:
             _template = FEATURE_TEMPLATE
-        _editor = os.environ.get("EDITOR", os.environ.get("VISUAL", "vi"))
         try:
             with tempfile.NamedTemporaryFile(suffix=".yaml", mode="w", delete=False) as _tf:
                 _tf.write(_template)
                 _tf_path = _tf.name
-            subprocess.run([_editor, _tf_path], check=True)
+            _open_in_editor(_tf_path)
             with open(_tf_path) as _f:
                 _content = _f.read()
             os.unlink(_tf_path)
@@ -2522,9 +2838,9 @@ async def _handle_spec_command(
             return
         from ..services.spec_service import create_spec as _cs
 
-        _creation_flow = "design_first" if _is_design_first else None
+        _manual_creation_flow: str | None = "design_first" if _is_design_first else None
         try:
-            _new = _cs(db, _ns, _name, _content, creation_flow=_creation_flow)
+            _new = _cs(db, _ns, _name, _content, creation_flow=_manual_creation_flow)
             renderer.console.print(f"[{_SUCCESS}]Created[/{_SUCCESS}] {_new['fqn']}\n")
         except Exception as _e:
             renderer.console.print(f"[{_ERROR}]{_e}[/{_ERROR}]\n")
@@ -2584,8 +2900,8 @@ async def _handle_spec_command(
             renderer.console.print(f"[{CHROME}]Only one version — nothing to diff.[/{CHROME}]\n")
             return
         _old = _psc(_vers[1]["content"])
-        _new = _psc(_vers[0]["content"])
-        _diff = _dsv(_old, _new, version_from=_vers[1]["version"], version_to=_vers[0]["version"])
+        _new_spec = _psc(_vers[0]["content"])
+        _diff = _dsv(_old, _new_spec, version_from=_vers[1]["version"], version_to=_vers[0]["version"])
         renderer.console.print(f"\n[bold]Diff:[/bold] v{_diff.version_from} → v{_diff.version_to}")
         for _pc in _diff.phase_changes:
             if _pc.content_changed:
@@ -2746,8 +3062,7 @@ async def _handle_spec_command(
             with _tf_edit.NamedTemporaryFile(suffix=".yaml", mode="w", delete=False) as _etf:
                 _etf.write(_current_content)
                 _etf_path = _etf.name
-            _editor = _os_edit.environ.get("EDITOR", _os_edit.environ.get("VISUAL", "vi"))
-            _os_edit.system(f'{_editor} "{_etf_path}"')
+            _open_in_editor(_etf_path)
             with open(_etf_path) as _ef:
                 _new_content = _ef.read()
             _os_edit.unlink(_etf_path)
@@ -2765,8 +3080,7 @@ async def _handle_spec_command(
             with _tf_edit.NamedTemporaryFile(suffix=".yaml", mode="w", delete=False) as _etf:
                 _etf.write(_yaml_content)
                 _etf_path = _etf.name
-            _editor = _os_edit.environ.get("EDITOR", _os_edit.environ.get("VISUAL", "vi"))
-            _os_edit.system(f'{_editor} "{_etf_path}"')
+            _open_in_editor(_etf_path)
             with open(_etf_path) as _ef:
                 _new_yaml = _ef.read()
             _os_edit.unlink(_etf_path)
@@ -2865,9 +3179,9 @@ async def _handle_spec_command(
 
         renderer.console.print(f"\n[bold]Spec Conformance: {_conf_fqn}[/bold] (v{_conf_result.spec_version})\n")
 
-        _by_cat: dict[str, list] = {}
-        for _f in _conf_result.findings:
-            _by_cat.setdefault(_f.category, []).append(_f)
+        _by_cat: dict[str, list[Any]] = {}
+        for _finding in _conf_result.findings:
+            _by_cat.setdefault(_finding.category, []).append(_finding)
 
         for _cat, _findings in _by_cat.items():
             renderer.console.print(f"[bold]{_cat.replace('_', ' ').title()}[/bold]")
@@ -2959,14 +3273,16 @@ async def _handle_spec_command(
         _dash_table.add_column("Updated", style="dim")
 
         for _ds in dashboard.specs:
-            _sc = _status_colors.get(_ds.overall_status, "")
-            _status_cell = f"[{_sc}]{_ds.overall_status}[/{_sc}]" if _sc else _ds.overall_status
+            _status_color = _status_colors.get(_ds.overall_status, "")
+            _status_cell = (
+                f"[{_status_color}]{_ds.overall_status}[/{_status_color}]" if _status_color else _ds.overall_status
+            )
 
             _phase_cells = []
             for _phase_name in ("requirements", "design", "tasks"):
                 _ps = _ds.phases.get(_phase_name, "draft")
-                _pc = _phase_colors.get(_ps, "")
-                _phase_cells.append(f"[{_pc}]{_ps}[/{_pc}]" if _pc else _ps)
+                _phase_color = _phase_colors.get(_ps, "")
+                _phase_cells.append(f"[{_phase_color}]{_ps}[/{_phase_color}]" if _phase_color else _ps)
 
             _rs = _ds.run_summary
             if _rs.total == 0:
@@ -2990,14 +3306,14 @@ async def _handle_spec_command(
             )
 
         # Footer with totals
-        _t = dashboard.totals
+        _totals = dashboard.totals
         _dash_table.add_section()
         _dash_table.add_row(
-            f"[bold]{_t.total_specs} specs[/]",
+            f"[bold]{_totals.total_specs} specs[/]",
             "",
             (
-                f"[green]{_t.all_approved}\u2713[/] [cyan]{_t.in_progress}\u22ef[/] "
-                f"[yellow]{_t.stale}![/] [red]{_t.blocked}\u2715[/] [dim]{_t.draft}?[/]"
+                f"[green]{_totals.all_approved}\u2713[/] [cyan]{_totals.in_progress}\u22ef[/] "
+                f"[yellow]{_totals.stale}![/] [red]{_totals.blocked}\u2715[/] [dim]{_totals.draft}?[/]"
             ),
             "",
             "",
@@ -3150,9 +3466,12 @@ async def run_cli(
 
     # Initialize audit writer
     from ..services.audit import AuditEntry, create_audit_writer
+    from ..services.lineage import emit_hook_snapshot
 
     _private_key = config.identity.private_key if config.identity else ""
     audit_writer = create_audit_writer(config, private_key_pem=_private_key)
+    if audit_writer.enabled:
+        emit_hook_snapshot(audit_writer, config.hooks)
 
     # Start retention worker if configured
     retention_worker = None
@@ -3341,6 +3660,8 @@ async def run_cli(
 
     async def tool_executor(tool_name: str, arguments: dict[str, Any]) -> dict[str, Any]:
         nonlocal _subagent_counter
+        tool_call_id = str(arguments.pop("_tool_call_id", "") or "")
+        tool_user_id = getattr(getattr(config, "identity", None), "user_id", "") or ""
         # Skill-scoped tool policy enforcement (#857)
         _sp = active_skill_policy.get(None)
         if _sp is not None:
@@ -3448,25 +3769,82 @@ async def run_cli(
             result = await tool_registry.call_tool(
                 tool_name,
                 arguments,
+                _hooks_config=config.hooks if (config.hooks.pre_tool or config.hooks.post_tool) else None,
+                _audit_writer=audit_writer,
                 _extra_context=build_tool_extra_context(
                     bg_manager=_bg_manager_ref[0],
                     detach_manager=_detach_manager_ref[0],
                     conversation_id=conversation_id,
                     db=db,
                     config=config,
+                    tool_call_id=tool_call_id,
                 ),
             )
             _audit_tool_call(audit_writer, tool_name, arguments, result, conversation_id)
             return result
         if mcp_manager:
-            # MCP tools bypass ToolRegistry — apply safety gate here
+            # MCP tools bypass ToolRegistry — mirror the same hook + safety ordering (#1271)
             verdict = tool_registry.check_safety(tool_name, arguments)
+            # Static hard deny blocks before hooks
+            if verdict and verdict.hard_denied:
+                return {"error": f"Tool '{tool_name}' is blocked by configuration", "safety_blocked": True}
+            # Pre-tool hooks: after hard deny, before tier-based approval (#1271, #1492)
+            _mcp_cli_approval_decision = "auto"
+            if config.hooks.pre_tool:
+                from ..services.hooks import classify_pre_hook_result as _classify_pre_mcp
+                from ..services.hooks import run_pre_tool_hooks as _run_pre_mcp
+
+                _pre_mcp = await _run_pre_mcp(
+                    config.hooks,
+                    tool_name,
+                    arguments,
+                    audit_writer=audit_writer,
+                    tool_call_id=tool_call_id,
+                    conversation_id=conversation_id or "",
+                    user_id=tool_user_id,
+                    allowed_domains=tuple(config.ai.allowed_domains or ()),
+                    block_localhost=bool(config.ai.block_localhost_api),
+                )
+                _mcp_cli_bucket = _classify_pre_mcp(_pre_mcp)
+                if _mcp_cli_bucket == "deny":
+                    return _make_hook_blocked_result(
+                        _pre_mcp.message or f"Tool '{tool_name}' blocked by hook",
+                    )
+                if _mcp_cli_bucket == "require_approval":
+                    _hook_v = SafetyVerdict(
+                        needs_approval=True,
+                        reason=_pre_mcp.message or f"Hook requires approval for '{tool_name}'",
+                        tool_name=tool_name,
+                    )
+                    _mcp_cli_approved = await _confirm_destructive(_hook_v)
+                    try:
+                        from ..services.lineage import emit_hook_approval_resolved as _emit_mcp_resolved
+
+                        _emit_mcp_resolved(
+                            audit_writer,
+                            hook_id=_pre_mcp.hook_id or "",
+                            tool_name=tool_name,
+                            resolution="approved" if _mcp_cli_approved else "denied",
+                            tool_call_id=tool_call_id,
+                            conversation_id=conversation_id or "",
+                            user_id=tool_user_id,
+                        )
+                    except Exception:
+                        pass
+                    if not _mcp_cli_approved:
+                        return {
+                            "error": "Operation denied by user",
+                            "exit_code": -1,
+                            "_approval_decision": "hook_escalated_denied",
+                        }
+                    _mcp_cli_approval_decision = "hook_escalated_approved"
+            # Tier-based approval
             if verdict and verdict.needs_approval:
-                if verdict.hard_denied:
-                    return {"error": f"Tool '{tool_name}' is blocked by configuration", "safety_blocked": True}
                 confirmed = await _confirm_destructive(verdict)
                 if not confirmed:
-                    return {"error": "Operation denied by user", "exit_code": -1}
+                    return {"error": "Operation denied by user", "exit_code": -1, "_approval_decision": "denied"}
+                if _mcp_cli_approval_decision == "auto":
+                    _mcp_cli_approval_decision = "allowed_once"
             # Rate limiting for MCP tools (built-in tools are checked in call_tool)
             if _rate_limiter:
                 rl_v = _rate_limiter.check(tool_name)
@@ -3475,7 +3853,29 @@ async def run_cli(
             mcp_result: dict[str, Any] = await mcp_manager.call_tool(tool_name, arguments)
             if _rate_limiter:
                 _rate_limiter.record_call(success="error" not in mcp_result)
+            # Post-tool hooks
+            if config.hooks.post_tool:
+                from ..services.hooks import run_post_tool_hooks as _run_post_mcp
+
+                _post_mcp = await _run_post_mcp(
+                    config.hooks,
+                    tool_name,
+                    arguments,
+                    mcp_result,
+                    audit_writer=audit_writer,
+                    tool_call_id=tool_call_id,
+                    conversation_id=conversation_id or "",
+                    user_id=tool_user_id,
+                    allowed_domains=tuple(config.ai.allowed_domains or ()),
+                    block_localhost=bool(config.ai.block_localhost_api),
+                )
+                if _post_mcp.outcome == "deny":
+                    return _make_hook_blocked_result(
+                        _post_mcp.message or f"Tool '{tool_name}' output blocked by hook",
+                        post_tool=True,
+                    )
             _audit_tool_call(audit_writer, tool_name, arguments, mcp_result, conversation_id)
+            mcp_result.setdefault("_approval_decision", _mcp_cli_approval_decision)
             return mcp_result
         raise ValueError(f"Unknown tool: {tool_name}")
 
@@ -3506,14 +3906,18 @@ async def run_cli(
     for warn in skill_registry.load_warnings:
         renderer.console.print(f"[yellow]Skill warning:[/yellow] {warn}")
 
-    # Load ANTEROOM.md instructions (with trust gating for project-level files)
-    instructions = await _load_instructions_with_trust(
+    # Load ANTEROOM.md instructions (with trust gating for project-level files).
+    # The loader now returns both the concatenated content and an
+    # authoritative "what actually landed" metadata list for #1462's
+    # attribution footer (see build_attribution).
+    instructions, _instructions_attribution = await _load_instructions_with_trust(
         working_dir,
         trust_project=trust_project,
         no_project_context=no_project_context,
         data_dir=config.app.data_dir,
     )
-    # Build introspect instructions info for the introspect tool
+    # Build introspect instructions info for the introspect tool (this is
+    # the "what could be loaded" view; attribution uses _instructions_attribution).
     _introspect_instructions_info = _build_introspect_instructions_info(working_dir)
     _introspect_info_ref: list[dict[str, Any]] = [_introspect_instructions_info]
     # Capture initial snapshot for pre-turn change detection
@@ -3743,6 +4147,7 @@ async def run_cli(
                 space_instructions=_space_instructions,
                 vec_manager_task=_vec_task,
                 instructions_snapshot=_instructions_snapshot,
+                instructions_attribution=_instructions_attribution,
                 no_project_context=no_project_context,
                 introspect_info_ref=_introspect_info_ref,
             )
@@ -3786,12 +4191,14 @@ async def _run_one_shot(
     tool_registry: Any = None,
     resume_conversation_id: str | None = None,
     cancel_event_ref: list[asyncio.Event | None] | None = None,
+    force_cancel_event_ref: list[threading.Event | None] | None = None,
     dlp_scanner: Any | None = None,
     injection_detector: Any | None = None,
     output_filter: Any | None = None,
 ) -> None:
     """Run a single prompt and exit."""
     id_kw = _identity_kwargs(config)
+    _ = force_cancel_event_ref
     expanded = _expand_file_references(prompt, working_dir, file_max_chars=config.cli.file_reference_max_chars)
 
     if resume_conversation_id:
@@ -3868,6 +4275,8 @@ async def _run_one_shot(
                 if event.kind == "thinking":
                     if not thinking:
                         renderer.start_thinking()
+                        # #1428: immediate ack before the first AI phase event.
+                        renderer.set_thinking_phase("accepted")
                         thinking = True
                 elif event.kind == "phase":
                     renderer.set_thinking_phase(event.data.get("phase", ""))
@@ -3876,6 +4285,7 @@ async def _run_one_shot(
                 elif event.kind == "token":
                     if not thinking:
                         renderer.start_thinking()
+                        renderer.set_thinking_phase("accepted")
                         thinking = True
                     renderer.render_token(event.data["content"])
                     renderer.increment_thinking_tokens()
@@ -3891,7 +4301,14 @@ async def _run_one_shot(
                     renderer.render_tool_call_start(event.data["tool_name"], event.data["arguments"])
                 elif event.kind == "tool_call_end":
                     renderer.exit_tool_phase(event.data["tool_name"])
-                    renderer.render_tool_call_end(event.data["tool_name"], event.data["status"], event.data["output"])
+                    _tce_output = event.data["output"]
+                    if isinstance(_tce_output, dict) and _tce_output.get("hook_blocked"):
+                        renderer.render_hook_outcome(
+                            "deny",
+                            event.data["tool_name"],
+                            message=str(_tce_output.get("error", "")),
+                        )
+                    renderer.render_tool_call_end(event.data["tool_name"], event.data["status"], _tce_output)
                 elif event.kind == "assistant_message":
                     if event.data["content"]:
                         storage.create_message(db, conv["id"], "assistant", event.data["content"], **id_kw)
@@ -3921,7 +4338,7 @@ async def _run_one_shot(
                     rules = ", ".join(event.data.get("matches", []))
                     renderer.render_error(f"Output filter warning: forbidden content detected [{rules}]")
                 elif event.kind == "error":
-                    error_msg = event.data.get("message", "Unknown error")
+                    error_msg = format_user_error(event.data)
                     retryable = event.data.get("retryable", False)
                     if thinking and retryable and user_attempt < config.cli.max_retries:
                         # Show countdown on thinking line, auto-retry
@@ -3945,19 +4362,34 @@ async def _run_one_shot(
                         await renderer.stop_thinking(error_msg=error_msg)
                         thinking = False
                     else:
-                        renderer.render_error(error_msg)
+                        renderer.render_error(event.data)
                 elif event.kind == "budget_warning":
                     if thinking:
                         await renderer.stop_thinking()
                         thinking = False
                     renderer.render_warning(event.data.get("message", "Token budget warning"))
                 elif event.kind == "done":
+                    # #1428: capture turn summary inputs. _current_turn_tools
+                    # is the list maintained by render_tool_call_start/end;
+                    # we snapshot it before stop_thinking() / response flush.
+                    _turn_cancelled = thinking and cancel_event.is_set()
+                    _turn_tools = list(renderer._current_turn_tools)
+                    _turn_elapsed = 0.0
                     if thinking and cancel_event.is_set():
-                        await renderer.stop_thinking(cancel_msg="cancelled")
+                        _turn_elapsed = await renderer.stop_thinking(cancel_msg="cancelled")
                         thinking = False
                     elif thinking:
-                        await renderer.stop_thinking()
+                        _turn_elapsed = await renderer.stop_thinking()
                         thinking = False
+                    # #1428: per-turn completion summary line. Renders after
+                    # the cancel-ack (#1372) and before render_response_end()
+                    # so the assistant's final markdown appears under it.
+                    renderer.render_turn_summary(
+                        elapsed=_turn_elapsed,
+                        tools=_turn_tools,
+                        cancelled=_turn_cancelled,
+                        error=None,
+                    )
                     if not cancel_event.is_set():
                         renderer.render_response_end()
 
@@ -4085,10 +4517,20 @@ async def _run_repl(
     space_instructions: str | None = None,
     vec_manager_task: asyncio.Task[Any | None] | None = None,
     instructions_snapshot: InstructionsSnapshot | None = None,
+    instructions_attribution: list[dict[str, Any]] | None = None,
     no_project_context: bool = False,
     introspect_info_ref: list[dict[str, Any]] | None = None,
 ) -> None:
-    """Run the interactive REPL."""
+    """Run the interactive REPL.
+
+    ``instructions_attribution`` is the authoritative per-session list of
+    instruction files actually loaded into the system prompt (#1462).
+    It feeds ``prompt_meta["instruction_files"]`` on every turn's
+    attribution snapshot. When no files were loaded, it's an empty list —
+    the attribution builder silently omits the ``instructions`` section
+    from the renderer when that's the case.
+    """
+    _instructions_attribution: list[dict[str, Any]] = list(instructions_attribution or [])
     # Lazy vector manager resolver: awaits the background task on first access
     _resolved_vec_manager: list[Any | None] = [None]
     _vec_resolved: list[bool] = [False]
@@ -4108,112 +4550,28 @@ async def _run_repl(
     id_kw = _identity_kwargs(config)
 
     from prompt_toolkit import PromptSession
-    from prompt_toolkit.completion import Completer, Completion
-    from prompt_toolkit.document import Document
+    from prompt_toolkit.completion import Completion
+    from prompt_toolkit.enums import EditingMode
     from prompt_toolkit.formatted_text import HTML
     from prompt_toolkit.history import FileHistory
     from prompt_toolkit.key_binding import KeyBindings
     from prompt_toolkit.styles import Style as PtStyle
 
-    from anteroom.cli.commands import (
-        ALL_COMMAND_NAMES,
-        COMMAND_DESCRIPTIONS,
-        SUBCOMMAND_COMPLETIONS,
-    )
-
-    class AnteroomCompleter(Completer):
-        """Tab completer for / commands, @ file paths, and conversation slugs."""
-
-        _slug_commands = frozenset({"resume", "delete", "rename"})
-
-        def __init__(
-            self,
-            commands: list[str],
-            skill_names: list[str],
-            skill_descriptions: dict[str, str],
-            wd: str,
-            db: Any,
-        ) -> None:
-            self._commands = commands
-            self._skill_names = skill_names
-            self._skill_descriptions = skill_descriptions
-            self._wd = wd
-            self._db = db
-
-        def update_skill_names(self, skill_names: list[str], skill_descriptions: dict[str, str]) -> None:
-            self._skill_names = skill_names
-            self._skill_descriptions = skill_descriptions
-
-        def _get_slug_completions(self, partial: str) -> Any:
-            """Yield slug completions matching the partial input."""
-            try:
-                slugs = storage.list_conversation_slugs(self._db, limit=50)
-            except Exception:
-                return
-            for slug, title in slugs:
-                if slug.startswith(partial):
-                    display = title[:50] if title else ""
-                    yield Completion(slug, start_position=-len(partial), display_meta=display)
-
-        def get_completions(self, document: Document, complete_event: Any) -> Any:
-            text = document.text_before_cursor
-            word = document.get_word_before_cursor(WORD=True)
-
-            if text.lstrip().startswith("/") and " " not in text.lstrip():
-                prefix = word.lstrip("/")
-                for cmd in self._commands:
-                    if cmd.startswith(prefix):
-                        meta = COMMAND_DESCRIPTIONS.get(cmd, "")
-                        yield Completion(f"/{cmd} ", start_position=-len(word), display_meta=meta)
-                for sname in self._skill_names:
-                    if sname.startswith(prefix):
-                        desc = self._skill_descriptions.get(sname, "skill")
-                        yield Completion(f"/{sname} ", start_position=-len(word), display_meta=desc)
-            elif text.lstrip().startswith("/"):
-                # Check if we're completing an argument after a slug-accepting command
-                parts = text.lstrip().split(None, 2)
-                cmd_name = parts[0].lstrip("/") if parts else ""
-                if cmd_name in self._slug_commands and len(parts) <= 2:
-                    partial = parts[1] if len(parts) == 2 else ""
-                    yield from self._get_slug_completions(partial)
-                elif cmd_name in SUBCOMMAND_COMPLETIONS and len(parts) <= 2:
-                    partial = parts[1] if len(parts) == 2 else ""
-                    for sc in SUBCOMMAND_COMPLETIONS[cmd_name]:
-                        if sc.startswith(partial):
-                            yield Completion(sc + " ", start_position=-len(partial))
-            elif "@" in word:
-                # Complete file paths after @
-                at_idx = word.rfind("@")
-                partial = word[at_idx + 1 :]
-                base = Path(self._wd)
-                if "/" in partial:
-                    parent_str, stem = partial.rsplit("/", 1)
-                    parent = base / parent_str
-                else:
-                    parent = base
-                    stem = partial
-                    parent_str = ""
-                try:
-                    if parent.is_dir():
-                        for entry in sorted(parent.iterdir()):
-                            name = entry.name
-                            if name.startswith("."):
-                                continue
-                            if name.lower().startswith(stem.lower()):
-                                suffix = "/" if entry.is_dir() else ""
-                                if parent_str:
-                                    full = f"@{parent_str}/{name}{suffix}"
-                                else:
-                                    full = f"@{name}{suffix}"
-                                yield Completion(full, start_position=-len(word))
-                except OSError:
-                    pass
+    from anteroom.cli.command_palette import should_open_command_palette
+    from anteroom.cli.commands import ALL_COMMAND_NAMES
 
     commands = list(ALL_COMMAND_NAMES)
     skill_descs_list = skill_registry.get_skill_descriptions() if skill_registry else []
     skill_names = [name for name, _ in skill_descs_list]
     skill_descs = {name: desc for name, desc in skill_descs_list}
-    completer = AnteroomCompleter(commands, skill_names, skill_descs, working_dir, db)
+    completer = AnteroomCompleter(
+        commands=commands,
+        skill_names=skill_names,
+        skill_descriptions=skill_descs,
+        working_dir=working_dir,
+        db=db,
+        completion_cls=Completion,
+    )
 
     def _rebuild_tools() -> None:
         """Rebuild the tool list after MCP changes."""
@@ -4258,6 +4616,9 @@ async def _run_repl(
     # Paste detection: track buffer changes to distinguish paste from typing.
     # Pasted characters arrive in < 5ms bursts; human typing is > 50ms apart.
     _last_text_change: list[float] = [0.0]
+    _previous_buffer_text: list[str] = [""]
+    _large_paste_lines: list[int] = [0]
+    _input_hint_seen: dict[str, int] = {"idle": 0, "multiline": 0}
 
     # Enter submits; Alt+Enter / Shift+Enter / Ctrl+J inserts newline
     def _accept_completion(buf: Any) -> bool:
@@ -4306,6 +4667,8 @@ async def _run_repl(
         now = time.monotonic()
         if buf.text:
             buf.reset()
+            _previous_buffer_text[0] = ""
+            _large_paste_lines[0] = 0
             _last_ctrl_c[0] = now
         elif now - _last_ctrl_c[0] < 2.0:
             # Second Ctrl+C within 2 seconds — exit
@@ -4349,10 +4712,14 @@ async def _run_repl(
             "bottom-toolbar.dir": renderer._theme.dir_display,
             "bottom-toolbar.sep": renderer._theme.toolbar_sep,
             "bottom-toolbar.mcp": renderer._theme.mcp_indicator,
+            "bottom-toolbar.mode": renderer._theme.accent,
+            "bottom-toolbar.hint": renderer._theme.chrome,
         }
     )
 
-    _toolbar_cache: list[tuple[str, str]] = []
+    _plan_active: list[bool] = [plan_mode]
+    _active_space: list[dict[str, Any] | None] = [space]
+    _toolbar_cache: list[tuple[str, str] | tuple[str, str, Any]] = []
     _toolbar_dirty: list[bool] = [True]
 
     _cached_git_branch: list[str] = [_detect_git_branch() or ""]
@@ -4372,17 +4739,8 @@ async def _run_repl(
         """Recompute the cached toolbar content."""
         _toolbar_dirty[0] = False
         _refresh_git_branch()
-        # _active_space and _plan_active are defined later in _run_repl but
-        # _toolbar_refresh is only ever called during prompt rendering, which
-        # happens after those variables exist.  Guard with try/except for safety.
-        try:
-            sn = _active_space[0]["name"] if _active_space[0] else ""
-        except NameError:
-            sn = ""
-        try:
-            pm = _plan_active[0]
-        except NameError:
-            pm = False
+        sn = _active_space[0]["name"] if _active_space[0] else ""
+        pm = _plan_active[0]
         cn = conv.get("slug") or ""
         _toolbar_cache[:] = renderer.format_status_toolbar(
             model=current_model,
@@ -4397,7 +4755,6 @@ async def _run_repl(
             space_name=sn,
             plan_mode=pm,
             conversation_name=cn,
-            busy_status=renderer.get_busy_status(),
         )
 
     def invalidate_toolbar() -> None:
@@ -4405,16 +4762,40 @@ async def _run_repl(
         _toolbar_dirty[0] = True
 
     def _bottom_toolbar() -> list[tuple[str, str] | tuple[str, str, Any]]:
-        if _toolbar_dirty[0] or renderer._footer_mode:
+        from anteroom.cli.layout import build_input_toolbar_fragments
+
+        if _toolbar_dirty[0]:
             _toolbar_refresh()
-        return _toolbar_cache
+        parts = list(_toolbar_cache)
+        parts.extend(renderer.format_busy_status_toolbar(renderer.get_busy_status()))
+        hint_context = ""
+        if config.cli.input.show_hints:
+            current_text = getattr(session.default_buffer, "text", "")
+            is_multiline = bool(current_text and ("\n" in current_text or _large_paste_lines[0] > 0))
+            context_key = "multiline" if is_multiline else "idle"
+            if _input_hint_seen.get(context_key, 0) < config.cli.input.hint_max_displays:
+                hint_context = context_key
+        extras = build_input_toolbar_fragments(
+            editing_mode=config.cli.input.editing_mode,
+            app=getattr(session, "app", None),
+            show_mode_badge=config.cli.input.show_mode_badge,
+            hint_context=hint_context,
+            paste_line_count=_large_paste_lines[0] if hint_context == "multiline" else 0,
+        )
+        if extras:
+            if parts and parts[-1][0] != "class:bottom-toolbar.sep":
+                parts.append(("class:bottom-toolbar.sep", " \u00b7 "))
+            parts.extend(extras)
+        return parts
 
     session: PromptSession[str] = PromptSession(
         history=FileHistory(str(history_path)),
         key_bindings=kb,
         multiline=True,
+        editing_mode=EditingMode.VI if config.cli.input.editing_mode == "vi" else EditingMode.EMACS,
         prompt_continuation=_continuation,
         completer=completer,
+        complete_while_typing=True,
         reserve_space_for_menu=4,
         style=_repl_style,
         bottom_toolbar=_bottom_toolbar,
@@ -4422,11 +4803,34 @@ async def _run_repl(
 
     _patch_completion_menu_position()
 
+    def _maybe_open_command_palette(_buf: Any) -> None:
+        if should_open_command_palette(_buf.text):
+            try:
+                _buf.start_completion(select_first=False)
+            except Exception:
+                pass
+
     # Hook buffer changes for paste detection timing
     def _on_buffer_change(_buf: Any) -> None:
         _last_text_change[0] = time.monotonic()
+        current_text = _buf.text
+        pasted = _detect_large_paste(
+            _previous_buffer_text[0],
+            current_text,
+            min_lines=config.cli.input.large_paste_lines,
+        )
+        if pasted:
+            _large_paste_lines[0] = pasted
+        elif not current_text:
+            _large_paste_lines[0] = 0
+        _previous_buffer_text[0] = current_text
+        _toolbar_dirty[0] = True
+
+    def _on_text_insert(_buf: Any) -> None:
+        _maybe_open_command_palette(_buf)
 
     session.default_buffer.on_text_changed += _on_buffer_change
+    session.default_buffer.on_text_insert += _on_text_insert
 
     # Wire toolbar invalidator for footer-mode busy state (#1134).
     # The ticker calls this every 0.5s so the toolbar timer stays live.
@@ -4436,6 +4840,7 @@ async def _run_repl(
             session.app.invalidate()
 
     renderer._toolbar_invalidator = _invalidate_and_redraw
+    renderer._toolbar_is_active = lambda: bool(session.app and session.app.is_running)
 
     # Set approval mode for prompt coloring
     from anteroom.cli.layout import set_approval_mode
@@ -4720,10 +5125,16 @@ async def _run_repl(
 
     _bg_manager_ref[0] = BackgroundTaskManager(db=db, data_dir=config.app.data_dir)
 
-    # Detached subagent manager (#1314)
+    # Detached subagent manager (#1314, audit+caps wired #1459)
     from anteroom.services.detached_subagent_manager import DetachedSubagentManager
 
-    _detach_manager_ref[0] = DetachedSubagentManager(db=db)
+    from ._audit_helper import get_cli_audit_writer as _get_cli_audit_writer
+
+    _detach_manager_ref[0] = DetachedSubagentManager(
+        db=db,
+        config=config.safety.subagent,
+        audit_writer=_get_cli_audit_writer(config),
+    )
 
     input_queue: asyncio.Queue[str] = asyncio.Queue(maxsize=10)
     agent_busy = asyncio.Event()  # set while agent loop is running
@@ -4772,7 +5183,7 @@ async def _run_repl(
             read_plan,
         )
 
-        _plan_active: list[bool] = [plan_mode]
+        _plan_active[0] = plan_mode
         _plan_file: list[Path | None] = [None]
         _full_tools_backup: list[list[dict[str, Any]] | None] = [None]
         _plan_checklist_steps: list[str] = []  # parsed step descriptions for live checklist
@@ -4853,13 +5264,28 @@ async def _run_repl(
             if not instructions_snapshot.has_changed(current_working_dir):
                 return
 
-            # Rebuild instructions string
+            # Rebuild instructions string AND the attribution metadata in
+            # the same decision branches, so the attributed set stays
+            # identical to the loaded set on live reload (#1462). We build
+            # both up locally first, then commit: on the "changed-but-
+            # untrusted" bail-out we leave both untouched (the prompt
+            # keeps the previously-trusted content and the footer keeps
+            # pointing at the previously-trusted path).
             parts: list[str] = []
+            new_attribution: list[dict[str, Any]] = []
 
             # Global instructions are always trusted
-            global_inst = find_global_instructions()
-            if global_inst:
-                parts.append(f"# Global Instructions\n{global_inst}")
+            global_result = find_global_instructions_path()
+            if global_result is not None:
+                global_path, global_content = global_result
+                parts.append(f"# Global Instructions\n{global_content}")
+                new_attribution.append(
+                    {
+                        "path": str(global_path),
+                        "scope": "global",
+                        "estimated_tokens": estimate_tokens(global_content),
+                    }
+                )
 
             # Project instructions require trust gating
             if not no_project_context:
@@ -4874,6 +5300,13 @@ async def _run_repl(
 
                     if trust_status == "trusted":
                         parts.append(f"# Project Instructions\n{content}")
+                        new_attribution.append(
+                            {
+                                "path": str(file_path),
+                                "scope": "project",
+                                "estimated_tokens": estimate_tokens(content),
+                            }
+                        )
                         _instructions_trust_pending = None
                     elif trust_status == "changed":
                         renderer.console.print(
@@ -4882,6 +5315,9 @@ async def _run_repl(
                         )
                         _instructions_trust_pending = {"path": folder_path, "hash": content_hash}
                         # Keep old project instructions in the prompt — don't replace.
+                        # Leave _instructions_attribution untouched too so the
+                        # footer keeps pointing at the previously-trusted
+                        # path, matching what's still in the system prompt.
                         # Do NOT recapture snapshot here — /conventions trust-and-reload
                         # needs has_changed() to return True so it triggers a real reload.
                         return
@@ -4891,6 +5327,11 @@ async def _run_repl(
 
             new_instructions = "\n\n".join(parts) if parts else None
             extra_system_prompt = _replace_file_instructions(extra_system_prompt, new_instructions)
+            # Commit the rebuilt attribution list in place so the closure
+            # at the turn-end attribution site (``list(_instructions_attribution)``)
+            # picks up the refreshed state without needing ``nonlocal``.
+            _instructions_attribution.clear()
+            _instructions_attribution.extend(new_attribution)
 
             # Rebuild output filter with new prompt
             nonlocal output_filter
@@ -4949,7 +5390,7 @@ async def _run_repl(
             return prompt
 
         # -- Space state --
-        _active_space: list[dict[str, Any] | None] = [space]
+        _active_space[0] = space
 
         async def _resolve_space(name_or_id: str) -> dict[str, Any] | None:
             """Look up a space by name, UUID, or UUID prefix. Shows picker on ambiguity."""
@@ -5175,6 +5616,7 @@ async def _run_repl(
                         if _route.action == "cancel":
                             from ..services.workflow_engine import WorkflowEngine
 
+                            assert _route.target_run_id is not None
                             await WorkflowEngine.request_cancel(db, _route.target_run_id)
                             renderer.console.print(
                                 f"[{CHROME}]Workflow run cancelled: {_route.target_run_id[:8]}...[/{CHROME}]"
@@ -5182,9 +5624,10 @@ async def _run_repl(
                             continue
 
                         if _route.action in ("attach", "update"):
+                            assert _route.target_run_id is not None
                             emit_workflow_run_input(
                                 db,
-                                _route.target_run_id,  # type: ignore[arg-type]
+                                _route.target_run_id,
                                 user_input.strip(),
                                 _route.action,
                             )
@@ -5197,6 +5640,7 @@ async def _run_repl(
                         if _route.action == "replace":
                             from ..services.workflow_engine import WorkflowEngine
 
+                            assert _route.target_run_id is not None
                             await WorkflowEngine.request_cancel(db, _route.target_run_id)
                             renderer.console.print(
                                 f"[{CHROME}]Cancelled run {_route.target_run_id[:8]}..."
@@ -5678,12 +6122,12 @@ async def _run_repl(
                             renderer.console.print("\n[bold]Available skills:[/bold]")
                             for display_name, desc in descs:
                                 sk = skill_registry.get(display_name)
-                                src = sk.source if sk else "unknown"
+                                skill_source = sk.source if sk else "unknown"
                                 bundle_tag = (
                                     f" [bundle: {sk.resource_count} resources]" if sk and sk.resource_count else ""
                                 )
                                 renderer.console.print(
-                                    f"  /{display_name} - {desc}{bundle_tag} [{CHROME}]({src})[/{CHROME}]"
+                                    f"  /{display_name} - {desc}{bundle_tag} [{CHROME}]({skill_source})[/{CHROME}]"
                                 )
                         else:
                             renderer.console.print(
@@ -5740,18 +6184,18 @@ async def _run_repl(
                             )
                             continue
                         renderer.console.print("\n[bold]Spaces:[/bold]")
-                        for sp in spaces:
-                            cnt = count_space_conversations(db, sp["id"])
+                        for space_row in spaces:
+                            cnt = count_space_conversations(db, space_row["id"])
                             active = (
                                 f" [{_SUCCESS}](active)[/{_SUCCESS}]"
-                                if (_active_space[0] and _active_space[0]["id"] == sp["id"])
+                                if (_active_space[0] and _active_space[0]["id"] == space_row["id"])
                                 else ""
                             )
-                            _sf = sp.get("source_file", "")
+                            _sf = space_row.get("source_file", "")
                             origin = "local" if (_sf and _is_local(_sf)) else "global"
                             renderer.console.print(
-                                f"  {sp['name']}{active}"
-                                f" [{MUTED}]{origin} · {cnt} conversations · {sp['id'][:8]}...[/{MUTED}]"
+                                f"  {space_row['name']}{active}"
+                                f" [{MUTED}]{origin} · {cnt} conversations · {space_row['id'][:8]}...[/{MUTED}]"
                             )
                         renderer.console.print()
 
@@ -5777,7 +6221,7 @@ async def _run_repl(
                         if not target:
                             renderer.console.print(f"[{CHROME}]Usage: /space show <name>[/{CHROME}]\n")
                             continue
-                        sp = await _resolve_space(target)  # type: ignore[assignment]
+                        sp = await _resolve_space(target)
                         if not sp:
                             renderer.render_error(f"Space '{target}' not found.")
                             continue
@@ -5805,7 +6249,7 @@ async def _run_repl(
                         renderer.console.print()
 
                     elif sub == "refresh":
-                        sp = _active_space[0]  # type: ignore[assignment]
+                        sp = _active_space[0]
                         if not sp:
                             renderer.console.print(f"[{CHROME}]No active space[/{CHROME}]\n")
                             continue
@@ -6027,7 +6471,7 @@ async def _run_repl(
                             renderer.render_error(str(e))
 
                     elif sub == "edit":
-                        sp = _active_space[0]  # type: ignore[assignment]
+                        sp = _active_space[0]
                         if not sp:
                             renderer.console.print(f"[{CHROME}]No active space[/{CHROME}]\n")
                             continue
@@ -6077,10 +6521,10 @@ async def _run_repl(
                             )
 
                     elif sub == "export":
-                        sp = _active_space[0]  # type: ignore[assignment]
+                        sp = _active_space[0]
                         target_name = parts[2].strip() if len(parts) >= 3 else ""
                         if target_name:
-                            sp = await _resolve_space(target_name)  # type: ignore[assignment]
+                            sp = await _resolve_space(target_name)
                         if not sp:
                             renderer.console.print(
                                 f"[{CHROME}]No active space (or specify name: /space export <name>)[/{CHROME}]\n"
@@ -6113,7 +6557,7 @@ async def _run_repl(
                             renderer.console.print(f"[{_SUCCESS}]Exported space to:[/{_SUCCESS}] {_export_path}\n")
 
                     elif sub == "sources":
-                        sp = _active_space[0]  # type: ignore[assignment]
+                        sp = _active_space[0]
                         if not sp:
                             renderer.console.print(f"[{CHROME}]No active space[/{CHROME}]\n")
                             continue
@@ -6135,7 +6579,7 @@ async def _run_repl(
                         renderer.console.print()
 
                     elif sub == "link-source":
-                        sp = _active_space[0]  # type: ignore[assignment]
+                        sp = _active_space[0]
                         if not sp:
                             renderer.console.print(f"[{CHROME}]No active space[/{CHROME}]\n")
                             continue
@@ -6191,8 +6635,10 @@ async def _run_repl(
                             continue
                         already = get_direct_space_source_links(db, sp["id"])
                         if any(r["id"] == match["id"] for r in already):
-                            _t = match.get("title", "Untitled")
-                            renderer.console.print(f"[{CHROME}]'{_t}' is already linked to '{sp['name']}'[/{CHROME}]\n")
+                            _source_title = match.get("title", "Untitled")
+                            renderer.console.print(
+                                f"[{CHROME}]'{_source_title}' is already linked to '{sp['name']}'[/{CHROME}]\n"
+                            )
                             continue
                         _link_src(db, sp["id"], source_id=match["id"])
                         renderer.console.print(
@@ -6201,7 +6647,7 @@ async def _run_repl(
                         )
 
                     elif sub == "unlink-source":
-                        sp = _active_space[0]  # type: ignore[assignment]
+                        sp = _active_space[0]
                         if not sp:
                             renderer.console.print(f"[{CHROME}]No active space[/{CHROME}]\n")
                             continue
@@ -7020,7 +7466,7 @@ async def _run_repl(
                             from prompt_toolkit import PromptSession as _ModelPickerSession
 
                             try:
-                                _picker = _ModelPickerSession()
+                                _picker: Any = _ModelPickerSession()
                                 selection = await _picker.prompt_async(
                                     f"  Select model [1-{len(available)}] or press Enter to cancel: "
                                 )
@@ -7202,6 +7648,28 @@ async def _run_repl(
                     continue
                 elif cmd == "/detail":
                     renderer.render_tool_detail()
+                    continue
+                elif cmd == "/expand":
+                    renderer.render_tool_expand()
+                    continue
+                elif cmd == "/density":
+                    from .density import parse_density as _parse_density
+
+                    parts = user_input.split(maxsplit=1)
+                    if len(parts) < 2:
+                        renderer.console.print(
+                            f"[{CHROME}]Usage: /density {{minimal|compact|normal|detailed}}[/{CHROME}]\n"
+                        )
+                        continue
+                    mode_arg = parts[1].strip().lower()
+                    if mode_arg not in ("minimal", "compact", "normal", "detailed"):
+                        renderer.render_error(
+                            f"Unknown density '{mode_arg}'. Valid: minimal, compact, normal, detailed."
+                        )
+                        continue
+                    new_density = _parse_density(mode_arg)
+                    renderer.set_density(new_density)
+                    renderer.render_density_change(new_density)
                     continue
                 elif cmd == "/resume":
                     parts = user_input.split(maxsplit=1)
@@ -7507,6 +7975,7 @@ async def _run_repl(
 
             # Stream response
             renderer.clear_turn_history()
+            _per_turn_event_tcs: list[dict[str, Any]] = []
             renderer.clear_subagent_state()
             if subagent_limiter is not None:
                 subagent_limiter.reset()
@@ -7542,6 +8011,11 @@ async def _run_repl(
                 total_elapsed = 0.0
                 _pending_usage: dict | None = None
                 _last_assistant_msg: dict | None = None  # tracked for attribution (#923)
+                # #1472: authoritative per-turn tool-call accumulator populated
+                # from tool_call_end events (which carry the id from the agent
+                # loop). Replaces renderer._current_turn_tools for attribution so
+                # CLI ids are not blank.
+                _per_turn_event_tcs = []
 
                 # Drain any messages that arrived while we were setting up
                 def _warn(cmd: str) -> None:
@@ -7640,6 +8114,11 @@ async def _run_repl(
                                             renderer.update_plan_step(idx, "complete")
                                             _plan_current_step[0] = idx + 1
                                 renderer.start_thinking(newline=True)
+                                # #1428: immediate ack before the first AI phase event.
+                                # start_thinking() resets _thinking_phase to "",
+                                # so set accepted AFTER it. It will be replaced
+                                # by the first real "phase" event (connecting).
+                                renderer.set_thinking_phase("accepted")
                                 thinking = True
                         elif event.kind == "phase":
                             renderer.set_thinking_phase(event.data.get("phase", ""))
@@ -7672,8 +8151,21 @@ async def _run_repl(
                             renderer.render_tool_call_start(event.data["tool_name"], event.data["arguments"])
                         elif event.kind == "tool_call_end":
                             renderer.exit_tool_phase(event.data["tool_name"])
-                            renderer.render_tool_call_end(
-                                event.data["tool_name"], event.data["status"], event.data["output"]
+                            _tce_output2 = event.data["output"]
+                            if isinstance(_tce_output2, dict) and _tce_output2.get("hook_blocked"):
+                                renderer.render_hook_outcome(
+                                    "deny",
+                                    event.data["tool_name"],
+                                    message=str(_tce_output2.get("error", "")),
+                                )
+                            renderer.render_tool_call_end(event.data["tool_name"], event.data["status"], _tce_output2)
+                            # #1472: accumulate authoritative id+name from the
+                            # event stream so attribution has real ids, not "".
+                            _per_turn_event_tcs.append(
+                                {
+                                    "id": event.data.get("id", "") or "",
+                                    "tool_name": event.data.get("tool_name", "") or "",
+                                }
                             )
                         elif event.kind == "auto_plan_suggest":
                             _auto_mode = config.cli.planning.auto_mode
@@ -7756,18 +8248,27 @@ async def _run_repl(
                             renderer.render_newline()
                             renderer.render_response_end()
                             renderer.render_newline()
-                            # Show styled separator for the queued user message
+                            # Show styled separator for the queued user message.
+                            # Route through the user-gutter hierarchy helper (#1370) so
+                            # the queued-message lane matches live user input styling.
                             queued_content = event.data.get("content", "")
                             q_preview = queued_content[:200] + ("\u2026" if len(queued_content) > 200 else "")
                             q_pos = event.data.get("position", "")
                             q_depth = event.data.get("queue_depth", 0)
-                            q_meta = f" [{q_pos}/{q_pos + q_depth}]" if isinstance(q_pos, int) else ""
-                            renderer.console.print(f"\n[{GOLD}]>{q_meta} {escape(q_preview)}[/{GOLD}]")
+                            if isinstance(q_pos, int):
+                                renderer.render_user_message(
+                                    q_preview,
+                                    position=q_pos,
+                                    queue_depth=q_depth,
+                                )
+                            else:
+                                renderer.render_user_message(q_preview)
                             renderer.render_newline()
                             renderer.clear_turn_history()
+                            _per_turn_event_tcs = []
                             response_token_count = 0
                         elif event.kind == "error":
-                            error_msg = event.data.get("message", "Unknown error")
+                            error_msg = format_user_error(event.data)
                             retryable = event.data.get("retryable", False)
                             if thinking and retryable and user_attempt < config.cli.max_retries:
                                 should_retry = await renderer.thinking_countdown(
@@ -7788,7 +8289,7 @@ async def _run_repl(
                                 total_elapsed += await renderer.stop_thinking(error_msg=error_msg)
                                 thinking = False
                             else:
-                                renderer.render_error(error_msg)
+                                renderer.render_error(event.data)
                         elif event.kind == "budget_warning":
                             if thinking:
                                 total_elapsed += await renderer.stop_thinking()
@@ -7803,23 +8304,38 @@ async def _run_repl(
                                     if step_state.get("status") == "in_progress":
                                         renderer.update_plan_step(idx, "complete")
                             collapse = bool(_plan_checklist_steps)
+                            # #1428: capture turn summary inputs before
+                            # stop_thinking() consumes elapsed.
+                            _turn_cancelled = bool(thinking and cancel_event.is_set())
+                            _turn_tools = list(renderer._current_turn_tools)
+                            _turn_elapsed = 0.0
                             if thinking and cancel_event.is_set():
                                 if _cancel_acked[0]:
                                     # Visual ack already rendered by stop_thinking_sync
                                     # in _route_cancel_signal — just clean up state
-                                    total_elapsed += await renderer.stop_thinking(collapse_plan=collapse)
+                                    _turn_elapsed = await renderer.stop_thinking(collapse_plan=collapse)
                                 else:
-                                    total_elapsed += await renderer.stop_thinking(
+                                    _turn_elapsed = await renderer.stop_thinking(
                                         cancel_msg="cancelled", collapse_plan=collapse
                                     )
+                                total_elapsed += _turn_elapsed
                                 thinking = False
                             elif thinking:
-                                total_elapsed += await renderer.stop_thinking(collapse_plan=collapse)
+                                _turn_elapsed = await renderer.stop_thinking(collapse_plan=collapse)
+                                total_elapsed += _turn_elapsed
                                 thinking = False
                             # Clear plan checklist state after collapsing
                             if _plan_checklist_steps:
                                 _plan_checklist_steps.clear()
                                 _plan_current_step[0] = 0
+                            # #1428: per-turn completion summary line. Renders
+                            # after the cancel-ack (#1372) and before response end.
+                            renderer.render_turn_summary(
+                                elapsed=_turn_elapsed,
+                                tools=_turn_tools,
+                                cancelled=_turn_cancelled,
+                                error=None,
+                            )
                             if not cancel_event.is_set():
                                 renderer.save_turn_history()
                                 renderer.render_response_end()
@@ -7884,6 +8400,12 @@ async def _run_repl(
                                             ]
                                         except Exception:
                                             _attr_prompt_meta["pack_attachments"] = []
+                                        # #1462 — the authoritative per-session list of
+                                        # instruction files that actually landed in the
+                                        # system prompt. Passed through unchanged; the
+                                        # attribution builder handles DLP scrubbing on
+                                        # the path label.
+                                        _attr_prompt_meta["instruction_files"] = list(_instructions_attribution)
                                         _stored_tcs = storage.list_tool_calls(db, _last_assistant_msg["id"])
                                         _stored_msg = dict(_last_assistant_msg)
                                         _stored_msg["tool_calls"] = _stored_tcs
@@ -7891,12 +8413,27 @@ async def _run_repl(
                                             _pack_inventory = _packs.list_packs(db)
                                         except Exception:
                                             _pack_inventory = []
+                                        # #1472: authoritative per-turn tool-call list
+                                        # accumulated from tool_call_end events in the
+                                        # event stream. Each entry carries the real id
+                                        # from the agent loop. Fixes blank ids and
+                                        # zero-counts on multi-iteration turns where the
+                                        # final assistant message is plain prose.
+                                        _turn_tcs: list[dict[str, Any]] = [
+                                            {
+                                                "id": entry["id"],
+                                                "tool_name": entry["tool_name"],
+                                                "name": entry["tool_name"],
+                                            }
+                                            for entry in _per_turn_event_tcs
+                                        ]
                                         _attr_snap = build_attribution(
                                             _attr_prompt_meta,
                                             _stored_msg,
                                             _pack_inventory,
                                             dlp_scanner=dlp_scanner,
                                             output_filter=output_filter,
+                                            turn_tool_calls=_turn_tcs,
                                         )
                                         _attr_serialized = serialize_attribution(_attr_snap)
                                         storage.merge_message_metadata(
@@ -8025,11 +8562,27 @@ async def _run_repl(
                     signal.signal(signal.SIGINT, original_handler)
 
     renderer.set_tool_dedup(config.cli.tool_dedup)
+    # Apply tool-result density knobs (#1367)
+    from .density import parse_density as _parse_density
+
+    renderer.configure_density(
+        mode=_parse_density(config.cli.density.mode),
+        head_lines=config.cli.density.head_lines,
+        tail_lines=config.cli.density.tail_lines,
+        diff_context_lines=config.cli.density.diff_context_lines,
+        collapse_repeats=config.cli.density.collapse_repeats,
+    )
     renderer.configure_thresholds(
         esc_hint_delay=config.cli.esc_hint_delay,
         stall_display=config.cli.stall_display_threshold,
         stall_warning=config.cli.stall_warning_threshold,
         throughput_threshold=config.cli.stall_throughput_threshold,
+    )
+    # Compact tool-call lifecycle (#1364)
+    renderer.configure_live_tools(
+        show_args_in_verbose=config.cli.live_tools.show_args_in_verbose,
+        show_metric_suffix=config.cli.live_tools.show_metric_suffix,
+        metric_max_chars=config.cli.live_tools.metric_max_chars,
     )
 
     # -- Simple input loop --
@@ -8061,6 +8614,11 @@ async def _run_repl(
             text = user_input_raw.strip()
             if not text:
                 continue
+            if config.cli.input.show_hints:
+                context_key = "multiline" if ("\n" in user_input_raw or _large_paste_lines[0] > 0) else "idle"
+                _input_hint_seen[context_key] = _input_hint_seen.get(context_key, 0) + 1
+            _large_paste_lines[0] = 0
+            _previous_buffer_text[0] = ""
 
             if agent_busy.is_set():
                 if input_queue.full():
@@ -8088,6 +8646,16 @@ async def _run_repl(
 
     with _patch_stdout(raw=True):
         renderer.use_stdout_console()
+        # Install live markdown streaming for the REPL session (#1365).
+        # configure_streaming() binds to _stdout_console, which was just
+        # rebound by use_stdout_console() — order matters.
+        renderer.configure_streaming(
+            enabled=config.cli.streaming.enabled,
+            refresh_hz=config.cli.streaming.refresh_hz,
+            code_fence_container=config.cli.streaming.code_fence_container,
+            exec_mode=False,
+            live_in_exec_mode=config.cli.streaming.live_in_exec_mode,
+        )
         input_task = asyncio.create_task(_collect_input_simple())
         runner_task = asyncio.create_task(_agent_runner())
 
@@ -8128,8 +8696,9 @@ async def _run_repl(
             except BaseException:
                 pass
 
-    # Clean up toolbar invalidator to avoid stale closure references.
+    # Clean up toolbar callbacks to avoid stale closure references.
     renderer._toolbar_invalidator = None
+    renderer._toolbar_is_active = None
     renderer._footer_mode = False
 
     # Show resume hint after exit

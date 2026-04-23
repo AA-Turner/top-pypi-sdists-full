@@ -53333,14 +53333,16 @@ class scout_compute_api_Context(ConjureBeanType):
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
             'variables': ConjureFieldDefinition('variables', Dict[scout_compute_api_VariableName, scout_compute_api_VariableValue]),
-            'function_variables': ConjureFieldDefinition('functionVariables', OptionalTypeWrapper[Dict[scout_compute_api_FunctionReference, scout_compute_api_FunctionVariables]])
+            'function_variables': ConjureFieldDefinition('functionVariables', OptionalTypeWrapper[Dict[scout_compute_api_FunctionReference, scout_compute_api_FunctionVariables]]),
+            'frame_references': ConjureFieldDefinition('frameReferences', Dict[scout_compute_api_FrameReferenceName, scout_compute_api_TimeSeriesFrame])
         }
 
-    __slots__: List[str] = ['_variables', '_function_variables']
+    __slots__: List[str] = ['_variables', '_function_variables', '_frame_references']
 
-    def __init__(self, variables: Dict[str, "scout_compute_api_VariableValue"], function_variables: Optional[Dict[str, "scout_compute_api_FunctionVariables"]] = None) -> None:
+    def __init__(self, frame_references: Dict[str, "scout_compute_api_TimeSeriesFrame"], variables: Dict[str, "scout_compute_api_VariableValue"], function_variables: Optional[Dict[str, "scout_compute_api_FunctionVariables"]] = None) -> None:
         self._variables = variables
         self._function_variables = function_variables
+        self._frame_references = frame_references
 
     @builtins.property
     def variables(self) -> Dict[str, "scout_compute_api_VariableValue"]:
@@ -53349,6 +53351,12 @@ class scout_compute_api_Context(ConjureBeanType):
     @builtins.property
     def function_variables(self) -> Optional[Dict[str, "scout_compute_api_FunctionVariables"]]:
         return self._function_variables
+
+    @builtins.property
+    def frame_references(self) -> Dict[str, "scout_compute_api_TimeSeriesFrame"]:
+        """Named frames looked up by `FrameReference` nodes in the compute tree.
+        """
+        return self._frame_references
 
 
 scout_compute_api_Context.__name__ = "Context"
@@ -57075,6 +57083,31 @@ For every timestamp in the resampled timestamps, takes the last known value befo
 scout_compute_api_ForwardFillResampleInterpolationConfiguration.__name__ = "ForwardFillResampleInterpolationConfiguration"
 scout_compute_api_ForwardFillResampleInterpolationConfiguration.__qualname__ = "ForwardFillResampleInterpolationConfiguration"
 scout_compute_api_ForwardFillResampleInterpolationConfiguration.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_FrameReference(ConjureBeanType):
+    """References a named frame in `Context.frameReferences`.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'name': ConjureFieldDefinition('name', scout_compute_api_StringConstant)
+        }
+
+    __slots__: List[str] = ['_name']
+
+    def __init__(self, name: "scout_compute_api_StringConstant") -> None:
+        self._name = name
+
+    @builtins.property
+    def name(self) -> "scout_compute_api_StringConstant":
+        return self._name
+
+
+scout_compute_api_FrameReference.__name__ = "FrameReference"
+scout_compute_api_FrameReference.__qualname__ = "FrameReference"
+scout_compute_api_FrameReference.__module__ = "nominal_api.scout_compute_api"
 
 
 class scout_compute_api_FrequencyBucket(ConjureBeanType):
@@ -69098,6 +69131,7 @@ persisted data (asset or dataset) or defined as a transformation of another fram
     _filter: Optional["scout_compute_api_FilteredFrame"] = None
     _time_shift: Optional["scout_compute_api_TimeShiftedFrame"] = None
     _with_numeric_series: Optional["scout_compute_api_WithNumericSeriesFrame"] = None
+    _named_reference: Optional["scout_compute_api_FrameReference"] = None
 
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
@@ -69111,7 +69145,8 @@ persisted data (asset or dataset) or defined as a transformation of another fram
             'tag': ConjureFieldDefinition('tag', scout_compute_api_TaggedFrame),
             'filter': ConjureFieldDefinition('filter', scout_compute_api_FilteredFrame),
             'time_shift': ConjureFieldDefinition('timeShift', scout_compute_api_TimeShiftedFrame),
-            'with_numeric_series': ConjureFieldDefinition('withNumericSeries', scout_compute_api_WithNumericSeriesFrame)
+            'with_numeric_series': ConjureFieldDefinition('withNumericSeries', scout_compute_api_WithNumericSeriesFrame),
+            'named_reference': ConjureFieldDefinition('namedReference', scout_compute_api_FrameReference)
         }
 
     def __init__(
@@ -69126,10 +69161,11 @@ persisted data (asset or dataset) or defined as a transformation of another fram
             filter: Optional["scout_compute_api_FilteredFrame"] = None,
             time_shift: Optional["scout_compute_api_TimeShiftedFrame"] = None,
             with_numeric_series: Optional["scout_compute_api_WithNumericSeriesFrame"] = None,
+            named_reference: Optional["scout_compute_api_FrameReference"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (asset is not None) + (dataset is not None) + (search is not None) + (combine_assets is not None) + (combine_runs is not None) + (combine is not None) + (tag is not None) + (filter is not None) + (time_shift is not None) + (with_numeric_series is not None) != 1:
+            if (asset is not None) + (dataset is not None) + (search is not None) + (combine_assets is not None) + (combine_runs is not None) + (combine is not None) + (tag is not None) + (filter is not None) + (time_shift is not None) + (with_numeric_series is not None) + (named_reference is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if asset is not None:
@@ -69162,6 +69198,9 @@ persisted data (asset or dataset) or defined as a transformation of another fram
             if with_numeric_series is not None:
                 self._with_numeric_series = with_numeric_series
                 self._type = 'withNumericSeries'
+            if named_reference is not None:
+                self._named_reference = named_reference
+                self._type = 'namedReference'
 
         elif type_of_union == 'asset':
             if asset is None:
@@ -69213,6 +69252,11 @@ persisted data (asset or dataset) or defined as a transformation of another fram
                 raise ValueError('a union value must not be None')
             self._with_numeric_series = with_numeric_series
             self._type = 'withNumericSeries'
+        elif type_of_union == 'namedReference':
+            if named_reference is None:
+                raise ValueError('a union value must not be None')
+            self._named_reference = named_reference
+            self._type = 'namedReference'
 
     @builtins.property
     def asset(self) -> Optional["scout_compute_api_Asset"]:
@@ -69254,6 +69298,10 @@ persisted data (asset or dataset) or defined as a transformation of another fram
     def with_numeric_series(self) -> Optional["scout_compute_api_WithNumericSeriesFrame"]:
         return self._with_numeric_series
 
+    @builtins.property
+    def named_reference(self) -> Optional["scout_compute_api_FrameReference"]:
+        return self._named_reference
+
     def accept(self, visitor) -> Any:
         if not isinstance(visitor, scout_compute_api_TimeSeriesFrameVisitor):
             raise ValueError('{} is not an instance of scout_compute_api_TimeSeriesFrameVisitor'.format(visitor.__class__.__name__))
@@ -69277,6 +69325,8 @@ persisted data (asset or dataset) or defined as a transformation of another fram
             return visitor._time_shift(self.time_shift)
         if self._type == 'withNumericSeries' and self.with_numeric_series is not None:
             return visitor._with_numeric_series(self.with_numeric_series)
+        if self._type == 'namedReference' and self.named_reference is not None:
+            return visitor._named_reference(self.named_reference)
 
 
 scout_compute_api_TimeSeriesFrame.__name__ = "TimeSeriesFrame"
@@ -69324,6 +69374,10 @@ class scout_compute_api_TimeSeriesFrameVisitor:
 
     @abstractmethod
     def _with_numeric_series(self, with_numeric_series: "scout_compute_api_WithNumericSeriesFrame") -> Any:
+        pass
+
+    @abstractmethod
+    def _named_reference(self, named_reference: "scout_compute_api_FrameReference") -> Any:
         pass
 
 
@@ -76039,33 +76093,6 @@ scout_compute_resolved_api_MultivariateNumericInputNode.__qualname__ = "Multivar
 scout_compute_resolved_api_MultivariateNumericInputNode.__module__ = "nominal_api.scout_compute_resolved_api"
 
 
-class scout_compute_resolved_api_NoDataNumericSeriesNode(ConjureBeanType):
-    """Represents a branch that is statically known to produce no data points.
-    """
-
-    @builtins.classmethod
-    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
-        return {
-            'group_by_tags': ConjureFieldDefinition('groupByTags', List[str])
-        }
-
-    __slots__: List[str] = ['_group_by_tags']
-
-    def __init__(self, group_by_tags: List[str]) -> None:
-        self._group_by_tags = group_by_tags
-
-    @builtins.property
-    def group_by_tags(self) -> List[str]:
-        """Tag keys that this branch would group by if it had data. Needed so sibling union branches see matching tag columns.
-        """
-        return self._group_by_tags
-
-
-scout_compute_resolved_api_NoDataNumericSeriesNode.__name__ = "NoDataNumericSeriesNode"
-scout_compute_resolved_api_NoDataNumericSeriesNode.__qualname__ = "NoDataNumericSeriesNode"
-scout_compute_resolved_api_NoDataNumericSeriesNode.__module__ = "nominal_api.scout_compute_resolved_api"
-
-
 class scout_compute_resolved_api_NominalStorageLocator(ConjureBeanType):
 
     @builtins.classmethod
@@ -76531,7 +76558,6 @@ scout_compute_resolved_api_NumericResampleSeriesNode.__module__ = "nominal_api.s
 
 
 class scout_compute_resolved_api_NumericSeriesNode(ConjureUnionType):
-    _no_data: Optional["scout_compute_resolved_api_NoDataNumericSeriesNode"] = None
     _constant: Optional["scout_compute_resolved_api_ConstantNumericSeriesNode"] = None
     _arithmetic: Optional["scout_compute_resolved_api_ArithmeticSeriesNode"] = None
     _bit_operation: Optional["scout_compute_resolved_api_BitOperationSeriesNode"] = None
@@ -76578,7 +76604,6 @@ class scout_compute_resolved_api_NumericSeriesNode(ConjureUnionType):
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
-            'no_data': ConjureFieldDefinition('noData', scout_compute_resolved_api_NoDataNumericSeriesNode),
             'constant': ConjureFieldDefinition('constant', scout_compute_resolved_api_ConstantNumericSeriesNode),
             'arithmetic': ConjureFieldDefinition('arithmetic', scout_compute_resolved_api_ArithmeticSeriesNode),
             'bit_operation': ConjureFieldDefinition('bitOperation', scout_compute_resolved_api_BitOperationSeriesNode),
@@ -76625,7 +76650,6 @@ class scout_compute_resolved_api_NumericSeriesNode(ConjureUnionType):
 
     def __init__(
             self,
-            no_data: Optional["scout_compute_resolved_api_NoDataNumericSeriesNode"] = None,
             constant: Optional["scout_compute_resolved_api_ConstantNumericSeriesNode"] = None,
             arithmetic: Optional["scout_compute_resolved_api_ArithmeticSeriesNode"] = None,
             bit_operation: Optional["scout_compute_resolved_api_BitOperationSeriesNode"] = None,
@@ -76671,12 +76695,9 @@ class scout_compute_resolved_api_NumericSeriesNode(ConjureUnionType):
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (no_data is not None) + (constant is not None) + (arithmetic is not None) + (bit_operation is not None) + (count_duplicate is not None) + (cumulative_sum is not None) + (derivative is not None) + (integral is not None) + (max is not None) + (mean is not None) + (min is not None) + (offset is not None) + (product is not None) + (oldest_points is not None) + (raw is not None) + (resample is not None) + (rolling_operation is not None) + (aggregate is not None) + (signal_filter is not None) + (sum is not None) + (scale is not None) + (tag_injection is not None) + (time_difference is not None) + (time_range_filter is not None) + (time_shift is not None) + (union is not None) + (combine_with_tags is not None) + (unit_conversion is not None) + (value_difference is not None) + (filter_transformation is not None) + (threshold_filter is not None) + (drop_nan is not None) + (array_select is not None) + (absolute_timestamp is not None) + (newest_points is not None) + (ranges_numeric_aggregation_to_numeric is not None) + (filter_by_expression is not None) + (scalar_udf is not None) + (enum_to_numeric is not None) + (refprop is not None) + (extract_from_struct is not None) + (z_score is not None) + (tag_by_intervals is not None) != 1:
+            if (constant is not None) + (arithmetic is not None) + (bit_operation is not None) + (count_duplicate is not None) + (cumulative_sum is not None) + (derivative is not None) + (integral is not None) + (max is not None) + (mean is not None) + (min is not None) + (offset is not None) + (product is not None) + (oldest_points is not None) + (raw is not None) + (resample is not None) + (rolling_operation is not None) + (aggregate is not None) + (signal_filter is not None) + (sum is not None) + (scale is not None) + (tag_injection is not None) + (time_difference is not None) + (time_range_filter is not None) + (time_shift is not None) + (union is not None) + (combine_with_tags is not None) + (unit_conversion is not None) + (value_difference is not None) + (filter_transformation is not None) + (threshold_filter is not None) + (drop_nan is not None) + (array_select is not None) + (absolute_timestamp is not None) + (newest_points is not None) + (ranges_numeric_aggregation_to_numeric is not None) + (filter_by_expression is not None) + (scalar_udf is not None) + (enum_to_numeric is not None) + (refprop is not None) + (extract_from_struct is not None) + (z_score is not None) + (tag_by_intervals is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
-            if no_data is not None:
-                self._no_data = no_data
-                self._type = 'noData'
             if constant is not None:
                 self._constant = constant
                 self._type = 'constant'
@@ -76804,11 +76825,6 @@ class scout_compute_resolved_api_NumericSeriesNode(ConjureUnionType):
                 self._tag_by_intervals = tag_by_intervals
                 self._type = 'tagByIntervals'
 
-        elif type_of_union == 'noData':
-            if no_data is None:
-                raise ValueError('a union value must not be None')
-            self._no_data = no_data
-            self._type = 'noData'
         elif type_of_union == 'constant':
             if constant is None:
                 raise ValueError('a union value must not be None')
@@ -77021,10 +77037,6 @@ class scout_compute_resolved_api_NumericSeriesNode(ConjureUnionType):
             self._type = 'tagByIntervals'
 
     @builtins.property
-    def no_data(self) -> Optional["scout_compute_resolved_api_NoDataNumericSeriesNode"]:
-        return self._no_data
-
-    @builtins.property
     def constant(self) -> Optional["scout_compute_resolved_api_ConstantNumericSeriesNode"]:
         return self._constant
 
@@ -77195,8 +77207,6 @@ class scout_compute_resolved_api_NumericSeriesNode(ConjureUnionType):
     def accept(self, visitor) -> Any:
         if not isinstance(visitor, scout_compute_resolved_api_NumericSeriesNodeVisitor):
             raise ValueError('{} is not an instance of scout_compute_resolved_api_NumericSeriesNodeVisitor'.format(visitor.__class__.__name__))
-        if self._type == 'noData' and self.no_data is not None:
-            return visitor._no_data(self.no_data)
         if self._type == 'constant' and self.constant is not None:
             return visitor._constant(self.constant)
         if self._type == 'arithmetic' and self.arithmetic is not None:
@@ -77289,10 +77299,6 @@ scout_compute_resolved_api_NumericSeriesNode.__module__ = "nominal_api.scout_com
 
 
 class scout_compute_resolved_api_NumericSeriesNodeVisitor:
-
-    @abstractmethod
-    def _no_data(self, no_data: "scout_compute_resolved_api_NoDataNumericSeriesNode") -> Any:
-        pass
 
     @abstractmethod
     def _constant(self, constant: "scout_compute_resolved_api_ConstantNumericSeriesNode") -> Any:
@@ -114023,6 +114029,7 @@ class storage_writer_api_ColumnValues(ConjureUnionType):
     _strings: Optional[List[str]] = None
     _doubles: Optional[List[float]] = None
     _ints: Optional[List[int]] = None
+    _uint64s: Optional[List[int]] = None
     _arrays: Optional["storage_writer_api_ArraysValues"] = None
     _structs: Optional[List[str]] = None
 
@@ -114032,6 +114039,7 @@ class storage_writer_api_ColumnValues(ConjureUnionType):
             'strings': ConjureFieldDefinition('strings', List[str]),
             'doubles': ConjureFieldDefinition('doubles', List[float]),
             'ints': ConjureFieldDefinition('ints', List[int]),
+            'uint64s': ConjureFieldDefinition('uint64s', List[int]),
             'arrays': ConjureFieldDefinition('arrays', storage_writer_api_ArraysValues),
             'structs': ConjureFieldDefinition('structs', List[str])
         }
@@ -114041,12 +114049,13 @@ class storage_writer_api_ColumnValues(ConjureUnionType):
             strings: Optional[List[str]] = None,
             doubles: Optional[List[float]] = None,
             ints: Optional[List[int]] = None,
+            uint64s: Optional[List[int]] = None,
             arrays: Optional["storage_writer_api_ArraysValues"] = None,
             structs: Optional[List[str]] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (strings is not None) + (doubles is not None) + (ints is not None) + (arrays is not None) + (structs is not None) != 1:
+            if (strings is not None) + (doubles is not None) + (ints is not None) + (uint64s is not None) + (arrays is not None) + (structs is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if strings is not None:
@@ -114058,6 +114067,9 @@ class storage_writer_api_ColumnValues(ConjureUnionType):
             if ints is not None:
                 self._ints = ints
                 self._type = 'ints'
+            if uint64s is not None:
+                self._uint64s = uint64s
+                self._type = 'uint64s'
             if arrays is not None:
                 self._arrays = arrays
                 self._type = 'arrays'
@@ -114080,6 +114092,11 @@ class storage_writer_api_ColumnValues(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._ints = ints
             self._type = 'ints'
+        elif type_of_union == 'uint64s':
+            if uint64s is None:
+                raise ValueError('a union value must not be None')
+            self._uint64s = uint64s
+            self._type = 'uint64s'
         elif type_of_union == 'arrays':
             if arrays is None:
                 raise ValueError('a union value must not be None')
@@ -114104,6 +114121,10 @@ class storage_writer_api_ColumnValues(ConjureUnionType):
         return self._ints
 
     @builtins.property
+    def uint64s(self) -> Optional[List[int]]:
+        return self._uint64s
+
+    @builtins.property
     def arrays(self) -> Optional["storage_writer_api_ArraysValues"]:
         return self._arrays
 
@@ -114120,6 +114141,8 @@ class storage_writer_api_ColumnValues(ConjureUnionType):
             return visitor._doubles(self.doubles)
         if self._type == 'ints' and self.ints is not None:
             return visitor._ints(self.ints)
+        if self._type == 'uint64s' and self.uint64s is not None:
+            return visitor._uint64s(self.uint64s)
         if self._type == 'arrays' and self.arrays is not None:
             return visitor._arrays(self.arrays)
         if self._type == 'structs' and self.structs is not None:
@@ -114143,6 +114166,10 @@ class storage_writer_api_ColumnValuesVisitor:
 
     @abstractmethod
     def _ints(self, ints: List[int]) -> Any:
+        pass
+
+    @abstractmethod
+    def _uint64s(self, uint64s: List[int]) -> Any:
         pass
 
     @abstractmethod
@@ -114991,6 +115018,7 @@ class storage_writer_api_PointsExternal(ConjureUnionType):
     _string: Optional[List["storage_writer_api_StringPoint"]] = None
     _double: Optional[List["storage_writer_api_DoublePoint"]] = None
     _int_: Optional[List["storage_writer_api_IntPoint"]] = None
+    _uint64: Optional[List["storage_writer_api_Uint64Point"]] = None
     _array: Optional["storage_writer_api_ArrayPoints"] = None
     _struct: Optional[List["storage_writer_api_StructPoint"]] = None
 
@@ -115000,6 +115028,7 @@ class storage_writer_api_PointsExternal(ConjureUnionType):
             'string': ConjureFieldDefinition('string', List[storage_writer_api_StringPoint]),
             'double': ConjureFieldDefinition('double', List[storage_writer_api_DoublePoint]),
             'int_': ConjureFieldDefinition('int', List[storage_writer_api_IntPoint]),
+            'uint64': ConjureFieldDefinition('uint64', List[storage_writer_api_Uint64Point]),
             'array': ConjureFieldDefinition('array', storage_writer_api_ArrayPoints),
             'struct': ConjureFieldDefinition('struct', List[storage_writer_api_StructPoint])
         }
@@ -115009,12 +115038,13 @@ class storage_writer_api_PointsExternal(ConjureUnionType):
             string: Optional[List["storage_writer_api_StringPoint"]] = None,
             double: Optional[List["storage_writer_api_DoublePoint"]] = None,
             int_: Optional[List["storage_writer_api_IntPoint"]] = None,
+            uint64: Optional[List["storage_writer_api_Uint64Point"]] = None,
             array: Optional["storage_writer_api_ArrayPoints"] = None,
             struct: Optional[List["storage_writer_api_StructPoint"]] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (string is not None) + (double is not None) + (int_ is not None) + (array is not None) + (struct is not None) != 1:
+            if (string is not None) + (double is not None) + (int_ is not None) + (uint64 is not None) + (array is not None) + (struct is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if string is not None:
@@ -115026,6 +115056,9 @@ class storage_writer_api_PointsExternal(ConjureUnionType):
             if int_ is not None:
                 self._int_ = int_
                 self._type = 'int'
+            if uint64 is not None:
+                self._uint64 = uint64
+                self._type = 'uint64'
             if array is not None:
                 self._array = array
                 self._type = 'array'
@@ -115048,6 +115081,11 @@ class storage_writer_api_PointsExternal(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._int_ = int_
             self._type = 'int'
+        elif type_of_union == 'uint64':
+            if uint64 is None:
+                raise ValueError('a union value must not be None')
+            self._uint64 = uint64
+            self._type = 'uint64'
         elif type_of_union == 'array':
             if array is None:
                 raise ValueError('a union value must not be None')
@@ -115072,6 +115110,10 @@ class storage_writer_api_PointsExternal(ConjureUnionType):
         return self._int_
 
     @builtins.property
+    def uint64(self) -> Optional[List["storage_writer_api_Uint64Point"]]:
+        return self._uint64
+
+    @builtins.property
     def array(self) -> Optional["storage_writer_api_ArrayPoints"]:
         return self._array
 
@@ -115088,6 +115130,8 @@ class storage_writer_api_PointsExternal(ConjureUnionType):
             return visitor._double(self.double)
         if self._type == 'int' and self.int_ is not None:
             return visitor._int(self.int_)
+        if self._type == 'uint64' and self.uint64 is not None:
+            return visitor._uint64(self.uint64)
         if self._type == 'array' and self.array is not None:
             return visitor._array(self.array)
         if self._type == 'struct' and self.struct is not None:
@@ -115111,6 +115155,10 @@ class storage_writer_api_PointsExternalVisitor:
 
     @abstractmethod
     def _int(self, int_: List["storage_writer_api_IntPoint"]) -> Any:
+        pass
+
+    @abstractmethod
+    def _uint64(self, uint64: List["storage_writer_api_Uint64Point"]) -> Any:
         pass
 
     @abstractmethod
@@ -120159,6 +120207,8 @@ scout_datasource_connection_api_SecretRid = str
 scout_rids_api_FunctionLineageRid = str
 
 scout_rids_api_TemplateRid = str
+
+scout_compute_api_FrameReferenceName = str
 
 api_rids_LocalResourceRid = str
 

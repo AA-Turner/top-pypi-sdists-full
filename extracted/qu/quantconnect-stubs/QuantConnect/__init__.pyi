@@ -6641,6 +6641,9 @@ class Exchange(System.Object):
     NASDAQ: QuantConnect.Exchange
     """National Association of Securities Dealers Automated Quotation."""
 
+    NASDAQ_SC: QuantConnect.Exchange
+    """NASDAQ Small Cap"""
+
     NASDAQ_OPTIONS: QuantConnect.Exchange
     """The NASDAQ options market"""
 

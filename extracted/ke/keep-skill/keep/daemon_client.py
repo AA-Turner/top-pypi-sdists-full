@@ -235,7 +235,6 @@ def get_port(store_override: str | None = None) -> int:
     """Get daemon port, auto-starting if needed. Loads auth token."""
     store_path = resolve_store_path(store_override)
     port_file = store_path / DAEMON_PORT_FILE
-    token_file = store_path / DAEMON_TOKEN_FILE
 
     # Load auth token for subsequent HTTP requests
     _load_token(store_override)
@@ -276,14 +275,11 @@ def get_port(store_override: str | None = None) -> int:
             try:
                 port = int(port_file.read_text().strip())
                 if port != existing_port:
-                    if check_health(port):
-                        return port
-                    if token_file.exists():
-                        # Fresh discovery files mean a replacement daemon
-                        # reached server startup. Let the first real request
-                        # perform one more retry if the readiness probe lost a
-                        # race with startup or shutdown.
-                        return port
+                    # Fresh discovery files mean a replacement daemon has
+                    # claimed the store. Return its port immediately so the
+                    # caller's real request can perform the next retry even if
+                    # /v1/ready is not answering yet.
+                    return port
             except (ValueError, OSError):
                 pass
         time.sleep(0.3)

@@ -1626,7 +1626,11 @@ impl Channel {
         let connection_ids = self.get_connection_ids();
         // buffered_amount() at close: shows any data still queued in SCTP at teardown.
         let sctp_at_close = self.webrtc.buffered_amount().await as usize;
-        let app_queued = self.event_sender.as_ref().map(|s| s.queue_depth()).unwrap_or(0);
+        let app_queued = self
+            .event_sender
+            .as_ref()
+            .map(|s| s.queue_depth())
+            .unwrap_or(0);
         // Peak SCTP buffer depth is no longer tracked on EventDrivenSender; the metrics
         // collector records it per-pause via record_backpressure_pause().
         let (pacing_pauses, pacing_paused_us, peak_sctp) = crate::metrics::METRICS_COLLECTOR

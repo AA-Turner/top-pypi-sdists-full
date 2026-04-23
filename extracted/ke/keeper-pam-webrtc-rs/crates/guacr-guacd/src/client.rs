@@ -249,18 +249,47 @@ where
         channel_id, _is_readonly
     );
 
-    let width_for_new = guacd_params_locked
-        .get("width")
-        .cloned()
-        .unwrap_or_else(|| "1024".to_string());
-    let height_for_new = guacd_params_locked
-        .get("height")
-        .cloned()
-        .unwrap_or_else(|| "768".to_string());
-    let dpi_for_new = guacd_params_locked
-        .get("dpi")
-        .cloned()
-        .unwrap_or_else(|| "96".to_string());
+    // Extract width, height, dpi from guacd_params.  Separate keys ("width",
+    // "height", "dpi") take priority — they are set explicitly by any client
+    // that wants to override vault-record defaults.  If absent, fall back
+    // to parsing the "size" key, whose value is a comma-joined string
+    // "width,height,dpi" produced by core.rs when it converts the JSON array
+    // [w, h, dpi] (sent by both the web vault and Commander via offer_data["size"])
+    // into a HashMap entry.  Hard-coded defaults are the last resort.
+    let (mut width_for_new, mut height_for_new, mut dpi_for_new) = (
+        guacd_params_locked
+            .get("width")
+            .cloned()
+            .unwrap_or_default(),
+        guacd_params_locked
+            .get("height")
+            .cloned()
+            .unwrap_or_default(),
+        guacd_params_locked.get("dpi").cloned().unwrap_or_default(),
+    );
+    if let Some(size_csv) = guacd_params_locked.get("size") {
+        let parts: Vec<&str> = size_csv.split(',').collect();
+        if parts.len() >= 2 {
+            if width_for_new.is_empty() {
+                width_for_new = parts[0].trim().to_string();
+            }
+            if height_for_new.is_empty() {
+                height_for_new = parts[1].trim().to_string();
+            }
+            if parts.len() >= 3 && dpi_for_new.is_empty() {
+                dpi_for_new = parts[2].trim().to_string();
+            }
+        }
+    }
+    if width_for_new.is_empty() {
+        width_for_new = "1024".to_string();
+    }
+    if height_for_new.is_empty() {
+        height_for_new = "768".to_string();
+    }
+    if dpi_for_new.is_empty() {
+        dpi_for_new = "96".to_string();
+    }
     let audio_mimetypes_str_for_new = guacd_params_locked
         .get("audio")
         .cloned()

@@ -130,9 +130,16 @@ fn add_success_attributes(attributes: &mut HashMap<String, Value>, output: Messa
         Value::String(output.model),
     );
 
+    let total_input_tokens = output.usage.input_tokens
+        + output.usage.cache_creation_input_tokens.unwrap_or(0)
+        + output.usage.cache_read_input_tokens.unwrap_or(0);
+
+    // our backend (and so does regular anthropic instrumentation) assumes
+    // input tokens includes cached tokens
+    // Ref: https://github.com/lmnr-ai/lmnr-python/blob/9f309522321490176ddca313bf6303d2028bf4e7/src/lmnr/opentelemetry_lib/opentelemetry/instrumentation/anthropic/__init__.py#L260
     attributes.insert(
         "gen_ai.usage.input_tokens".to_string(),
-        Value::Number(output.usage.input_tokens.into()),
+        Value::Number(total_input_tokens.into()),
     );
     attributes.insert(
         "gen_ai.usage.output_tokens".to_string(),

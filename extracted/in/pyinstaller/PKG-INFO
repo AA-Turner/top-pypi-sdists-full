@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyinstaller
-Version: 6.19.0
+Version: 6.20.0
 Summary: PyInstaller bundles a Python application and all its dependencies into a single package.
 Project-URL: Homepage, https://pyinstaller.org
 Project-URL: Documentation, https://pyinstaller.org
@@ -49,7 +49,7 @@ Requires-Dist: importlib-metadata>=4.6; python_version < '3.10'
 Requires-Dist: macholib>=1.8; sys_platform == 'darwin'
 Requires-Dist: packaging>=22.0
 Requires-Dist: pefile>=2022.5.30; sys_platform == 'win32'
-Requires-Dist: pyinstaller-hooks-contrib>=2026.0
+Requires-Dist: pyinstaller-hooks-contrib>=2026.4
 Requires-Dist: pywin32-ctypes>=0.2.1; sys_platform == 'win32'
 Requires-Dist: setuptools>=42.0.0
 Provides-Extra: completion
@@ -196,7 +196,7 @@ either ``gcc`` or ``clang``) and zlib's development headers already installed.
 Support
 -------
 
-- Official debugging guide: https://pyinstaller.org/en/v6.19.0/when-things-go-wrong.html
+- Official debugging guide: https://pyinstaller.org/en/v6.20.0/when-things-go-wrong.html
 - Assorted user contributed help topics: https://github.com/pyinstaller/pyinstaller/wiki
 - Web based Q&A forums: https://github.com/pyinstaller/pyinstaller/discussions
 - Email based Q&A forums: https://groups.google.com/g/pyinstaller
@@ -208,5 +208,5 @@ Changes in this Release
 You can find a detailed list of changes in this release
 in the `Changelog`_ section of the manual.
 
-.. _`manual`: https://pyinstaller.org/en/v6.19.0/
-.. _`Changelog`: https://pyinstaller.org/en/v6.19.0/CHANGES.html
+.. _`manual`: https://pyinstaller.org/en/v6.20.0/
+.. _`Changelog`: https://pyinstaller.org/en/v6.20.0/CHANGES.html

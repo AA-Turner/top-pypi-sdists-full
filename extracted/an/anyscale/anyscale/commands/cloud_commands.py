@@ -680,6 +680,7 @@ def cloud_resource_create(
     name="setup",
     help="Set up cloud resources for an existing cloud.",
     cls=AnyscaleCommand,
+    example=command_examples.CLOUD_RESOURCE_SETUP_EXAMPLE,
     is_alpha=True,
 )
 @click.option(
@@ -1326,7 +1327,7 @@ def cloud_config_update(  # noqa: PLR0913
 )
 @click.option(
     "--external-id",
-    help="The trust policy external ID for the cross account IAM role.",
+    help="The trust policy external ID for the cross account IAM role. It must begin with the organization ID, followed by a hyphen and a random string of any length. For example: org_1234567890abcdef-1234567890abcdef.",
     required=False,
     type=str,
 )

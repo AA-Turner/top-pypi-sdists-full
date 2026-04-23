@@ -1294,6 +1294,8 @@ from .type_defs import (
     GetManagedPrefixListAssociationsResultTypeDef,
     GetManagedPrefixListEntriesRequestTypeDef,
     GetManagedPrefixListEntriesResultTypeDef,
+    GetManagedResourceVisibilityRequestTypeDef,
+    GetManagedResourceVisibilityResultTypeDef,
     GetNetworkInsightsAccessScopeAnalysisFindingsRequestTypeDef,
     GetNetworkInsightsAccessScopeAnalysisFindingsResultTypeDef,
     GetNetworkInsightsAccessScopeContentRequestTypeDef,
@@ -1439,6 +1441,8 @@ from .type_defs import (
     ModifyLocalGatewayRouteResultTypeDef,
     ModifyManagedPrefixListRequestTypeDef,
     ModifyManagedPrefixListResultTypeDef,
+    ModifyManagedResourceVisibilityRequestTypeDef,
+    ModifyManagedResourceVisibilityResultTypeDef,
     ModifyNetworkInterfaceAttributeRequestTypeDef,
     ModifyPrivateDnsNameOptionsRequestTypeDef,
     ModifyPrivateDnsNameOptionsResultTypeDef,
@@ -7586,6 +7590,16 @@ class EC2Client(BaseClient):
         [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#get_managed_prefix_list_entries)
         """
 
+    def get_managed_resource_visibility(
+        self, **kwargs: Unpack[GetManagedResourceVisibilityRequestTypeDef]
+    ) -> GetManagedResourceVisibilityResultTypeDef:
+        """
+        Retrieves the managed resource visibility configuration for the account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/get_managed_resource_visibility.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#get_managed_resource_visibility)
+        """
+
     def get_network_insights_access_scope_analysis_findings(
         self, **kwargs: Unpack[GetNetworkInsightsAccessScopeAnalysisFindingsRequestTypeDef]
     ) -> GetNetworkInsightsAccessScopeAnalysisFindingsResultTypeDef:
@@ -8340,6 +8354,16 @@ class EC2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/modify_managed_prefix_list.html)
         [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#modify_managed_prefix_list)
+        """
+
+    def modify_managed_resource_visibility(
+        self, **kwargs: Unpack[ModifyManagedResourceVisibilityRequestTypeDef]
+    ) -> ModifyManagedResourceVisibilityResultTypeDef:
+        """
+        Modifies the managed resource visibility configuration for the account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/modify_managed_resource_visibility.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#modify_managed_resource_visibility)
         """
 
     def modify_network_interface_attribute(

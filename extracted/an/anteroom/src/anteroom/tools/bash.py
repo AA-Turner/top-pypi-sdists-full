@@ -211,8 +211,9 @@ async def handle(
                 db=_db,
                 sandbox_config=_sandbox_config,
             )
-            task["_end_turn"] = True
-            return task
+            task_result = dict(task)
+            task_result["_end_turn"] = True
+            return task_result
         except ValueError as exc:
             return {"error": str(exc), "exit_code": -1}
 

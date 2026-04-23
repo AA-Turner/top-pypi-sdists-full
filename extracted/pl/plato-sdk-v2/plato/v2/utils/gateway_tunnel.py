@@ -188,7 +188,7 @@ class GatewayTunnel:
         If ``local_port`` is 0, the OS assigns a free port and
         ``self.local_port`` is updated to reflect the actual port.
         """
-        logger.info(
+        logger.debug(
             f"Starting gateway tunnel: localhost:{self.local_port} -> "
             f"{self.job_id}:{self.remote_port} via {self.gateway_host}"
         )
@@ -209,7 +209,7 @@ class GatewayTunnel:
         if self.local_port == 0:
             self.local_port = self._server.sockets[0].getsockname()[1]
 
-        logger.info(f"Gateway tunnel established on port {self.local_port}")
+        logger.debug(f"Gateway tunnel established on port {self.local_port}")
 
     async def stop(self, timeout: float = 5.0) -> None:
         """Stop the gateway tunnel server.
@@ -224,7 +224,7 @@ class GatewayTunnel:
         if server is None and not tasks:
             return
 
-        logger.info("Stopping gateway tunnel")
+        logger.debug("Stopping gateway tunnel")
         loop = asyncio.get_running_loop()
         deadline = loop.time() + timeout
 
@@ -271,4 +271,4 @@ class GatewayTunnel:
                 len(self._client_tasks),
             )
 
-        logger.info("Gateway tunnel stopped")
+        logger.debug("Gateway tunnel stopped")

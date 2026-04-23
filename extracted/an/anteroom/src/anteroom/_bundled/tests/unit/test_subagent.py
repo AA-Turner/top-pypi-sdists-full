@@ -398,6 +398,37 @@ class TestSubagentHandler:
         assert "subagent_end" in event_kinds
 
     @pytest.mark.asyncio
+    async def test_event_sink_includes_parent_tool_call_id(self) -> None:
+        mock_registry = MagicMock()
+        mock_registry.get_openai_tools.return_value = []
+
+        sink_calls: list[tuple[str, AgentEvent]] = []
+
+        async def mock_sink(agent_id: str, event: AgentEvent) -> None:
+            sink_calls.append((agent_id, event))
+
+        async def mock_agent_loop(**kwargs):
+            yield AgentEvent(kind="tool_call_start", data={"tool_name": "read_file", "id": "tc-1", "arguments": {}})
+            yield AgentEvent(kind="done", data={})
+
+        with patch("anteroom.tools.subagent.run_agent_loop", side_effect=mock_agent_loop):
+            with patch("anteroom.tools.subagent.AIService"):
+                await handle(
+                    prompt="test",
+                    _ai_service=_mock_ai(),
+                    _tool_registry=mock_registry,
+                    _depth=0,
+                    _event_sink=mock_sink,
+                    _agent_id="test-1",
+                    _parent_tool_call_id="parent-tc-9",
+                    _limiter=_make_limiter(),
+                )
+
+        forwarded_events = [event for _, event in sink_calls if event.kind == "tool_call_start"]
+        assert forwarded_events
+        assert all(event.data.get("parent_tool_call_id") == "parent-tc-9" for event in forwarded_events)
+
+    @pytest.mark.asyncio
     async def test_cancel_event_propagated(self) -> None:
         """Cancel event should be forwarded to the child agent loop."""
         mock_registry = MagicMock()
@@ -609,7 +640,7 @@ class TestSubagentNestedAgentId:
 
         # The child_tool_executor is called when the child agent loop invokes tools.
         # We mock call_tool to capture the _agent_id injected for nested run_agent calls.
-        async def mock_call_tool(name, args, confirm_callback=None):
+        async def mock_call_tool(name, args, confirm_callback=None, **_kw):
             if name == "run_agent":
                 captured_agent_ids.append(args.get("_agent_id", ""))
             return {"output": "ok"}
@@ -663,7 +694,7 @@ class TestSubagentSkillPolicyEnforcement:
             captured_results.append(result_read)
             yield AgentEvent(kind="done", data={})
 
-        async def mock_call_tool(name, args, confirm_callback=None):
+        async def mock_call_tool(name, args, confirm_callback=None, **_kw):
             return {"output": f"ran {name}"}
 
         mock_registry.call_tool = mock_call_tool
@@ -707,7 +738,7 @@ class TestSubagentSkillPolicyEnforcement:
             captured_results.append(result)
             yield AgentEvent(kind="done", data={})
 
-        async def mock_call_tool(name, args, confirm_callback=None):
+        async def mock_call_tool(name, args, confirm_callback=None, **_kw):
             return {"output": f"ran {name}"}
 
         mock_registry.call_tool = mock_call_tool
@@ -872,7 +903,7 @@ class TestSubagentConfigDriven:
         ]
         captured_configs: list = []
 
-        async def mock_call_tool(name, args, confirm_callback=None):
+        async def mock_call_tool(name, args, confirm_callback=None, **_kw):
             if name == "run_agent":
                 captured_configs.append(args.get("_config"))
             return {"output": "ok"}
@@ -1324,7 +1355,7 @@ class TestSubagentMcpTools:
         ]
         mock_registry.has_tool.return_value = True
 
-        async def mock_call_tool(name, args, confirm_callback=None):
+        async def mock_call_tool(name, args, confirm_callback=None, **_kw):
             return {"content": "builtin result"}
 
         mock_registry.call_tool = mock_call_tool
@@ -1528,7 +1559,7 @@ class TestSubagentMcpTools:
 
         captured_mcp_managers: list = []
 
-        async def mock_call_tool(name, args, confirm_callback=None):
+        async def mock_call_tool(name, args, confirm_callback=None, **_kw):
             if name == "run_agent":
                 captured_mcp_managers.append(args.get("_mcp_manager"))
             return {"output": "ok"}
@@ -1825,3 +1856,243 @@ class TestModelFamilyAliases:
                 )
         child_config = mock_cls.call_args[0][0]
         assert child_config.model == "MyCustomModel"
+
+
+class TestSubagentModelPassthroughDetached:
+    """Detached run_agent must forward model to the detached manager (#1459)."""
+
+    @pytest.mark.asyncio
+    async def test_model_forwarded_to_detach_manager_start(self) -> None:
+        """Caller's model reaches DetachedSubagentManager.start() unchanged."""
+        mock_registry = MagicMock()
+        mock_registry.get_openai_tools.return_value = []
+
+        fake_mgr = MagicMock()
+        fake_mgr.start.return_value = {
+            "run_id": "abc123",
+            "status": "running",
+            "prompt": "test"[:80],
+        }
+
+        ai = _mock_ai()
+        ai.config.model_family_aliases = {}
+        result = await handle(
+            prompt="test",
+            model="claude-sonnet-4-6",
+            _ai_service=ai,
+            _tool_registry=mock_registry,
+            _limiter=_make_limiter(),
+            _detach=True,
+            _detach_manager=fake_mgr,
+            _conversation_id="conv-1",
+        )
+
+        assert fake_mgr.start.called
+        call_kwargs = fake_mgr.start.call_args.kwargs
+        assert call_kwargs["model"] == "claude-sonnet-4-6"
+        assert result["run_id"] == "abc123"
+        assert result["_end_turn"] is True
+
+    @pytest.mark.asyncio
+    async def test_model_none_still_forwarded_explicitly(self) -> None:
+        """Detached start receives model=None when caller omits it."""
+        mock_registry = MagicMock()
+        mock_registry.get_openai_tools.return_value = []
+
+        fake_mgr = MagicMock()
+        fake_mgr.start.return_value = {
+            "run_id": "xyz",
+            "status": "running",
+            "prompt": "test"[:80],
+        }
+
+        ai = _mock_ai()
+        ai.config.model_family_aliases = {}
+        await handle(
+            prompt="test",
+            _ai_service=ai,
+            _tool_registry=mock_registry,
+            _limiter=_make_limiter(),
+            _detach=True,
+            _detach_manager=fake_mgr,
+            _conversation_id="conv-1",
+        )
+
+        call_kwargs = fake_mgr.start.call_args.kwargs
+        assert call_kwargs["model"] is None
+
+    @pytest.mark.asyncio
+    async def test_alias_resolved_before_forwarding_to_detach(self) -> None:
+        """Detached start receives the alias-resolved model, not the raw alias."""
+        mock_registry = MagicMock()
+        mock_registry.get_openai_tools.return_value = []
+
+        fake_mgr = MagicMock()
+        fake_mgr.start.return_value = {
+            "run_id": "r1",
+            "status": "running",
+            "prompt": "p"[:80],
+        }
+
+        ai = _mock_ai()
+        ai.config.model_family_aliases = {"haiku": "claude-3-haiku-20240307"}
+        await handle(
+            prompt="test",
+            model="haiku",
+            _ai_service=ai,
+            _tool_registry=mock_registry,
+            _limiter=_make_limiter(),
+            _detach=True,
+            _detach_manager=fake_mgr,
+            _conversation_id="conv-1",
+        )
+
+        call_kwargs = fake_mgr.start.call_args.kwargs
+        assert call_kwargs["model"] == "claude-3-haiku-20240307"
+
+
+class TestSubagentDescription:
+    """Tests for the optional `description` field on `run_agent` (#1461)."""
+
+    def test_description_in_schema(self) -> None:
+        """DEFINITION has description property with maxLength 120."""
+        props = DEFINITION["parameters"]["properties"]
+        assert "description" in props
+        desc_prop = props["description"]
+        assert desc_prop["type"] == "string"
+        assert desc_prop["maxLength"] == 120
+
+    def test_description_not_required(self) -> None:
+        """description must be optional (not in required list)."""
+        assert "description" not in DEFINITION["parameters"]["required"]
+
+    @pytest.mark.asyncio
+    async def test_description_valid_value_forwarded(self) -> None:
+        """A valid description is forwarded to the detach manager."""
+        fake_mgr = MagicMock()
+        fake_mgr.start.return_value = {"run_id": "test-id", "status": "running"}
+        ai = _mock_ai()
+        ai.config.model_family_aliases = {}
+        mock_registry = MagicMock()
+        mock_registry.get_openai_tools.return_value = []
+
+        await handle(
+            prompt="Investigate auth bug",
+            description="Investigate auth bug",
+            _ai_service=ai,
+            _tool_registry=mock_registry,
+            _limiter=_make_limiter(),
+            _detach=True,
+            _detach_manager=fake_mgr,
+            _conversation_id="conv-1",
+        )
+
+        assert fake_mgr.start.called
+        call_kwargs = fake_mgr.start.call_args.kwargs
+        assert call_kwargs.get("description") == "Investigate auth bug"
+
+    @pytest.mark.asyncio
+    async def test_description_whitespace_only_becomes_none(self) -> None:
+        """Whitespace-only description is normalised to None."""
+        fake_mgr = MagicMock()
+        fake_mgr.start.return_value = {"run_id": "test-id", "status": "running"}
+        ai = _mock_ai()
+        ai.config.model_family_aliases = {}
+        mock_registry = MagicMock()
+        mock_registry.get_openai_tools.return_value = []
+
+        await handle(
+            prompt="do something",
+            description="   ",
+            _ai_service=ai,
+            _tool_registry=mock_registry,
+            _limiter=_make_limiter(),
+            _detach=True,
+            _detach_manager=fake_mgr,
+            _conversation_id="conv-1",
+        )
+
+        call_kwargs = fake_mgr.start.call_args.kwargs
+        assert call_kwargs.get("description") is None
+
+    @pytest.mark.asyncio
+    async def test_description_empty_string_becomes_none(self) -> None:
+        """Empty string description is normalised to None."""
+        fake_mgr = MagicMock()
+        fake_mgr.start.return_value = {"run_id": "test-id", "status": "running"}
+        ai = _mock_ai()
+        ai.config.model_family_aliases = {}
+        mock_registry = MagicMock()
+        mock_registry.get_openai_tools.return_value = []
+
+        await handle(
+            prompt="do something",
+            description="",
+            _ai_service=ai,
+            _tool_registry=mock_registry,
+            _limiter=_make_limiter(),
+            _detach=True,
+            _detach_manager=fake_mgr,
+            _conversation_id="conv-1",
+        )
+
+        call_kwargs = fake_mgr.start.call_args.kwargs
+        assert call_kwargs.get("description") is None
+
+    @pytest.mark.asyncio
+    async def test_description_too_long_rejected(self) -> None:
+        """Description longer than 120 chars is rejected with a validation error."""
+        ai = _mock_ai()
+        ai.config.model_family_aliases = {}
+
+        result = await handle(
+            prompt="do something",
+            description="x" * 121,
+            _ai_service=ai,
+            _tool_registry=MagicMock(),
+            _limiter=_make_limiter(),
+        )
+
+        assert "error" in result
+        assert "description" in result["error"].lower()
+
+    @pytest.mark.asyncio
+    async def test_description_control_chars_rejected(self) -> None:
+        """Description with control characters is rejected."""
+        ai = _mock_ai()
+        ai.config.model_family_aliases = {}
+
+        result = await handle(
+            prompt="do something",
+            description="\x00hello",
+            _ai_service=ai,
+            _tool_registry=MagicMock(),
+            _limiter=_make_limiter(),
+        )
+
+        assert "error" in result
+        assert "description" in result["error"].lower()
+
+    @pytest.mark.asyncio
+    async def test_description_omitted_uses_fallback(self) -> None:
+        """No description → detach manager is called without description kwarg or with None."""
+        fake_mgr = MagicMock()
+        fake_mgr.start.return_value = {"run_id": "test-id", "status": "running"}
+        ai = _mock_ai()
+        ai.config.model_family_aliases = {}
+        mock_registry = MagicMock()
+        mock_registry.get_openai_tools.return_value = []
+
+        await handle(
+            prompt="do something",
+            _ai_service=ai,
+            _tool_registry=mock_registry,
+            _limiter=_make_limiter(),
+            _detach=True,
+            _detach_manager=fake_mgr,
+            _conversation_id="conv-1",
+        )
+
+        call_kwargs = fake_mgr.start.call_args.kwargs
+        # Either omitted (not in kwargs) or explicitly None — both are valid fallback
+        assert call_kwargs.get("description") is None

@@ -79,7 +79,6 @@ def get_df_reader(
     config_source: ConfigSource,
     client: Optional[Any],
     separator: Optional[str] = None,
-    session: Optional[Any] = None,
 ) -> DataFrameReader:
     """
     Load the File Reader based on the Config Source
@@ -90,13 +89,11 @@ def get_df_reader(
         and separator
     ):
         return get_dsv_reader_by_separator(separator=separator)(
-            config_source=config_source, client=client, session=session
+            config_source=config_source, client=client
         )
 
     if type_.value in DF_READER_MAP:
-        return DF_READER_MAP[type_.value](
-            config_source=config_source, client=client, session=session
-        )
+        return DF_READER_MAP[type_.value](config_source=config_source, client=client)
 
     raise NotImplementedError(
         f"DataFrameReader for [{type_.value}] is not implemented."

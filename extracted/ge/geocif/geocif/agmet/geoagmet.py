@@ -209,11 +209,24 @@ class AgmetGeo(base.BaseGeo):
         for country in self.countries:
             admin_level = self.parser.get(country, "admin_level")
             crops = ast.literal_eval(self.parser.get(country, "crops"))
-            seasons = ast.literal_eval(
-                self.parser.get(country, "seasons")
-            )
+
+            # Use configured seasons if available, otherwise auto-detect per crop
+            has_seasons = self.parser.has_option(country, "seasons") or self.parser.has_option("DEFAULT", "seasons")
 
             for crop in crops:
+                if has_seasons:
+                    seasons = ast.literal_eval(self.parser.get(country, "seasons"))
+                else:
+                    from pathlib import Path
+                    dir_calendars = Path(self.parser.get("PATHS", "dir_crop_calendars"))
+                    calendar_file = self.parser.get(country, "calendar_file")
+                    seasons = ut.detect_seasons_from_calendar(
+                        dir_calendars / calendar_file,
+                        country.replace("_", " ").title(),
+                        crop,
+                    )
+                    self.logger.info(f"Auto-detected seasons {seasons} for {country} {crop}")
+
                 for season in seasons:
                     all_combinations.append(
                         (country, admin_level, crop, season)

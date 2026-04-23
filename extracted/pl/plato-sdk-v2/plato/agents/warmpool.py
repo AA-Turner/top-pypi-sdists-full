@@ -400,6 +400,11 @@ def _runtime_reset_commands(workspace_paths: list[str]) -> list[str]:
     """Return generic runtime cleanup commands for a pooled VM."""
     commands = [
         "pkill -x plato-agent-runner 2>/dev/null; true",
+        # Kill any chromium spawned by ``shared_cdp_chromium`` before we rm
+        # its profile dir. ``user-data-dir=/tmp/plato-ab-`` is unique to our
+        # spawn path, so this never false-positives against other chrome
+        # instances the image might run.
+        "pkill -9 -f 'user-data-dir=/tmp/plato-ab-' 2>/dev/null; true",
         "rm -rf /tmp/plato-* /var/tmp/* 2>/dev/null; true",
         ": > /etc/environment",
         "sed -i '/runtime\\.plato\\.internal/d' /etc/hosts 2>/dev/null; true",

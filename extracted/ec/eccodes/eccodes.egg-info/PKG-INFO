@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: eccodes
-Version: 2.46.0
+Version: 2.47.0
 Summary: Python interface to the ecCodes GRIB and BUFR decoder/encoder
 Home-page: https://github.com/ecmwf/eccodes-python
 Author: European Centre for Medium-Range Weather Forecasts (ECMWF)
@@ -242,6 +242,12 @@ does it submit to any jurisdiction.
 
 Changelog for eccodes-python
 ============================
+
+2.47.0 (2026-04-21)
+--------------------
+
+- Bump pygments from 2.15.0 to 2.20.0 in /ci (#164)
+- Bump requests from 2.32.4 to 2.33.0 in /ci (#163)
 
 2.46.0 (2026-02-24)
 --------------------

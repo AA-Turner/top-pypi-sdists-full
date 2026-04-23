@@ -21,7 +21,7 @@ try:
 except ImportError:
     import importlib_metadata
 
-__version__ = importlib_metadata.version("lazr.uri")
+__version__ = importlib_metadata.version("lazr-uri")
 
 # Re-export in such a way that __version__ can still be imported if
 # dependencies are not yet available.

@@ -558,6 +558,25 @@ class SandboxClient:
         """Clear all cached auth tokens"""
         self._auth_cache.clear()
 
+    def is_vm(self, sandbox_id: str) -> bool:
+        """Return True if the sandbox is VM-backed.
+
+        Uses the internal auth cache when available and falls back to a
+        ``GET /sandbox/<id>`` lookup on a cold cache. The result is cached
+        alongside the auth token so subsequent calls are essentially free.
+        """
+        return self._auth_cache.is_vm(sandbox_id)
+
+    def _guard_vm_unsupported(self, sandbox_id: str, feature_name: str) -> None:
+        """Raise APIError if the operation is not supported on VM sandboxes.
+
+        Mirrors the CLI behavior of short-circuiting operations the backend
+        does not currently support for VM-backed sandboxes, so callers fail
+        fast with a clear message instead of an opaque gateway error.
+        """
+        if self._auth_cache.is_vm(sandbox_id):
+            raise APIError(f"{feature_name} is not yet supported for VM sandboxes.")
+
     def create(self, request: CreateSandboxRequest) -> Sandbox:
         """Create a new sandbox"""
         # Auto-populate team_id from config if not specified
@@ -579,6 +598,7 @@ class SandboxClient:
         page: int = 1,
         per_page: int = 50,
         exclude_terminated: Optional[bool] = None,
+        user_id: Optional[str] = None,
     ) -> SandboxListResponse:
         """List sandboxes"""
         # Auto-populate team_id from config if not specified
@@ -588,6 +608,8 @@ class SandboxClient:
         params: Dict[str, Any] = {"page": page, "per_page": per_page}
         if team_id:
             params["team_id"] = team_id
+        if user_id:
+            params["user_id"] = user_id
         if status:
             params["status"] = status
         if labels:
@@ -612,13 +634,23 @@ class SandboxClient:
         self,
         sandbox_ids: Optional[List[str]] = None,
         labels: Optional[List[str]] = None,
+        team_id: Optional[str] = None,
+        user_id: Optional[str] = None,
+        all_users: bool = False,
     ) -> BulkDeleteSandboxResponse:
-        """Bulk delete multiple sandboxes by IDs or labels (must specify one, not both)"""
-        request = BulkDeleteSandboxRequest(sandbox_ids=sandbox_ids, labels=labels)
+        """Bulk delete multiple sandboxes."""
+        request = BulkDeleteSandboxRequest(
+            sandbox_ids=sandbox_ids,
+            labels=labels,
+            team_id=team_id,
+            user_id=user_id,
+            all_users=all_users,
+        )
+        payload = request.model_dump(by_alias=False, exclude_none=True)
         response = self.client.request(
             "DELETE",
             "/sandbox",
-            json=request.model_dump(by_alias=False, exclude_none=True),
+            json=payload,
         )
         return BulkDeleteSandboxResponse.model_validate(response)
 
@@ -1250,6 +1282,7 @@ class SandboxClient:
         protocol: str = "HTTP",
     ) -> ExposedPort:
         """Expose a port from a sandbox."""
+        self._guard_vm_unsupported(sandbox_id, "Port exposure")
         request = ExposePortRequest(port=port, name=name, protocol=protocol)
         response = self.client.request(
             "POST",
@@ -1260,10 +1293,12 @@ class SandboxClient:
 
     def unexpose(self, sandbox_id: str, exposure_id: str) -> None:
         """Unexpose a port from a sandbox."""
+        self._guard_vm_unsupported(sandbox_id, "Port unexpose")
         self.client.request("DELETE", f"/sandbox/{sandbox_id}/expose/{exposure_id}")
 
     def list_exposed_ports(self, sandbox_id: str) -> ListExposedPortsResponse:
         """List all exposed ports for a sandbox"""
+        self._guard_vm_unsupported(sandbox_id, "Port listing")
         response = self.client.request("GET", f"/sandbox/{sandbox_id}/expose")
         return ListExposedPortsResponse.model_validate(response)
 
@@ -1278,6 +1313,7 @@ class SandboxClient:
         ttl_seconds: Optional[int] = None,
     ) -> SSHSession:
         """Create an SSH session"""
+        self._guard_vm_unsupported(sandbox_id, "SSH")
         payload: Dict[str, Any] = {}
         if ttl_seconds is not None:
             payload["ttl_seconds"] = ttl_seconds
@@ -1290,6 +1326,7 @@ class SandboxClient:
 
     def close_ssh_session(self, sandbox_id: str, session_id: str) -> None:
         """Close an SSH session and remove its exposure"""
+        self._guard_vm_unsupported(sandbox_id, "SSH")
         self.client.request("DELETE", f"/sandbox/{sandbox_id}/ssh-session/{session_id}")
 
 
@@ -1415,6 +1452,25 @@ class AsyncSandboxClient:
         """Clear all cached auth tokens."""
         await self._auth_cache.clear()
 
+    async def is_vm(self, sandbox_id: str) -> bool:
+        """Return True if the sandbox is VM-backed.
+
+        Uses the internal auth cache when available and falls back to a
+        ``GET /sandbox/<id>`` lookup on a cold cache. The result is cached
+        alongside the auth token so subsequent calls are essentially free.
+        """
+        return await self._auth_cache.is_vm(sandbox_id)
+
+    async def _guard_vm_unsupported(self, sandbox_id: str, feature_name: str) -> None:
+        """Raise APIError if the operation is not supported on VM sandboxes.
+
+        Mirrors the CLI behavior of short-circuiting operations the backend
+        does not currently support for VM-backed sandboxes, so callers fail
+        fast with a clear message instead of an opaque gateway error.
+        """
+        if await self._auth_cache.is_vm(sandbox_id):
+            raise APIError(f"{feature_name} is not yet supported for VM sandboxes.")
+
     async def create(self, request: CreateSandboxRequest) -> Sandbox:
         """Create a new sandbox"""
         if request.team_id is None:
@@ -1435,6 +1491,7 @@ class AsyncSandboxClient:
         page: int = 1,
         per_page: int = 50,
         exclude_terminated: Optional[bool] = None,
+        user_id: Optional[str] = None,
     ) -> SandboxListResponse:
         """List sandboxes"""
         if team_id is None:
@@ -1443,6 +1500,8 @@ class AsyncSandboxClient:
         params: Dict[str, Any] = {"page": page, "per_page": per_page}
         if team_id:
             params["team_id"] = team_id
+        if user_id:
+            params["user_id"] = user_id
         if status:
             params["status"] = status
         if labels:
@@ -1467,13 +1526,23 @@ class AsyncSandboxClient:
         self,
         sandbox_ids: Optional[List[str]] = None,
         labels: Optional[List[str]] = None,
+        team_id: Optional[str] = None,
+        user_id: Optional[str] = None,
+        all_users: bool = False,
     ) -> BulkDeleteSandboxResponse:
-        """Bulk delete multiple sandboxes by IDs or labels"""
-        request = BulkDeleteSandboxRequest(sandbox_ids=sandbox_ids, labels=labels)
+        """Bulk delete multiple sandboxes."""
+        request = BulkDeleteSandboxRequest(
+            sandbox_ids=sandbox_ids,
+            labels=labels,
+            team_id=team_id,
+            user_id=user_id,
+            all_users=all_users,
+        )
+        payload = request.model_dump(by_alias=False, exclude_none=True)
         response = await self.client.request(
             "DELETE",
             "/sandbox",
-            json=request.model_dump(by_alias=False, exclude_none=True),
+            json=payload,
         )
         return BulkDeleteSandboxResponse.model_validate(response)
 
@@ -2135,6 +2204,7 @@ class AsyncSandboxClient:
         protocol: str = "HTTP",
     ) -> ExposedPort:
         """Expose a port from a sandbox."""
+        await self._guard_vm_unsupported(sandbox_id, "Port exposure")
         request = ExposePortRequest(port=port, name=name, protocol=protocol)
         response = await self.client.request(
             "POST",
@@ -2145,10 +2215,12 @@ class AsyncSandboxClient:
 
     async def unexpose(self, sandbox_id: str, exposure_id: str) -> None:
         """Unexpose a port from a sandbox."""
+        await self._guard_vm_unsupported(sandbox_id, "Port unexpose")
         await self.client.request("DELETE", f"/sandbox/{sandbox_id}/expose/{exposure_id}")
 
     async def list_exposed_ports(self, sandbox_id: str) -> ListExposedPortsResponse:
         """List all exposed ports for a sandbox"""
+        await self._guard_vm_unsupported(sandbox_id, "Port listing")
         response = await self.client.request("GET", f"/sandbox/{sandbox_id}/expose")
         return ListExposedPortsResponse.model_validate(response)
 
@@ -2163,6 +2235,7 @@ class AsyncSandboxClient:
         ttl_seconds: Optional[int] = None,
     ) -> SSHSession:
         """Create an SSH session"""
+        await self._guard_vm_unsupported(sandbox_id, "SSH")
         payload: Dict[str, Any] = {}
         if ttl_seconds is not None:
             payload["ttl_seconds"] = ttl_seconds
@@ -2175,6 +2248,7 @@ class AsyncSandboxClient:
 
     async def close_ssh_session(self, sandbox_id: str, session_id: str) -> None:
         """Close an SSH session and remove its exposure"""
+        await self._guard_vm_unsupported(sandbox_id, "SSH")
         await self.client.request("DELETE", f"/sandbox/{sandbox_id}/ssh-session/{session_id}")
 
 

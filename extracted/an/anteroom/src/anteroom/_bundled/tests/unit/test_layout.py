@@ -7,6 +7,9 @@ from unittest.mock import MagicMock
 from anteroom.cli.layout import (
     InputLexer,
     _shorten_path,
+    build_input_toolbar_fragments,
+    get_editing_mode_badge,
+    get_input_hint,
     input_line_prefix,
     set_approval_mode,
 )
@@ -105,3 +108,56 @@ class TestInputLexer:
         get_line = lexer.lex_document(doc)
         result = get_line(0)
         assert result == [("", "")]
+
+
+class _ViState:
+    def __init__(self, input_mode: str) -> None:
+        self.input_mode = input_mode
+
+
+class _App:
+    def __init__(self, input_mode: str) -> None:
+        self.vi_state = _ViState(input_mode)
+
+
+class TestInputToolbarHelpers:
+    def test_mode_badge_hidden_when_disabled(self):
+        assert get_editing_mode_badge("emacs", show_mode_badge=False) is None
+
+    def test_vi_navigation_badge(self):
+        assert get_editing_mode_badge("vi", app=_App("InputMode.NAVIGATION")) == "VI NAV"
+
+    def test_vi_insert_badge(self):
+        assert get_editing_mode_badge("vi", app=_App("InputMode.INSERT")) == "VI INSERT"
+
+    def test_emacs_badge(self):
+        assert get_editing_mode_badge("emacs") == "EMACS"
+
+    def test_hint_for_idle(self):
+        assert get_input_hint(hint_context="idle") == "Tab complete Alt+Enter newline Ctrl+D exit"
+
+    def test_hint_for_multiline_paste(self):
+        assert get_input_hint(hint_context="multiline", paste_line_count=8) == "8 pasted lines review before Enter"
+
+    def test_toolbar_fragments_include_mode_and_hint(self):
+        result = build_input_toolbar_fragments(
+            editing_mode="vi",
+            app=_App("InputMode.INSERT"),
+            hint_context="multiline",
+            paste_line_count=6,
+        )
+        assert result == [
+            ("class:bottom-toolbar.mode", "VI INSERT"),
+            ("class:bottom-toolbar.sep", " · "),
+            ("class:bottom-toolbar.hint", "6 pasted lines review before Enter"),
+        ]
+
+    def test_toolbar_fragments_only_include_hint_when_badge_disabled(self):
+        result = build_input_toolbar_fragments(
+            editing_mode="emacs",
+            show_mode_badge=False,
+            hint_context="idle",
+        )
+        assert result == [
+            ("class:bottom-toolbar.hint", "Tab complete Alt+Enter newline Ctrl+D exit"),
+        ]

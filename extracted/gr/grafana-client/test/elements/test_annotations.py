@@ -1,218 +1,166 @@
+import sys
+import typing as t
 import unittest
+
+import pytest
+from verlib2 import Version
 
 from grafana_client import GrafanaApi
 from grafana_client.client import (
     GrafanaBadInputError,
     GrafanaClientError,
     GrafanaServerError,
-    GrafanaUnauthorizedError,
 )
 
-from ..compat import requests_mock
+params = dict(
+    time_from=1563183710618,
+    time_to=1563185212275,
+    # alert_id=11,  # noqa: ERA001
+    # dashboard_id=111,  # noqa: ERA001
+    # panel_id=22,  # noqa: ERA001
+    user_id=1,
+    ann_type="annotation",
+    tags=["tags-test"],
+    limit=1,
+)
+
+pytestmark = pytest.mark.integration
 
 
+@pytest.fixture()
+def annotation_id(annotation_provisioned) -> str:
+    return annotation_provisioned["id"]
+
+
+@pytest.fixture()
+def annotation_provisioned(grafana_api, dashboard_uid) -> t.Dict:
+
+    # Prune all annotations.
+    for annotation in grafana_api.annotations.find_annotations():
+        grafana_api.annotations.delete_annotations_by_id(annotation["id"])
+
+    # Provision annotation.
+    return grafana_api.annotations.add_annotation(
+        dashboard_uid=dashboard_uid,
+        tags=["tags-test"],
+        text="Annotation Description",
+        time_from=1563183710618,
+        time_to=1563185212275,
+    )
+
+
+@unittest.skipIf("unittest" in sys.argv[0], "Skipping unittest, please use pytest")
 class AnnotationsTestCase(unittest.TestCase):
-    def setUp(self):
-        self.grafana = GrafanaApi(("admin", "admin"), host="localhost", url_path_prefix="", protocol="http")
+    @pytest.fixture(autouse=True)
+    def use_fixtures(self, grafana_api: GrafanaApi, dashboard_uid: str, dashboard_id: int, annotation_id: int):
+        self.grafana = grafana_api
+        self.dashboard_id = dashboard_id
+        self.dashboard_uid = dashboard_uid
+        self.annotation_id = annotation_id
 
-    @requests_mock.Mocker()
-    def test_annotations(self, m):
-        m.get(
-            "http://localhost/api/annotations?from=1563183710618&to=1563185212275"
-            "&alertId=11&dashboardId=111&dashboardUID=v1Mm5FPVz&panelId=22&userId=42&type=alert&tags=tags-test&limit=1",
-            json=[
-                {
-                    "id": 80,
-                    "alertId": 11,
-                    "alertName": "",
-                    "dashboardId": 111,
-                    "dashboardUID": "v1Mm5FPVz",
-                    "panelId": 22,
-                    "userId": 42,
-                    "type": "alert",
-                    "newState": "",
-                    "prevState": "",
-                    "created": 1563280160455,
-                    "updated": 1563280160455,
-                    "time": 1563156456006,
-                    "text": "Annotation Description",
-                    "tags": ["tags-test"],
-                    "login": "",
-                    "email": "",
-                    "avatarUrl": "",
-                    "data": {},
-                },
-            ],
-        )
-        annotations = self.grafana.annotations.get_annotation(
-            time_from=1563183710618,
-            time_to=1563185212275,
-            alert_id=11,
-            dashboard_id=111,
-            dashboard_uid="v1Mm5FPVz",
-            panel_id=22,
-            user_id=42,
-            ann_type="alert",
-            tags=["tags-test"],
-            limit=1,
-        )
+    def test_find_all(self):
+        annotations = self.grafana.annotations.find_annotations()
+        self.assertEqual(len(annotations), 1, "Wrong number of annotations")
         self.assertEqual(annotations[0]["text"], "Annotation Description")
-        self.assertEqual(annotations[0]["alertId"], 11)
-        self.assertEqual(annotations[0]["dashboardUID"], "v1Mm5FPVz")
-        self.assertEqual(annotations[0]["dashboardId"], 111)
-        self.assertEqual(annotations[0]["panelId"], 22)
-        self.assertEqual(annotations[0]["userId"], 42)
-        self.assertEqual(annotations[0]["type"], "alert")
-        self.assertEqual(annotations[0]["tags"][0], "tags-test")
+        self.assertEqual(annotations[0]["tags"], ["tags-test"])
+        if self.grafana.get_version() >= Version("9"):
+            self.assertEqual(annotations[0]["dashboardUID"], self.dashboard_uid)
 
-        self.assertEqual(len(annotations), 1)
-
-    @requests_mock.Mocker()
-    def test_annotations_with_out_param(self, m):
-        m.get(
-            "http://localhost/api/annotations",
-            json=[
-                {
-                    "id": 80,
-                    "alertId": 11,
-                    "alertName": "",
-                    "dashboardId": 111,
-                    "panelId": 22,
-                    "userId": 0,
-                    "newState": "",
-                    "prevState": "",
-                    "created": 1563280160455,
-                    "updated": 1563280160455,
-                    "time": 1563156456006,
-                    "text": "Annotation Description",
-                    "tags": ["tags-test"],
-                    "login": "",
-                    "email": "",
-                    "avatarUrl": "",
-                    "data": {},
-                },
-            ],
+    def test_find_by_dashboard_uid(self):
+        annotations = self.grafana.annotations.find_annotations(
+            dashboard_uid=self.dashboard_uid,
         )
-        annotations = self.grafana.annotations.get_annotation()
-        self.assertEqual(len(annotations), 1)
+        self.assertEqual(len(annotations), 1, "Wrong number of annotations")
 
-    @requests_mock.Mocker()
-    def test_delete_annotations_by_id(self, m):
-        m.delete(
-            "http://localhost/api/annotations/99",
-            json={"message": "Annotation deleted"},
-        )
-        annotation = self.grafana.annotations.delete_annotations_by_id(annotations_id=99)
-        self.assertEqual(annotation["message"], "Annotation deleted")
+    def test_delete_annotation_by_id_success(self):
+        response = self.grafana.annotations.delete_annotations_by_id(annotations_id=self.annotation_id)
+        self.assertEqual(response["message"], "Annotation deleted")
 
-    @requests_mock.Mocker()
-    def test_delete_annotations_by_id_could_not_find(self, m):
-        m.delete(
-            "http://localhost/api/annotations/None",
-            json={"message": "Could not find annotation to update"},
-            status_code=500,
-        )
-        with self.assertRaises(GrafanaServerError):
+    def test_delete_annotation_by_id_not_exists(self):
+        # FIXME: Grafana 11 & 12 do not care about the outcome of an annotation delete request,
+        #        i.e. don't raise an exception when deleting invalid annotations?
+        if self.grafana.get_version() >= Version("11"):
+            response = self.grafana.annotations.delete_annotations_by_id(annotations_id=9999)
+            self.assertEqual(response["message"], "Annotation deleted")
+        else:
+            with self.assertRaises((GrafanaClientError, GrafanaServerError)) as excinfo:
+                self.grafana.annotations.delete_annotations_by_id(annotations_id=9999)
+            self.assertRegex(excinfo.exception.message, "(Annotation not found|Could not find annotation to update)")
+
+    def test_delete_annotation_by_id_null(self):
+        if self.grafana.get_version() >= Version("8"):
+            with self.assertRaises(GrafanaBadInputError) as excinfo:
+                self.grafana.annotations.delete_annotations_by_id(annotations_id=None)
+            self.assertRegex(excinfo.exception.message, "annotationId is invalid")
+
+        # Grafana 7 does not fail here.
+        else:
             self.grafana.annotations.delete_annotations_by_id(annotations_id=None)
 
-    @requests_mock.Mocker()
-    def test_delete_annotations_by_id_forbidden(self, m):
-        m.delete(
-            "http://localhost/api/annotations/None",
-            json={"message": "Forbidden"},
-            status_code=403,
-        )
-        with self.assertRaises(GrafanaClientError):
-            self.grafana.annotations.delete_annotations_by_id(annotations_id=None)
+    def test_add_annotation_no_text(self):
+        def probe():
+            self.grafana.annotations.add_annotation()
 
-    @requests_mock.Mocker()
-    def test_delete_annotations_by_id_unauthorized(self, m):
-        m.delete(
-            "http://localhost/api/annotations/None",
-            json={"message": "Unauthorized"},
-            status_code=401,
-        )
-        with self.assertRaises(GrafanaUnauthorizedError):
-            self.grafana.annotations.delete_annotations_by_id(annotations_id=None)
+        if self.grafana.get_version() >= Version("7"):
+            with self.assertRaises(GrafanaBadInputError) as context:
+                probe()
+            self.assertEqual(context.exception.status_code, 400)
+            self.assertIn("Failed to save annotation", str(context.exception))
+        else:
+            with self.assertRaises(GrafanaServerError) as context:
+                probe()
+            self.assertEqual(context.exception.status_code, 500)
+            self.assertIn("Failed to save annotation", str(context.exception))
 
-    @requests_mock.Mocker()
-    def test_delete_annotations_by_id_bad_input(self, m):
-        m.delete(
-            "http://localhost/api/annotations/None",
-            json={"message": "Bad Input"},
-            status_code=400,
-        )
-        with self.assertRaises(GrafanaBadInputError):
-            self.grafana.annotations.delete_annotations_by_id(annotations_id=None)
+    def test_add_annotation_no_dashboard(self):
+        response = self.grafana.annotations.add_annotation(text="Test")
+        self.assertEqual(response["message"], "Annotation added")
 
-    @requests_mock.Mocker()
-    def test_add_annotation_no_dashboard(self, m):
-        m.post(
-            "http://localhost/api/annotations",
-            json={"endId": 80, "id": 79, "message": "Annotation added"},
+    def test_add_annotation_with_dashboard_id(self):
+        response = self.grafana.annotations.add_annotation(
+            dashboard_id=self.dashboard_id,
+            text="42",
         )
-        annotation = self.grafana.annotations.add_annotation(
-            time_from=1563183710618, time_to=1563185212275, tags=["tags-test"], text="Test"
-        )
-        self.assertEqual(annotation["endId"], 80)
-        self.assertEqual(annotation["id"], 79)
-        self.assertEqual(annotation["message"], "Annotation added")
+        self.assertEqual(response["message"], "Annotation added")
 
-    @requests_mock.Mocker()
-    def test_add_annotation_dashboard_id(self, m):
-        m.post(
-            "http://localhost/api/annotations",
-            json={"dashboardId": 42},
+    def test_add_annotation_with_dashboard_uid(self):
+        response = self.grafana.annotations.add_annotation(
+            dashboard_uid=self.dashboard_uid,
+            text="42",
         )
-        annotation = self.grafana.annotations.add_annotation(
-            dashboard_id=42, time_from=1563183710618, time_to=1563185212275, tags=["tags-test"], text="Test"
-        )
-        self.assertEqual(annotation["dashboardId"], 42)
+        self.assertEqual(response["message"], "Annotation added")
 
-    @requests_mock.Mocker()
-    def test_add_annotation_dashboard_uid(self, m):
-        m.post(
-            "http://localhost/api/annotations",
-            json={"dashboardUID": "jcIIG-07z"},
-        )
-        annotation = self.grafana.annotations.add_annotation(
-            dashboard_uid="jcIIG-07z", time_from=1563183710618, time_to=1563185212275, tags=["tags-test"], text="Test"
-        )
-        self.assertEqual(annotation["dashboardUID"], "jcIIG-07z")
-
-    @requests_mock.Mocker()
-    def test_update_annotation(self, m):
-        m.put(
-            "http://localhost/api/annotations/79",
-            json={"endId": 80, "id": 79, "message": "Annotation updated"},
-        )
-        annotation = self.grafana.annotations.update_annotation(
-            annotations_id=79, time_from=1563183710618, time_to=1563185212275, tags=["tags-test"], text="Test"
-        )
-        self.assertEqual(annotation["endId"], 80)
-        self.assertEqual(annotation["id"], 79)
-        self.assertEqual(annotation["message"], "Annotation updated")
-
-    @requests_mock.Mocker()
-    def test_partial_update_annotation(self, m):
-        m.patch(
-            "http://localhost/api/annotations/89",
-            json={"message": "Annotation patched"},
-        )
-        annotation = self.grafana.annotations.partial_update_annotation(
-            annotations_id=89, tags=["tag1", "tag2"], text="Test"
-        )
-        self.assertEqual(annotation["message"], "Annotation patched")
-
-    @requests_mock.Mocker()
-    def test_add_annotation_graphite(self, m):
-        m.post(
-            "http://localhost/api/annotations/graphite",
-            json={"message": "Graphite annotation added", "id": 1},
-        )
-        annotation = self.grafana.annotations.add_annotation_graphite(
+    def test_add_annotation_graphite(self):
+        response = self.grafana.annotations.add_annotation_graphite(
             what="Event - deploy", tags=["deploy", "production"], when=1467844481, data="Data"
         )
+        self.assertEqual(response["message"], "Graphite annotation added")
 
-        self.assertEqual(annotation["id"], 1)
-        self.assertEqual(annotation["message"], "Graphite annotation added")
+    def test_update_annotation_full(self):
+        response = self.grafana.annotations.update_annotation(
+            annotations_id=self.annotation_id,
+            time_from=1563183710618,
+            time_to=1563185212275,
+            tags=["tags-test"],
+            text="Test",
+        )
+        self.assertEqual(response["message"], "Annotation updated")
+
+    def test_update_annotation_partial(self):
+        grafana9 = Version("9") <= self.grafana.get_version() < Version("10")
+        if grafana9:
+            pytest.skip("Updating annotation partially hangs indefinitely on Grafana 9?")
+        response = self.grafana.annotations.partial_update_annotation(
+            annotations_id=self.annotation_id, tags=["tag1", "tag2"], text="Test"
+        )
+        self.assertEqual(response["message"], "Annotation patched")
+
+
+@pytest.mark.parametrize("parameter", params.keys())
+def test_find_by_param(grafana_api, annotation_id: int, parameter: str):  # noqa: ARG001
+    """
+    Invoke "find annotations" operation per parameter.
+    """
+    kwargs = {parameter: params[parameter]}
+    annotations = grafana_api.annotations.find_annotations(**kwargs)
+    assert len(annotations) == 1, "Wrong number of annotations"

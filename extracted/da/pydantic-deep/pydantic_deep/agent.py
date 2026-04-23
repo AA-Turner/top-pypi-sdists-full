@@ -70,6 +70,7 @@ def create_deep_agent(
     model: str | Model | None = None,
     model_settings: dict[str, Any] | None = None,
     summarization_model: str | None = None,
+    base_prompt: str | None = None,
     instructions: str | None = None,
     output_style: str | Any | None = None,
     styles_dir: str | list[str] | None = None,
@@ -116,6 +117,7 @@ def create_deep_agent(
     checkpoint_store: Any | None = None,
     include_teams: bool = False,
     include_improve: bool = False,
+    include_liteparse: bool = False,
     stuck_loop_detection: bool = True,
     web_search: bool = True,
     web_fetch: bool = True,
@@ -137,6 +139,7 @@ def create_deep_agent(
     model: str | Model | None = None,
     model_settings: dict[str, Any] | None = None,
     summarization_model: str | None = None,
+    base_prompt: str | None = None,
     instructions: str | None = None,
     output_style: str | Any | None = None,
     styles_dir: str | list[str] | None = None,
@@ -184,6 +187,7 @@ def create_deep_agent(
     checkpoint_store: Any | None = None,
     include_teams: bool = False,
     include_improve: bool = False,
+    include_liteparse: bool = False,
     stuck_loop_detection: bool = True,
     web_search: bool = True,
     web_fetch: bool = True,
@@ -204,6 +208,7 @@ def create_deep_agent(  # noqa: C901
     model: str | Model | None = None,
     model_settings: dict[str, Any] | None = None,
     summarization_model: str | None = None,
+    base_prompt: str | None = None,
     instructions: str | None = None,
     output_style: str | Any | None = None,
     styles_dir: str | list[str] | None = None,
@@ -250,6 +255,7 @@ def create_deep_agent(  # noqa: C901
     checkpoint_store: Any | None = None,
     include_teams: bool = False,
     include_improve: bool = False,
+    include_liteparse: bool = False,
     stuck_loop_detection: bool = True,
     web_search: bool = True,
     web_fetch: bool = True,
@@ -277,7 +283,10 @@ def create_deep_agent(  # noqa: C901
 
     Args:
         model: Model to use (default: anthropic:claude-opus-4-6).
-        instructions: Custom instructions for the agent.
+        instructions: System prompt for the agent. When provided, replaces the
+            default ``BASE_PROMPT`` entirely. Use ``BASE_PROMPT`` from
+            ``pydantic_deep`` to build on top of it:
+            ``instructions=f"{BASE_PROMPT}\\n\\nYour extra instructions"``.
         output_style: Output style to apply to agent responses. Can be a
             string name of a built-in style ("concise", "explanatory",
             "formal", "conversational"), a custom OutputStyle instance,
@@ -402,6 +411,12 @@ def create_deep_agent(  # noqa: C901
             When True, adds tools for spawning agent teams, assigning
             tasks via shared todo lists, messaging teammates, and
             dissolving teams. Defaults to False.
+        include_liteparse: Whether to include the LiteParse document parsing
+            toolset (``parse_document``, ``screenshot_document`` tools).
+            Requires Node.js >= 18 and the ``liteparse`` optional extra:
+            ``pip install pydantic-deep[liteparse]``.
+            The Node.js CLI is auto-installed via npm on first use if
+            ``npm`` is in PATH. Defaults to False.
         web_search: Whether to include the ``WebSearch`` capability.
             Defaults to True.
         web_fetch: Whether to include the ``WebFetch`` capability.
@@ -564,9 +579,15 @@ def create_deep_agent(  # noqa: C901
 
         def _default_deep_agent_factory(cfg: dict[str, Any]) -> Any:
             """Create a deep agent for subagent execution."""
+            _sub_task_instructions = cfg.get("instructions") or ""
+            _sub_instructions = (
+                DEFAULT_INSTRUCTIONS + "\n\n" + _sub_task_instructions
+                if _sub_task_instructions
+                else DEFAULT_INSTRUCTIONS
+            )
             return create_deep_agent(
                 model=cfg.get("model", _sub_model),
-                instructions=cfg["instructions"],
+                instructions=_sub_instructions,
                 include_filesystem=True,
                 include_execute=True,
                 include_todo=True,
@@ -732,9 +753,15 @@ def create_deep_agent(  # noqa: C901
             _team_edit_fmt = edit_format
 
             def _deep_agent_factory(cfg: dict[str, Any]) -> Any:  # pragma: no cover
+                _team_task_instructions = cfg.get("instructions") or ""
+                _team_instructions = (
+                    DEFAULT_INSTRUCTIONS + "\n\n" + _team_task_instructions
+                    if _team_task_instructions
+                    else DEFAULT_INSTRUCTIONS
+                )
                 return create_deep_agent(
                     model=cfg.get("model", _team_model),
-                    instructions=cfg["instructions"],
+                    instructions=_team_instructions,
                     include_filesystem=True,
                     include_todo=True,
                     include_subagents=False,
@@ -751,10 +778,7 @@ def create_deep_agent(  # noqa: C901
         team_toolset = create_team_toolset(**_team_kwargs)
         all_toolsets.append(team_toolset)
 
-    # Build base instructions — always include BASE_PROMPT, append user instructions
-    base_instructions = DEFAULT_INSTRUCTIONS
-    if instructions:
-        base_instructions = base_instructions + "\n\n" + instructions
+    base_instructions = instructions if instructions is not None else DEFAULT_INSTRUCTIONS
 
     # Improve toolset (self-improvement from session analysis)
     if include_improve:
@@ -774,6 +798,13 @@ def create_deep_agent(  # noqa: C901
             model=model if isinstance(model, str) else "openrouter:anthropic/claude-sonnet-4",
         )
         all_toolsets.append(improve_toolset)
+
+    # LiteParse document parsing toolset
+    if include_liteparse:
+        from pydantic_deep.toolsets.liteparse import LiteparseToolset
+
+        liteparse_toolset = LiteparseToolset()
+        all_toolsets.append(liteparse_toolset)
 
     # Inject output style into instructions
     if output_style is not None:

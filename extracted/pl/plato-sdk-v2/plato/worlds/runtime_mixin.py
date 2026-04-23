@@ -84,7 +84,7 @@ class RuntimeMixin:
         mesh_ip = await world_env.get_mesh_ip()
         if mesh_ip:
             self._runtime_info = self._runtime_info.model_copy(update={"hostname": mesh_ip})
-            logger.info("Resolved world hostname to %s", mesh_ip)
+            logger.debug("Resolved world hostname to %s", mesh_ip)
 
         # Register the SSH public key on the world VM so agent VMs can
         # clone git repos back from it.
@@ -93,7 +93,7 @@ class RuntimeMixin:
             pub_key_path = Path(str(ssh_key_path) + ".pub")
             if pub_key_path.exists():
                 await world_env.add_ssh_key(pub_key_path.read_text().strip())
-                logger.info("Registered SSH public key on world VM")
+                logger.debug("Registered SSH public key on world VM")
 
     async def _disconnect_plato_session(self) -> None:
         """Stop heartbeat for the Plato session (does not close the session)."""

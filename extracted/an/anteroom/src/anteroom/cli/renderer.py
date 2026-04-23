@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import os
 import sys
@@ -20,6 +21,8 @@ from rich.style import Style
 from rich.text import Text
 from rich.theme import Theme
 
+from ..services.user_errors import format_user_error
+from .density import ToolResultDensity, collapse_diff_hunks, densify_output
 from .themes import CliTheme
 
 console = Console(stderr=True)
@@ -128,6 +131,58 @@ def write_raw(text: str) -> None:
         _stdout.flush()
 
 
+def configure_streaming(
+    *,
+    enabled: bool = True,
+    refresh_hz: float = 20.0,
+    code_fence_container: bool = True,
+    exec_mode: bool = False,
+    live_in_exec_mode: bool = False,
+) -> None:
+    """Install a :class:`StreamingMarkdownRenderer` for the active session.
+
+    Called once by the REPL/exec bootstrap after ``use_stdout_console``
+    (if applicable) so the renderer writes into the same console as
+    downstream static prints. Idempotent: later calls replace the
+    previous renderer (cleanly stopping it if active).
+
+    When Live is unavailable at the console level (non-TTY, NO_COLOR,
+    exec without opt-in, or ``enabled=False``), ``render_token`` stays
+    on the historical buffer-only path so there is zero observable
+    change.
+    """
+    global _streaming_renderer
+    from .streaming import StreamingMarkdownRenderer
+
+    # Tear down any previous renderer before replacing.
+    if _streaming_renderer is not None:
+        try:
+            _streaming_renderer.stop()
+        except Exception:
+            pass
+
+    _streaming_renderer = StreamingMarkdownRenderer(
+        console=_stdout_console,
+        enabled=enabled,
+        refresh_hz=refresh_hz,
+        code_fence_container=code_fence_container,
+        exec_mode=exec_mode,
+        live_in_exec_mode=live_in_exec_mode,
+        finalize_render=render_assistant_prose,
+    )
+
+
+def reset_streaming() -> None:
+    """Clear the active streaming renderer (tests, teardown)."""
+    global _streaming_renderer
+    if _streaming_renderer is not None:
+        try:
+            _streaming_renderer.stop()
+        except Exception:
+            pass
+    _streaming_renderer = None
+
+
 def configure_thresholds(
     esc_hint_delay: float | None = None,
     stall_display: float | None = None,
@@ -148,6 +203,13 @@ def configure_thresholds(
 
 # Response buffer (tokens collected silently, rendered on completion)
 _streaming_buffer: list[str] = []
+
+# Live-markdown streaming state (#1365). Initialised to None; wired from the
+# REPL/exec bootstrap via ``configure_streaming()``. When non-None and Live
+# is available, ``render_token``/``flush_buffered_text``/``render_response_end``
+# route through the Live renderer; otherwise the buffer-only path runs
+# exactly as before (complete backward compatibility).
+_streaming_renderer: Any = None  # StreamingMarkdownRenderer | None
 
 # Spinner state
 _thinking_start: float = 0
@@ -347,17 +409,144 @@ def cycle_verbosity() -> Verbosity:
     return _verbosity
 
 
+# ---------------------------------------------------------------------------
+# Tool-result density (#1367)
+#
+# Orthogonal to ``Verbosity``. ``Verbosity`` controls turn-level summary /
+# legacy output style; ``ToolResultDensity`` controls the per-tool end-of-call
+# body rendering. Default is ``NORMAL`` which is byte-identical to the
+# pre-#1367 tool-end rendering path — the renderer routes through
+# ``densify_output`` / ``collapse_diff_hunks`` only when the density is
+# non-normal, so zero-config users see no change.
+# ---------------------------------------------------------------------------
+
+
+_density: ToolResultDensity = ToolResultDensity.NORMAL
+
+# User-facing tunables sourced from ``CliDensityConfig``. Set by ``apply_config``
+# during REPL/exec startup; the renderer reads these when the mode is non-normal.
+_density_head_lines: int = 3
+_density_tail_lines: int = 2
+_density_diff_context_lines: int = 3
+_density_collapse_repeats: bool = True
+
+# Turn-local flag: True once the "/detail to expand" hint has been shown in
+# compact/minimal mode; reset each turn.
+_density_hint_shown: bool = False
+
+# Rolling state for ``cli.density.collapse_repeats`` (#1367). When enabled and
+# density is COMPACT/MINIMAL, consecutive successful tool calls that produce
+# the same (tool_name, output shape) are collapsed to a single summary line
+# followed by a ``× N`` count. Reset at turn boundaries and on density flush.
+_repeat_shape_hash: str = ""
+_repeat_count: int = 0
+_repeat_summary: str = ""
+
+# When True, the diff-hunk renderer bypasses ``collapse_diff_hunks`` and shows
+# the full un-collapsed diff regardless of active density. Used by
+# ``/expand`` (#1367) for diff-backed tool outputs.
+_force_full_diff: bool = False
+
+
+def get_density() -> ToolResultDensity:
+    return _density
+
+
+def set_density(density: ToolResultDensity) -> None:
+    """Set the active tool-result density (called by config loader and /density)."""
+    global _density
+    _density = density
+
+
+def configure_density(
+    *,
+    mode: ToolResultDensity | None = None,
+    head_lines: int | None = None,
+    tail_lines: int | None = None,
+    diff_context_lines: int | None = None,
+    collapse_repeats: bool | None = None,
+) -> None:
+    """Apply density knobs loaded from ``CliDensityConfig``.
+
+    Any arguments left as ``None`` keep their current value.
+    """
+    global _density, _density_head_lines, _density_tail_lines
+    global _density_diff_context_lines, _density_collapse_repeats
+    if mode is not None:
+        _density = mode
+    if head_lines is not None:
+        _density_head_lines = max(0, head_lines)
+    if tail_lines is not None:
+        _density_tail_lines = max(0, tail_lines)
+    if diff_context_lines is not None:
+        _density_diff_context_lines = max(0, diff_context_lines)
+    if collapse_repeats is not None:
+        _density_collapse_repeats = bool(collapse_repeats)
+
+
 def clear_turn_history() -> None:
     """Clear current turn tool history. Called at start of each turn."""
-    global _streaming_buffer
+    global _streaming_buffer, _density_hint_shown
     _current_turn_tools.clear()
     _streaming_buffer = []
+    _density_hint_shown = False
+    _flush_repeat_collapse()
+
+
+def _repeat_shape_key(tool_name: str, output: Any) -> str:
+    """Compute a shape hash for collapse-repeats detection (#1367).
+
+    The key combines ``tool_name`` with a stable hash of the entire output
+    payload — including internal ``_``-prefixed fields such as
+    ``_old_content`` / ``_new_content``. This ensures two distinct
+    ``write_file`` / ``edit_file`` diffs for the same path NEVER collapse
+    into a single ``↻ … × N`` line (which would hide real file changes).
+
+    Implementation note: we serialise the full dict (no key stripping) and
+    reduce it to a short SHA-256 prefix so the hash stays cheap to compare
+    even when diff blobs are large. Non-dict outputs hash their ``str``
+    representation; ``None`` yields a distinguished empty payload.
+    """
+    if output is None:
+        payload = ""
+    elif isinstance(output, dict):
+        # Include every field — including ``_old_content`` / ``_new_content``
+        # — so two distinct diffs never produce the same shape key.
+        try:
+            payload = json.dumps(output, sort_keys=True, default=str)
+        except Exception:
+            payload = repr(output)
+    elif isinstance(output, str):
+        payload = output
+    else:
+        try:
+            payload = repr(output)
+        except Exception:
+            payload = ""
+    digest = hashlib.sha256(payload.encode("utf-8", errors="replace")).hexdigest()[:16]
+    return f"{tool_name}:{digest}"
+
+
+def _flush_repeat_collapse() -> None:
+    """Emit the ``× N`` summary for a pending collapse-repeats run, if any.
+
+    Called when a different-shape tool result arrives, at turn boundaries,
+    when density is flipped, and before ``/expand`` renders.
+    """
+    global _repeat_shape_hash, _repeat_count, _repeat_summary
+    if _repeat_count > 1:
+        label = f"↻ {_repeat_summary} × {_repeat_count}"
+        console.print(f"    [{MUTED}]{escape(label)}[/{MUTED}]")
+    _repeat_shape_hash = ""
+    _repeat_count = 0
+    _repeat_summary = ""
 
 
 def save_turn_history() -> None:
     """Save current turn tools to history. Called at end of each turn."""
     global _tool_batch_active
     _flush_dedup()
+    _flush_repeat_collapse()
     _tool_batch_active = False
     if _current_turn_tools:
         _tool_history.clear()
@@ -547,6 +736,35 @@ _footer_mode: bool = False
 # Callback set by repl.py to invalidate+redraw the toolbar.
 _toolbar_invalidator: Callable[[], None] | None = None
 
+# Probe set by repl.py; returns True only while the prompt_toolkit app is
+# actively running (i.e. the toolbar surface is live). During an active turn
+# the prompt session is usually no longer running, so footer mode must fall
+# back to the raw in-place thinking line.
+_toolbar_is_active: Callable[[], bool] | None = None
+
+
+def _invalidate_footer_toolbar() -> None:
+    """Repaint the footer immediately when the live busy state changes."""
+    if _footer_mode and _toolbar_invalidator:
+        _toolbar_invalidator()
+
+
+def format_busy_status_toolbar(busy_status: BusyStatus | None) -> list[tuple[str, str]]:
+    """Format only the live busy fragments for the bottom toolbar."""
+    parts: list[tuple[str, str]] = []
+    if busy_status is None:
+        return parts
+    if busy_status.tool_label and not busy_status.thinking_text:
+        parts.append(("class:bottom-toolbar.sep", " \u00b7 "))
+        parts.append(("class:bottom-toolbar.model", busy_status.tool_label))
+    if busy_status.thinking_text:
+        parts.append(("class:bottom-toolbar.sep", " \u00b7 "))
+        parts.append(("class:bottom-toolbar.tokens-warn", busy_status.thinking_text))
+    if busy_status.show_cancel_hint:
+        parts.append(("class:bottom-toolbar.sep", " \u00b7 "))
+        parts.append(("class:bottom-toolbar.dim", "esc to cancel"))
+    return parts
+
 
 def get_busy_status() -> BusyStatus | None:
     """Return current busy state for toolbar rendering, or None if idle."""
@@ -640,10 +858,12 @@ def start_thinking(*, newline: bool = False) -> None:
     if _repl_mode:
         # Footer mode: toolbar owns the busy indicator.  Only active when
         # no plan checklist is on screen (plan uses raw cursor-up rendering).
-        if not (_plan_visible and _plan_steps) and _toolbar_invalidator is not None:
+        _inv = _toolbar_invalidator
+        toolbar_ready = _inv is not None and (_toolbar_is_active is None or _toolbar_is_active())
+        if not (_plan_visible and _plan_steps) and toolbar_ready and _inv is not None:
             _footer_mode = True
             _spinner = None
-            _toolbar_invalidator()
+            _inv()
         else:
             _footer_mode = False
             # Rich Status conflicts with prompt_toolkit's patch_stdout, so
@@ -697,6 +917,10 @@ def _build_thinking_text(
         and not cancel_msg
         and countdown <= 0
         and not _plan_visible
+        # #1428: accepted phase bypasses the calm window so the user gets an
+        # immediate ack that the prompt landed. Subsequent phases (connecting,
+        # waiting) still defer to the reveal delay for minimal early chrome.
+        and _thinking_phase != "accepted"
     ):
         return ""
 
@@ -1080,9 +1304,12 @@ _retrying_info: dict[str, Any] = {}
 def set_thinking_phase(phase: str) -> None:
     """Update the current lifecycle phase displayed by the thinking ticker."""
     global _thinking_phase, _last_chunk_time, _phase_start_time
+    changed = phase != _thinking_phase
     _thinking_phase = phase
     _phase_start_time = time.monotonic()
     _last_chunk_time = time.monotonic()
+    if changed:
+        _invalidate_footer_toolbar()
 
 
 def set_retrying(data: dict[str, Any]) -> None:
@@ -1090,6 +1317,7 @@ def set_retrying(data: dict[str, Any]) -> None:
     global _thinking_phase, _retrying_info
     _retrying_info = data
     _thinking_phase = "retrying"
+    _invalidate_footer_toolbar()
 
 
 def increment_thinking_tokens() -> None:
@@ -1099,13 +1327,16 @@ def increment_thinking_tokens() -> None:
     """
     global _thinking_tokens, _thinking_phase, _last_chunk_time, _phase_start_time
     _thinking_tokens += 1
+    phase_changed = _thinking_phase != "streaming"
     # Set chunk time before phase to avoid a race with the background ticker:
     # if the ticker reads _thinking_phase=="streaming" before _last_chunk_time
     # is updated, it could briefly show "stalled" on a fresh phase transition.
     _last_chunk_time = time.monotonic()
-    if _thinking_phase != "streaming":
+    if phase_changed:
         _phase_start_time = _last_chunk_time
     _thinking_phase = "streaming"
+    if phase_changed:
+        _invalidate_footer_toolbar()
 
 
 def increment_streaming_chars(n: int) -> None:
@@ -1120,10 +1351,11 @@ def increment_streaming_chars(n: int) -> None:
 
 
 def _phase_label() -> str:
-    """Return a phase-aware label for the thinking line (#1366).
+    """Return a phase-aware label for the thinking line (#1366, #1428).
 
     Maps the current ``_thinking_phase`` to a user-friendly label:
     - ``""`` / unknown → ``"Thinking..."``
+    - ``accepted`` → ``"Working..."`` (initial ack between prompt submit and first phase)
     - ``connecting`` → ``"Connecting..."``
     - ``waiting`` → ``"Thinking..."``
     - ``streaming`` → ``"Writing..."``
@@ -1131,6 +1363,8 @@ def _phase_label() -> str:
     - ``tool_exec`` → tool-context label via ``_tool_phase_label()``
     """
     phase = _thinking_phase
+    if phase == "accepted":
+        return "Working..."
     if phase == "connecting":
         return "Connecting..."
     if phase == "streaming":
@@ -1176,11 +1410,12 @@ def enter_tool_phase(tool_name: str, arguments: dict[str, Any]) -> None:
     _active_tool_names.append(tool_name)
     summary = _humanize_tool(tool_name, arguments)
     _active_tool_summaries.append(summary)
+    _invalidate_footer_toolbar()
 
 
 def exit_tool_phase(tool_name: str) -> None:
-    """Track a tool completing execution (#1366)."""
-    global _active_tool_count
+    """Track a tool completing execution (#1366, #1428)."""
+    global _active_tool_count, _tool_ticker_summary
     if _active_tool_count > 0:
         _active_tool_count -= 1
     # Remove the first occurrence of this tool name
@@ -1193,6 +1428,11 @@ def exit_tool_phase(tool_name: str) -> None:
     if _active_tool_count == 0:
         _active_tool_names.clear()
         _active_tool_summaries.clear()
+        # #1428: fold the ticker-summary clear into the phase exit so stale
+        # tool context doesn't linger across turns regardless of whether the
+        # legacy ticker ran (footer mode no-ops it).
+        _tool_ticker_summary = ""
+    _invalidate_footer_toolbar()
 
 
 def _reset_tool_phase() -> None:
@@ -1286,10 +1526,40 @@ def flush_buffered_text() -> None:
 
     Called before tool calls start so the AI's task explanation
     (e.g. 'Let me review your auth files') renders before the tool output.
+
+    When live streaming is active (#1365), the Live region is torn down
+    cleanly so the subsequent tool output renders underneath a settled
+    static paragraph (no Live-vs-static overwrite flicker).
     """
     global _streaming_buffer, _tool_batch_active
     text = "".join(_streaming_buffer)
     _streaming_buffer = []
+
+    # If the live-streaming renderer was driving the turn, let it emit its
+    # own static finalize (which uses the hierarchy-aware
+    # ``render_assistant_prose`` helper) and then return. We still honour
+    # tool-batch spacing semantics.
+    if _streaming_renderer is not None and _streaming_renderer.live_available():
+        if not text.strip():
+            # Buffer-only whitespace: still clear the live renderer state
+            # so a fresh segment can start next.
+            try:
+                _streaming_renderer.flush_to_static()
+            except Exception:
+                pass
+            return
+        if _tool_batch_active:
+            console.print()
+            _tool_batch_active = False
+        try:
+            _streaming_renderer.flush_to_static()
+        except Exception:
+            # Hard fallback: treat as non-streaming.
+            from rich.padding import Padding as _Padding
+
+            _stdout_console.print(_Padding(_make_markdown(text), (0, 2, 0, 2)))
+        return
+
     if not text.strip():
         return
 
@@ -1317,17 +1587,51 @@ def _flush_dedup() -> None:
 
 
 def render_token(content: str) -> None:
-    """Buffer token content silently (no streaming output)."""
+    """Buffer token content; when live streaming is configured and the
+    console supports it, also feed the live-markdown renderer so the
+    user sees formatting incrementally (#1365).
+
+    The legacy buffer is kept populated in parallel so the end-of-turn
+    fallback (``render_response_end`` called in contexts where Live is
+    unavailable) still works unchanged.
+    """
     _streaming_buffer.append(content)
+    if _streaming_renderer is not None and _streaming_renderer.live_available():
+        try:
+            _streaming_renderer.feed(content)
+        except Exception:
+            # Never let a rendering hiccup crash the REPL loop.
+            pass
 
 
 def render_response_end() -> None:
-    """Render the complete buffered response with Rich Markdown."""
+    """Render the complete buffered response with Rich Markdown.
+
+    When live streaming is active (#1365) the Live region is stopped
+    here; its ``stop()`` finalizes the assistant prose via
+    ``render_assistant_prose`` (our injected ``finalize_render``
+    callback), matching the hierarchy-container output of the legacy
+    path exactly.
+    """
     global _streaming_buffer, _tool_batch_active
     _flush_dedup()
+    _flush_repeat_collapse()
 
     full_text = "".join(_streaming_buffer)
     _streaming_buffer = []
+
+    if _streaming_renderer is not None and _streaming_renderer.live_available():
+        # Streaming path: live region owns the final render.
+        if _tool_batch_active:
+            console.print()
+            _tool_batch_active = False
+        try:
+            _streaming_renderer.stop()
+        except Exception:
+            # Hard fallback: static render below.
+            if full_text.strip():
+                render_assistant_prose(full_text)
+        return
 
     if not full_text.strip():
         _tool_batch_active = False
@@ -1338,13 +1642,156 @@ def render_response_end() -> None:
         console.print()
         _tool_batch_active = False
 
-    from rich.padding import Padding
-
-    _stdout_console.print(Padding(_make_markdown(full_text), (0, 2, 1, 2)))
+    # Route through the assistant-prose hierarchy helper so the REPL and
+    # workflow replay share the same padding/gutter behaviour (#1370).
+    render_assistant_prose(full_text)
 
 
 def render_newline() -> None:
     console.print()
+
+
+# ---------------------------------------------------------------------------
+# Per-turn completion summary (#1428)
+# ---------------------------------------------------------------------------
+
+
+def _humanize_tool_verb(tool_name: str) -> str:
+    """Return a short, past-tense verb for a tool name used in the turn summary.
+
+    Maps common tool names to compact verbs suitable for a single-line recap.
+    Unknown tools fall back to the tool name itself.
+    """
+    verb_map = {
+        "read_file": "read",
+        "file_read": "read",
+        "write_file": "write",
+        "file_write": "write",
+        "edit_file": "edit",
+        "file_edit": "edit",
+        "bash": "bash",
+        "glob_files": "glob",
+        "grep": "grep",
+        "run_agent": "subagent",
+        "create_canvas": "canvas",
+        "update_canvas": "canvas",
+        "patch_canvas": "canvas",
+        "ask_user": "ask",
+        "introspect": "introspect",
+    }
+    return verb_map.get(tool_name, tool_name)
+
+
+def _humanize_tool_verb_past(tool_name: str) -> str:
+    """Return a capitalised past-tense verb for tool-call completion lines (#1364).
+
+    Parallel to ``_humanize_tool_verb`` (which feeds the per-turn summary
+    in its own short-verb form); this table produces the verb-first phrasing
+    for the completion line (``Read src/foo.py``, ``Ran pytest -q``).
+
+    Unknown tools fall back to ``"Called"`` so MCP/custom tools still read
+    as an execution log entry (``Called mcp.some_tool``).
+    """
+    verb_map = {
+        "read_file": "Read",
+        "file_read": "Read",
+        "write_file": "Wrote",
+        "file_write": "Wrote",
+        "edit_file": "Edited",
+        "file_edit": "Edited",
+        "bash": "Ran",
+        "grep": "Searched",
+        "search": "Searched",
+        "ripgrep": "Searched",
+        "glob_files": "Globbed",
+        "glob": "Globbed",
+        "find_files": "Globbed",
+        "list_directory": "Listed",
+        "run_agent": "Delegated",
+        "create_canvas": "Created canvas",
+        "update_canvas": "Updated canvas",
+        "patch_canvas": "Patched canvas",
+        "ask_user": "Asked",
+        "ask_human": "Asked",
+        "introspect": "Introspected",
+    }
+    return verb_map.get(tool_name, "Called")
+
+
+def render_turn_summary(
+    *,
+    elapsed: float,
+    tools: list[dict[str, Any]] | None = None,
+    cancelled: bool = False,
+    error: str | None = None,
+) -> None:
+    """Render the single-line per-turn completion summary (#1428).
+
+    Composes one of:
+    - ``✓ done · 3.2s · 1 tool`` (success, one tool)
+    - ``✓ done · 7.0s · 3 tools`` (success, multiple tools)
+    - ``✓ done · 2.5s`` (success, no tools)
+    - ``cancelled · 1.1s`` (user cancelled)
+    - ``failed: {error} · 2.0s`` (error; takes priority over cancelled)
+
+    In ``Verbosity.DETAILED`` mode, appends up to 3 distinct tool verbs after
+    the tool count to give a quick recap of what happened.
+
+    Theme-aware: uses ``_theme.success``/``.muted``/``.error`` so it honours
+    the active CLI theme.
+
+    Non-blocking: writes one line and returns. Must render *after*
+    ``stop_thinking_sync()``'s cancel ack and *before* ``render_response_end()``
+    so the assistant's final markdown body appears under the summary.
+    """
+    tools = tools or []
+    muted = _theme.muted
+    success = _theme.success
+    err = _theme.error or "red"
+    sep = "·"
+
+    # Error branch (wins over cancelled — more actionable).
+    if error:
+        text = Text()
+        text.append("failed: ", style=err)
+        text.append(error, style=err)
+        text.append(f"  {sep}  ", style=muted)
+        text.append(f"{elapsed:.1f}s", style=muted)
+        console.print(text)
+        return
+
+    # Cancelled branch.
+    if cancelled:
+        text = Text()
+        text.append("cancelled", style=muted)
+        text.append(f"  {sep}  ", style=muted)
+        text.append(f"{elapsed:.1f}s", style=muted)
+        console.print(text)
+        return
+
+    # Success branch.
+    text = Text()
+    text.append("\u2713 done", style=success)
+    text.append(f"  {sep}  ", style=muted)
+    text.append(f"{elapsed:.1f}s", style=muted)
+    if tools:
+        text.append(f"  {sep}  ", style=muted)
+        n = len(tools)
+        word = "tool" if n == 1 else "tools"
+        text.append(f"{n} {word}", style=muted)
+        # DETAILED: top 3 distinct verbs
+        if _verbosity == Verbosity.DETAILED:
+            seen: list[str] = []
+            for entry in tools:
+                verb = _humanize_tool_verb(entry.get("tool_name", ""))
+                if verb and verb not in seen:
+                    seen.append(verb)
+                if len(seen) >= 3:
+                    break
+            if seen:
+                text.append(f"  {sep}  ", style=muted)
+                text.append(" ".join(seen), style=muted)
+    console.print(text)
 
 
 # ---------------------------------------------------------------------------
@@ -1464,9 +1911,27 @@ def _render_diff_hunks(diff: list[str], old_lines: list[str], new_lines: list[st
         if i > 0:
             console.print(f"    [{MUTED}]...[/{MUTED}]")
 
+        # Density-aware context collapsing (#1367). NORMAL/DETAILED fall through
+        # to full hunk rendering, preserving byte-identical pre-#1367 output.
+        # ``/expand`` sets ``_force_full_diff`` to force the pass-through path
+        # regardless of the active density.
+        display_hunk: list[tuple[str, str]]
+        if _force_full_diff:
+            display_hunk = hunk_lines
+        elif _density in (ToolResultDensity.COMPACT, ToolResultDensity.MINIMAL):
+            display_hunk = list(
+                collapse_diff_hunks(
+                    hunk_lines,
+                    context_lines=_density_diff_context_lines,
+                    density=_density,
+                )
+            )
+        else:
+            display_hunk = hunk_lines
+
         old_num = old_start
         new_num = new_start
-        for tag, content in hunk_lines:
+        for tag, content in display_hunk:
             # Truncate long lines for display
             display = content.rstrip("\n")
             if len(display) > 120:
@@ -1484,6 +1949,9 @@ def _render_diff_hunks(diff: list[str], old_lines: list[str], new_lines: list[st
                 line_text.append(f" {display} ", style=_diff_add_bg())
                 console.print(line_text)
                 new_num += 1
+            elif tag == "~":
+                # Collapsed-context marker (compact mode).
+                console.print(f"    [{MUTED}]  {escape(display)}[/{MUTED}]")
             else:
                 line_text = Text()
                 line_text.append(f"    {new_num:>4} ", style=_diff_line_no())
@@ -1530,8 +1998,28 @@ async def _tool_ticker() -> None:
 
 
 def start_tool_ticker(summary: str) -> None:
-    """Start a live elapsed timer for the current tool call."""
+    """Start a live elapsed timer for the current tool call.
+
+    #1428: When the unified thinking ticker owns footer mode, this becomes a
+    no-op — the thinking ticker already routes through ``_phase_label()`` →
+    ``_tool_phase_label()`` when ``_thinking_phase == "tool_exec"``. Starting a
+    parallel tool ticker would produce two competing status surfaces (the very
+    thing #1428 exists to fix).
+
+    In non-footer paths (REPL without a bottom toolbar invalidator, or
+    non-REPL Rich Status spinner mode) the legacy ticker is still used so
+    those environments still get a live elapsed time.
+    """
     global _tool_ticker_task, _tool_ticker_summary, _tool_spinner
+    # Unified surface: in footer mode the thinking ticker already owns the
+    # busy indicator. Skip starting a parallel ticker task; leave
+    # _tool_ticker_summary empty so get_busy_status() returns a single slot.
+    if _footer_mode:
+        _tool_ticker_summary = ""
+        if _tool_ticker_task is not None:
+            _tool_ticker_task.cancel()
+            _tool_ticker_task = None
+        return
     # When multiple tools are active in parallel, show a grouped summary (#1366)
     if _active_tool_count > 1:
         _tool_ticker_summary = _tool_phase_label()
@@ -1574,8 +2062,252 @@ def stop_tool_ticker_sync() -> None:
 # ---------------------------------------------------------------------------
 
 
+# ---------------------------------------------------------------------------
+# Compact tool-call completion (#1364)
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class _LiveToolsState:
+    """In-renderer snapshot of the ``cli.live_tools`` config.
+
+    Mirrors ``CliLiveToolsConfig`` so the renderer does not import
+    ``anteroom.config`` at module level (keeps the renderer importable
+    from trimmed-down contexts like exec mode).
+    """
+
+    show_args_in_verbose: bool = True
+    show_metric_suffix: bool = True
+    metric_max_chars: int = 40
+
+
+_live_tools_state: _LiveToolsState = _LiveToolsState()
+
+
+def configure_live_tools(
+    *,
+    show_args_in_verbose: bool = True,
+    show_metric_suffix: bool = True,
+    metric_max_chars: int = 40,
+) -> None:
+    """Install live tool-call lifecycle renderer settings (#1364).
+
+    Called from ``cli/repl.py`` at startup with values sourced from
+    ``config.cli.live_tools``. Safe to call repeatedly; each call fully
+    replaces the previous state.
+    """
+    global _live_tools_state
+    # Clamp defensively — config.py already clamps, but the renderer must
+    # not rely on that when called directly from tests or embedders.
+    clamped = max(1, min(int(metric_max_chars), 200))
+    _live_tools_state = _LiveToolsState(
+        show_args_in_verbose=bool(show_args_in_verbose),
+        show_metric_suffix=bool(show_metric_suffix),
+        metric_max_chars=clamped,
+    )
+
+
+def get_live_tools_config() -> _LiveToolsState:
+    """Return the current live tools renderer state (test helper)."""
+    return _live_tools_state
+
+
+def _completion_metric(tool_name: str, output: Any) -> str:
+    """Extract a short metric suffix for a tool-call completion line.
+
+    Reads structured keys from the tool's output dict (``content``,
+    ``stdout``, ``bytes_written``, ``exit_code``, ``matches``, ``files``)
+    and returns a clamped-length string such as ``"42 lines"`` or
+    ``"exit 0"``. Returns ``""`` when nothing meaningful can be extracted
+    (including when the ``show_metric_suffix`` flag is off).
+    """
+    if not _live_tools_state.show_metric_suffix:
+        return ""
+    if not isinstance(output, dict):
+        return ""
+
+    name = tool_name.lower()
+    metric = ""
+
+    if name in ("read_file", "file_read", "edit_file", "file_edit"):
+        content = output.get("content")
+        if isinstance(content, str) and content:
+            lines = content.count("\n") + (0 if content.endswith("\n") else 1)
+            if lines <= 0:
+                lines = 1
+            metric = f"{lines} line" if lines == 1 else f"{lines} lines"
+    elif name in ("write_file", "file_write"):
+        bw = output.get("bytes_written")
+        if isinstance(bw, int) and bw >= 0:
+            if bw >= 1_048_576:
+                metric = f"{bw / 1_048_576:.1f} MB"
+            elif bw >= 1024:
+                metric = f"{bw / 1024:.1f} KB"
+            else:
+                metric = f"{bw} B"
+        else:
+            content = output.get("content")
+            if isinstance(content, str) and content:
+                lines = content.count("\n") + (0 if content.endswith("\n") else 1)
+                if lines <= 0:
+                    lines = 1
+                metric = f"{lines} line" if lines == 1 else f"{lines} lines"
+    elif name == "bash":
+        exit_code = output.get("exit_code")
+        if isinstance(exit_code, int):
+            metric = f"exit {exit_code}"
+        else:
+            stdout = output.get("stdout")
+            if isinstance(stdout, str) and stdout:
+                lines = stdout.count("\n") + (0 if stdout.endswith("\n") else 1)
+                if lines <= 0:
+                    lines = 1
+                metric = f"{lines} lines stdout" if lines != 1 else "1 line stdout"
+    elif name in ("grep", "search", "ripgrep"):
+        matches = output.get("matches")
+        if isinstance(matches, int):
+            metric = f"{matches} matches"
+        else:
+            content = output.get("content")
+            if isinstance(content, str) and content:
+                metric = f"{content.count(chr(10)) + 1} matches"
+    elif name in ("glob_files", "glob", "find_files"):
+        files = output.get("files")
+        if isinstance(files, list):
+            # glob_files now includes directories in its `files` list, so report a neutral count.
+            metric = f"{len(files)} paths"
+
+    # Generic fallback: if nothing matched but stdout/bytes are present,
+    # surface something compact. This keeps MCP/unknown tools quiet when
+    # they don't expose a recognised shape.
+    if not metric:
+        return ""
+
+    # Clamp
+    max_chars = _live_tools_state.metric_max_chars
+    if len(metric) > max_chars:
+        metric = metric[: max(1, max_chars - 1)] + "\u2026"  # ellipsis
+        metric = metric[:max_chars]
+    return metric
+
+
+def render_tool_call_completion(
+    tool_name: str,
+    status: str,
+    elapsed: float,
+    arguments: dict[str, Any],
+    output: Any,
+) -> None:
+    """Render a single compact completion line for a tool call (#1364).
+
+    Layout (compact/detailed):
+
+        │ ✓ Read src/foo.py  ·  5 lines  0.5s
+
+    Layout (failure):
+
+        │ ✗ Ran ls /nope  1.2s
+            No such file or directory
+
+    Layout (verbose + show_args_in_verbose): the completion line plus a
+    dim ``args: {...}`` footline underneath.
+
+    The gutter glyph is drawn from ``_TOOL_GUTTER_CHAR`` and styled with
+    ``_theme.tool_gutter``. Past-tense verb is sourced from
+    ``_humanize_tool_verb_past`` and the target phrase from the existing
+    ``_humanize_tool`` helper (stripped of its present-tense action prefix
+    when recognised).
+    """
+    muted = _theme.muted or ""
+    success = _theme.success or ""
+    err = _theme.error or "red"
+    gutter_color = _theme.tool_gutter or muted
+
+    # Verb + target
+    verb = _humanize_tool_verb_past(tool_name)
+    summary = _humanize_tool(tool_name, arguments)
+    # Strip the present-tense prefix (Reading/Writing/Editing/Searching/…) so
+    # "Read src/foo.py" reads cleanly rather than "Read Reading src/foo.py".
+    target = summary
+    for prefix in ("Reading ", "Writing ", "Editing ", "Searching for ", "Finding ", "Listing ", "Sub-agent: "):
+        if target.startswith(prefix):
+            target = target[len(prefix) :]
+            break
+    if target.startswith("bash "):
+        target = target[len("bash ") :]
+
+    icon = "\u2713" if status == "success" else "\u2717"
+    icon_style = success if status == "success" else err
+
+    line = Text()
+    if gutter_color:
+        line.append(f"{_TOOL_GUTTER_CHAR} ", style=gutter_color)
+    else:
+        line.append(f"{_TOOL_GUTTER_CHAR} ")
+    line.append(icon, style=icon_style)
+    line.append(" ")
+    line.append(f"{verb} {target}".rstrip(), style="bold" if muted == "" else muted)
+
+    # Metric suffix (muted) — only on success
+    if status == "success":
+        metric = _completion_metric(tool_name, output)
+        if metric:
+            if muted:
+                line.append("  \u00b7  ", style=muted)
+                line.append(metric, style=muted)
+            else:
+                line.append(f"  \u00b7  {metric}")
+
+    # Elapsed (muted) — suppressed for very short runs (<100 ms)
+    if elapsed >= 0.1:
+        if muted:
+            line.append("  ", style=muted)
+            line.append(f"{elapsed:.1f}s", style=muted)
+        else:
+            line.append(f"  {elapsed:.1f}s")
+
+    console.print(line)
+
+    # Failure error summary (one line, muted error color)
+    if status != "success":
+        summary_err = _error_summary(output)
+        if summary_err:
+            if err:
+                console.print(f"    [{err}]{escape(summary_err)}[/{err}]")
+            else:
+                console.print(f"    {escape(summary_err)}")
+
+    # Verbose args footline (opt-in) — only in VERBOSE mode.
+    if _verbosity == Verbosity.VERBOSE and _live_tools_state.show_args_in_verbose and arguments:
+        try:
+            args_str = json.dumps(arguments, indent=None, default=str)
+        except (TypeError, ValueError):
+            args_str = str(arguments)
+        if len(args_str) > 200:
+            args_str = args_str[:200] + "..."
+        chrome = _theme.chrome or muted
+        if chrome:
+            console.print(f"    [{chrome}]args: {escape(args_str)}[/{chrome}]")
+        else:
+            console.print(f"    args: {escape(args_str)}")
+
+
 def render_tool_call_start(tool_name: str, arguments: dict[str, Any]) -> None:
-    """Show tool call breadcrumb. Static print (no live spinner) for terminal compatibility."""
+    """Begin a tool-call lifecycle (#1364).
+
+    Under the compact lifecycle, the running phase lives entirely in the
+    unified thinking/footer ticker (fed via ``enter_tool_phase`` in the
+    caller). This helper:
+
+    1. Flushes any buffered AI prose so narration renders before tool output.
+    2. Records per-tool start time for accurate parallel elapsed.
+    3. Spaces before the first tool in a batch.
+    4. Kicks off the live elapsed ticker (no-op in footer mode).
+
+    It does NOT print a ``> tool(args)`` breadcrumb in VERBOSE any longer —
+    the completion line now carries the args footline instead, eliminating
+    the dual-surface duplication.
+    """
     global _tool_start, _tool_batch_active
 
     # Flush any buffered AI text so task explanations appear before tool output
@@ -1607,13 +2339,6 @@ def render_tool_call_start(tool_name: str, arguments: dict[str, Any]) -> None:
             console.print()
         _tool_batch_active = True
 
-    if _verbosity == Verbosity.VERBOSE:
-        # Full output: tool name + raw args
-        args_str = json.dumps(arguments, indent=None, default=str)
-        if len(args_str) > 200:
-            args_str = args_str[:200] + "..."
-        console.print(f"  [{CHROME}]> {escape(tool_name)}({escape(args_str)})[/{CHROME}]")
-
     # Start live elapsed timer — skip for interactive tools that use the terminal.
     # Stop any existing ticker first so it doesn't keep printing during input.
     if tool_name in ("ask_user", "ask_human"):
@@ -1623,7 +2348,21 @@ def render_tool_call_start(tool_name: str, arguments: dict[str, Any]) -> None:
 
 
 def render_tool_call_end(tool_name: str, status: str, output: Any) -> None:
-    """Show tool call result. Style depends on verbosity."""
+    """Render the tool-call completion phase (#1364).
+
+    Delegates the actual single-line layout to
+    ``render_tool_call_completion``; this function handles state-plumbing
+    concerns — stopping the elapsed ticker, matching the right
+    ``_current_turn_tools`` entry (important for parallel tools), updating
+    history, running the dedup accumulator, and routing through the inline
+    diff path for file-modifying tools.
+
+    Verbosity behaviour:
+    - All three modes (compact/detailed/verbose) share the same completion
+      line produced by ``render_tool_call_completion``. VERBOSE adds an
+      args footline inside the helper when ``cli.live_tools.show_args_in_verbose``
+      is on.
+    """
     stop_tool_ticker_sync()
     _detach_thinking_line_for_output()
 
@@ -1641,7 +2380,9 @@ def render_tool_call_end(tool_name: str, status: str, output: Any) -> None:
 
     # Use per-tool start time for accurate parallel elapsed calculation
     start = matched_entry.get("start_time", _tool_start) if matched_entry else _tool_start
-    elapsed = time.monotonic() - start if start else 0
+    elapsed = time.monotonic() - start if start else 0.0
+
+    arguments = matched_entry.get("arguments", {}) if matched_entry else {}
 
     if matched_entry:
         matched_entry["status"] = status
@@ -1650,36 +2391,34 @@ def render_tool_call_end(tool_name: str, status: str, output: Any) -> None:
 
     summary = matched_entry["summary"] if matched_entry else tool_name
 
-    if _verbosity == Verbosity.VERBOSE:
-        # Legacy-style
-        if status == "success":
-            style = _theme.success
-        else:
-            style = _theme.error
-        output_str = ""
-        if isinstance(output, dict):
-            if "error" in output:
-                output_str = f" - {output['error']}"
-            elif "content" in output:
-                content = output["content"]
-                if isinstance(content, str) and len(content) > 200:
-                    content = content[:200] + "..."
-                output_str = f" - {content}"
-            elif "stdout" in output:
-                stdout = output["stdout"]
-                if stdout and len(stdout) > 200:
-                    stdout = stdout[:200] + "..."
-                output_str = f" - {stdout}" if stdout else ""
-        text = Text(f"  < {tool_name}: {status}{output_str}", style=style)
-        console.print(text)
-        return
-
-    # Build the result line
+    # Dedup: collapse consecutive similar tool calls (success only).
     global _dedup_key, _dedup_count, _dedup_first_summary, _dedup_summary
-    _s = _theme.success
-    _e = _theme.error
-    status_icon = f"[{_s}]  ✓[/{_s}]" if status == "success" else f"[{_e}]  ✗[/{_e}]"
-    elapsed_str = f" {elapsed:.1f}s" if elapsed >= 0.1 else ""
+    global _repeat_shape_hash, _repeat_count, _repeat_summary
+
+    # Collapse-repeats (#1367): in compact/minimal modes with the knob on,
+    # identical successive successful tool outputs are suppressed and summed
+    # into a ``× N`` line. NORMAL/DETAILED modes are always pass-through so
+    # the byte-identical-default contract is preserved.
+    if (
+        status == "success"
+        and _density_collapse_repeats
+        and _density in (ToolResultDensity.COMPACT, ToolResultDensity.MINIMAL)
+    ):
+        shape = _repeat_shape_key(tool_name, output)
+        if shape and shape == _repeat_shape_hash and _repeat_count >= 1:
+            _repeat_count += 1
+            return
+        # Different shape (or first): flush any pending repeat group, then
+        # stash this one as the new head. Fall through to the normal render.
+        _flush_repeat_collapse()
+        _repeat_shape_hash = shape
+        _repeat_count = 1
+        _repeat_summary = summary
+    else:
+        # Any non-eligible tool event flushes a pending repeat group so the
+        # ``× N`` line lands before new output.
+        if _repeat_count >= 1:
+            _flush_repeat_collapse()
 
     # Dedup: collapse consecutive similar tool calls (compact/detailed only)
     key = _dedup_key_from_summary(summary) if _tool_dedup_enabled else ""
@@ -1690,7 +2429,9 @@ def render_tool_call_end(tool_name: str, status: str, output: Any) -> None:
     # Different tool type or first occurrence — flush previous dedup, print new line
     _flush_dedup()
 
-    # Inline diff for file-modifying tools (all verbosity levels)
+    # Inline diff for file-modifying tools (all verbosity levels). Diff path
+    # prints its own header and body — the completion helper is skipped so
+    # we don't double-print.
     if status == "success" and _has_diff_data(tool_name, output):
         _render_inline_diff(tool_name, output)
         _dedup_key = ""
@@ -1698,51 +2439,370 @@ def render_tool_call_end(tool_name: str, status: str, output: Any) -> None:
         _dedup_summary = ""
         return
 
+    # ask_user / ask_human in COMPACT mode: the interactive prompt was the
+    # user-visible surface; suppress a completion line entirely.
     if status == "success" and _verbosity == Verbosity.COMPACT and tool_name in ("ask_user", "ask_human"):
         _dedup_key = ""
         _dedup_count = 0
         _dedup_summary = ""
         return
 
+    # Unified completion line — single source of truth for the tool-call
+    # output shape across all verbosity modes.
+    render_tool_call_completion(
+        tool_name,
+        status,
+        elapsed=elapsed,
+        arguments=arguments if isinstance(arguments, dict) else {},
+        output=output,
+    )
+
     if status != "success":
-        console.print(f"{status_icon} {escape(summary)}{elapsed_str}")
-        err = _error_summary(output)
-        if err:
-            console.print(f"    [{_theme.error}]{escape(err)}[/{_theme.error}]")
         _dedup_key = ""
         _dedup_count = 0
         _dedup_summary = ""
-    elif _verbosity == Verbosity.DETAILED:
-        detail = _output_summary(output)
-        console.print(f"{status_icon} [{MUTED}]{escape(summary)}{elapsed_str}[/{MUTED}]")
-        if detail:
-            console.print(f"    [{CHROME}]{escape(detail)}[/{CHROME}]")
-        _dedup_key = key
-        _dedup_count = 1
-        _dedup_first_summary = summary
-        _dedup_summary = summary
     else:
-        # Compact: just result line
-        console.print(f"{status_icon} [{MUTED}]{escape(summary)}{elapsed_str}[/{MUTED}]")
         _dedup_key = key
         _dedup_count = 1
         _dedup_first_summary = summary
         _dedup_summary = summary
 
+    # Density-aware body augmentation (#1367). Only active when density is
+    # non-NORMAL, so the zero-config default stays byte-identical to legacy.
+    if _density != ToolResultDensity.NORMAL and status == "success":
+        _render_density_body(output)
+
 
 # ---------------------------------------------------------------------------
-# Errors
+# Density-aware body rendering (#1367)
 # ---------------------------------------------------------------------------
 
 
-def render_error(message: str) -> None:
-    e = _theme.error or "red"
-    console.print(f"\n[{e} bold]Error:[/{e} bold] {escape(message)}")
+def _extract_bulk_text(output: Any) -> str:
+    """Return the best "bulk content" string from a tool output for summarising."""
+    if output is None:
+        return ""
+    if isinstance(output, str):
+        return output
+    if isinstance(output, dict):
+        for key in ("stdout", "content", "text", "output", "result"):
+            value = output.get(key)
+            if isinstance(value, str) and value:
+                return value
+            if value:
+                try:
+                    return json.dumps(value, default=str)
+                except Exception:
+                    return str(value)
+        return ""
+    try:
+        return str(output)
+    except Exception:
+        return ""
+
+
+def _render_density_body(output: Any) -> None:
+    """Print a density-aware body fragment below the result line (#1367).
+
+    Only called when ``_density != NORMAL``. For ``MINIMAL`` we emit nothing.
+    For ``COMPACT`` we emit a ``[+N lines]`` hint when the body was trimmed.
+    For ``DETAILED`` we inline the head/tail-expanded body.
+    """
+    if _density == ToolResultDensity.NORMAL:
+        return
+    bulk = _extract_bulk_text(output)
+    if _density == ToolResultDensity.MINIMAL:
+        return
+    if not bulk:
+        return
+    densified = densify_output(
+        bulk,
+        _density,
+        head_lines=_density_head_lines,
+        tail_lines=_density_tail_lines,
+    )
+    if not densified:
+        return
+    for line in densified.split("\n"):
+        console.print(f"    [{MUTED}]{escape(line)}[/{MUTED}]")
+
+
+def render_tool_expand() -> None:
+    """Re-render the most recent tool call at ``DETAILED`` density.
+
+    Invoked by the ``/expand`` slash command. Reuses ``_current_turn_tools``
+    (or the saved ``_tool_history`` when called between turns) so no extra
+    state needs to be tracked.
+
+    #1367 follow-up: diff-backed outputs (``write_file``/``edit_file`` with
+    ``_old_content``/``_new_content``) reuse ``_render_inline_diff`` with the
+    ``_force_full_diff`` flag set, so the full un-collapsed diff renders
+    regardless of the active density.
+    """
+    global _force_full_diff
+    # Make sure any pending collapse-repeats group is printed before the
+    # expanded render lands.
+    _flush_repeat_collapse()
+
+    tools = _current_turn_tools or _tool_history
+    if not tools:
+        console.print(f"[{CHROME}]No tool call to expand in the current turn.[/{CHROME}]\n")
+        return
+    tc = tools[-1]
+    tool_name = tc.get("tool_name", "")
+    status = tc.get("status", "")
+    output = tc.get("output")
+    elapsed = tc.get("elapsed", 0) or 0
+    _s = _theme.success
+    _e = _theme.error
+    status_icon = f"[{_s}]  ✓[/{_s}]" if status == "success" else f"[{_e}]  ✗[/{_e}]"
+    elapsed_str = f" {elapsed:.1f}s" if elapsed >= 0.1 else ""
+    summary = tc.get("summary", tool_name)
+    console.print(f"{status_icon} [bold]{escape(summary)}[/bold]{elapsed_str}")
+
+    # Diff-backed results: route through the inline diff renderer with
+    # hunk-collapsing disabled so ``/expand`` shows the full context.
+    if status == "success" and _has_diff_data(tool_name, output) and isinstance(output, dict):
+        _force_full_diff = True
+        try:
+            _render_inline_diff(tool_name, output)
+        finally:
+            _force_full_diff = False
+        return
+
+    bulk = _extract_bulk_text(output)
+    if not bulk:
+        err = _error_summary(output) if isinstance(output, dict) else ""
+        if err:
+            console.print(f"    [{_theme.error}]{escape(err)}[/{_theme.error}]")
+        return
+    expanded = densify_output(
+        bulk,
+        ToolResultDensity.DETAILED,
+        head_lines=_density_head_lines,
+        tail_lines=_density_tail_lines,
+    )
+    for line in expanded.split("\n"):
+        console.print(f"    [{CHROME}]{escape(line)}[/{CHROME}]")
+
+
+def render_density_change(density: ToolResultDensity) -> None:
+    """Announce a runtime density change (from the ``/density`` slash command)."""
+    labels = {
+        ToolResultDensity.MINIMAL: "minimal",
+        ToolResultDensity.COMPACT: "compact",
+        ToolResultDensity.NORMAL: "normal (default)",
+        ToolResultDensity.DETAILED: "detailed",
+    }
+    console.print(f"[{CHROME}]Density: {labels[density]}[/{CHROME}]\n")
+
+
+# ---------------------------------------------------------------------------
+# Visual hierarchy containers (#1370)
+#
+# Pure helpers that emit Rich renderables for each message type: user input,
+# AI prose, system messages (info/warning/error), turn separators, and code
+# blocks. Callers (render_response_end, render_error, render_warning, the
+# queued-message separator, transcript_renderer) route through these helpers
+# so the same theme-aware visual lanes apply consistently across the REPL
+# and workflow replays.
+# ---------------------------------------------------------------------------
+
+
+_USER_GUTTER_CHAR = "\u2502"  # │
+_ASSISTANT_GUTTER_CHAR = "\u2502"  # │
+_TOOL_GUTTER_CHAR = "\u2502"  # │
+_SYSTEM_GUTTER_CHAR = "\u2502"  # │
+
+
+def _system_kind_style(kind: str) -> tuple[str, str]:
+    """Return ``(label, color)`` for a system-message kind.
+
+    Unknown kinds degrade to ``info``.
+    """
+    if kind == "error":
+        return "Error", _theme.error or "red"
+    if kind == "warning":
+        return "Warning", _theme.warning or "yellow"
+    # default / "info" / anything else
+    return "Info", _theme.chrome or _theme.muted or ""
+
+
+def render_user_message(
+    text: str,
+    *,
+    position: int | None = None,
+    queue_depth: int = 0,
+) -> None:
+    """Render a user message with the user-gutter lane.
+
+    ``position`` and ``queue_depth`` are optional for queued-message
+    rendering in the REPL: if both are provided, a ``[position/total]``
+    prefix is appended to the gutter line. Whitespace-only inputs are
+    still rendered (an empty gutter line is visually unhelpful but the
+    caller already decides whether to invoke this helper).
+    """
+    color = _theme.user_gutter or _theme.accent or ""
+    meta = ""
+    if isinstance(position, int) and queue_depth >= 0:
+        total = position + queue_depth
+        meta = f" [{position}/{total}]"
+    gutter = _USER_GUTTER_CHAR
+    if color:
+        line = f"\n[{color}]{gutter}{escape(meta)} {escape(text)}[/{color}]"
+    else:
+        line = f"\n{gutter}{escape(meta)} {escape(text)}"
+    console.print(line)
+
+
+def render_assistant_prose(markdown_text: str) -> None:
+    """Render assistant prose via Rich Markdown inside a padded lane.
+
+    Whitespace-only inputs are suppressed (matches the pre-existing
+    behaviour of ``render_response_end``).
+    """
+    if not markdown_text or not markdown_text.strip():
+        return
+
+    from rich.padding import Padding
+
+    _stdout_console.print(Padding(_make_markdown(markdown_text), (0, 2, 1, 2)))
+
+
+def render_system_message(kind: str, text: str) -> None:
+    """Render an info/warning/error system message with consistent framing."""
+    label, color = _system_kind_style(kind)
+    if color:
+        console.print(f"\n[bold {color}]{label}:[/] {escape(text)}")
+    else:
+        console.print(f"\n{label}: {escape(text)}")
+
+
+def render_turn_separator(char: str | None = None) -> None:
+    """Render a thin horizontal separator between conversation turns.
+
+    ``char`` defaults to ``"\u2500"`` (box-drawing light horizontal). Callers
+    that have config access can pass ``config.cli.hierarchy.turn_separator_char``
+    to honour user preferences.
+    """
+    sep_char = char if char else "\u2500"
+    color = _theme.turn_separator or _theme.chrome or ""
+    # Build a short separator line (24 cols is scanable without dominating the
+    # terminal); the left indent matches the 2-col padding used by the other
+    # hierarchy helpers.
+    body = sep_char * 24
+    if color:
+        console.print(f"  [{color}]{body}[/{color}]")
+    else:
+        console.print(f"  {body}")
+
+
+def _code_block_container(
+    language: str,
+    source: str,
+    *,
+    show_label: bool = True,
+) -> Any:
+    """Return a Rich renderable wrapping ``source`` as a syntax-highlighted
+    code block, optionally prefixed by a small language label.
+
+    Used internally by the markdown renderer for fenced code blocks and by
+    future callers that render structured code output. Kept as a helper
+    rather than a free-standing ``render_*`` so callers choose where to
+    emit the renderable.
+    """
+    from rich.console import Group
+    from rich.syntax import Syntax
+    from rich.text import Text
+
+    label_color = _theme.code_label or _theme.code_inline or ""
+    bg = _theme.code_bg or ""
+    syntax = Syntax(
+        source,
+        language or "text",
+        theme="monokai",
+        background_color=bg or None,
+        word_wrap=True,
+    )
+    if show_label and language:
+        label = Text(f"  {language}", style=label_color or "")
+        return Group(label, syntax)
+    return syntax
+
+
+# ---------------------------------------------------------------------------
+# Errors / warnings — thin wrappers around render_system_message
+# ---------------------------------------------------------------------------
+
+
+def render_error(message: str | dict[str, Any]) -> None:
+    render_system_message("error", format_user_error(message))
 
 
 def render_warning(message: str) -> None:
-    w = _theme.warning or "yellow"
-    console.print(f"\n[{w} bold]Warning:[/{w} bold] {escape(message)}")
+    render_system_message("warning", message)
+
+
+def render_hook_outcome(
+    outcome: str,
+    tool_name: str,
+    *,
+    message: str = "",
+    hook_id: str = "",
+    error_type: str = "",
+) -> None:
+    """Render a hook-caused tool block, warn, or timeout on the existing error/warning surface.
+
+    Maps hook outcomes to the closest existing surface:
+    - ``"deny"`` (pre or post tool) → error surface: "Hook blocked <tool>: <message>"
+    - ``"ask"`` when no approval channel → error surface: "Hook requires approval for <tool>"
+    - ``"warn"`` (non-blocking, informational) → warning surface
+    - ``error_type="timeout"`` → warning surface with timeout context
+    - ``error_type="exception"`` → warning surface
+
+    ``outcome="allow"`` with no ``error_type`` is a no-op (hooks that allow are
+    invisible to the user).  A failed/timed-out hook still produces a warning
+    even if its outcome defaults to ``"allow"`` (fail-open contract).
+    """
+    if outcome == "allow" and not error_type:
+        return
+
+    err = _theme.error or "red"
+    warn = _theme.warning or "yellow"
+    muted = _theme.muted or ""
+
+    tool_label = escape(tool_name) if tool_name else "tool"
+    msg_suffix = f": {escape(message)}" if message else ""
+    id_suffix = f" [{escape(hook_id)}]" if hook_id else ""
+
+    if error_type == "timeout":
+        color = warn
+        label = "Warning"
+        body = f"Hook timed out for {tool_label}{id_suffix} — continuing"
+    elif error_type == "exception":
+        color = warn
+        label = "Warning"
+        body = f"Hook error for {tool_label}{id_suffix} — continuing"
+    elif outcome == "deny":
+        color = err
+        label = "Hook blocked"
+        body = f"{tool_label}{id_suffix}{msg_suffix}"
+    elif outcome == "warn":
+        color = warn
+        label = "Hook warning"
+        body = f"{tool_label}{id_suffix}{msg_suffix}"
+    else:
+        color = warn
+        label = "Hook"
+        body = f"{outcome} for {tool_label}{id_suffix}{msg_suffix}"
+
+    if color:
+        console.print(f"\n[bold {color}]{escape(label)}:[/] {body}")
+    else:
+        console.print(f"\n{escape(label)}: {body}")
+
+    if muted and hook_id and outcome not in ("allow", "warn") and not error_type:
+        console.print(f"  [{muted}]hook: {escape(hook_id)}[/{muted}]")
 
 
 def startup_step(message: str) -> Status:
@@ -1993,17 +3053,12 @@ def format_status_toolbar(
             parts.append(("class:bottom-toolbar.sep", " \u00b7 "))
             parts.append(("class:bottom-toolbar.mcp", f"MCP: {', '.join(connecting)}"))
 
-    # Busy state: tool label and/or thinking indicator
-    if busy_status is not None:
-        if busy_status.tool_label:
-            parts.append(("class:bottom-toolbar.sep", " \u00b7 "))
-            parts.append(("class:bottom-toolbar.model", busy_status.tool_label))
-        if busy_status.thinking_text:
-            parts.append(("class:bottom-toolbar.sep", " \u00b7 "))
-            parts.append(("class:bottom-toolbar.tokens-warn", busy_status.thinking_text))
-        if busy_status.show_cancel_hint:
-            parts.append(("class:bottom-toolbar.sep", " \u00b7 "))
-            parts.append(("class:bottom-toolbar.dim", "esc to cancel"))
+    # Busy state: single unified slot for the live-turn status (#1428).
+    # When thinking_text is present it already carries the label (including
+    # tool-context via _phase_label() → _tool_phase_label() during tool_exec),
+    # so we suppress the separate tool_label slot to avoid two competing
+    # surfaces. tool_label still renders when it is the only busy signal.
+    parts.extend(format_busy_status_toolbar(busy_status))
 
     # Strip trailing separator if present
     if parts and parts[-1][0] == "class:bottom-toolbar.sep":
@@ -2229,7 +3284,12 @@ def clear_subagent_state() -> None:
 
 
 def render_subagent_start(agent_id: str, prompt: str, model: str, depth: int) -> None:
-    """Show that a sub-agent has been launched."""
+    """Show that a sub-agent has been launched (#1460 compact surface).
+
+    One single line per agent. Per-tool events do not print — they just bump
+    the internal tool count used by ``render_subagent_end``. The terminal
+    line is rendered later by ``render_subagent_end``.
+    """
     _active_subagents[agent_id] = {
         "prompt": prompt,
         "model": model,
@@ -2238,38 +3298,55 @@ def render_subagent_start(agent_id: str, prompt: str, model: str, depth: int) ->
         "start_time": time.monotonic(),
     }
     indent = "  " * depth
-    truncated_prompt = prompt[:80] + "..." if len(prompt) > 80 else prompt
-    console.print(f"{indent}[{GOLD}]▶ Agent[/] [bold]{escape(agent_id)}[/bold] [{MUTED}]({model})[/{MUTED}]")
-    console.print(f"{indent}  [{CHROME}]{escape(truncated_prompt)}[/{CHROME}]")
+    truncated_prompt = _subagent_prompt_preview(prompt, limit=60)
+    model_chip = f" [{MUTED}]({escape(model)})[/{MUTED}]" if model else ""
+    console.print(
+        f"{indent}[{GOLD}]▶ {escape(agent_id)}[/{GOLD}]{model_chip} [{CHROME}]{escape(truncated_prompt)}[/{CHROME}]"
+    )
 
 
 def render_subagent_tool(agent_id: str, tool_name: str, arguments: dict[str, Any] | None = None) -> None:
-    """Show a tool being used by a sub-agent (compact breadcrumb)."""
+    """Track a sub-agent tool call (#1460 — count only, no stdout spam)."""
     info = _active_subagents.get(agent_id)
     if not info:
         return
     info["tools"].append(tool_name)
-    depth = info.get("depth", 1)
-    indent = "  " * depth
-    summary = _humanize_tool(tool_name, arguments or {})
-    console.print(f"{indent}  [{CHROME}]  ✓ {escape(summary)}[/{CHROME}]")
 
 
 def render_subagent_end(agent_id: str, elapsed: float, tool_calls: list[str], error: str | None = None) -> None:
-    """Show sub-agent completion."""
+    """Render the sub-agent terminal status line (#1460).
+
+    Format: ``{indent}<marker> <agent_id>: <status> · <duration> · <summary>``
+
+    - Success → theme ``success`` color, ``✓`` marker
+    - Failure → theme ``error`` color, ``✗`` marker, first-line error preview
+    """
     info = _active_subagents.pop(agent_id, None)
     depth = info.get("depth", 1) if info else 1
     indent = "  " * depth
     tool_count = len(tool_calls)
+    plural = "s" if tool_count != 1 else ""
 
     if error:
+        first_line = str(error).split("\n")[0].strip()
+        if len(first_line) > 80:
+            first_line = first_line[:77] + "..."
         e = _theme.error
-        console.print(f"{indent}[{e}]■ Agent {escape(agent_id)} failed ({elapsed:.1f}s): {escape(error)}[/{e}]")
+        console.print(f"{indent}[{e}]✗ {escape(agent_id)}: failed · {elapsed:.1f}s · {escape(first_line)}[/{e}]")
     else:
+        s = _theme.success
         console.print(
-            f"{indent}[{_theme.success}]■ Agent {escape(agent_id)}[/{_theme.success}] "
-            f"[{MUTED}]done in {elapsed:.1f}s · {tool_count} tool call{'s' if tool_count != 1 else ''}[/{MUTED}]"
+            f"{indent}[{s}]✓ {escape(agent_id)}[/{s}] "
+            f"[{MUTED}]done · {elapsed:.1f}s · {tool_count} tool{plural}[/{MUTED}]"
         )
+
+
+def _subagent_prompt_preview(prompt: str, limit: int = 60) -> str:
+    """Collapse newlines and truncate a sub-agent prompt for a single-line surface."""
+    oneline = " ".join(prompt.split())
+    if len(oneline) > limit:
+        return oneline[: limit - 3].rstrip() + "..."
+    return oneline
 
 
 def render_rag_sources(chunks: list[Any]) -> None:
@@ -2336,20 +3413,24 @@ def render_attribution_footer(snapshot: Any) -> None:
     elif getattr(snapshot, "turns", None) is None:
         return
     try:
+        from .attribution_counts import _attribution_count
+
         if isinstance(snapshot, dict):
-            turns = len(snapshot.get("turns") or [])
-            memory = len(snapshot.get("memory") or [])
-            sources = len(snapshot.get("sources") or [])
-            tools = len(snapshot.get("tools") or [])
-            packs = len(snapshot.get("packs") or [])
+            turns = _attribution_count(snapshot, "turns")
+            memory = _attribution_count(snapshot, "memory")
+            sources = _attribution_count(snapshot, "sources")
+            tools = _attribution_count(snapshot, "tools")
+            packs = _attribution_count(snapshot, "packs")
+            instructions = _attribution_count(snapshot, "instructions")
             dlp = int(snapshot.get("dlp_match_count", 0) or 0)
             of = int(snapshot.get("output_filter_match_count", 0) or 0)
         else:
-            turns = len(getattr(snapshot, "turns", []) or [])
-            memory = len(getattr(snapshot, "memory", []) or [])
-            sources = len(getattr(snapshot, "sources", []) or [])
-            tools = len(getattr(snapshot, "tools", []) or [])
-            packs = len(getattr(snapshot, "packs", []) or [])
+            turns = _attribution_count(snapshot, "turns")
+            memory = _attribution_count(snapshot, "memory")
+            sources = _attribution_count(snapshot, "sources")
+            tools = _attribution_count(snapshot, "tools")
+            packs = _attribution_count(snapshot, "packs")
+            instructions = _attribution_count(snapshot, "instructions")
             dlp = int(getattr(snapshot, "dlp_match_count", 0) or 0)
             of = int(getattr(snapshot, "output_filter_match_count", 0) or 0)
     except Exception:
@@ -2361,6 +3442,11 @@ def render_attribution_footer(snapshot: Any) -> None:
         f"{tools} tools",
         f"{packs} packs",
     ]
+    # Instructions segment (#1462) — hidden when no file was loaded so the
+    # default zero-context footer stays compact.
+    if instructions:
+        noun = "instruction file" if instructions == 1 else "instruction files"
+        parts.append(f"{instructions} {noun}")
     if dlp:
         parts.append(f"DLP:{dlp}")
     if of:

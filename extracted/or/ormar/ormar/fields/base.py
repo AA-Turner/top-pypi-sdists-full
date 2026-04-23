@@ -57,6 +57,12 @@ class BaseField(FieldInfo):  # type: ignore[misc]
         self.through_reverse_relation_name = kwargs.pop(
             "through_reverse_relation_name", None
         )
+        self.through_foreign_key_name: Optional[str] = kwargs.pop(
+            "through_foreign_key_name", None
+        )
+        self.through_reverse_foreign_key_name: Optional[str] = kwargs.pop(
+            "through_reverse_foreign_key_name", None
+        )
 
         self.skip_reverse: bool = kwargs.pop("skip_reverse", False)
         self.skip_field: bool = kwargs.pop("skip_field", False)
@@ -84,6 +90,7 @@ class BaseField(FieldInfo):  # type: ignore[misc]
 
         self.ormar_default: Any = kwargs.pop("default", None)
         self.server_default: Any = kwargs.pop("server_default", None)
+        self.on_update: Any = kwargs.pop("on_update", None)
 
         self.comment: str = kwargs.pop("comment", None)
 
@@ -235,6 +242,24 @@ class BaseField(FieldInfo):  # type: ignore[misc]
             self.server_default is not None and use_server
         )
 
+    def has_on_update(self) -> bool:
+        """
+        Checks if the field has an on_update value or callable configured.
+
+        :return: result of the check if on_update value is set
+        :rtype: bool
+        """
+        return self.on_update is not None
+
+    def get_on_update(self) -> Any:
+        """
+        Resolves the on_update value, calling it if it is a callable.
+
+        :return: resolved on_update value
+        :rtype: Any
+        """
+        return self.on_update() if callable(self.on_update) else self.on_update
+
     def is_auto_primary_key(self) -> bool:
         """
         Checks if field is first a primary key and if it,
@@ -257,16 +282,20 @@ class BaseField(FieldInfo):  # type: ignore[misc]
         :return: list of sqlalchemy foreign keys - by default one.
         :rtype: list[sqlalchemy.schema.ForeignKey]
         """
-        constraints = [
-            sqlalchemy.ForeignKey(
-                con.reference,
-                ondelete=con.ondelete,
-                onupdate=con.onupdate,
-                name=f"fk_{self.owner.ormar_config.tablename}_{self.to.ormar_config.tablename}"
-                f"_{self.to.get_column_alias(self.to.ormar_config.pkname)}_{self.name}",
+        constraints = []
+        for constraint in self.constraints:
+            owner_table = self.owner.ormar_config.tablename
+            target_table = self.to.ormar_config.tablename
+            target_pk = self.to.get_column_alias(self.to.ormar_config.pkname)
+            default_name = f"fk_{owner_table}_{target_table}_{target_pk}_{self.name}"
+            constraints.append(
+                sqlalchemy.ForeignKey(
+                    constraint.reference,
+                    ondelete=constraint.ondelete,
+                    onupdate=constraint.onupdate,
+                    name=constraint.name or default_name,
+                )
             )
-            for con in self.constraints
-        ]
         return constraints
 
     def get_column(self, name: str) -> sqlalchemy.Column:
@@ -286,6 +315,7 @@ class BaseField(FieldInfo):  # type: ignore[misc]
                 self.column_type,
                 *self.construct_constraints(),
                 primary_key=self.primary_key,
+                autoincrement=self.autoincrement,
                 nullable=self.sql_nullable,
                 index=self.index,
                 unique=self.unique,

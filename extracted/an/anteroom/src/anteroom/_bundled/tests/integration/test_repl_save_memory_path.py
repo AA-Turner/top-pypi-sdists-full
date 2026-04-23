@@ -71,7 +71,7 @@ def _identity(user_id: str) -> UserIdentity:
 class TestBuildToolExtraContext:
     """Pin the exact dict the REPL hands to ``ToolRegistry.call_tool``."""
 
-    def test_contains_all_six_keys(self, db: ThreadSafeConnection) -> None:
+    def test_contains_all_seven_keys(self, db: ThreadSafeConnection) -> None:
         cfg = _TestConfig(identity=_identity("u-1"))
         ctx = build_tool_extra_context(
             bg_manager=None,
@@ -87,6 +87,7 @@ class TestBuildToolExtraContext:
             "db",
             "config",
             "user_id",
+            "tool_call_id",
         }
 
     def test_config_passed_through(self, db: ThreadSafeConnection) -> None:
@@ -104,6 +105,18 @@ class TestBuildToolExtraContext:
         cfg = _TestConfig(identity=None)
         ctx = build_tool_extra_context(bg_manager=None, detach_manager=None, conversation_id=CONV, db=db, config=cfg)
         assert ctx["user_id"] is None
+
+    def test_tool_call_id_passed_through(self, db: ThreadSafeConnection) -> None:
+        cfg = _TestConfig(identity=_identity("u-call"))
+        ctx = build_tool_extra_context(
+            bg_manager=None,
+            detach_manager=None,
+            conversation_id=CONV,
+            db=db,
+            config=cfg,
+            tool_call_id="call-xyz",
+        )
+        assert ctx["tool_call_id"] == "call-xyz"
 
 
 # ---------------------------------------------------------------------------

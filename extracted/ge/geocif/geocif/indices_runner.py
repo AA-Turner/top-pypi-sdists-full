@@ -66,11 +66,35 @@ def get_crops(country, parser):
     return ast.literal_eval(_require_country_option(parser, country, "crops"))
 
 
-def get_seasons(country, parser):
-    """Return the list of harvest seasons for ``country`` (defaults to ``[1]``)."""
-    return ast.literal_eval(
-        _get_country_option(parser, country, "seasons", default="[1]")
-    )
+def get_seasons(country, parser, crop=None):
+    """Return the list of harvest seasons for ``country``.
+
+    If ``seasons`` is configured, use it directly.  Otherwise auto-detect
+    from the crop calendar Excel file by checking which season sheets have
+    positive calendar values for this country/crop.  Falls back to ``[1]``
+    when neither config nor calendar data is available.
+    """
+    raw = _get_country_option(parser, country, "seasons", default="")
+    if raw:
+        return ast.literal_eval(raw)
+
+    # Auto-detect from crop calendar file
+    if crop is not None:
+        from pathlib import Path
+        from geocif import utils as ut
+
+        dir_calendars = Path(parser.get("PATHS", "dir_crop_calendars"))
+        calendar_file = _get_country_option(parser, country, "calendar_file", default="")
+        if calendar_file:
+            calendar_path = dir_calendars / calendar_file
+            country_display = country.replace("_", " ").title()
+            detected = ut.detect_seasons_from_calendar(
+                calendar_path, country_display, crop
+            )
+            logger.info(f"Auto-detected seasons {detected} for {country} {crop} from {calendar_file}")
+            return detected
+
+    return [1]
 
 
 def get_input_file_path(country, parser, data_source="harvest") -> Path:
@@ -146,10 +170,10 @@ class cid_runner(base.BaseGeo):
             country_path = get_input_file_path(country, self.parser, data_source="harvest")
 
             crops = get_crops(country, self.parser)
-            seasons = get_seasons(country, self.parser)
             admin_zone = get_admin_zone(country, self.parser)
 
             for crop in crops:
+                seasons = get_seasons(country, self.parser, crop=crop)
                 for season in seasons:
                     filename = f"{country_lower}_{crop}_s{season}.csv"
                     filepath = country_path / filename

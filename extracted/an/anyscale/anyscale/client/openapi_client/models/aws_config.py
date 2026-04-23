@@ -40,6 +40,7 @@ class AWSConfig(object):
         'anyscale_iam_role_id': 'str',
         'external_id': 'str',
         'cluster_iam_role_id': 'str',
+        'cluster_instance_profile_id': 'str',
         'memorydb_cluster_name': 'str',
         'memorydb_cluster_arn': 'str',
         'memorydb_cluster_endpoint': 'str',
@@ -54,13 +55,14 @@ class AWSConfig(object):
         'anyscale_iam_role_id': 'anyscale_iam_role_id',
         'external_id': 'external_id',
         'cluster_iam_role_id': 'cluster_iam_role_id',
+        'cluster_instance_profile_id': 'cluster_instance_profile_id',
         'memorydb_cluster_name': 'memorydb_cluster_name',
         'memorydb_cluster_arn': 'memorydb_cluster_arn',
         'memorydb_cluster_endpoint': 'memorydb_cluster_endpoint',
         'cloudformation_id': 'cloudformation_id'
     }
 
-    def __init__(self, vpc_id=None, subnet_ids=None, zones=None, security_group_ids=None, anyscale_iam_role_id=None, external_id=None, cluster_iam_role_id=None, memorydb_cluster_name=None, memorydb_cluster_arn=None, memorydb_cluster_endpoint=None, cloudformation_id=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, vpc_id=None, subnet_ids=None, zones=None, security_group_ids=None, anyscale_iam_role_id=None, external_id=None, cluster_iam_role_id=None, cluster_instance_profile_id=None, memorydb_cluster_name=None, memorydb_cluster_arn=None, memorydb_cluster_endpoint=None, cloudformation_id=None, local_vars_configuration=None):  # noqa: E501
         """AWSConfig - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -73,6 +75,7 @@ class AWSConfig(object):
         self._anyscale_iam_role_id = None
         self._external_id = None
         self._cluster_iam_role_id = None
+        self._cluster_instance_profile_id = None
         self._memorydb_cluster_name = None
         self._memorydb_cluster_arn = None
         self._memorydb_cluster_endpoint = None
@@ -93,6 +96,8 @@ class AWSConfig(object):
             self.external_id = external_id
         if cluster_iam_role_id is not None:
             self.cluster_iam_role_id = cluster_iam_role_id
+        if cluster_instance_profile_id is not None:
+            self.cluster_instance_profile_id = cluster_instance_profile_id
         if memorydb_cluster_name is not None:
             self.memorydb_cluster_name = memorydb_cluster_name
         if memorydb_cluster_arn is not None:
@@ -262,6 +267,29 @@ class AWSConfig(object):
         """
 
         self._cluster_iam_role_id = cluster_iam_role_id
+
+    @property
+    def cluster_instance_profile_id(self):
+        """Gets the cluster_instance_profile_id of this AWSConfig.  # noqa: E501
+
+        The IAM instance profile ARN attached to Ray cluster nodes. Defaults to the instance profile with the same name as `cluster_iam_role_id`. Set this explicitly when your IAM tooling generates a profile name that differs from the role name.  # noqa: E501
+
+        :return: The cluster_instance_profile_id of this AWSConfig.  # noqa: E501
+        :rtype: str
+        """
+        return self._cluster_instance_profile_id
+
+    @cluster_instance_profile_id.setter
+    def cluster_instance_profile_id(self, cluster_instance_profile_id):
+        """Sets the cluster_instance_profile_id of this AWSConfig.
+
+        The IAM instance profile ARN attached to Ray cluster nodes. Defaults to the instance profile with the same name as `cluster_iam_role_id`. Set this explicitly when your IAM tooling generates a profile name that differs from the role name.  # noqa: E501
+
+        :param cluster_instance_profile_id: The cluster_instance_profile_id of this AWSConfig.  # noqa: E501
+        :type: str
+        """
+
+        self._cluster_instance_profile_id = cluster_instance_profile_id
 
     @property
     def memorydb_cluster_name(self):

@@ -158,6 +158,13 @@ def _io_observer(
     return observer_thread
 
 
+def _close_fd(fd: int) -> None:
+    try:
+        os.close(fd)
+    except OSError:
+        pass
+
+
 def _unblocked_pipe() -> tuple[int, int]:
     """Create a pair of unblocked pipes. This is actually
     the same as os.pipe2(os.O_NONBLOCK), but that is not
@@ -194,6 +201,12 @@ def logged_io(
     try:
         yield stdout_writer_fd, stderr_writer_fd, log_writer_fd
     finally:
+        # Close writer FDs first — the child process has its own copies
+        # (via dup2/pass_fds), so this only affects the parent.  Closing
+        # writers lets the reader side see EOF once the child exits.
+        for fd in (stdout_writer_fd, stderr_writer_fd, log_writer_fd):
+            _close_fd(fd)
+
         termination_event.set()
         try:
             # The observer thread checks the termination event in every
@@ -203,6 +216,9 @@ def logged_io(
             io_observer.join(timeout=_CHECK_FOR_TERMINATION_DELAY * 3)
         except TimeoutError:
             raise RuntimeError("Log observers did not terminate in time.")
+        finally:
+            for fd in (stdout_reader_fd, stderr_reader_fd, log_reader_fd):
+                _close_fd(fd)
 
 
 @lru_cache(maxsize=None)

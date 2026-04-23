@@ -2,6 +2,17 @@
 
 #include "parse.h"
 #include "render.h"
+#include "parse/utils/bitmap/bitmap_exporter.h"
+
+namespace
+{
+std::filesystem::path page_pdf_output_path(std::filesystem::path const& image_path)
+{
+  std::filesystem::path pdf_path = image_path;
+  pdf_path.replace_extension(".pdf");
+  return pdf_path;
+}
+}
 
 struct ImageIssue
 {
@@ -49,7 +60,11 @@ struct yellow_box_inspector
 static int analyse_pdf(const std::string&      pdf_path,
                        std::vector<ImageIssue>& entries,
                        int&                     total_pages,
-                       const std::string&       render_dir)
+                       const std::string&       render_dir,
+                       bool                     export_bitmaps,
+                       bool                     export_page_pdf,
+                       const std::string&       bitmap_dir,
+                       int                      target_page)
 {
   pdflib::pdf_decoder<pdflib::DOCUMENT> doc;
   std::optional<std::string> password = std::nullopt;
@@ -90,6 +105,11 @@ static int analyse_pdf(const std::string&      pdf_path,
 
   for (int page_num = 0; page_num < num_pages; page_num++)
     {
+      if(target_page >= 0 and page_num != target_page)
+        {
+          continue;
+        }
+
       std::shared_ptr<pdflib::pdf_decoder<pdflib::PAGE>> page_dec;
 
       try
@@ -112,6 +132,15 @@ static int analyse_pdf(const std::string&      pdf_path,
       // this page — same condition the renderer uses.
       yellow_box_inspector inspector;
       page_dec->get_instructions().iterate_over_instructions(inspector);
+
+      if(export_bitmaps)
+        {
+          pdflib::bitmap_export::bitmap_exporter_visitor exporter(
+            std::filesystem::path(bitmap_dir),
+            pdf_path,
+            page_num);
+          page_dec->get_instructions().iterate_over_instructions(exporter);
+        }
 
       // Check every image on this page for stream / render issues.
       bool page_has_issue = false;
@@ -166,6 +195,10 @@ static int analyse_pdf(const std::string&      pdf_path,
               pdflib::renderer<pdflib::BLEND2D> rnd(render_cfg);
               page_dec->get_instructions().iterate_over_instructions(rnd);
               rnd.save(out_path);
+              if(export_page_pdf)
+                {
+                  page_dec->save_pdf_page(page_pdf_output_path(out_path));
+                }
               LOG_S(INFO) << "saved rendered page: " << out_path;
             }
           catch (std::exception const& exc)
@@ -235,6 +268,12 @@ int main(int argc, char* argv[])
         ("i,input",      "Input PDF file or directory",                    cxxopts::value<std::string>())
         ("o,output",     "Output JSON file (optional)",                    cxxopts::value<std::string>())
         ("r,render-dir", "Directory containing rendered page PNG images",  cxxopts::value<std::string>())
+        ("p,page",       "Page number to analyse (0-based, default: -1 for all pages)",
+                         cxxopts::value<int>()->default_value("-1"))
+        ("export-bitmaps", "Export decoded bitmap payloads encountered on each page",
+                           cxxopts::value<bool>()->implicit_value("true"))
+        ("export-page-pdf", "Export each rendered page as a sibling PDF",
+                            cxxopts::value<bool>()->implicit_value("true"))
         ("l,loglevel",   "Log level [error, warning, info]",               cxxopts::value<std::string>())
         ("h,help",       "Print usage");
 
@@ -264,11 +303,33 @@ int main(int argc, char* argv[])
 
       std::filesystem::path input_path = result["input"].as<std::string>();
       std::vector<std::filesystem::path> pdf_paths = collect_pdfs(input_path);
+      int target_page = result["page"].as<int>();
 
       std::string render_dir;
       if (result.count("render-dir"))
         {
           render_dir = result["render-dir"].as<std::string>();
+        }
+
+      bool export_bitmaps = false;
+      if(result.count("export-bitmaps"))
+        {
+          export_bitmaps = result["export-bitmaps"].as<bool>();
+        }
+
+      bool export_page_pdf = false;
+      if(result.count("export-page-pdf"))
+        {
+          export_page_pdf = result["export-page-pdf"].as<bool>();
+        }
+
+      std::string bitmap_dir;
+      if(export_bitmaps)
+        {
+          bitmap_dir = not render_dir.empty()
+                     ? (std::filesystem::path(render_dir) / "bitmaps").string()
+                     : "./bitmaps_out";
+          LOG_S(INFO) << "exporting decoded bitmaps to: " << bitmap_dir;
         }
 
       if (pdf_paths.empty())
@@ -292,7 +353,14 @@ int main(int argc, char* argv[])
           int flagged = 0;
           try
             {
-              flagged = analyse_pdf(pdf.string(), file_entries, total_pages, render_dir);
+              flagged = analyse_pdf(pdf.string(),
+                                    file_entries,
+                                    total_pages,
+                                    render_dir,
+                                    export_bitmaps,
+                                    export_page_pdf,
+                                    bitmap_dir,
+                                    target_page);
             }
           catch (std::exception const& exc)
             {

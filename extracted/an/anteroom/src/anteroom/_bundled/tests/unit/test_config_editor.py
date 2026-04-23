@@ -572,3 +572,58 @@ class TestCollectEnvOverrides:
         with patch.dict("os.environ", {}, clear=True):
             result = collect_env_overrides()
         assert result == {}
+
+
+# ---------------------------------------------------------------------------
+# Config history integration in write_personal_field
+# ---------------------------------------------------------------------------
+
+
+class TestWritePersonalFieldSnapshot:
+    """Verify snapshot is called on personal writes but not space/project writes."""
+
+    def test_snapshot_called_on_personal_write(self, tmp_path: Path) -> None:
+        cfg = tmp_path / "config.yaml"
+        cfg.write_text("ai:\n  model: gpt-4\n")
+        with patch("anteroom.services.config_editor._snapshot_personal_config") as mock_snap:
+            from anteroom.services.config_editor import write_personal_field
+
+            write_personal_field("ai.model", "gpt-4o", config_path=cfg)
+            mock_snap.assert_called_once_with(cfg, source="config_editor")
+
+    def test_snapshot_failure_does_not_block_write(self, tmp_path: Path) -> None:
+        cfg = tmp_path / "config.yaml"
+        cfg.write_text("ai:\n  model: gpt-4\n")
+        # Patch the inner service so the failure is caught by _snapshot_personal_config's try/except
+        patch_target = "anteroom.services.config_history.ConfigHistoryService.snapshot"
+        with patch(patch_target, side_effect=RuntimeError("snap failed")):
+            from anteroom.services.config_editor import write_personal_field
+
+            # Should not raise — snapshot failure is non-fatal
+            write_personal_field("ai.model", "gpt-4o", config_path=cfg)
+        import yaml
+
+        assert yaml.safe_load(cfg.read_text())["ai"]["model"] == "gpt-4o"
+
+    def test_snapshot_not_called_for_space_write(self, tmp_path: Path) -> None:
+        space_cfg = tmp_path / ".anteroom" / "space.yaml"
+        space_cfg.parent.mkdir(parents=True)
+        # Space files require a `name` field
+        space_cfg.write_text("name: myspace\nai:\n  model: gpt-4\n")
+        with patch("anteroom.services.config_editor._snapshot_personal_config") as mock_snap:
+            from anteroom.services.config_editor import write_space_field
+
+            write_space_field("ai.model", "gpt-4o", space_yaml_path=space_cfg)
+            mock_snap.assert_not_called()
+
+    def test_snapshot_not_called_for_project_write(self, tmp_path: Path) -> None:
+        project_dir = tmp_path / "myproject"
+        project_dir.mkdir()
+        project_cfg = project_dir / ".anteroom" / "config.yaml"
+        project_cfg.parent.mkdir(parents=True)
+        project_cfg.write_text("ai:\n  model: gpt-4\n")
+        with patch("anteroom.services.config_editor._snapshot_personal_config") as mock_snap:
+            from anteroom.services.config_editor import write_project_field
+
+            write_project_field("ai.model", "gpt-4o", working_dir=project_dir)
+            mock_snap.assert_not_called()

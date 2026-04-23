@@ -14,9 +14,11 @@ class DefaultSemanticLayerConfigProvider(ConfigProvider[SemanticLayerConfig]):
         credentials_provider: CredentialsProvider,
         *,
         metrics_related_max: int = 10,
+        max_response_chars: int = 16000,
     ):
         self.credentials_provider = credentials_provider
         self.metrics_related_max = metrics_related_max
+        self.max_response_chars = max_response_chars
 
     async def get_config(self) -> SemanticLayerConfig:
         settings, token_provider = await self.credentials_provider.get_credentials()
@@ -39,6 +41,7 @@ class DefaultSemanticLayerConfigProvider(ConfigProvider[SemanticLayerConfig]):
                 token_provider=token_provider
             ),
             metrics_related_max=self.metrics_related_max,
+            max_response_chars=self.max_response_chars,
         )
 
 
@@ -51,14 +54,21 @@ class MultiProjectSemanticLayerConfigProvider(
         admin_client: DbtAdminAPIClient,
         *,
         metrics_related_max: int = 10,
+        max_response_chars: int = 16000,
     ):
         self.credentials_provider = credentials_provider
         self.admin_client = admin_client
         self.metrics_related_max = metrics_related_max
+        self.max_response_chars = max_response_chars
 
     async def get_config(self, project_id: int) -> SemanticLayerConfig:
         settings, token_provider = await self.credentials_provider.get_credentials()
         assert settings.actual_host
+        if settings.dbt_project_ids and project_id not in settings.dbt_project_ids:
+            raise ValueError(
+                f"Project {project_id} is not in the selected projects. "
+                f"Available project IDs: {settings.dbt_project_ids}"
+            )
         is_local = settings.actual_host and settings.actual_host.startswith("localhost")
         if is_local:
             host = settings.actual_host
@@ -81,4 +91,5 @@ class MultiProjectSemanticLayerConfigProvider(
                 token_provider=token_provider
             ),
             metrics_related_max=self.metrics_related_max,
+            max_response_chars=self.max_response_chars,
         )

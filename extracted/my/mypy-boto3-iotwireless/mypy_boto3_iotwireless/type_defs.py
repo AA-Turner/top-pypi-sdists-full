@@ -3,7 +3,7 @@ Type annotations for iotwireless service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iotwireless/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -74,6 +74,7 @@ __all__ = (
     "AbpV10XTypeDef",
     "AbpV11TypeDef",
     "AccuracyTypeDef",
+    "AdvancedConfigurationTypeDef",
     "ApplicationConfigTypeDef",
     "AssociateAwsAccountWithPartnerAccountRequestTypeDef",
     "AssociateAwsAccountWithPartnerAccountResponseTypeDef",
@@ -384,6 +385,7 @@ __all__ = (
     "WcdmaNmrObjTypeDef",
     "WcdmaObjTypeDef",
     "WiFiAccessPointTypeDef",
+    "WiFiCellularTypeDef",
     "WirelessDeviceEventLogOptionTypeDef",
     "WirelessDeviceImportTaskTypeDef",
     "WirelessDeviceLogOptionOutputTypeDef",
@@ -414,6 +416,10 @@ class SessionKeysAbpV11TypeDef(TypedDict):
 class AccuracyTypeDef(TypedDict):
     HorizontalAccuracy: NotRequired[float]
     VerticalAccuracy: NotRequired[float]
+
+
+class WiFiCellularTypeDef(TypedDict):
+    ConfidencePercent: NotRequired[int]
 
 
 ApplicationConfigTypeDef = TypedDict(
@@ -1260,6 +1266,10 @@ class AbpV11TypeDef(TypedDict):
     DevAddr: NotRequired[str]
     SessionKeys: NotRequired[SessionKeysAbpV11TypeDef]
     FCntStart: NotRequired[int]
+
+
+class AdvancedConfigurationTypeDef(TypedDict):
+    WiFiCellular: NotRequired[WiFiCellularTypeDef]
 
 
 class AssociateAwsAccountWithPartnerAccountRequestTypeDef(TypedDict):
@@ -2490,6 +2500,7 @@ class GetPositionEstimateRequestTypeDef(TypedDict):
     Ip: NotRequired[IpTypeDef]
     Gnss: NotRequired[GnssTypeDef]
     Timestamp: NotRequired[TimestampTypeDef]
+    AdvancedConfiguration: NotRequired[AdvancedConfigurationTypeDef]
 
 
 class ListEventConfigurationsResponseTypeDef(TypedDict):

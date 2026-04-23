@@ -21,12 +21,18 @@ from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Any, Union
 
-from .literals import ApplicationStateType, ArchitectureType, JobRunModeType, JobRunStateType
+from .literals import (
+    ApplicationStateType,
+    ArchitectureType,
+    JobRunModeType,
+    JobRunStateType,
+    SessionStateType,
+)
 
 if sys.version_info >= (3, 12):
-    from typing import NotRequired, TypedDict
+    from typing import Literal, NotRequired, TypedDict
 else:
-    from typing_extensions import NotRequired, TypedDict
+    from typing_extensions import Literal, NotRequired, TypedDict
 
 
 __all__ = (
@@ -56,6 +62,12 @@ __all__ = (
     "GetDashboardForJobRunResponseTypeDef",
     "GetJobRunRequestTypeDef",
     "GetJobRunResponseTypeDef",
+    "GetResourceDashboardRequestTypeDef",
+    "GetResourceDashboardResponseTypeDef",
+    "GetSessionEndpointRequestTypeDef",
+    "GetSessionEndpointResponseTypeDef",
+    "GetSessionRequestTypeDef",
+    "GetSessionResponseTypeDef",
     "HiveTypeDef",
     "IdentityCenterConfigurationInputTypeDef",
     "IdentityCenterConfigurationTypeDef",
@@ -82,6 +94,9 @@ __all__ = (
     "ListJobRunsRequestPaginateTypeDef",
     "ListJobRunsRequestTypeDef",
     "ListJobRunsResponseTypeDef",
+    "ListSessionsRequestPaginateTypeDef",
+    "ListSessionsRequestTypeDef",
+    "ListSessionsResponseTypeDef",
     "ListTagsForResourceRequestTypeDef",
     "ListTagsForResourceResponseTypeDef",
     "ManagedPersistenceMonitoringConfigurationTypeDef",
@@ -99,13 +114,22 @@ __all__ = (
     "RetryPolicyTypeDef",
     "S3MonitoringConfigurationTypeDef",
     "SchedulerConfigurationTypeDef",
+    "SessionConfigurationOverridesOutputTypeDef",
+    "SessionConfigurationOverridesTypeDef",
+    "SessionConfigurationOverridesUnionTypeDef",
+    "SessionSummaryTypeDef",
+    "SessionTypeDef",
     "SparkSubmitOutputTypeDef",
     "SparkSubmitTypeDef",
     "StartApplicationRequestTypeDef",
     "StartJobRunRequestTypeDef",
     "StartJobRunResponseTypeDef",
+    "StartSessionRequestTypeDef",
+    "StartSessionResponseTypeDef",
     "StopApplicationRequestTypeDef",
     "TagResourceRequestTypeDef",
+    "TerminateSessionRequestTypeDef",
+    "TerminateSessionResponseTypeDef",
     "TimestampTypeDef",
     "TotalResourceUtilizationTypeDef",
     "UntagResourceRequestTypeDef",
@@ -167,6 +191,7 @@ class ImageConfigurationTypeDef(TypedDict):
 class InteractiveConfigurationTypeDef(TypedDict):
     studioEnabled: NotRequired[bool]
     livyEndpointEnabled: NotRequired[bool]
+    sessionEnabled: NotRequired[bool]
 
 
 class JobLevelCostAllocationConfigurationTypeDef(TypedDict):
@@ -258,6 +283,22 @@ class GetJobRunRequestTypeDef(TypedDict):
     applicationId: str
     jobRunId: str
     attempt: NotRequired[int]
+
+
+class GetResourceDashboardRequestTypeDef(TypedDict):
+    applicationId: str
+    resourceId: str
+    resourceType: Literal["SESSION"]
+
+
+class GetSessionEndpointRequestTypeDef(TypedDict):
+    applicationId: str
+    sessionId: str
+
+
+class GetSessionRequestTypeDef(TypedDict):
+    applicationId: str
+    sessionId: str
 
 
 class HiveTypeDef(TypedDict):
@@ -379,6 +420,20 @@ class ListJobRunAttemptsRequestTypeDef(TypedDict):
 TimestampTypeDef = Union[datetime, str]
 
 
+class SessionSummaryTypeDef(TypedDict):
+    applicationId: str
+    sessionId: str
+    arn: str
+    state: SessionStateType
+    stateDetails: str
+    releaseLabel: str
+    executionRoleArn: str
+    createdBy: str
+    createdAt: datetime
+    updatedAt: datetime
+    name: NotRequired[str]
+
+
 class ListTagsForResourceRequestTypeDef(TypedDict):
     resourceArn: str
 
@@ -415,9 +470,18 @@ class TagResourceRequestTypeDef(TypedDict):
     tags: Mapping[str, str]
 
 
+class TerminateSessionRequestTypeDef(TypedDict):
+    applicationId: str
+    sessionId: str
+
+
 class UntagResourceRequestTypeDef(TypedDict):
     resourceArn: str
     tagKeys: Sequence[str]
+
+
+class SessionConfigurationOverridesOutputTypeDef(TypedDict):
+    runtimeConfiguration: NotRequired[list[ConfigurationOutputTypeDef]]
 
 
 class WorkerTypeSpecificationTypeDef(TypedDict):
@@ -442,6 +506,20 @@ class GetDashboardForJobRunResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class GetResourceDashboardResponseTypeDef(TypedDict):
+    url: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetSessionEndpointResponseTypeDef(TypedDict):
+    applicationId: str
+    sessionId: str
+    endpoint: str
+    authToken: str
+    authTokenExpiresAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class ListApplicationsResponseTypeDef(TypedDict):
     applications: list[ApplicationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -460,7 +538,26 @@ class StartJobRunResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class StartSessionResponseTypeDef(TypedDict):
+    applicationId: str
+    sessionId: str
+    arn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class TerminateSessionResponseTypeDef(TypedDict):
+    applicationId: str
+    sessionId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 ConfigurationUnionTypeDef = Union[ConfigurationTypeDef, ConfigurationOutputTypeDef]
+
+
+class SessionConfigurationOverridesTypeDef(TypedDict):
+    runtimeConfiguration: NotRequired[Sequence[ConfigurationTypeDef]]
+
+
 DiskEncryptionConfigurationUnionTypeDef = Union[
     DiskEncryptionConfigurationTypeDef, DiskEncryptionConfigurationOutputTypeDef
 ]
@@ -532,6 +629,29 @@ class ListJobRunsRequestTypeDef(TypedDict):
     mode: NotRequired[JobRunModeType]
 
 
+class ListSessionsRequestPaginateTypeDef(TypedDict):
+    applicationId: str
+    states: NotRequired[Sequence[SessionStateType]]
+    createdAtAfter: NotRequired[TimestampTypeDef]
+    createdAtBefore: NotRequired[TimestampTypeDef]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListSessionsRequestTypeDef(TypedDict):
+    applicationId: str
+    nextToken: NotRequired[str]
+    maxResults: NotRequired[int]
+    states: NotRequired[Sequence[SessionStateType]]
+    createdAtAfter: NotRequired[TimestampTypeDef]
+    createdAtBefore: NotRequired[TimestampTypeDef]
+
+
+class ListSessionsResponseTypeDef(TypedDict):
+    sessions: list[SessionSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
 class MonitoringConfigurationOutputTypeDef(TypedDict):
     s3MonitoringConfiguration: NotRequired[S3MonitoringConfigurationTypeDef]
     managedPersistenceMonitoringConfiguration: NotRequired[
@@ -552,6 +672,35 @@ class MonitoringConfigurationTypeDef(TypedDict):
 
 NetworkConfigurationUnionTypeDef = Union[
     NetworkConfigurationTypeDef, NetworkConfigurationOutputTypeDef
+]
+
+
+class SessionTypeDef(TypedDict):
+    applicationId: str
+    sessionId: str
+    arn: str
+    state: SessionStateType
+    stateDetails: str
+    releaseLabel: str
+    executionRoleArn: str
+    createdBy: str
+    createdAt: datetime
+    updatedAt: datetime
+    name: NotRequired[str]
+    startedAt: NotRequired[datetime]
+    endedAt: NotRequired[datetime]
+    idleSince: NotRequired[datetime]
+    configurationOverrides: NotRequired[SessionConfigurationOverridesOutputTypeDef]
+    networkConfiguration: NotRequired[NetworkConfigurationOutputTypeDef]
+    idleTimeoutMinutes: NotRequired[int]
+    tags: NotRequired[dict[str, str]]
+    totalResourceUtilization: NotRequired[TotalResourceUtilizationTypeDef]
+    billedResourceUtilization: NotRequired[ResourceUtilizationTypeDef]
+    totalExecutionDurationSeconds: NotRequired[int]
+
+
+SessionConfigurationOverridesUnionTypeDef = Union[
+    SessionConfigurationOverridesTypeDef, SessionConfigurationOverridesOutputTypeDef
 ]
 JobDriverUnionTypeDef = Union[JobDriverTypeDef, JobDriverOutputTypeDef]
 ApplicationTypeDef = TypedDict(
@@ -603,6 +752,21 @@ class ConfigurationOverridesTypeDef(TypedDict):
 MonitoringConfigurationUnionTypeDef = Union[
     MonitoringConfigurationTypeDef, MonitoringConfigurationOutputTypeDef
 ]
+
+
+class GetSessionResponseTypeDef(TypedDict):
+    session: SessionTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class StartSessionRequestTypeDef(TypedDict):
+    applicationId: str
+    clientToken: str
+    executionRoleArn: str
+    configurationOverrides: NotRequired[SessionConfigurationOverridesUnionTypeDef]
+    tags: NotRequired[Mapping[str, str]]
+    idleTimeoutMinutes: NotRequired[int]
+    name: NotRequired[str]
 
 
 class GetApplicationResponseTypeDef(TypedDict):

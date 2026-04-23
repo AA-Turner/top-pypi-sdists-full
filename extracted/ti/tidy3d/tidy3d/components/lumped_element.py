@@ -17,7 +17,6 @@ from pydantic import (
     NonNegativeFloat,
     PositiveFloat,
     PositiveInt,
-    PrivateAttr,
     field_validator,
     model_validator,
 )
@@ -29,7 +28,7 @@ from tidy3d.constants import EPSILON_0, FARAD, HENRY, MICROMETER, OHM, SpiceUnit
 from tidy3d.exceptions import ValidationError
 from tidy3d.log import log
 
-from .base import cached_property
+from .base import cached_property, keyed_cache
 from .geometry.base import Box, ClipOperation, Geometry, GeometryGroup
 from .geometry.primitives import Cylinder
 from .geometry.utils import (
@@ -542,8 +541,11 @@ class CoaxialLumpedResistor(LumpedElement):
         val = self.inner_diameter
         outer_diameter = self.outer_diameter
         if val >= outer_diameter:
-            raise ValidationError(
-                f"The 'inner_diameter' {val} of a coaxial lumped element must be less than its 'outer_diameter' {outer_diameter}."
+            self._raise_validation_error_at_loc(
+                ValidationError(
+                    f"The 'inner_diameter' {val} of a coaxial lumped element must be less than its 'outer_diameter' {outer_diameter}."
+                ),
+                "inner_diameter",
             )
         return self
 
@@ -598,9 +600,9 @@ def network_complex_conductivity(
     a: tuple[float, ...], b: tuple[float, ...], freqs: np.ndarray
 ) -> np.ndarray:
     """Returns the equivalent conductivity of the lumped network over the range of frequencies
-    provided in ``freqs`` using the expression in _`[1]`.
+    provided in ``freqs`` using the expression in [1]_.
 
-    This implementation follows a similar approach as _`[1]` with a couple small differences. Instead of
+    This implementation follows a similar approach as [1]_ with a couple small differences. Instead of
     scaling the complex conductivity by the size of a single grid cell, we later scale the quantities by the
     size of the lumped element in the FDTD simulation. In many cases, we will assume the time step is small,
     so that the complex conductivity can be expressed more simply as a rational expression.
@@ -648,11 +650,11 @@ def network_complex_permittivity(
     a: tuple[float, ...], b: tuple[float, ...], freqs: np.ndarray
 ) -> np.ndarray:
     """Returns an equivalent complex permittivity of the lumped network over the range of frequencies
-    provided in ``freqs`` using the expression in _`[1]`. The result needs to be combined with a
+    provided in ``freqs`` using the expression in [1]_. The result needs to be combined with a
     :math:`\\epsilon_\\infty`, e.g., 1 or the existing background medium, before being added to an
     FDTD simulation.
 
-    This implementation follows a similar approach as _`[1]` with a couple small differences. Instead of
+    This implementation follows a similar approach as [1]_ with a couple small differences. Instead of
     scaling the complex conductivity by the size of a single grid cell, we later scale the quantities by the
     size of the lumped element in the FDTD simulation. In many cases, we will assume the time step is small,
     so that the complex conductivity can be expressed more simply as a rational expression.
@@ -694,7 +696,7 @@ class RLCNetwork(MicrowaveBaseModel):
     Notes
     -----
 
-        Implementation is based on the equivalent medium introduced by _`[1]`.
+        Implementation is based on the equivalent medium introduced by [1]_.
 
         **References**
 
@@ -973,7 +975,7 @@ class AdmittanceNetwork(MicrowaveBaseModel):
 
         The admittance is scaled depending on the geometric properties of the lumped element by
         the scaling factor :math:`\\Delta`. Implementation is based on the equivalent medium introduced
-        by _`[1]`.
+        by [1]_.
 
         **References**
 
@@ -1144,8 +1146,6 @@ class CircuitImpedanceModel(MicrowaveBaseModel):
         description="Whether to show the fitter progress bar when fitting.",
     )
 
-    _fitted_medium_cache: dict = PrivateAttr(default_factory=dict)
-
     # Design note: current implementation is nodal analysis with R/L/C only. A future
     # augmented-MNA backend could support DC-safe inductor branches and ideal/controlled
     # sources by adding auxiliary branch-current equations; see class docstring Notes.
@@ -1211,15 +1211,13 @@ class CircuitImpedanceModel(MicrowaveBaseModel):
             return np.asarray(freqs, dtype=float)
         return self._get_fit_frequencies(frequency_range=None)
 
+    @keyed_cache(lambda self, freqs: tuple(float(x) for x in np.asarray(freqs).ravel()))
     def _get_fitted_medium_for_freqs(self, freqs: np.ndarray) -> PoleResidue:
         """Fit circuit admittance at the given frequencies and return unscaled PoleResidue; cache by freqs."""
-        key = tuple(float(x) for x in np.asarray(freqs).ravel())
-        if key not in self._fitted_medium_cache:
-            frequencies = np.asarray(freqs, dtype=float)
-            Y_complex = self._get_effective_admittance(frequencies)
-            medium, _ = self._fit_admittance_to_pole_residue(frequencies, Y_complex)
-            self._fitted_medium_cache[key] = medium
-        return self._fitted_medium_cache[key]
+        frequencies = np.asarray(freqs, dtype=float)
+        Y_complex = self._get_effective_admittance(frequencies)
+        medium, _ = self._fit_admittance_to_pole_residue(frequencies, Y_complex)
+        return medium
 
     def _to_medium(
         self,
@@ -1889,7 +1887,7 @@ class LinearLumpedElement(RectangularLumpedElement):
     Notes
     -----
 
-        Implementation is based on the equivalent medium introduced by _`[1]`.
+        Implementation is based on the equivalent medium introduced by [1]_.
 
         **References**
 

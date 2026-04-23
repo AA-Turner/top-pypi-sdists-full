@@ -10,8 +10,29 @@ from typing import TYPE_CHECKING, Callable
 import pyarrow as pa
 
 from snowflake import snowpark
-from snowflake.snowpark.types import StructField, StructType
+from snowflake.snowpark.types import (
+    ArrayType,
+    DataType,
+    MapType,
+    StructField,
+    StructType,
+)
 from snowflake.snowpark_connect.column_qualifier import ColumnQualifier
+from snowflake.snowpark_connect.typed_column import FieldType
+
+
+# TODO: remove once snowpark version has the following fix: https://github.com/snowflakedb/snowpark-python/pull/4151 (version 1.49.0)
+def _restore_map_value_contains_null(current: DataType, original: DataType) -> None:
+    """Recursively restore MapType.value_contains_null lost by Snowpark's _as_nested()."""
+    if isinstance(current, MapType) and isinstance(original, MapType):
+        current.value_contains_null = original.value_contains_null
+        _restore_map_value_contains_null(current.value_type, original.value_type)
+    elif isinstance(current, ArrayType) and isinstance(original, ArrayType):
+        _restore_map_value_contains_null(current.element_type, original.element_type)
+    elif isinstance(current, StructType) and isinstance(original, StructType):
+        for cur_field, orig_field in zip(current.fields, original.fields):
+            _restore_map_value_contains_null(cur_field.datatype, orig_field.datatype)
+
 
 if TYPE_CHECKING:
     import pyspark.sql.connect.proto.expressions_pb2 as expressions_proto
@@ -346,20 +367,41 @@ class DataFrameContainer:
         """
         Create a StructType schema from column names and types.
 
+        Accepts DataType or FieldType elements in snowpark_column_types.
+        When a FieldType is provided, its nullable is preserved; plain DataType
+        elements default to nullable=True (legacy behaviour).
+
         Returns:
             StructType if types are provided, None otherwise
         """
         if snowpark_column_types is None:
             return None
 
-        return StructType(
-            [
-                StructField(name, column_type, _is_column=False)
-                for name, column_type in zip(
-                    snowpark_column_names, snowpark_column_types
+        original_datatypes = []
+        fields = []
+        for name, column_type in zip(snowpark_column_names, snowpark_column_types):
+            if isinstance(column_type, FieldType):
+                original_datatypes.append(column_type.datatype)
+                fields.append(
+                    StructField(
+                        name,
+                        column_type.datatype,
+                        column_type.nullable,
+                        _is_column=False,
+                    )
                 )
-            ]
-        )
+            else:
+                original_datatypes.append(column_type)
+                fields.append(StructField(name, column_type, _is_column=False))
+        schema = StructType(fields)
+
+        # Workaround: Snowpark's StructType.add() calls _as_nested() which
+        # recreates MapType without preserving value_contains_null.
+        # Recursively restore it from the original types.
+        for field, orig_dt in zip(schema.fields, original_datatypes):
+            _restore_map_value_contains_null(field.datatype, orig_dt)
+
+        return schema
 
     def without_hidden_columns(self) -> DataFrameContainer:
         from snowflake.snowpark_connect.column_name_handler import ColumnNameMap

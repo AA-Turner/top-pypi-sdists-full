@@ -212,3 +212,47 @@ class TestPythonGRPC(GenericPythonConnectionTests):
         )
         env.apply_settings(IsolateSettings(Path(tmp_path)))
         return env
+
+    def test_entrypoint(self) -> None:
+        local_env = LocalPythonEnvironment()
+
+        with self.open_connection(local_env, local_env.create()) as conn:
+            # os.getpid is a zero-arg stdlib callable; it runs in the agent
+            # subprocess, so the result is a valid int but not this process's pid.
+            import os
+
+            result: int = conn.run_entrypoint("os:getpid")
+            assert isinstance(result, int)
+            assert result > 0
+            assert result != os.getpid()
+
+    def test_entrypoint_dotted_attr(self) -> None:
+        """The attr side may be dotted (resolved via repeated getattr)."""
+        local_env = LocalPythonEnvironment()
+
+        with self.open_connection(local_env, local_env.create()) as conn:
+            # os.environ.copy is a zero-arg callable reached via a dotted
+            # attribute chain (os -> environ -> copy).
+            result: dict = conn.run_entrypoint("os:environ.copy")
+            assert isinstance(result, dict)
+
+    def test_entrypoint_module_not_importable(self) -> None:
+        local_env = LocalPythonEnvironment()
+
+        with self.open_connection(local_env, local_env.create()) as conn:
+            with pytest.raises(ModuleNotFoundError):
+                conn.run_entrypoint("isolate_entrypoint_test_missing_xyz:some_attr")
+
+    def test_entrypoint_attr_not_found(self) -> None:
+        local_env = LocalPythonEnvironment()
+
+        with self.open_connection(local_env, local_env.create()) as conn:
+            with pytest.raises(AttributeError):
+                conn.run_entrypoint("os:this_attr_does_not_exist")
+
+    def test_entrypoint_malformed(self) -> None:
+        local_env = LocalPythonEnvironment()
+
+        with self.open_connection(local_env, local_env.create()) as conn:
+            with pytest.raises(ValueError, match="Invalid entrypoint"):
+                conn.run_entrypoint("not_an_entrypoint")

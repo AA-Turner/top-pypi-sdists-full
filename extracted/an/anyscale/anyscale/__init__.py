@@ -34,6 +34,7 @@ from anyscale import (
     schedule as schedule,
     service as service,
     service_account as service_account,
+    skills as skills,
     user as user,
     user_group as user_group,
 )
@@ -61,6 +62,7 @@ from anyscale.resource_quota import ResourceQuotaSDK
 from anyscale.schedule import ScheduleSDK
 from anyscale.service import ServiceSDK
 from anyscale.service_account import ServiceAccountSDK
+from anyscale.skills import SkillsSDK
 from anyscale.user import UserSDK
 from anyscale.user_group import UserGroupSDK
 from anyscale.workspace import WorkspaceSDK
@@ -163,6 +165,7 @@ class Anyscale:
         self._user_group_sdk = UserGroupSDK(client=self._anyscale_client)
         self._resource_quota_sdk = ResourceQuotaSDK(client=self._anyscale_client)
         self._service_account_sdk = ServiceAccountSDK(client=self._anyscale_client)
+        self._skills_sdk = SkillsSDK(client=self._anyscale_client)
         self._user_sdk = UserSDK(client=self._anyscale_client)
         self._workspace_sdk = WorkspaceSDK(client=self._anyscale_client)
 
@@ -203,6 +206,9 @@ class Anyscale:
         )
         obj._user_group_sdk = UserGroupSDK(client=client, logger=logger)  # noqa: SLF001
         obj._service_account_sdk = ServiceAccountSDK(  # noqa: SLF001
+            client=client, logger=logger, timer=timer
+        )
+        obj._skills_sdk = SkillsSDK(  # noqa: SLF001
             client=client, logger=logger, timer=timer
         )
         obj._user_sdk = UserSDK(  # noqa: SLF001
@@ -271,6 +277,10 @@ class Anyscale:
     @property
     def service_account(self) -> ServiceAccountSDK:  # noqa: F811
         return self._service_account_sdk
+
+    @property
+    def skills(self) -> SkillsSDK:  # noqa: F811
+        return self._skills_sdk
 
     @property
     def user(self) -> UserSDK:  # noqa: F811

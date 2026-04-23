@@ -1,4 +1,4 @@
-# Copyright 2023-2025 Buf Technologies, Inc.
+# Copyright 2023-2026 Buf Technologies, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -392,6 +392,18 @@ class StringHostAndPort(_message.Message):
     def __init__(self, val: _Optional[str] = ...) -> None: ...
 
 class StringHostAndOptionalPort(_message.Message):
+    __slots__ = ("val",)
+    VAL_FIELD_NUMBER: _ClassVar[int]
+    val: str
+    def __init__(self, val: _Optional[str] = ...) -> None: ...
+
+class StringProtobufFQN(_message.Message):
+    __slots__ = ("val",)
+    VAL_FIELD_NUMBER: _ClassVar[int]
+    val: str
+    def __init__(self, val: _Optional[str] = ...) -> None: ...
+
+class StringProtobufDotFQN(_message.Message):
     __slots__ = ("val",)
     VAL_FIELD_NUMBER: _ClassVar[int]
     val: str

@@ -211,35 +211,58 @@ class ProcessCommonInlineUserDefinedFunction:
             if os.name == "nt":
                 import tempfile
 
-                tmp_path = os.path.join(tempfile.gettempdir(), f"sas-{os.getpid()}")
+                tmp_path = os.path.join(tempfile.gettempdir(), "sas")
             else:
-                tmp_path = f"/tmp/sas-{os.getpid()}"
-            os.makedirs(tmp_path, exist_ok=True)
-            os.chdir(tmp_path)
-            shutil.copytree(import_path, tmp_path, dirs_exist_ok=True)
+                tmp_path = "/tmp/sas"
 
-            # Extract all archives
-            # This has to be done inside the UDF because Snowflake prevents from loading multiple files with the same name
-            # even though they are in different paths.
-            archives = os.listdir(".")
-            for archive in archives:
-                if not archive.endswith(".archive"):
-                    # Skip files that are not archives
-                    continue
-                elif archive.endswith(".zip.archive") or archive.endswith(
-                    ".jar.archive"
-                ):
-                    with zipfile.ZipFile(archive, "r") as zip_ref:
-                        zip_ref.extractall(archive[: -len(".archive")])
-                elif archive.endswith(".tar.gz.archive") or archive.endswith(
-                    ".tgz.archive"
-                ):
-                    with tarfile.open(archive, "r:gz") as tar_ref:
-                        tar_ref.extractall(archive[: -len(".archive")])
-                elif archive.endswith(".tar.archive"):
-                    with tarfile.open(archive, "r") as tar_ref:
-                        tar_ref.extractall(archive[: -len(".archive")])
-                os.remove(archive)
+            sentinel = os.path.join(tmp_path, ".sas_imports_ready")
+
+            # Fast path: if a previous invocation already prepared the directory, just chdir.
+            if os.path.exists(sentinel):
+                os.chdir(tmp_path)
+                return
+
+            # Acquire an exclusive lock so only one process/thread copies and extracts.
+            import fcntl
+
+            os.makedirs(tmp_path, exist_ok=True)
+            lock_path = os.path.join(tmp_path, ".sas_imports.lock")
+            with open(lock_path, "w") as lock_fd:
+                fcntl.flock(lock_fd, fcntl.LOCK_EX)
+                try:
+                    # Re-check after acquiring the lock (another process may have finished).
+                    if not os.path.exists(sentinel):
+                        shutil.copytree(import_path, tmp_path, dirs_exist_ok=True)
+
+                        # Extract all archives.
+                        # This has to be done inside the UDF because Snowflake prevents
+                        # from loading multiple files with the same name even though they
+                        # are in different paths.
+                        for archive in os.listdir(tmp_path):
+                            if not archive.endswith(".archive"):
+                                continue
+                            archive_path = os.path.join(tmp_path, archive)
+                            if archive.endswith(".zip.archive") or archive.endswith(
+                                ".jar.archive"
+                            ):
+                                with zipfile.ZipFile(archive_path, "r") as zip_ref:
+                                    zip_ref.extractall(archive_path[: -len(".archive")])
+                            elif archive.endswith(
+                                ".tar.gz.archive"
+                            ) or archive.endswith(".tgz.archive"):
+                                with tarfile.open(archive_path, "r:gz") as tar_ref:
+                                    tar_ref.extractall(archive_path[: -len(".archive")])
+                            elif archive.endswith(".tar.archive"):
+                                with tarfile.open(archive_path, "r") as tar_ref:
+                                    tar_ref.extractall(archive_path[: -len(".archive")])
+                            os.remove(archive_path)
+
+                        # Signal that the directory is ready for all subsequent calls.
+                        open(sentinel, "w").close()
+                finally:
+                    fcntl.flock(lock_fd, fcntl.LOCK_UN)
+
+            os.chdir(tmp_path)
 
         if self._udf_packages:
             packages = [p.strip() for p in self._udf_packages.strip("[]").split(",")]

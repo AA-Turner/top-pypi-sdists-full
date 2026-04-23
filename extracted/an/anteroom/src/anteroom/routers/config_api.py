@@ -64,6 +64,7 @@ async def get_config(request: Request) -> AppConfigResponse:
         identity=identity_data,
         enforced_fields=enforced_fields,
         read_only=config.safety.read_only,
+        cli={},
     )
 
 
@@ -116,7 +117,11 @@ async def update_config(body: ConfigUpdate, request: Request) -> Any:
 
 
 def _persist_config(config: Any) -> None:
+    import stat
+    import tempfile
+
     from ..config import _get_config_path
+    from ..services.config_history import ConfigHistoryService, get_backup_dir
 
     config_path = _get_config_path()
     if not config_path.exists():
@@ -134,8 +139,30 @@ def _persist_config(config: Any) -> None:
         else:
             raw["ai"].pop("system_prompt", None)
 
-        with open(config_path, "w") as f:
-            yaml.dump(raw, f, default_flow_style=False, sort_keys=False)
+        content = yaml.dump(raw, default_flow_style=False, sort_keys=False)
+
+        # Snapshot before overwrite so the previous state is recoverable
+        try:
+            ConfigHistoryService(get_backup_dir(config_path.parent)).snapshot(config_path, source="config_api")
+        except Exception:
+            logger.debug("Config snapshot failed (non-fatal)", exc_info=True)
+
+        # Atomic write: tmp + fsync + replace
+        fd, tmp_str = tempfile.mkstemp(dir=config_path.parent, suffix=".tmp")
+        tmp = Path(tmp_str)
+        try:
+            os.fchmod(fd, stat.S_IRUSR | stat.S_IWUSR)
+            os.write(fd, content.encode())
+            os.fsync(fd)
+            os.close(fd)
+            os.replace(tmp_str, config_path)
+        except BaseException:
+            try:
+                os.close(fd)
+            except OSError:
+                pass
+            tmp.unlink(missing_ok=True)
+            raise
     except Exception:
         logger.exception("Failed to persist config to %s", config_path)
 

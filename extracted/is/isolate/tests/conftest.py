@@ -1,3 +1,12 @@
+import os
+import sys
+
+# gRPC's default epoll1 poller on Linux registers pthread_atfork handlers
+# that crash (SIGABRT) in the child process when subprocess.Popen forks.
+# The poll strategy uses poll() which is fork-safe.
+if sys.platform == "linux":
+    os.environ.setdefault("GRPC_POLL_STRATEGY", "poll")
+
 import pytest
 from isolate.backends.settings import IsolateSettings
 

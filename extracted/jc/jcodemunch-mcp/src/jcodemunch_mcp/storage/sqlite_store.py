@@ -1646,24 +1646,41 @@ class SQLiteIndexStore:
     def _row_to_symbol_dict(self, row: sqlite3.Row) -> dict:
         """Convert a database row to a symbol dict (matches CodeIndex.symbols format)."""
         call_references: list[str] = []
-        # v5: read directly from columns. Fallback to data JSON for mid-migration rows.
         if row["data"]:
             try:
                 data = json.loads(row["data"])
             except (json.JSONDecodeError, ValueError):
                 logger.warning("Corrupted JSON in symbol data column for row %s, skipping legacy fields", row["name"])
-                data = {}
+                # Keep corrupt v8 rows on the array path so row-backed metadata still loads.
+                data = []
             if isinstance(data, list):
                 # v8: data column contains call_references as JSON array
+                # Read metadata from row columns (not from data, which is an array)
                 call_references = data
-                data = {}
-            # else: legacy v4 row (data is a JSON object)
-            qualified_name = data.get("qualified_name", row["name"])
-            language = data.get("language", "")
-            decorators = data.get("decorators", [])
-            keywords = data.get("keywords", [])
-            content_hash = data.get("content_hash", "")
-            ecosystem_context = data.get("ecosystem_context", "")
+                qualified_name = row["qualified_name"] or row["name"]
+                language = row["language"] or ""
+                deco_raw = row["decorators"]
+                try:
+                    decorators = json.loads(deco_raw) if deco_raw and deco_raw != "[]" else []
+                except (json.JSONDecodeError, ValueError):
+                    logger.warning("Corrupted decorators JSON for symbol %s", row["name"])
+                    decorators = []
+                kw_raw = row["keywords"]
+                try:
+                    keywords = json.loads(kw_raw) if kw_raw and kw_raw != "[]" else []
+                except (json.JSONDecodeError, ValueError):
+                    logger.warning("Corrupted keywords JSON for symbol %s", row["name"])
+                    keywords = []
+                content_hash = row["content_hash"] or ""
+                ecosystem_context = row["ecosystem_context"] or ""
+            else:
+                # legacy v4 row (data is a JSON object)
+                qualified_name = data.get("qualified_name", row["name"])
+                language = data.get("language", "")
+                decorators = data.get("decorators", [])
+                keywords = data.get("keywords", [])
+                content_hash = data.get("content_hash", "")
+                ecosystem_context = data.get("ecosystem_context", "")
         else:
             # v5/v6/v7 row — direct column reads, no JSON parsing
             qualified_name = row["qualified_name"] or row["name"]

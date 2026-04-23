@@ -531,20 +531,18 @@ impl MetricsCollector {
 
                 for (_id, report) in webrtc_stats.iter() {
                     match report {
-                        StatsReportType::InboundRTP(inbound) => {
+                        StatsReportType::InboundRTP(inbound)
                             // Update bytes received for throughput calculation
-                            if inbound.bytes_received > 0 {
+                            if inbound.bytes_received > 0 => {
                                 rtc_stats.current_bitrate = inbound.bytes_received as f64 * 8.0;
                                 // Convert to bits
                             }
-                        }
-                        StatsReportType::OutboundRTP(outbound) => {
+                        StatsReportType::OutboundRTP(outbound)
                             // Update bytes sent for throughput calculation
-                            if outbound.bytes_sent > 0 && rtc_stats.current_bitrate == 0.0 {
+                            if outbound.bytes_sent > 0 && rtc_stats.current_bitrate == 0.0 => {
                                 rtc_stats.current_bitrate = outbound.bytes_sent as f64 * 8.0;
                                 // Convert to bits
                             }
-                        }
                         StatsReportType::RemoteInboundRTP(remote_inbound) => {
                             // Use remote inbound stats for packet loss
                             rtc_stats.packet_loss_rate = remote_inbound.fraction_lost;
@@ -552,8 +550,8 @@ impl MetricsCollector {
                                 rtc_stats.rtt_ms = Some(rtt * 1000.0); // Convert to milliseconds
                             }
                         }
-                        StatsReportType::CandidatePair(pair) => {
-                            if pair.nominated {
+                        StatsReportType::CandidatePair(pair)
+                            if pair.nominated => {
                                 rtc_stats.rtt_ms = Some(pair.current_round_trip_time * 1000.0);
 
                                 // Always set E2E latency from nominated pair (even if RTT is 0)
@@ -607,7 +605,6 @@ impl MetricsCollector {
                                     pair.current_round_trip_time * 1000.0
                                 );
                             }
-                        }
                         StatsReportType::LocalCandidate(local_candidate) => {
                             // Track candidate gathering progress
                             rtc_stats.ice_stats.total_candidates += 1;

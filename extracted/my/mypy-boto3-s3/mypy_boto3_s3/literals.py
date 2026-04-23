@@ -167,7 +167,18 @@ BucketNamespaceType = Literal["account-regional", "global"]
 BucketNotExistsWaiterName = Literal["bucket_not_exists"]
 BucketTypeType = Literal["Directory"]
 BucketVersioningStatusType = Literal["Enabled", "Suspended"]
-ChecksumAlgorithmType = Literal["CRC32", "CRC32C", "CRC64NVME", "SHA1", "SHA256"]
+ChecksumAlgorithmType = Literal[
+    "CRC32",
+    "CRC32C",
+    "CRC64NVME",
+    "MD5",
+    "SHA1",
+    "SHA256",
+    "SHA512",
+    "XXHASH128",
+    "XXHASH3",
+    "XXHASH64",
+]
 ChecksumModeType = Literal["ENABLED"]
 ChecksumTypeType = Literal["COMPOSITE", "FULL_OBJECT"]
 CompressionTypeType = Literal["BZIP2", "GZIP", "NONE"]
@@ -510,6 +521,7 @@ ServiceName = Literal[
     "inspector",
     "inspector-scan",
     "inspector2",
+    "interconnect",
     "internetmonitor",
     "invoicing",
     "iot",
@@ -566,6 +578,7 @@ ServiceName = Literal[
     "marketplace-agreement",
     "marketplace-catalog",
     "marketplace-deployment",
+    "marketplace-discovery",
     "marketplace-entitlement",
     "marketplace-reporting",
     "marketplacecommerceanalytics",

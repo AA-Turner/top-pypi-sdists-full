@@ -527,6 +527,7 @@ function switchTab(name) {
   if (name === 'context') loadContextInspector();
   if (name === 'history') loadHistory();
   if (name === 'brain') loadBrainPage();
+  if (name === 'selfevolve') loadSelfEvolvePage();
   if (name === 'security') { loadSecurityPage(); loadSecurityPosture(); }
   if (name === 'approvals') { if (typeof loadApprovalsTab === 'function') loadApprovalsTab(); }
   if (name === 'alerts') { if (typeof loadAlertsPage === 'function') loadAlertsPage(); }
@@ -2662,8 +2663,194 @@ function _fmtTokens(n) {
   return String(n);
 }
 
+// ── Advisor: natural-language Q&A over the agent's recent activity ─────────
+async function advisorProbe() {
+  try {
+    var s = await fetchJsonWithTimeout('/api/advisor/status', 3000);
+    if (s && s.available) {
+      var card = document.getElementById('advisor-card');
+      if (card) card.style.display = '';
+    }
+  } catch (e) { /* keep hidden */ }
+}
+window.advisorPrefill = function (q) {
+  var el = document.getElementById('advisor-q');
+  if (el) { el.value = q; el.focus(); }
+};
+// Minimal markdown renderer — bold, italic, inline code, paragraph breaks.
+// Escapes HTML first so LLM output can't inject tags.
+function advisorRenderMarkdown(text) {
+  var esc = String(text || '')
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  // Inline code `x` — process FIRST so asterisks inside code aren't misread
+  esc = esc.replace(/`([^`\n]+)`/g, '<code style="background:rgba(168,85,247,0.18);padding:2px 6px;border-radius:4px;font-family:ui-monospace,Menlo,monospace;font-size:12.5px;color:#ddd6fe;">$1</code>');
+  // Bold **x** and __x__
+  esc = esc.replace(/\*\*([^\*\n]+)\*\*/g, '<strong style="color:#fff;font-weight:600;">$1</strong>');
+  esc = esc.replace(/__([^_\n]+)__/g, '<strong style="color:#fff;font-weight:600;">$1</strong>');
+  // Italic *x* and _x_ — require non-space boundary to avoid matching snake_case
+  esc = esc.replace(/(^|[\s\(])\*([^\*\n]+)\*/g, '$1<em>$2</em>');
+  esc = esc.replace(/(^|[\s\(])_([^_\n]+)_(?=$|[\s\.,\)])/g, '$1<em>$2</em>');
+  // Paragraph breaks on blank line; single newlines become <br>
+  var paras = esc.split(/\n{2,}/).map(function (p) {
+    return '<p style="margin:0 0 10px 0;">' + p.replace(/\n/g, '<br>') + '</p>';
+  });
+  // Drop trailing empty paragraph
+  return paras.join('').replace(/<p[^>]*>\s*<\/p>/g, '');
+}
+
+window.advisorAsk = async function () {
+  var input = document.getElementById('advisor-q');
+  var wrap = document.getElementById('advisor-answer-wrap');
+  var qEl = document.getElementById('advisor-answer-q');
+  var out = document.getElementById('advisor-answer');
+  var metaEl = document.getElementById('advisor-answer-meta');
+  var q = (input && input.value || '').trim();
+  if (!q || !wrap || !out) return;
+  wrap.style.display = '';
+  if (qEl) qEl.textContent = '› ' + q;
+  out.innerHTML = '<span style="color:#a855f7;">Thinking…</span>';
+  if (metaEl) metaEl.textContent = '';
+  try {
+    var resp = await fetch('/api/advisor/ask', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question: q }),
+    });
+    var d = await resp.json();
+    if (!resp.ok) {
+      out.textContent = (d && d.message) || (d && d.detail) || ('Error ' + resp.status);
+      return;
+    }
+    out.innerHTML = advisorRenderMarkdown(d.answer || '(empty answer)');
+    if (metaEl) {
+      var parts = [];
+      if (d.model) parts.push(d.model);
+      var totalTokens = (d.input_tokens || 0) + (d.output_tokens || 0);
+      if (totalTokens) parts.push(totalTokens + ' tokens');
+      if (typeof d.events_in_context === 'number') parts.push(d.events_in_context + ' events in context');
+      metaEl.textContent = parts.length ? parts.join(' · ') : '';
+    }
+  } catch (e) {
+    out.textContent = 'Network error: ' + e.message;
+  }
+};
+
+// ── Self-Evolve: LLM-backed standing review of the agent's trajectory ─────
+function selfevolveSeverityColor(sev) {
+  if (sev === 'high') return { bg: 'rgba(239,68,68,0.12)', border: '#ef4444', text: '#fca5a5' };
+  if (sev === 'low')  return { bg: 'rgba(16,185,129,0.1)', border: '#10b981', text: '#6ee7b7' };
+  return { bg: 'rgba(234,179,8,0.12)', border: '#eab308', text: '#fde68a' };
+}
+function selfevolveCategoryIcon(cat) {
+  return ({
+    cost: '💰', reliability: '⚠️', latency: '🐢',
+    prompt: '📝', model: '🎛️', loop: '🔁',
+  })[cat] || '•';
+}
+function selfevolveRenderFindings(payload) {
+  var container = document.getElementById('selfevolve-findings');
+  var status = document.getElementById('selfevolve-status');
+  if (!container) return;
+  container.innerHTML = '';
+  var findings = (payload && payload.findings) || [];
+  if (payload && payload.insufficient) {
+    container.innerHTML = '<div style="padding:10px 12px;color:var(--text-muted);font-size:12px;">' +
+      'Not enough data yet — ' + (payload.reason || 'keep the agent running for a while') + '</div>';
+  } else if (!findings.length) {
+    container.innerHTML = '<div style="padding:10px 12px;color:var(--text-muted);font-size:12px;">' +
+      'No findings yet. Click Analyze to review recent activity.</div>';
+  } else {
+    findings.forEach(function (f) {
+      var col = selfevolveSeverityColor(f.severity);
+      var card = document.createElement('div');
+      card.style.cssText =
+        'padding:10px 12px;background:' + col.bg + ';border:1px solid ' + col.border + ';' +
+        'border-left-width:3px;border-radius:6px;';
+      card.innerHTML =
+        '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px;">' +
+          '<div style="font-size:13px;font-weight:600;color:var(--text-primary);">' +
+            selfevolveCategoryIcon(f.category) + ' ' + (f.title || '(untitled)') +
+          '</div>' +
+          '<span style="font-size:10px;font-weight:700;text-transform:uppercase;color:' + col.text +
+            ';padding:2px 8px;border-radius:10px;border:1px solid ' + col.border + ';">' +
+            (f.severity || 'medium') +
+          '</span>' +
+        '</div>' +
+        (f.evidence ? '<div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;line-height:1.5;">' +
+          '<strong style="color:var(--text-secondary);">Evidence:</strong> ' + escapeHtml(f.evidence) + '</div>' : '') +
+        (f.suggestion ? '<div style="font-size:12px;color:var(--text-primary);line-height:1.5;">' +
+          '<strong style="color:#60a5fa;">Try:</strong> ' + escapeHtml(f.suggestion) + '</div>' : '');
+      container.appendChild(card);
+    });
+  }
+  if (status) {
+    var meta = [];
+    if (payload.generated_at) meta.push('analyzed ' + new Date(payload.generated_at * 1000).toLocaleTimeString());
+    if (payload.events_considered) meta.push(payload.events_considered + ' events');
+    if (payload.model) meta.push(payload.model);
+    status.textContent = meta.join(' · ');
+  }
+}
+// Self-Evolve is intentionally NOT in the top nav (option C: discoverable via
+// a contextual link on the Brain tab + deep-link). The probe's job here is
+// twofold: (1) reveal the contextual link inside the Advisor card when auth
+// is available, and (2) on direct visits to #selfevolve, render the cached
+// payload or show the appropriate empty/no-auth state.
+async function selfevolveProbe() {
+  try {
+    var s = await fetchJsonWithTimeout('/api/selfevolve/status', 3000);
+    var hint = document.getElementById('advisor-selfevolve-hint');
+    var noauth = document.getElementById('selfevolve-noauth');
+    var empty = document.getElementById('selfevolve-empty');
+    var runBtn = document.getElementById('selfevolve-run-btn');
+    if (!s || !s.available) {
+      if (hint) hint.style.display = 'none';
+      if (noauth) noauth.style.display = '';
+      if (runBtn) runBtn.disabled = true;
+      return;
+    }
+    if (hint) hint.style.display = '';
+    if (noauth) noauth.style.display = 'none';
+    if (s.has_cached) {
+      try {
+        var cached = await fetchJsonWithTimeout('/api/selfevolve/latest', 3000);
+        if (cached && (cached.findings || []).length) {
+          selfevolveRenderFindings(cached);
+          if (runBtn) runBtn.textContent = 'Re-analyze';
+          return;
+        }
+      } catch (e) { /* fall through to empty state */ }
+    }
+    if (empty) empty.style.display = '';
+  } catch (e) { /* silent */ }
+}
+async function loadSelfEvolvePage() {
+  return selfevolveProbe();
+}
+window.selfevolveRun = async function () {
+  var btn = document.getElementById('selfevolve-run-btn');
+  var status = document.getElementById('selfevolve-status');
+  var origText = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Analyzing…'; btn.style.opacity = '0.6'; }
+  if (status) status.textContent = 'Reviewing recent activity — this takes ~15 seconds…';
+  try {
+    var resp = await fetch('/api/selfevolve/analyze', { method: 'POST' });
+    var d = await resp.json();
+    if (!resp.ok) {
+      if (status) status.textContent = (d && d.message) || (d && d.detail) || ('Error ' + resp.status);
+      return;
+    }
+    selfevolveRenderFindings(d);
+  } catch (e) {
+    if (status) status.textContent = 'Network error: ' + e.message;
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '🔄 Re-analyze'; btn.style.opacity = ''; }
+  }
+};
+
 async function loadBrainPage(silent) {
   if (window.CLOUD_MODE) return;
+  if (!silent) { advisorProbe(); selfevolveProbe(); }
   try {
     var data = await fetchJsonWithTimeout('/api/brain-history', 8000);
     var events = (data.events || []).slice().sort(function(a,b){

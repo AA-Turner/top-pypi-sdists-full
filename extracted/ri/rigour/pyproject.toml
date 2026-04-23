@@ -1,0 +1,75 @@
+[build-system]
+requires = ["maturin>=1.13,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "rigour"
+version = "2.0.0"
+description = "Financial crime domain data validation and normalization library."
+readme = "README.md"
+license = { file = "LICENSE" }
+authors = [{ name = "OpenSanctions", email = "info@opensanctions.org" }]
+classifiers = [
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Rust",
+]
+requires-python = ">= 3.10"
+dependencies = [
+    "pyyaml >= 5.0.0, < 7.0.0",
+    "normality >= 3.0.1, < 4.0.0",
+    "rapidfuzz >= 3.9.0, < 4.0.0",
+    "orjson >= 3.0.0, < 4.0.0",
+    "python-stdnum >= 2.0, < 3.0.0",
+    "jinja2 >= 3.1.0, < 4.0.0",
+]
+
+[project.urls]
+Documentation = "https://rigour.followthemoney.tech/"
+Repository = "https://github.com/opensanctions/rigour.git"
+Issues = "https://github.com/opensanctions/rigour/issues"
+
+[project.optional-dependencies]
+dev = [
+    "pip>=10.0.0",
+    "bump2version",
+    "wheel>=0.29.0",
+    "ruamel.yaml",
+    "black",
+    "build",
+    "twine",
+    "mypy",
+    "pytest",
+    "pytest-cov",
+    "types-PyYAML",
+    "types-requests",
+    "types-setuptools",
+    "types-PyYAML",
+    "coverage>=4.1",
+]
+docs = [
+    "pillow",
+    "cairosvg",
+    "mkdocs",
+    "mkdocstrings[python]",
+    "mkdocs-material",
+]
+
+[tool.maturin]
+features = ["pyo3/extension-module", "python"]
+module-name = "rigour._core"
+manifest-path = "rust/Cargo.toml"
+# `rigour/` is the Python package directory, sitting at the repo root. Maturin
+# picks it up automatically; no `python-source` override needed.
+include = [
+    { path = "rigour/py.typed", format = "sdist" },
+    { path = "rigour/_core.pyi", format = "sdist" },
+]
+
+[tool.coverage.run]
+branch = true

@@ -99,6 +99,7 @@ async def retrieve_context(
 
     # Dense (vector) retrieval
     if use_dense:
+        assert embedding is not None
         if config.include_conversations:
             try:
                 dense_msg = storage.search_similar_messages(

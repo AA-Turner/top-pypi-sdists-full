@@ -333,12 +333,20 @@ class TestLoadInstructionsWithTrust:
     async def test_global_instructions_always_loaded(self, tmp_path: Path):
         from anteroom.cli.repl import _load_instructions_with_trust
 
-        with patch("anteroom.cli.repl.find_global_instructions", return_value="global rules"):
+        global_path = tmp_path / "global.md"
+        global_path.write_text("global rules")
+
+        with patch("anteroom.cli.repl.find_global_instructions_path", return_value=(global_path, "global rules")):
             with patch("anteroom.cli.repl.find_project_instructions_path", return_value=None):
-                result = await _load_instructions_with_trust(str(tmp_path), data_dir=tmp_path)
+                result, meta = await _load_instructions_with_trust(str(tmp_path), data_dir=tmp_path)
 
         assert result is not None
         assert "global rules" in result
+        # Attribution meta: exactly one entry for the global file, no project.
+        assert len(meta) == 1
+        assert meta[0]["scope"] == "global"
+        # Content-fingerprint fields are not surfaced; pin this promise.
+        assert "trust_hash" not in meta[0]
 
     @pytest.mark.asyncio
     async def test_no_project_context_skips_project(self, tmp_path: Path):
@@ -347,12 +355,17 @@ class TestLoadInstructionsWithTrust:
         project_md = tmp_path / "ANTEROOM.md"
         project_md.write_text("project rules")
 
-        with patch("anteroom.cli.repl.find_global_instructions", return_value=None):
+        with patch("anteroom.cli.repl.find_global_instructions_path", return_value=None):
             with patch("anteroom.cli.repl.find_project_instructions_path") as mock_find:
-                result = await _load_instructions_with_trust(str(tmp_path), no_project_context=True, data_dir=tmp_path)
+                result, meta = await _load_instructions_with_trust(
+                    str(tmp_path), no_project_context=True, data_dir=tmp_path
+                )
                 mock_find.assert_not_called()
 
         assert result is None
+        # Skipped project → meta has no project entry. No global either in
+        # this test → meta is empty.
+        assert meta == []
 
     @pytest.mark.asyncio
     async def test_global_and_trusted_project_combined(self, tmp_path: Path):
@@ -364,13 +377,86 @@ class TestLoadInstructionsWithTrust:
         md.write_text("project rules")
         save_trust_decision(str(project_dir), compute_content_hash("project rules"), data_dir=tmp_path)
 
-        with patch("anteroom.cli.repl.find_global_instructions", return_value="global rules"):
+        global_path = tmp_path / "global.md"
+        global_path.write_text("global rules")
+
+        with patch("anteroom.cli.repl.find_global_instructions_path", return_value=(global_path, "global rules")):
             with patch(
                 "anteroom.cli.repl.find_project_instructions_path",
                 return_value=(md, "project rules"),
             ):
-                result = await _load_instructions_with_trust(str(project_dir), data_dir=tmp_path)
+                result, meta = await _load_instructions_with_trust(str(project_dir), data_dir=tmp_path)
 
         assert result is not None
         assert "# Global Instructions\nglobal rules" in result
         assert "# Project Instructions\nproject rules" in result
+        # Both entries present; order: global first, project second.
+        assert len(meta) == 2
+        assert [e["scope"] for e in meta] == ["global", "project"]
+        # No content-fingerprint fields anywhere in the meta — the project
+        # entry is NOT carrying a hash that could leak as a version oracle.
+        for entry in meta:
+            assert "trust_hash" not in entry
+
+    @pytest.mark.asyncio
+    async def test_denied_trust_drops_project_from_meta(self, tmp_path: Path):
+        """When the trust prompt denies, _check_project_trust returns None
+        and the project file is NOT appended to parts. The loaded-meta
+        list must reflect that: no project entry."""
+        from anteroom.cli.repl import _load_instructions_with_trust
+
+        project_dir = tmp_path / "project"
+        project_dir.mkdir()
+        md = project_dir / "ANTEROOM.md"
+        md.write_text("sensitive rules")
+
+        with patch("anteroom.cli.repl.find_global_instructions_path", return_value=None):
+            with patch(
+                "anteroom.cli.repl.find_project_instructions_path",
+                return_value=(md, "sensitive rules"),
+            ):
+                with patch("anteroom.cli.repl._check_project_trust", return_value=None):
+                    result, meta = await _load_instructions_with_trust(str(project_dir), data_dir=tmp_path)
+
+        # Denied trust → content is None (no files loaded) and meta is empty.
+        assert result is None
+        assert meta == []
+
+    @pytest.mark.asyncio
+    async def test_neither_file_present_returns_empty_meta(self, tmp_path: Path):
+        from anteroom.cli.repl import _load_instructions_with_trust
+
+        with patch("anteroom.cli.repl.find_global_instructions_path", return_value=None):
+            with patch("anteroom.cli.repl.find_project_instructions_path", return_value=None):
+                result, meta = await _load_instructions_with_trust(str(tmp_path), data_dir=tmp_path)
+
+        assert result is None
+        assert meta == []
+
+    @pytest.mark.asyncio
+    async def test_meta_entry_carries_estimated_tokens_and_path(self, tmp_path: Path):
+        """Each entry records exactly ``path + scope + estimated_tokens`` —
+        the shape the attribution pipeline consumes. Content fingerprints
+        are intentionally excluded; see _build_instructions docstring."""
+        from anteroom.cli.repl import _load_instructions_with_trust
+
+        project_dir = tmp_path / "project"
+        project_dir.mkdir()
+        md = project_dir / "ANTEROOM.md"
+        content = "x" * 400  # estimate_tokens = 100 (4 chars/token heuristic)
+        md.write_text(content)
+        save_trust_decision(str(project_dir), compute_content_hash(content), data_dir=tmp_path)
+
+        with patch("anteroom.cli.repl.find_global_instructions_path", return_value=None):
+            with patch(
+                "anteroom.cli.repl.find_project_instructions_path",
+                return_value=(md, content),
+            ):
+                _, meta = await _load_instructions_with_trust(str(project_dir), data_dir=tmp_path)
+
+        assert len(meta) == 1
+        entry = meta[0]
+        assert set(entry.keys()) == {"path", "scope", "estimated_tokens"}
+        assert entry["path"] == str(md)
+        assert entry["scope"] == "project"
+        assert entry["estimated_tokens"] == 100

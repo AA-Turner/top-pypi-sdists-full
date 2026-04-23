@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: polars-runtime-compat
-Version: 1.40.0
+Version: 1.40.1
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Science/Research
@@ -20,6 +20,7 @@ License-File: LICENSE
 Summary: Blazingly fast DataFrame library
 Keywords: dataframe,arrow,out-of-core
 Author-email: Ritchie Vink <ritchie46@gmail.com>
+License: MIT
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 Project-URL: Homepage, https://www.pola.rs/

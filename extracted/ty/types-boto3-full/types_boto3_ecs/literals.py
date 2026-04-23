@@ -30,6 +30,7 @@ __all__ = (
     "AgentUpdateStatusType",
     "ApplicationProtocolType",
     "AssignPublicIpType",
+    "AutoRepairActionsStatusType",
     "AvailabilityZoneRebalancingType",
     "BareMetalType",
     "BurstablePerformanceType",
@@ -169,6 +170,7 @@ AccessTypeType = Literal["PRIVATE", "PUBLIC"]
 AgentUpdateStatusType = Literal["FAILED", "PENDING", "STAGED", "STAGING", "UPDATED", "UPDATING"]
 ApplicationProtocolType = Literal["grpc", "http", "http2"]
 AssignPublicIpType = Literal["DISABLED", "ENABLED"]
+AutoRepairActionsStatusType = Literal["DISABLED", "ENABLED"]
 AvailabilityZoneRebalancingType = Literal["DISABLED", "ENABLED"]
 BareMetalType = Literal["excluded", "included", "required"]
 BurstablePerformanceType = Literal["excluded", "included", "required"]

@@ -67,6 +67,76 @@ class TestLoadSkills:
             assert any("empty" in w.lower() for w in result.warnings)
 
 
+class TestFilesystemBundledSkills:
+    def test_loads_declared_resources_for_filesystem_skill(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            skills_dir = Path(tmpdir) / ".anteroom" / "skills"
+            skill_path = _write_skill(skills_dir, "deploy", description="Deploy safely", prompt="Deploy the thing.")
+            skill_path.write_text(
+                "---\n"
+                "name: deploy\n"
+                "description: Deploy safely\n"
+                "resources:\n"
+                "  - references/checklist.md\n"
+                "---\n\n"
+                "Deploy the thing.\n",
+                encoding="utf-8",
+            )
+            resource_dir = skills_dir / "deploy" / "references"
+            resource_dir.mkdir(parents=True)
+            (resource_dir / "checklist.md").write_text("- build\n- test\n", encoding="utf-8")
+
+            result = _load_skills_from_dir(skills_dir, "project")
+
+            assert len(result.skills) == 1
+            skill = result.skills[0]
+            assert skill.resource_count == 1
+            assert "<bundled_resources>" in skill.prompt
+            assert 'path="references/checklist.md"' in skill.prompt
+            assert "build" in skill.prompt
+
+    def test_invalid_resource_warns_but_keeps_skill(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            skills_dir = Path(tmpdir) / ".anteroom" / "skills"
+            skill_path = _write_skill(skills_dir, "deploy", description="Deploy safely", prompt="Deploy the thing.")
+            skill_path.write_text(
+                "---\n"
+                "name: deploy\n"
+                "description: Deploy safely\n"
+                "resources:\n"
+                "  - payload.exe\n"
+                "---\n\n"
+                "Deploy the thing.\n",
+                encoding="utf-8",
+            )
+            (skills_dir / "deploy" / "payload.exe").write_bytes(b"MZ\x00\x01")
+
+            result = _load_skills_from_dir(skills_dir, "project")
+
+            assert len(result.skills) == 1
+            skill = result.skills[0]
+            assert skill.resource_count == 0
+            assert "<bundled_resources>" not in skill.prompt
+            assert any("Skipped resources for" in warning for warning in result.warnings)
+
+    def test_bundled_resource_budget_exceeded_skips_skill(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            skills_dir = Path(tmpdir) / ".anteroom" / "skills"
+            skill_path = _write_skill(skills_dir, "deploy", prompt="Deploy the thing.")
+            skill_path.write_text(
+                "---\nname: deploy\nresources:\n  - references/large.md\n---\n\nDeploy the thing.\n",
+                encoding="utf-8",
+            )
+            resource_dir = skills_dir / "deploy" / "references"
+            resource_dir.mkdir(parents=True)
+            (resource_dir / "large.md").write_text("x" * MAX_PROMPT_SIZE, encoding="utf-8")
+
+            result = _load_skills_from_dir(skills_dir, "project")
+
+            assert result.skills == []
+            assert any("prompt exceeds" in warning for warning in result.warnings)
+
+
 class TestValidateSkillName:
     def test_valid_name(self) -> None:
         name, warning = _validate_skill_name("commit", "commit")

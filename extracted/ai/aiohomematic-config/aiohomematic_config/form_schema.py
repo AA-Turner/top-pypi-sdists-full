@@ -161,7 +161,7 @@ class FormSchemaGenerator:
         self._label_resolver = label_resolver or LabelResolver(locale=locale)
         self._grouper = grouper or ParameterGrouper(locale=locale)
 
-    def generate(
+    def generate(  # noqa: C901
         self,
         *,
         descriptions: Mapping[str, ParameterData],

@@ -217,7 +217,7 @@ class Session:
                     except Exception:
                         pass
 
-        logger.info(f"All environments in session {response.session_id} are ready")
+        logger.debug(f"All environments in session {response.session_id} are ready")
         session = cls(
             http_client=http_client,
             api_key=api_key,
@@ -325,7 +325,7 @@ class Session:
             body=ResetSessionRequest(),
             x_api_key=api_key,
         )
-        logger.info(f"Session {session.session_id} reset for mutation capture")
+        logger.debug(f"Session {session.session_id} reset for mutation capture")
         return session
 
     @classmethod
@@ -437,7 +437,7 @@ class Session:
             if response.ready and response.context:
                 self._context = response.context
                 self._envs = None  # Reset cached envs
-                logger.info(f"All environments in session {self.session_id} are ready")
+                logger.debug(f"All environments in session {self.session_id} are ready")
                 self._connect_network_if_requested()
                 return
 

@@ -35,6 +35,13 @@ from typing import Any
 
 import yaml
 
+from ..services.skill_bundles import (
+    _extract_yaml_frontmatter,
+    _inline_resources,
+    _parse_resource_list_from_frontmatter,
+    _resolve_bundle_resources,
+)
+
 logger = logging.getLogger(__name__)
 
 _VALID_SKILL_NAME = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
@@ -72,6 +79,7 @@ _CORE_FRONTMATTER_KEYS = frozenset(
         "allowed_tools",
         "denied-tools",
         "denied_tools",
+        "resources",
     }
 )
 
@@ -304,17 +312,13 @@ def _parse_skill_md(path: Path) -> tuple[dict[str, Any] | None, str | None]:
     if not raw.startswith("---\n") and not raw.startswith("---\r\n"):
         return None, f"Skipped {path}: missing YAML frontmatter (must start with ---)"
     try:
-        end = raw.index("\n---", 4)
-    except ValueError:
-        return None, f"Skipped {path}: no closing --- for frontmatter"
-    frontmatter_str = raw[4:end]
-    body = raw[end + 4 :].strip()  # skip the closing "---\n"
-    try:
-        fm = yaml.safe_load(frontmatter_str)
-    except yaml.YAMLError as exc:
-        return None, _format_yaml_error(path, exc)
-    if not isinstance(fm, dict):
-        return None, f"Skipped {path}: frontmatter is not a YAML mapping"
+        body, fm = _extract_yaml_frontmatter(raw, path)
+    except ValueError as exc:
+        yaml_exc = getattr(exc, "__cause__", None)
+        if isinstance(yaml_exc, yaml.YAMLError):
+            return None, _format_yaml_error(path, yaml_exc)
+        return None, f"Skipped {path}: {exc}"
+    body = body.strip()
     if not body:
         return None, f"Skipped {path}: empty prompt body (nothing after frontmatter)"
     fm["prompt"] = body
@@ -352,6 +356,7 @@ def _load_skills_from_dir(skills_dir: Path, source: str) -> _LoadResult:
     for path in md_paths:
         effective_name = path.parent.name.lower()
         try:
+            raw_content = path.read_text(encoding="utf-8")
             data, warning = _parse_skill_md(path)
             if warning:
                 result.warnings.append(warning)
@@ -373,6 +378,15 @@ def _load_skills_from_dir(skills_dir: Path, source: str) -> _LoadResult:
             if not prompt.strip():
                 result.warnings.append(f"Skipped {path}: empty prompt body")
                 continue
+            resource_count = 0
+            resource_list = _parse_resource_list_from_frontmatter(raw_content, path)
+            if resource_list:
+                try:
+                    resources = _resolve_bundle_resources(path.parent, resource_list, skills_dir)
+                    prompt = _inline_resources(prompt, resources)
+                    resource_count = len(resources)
+                except ValueError as exc:
+                    result.warnings.append(f"Skipped resources for {path}: {exc}")
             if len(prompt) > MAX_PROMPT_SIZE:
                 result.warnings.append(
                     f"Skipped {path}: prompt exceeds {MAX_PROMPT_SIZE // 1000}KB limit ({len(prompt) // 1000}KB)"
@@ -389,6 +403,7 @@ def _load_skills_from_dir(skills_dir: Path, source: str) -> _LoadResult:
                     description=str(description) if description else "",
                     prompt=prompt,
                     source=source,
+                    resource_count=resource_count,
                     policy=policy,
                     metadata=metadata,
                     update_guidance=_compute_update_guidance(
@@ -417,7 +432,7 @@ def _load_skills_from_dir(skills_dir: Path, source: str) -> _LoadResult:
             for rdir in _RESOURCE_DIRS:
                 if (skill_dir / rdir).is_dir():
                     logger.debug(
-                        "Skill '%s' has %s/ directory (recognized, not loaded — runtime loading is not yet supported)",
+                        "Skill '%s' has %s/ directory (recognized; only files declared in resources are loaded)",
                         name,
                         rdir,
                     )

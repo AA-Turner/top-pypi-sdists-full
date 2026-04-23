@@ -1530,16 +1530,14 @@ _parquet_file_format_allowed_options = {
     "BINARY_AS_TEXT",
     "TRIM_SPACE",
     "USE_LOGICAL_TYPE",
-    "USE_VECTORIZED_SCANNER",
     "REPLACE_INVALID_CHARACTERS",
     "NULL_IF",
 }
 
 
 def _parse_parquet_snowpark_options(snowpark_options: dict[str, Any]) -> dict[str, Any]:
-    # Default USE_VECTORIZED_SCANNER to True — Snowflake's file format default is False,
-    # but the vectorized scanner is significantly faster and required for correct Arrow
-    # type output for complex columns. Users can override via read options.
+    # SCOS always pins USE_VECTORIZED_SCANNER = TRUE to use the more performant
+    # vectorized scanner for Parquet.
     file_format_options: dict[str, Any] = {"USE_VECTORIZED_SCANNER": True}
     for key, value in snowpark_options.items():
         upper_key = key.upper()

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: livekit-plugins-azure
-Version: 1.5.5
+Version: 1.5.6
 Summary: Agent Framework plugin for services from Azure
 Project-URL: Documentation, https://docs.livekit.io
 Project-URL: Website, https://livekit.io/
@@ -18,7 +18,7 @@ Classifier: Topic :: Multimedia :: Video
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: >=3.10.0
 Requires-Dist: azure-cognitiveservices-speech>=1.43.0
-Requires-Dist: livekit-agents>=1.5.5
+Requires-Dist: livekit-agents>=1.5.6
 Description-Content-Type: text/markdown
 
 # Azure plugin for LiveKit Agents

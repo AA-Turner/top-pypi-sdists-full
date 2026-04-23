@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ethyca-fides
-Version: 2.83.2
+Version: 2.83.3
 Summary: Open-source ecosystem for data privacy as code.
 Project-URL: Homepage, https://github.com/ethyca/fides
 Author-email: "Ethyca, Inc." <fidesteam@ethyca.com>
@@ -13,7 +13,7 @@ Classifier: Topic :: Software Development :: Libraries
 Requires-Python: <4,>=3.13
 Requires-Dist: acryl-datahub==1.3.1.3
 Requires-Dist: aiohappyeyeballs~=2.6.1
-Requires-Dist: aiohttp==3.13.3
+Requires-Dist: aiohttp==3.13.4
 Requires-Dist: alembic==1.8.1
 Requires-Dist: anyascii==0.3.2
 Requires-Dist: anyio==3.7.1

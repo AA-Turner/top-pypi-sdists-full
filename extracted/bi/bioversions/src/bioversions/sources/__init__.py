@@ -6,7 +6,7 @@ import ftplib
 import traceback
 import warnings
 from collections.abc import Iterable
-from typing import Literal, NamedTuple, overload
+from typing import Literal, NamedTuple, cast, overload
 
 from class_resolver import ClassResolver
 from tqdm import tqdm
@@ -190,14 +190,14 @@ def resolve(name: str | type[Getter], *, use_cache: bool = True) -> VersionResul
     if use_cache:
         if isinstance(name, type):
             name = name.__name__
-        return _resolve_helper_cached(name)
+        return cast(VersionResult, _resolve_helper_cached(name))
     else:
         if isinstance(name, str):
             name = getter_resolver.lookup(name)
         return name.resolve()
 
 
-@refresh_daily
+@refresh_daily  # type:ignore
 def _resolve_helper_cached(name: str) -> VersionResult:
     getter = getter_resolver.lookup(name)
     return getter.resolve()
@@ -210,12 +210,12 @@ def clear_cache() -> None:
 
 # docstr-coverage:excused `overload`
 @overload
-def get_version(name: str, *, strict: Literal[True] = True) -> str: ...
+def get_version(name: str, *, strict: Literal[True] = ...) -> str: ...
 
 
 # docstr-coverage:excused `overload`
 @overload
-def get_version(name: str, *, strict: Literal[False] = False) -> str | None: ...
+def get_version(name: str, *, strict: Literal[False] = ...) -> str | None: ...
 
 
 def get_version(name: str, *, strict: bool = True) -> str | None:

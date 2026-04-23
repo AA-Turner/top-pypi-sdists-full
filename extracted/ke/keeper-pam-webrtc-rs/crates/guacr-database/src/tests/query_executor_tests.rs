@@ -230,8 +230,9 @@ async fn test_render_smoke() {
         jpeg.len()
     );
 
-    std::fs::write("/tmp/db_render_test.jpg", &jpeg).unwrap();
-    println!("Saved {} bytes to /tmp/db_render_test.jpg", jpeg.len());
+    let path = std::env::temp_dir().join("db_render_test.jpg");
+    std::fs::write(&path, &jpeg).unwrap();
+    println!("Saved {} bytes to {}", jpeg.len(), path.display());
 }
 
 /// Visual test: types text into the input line and renders to JPEG.
@@ -255,8 +256,9 @@ async fn test_render_input_editing() {
     assert!(!instructions.is_empty());
 
     let jpeg = executor.ratatui.render_to_jpeg(85).unwrap();
-    std::fs::write("/tmp/db_input_test.jpg", &jpeg).unwrap();
-    println!("Saved {} bytes to /tmp/db_input_test.jpg", jpeg.len());
+    let path = std::env::temp_dir().join("db_input_test.jpg");
+    std::fs::write(&path, &jpeg).unwrap();
+    println!("Saved {} bytes to {}", jpeg.len(), path.display());
 }
 
 /// Tests that resize updates the ratatui terminal dimensions.

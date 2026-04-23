@@ -36,6 +36,12 @@ if TYPE_CHECKING:
 
 from .artifact_storage import upsert_artifact
 from .artifacts import ArtifactSource, ArtifactType, build_fqn
+from .skill_bundles import (
+    _extract_yaml_frontmatter,
+    _inline_resources,
+    _parse_resource_list_from_frontmatter,
+    _resolve_bundle_resources,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -131,12 +137,6 @@ def discover_local_artifacts(
 
                 # Bundle resources declared in frontmatter
                 metadata: dict[str, Any] = {}
-                from .packs import (
-                    _inline_resources,
-                    _parse_resource_list_from_frontmatter,
-                    _resolve_bundle_resources,
-                )
-
                 resource_list = _parse_resource_list_from_frontmatter(content, path)
                 if resource_list:
                     try:
@@ -156,8 +156,6 @@ def discover_local_artifacts(
                         continue
 
                 # Extract non-core frontmatter into metadata (#1395)
-                from .packs import _extract_yaml_frontmatter
-
                 _raw = _read_content(path, art_type) or ""
                 if _raw.startswith("---\n") or _raw.startswith("---\r\n"):
                     try:

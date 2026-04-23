@@ -38,6 +38,7 @@ from anyscale.authenticate import AuthenticationBlock, get_auth_api_client
 from anyscale.cli_logger import BlockLogger
 from anyscale.client.openapi_client.api.default_api import DefaultApi as InternalApi
 from anyscale.client.openapi_client.models import (
+    AcceptTermsRequest,
     AdminCreatedUser,
     AdminCreateUser,
     AnyscaleServiceAccount,
@@ -2685,3 +2686,37 @@ class AnyscaleClient(AnyscaleClientInterface):
     def get_user_info(self) -> UserInfo:
         """Get information about the current user."""
         return self._internal_api_client.get_user_info_api_v2_userinfo_get().result
+
+    # ---- Skills ----
+
+    @handle_api_exceptions
+    def get_skills_manifest(self, *, version=None, include_bundle_url=True):
+        """Get the skills manifest for a version.
+
+        When include_bundle_url is False, the response omits the presigned
+        bundle URL and checksum, and the backend does not require terms
+        acceptance.
+        """
+        kwargs = {"include_bundle_url": include_bundle_url}
+        if version is not None:
+            kwargs["version"] = version
+        return self._internal_api_client.get_skills_manifest_api_v2_skills_manifest_get(
+            **kwargs
+        ).result
+
+    @handle_api_exceptions
+    def get_skills_terms(self, *, version=None):
+        """Get the current user's terms acceptance status for a skills version."""
+        kwargs = {}
+        if version is not None:
+            kwargs["version"] = version
+        return self._internal_api_client.get_skills_terms_status_api_v2_skills_terms_get(
+            **kwargs
+        ).result
+
+    @handle_api_exceptions
+    def accept_skills_terms(self, *, license_hash: str) -> None:
+        """Accept the skills license terms."""
+        self._internal_api_client.accept_skills_terms_api_v2_skills_terms_post(
+            accept_terms_request=AcceptTermsRequest(license_hash=license_hash),
+        )

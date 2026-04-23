@@ -35,3 +35,5 @@ class WebhookNotificationEventType:
     """Выплата перешла в статус canceled."""
     PAYOUT_SUCCEEDED = 'payout.succeeded'
     """Выплата перешла в статус succeeded."""
+    PAYMENT_METHOD_ACTIVE = 'payment_method.active'
+    """Способ оплаты сохранен."""

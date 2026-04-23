@@ -280,13 +280,39 @@ def _render_summary(config_data: dict[str, Any], config_path: Path) -> None:
 
 
 def _write_config(config_data: dict[str, Any], config_path: Path) -> None:
+    import os
+    import tempfile
+
     config_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # SECURITY-REVIEW: API key written to user's local config file with restricted permissions
-    with open(config_path, "w", encoding="utf-8") as f:
-        yaml.dump(config_data, f, default_flow_style=False, sort_keys=False)
+    # Snapshot the existing file before overwriting (non-fatal if it fails)
+    if config_path.exists():
+        try:
+            from ..services.config_history import ConfigHistoryService, get_backup_dir
 
-    config_path.chmod(stat.S_IRUSR | stat.S_IWUSR)
+            ConfigHistoryService(get_backup_dir(config_path.parent)).snapshot(config_path, source="setup")
+        except Exception:
+            pass
+
+    # SECURITY-REVIEW: API key written to user's local config file with restricted permissions
+    content = yaml.dump(config_data, default_flow_style=False, sort_keys=False)
+
+    # Atomic write: tmp + fsync + replace
+    fd, tmp_str = tempfile.mkstemp(dir=config_path.parent, suffix=".tmp")
+    tmp = Path(tmp_str)
+    try:
+        os.fchmod(fd, stat.S_IRUSR | stat.S_IWUSR)
+        os.write(fd, content.encode())
+        os.fsync(fd)
+        os.close(fd)
+        os.replace(tmp_str, config_path)
+    except BaseException:
+        try:
+            os.close(fd)
+        except OSError:
+            pass
+        tmp.unlink(missing_ok=True)
+        raise
 
 
 def bootstrap_team_config(

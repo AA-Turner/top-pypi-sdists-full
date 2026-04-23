@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mergify_cli
-Version: 2026.4.20.1
+Version: 2026.4.22.1
 Summary: Mergify CLI is a tool that automates the creation and management of stacked pull requests on GitHub and handles CI results upload
 Project-URL: Homepage, https://mergify.com
 Project-URL: Documentation, https://docs.mergify.com
@@ -26,7 +26,7 @@ Requires-Dist: httpx==0.28.1
 Requires-Dist: jsonschema==4.26.0
 Requires-Dist: opentelemetry-exporter-otlp-proto-http==1.41.0
 Requires-Dist: opentelemetry-sdk==1.41.0
-Requires-Dist: pydantic==2.13.2
+Requires-Dist: pydantic==2.13.3
 Requires-Dist: pyyaml==6.0.3
 Requires-Dist: questionary>=2.0.0
 Requires-Dist: rich==15.0.0
@@ -56,6 +56,7 @@ the CLI handles creation, updates, rebasing, and synchronization.
 | `mergify stack list` | List commits and their associated PRs (with CI/review status) |
 | `mergify stack sync` | Fetch trunk, remove merged commits, rebase |
 | `mergify stack edit [COMMIT]` | Interactive edit of the stack history |
+| `mergify stack note [COMMIT]` | Attach a "why this commit was amended" note to a commit |
 | `mergify stack reorder C A B` | Reorder commits in the stack |
 | `mergify stack move X before Y` | Move a commit within the stack |
 | `mergify stack checkout` | Check out a stack from a remote repository |

@@ -1,10 +1,11 @@
 Metadata-Version: 2.4
 Name: protovalidate
-Version: 1.1.2
+Version: 1.2.0
 Summary: Protocol Buffer Validation for Python
+Project-URL: Documentation, https://protovalidate.com
 Project-URL: Homepage, https://github.com/bufbuild/protovalidate-python
-Project-URL: Source, https://github.com/bufbuild/protovalidate-python
 Project-URL: Issues, https://github.com/bufbuild/protovalidate-python/issues
+Project-URL: Source, https://github.com/bufbuild/protovalidate-python
 License-Expression: Apache-2.0
 License-File: LICENSE
 Keywords: protobuf,protocol buffer,validate

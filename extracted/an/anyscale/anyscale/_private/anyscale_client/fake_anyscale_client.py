@@ -21,6 +21,7 @@ from anyscale.client.openapi_client.models import (
     AnyscaleServiceAccount,
     ApplyProductionServiceMultiVersionV2Model,
     Binding,
+    CatalogEntry,
     Cloud,
     CloudListResponse,
     CloudProviders,
@@ -66,6 +67,8 @@ from anyscale.client.openapi_client.models import (
     ResourceTagRecord,
     ResourceTagResourceType,
     ServerSessionToken,
+    SkillsManifestResponse,
+    TermsStatusResponse,
     UpdatePolicyRequest,
     UserGroup,
     UsergroupListResponse,
@@ -2767,3 +2770,37 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
                 ],
             }
         }
+
+    # ---- Skills ----
+
+    def get_skills_manifest(self, *, version=None, include_bundle_url=True):
+        return SkillsManifestResponse(
+            version=version or "1.0.0",
+            catalog=[
+                CatalogEntry(
+                    name="deploy",
+                    type="skill",
+                    description="Deploy a service",
+                    platforms=["claude-code", "cursor"],
+                    local_vars_configuration=OPENAPI_NO_VALIDATION,
+                ),
+            ],
+            bundle_url=(
+                "https://fake-s3.example.com/bundle.tar.gz"
+                if include_bundle_url
+                else None
+            ),
+            bundle_checksum="fake_checksum" if include_bundle_url else None,
+            local_vars_configuration=OPENAPI_NO_VALIDATION,
+        )
+
+    def get_skills_terms(self, *, version=None):
+        return TermsStatusResponse(
+            version=version or "1.0.0",
+            license_hash="fake_license_hash",
+            accepted=True,
+            local_vars_configuration=OPENAPI_NO_VALIDATION,
+        )
+
+    def accept_skills_terms(self, *, license_hash: str) -> None:
+        pass

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Optional, Union
 
-import matplotlib.patches as mpl_patches
 import numpy as np
 from pydantic import Field, NonNegativeInt, field_validator, model_validator
 
@@ -78,6 +77,13 @@ AUTO_RADIATION_MONITOR_BUFFER = 2
 AUTO_RADIATION_MONITOR_NUM_POINTS_THETA = 100
 AUTO_RADIATION_MONITOR_NUM_POINTS_PHI = 200
 TERMINAL_BOX_PADDING_FRACTION = 0.1
+
+
+def _get_mpl_patches() -> Any:
+    """Import matplotlib patches lazily for plotting-only code paths."""
+    import matplotlib.patches as mpl_patches
+
+    return mpl_patches
 
 
 def _pack_label_centers_1d(
@@ -335,11 +341,11 @@ class TerminalComponentModeler(AbstractComponentModeler, MicrowaveBaseModel):
     The ``s_param_def`` parameter controls which wave definition is used to compute scattering
     parameters. Three definitions are supported:
 
-    - ``"pseudo"`` (default): Pseudo-waves as defined by Marks and Williams [1]. Uses scaling
+    - ``"pseudo"`` (default): Pseudo-waves as defined by Marks and Williams [1]_. Uses scaling
       factor :math:`F = \\sqrt{\\text{Re}(Z)} / (2|Z|)`. Wave amplitudes are :math:`a = F(V + ZI)`
       and :math:`b = F(V - ZI)`.
 
-    - ``"power"``: Power waves as defined by Kurokawa [3] and described in Pozar [2]. Uses
+    - ``"power"``: Power waves as defined by Kurokawa [3]_ and described in Pozar [2]_. Uses
       scaling factor :math:`F = 1 / (2\\sqrt{\\text{Re}(Z)})`. Wave amplitudes are
       :math:`a = F(V + ZI)` and :math:`b = F(V - Z^*I)` where :math:`Z^*` is the complex
       conjugate. Ensures :math:`|a|^2 - |b|^2` represents actual power flow.
@@ -664,6 +670,8 @@ class TerminalComponentModeler(AbstractComponentModeler, MicrowaveBaseModel):
         ymin_padded = ymin - padding
         ymax_padded = ymax + padding
 
+        mpl_patches = _get_mpl_patches()
+
         # Add shaded rectangles for padding regions (top, bottom, left, right)
         # Bottom padding region
         bottom_rect = mpl_patches.Rectangle(
@@ -943,6 +951,7 @@ class TerminalComponentModeler(AbstractComponentModeler, MicrowaveBaseModel):
                     diff_box_ymin.append(box_ymin)
 
                     # Create rectangle for differential pair with blue dashed border
+                    mpl_patches = _get_mpl_patches()
                     rect = mpl_patches.Rectangle(
                         (box_xmin, box_ymin),
                         box_xmax - box_xmin,
@@ -1106,6 +1115,7 @@ class TerminalComponentModeler(AbstractComponentModeler, MicrowaveBaseModel):
             _, (xmin, ymin) = Box.pop_axis(box.bounds[0], axis=injection_axis)
             _, (xmax, ymax) = Box.pop_axis(box.bounds[1], axis=injection_axis)
             padding = TERMINAL_BOX_PADDING_FRACTION * max(xmax - xmin, ymax - ymin)
+            mpl_patches = _get_mpl_patches()
             rect = mpl_patches.Rectangle(
                 (xmin - padding, ymin - padding),
                 (xmax - xmin) + 2 * padding,
@@ -1857,9 +1867,14 @@ class TerminalComponentModeler(AbstractComponentModeler, MicrowaveBaseModel):
                 is_subset = modeler_freqs.issuperset(mon_freqs)
                 if not is_subset:
                     mon_name = rad_mon.name or f"{AUTO_RADIATION_MONITOR_NAME}_{index}"
-                    raise ValidationError(
-                        f"The frequencies in the radiation monitor '{mon_name}' "
-                        f"must be equal to or a subset of the frequencies in the '{self.__class__.__name__}'."
+                    self._raise_validation_error_at_loc(
+                        ValidationError(
+                            f"The frequencies in the radiation monitor '{mon_name}' "
+                            f"must be equal to or a subset of the frequencies in the '{self.__class__.__name__}'."
+                        ),
+                        "radiation_monitors",
+                        index,
+                        "freqs",
                     )
 
         return self

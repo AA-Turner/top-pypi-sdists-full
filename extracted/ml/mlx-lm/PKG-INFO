@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mlx-lm
-Version: 0.31.2
+Version: 0.31.3
 Summary: LLMs with MLX and the Hugging Face Hub
 Home-page: https://github.com/ml-explore/mlx-lm
 Author: MLX Contributors
@@ -9,7 +9,7 @@ License: MIT
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: mlx>=0.30.4; platform_system == "Darwin"
+Requires-Dist: mlx>=0.31.2; platform_system == "Darwin"
 Requires-Dist: numpy
 Requires-Dist: transformers>=5.0.0
 Requires-Dist: sentencepiece
@@ -26,11 +26,11 @@ Provides-Extra: evaluate
 Requires-Dist: lm-eval; extra == "evaluate"
 Requires-Dist: tqdm; extra == "evaluate"
 Provides-Extra: cuda13
-Requires-Dist: mlx[cuda13]>=0.30.4; extra == "cuda13"
+Requires-Dist: mlx[cuda13]>=0.31.2; extra == "cuda13"
 Provides-Extra: cuda12
-Requires-Dist: mlx[cuda12]>=0.30.4; extra == "cuda12"
+Requires-Dist: mlx[cuda12]>=0.31.2; extra == "cuda12"
 Provides-Extra: cpu
-Requires-Dist: mlx[cpu]>=0.30.4; extra == "cpu"
+Requires-Dist: mlx[cpu]>=0.31.2; extra == "cpu"
 Dynamic: author
 Dynamic: author-email
 Dynamic: description

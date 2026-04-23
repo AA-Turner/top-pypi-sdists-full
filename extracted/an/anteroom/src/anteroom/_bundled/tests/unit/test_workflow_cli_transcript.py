@@ -178,12 +178,13 @@ class TestPrintTranscriptLine:
                 "transcript_tool_result",
                 {
                     "tool_name": "glob_files",
-                    "output": ("{'files': ['/tmp/a.py', '/tmp/b.py', '/tmp/c.py', '/tmp/d.py']}"),
+                    "output": ("{'files': ['/tmp/a.py', '/tmp/sub/', '/tmp/c.py', '/tmp/d.py']}"),
                 },
             )
         text = output.getvalue()
-        assert "4 files" in text
+        assert "4 paths" in text
         assert "a.py" in text
+        assert "sub/" in text
         assert "(+1)" in text
 
     def test_bash_tool_result_json_output_collapsed(self) -> None:

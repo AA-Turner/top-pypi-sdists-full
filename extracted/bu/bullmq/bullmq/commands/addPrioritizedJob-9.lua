@@ -99,7 +99,7 @@ end
   Returns true if the proto-job was stored, false otherwise.
 ]]
 --[[
-  Functions to check if a item belongs to a list.
+  Function to check if an item belongs to a list.
 ]]
 local function checkItemInList(list, item)
   for _, v in pairs(list) do

@@ -553,7 +553,8 @@ class TestWebSystemPromptSeparation:
 
         with (
             patch("anteroom.routers.chat.storage") as mock_storage,
-            patch("anteroom.routers.chat.load_instructions", return_value=None),
+            patch("anteroom.routers.chat._find_global_instructions_path", return_value=None),
+            patch("anteroom.routers.chat._find_project_instructions_path", return_value=None),
             patch("anteroom.routers.chat.build_runtime_context", return_value="runtime context"),
         ):
             mock_storage.get_canvas_for_conversation.return_value = None
@@ -603,7 +604,8 @@ class TestWebSystemPromptSeparation:
 
         with (
             patch("anteroom.routers.chat.storage") as mock_storage,
-            patch("anteroom.routers.chat.load_instructions", return_value=None),
+            patch("anteroom.routers.chat._find_global_instructions_path", return_value=None),
+            patch("anteroom.routers.chat._find_project_instructions_path", return_value=None),
             patch("anteroom.routers.chat.build_runtime_context", return_value="runtime"),
         ):
             mock_storage.get_canvas_for_conversation.return_value = canvas_data

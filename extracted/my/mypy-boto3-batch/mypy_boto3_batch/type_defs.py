@@ -266,6 +266,7 @@ __all__ = (
     "RetryStrategyTypeDef",
     "RetryStrategyUnionTypeDef",
     "RuntimePlatformTypeDef",
+    "S3FilesVolumeConfigurationTypeDef",
     "SchedulingPolicyDetailTypeDef",
     "SchedulingPolicyListingDetailTypeDef",
     "SecretTypeDef",
@@ -823,6 +824,13 @@ class QueueSnapshotCapacityUsageTypeDef(TypedDict):
 class QuotaShareCapacityUsageTypeDef(TypedDict):
     capacityUnit: NotRequired[str]
     quantity: NotRequired[float]
+
+
+class S3FilesVolumeConfigurationTypeDef(TypedDict):
+    fileSystemArn: str
+    rootDirectory: NotRequired[str]
+    transitEncryptionPort: NotRequired[int]
+    accessPointArn: NotRequired[str]
 
 
 class ServiceJobCapacityUsageSummaryTypeDef(TypedDict):
@@ -1485,6 +1493,7 @@ class VolumeTypeDef(TypedDict):
     host: NotRequired[HostTypeDef]
     name: NotRequired[str]
     efsVolumeConfiguration: NotRequired[EFSVolumeConfigurationTypeDef]
+    s3filesVolumeConfiguration: NotRequired[S3FilesVolumeConfigurationTypeDef]
 
 
 class EksContainerOverrideTypeDef(TypedDict):
@@ -1632,6 +1641,8 @@ class TaskContainerDetailsTypeDef(TypedDict):
     secrets: NotRequired[list[SecretTypeDef]]
     ulimits: NotRequired[list[UlimitTypeDef]]
     user: NotRequired[str]
+    startTimeout: NotRequired[int]
+    stopTimeout: NotRequired[int]
     exitCode: NotRequired[int]
     reason: NotRequired[str]
     logStreamName: NotRequired[str]
@@ -1656,6 +1667,8 @@ class TaskContainerPropertiesOutputTypeDef(TypedDict):
     secrets: NotRequired[list[SecretTypeDef]]
     ulimits: NotRequired[list[UlimitTypeDef]]
     user: NotRequired[str]
+    startTimeout: NotRequired[int]
+    stopTimeout: NotRequired[int]
 
 
 class TaskContainerPropertiesTypeDef(TypedDict):
@@ -1676,6 +1689,8 @@ class TaskContainerPropertiesTypeDef(TypedDict):
     secrets: NotRequired[Sequence[SecretTypeDef]]
     ulimits: NotRequired[Sequence[UlimitTypeDef]]
     user: NotRequired[str]
+    startTimeout: NotRequired[int]
+    stopTimeout: NotRequired[int]
 
 
 class QuotaShareUtilizationDetailTypeDef(TypedDict):

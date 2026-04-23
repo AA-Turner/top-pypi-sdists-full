@@ -13,6 +13,7 @@ class ToolName(Enum):
     RUN = "run"
     TEST = "test"
     SHOW = "show"
+    CLONE = "clone"
     GET_LINEAGE_DEV = "get_lineage_dev"
     GET_NODE_DETAILS_DEV = "get_node_details_dev"
 
@@ -60,7 +61,6 @@ class ToolName(Enum):
     CANCEL_JOB_RUN = "cancel_job_run"
     RETRY_JOB_RUN = "retry_job_run"
     LIST_JOB_RUN_ARTIFACTS = "list_job_run_artifacts"
-    GET_JOB_RUN_ARTIFACT = "get_job_run_artifact"
     GET_JOB_RUN_ERROR = "get_job_run_error"
 
     # dbt-codegen tools

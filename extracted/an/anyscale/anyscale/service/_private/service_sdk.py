@@ -447,6 +447,51 @@ class PrivateServiceSDK(WorkloadSDK):
             connection_ids=connection_ids,
         )
 
+    def _build_apply_service_model_for_weight_update(
+        self,
+        name: str,
+        existing_service: DecoratedProductionServiceV2APIModel,
+        versions: List[Dict[str, Any]],
+    ) -> ApplyProductionServiceV2Model:
+        """Build the ApplyProductionServiceV2Model for a canary weight update.
+
+        Used when --versions is passed with no config files during a
+        single-version rollout. All properties are taken from the existing
+        canary version; only the traffic weight changes.
+        """
+        canary = existing_service.canary_version
+        assert canary is not None
+
+        wm = {v["name"]: v["traffic_percent"] for v in versions}
+        if canary.version in wm:
+            canary_percent = wm[canary.version]
+        elif (
+            existing_service.primary_version is not None
+            and existing_service.primary_version.version in wm
+        ):
+            canary_percent = 100 - wm[existing_service.primary_version.version]
+        else:
+            provided_names = list(wm.keys())
+            raise ValueError(
+                f"Version name(s) {provided_names} in --versions do not match "
+                f"the existing canary version '{canary.version}' or primary version "
+                f"'{existing_service.primary_version.version if existing_service.primary_version else None}'."
+            )
+
+        return ApplyProductionServiceV2Model(
+            name=name,
+            version=canary.version,
+            project_id=existing_service.project_id,
+            ray_serve_config=canary.ray_serve_config,
+            build_id=canary.build_id,
+            compute_config_id=canary.compute_config_id,
+            canary_percent=canary_percent,
+            rollout_strategy=RolloutStrategy.ROLLOUT,
+            config=None,
+            ray_gcs_external_storage_config=canary.ray_gcs_external_storage_config,
+            tracing_config=canary.tracing_config,
+        )
+
     def _build_apply_service_model_for_multi_version(
         self,
         name: str,
@@ -680,6 +725,15 @@ class PrivateServiceSDK(WorkloadSDK):
                 )
 
             return RolloutStrategy.ROLLOUT
+        elif (
+            existing_service is not None
+            and existing_service.is_multi_version is False
+            and existing_service.canary_version is not None
+            and len(configs) == 0
+        ):
+            # --versions with no configs during a single-version rollout is a
+            # canary weight update, not a multi-version deployment.
+            return RolloutStrategy.ROLLOUT
         else:
             return RolloutStrategy.MULTI_VERSION
 
@@ -812,16 +866,25 @@ class PrivateServiceSDK(WorkloadSDK):
             )
             service = self.client.rollout_service_multi_version(model)
         else:
-            # rolling out a single version in new service without specifying versions.
-            assert len(configs) == 1
-            model = self._build_apply_service_model_for_rollout(
-                name,
-                configs[0],
-                RolloutStrategy.ROLLOUT,
-                canary_percent=canary_percent,
-                max_surge_percent=max_surge_percent,
-                existing_service=existing_service,
-            )
+            if len(configs) == 0:
+                # --versions with no configs during a single-version rollout:
+                # update canary weight using the existing canary version.
+                assert existing_service is not None
+                model = self._build_apply_service_model_for_weight_update(
+                    name, existing_service, versions,  # type: ignore[arg-type]
+                )
+                canary_percent = model.canary_percent
+            else:
+                # rolling out a single version in new service without specifying versions.
+                assert len(configs) == 1
+                model = self._build_apply_service_model_for_rollout(
+                    name,
+                    configs[0],
+                    RolloutStrategy.ROLLOUT,
+                    canary_percent=canary_percent,
+                    max_surge_percent=max_surge_percent,
+                    existing_service=existing_service,
+                )
             service = self.client.rollout_service(model)
 
         self._log_deployed_service_info(service, canary_percent=canary_percent)

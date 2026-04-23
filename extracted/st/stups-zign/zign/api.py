@@ -1,8 +1,12 @@
+import fcntl
 import logging
 import os
 import socket
+import tempfile
+import threading
 import time
 import webbrowser
+from contextlib import contextmanager
 from urllib.parse import urlparse, urlunsplit
 
 import click
@@ -13,13 +17,64 @@ import yaml
 from clickclick import UrlType, error, info
 from requests import RequestException
 
-from .config import (CONFIG_NAME, OLD_CONFIG_NAME, REFRESH_TOKEN_FILE_PATH,
-                     TOKENS_FILE_PATH)
+from .config import (
+    CONFIG_NAME,
+    OLD_CONFIG_NAME,
+    REFRESH_TOKEN_FILE_PATH,
+    TOKENS_FILE_PATH,
+)
 from .oauth2 import ClientRedirectServer
 
-TOKEN_MINIMUM_VALIDITY_SECONDS = 60*5  # 5 minutes
+TOKEN_MINIMUM_VALIDITY_SECONDS = 60 * 5  # 5 minutes
 
-logger = logging.getLogger('zign.api')
+
+logger = logging.getLogger("zign.api")
+
+
+@contextmanager
+def file_lock(path: str):
+    """
+    Acquire an exclusive lock on a file to prevent concurrent access.
+
+    Uses fcntl.flock() on POSIX systems to ensure that read-modify-write
+    operations on token storage are atomic across multiple processes.
+
+    The lock file is created in the same directory as the target file.
+    """
+    lock_path = path + ".lock"
+    lock_dir = os.path.dirname(lock_path)
+    if lock_dir:
+        os.makedirs(lock_dir, exist_ok=True)
+
+    lock_fd = None
+    try:
+        # Open (or create) the lock file
+        lock_fd = os.open(lock_path, os.O_CREAT | os.O_RDWR, 0o600)
+
+        # Serialize threads within the same process (flock is per-fd, not per-thread)
+        _thread_lock.acquire()
+
+        # Serialize across processes
+        fcntl.flock(lock_fd, fcntl.LOCK_EX)
+
+        yield
+
+    finally:
+        if lock_fd is not None:
+            # Release lock and close file
+            try:
+                fcntl.flock(lock_fd, fcntl.LOCK_UN)
+            except OSError as e:
+                logger.warning("Failed to unlock file %s: %s", lock_path, e)
+            try:
+                os.close(lock_fd)
+            except OSError as e:
+                logger.warning("Failed to close lock file %s: %s", lock_path, e)
+            _thread_lock.release()
+
+
+# Global lock used by file_lock.
+_thread_lock = threading.Lock()
 
 
 class ServerError(Exception):
@@ -27,12 +82,12 @@ class ServerError(Exception):
         self.message = message
 
     def __str__(self):
-        return 'Server error: {}'.format(self.message)
+        return "Server error: {}".format(self.message)
 
 
 class AuthenticationFailed(ServerError):
     def __str__(self):
-        return 'Authentication failed: {}'.format(self.message)
+        return "Authentication failed: {}".format(self.message)
 
 
 class ConfigurationError(Exception):
@@ -40,16 +95,16 @@ class ConfigurationError(Exception):
         self.msg = msg
 
     def __str__(self):
-        return 'Configuration error: {}'.format(self.msg)
+        return "Configuration error: {}".format(self.msg)
 
 
 def get_config(config_module=None, override=None):
-    '''Returns the specified module's configuration. Defaults to ztoken.
+    """Returns the specified module's configuration. Defaults to ztoken.
 
     Prompts for configuration values if ztoken module config is not present or has missing values.
 
     If override is present, only prompts for non-existent values.
-    '''
+    """
     if not config_module or config_module == OLD_CONFIG_NAME:
         # backwards compatible (used by Piu!):
         return stups_cli.config.load_config(OLD_CONFIG_NAME)
@@ -60,22 +115,29 @@ def get_config(config_module=None, override=None):
     override = {k: v for (k, v) in override.items() if v}
     config = stups_cli.config.load_config(config_module)
 
-    for oauth2_url, message in {'authorize_url': 'Authorization', 'token_url': 'Token'}.items():
+    for oauth2_url, message in {
+        "authorize_url": "Authorization",
+        "token_url": "Token",
+    }.items():
         while oauth2_url not in override and oauth2_url not in config:
-            config[oauth2_url] = click.prompt('Please enter the OAuth 2 {} Endpoint URL'.format(message),
-                                              type=UrlType())
+            config[oauth2_url] = click.prompt(
+                "Please enter the OAuth 2 {} Endpoint URL".format(message),
+                type=UrlType(),
+            )
 
             try:
                 requests.get(config[oauth2_url], timeout=5)
             except RequestException:
-                error('Could not reach {}'.format(config[oauth2_url]))
+                error("Could not reach {}".format(config[oauth2_url]))
                 del config[oauth2_url]
 
-    if 'client_id' not in override and 'client_id' not in config:
-        config['client_id'] = click.prompt('Please enter the OAuth 2 Client ID')
+    if "client_id" not in override and "client_id" not in config:
+        config["client_id"] = click.prompt("Please enter the OAuth 2 Client ID")
 
-    if 'business_partner_id' not in override and 'business_partner_id' not in config:
-        config['business_partner_id'] = click.prompt('Please enter the Business Partner ID')
+    if "business_partner_id" not in override and "business_partner_id" not in config:
+        config["business_partner_id"] = click.prompt(
+            "Please enter the Business Partner ID"
+        )
 
     config.update(override)
     return config
@@ -95,33 +157,41 @@ def load_config_ztoken(config_file: str):
 
 
 def get_new_token(realm: str, scope: list, user, password, url=None, insecure=False):
-    logger.warning('"get_new_token" is deprecated, please use "zign.api.get_token" instead')
+    logger.warning(
+        '"get_new_token" is deprecated, please use "zign.api.get_token" instead'
+    )
 
     if not url:
         config = get_config(OLD_CONFIG_NAME)
-        url = config.get('url')
-    params = {'json': 'true'}
+        url = config.get("url")
+    params = {"json": "true"}
     if realm:
-        params['realm'] = realm
+        params["realm"] = realm
     if scope:
-        params['scope'] = ' '.join(filter(is_user_scope, scope))
-    response = requests.get(url, params=params, auth=(user, password), verify=not insecure)
+        params["scope"] = " ".join(filter(is_user_scope, scope))
+    response = requests.get(
+        url, params=params, auth=(user, password), verify=not insecure
+    )
     if response.status_code == 401:
-        raise AuthenticationFailed('Token Service returned {}'.format(response.text))
+        raise AuthenticationFailed("Token Service returned {}".format(response.text))
     elif response.status_code != 200:
-        raise ServerError('Token Service returned HTTP status {}: {}'.format(response.status_code, response.text))
+        raise ServerError(
+            "Token Service returned HTTP status {}: {}".format(
+                response.status_code, response.text
+            )
+        )
     try:
         json_data = response.json()
-    except:  # noqa: E731,E123
-        raise ServerError('Token Service returned invalid JSON data')
+    except Exception:
+        raise ServerError("Token Service returned invalid JSON data")
 
-    if not json_data.get('access_token'):
-        raise ServerError('Token Service returned invalid JSON (access_token missing)')
+    if not json_data.get("access_token"):
+        raise ServerError("Token Service returned invalid JSON (access_token missing)")
     return json_data
 
 
 def get_existing_token(name: str) -> dict:
-    '''Return existing token if it exists and if it's valid, return None otherwise'''
+    """Return existing token if it exists and if it's valid, return None otherwise"""
     data = get_tokens()
     existing_token = data.get(name)
     if is_valid(existing_token):
@@ -129,25 +199,60 @@ def get_existing_token(name: str) -> dict:
 
 
 def store_token(name: str, result: dict):
-    data = get_tokens()
+    with file_lock(TOKENS_FILE_PATH):
+        data = get_tokens()
 
-    data[name] = result
-    data[name]['creation_time'] = time.time()
+        data[name] = result
+        data[name]["creation_time"] = time.time()
 
-    store_config_ztoken(data, TOKENS_FILE_PATH)
+        store_config_ztoken(data, TOKENS_FILE_PATH)
 
 
 def store_config_ztoken(data: dict, path: str):
+    """
+    Atomically write token data to file to prevent race conditions.
+
+    Uses atomic write-and-rename pattern:
+    1. Write to temporary file in same directory
+    2. fsync to ensure data is on disk
+    3. Atomically rename temp file to target (POSIX atomic operation)
+
+    This ensures other processes never see partial/empty files.
+    """
     dir_path = os.path.dirname(path)
     if dir_path:
         os.makedirs(dir_path, exist_ok=True)
 
-    with open(path, 'w') as fd:
-        yaml.safe_dump(data, fd)
+    # Create temp file in same directory to ensure same filesystem (required for atomic rename)
+    tmp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            dir=dir_path if dir_path else ".",
+            prefix=".tokens_",
+            suffix=".yaml.tmp",
+            delete=False,
+        ) as f:
+            tmp_path = f.name
+            yaml.safe_dump(data, f)
+            f.flush()
+            os.fsync(f.fileno())  # Ensure data is written to disk
+
+        # Atomic rename - other processes see either old or new file, never partial
+        os.rename(tmp_path, path)
+        tmp_path = None  # Successfully renamed, don't clean up
+
+    except Exception:
+        # Clean up temp file on error
+        if tmp_path is not None:
+            try:
+                os.unlink(tmp_path)
+            except OSError as e:
+                logger.warning("Failed to clean up temporary file %s: %s", tmp_path, e)
+        raise
 
 
 def perform_implicit_flow(config: dict):
-
     # Get new token
     success = False
     # Must match redirect URIs in client configuration (http://localhost:8081-8181)
@@ -156,7 +261,7 @@ def perform_implicit_flow(config: dict):
 
     while True:
         try:
-            httpd = ClientRedirectServer(('127.0.0.1', port_number))
+            httpd = ClientRedirectServer(("127.0.0.1", port_number))
         except socket.error:
             if port_number > max_port_number:
                 success = False
@@ -167,16 +272,27 @@ def perform_implicit_flow(config: dict):
             break
 
     if success:
-        params = {'response_type':          'token',
-                  'business_partner_id':    config['business_partner_id'],
-                  'client_id':              config['client_id'],
-                  'redirect_uri':           'http://localhost:{}'.format(port_number)}
+        params = {
+            "response_type": "token",
+            "business_partner_id": config["business_partner_id"],
+            "client_id": config["client_id"],
+            "redirect_uri": "http://localhost:{}".format(port_number),
+        }
 
-        param_list = ['{}={}'.format(key, value) for key, value in sorted(params.items())]
-        param_string = '&'.join(param_list)
-        parsed_authorize_url = urlparse(config['authorize_url'])
-        browser_url = urlunsplit((parsed_authorize_url.scheme, parsed_authorize_url.netloc, parsed_authorize_url.path,
-                                  param_string, ''))
+        param_list = [
+            "{}={}".format(key, value) for key, value in sorted(params.items())
+        ]
+        param_string = "&".join(param_list)
+        parsed_authorize_url = urlparse(config["authorize_url"])
+        browser_url = urlunsplit(
+            (
+                parsed_authorize_url.scheme,
+                parsed_authorize_url.netloc,
+                parsed_authorize_url.path,
+                param_string,
+                "",
+            )
+        )
 
         # Redirect stdout and stderr. In Linux, a message is outputted to stdout when opening the browser
         # (and then a message to stderr because it can't write).
@@ -191,10 +307,10 @@ def perform_implicit_flow(config: dict):
             os.dup2(saved_stdout, 1)
             os.dup2(saved_stderr, 2)
 
-        info('Your browser has been opened to visit:\n\n\t{}\n'.format(browser_url))
+        info("Your browser has been opened to visit:\n\n\t{}\n".format(browser_url))
 
     else:
-        raise AuthenticationFailed('Failed to launch local server')
+        raise AuthenticationFailed("Failed to launch local server")
 
     while not httpd.query_params:
         # Handle first request, which will redirect to Javascript
@@ -204,97 +320,133 @@ def perform_implicit_flow(config: dict):
     return httpd.query_params
 
 
-def get_token_implicit_flow(name=None, authorize_url=None, token_url=None, client_id=None, business_partner_id=None,
-                            refresh=False):
-    '''Gets a Platform IAM access token using browser redirect flow'''
+def get_token_implicit_flow(
+    name=None,
+    authorize_url=None,
+    token_url=None,
+    client_id=None,
+    business_partner_id=None,
+    refresh=False,
+):
+    """Gets a Platform IAM access token using browser redirect flow"""
 
     if name and not refresh:
         existing_token = get_existing_token(name)
         # This will clear any non-JWT tokens
-        if existing_token and existing_token.get('access_token').count('.') >= 2:
+        if existing_token and existing_token.get("access_token").count(".") >= 2:
             return existing_token
 
-    override = {'name':                 name,
-                'authorize_url':        authorize_url,
-                'token_url':            token_url,
-                'client_id':            client_id,
-                'business_partner_id':  business_partner_id}
+    override = {
+        "name": name,
+        "authorize_url": authorize_url,
+        "token_url": token_url,
+        "client_id": client_id,
+        "business_partner_id": business_partner_id,
+    }
     config = get_config(CONFIG_NAME, override=override)
 
     data = load_config_ztoken(REFRESH_TOKEN_FILE_PATH)
 
     # Force prompting for authorize-url and token-url if only one is specified in the parameter list.
     if authorize_url and not token_url:
-        config['token_url'] = click.prompt('Please enter the OAuth 2 Token Endpoint URL', type=UrlType())
+        config["token_url"] = click.prompt(
+            "Please enter the OAuth 2 Token Endpoint URL", type=UrlType()
+        )
     elif token_url and not authorize_url:
-        config['authorize_url'] = click.prompt('Please enter the OAuth 2 Authorize Endpoint URL', type=UrlType())
+        config["authorize_url"] = click.prompt(
+            "Please enter the OAuth 2 Authorize Endpoint URL", type=UrlType()
+        )
 
     use_refresh = not (authorize_url or token_url)
     # Refresh token will be used if authorize_url or token_url aren't specified
 
-    refresh_token = data.get('refresh_token')
+    refresh_token = data.get("refresh_token")
     if refresh_token and use_refresh:
-        payload = {'grant_type':            'refresh_token',
-                   'client_id':             config['client_id'],
-                   'business_partner_id':   config['business_partner_id'],
-                   'refresh_token':         refresh_token}
+        payload = {
+            "grant_type": "refresh_token",
+            "client_id": config["client_id"],
+            "business_partner_id": config["business_partner_id"],
+            "refresh_token": refresh_token,
+        }
         try:
-            r = requests.post(config['token_url'], timeout=20, data=payload)
+            r = requests.post(config["token_url"], timeout=20, data=payload)
             r.raise_for_status()
 
             token = r.json()
-            token['scope'] = ''
+            token["scope"] = ""
             if name:
-                token['name'] = name
+                token["name"] = name
                 store_token(name, token)
 
-            store_config_ztoken({'refresh_token': token['refresh_token']}, REFRESH_TOKEN_FILE_PATH)
+            store_config_ztoken(
+                {"refresh_token": token["refresh_token"]}, REFRESH_TOKEN_FILE_PATH
+            )
             return token
         except RequestException as exception:
             error(exception)
 
     response = perform_implicit_flow(config)
 
-    if 'access_token' in response:
-        token = {'access_token':    response['access_token'],
-                 'refresh_token':   response.get('refresh_token'),
-                 'expires_in':      int(response['expires_in']),
-                 'token_type':      response['token_type'],
-                 'scope':           ''}
+    if "access_token" in response:
+        token = {
+            "access_token": response["access_token"],
+            "refresh_token": response.get("refresh_token"),
+            "expires_in": int(response["expires_in"]),
+            "token_type": response["token_type"],
+            "scope": "",
+        }
 
         # Refresh token is only stored when the default configuration is used
-        if token['refresh_token'] and use_refresh:
-            store_config_ztoken({'refresh_token': token['refresh_token']}, REFRESH_TOKEN_FILE_PATH)
+        if token["refresh_token"] and use_refresh:
+            store_config_ztoken(
+                {"refresh_token": token["refresh_token"]}, REFRESH_TOKEN_FILE_PATH
+            )
 
         if name:
-            token['name'] = name
+            token["name"] = name
             store_token(name, token)
         return token
     else:
-        raise AuthenticationFailed('Failed to retrieve token')
+        raise AuthenticationFailed("Failed to retrieve token")
 
 
-def get_named_token(scope, realm, name, user, password, url=None,
-                    insecure=False, refresh=False, use_keyring=True, prompt=False):
-    '''get named access token, return existing if still valid'''
-    logger.warning('"get_named_token" is deprecated, please use "zign.api.get_token" instead')
+def get_named_token(
+    scope,
+    realm,
+    name,
+    user,
+    password,
+    url=None,
+    insecure=False,
+    refresh=False,
+    use_keyring=True,
+    prompt=False,
+):
+    """get named access token, return existing if still valid"""
+    logger.warning(
+        '"get_named_token" is deprecated, please use "zign.api.get_token" instead'
+    )
 
     access_token = get_token(name, scope)
-    return {'access_token': access_token}
+    return {"access_token": access_token}
 
 
 def is_valid(token: dict):
     now = time.time()
-    return token and now < (token.get('creation_time', 0) + token.get('expires_in', 0) - TOKEN_MINIMUM_VALIDITY_SECONDS)
+    return token and now < (
+        token.get("creation_time", 0)
+        + token.get("expires_in", 0)
+        - TOKEN_MINIMUM_VALIDITY_SECONDS
+    )
 
 
 def is_user_scope(scope: str):
-    '''Is the given scope supported for users (employees) in Token Service?'''
-    return scope in set(['uid', 'cn'])
+    """Is the given scope supported for users (employees) in Token Service?"""
+    return scope in set(["uid", "cn"])
 
 
 def get_service_token(name: str, scopes: list):
-    '''Get service token (tokens lib) if possible, otherwise return None'''
+    """Get service token (tokens lib) if possible, otherwise return None"""
     tokens.manage(name, scopes)
     try:
         access_token = tokens.get(name)
@@ -309,14 +461,14 @@ def get_service_token(name: str, scopes: list):
 
 
 def get_token(name: str, scopes: list):
-    '''Get an OAuth token, either from Token Service
-    or directly from OAuth provider (using the Python tokens library)'''
+    """Get an OAuth token, either from Token Service
+    or directly from OAuth provider (using the Python tokens library)"""
 
     # first try if a token exists already
     token = get_existing_token(name)
 
     if token:
-        return token['access_token']
+        return token["access_token"]
 
     access_token = get_service_token(name, scopes)
     if access_token:
@@ -325,4 +477,4 @@ def get_token(name: str, scopes: list):
     # TODO: support scopes for implicit flow
     token = get_token_implicit_flow(name)
     if token:
-        return token['access_token']
+        return token["access_token"]

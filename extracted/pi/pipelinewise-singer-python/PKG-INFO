@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pipelinewise-singer-python
-Version: 3.0.1
+Version: 3.0.2
 Summary: Singer.io utility library - PipelineWise compatible
 Home-page: https://github.com/transferwise/pipelinewise-singer-python
 Author: TransferWise

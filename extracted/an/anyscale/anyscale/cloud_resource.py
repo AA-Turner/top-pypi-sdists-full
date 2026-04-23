@@ -314,7 +314,7 @@ def _get_role_from_arn(
         raise e
 
 
-def verify_aws_iam_roles(  # noqa: PLR0911, PLR0912
+def verify_aws_iam_roles(  # noqa: PLR0911, PLR0912, PLR0913
     control_plane_role: Optional[str],
     data_plane_role: Optional[str],
     boto3_session: boto3.Session,
@@ -323,6 +323,7 @@ def verify_aws_iam_roles(  # noqa: PLR0911, PLR0912
     cloud_id: str,
     strict: bool = False,
     _use_strict_iam_permissions: bool = False,
+    cluster_instance_profile_arn: Optional[str] = None,
 ) -> bool:
 
     logger.info("Verifying IAM roles ...")
@@ -437,23 +438,41 @@ def verify_aws_iam_roles(  # noqa: PLR0911, PLR0912
         if strict:
             return False
 
-    if (
-        len(
-            [
-                profile
-                for profile in cluster_node_role.instance_profiles.all()
-                if profile.name == cluster_node_role.name
-            ]
-        )
-        == 0
+    # Preflight must match runtime behavior. Runtime uses whichever of these is set,
+    # in order: (1) compute-config advanced_instance_config override, (2) cloud-level
+    # cluster_instance_profile_id (new; wins here when passed in), (3) legacy fallback
+    # that treats the role name as the instance profile name.
+    #
+    # (1) can't be checked at this layer, so we verify (2) when set and (3) otherwise.
+    attached_profiles = list(cluster_node_role.instance_profiles.all())
+    if cluster_instance_profile_arn:
+        attached_arns = {profile.arn for profile in attached_profiles}
+        if cluster_instance_profile_arn not in attached_arns:
+            logger.log_resource_error(
+                CloudAnalyticsEventCloudResource.AWS_IAM_ROLE,
+                CloudSetupError.INSTANCE_PROFILE_NOT_FOUND,
+            )
+            logger.error(
+                f"Instance profile {cluster_instance_profile_arn} is not attached "
+                f"to dataplane role {cluster_node_role.arn}. "
+                f"Attach the instance profile to the role and retry."
+            )
+            return False
+    elif not any(
+        profile.name == cluster_node_role.name for profile in attached_profiles
     ):
         logger.log_resource_error(
             CloudAnalyticsEventCloudResource.AWS_IAM_ROLE,
             CloudSetupError.INSTANCE_PROFILE_NOT_FOUND,
         )
         logger.error(
-            f"Dataplane role {cluster_node_role.arn} is required to have an instance profile with the name {cluster_node_role.name}."
-            "\nPlease create this instance profile and associate it to the role."
+            f"Dataplane role {cluster_node_role.arn} does not have an attached instance "
+            f"profile named {cluster_node_role.name!r}, which is what Anyscale uses by "
+            "default at cluster launch time. "
+            "Either (a) create an instance profile with that name and attach it to "
+            "the role, or (b) set `cluster_instance_profile_id` in your cloud config "
+            "to the ARN of an already-attached instance profile (supported when your "
+            "IAM tooling generates role and instance profile names independently)."
         )
         return False
 

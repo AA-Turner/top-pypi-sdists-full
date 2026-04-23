@@ -251,7 +251,9 @@ class ModeSolver(Tidy3dBaseModel):
     def _validate_mode_spec(self) -> Self:
         """Validate that num_modes is an integer."""
         if not isinstance(self.mode_spec.num_modes, int):
-            raise ValidationError("num_modes must be an integer.")
+            self._raise_validation_error_at_loc(
+                ValidationError("num_modes must be an integer."), "mode_spec"
+            )
         return self
 
     @field_validator("simulation")
@@ -282,7 +284,10 @@ class ModeSolver(Tidy3dBaseModel):
         """Check that the plane is at least partially inside the simulation bounds."""
         sim_box = Box(size=self.simulation.size, center=self.simulation.center)
         if not sim_box.intersects(self.plane):
-            raise SetupError("'ModeSolver.plane' must intersect 'ModeSolver.simulation'.")
+            self._raise_validation_error_at_loc(
+                SetupError("'ModeSolver.plane' must intersect 'ModeSolver.simulation'."),
+                "plane",
+            )
         return self
 
     @model_validator(mode="after")
@@ -335,9 +340,12 @@ class ModeSolver(Tidy3dBaseModel):
         num_cells, _, num_modes = self._num_cells_freqs_modes
         matrix_dim_factor = 4 if self._is_tensorial else 2
         if num_cells * (20 + 2 * num_modes) * matrix_dim_factor > 2**32 - 1:
-            raise SetupError(
-                "Too many grid points on the modal plane. Please reduce the modal plane size, apply a coarser grid, "
-                "or reduce the number of modes."
+            self._raise_validation_error_at_loc(
+                SetupError(
+                    "Too many grid points on the modal plane. Please reduce the modal plane size, apply a coarser grid, "
+                    "or reduce the number of modes."
+                ),
+                "plane",
             )
         return self
 
@@ -440,7 +448,7 @@ class ModeSolver(Tidy3dBaseModel):
         ):
             return
 
-        raise SetupError(
+        raise SetupError(  # post-init-tidy3d-error: ignore
             "'angle_rotation' set to True but the mode solver plane intersects an unsupported "
             "medium. Only uniform isotropic media and rotation-invariant anisotropic media are "
             "supported for the plane rotation."
@@ -483,7 +491,7 @@ class ModeSolver(Tidy3dBaseModel):
 
             return rotated_structures
         except Exception as e:
-            raise SetupError(
+            raise SetupError(  # post-init-tidy3d-error: ignore
                 f"'angle_rotation' set to True but could not rotate structures: {e!s}"
             ) from e
 
@@ -2758,7 +2766,7 @@ class ModeSolver(Tidy3dBaseModel):
     def plot_field(
         self,
         field_name: str,
-        val: Literal["real", "imag", abs] = "real",
+        val: Literal["real", "imag", "abs"] = "real",
         scale: PlotScale = "lin",
         eps_alpha: float = 0.2,
         robust: bool = True,
@@ -2820,6 +2828,46 @@ class ModeSolver(Tidy3dBaseModel):
             vmax=vmax,
             ax=ax,
             cmap=cmap,
+            **sel_kwargs,
+        )
+
+    def plot_field_components(
+        self,
+        field_names: Union[str, tuple[str, ...]],
+        mode_indices: Optional[Union[int, tuple[int, ...]]] = None,
+        val: Literal["real", "imag", "abs"] = "real",
+        scale: PlotScale = "lin",
+        eps_alpha: float = 0.2,
+        robust: bool = True,
+        vmin: Optional[float] = None,
+        vmax: Optional[float] = None,
+        ax: Any = None,
+        cmap: Optional[Union[str, Colormap]] = None,
+        figsize: Optional[tuple[float, float]] = None,
+        titles: bool = True,
+        show_n_eff: bool = False,
+        **sel_kwargs: Any,
+    ) -> tuple[Any, np.ndarray]:
+        """Plot multiple field components for one or more modes in a single call."""
+        from tidy3d.components.mode.data.sim_data import ModeSimulationData
+        from tidy3d.components.mode.simulation import ModeSimulation
+
+        mode_sim = ModeSimulation.from_mode_solver(self)
+        mode_sim_data = ModeSimulationData(simulation=mode_sim, modes_raw=self.data_raw)
+        return mode_sim_data.plot_field_components(
+            field_names=field_names,
+            mode_indices=mode_indices,
+            val=val,
+            scale=scale,
+            eps_alpha=eps_alpha,
+            robust=robust,
+            vmin=vmin,
+            vmax=vmax,
+            ax=ax,
+            cmap=cmap,
+            figsize=figsize,
+            titles=titles,
+            show_n_eff=show_n_eff,
             **sel_kwargs,
         )
 

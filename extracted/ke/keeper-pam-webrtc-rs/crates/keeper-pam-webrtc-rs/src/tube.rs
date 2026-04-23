@@ -2037,11 +2037,9 @@ impl Tube {
                             stats.rtt_ms = Some(rtt * 1000.0); // Convert to milliseconds
                         }
                     }
-                    webrtc::stats::StatsReportType::CandidatePair(pair) => {
-                        if pair.nominated {
-                            stats.rtt_ms = Some(pair.current_round_trip_time * 1000.0);
-                            // Convert to milliseconds
-                        }
+                    webrtc::stats::StatsReportType::CandidatePair(pair) if pair.nominated => {
+                        stats.rtt_ms = Some(pair.current_round_trip_time * 1000.0);
+                        // Convert to milliseconds
                     }
                     _ => {} // Ignore other stat types
                 }

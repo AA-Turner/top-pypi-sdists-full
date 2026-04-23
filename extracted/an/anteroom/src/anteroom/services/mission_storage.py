@@ -227,7 +227,7 @@ def resolve_item_id(
     query += " ORDER BY created_at DESC LIMIT ?"
     params.append(max_matches + 1)
 
-    rows = db.execute_fetchall(query, params)
+    rows = db.execute_fetchall(query, tuple(params))
     if not rows:
         raise ValueError(f"Item not found: {item_ref}")
     if len(rows) == 1:

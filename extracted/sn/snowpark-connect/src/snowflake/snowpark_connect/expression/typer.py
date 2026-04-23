@@ -12,8 +12,9 @@ from snowflake.snowpark._internal.analyzer.expression import (
     UnresolvedAttribute,
 )
 from snowflake.snowpark.exceptions import SnowparkClientException
-from snowflake.snowpark.types import DataType, LongType, StructField, StructType
+from snowflake.snowpark.types import LongType, StructField, StructType
 from snowflake.snowpark_connect.config import global_config
+from snowflake.snowpark_connect.typed_column import FieldType
 from snowflake.snowpark_connect.utils.context import (
     get_df_before_projection,
     get_outer_dataframes,
@@ -25,7 +26,7 @@ class ExpressionTyper:
     def __init__(self, df: DataFrame) -> None:
         self.df = df
 
-    def type(self, column: Column) -> list[DataType]:
+    def type(self, column: Column) -> list[FieldType]:
         types = self._try_to_type_attribute_or_literal(self.df, column)
         if not types and get_df_before_projection():
             types = self._try_to_type_attribute_or_literal(
@@ -36,18 +37,18 @@ class ExpressionTyper:
             types = self._type_using_select(self.df, column)
         return types
 
-    def _type_using_select(self, df: DataFrame, column: Column) -> list[DataType]:
+    def _type_using_select(self, df: DataFrame, column: Column) -> list[FieldType]:
         df = self._join_df_with_outer_dataframes(df)
 
         try:
-            return self._get_df_datatypes(df, column)
+            return self._get_df_field_types(df, column)
         except SnowparkClientException:  # Fallback to the df before projection
             df_container = get_df_before_projection()
             if df_container is None:
                 raise
 
             df = self._join_df_with_outer_dataframes(df_container.dataframe)
-            return self._get_df_datatypes(df, column)
+            return self._get_df_field_types(df, column)
 
     @staticmethod
     def _join_df_with_outer_dataframes(df: DataFrame) -> DataFrame:
@@ -57,19 +58,21 @@ class ExpressionTyper:
         return df
 
     @staticmethod
-    def _get_df_datatypes(df: DataFrame, column: Column) -> list[DataType]:
-        return [f.datatype for f in df.select(column).schema.fields]
+    def _get_df_field_types(df: DataFrame, column: Column) -> list[FieldType]:
+        return [
+            FieldType(f.datatype, f.nullable) for f in df.select(column).schema.fields
+        ]
 
     def _try_to_type_attribute_or_literal(
         self, df: DataFrame, column: Column
-    ) -> list[DataType] | None:
+    ) -> list[FieldType] | None:
         types = None
         expr = column._expression if hasattr(column, "_expression") else None
         match expr:
             case UnresolvedAttribute() | Attribute():
                 # there is a chance that df.schema is already evaluated
                 types = [
-                    f.datatype
+                    FieldType(f.datatype, f.nullable)
                     for f in df.schema.fields
                     if (
                         f.name == expr.name
@@ -80,7 +83,7 @@ class ExpressionTyper:
                     )
                 ]  # doesn't work for nested attributes e.g. `"properties-3":"salary"`
             case Literal():
-                types = [expr.datatype]
+                types = [FieldType(expr.datatype, nullable=expr.nullable)]
         return types
 
     @staticmethod
@@ -108,7 +111,7 @@ class JoinExpressionTyper(ExpressionTyper):
         self.left = left
         self.right = right
 
-    def type(self, column: Column) -> list[DataType]:
+    def type(self, column: Column) -> list[FieldType]:
         types = self._try_to_type_attribute_or_literal(self.left, column)
         if not types:
             types = self._try_to_type_attribute_or_literal(self.right, column)

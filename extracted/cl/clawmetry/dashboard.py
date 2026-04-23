@@ -67,6 +67,8 @@ from flask import (
 # truth for module-level helpers — see routes/sessions.py for the pattern.
 from routes.sessions import bp_sessions
 from routes.brain import bp_brain
+from routes.advisor import bp_advisor
+from routes.selfevolve import bp_selfevolve
 
 # Module-level helpers extracted to helpers/*.py (Phase 6 modularisation).
 # Re-exported here so existing `_d.<name>` references in routes/*.py keep
@@ -135,7 +137,7 @@ except ImportError:
     metrics_service_pb2 = None
     trace_service_pb2 = None
 
-__version__ = "0.12.128"
+__version__ = "0.12.137"
 
 # Extensions (Phase 2) — load plugins at import time; safe no-op if package not installed
 try:
@@ -8267,6 +8269,8 @@ def detect_config(args=None):
         USER_NAME = "You"
 
     # ── Register blueprints (Phase 4) ───────────────────────────────────────
+    app.register_blueprint(bp_advisor)
+    app.register_blueprint(bp_selfevolve)
     app.register_blueprint(bp_alerts)
     app.register_blueprint(bp_autonomy)
     app.register_blueprint(bp_auth)
@@ -8580,6 +8584,9 @@ DASHBOARD_HTML = r"""
 
 <!-- BRAIN -->
 {% include 'tabs/brain.html' %}
+
+<!-- SELF-EVOLVE -->
+{% include 'tabs/selfevolve.html' %}
 
 <!-- CONTEXT INSPECTOR -->
 {% include 'tabs/context.html' %}
@@ -9836,9 +9843,10 @@ def _compute_transcript_analytics():
 
     if os.path.isdir(sessions_dir):
         for fname in os.listdir(sessions_dir):
-            if not fname.endswith(".jsonl"):
+            # Accept both live `.jsonl` and archived `.jsonl.reset.<ts>` files.
+            if not (fname.endswith(".jsonl") or ".jsonl.reset." in fname):
                 continue
-            sid = fname.replace(".jsonl", "")
+            sid = fname.split(".jsonl", 1)[0]
             fpath = os.path.join(sessions_dir, fname)
             fallback_dt = datetime.fromtimestamp(os.path.getmtime(fpath))
 
@@ -10164,9 +10172,13 @@ def _compute_transcript_analytics():
 
     if os.path.isdir(sessions_dir):
         for fname in os.listdir(sessions_dir):
-            if not fname.endswith(".jsonl"):
+            # Accept both live `.jsonl` and archived `.jsonl.reset.<ts>` files.
+            # Reset archives carry real historical token usage from earlier
+            # days; skipping them was making the 14-day chart pile every
+            # past-day total onto today.
+            if not (fname.endswith(".jsonl") or ".jsonl.reset." in fname):
                 continue
-            sid = fname.replace(".jsonl", "")
+            sid = fname.split(".jsonl", 1)[0]
             fpath = os.path.join(sessions_dir, fname)
             fallback_dt = datetime.fromtimestamp(os.path.getmtime(fpath))
 
@@ -10240,8 +10252,9 @@ def _compute_transcript_analytics():
                                     else 0.0
                                 )
                                 # Track daily breakdown for trend analysis (GH#201)
-                                # day is resolved when s_start is known; use fallback_dt day here
-                                _ev_day = fallback_dt.strftime("%Y-%m-%d")
+                                # use the event's actual day so trend lines
+                                # match the headline 14-day chart.
+                                _ev_day = (ts or fallback_dt).strftime("%Y-%m-%d")
                                 for p in plugins:
                                     plugin_stats[p]["tokens"] += share_tokens
                                     plugin_stats[p]["cost"] += share_cost

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openedx-authz
-Version: 1.11.0
+Version: 1.13.0
 Summary: Open edX AuthZ provides the architecture and foundations of the authorization framework.
 Home-page: https://github.com/openedx/openedx-authz
 Author: Open edX Project
@@ -21,6 +21,8 @@ License-File: LICENSE
 Requires-Dist: Django
 Requires-Dist: attrs
 Requires-Dist: casbin-django-orm-adapter
+Requires-Dist: django-crum
+Requires-Dist: django-waffle
 Requires-Dist: djangorestframework
 Requires-Dist: edx-api-doc-tools
 Requires-Dist: edx-ccx-keys
@@ -29,6 +31,7 @@ Requires-Dist: edx-drf-extensions
 Requires-Dist: edx-opaque-keys
 Requires-Dist: edx-organizations
 Requires-Dist: openedx-atlas
+Requires-Dist: openedx-events
 Requires-Dist: pycasbin
 Dynamic: author
 Dynamic: author-email
@@ -194,6 +197,24 @@ Change Log
 
 Unreleased
 **********
+
+1.13.0 - 2026-04-22
+*******************
+
+Added
+=====
+
+* Add ``RoleAssignmentAudit`` model to record role assignment and removal events, including operation type, subject, role, scope, actor database ID, and timestamp.
+* Emit ``ROLE_ASSIGNMENT_CREATED`` and ``ROLE_ASSIGNMENT_DELETED`` Open edX public signal events via ``transaction.on_commit`` after every successful role assignment or removal.
+* Add Django admin for ``RoleAssignmentAudit`` with filters by operation type and scope type (course, content library), date hierarchy, and search by subject, role, and scope.
+
+1.12.0 - 2026-04-20
+*******************
+
+Added
+=====
+
+* Add automatic course authoring migration mechanism triggered by the ``authz.enable_course_authoring`` waffle flag when it is toggled at course or organization scope.
 
 1.11.0 - 2026-04-16
 *******************

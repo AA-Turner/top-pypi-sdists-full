@@ -1,7 +1,11 @@
 import asyncio
 import copy
+import importlib
+import re
+import sys
 import textwrap
 import threading
+import types
 from concurrent import futures
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -34,6 +38,22 @@ assert (
 def inherit_from_local(monkeypatch: Any, value: bool = True) -> None:
     """Enables the inherit from local mode for the isolate server."""
     monkeypatch.setattr("isolate.server.server.INHERIT_FROM_LOCAL", value)
+
+
+# gRPC C core on macOS emits log lines to stderr after fork(),
+# polluting captured user logs. Examples:
+#   I0404 01:07:18.985849 331910 ev_poll_posix.cc:593] FD from fork ...
+#   I0404 01:13:01.344279 380102 chttp2_transport.cc:1369] Got goaway ...
+_GRPC_CORE_RE = re.compile(
+    r"^[IWED]\d{4} "  # gRPC log level + MMDD
+    r"\d{2}:\d{2}:\d{2}\.\d+\s+"  # timestamp
+    r"\d+\s+"  # PID
+    r"\S+\.cc:\d+\]"  # source.cc:line]
+)
+
+
+def _filter_grpc_noise(logs: List[Log]) -> List[Log]:
+    return [log for log in logs if log.message and not _GRPC_CORE_RE.match(log.message)]
 
 
 @dataclass
@@ -182,7 +202,8 @@ def run_function(stub, function, *args, log_handler=None, **kwargs):
     user_logs: List[Log] = [] if log_handler is None else log_handler
     result = run_request(stub, request, user_logs=user_logs)
 
-    raw_user_logs = [log.message for log in user_logs if log.message]
+    filtered = _filter_grpc_noise(user_logs)
+    raw_user_logs = [log.message for log in filtered if log.message]
     return from_grpc(result), raw_user_logs
 
 
@@ -215,6 +236,125 @@ def test_server_basic_communication(
 
     raw_result = run_request(stub, request)
     assert from_grpc(raw_result) == "0.6.0"
+
+
+def test_server_entrypoint(stub: definitions.IsolateStub, monkeypatch: Any) -> None:
+    """Running a BoundFunction with entrypoint resolves via importlib
+    in the agent, skipping pickling entirely."""
+    import os
+
+    inherit_from_local(monkeypatch)
+
+    env_definition = define_environment("virtualenv", requirements=[])
+    request = definitions.BoundFunction(
+        entrypoint="os:getpid",
+        environments=[env_definition],
+    )
+
+    raw_result = run_request(stub, request)
+    result = from_grpc(raw_result)
+
+    # os.getpid runs in the agent subprocess, so the pid is a valid int
+    # different from the test process's pid.
+    assert isinstance(result, int)
+    assert result > 0
+    assert result != os.getpid()
+
+
+def test_agent_import_falls_back_when_settings_constant_missing(
+    monkeypatch: Any,
+) -> None:
+    """Newer agent code may run against an older installed isolate build
+    where ``DEFAULT_SERIALIZATION_METHOD`` is not exported yet."""
+    import isolate.connections.grpc.agent as agent_module
+    from isolate.backends import settings as real_settings
+    from isolate.backends.settings import DEFAULT_SETTINGS, IsolateSettings
+
+    fake_settings = types.ModuleType("isolate.backends.settings")
+    setattr(fake_settings, "IsolateSettings", IsolateSettings)
+    setattr(fake_settings, "DEFAULT_SETTINGS", DEFAULT_SETTINGS)
+
+    try:
+        monkeypatch.setitem(sys.modules, "isolate.backends.settings", fake_settings)
+        reloaded = importlib.reload(agent_module)
+        assert reloaded.DEFAULT_SERIALIZATION_METHOD == "pickle"
+    finally:
+        monkeypatch.setitem(sys.modules, "isolate.backends.settings", real_settings)
+        importlib.reload(agent_module)
+
+
+def test_agent_import_falls_back_when_common_validator_missing(
+    monkeypatch: Any,
+) -> None:
+    """Newer agent code may run against an older installed isolate build
+    where ``validate_entrypoint`` is not exported yet."""
+    import isolate.connections.grpc.agent as agent_module
+    from isolate.connections import common as real_common
+    from isolate.connections.common import SerializationError, serialize_object
+
+    fake_common = types.ModuleType("isolate.connections.common")
+    setattr(fake_common, "SerializationError", SerializationError)
+    setattr(fake_common, "serialize_object", serialize_object)
+
+    try:
+        monkeypatch.setitem(sys.modules, "isolate.connections.common", fake_common)
+        reloaded = importlib.reload(agent_module)
+        reloaded.validate_entrypoint("os:getpid")
+        with pytest.raises(ValueError, match="Invalid entrypoint"):
+            reloaded.validate_entrypoint("not_an_entrypoint")
+    finally:
+        monkeypatch.setitem(sys.modules, "isolate.connections.common", real_common)
+        importlib.reload(agent_module)
+
+
+def test_server_entrypoint_module_not_found(
+    stub: definitions.IsolateStub, monkeypatch: Any
+) -> None:
+    """An unimportable entrypoint surfaces as a raised exception on the
+    client side (not an abort), matching the pickle error path."""
+    inherit_from_local(monkeypatch)
+
+    env_definition = define_environment("virtualenv", requirements=[])
+    request = definitions.BoundFunction(
+        entrypoint="isolate_entrypoint_test_missing_xyz:some_attr",
+        environments=[env_definition],
+    )
+
+    raw_result = run_request(stub, request)
+    with pytest.raises(ModuleNotFoundError):
+        from_grpc(raw_result)
+
+
+def test_server_rejects_setup_func_with_entrypoint(
+    stub: definitions.IsolateStub, monkeypatch: Any
+) -> None:
+    """setup_func is only meaningful for the pickled-callable path and the
+    combination must be hard-rejected at the server boundary."""
+    inherit_from_local(monkeypatch)
+
+    env_definition = define_environment("virtualenv", requirements=[])
+    request = definitions.BoundFunction(
+        entrypoint="os:getpid",
+        setup_func=to_serialized_object(lambda: None, method="cloudpickle"),
+        environments=[env_definition],
+    )
+
+    with pytest.raises(grpc.RpcError) as exc:
+        run_request(stub, request)
+    assert exc.match("'setup_func' is not supported together with 'entrypoint'")
+
+
+def test_server_rejects_neither_function_nor_entrypoint(
+    stub: definitions.IsolateStub, monkeypatch: Any
+) -> None:
+    inherit_from_local(monkeypatch)
+
+    env_definition = define_environment("virtualenv", requirements=[])
+    request = definitions.BoundFunction(environments=[env_definition])
+
+    with pytest.raises(grpc.RpcError) as exc:
+        run_request(stub, request)
+    assert exc.match("One of 'function' or 'entrypoint'")
 
 
 def test_server_builder_error(stub: definitions.IsolateStub, monkeypatch: Any) -> None:
@@ -271,6 +411,7 @@ def test_user_logs_immediate(stub: definitions.IsolateStub, monkeypatch: Any) ->
 
     user_logs: List[Log] = []
     run_request(stub, request, user_logs=user_logs)
+    user_logs = _filter_grpc_noise(user_logs)
 
     assert len(user_logs) == 3
 
@@ -671,6 +812,7 @@ def get_pid_as_exc():
     raise ValueError(os.getpid())
 
 
+@pytest.mark.flaky(max_runs=3)
 def test_bridge_caching_when_undeerlying_channel_fails(
     stub: definitions.IsolateStub, monkeypatch: Any
 ) -> None:
@@ -771,7 +913,7 @@ def test_server_proper_error_delegation(
     assert (
         "Error while serializing the execution result (object of type <class 'frame'>)."
     ) in exc_info.value.details()
-    assert not user_logs
+    assert not _filter_grpc_noise(user_logs)
 
     user_logs = []
     with pytest.raises(grpc.RpcError) as exc_info:
@@ -782,7 +924,8 @@ def test_server_proper_error_delegation(
         "Error while serializing the execution result "
         "(object of type <class 'Exception'>)."
     ) in exc_info.value.details()
-    assert "relevant information" in "\n".join(log.message for log in user_logs)
+    filtered = _filter_grpc_noise(user_logs)
+    assert "relevant information" in "\n".join(log.message for log in filtered)
 
 
 def myfunc(path):

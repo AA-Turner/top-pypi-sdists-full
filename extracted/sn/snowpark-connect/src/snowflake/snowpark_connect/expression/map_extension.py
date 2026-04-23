@@ -27,6 +27,49 @@ from snowflake.snowpark_connect.utils.telemetry import (
     SnowparkConnectNotImplementedError,
 )
 
+_IN_SUBQUERY_SQL_ATTR = "_sas_in_subquery_sql"
+
+
+def _extract_column_sqls(columns):
+    """Extract SQL strings from Snowpark Column expressions.
+
+    Used to build raw SQL for IN subquery expressions, working around
+    Snowpark error 1301 when wrapped in IS NULL inside join conditions.
+    Returns None if any column can't be reliably converted to SQL.
+    """
+    from snowflake.snowpark._internal.analyzer.expression import Attribute, Literal
+
+    sqls = []
+    for c in columns:
+        expr = c._expression
+        if isinstance(expr, Attribute):
+            sqls.append(expr.name)
+        elif isinstance(expr, Literal):
+            if expr.value is None:
+                sqls.append("NULL")
+            elif isinstance(expr.value, (int, float)):
+                sqls.append(str(expr.value))
+            elif isinstance(expr.value, str):
+                sqls.append(f"'{expr.value}'")
+            else:
+                return None
+        elif hasattr(expr, "name"):
+            sqls.append(expr.name)
+        else:
+            return None
+    return sqls
+
+
+def _tag_in_subquery_sql(col, sql: str):
+    """Attach raw IN subquery SQL to a Column for join-condition workaround."""
+    setattr(col, _IN_SUBQUERY_SQL_ATTR, sql)
+
+
+def get_in_subquery_sql(col) -> str | None:
+    """Retrieve stored raw IN subquery SQL from a Column, if any."""
+    return getattr(col, _IN_SUBQUERY_SQL_ATTR, None)
+
+
 # Formatting constants for interval display
 _TWO_DIGIT_FORMAT = "{:02d}"
 _THREE_DIGIT_FORMAT = "{:03d}"
@@ -194,9 +237,16 @@ def map_extension(
                     )
                     # TODO: Figure out how to make a named_struct(...) here to match Spark.
                     name = f"({col_names_str}) in (listquery())"
-                    result_exp = snowpark_fn.in_(
-                        [col.col for _, col in cols], snowpark_fn.expr(query)
-                    )
+                    col_columns = [col.col for _, col in cols]
+                    result_exp = snowpark_fn.in_(col_columns, snowpark_fn.expr(query))
+                    col_sqls = _extract_column_sqls(col_columns)
+                    if col_sqls is not None:
+                        in_sql = f"({', '.join(col_sqls)}) IN {query}"
+                        null_check = " OR ".join(f"{s} IS NULL" for s in col_sqls)
+                        _tag_in_subquery_sql(
+                            result_exp,
+                            f"CASE WHEN {null_check} THEN NULL " f"ELSE {in_sql} END",
+                        )
                     result_tc = TypedColumn(result_exp, lambda: [BooleanType()])
                 case other:
                     exception = SnowparkConnectNotImplementedError(

@@ -459,6 +459,7 @@ __all__ = (
     "MacModificationTaskTypeType",
     "MacSystemIntegrityProtectionSettingStatusType",
     "ManagedByType",
+    "ManagedResourceDefaultVisibilityType",
     "MarketTypeType",
     "MembershipTypeType",
     "MetadataDefaultHttpTokensStateType",
@@ -2832,6 +2833,7 @@ MacModificationTaskStateType = Literal["failed", "in-progress", "pending", "succ
 MacModificationTaskTypeType = Literal["sip-modification", "volume-ownership-delegation"]
 MacSystemIntegrityProtectionSettingStatusType = Literal["disabled", "enabled"]
 ManagedByType = Literal["account", "declarative-policy"]
+ManagedResourceDefaultVisibilityType = Literal["hidden", "visible"]
 MarketTypeType = Literal["capacity-block", "interruptible-capacity-reservation", "spot"]
 MembershipTypeType = Literal["igmp", "static"]
 MetadataDefaultHttpTokensStateType = Literal["no-preference", "optional", "required"]

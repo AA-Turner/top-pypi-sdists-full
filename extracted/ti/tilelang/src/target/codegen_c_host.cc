@@ -103,15 +103,17 @@ void CodeGenCHost::AddFunction(const tvm::GlobalVar &gvar,
         << "CodeGenCHost: The entry func must have the global_symbol "
            "attribute, "
         << "but function " << gvar << " only has attributes " << func->attrs;
-    function_names_.push_back(tvm::ffi::symbol::tvm_ffi_main);
-    stream << "// CodegenC: NOTE: Auto-generated entry function\n";
-    PrintFuncPrefix(stream);
-    PrintType(func->ret_type, stream);
-    stream << " " << tvm::ffi::symbol::tvm_ffi_main
-           << "(void* self, void* args,int num_args, void* result) {\n";
-    stream << "  return " << static_cast<std::string>(global_symbol.value())
-           << "(self, args, num_args, result);\n";
-    stream << "}\n";
+    if (global_symbol.value() != tvm::ffi::symbol::tvm_ffi_main) {
+      function_names_.push_back(tvm::ffi::symbol::tvm_ffi_main);
+      stream << "// CodegenC: NOTE: Auto-generated entry function\n";
+      PrintFuncPrefix(stream);
+      PrintType(func->ret_type, stream);
+      stream << " " << tvm::ffi::symbol::tvm_ffi_main
+             << "(void* self, void* args,int num_args, void* result) {\n";
+      stream << "  return " << static_cast<std::string>(global_symbol.value())
+             << "(self, args, num_args, result);\n";
+      stream << "}\n";
+    }
     has_main_func_ = true;
   }
 }
@@ -373,7 +375,14 @@ void CodeGenCHost::VisitExpr_(const tvm::tir::CallNode *op,
       LOG(FATAL) << "Unknown stack alloca type " << type;
     }
     this->PrintIndent();
-    this->stream << "TVMFFIAny " << stack_name << "[" << size << "];\n";
+    if (type == "tvm_ffi_any") {
+      // TMA descriptors are materialized through tvm_ffi_any stack allocas and
+      // must satisfy CUDA's 64-byte alignment requirement for CUtensorMap.
+      this->stream << "__attribute__((aligned(64))) TVMFFIAny " << stack_name
+                   << "[" << size << "];\n";
+    } else {
+      this->stream << "TVMFFIAny " << stack_name << "[" << size << "];\n";
+    }
     os << stack_name;
   } else if (op->op.same_as(builtin::tvm_call_packed_lowered())) {
     this->PrintCallPacked(op);

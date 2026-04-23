@@ -6,9 +6,12 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from anteroom.cli.command_palette import get_command_palette_suggestions, should_open_command_palette
 from anteroom.cli.commands import (
     ALL_COMMAND_NAMES,
+    COMMAND_ARGUMENT_COMPLETIONS,
     COMMAND_DESCRIPTIONS,
+    SUBCOMMAND_ARGUMENT_COMPLETIONS,
     SUBCOMMAND_COMPLETIONS,
     CommandContext,
     CommandResult,
@@ -17,7 +20,9 @@ from anteroom.cli.commands import (
     build_skills_markdown,
     build_tools_markdown,
     execute_slash_command,
+    get_argument_completion_kind,
     get_builtin_names,
+    get_subcommand_completions,
     parse_slash_command,
 )
 
@@ -147,6 +152,81 @@ class TestDetailCommand:
         assert result is not None
         assert result.kind == "show_detail"
         assert result.echo_user is False
+
+
+class TestExpandCommand:
+    def test_expand(self) -> None:
+        result = _exec("/expand")
+        assert result is not None
+        assert result.kind == "expand_last_tool"
+        assert result.echo_user is False
+
+
+class TestDensityCommand:
+    def test_density_no_arg_returns_show_message(self) -> None:
+        result = _exec("/density")
+        assert result is not None
+        assert result.kind == "show_message"
+        assert result.message is not None
+        assert "minimal" in result.message
+        assert "compact" in result.message
+
+    @pytest.mark.parametrize("mode", ["minimal", "compact", "normal", "detailed"])
+    def test_density_sets_known_mode(self, mode: str) -> None:
+        result = _exec(f"/density {mode}")
+        assert result is not None
+        assert result.kind == "set_density"
+        assert result.density_mode == mode
+        assert result.echo_user is False
+
+    def test_density_unknown_mode_returns_message(self) -> None:
+        result = _exec("/density bogus")
+        assert result is not None
+        assert result.kind == "show_message"
+        # Includes valid options in the message.
+        assert result.message is not None
+        assert "minimal" in result.message
+
+
+class TestDensityAndExpandRegistered:
+    def test_density_in_descriptions(self) -> None:
+        assert "density" in COMMAND_DESCRIPTIONS
+        assert "expand" in COMMAND_DESCRIPTIONS
+
+    def test_density_in_command_names(self) -> None:
+        assert "density" in ALL_COMMAND_NAMES
+        assert "expand" in ALL_COMMAND_NAMES
+
+    def test_density_in_subcommand_completions(self) -> None:
+        assert "density" in SUBCOMMAND_COMPLETIONS
+        assert set(SUBCOMMAND_COMPLETIONS["density"]) >= {
+            "minimal",
+            "compact",
+            "normal",
+            "detailed",
+        }
+
+
+class TestSharedCompletionMetadata:
+    def test_command_argument_completions_cover_slug_commands(self) -> None:
+        assert COMMAND_ARGUMENT_COMPLETIONS["resume"] == "conversation_slug"
+        assert COMMAND_ARGUMENT_COMPLETIONS["delete"] == "conversation_slug"
+        assert COMMAND_ARGUMENT_COMPLETIONS["rename"] == "conversation_slug"
+
+    def test_subcommand_argument_completions_cover_file_contexts(self) -> None:
+        assert SUBCOMMAND_ARGUMENT_COMPLETIONS["space"]["load"] == "path"
+        assert SUBCOMMAND_ARGUMENT_COMPLETIONS["space"]["map"] == "directory"
+        assert SUBCOMMAND_ARGUMENT_COMPLETIONS["pack"]["install"] == "path"
+
+    def test_get_argument_completion_kind_for_command(self) -> None:
+        assert get_argument_completion_kind("upload") == "path"
+
+    def test_get_argument_completion_kind_for_subcommand(self) -> None:
+        assert get_argument_completion_kind("space", subcommand="map") == "directory"
+
+    def test_get_subcommand_completions_returns_shared_tuple(self) -> None:
+        assert "load" in get_subcommand_completions("space")
+        assert get_subcommand_completions("bogus") == ()
 
 
 class TestArtifactCheckCommand:
@@ -1185,6 +1265,44 @@ class TestMetadataConsistency:
         expected = {"status", "connect", "disconnect", "reconnect"}
         actual = set(SUBCOMMAND_COMPLETIONS["mcp"])
         assert actual == expected
+
+
+class TestCommandPalette:
+    def test_bare_slash_returns_ranked_grouped_suggestions(self) -> None:
+        suggestions = get_command_palette_suggestions("")
+        assert suggestions
+        assert suggestions[0].command == "new"
+        assert suggestions[0].intent_label == "Conversation"
+        assert suggestions[0].description
+        assert "Conversation" in suggestions[0].meta_text
+
+    def test_query_matches_subcommand_action_words(self) -> None:
+        suggestions = get_command_palette_suggestions("switch")
+        assert suggestions
+        assert suggestions[0].command == "space"
+        assert suggestions[0].insert_text == "/space "
+        assert suggestions[0].display_text == "/space <subcommand>"
+
+    def test_scaffolds_insert_editable_commands(self) -> None:
+        suggestions = {
+            entry.command: entry for entry in get_command_palette_suggestions("", limit=len(ALL_COMMAND_NAMES))
+        }
+        assert suggestions["search"].insert_text == "/search "
+        assert suggestions["space"].insert_text == "/space "
+        assert suggestions["help"].insert_text == "/help"
+
+    @pytest.mark.parametrize(
+        ("text", "expected"),
+        [
+            ("/", True),
+            ("/sea", True),
+            ("/search query", False),
+            ("hello", False),
+            ("/one\ntwo", False),
+        ],
+    )
+    def test_should_open_palette_only_for_single_token_slash_input(self, text: str, expected: bool) -> None:
+        assert should_open_command_palette(text) is expected
 
 
 # ---------------------------------------------------------------------------

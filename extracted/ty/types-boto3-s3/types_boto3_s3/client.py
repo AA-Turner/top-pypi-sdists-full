@@ -427,7 +427,8 @@ class S3Client(BaseClient):
         self, **kwargs: Unpack[DeleteBucketInventoryConfigurationRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        This operation is not supported for directory buckets.
+        Deletes an S3 Inventory configuration (identified by the inventory ID) from the
+        bucket.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/client/delete_bucket_inventory_configuration.html)
         [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_s3/client/#delete_bucket_inventory_configuration)
@@ -642,7 +643,8 @@ class S3Client(BaseClient):
         self, **kwargs: Unpack[GetBucketInventoryConfigurationRequestTypeDef]
     ) -> GetBucketInventoryConfigurationOutputTypeDef:
         """
-        This operation is not supported for directory buckets.
+        Returns an S3 Inventory configuration (identified by the inventory
+        configuration ID) from the bucket.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/client/get_bucket_inventory_configuration.html)
         [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_s3/client/#get_bucket_inventory_configuration)
@@ -954,7 +956,7 @@ class S3Client(BaseClient):
         self, **kwargs: Unpack[ListBucketInventoryConfigurationsRequestTypeDef]
     ) -> ListBucketInventoryConfigurationsOutputTypeDef:
         """
-        This operation is not supported for directory buckets.
+        Returns a list of S3 Inventory configurations for the bucket.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/client/list_bucket_inventory_configurations.html)
         [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_s3/client/#list_bucket_inventory_configurations)
@@ -1112,7 +1114,8 @@ class S3Client(BaseClient):
         self, **kwargs: Unpack[PutBucketInventoryConfigurationRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        This operation is not supported for directory buckets.
+        This implementation of the <code>PUT</code> action adds an S3 Inventory
+        configuration (identified by the inventory ID) to the bucket.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/client/put_bucket_inventory_configuration.html)
         [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_s3/client/#put_bucket_inventory_configuration)

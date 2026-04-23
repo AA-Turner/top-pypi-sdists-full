@@ -160,7 +160,7 @@ def _join_unconditionally(
         column_metadata=column_metadata,
         column_qualifiers=[c.qualifiers for c in columns],
         cached_schema_getter=_build_joined_schema(
-            snowpark_columns, left_input, right_input
+            snowpark_columns, left_input, right_input, join_type=info.join_type
         ),
         equivalent_snowpark_names=[c.equivalent_snowpark_names for c in columns],
     )
@@ -328,6 +328,7 @@ def _join_using_columns(
                 left_input,
                 right_input,
                 all_column_names,
+                join_type=info.join_type,
             ),
             equivalent_snowpark_names=[
                 c.equivalent_snowpark_names for c in all_column_names
@@ -347,7 +348,7 @@ def _join_using_columns(
             column_metadata=left_container.column_map.column_metadata,
             column_qualifiers=[c.qualifiers for c in columns],
             cached_schema_getter=_build_joined_schema(
-                snowpark_columns, left_input, right_input
+                snowpark_columns, left_input, right_input, join_type=info.join_type
             ),
             equivalent_snowpark_names=[c.equivalent_snowpark_names for c in columns],
         )
@@ -361,7 +362,7 @@ def _join_using_columns(
         column_metadata=_combine_metadata(left_container, right_container),
         column_qualifiers=[c.qualifiers for c in columns],
         cached_schema_getter=_build_joined_schema(
-            snowpark_columns, left_input, right_input
+            snowpark_columns, left_input, right_input, join_type=info.join_type
         ),
         equivalent_snowpark_names=[c.equivalent_snowpark_names for c in columns],
     )
@@ -439,7 +440,7 @@ def _join_using_condition(
         column_metadata=column_metadata,
         column_qualifiers=[c.qualifiers for c in columns],
         cached_schema_getter=_build_joined_schema(
-            snowpark_columns, left_input, right_input
+            snowpark_columns, left_input, right_input, join_type=info.join_type
         ),
         equivalent_snowpark_names=[c.equivalent_snowpark_names for c in columns],
     )
@@ -683,6 +684,7 @@ def _build_joined_schema(
     left_input: DataFrame,
     right_input: DataFrame,
     outer_join_columns: Optional[list[ColumnNames]] = None,
+    join_type: Optional[str] = None,
 ) -> Callable[[], StructType]:
     """
     Builds a lazy schema for the joined dataframe, based on the given snowpark_columns and input dataframes.
@@ -693,6 +695,17 @@ def _build_joined_schema(
     def _schema_getter() -> StructType:
         all_fields = left_input.schema.fields + right_input.schema.fields
         fields: dict[str, StructField] = {f.name: f for f in all_fields}
+        left_names = {f.name for f in left_input.schema.fields}
+
+        def _effective_nullable(col_name: str, source_nullable: bool) -> bool:
+            is_left = col_name in left_names
+            if join_type in ("left", "leftouter", "left_outer", "left outer"):
+                return source_nullable if is_left else True
+            if join_type in ("right", "rightouter", "right_outer", "right outer"):
+                return True if is_left else source_nullable
+            if join_type in ("full", "outer", "fullouter", "full_outer", "full outer"):
+                return True
+            return source_nullable  # inner, cross, semi, anti — preserve as-is
 
         if outer_join_columns:
             visible_columns = [c for c in outer_join_columns if not c.is_hidden]
@@ -707,7 +720,9 @@ def _build_joined_schema(
                         StructField(
                             col.snowpark_name,
                             source_field.datatype,
-                            source_field.nullable,
+                            _effective_nullable(
+                                col.snowpark_name, source_field.nullable
+                            ),
                         )
                     )
                 else:
@@ -716,7 +731,9 @@ def _build_joined_schema(
                         StructField(
                             col.snowpark_name,
                             source_field.datatype,
-                            source_field.nullable,
+                            _effective_nullable(
+                                snowpark_columns[visible_idx], source_field.nullable
+                            ),
                         )
                     )
                     visible_idx += 1
@@ -725,7 +742,11 @@ def _build_joined_schema(
 
         return StructType(
             [
-                StructField(name, fields[name].datatype, fields[name].nullable)
+                StructField(
+                    name,
+                    fields[name].datatype,
+                    _effective_nullable(name, fields[name].nullable),
+                )
                 for name in snowpark_columns
             ]
         )

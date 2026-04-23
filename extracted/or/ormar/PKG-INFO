@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: ormar
-Version: 0.23.1
+Version: 0.24.0
 Summary: An async ORM with fastapi in mind and pydantic validation.
 License: MIT
 Keywords: orm,sqlalchemy,fastapi,pydantic,databases,async,alembic
@@ -710,6 +710,7 @@ The following keyword arguments are supported on all field types.
 * `nullable: bool`
 * `default: Any`
 * `server_default: Any`
+* `on_update: Any`
 * `index: bool`
 * `unique: bool`
 * `choices: typing.Sequence`

@@ -55,6 +55,7 @@ from parsedmarc.utils import (
     get_reverse_dns,
     is_mbox,
     load_ip_db,
+    load_psl_overrides,
     load_reverse_dns_map,
 )
 
@@ -210,6 +211,7 @@ def cli_parse(
     sa,
     nameservers,
     dns_timeout,
+    dns_retries,
     ip_db_path,
     offline,
     always_use_local_files,
@@ -227,6 +229,7 @@ def cli_parse(
         sa: Strip attachment payloads flag
         nameservers: List of nameservers
         dns_timeout: DNS timeout
+        dns_retries: Number of DNS retries on transient errors
         ip_db_path: Path to IP database
         offline: Offline mode flag
         always_use_local_files: Always use local files flag
@@ -250,6 +253,7 @@ def cli_parse(
             reverse_dns_map_url=reverse_dns_map_url,
             nameservers=nameservers,
             dns_timeout=dns_timeout,
+            dns_retries=dns_retries,
             strip_attachment_payloads=sa,
             normalize_timespan_threshold_hours=normalize_timespan_threshold_hours,
         )
@@ -343,6 +347,10 @@ def _parse_config(config: ConfigParser, opts):
             opts.dns_timeout = general_config.getfloat("dns_timeout")
             if opts.dns_timeout is None:
                 opts.dns_timeout = 2
+        if "dns_retries" in general_config:
+            opts.dns_retries = general_config.getint("dns_retries")
+            if opts.dns_retries is None:
+                opts.dns_retries = 0
         if "dns_test_address" in general_config:
             opts.dns_test_address = general_config["dns_test_address"]
         if "nameservers" in general_config:
@@ -401,6 +409,12 @@ def _parse_config(config: ConfigParser, opts):
             )
         if "reverse_dns_map_url" in general_config:
             opts.reverse_dns_map_url = general_config["reverse_dns_map_url"]
+        if "local_psl_overrides_path" in general_config:
+            opts.psl_overrides_path = _expand_path(
+                general_config["local_psl_overrides_path"]
+            )
+        if "psl_overrides_url" in general_config:
+            opts.psl_overrides_url = general_config["psl_overrides_url"]
         if "prettify_json" in general_config:
             opts.prettify_json = bool(general_config.getboolean("prettify_json"))
 
@@ -1646,6 +1660,14 @@ def _main():
         default=2.0,
     )
     arg_parser.add_argument(
+        "--dns-retries",
+        dest="dns_retries",
+        help="number of times to retry DNS queries on timeout or other "
+        "transient errors (default: 0)",
+        type=int,
+        default=0,
+    )
+    arg_parser.add_argument(
         "--offline",
         action="store_true",
         help="do not make online queries for geolocation  or  DNS",
@@ -1697,6 +1719,7 @@ def _main():
         silent=args.silent,
         warnings=args.warnings,
         dns_timeout=args.dns_timeout,
+        dns_retries=args.dns_retries,
         debug=args.debug,
         verbose=args.verbose,
         prettify_json=args.prettify_json,
@@ -1813,6 +1836,8 @@ def _main():
         always_use_local_files=False,
         reverse_dns_map_path=None,
         reverse_dns_map_url=None,
+        psl_overrides_path=None,
+        psl_overrides_url=None,
         la_client_id=None,
         la_client_secret=None,
         la_tenant_id=None,
@@ -1893,6 +1918,13 @@ def _main():
         offline=opts.offline,
     )
 
+    load_psl_overrides(
+        always_use_local_file=opts.always_use_local_files,
+        local_file_path=opts.psl_overrides_path,
+        url=opts.psl_overrides_url,
+        offline=opts.offline,
+    )
+
     # Initialize output clients (with retry for transient connection errors)
     clients = {}
     max_retries = 4
@@ -1968,6 +2000,7 @@ def _main():
                     opts.strip_attachment_payloads,
                     opts.nameservers,
                     opts.dns_timeout,
+                    opts.dns_retries,
                     opts.ip_db_path,
                     opts.offline,
                     opts.always_use_local_files,
@@ -2028,6 +2061,7 @@ def _main():
             mbox_path,
             nameservers=opts.nameservers,
             dns_timeout=opts.dns_timeout,
+            dns_retries=opts.dns_retries,
             strip_attachment_payloads=strip,
             ip_db_path=opts.ip_db_path,
             always_use_local_files=opts.always_use_local_files,
@@ -2173,6 +2207,7 @@ def _main():
                 test=opts.mailbox_test,
                 strip_attachment_payloads=opts.strip_attachment_payloads,
                 since=opts.mailbox_since,
+                dns_retries=opts.dns_retries,
                 normalize_timespan_threshold_hours=normalize_timespan_threshold_hours_value,
             )
 
@@ -2256,6 +2291,7 @@ def _main():
                     check_timeout=mailbox_check_timeout_value,
                     nameservers=opts.nameservers,
                     dns_timeout=opts.dns_timeout,
+                    dns_retries=opts.dns_retries,
                     strip_attachment_payloads=opts.strip_attachment_payloads,
                     batch_size=mailbox_batch_size_value,
                     since=opts.mailbox_since,
@@ -2298,13 +2334,17 @@ def _main():
                 index_prefix_domain_map = new_index_prefix_domain_map
 
                 # Reload the reverse DNS map so changes to the
-                # map path/URL in the config take effect.
+                # map path/URL in the config take effect. PSL overrides
+                # are reloaded alongside it so map entries that depend on
+                # a folded base domain keep working.
                 load_reverse_dns_map(
                     REVERSE_DNS_MAP,
                     always_use_local_file=new_opts.always_use_local_files,
                     local_file_path=new_opts.reverse_dns_map_path,
                     url=new_opts.reverse_dns_map_url,
                     offline=new_opts.offline,
+                    psl_overrides_path=new_opts.psl_overrides_path,
+                    psl_overrides_url=new_opts.psl_overrides_url,
                 )
 
                 # Reload the IP database so changes to the

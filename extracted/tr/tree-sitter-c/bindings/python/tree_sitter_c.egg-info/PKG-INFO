@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: tree-sitter-c
-Version: 0.24.1
+Version: 0.24.2
 Summary: C grammar for tree-sitter
 Author-email: Max Brunsfeld <maxbrunsfeld@gmail.com>, Amaan Qureshi <amaanq12@gmail.com>
 License: MIT

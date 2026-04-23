@@ -47,6 +47,9 @@ from .literals import (
     GatewayInterceptionPointType,
     GatewayPolicyEngineModeType,
     GatewayStatusType,
+    HarnessStatusType,
+    HarnessToolTypeType,
+    HarnessTruncationStrategyType,
     InboundTokenClaimValueTypeType,
     KeyTypeType,
     ListingModeType,
@@ -158,6 +161,8 @@ __all__ = (
     "CreateGatewayResponseTypeDef",
     "CreateGatewayTargetRequestTypeDef",
     "CreateGatewayTargetResponseTypeDef",
+    "CreateHarnessRequestTypeDef",
+    "CreateHarnessResponseTypeDef",
     "CreateMemoryInputTypeDef",
     "CreateMemoryOutputTypeDef",
     "CreateOauth2CredentialProviderRequestTypeDef",
@@ -217,6 +222,8 @@ __all__ = (
     "DeleteGatewayResponseTypeDef",
     "DeleteGatewayTargetRequestTypeDef",
     "DeleteGatewayTargetResponseTypeDef",
+    "DeleteHarnessRequestTypeDef",
+    "DeleteHarnessResponseTypeDef",
     "DeleteMemoryInputTypeDef",
     "DeleteMemoryOutputTypeDef",
     "DeleteMemoryStrategyInputTypeDef",
@@ -285,6 +292,8 @@ __all__ = (
     "GetGatewayResponseTypeDef",
     "GetGatewayTargetRequestTypeDef",
     "GetGatewayTargetResponseTypeDef",
+    "GetHarnessRequestTypeDef",
+    "GetHarnessResponseTypeDef",
     "GetMemoryInputTypeDef",
     "GetMemoryInputWaitTypeDef",
     "GetMemoryOutputTypeDef",
@@ -317,6 +326,50 @@ __all__ = (
     "GithubOauth2ProviderConfigOutputTypeDef",
     "GoogleOauth2ProviderConfigInputTypeDef",
     "GoogleOauth2ProviderConfigOutputTypeDef",
+    "HarnessAgentCoreBrowserConfigTypeDef",
+    "HarnessAgentCoreCodeInterpreterConfigTypeDef",
+    "HarnessAgentCoreGatewayConfigOutputTypeDef",
+    "HarnessAgentCoreGatewayConfigTypeDef",
+    "HarnessAgentCoreGatewayConfigUnionTypeDef",
+    "HarnessAgentCoreMemoryConfigurationOutputTypeDef",
+    "HarnessAgentCoreMemoryConfigurationTypeDef",
+    "HarnessAgentCoreMemoryConfigurationUnionTypeDef",
+    "HarnessAgentCoreMemoryRetrievalConfigTypeDef",
+    "HarnessAgentCoreRuntimeEnvironmentRequestTypeDef",
+    "HarnessAgentCoreRuntimeEnvironmentTypeDef",
+    "HarnessBedrockModelConfigTypeDef",
+    "HarnessEnvironmentArtifactTypeDef",
+    "HarnessEnvironmentProviderRequestTypeDef",
+    "HarnessEnvironmentProviderTypeDef",
+    "HarnessGatewayOutboundAuthOutputTypeDef",
+    "HarnessGatewayOutboundAuthTypeDef",
+    "HarnessGatewayOutboundAuthUnionTypeDef",
+    "HarnessGeminiModelConfigTypeDef",
+    "HarnessInlineFunctionConfigOutputTypeDef",
+    "HarnessInlineFunctionConfigTypeDef",
+    "HarnessInlineFunctionConfigUnionTypeDef",
+    "HarnessMemoryConfigurationOutputTypeDef",
+    "HarnessMemoryConfigurationTypeDef",
+    "HarnessMemoryConfigurationUnionTypeDef",
+    "HarnessModelConfigurationTypeDef",
+    "HarnessOpenAiModelConfigTypeDef",
+    "HarnessRemoteMcpConfigOutputTypeDef",
+    "HarnessRemoteMcpConfigTypeDef",
+    "HarnessRemoteMcpConfigUnionTypeDef",
+    "HarnessSkillTypeDef",
+    "HarnessSlidingWindowConfigurationTypeDef",
+    "HarnessSummarizationConfigurationTypeDef",
+    "HarnessSummaryTypeDef",
+    "HarnessSystemContentBlockTypeDef",
+    "HarnessToolConfigurationOutputTypeDef",
+    "HarnessToolConfigurationTypeDef",
+    "HarnessToolConfigurationUnionTypeDef",
+    "HarnessToolOutputTypeDef",
+    "HarnessToolTypeDef",
+    "HarnessToolUnionTypeDef",
+    "HarnessTruncationConfigurationTypeDef",
+    "HarnessTruncationStrategyConfigurationTypeDef",
+    "HarnessTypeDef",
     "IamCredentialProviderTypeDef",
     "IncludedOauth2ProviderConfigInputTypeDef",
     "IncludedOauth2ProviderConfigOutputTypeDef",
@@ -364,6 +417,9 @@ __all__ = (
     "ListGatewaysRequestPaginateTypeDef",
     "ListGatewaysRequestTypeDef",
     "ListGatewaysResponseTypeDef",
+    "ListHarnessesRequestPaginateTypeDef",
+    "ListHarnessesRequestTypeDef",
+    "ListHarnessesResponseTypeDef",
     "ListMemoriesInputPaginateTypeDef",
     "ListMemoriesInputTypeDef",
     "ListMemoriesOutputTypeDef",
@@ -562,6 +618,8 @@ __all__ = (
     "UpdateGatewayResponseTypeDef",
     "UpdateGatewayTargetRequestTypeDef",
     "UpdateGatewayTargetResponseTypeDef",
+    "UpdateHarnessRequestTypeDef",
+    "UpdateHarnessResponseTypeDef",
     "UpdateMemoryInputTypeDef",
     "UpdateMemoryOutputTypeDef",
     "UpdateOauth2CredentialProviderRequestTypeDef",
@@ -589,6 +647,8 @@ __all__ = (
     "UpdatedDescriptionTypeDef",
     "UpdatedDescriptorsTypeDef",
     "UpdatedDescriptorsUnionTypeDef",
+    "UpdatedHarnessEnvironmentArtifactTypeDef",
+    "UpdatedHarnessMemoryConfigurationTypeDef",
     "UpdatedMcpDescriptorFieldsTypeDef",
     "UpdatedMcpDescriptorTypeDef",
     "UpdatedServerDefinitionTypeDef",
@@ -605,6 +665,7 @@ __all__ = (
     "UserPreferenceOverrideExtractionConfigurationInputTypeDef",
     "VpcConfigOutputTypeDef",
     "VpcConfigTypeDef",
+    "VpcConfigUnionTypeDef",
     "WaiterConfigTypeDef",
     "WorkloadIdentityDetailsTypeDef",
     "WorkloadIdentityTypeTypeDef",
@@ -848,6 +909,12 @@ class MetadataConfigurationOutputTypeDef(TypedDict):
     allowedQueryParameters: NotRequired[list[str]]
     allowedResponseHeaders: NotRequired[list[str]]
 
+class HarnessSkillTypeDef(TypedDict):
+    path: NotRequired[str]
+
+class HarnessSystemContentBlockTypeDef(TypedDict):
+    text: NotRequired[str]
+
 class EvaluatorReferenceTypeDef(TypedDict):
     evaluatorId: NotRequired[str]
 
@@ -979,6 +1046,10 @@ class DeleteGatewayTargetRequestTypeDef(TypedDict):
     gatewayIdentifier: str
     targetId: str
 
+class DeleteHarnessRequestTypeDef(TypedDict):
+    harnessId: str
+    clientToken: NotRequired[str]
+
 class DeleteMemoryInputTypeDef(TypedDict):
     memoryId: str
     clientToken: NotRequired[str]
@@ -1107,6 +1178,9 @@ class GetGatewayTargetRequestTypeDef(TypedDict):
     gatewayIdentifier: str
     targetId: str
 
+class GetHarnessRequestTypeDef(TypedDict):
+    harnessId: str
+
 class GetMemoryInputTypeDef(TypedDict):
     memoryId: str
     view: NotRequired[MemoryViewType]
@@ -1162,6 +1236,70 @@ class GithubOauth2ProviderConfigInputTypeDef(TypedDict):
 class GoogleOauth2ProviderConfigInputTypeDef(TypedDict):
     clientId: str
     clientSecret: str
+
+class HarnessAgentCoreBrowserConfigTypeDef(TypedDict):
+    browserArn: NotRequired[str]
+
+class HarnessAgentCoreCodeInterpreterConfigTypeDef(TypedDict):
+    codeInterpreterArn: NotRequired[str]
+
+class HarnessAgentCoreMemoryRetrievalConfigTypeDef(TypedDict):
+    topK: NotRequired[int]
+    relevanceScore: NotRequired[float]
+    strategyId: NotRequired[str]
+
+class HarnessBedrockModelConfigTypeDef(TypedDict):
+    modelId: str
+    maxTokens: NotRequired[int]
+    temperature: NotRequired[float]
+    topP: NotRequired[float]
+
+class HarnessGeminiModelConfigTypeDef(TypedDict):
+    modelId: str
+    apiKeyArn: str
+    maxTokens: NotRequired[int]
+    temperature: NotRequired[float]
+    topP: NotRequired[float]
+    topK: NotRequired[int]
+
+class HarnessInlineFunctionConfigOutputTypeDef(TypedDict):
+    description: str
+    inputSchema: dict[str, Any]
+
+class HarnessInlineFunctionConfigTypeDef(TypedDict):
+    description: str
+    inputSchema: Mapping[str, Any]
+
+class HarnessOpenAiModelConfigTypeDef(TypedDict):
+    modelId: str
+    apiKeyArn: str
+    maxTokens: NotRequired[int]
+    temperature: NotRequired[float]
+    topP: NotRequired[float]
+
+class HarnessRemoteMcpConfigOutputTypeDef(TypedDict):
+    url: str
+    headers: NotRequired[dict[str, str]]
+
+class HarnessRemoteMcpConfigTypeDef(TypedDict):
+    url: str
+    headers: NotRequired[Mapping[str, str]]
+
+class HarnessSlidingWindowConfigurationTypeDef(TypedDict):
+    messagesCount: NotRequired[int]
+
+class HarnessSummarizationConfigurationTypeDef(TypedDict):
+    summaryRatio: NotRequired[float]
+    preserveRecentMessages: NotRequired[int]
+    summarizationSystemPrompt: NotRequired[str]
+
+class HarnessSummaryTypeDef(TypedDict):
+    harnessId: str
+    harnessName: str
+    arn: str
+    status: HarnessStatusType
+    createdAt: datetime
+    updatedAt: datetime
 
 class IncludedOauth2ProviderConfigInputTypeDef(TypedDict):
     clientId: str
@@ -1246,8 +1384,13 @@ class TargetSummaryTypeDef(TypedDict):
     createdAt: datetime
     updatedAt: datetime
     description: NotRequired[str]
+    resourcePriority: NotRequired[int]
 
 class ListGatewaysRequestTypeDef(TypedDict):
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+class ListHarnessesRequestTypeDef(TypedDict):
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
 
@@ -1583,6 +1726,9 @@ class UpdateWorkloadIdentityRequestTypeDef(TypedDict):
 class A2aDescriptorTypeDef(TypedDict):
     agentCard: NotRequired[AgentCardDefinitionTypeDef]
 
+class HarnessEnvironmentArtifactTypeDef(TypedDict):
+    containerConfiguration: NotRequired[ContainerConfigurationTypeDef]
+
 class UpdatedSkillDefinitionTypeDef(TypedDict):
     optionalValue: NotRequired[SkillDefinitionTypeDef]
 
@@ -1649,9 +1795,7 @@ class CodeInterpreterNetworkConfigurationTypeDef(TypedDict):
     networkMode: CodeInterpreterNetworkModeType
     vpcConfig: NotRequired[VpcConfigTypeDef]
 
-class NetworkConfigurationTypeDef(TypedDict):
-    networkMode: NetworkModeType
-    networkModeConfig: NotRequired[VpcConfigTypeDef]
+VpcConfigUnionTypeDef = Union[VpcConfigTypeDef, VpcConfigOutputTypeDef]
 
 class CertificateLocationTypeDef(TypedDict):
     secretsManager: NotRequired[SecretsManagerLocationTypeDef]
@@ -2039,6 +2183,11 @@ class CredentialProviderOutputTypeDef(TypedDict):
     apiKeyCredentialProvider: NotRequired[ApiKeyCredentialProviderTypeDef]
     iamCredentialProvider: NotRequired[IamCredentialProviderTypeDef]
 
+class HarnessGatewayOutboundAuthOutputTypeDef(TypedDict):
+    awsIam: NotRequired[dict[str, Any]]
+    none: NotRequired[dict[str, Any]]
+    oauth: NotRequired[OAuthCredentialProviderOutputTypeDef]
+
 class SummaryOverrideConfigurationInputTypeDef(TypedDict):
     consolidation: NotRequired[SummaryOverrideConsolidationConfigurationInputTypeDef]
 
@@ -2218,6 +2367,40 @@ class SetTokenVaultCMKResponseTypeDef(TypedDict):
     lastModifiedDate: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
+class HarnessAgentCoreMemoryConfigurationOutputTypeDef(TypedDict):
+    arn: str
+    actorId: NotRequired[str]
+    messagesCount: NotRequired[int]
+    retrievalConfig: NotRequired[dict[str, HarnessAgentCoreMemoryRetrievalConfigTypeDef]]
+
+class HarnessAgentCoreMemoryConfigurationTypeDef(TypedDict):
+    arn: str
+    actorId: NotRequired[str]
+    messagesCount: NotRequired[int]
+    retrievalConfig: NotRequired[Mapping[str, HarnessAgentCoreMemoryRetrievalConfigTypeDef]]
+
+HarnessInlineFunctionConfigUnionTypeDef = Union[
+    HarnessInlineFunctionConfigTypeDef, HarnessInlineFunctionConfigOutputTypeDef
+]
+
+class HarnessModelConfigurationTypeDef(TypedDict):
+    bedrockModelConfig: NotRequired[HarnessBedrockModelConfigTypeDef]
+    openAiModelConfig: NotRequired[HarnessOpenAiModelConfigTypeDef]
+    geminiModelConfig: NotRequired[HarnessGeminiModelConfigTypeDef]
+
+HarnessRemoteMcpConfigUnionTypeDef = Union[
+    HarnessRemoteMcpConfigTypeDef, HarnessRemoteMcpConfigOutputTypeDef
+]
+
+class HarnessTruncationStrategyConfigurationTypeDef(TypedDict):
+    slidingWindow: NotRequired[HarnessSlidingWindowConfigurationTypeDef]
+    summarization: NotRequired[HarnessSummarizationConfigurationTypeDef]
+
+class ListHarnessesResponseTypeDef(TypedDict):
+    harnesses: list[HarnessSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
 InterceptorConfigurationTypeDef = TypedDict(
     "InterceptorConfigurationTypeDef",
     {
@@ -2266,6 +2449,9 @@ class ListGatewayTargetsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListGatewaysRequestPaginateTypeDef(TypedDict):
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListHarnessesRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListMemoriesInputPaginateTypeDef(TypedDict):
@@ -2434,6 +2620,9 @@ class UpdatePolicyEngineRequestTypeDef(TypedDict):
 class UpdatedA2aDescriptorTypeDef(TypedDict):
     optionalValue: NotRequired[A2aDescriptorTypeDef]
 
+class UpdatedHarnessEnvironmentArtifactTypeDef(TypedDict):
+    optionalValue: NotRequired[HarnessEnvironmentArtifactTypeDef]
+
 class UpdatedAgentSkillsDescriptorFieldsTypeDef(TypedDict):
     skillMd: NotRequired[UpdatedSkillMdDefinitionTypeDef]
     skillDefinition: NotRequired[UpdatedSkillDefinitionTypeDef]
@@ -2451,6 +2640,7 @@ class ApiGatewayTargetConfigurationTypeDef(TypedDict):
 class McpServerTargetConfigurationTypeDef(TypedDict):
     endpoint: str
     mcpToolSchema: NotRequired[McpToolSchemaConfigurationTypeDef]
+    resourcePriority: NotRequired[int]
     listingMode: NotRequired[ListingModeType]
 
 class CustomClaimValidationTypeOutputTypeDef(TypedDict):
@@ -2470,9 +2660,10 @@ BrowserNetworkConfigurationUnionTypeDef = Union[
 CodeInterpreterNetworkConfigurationUnionTypeDef = Union[
     CodeInterpreterNetworkConfigurationTypeDef, CodeInterpreterNetworkConfigurationOutputTypeDef
 ]
-NetworkConfigurationUnionTypeDef = Union[
-    NetworkConfigurationTypeDef, NetworkConfigurationOutputTypeDef
-]
+
+class NetworkConfigurationTypeDef(TypedDict):
+    networkMode: NetworkModeType
+    networkModeConfig: NotRequired[VpcConfigUnionTypeDef]
 
 class CertificateTypeDef(TypedDict):
     location: CertificateLocationTypeDef
@@ -2521,6 +2712,10 @@ class CredentialProviderConfigurationOutputTypeDef(TypedDict):
     credentialProviderType: CredentialProviderTypeType
     credentialProvider: NotRequired[CredentialProviderOutputTypeDef]
 
+class HarnessAgentCoreGatewayConfigOutputTypeDef(TypedDict):
+    gatewayArn: str
+    outboundAuth: NotRequired[HarnessGatewayOutboundAuthOutputTypeDef]
+
 class ModifyConsolidationConfigurationTypeDef(TypedDict):
     customConsolidationConfiguration: NotRequired[CustomConsolidationConfigurationInputTypeDef]
 
@@ -2541,6 +2736,14 @@ class ReflectionConfigurationTypeDef(TypedDict):
     customReflectionConfiguration: NotRequired[CustomReflectionConfigurationTypeDef]
     episodicReflectionConfiguration: NotRequired[EpisodicReflectionConfigurationTypeDef]
 
+class HarnessAgentCoreRuntimeEnvironmentTypeDef(TypedDict):
+    agentRuntimeArn: str
+    agentRuntimeName: str
+    agentRuntimeId: str
+    lifecycleConfiguration: LifecycleConfigurationTypeDef
+    networkConfiguration: NetworkConfigurationOutputTypeDef
+    filesystemConfigurations: NotRequired[list[FilesystemConfigurationTypeDef]]
+
 class RuleOutputTypeDef(TypedDict):
     samplingConfig: SamplingConfigTypeDef
     filters: NotRequired[list[FilterTypeDef]]
@@ -2559,6 +2762,17 @@ class ListPolicyGenerationsResponseTypeDef(TypedDict):
     policyGenerations: list[PolicyGenerationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+class HarnessMemoryConfigurationOutputTypeDef(TypedDict):
+    agentCoreMemoryConfiguration: NotRequired[HarnessAgentCoreMemoryConfigurationOutputTypeDef]
+
+HarnessAgentCoreMemoryConfigurationUnionTypeDef = Union[
+    HarnessAgentCoreMemoryConfigurationTypeDef, HarnessAgentCoreMemoryConfigurationOutputTypeDef
+]
+
+class HarnessTruncationConfigurationTypeDef(TypedDict):
+    strategy: HarnessTruncationStrategyType
+    config: NotRequired[HarnessTruncationStrategyConfigurationTypeDef]
 
 class GatewayInterceptorConfigurationOutputTypeDef(TypedDict):
     interceptor: InterceptorConfigurationTypeDef
@@ -2584,6 +2798,11 @@ class CredentialProviderTypeDef(TypedDict):
     oauthCredentialProvider: NotRequired[OAuthCredentialProviderUnionTypeDef]
     apiKeyCredentialProvider: NotRequired[ApiKeyCredentialProviderTypeDef]
     iamCredentialProvider: NotRequired[IamCredentialProviderTypeDef]
+
+class HarnessGatewayOutboundAuthTypeDef(TypedDict):
+    awsIam: NotRequired[Mapping[str, Any]]
+    none: NotRequired[Mapping[str, Any]]
+    oauth: NotRequired[OAuthCredentialProviderUnionTypeDef]
 
 class AtlassianOauth2ProviderConfigOutputTypeDef(TypedDict):
     oauthDiscovery: Oauth2DiscoveryOutputTypeDef
@@ -2763,6 +2982,10 @@ class LlmAsAJudgeEvaluatorConfigTypeDef(TypedDict):
     ratingScale: RatingScaleTypeDef
     modelConfig: EvaluatorModelConfigTypeDef
 
+NetworkConfigurationUnionTypeDef = Union[
+    NetworkConfigurationTypeDef, NetworkConfigurationOutputTypeDef
+]
+
 class CreateCodeInterpreterRequestTypeDef(TypedDict):
     name: str
     networkConfiguration: CodeInterpreterNetworkConfigurationUnionTypeDef
@@ -2833,6 +3056,16 @@ class StreamDeliveryResourcesOutputTypeDef(TypedDict):
 class StreamDeliveryResourcesTypeDef(TypedDict):
     resources: Sequence[StreamDeliveryResourceTypeDef]
 
+class HarnessToolConfigurationOutputTypeDef(TypedDict):
+    remoteMcp: NotRequired[HarnessRemoteMcpConfigOutputTypeDef]
+    agentCoreBrowser: NotRequired[HarnessAgentCoreBrowserConfigTypeDef]
+    agentCoreGateway: NotRequired[HarnessAgentCoreGatewayConfigOutputTypeDef]
+    inlineFunction: NotRequired[HarnessInlineFunctionConfigOutputTypeDef]
+    agentCoreCodeInterpreter: NotRequired[HarnessAgentCoreCodeInterpreterConfigTypeDef]
+
+class HarnessEnvironmentProviderTypeDef(TypedDict):
+    agentCoreRuntimeEnvironment: NotRequired[HarnessAgentCoreRuntimeEnvironmentTypeDef]
+
 class GetOnlineEvaluationConfigResponseTypeDef(TypedDict):
     onlineEvaluationConfigArn: str
     onlineEvaluationConfigId: str
@@ -2851,6 +3084,10 @@ class GetOnlineEvaluationConfigResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 RuleUnionTypeDef = Union[RuleTypeDef, RuleOutputTypeDef]
+
+class HarnessMemoryConfigurationTypeDef(TypedDict):
+    agentCoreMemoryConfiguration: NotRequired[HarnessAgentCoreMemoryConfigurationUnionTypeDef]
+
 GatewayInterceptorConfigurationUnionTypeDef = Union[
     GatewayInterceptorConfigurationTypeDef, GatewayInterceptorConfigurationOutputTypeDef
 ]
@@ -2859,6 +3096,9 @@ class UpdatedMcpDescriptorTypeDef(TypedDict):
     optionalValue: NotRequired[UpdatedMcpDescriptorFieldsTypeDef]
 
 CredentialProviderUnionTypeDef = Union[CredentialProviderTypeDef, CredentialProviderOutputTypeDef]
+HarnessGatewayOutboundAuthUnionTypeDef = Union[
+    HarnessGatewayOutboundAuthTypeDef, HarnessGatewayOutboundAuthOutputTypeDef
+]
 
 class Oauth2ProviderConfigOutputTypeDef(TypedDict):
     customOauth2ProviderConfig: NotRequired[CustomOauth2ProviderConfigOutputTypeDef]
@@ -2936,6 +3176,11 @@ class EvaluatorConfigTypeDef(TypedDict):
     llmAsAJudge: NotRequired[LlmAsAJudgeEvaluatorConfigTypeDef]
     codeBased: NotRequired[CodeBasedEvaluatorConfigTypeDef]
 
+class HarnessAgentCoreRuntimeEnvironmentRequestTypeDef(TypedDict):
+    lifecycleConfiguration: NotRequired[LifecycleConfigurationTypeDef]
+    networkConfiguration: NotRequired[NetworkConfigurationUnionTypeDef]
+    filesystemConfigurations: NotRequired[Sequence[FilesystemConfigurationTypeDef]]
+
 class CustomClaimValidationTypeTypeDef(TypedDict):
     inboundTokenClaimName: str
     inboundTokenClaimValueType: InboundTokenClaimValueTypeType
@@ -2947,6 +3192,14 @@ AgentRuntimeArtifactUnionTypeDef = Union[
 StreamDeliveryResourcesUnionTypeDef = Union[
     StreamDeliveryResourcesTypeDef, StreamDeliveryResourcesOutputTypeDef
 ]
+HarnessToolOutputTypeDef = TypedDict(
+    "HarnessToolOutputTypeDef",
+    {
+        "type": HarnessToolTypeType,
+        "name": NotRequired[str],
+        "config": NotRequired[HarnessToolConfigurationOutputTypeDef],
+    },
+)
 
 class CreateOnlineEvaluationConfigRequestTypeDef(TypedDict):
     onlineEvaluationConfigName: str
@@ -2969,6 +3222,10 @@ class UpdateOnlineEvaluationConfigRequestTypeDef(TypedDict):
     evaluationExecutionRoleArn: NotRequired[str]
     executionStatus: NotRequired[OnlineEvaluationExecutionStatusType]
 
+HarnessMemoryConfigurationUnionTypeDef = Union[
+    HarnessMemoryConfigurationTypeDef, HarnessMemoryConfigurationOutputTypeDef
+]
+
 class UpdatedDescriptorsUnionTypeDef(TypedDict):
     mcp: NotRequired[UpdatedMcpDescriptorTypeDef]
     a2a: NotRequired[UpdatedA2aDescriptorTypeDef]
@@ -2978,6 +3235,10 @@ class UpdatedDescriptorsUnionTypeDef(TypedDict):
 class CredentialProviderConfigurationTypeDef(TypedDict):
     credentialProviderType: CredentialProviderTypeType
     credentialProvider: NotRequired[CredentialProviderUnionTypeDef]
+
+class HarnessAgentCoreGatewayConfigTypeDef(TypedDict):
+    gatewayArn: str
+    outboundAuth: NotRequired[HarnessGatewayOutboundAuthUnionTypeDef]
 
 class CreateOauth2CredentialProviderResponseTypeDef(TypedDict):
     clientSecretArn: SecretTypeDef
@@ -3203,15 +3464,49 @@ class GetEvaluatorResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 EvaluatorConfigUnionTypeDef = Union[EvaluatorConfigTypeDef, EvaluatorConfigOutputTypeDef]
+
+class HarnessEnvironmentProviderRequestTypeDef(TypedDict):
+    agentCoreRuntimeEnvironment: NotRequired[HarnessAgentCoreRuntimeEnvironmentRequestTypeDef]
+
 CustomClaimValidationTypeUnionTypeDef = Union[
     CustomClaimValidationTypeTypeDef, CustomClaimValidationTypeOutputTypeDef
 ]
+
+class HarnessTypeDef(TypedDict):
+    harnessId: str
+    harnessName: str
+    arn: str
+    status: HarnessStatusType
+    executionRoleArn: str
+    createdAt: datetime
+    updatedAt: datetime
+    model: HarnessModelConfigurationTypeDef
+    systemPrompt: list[HarnessSystemContentBlockTypeDef]
+    tools: list[HarnessToolOutputTypeDef]
+    skills: list[HarnessSkillTypeDef]
+    allowedTools: list[str]
+    truncation: HarnessTruncationConfigurationTypeDef
+    environment: HarnessEnvironmentProviderTypeDef
+    environmentArtifact: NotRequired[HarnessEnvironmentArtifactTypeDef]
+    environmentVariables: NotRequired[dict[str, str]]
+    authorizerConfiguration: NotRequired[AuthorizerConfigurationOutputTypeDef]
+    memory: NotRequired[HarnessMemoryConfigurationOutputTypeDef]
+    maxIterations: NotRequired[int]
+    maxTokens: NotRequired[int]
+    timeoutSeconds: NotRequired[int]
+    failureReason: NotRequired[str]
+
+class UpdatedHarnessMemoryConfigurationTypeDef(TypedDict):
+    optionalValue: NotRequired[HarnessMemoryConfigurationUnionTypeDef]
 
 class UpdatedDescriptorsTypeDef(TypedDict):
     optionalValue: NotRequired[UpdatedDescriptorsUnionTypeDef]
 
 CredentialProviderConfigurationUnionTypeDef = Union[
     CredentialProviderConfigurationTypeDef, CredentialProviderConfigurationOutputTypeDef
+]
+HarnessAgentCoreGatewayConfigUnionTypeDef = Union[
+    HarnessAgentCoreGatewayConfigTypeDef, HarnessAgentCoreGatewayConfigOutputTypeDef
 ]
 
 class Oauth2ProviderConfigInputTypeDef(TypedDict):
@@ -3317,6 +3612,29 @@ class CustomJWTAuthorizerConfigurationTypeDef(TypedDict):
     allowedClients: NotRequired[Sequence[str]]
     allowedScopes: NotRequired[Sequence[str]]
     customClaims: NotRequired[Sequence[CustomClaimValidationTypeUnionTypeDef]]
+
+class CreateHarnessResponseTypeDef(TypedDict):
+    harness: HarnessTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DeleteHarnessResponseTypeDef(TypedDict):
+    harness: HarnessTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GetHarnessResponseTypeDef(TypedDict):
+    harness: HarnessTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class UpdateHarnessResponseTypeDef(TypedDict):
+    harness: HarnessTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class HarnessToolConfigurationTypeDef(TypedDict):
+    remoteMcp: NotRequired[HarnessRemoteMcpConfigUnionTypeDef]
+    agentCoreBrowser: NotRequired[HarnessAgentCoreBrowserConfigTypeDef]
+    agentCoreGateway: NotRequired[HarnessAgentCoreGatewayConfigUnionTypeDef]
+    inlineFunction: NotRequired[HarnessInlineFunctionConfigUnionTypeDef]
+    agentCoreCodeInterpreter: NotRequired[HarnessAgentCoreCodeInterpreterConfigTypeDef]
 
 class CreateOauth2CredentialProviderRequestTypeDef(TypedDict):
     name: str
@@ -3441,6 +3759,9 @@ class UpdateMemoryOutputTypeDef(TypedDict):
 CustomJWTAuthorizerConfigurationUnionTypeDef = Union[
     CustomJWTAuthorizerConfigurationTypeDef, CustomJWTAuthorizerConfigurationOutputTypeDef
 ]
+HarnessToolConfigurationUnionTypeDef = Union[
+    HarnessToolConfigurationTypeDef, HarnessToolConfigurationOutputTypeDef
+]
 FromUrlSynchronizationConfigurationUnionTypeDef = Union[
     FromUrlSynchronizationConfigurationTypeDef, FromUrlSynchronizationConfigurationOutputTypeDef
 ]
@@ -3485,12 +3806,22 @@ class UpdateMemoryInputTypeDef(TypedDict):
 class AuthorizerConfigurationTypeDef(TypedDict):
     customJWTAuthorizer: NotRequired[CustomJWTAuthorizerConfigurationUnionTypeDef]
 
+HarnessToolTypeDef = TypedDict(
+    "HarnessToolTypeDef",
+    {
+        "type": HarnessToolTypeType,
+        "name": NotRequired[str],
+        "config": NotRequired[HarnessToolConfigurationUnionTypeDef],
+    },
+)
+
 class SynchronizationConfigurationTypeDef(TypedDict):
     fromUrl: NotRequired[FromUrlSynchronizationConfigurationUnionTypeDef]
 
 AuthorizerConfigurationUnionTypeDef = Union[
     AuthorizerConfigurationTypeDef, AuthorizerConfigurationOutputTypeDef
 ]
+HarnessToolUnionTypeDef = Union[HarnessToolTypeDef, HarnessToolOutputTypeDef]
 SynchronizationConfigurationUnionTypeDef = Union[
     SynchronizationConfigurationTypeDef, SynchronizationConfigurationOutputTypeDef
 ]
@@ -3565,6 +3896,26 @@ class UpdateGatewayRequestTypeDef(TypedDict):
 class UpdatedAuthorizerConfigurationTypeDef(TypedDict):
     optionalValue: NotRequired[AuthorizerConfigurationUnionTypeDef]
 
+class CreateHarnessRequestTypeDef(TypedDict):
+    harnessName: str
+    executionRoleArn: str
+    clientToken: NotRequired[str]
+    environment: NotRequired[HarnessEnvironmentProviderRequestTypeDef]
+    environmentArtifact: NotRequired[HarnessEnvironmentArtifactTypeDef]
+    environmentVariables: NotRequired[Mapping[str, str]]
+    authorizerConfiguration: NotRequired[AuthorizerConfigurationUnionTypeDef]
+    model: NotRequired[HarnessModelConfigurationTypeDef]
+    systemPrompt: NotRequired[Sequence[HarnessSystemContentBlockTypeDef]]
+    tools: NotRequired[Sequence[HarnessToolUnionTypeDef]]
+    skills: NotRequired[Sequence[HarnessSkillTypeDef]]
+    allowedTools: NotRequired[Sequence[str]]
+    memory: NotRequired[HarnessMemoryConfigurationUnionTypeDef]
+    truncation: NotRequired[HarnessTruncationConfigurationTypeDef]
+    maxIterations: NotRequired[int]
+    maxTokens: NotRequired[int]
+    timeoutSeconds: NotRequired[int]
+    tags: NotRequired[Mapping[str, str]]
+
 class CreateRegistryRecordRequestTypeDef(TypedDict):
     registryId: str
     name: str
@@ -3578,6 +3929,25 @@ class CreateRegistryRecordRequestTypeDef(TypedDict):
 
 class UpdatedSynchronizationConfigurationTypeDef(TypedDict):
     optionalValue: NotRequired[SynchronizationConfigurationUnionTypeDef]
+
+class UpdateHarnessRequestTypeDef(TypedDict):
+    harnessId: str
+    clientToken: NotRequired[str]
+    executionRoleArn: NotRequired[str]
+    environment: NotRequired[HarnessEnvironmentProviderRequestTypeDef]
+    environmentArtifact: NotRequired[UpdatedHarnessEnvironmentArtifactTypeDef]
+    environmentVariables: NotRequired[Mapping[str, str]]
+    authorizerConfiguration: NotRequired[UpdatedAuthorizerConfigurationTypeDef]
+    model: NotRequired[HarnessModelConfigurationTypeDef]
+    systemPrompt: NotRequired[Sequence[HarnessSystemContentBlockTypeDef]]
+    tools: NotRequired[Sequence[HarnessToolUnionTypeDef]]
+    skills: NotRequired[Sequence[HarnessSkillTypeDef]]
+    allowedTools: NotRequired[Sequence[str]]
+    memory: NotRequired[UpdatedHarnessMemoryConfigurationTypeDef]
+    truncation: NotRequired[HarnessTruncationConfigurationTypeDef]
+    maxIterations: NotRequired[int]
+    maxTokens: NotRequired[int]
+    timeoutSeconds: NotRequired[int]
 
 class UpdateRegistryRequestTypeDef(TypedDict):
     registryId: str

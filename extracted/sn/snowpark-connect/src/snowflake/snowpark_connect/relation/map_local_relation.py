@@ -32,6 +32,7 @@ from snowflake.snowpark_connect.type_mapping import (
     map_pyarrow_to_snowpark_types,
     map_simple_types,
 )
+from snowflake.snowpark_connect.typed_column import FieldType
 from snowflake.snowpark_connect.utils.session import get_or_create_snowpark_session
 from snowflake.snowpark_connect.utils.snowpark_connect_logging import logger
 from snowflake.snowpark_connect.utils.telemetry import (
@@ -389,9 +390,10 @@ def map_local_relation(
         enable_optimization = global_config._get_config_setting(
             "snowpark.connect.localRelation.optimizeSmallData"
         )
-        use_vectorized_scanner = global_config._get_config_setting(
-            "snowpark.connect.parquet.useVectorizedScanner"
-        )
+        # Always use the vectorized scanner for the Parquet staging path used by
+        # createDataFrame; the non-vectorized path has correctness issues with
+        # MAP columns (SNOW-3390852) and is no longer user-configurable.
+        use_vectorized_scanner = True
         use_pyarrow = (
             not is_in_stored_procedure()
             # TODO: SNOW-2220726 investigate why use_pyarrow failed in TCM:
@@ -477,7 +479,9 @@ def map_local_relation(
             spark_column_names=spark_column_names,
             snowpark_column_names=new_columns,
             column_metadata=column_metadata,
-            snowpark_column_types=[f.datatype for f in snowpark_schema.fields],
+            snowpark_column_types=[
+                FieldType(f.datatype, f.nullable) for f in snowpark_schema.fields
+            ],
         )
 
         # SNOW-3242008: Cache the Arrow table for DDL/DML sql_command results so
@@ -517,7 +521,9 @@ def map_local_relation(
             spark_column_names=spark_column_names,
             snowpark_column_names=new_columns,
             column_metadata=column_metadata,
-            snowpark_column_types=[f.datatype for f in snowpark_schema.fields],
+            snowpark_column_types=[
+                FieldType(f.datatype, f.nullable) for f in snowpark_schema.fields
+            ],
         )
     else:
         exception = SnowparkConnectNotImplementedError(
@@ -561,5 +567,5 @@ def map_range(
         dataframe=result,
         spark_column_names=["id"],
         snowpark_column_names=new_columns,
-        snowpark_column_types=[LongType()],
+        snowpark_column_types=[FieldType(LongType(), nullable=False)],
     )

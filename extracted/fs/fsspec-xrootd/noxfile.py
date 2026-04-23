@@ -7,7 +7,7 @@ import nox
 
 DIR = Path(__file__).parent.resolve()
 
-nox.options.sessions = ["lint", "pylint", "tests"]
+nox.options.sessions = ["lint", "tests"]
 
 
 @nox.session
@@ -20,22 +20,11 @@ def lint(session: nox.Session) -> None:
 
 
 @nox.session
-def pylint(session: nox.Session) -> None:
-    """
-    Run PyLint.
-    """
-    # This needs to be installed into the package environment, and is slower
-    # than a pre-commit check
-    session.install(".", "pylint")
-    session.run("pylint", "src", *session.posargs)
-
-
-@nox.session
 def tests(session: nox.Session) -> None:
     """
     Run the unit and regular tests.
     """
-    session.install(".[test]")
+    session.install(".[test,xrootd]")
     session.run("pytest", *session.posargs)
 
 
@@ -45,7 +34,7 @@ def docs(session: nox.Session) -> None:
     Build the docs. Pass "serve" to serve.
     """
 
-    session.install(".[docs]")
+    session.install(".[docs,xrootd]")
     session.chdir("docs")
     session.run("sphinx-build", "-M", "html", ".", "_build")
 

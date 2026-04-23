@@ -37,6 +37,12 @@ _BUILTIN_THEME_NAMES = ["midnight", "dawn", "high-contrast", "accessible"]
 # ---------------------------------------------------------------------------
 
 
+@pytest.fixture(autouse=True)
+def _clear_no_color(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep inherited NO_COLOR from collapsing normal theme-loading tests."""
+    monkeypatch.delenv("NO_COLOR", raising=False)
+
+
 def _hex_to_rgb(hex_color: str) -> tuple[int, int, int]:
     """Convert #RRGGBB to (r, g, b) tuple."""
     h = hex_color.lstrip("#")

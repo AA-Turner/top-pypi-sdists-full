@@ -249,7 +249,7 @@ class ProxyTunnel:
         proxy_user = f"{self.env_id}@{self.db_port}"
         proxy_pass = self.temp_password
 
-        logger.info(f"Using proxy URL: {proxy_url} (from base URL: {base_url})")
+        logger.debug(f"Using proxy URL: {proxy_url} (from base URL: {base_url})")
 
         # Start local listener that mimics: -d 127.0.0.1:<db_port> -a <host_port>
         # i.e., we listen on host_port and forward through proxy to 127.0.0.1:db_port
@@ -271,7 +271,7 @@ class ProxyTunnel:
         addrs = ", ".join(str(s.getsockname()) for s in (self._server.sockets or []))
 
         # Mirror your previous logs
-        logger.info(f"Starting proxy tunnel listener on {addrs} -> 127.0.0.1:{self.db_port} via {proxy_url}")
+        logger.debug(f"Starting proxy tunnel listener on {addrs} -> 127.0.0.1:{self.db_port} via {proxy_url}")
 
         # Small delay to mirror your readiness wait and allow binding to settle
         await asyncio.sleep(0.2)
@@ -280,12 +280,12 @@ class ProxyTunnel:
         if not self._server.sockets:
             raise RuntimeError("Proxy tunnel failed to start: no listening sockets")
 
-        logger.info(f"Proxy tunnel established on port {self.host_port}")
+        logger.debug(f"Proxy tunnel established on port {self.host_port}")
 
     async def stop(self) -> None:
         """Stop the proxy tunnel server."""
         if self._server is not None:
-            logger.info("Stopping proxy tunnel")
+            logger.debug("Stopping proxy tunnel")
 
             # Stop accepting new connections
             self._server.close()
@@ -298,4 +298,4 @@ class ProxyTunnel:
                 t.cancel()
             self._client_tasks.clear()
 
-            logger.info("Proxy tunnel stopped")
+            logger.debug("Proxy tunnel stopped")

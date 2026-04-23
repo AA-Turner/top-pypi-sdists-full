@@ -826,6 +826,35 @@ mod table_keys_order {
                 "#
             )
         }
+
+        test_format! {
+            #[tokio::test]
+            async fn test_cargo_lints_rust_not_sorted_when_schema_format_rules_disabled(
+                r#"
+                [lints.rust]
+                deprecated = "warn"
+                aarch64_softfloat_neon = "warn"
+                "#,
+                ConfigText(
+                    r#"
+                    [[schemas]]
+                    path = "tombi://json.schemastore.org/cargo.json"
+                    include = ["Cargo.toml"]
+                    [schemas.format.rules.array-values-order]
+                    enabled = false
+                    [schemas.format.rules.table-keys-order]
+                    enabled = false
+                    "#
+                ),
+                SourcePath(tombi_test_lib::project_root_path().join("Cargo.toml")),
+            ) -> Ok(
+                r#"
+                [lints.rust]
+                deprecated = "warn"
+                aarch64_softfloat_neon = "warn"
+                "#
+            )
+        }
     }
 
     mod tombi {
@@ -1786,34 +1815,7 @@ mod table_keys_order {
 }
 
 mod schema_format_rules {
-    use tombi_config::{
-        Config, RootSchema, SchemaArrayValuesOrderRule, SchemaFormatOptions, SchemaFormatRules,
-        SchemaItem, SchemaTableKeysOrderRule,
-    };
     use tombi_formatter::{Formatter, test_format};
-    use tombi_test_lib::pyproject_schema_path;
-
-    fn pyproject_schema_rules_disabled_config() -> Config {
-        let mut config = Config::default();
-        config.schemas = Some(vec![SchemaItem::Root(RootSchema {
-            toml_version: None,
-            path: pyproject_schema_path().to_string_lossy().into_owned(),
-            include: vec!["*.toml".to_string()],
-            lint: None,
-            format: Some(SchemaFormatOptions {
-                rules: Some(SchemaFormatRules {
-                    array_values_order: Some(SchemaArrayValuesOrderRule {
-                        enabled: Some(false.into()),
-                    }),
-                    table_keys_order: Some(SchemaTableKeysOrderRule {
-                        enabled: Some(false.into()),
-                    }),
-                }),
-            }),
-            overrides: None,
-        })]);
-        config
-    }
 
     test_format! {
         #[tokio::test]
@@ -1826,7 +1828,17 @@ mod schema_format_rules {
             description = "A test project"
             requires-python = ">=3.10"
             "#,
-            Config(pyproject_schema_rules_disabled_config()),
+            ConfigText(
+                r#"
+                [[schemas]]
+                path = "tombi://www.schemastore.org/pyproject.json"
+                include = ["*.toml"]
+
+                [schemas.format.rules]
+                array-values-order.enabled = false
+                table-keys-order.enabled = false
+                "#,
+            ),
         ) -> Ok(
             r#"
             [project]
@@ -1841,87 +1853,7 @@ mod schema_format_rules {
 }
 
 mod schema_overrides {
-    use tombi_config::{
-        ArrayValuesOrder, Config, RootSchema, SchemaArrayValuesOrderRule, SchemaFormatOptions,
-        SchemaFormatRules, SchemaItem, SchemaOverrideArrayValuesOrderRule,
-        SchemaOverrideFormatOptions, SchemaOverrideFormatRules, SchemaOverrideItem,
-        SchemaOverrideTableKeysOrderRule, SchemaTableKeysOrderRule, TableKeysOrder,
-    };
     use tombi_formatter::{Formatter, test_format};
-    use tombi_test_lib::pyproject_schema_path;
-
-    fn pyproject_schema_overrides_config() -> Config {
-        let mut config = Config::default();
-        config.schemas = Some(vec![SchemaItem::Root(RootSchema {
-            toml_version: None,
-            path: pyproject_schema_path().to_string_lossy().into_owned(),
-            include: vec!["*.toml".to_string()],
-            lint: None,
-            format: Some(SchemaFormatOptions {
-                rules: Some(SchemaFormatRules {
-                    array_values_order: Some(SchemaArrayValuesOrderRule {
-                        enabled: Some(false.into()),
-                    }),
-                    table_keys_order: Some(SchemaTableKeysOrderRule {
-                        enabled: Some(false.into()),
-                    }),
-                }),
-            }),
-            overrides: Some(vec![
-                SchemaOverrideItem {
-                    targets: vec!["project".into()],
-                    format: Some(SchemaOverrideFormatOptions {
-                        rules: Some(SchemaOverrideFormatRules {
-                            array_values_order: None,
-                            table_keys_order: Some(SchemaOverrideTableKeysOrderRule::Order(
-                                TableKeysOrder::Schema,
-                            )),
-                        }),
-                    }),
-                    lint: None,
-                },
-                SchemaOverrideItem {
-                    targets: vec!["dependency-groups.dev".into()],
-                    format: Some(SchemaOverrideFormatOptions {
-                        rules: Some(SchemaOverrideFormatRules {
-                            array_values_order: Some(SchemaOverrideArrayValuesOrderRule::Order(
-                                ArrayValuesOrder::Ascending,
-                            )),
-                            table_keys_order: None,
-                        }),
-                    }),
-                    lint: None,
-                },
-            ]),
-        })]);
-        config
-    }
-
-    fn pyproject_schema_override_disable_project_config() -> Config {
-        let mut config = Config::default();
-        config.schemas = Some(vec![SchemaItem::Root(RootSchema {
-            toml_version: None,
-            path: pyproject_schema_path().to_string_lossy().into_owned(),
-            include: vec!["*.toml".to_string()],
-            lint: None,
-            format: None,
-            overrides: Some(vec![SchemaOverrideItem {
-                targets: vec!["project".into()],
-                format: Some(SchemaOverrideFormatOptions {
-                    rules: Some(SchemaOverrideFormatRules {
-                        array_values_order: None,
-                        table_keys_order: Some(SchemaOverrideTableKeysOrderRule::Rule(
-                            SchemaTableKeysOrderRule {
-                                enabled: Some(false.into()),
-                            },
-                        )),
-                    }),
-                }),
-                lint: None,
-            }]),
-        })]);
-        config
-    }
 
     test_format! {
         #[tokio::test]
@@ -1933,7 +1865,24 @@ mod schema_overrides {
             description = "A test project"
             requires-python = ">=3.10"
             "#,
-            Config(pyproject_schema_overrides_config()),
+            ConfigText(
+                r#"
+                [[schemas]]
+                path = "tombi://www.schemastore.org/pyproject.json"
+                include = ["*.toml"]
+                [schemas.format.rules]
+                array-values-order.enabled = false
+                table-keys-order.enabled = false
+
+                [[schemas.overrides]]
+                targets = ["project"]
+                format.rules.table-keys-order = "schema"
+
+                [[schemas.overrides]]
+                targets = ["dependency-groups.dev"]
+                format.rules.array-values-order = "ascending"
+                "#,
+            ),
         ) -> Ok(
             r#"
             [project]
@@ -1955,7 +1904,25 @@ mod schema_overrides {
             description = "A test project"
             requires-python = ">=3.10"
             "#,
-            Config(pyproject_schema_overrides_config()),
+            ConfigText(
+                r#"
+                [[schemas]]
+                path = "tombi://www.schemastore.org/pyproject.json"
+                include = ["*.toml"]
+
+                [schemas.format.rules]
+                array-values-order.enabled = false
+                table-keys-order.enabled = false
+
+                [[schemas.overrides]]
+                targets = ["project"]
+                format.rules.table-keys-order = "schema"
+
+                [[schemas.overrides]]
+                targets = ["dependency-groups.dev"]
+                format.rules.array-values-order = "ascending"
+                "#,
+            ),
         ) -> Ok(
             r#"
             [project]
@@ -1968,9 +1935,9 @@ mod schema_overrides {
     }
 
     test_format! {
-        #[tokio::test]
-        async fn test_schema_overrides_reenable_array_values_order_for_matched_target(
-            r#"
+    #[tokio::test]
+    async fn test_schema_overrides_reenable_array_values_order_for_matched_target(
+        r#"
             [project]
             name = "tombi"
             version = "1.0.0"
@@ -1983,7 +1950,24 @@ mod schema_overrides {
               "pytest>=8.3.3",
             ]
             "#,
-            Config(pyproject_schema_overrides_config()),
+            ConfigText(
+                r#"
+                [[schemas]]
+                path = "tombi://www.schemastore.org/pyproject.json"
+                include = ["*.toml"]
+                [schemas.format.rules]
+                array-values-order.enabled = false
+                table-keys-order.enabled = false
+
+                [[schemas.overrides]]
+                targets = ["project"]
+                format.rules.table-keys-order = "schema"
+
+                [[schemas.overrides]]
+                targets = ["dependency-groups.dev"]
+                format.rules.array-values-order = "ascending"
+                "#
+            ),
         ) -> Ok(
             r#"
             [project]
@@ -2017,7 +2001,25 @@ mod schema_overrides {
               "pytest>=8.3.3",
             ]
             "#,
-            Config(pyproject_schema_overrides_config()),
+            ConfigText(
+                r#"
+                [[schemas]]
+                path = "tombi://www.schemastore.org/pyproject.json"
+                include = ["*.toml"]
+
+                [schemas.format.rules]
+                array-values-order.enabled = false
+                table-keys-order.enabled = false
+
+                [[schemas.overrides]]
+                targets = ["project"]
+                format.rules.table-keys-order = "schema"
+
+                [[schemas.overrides]]
+                targets = ["dependency-groups.dev"]
+                format.rules.array-values-order = "ascending"
+                "#
+            )
         ) -> Ok(
             r#"
             [project]
@@ -2045,7 +2047,17 @@ mod schema_overrides {
             description = "A test project"
             requires-python = ">=3.10"
             "#,
-            Config(pyproject_schema_override_disable_project_config()),
+            ConfigText(
+                r#"
+                [[schemas]]
+                path = "tombi://www.schemastore.org/pyproject.json"
+                include = ["*.toml"]
+
+                [[schemas.overrides]]
+                targets = ["project"]
+                format.rules.table-keys-order.enabled = false
+                "#,
+            ),
         ) -> Ok(
             r#"
             [project]
@@ -2055,41 +2067,6 @@ mod schema_overrides {
             requires-python = ">=3.10"
             "#
         )
-    }
-
-    fn pyproject_schema_override_reenable_without_order_config() -> Config {
-        let mut config = Config::default();
-        config.schemas = Some(vec![SchemaItem::Root(RootSchema {
-            toml_version: None,
-            path: pyproject_schema_path().to_string_lossy().into_owned(),
-            include: vec!["*.toml".to_string()],
-            lint: None,
-            format: Some(SchemaFormatOptions {
-                rules: Some(SchemaFormatRules {
-                    array_values_order: Some(SchemaArrayValuesOrderRule {
-                        enabled: Some(false.into()),
-                    }),
-                    table_keys_order: Some(SchemaTableKeysOrderRule {
-                        enabled: Some(false.into()),
-                    }),
-                }),
-            }),
-            overrides: Some(vec![SchemaOverrideItem {
-                targets: vec!["project".into()],
-                format: Some(SchemaOverrideFormatOptions {
-                    rules: Some(SchemaOverrideFormatRules {
-                        array_values_order: None,
-                        table_keys_order: Some(SchemaOverrideTableKeysOrderRule::Rule(
-                            SchemaTableKeysOrderRule {
-                                enabled: Some(true.into()),
-                            },
-                        )),
-                    }),
-                }),
-                lint: None,
-            }]),
-        })]);
-        config
     }
 
     test_format! {
@@ -2102,7 +2079,21 @@ mod schema_overrides {
             description = "A test project"
             requires-python = ">=3.10"
             "#,
-            Config(pyproject_schema_override_reenable_without_order_config()),
+            ConfigText(
+                r#"
+                [[schemas]]
+                path = "tombi://www.schemastore.org/pyproject.json"
+                include = ["*.toml"]
+
+                [schemas.format.rules]
+                array-values-order.enabled = false
+                table-keys-order.enabled = false
+
+                [[schemas.overrides]]
+                targets = ["project"]
+                format.rules.table-keys-order.enabled = true
+                "#,
+            ),
         ) -> Ok(
             r#"
             [project]
@@ -2110,6 +2101,272 @@ mod schema_overrides {
             version = "0.1.0"
             description = "A test project"
             requires-python = ">=3.10"
+            "#
+        )
+    }
+
+    test_format! {
+        #[tokio::test]
+        async fn test_root_schema_override_applies_inside_subschema(
+            r#"
+            [tool.tombi.format.rules]
+            trailing-comment-alignment = true
+            key-value-equals-sign-alignment = true
+            inline-table-brace-space-width = 0
+            indent-table-key-value-pairs = true
+            "#,
+            ConfigText(
+                r#"
+                [[schemas]]
+                path = "tombi://www.schemastore.org/pyproject.json"
+                include = ["*.toml"]
+
+                [schemas.format.rules]
+                array-values-order.enabled = false
+                table-keys-order.enabled = false
+
+                [[schemas.overrides]]
+                targets = ["tool.tombi.format.rules"]
+                format.rules.table-keys-order = "ascending"
+
+                [[schemas]]
+                root = "tool.tombi"
+                path = "tombi://www.schemastore.org/tombi.json"
+                include = ["*.toml"]
+
+                [schemas.format.rules]
+                array-values-order.enabled = false
+                table-keys-order.enabled = false
+                "#
+            )
+        ) -> Ok(
+            r#"
+            [tool.tombi.format.rules]
+            indent-table-key-value-pairs = true
+            inline-table-brace-space-width = 0
+            key-value-equals-sign-alignment = true
+            trailing-comment-alignment = true
+            "#
+        )
+    }
+
+    test_format! {
+        #[tokio::test]
+        async fn test_subschema_override_applies_without_root_override(
+            r#"
+            [tool.tombi.format.rules]
+            indent-table-key-value-pairs = true
+            inline-table-brace-space-width = 0
+            key-value-equals-sign-alignment = true
+            trailing-comment-alignment = true
+            "#,
+            ConfigText(
+                r#"
+                [[schemas]]
+                path = "tombi://www.schemastore.org/pyproject.json"
+                include = ["*.toml"]
+
+                [schemas.format.rules]
+                array-values-order.enabled = false
+                table-keys-order.enabled = false
+
+                [[schemas]]
+                root = "tool.tombi"
+                path = "tombi://www.schemastore.org/tombi.json"
+                include = ["*.toml"]
+
+                [schemas.format.rules]
+                array-values-order.enabled = false
+                table-keys-order.enabled = false
+
+                [[schemas.overrides]]
+                targets = ["tool.tombi.format.rules"]
+                format.rules.table-keys-order = "descending"
+                "#
+            )
+        ) -> Ok(
+            r#"
+            [tool.tombi.format.rules]
+            trailing-comment-alignment = true
+            key-value-equals-sign-alignment = true
+            inline-table-brace-space-width = 0
+            indent-table-key-value-pairs = true
+            "#
+        )
+    }
+
+    test_format! {
+        #[tokio::test]
+        async fn test_subschema_override_precedes_root_schema_override(
+            r#"
+            [tool.tombi.format.rules]
+            trailing-comment-alignment = true
+            key-value-equals-sign-alignment = true
+            inline-table-brace-space-width = 0
+            indent-table-key-value-pairs = true
+            "#,
+            ConfigText(
+                r#"
+                [[schemas]]
+                path = "tombi://www.schemastore.org/pyproject.json"
+                include = ["*.toml"]
+
+                [schemas.format.rules]
+                array-values-order.enabled = false
+                table-keys-order.enabled = false
+
+                [[schemas.overrides]]
+                targets = ["tool.tombi.format.rules"]
+                format.rules.table-keys-order = "ascending"
+
+                [[schemas]]
+                root = "tool.tombi"
+                path = "tombi://www.schemastore.org/tombi.json"
+                include = ["*.toml"]
+
+                [schemas.format.rules]
+                array-values-order.enabled = false
+                table-keys-order.enabled = false
+
+                [[schemas.overrides]]
+                targets = ["tool.tombi.format.rules"]
+
+                [schemas.overrides.format.rules]
+                table-keys-order = "descending"
+                "#,
+            )
+        ) -> Ok(
+            r#"
+            [tool.tombi.format.rules]
+            trailing-comment-alignment = true
+            key-value-equals-sign-alignment = true
+            inline-table-brace-space-width = 0
+            indent-table-key-value-pairs = true
+            "#
+        )
+    }
+
+    test_format! {
+        #[tokio::test]
+        async fn test_root_array_override_applies_inside_subschema(
+            r#"
+            [[tool.tombi.schemas]]
+            include = ["z.toml", "a.toml"]
+            path = "tombi://www.schemastore.org/tombi.json"
+            "#,
+            ConfigText(
+                r#"
+                [[schemas]]
+                path = "tombi://www.schemastore.org/pyproject.json"
+                include = ["*.toml"]
+
+                [schemas.format.rules]
+                array-values-order.enabled = false
+                table-keys-order.enabled = false
+
+                [[schemas.overrides]]
+                targets = ["tool.tombi.schemas[*].include"]
+                format.rules.array-values-order = "ascending"
+
+                [[schemas]]
+                root = "tool.tombi"
+                path = "tombi://www.schemastore.org/tombi.json"
+                include = ["*.toml"]
+
+                [schemas.format.rules]
+                array-values-order.enabled = false
+                table-keys-order.enabled = false
+                "#,
+            ),
+        ) -> Ok(
+            r#"
+            [[tool.tombi.schemas]]
+            include = ["a.toml", "z.toml"]
+            path = "tombi://www.schemastore.org/tombi.json"
+            "#
+        )
+    }
+
+    test_format! {
+        #[tokio::test]
+        async fn test_subschema_array_override_applies_without_root_override(
+            r#"
+            [[tool.tombi.schemas]]
+            include = ["a.toml", "z.toml"]
+            path = "tombi://www.schemastore.org/tombi.json"
+            "#,
+            ConfigText(
+                r#"
+                [[schemas]]
+                path = "tombi://www.schemastore.org/pyproject.json"
+                include = ["*.toml"]
+
+                [schemas.format.rules]
+                array-values-order.enabled = false
+                table-keys-order.enabled = false
+
+                [[schemas]]
+                root = "tool.tombi"
+                path = "tombi://www.schemastore.org/tombi.json"
+                include = ["*.toml"]
+
+                [schemas.format.rules]
+                array-values-order.enabled = false
+                table-keys-order.enabled = false
+
+                [[schemas.overrides]]
+                targets = ["tool.tombi.schemas[*].include"]
+                format.rules.array-values-order = "descending"
+                "#,
+            ),
+        ) -> Ok(
+            r#"
+            [[tool.tombi.schemas]]
+            include = ["z.toml", "a.toml"]
+            path = "tombi://www.schemastore.org/tombi.json"
+            "#
+        )
+    }
+
+    test_format! {
+        #[tokio::test]
+        async fn test_subschema_array_override_precedes_root_array_override(
+            r#"
+            [[tool.tombi.schemas]]
+            include = ["z.toml", "a.toml"]
+            path = "tombi://www.schemastore.org/tombi.json"
+            "#,
+            ConfigText(
+                r#"
+                [[schemas]]
+                path = "tombi://www.schemastore.org/pyproject.json"
+                include = ["*.toml"]
+
+                [schemas.format.rules]
+                array-values-order.enabled = false
+                table-keys-order.enabled = false
+
+                [[schemas.overrides]]
+                targets = ["tool.tombi.schemas[*].include"]
+                format.rules.array-values-order = "ascending"
+
+                [[schemas]]
+                root = "tool.tombi"
+                path = "tombi://www.schemastore.org/tombi.json"
+                include = ["*.toml"]
+                format.rules.array-values-order.enabled = false
+                format.rules.table-keys-order.enabled = false
+
+                [[schemas.overrides]]
+                targets = ["tool.tombi.schemas[*].include"]
+                format.rules.array-values-order = "descending"
+                "#,
+            ),
+        ) -> Ok(
+            r#"
+            [[tool.tombi.schemas]]
+            include = ["z.toml", "a.toml"]
+            path = "tombi://www.schemastore.org/tombi.json"
             "#
         )
     }

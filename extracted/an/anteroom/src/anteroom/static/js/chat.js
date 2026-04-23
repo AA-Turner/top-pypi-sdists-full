@@ -21,6 +21,7 @@ const Chat = (() => {
     let _remoteAssistantEl = null;
     let _remoteAssistantContent = '';
 
+
     // Lifecycle phase tracking
     let _thinkingPhase = '';
     let _streamingChars = 0;
@@ -286,6 +287,9 @@ const Chat = (() => {
 
             currentAssistantContent = '';
             currentAssistantEl = appendMessage('assistant', '');
+            // #1467: reset tool-density repeat tracker per new turn so
+            // shape-hash counts do not bleed across turns.
+            _resetToolDensityState();
 
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
@@ -455,12 +459,17 @@ const Chat = (() => {
                     showToast('Workflow cancel requested (run ' + (data.run_id || '').substring(0, 12) + '...)', 'info');
                 }
                 break;
+            case 'hook_outcome':
+                // #1491 — hook-blocked tool call notice. Uses the existing error card
+                // surface so no new parallel UX is introduced.
+                renderHookOutcome(data);
+                break;
             case 'error':
                 hideThinking();
                 if (currentAssistantEl) {
-                    showError(currentAssistantEl, data.message);
+                    showError(currentAssistantEl, data);
                 } else {
-                    showError(null, data.message);
+                    showError(null, data);
                 }
                 break;
         }
@@ -573,6 +582,21 @@ const Chat = (() => {
     // All user-derived strings go through textContent, never innerHTML,
     // so a hostile snapshot value (e.g. <script>...) renders as literal
     // text. See tests/js/chat_attribution.test.js for the XSS negative.
+
+    // #1473 — prefer canonical <section>_count field; fall back to
+    // truncation-aware computation for older persisted snapshots.
+    function _attrCount(snapshot, section) {
+        const countField = section + '_count';
+        if (snapshot[countField] !== undefined) {
+            const n = parseInt(snapshot[countField], 10);
+            if (!isNaN(n)) return n;
+        }
+        const items = snapshot[section] || [];
+        const last = items[items.length - 1];
+        const truncated = (last && last.truncated !== undefined) ? last.truncated : 0;
+        return items.length - (truncated ? 1 : 0) + truncated;
+    }
+
     function _addAttributionFooter(msgEl, snapshot) {
         if (!msgEl || !snapshot || typeof snapshot !== 'object') return;
 
@@ -582,12 +606,18 @@ const Chat = (() => {
         const summary = document.createElement('summary');
         summary.className = 'attribution-summary';
         const parts = [
-            `${(snapshot.turns || []).length} turns`,
-            `${(snapshot.memory || []).length} memories`,
-            `${(snapshot.sources || []).length} sources`,
-            `${(snapshot.tools || []).length} tools`,
-            `${(snapshot.packs || []).length} packs`,
+            `${_attrCount(snapshot, 'turns')} turns`,
+            `${_attrCount(snapshot, 'memory')} memories`,
+            `${_attrCount(snapshot, 'sources')} sources`,
+            `${_attrCount(snapshot, 'tools')} tools`,
+            `${_attrCount(snapshot, 'packs')} packs`,
         ];
+        // #1462 — instruction-file segment. Hidden when no file loaded so
+        // the default footer stays compact, matching the CLI footer rule.
+        const _instrCount = _attrCount(snapshot, 'instructions');
+        if (_instrCount) {
+            parts.push(`${_instrCount} ${_instrCount === 1 ? 'instruction file' : 'instruction files'}`);
+        }
         if (snapshot.dlp_match_count) parts.push(`DLP:${snapshot.dlp_match_count}`);
         if (snapshot.output_filter_match_count) parts.push(`OF:${snapshot.output_filter_match_count}`);
         summary.textContent = `Why this context? — ${parts.join(' · ')}`;
@@ -600,6 +630,9 @@ const Chat = (() => {
         body.appendChild(_attrSection('RAG sources', snapshot.sources, ['label', 'type']));
         body.appendChild(_attrSection('Tool calls', snapshot.tools, ['id', 'name']));
         body.appendChild(_attrSection('Attached packs', snapshot.packs, ['namespace', 'name', 'scope']));
+        // #1462 — project instructions section. Every user-derived value
+        // (path) flows through textContent only; see _attrSection.
+        body.appendChild(_attrSection('Project instructions', snapshot.instructions, ['path', 'scope', 'estimated_tokens']));
         details.appendChild(body);
 
         msgEl.appendChild(details);
@@ -1898,29 +1931,47 @@ const Chat = (() => {
         }
     }
 
-    function showError(msgEl, message) {
+    function _formatUserError(error) {
+        if (!error) return 'An internal error occurred';
+        if (typeof error === 'string') return error.replace(/\s+/g, ' ').trim();
+        if (typeof error === 'object') {
+            if (typeof error.display_message === 'string' && error.display_message.trim()) {
+                return error.display_message.replace(/\s+/g, ' ').trim();
+            }
+            const message = typeof error.message === 'string' ? error.message.replace(/\s+/g, ' ').trim() : '';
+            const suggestion = typeof error.suggestion === 'string' ? error.suggestion.replace(/\s+/g, ' ').trim() : '';
+            if (message && suggestion && !message.toLowerCase().includes(suggestion.toLowerCase())) {
+                return `${message} — ${suggestion}`;
+            }
+            if (message) return message;
+        }
+        return 'An internal error occurred';
+    }
+
+    function showError(msgEl, error) {
         const errDiv = document.createElement('div');
         errDiv.className = 'error-message';
 
         const errText = document.createElement('span');
-        errText.textContent = `Error: ${message}`;
+        errText.className = 'error-message-text';
+        errText.textContent = `Error: ${_formatUserError(error)}`;
         errDiv.appendChild(errText);
 
-        const retryBtn = document.createElement('button');
-        retryBtn.className = 'btn-retry';
-        retryBtn.textContent = 'Retry';
-        retryBtn.addEventListener('click', () => {
-            errDiv.remove();
-            if (_lastSentText) {
+        if (_lastSentText) {
+            const retryBtn = document.createElement('button');
+            retryBtn.className = 'btn-retry';
+            retryBtn.textContent = 'Retry';
+            retryBtn.addEventListener('click', () => {
+                errDiv.remove();
                 const body = JSON.stringify({ message: _lastSentText });
                 const headers = {
                     'Content-Type': 'application/json',
                     'X-CSRF-Token': App._getCsrfToken(),
                 };
                 streamChatResponse(App.state.currentConversationId, body, headers);
-            }
-        });
-        errDiv.appendChild(retryBtn);
+            });
+            errDiv.appendChild(retryBtn);
+        }
 
         if (msgEl) {
             msgEl.appendChild(errDiv);
@@ -1947,6 +1998,183 @@ const Chat = (() => {
         if (summary) {
             summary.textContent = `${_webDedupToolName} \u00d7 ${_webDedupCount} `;
         }
+    }
+
+    // --------------------------------------------------------------
+    // #1467 tool-result density rendering (opt-in via cli.density.mode)
+    // --------------------------------------------------------------
+    // Per-turn repeat-collapse tracker for the *current consecutive run* only.
+    // A different shape hash breaks the run immediately. This preserves the
+    // approved #1467 contract: collapse only >=3 consecutive matching results.
+    let _toolRepeatRun = null;
+
+    function _toolRepeatReset() {
+        _toolRepeatRun = null;
+    }
+
+    // #1467 expose for replay-path reset
+    function _resetToolDensityState() { _toolRepeatReset(); }
+
+    function _applyErrorClass(details, errorClass) {
+        if (!errorClass) return;
+        const allowed = new Set(['exit_nonzero', 'exception', 'timeout', 'denied']);
+        if (!allowed.has(errorClass)) return;
+        details.classList.add(`tool-error-${errorClass}`);
+        details.setAttribute('aria-label', `Tool call failed: ${errorClass}`);
+    }
+
+    function _renderDiffHunks(container, previewText) {
+        // previewText begins with "@@ ". Split into lines, classify each.
+        const lines = previewText.split('\n');
+        const hunk = document.createElement('div');
+        hunk.className = 'tool-diff-hunk';
+        lines.forEach(line => {
+            const lineDiv = document.createElement('div');
+            if (line.startsWith('@@ ')) {
+                lineDiv.className = 'tool-diff-hunk-header';
+            } else if (line.startsWith('+') && !line.startsWith('+++')) {
+                lineDiv.className = 'tool-diff-add';
+            } else if (line.startsWith('-') && !line.startsWith('---')) {
+                lineDiv.className = 'tool-diff-del';
+            } else {
+                lineDiv.className = 'tool-diff-context';
+            }
+            // textContent is XSS-safe — never innerHTML here.
+            lineDiv.textContent = line;
+            hunk.appendChild(lineDiv);
+        });
+        container.appendChild(hunk);
+    }
+
+    // Core density-aware enhancer. Mutates `details` (the .tool-call element)
+    // based on server-computed summary fields. When summary fields are absent
+    // or null (zero-config path), this function is a no-op — the caller's
+    // legacy rendering remains visible.
+    function _applyToolDensityEnhancements(details, data) {
+        if (!details) return;
+        const hasSummary = data && (data.summary || data.output_preview);
+        const hasErrorClass = data && data.error_class;
+        const hasShapeHash = data && data.output_shape_hash;
+
+        // Always apply error-class CSS when the server populated it — it
+        // is gated on cli.density.mode upstream, so in normal mode it is
+        // null here and no class is applied (zero-config contract).
+        _applyErrorClass(details, data && data.error_class);
+
+        if (!hasSummary && !hasErrorClass && !hasShapeHash) {
+            return;  // zero-config path: render exactly as today.
+        }
+
+        // Rewrap the existing raw Output pre/code into a nested <details>
+        // labelled "Show raw output", and prepend a summary body.
+        const toolContent = details.querySelector('.tool-content');
+        if (!toolContent) return;
+
+        if (hasSummary) {
+            const previewText = String(data.summary || data.output_preview || '');
+            const summaryBody = document.createElement('div');
+            summaryBody.className = 'tool-summary-body';
+
+            // Compact diff rendering when the preview starts with "@@ ".
+            if (previewText.startsWith('@@ ')) {
+                _renderDiffHunks(summaryBody, previewText);
+            } else {
+                // textContent is XSS-safe.
+                const pre = document.createElement('pre');
+                pre.className = 'tool-summary-text';
+                pre.textContent = previewText;
+                summaryBody.appendChild(pre);
+            }
+
+            // Locate existing raw Output label/pre (rendered by the legacy
+            // path). Wrap them in a nested <details> so raw JSON remains
+            // reachable (the power-user fallback).
+            const rawDetails = document.createElement('details');
+            rawDetails.className = 'tool-raw-output';
+            const rawSummary = document.createElement('summary');
+            rawSummary.textContent = 'Show raw output';
+            rawDetails.appendChild(rawSummary);
+
+            // Move any existing Output-related nodes (strong + pre) into the
+            // nested details. We collect them first, then relocate.
+            const children = Array.from(toolContent.childNodes);
+            let outputLabelIdx = -1;
+            for (let i = 0; i < children.length; i++) {
+                const n = children[i];
+                if (n.tagName === 'STRONG' && n.textContent && n.textContent.startsWith('Output')) {
+                    outputLabelIdx = i;
+                    break;
+                }
+            }
+            if (outputLabelIdx >= 0) {
+                for (let i = outputLabelIdx; i < children.length; i++) {
+                    rawDetails.appendChild(children[i]);
+                }
+            }
+
+            // Insert summary BEFORE the nested raw output.
+            toolContent.appendChild(summaryBody);
+            toolContent.appendChild(rawDetails);
+        }
+
+        // Repeat-collapse: >=3 consecutive tool calls with the same shape hash
+        // collapse into a single row. A different shape immediately breaks the
+        // run; matching shapes later in the turn start a new run instead of
+        // retroactively joining an earlier one.
+        if (!hasShapeHash) {
+            _toolRepeatReset();
+            return;
+        }
+
+        const hash = String(data.output_shape_hash);
+        const toolName = data.tool_name || 'tool';
+        if (!_toolRepeatRun || _toolRepeatRun.hash !== hash) {
+            _toolRepeatRun = {
+                hash,
+                count: 1,
+                elements: [details],
+                collapsedRow: null,
+                toolName,
+            };
+            return;
+        }
+
+        _toolRepeatRun.count += 1;
+        _toolRepeatRun.elements.push(details);
+        _toolRepeatRun.toolName = toolName;
+
+        if (_toolRepeatRun.collapsedRow) {
+            const label = _toolRepeatRun.collapsedRow.querySelector('.tool-repeat-label');
+            if (label) label.textContent = `${toolName} \u00d7 ${_toolRepeatRun.count}`;
+            if (details.parentNode) details.parentNode.removeChild(details);
+            return;
+        }
+
+        if (_toolRepeatRun.count >= 3) {
+            _collapseRepeats(_toolRepeatRun);
+        }
+    }
+
+    function _collapseRepeats(entry) {
+        if (!entry || !entry.elements || entry.elements.length < 3) return;
+        const firstEl = entry.elements[0];
+        if (!firstEl || !firstEl.parentNode) return;
+
+        const parent = firstEl.parentNode;
+        const row = document.createElement('div');
+        row.className = 'tool-call tool-repeat-collapsed';
+        const label = document.createElement('span');
+        label.className = 'tool-repeat-label';
+        label.textContent = `${entry.toolName || 'tool'} \u00d7 ${entry.count}`;
+        row.appendChild(label);
+        parent.insertBefore(row, firstEl);
+        entry.collapsedRow = row;
+
+        // Remove the prior rendered calls (including firstEl). Retain the
+        // collapsed row only.
+        entry.elements.forEach(el => {
+            if (el && el.parentNode) el.parentNode.removeChild(el);
+        });
     }
 
     function renderToolCallStart(data) {
@@ -2056,7 +2284,8 @@ const Chat = (() => {
                 _webDedupFlush();
                 _webDedupToolName = key;
                 _webDedupCount = 1;
-                contentEl.appendChild(details);
+                // Append to active fold group body if present, else to message content
+                (_currentGroupEl || contentEl).appendChild(details);
             }
         }
 
@@ -2110,6 +2339,10 @@ const Chat = (() => {
             outputPre.appendChild(outputCode);
             hljs.highlightElement(outputCode);
             toolContent.appendChild(outputPre);
+
+            // #1467 density enhancements. No-op when summary fields are
+            // absent or null (zero-config path → byte-identical rendering).
+            _applyToolDensityEnhancements(details, data);
         }
     }
 
@@ -2137,6 +2370,46 @@ const Chat = (() => {
             chip.classList.add(cls);
             summary.innerHTML = `<span>${icon}</span> Task ${taskId.slice(0, 8)}: exit ${exitCode ?? '?'} \u2014 <code>${_escapeHtml(command || '')}</code>`;
         }
+    }
+
+    // #1491 — render a hook-blocked tool outcome notice.
+    // Maps onto the existing error card surface, not a new parallel UX.
+    function renderHookOutcome(data) {
+        const chatMessages = document.getElementById('chat-messages');
+        if (!chatMessages) return;
+        const toolName = data.tool_name || 'tool';
+        const msg = data.message || '';
+        const approvalDec = data.approval_decision || '';
+        const isPostHook = approvalDec === 'post_hook_denied';
+
+        const el = document.createElement('div');
+        el.className = 'hook-outcome-notice';
+
+        const icon = document.createElement('span');
+        icon.className = 'hook-outcome-icon';
+        icon.textContent = '\u26d4'; // prohibited sign
+
+        const body = document.createElement('div');
+        body.className = 'hook-outcome-body';
+
+        const title = document.createElement('div');
+        title.className = 'hook-outcome-title';
+        title.textContent = isPostHook
+            ? `Hook blocked output from ${toolName}`
+            : `Hook blocked ${toolName}`;
+        body.appendChild(title);
+
+        if (msg) {
+            const reason = document.createElement('div');
+            reason.className = 'hook-outcome-reason';
+            reason.textContent = msg;
+            body.appendChild(reason);
+        }
+
+        el.appendChild(icon);
+        el.appendChild(body);
+        chatMessages.appendChild(el);
+        _scrollToBottom();
     }
 
     function renderDetachedChip(runId, text, status) {
@@ -2198,15 +2471,46 @@ const Chat = (() => {
         }
     }
 
+    function _resolveSubagentParentToolCall(contentEl, data, card) {
+        const explicitParentId = data.parent_tool_call_id
+            ? `tool-${_sanitizeId(data.parent_tool_call_id)}`
+            : '';
+        if (explicitParentId) {
+            const explicitParent = document.getElementById(explicitParentId);
+            if (explicitParent) return explicitParent;
+        }
+
+        const cardParentId = card && card.dataset ? card.dataset.parentToolCallId : '';
+        if (cardParentId) {
+            const cardParent = document.getElementById(cardParentId);
+            if (cardParent) return cardParent;
+        }
+
+        if (card) {
+            const inferredParent = card.closest('.tool-call-subagent');
+            if (inferredParent) return inferredParent;
+        }
+
+        // Backward-compatible fallback if older servers omit the parent id.
+        const allSubagentCalls = contentEl.querySelectorAll('.tool-call-subagent');
+        return allSubagentCalls.length > 0 ? allSubagentCalls[allSubagentCalls.length - 1] : null;
+    }
+
     function renderSubagentEvent(data) {
+        // Live sub-agent progress contract (#1460): one card per agent_id,
+        // updated in place as subagent_start → tool_call_start* → subagent_end
+        // frames arrive. Frames now stream during the parent run_agent call
+        // rather than flushing after tool_call_end, so the UI must be robust
+        // to repeated starts, unknown agent ids, and ordering jitter.
         if (!currentAssistantEl) return;
         const contentEl = currentAssistantEl.querySelector('.message-content');
         const kind = data.kind;
         const agentId = data.agent_id;
+        if (!agentId) return;
+        const cardId = `subagent-${_sanitizeId(agentId)}`;
+        const existingCard = document.getElementById(cardId);
 
-        // Find the last tool-call-subagent container (handles concurrent run_agent calls)
-        const allSubagentCalls = contentEl.querySelectorAll('.tool-call-subagent');
-        const parentToolCall = allSubagentCalls.length > 0 ? allSubagentCalls[allSubagentCalls.length - 1] : null;
+        const parentToolCall = _resolveSubagentParentToolCall(contentEl, data, existingCard);
         const cardsContainer = parentToolCall
             ? parentToolCall.querySelector('.subagent-cards-container')
             : null;
@@ -2219,9 +2523,15 @@ const Chat = (() => {
                 if (loadingPrompt) loadingPrompt.style.display = 'none';
             }
 
+            // Idempotent: a re-sent subagent_start must not create a duplicate card.
+            if (document.getElementById(cardId)) return;
+
             const card = document.createElement('div');
-            card.className = 'subagent-card';
-            card.id = `subagent-${_sanitizeId(agentId)}`;
+            card.className = 'subagent-card subagent-running';
+            card.id = cardId;
+            if (parentToolCall && parentToolCall.id) {
+                card.dataset.parentToolCallId = parentToolCall.id;
+            }
 
             const header = document.createElement('div');
             header.className = 'subagent-header';
@@ -2238,41 +2548,73 @@ const Chat = (() => {
             prompt.className = 'subagent-prompt';
             prompt.textContent = data.prompt || '';
 
+            const count = document.createElement('span');
+            count.className = 'subagent-tool-count';
+            count.textContent = '0 tools';
+
             const tools = document.createElement('div');
             tools.className = 'subagent-tools';
 
             card.appendChild(header);
             card.appendChild(prompt);
+            card.appendChild(count);
             card.appendChild(tools);
             insertTarget.appendChild(card);
             scrollToBottom();
-        } else if (kind === 'tool_call_start' && agentId) {
-            const card = document.getElementById(`subagent-${_sanitizeId(agentId)}`);
-            if (card) {
-                const tools = card.querySelector('.subagent-tools');
-                if (tools) {
-                    const chip = document.createElement('span');
-                    chip.className = 'subagent-tool-chip';
-                    chip.textContent = data.tool_name || 'tool';
-                    tools.appendChild(chip);
+        } else if (kind === 'tool_call_start') {
+            const card = document.getElementById(cardId);
+            if (!card) return;
+            const tools = card.querySelector('.subagent-tools');
+            if (tools) {
+                const chip = document.createElement('span');
+                chip.className = 'subagent-tool-chip';
+                chip.textContent = data.tool_name || 'tool';
+                tools.appendChild(chip);
+                const count = card.querySelector('.subagent-tool-count');
+                if (count) {
+                    const n = tools.childElementCount;
+                    count.textContent = `${n} tool${n === 1 ? '' : 's'}`;
                 }
             }
         } else if (kind === 'subagent_end') {
-            const card = document.getElementById(`subagent-${_sanitizeId(agentId)}`);
-            if (card) {
-                card.classList.add(data.error ? 'subagent-error' : 'subagent-done');
-                const footer = document.createElement('div');
-                footer.className = 'subagent-footer';
-                const elapsed = data.elapsed_seconds != null ? `${data.elapsed_seconds.toFixed(1)}s` : '';
-                const toolCount = (data.tool_calls || []).length;
-                const errorMsg = data.error ? String(data.error).slice(0, 200) : '';
-                footer.textContent = errorMsg
-                    ? `Failed: ${errorMsg}`
-                    : `Done in ${elapsed} · ${toolCount} tool call${toolCount !== 1 ? 's' : ''}`;
-                card.appendChild(footer);
+            const card = document.getElementById(cardId);
+            if (!card) return;
+            card.classList.remove('subagent-running');
 
-                // Clear running animation from parent if all sub-agents are done
-                if (parentToolCall && parentToolCall.classList.contains('subagent-running')) {
+            // Server derives status = succeeded | failed | cancelled. Fall back
+            // to error-presence if the older server path ever re-appears.
+            const status = data.status || (data.error ? 'failed' : 'succeeded');
+            const terminalClass =
+                status === 'cancelled'
+                    ? 'subagent-cancelled'
+                    : status === 'failed'
+                    ? 'subagent-failed'
+                    : 'subagent-completed';
+            card.classList.add(terminalClass);
+            // Backward-compat classes — tests/e2e/test_subagent_loading.py relies on these.
+            card.classList.add(data.error ? 'subagent-error' : 'subagent-done');
+
+            // Replace any existing footer so duplicated subagent_end frames don't stack.
+            let footer = card.querySelector('.subagent-footer');
+            if (!footer) {
+                footer = document.createElement('div');
+                footer.className = 'subagent-footer';
+                card.appendChild(footer);
+            }
+            const elapsed = data.elapsed_seconds != null ? `${data.elapsed_seconds.toFixed(1)}s` : '';
+            const toolCount = (data.tool_calls || []).length;
+            const errorMsg = data.error ? String(data.error).slice(0, 200) : '';
+            if (errorMsg) {
+                const verb = status === 'cancelled' ? 'Cancelled' : 'Failed';
+                footer.textContent = `${verb}: ${errorMsg}`;
+            } else {
+                footer.textContent = `Done in ${elapsed} · ${toolCount} tool call${toolCount !== 1 ? 's' : ''}`;
+            }
+
+            // Clear running animation from parent if all sub-agents are done
+            if (parentToolCall && parentToolCall.classList.contains('subagent-running')) {
+                const stillRunning = parentToolCall.querySelector('.subagent-card.subagent-running');
+                if (!stillRunning) {
                     parentToolCall.classList.remove('subagent-running');
                 }
             }
@@ -2392,7 +2734,21 @@ const Chat = (() => {
             }
 
             if (msg.tool_calls && msg.tool_calls.length > 0) {
+                // #1481 follow-up: repeat collapse is per assistant turn, not
+                // across the whole replayed conversation. Each assistant
+                // message starts a new run even if later turns repeat a shape.
+                _resetToolDensityState();
                 msg.tool_calls.forEach(tc => {
+                    if (tc.iteration != null) {
+                        if (!iterationGroups.has(tc.iteration)) iterationGroups.set(tc.iteration, []);
+                        iterationGroups.get(tc.iteration).push(tc);
+                    } else {
+                        flatTcs.push(tc);
+                    }
+                });
+
+                // Helper: render a single tool call <details> into a container
+                function _renderTcDetails(tc, container) {
                     const details = document.createElement('details');
                     const statusClass = tc.status === 'success' ? 'tool-status-success' : 'tool-status-error';
                     details.className = `tool-call ${statusClass}`;
@@ -2430,7 +2786,15 @@ const Chat = (() => {
 
                     details.appendChild(toolContent);
                     el.querySelector('.message-content').appendChild(details);
+
+                    // #1467 density enhancements (replay path). Shape-hash
+                    // tracker reset per conversation load so repeat counting
+                    // does not bleed across reloads.
+                    _applyToolDensityEnhancements(details, tc);
                 });
+
+                // Flat (NULL-iteration) tool calls render directly as before
+                flatTcs.forEach(tc => _renderTcDetails(tc, msgContentEl));
             }
 
             // Render persisted RAG source provenance footer + attribution
@@ -2861,5 +3225,9 @@ const Chat = (() => {
         _addAttributionFooter: _addAttributionFooter,
         // Exposed for Vitest (#1454 auto-propose banner).
         _addAutoProposeBanner: _addAutoProposeBanner,
+        // Exposed for Playwright tool-group verification.
+        _handleSSEEvent: handleSSEEvent,
+        // Exposed for Playwright hook observability tests (#1491).
+        renderHookOutcome,
     };
 })();

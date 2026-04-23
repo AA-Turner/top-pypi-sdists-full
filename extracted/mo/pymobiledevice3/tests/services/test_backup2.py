@@ -1,12 +1,17 @@
+import sqlite3
+import struct
 import time
+from contextlib import closing
 from pathlib import Path
 from ssl import SSLEOFError
+from unittest.mock import AsyncMock
 
 import pytest
 
 from pymobiledevice3.exceptions import ConnectionFailedError, ConnectionTerminatedError
 from pymobiledevice3.lockdown import LockdownClient
-from pymobiledevice3.services.mobilebackup2 import Mobilebackup2Service
+from pymobiledevice3.services.device_link import DeviceLink
+from pymobiledevice3.services.mobilebackup2 import BACKUP_SELECTIONS, BackupFile, Mobilebackup2Service
 
 PASSWORD = "1234"
 
@@ -57,3 +62,176 @@ async def test_encrypted_backup(lockdown: LockdownClient, tmp_path: Path) -> Non
     await change_password(lockdown, new=PASSWORD)
     await backup(lockdown, tmp_path)
     await change_password(lockdown, old=PASSWORD)
+
+
+def test_resolve_backup_selection_sms() -> None:
+    rules = Mobilebackup2Service.resolve_backup_selection(["sms"])
+
+    assert len(rules) == 1
+    assert rules[0].matches_device_name("HomeDomain/Library/SMS/sms.db")
+    assert rules[0].matches_device_name("HomeDomain-Library/SMS/sms.db")
+    assert rules[0].matches_device_name("/.b/6/Library/SMS/sms.db")
+
+
+def test_backup_selection_presets_include_contacts_call_history_and_bookmarks() -> None:
+    assert {"contacts", "call_history", "bookmarks"} <= set(BACKUP_SELECTIONS)
+
+
+def test_regex_filter_callback_matches_upload_and_manifest_forms() -> None:
+    callback = Mobilebackup2Service.regex_filter_callback([r"\.(plist|db|db-wal|sqlitedb)$"])
+
+    assert callback(BackupFile(device_name="HomeDomain-Library/Preferences/com.apple.PeoplePicker.plist"))
+    assert callback(BackupFile(device_name="HomeDomain-Library/SMS/sms.db"))
+    assert callback(BackupFile(domain="HomeDomain", relative_path="Library/Safari/Bookmarks.db-wal"))
+    assert callback(BackupFile(domain="HomeDomain", relative_path="Library/AddressBook/AddressBook.sqlitedb"))
+    assert not callback(BackupFile(domain="HomeDomain", relative_path="Library/Notes/NotesV7.store"))
+
+
+def test_combine_filter_callbacks_matches_when_any_callback_matches() -> None:
+    preset_callback = Mobilebackup2Service.selection_filter_callback(
+        Mobilebackup2Service.resolve_backup_selection(["sms"])
+    )
+    regex_callback = Mobilebackup2Service.regex_filter_callback([r"\.plist$"])
+    callback = Mobilebackup2Service.combine_filter_callbacks(preset_callback, regex_callback)
+
+    assert callback is not None
+    assert callback(BackupFile(device_name="HomeDomain-Library/SMS/sms.db"))
+    assert callback(BackupFile(device_name="HomeDomain-Library/Preferences/com.apple.Preferences.plist"))
+    assert not callback(BackupFile(device_name="HomeDomain-Library/Notes/NotesV7.store"))
+
+
+def test_selection_filter_callback_matches_upload_and_manifest_forms() -> None:
+    callback = Mobilebackup2Service.selection_filter_callback(Mobilebackup2Service.resolve_backup_selection(["sms"]))
+
+    assert callback(BackupFile(device_name="/.b/6/Library/SMS/sms.db"))
+    assert callback(BackupFile(domain="HomeDomain", relative_path="Library/SMS/sms.db"))
+    assert not callback(BackupFile(domain="HomeDomain", relative_path="Library/Notes/notes.sqlite"))
+
+
+def test_should_preserve_backup_file_keeps_metadata() -> None:
+    assert Mobilebackup2Service.should_preserve_backup_file("Manifest.db", "ignored", None)
+
+
+def test_prune_backup_directory_keeps_only_selected_files(tmp_path: Path) -> None:
+    device_directory = tmp_path / "device"
+    device_directory.mkdir()
+    manifest_db = device_directory / "Manifest.db"
+
+    with closing(sqlite3.connect(manifest_db)) as connection:
+        connection.execute("CREATE TABLE Files (fileID TEXT, domain TEXT, relativePath TEXT)")
+        connection.executemany(
+            "INSERT INTO Files (fileID, domain, relativePath) VALUES (?, ?, ?)",
+            [
+                ("keep-sms", "HomeDomain", "Library/SMS/sms.db"),
+                ("drop-notes", "HomeDomain", "Library/Notes/notes.sqlite"),
+            ],
+        )
+        connection.commit()
+
+    (device_directory / "Info.plist").write_text("")
+    (device_directory / "Manifest.plist").write_text("")
+    (device_directory / "Status.plist").write_text("")
+    (device_directory / "keep-sms").write_text("sms")
+    (device_directory / "drop-notes").write_text("notes")
+
+    Mobilebackup2Service.prune_backup_directory(
+        device_directory,
+        Mobilebackup2Service.selection_filter_callback(Mobilebackup2Service.resolve_backup_selection(["sms"])),
+    )
+
+    with closing(sqlite3.connect(manifest_db)) as connection:
+        rows = connection.execute("SELECT fileID, domain, relativePath FROM Files").fetchall()
+
+    assert rows == [("keep-sms", "HomeDomain", "Library/SMS/sms.db")]
+    assert (device_directory / "keep-sms").exists()
+    assert not (device_directory / "drop-notes").exists()
+    assert (device_directory / "Manifest.db").exists()
+
+
+def test_prune_backup_directory_keeps_hashed_backup_file_layout(tmp_path: Path) -> None:
+    device_directory = tmp_path / "device"
+    device_directory.mkdir()
+    manifest_db = device_directory / "Manifest.db"
+    keep_file_id = "3d0d7e5fb2ce288813306e4d4636395e047a3d28"
+    drop_file_id = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+
+    with closing(sqlite3.connect(manifest_db)) as connection:
+        connection.execute("CREATE TABLE Files (fileID TEXT, domain TEXT, relativePath TEXT)")
+        connection.executemany(
+            "INSERT INTO Files (fileID, domain, relativePath) VALUES (?, ?, ?)",
+            [
+                (keep_file_id, "HomeDomain", "Library/SMS/sms.db"),
+                (drop_file_id, "HomeDomain", "Library/Notes/notes.sqlite"),
+            ],
+        )
+        connection.commit()
+
+    (device_directory / "Info.plist").write_text("")
+    (device_directory / "Manifest.plist").write_text("")
+    (device_directory / "Status.plist").write_text("")
+    keep_path = device_directory / keep_file_id[:2] / keep_file_id
+    keep_path.parent.mkdir()
+    keep_path.write_text("sms")
+    drop_path = device_directory / drop_file_id[:2] / drop_file_id
+    drop_path.parent.mkdir()
+    drop_path.write_text("notes")
+
+    Mobilebackup2Service.prune_backup_directory(
+        device_directory,
+        Mobilebackup2Service.selection_filter_callback(Mobilebackup2Service.resolve_backup_selection(["sms"])),
+    )
+
+    assert keep_path.exists()
+    assert not drop_path.exists()
+
+
+@pytest.mark.asyncio
+async def test_device_link_move_items_skips_missing_filtered_source(tmp_path: Path) -> None:
+    service = AsyncMock()
+    device_link = DeviceLink(service, tmp_path, preserve_file=lambda _file_name, _device_name: False)
+
+    await device_link.move_items(["DLMessageMoveItems", {"missing/source": "54/hash"}])
+
+    service.send_plist.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_device_link_move_items_notifies_post_receive(tmp_path: Path) -> None:
+    service = AsyncMock()
+    observed = []
+    device_link = DeviceLink(
+        service, tmp_path, post_file_receive=lambda file_name, device_name: observed.append((file_name, device_name))
+    )
+    source = tmp_path / "Snapshot" / "Manifest.db"
+    source.parent.mkdir(parents=True)
+    source.write_text("manifest")
+
+    await device_link.move_items(["DLMessageMoveItems", {"Snapshot/Manifest.db": "Manifest.db"}])
+
+    assert observed == [("Manifest.db", "Snapshot/Manifest.db")]
+
+
+@pytest.mark.asyncio
+async def test_device_link_upload_files_creates_empty_placeholder_for_filtered_file(tmp_path: Path) -> None:
+    service = AsyncMock()
+    payloads = [
+        struct.pack(">I", len("HomeDomain-Library/Notes/notes.sqlite")),
+        b"HomeDomain-Library/Notes/notes.sqlite",
+        struct.pack(">I", len("ab/cdef")),
+        b"ab/cdef",
+        struct.pack(">I", 5),
+        struct.pack(">B", 0xC),
+        b"data",
+        struct.pack(">I", 1),
+        struct.pack(">B", 0),
+        struct.pack(">I", 0),
+        b"",
+    ]
+    service.recvall = AsyncMock(side_effect=payloads)
+    device_link = DeviceLink(service, tmp_path, preserve_file=lambda _file_name, _device_name: False)
+
+    await device_link.upload_files(["DLMessageUploadFiles"])
+
+    placeholder = tmp_path / "ab" / "cdef"
+    assert placeholder.exists()
+    assert placeholder.read_bytes() == b""

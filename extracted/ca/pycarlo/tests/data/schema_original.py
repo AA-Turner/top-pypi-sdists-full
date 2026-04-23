@@ -369,6 +369,33 @@ class AgentTypeEnum(sgqlc.types.Enum):
     __choices__ = ("DATA_STORE_AGENT", "REMOTE_AGENT")
 
 
+class AgenticPlatformPipelineStatus(sgqlc.types.Enum):
+    """Lifecycle status of a single pipeline execution.
+
+    Enumeration Choices:
+
+    * `COMPLETED`None
+    * `ERROR`None
+    * `RUNNING`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("COMPLETED", "ERROR", "RUNNING")
+
+
+class AgenticPlatformPipelineType(sgqlc.types.Enum):
+    """Kinds of agentic platform pipelines that can be scheduled.
+
+    Enumeration Choices:
+
+    * `MONITORING`None
+    * `TRIAGE`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("MONITORING", "TRIAGE")
+
+
 class AgenticPlatformScope(sgqlc.types.Enum):
     """How the agentic platform's monitoring scope is bounded for an
     account.
@@ -1088,10 +1115,11 @@ class BulkMonitorTypeEnum(sgqlc.types.Enum):
     """Enumeration Choices:
 
     * `METRIC`None
+    * `PII`None
     """
 
     __schema__ = schema
-    __choices__ = ("METRIC",)
+    __choices__ = ("METRIC", "PII")
 
 
 class CapabilityMode(sgqlc.types.Enum):
@@ -4795,6 +4823,8 @@ class Permission(sgqlc.types.Enum):
     * `GraphqlQuery`None
     * `LineageAccess`None
     * `LineageEdit`None
+    * `McpAccess`None
+    * `McpEdit`None
     * `MonitorsAccess`None
     * `MonitorsAggregates`None
     * `MonitorsDataSamplingAccess`None
@@ -4899,6 +4929,8 @@ class Permission(sgqlc.types.Enum):
         "GraphqlQuery",
         "LineageAccess",
         "LineageEdit",
+        "McpAccess",
+        "McpEdit",
         "MonitorsAccess",
         "MonitorsAggregates",
         "MonitorsDataSamplingAccess",
@@ -5548,6 +5580,10 @@ class ResourcePolicyPath(sgqlc.types.Enum):
     * `LineagePropose`None
     * `LineageRead`None
     * `LineageWrite`None
+    * `McpAll`None
+    * `McpPropose`None
+    * `McpRead`None
+    * `McpWrite`None
     * `MonitorsAll`None
     * `MonitorsDataSamplingAll`None
     * `MonitorsDataSamplingPropose`None
@@ -5712,6 +5748,10 @@ class ResourcePolicyPath(sgqlc.types.Enum):
         "LineagePropose",
         "LineageRead",
         "LineageWrite",
+        "McpAll",
+        "McpPropose",
+        "McpRead",
+        "McpWrite",
         "MonitorsAll",
         "MonitorsDataSamplingAll",
         "MonitorsDataSamplingPropose",
@@ -7141,6 +7181,7 @@ class UserDefinedMonitors(sgqlc.types.Enum):
     * `AGENT_VALIDATION`: Agent Validation
     * `BULK_METRIC`: Bulk Monitor
     * `BULK_MONITOR`: Bulk Monitor
+    * `BULK_PII`: Bulk Monitor
     * `CATEGORIES`: Dimension - legacy
     * `COMPARISON`: Comparison - legacy
     * `CUSTOM_SQL`: Custom SQL
@@ -7166,6 +7207,7 @@ class UserDefinedMonitors(sgqlc.types.Enum):
         "AGENT_VALIDATION",
         "BULK_METRIC",
         "BULK_MONITOR",
+        "BULK_PII",
         "CATEGORIES",
         "COMPARISON",
         "CUSTOM_SQL",
@@ -16456,6 +16498,51 @@ class AgenticPlatformConfigOutput(sgqlc.types.Type):
     """
 
 
+class AgenticPlatformPipelineExecutionOutput(sgqlc.types.Type):
+    """A single execution of an agentic platform pipeline."""
+
+    __schema__ = schema
+    __field_names__ = (
+        "uuid",
+        "pipeline_uuid",
+        "type",
+        "status",
+        "start_time",
+        "end_time",
+        "error",
+        "thread_id",
+        "run_id",
+    )
+    uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
+    """Stable identifier for the execution."""
+
+    pipeline_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="pipelineUuid")
+    """UUID of the pipeline this execution belongs to."""
+
+    type = sgqlc.types.Field(sgqlc.types.non_null(AgenticPlatformPipelineType), graphql_name="type")
+    """Kind of pipeline that was executed."""
+
+    status = sgqlc.types.Field(
+        sgqlc.types.non_null(AgenticPlatformPipelineStatus), graphql_name="status"
+    )
+    """Lifecycle status of the execution."""
+
+    start_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="startTime")
+    """When the execution was submitted."""
+
+    end_time = sgqlc.types.Field(DateTime, graphql_name="endTime")
+    """When the execution reached a terminal status."""
+
+    error = sgqlc.types.Field(String, graphql_name="error")
+    """Error detail when status is ERROR."""
+
+    thread_id = sgqlc.types.Field(String, graphql_name="threadId")
+    """LangGraph thread id for this execution."""
+
+    run_id = sgqlc.types.Field(String, graphql_name="runId")
+    """LangGraph run id for this execution."""
+
+
 class AggregatedMetricDataType(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("query_group", "metric_aggregation", "timestamp", "value")
@@ -19558,6 +19645,15 @@ class CategoryLabelRank(sgqlc.types.Type):
     label = sgqlc.types.Field(String, graphql_name="label")
 
     rank = sgqlc.types.Field(Float, graphql_name="rank")
+
+
+class CiGateConfig(sgqlc.types.Type):
+    """CI gate policy configuration for a GitHub app installation."""
+
+    __schema__ = schema
+    __field_names__ = ("fail_on",)
+    fail_on = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="failOn")
+    """Which verdicts block CI: warn_and_fail, fail_only, or none"""
 
 
 class CircuitBreakerState(sgqlc.types.Type):
@@ -33198,6 +33294,7 @@ class Mutation(sgqlc.types.Type):
         "register_github_app_installation_request",
         "update_github_installation",
         "update_pr_agent_config",
+        "update_ci_gate_config",
         "delete_github_installation",
         "register_gitlab_app",
         "link_gitlab_app",
@@ -33396,6 +33493,7 @@ class Mutation(sgqlc.types.Type):
         "create_or_update_json_schema_monitor",
         "validate_cron",
         "configure_agentic_platform",
+        "trigger_agentic_platform_pipeline",
         "submit_finding_feedback",
         "set_event_detector_feedback",
         "set_event_detector_feedback_by_alert",
@@ -38586,6 +38684,31 @@ class Mutation(sgqlc.types.Type):
 
     * `agent_enabled_repos` (`[String!]!`): Repos that PR Agent is
       allowed to review
+    * `installation_uuid` (`UUID!`): UUID of the installation to
+      configure
+    """
+
+    update_ci_gate_config = sgqlc.types.Field(
+        "UpdateCiGateConfig",
+        graphql_name="updateCiGateConfig",
+        args=sgqlc.types.ArgDict(
+            (
+                ("fail_on", sgqlc.types.Arg(String, graphql_name="failOn", default=None)),
+                (
+                    "installation_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="installationUuid", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Update CI gate policy for a GitHub installation
+
+    Arguments:
+
+    * `fail_on` (`String`): Which verdicts block CI: warn_and_fail,
+      fail_only, or none
     * `installation_uuid` (`UUID!`): UUID of the installation to
       configure
     """
@@ -47570,6 +47693,29 @@ class Mutation(sgqlc.types.Type):
     * `input` (`AgenticPlatformConfigInput!`)None
     """
 
+    trigger_agentic_platform_pipeline = sgqlc.types.Field(
+        "TriggerAgenticPlatformPipeline",
+        graphql_name="triggerAgenticPlatformPipeline",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "pipeline_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="pipelineUuid", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Manually triggers a run of the specified agentic
+    platform pipeline. Fails if the pipeline is disabled or if a prior
+    execution is still running.
+
+    Arguments:
+
+    * `pipeline_uuid` (`UUID!`): UUID of the pipeline to run.
+    """
+
     submit_finding_feedback = sgqlc.types.Field(
         "SubmitFindingFeedback",
         graphql_name="submitFindingFeedback",
@@ -56436,6 +56582,7 @@ class Query(sgqlc.types.Type):
         "get_azure_devops_installation",
         "get_azure_devops_organization",
         "get_pr_agent_config",
+        "get_ci_gate_config",
         "get_size_collection_configuration",
         "get_size_collection_query",
         "get_my_mcp_integration_keys",
@@ -56990,9 +57137,18 @@ class Query(sgqlc.types.Type):
     """
 
     get_fig_agents = sgqlc.types.Field(
-        sgqlc.types.list_of(sgqlc.types.non_null(FigAgentSummary)), graphql_name="getFigAgents"
+        sgqlc.types.list_of(sgqlc.types.non_null(FigAgentSummary)),
+        graphql_name="getFigAgents",
+        args=sgqlc.types.ArgDict(
+            (("project", sgqlc.types.Arg(String, graphql_name="project", default=None)),)
+        ),
     )
-    """(experimental) List agents that have fig execution records"""
+    """(experimental) List agents that have fig execution records
+
+    Arguments:
+
+    * `project` (`String`): Filter by project (FIG_PROJECT env var)
+    """
 
     get_fig_score = sgqlc.types.Field(
         FigHealthOutput,
@@ -58228,6 +58384,30 @@ class Query(sgqlc.types.Type):
                     ),
                 ),
                 (
+                    "data_product_ids",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(UUID)),
+                        graphql_name="dataProductIds",
+                        default=None,
+                    ),
+                ),
+                (
+                    "asset_tags",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(TagKeyValuePairInput)),
+                        graphql_name="assetTags",
+                        default=None,
+                    ),
+                ),
+                (
+                    "audience_ids",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(UUID)),
+                        graphql_name="audienceIds",
+                        default=None,
+                    ),
+                ),
+                (
                     "tags",
                     sgqlc.types.Arg(
                         sgqlc.types.list_of(sgqlc.types.non_null(TagKeyValuePairInput)),
@@ -58253,6 +58433,11 @@ class Query(sgqlc.types.Type):
     * `domain_id` (`UUID`): Domain uuid to filter by. Deprecated, use
       domainIds instead.
     * `domain_ids` (`[UUID!]`): Domain UUIDs to filter by.
+    * `data_product_ids` (`[UUID!]`): Data product UUIDs to filter by.
+    * `asset_tags` (`[TagKeyValuePairInput!]`): Filter by asset
+      (table-level) tags.
+    * `audience_ids` (`[UUID!]`): Audience (notification label) UUIDs
+      to filter by.
     * `tags` (`[TagKeyValuePairInput!]`): Filter by monitor tags.
     * `consolidated_status_types`
       (`[ConsolidatedMonitorStatusType!]`): Type of consolidated
@@ -60987,6 +61172,28 @@ class Query(sgqlc.types.Type):
         ),
     )
     """(experimental) Get PR Agent configuration for a GitHub
+    installation
+
+    Arguments:
+
+    * `installation_uuid` (`UUID!`): UUID of the GitHub installation
+    """
+
+    get_ci_gate_config = sgqlc.types.Field(
+        CiGateConfig,
+        graphql_name="getCiGateConfig",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "installation_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="installationUuid", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Get CI gate policy configuration for a GitHub
     installation
 
     Arguments:
@@ -84132,6 +84339,20 @@ class TransformScoringAnchor(sgqlc.types.Type):
     description = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="description")
 
 
+class TriggerAgenticPlatformPipeline(sgqlc.types.Type):
+    """Manually trigger a run of an agentic platform pipeline.  The
+    execution row is created synchronously and returned; the agent
+    runs asynchronously and writes its findings back through the
+    agentic findings endpoint.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("execution",)
+    execution = sgqlc.types.Field(
+        sgqlc.types.non_null(AgenticPlatformPipelineExecutionOutput), graphql_name="execution"
+    )
+
+
 class TriggerCircuitBreakerRule(sgqlc.types.Type):
     """Run a custom rule as a circuit breaker immediately. Supports rules
     that create a single query.
@@ -84635,6 +84856,14 @@ class UpdateBigQueryCredentialsV2Mutation(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("result",)
     result = sgqlc.types.Field("UpdateCredentialsV2Result", graphql_name="result")
+
+
+class UpdateCiGateConfig(sgqlc.types.Type):
+    """Update CI gate policy configuration for a GitHub app installation."""
+
+    __schema__ = schema
+    __field_names__ = ("success",)
+    success = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="success")
 
 
 class UpdateCredentials(sgqlc.types.Type):
@@ -92546,7 +92775,6 @@ class DomainRestriction(sgqlc.types.Type, Node):
         "warehouses_using_sampling",
         "data_products_created_in",
         "custom_dashboards",
-        "agentic_findings",
     )
     created_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdTime")
 
@@ -92660,32 +92888,6 @@ class DomainRestriction(sgqlc.types.Type, Node):
     )
     """Domain this dashboard belongs to. Optional when not domain-
     restricted.
-
-    Arguments:
-
-    * `offset` (`Int`)None
-    * `before` (`String`)None
-    * `after` (`String`)None
-    * `first` (`Int`)None
-    * `last` (`Int`)None
-    """
-
-    agentic_findings = sgqlc.types.Field(
-        sgqlc.types.non_null(FindingConnection),
-        graphql_name="agenticFindings",
-        args=sgqlc.types.ArgDict(
-            (
-                ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
-                ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
-                ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
-                ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
-                ("last", sgqlc.types.Arg(Int, graphql_name="last", default=None)),
-            )
-        ),
-    )
-    """Customer-visible domain the agent is watching. Every finding is
-    scoped to a specific domain; account-wide activation is not
-    supported in v1.
 
     Arguments:
 

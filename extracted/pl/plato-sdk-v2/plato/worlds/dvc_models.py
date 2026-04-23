@@ -36,7 +36,7 @@ def _env_flag_enabled(name: str) -> bool:
 
 def _smart_commit_debug(message: str, *args: Any) -> None:
     if _env_flag_enabled("PLATO_SMART_COMMIT_DEBUG"):
-        logger.info("smart_commit_debug: " + message, *args)
+        logger.debug("smart_commit_debug: " + message, *args)
 
 
 def _path_kind_for_debug(path: Path) -> str:
@@ -374,7 +374,7 @@ async def _ensure_s5cmd() -> str:
             return _mark_s5cmd_ready(existing)
 
         install_path = _s5cmd_install_path()
-        logger.info("s5cmd not found, installing to %s", install_path)
+        logger.debug("s5cmd not found, installing to %s", install_path)
         return _mark_s5cmd_ready(await _install_s5cmd_async(install_path))
 
 
@@ -388,7 +388,7 @@ def _ensure_s5cmd_sync() -> str:
         return _mark_s5cmd_ready(existing)
 
     install_path = _s5cmd_install_path()
-    logger.info("s5cmd not found, installing to %s", install_path)
+    logger.debug("s5cmd not found, installing to %s", install_path)
     return _mark_s5cmd_ready(_install_s5cmd_sync(install_path))
 
 
@@ -513,7 +513,7 @@ async def s3_upload_batch(config: S3Config, uploads: list[tuple[str, str]]) -> N
         _, stderr = await proc.communicate()
         if proc.returncode != 0:
             raise RuntimeError(f"s5cmd batch upload failed: {stderr.decode().strip()}")
-        logger.info("Uploaded %d files to S3", len(uploads))
+        logger.debug("Uploaded %d files to S3", len(uploads))
     finally:
         try:
             os.unlink(batch_path)
@@ -955,7 +955,7 @@ async def smart_commit(
         f"  path: {dir_name}\n"
     )
 
-    logger.info(
+    logger.debug(
         "Smart commit: %d entries (%d files, %d directories, %d modified, %d new, %d deleted), manifest=%s",
         len(entries),
         file_count,
@@ -1027,7 +1027,7 @@ async def smart_commit_archive(
             f"outs:\n- md5: {archive_md5}\n  size: {archive_size}\n  hash: md5\n  path: {dir_name}\n  format: archive\n"
         )
 
-        logger.info(
+        logger.debug(
             "Archive commit: %s (%d bytes), md5=%s",
             dir_name,
             archive_size,
@@ -1083,7 +1083,7 @@ async def restore_archive(
         except OSError:
             pass
 
-    logger.info("Archive restore: extracted to %s (%d bytes)", target_dir, len(archive_bytes))
+    logger.debug("Archive restore: extracted to %s (%d bytes)", target_dir, len(archive_bytes))
 
 
 def parse_dvc_format(dvc_content: str) -> str:

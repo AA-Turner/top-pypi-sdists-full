@@ -759,19 +759,18 @@ class GaussianOverlapMonitor(AbstractGaussianOverlapMonitor):
 class AstigmaticGaussianOverlapMonitor(AbstractGaussianOverlapMonitor):
     """:class:`~tidy3d.Monitor` that records amplitudes from decomposition onto an astigmatic Gaussian beam.
 
+    Notes
+    -----
     The simple astigmatic Gaussian distribution allows
     both an elliptical intensity profile and different waist locations for the two principal axes
     of the ellipse. When equal waist sizes and equal waist distances are specified in the two
     directions, this monitor becomes equivalent to :class:`GaussianOverlapMonitor`.
 
-    Notes
-    -----
+    This class implements the simple astigmatic Gaussian beam described in [1]_.
 
-        This class implements the simple astigmatic Gaussian beam described in _`[1]`.
+    **References**:
 
-        **References**:
-
-        .. [1] Kochkina et al., Applied Optics, vol. 52, issue 24, 2013.
+    .. [1] Kochkina et al., Applied Optics, vol. 52, issue 24, 2013.
 
     Example
     -------
@@ -1308,9 +1307,12 @@ class ModeSolverMonitor(AbstractModeMonitor):
         if store_fields_direction is None:
             object.__setattr__(self, "store_fields_direction", direction)
         elif store_fields_direction != direction:
-            raise ValidationError(
-                f"The values of 'direction' ({direction}) and 'store_fields_direction' "
-                f"({store_fields_direction}) must be equal."
+            self._raise_validation_error_at_loc(
+                ValidationError(
+                    f"The values of 'direction' ({direction}) and 'store_fields_direction' "
+                    f"({store_fields_direction}) must be equal."
+                ),
+                "store_fields_direction",
             )
         return self
 
@@ -1966,9 +1968,15 @@ class FieldProjectionKSpaceMonitor(AbstractFieldProjectionMonitor):
         maxabs_uy = max(list(self.uy), key=abs)
         name = self.name
         if maxabs_ux > 1:
-            raise SetupError(f"Entries of 'ux' must lie in the range [-1, 1] for monitor {name}.")
+            self._raise_validation_error_at_loc(
+                SetupError(f"Entries of 'ux' must lie in the range [-1, 1] for monitor {name}."),
+                "ux",
+            )
         if maxabs_uy > 1:
-            raise SetupError(f"Entries of 'uy' must lie in the range [-1, 1] for monitor {name}.")
+            self._raise_validation_error_at_loc(
+                SetupError(f"Entries of 'uy' must lie in the range [-1, 1] for monitor {name}."),
+                "uy",
+            )
         return self
 
     def storage_size(self, num_cells: int, tmesh: ArrayFloat1D) -> int:

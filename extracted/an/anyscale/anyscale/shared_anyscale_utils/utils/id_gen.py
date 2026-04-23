@@ -132,6 +132,8 @@ class IDTypes(Enum):
     workspace_blocked_users = "wbu"
     azure_oro_tracking = "aot"
     scheduler_configs = "schcfg"
+    skills_versions = "sklv"
+    skills_terms_acceptances = "sklta"
 
 
 _default_id_length: int = 26

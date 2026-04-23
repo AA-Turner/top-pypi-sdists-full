@@ -122,7 +122,9 @@ def render_transcript_entry(
     if etype == "transcript_assistant":
         content = payload.get("content", "")
         if content:
-            console.print(f"\n{escape(content)}")
+            # Route through the assistant-prose hierarchy helper (#1370) so
+            # workflow replay and live REPL output share the same lane.
+            renderer.render_assistant_prose(content)
 
     elif etype == "transcript_tool_call":
         tool_name = payload.get("tool_name", "unknown")
@@ -146,12 +148,12 @@ def render_transcript_entry(
     elif etype == "transcript_stdout":
         content = payload.get("content", "")
         if content:
-            console.print(f"[green]{escape(content)}[/green]")
+            renderer.render_system_message("info", content)
 
     elif etype == "transcript_stderr":
         content = payload.get("content", "")
         if content:
-            console.print(f"[red]{escape(content)}[/red]")
+            renderer.render_system_message("error", content)
 
     elif etype == "transcript_usage" and show_usage:
         tokens = payload.get("total_tokens", 0)

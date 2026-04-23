@@ -31,8 +31,18 @@ class TestGenerateSlug:
         assert parts[2] in NOUNS
 
     def test_unique_across_calls(self, db: ThreadSafeConnection) -> None:
-        slugs = {generate_slug(db) for _ in range(50)}
-        # With ~270K combos, 50 calls should all be unique
+        slugs = set()
+        for index in range(50):
+            slug = generate_slug(db)
+            slugs.add(slug)
+            db.execute(
+                "INSERT INTO conversations (id, title, slug, type, created_at, updated_at) "
+                "VALUES (?, 'test', ?, 'chat', '2024-01-01', '2024-01-01')",
+                (f"id{index}", slug),
+            )
+        db.commit()
+        # Persisting each slug models real usage, where generate_slug only
+        # guarantees uniqueness against slugs that already exist in storage.
         assert len(slugs) == 50
 
     def test_avoids_collision(self, db: ThreadSafeConnection) -> None:

@@ -74,6 +74,9 @@ from snowflake.snowpark_connect.relation.read.map_read_table import post_process
 
 # Import from utils for consistency
 from snowflake.snowpark_connect.relation.utils import is_aggregate_function
+from snowflake.snowpark_connect.relation.write.map_write import (
+    _coerce_to_unstructured_complex_target,
+)
 from snowflake.snowpark_connect.snowflake_session import (
     SQL_PASS_THROUGH_MARKER,
     calculate_checksum,
@@ -659,31 +662,33 @@ def _insert_into_table(logical_plan, session: Session) -> int | None:
                     .alias(col_name)
                 )
                 modified_columns.append(modified_col)
-            elif (
-                isinstance(target_field.datatype, snowpark.types.StructType)
-                and source_field.datatype != target_field.datatype
-            ):
-                # Cast struct with field name mapping (e.g., col1,col2 -> i1,i2)
-                # This fixes INSERT INTO table with struct literals like (2, 3)
-                modified_col = (
-                    snowpark_fn.col(col_name)
-                    .cast(target_field.datatype, rename_fields=True)
-                    .alias(col_name)
-                )
-                modified_columns.append(modified_col)
-            elif (
-                isinstance(target_field.datatype, snowpark.types.VariantType)
-                and source_field.datatype != target_field.datatype
-            ):
-                # Cast to VARIANT for semi-structured types (arrays, structs, maps, etc.)
-                modified_col = (
-                    snowpark_fn.col(col_name)
-                    .cast(target_field.datatype)
-                    .alias(col_name)
-                )
-                modified_columns.append(modified_col)
             else:
-                modified_columns.append(snowpark_fn.col(col_name))
+                unstructured_coerced = _coerce_to_unstructured_complex_target(
+                    snowpark_fn.col(col_name),
+                    source_field.datatype,
+                    target_field.datatype,
+                )
+                if unstructured_coerced is not None:
+                    # Unstructured complex target (VARIANT / ARRAY / OBJECT):
+                    # bridge via VARIANT so Snowflake stores the value with the
+                    # right type. Must be checked before the StructType branch
+                    # below, because an unstructured OBJECT is represented as
+                    # StructType([]) in Snowpark.
+                    modified_columns.append(unstructured_coerced.alias(col_name))
+                elif (
+                    isinstance(target_field.datatype, snowpark.types.StructType)
+                    and source_field.datatype != target_field.datatype
+                ):
+                    # Cast struct with field name mapping (e.g., col1,col2 -> i1,i2)
+                    # This fixes INSERT INTO table with struct literals like (2, 3)
+                    modified_col = (
+                        snowpark_fn.col(col_name)
+                        .cast(target_field.datatype, rename_fields=True)
+                        .alias(col_name)
+                    )
+                    modified_columns.append(modified_col)
+                else:
+                    modified_columns.append(snowpark_fn.col(col_name))
 
         df = df.select(modified_columns)
     except Exception:
@@ -932,8 +937,26 @@ def _get_assignments_from_action(
     column_mapping_target,
     typer_source,
     typer_target,
+    target_schema=None,
 ):
     assignments = dict()
+    target_type_by_name = {}
+    if target_schema is not None:
+        target_type_by_name = {
+            unquote_if_quoted(f.name).upper(): f.datatype for f in target_schema.fields
+        }
+
+    def _maybe_coerce(col_obj, source_type, assignment_key):
+        if not target_type_by_name:
+            return col_obj
+        target_type = target_type_by_name.get(unquote_if_quoted(assignment_key).upper())
+        if target_type is None:
+            return col_obj
+        coerced = _coerce_to_unstructured_complex_target(
+            col_obj, source_type, target_type
+        )
+        return coerced if coerced is not None else col_obj
+
     if (
         action.getClass().getSimpleName() == "InsertAction"
         or action.getClass().getSimpleName() == "UpdateAction"
@@ -953,7 +976,9 @@ def _get_assignments_from_action(
                 typer=typer_source,
             )
 
-            assignments[key_name] = val_typ_col.col
+            assignments[key_name] = _maybe_coerce(
+                val_typ_col.col, val_typ_col.typ, key_name
+            )
     elif (
         action.getClass().getSimpleName() == "InsertStarAction"
         or action.getClass().getSimpleName() == "UpdateStarAction"
@@ -964,6 +989,14 @@ def _get_assignments_from_action(
             )
             attach_custom_error_code(exception, ErrorCodes.INVALID_OPERATION)
             raise exception
+        # Build source-type lookup so star-actions can also coerce into
+        # unstructured complex target columns.
+        source_type_by_name = {}
+        if typer_source is not None and typer_source.df is not None:
+            source_type_by_name = {
+                unquote_if_quoted(f.name).upper(): f.datatype
+                for f in typer_source.df.schema.fields
+            }
         for i, col in enumerate(column_mapping_target.columns):
             if assignments.get(col.snowpark_name) is not None:
                 exception = SnowparkConnectNotImplementedError(
@@ -971,10 +1004,24 @@ def _get_assignments_from_action(
                 )
                 attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
                 raise exception
-            assignments[col.snowpark_name] = snowpark_fn.col(
-                column_mapping_source.columns[i].snowpark_name
-            )
+            src_name = column_mapping_source.columns[i].snowpark_name
+            src_col = snowpark_fn.col(src_name)
+            src_type = source_type_by_name.get(unquote_if_quoted(src_name).upper())
+            if src_type is not None:
+                assignments[col.snowpark_name] = _maybe_coerce(
+                    src_col, src_type, col.snowpark_name
+                )
+            else:
+                assignments[col.snowpark_name] = src_col
     return assignments
+
+
+_SET_COMMAND_SCHEMA = (
+    '{"type":"struct","fields":['
+    '{"name":"key","type":"string","nullable":false,"metadata":{}},'
+    '{"name":"value","type":"string","nullable":false,"metadata":{}}'
+    "]}"
+)
 
 
 def map_sql_to_pandas_df(
@@ -1637,6 +1684,7 @@ def map_sql_to_pandas_df(
                             target_df_container.column_map,
                             ExpressionTyper(source_df),
                             ExpressionTyper(target_df),
+                            target_schema=target_df.schema,
                         )
                         clauses.append(when_matched(condition).update(assignments))
 
@@ -1659,6 +1707,7 @@ def map_sql_to_pandas_df(
                             target_df_container.column_map,
                             ExpressionTyper(source_df),
                             ExpressionTyper(target_df),
+                            target_schema=target_df.schema,
                         )
                         clauses.append(when_not_matched(condition).insert(assignments))
 
@@ -1749,6 +1798,13 @@ def map_sql_to_pandas_df(
                 )
                 df = df_container.dataframe
                 typer = ExpressionTyper(df)
+                # Build a case-normalized lookup of target column types so that
+                # assignments into VARIANT / unstructured ARRAY / OBJECT columns
+                # can be cast via the shared helper.
+                target_type_by_name = {
+                    unquote_if_quoted(f.name).upper(): f.datatype
+                    for f in tbl.schema.fields
+                }
                 assignments = {}
                 for assignment in as_java_list(logical_plan.assignments()):
                     _, key_typ_col = map_single_column_expression(
@@ -1762,7 +1818,19 @@ def map_sql_to_pandas_df(
                         column_mapping=df_container.column_map,
                         typer=typer,
                     )
-                    assignments[key_name] = val_typ_col.col
+                    assignment_col = val_typ_col.col
+                    target_datatype = target_type_by_name.get(
+                        unquote_if_quoted(key_name).upper()
+                    )
+                    if target_datatype is not None:
+                        coerced = _coerce_to_unstructured_complex_target(
+                            assignment_col,
+                            val_typ_col.typ,
+                            target_datatype,
+                        )
+                        if coerced is not None:
+                            assignment_col = coerced
+                    assignments[key_name] = assignment_col
                 cond_opt = logical_plan.condition()
                 if cond_opt.isDefined():
                     (_, condition_typed_col) = map_single_column_expression(
@@ -1854,7 +1922,10 @@ def map_sql_to_pandas_df(
                 key = kv_result_tuple._1()
                 val = kv_result_tuple._2().get()
                 set_config_param(get_spark_session_id(), key, val, session)
-                rows = [snowpark.Row(key=key, value=val)]
+                return (
+                    pandas.DataFrame([{"key": key, "value": val}]),
+                    _SET_COMMAND_SCHEMA,
+                )
             case "SetNamespaceCommand":
                 name = _spark_to_snowflake(logical_plan.namespace())
                 session.sql(f"USE SCHEMA {name}").collect()

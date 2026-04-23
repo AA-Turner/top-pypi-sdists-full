@@ -1,6 +1,7 @@
 import re
 from warnings import warn
 from typing import Union
+from decimal import Decimal
 
 from proces import preprocess
 
@@ -21,21 +22,25 @@ class Cn2An(object):
         }
         self.pattern_dict = self.__get_pattern()
         self.ac = An2Cn()
-        self.mode_list = ["strict", "normal", "smart"]
+        self.mode_list = ["strict", "normal", "smart", "direct"]
         self.yjf_pattern = re.compile(fr"^.*?[元圆][{self.all_num}]角([{self.all_num}]分)?$")
         self.pattern1 = re.compile(fr"^-?\d+(\.\d+)?[{self.all_unit}]?$")
         self.ptn_all_num = re.compile(f"^[{self.all_num}]+$")
         # "十?" is for special case "十一万三"
         self.ptn_speaking_mode = re.compile(f"^([{self.all_num}]{{0,2}}[{self.all_unit}])+[{self.all_num}]$")
+        self.ptn_big_unit_missing_zero = re.compile(fr"([万亿])([{self.all_num}][十拾百佰])")
+        self.ptn_thousand_missing_zero = re.compile(fr"([千仟])([{self.all_num}]?[十拾])")
+        self.ptn_unit_missing_one = re.compile(r"([百佰])([十拾])")
+        self.ptn_zero_before_thousand = re.compile(fr"(万)零(?=[{self.all_num}][千仟])")
 
-    def cn2an(self, inputs: Union[str, int, float] = None, mode: str = "strict") -> Union[float, int]:
+    def cn2an(self, inputs: Union[str, int, float] = None, mode: str = "strict") -> Union[float, int, str]:
         """中文数字转阿拉伯数字
 
         :param inputs: 中文数字、阿拉伯数字、中文数字和阿拉伯数字
-        :param mode: strict 严格，normal 正常，smart 智能
+        :param mode: strict 严格，normal 正常，smart 智能，direct 直接转化
         :return: 阿拉伯数字
         """
-        if inputs is not None or inputs == "":
+        if inputs is not None and inputs != "":
             if mode not in self.mode_list:
                 raise ValueError(f"mode 仅支持 {str(self.mode_list)} ！")
 
@@ -50,6 +55,9 @@ class Cn2An(object):
                 "traditional_to_simplified",
                 "full_angle_to_half_angle"
             ])
+
+            if mode == "direct":
+                return self.__direct_convert_to_string(inputs)
 
             # 特殊转化 廿
             inputs = inputs.replace("廿", "二十")
@@ -85,8 +93,9 @@ class Cn2An(object):
         _0 = "[零]"
         _1_9 = "[一二三四五六七八九]"
         _10_99 = f"{_1_9}?[十]{_1_9}?"
+        _10_99_with_one = f"{_1_9}[十]{_1_9}?"
         _1_99 = f"({_10_99}|{_1_9})"
-        _100_999 = f"({_1_9}[百]([零]{_1_9})?|{_1_9}[百]{_10_99})"
+        _100_999 = f"({_1_9}[百]([零]{_1_9})?|{_1_9}[百]{_10_99_with_one})"
         _1_999 = f"({_100_999}|{_1_99})"
         _1000_9999 = f"({_1_9}[千]([零]{_1_99})?|{_1_9}[千]{_100_999})"
         _1_9999 = f"({_1000_9999}|{_1_999})"
@@ -125,12 +134,29 @@ class Cn2An(object):
             cn_num += NUMBER_LOW_AN2CN[int(n)]
         return cn_num
 
+    def __smart_number_convert(self, num: str) -> str:
+        if len(num) > 1 and num[0] == "0":
+            return self.__copy_num(num)
+        return self.ac.an2cn(num)
+
+    def __normalize_integer_data(self, integer_data: str) -> str:
+        # The converter itself emits forms such as "十万零一千"; accept them on the way back in.
+        integer_data = self.ptn_zero_before_thousand.sub(r"\1", integer_data)
+        integer_data = self.ptn_big_unit_missing_zero.sub(r"\1零\2", integer_data)
+        integer_data = self.ptn_thousand_missing_zero.sub(r"\1零\2", integer_data)
+        integer_data = self.ptn_unit_missing_one.sub(r"\1一\2", integer_data)
+        integer_data = integer_data.replace("零十", "零一十").replace("零拾", "零一拾")
+        return integer_data
+
     def __check_input_data_is_valid(self, check_data: str, mode: str) -> (int, str, str, bool):
         # 去除 元整、圆整、元正、圆正
         stop_words = ["元整", "圆整", "元正", "圆正"]
         for word in stop_words:
             if check_data[-2:] == word:
                 check_data = check_data[:-2]
+
+        if not check_data:
+            raise ValueError("输入数据为空！")
 
         # 去除 元、圆
         if mode != "strict":
@@ -139,10 +165,13 @@ class Cn2An(object):
                 if check_data[-1] == word:
                     check_data = check_data[:-1]
 
+        if not check_data:
+            raise ValueError("输入数据为空！")
+
         # 处理元角分
         result = self.yjf_pattern.search(check_data)
         if result:
-            check_data = check_data.replace("元", "点").replace("角", "").replace("分", "")
+            check_data = check_data.replace("元", "点").replace("圆", "点").replace("角", "").replace("分", "")
 
         # 处理特殊问法：一千零十一 一万零百一十一
         if "零十" in check_data:
@@ -158,6 +187,8 @@ class Cn2An(object):
         if check_data[0] == "负":
             check_data = check_data[1:]
             sign = -1
+            if not check_data:
+                raise ValueError("输入数据为空！")
         else:
             sign = 1
 
@@ -182,13 +213,16 @@ class Cn2An(object):
                 if result1:
                     if result1.group() == integer_data:
                         if integer_data[-1] in UNIT_CN2AN.keys():
-                            output = int(float(integer_data[:-1]) * UNIT_CN2AN[integer_data[-1]])
+                            output = int(Decimal(integer_data[:-1]) * UNIT_CN2AN[integer_data[-1]])
                         else:
                             output = float(integer_data)
                         return 0, output, None, None
 
-                integer_data = re.sub(r"\d+", lambda x: self.ac.an2cn(x.group()), integer_data)
+                integer_data = re.sub(r"\d+", lambda x: self.__smart_number_convert(x.group()), integer_data)
                 mode = "normal"
+
+        if mode == "normal":
+            integer_data = self.__normalize_integer_data(integer_data)
 
         result_int = self.pattern_dict[mode]["int"].search(integer_data)
         if result_int:
@@ -292,3 +326,30 @@ class Cn2An(object):
             output_data += unit_key * 10 ** (len(data) - index - 1)
 
         return output_data
+
+    def __direct_convert_to_string(self, data: str) -> str:
+        if data[0] in "负-":
+            sign = "-"
+            data = data[1:]
+            if not data:
+                raise ValueError("输入数据为空！")
+        else:
+            sign = ""
+
+        if data.count("点") + data.count(".") > 1:
+            raise ValueError("数据中包含不止一个点！")
+
+        output_data = ""
+        for index, cn_num in enumerate(data):
+            if cn_num in ["点", "."]:
+                if index == 0 or index == len(data) - 1:
+                    raise ValueError(f"不符合格式的数据：{data}")
+                output_data += "."
+            elif cn_num in NUMBER_CN2AN:
+                output_data += str(NUMBER_CN2AN[cn_num])
+            elif cn_num in "0123456789":
+                output_data += cn_num
+            else:
+                raise ValueError(f"当前为direct模式，输入的数据不在转化范围内：{cn_num}！")
+
+        return sign + output_data

@@ -1,10 +1,6 @@
 import warnings
 
-from verlib2 import Version
-
 from ..base import Base
-
-VERSION_8 = Version("8")
 
 
 class Dashboard(Base):
@@ -28,8 +24,6 @@ class Dashboard(Base):
         :param dashboard_name:
         :return:
         """
-        if await self.api.version and Version(await self.api.version) >= VERSION_8:
-            raise DeprecationWarning("Grafana 8 and higher does not support getting dashboards by slug")
         get_dashboard_path = "/dashboards/db/%s" % dashboard_name
         return await self.client.GET(get_dashboard_path)
 
@@ -80,27 +74,29 @@ class Dashboard(Base):
         warnings.warn(
             "get_dashboard_permissions is deprecated, use corresponding _by_id or _by_uid methods",
             DeprecationWarning,
+            stacklevel=2,
         )
-        return self.get_permissions_by_id(dashboard_id)
+        return await self.get_permissions_by_id(dashboard_id)
 
     async def update_dashboard_permissions(self, dashboard_id, items):
         warnings.warn(
             "update_dashboard_permissions is deprecated, use corresponding _by_id or _by_uid methods",
             DeprecationWarning,
+            stacklevel=2,
         )
-        return self.update_permissions_by_id(dashboard_id, items)
+        return await self.update_permissions_by_id(dashboard_id, items)
 
     async def get_permissions_by_id(self, dashboard_id):
-        return self.get_permissions_generic(dashboard_id, idtype="id")
+        return await self.get_permissions_generic(dashboard_id, idtype="id")
 
     async def update_permissions_by_id(self, dashboard_id, items):
-        return self.update_permissions_generic(dashboard_id, items, idtype="id")
+        return await self.update_permissions_generic(dashboard_id, items, idtype="id")
 
-    async def get_permissions_by_uid(self, dashboard_id):
-        return self.get_permissions_generic(dashboard_id)
+    async def get_permissions_by_uid(self, dashboard_uid):
+        return await self.get_permissions_generic(dashboard_uid)
 
-    async def update_permissions_by_uid(self, dashboard_id, items):
-        return self.update_permissions_generic(dashboard_id, items)
+    async def update_permissions_by_uid(self, dashboard_uid, items):
+        return await self.update_permissions_generic(dashboard_uid, items)
 
     async def get_permissions_generic(self, identifier, idtype="uid"):
         permissions_path = f"/dashboards/{idtype}/{identifier}/permissions"
@@ -108,4 +104,13 @@ class Dashboard(Base):
 
     async def update_permissions_generic(self, identifier, items, idtype="uid"):
         permissions_path = f"/dashboards/{idtype}/{identifier}/permissions"
-        return await self.client.POST(permissions_path, json=items)
+        if isinstance(items, dict):
+            if "items" in items:
+                payload = items
+            else:
+                payload = {"items": [items]}
+        elif isinstance(items, list):
+            payload = {"items": items}
+        else:
+            raise TypeError("items must be a dict or a list")
+        return await self.client.POST(permissions_path, json=payload)

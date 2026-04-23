@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import contextvars
+import importlib
 import json
 import os
 import signal
@@ -38,7 +39,30 @@ except ImportError:
     agent_version = "UNKNOWN"
 
 from isolate.backends.common import sha256_digest_of
+
+try:
+    from isolate.backends.settings import DEFAULT_SERIALIZATION_METHOD
+except ImportError:
+    # Newer server code can run inside an older frozen agent environment
+    # that predates this exported constant. Keep the legacy default inline
+    # so version-skewed agent/server pairs remain compatible.
+    DEFAULT_SERIALIZATION_METHOD = "pickle"
 from isolate.connections.common import SerializationError, serialize_object
+
+try:
+    from isolate.connections.common import validate_entrypoint
+except ImportError:
+    # Older installed isolate builds predate the shared helper. Keep the
+    # legacy syntax check inline so current agent scripts still start up
+    # under those versions.
+    def validate_entrypoint(entrypoint: str) -> None:
+        module, sep, attr = entrypoint.partition(":")
+        if not sep or not module or not attr or ":" in attr:
+            raise ValueError(
+                f"Invalid entrypoint {entrypoint!r}: expected 'module:attr'."
+            )
+
+
 from isolate.connections.grpc import definitions
 from isolate.connections.grpc.configuration import get_default_options
 from isolate.connections.grpc.interface import from_grpc
@@ -156,6 +180,21 @@ class AbortException(Exception):
     message: str
 
 
+def _resolve_entrypoint(entrypoint: str) -> Any:
+    """Resolve a ``"module:attr"`` entrypoint string to a live object.
+
+    Both sides may be dotted: the module name can be a submodule path
+    (``pkg.sub.mod``), and the attribute can walk through nested
+    attributes (``Cls.method``) via repeated ``getattr``.
+    """
+    validate_entrypoint(entrypoint)
+    module_name, _, attr = entrypoint.partition(":")
+    obj: Any = importlib.import_module(module_name)
+    for part in attr.split("."):
+        obj = getattr(obj, part)
+    return obj
+
+
 class AgentServicer(definitions.AgentServicer):
     def __init__(self, log_file: TextIO | None = None):
         super().__init__()
@@ -226,6 +265,31 @@ class AgentServicer(definitions.AgentServicer):
         server_version = os.getenv("ISOLATE_SERVER_VERSION") or "unknown"
         self.log(f"Isolate info: server {server_version}, agent {agent_version}")
 
+        # The `callable` oneof enforces at-most-one on the wire; here we
+        # only need to reject the "neither set" case.
+        callable_kind = request.WhichOneof("callable")
+        if callable_kind is None:
+            self.abort_with_msg(
+                context,
+                "One of 'function' or 'entrypoint' must be set.",
+            )
+            return
+        has_entrypoint = callable_kind == "entrypoint"
+
+        # Entrypoint requests don't carry a serialization method, so fall
+        # back to the default for the result.
+        result_method = (
+            DEFAULT_SERIALIZATION_METHOD if has_entrypoint else request.function.method
+        )
+
+        # setup_func is only meaningful for the serialized-callable path.
+        if has_entrypoint and request.HasField("setup_func"):
+            self.abort_with_msg(
+                context,
+                "'setup_func' is not supported together with 'entrypoint'.",
+            )
+            return
+
         extra_args = []
         if request.HasField("setup_func"):
             cache_key = sha256_digest_of(
@@ -264,13 +328,22 @@ class AgentServicer(definitions.AgentServicer):
             extra_args.append(self._run_cache[cache_key])
 
         try:
-            result, was_it_raised, stringized_tb = await self.execute_function(
-                request.function,
-                "function",
-                extra_args=extra_args,
-            )
+            if has_entrypoint:
+                invocation = await self.execute_entrypoint(
+                    request.entrypoint,
+                    "function",
+                    run_on_main_thread=request.run_on_main_thread,
+                )
+            else:
+                invocation = await self.execute_function(
+                    request.function,
+                    "function",
+                    extra_args=extra_args,
+                    run_on_main_thread=request.run_on_main_thread,
+                )
+            result, was_it_raised, stringized_tb = invocation
             yield self.send_object(
-                request.function.method,
+                result_method,
                 result,
                 was_it_raised,
                 stringized_tb,
@@ -285,6 +358,7 @@ class AgentServicer(definitions.AgentServicer):
         function_kind: str,
         *,
         extra_args: Iterable[Any] = (),
+        run_on_main_thread: bool = False,
     ) -> tuple[Any, bool, str | None]:
         if function.was_it_raised:
             raise AbortException(
@@ -302,6 +376,40 @@ class AgentServicer(definitions.AgentServicer):
             self.log(f"The {function_kind} function could not be deserialized.")
             return exc, True, str_tb
 
+        return await self._invoke_callable(
+            function,
+            function_kind,
+            extra_args,
+            run_on_main_thread=run_on_main_thread,
+        )
+
+    async def execute_entrypoint(
+        self,
+        entrypoint: str,
+        function_kind: str,
+        *,
+        run_on_main_thread: bool = False,
+    ) -> tuple[Any, bool, str | None]:
+        # Resolve lazily so import / attribute errors surface through the
+        # regular exception capture in _invoke_callable and reach the client
+        # as a raised result, matching the pickle error path.
+        def function() -> Any:
+            return _resolve_entrypoint(entrypoint)()
+
+        return await self._invoke_callable(
+            function,
+            function_kind,
+            run_on_main_thread=run_on_main_thread,
+        )
+
+    async def _invoke_callable(
+        self,
+        function: Any,
+        function_kind: str,
+        extra_args: Iterable[Any] = (),
+        *,
+        run_on_main_thread: bool = False,
+    ) -> tuple[Any, bool, str | None]:
         if not callable(function):
             raise AbortException(
                 f"The {function_kind} function must be callable, "
@@ -313,14 +421,15 @@ class AgentServicer(definitions.AgentServicer):
         was_it_raised = False
         stringized_tb = None
         try:
-            # Newer fal SDK will mark async entrypoints with `_run_on_main_thread` so
-            # we execute on the main loop and can await the coroutine they return.
-            # Older fal SDK still call `asyncio.run(...)`.
-            # To avoid error "asyncio.run() cannot be called from a running event loop"
-            # and be backward compatible,
-            # we offload those unflagged functions to a thread pool.
+            # Newer clients set `run_on_main_thread` on the RPC; older fal SDK
+            # marks async entrypoints with `_run_on_main_thread` on the
+            # callable itself. Either signal means we execute on the main loop
+            # and can await the coroutine they return. Older fal SDK still
+            # calls `asyncio.run(...)`; to avoid the "asyncio.run() cannot be
+            # called from a running event loop" error and stay backward
+            # compatible, we offload those unflagged functions to a thread pool.
 
-            if getattr(function, "_run_on_main_thread", False):
+            if run_on_main_thread or getattr(function, "_run_on_main_thread", False):
                 result = function(*extra_args)
             else:
                 result = self._thread_pool.submit(function, *extra_args).result()
@@ -331,7 +440,7 @@ class AgentServicer(definitions.AgentServicer):
         except BaseException as exc:
             result = exc
             was_it_raised = True
-            num_frames = len(traceback.extract_stack()[:-5])
+            num_frames = len(traceback.extract_stack()[:-6])
             stringized_tb = "".join(traceback.format_exc(limit=-num_frames))
 
         if not was_it_raised:

@@ -145,23 +145,12 @@ class HeatPerturbation(AbstractPerturbation):
 
         Parameters
         ----------
-        temperature : Union[
-                ArrayFloat,
-                :class:`.SpatialDataArray`,
-                :class:`.TriangularGridDataset`,
-                :class:`.TetrahedralGridDataset`,
-            ]
+        temperature : Union[ArrayFloat, :class:`.SpatialDataArray`, :class:`.TriangularGridDataset`, :class:`.TetrahedralGridDataset`]
             Temperature sample point(s).
 
         Returns
         -------
-        Union[
-            ArrayFloat,
-            ArrayComplex,
-            :class:`.SpatialDataArray`,
-            :class:`.TriangularGridDataset`,
-            :class:`.TetrahedralGridDataset`,
-        ]
+        Union[ArrayFloat, ArrayComplex, :class:`.SpatialDataArray`, :class:`.TriangularGridDataset`, :class:`.TetrahedralGridDataset`]
             Sampled perturbation value(s).
         """
 
@@ -258,23 +247,12 @@ class LinearHeatPerturbation(HeatPerturbation):
 
         Parameters
         ----------
-        temperature : Union[
-            ArrayFloat,
-            :class:`.SpatialDataArray`,
-            :class:`.TriangularGridDataset`,
-            :class:`.TetrahedralGridDataset`,
-        ]
+        temperature : Union[ArrayFloat, :class:`.SpatialDataArray`, :class:`.TriangularGridDataset`, :class:`.TetrahedralGridDataset`]
             Temperature sample point(s).
 
         Returns
         -------
-        Union[
-            ArrayFloat,
-            ArrayComplex,
-            :class:`.SpatialDataArray`,
-            :class:`.TriangularGridDataset`,
-            :class:`.TetrahedralGridDataset`,
-        ]
+        Union[ArrayFloat, ArrayComplex, :class:`.SpatialDataArray`, :class:`.TriangularGridDataset`, :class:`.TetrahedralGridDataset`]
             Sampled perturbation value(s).
         """
 
@@ -377,23 +355,12 @@ class CustomHeatPerturbation(HeatPerturbation):
 
         Parameters
         ----------
-        temperature : Union[
-                ArrayFloat,
-                :class:`.SpatialDataArray`,
-                :class:`.TriangularGridDataset`,
-                :class:`.TetrahedralGridDataset`,
-            ]
+        temperature : Union[ArrayFloat, :class:`.SpatialDataArray`, :class:`.TriangularGridDataset`, :class:`.TetrahedralGridDataset`]
             Temperature sample point(s).
 
         Returns
         -------
-        Union[
-            ArrayFloat,
-            ArrayComplex,
-            :class:`.SpatialDataArray`,
-            :class:`.TriangularGridDataset`,
-            :class:`.TetrahedralGridDataset`,
-        ]
+        Union[ArrayFloat, ArrayComplex, :class:`.SpatialDataArray`, :class:`.TriangularGridDataset`, :class:`.TetrahedralGridDataset`]
             Sampled perturbation value(s).
         """
 
@@ -510,19 +477,9 @@ class ChargePerturbation(AbstractPerturbation):
 
         Parameters
         ----------
-        electron_density : Union[
-                ArrayFloat,
-                :class:`.SpatialDataArray`,
-                :class:`.TriangularGridDataset`,
-                :class:`.TetrahedralGridDataset`,
-            ]
+        electron_density : Union[ArrayFloat, :class:`.SpatialDataArray`, :class:`.TriangularGridDataset`, :class:`.TetrahedralGridDataset`]
             Electron density sample point(s).
-        hole_density : Union[
-                ArrayFloat,
-                :class:`.SpatialDataArray`,
-                :class:`.TriangularGridDataset`,
-                :class:`.TetrahedralGridDataset`,
-            ]
+        hole_density : Union[ArrayFloat, :class:`.SpatialDataArray`, :class:`.TriangularGridDataset`, :class:`.TetrahedralGridDataset`]
             Hole density sample point(s).
 
         Note
@@ -532,13 +489,7 @@ class ChargePerturbation(AbstractPerturbation):
 
         Returns
         -------
-        Union[
-            ArrayFloat,
-            ArrayComplex,
-            :class:`.SpatialDataArray`,
-            :class:`.TriangularGridDataset`,
-            :class:`.TetrahedralGridDataset`,
-        ]
+        Union[ArrayFloat, ArrayComplex, :class:`.SpatialDataArray`, :class:`.TriangularGridDataset`, :class:`.TetrahedralGridDataset`]
             Sampled perturbation value(s).
         """
 
@@ -684,19 +635,9 @@ class LinearChargePerturbation(ChargePerturbation):
 
         Parameters
         ----------
-        electron_density : Union[
-                ArrayFloat,
-                :class:`.SpatialDataArray`,
-                :class:`.TriangularGridDataset`,
-                :class:`.TetrahedralGridDataset`,
-            ]
+        electron_density : Union[ArrayFloat, :class:`.SpatialDataArray`, :class:`.TriangularGridDataset`, :class:`.TetrahedralGridDataset`]
             Electron density sample point(s).
-        hole_density : Union[
-                ArrayFloat,
-                :class:`.SpatialDataArray`,
-                :class:`.TriangularGridDataset`,
-                :class:`.TetrahedralGridDataset`,
-            ]
+        hole_density : Union[ArrayFloat, :class:`.SpatialDataArray`, :class:`.TriangularGridDataset`, :class:`.TetrahedralGridDataset`]
             Hole density sample point(s).
 
         Note
@@ -707,13 +648,7 @@ class LinearChargePerturbation(ChargePerturbation):
 
         Returns
         -------
-        Union[
-            ArrayFloat,
-            ArrayComplex,
-            :class:`.SpatialDataArray`,
-            :class:`.TriangularGridDataset`,
-            :class:`.TetrahedralGridDataset`,
-        ]
+        Union[ArrayFloat, ArrayComplex, :class:`.SpatialDataArray`, :class:`.TriangularGridDataset`, :class:`.TetrahedralGridDataset`]
             Sampled perturbation value(s).
         """
         inputs = [electron_density, hole_density]
@@ -873,19 +808,9 @@ class CustomChargePerturbation(ChargePerturbation):
 
         Parameters
         ----------
-        electron_density : Union[
-                ArrayFloat,
-                :class:`.SpatialDataArray`,
-                :class:`.TriangularGridDataset`,
-                :class:`.TetrahedralGridDataset`,
-            ]
+        electron_density : Union[ArrayFloat, :class:`.SpatialDataArray`, :class:`.TriangularGridDataset`, :class:`.TetrahedralGridDataset`]
             Electron density sample point(s).
-        hole_density : Union[
-                ArrayFloat,
-                :class:`.SpatialDataArray`,
-                :class:`.TriangularGridDataset`,
-                :class:`.TetrahedralGridDataset`,
-            ]
+        hole_density : Union[ArrayFloat, :class:`.SpatialDataArray`, :class:`.TriangularGridDataset`, :class:`.TetrahedralGridDataset`]
             Hole density sample point(s).
 
         Note
@@ -896,13 +821,7 @@ class CustomChargePerturbation(ChargePerturbation):
 
         Returns
         -------
-        Union[
-            ArrayFloat,
-            ArrayComplex,
-            :class:`.SpatialDataArray`,
-            :class:`.TriangularGridDataset`,
-            :class:`.TetrahedralGridDataset`,
-        ]
+        Union[ArrayFloat, ArrayComplex, :class:`.SpatialDataArray`, :class:`.TriangularGridDataset`, :class:`.TetrahedralGridDataset`]
             Sampled perturbation value(s).
         """
         inputs = [electron_density, hole_density]
@@ -1020,9 +939,12 @@ class ParameterPerturbation(Tidy3dBaseModel):
         charge = self.charge
 
         if heat is None and charge is None:
-            raise DataError(
-                "Perturbation models 'heat' and 'charge' in 'ParameterPerturbation' cannot be "
-                "simultaneously 'None'."
+            self._raise_validation_error_at_loc(
+                DataError(
+                    "Perturbation models 'heat' and 'charge' in 'ParameterPerturbation' cannot be "
+                    "simultaneously 'None'."
+                ),
+                "heat",
             )
 
         return self
@@ -1083,32 +1005,16 @@ class ParameterPerturbation(Tidy3dBaseModel):
 
         Parameters
         ----------
-        temperature : Optional[Union[
-                :class:`.SpatialDataArray`,
-                :class:`.TriangularGridDataset`,
-                :class:`.TetrahedralGridDataset`,
-            ]] = None
+        temperature : Optional[Union[:class:`.SpatialDataArray`, :class:`.TriangularGridDataset`, :class:`.TetrahedralGridDataset`]] = None
             Temperature field data.
-        electron_density : Optional[Union[
-                :class:`.SpatialDataArray`,
-                :class:`.TriangularGridDataset`,
-                :class:`.TetrahedralGridDataset`,
-            ]] = None
+        electron_density : Optional[Union[:class:`.SpatialDataArray`, :class:`.TriangularGridDataset`, :class:`.TetrahedralGridDataset`]] = None
             Electron density field data.
-        hole_density : Optional[Union[
-                :class:`.SpatialDataArray`,
-                :class:`.TriangularGridDataset`,
-                :class:`.TetrahedralGridDataset`,
-            ]] = None
+        hole_density : Optional[Union[:class:`.SpatialDataArray`, :class:`.TriangularGridDataset`, :class:`.TetrahedralGridDataset`]] = None
             Hole density field data.
 
         Returns
         -------
-        Union[
-            :class:`.SpatialDataArray`,
-            :class:`.TriangularGridDataset`,
-            :class:`.TetrahedralGridDataset`,
-        ] = None
+        Union[:class:`.SpatialDataArray`, :class:`.TriangularGridDataset`, :class:`.TetrahedralGridDataset`]
             Sampled perturbation field.
         """
 
@@ -1180,10 +1086,21 @@ class PermittivityPerturbation(Tidy3dBaseModel):
         delta_eps_complex = False if delta_eps is None else delta_eps.is_complex
         delta_sigma_complex = False if delta_sigma is None else delta_sigma.is_complex
 
-        if delta_eps_complex or delta_sigma_complex:
-            raise DataError(
-                "Perturbation models 'delta_eps' and 'delta_sigma' in 'PermittivityPerturbation' cannot be "
-                "complex-valued."
+        if delta_eps_complex:
+            self._raise_validation_error_at_loc(
+                DataError(
+                    "Perturbation models 'delta_eps' and 'delta_sigma' in 'PermittivityPerturbation' cannot be "
+                    "complex-valued."
+                ),
+                "delta_eps",
+            )
+        if delta_sigma_complex:
+            self._raise_validation_error_at_loc(
+                DataError(
+                    "Perturbation models 'delta_eps' and 'delta_sigma' in 'PermittivityPerturbation' cannot be "
+                    "complex-valued."
+                ),
+                "delta_sigma",
             )
 
         return self
@@ -1196,9 +1113,12 @@ class PermittivityPerturbation(Tidy3dBaseModel):
         delta_sigma = self.delta_sigma
 
         if delta_eps is None and delta_sigma is None:
-            raise DataError(
-                "Perturbation models 'delta_eps' and 'delta_sigma' in 'PermittivityPerturbation' cannot be "
-                "simultaneously 'None'."
+            self._raise_validation_error_at_loc(
+                DataError(
+                    "Perturbation models 'delta_eps' and 'delta_sigma' in 'PermittivityPerturbation' cannot be "
+                    "simultaneously 'None'."
+                ),
+                "delta_eps",
             )
 
         return self
@@ -1253,14 +1173,14 @@ class AbstractDeltaModel(Tidy3dBaseModel):
 
 
 class NedeljkovicSorefMashanovich(AbstractDeltaModel):
-    """Nedeljkovic-Soref-Mashanovich model for the perturbation of the refractive index and
+    """Nedeljkovic-Soref-Mashanovich model [1]_ for the perturbation of the refractive index and
     extinction coefficient due to free carriers.
 
     References
     ----------
     .. [1] M. Nedeljkovic, R. Soref and G. Z. Mashanovich, "Free-Carrier Electrorefraction and Electroabsorption
-        Modulation Predictions for Silicon Over the 1–14- μm Infrared Wavelength Range," in IEEE Photonics
-        Journal, vol. 3, no. 6, pp. 1171-1180, Dec. 2011, doi: 10.1109/JPHOT.2011.2171930
+           Modulation Predictions for Silicon Over the 1–14- μm Infrared Wavelength Range," in IEEE Photonics
+           Journal, vol. 3, no. 6, pp. 1171-1180, Dec. 2011, doi: 10.1109/JPHOT.2011.2171930
 
     """
 
@@ -1733,9 +1653,19 @@ class IndexPerturbation(Tidy3dBaseModel):
         dn_complex = False if dn is None else dn.is_complex
         dk_complex = False if dk is None else dk.is_complex
 
-        if dn_complex or dk_complex:
-            raise DataError(
-                "Perturbation models 'dn' and 'dk' in 'IndexPerturbation' cannot be complex-valued."
+        if dn_complex:
+            self._raise_validation_error_at_loc(
+                DataError(
+                    "Perturbation models 'dn' and 'dk' in 'IndexPerturbation' cannot be complex-valued."
+                ),
+                "delta_n",
+            )
+        if dk_complex:
+            self._raise_validation_error_at_loc(
+                DataError(
+                    "Perturbation models 'dn' and 'dk' in 'IndexPerturbation' cannot be complex-valued."
+                ),
+                "delta_k",
             )
 
         return self
@@ -1748,9 +1678,12 @@ class IndexPerturbation(Tidy3dBaseModel):
         dk = self.delta_k
 
         if dn is None and dk is None:
-            raise DataError(
-                "Perturbation models 'dn' and 'dk' in 'IndexPerturbation' cannot be "
-                "simultaneously 'None'."
+            self._raise_validation_error_at_loc(
+                DataError(
+                    "Perturbation models 'dn' and 'dk' in 'IndexPerturbation' cannot be "
+                    "simultaneously 'None'."
+                ),
+                "delta_n",
             )
 
         return self

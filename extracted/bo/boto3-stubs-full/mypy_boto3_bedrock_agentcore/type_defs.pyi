@@ -33,10 +33,16 @@ from .literals import (
     CommandExecutionStatusType,
     ContentBlockTypeType,
     DescriptorTypeType,
+    HarnessConversationRoleType,
+    HarnessStopReasonType,
+    HarnessToolTypeType,
+    HarnessToolUseStatusType,
+    HarnessToolUseTypeType,
     LanguageRuntimeType,
     MemoryRecordStatusType,
     MouseButtonType,
     Oauth2FlowTypeType,
+    OAuthGrantTypeType,
     OperatorTypeType,
     ProgrammingLanguageType,
     RegistryRecordStatusType,
@@ -136,6 +142,42 @@ __all__ = (
     "GetWorkloadAccessTokenForUserIdResponseTypeDef",
     "GetWorkloadAccessTokenRequestTypeDef",
     "GetWorkloadAccessTokenResponseTypeDef",
+    "HarnessAgentCoreBrowserConfigTypeDef",
+    "HarnessAgentCoreCodeInterpreterConfigTypeDef",
+    "HarnessAgentCoreGatewayConfigTypeDef",
+    "HarnessBedrockModelConfigTypeDef",
+    "HarnessContentBlockDeltaEventTypeDef",
+    "HarnessContentBlockDeltaTypeDef",
+    "HarnessContentBlockStartEventTypeDef",
+    "HarnessContentBlockStartTypeDef",
+    "HarnessContentBlockStopEventTypeDef",
+    "HarnessContentBlockTypeDef",
+    "HarnessGatewayOutboundAuthTypeDef",
+    "HarnessGeminiModelConfigTypeDef",
+    "HarnessInlineFunctionConfigTypeDef",
+    "HarnessMessageStartEventTypeDef",
+    "HarnessMessageStopEventTypeDef",
+    "HarnessMessageTypeDef",
+    "HarnessMetadataEventTypeDef",
+    "HarnessModelConfigurationTypeDef",
+    "HarnessOpenAiModelConfigTypeDef",
+    "HarnessReasoningContentBlockDeltaTypeDef",
+    "HarnessReasoningContentBlockTypeDef",
+    "HarnessReasoningTextBlockTypeDef",
+    "HarnessRemoteMcpConfigTypeDef",
+    "HarnessSkillTypeDef",
+    "HarnessStreamMetricsTypeDef",
+    "HarnessSystemContentBlockTypeDef",
+    "HarnessTokenUsageTypeDef",
+    "HarnessToolConfigurationTypeDef",
+    "HarnessToolResultBlockDeltaTypeDef",
+    "HarnessToolResultBlockStartTypeDef",
+    "HarnessToolResultBlockTypeDef",
+    "HarnessToolResultContentBlockTypeDef",
+    "HarnessToolTypeDef",
+    "HarnessToolUseBlockDeltaTypeDef",
+    "HarnessToolUseBlockStartTypeDef",
+    "HarnessToolUseBlockTypeDef",
     "InputContentBlockTypeDef",
     "InternalServerExceptionTypeDef",
     "InvokeAgentRuntimeCommandRequestBodyTypeDef",
@@ -148,6 +190,9 @@ __all__ = (
     "InvokeBrowserResponseTypeDef",
     "InvokeCodeInterpreterRequestTypeDef",
     "InvokeCodeInterpreterResponseTypeDef",
+    "InvokeHarnessRequestTypeDef",
+    "InvokeHarnessResponseTypeDef",
+    "InvokeHarnessStreamOutputTypeDef",
     "KeyPressArgumentsTypeDef",
     "KeyPressResultTypeDef",
     "KeyShortcutArgumentsTypeDef",
@@ -194,6 +239,7 @@ __all__ = (
     "MouseMoveResultTypeDef",
     "MouseScrollArgumentsTypeDef",
     "MouseScrollResultTypeDef",
+    "OAuthCredentialProviderTypeDef",
     "PaginatorConfigTypeDef",
     "PayloadTypeOutputTypeDef",
     "PayloadTypeTypeDef",
@@ -571,6 +617,122 @@ class GetWorkloadAccessTokenForUserIdRequestTypeDef(TypedDict):
 class GetWorkloadAccessTokenRequestTypeDef(TypedDict):
     workloadName: str
 
+class HarnessAgentCoreBrowserConfigTypeDef(TypedDict):
+    browserArn: NotRequired[str]
+
+class HarnessAgentCoreCodeInterpreterConfigTypeDef(TypedDict):
+    codeInterpreterArn: NotRequired[str]
+
+class HarnessBedrockModelConfigTypeDef(TypedDict):
+    modelId: str
+    maxTokens: NotRequired[int]
+    temperature: NotRequired[float]
+    topP: NotRequired[float]
+
+class HarnessReasoningContentBlockDeltaTypeDef(TypedDict):
+    text: NotRequired[str]
+    redactedContent: NotRequired[bytes]
+    signature: NotRequired[str]
+
+class HarnessToolResultBlockDeltaTypeDef(TypedDict):
+    text: NotRequired[str]
+    json: NotRequired[dict[str, Any]]
+
+HarnessToolUseBlockDeltaTypeDef = TypedDict(
+    "HarnessToolUseBlockDeltaTypeDef",
+    {
+        "input": str,
+    },
+)
+
+class HarnessToolResultBlockStartTypeDef(TypedDict):
+    toolUseId: str
+    status: NotRequired[HarnessToolUseStatusType]
+
+HarnessToolUseBlockStartTypeDef = TypedDict(
+    "HarnessToolUseBlockStartTypeDef",
+    {
+        "toolUseId": str,
+        "name": str,
+        "type": NotRequired[HarnessToolUseTypeType],
+        "serverName": NotRequired[str],
+    },
+)
+
+class HarnessContentBlockStopEventTypeDef(TypedDict):
+    contentBlockIndex: int
+
+HarnessToolUseBlockTypeDef = TypedDict(
+    "HarnessToolUseBlockTypeDef",
+    {
+        "name": str,
+        "toolUseId": str,
+        "input": Mapping[str, Any],
+        "type": NotRequired[HarnessToolUseTypeType],
+        "serverName": NotRequired[str],
+    },
+)
+
+class OAuthCredentialProviderTypeDef(TypedDict):
+    providerArn: str
+    scopes: Sequence[str]
+    customParameters: NotRequired[Mapping[str, str]]
+    grantType: NotRequired[OAuthGrantTypeType]
+    defaultReturnUrl: NotRequired[str]
+
+class HarnessGeminiModelConfigTypeDef(TypedDict):
+    modelId: str
+    apiKeyArn: str
+    maxTokens: NotRequired[int]
+    temperature: NotRequired[float]
+    topP: NotRequired[float]
+    topK: NotRequired[int]
+
+class HarnessInlineFunctionConfigTypeDef(TypedDict):
+    description: str
+    inputSchema: Mapping[str, Any]
+
+class HarnessMessageStartEventTypeDef(TypedDict):
+    role: HarnessConversationRoleType
+
+class HarnessMessageStopEventTypeDef(TypedDict):
+    stopReason: HarnessStopReasonType
+
+class HarnessStreamMetricsTypeDef(TypedDict):
+    latencyMs: int
+
+class HarnessTokenUsageTypeDef(TypedDict):
+    inputTokens: int
+    outputTokens: int
+    totalTokens: int
+    cacheReadInputTokens: NotRequired[int]
+    cacheWriteInputTokens: NotRequired[int]
+
+class HarnessOpenAiModelConfigTypeDef(TypedDict):
+    modelId: str
+    apiKeyArn: str
+    maxTokens: NotRequired[int]
+    temperature: NotRequired[float]
+    topP: NotRequired[float]
+
+class HarnessReasoningTextBlockTypeDef(TypedDict):
+    text: str
+    signature: NotRequired[str]
+
+class HarnessRemoteMcpConfigTypeDef(TypedDict):
+    url: str
+    headers: NotRequired[Mapping[str, str]]
+
+class HarnessSkillTypeDef(TypedDict):
+    path: NotRequired[str]
+
+class HarnessSystemContentBlockTypeDef(TypedDict):
+    text: NotRequired[str]
+
+class HarnessToolResultContentBlockTypeDef(TypedDict):
+    text: NotRequired[str]
+    json: NotRequired[Mapping[str, Any]]
+
 class InvokeAgentRuntimeCommandRequestBodyTypeDef(TypedDict):
     command: str
     timeout: NotRequired[int]
@@ -907,6 +1069,44 @@ class StartMemoryExtractionJobInputTypeDef(TypedDict):
     extractionJob: ExtractionJobTypeDef
     clientToken: NotRequired[str]
 
+class HarnessContentBlockDeltaTypeDef(TypedDict):
+    text: NotRequired[str]
+    toolUse: NotRequired[HarnessToolUseBlockDeltaTypeDef]
+    toolResult: NotRequired[list[HarnessToolResultBlockDeltaTypeDef]]
+    reasoningContent: NotRequired[HarnessReasoningContentBlockDeltaTypeDef]
+
+class HarnessContentBlockStartTypeDef(TypedDict):
+    toolUse: NotRequired[HarnessToolUseBlockStartTypeDef]
+    toolResult: NotRequired[HarnessToolResultBlockStartTypeDef]
+
+class HarnessGatewayOutboundAuthTypeDef(TypedDict):
+    awsIam: NotRequired[Mapping[str, Any]]
+    none: NotRequired[Mapping[str, Any]]
+    oauth: NotRequired[OAuthCredentialProviderTypeDef]
+
+class HarnessMetadataEventTypeDef(TypedDict):
+    usage: HarnessTokenUsageTypeDef
+    metrics: HarnessStreamMetricsTypeDef
+
+class HarnessModelConfigurationTypeDef(TypedDict):
+    bedrockModelConfig: NotRequired[HarnessBedrockModelConfigTypeDef]
+    openAiModelConfig: NotRequired[HarnessOpenAiModelConfigTypeDef]
+    geminiModelConfig: NotRequired[HarnessGeminiModelConfigTypeDef]
+
+class HarnessReasoningContentBlockTypeDef(TypedDict):
+    reasoningText: NotRequired[HarnessReasoningTextBlockTypeDef]
+    redactedContent: NotRequired[BlobTypeDef]
+
+HarnessToolResultBlockTypeDef = TypedDict(
+    "HarnessToolResultBlockTypeDef",
+    {
+        "toolUseId": str,
+        "content": Sequence[HarnessToolResultContentBlockTypeDef],
+        "status": NotRequired[HarnessToolUseStatusType],
+        "type": NotRequired[HarnessToolUseTypeType],
+    },
+)
+
 class InvokeAgentRuntimeCommandRequestTypeDef(TypedDict):
     agentRuntimeArn: str
     body: InvokeAgentRuntimeCommandRequestBodyTypeDef
@@ -1123,6 +1323,24 @@ class ExtractionJobMetadataTypeDef(TypedDict):
     sessionId: NotRequired[str]
     actorId: NotRequired[str]
 
+class HarnessContentBlockDeltaEventTypeDef(TypedDict):
+    contentBlockIndex: int
+    delta: HarnessContentBlockDeltaTypeDef
+
+class HarnessContentBlockStartEventTypeDef(TypedDict):
+    contentBlockIndex: int
+    start: HarnessContentBlockStartTypeDef
+
+class HarnessAgentCoreGatewayConfigTypeDef(TypedDict):
+    gatewayArn: str
+    outboundAuth: NotRequired[HarnessGatewayOutboundAuthTypeDef]
+
+class HarnessContentBlockTypeDef(TypedDict):
+    text: NotRequired[str]
+    toolUse: NotRequired[HarnessToolUseBlockTypeDef]
+    toolResult: NotRequired[HarnessToolResultBlockTypeDef]
+    reasoningContent: NotRequired[HarnessReasoningContentBlockTypeDef]
+
 class DescriptorsTypeDef(TypedDict):
     mcp: NotRequired[McpDescriptorTypeDef]
     a2a: NotRequired[A2aDescriptorTypeDef]
@@ -1253,6 +1471,28 @@ class ListMemoryExtractionJobsOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
+class InvokeHarnessStreamOutputTypeDef(TypedDict):
+    messageStart: NotRequired[HarnessMessageStartEventTypeDef]
+    contentBlockStart: NotRequired[HarnessContentBlockStartEventTypeDef]
+    contentBlockDelta: NotRequired[HarnessContentBlockDeltaEventTypeDef]
+    contentBlockStop: NotRequired[HarnessContentBlockStopEventTypeDef]
+    messageStop: NotRequired[HarnessMessageStopEventTypeDef]
+    metadata: NotRequired[HarnessMetadataEventTypeDef]
+    internalServerException: NotRequired[InternalServerExceptionTypeDef]
+    validationException: NotRequired[ValidationExceptionTypeDef]
+    runtimeClientError: NotRequired[RuntimeClientErrorTypeDef]
+
+class HarnessToolConfigurationTypeDef(TypedDict):
+    remoteMcp: NotRequired[HarnessRemoteMcpConfigTypeDef]
+    agentCoreBrowser: NotRequired[HarnessAgentCoreBrowserConfigTypeDef]
+    agentCoreGateway: NotRequired[HarnessAgentCoreGatewayConfigTypeDef]
+    inlineFunction: NotRequired[HarnessInlineFunctionConfigTypeDef]
+    agentCoreCodeInterpreter: NotRequired[HarnessAgentCoreCodeInterpreterConfigTypeDef]
+
+class HarnessMessageTypeDef(TypedDict):
+    role: HarnessConversationRoleType
+    content: Sequence[HarnessContentBlockTypeDef]
+
 class RegistryRecordSummaryTypeDef(TypedDict):
     registryArn: str
     recordArn: str
@@ -1352,6 +1592,19 @@ class RetrieveMemoryRecordsInputTypeDef(TypedDict):
     nextToken: NotRequired[str]
     maxResults: NotRequired[int]
 
+class InvokeHarnessResponseTypeDef(TypedDict):
+    stream: EventStream[InvokeHarnessStreamOutputTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+HarnessToolTypeDef = TypedDict(
+    "HarnessToolTypeDef",
+    {
+        "type": HarnessToolTypeType,
+        "name": NotRequired[str],
+        "config": NotRequired[HarnessToolConfigurationTypeDef],
+    },
+)
+
 class SearchRegistryRecordsResponseTypeDef(TypedDict):
     registryRecords: list[RegistryRecordSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1375,6 +1628,20 @@ class GetBrowserSessionResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 ProxyConfigurationUnionTypeDef = Union[ProxyConfigurationTypeDef, ProxyConfigurationOutputTypeDef]
+
+class InvokeHarnessRequestTypeDef(TypedDict):
+    harnessArn: str
+    runtimeSessionId: str
+    messages: Sequence[HarnessMessageTypeDef]
+    model: NotRequired[HarnessModelConfigurationTypeDef]
+    systemPrompt: NotRequired[Sequence[HarnessSystemContentBlockTypeDef]]
+    tools: NotRequired[Sequence[HarnessToolTypeDef]]
+    skills: NotRequired[Sequence[HarnessSkillTypeDef]]
+    allowedTools: NotRequired[Sequence[str]]
+    maxIterations: NotRequired[int]
+    maxTokens: NotRequired[int]
+    timeoutSeconds: NotRequired[int]
+    actorId: NotRequired[str]
 
 class StartBrowserSessionRequestTypeDef(TypedDict):
     browserIdentifier: str

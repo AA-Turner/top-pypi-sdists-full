@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from collections import OrderedDict
 
 from FlagEmbedding.abc.inference import AbsEmbedder
-from FlagEmbedding.inference.embedder import FlagModel, BGEM3FlagModel, FlagLLMModel, FlagICLModel
+from FlagEmbedding.inference.embedder import FlagModel, BGEM3FlagModel, FlagLLMModel, FlagICLModel, FlagPseudoMoEModel
 
 
 class EmbedderModelClass(Enum):
@@ -12,13 +12,15 @@ class EmbedderModelClass(Enum):
     ENCODER_ONLY_M3 = "encoder-only-m3"
     DECODER_ONLY_BASE = "decoder-only-base"
     DECODER_ONLY_ICL = "decoder-only-icl"
+    DECODER_ONLY_PSEUDO_MOE = "decoder-only-pseudo_moe"
 
 
 EMBEDDER_CLASS_MAPPING = OrderedDict([
     (EmbedderModelClass.ENCODER_ONLY_BASE, FlagModel),
     (EmbedderModelClass.ENCODER_ONLY_M3, BGEM3FlagModel),
     (EmbedderModelClass.DECODER_ONLY_BASE, FlagLLMModel),
-    (EmbedderModelClass.DECODER_ONLY_ICL, FlagICLModel)
+    (EmbedderModelClass.DECODER_ONLY_ICL, FlagICLModel),
+    (EmbedderModelClass.DECODER_ONLY_PSEUDO_MOE, FlagPseudoMoEModel)
 ])
 
 
@@ -38,6 +40,14 @@ class EmbedderConfig:
 
 # BGE models mapping
 BGE_MAPPING = OrderedDict([
+    (
+        "bge-reasoner-embed-qwen3-8b-0923",
+        EmbedderConfig(FlagLLMModel, PoolingMethod.LAST_TOKEN, query_instruction_format="Instruct: {}\nQuery: {}")
+    ),
+    (
+        "bge-code-v1",
+        EmbedderConfig(FlagLLMModel, PoolingMethod.LAST_TOKEN, trust_remote_code=True, query_instruction_format="<instruct>{}\n<query>{}")
+    ),
     (
         "bge-en-icl", 
         EmbedderConfig(FlagICLModel, PoolingMethod.LAST_TOKEN, query_instruction_format="<instruct>{}\n<query>{}")
@@ -99,6 +109,23 @@ BGE_MAPPING = OrderedDict([
         EmbedderConfig(FlagModel, PoolingMethod.CLS)
     ),
 ])
+
+# Qwen3-Embedding models mapping
+QWEN3_EMBEDDING_MAPPING = OrderedDict([
+    (
+        "Qwen3-Embedding-0.6B",
+        EmbedderConfig(FlagLLMModel, PoolingMethod.LAST_TOKEN, query_instruction_format="Instruct: {}\nQuery:{}")
+    ),
+    (
+        "Qwen3-Embedding-4B",
+        EmbedderConfig(FlagLLMModel, PoolingMethod.LAST_TOKEN, query_instruction_format="Instruct: {}\nQuery:{}")
+    ),
+    (
+        "Qwen3-Embedding-8B",
+        EmbedderConfig(FlagLLMModel, PoolingMethod.LAST_TOKEN, query_instruction_format="Instruct: {}\nQuery:{}")
+    ),
+])
+
 
 # E5 models mapping
 E5_MAPPING = OrderedDict([
@@ -231,6 +258,7 @@ BCE_MAPPING = OrderedDict([
 # Combine all mappings
 AUTO_EMBEDDER_MAPPING = OrderedDict()
 AUTO_EMBEDDER_MAPPING.update(BGE_MAPPING)
+AUTO_EMBEDDER_MAPPING.update(QWEN3_EMBEDDING_MAPPING)
 AUTO_EMBEDDER_MAPPING.update(E5_MAPPING)
 AUTO_EMBEDDER_MAPPING.update(GTE_MAPPING)
 AUTO_EMBEDDER_MAPPING.update(SFR_MAPPING)

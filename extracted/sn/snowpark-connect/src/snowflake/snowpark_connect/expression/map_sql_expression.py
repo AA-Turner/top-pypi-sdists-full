@@ -87,6 +87,25 @@ def sql_parser():
             "spark.sql.session.timeZone", str(session_tz)
         )
 
+    # Forward count-related legacy configs to JVM parser
+    allow_parameterless_count = global_config.get(
+        "spark.sql.legacy.allowParameterlessCount"
+    )
+    if allow_parameterless_count is not None:
+        _get_sql_conf().get().setConfString(
+            "spark.sql.legacy.allowParameterlessCount",
+            str(allow_parameterless_count),
+        )
+
+    allow_star_with_single_table = global_config.get(
+        "spark.sql.legacy.allowStarWithSingleTableIdentifierInCount"
+    )
+    if allow_star_with_single_table is not None:
+        _get_sql_conf().get().setConfString(
+            "spark.sql.legacy.allowStarWithSingleTableIdentifierInCount",
+            str(allow_star_with_single_table),
+        )
+
     return _get_sql_parser()
 
 
@@ -310,13 +329,13 @@ def map_logical_plan_expression(exp: jpype.JObject) -> expressions_proto.Express
                     )
                 )
                 args.append(sort_order_expr)
-                proto = apply_filter_clause(func_name, [args[0]], exp)
+                proto = apply_filter_clause(func_name, [args[0]], exp, exp.isDistinct())
                 # second arg is a literal value and it doesn't make sense to apply filter on it.
                 # also skips filtering on sort_order.
                 proto.unresolved_function.arguments.append(args[1])
                 proto.unresolved_function.arguments.append(sort_order_expr)
             else:
-                proto = apply_filter_clause(func_name, args, exp)
+                proto = apply_filter_clause(func_name, args, exp, exp.isDistinct())
         case "Alias":
             proto = expressions_proto.Expression(
                 alias=expressions_proto.Expression.Alias(

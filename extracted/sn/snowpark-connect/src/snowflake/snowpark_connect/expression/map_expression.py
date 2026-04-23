@@ -34,7 +34,7 @@ from snowflake.snowpark_connect.type_mapping import (
     map_simple_types,
     proto_to_snowpark_type,
 )
-from snowflake.snowpark_connect.typed_column import TypedColumn
+from snowflake.snowpark_connect.typed_column import FieldType, TypedColumn
 from snowflake.snowpark_connect.utils.context import (
     gen_sql_plan_id,
     get_current_lambda_params,
@@ -167,6 +167,7 @@ def map_expression(
         case "literal":
             lit_value, lit_name = get_literal_field_and_name(exp.literal)
             lit_type_str = str(exp.literal.WhichOneof("literal_type"))
+            lit_nullable = lit_value is None
             # this is a hack until we would have an interval type supported in snowflake, for now
             # this will use the interval expression instead of literal expression to solve this usecase.
             if isinstance(lit_value, datetime.timedelta):
@@ -176,14 +177,16 @@ def map_expression(
                         seconds=lit_value.seconds,
                         microseconds=lit_value.microseconds,
                     ),
-                    lambda: [map_simple_types(lit_type_str)],
+                    lambda: [FieldType(map_simple_types(lit_type_str), lit_nullable)],
                 )
 
             if lit_type_str == "array":
                 result_exp = snowpark_fn.lit(lit_value)
                 element_types = proto_to_snowpark_type(exp.literal.array.element_type)
                 array_type = snowpark.types.ArrayType(element_types)
-                return [lit_name], TypedColumn(result_exp, lambda: [array_type])
+                return [lit_name], TypedColumn(
+                    result_exp, lambda: [FieldType(array_type, lit_nullable)]
+                )
 
             # Decimal needs further processing to get the precision and scale properly.
             if lit_type_str == "decimal":
@@ -217,7 +220,8 @@ def map_expression(
                 precision = min(38, precision)
                 return_type = snowpark.types.DecimalType(precision, scale)
                 return [lit_name], TypedColumn(
-                    snowpark_fn.lit(lit_value, return_type), lambda: [return_type]
+                    snowpark_fn.lit(lit_value, return_type),
+                    lambda: [FieldType(return_type, lit_nullable)],
                 )
             result_exp = snowpark_fn.lit(lit_value)
 
@@ -226,8 +230,9 @@ def map_expression(
             ):
                 result_exp = result_exp.cast(TimestampType(TimestampTimeZone.NTZ))
 
+            lit_type = map_simple_types(lit_type_str)
             return [lit_name], TypedColumn(
-                result_exp, lambda: [map_simple_types(lit_type_str)]
+                result_exp, lambda t=lit_type, n=lit_nullable: [FieldType(t, n)]
             )
         case "sort_order":
             child_name, child_column = map_single_column_expression(

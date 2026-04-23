@@ -1,13 +1,16 @@
 import logging
+import re
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Annotated, Literal, Optional
 
+import click
 import typer
+from click import Context
 from tqdm import tqdm
 from typer_injector import InjectingTyper
 
 from pymobiledevice3.cli.cli_common import ServiceProviderDep, async_command
-from pymobiledevice3.services.mobilebackup2 import Mobilebackup2Service
+from pymobiledevice3.services.mobilebackup2 import BACKUP_SELECTIONS, Mobilebackup2Service
 
 logger = logging.getLogger(__name__)
 
@@ -17,6 +20,18 @@ cli = InjectingTyper(
     help="Create, inspect, and restore MobileBackup2 backups.",
     no_args_is_help=True,
 )
+
+
+def validate_regex_patterns(_ctx: Context, _param: click.Parameter, value: Optional[list[str]]) -> Optional[list[str]]:
+    if not value:
+        return value
+
+    for pattern in value:
+        try:
+            re.compile(pattern)
+        except re.error as exc:
+            raise typer.BadParameter(f"Invalid regex pattern {pattern!r}: {exc}") from exc
+    return value
 
 
 SourceOption = Annotated[
@@ -34,7 +49,6 @@ PasswordOption = Annotated[
 BackupDirectoryArg = Annotated[
     Path,
     typer.Argument(
-        exists=True,
         file_okay=False,
     ),
 ]
@@ -45,6 +59,22 @@ BackupDirectoryOption = Annotated[
         "-b",
         exists=True,
         file_okay=False,
+    ),
+]
+BackupSelectionOption = Annotated[
+    Optional[list[str]],
+    typer.Option(
+        "--only",
+        click_type=click.Choice(sorted(BACKUP_SELECTIONS), case_sensitive=False),
+        help="Preserve only selected backup payload presets. Repeat to keep multiple presets.",
+    ),
+]
+BackupRegexOption = Annotated[
+    Optional[list[str]],
+    typer.Option(
+        "--only-regex",
+        callback=validate_regex_patterns,
+        help="Preserve only backup payloads whose device path or manifest path matches this regex. Repeat to keep multiple regexes.",
     ),
 ]
 
@@ -60,12 +90,23 @@ async def backup(
             help="Whether to do a full backup. If full is True, any previous backup attempts will be discarded.",
         ),
     ] = False,
+    only: BackupSelectionOption = None,
+    only_regex: BackupRegexOption = None,
 ) -> None:
     """
     Backup device.
 
     All backup data will be written to BACKUP_DIRECTORY, under a directory named with the device's udid.
     """
+    backup_directory.mkdir(parents=True, exist_ok=True)
+    preserve_rules = tuple(
+        rule for selection_name in (only or ()) for rule in BACKUP_SELECTIONS[selection_name.lower()]
+    )
+    filter_callback = Mobilebackup2Service.combine_filter_callbacks(
+        Mobilebackup2Service.selection_filter_callback(preserve_rules) if preserve_rules else None,
+        Mobilebackup2Service.regex_filter_callback(only_regex) if only_regex else None,
+    )
+
     async with Mobilebackup2Service(service_provider) as backup_client:
         with tqdm(total=100, dynamic_ncols=True) as pbar:
 
@@ -73,7 +114,12 @@ async def backup(
                 pbar.n = percentage
                 pbar.refresh()
 
-            await backup_client.backup(full=full, backup_directory=str(backup_directory), progress_callback=update_bar)
+            await backup_client.backup(
+                full=full,
+                backup_directory=str(backup_directory),
+                progress_callback=update_bar,
+                filter_callback=filter_callback,
+            )
 
 
 @cli.command()

@@ -18,7 +18,6 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
-from urllib.parse import urlparse
 
 import httpx
 import tenacity
@@ -82,10 +81,10 @@ from plato._generated.models import (
     SetDateResponse,
     WaitForReadyResponse,
 )
+from plato.v2.async_.cdp_bridge import CDP_PORT_BASE, resolve_cdp_ws_url, shared_cdp_chromium
 from plato.v2.async_.environment import Environment
 from plato.v2.async_.flow_backends import (
     CLAUDE_CODE_SSH_SHELL_PREFIX,
-    AgentBrowserBackend,
     make_ssh_run_cmd,
 )
 from plato.v2.async_.flow_executor import FlowExecutor
@@ -1340,49 +1339,6 @@ class Session:
             raise RuntimeError(f"No public URL returned for {env.alias}")
         return result.url
 
-    @staticmethod
-    async def _resolve_cdp_ws_url(cdp_url: str, ready_timeout: float = 60.0) -> str:
-        """Fetch Chrome's ``/json/version`` and rewrite the WS URL for cross-host use.
-
-        Chrome reports ``ws://localhost:9225`` in ``webSocketDebuggerUrl``
-        regardless of who's asking, so a Playwright client on another host
-        can't use it directly. Substitute the CDP endpoint's actual host/port
-        so callers reaching the agent VM over the mesh network succeed.
-
-        Polls ``/json/version`` every 0.5s until it returns 200 or
-        ``ready_timeout`` seconds elapse, so callers on freshly-provisioned VMs
-        don't race Chrome startup.
-        """
-        import aiohttp
-
-        parsed = urlparse(cdp_url)
-        host = parsed.hostname
-        port = parsed.port or 9224
-        version_url = f"{cdp_url}/json/version"
-
-        deadline = asyncio.get_event_loop().time() + ready_timeout
-        last_error: str = ""
-        version_info: dict | None = None
-        async with aiohttp.ClientSession() as http:
-            while True:
-                try:
-                    async with http.get(version_url, timeout=aiohttp.ClientTimeout(total=2)) as resp:
-                        if resp.status == 200:
-                            version_info = await resp.json()
-                            break
-                        last_error = f"HTTP {resp.status}"
-                except Exception as e:
-                    last_error = str(e)
-                if asyncio.get_event_loop().time() >= deadline:
-                    raise TimeoutError(f"Chrome CDP not ready at {cdp_url} after {ready_timeout:.0f}s: {last_error}")
-                await asyncio.sleep(0.5)
-
-        assert version_info is not None
-        ws_url: str = version_info["webSocketDebuggerUrl"]
-        for loopback in ("ws://localhost:9225", "ws://127.0.0.1:9225"):
-            ws_url = ws_url.replace(loopback, f"ws://{host}:{port}")
-        return ws_url
-
     @contextlib.asynccontextmanager
     async def connect_cdp(self, cdp_url: str, *, ready_timeout: float = 60.0) -> AsyncIterator[Browser]:
         """Connect Playwright to a CDP endpoint and yield the Browser.
@@ -1408,7 +1364,7 @@ class Session:
 
         from playwright.async_api import async_playwright
 
-        ws_url = await self._resolve_cdp_ws_url(cdp_url, ready_timeout=ready_timeout)
+        ws_url = await resolve_cdp_ws_url(cdp_url, ready_timeout=ready_timeout)
         async with async_playwright() as p:
             browser = await p.chromium.connect_over_cdp(ws_url)
             try:
@@ -1484,11 +1440,19 @@ class Session:
         retry_delay_ms: int = 0,
         log: logging.Logger | None = None,
     ) -> list[str]:
-        """Log in to all envs via the ``agent-browser`` CLI on a remote VM.
+        """Log in to all envs, then hand each browser to an agent-browser daemon.
 
-        One ``agent-browser`` daemon per env, keyed by ``--session <env.alias>``,
-        keeps each env's cookies in its own jar — so the model can later reuse
-        the same session name to inherit authenticated state.
+        For each env we launch a long-lived chromium on the remote VM with a
+        CDP port, tunnel the port back, run the env's Playwright login flow
+        against it through :class:`FlowExecutor`, and then attach an
+        ``agent-browser --session <env.alias>`` daemon to the same chromium
+        via ``connect <port>``. The daemon inherits cookies, storage, and the
+        post-login tab — so later ``agent-browser --session <alias>`` calls
+        from the agent run on an already-authenticated browser.
+
+        The flow runs under Playwright (not the agent-browser CLI), so any
+        selector Playwright supports — including ``:has-text()`` — works
+        without translation.
 
         Parameters
         ----------
@@ -1502,9 +1466,9 @@ class Session:
             Optional port for the env's public URL.
         retries:
             Number of retries per env on flow-execution failure. Total attempts
-            per env is ``1 + retries``. Defaults to ``0``. Between attempts the
-            backend re-navigates to the public URL so flows that mutated page
-            state start from a clean slate.
+            per env is ``1 + retries``. Defaults to ``0``. Between attempts we
+            re-navigate to the public URL so flows that mutated page state
+            start from a clean slate.
         retry_delay_ms:
             Delay between retries in milliseconds. Ignored when ``retries == 0``.
         log:
@@ -1517,6 +1481,12 @@ class Session:
         """
         self._check_closed()
 
+        import importlib.util
+
+        if importlib.util.find_spec("playwright") is None:
+            raise ImportError("login_via_agent_browser requires playwright. Install it with: uv add playwright")
+        from playwright.async_api import async_playwright
+
         active_log = log or logger
         run_cmd = make_ssh_run_cmd(
             ssh_key_path=ssh_key_path,
@@ -1526,7 +1496,7 @@ class Session:
         )
 
         logged_in: list[str] = []
-        for env in self.envs:
+        for idx, env in enumerate(self.envs):
             if not env.artifact_id:
                 # Resource/compute envs have no login flow — skip cleanly so
                 # callers can pass ``session.envs`` without pre-filtering.
@@ -1534,43 +1504,81 @@ class Session:
 
             public_url = await self._public_url(env, port=port)
             env_flow = await self._fetch_login_flow(env, flow)
+            cdp_port = CDP_PORT_BASE + idx
+            profile_dir = f"/tmp/plato-ab-{env.alias}-{self.session_id}"
 
             active_log.info(
-                "agent-browser login: env=%s flow=%s session=%s url=%s",
+                "agent-browser login: env=%s flow=%s session=%s url=%s cdp_port=%d",
                 env.alias,
                 env_flow.name,
                 env.alias,
                 public_url,
-            )
-            backend = AgentBrowserBackend(run_cmd=run_cmd, session=env.alias)
-            executor = FlowExecutor(
-                flow=env_flow,
-                backend=backend,
-                log=active_log,
-                base_url=public_url,
+                cdp_port,
             )
 
-            last_error: Exception | None = None
-            for attempt in range(1 + retries):
-                try:
-                    await backend.navigate(public_url)
-                    await executor.execute()
-                    break
-                except Exception as e:
-                    last_error = e
-                    if attempt < retries:
-                        active_log.warning(
-                            "agent-browser login failed for %s (attempt %d/%d), retrying in %dms: %s",
-                            env.alias,
-                            attempt + 1,
-                            1 + retries,
-                            retry_delay_ms,
-                            e,
+            async with shared_cdp_chromium(
+                run_cmd=run_cmd,
+                ssh_key_path=ssh_key_path,
+                hostname=hostname,
+                extra_ssh_opts=extra_ssh_opts,
+                port=cdp_port,
+                profile_dir=profile_dir,
+                log=active_log,
+            ) as local_cdp_url:
+                # Attach the agent-browser daemon to the same chromium so it
+                # inherits the browser state once Playwright finishes login.
+                rc, _, err = await run_cmd(
+                    [
+                        "agent-browser",
+                        "--session",
+                        env.alias,
+                        "connect",
+                        str(cdp_port),
+                    ]
+                )
+                if rc != 0:
+                    raise RuntimeError(
+                        f"agent-browser --session {env.alias} connect {cdp_port} failed: rc={rc} stderr={err[-400:]!r}"
+                    )
+
+                async with async_playwright() as pw:
+                    browser = await pw.chromium.connect_over_cdp(local_cdp_url)
+                    try:
+                        context = browser.contexts[0] if browser.contexts else await browser.new_context()
+                        page = context.pages[0] if context.pages else await context.new_page()
+                        executor = FlowExecutor(
+                            flow=env_flow,
+                            page=page,
+                            log=active_log,
+                            base_url=public_url,
                         )
-                        await asyncio.sleep(retry_delay_ms / 1000)
-            else:
-                assert last_error is not None
-                raise last_error
+
+                        last_error: Exception | None = None
+                        for attempt in range(1 + retries):
+                            try:
+                                await page.goto(public_url)
+                                await executor.execute()
+                                break
+                            except Exception as e:
+                                last_error = e
+                                if attempt < retries:
+                                    active_log.warning(
+                                        "login failed for %s (attempt %d/%d), retrying in %dms: %s",
+                                        env.alias,
+                                        attempt + 1,
+                                        1 + retries,
+                                        retry_delay_ms,
+                                        e,
+                                    )
+                                    await asyncio.sleep(retry_delay_ms / 1000)
+                        else:
+                            assert last_error is not None
+                            raise last_error
+                    finally:
+                        # Disconnect the Playwright client only. The remote
+                        # chromium stays alive and the agent-browser daemon
+                        # keeps its CDP attachment.
+                        await browser.close()
 
             logged_in.append(env.alias)
 

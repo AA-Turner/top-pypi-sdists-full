@@ -20,11 +20,13 @@ _SYSTEM_TEMP_DIR = Path(tempfile.gettempdir())
 _STRICT_CACHE = os.getenv("ISOLATE_STRICT_CACHE", "0") == "1"
 JSON_LOGS = os.getenv("ISOLATE_JSON_LOGS", "0") == "1"
 
+DEFAULT_SERIALIZATION_METHOD = "pickle"
+
 
 @dataclass(frozen=True)
 class IsolateSettings:
     cache_dir: Path = Path(user_cache_dir("isolate", "isolate"))
-    serialization_method: str = "pickle"
+    serialization_method: str = DEFAULT_SERIALIZATION_METHOD
     log_hook: Callable[[Log], None] = print
     strict_cache: bool = _STRICT_CACHE
     json_logs: bool = JSON_LOGS

@@ -127,6 +127,21 @@ class EnvironmentConnection:
         If the executable raises an exception, then it will be raised directly."""
         raise NotImplementedError
 
+    def run_entrypoint(
+        self,
+        entrypoint: str,
+        *,
+        run_on_main_thread: bool = False,
+    ) -> CallResultType:  # type: ignore[type-var]
+        """Run a ``"module:attr"`` Python entrypoint inside the environment,
+        and return the result. If the entrypoint raises an exception, then it
+        will be raised directly.
+
+        If ``run_on_main_thread`` is True, the resolved callable is invoked on
+        the agent's main thread (and coroutines it returns are awaited on that
+        loop); otherwise it runs on a thread pool."""
+        raise NotImplementedError
+
     def log(
         self,
         message: str,

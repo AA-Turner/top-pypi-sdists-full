@@ -78,7 +78,7 @@ class CheckpointTriggerServer:
         self._server = await asyncio.start_server(self._handle_connection, "0.0.0.0", 0)
         sock = self._server.sockets[0]
         self._port = sock.getsockname()[1]
-        logger.info("CheckpointTriggerServer listening on port %d", self._port)
+        logger.debug("CheckpointTriggerServer listening on port %d", self._port)
 
     async def _handle_connection(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
         peer = writer.get_extra_info("peername")
@@ -90,7 +90,7 @@ class CheckpointTriggerServer:
                     break
                 try:
                     event = CheckpointTriggerEvent.model_validate_json(line)
-                    logger.info(
+                    logger.debug(
                         "Trigger event: path=%s pattern=%s span_id=%s",
                         event.path,
                         event.pattern,

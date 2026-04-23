@@ -17,20 +17,36 @@ AGENT_BROWSER_PATH_EXPORT = 'export PATH="$HOME/.bun/bin:$PATH"'
 def build_agent_browser_sessions_block(env_aliases: list[str]) -> str:
     """Render a per-env ``--session`` map block for the task instruction.
 
-    When the runner pre-logs-in via ``agent-browser``, each env's cookies land in
-    its own named session jar (keyed by ``env.alias``). The agent then has to
-    pass the right ``--session <name>`` so later ``agent-browser`` calls reuse
-    those authenticated cookies. This block tells the model which names exist
-    for the current session — returns empty string when there are no envs.
+    When the runner pre-logs-in via ``agent-browser``, each env's cookies
+    land in its own named session jar (keyed by ``env.alias``) AND the
+    daemon is left parked on the app's post-login page. A later
+    ``agent-browser --session <alias> <cmd>`` call on the same host
+    reconnects to that same live daemon (Unix-domain socket keyed on the
+    session name) and inherits both the cookies and the current tab.
+
+    The block tells the model:
+    - Which session names exist
+    - That each is already logged in and navigated, so ``snapshot -i``
+      (or ``screenshot``) is the right first action rather than
+      ``open <url>``, which would redirect through the app root and in
+      some apps bounce through auth and drop the in-memory session
+    - How to discover the current URL when it needs to deep-link
+
+    Returns empty string when there are no envs.
     """
     if not env_aliases:
         return ""
     session_lines = "\n".join(f"- `{alias}`" for alias in env_aliases)
     return (
         "\n\n## Authenticated Sessions\n\n"
-        "Each env below has a pre-authenticated `agent-browser` session; pass its name via\n"
-        "`--session <name>` (or set `AGENT_BROWSER_SESSION=<name>`) to inherit the saved\n"
-        "cookies rather than starting a fresh, logged-out browser:\n\n"
+        "Each env below has a pre-authenticated `agent-browser` session that is\n"
+        "**already logged in and navigated to the app's post-login page**. Do\n"
+        "NOT run `agent-browser open <url>` first — start with\n"
+        "`agent-browser --session <name> snapshot -i` (or `screenshot`) to see\n"
+        "the page the daemon is already on. If you need the current URL for\n"
+        "deep-linking, run `agent-browser --session <name> get url`. Pass\n"
+        "`--session <name>` (or set `AGENT_BROWSER_SESSION=<name>`) on every\n"
+        "call to inherit the logged-in browser state:\n\n"
         f"{session_lines}\n"
     )
 

@@ -1,1 +1,0 @@
-import{n as e,t}from"./bundle-mjs-CqEVrdXm.js";function n(...n){return t(e(n))}function r(e){return e>=1e9?`${(e/1e9).toFixed(1)}B`:e>=1e6?`${(e/1e6).toFixed(1)}M`:e>=1e3?`${(e/1e3).toFixed(1)}K`:String(e)}export{r as n,n as t};

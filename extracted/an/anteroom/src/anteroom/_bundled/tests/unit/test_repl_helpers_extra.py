@@ -21,8 +21,11 @@ from anteroom.cli.repl import (
     _embed_after_upload,
     _identity_kwargs,
     _load_conversation_messages,
+    _make_hook_blocked_result,
+    _open_in_editor,
     _parse_bang_command,
     _replace_file_instructions,
+    _resolve_editor_argv,
     _route_cancel_signal,
     _run_bang_command,
     _run_mcp_startup_live,
@@ -124,6 +127,20 @@ def test_route_cancel_signal_returns_false_when_idle() -> None:
     assert _route_cancel_signal(asyncio.Event(), [asyncio.Event()]) is False
 
 
+def test_make_hook_blocked_result_defaults_to_pre_tool_decision() -> None:
+    result = _make_hook_blocked_result("blocked")
+
+    assert result["hook_blocked"] is True
+    assert result["_approval_decision"] == "hook_denied"
+
+
+def test_make_hook_blocked_result_supports_post_tool_decision() -> None:
+    result = _make_hook_blocked_result("blocked", post_tool=True)
+
+    assert result["hook_blocked"] is True
+    assert result["_approval_decision"] == "post_hook_denied"
+
+
 def test_cleanup_after_turn_backfills_queue_on_cancel() -> None:
     cancel_event = asyncio.Event()
     cancel_event.set()
@@ -148,6 +165,40 @@ def test_cleanup_after_turn_clears_busy_when_no_pending_work() -> None:
     _cleanup_after_turn(cancel_event, agent_busy, msg_queue, [], has_pending_work=lambda: False)
 
     assert agent_busy.is_set() is False
+
+
+def test_resolve_editor_argv_prefers_visual_and_parses_args(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("VISUAL", "code --wait")
+    monkeypatch.setenv("EDITOR", "nano")
+
+    with patch("anteroom.cli.repl.shutil.which", return_value="/usr/bin/code") as which_mock:
+        assert _resolve_editor_argv() == ["/usr/bin/code", "--wait"]
+
+    which_mock.assert_called_once_with("code")
+
+
+def test_resolve_editor_argv_rejects_invalid_shell_syntax() -> None:
+    with pytest.raises(ValueError, match="Invalid editor command"):
+        _resolve_editor_argv('"unterminated')
+
+
+def test_resolve_editor_argv_rejects_missing_executable() -> None:
+    with (
+        patch("anteroom.cli.repl.shutil.which", return_value=None),
+        pytest.raises(FileNotFoundError, match="Editor not found"),
+    ):
+        _resolve_editor_argv("missing-editor --wait")
+
+
+def test_open_in_editor_runs_with_shell_free_argv() -> None:
+    with (
+        patch("anteroom.cli.repl._resolve_editor_argv", return_value=["/usr/bin/code", "--wait"]) as resolve_mock,
+        patch("anteroom.cli.repl.subprocess.run") as run_mock,
+    ):
+        _open_in_editor("/tmp/spec.yaml")
+
+    resolve_mock.assert_called_once_with()
+    run_mock.assert_called_once_with(["/usr/bin/code", "--wait", "/tmp/spec.yaml"], check=True)
 
 
 @pytest.mark.asyncio

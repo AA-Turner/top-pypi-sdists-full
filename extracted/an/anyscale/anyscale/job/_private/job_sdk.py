@@ -61,7 +61,7 @@ HA_JOB_STATE_TO_JOB_STATE = {
     HaJobStates.SUCCESS: JobState.SUCCEEDED,
     # ERRORED is a transient state that can transition to RESTARTING when retries remain.
     HaJobStates.ERRORED: JobState.RUNNING,
-    HaJobStates.TERMINATED: JobState.FAILED,
+    HaJobStates.TERMINATED: JobState.TERMINATED,
     HaJobStates.BROKEN: JobState.FAILED,
     HaJobStates.OUT_OF_RETRIES: JobState.FAILED,
 }
@@ -78,11 +78,8 @@ TERMINAL_HA_JOB_STATES = [
 # Reverse mapping from JobState to HaJobStates for filtering in list operations
 JOB_STATE_TO_HA_JOB_STATES: Dict[str, List[str]] = {
     JobState.SUCCEEDED: [HaJobStates.SUCCESS],
-    JobState.FAILED: [
-        HaJobStates.TERMINATED,
-        HaJobStates.BROKEN,
-        HaJobStates.OUT_OF_RETRIES,
-    ],
+    JobState.FAILED: [HaJobStates.BROKEN, HaJobStates.OUT_OF_RETRIES,],
+    JobState.TERMINATED: [HaJobStates.TERMINATED],
     JobState.RUNNING: [
         HaJobStates.UPDATING,
         HaJobStates.RUNNING,

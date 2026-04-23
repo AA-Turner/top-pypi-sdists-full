@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import json
 import logging
 import os
@@ -23,7 +24,7 @@ _BUILTIN_TOOL_DESCRIPTIONS: dict[str, str] = {
     "write_file": "Create or overwrite a file. Only use for new files or full rewrites; prefer edit_file for changes.",
     "edit_file": "Exact string replacement in files. Preferred for targeted code changes.",
     "bash": "Run shell commands (git, build tools, tests, installs). Do NOT use for file reading or searching.",
-    "glob_files": "Find files by name/path pattern (e.g. '**/*.py'). Use instead of bash find or ls.",
+    "glob_files": "Find files and directories by name/path pattern (e.g. '**/*.py'). Use instead of bash find or ls.",
     "grep": "Regex search across file contents. Use instead of bash grep or rg.",
     "create_canvas": "Create a rich content panel (code, docs, diagrams) alongside chat.",
     "update_canvas": "Replace canvas content entirely with new content.",
@@ -156,7 +157,7 @@ DO NOT use bash to do what dedicated tools can do:
 - To read files, use read_file — not cat, head, tail, or sed.
 - To edit files, use edit_file — not sed, awk, or echo redirection.
 - To create files, use write_file — not cat with heredoc or echo.
-- To search for files by name, use glob_files — not find or ls.
+- To search for files or directories by name, use glob_files — not find or ls.
 - To search file contents, use grep — not bash grep or rg.
 Reserve bash for system commands that require shell execution: git, build tools, package managers, \
 running tests, starting servers.
@@ -164,7 +165,7 @@ running tests, starting servers.
 Tool selection:
 - Prefer edit_file over write_file for modifying existing files. edit_file makes targeted changes; \
 write_file replaces the entire file.
-- Prefer grep over bash for searching code. Prefer glob_files over bash for finding files.
+- Prefer grep over bash for searching code. Prefer glob_files over bash for finding files or directories.
 - Read files before modifying them. Never assume you know a file's current contents.
 
 Parallel execution:
@@ -443,6 +444,91 @@ class CompactionConfig:
 
 
 @dataclass
+class CliHierarchyConfig:
+    """Visual-hierarchy knobs for CLI rendering (#1370).
+
+    All three fields default to preserving existing observable behaviour:
+    timestamps are off, ``turn_separator_char`` is only emitted when the
+    explicit helper is called, and the additive ``code_block_language_label``
+    is a low-risk visual hint that themes can style.
+    """
+
+    show_timestamps: bool = False
+    turn_separator_char: str = "\u2500"
+    code_block_language_label: bool = True
+
+
+@dataclass
+class CliStreamingConfig:
+    """Live markdown streaming knobs for CLI rendering (#1365).
+
+    Drives the ``rich.live.Live``-backed incremental renderer that shows
+    markdown formatting (bold/italic/code-fence/headers) as tokens arrive,
+    instead of buffering silently and rendering once at the end of the turn.
+
+    Auto-disabled at runtime in non-TTY, ``NO_COLOR``, and exec-mode contexts
+    regardless of ``enabled`` — see ``cli/streaming.py`` for the guard.
+    """
+
+    enabled: bool = True
+    refresh_hz: float = 20.0
+    live_in_exec_mode: bool = False
+    code_fence_container: bool = True
+
+
+@dataclass
+class CliLiveToolsConfig:
+    """Live tool-call lifecycle rendering knobs (#1364).
+
+    Controls the compact two-phase tool-call surface in the CLI REPL: a
+    running phase carried by the unified thinking/footer ticker, and a
+    completion phase rendered as a single concise line via
+    ``render_tool_call_completion()``.
+
+    All three fields default to the values that produce the richest
+    completion line; users can opt out of the args footline or the
+    metric suffix per preference.
+    """
+
+    show_args_in_verbose: bool = True
+    show_metric_suffix: bool = True
+    metric_max_chars: int = 40
+
+
+@dataclass
+class CliDensityConfig:
+    """Tool-result density knobs for CLI rendering (#1367).
+
+    Controls how tool-call *results* are rendered in the CLI: how much of the
+    output body is shown, whether diff context lines are collapsed, whether
+    identical-shape results are deduplicated, etc.
+
+    ``mode`` defaults to ``"normal"`` — which is byte-identical to the
+    pre-#1367 rendering path. Users opt into smart summaries by setting
+    ``"compact"`` or ``"minimal"`` (or the ``/density`` slash command at
+    runtime). ``"detailed"`` expands the existing ``Verbosity.DETAILED``
+    body-rendering. ``"auto"`` maps from the current ``Verbosity`` state.
+    """
+
+    mode: str = "normal"
+    collapse_repeats: bool = True
+    diff_context_lines: int = 3
+    head_lines: int = 3
+    tail_lines: int = 2
+
+
+@dataclass
+class CliInputConfig:
+    """CLI input-surface controls for prompt-toolkit polish (#1369)."""
+
+    editing_mode: str = "emacs"  # "emacs" or "vi"
+    show_hints: bool = True
+    hint_max_displays: int = 1  # per hint context, per session
+    large_paste_lines: int = 5
+    show_mode_badge: bool = False
+
+
+@dataclass
 class CliConfig:
     theme: str = "midnight"
     builtin_tools: bool = True
@@ -470,6 +556,11 @@ class CliConfig:
     planning: PlanningConfig = field(default_factory=PlanningConfig)
     usage: UsageConfig = field(default_factory=UsageConfig)
     skills: SkillsConfig = field(default_factory=SkillsConfig)
+    hierarchy: CliHierarchyConfig = field(default_factory=CliHierarchyConfig)
+    streaming: CliStreamingConfig = field(default_factory=CliStreamingConfig)
+    live_tools: CliLiveToolsConfig = field(default_factory=CliLiveToolsConfig)
+    density: CliDensityConfig = field(default_factory=CliDensityConfig)
+    input: CliInputConfig = field(default_factory=CliInputConfig)
 
 
 @dataclass
@@ -881,6 +972,7 @@ class AuditConfig:
             "output_filter": True,
             "workflow": True,
             "memory": True,
+            "subagent": True,
         }
     )
 
@@ -1159,6 +1251,341 @@ class WorkflowConfig:
 
 
 @dataclass
+class HookMatcherConfig:
+    """Conditions that must all match for a hook to fire.
+
+    ``tool_name`` is an fnmatch pattern (``"*"`` matches every tool).
+    ``arguments`` is an optional dict of argument key/value pairs that
+    must all be present in the tool's call arguments for the hook to fire.
+    An empty dict matches any arguments.
+    """
+
+    tool_name: str = "*"
+    arguments: dict[str, str] = field(default_factory=dict)
+
+
+@dataclass
+class HookRunnerConfig:
+    """How to execute a hook.
+
+    ``type`` is ``"command"`` (shell subprocess) or ``"webhook"`` (HTTP POST).
+    ``timeout`` is clamped to [1, 30] seconds.
+
+    For ``command`` runners: ``command`` is the shell string to run.  The
+    runtime (#1271) passes tool context via environment variables and reads
+    a JSON decision from stdout.
+
+    For ``webhook`` runners: ``url`` is the HTTP endpoint.  The runtime
+    POSTs a JSON body with tool context and reads a JSON decision from the
+    response body.
+    """
+
+    type: str = "command"
+    command: str = ""
+    url: str = ""
+    timeout: int = 5
+
+    _MIN_TIMEOUT: int = field(default=1, init=False, repr=False)
+    _MAX_TIMEOUT: int = field(default=30, init=False, repr=False)
+    _VALID_TYPES: tuple[str, ...] = field(default=("command", "webhook"), init=False, repr=False)
+
+    def __post_init__(self) -> None:
+        if self.type not in self._VALID_TYPES:
+            logger.warning("hook runner type=%r invalid, defaulting to 'command'", self.type)
+            object.__setattr__(self, "type", "command")
+        if self.timeout < self._MIN_TIMEOUT:
+            logger.warning("hook timeout=%d below minimum (%d), clamping", self.timeout, self._MIN_TIMEOUT)
+            object.__setattr__(self, "timeout", self._MIN_TIMEOUT)
+        if self.timeout > self._MAX_TIMEOUT:
+            logger.warning("hook timeout=%d above maximum (%d), clamping", self.timeout, self._MAX_TIMEOUT)
+            object.__setattr__(self, "timeout", self._MAX_TIMEOUT)
+
+
+@dataclass
+class HookEntryConfig:
+    """A single hook definition attached to a tool lifecycle event.
+
+    ``id`` is a stable string used for deduplication across config layers.
+    When the same ``id`` appears in multiple layers, the highest-priority
+    layer wins (personal > team > defaults), so teams can provide default
+    hooks that operators can override locally.
+
+    ``event`` is ``"pre_tool"`` or ``"post_tool"``.
+
+    ``trust_source`` records which config layer declared this hook.
+    Phase-1 trusted sources: ``"personal"`` and ``"team"``.  Pack-sourced
+    hooks will carry ``"pack"`` and require trust verification (#1272)
+    before the runtime (#1271) may execute them.
+
+    ``message`` is an optional human-readable string included in deny/ask
+    decisions surfaced to the user.
+    """
+
+    id: str = ""
+    event: str = "pre_tool"
+    matcher: HookMatcherConfig = field(default_factory=HookMatcherConfig)
+    runner: HookRunnerConfig = field(default_factory=HookRunnerConfig)
+    message: str = ""
+    trust_source: str = "personal"
+
+    _VALID_EVENTS: tuple[str, ...] = field(default=("pre_tool", "post_tool"), init=False, repr=False)
+    _TRUSTED_SOURCES: tuple[str, ...] = field(default=("personal", "team"), init=False, repr=False)
+
+    def __post_init__(self) -> None:
+        if self.event not in self._VALID_EVENTS:
+            logger.warning("hook event=%r invalid, defaulting to 'pre_tool'", self.event)
+            object.__setattr__(self, "event", "pre_tool")
+
+    @property
+    def is_executable(self) -> bool:
+        """True when this hook may be dispatched by the runtime.
+
+        Phase-1 rule: only hooks from trusted sources (personal config and
+        team config) are executable.  Pack-sourced hooks are parsed and
+        deduplicated but skipped at dispatch time until #1272 adds trust
+        verification.
+        """
+        return self.trust_source in self._TRUSTED_SOURCES
+
+
+@dataclass
+class HooksConfig:
+    """Runtime hook definitions for PreToolUse and PostToolUse events.
+
+    ``pre_tool`` and ``post_tool`` are the deduplicated, ordered lists of
+    hook entries that the runtime (#1271) evaluates on every tool call.
+
+    **Phase-1 trust boundary**: only hooks from ``personal`` and ``team``
+    config sources are executable.  Pack-sourced hooks (#1272) are stored
+    here with ``trust_source="pack"`` but skipped by the runtime.
+
+    **Reload semantics**: hook config is **session-scoped**.  Changes to
+    the config file are detected by ConfigWatcher and logged as a notice,
+    but are NOT applied to a live session.  A session restart is required
+    to pick up hook config changes.  This prevents hook config from being
+    used as an attack surface for stealth runtime modification.
+    """
+
+    pre_tool: list[HookEntryConfig] = field(default_factory=list)
+    post_tool: list[HookEntryConfig] = field(default_factory=list)
+
+
+def _parse_hook_entries(
+    raw_list: object,
+    event: str,
+    trust_source: str,
+    seen_ids: dict[str, str],
+    *,
+    pack_ids: set[str] | None = None,
+) -> list[HookEntryConfig]:
+    """Parse a list of raw hook dicts into ``HookEntryConfig`` objects.
+
+    Deduplicates by ``id``: the first entry seen for a given id wins.
+    ``seen_ids`` is updated in place so callers can track ids across
+    multiple lists (e.g. pre_tool from different config layers).
+
+    Hooks with an empty or missing ``id`` are rejected with a warning.
+    Hooks from lower-priority sources whose id is already registered are
+    silently dropped (higher-priority source wins).
+
+    ``pack_ids`` is an optional set of hook ids known to originate from
+    pack config.  When an id in ``raw_list`` appears in ``pack_ids``, the
+    entry is tagged with ``trust_source="pack"`` regardless of the caller's
+    requested ``trust_source``.  This closes a trust-boundary hole where
+    pack hooks could bubble into the merged personal config (when personal
+    declares no hooks) and be silently promoted to executable.
+    """
+    if not isinstance(raw_list, list):
+        return []
+    entries: list[HookEntryConfig] = []
+    for raw in raw_list:
+        if not isinstance(raw, dict):
+            continue
+        hook_id = str(raw.get("id", "")).strip()
+        if not hook_id:
+            logger.warning("hook entry missing 'id' field — skipped")
+            continue
+        if hook_id in seen_ids:
+            logger.debug(
+                "hook id=%r from source=%r superseded by %r — skipped",
+                hook_id,
+                trust_source,
+                seen_ids[hook_id],
+            )
+            continue
+
+        # Trust-boundary guard: if this id is known to originate from a
+        # pack layer, force trust_source="pack" even if the entry reached
+        # us via the merged "personal" raw dict.  deep_merge bubbles pack
+        # hook lists into the personal view when personal has no
+        # corresponding list, which would otherwise promote untrusted
+        # pack hooks to executable status.
+        effective_source = "pack" if (pack_ids is not None and hook_id in pack_ids) else trust_source
+        seen_ids[hook_id] = effective_source
+
+        raw_matcher = raw.get("matcher", {})
+        if not isinstance(raw_matcher, dict):
+            raw_matcher = {}
+        raw_arguments = raw_matcher.get("arguments", {})
+        if not isinstance(raw_arguments, dict):
+            raw_arguments = {}
+        matcher = HookMatcherConfig(
+            tool_name=str(raw_matcher.get("tool_name", "*")),
+            arguments={str(k): str(v) for k, v in raw_arguments.items()},
+        )
+
+        raw_runner = raw.get("runner", {})
+        if not isinstance(raw_runner, dict):
+            raw_runner = {}
+        runner = HookRunnerConfig(
+            type=str(raw_runner.get("type", "command")),
+            command=str(raw_runner.get("command", "")),
+            url=str(raw_runner.get("url", "")),
+            timeout=int(raw_runner.get("timeout", 5)) if _is_int_like(raw_runner.get("timeout")) else 5,
+        )
+
+        entries.append(
+            HookEntryConfig(
+                id=hook_id,
+                event=event,
+                matcher=matcher,
+                runner=runner,
+                message=str(raw.get("message", "")),
+                trust_source=effective_source,
+            )
+        )
+    return entries
+
+
+def _is_int_like(v: object) -> bool:
+    """True when v can be safely coerced to int."""
+    if isinstance(v, int):
+        return True
+    if isinstance(v, str):
+        try:
+            int(v)
+            return True
+        except ValueError:
+            return False
+    return False
+
+
+def _collect_hook_ids(hooks_raw: object, event_key: str) -> set[str]:
+    """Collect the set of hook ids declared under ``hooks.<event_key>``.
+
+    Non-dict / non-list inputs and entries with empty ids are skipped.
+    Used to tag pack-originated ids so they retain ``trust_source="pack"``
+    even after deep_merge bubbles a pack hook list into the personal view.
+    """
+    if not isinstance(hooks_raw, dict):
+        return set()
+    entries = hooks_raw.get(event_key, [])
+    if not isinstance(entries, list):
+        return set()
+    ids: set[str] = set()
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        hook_id = str(entry.get("id", "")).strip()
+        if hook_id:
+            ids.add(hook_id)
+    return ids
+
+
+def _build_hooks_config(
+    raw: dict[str, object],
+    *,
+    pack_raw: dict[str, object] | None = None,
+    personal_raw: dict[str, object] | None = None,
+    team_raw: dict[str, object] | None = None,
+) -> HooksConfig:
+    """Parse and merge hook config from the resolved config layers.
+
+    ``raw`` is the fully merged config dict used as a fallback when no
+    isolated per-layer views are available.
+
+    ``personal_raw`` is the personal config snapshot taken *before*
+    ``deep_merge`` introduces pack or team content.  Hooks parsed from
+    this layer carry ``trust_source="personal"``.
+
+    ``team_raw`` is the team config dict (trusted layer).  Hooks parsed
+    from this layer carry ``trust_source="team"``.  Personal hooks are
+    parsed first so ``seen_ids`` dedup lets personal win on id collision
+    while unique-id team hooks survive.
+
+    ``pack_raw`` is the pack config dict (untrusted in phase 1).  Entries
+    are parsed and stored but marked non-executable (``trust_source="pack"``).
+
+    Layer priority (highest first): personal > team > pack.
+
+    When neither ``personal_raw`` nor ``team_raw`` is provided, hooks are
+    parsed from ``raw`` with a pack-id guard that re-tags any id that
+    originated in the pack layer so it retains ``trust_source="pack"``.
+    """
+    pack_hooks_raw: dict[str, object] | None = None
+    pack_pre_ids: set[str] = set()
+    pack_post_ids: set[str] = set()
+    if pack_raw:
+        candidate = pack_raw.get("hooks", {})
+        if isinstance(candidate, dict):
+            pack_hooks_raw = candidate
+            pack_pre_ids = _collect_hook_ids(pack_hooks_raw, "pre_tool")
+            pack_post_ids = _collect_hook_ids(pack_hooks_raw, "post_tool")
+
+    seen_pre: dict[str, str] = {}
+    seen_post: dict[str, str] = {}
+    pre_entries: list[HookEntryConfig] = []
+    post_entries: list[HookEntryConfig] = []
+
+    if personal_raw is not None or team_raw is not None:
+        # Fast path: per-layer views provided; label each correctly.
+        # Personal hooks first so seen_ids dedup lets personal win on
+        # id collision while unique-id team hooks pass through.
+        if personal_raw is not None:
+            p_hooks = personal_raw.get("hooks", {})
+            if isinstance(p_hooks, dict):
+                pre_entries += _parse_hook_entries(p_hooks.get("pre_tool", []), "pre_tool", "personal", seen_pre)
+                post_entries += _parse_hook_entries(p_hooks.get("post_tool", []), "post_tool", "personal", seen_post)
+        if team_raw is not None:
+            t_hooks = team_raw.get("hooks", {})
+            if isinstance(t_hooks, dict):
+                pre_entries += _parse_hook_entries(t_hooks.get("pre_tool", []), "pre_tool", "team", seen_pre)
+                post_entries += _parse_hook_entries(t_hooks.get("post_tool", []), "post_tool", "team", seen_post)
+    else:
+        # Fallback: no isolated views; parse from fully-merged ``raw``
+        # and re-tag any pack-bubbled id so it retains trust_source="pack".
+        hooks_raw = raw.get("hooks", {})
+        if not isinstance(hooks_raw, dict):
+            hooks_raw = {}
+        pre_entries = _parse_hook_entries(
+            hooks_raw.get("pre_tool", []),
+            "pre_tool",
+            "personal",
+            seen_pre,
+            pack_ids=pack_pre_ids,
+        )
+        post_entries = _parse_hook_entries(
+            hooks_raw.get("post_tool", []),
+            "post_tool",
+            "personal",
+            seen_post,
+            pack_ids=pack_post_ids,
+        )
+
+    # Phase 1: parse pack-provided hooks but mark them non-executable.
+    if pack_hooks_raw is not None:
+        pre_entries += _parse_hook_entries(pack_hooks_raw.get("pre_tool", []), "pre_tool", "pack", seen_pre)
+        post_entries += _parse_hook_entries(pack_hooks_raw.get("post_tool", []), "post_tool", "pack", seen_post)
+        if pack_hooks_raw.get("pre_tool") or pack_hooks_raw.get("post_tool"):
+            logger.info(
+                "pack-provided hooks detected; they are NOT executable in phase 1 "
+                "(trust_source='pack'). See issue #1272 for trust verification."
+            )
+
+    return HooksConfig(pre_tool=pre_entries, post_tool=post_entries)
+
+
+@dataclass
 class AppConfig:
     ai: AIConfig
     app: AppSettings = field(default_factory=AppSettings)
@@ -1185,6 +1612,7 @@ class AppConfig:
     trusted_proxy: TrustedProxyConfig = field(default_factory=TrustedProxyConfig)
     workflow: WorkflowConfig = field(default_factory=WorkflowConfig)
     pack_sources: list[PackSourceConfig] = field(default_factory=list)
+    hooks: HooksConfig = field(default_factory=HooksConfig)
 
 
 def _resolve_data_dir() -> Path:
@@ -1297,11 +1725,28 @@ def load_config(
     path = config_path or _get_config_path()
 
     if path.exists():
+        # Capture any external edits made while Anteroom was not running
+        import contextlib
+
+        with contextlib.suppress(Exception):
+            from .services.config_history import ConfigHistoryService, get_backup_dir
+
+            ConfigHistoryService(get_backup_dir(path.parent)).detect_and_snapshot_external_edit(path)
+
         with open(path, encoding="utf-8-sig") as f:
             raw = yaml.safe_load(f) or {}
 
     # Resolve reference paths relative to the personal config file
     raw = _resolve_reference_paths(raw, path.parent)
+
+    # Snapshot the personal-only raw dict before any team/pack/space/project
+    # layers are merged in.  Used by ``_build_hooks_config`` so that the
+    # phase-1 trust boundary (personal hooks are executable, pack hooks are
+    # not) does not depend on which layers happened to supply a ``hooks``
+    # key.  Wholesale list replacement during deep_merge would otherwise
+    # let a pack's ``pre_tool`` list bubble into the merged ``raw["hooks"]``
+    # when personal declares none, silently promoting untrusted entries.
+    personal_raw_snapshot: dict[str, Any] = copy.deepcopy(raw)
 
     # Validate raw config before parsing into dataclasses
     from .services.config_validator import validate_config
@@ -1888,6 +2333,247 @@ def load_config(
     skills_auto_invoke = str(skills_raw.get("auto_invoke", "true")).lower() not in ("false", "0", "no")
     skills_config = SkillsConfig(auto_invoke=skills_auto_invoke)
 
+    # Parse cli.hierarchy (visual-hierarchy knobs, #1370)
+    hierarchy_raw = cli_raw.get("hierarchy", {})
+    if not isinstance(hierarchy_raw, dict):
+        hierarchy_raw = {}
+    hierarchy_show_timestamps_raw = os.environ.get(
+        "AI_CHAT_CLI_HIERARCHY_SHOW_TIMESTAMPS",
+        hierarchy_raw.get("show_timestamps", False),
+    )
+    hierarchy_show_timestamps = str(hierarchy_show_timestamps_raw).lower() in ("true", "1", "yes")
+    hierarchy_turn_separator_char = str(
+        os.environ.get(
+            "AI_CHAT_CLI_HIERARCHY_TURN_SEPARATOR_CHAR",
+            hierarchy_raw.get("turn_separator_char", "\u2500"),
+        )
+    )
+    if not hierarchy_turn_separator_char:
+        hierarchy_turn_separator_char = "\u2500"
+    hierarchy_code_label_raw = os.environ.get(
+        "AI_CHAT_CLI_HIERARCHY_CODE_BLOCK_LANGUAGE_LABEL",
+        hierarchy_raw.get("code_block_language_label", True),
+    )
+    hierarchy_code_block_language_label = str(hierarchy_code_label_raw).lower() not in ("false", "0", "no")
+    hierarchy_config = CliHierarchyConfig(
+        show_timestamps=hierarchy_show_timestamps,
+        turn_separator_char=hierarchy_turn_separator_char,
+        code_block_language_label=hierarchy_code_block_language_label,
+    )
+
+    # Parse cli.streaming (live markdown streaming, #1365)
+    streaming_raw = cli_raw.get("streaming", {})
+    if not isinstance(streaming_raw, dict):
+        streaming_raw = {}
+    streaming_enabled_raw = os.environ.get(
+        "AI_CHAT_CLI_STREAMING_ENABLED",
+        streaming_raw.get("enabled", True),
+    )
+    streaming_enabled = str(streaming_enabled_raw).lower() not in ("false", "0", "no")
+    streaming_refresh_hz_raw = os.environ.get(
+        "AI_CHAT_CLI_STREAMING_REFRESH_HZ",
+        streaming_raw.get("refresh_hz", 20.0),
+    )
+    try:
+        streaming_refresh_hz = float(streaming_refresh_hz_raw)
+    except (TypeError, ValueError):
+        streaming_refresh_hz = 20.0
+    if streaming_refresh_hz < 1.0:
+        logger.warning(
+            "cli.streaming.refresh_hz=%s below minimum (1.0), clamping",
+            streaming_refresh_hz,
+        )
+        streaming_refresh_hz = 1.0
+    elif streaming_refresh_hz > 60.0:
+        logger.warning(
+            "cli.streaming.refresh_hz=%s above maximum (60.0), clamping",
+            streaming_refresh_hz,
+        )
+        streaming_refresh_hz = 60.0
+    streaming_live_exec_raw = os.environ.get(
+        "AI_CHAT_CLI_STREAMING_LIVE_IN_EXEC_MODE",
+        streaming_raw.get("live_in_exec_mode", False),
+    )
+    streaming_live_in_exec_mode = str(streaming_live_exec_raw).lower() in ("true", "1", "yes")
+    streaming_fence_raw = os.environ.get(
+        "AI_CHAT_CLI_STREAMING_CODE_FENCE_CONTAINER",
+        streaming_raw.get("code_fence_container", True),
+    )
+    streaming_code_fence_container = str(streaming_fence_raw).lower() not in ("false", "0", "no")
+    streaming_config = CliStreamingConfig(
+        enabled=streaming_enabled,
+        refresh_hz=streaming_refresh_hz,
+        live_in_exec_mode=streaming_live_in_exec_mode,
+        code_fence_container=streaming_code_fence_container,
+    )
+
+    # Parse cli.live_tools (compact live tool-call lifecycle, #1364)
+    live_tools_raw = cli_raw.get("live_tools", {})
+    if not isinstance(live_tools_raw, dict):
+        live_tools_raw = {}
+    live_tools_show_args_raw = os.environ.get(
+        "AI_CHAT_CLI_LIVE_TOOLS_SHOW_ARGS_IN_VERBOSE",
+        live_tools_raw.get("show_args_in_verbose", True),
+    )
+    live_tools_show_args_in_verbose = str(live_tools_show_args_raw).lower() not in ("false", "0", "no")
+    live_tools_show_metric_raw = os.environ.get(
+        "AI_CHAT_CLI_LIVE_TOOLS_SHOW_METRIC_SUFFIX",
+        live_tools_raw.get("show_metric_suffix", True),
+    )
+    live_tools_show_metric_suffix = str(live_tools_show_metric_raw).lower() not in ("false", "0", "no")
+    live_tools_metric_max_raw = os.environ.get(
+        "AI_CHAT_CLI_LIVE_TOOLS_METRIC_MAX_CHARS",
+        live_tools_raw.get("metric_max_chars", 40),
+    )
+    try:
+        live_tools_metric_max_chars = int(live_tools_metric_max_raw)
+    except (TypeError, ValueError):
+        live_tools_metric_max_chars = 40
+    if live_tools_metric_max_chars < 1:
+        logger.warning(
+            "cli.live_tools.metric_max_chars=%s below minimum (1), clamping",
+            live_tools_metric_max_chars,
+        )
+        live_tools_metric_max_chars = 1
+    elif live_tools_metric_max_chars > 200:
+        logger.warning(
+            "cli.live_tools.metric_max_chars=%s above maximum (200), clamping",
+            live_tools_metric_max_chars,
+        )
+        live_tools_metric_max_chars = 200
+    live_tools_config = CliLiveToolsConfig(
+        show_args_in_verbose=live_tools_show_args_in_verbose,
+        show_metric_suffix=live_tools_show_metric_suffix,
+        metric_max_chars=live_tools_metric_max_chars,
+    )
+
+    # Parse cli.density (tool-result density knobs, #1367)
+    density_raw = cli_raw.get("density", {})
+    if not isinstance(density_raw, dict):
+        density_raw = {}
+    density_mode = str(
+        os.environ.get(
+            "AI_CHAT_CLI_DENSITY_MODE",
+            density_raw.get("mode", "normal"),
+        )
+    ).lower()
+    if density_mode not in ("minimal", "compact", "normal", "detailed", "auto"):
+        logger.warning(
+            "cli.density.mode=%s not recognised, falling back to 'normal'",
+            density_mode,
+        )
+        density_mode = "normal"
+    density_collapse_raw = os.environ.get(
+        "AI_CHAT_CLI_DENSITY_COLLAPSE_REPEATS",
+        density_raw.get("collapse_repeats", True),
+    )
+    density_collapse_repeats = str(density_collapse_raw).lower() not in ("false", "0", "no")
+    try:
+        density_diff_context_lines = int(
+            os.environ.get(
+                "AI_CHAT_CLI_DENSITY_DIFF_CONTEXT_LINES",
+                density_raw.get("diff_context_lines", 3),
+            )
+        )
+    except (TypeError, ValueError):
+        density_diff_context_lines = 3
+    if density_diff_context_lines < 0:
+        density_diff_context_lines = 0
+    try:
+        density_head_lines = int(
+            os.environ.get(
+                "AI_CHAT_CLI_DENSITY_HEAD_LINES",
+                density_raw.get("head_lines", 3),
+            )
+        )
+    except (TypeError, ValueError):
+        density_head_lines = 3
+    if density_head_lines < 0:
+        density_head_lines = 0
+    try:
+        density_tail_lines = int(
+            os.environ.get(
+                "AI_CHAT_CLI_DENSITY_TAIL_LINES",
+                density_raw.get("tail_lines", 2),
+            )
+        )
+    except (TypeError, ValueError):
+        density_tail_lines = 2
+    if density_tail_lines < 0:
+        density_tail_lines = 0
+    density_config = CliDensityConfig(
+        mode=density_mode,
+        collapse_repeats=density_collapse_repeats,
+        diff_context_lines=density_diff_context_lines,
+        head_lines=density_head_lines,
+        tail_lines=density_tail_lines,
+    )
+
+    input_raw = cli_raw.get("input", {})
+    if not isinstance(input_raw, dict):
+        input_raw = {}
+    input_editing_mode = (
+        str(
+            input_raw.get(
+                "editing_mode",
+                os.environ.get("AI_CHAT_EDITING_MODE", "emacs"),
+            )
+        )
+        .strip()
+        .lower()
+    )
+    if input_editing_mode not in ("emacs", "vi"):
+        input_editing_mode = "emacs"
+    input_show_hints = str(
+        os.environ.get(
+            "AI_CHAT_INPUT_HINTS",
+            input_raw.get("show_hints", True),
+        )
+    ).lower() not in ("false", "0", "no")
+    try:
+        input_hint_max_displays = max(
+            0,
+            min(
+                10,
+                int(
+                    os.environ.get(
+                        "AI_CHAT_INPUT_HINT_MAX_DISPLAYS",
+                        input_raw.get("hint_max_displays", 1),
+                    )
+                ),
+            ),
+        )
+    except (ValueError, TypeError):
+        input_hint_max_displays = 1
+    try:
+        input_large_paste_lines = max(
+            2,
+            min(
+                100,
+                int(
+                    os.environ.get(
+                        "AI_CHAT_INPUT_LARGE_PASTE_LINES",
+                        input_raw.get("large_paste_lines", 5),
+                    )
+                ),
+            ),
+        )
+    except (ValueError, TypeError):
+        input_large_paste_lines = 5
+    input_show_mode_badge = str(
+        os.environ.get(
+            "AI_CHAT_INPUT_SHOW_MODE_BADGE",
+            input_raw.get("show_mode_badge", False),
+        )
+    ).lower() not in ("false", "0", "no")
+    input_config = CliInputConfig(
+        editing_mode=input_editing_mode,
+        show_hints=input_show_hints,
+        hint_max_displays=input_hint_max_displays,
+        large_paste_lines=input_large_paste_lines,
+        show_mode_badge=input_show_mode_badge,
+    )
+
     cli_config = CliConfig(
         builtin_tools=cli_raw.get("builtin_tools", True),
         max_tool_iterations=int(cli_raw.get("max_tool_iterations", 50)),
@@ -1918,6 +2604,11 @@ def load_config(
         planning=planning_config,
         usage=usage_config,
         skills=skills_config,
+        hierarchy=hierarchy_config,
+        streaming=streaming_config,
+        live_tools=live_tools_config,
+        density=density_config,
+        input=input_config,
     )
 
     identity_raw = raw.get("identity", {})
@@ -2215,23 +2906,28 @@ def load_config(
         log_detections=of_log_detections,
     )
 
+    safety_kwargs: dict[str, Any] = {
+        "enabled": safety_enabled,
+        "approval_mode": safety_approval_mode,
+        "approval_timeout": safety_timeout,
+        "bash": bash_sandbox,
+        "write_file": SafetyToolConfig(enabled=wf_safety_enabled),
+        "custom_patterns": [str(p) for p in safety_custom_patterns],
+        "sensitive_paths": [str(p) for p in safety_sensitive_paths],
+        "allowed_tools": [str(t) for t in safety_allowed_tools],
+        "denied_tools": [str(t) for t in safety_denied_tools],
+        "tool_tiers": {str(k): str(v) for k, v in safety_tool_tiers.items()},
+        "read_only": safety_read_only,
+        "subagent": subagent_config,
+        "tool_rate_limit": tool_rate_limit_config,
+        "dlp": dlp_config,
+        "output_filter": output_filter_config,
+    }
+    if safety_bypass_immune_paths is not None:
+        safety_kwargs["bypass_immune_paths"] = safety_bypass_immune_paths
+
     safety_config = SafetyConfig(
-        enabled=safety_enabled,
-        approval_mode=safety_approval_mode,
-        approval_timeout=safety_timeout,
-        bash=bash_sandbox,
-        write_file=SafetyToolConfig(enabled=wf_safety_enabled),
-        custom_patterns=[str(p) for p in safety_custom_patterns],
-        sensitive_paths=[str(p) for p in safety_sensitive_paths],
-        **({"bypass_immune_paths": safety_bypass_immune_paths} if safety_bypass_immune_paths is not None else {}),
-        allowed_tools=[str(t) for t in safety_allowed_tools],
-        denied_tools=[str(t) for t in safety_denied_tools],
-        tool_tiers={str(k): str(v) for k, v in safety_tool_tiers.items()},
-        read_only=safety_read_only,
-        subagent=subagent_config,
-        tool_rate_limit=tool_rate_limit_config,
-        dlp=dlp_config,
-        output_filter=output_filter_config,
+        **safety_kwargs,
     )
 
     # Compaction config (#1413)
@@ -2721,7 +3417,7 @@ def load_config(
     if not isinstance(audit_events_raw, dict):
         audit_events_raw = {}
     audit_events: dict[str, bool] = {}
-    for evt_key in ("auth", "tool_calls", "dlp", "output_filter"):
+    for evt_key in ("auth", "tool_calls", "dlp", "output_filter", "workflow", "memory", "subagent"):
         audit_events[evt_key] = str(audit_events_raw.get(evt_key, "true")).lower() not in ("false", "0", "no")
     audit_config = AuditConfig(
         enabled=audit_enabled,
@@ -3143,6 +3839,27 @@ def load_config(
         header=tp_header,
     )
 
+    # Build a "trusted" hooks view from the pre-merge personal snapshot
+    # plus any team-contributed hooks.  Pack hooks are intentionally
+    # excluded here — they are passed separately as ``pack_raw`` so the
+    # parser can tag them with ``trust_source="pack"`` and the runtime
+    # can hold them non-executable until trust verification ships (#1272).
+    #
+    # Team hooks merge UNDER personal (personal wins on id collision) so
+    # that operators retain the final word on hook behaviour.  ``deep_merge``
+    # would REPLACE the hook list wholesale (it is a plain list of dicts,
+    # not a name-keyed list), silently dropping team hooks with unique ids
+    # Pass per-layer views so each hook entry retains its correct
+    # trust_source ("personal" vs "team") rather than being collapsed
+    # into a single trusted blob.  This is required to freeze the schema
+    # contract for #1271 (runtime dispatch honours trust_source).
+    hooks_config = _build_hooks_config(
+        raw,
+        pack_raw=pack_config if isinstance(pack_config, dict) else None,
+        personal_raw=personal_raw_snapshot if isinstance(personal_raw_snapshot, dict) else None,
+        team_raw=team_raw if isinstance(team_raw, dict) else None,
+    )
+
     pack_sources_raw = raw.get("pack_sources", [])
     if not isinstance(pack_sources_raw, list):
         pack_sources_raw = []
@@ -3205,6 +3922,7 @@ def load_config(
             trusted_proxy=trusted_proxy_config,
             workflow=workflow_config,
             pack_sources=pack_sources_list,
+            hooks=hooks_config,
         ),
         enforced_fields,
     )

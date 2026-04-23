@@ -11,7 +11,7 @@ import tidy3d as td
 from tidy3d.components.source.field import CHEB_GRID_WIDTH, DirectionalSource
 from tidy3d.exceptions import SetupError
 
-from ..utils import AssertLogLevel, AssertLogStr
+from ..utils import AssertLogLevel, AssertLogStr, assert_single_value_error_loc
 
 ST = td.GaussianPulse(freq0=2e14, fwidth=1e14)
 S = td.PointDipole(source_time=ST, polarization="Ex")
@@ -429,6 +429,18 @@ def test_astigmatic_gaussian_beam_backward_waist_distance_warning():
         )
 
 
+def test_wrapped_glancing_incidence_warning():
+    g = td.GaussianPulse(freq0=1e12, fwidth=0.1e12)
+
+    with AssertLogLevel("WARNING", contains_str="close to glancing angle"):
+        td.PlaneWave(
+            size=(0, td.inf, td.inf),
+            source_time=g,
+            direction="+",
+            angle_theta=5 * np.pi / 2,
+        )
+
+
 def test_pol_arrow():
     g = td.GaussianPulse(freq0=1e12, fwidth=0.1e12)
 
@@ -826,6 +838,25 @@ def test_fixed_angle_source():
     )
 
     assert not plane_wave._is_fixed_angle
+
+
+def test_plane_wave_critical_frequency_error_loc():
+    with pytest.raises(ValidationError) as excinfo:
+        _ = td.PlaneWave(
+            size=(0, td.inf, td.inf),
+            direction="+",
+            angle_theta=np.pi / 2,
+            angle_phi=0.0,
+            pol_angle=0.0,
+            source_time=td.GaussianPulse(freq0=1e14, fwidth=1e8),
+            num_freqs=3,
+        )
+
+    assert_single_value_error_loc(
+        excinfo,
+        ("num_freqs",),
+        "critical frequency of oblique incidence",
+    )
 
 
 def test_broadband_angled_gaussian_warning():

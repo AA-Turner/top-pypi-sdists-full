@@ -619,9 +619,10 @@ programs:
         full_name: Delaware State Supplementary Payment
         variable: de_ssp
       - state: FL
-        status: in_progress
+        status: complete
         name: Florida OSS
         full_name: Florida Optional State Supplementation
+        variable: fl_oss
       - state: GA
         status: complete
         name: Georgia SSP

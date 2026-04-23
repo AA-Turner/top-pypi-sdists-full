@@ -12,6 +12,7 @@ Usage::
 
     from types_boto3_ivs.client import IVSClient
     from types_boto3_ivs.paginator import (
+        ListAdConfigurationsPaginator,
         ListChannelsPaginator,
         ListPlaybackKeyPairsPaginator,
         ListRecordingConfigurationsPaginator,
@@ -22,6 +23,7 @@ Usage::
     session = Session()
     client: IVSClient = session.client("ivs")
 
+    list_ad_configurations_paginator: ListAdConfigurationsPaginator = client.get_paginator("list_ad_configurations")
     list_channels_paginator: ListChannelsPaginator = client.get_paginator("list_channels")
     list_playback_key_pairs_paginator: ListPlaybackKeyPairsPaginator = client.get_paginator("list_playback_key_pairs")
     list_recording_configurations_paginator: ListRecordingConfigurationsPaginator = client.get_paginator("list_recording_configurations")
@@ -38,6 +40,8 @@ from typing import TYPE_CHECKING
 from botocore.paginate import PageIterator, Paginator
 
 from .type_defs import (
+    ListAdConfigurationsRequestPaginateTypeDef,
+    ListAdConfigurationsResponseTypeDef,
     ListChannelsRequestPaginateTypeDef,
     ListChannelsResponseTypeDef,
     ListPlaybackKeyPairsRequestPaginateTypeDef,
@@ -56,12 +60,31 @@ else:
     from typing_extensions import Unpack
 
 __all__ = (
+    "ListAdConfigurationsPaginator",
     "ListChannelsPaginator",
     "ListPlaybackKeyPairsPaginator",
     "ListRecordingConfigurationsPaginator",
     "ListStreamKeysPaginator",
     "ListStreamsPaginator",
 )
+
+if TYPE_CHECKING:
+    _ListAdConfigurationsPaginatorBase = Paginator[ListAdConfigurationsResponseTypeDef]
+else:
+    _ListAdConfigurationsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListAdConfigurationsPaginator(_ListAdConfigurationsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ivs/paginator/ListAdConfigurations.html#IVS.Paginator.ListAdConfigurations)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ivs/paginators/#listadconfigurationspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListAdConfigurationsRequestPaginateTypeDef]
+    ) -> PageIterator[ListAdConfigurationsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ivs/paginator/ListAdConfigurations.html#IVS.Paginator.ListAdConfigurations.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ivs/paginators/#listadconfigurationspaginator)
+        """
 
 if TYPE_CHECKING:
     _ListChannelsPaginatorBase = Paginator[ListChannelsResponseTypeDef]

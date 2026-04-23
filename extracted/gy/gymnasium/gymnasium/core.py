@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from typing import TYPE_CHECKING, Any, Generic, SupportsFloat, TypeVar
+from typing import TYPE_CHECKING, Any, Generic, SupportsFloat, TypeAlias, TypeVar
 
 import numpy as np
 
@@ -11,13 +11,13 @@ import gymnasium
 from gymnasium import spaces
 from gymnasium.utils import RecordConstructorArgs, seeding
 
-
 if TYPE_CHECKING:
     from gymnasium.envs.registration import EnvSpec, WrapperSpec
 
 ObsType = TypeVar("ObsType")
 ActType = TypeVar("ActType")
-RenderFrame = TypeVar("RenderFrame")
+
+RenderFrame: TypeAlias = str | np.ndarray | tuple[np.ndarray, np.ndarray]
 
 
 class Env(Generic[ObsType, ActType]):
@@ -303,16 +303,16 @@ class Wrapper(
         If you inherit from :class:`Wrapper`, don't forget to call ``super().__init__(env)``
     """
 
-    def __init__(self, env: Env[ObsType, ActType]):
+    def __init__(self, env: Env[WrapperObsType, WrapperActType]):
         """Wraps an environment to allow a modular transformation of the :meth:`step` and :meth:`reset` methods.
 
         Args:
             env: The environment to wrap
         """
         self.env = env
-        assert isinstance(
-            env, Env
-        ), f"Expected env to be a `gymnasium.Env` but got {type(env)}"
+        assert isinstance(env, Env), (
+            f"Expected env to be a `gymnasium.Env` but got {type(env)}"
+        )
 
         self._action_space: spaces.Space[WrapperActType] | None = None
         self._observation_space: spaces.Space[WrapperObsType] | None = None
@@ -363,7 +363,7 @@ class Wrapper(
         if env_spec is not None:
             # See if the wrapper inherits from `RecordConstructorArgs` then add the kwargs otherwise use `None` for the wrapper kwargs. This will raise an error in `make`
             if isinstance(self, RecordConstructorArgs):
-                kwargs = getattr(self, "_saved_kwargs")
+                kwargs = self._saved_kwargs
                 if "env" in kwargs:
                     kwargs = deepcopy(kwargs)
                     kwargs.pop("env")

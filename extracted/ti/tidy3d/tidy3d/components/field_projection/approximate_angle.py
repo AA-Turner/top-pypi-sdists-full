@@ -16,6 +16,7 @@ from tidy3d.components.data.monitor_data import (
 
 from .common import (
     FIELD_COMPONENT_NAMES,
+    PROJECTION_FREQ_CHUNK_SIZE,
     _far_field_integral,
     _prepare_far_field_projection,
     _projection_data_from_fields,
@@ -51,7 +52,7 @@ class _ApproximateAngleProjectionMixin:
             currents=currents,
             medium=medium,
             is_2d_simulation=self.is_2d_simulation,
-            simulation_size=self.sim_data.simulation.size,
+            simulation_size=self.effective_simulation_size,
         )
         return self._far_fields_from_prepared(
             theta=theta, phi=phi, prepared=prepared, surface_axis=surface.axis
@@ -108,7 +109,10 @@ class _ApproximateAngleProjectionMixin:
         )
 
     def _project_fields_angular(
-        self, monitor: FieldProjectionAngleMonitor, verbose: bool = True
+        self,
+        monitor: FieldProjectionAngleMonitor,
+        verbose: bool = True,
+        freq_chunk_size: int | None = PROJECTION_FREQ_CHUNK_SIZE,
     ) -> FieldProjectionAngleData:
         """Compute projected fields on an angle-based grid in spherical coordinates."""
 
@@ -156,6 +160,7 @@ class _ApproximateAngleProjectionMixin:
                 surface_currents=surface_currents,
                 medium=medium,
                 verbose=verbose,
+                freq_chunk_size=freq_chunk_size,
             )
             stacked_fields = anp.reshape(
                 stacked_fields,

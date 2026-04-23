@@ -14,6 +14,7 @@ from .async_tasks import cancel_task
 from .egress_allowlist import check_egress_allowed
 from .error_sanitizer import sanitize_provider_error
 from .token_provider import TokenProvider, TokenProviderError
+from .user_errors import build_user_error
 
 logger = logging.getLogger(__name__)
 
@@ -545,13 +546,13 @@ class AIService:
                     logger.error("Authentication failed and token refresh unavailable")
                     yield {
                         "event": "error",
-                        "data": {
-                            "message": "Authentication failed. Check your API key or api_key_command.",
-                            "code": "auth_failed",
-                            "retryable": False,
-                            "provider": self.config.provider,
-                            "model": self.config.model,
-                        },
+                        "data": build_user_error(
+                            "Authentication failed. Check your API key or api_key_command.",
+                            code="auth_failed",
+                            suggestion="Run: aroom init",
+                            provider=self.config.provider,
+                            model=self.config.model,
+                        ),
                     }
                 return
             except BadRequestError as e:
@@ -561,27 +562,24 @@ class AIService:
                     logger.warning("Context length exceeded: %s", e)
                     yield {
                         "event": "error",
-                        "data": {
-                            "message": "Conversation too long for model context window.",
-                            "code": "context_length_exceeded",
-                            "retryable": False,
-                            "provider": self.config.provider,
-                            "model": self.config.model,
-                        },
+                        "data": build_user_error(
+                            "Conversation too long for model context window.",
+                            code="context_length_exceeded",
+                            provider=self.config.provider,
+                            model=self.config.model,
+                        ),
                     }
                 elif "too many" in str(e).lower() and "tool" in str(e).lower():
                     logger.warning("Too many tools in request: %s", e)
                     yield {
                         "event": "error",
-                        "data": {
-                            "message": (
-                                "Too many tools for this API provider. Reduce MCP tools or set ai.max_tools in config."
-                            ),
-                            "code": "too_many_tools",
-                            "retryable": False,
-                            "provider": self.config.provider,
-                            "model": self.config.model,
-                        },
+                        "data": build_user_error(
+                            "Too many tools for this API provider.",
+                            code="too_many_tools",
+                            suggestion="Reduce MCP tools or set ai.max_tools in config",
+                            provider=self.config.provider,
+                            model=self.config.model,
+                        ),
                     }
                 else:
                     raw_msg = ""
@@ -593,7 +591,12 @@ class AIService:
                     logger.warning("AI bad request error: %s", e)
                     yield {
                         "event": "error",
-                        "data": {"message": user_msg, "code": "bad_request", "retryable": False},
+                        "data": build_user_error(
+                            user_msg,
+                            code="bad_request",
+                            provider=self.config.provider,
+                            model=self.config.model,
+                        ),
                     }
                 return
             except RateLimitError as e:
@@ -602,13 +605,13 @@ class AIService:
                     return  # user cancelled — don't emit retryable error
                 yield {
                     "event": "error",
-                    "data": {
-                        "message": "Rate limited by API provider",
-                        "code": "rate_limit",
-                        "retryable": True,
-                        "provider": self.config.provider,
-                        "model": self.config.model,
-                    },
+                    "data": build_user_error(
+                        "Rate limited by API provider.",
+                        code="rate_limit",
+                        retryable=True,
+                        provider=self.config.provider,
+                        model=self.config.model,
+                    ),
                 }
                 return
             except APIStatusError as e:
@@ -659,13 +662,13 @@ class AIService:
                         msg = f"API error (HTTP {e.status_code})"
                     yield {
                         "event": "error",
-                        "data": {
-                            "message": msg,
-                            "code": "api_error",
-                            "retryable": False,
-                            "provider": self.config.provider,
-                            "model": self.config.model,
-                        },
+                        "data": build_user_error(
+                            msg,
+                            code="api_error",
+                            provider=self.config.provider,
+                            model=self.config.model,
+                            base_url=self.config.base_url,
+                        ),
                     }
                     return
             except _StreamTimeoutError:
@@ -676,13 +679,14 @@ class AIService:
                     return  # user cancelled — don't emit retryable error
                 yield {
                     "event": "error",
-                    "data": {
-                        "message": f"Stream timed out after {stream_elapsed:.0f}s — response may be incomplete",
-                        "code": "timeout",
-                        "retryable": True,
-                        "provider": self.config.provider,
-                        "model": self.config.model,
-                    },
+                    "data": build_user_error(
+                        f"Stream timed out after {stream_elapsed:.0f}s.",
+                        code="timeout",
+                        suggestion="Response may be incomplete",
+                        retryable=True,
+                        provider=self.config.provider,
+                        model=self.config.model,
+                    ),
                 }
                 return
             except (APITimeoutError, APIConnectionError, _FirstTokenTimeoutError) as e:
@@ -723,17 +727,16 @@ class AIService:
                     logger.debug("API returned HTML instead of JSON: %.500s", e)
                     yield {
                         "event": "error",
-                        "data": {
-                            "message": (
+                        "data": build_user_error(
+                            (
                                 f"API returned an HTML page instead of JSON. "
-                                f"Check that your base URL ({self.config.base_url}) "
-                                f"points to an API endpoint, not a web page."
+                                f"Check that your base URL ({self.config.base_url}) points to an API endpoint."
                             ),
-                            "code": "html_response",
-                            "retryable": False,
-                            "provider": self.config.provider,
-                            "model": self.config.model,
-                        },
+                            code="html_response",
+                            provider=self.config.provider,
+                            model=self.config.model,
+                            base_url=self.config.base_url,
+                        ),
                     }
                 else:
                     # (#1343) Tightened generic catch-all: preserve the
@@ -744,13 +747,12 @@ class AIService:
                     logger.exception("AI stream provider error: %s", type(e).__name__)
                     yield {
                         "event": "error",
-                        "data": {
-                            "message": sanitize_provider_error(str(e)) or "An internal error occurred",
-                            "code": "provider_error",
-                            "retryable": False,
-                            "provider": self.config.provider,
-                            "model": self.config.model,
-                        },
+                        "data": build_user_error(
+                            sanitize_provider_error(str(e)) or "An internal error occurred",
+                            code="provider_error",
+                            provider=self.config.provider,
+                            model=self.config.model,
+                        ),
                     }
                 return
 
@@ -758,35 +760,36 @@ class AIService:
         if isinstance(last_transient_error, APITimeoutError):
             yield {
                 "event": "error",
-                "data": {
-                    "message": f"Request timed out ({max_attempts} attempts)",
-                    "code": "timeout",
-                    "retryable": True,
-                    "provider": self.config.provider,
-                    "model": self.config.model,
-                },
+                "data": build_user_error(
+                    f"Request timed out ({max_attempts} attempts).",
+                    code="timeout",
+                    retryable=True,
+                    provider=self.config.provider,
+                    model=self.config.model,
+                ),
             }
         elif isinstance(last_transient_error, _FirstTokenTimeoutError):
             yield {
                 "event": "error",
-                "data": {
-                    "message": f"No response from API ({max_attempts} attempts)",
-                    "code": "timeout",
-                    "retryable": True,
-                    "provider": self.config.provider,
-                    "model": self.config.model,
-                },
+                "data": build_user_error(
+                    f"No response from API ({max_attempts} attempts).",
+                    code="timeout",
+                    retryable=True,
+                    provider=self.config.provider,
+                    model=self.config.model,
+                ),
             }
         elif isinstance(last_transient_error, APIConnectionError):
             yield {
                 "event": "error",
-                "data": {
-                    "message": f"Cannot connect to API ({max_attempts} attempts)",
-                    "code": "connection_error",
-                    "retryable": True,
-                    "provider": self.config.provider,
-                    "model": self.config.model,
-                },
+                "data": build_user_error(
+                    f"Cannot connect to API ({max_attempts} attempts).",
+                    code="connection_error",
+                    retryable=True,
+                    provider=self.config.provider,
+                    model=self.config.model,
+                    base_url=self.config.base_url,
+                ),
             }
         elif isinstance(last_transient_error, APIStatusError):
             if _is_html_error(last_transient_error):
@@ -798,13 +801,13 @@ class AIService:
                 msg = f"API server error (HTTP {last_transient_error.status_code}, {max_attempts} attempts)"
             yield {
                 "event": "error",
-                "data": {
-                    "message": msg,
-                    "code": "api_error",
-                    "retryable": True,
-                    "provider": self.config.provider,
-                    "model": self.config.model,
-                },
+                "data": build_user_error(
+                    msg,
+                    code="api_error",
+                    retryable=True,
+                    provider=self.config.provider,
+                    model=self.config.model,
+                ),
             }
 
     async def generate_title(self, user_message: str, _token_refreshed: bool = False) -> str:

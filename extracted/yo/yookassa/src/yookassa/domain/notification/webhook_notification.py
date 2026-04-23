@@ -6,6 +6,7 @@ from yookassa.domain.response import DealResponse
 from yookassa.domain.response.payment_response import PaymentResponse
 from yookassa.domain.response.payout_response import PayoutResponse
 from yookassa.domain.response.refund_response import RefundResponse
+from yookassa.domain.response.payment_method_response import PaymentMethodResponse
 
 
 class WebhookNotification(BaseObject):
@@ -188,6 +189,37 @@ class PayoutWebhookNotification(WebhookNotification):
             raise TypeError('Invalid object type')
 
 
+class PaymentMethodWebhookNotification(WebhookNotification):
+    """
+    Объект с информацией о способе оплаты, уведомление о котором хранится в текущем объекте.
+    """  # noqa: E501
+
+    @property
+    def object(self):
+        """
+        Возвращает object модели PaymentMethodWebhookNotification.
+
+        :return: object модели PaymentMethodWebhookNotification.
+        :rtype: PaymentMethodResponse
+        """
+        return self.__object
+
+    @object.setter
+    def object(self, value):
+        """
+        Устанавливает object модели PaymentMethodWebhookNotification.
+
+        :param value: object модели PaymentMethodWebhookNotification.
+        :type value: PaymentMethodResponse
+        """
+        if isinstance(value, dict) and value:
+            self.__object = PaymentMethodResponse(value)
+        elif not value:
+            raise ValueError('Parameter object is empty')
+        else:
+            raise TypeError('Invalid object type')
+
+
 class WebhookNotificationFactory(object):
     """
     Фабрика создания объекта WebhookNotification по типу.
@@ -234,6 +266,8 @@ class WebhookNotificationFactory(object):
             elif data['event'] == WebhookNotificationEventType.PAYOUT_SUCCEEDED or \
                     data['event'] == WebhookNotificationEventType.PAYOUT_CANCELED:
                 return PayoutWebhookNotification
+            elif data['event'] == WebhookNotificationEventType.PAYMENT_METHOD_ACTIVE:
+                return PaymentMethodWebhookNotification
             else:
                 return WebhookNotification
         else:

@@ -51,12 +51,13 @@ jobs:
       fail-fast: false
     steps:
       - name: Checkout PyInstaller code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
+          check-latest: true
 
       - name: Install apt packages
         if: startsWith(matrix.os, 'ubuntu')
@@ -112,7 +113,7 @@ jobs:
 
       - name: Fetch cache
         id: cache-target
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ${{ env.pip_cache_dir }}
           key: ${{ runner.os }}-${{ matrix.python-version }}
@@ -293,7 +294,7 @@ jobs:
 
       - name: Create artifact out of archived failed tests
         if: ${{ failure() && steps.run-tests.outcome == 'failure' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: failed-tests-${{ matrix.os }}-python-${{ matrix.python-version }}
           path: '${{ env.PYTEST_DEBUG_TEMPROOT }}/archived-failed-tests.tar'
@@ -339,12 +340,13 @@ jobs:
       fail-fast: false
     steps:
       - name: Checkout PyInstaller code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
+          check-latest: true
 
       - name: Update pip
         run: python -m pip install --upgrade pip
@@ -360,7 +362,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout PyInstaller code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Build container
         run: docker build -f alpine.dockerfile -t foo .
@@ -375,7 +377,7 @@ jobs:
       # Verify that installing from sdist works. This is mostly just a verification that the MANIFEST.in contains
       # all the extras needed to compile the bootloader.
       - name: Setup Python for creating sdist
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: 3.x
 
@@ -446,7 +448,7 @@ jobs:
           mingw-w64-${{matrix.env}}-python-pillow
 
       - name: Checkout PyInstaller code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Show system and python information
         run: |
@@ -505,7 +507,7 @@ jobs:
         run: git config --global core.autocrlf input
 
       - name: Checkout PyInstaller code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Show system and python information
         run: |
@@ -557,7 +559,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout PyInstaller code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       # Explicitly set CC=clang, to prevent `pip` from trying to build `psutil` extensions with `x86_64-linux-android-clang`,
       # which (in contrast to `clang` and `gcc`) does not seem to set `__ANDROID_API__` and `__ANDROID_MIN_SDK_VERSION__`;
@@ -566,6 +568,9 @@ jobs:
         run: |
           docker run -v"$PWD:/io" termux/termux-docker:x86_64 bash -ec '
             echo "*** Installing system dependencies ***"
+            ln -sf ${PREFIX}/etc/termux/mirrors/default ${PREFIX}/etc/termux/chosen_mirrors
+            pkg update
+            pkg upgrade -y
             pkg install -y python ldd binutils
             export CC=clang
             echo "*** Installing PyInstaller ***"
@@ -576,6 +581,7 @@ jobs:
             cd ..
             python -m pip install .
             echo "*** Installing test requirements ***"
+            pkg install -y python-psutil
             python -m pip install -r tests/requirements-base.txt
             echo "*** Running tests ***"
             export FORCE_COLOR=1

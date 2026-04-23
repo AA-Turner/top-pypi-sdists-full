@@ -7,6 +7,7 @@ from snowflake import snowpark
 from snowflake.snowpark.types import DataType, StructType
 from snowflake.snowpark_connect.column_name_handler import make_unique_snowpark_name
 from snowflake.snowpark_connect.dataframe_container import DataFrameContainer
+from snowflake.snowpark_connect.typed_column import FieldType
 
 
 def unpack_struct_output_to_container(
@@ -27,7 +28,9 @@ def unpack_struct_output_to_container(
         if spark_field_names is None:
             spark_field_names = [field.name for field in output_type.fields]
 
-        field_types = [field.datatype for field in output_type.fields]
+        field_types = [
+            FieldType(field.datatype, field.nullable) for field in output_type.fields
+        ]
         output_snowpark_names = [
             make_unique_snowpark_name(name) for name in spark_field_names
         ]
@@ -39,7 +42,7 @@ def unpack_struct_output_to_container(
         ):
             col_expr = snowpark_fn.get(output_col, snowpark_fn.lit(spark_name))
             if cast_fields:
-                col_expr = col_expr.cast(field_type)
+                col_expr = col_expr.cast(field_type.datatype)
             cols.append(col_expr.alias(snowpark_name))
 
         if cols:

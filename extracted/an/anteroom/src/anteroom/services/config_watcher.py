@@ -3,6 +3,21 @@
 Checks config files periodically and triggers a callback when any file
 has been modified since the last check.  Invalid configs are rejected
 (logged as warnings) — the previous valid config remains active.
+
+**Hook config reload contract** (phase 1, issue #1489):
+
+Hook configuration (``hooks.pre_tool`` / ``hooks.post_tool``) is
+**session-scoped**.  The watcher detects hook config changes and invokes
+the ``on_change`` callback as normal, but the runtime (#1271) is
+responsible for ignoring hook config updates mid-session.  Hook config
+is snapshotted once at session start and does not change during a live
+session.  A session restart is required to pick up hook config changes.
+
+Rationale: allowing hook config to hot-reload mid-session would create
+an attack surface where a malicious config change could alter hook
+behavior during an active user turn.  The watcher's job is detection
+and notification only; enforcement of the session boundary is in the
+runtime.
 """
 
 from __future__ import annotations

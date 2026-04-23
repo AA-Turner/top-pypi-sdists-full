@@ -16,7 +16,7 @@ from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__
 from sentry_protos.billing.v1 import sku_pb2 as sentry__protos_dot_billing_dot_v1_dot_sku__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nMsentry_protos/billing/v1/services/usage_pricer/v1/endpoint_usage_pricer.proto\x12\x31sentry_protos.billing.v1.services.usage_pricer.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\"sentry_protos/billing/v1/sku.proto\"\x81\x01\n\x12UsagePricerRequest\x12\x17\n\x0forganization_id\x18\x01 \x01(\x04\x12)\n\x05start\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\'\n\x03\x65nd\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\"m\n\x0fSKUUsageSummary\x12*\n\x03sku\x18\x01 \x01(\x0e\x32\x1d.sentry_protos.billing.v1.SKU\x12\x18\n\x10payg_spend_cents\x18\x02 \x01(\x04\x12\x14\n\x0cusage_volume\x18\x03 \x01(\x04\"\xbc\x01\n\x18SharedBudgetUsageSummary\x12+\n\x04skus\x18\x01 \x03(\x0e\x32\x1d.sentry_protos.billing.v1.SKU\x12\x18\n\x10payg_spend_cents\x18\x02 \x01(\x04\x12Y\n\rsku_summaries\x18\x03 \x03(\x0b\x32\x42.sentry_protos.billing.v1.services.usage_pricer.v1.SKUUsageSummary\"\xde\x01\n\x13UsagePricerResponse\x12Y\n\rsku_summaries\x18\x01 \x03(\x0b\x32\x42.sentry_protos.billing.v1.services.usage_pricer.v1.SKUUsageSummary\x12l\n\x17shared_budget_summaries\x18\x02 \x03(\x0b\x32K.sentry_protos.billing.v1.services.usage_pricer.v1.SharedBudgetUsageSummaryb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nMsentry_protos/billing/v1/services/usage_pricer/v1/endpoint_usage_pricer.proto\x12\x31sentry_protos.billing.v1.services.usage_pricer.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\"sentry_protos/billing/v1/sku.proto\"\x81\x01\n\x12UsagePricerRequest\x12\x17\n\x0forganization_id\x18\x01 \x01(\x04\x12)\n\x05start\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\'\n\x03\x65nd\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\"1\n\x1aGetPriceForContractRequest\x12\x13\n\x0b\x63ontract_id\x18\x01 \x01(\x04\"m\n\x0fSKUUsageSummary\x12*\n\x03sku\x18\x01 \x01(\x0e\x32\x1d.sentry_protos.billing.v1.SKU\x12\x18\n\x10payg_spend_cents\x18\x02 \x01(\x04\x12\x14\n\x0cusage_volume\x18\x03 \x01(\x04\"\xbc\x01\n\x18SharedBudgetUsageSummary\x12+\n\x04skus\x18\x01 \x03(\x0e\x32\x1d.sentry_protos.billing.v1.SKU\x12\x18\n\x10payg_spend_cents\x18\x02 \x01(\x04\x12Y\n\rsku_summaries\x18\x03 \x03(\x0b\x32\x42.sentry_protos.billing.v1.services.usage_pricer.v1.SKUUsageSummary\"\xde\x01\n\x13UsagePricerResponse\x12Y\n\rsku_summaries\x18\x01 \x03(\x0b\x32\x42.sentry_protos.billing.v1.services.usage_pricer.v1.SKUUsageSummary\x12l\n\x17shared_budget_summaries\x18\x02 \x03(\x0b\x32K.sentry_protos.billing.v1.services.usage_pricer.v1.SharedBudgetUsageSummaryb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -25,10 +25,12 @@ if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
   _globals['_USAGEPRICERREQUEST']._serialized_start=202
   _globals['_USAGEPRICERREQUEST']._serialized_end=331
-  _globals['_SKUUSAGESUMMARY']._serialized_start=333
-  _globals['_SKUUSAGESUMMARY']._serialized_end=442
-  _globals['_SHAREDBUDGETUSAGESUMMARY']._serialized_start=445
-  _globals['_SHAREDBUDGETUSAGESUMMARY']._serialized_end=633
-  _globals['_USAGEPRICERRESPONSE']._serialized_start=636
-  _globals['_USAGEPRICERRESPONSE']._serialized_end=858
+  _globals['_GETPRICEFORCONTRACTREQUEST']._serialized_start=333
+  _globals['_GETPRICEFORCONTRACTREQUEST']._serialized_end=382
+  _globals['_SKUUSAGESUMMARY']._serialized_start=384
+  _globals['_SKUUSAGESUMMARY']._serialized_end=493
+  _globals['_SHAREDBUDGETUSAGESUMMARY']._serialized_start=496
+  _globals['_SHAREDBUDGETUSAGESUMMARY']._serialized_end=684
+  _globals['_USAGEPRICERRESPONSE']._serialized_start=687
+  _globals['_USAGEPRICERRESPONSE']._serialized_end=909
 # @@protoc_insertion_point(module_scope)

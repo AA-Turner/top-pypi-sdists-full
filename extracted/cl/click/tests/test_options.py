@@ -1259,12 +1259,49 @@ def test_show_default_string(runner):
     assert "[default: (unlimited)]" in message
 
 
-def test_show_default_with_empty_string(runner):
-    """When show_default is True and default is set to an empty string."""
-    opt = click.Option(["--limit"], default="", show_default=True)
+def test_string_show_default_shows_custom_string_in_prompt(runner):
+    @click.command()
+    @click.option(
+        "--arg1", show_default="custom", prompt=True, default="my-default-value"
+    )
+    def cmd(arg1):
+        pass
+
+    result = runner.invoke(cmd, input="my-input", standalone_mode=False)
+    assert "(custom)" in result.output
+    assert "my-default-value" not in result.output
+
+
+class _StrictEq:
+    """Object whose ``__eq__`` raises on string comparison (like semver.Version)."""
+
+    def __eq__(self, other):
+        if isinstance(other, str):
+            raise ValueError("cannot compare to string")
+        return NotImplemented
+
+    def __str__(self):
+        return "strict"
+
+
+@pytest.mark.parametrize(
+    ("default", "expected"),
+    [
+        ("", '[default: ""]'),
+        (_StrictEq(), "[default: strict]"),
+    ],
+    ids=["empty-string", "non-string-comparable-object"],
+)
+def test_show_default_with_empty_string(runner, default, expected):
+    """The empty-string check in help rendering must not break on objects
+    whose ``__eq__`` raises for string operands.
+
+    Regression test for https://github.com/pallets/click/issues/3298.
+    """
+    opt = click.Option(["--limit"], default=default, show_default=True)
     ctx = click.Context(click.Command("cli"))
     message = opt.get_help_record(ctx)[1]
-    assert '[default: ""]' in message
+    assert expected in message
 
 
 def test_do_not_show_no_default(runner):
@@ -1433,9 +1470,12 @@ def test_type_from_flag_value():
         ({"type": str, "flag_value": None}, [], None),
         ({"type": str, "flag_value": None}, ["--foo"], None),
         # Not passing --foo returns the default value as-is, in its Python type, then
-        # converted by the option type.
+        # converted by the option type. For boolean flags, default=True is a literal
+        # value, not a sentinel meaning "activate flag". So it is NOT substituted with
+        # flag_value. See: https://github.com/pallets/click/issues/3111
+        # https://github.com/pallets/click/pull/3239
         ({"type": bool, "default": True, "flag_value": True}, [], True),
-        ({"type": bool, "default": True, "flag_value": False}, [], False),
+        ({"type": bool, "default": True, "flag_value": False}, [], True),
         ({"type": bool, "default": False, "flag_value": True}, [], False),
         ({"type": bool, "default": False, "flag_value": False}, [], False),
         ({"type": bool, "default": None, "flag_value": True}, [], None),
@@ -2458,6 +2498,38 @@ def test_custom_type_frozenset_flag_value(runner):
     result = runner.invoke(rcli, ["--without-scm-ignore-files"])
     assert result.stdout == "frozenset()"
     assert result.exit_code == 0
+
+
+@pytest.mark.parametrize(
+    ("default", "args", "expected"),
+    [
+        # default=None: 3-state pattern (e.g. Flask --reload/--no-reload).
+        # https://github.com/pallets/click/issues/3024
+        (None, [], None),
+        (None, ["--flag"], True),
+        (None, ["--no-flag"], False),
+        # default=True: literal value, not substituted with flag_value.
+        # https://github.com/pallets/click/issues/3111
+        (True, [], True),
+        (True, ["--flag"], True),
+        (True, ["--no-flag"], False),
+    ],
+)
+def test_bool_flag_pair_default(runner, default, args, expected):
+    """Boolean flag pairs pass ``default`` through literally.
+
+    Ensures ``default=True`` is not replaced by ``flag_value`` for boolean
+    flags, and that ``default=None`` enables 3-state logic.
+    """
+
+    @click.command()
+    @click.option("--flag/--no-flag", default=default)
+    def cli(flag):
+        click.echo(repr(flag), nl=False)
+
+    result = runner.invoke(cli, args)
+    assert result.exit_code == 0
+    assert result.output == repr(expected)
 
 
 @pytest.mark.parametrize(

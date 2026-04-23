@@ -248,12 +248,35 @@ class IsolateServicer(definitions.IsolateServicer):
                 StatusCode.INVALID_ARGUMENT,
             )
 
+        # The `callable` oneof enforces at-most-one on the wire; here we
+        # only need to reject the "neither set" case.
+        callable_kind = task.request.WhichOneof("callable")
+        if callable_kind is None:
+            raise GRPCException(
+                "One of 'function' or 'entrypoint' must be set.",
+                StatusCode.INVALID_ARGUMENT,
+            )
+        has_entrypoint = callable_kind == "entrypoint"
+
+        if has_entrypoint and task.request.HasField("setup_func"):
+            raise GRPCException(
+                "'setup_func' is not supported together with 'entrypoint'.",
+                StatusCode.INVALID_ARGUMENT,
+            )
+
         log_handler = LogHandler(messages, task=task)
 
+        # Entrypoint requests don't carry a serialization method; use the
+        # default so the result path matches what the agent picks.
+        serialization_method = (
+            self.default_settings.serialization_method
+            if has_entrypoint
+            else task.request.function.method
+        )
         run_settings = replace(
             self.default_settings,
             log_hook=log_handler.handle,
-            serialization_method=task.request.function.method,
+            serialization_method=serialization_method,
         )
 
         for _, environment in environments:
@@ -304,12 +327,19 @@ class IsolateServicer(definitions.IsolateServicer):
 
             with self.bridge_manager.establish(connection, queue=messages) as agent:
                 task.agent = agent
-                function_call = definitions.FunctionCall(
-                    function=task.request.function,
-                    setup_func=task.request.setup_func,
-                )
-                if not task.request.HasField("setup_func"):
-                    function_call.ClearField("setup_func")
+                if has_entrypoint:
+                    function_call = definitions.FunctionCall(
+                        entrypoint=task.request.entrypoint,
+                        run_on_main_thread=task.request.run_on_main_thread,
+                    )
+                else:
+                    function_call = definitions.FunctionCall(
+                        function=task.request.function,
+                        setup_func=task.request.setup_func,
+                        run_on_main_thread=task.request.run_on_main_thread,
+                    )
+                    if not task.request.HasField("setup_func"):
+                        function_call.ClearField("setup_func")
 
                 future = local_pool.submit(
                     _proxy_to_queue,
@@ -493,11 +523,11 @@ class IsolateServicer(definitions.IsolateServicer):
                     )
 
         # Clear the final messages
-        while not queue.empty():
+        while True:
             try:
-                yield queue.get_nowait()
+                yield queue.get(timeout=_Q_WAIT_DELAY)
             except QueueEmpty:
-                continue
+                break
 
     def log(
         self,

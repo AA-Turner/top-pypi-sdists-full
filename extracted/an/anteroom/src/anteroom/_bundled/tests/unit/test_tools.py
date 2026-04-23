@@ -5,6 +5,8 @@ from __future__ import annotations
 import os
 import tempfile
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -64,6 +66,81 @@ class TestToolRegistry:
         result = await reg.call_tool("double", {"x": 5})
         assert result["result"] == 10
         assert result["_approval_decision"] == "auto"
+
+    @pytest.mark.asyncio
+    async def test_call_tool_threads_hook_egress_policy_from_config(self) -> None:
+        reg = ToolRegistry()
+
+        async def handler(**kwargs):
+            return {"ok": True}
+
+        reg.register("test_tool", handler, {"name": "test_tool", "description": ""})
+        hooks_cfg = SimpleNamespace(pre_tool=[object()], post_tool=[])
+        config = SimpleNamespace(ai=SimpleNamespace(allowed_domains=["hooks.example.test"], block_localhost_api=True))
+
+        with patch(
+            "anteroom.services.hooks.run_pre_tool_hooks",
+            new=AsyncMock(return_value=SimpleNamespace(outcome="allow")),
+        ) as run_pre:
+            result = await reg.call_tool(
+                "test_tool",
+                {},
+                _hooks_config=hooks_cfg,
+                _extra_context={"config": config},
+            )
+
+        assert result["ok"] is True
+        # _hook_call_kwargs only passes non-empty values; empty string context fields
+        # are omitted, and audit_writer is None so it's also omitted (#1493).
+        run_pre.assert_awaited_once_with(
+            hooks_cfg,
+            "test_tool",
+            {},
+            allowed_domains=("hooks.example.test",),
+            block_localhost=True,
+        )
+
+    @pytest.mark.asyncio
+    async def test_call_tool_threads_nonempty_hook_metadata(self) -> None:
+        reg = ToolRegistry()
+
+        async def handler(**kwargs):
+            return {"ok": True}
+
+        reg.register("test_tool", handler, {"name": "test_tool", "description": ""})
+        hooks_cfg = SimpleNamespace(pre_tool=[object()], post_tool=[])
+        config = SimpleNamespace(ai=SimpleNamespace(allowed_domains=["hooks.example.test"], block_localhost_api=True))
+        audit_writer = object()
+
+        with patch(
+            "anteroom.services.hooks.run_pre_tool_hooks",
+            new=AsyncMock(return_value=SimpleNamespace(outcome="allow")),
+        ) as run_pre:
+            result = await reg.call_tool(
+                "test_tool",
+                {},
+                _hooks_config=hooks_cfg,
+                _audit_writer=audit_writer,
+                _extra_context={
+                    "config": config,
+                    "tool_call_id": "call-123",
+                    "conversation_id": "conv-123",
+                    "user_id": "user-123",
+                },
+            )
+
+        assert result["ok"] is True
+        run_pre.assert_awaited_once_with(
+            hooks_cfg,
+            "test_tool",
+            {},
+            audit_writer=audit_writer,
+            tool_call_id="call-123",
+            conversation_id="conv-123",
+            user_id="user-123",
+            allowed_domains=("hooks.example.test",),
+            block_localhost=True,
+        )
 
     @pytest.mark.asyncio
     async def test_call_unknown_tool(self) -> None:
@@ -1127,16 +1204,19 @@ class TestGlobTool:
 
         with tempfile.TemporaryDirectory() as tmpdir:
             Path(tmpdir, "a.txt").touch()
-            Path(tmpdir, "b.py").touch()
+            Path(tmpdir, "b.txt").touch()
             Path(tmpdir, "c.txt").touch()
+            Path(tmpdir, "sub").mkdir()
 
             glob_tool.set_working_dir(tmpdir)
-            result = await glob_tool.handle(pattern="*.txt")
+            result = await glob_tool.handle(pattern="*")
             assert "files" in result
-            filenames = [os.path.basename(f) for f in result["files"]]
-            assert "a.txt" in filenames
-            assert "c.txt" in filenames
-            assert "b.py" not in filenames
+            assert result["count"] == 4
+            files = result["files"]
+            assert "a.txt" in files
+            assert "b.txt" in files
+            assert "c.txt" in files
+            assert "sub/" in files
 
 
 class TestGrepTool:

@@ -256,6 +256,7 @@ from .literals import (
     MacModificationTaskTypeType,
     MacSystemIntegrityProtectionSettingStatusType,
     ManagedByType,
+    ManagedResourceDefaultVisibilityType,
     MarketTypeType,
     MembershipTypeType,
     MetadataDefaultHttpTokensStateType,
@@ -2084,6 +2085,8 @@ __all__ = (
     "GetManagedPrefixListEntriesRequestPaginateTypeDef",
     "GetManagedPrefixListEntriesRequestTypeDef",
     "GetManagedPrefixListEntriesResultTypeDef",
+    "GetManagedResourceVisibilityRequestTypeDef",
+    "GetManagedResourceVisibilityResultTypeDef",
     "GetNetworkInsightsAccessScopeAnalysisFindingsRequestPaginateTypeDef",
     "GetNetworkInsightsAccessScopeAnalysisFindingsRequestTypeDef",
     "GetNetworkInsightsAccessScopeAnalysisFindingsResultTypeDef",
@@ -2426,6 +2429,7 @@ __all__ = (
     "MacSystemIntegrityProtectionConfigurationTypeDef",
     "MaintenanceDetailsTypeDef",
     "ManagedPrefixListTypeDef",
+    "ManagedResourceVisibilitySettingsTypeDef",
     "MediaAcceleratorInfoTypeDef",
     "MediaDeviceInfoTypeDef",
     "MediaDeviceMemoryInfoTypeDef",
@@ -2507,6 +2511,8 @@ __all__ = (
     "ModifyLocalGatewayRouteResultTypeDef",
     "ModifyManagedPrefixListRequestTypeDef",
     "ModifyManagedPrefixListResultTypeDef",
+    "ModifyManagedResourceVisibilityRequestTypeDef",
+    "ModifyManagedResourceVisibilityResultTypeDef",
     "ModifyNetworkInterfaceAttributeRequestNetworkInterfaceModifyAttributeTypeDef",
     "ModifyNetworkInterfaceAttributeRequestTypeDef",
     "ModifyPrivateDnsNameOptionsRequestTypeDef",
@@ -5842,25 +5848,6 @@ class DescribeVolumeAttributeRequestVolumeDescribeAttributeTypeDef(TypedDict):
     DryRun: NotRequired[bool]
 
 
-class VolumeModificationTypeDef(TypedDict):
-    VolumeId: NotRequired[str]
-    ModificationState: NotRequired[VolumeModificationStateType]
-    StatusMessage: NotRequired[str]
-    TargetSize: NotRequired[int]
-    TargetIops: NotRequired[int]
-    TargetVolumeType: NotRequired[VolumeTypeType]
-    TargetThroughput: NotRequired[int]
-    TargetMultiAttachEnabled: NotRequired[bool]
-    OriginalSize: NotRequired[int]
-    OriginalIops: NotRequired[int]
-    OriginalVolumeType: NotRequired[VolumeTypeType]
-    OriginalThroughput: NotRequired[int]
-    OriginalMultiAttachEnabled: NotRequired[bool]
-    Progress: NotRequired[int]
-    StartTime: NotRequired[datetime]
-    EndTime: NotRequired[datetime]
-
-
 class DescribeVpcAttributeRequestTypeDef(TypedDict):
     Attribute: VpcAttributeNameType
     VpcId: str
@@ -6324,6 +6311,7 @@ class EbsInstanceBlockDeviceSpecificationTypeDef(TypedDict):
 class OperatorResponseTypeDef(TypedDict):
     Managed: NotRequired[bool]
     Principal: NotRequired[str]
+    HiddenByDefault: NotRequired[bool]
 
 
 class EbsStatusDetailsTypeDef(TypedDict):
@@ -6939,6 +6927,14 @@ class GetManagedPrefixListEntriesRequestTypeDef(TypedDict):
 class PrefixListEntryTypeDef(TypedDict):
     Cidr: NotRequired[str]
     Description: NotRequired[str]
+
+
+class GetManagedResourceVisibilityRequestTypeDef(TypedDict):
+    DryRun: NotRequired[bool]
+
+
+class ManagedResourceVisibilitySettingsTypeDef(TypedDict):
+    DefaultVisibility: NotRequired[ManagedResourceDefaultVisibilityType]
 
 
 class GetNetworkInsightsAccessScopeAnalysisFindingsRequestTypeDef(TypedDict):
@@ -7954,6 +7950,11 @@ class ModifyLocalGatewayRouteRequestTypeDef(TypedDict):
 
 class RemovePrefixListEntryTypeDef(TypedDict):
     Cidr: str
+
+
+class ModifyManagedResourceVisibilityRequestTypeDef(TypedDict):
+    DryRun: NotRequired[bool]
+    DefaultVisibility: NotRequired[ManagedResourceDefaultVisibilityType]
 
 
 class NetworkInterfaceAttachmentChangesTypeDef(TypedDict):
@@ -13114,6 +13115,7 @@ class DescribeInstanceSqlHaStatesRequestTypeDef(TypedDict):
 
 class DescribeInstanceStatusRequestPaginateTypeDef(TypedDict):
     InstanceIds: NotRequired[Sequence[str]]
+    IncludeManagedResources: NotRequired[bool]
     DryRun: NotRequired[bool]
     Filters: NotRequired[Sequence[FilterTypeDef]]
     IncludeAllInstances: NotRequired[bool]
@@ -13124,6 +13126,7 @@ class DescribeInstanceStatusRequestTypeDef(TypedDict):
     InstanceIds: NotRequired[Sequence[str]]
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
+    IncludeManagedResources: NotRequired[bool]
     DryRun: NotRequired[bool]
     Filters: NotRequired[Sequence[FilterTypeDef]]
     IncludeAllInstances: NotRequired[bool]
@@ -13178,6 +13181,7 @@ class DescribeInstanceTypesRequestTypeDef(TypedDict):
 
 class DescribeInstancesRequestPaginateTypeDef(TypedDict):
     InstanceIds: NotRequired[Sequence[str]]
+    IncludeManagedResources: NotRequired[bool]
     DryRun: NotRequired[bool]
     Filters: NotRequired[Sequence[FilterTypeDef]]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
@@ -13185,6 +13189,7 @@ class DescribeInstancesRequestPaginateTypeDef(TypedDict):
 
 class DescribeInstancesRequestTypeDef(TypedDict):
     InstanceIds: NotRequired[Sequence[str]]
+    IncludeManagedResources: NotRequired[bool]
     DryRun: NotRequired[bool]
     Filters: NotRequired[Sequence[FilterTypeDef]]
     NextToken: NotRequired[str]
@@ -13361,6 +13366,7 @@ class DescribeLaunchTemplateVersionsRequestPaginateTypeDef(TypedDict):
     MaxVersion: NotRequired[str]
     Filters: NotRequired[Sequence[FilterTypeDef]]
     ResolveAlias: NotRequired[bool]
+    IncludeManagedResources: NotRequired[bool]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
@@ -13375,6 +13381,7 @@ class DescribeLaunchTemplateVersionsRequestTypeDef(TypedDict):
     MaxResults: NotRequired[int]
     Filters: NotRequired[Sequence[FilterTypeDef]]
     ResolveAlias: NotRequired[bool]
+    IncludeManagedResources: NotRequired[bool]
 
 
 class DescribeLaunchTemplatesRequestPaginateTypeDef(TypedDict):
@@ -13382,6 +13389,7 @@ class DescribeLaunchTemplatesRequestPaginateTypeDef(TypedDict):
     LaunchTemplateIds: NotRequired[Sequence[str]]
     LaunchTemplateNames: NotRequired[Sequence[str]]
     Filters: NotRequired[Sequence[FilterTypeDef]]
+    IncludeManagedResources: NotRequired[bool]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
@@ -13392,6 +13400,7 @@ class DescribeLaunchTemplatesRequestTypeDef(TypedDict):
     Filters: NotRequired[Sequence[FilterTypeDef]]
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
+    IncludeManagedResources: NotRequired[bool]
 
 
 class DescribeLocalGatewayRouteTableVirtualInterfaceGroupAssociationsRequestPaginateTypeDef(
@@ -13668,6 +13677,7 @@ class DescribeNetworkInterfacePermissionsRequestTypeDef(TypedDict):
 
 
 class DescribeNetworkInterfacesRequestPaginateTypeDef(TypedDict):
+    IncludeManagedResources: NotRequired[bool]
     DryRun: NotRequired[bool]
     NetworkInterfaceIds: NotRequired[Sequence[str]]
     Filters: NotRequired[Sequence[FilterTypeDef]]
@@ -13677,6 +13687,7 @@ class DescribeNetworkInterfacesRequestPaginateTypeDef(TypedDict):
 class DescribeNetworkInterfacesRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
+    IncludeManagedResources: NotRequired[bool]
     DryRun: NotRequired[bool]
     NetworkInterfaceIds: NotRequired[Sequence[str]]
     Filters: NotRequired[Sequence[FilterTypeDef]]
@@ -14393,6 +14404,7 @@ class DescribeVerifiedAccessTrustProvidersRequestTypeDef(TypedDict):
 
 class DescribeVolumeStatusRequestPaginateTypeDef(TypedDict):
     VolumeIds: NotRequired[Sequence[str]]
+    IncludeManagedResources: NotRequired[bool]
     DryRun: NotRequired[bool]
     Filters: NotRequired[Sequence[FilterTypeDef]]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
@@ -14402,6 +14414,7 @@ class DescribeVolumeStatusRequestTypeDef(TypedDict):
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
     VolumeIds: NotRequired[Sequence[str]]
+    IncludeManagedResources: NotRequired[bool]
     DryRun: NotRequired[bool]
     Filters: NotRequired[Sequence[FilterTypeDef]]
 
@@ -14409,6 +14422,7 @@ class DescribeVolumeStatusRequestTypeDef(TypedDict):
 class DescribeVolumeStatusRequestVolumeDescribeStatusTypeDef(TypedDict):
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
+    IncludeManagedResources: NotRequired[bool]
     DryRun: NotRequired[bool]
     Filters: NotRequired[Sequence[FilterTypeDef]]
 
@@ -14430,6 +14444,7 @@ class DescribeVolumesModificationsRequestTypeDef(TypedDict):
 
 class DescribeVolumesRequestPaginateTypeDef(TypedDict):
     VolumeIds: NotRequired[Sequence[str]]
+    IncludeManagedResources: NotRequired[bool]
     DryRun: NotRequired[bool]
     Filters: NotRequired[Sequence[FilterTypeDef]]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
@@ -14437,6 +14452,7 @@ class DescribeVolumesRequestPaginateTypeDef(TypedDict):
 
 class DescribeVolumesRequestTypeDef(TypedDict):
     VolumeIds: NotRequired[Sequence[str]]
+    IncludeManagedResources: NotRequired[bool]
     DryRun: NotRequired[bool]
     Filters: NotRequired[Sequence[FilterTypeDef]]
     NextToken: NotRequired[str]
@@ -15088,6 +15104,7 @@ class DescribeInstanceStatusRequestWaitExtraTypeDef(TypedDict):
     InstanceIds: NotRequired[Sequence[str]]
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
+    IncludeManagedResources: NotRequired[bool]
     DryRun: NotRequired[bool]
     Filters: NotRequired[Sequence[FilterTypeDef]]
     IncludeAllInstances: NotRequired[bool]
@@ -15098,6 +15115,7 @@ class DescribeInstanceStatusRequestWaitTypeDef(TypedDict):
     InstanceIds: NotRequired[Sequence[str]]
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
+    IncludeManagedResources: NotRequired[bool]
     DryRun: NotRequired[bool]
     Filters: NotRequired[Sequence[FilterTypeDef]]
     IncludeAllInstances: NotRequired[bool]
@@ -15106,6 +15124,7 @@ class DescribeInstanceStatusRequestWaitTypeDef(TypedDict):
 
 class DescribeInstancesRequestWaitExtraExtraExtraTypeDef(TypedDict):
     InstanceIds: NotRequired[Sequence[str]]
+    IncludeManagedResources: NotRequired[bool]
     DryRun: NotRequired[bool]
     Filters: NotRequired[Sequence[FilterTypeDef]]
     NextToken: NotRequired[str]
@@ -15115,6 +15134,7 @@ class DescribeInstancesRequestWaitExtraExtraExtraTypeDef(TypedDict):
 
 class DescribeInstancesRequestWaitExtraExtraTypeDef(TypedDict):
     InstanceIds: NotRequired[Sequence[str]]
+    IncludeManagedResources: NotRequired[bool]
     DryRun: NotRequired[bool]
     Filters: NotRequired[Sequence[FilterTypeDef]]
     NextToken: NotRequired[str]
@@ -15124,6 +15144,7 @@ class DescribeInstancesRequestWaitExtraExtraTypeDef(TypedDict):
 
 class DescribeInstancesRequestWaitExtraTypeDef(TypedDict):
     InstanceIds: NotRequired[Sequence[str]]
+    IncludeManagedResources: NotRequired[bool]
     DryRun: NotRequired[bool]
     Filters: NotRequired[Sequence[FilterTypeDef]]
     NextToken: NotRequired[str]
@@ -15133,6 +15154,7 @@ class DescribeInstancesRequestWaitExtraTypeDef(TypedDict):
 
 class DescribeInstancesRequestWaitTypeDef(TypedDict):
     InstanceIds: NotRequired[Sequence[str]]
+    IncludeManagedResources: NotRequired[bool]
     DryRun: NotRequired[bool]
     Filters: NotRequired[Sequence[FilterTypeDef]]
     NextToken: NotRequired[str]
@@ -15179,6 +15201,7 @@ class DescribeNatGatewaysRequestWaitTypeDef(TypedDict):
 class DescribeNetworkInterfacesRequestWaitTypeDef(TypedDict):
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
+    IncludeManagedResources: NotRequired[bool]
     DryRun: NotRequired[bool]
     NetworkInterfaceIds: NotRequired[Sequence[str]]
     Filters: NotRequired[Sequence[FilterTypeDef]]
@@ -15287,6 +15310,7 @@ class DescribeSubnetsRequestWaitTypeDef(TypedDict):
 
 class DescribeVolumesRequestWaitExtraExtraTypeDef(TypedDict):
     VolumeIds: NotRequired[Sequence[str]]
+    IncludeManagedResources: NotRequired[bool]
     DryRun: NotRequired[bool]
     Filters: NotRequired[Sequence[FilterTypeDef]]
     NextToken: NotRequired[str]
@@ -15296,6 +15320,7 @@ class DescribeVolumesRequestWaitExtraExtraTypeDef(TypedDict):
 
 class DescribeVolumesRequestWaitExtraTypeDef(TypedDict):
     VolumeIds: NotRequired[Sequence[str]]
+    IncludeManagedResources: NotRequired[bool]
     DryRun: NotRequired[bool]
     Filters: NotRequired[Sequence[FilterTypeDef]]
     NextToken: NotRequired[str]
@@ -15305,6 +15330,7 @@ class DescribeVolumesRequestWaitExtraTypeDef(TypedDict):
 
 class DescribeVolumesRequestWaitTypeDef(TypedDict):
     VolumeIds: NotRequired[Sequence[str]]
+    IncludeManagedResources: NotRequired[bool]
     DryRun: NotRequired[bool]
     Filters: NotRequired[Sequence[FilterTypeDef]]
     NextToken: NotRequired[str]
@@ -15515,17 +15541,6 @@ class DescribeTagsResultTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
-class DescribeVolumesModificationsResultTypeDef(TypedDict):
-    VolumesModifications: list[VolumeModificationTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    NextToken: NotRequired[str]
-
-
-class ModifyVolumeResultTypeDef(TypedDict):
-    VolumeModification: VolumeModificationTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
 class DescribeVpcBlockPublicAccessOptionsResultTypeDef(TypedDict):
     VpcBlockPublicAccessOptions: VpcBlockPublicAccessOptionsTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -15728,6 +15743,26 @@ class PlacementGroupTypeDef(TypedDict):
     GroupArn: NotRequired[str]
     SpreadLevel: NotRequired[SpreadLevelType]
     LinkedGroupId: NotRequired[str]
+    Operator: NotRequired[OperatorResponseTypeDef]
+
+
+class VolumeModificationTypeDef(TypedDict):
+    VolumeId: NotRequired[str]
+    ModificationState: NotRequired[VolumeModificationStateType]
+    StatusMessage: NotRequired[str]
+    TargetSize: NotRequired[int]
+    TargetIops: NotRequired[int]
+    TargetVolumeType: NotRequired[VolumeTypeType]
+    TargetThroughput: NotRequired[int]
+    TargetMultiAttachEnabled: NotRequired[bool]
+    OriginalSize: NotRequired[int]
+    OriginalIops: NotRequired[int]
+    OriginalVolumeType: NotRequired[VolumeTypeType]
+    OriginalThroughput: NotRequired[int]
+    OriginalMultiAttachEnabled: NotRequired[bool]
+    Progress: NotRequired[int]
+    StartTime: NotRequired[datetime]
+    EndTime: NotRequired[datetime]
     Operator: NotRequired[OperatorResponseTypeDef]
 
 
@@ -16017,6 +16052,16 @@ class GetManagedPrefixListEntriesResultTypeDef(TypedDict):
     Entries: list[PrefixListEntryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+
+class GetManagedResourceVisibilityResultTypeDef(TypedDict):
+    Visibility: ManagedResourceVisibilitySettingsTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class ModifyManagedResourceVisibilityResultTypeDef(TypedDict):
+    Visibility: ManagedResourceVisibilitySettingsTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ReservedInstanceReservationValueTypeDef(TypedDict):
@@ -18915,6 +18960,17 @@ class DescribePlacementGroupsResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class DescribeVolumesModificationsResultTypeDef(TypedDict):
+    VolumesModifications: list[VolumeModificationTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class ModifyVolumeResultTypeDef(TypedDict):
+    VolumeModification: VolumeModificationTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class ListVolumesInRecycleBinResultTypeDef(TypedDict):
     Volumes: list[VolumeRecycleBinInfoTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -20479,6 +20535,7 @@ class VolumeStatusItemTypeDef(TypedDict):
     AttachmentStatuses: NotRequired[list[VolumeStatusAttachmentStatusTypeDef]]
     InitializationStatusDetails: NotRequired[InitializationStatusDetailsTypeDef]
     AvailabilityZoneId: NotRequired[str]
+    Operator: NotRequired[OperatorResponseTypeDef]
 
 
 class AssociateVpcCidrBlockResultTypeDef(TypedDict):

@@ -33,13 +33,14 @@ from snowflake.snowpark_connect.expression.map_expression import (
     map_single_column_expression,
 )
 from snowflake.snowpark_connect.expression.typer import ExpressionTyper
+from snowflake.snowpark_connect.relation.map_column_ops import _rekey_column_metadata
 from snowflake.snowpark_connect.relation.map_relation import map_relation
 from snowflake.snowpark_connect.relation.utils import (
     create_pivot_column_condition,
     get_all_dependent_column_names,
     map_pivot_value_to_spark_column_name,
 )
-from snowflake.snowpark_connect.typed_column import TypedColumn
+from snowflake.snowpark_connect.typed_column import FieldType, TypedColumn
 from snowflake.snowpark_connect.utils.context import (
     get_sql_aggregate_function_count,
     push_outer_dataframe,
@@ -117,10 +118,18 @@ def map_extension(
                 )
                 attach_custom_error_code(exception, ErrorCodes.INVALID_OPERATION)
                 raise exception
+            # Re-key column_metadata to preserve UDT metadata through alias rename.
+            old_spark_names = result.column_map.get_spark_columns()
+            renamed_metadata = _rekey_column_metadata(
+                result.column_map.column_metadata,
+                old_spark_names,
+                list(subquery_aliases.aliases),
+            )
             return DataFrameContainer.create_with_column_mapping(
                 dataframe=input_df,
                 spark_column_names=subquery_aliases.aliases,
                 snowpark_column_names=snowpark_col_names,
+                column_metadata=renamed_metadata,
                 column_qualifiers=result.column_map.get_qualifiers(),
                 equivalent_snowpark_names=result.column_map.get_equivalent_snowpark_names(),
             )
@@ -408,23 +417,45 @@ def map_aggregate(
 
     typer = ExpressionTyper(input_df)
 
-    def _map_column(exp: expression_proto.Expression) -> tuple[str, TypedColumn]:
+    def _map_columns(
+        exp: expression_proto.Expression,
+    ) -> list[tuple[str, TypedColumn]]:
         new_names, snowpark_column = map_expression(
             exp, input_container.column_map, typer
         )
-        if len(new_names) != 1:
-            exception = SnowparkConnectNotImplementedError(
-                "Multi-column aggregate expressions are not supported"
+        if len(new_names) == 1:
+            return [(new_names[0], snowpark_column)]
+        results = []
+        for name in new_names:
+            snowpark_name = input_container.column_map.get_snowpark_column_name_from_spark_column_name(
+                name
             )
-            attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
-            raise exception
-        return new_names[0], snowpark_column
+            col_expr = snowpark_fn.col(snowpark_name)
+            col_type = input_df.schema[snowpark_name].datatype
+            results.append(
+                (
+                    name,
+                    TypedColumn(
+                        col_expr,
+                        lambda col_type=col_type: [col_type],
+                    ),
+                )
+            )
+        return results
 
     raw_groupings: list[tuple[str, TypedColumn]] = []
     raw_aggregations: list[tuple[str, TypedColumn, set[ColumnQualifier]]] = []
 
     if not is_group_by_all:
-        raw_groupings = [_map_column(exp) for exp in aggregate.grouping_expressions]
+        if any(
+            exp.WhichOneof("expr_type") == "unresolved_star"
+            for exp in aggregate.grouping_expressions
+        ):
+            exception = AnalysisException("Star (*) is not allowed in GROUP BY")
+            attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
+            raise exception
+        for exp in aggregate.grouping_expressions:
+            raw_groupings.extend(_map_columns(exp))
 
     # Determine grouping columns for context
     # For GROUPING SETS, we need to extract the columns from the sets
@@ -456,17 +487,18 @@ def map_aggregate(
     # a qualified way later.
     agg_count = get_sql_aggregate_function_count()
     for exp in aggregate.aggregate_expressions:
-        col = _map_column(exp)
-        if exp.WhichOneof("expr_type") == "unresolved_attribute":
-            qualifiers: set[
-                ColumnQualifier
-            ] = input_container.column_map.get_qualifiers_for_snowpark_column(
-                col[1].col.get_name()
-            )
-        else:
-            qualifiers = set()
+        cols = _map_columns(exp)
+        for col in cols:
+            if exp.WhichOneof("expr_type") == "unresolved_attribute":
+                qualifiers: set[
+                    ColumnQualifier
+                ] = input_container.column_map.get_qualifiers_for_snowpark_column(
+                    col[1].col.get_name()
+                )
+            else:
+                qualifiers = set()
 
-        raw_aggregations.append((col[0], col[1], qualifiers))
+            raw_aggregations.append((col[0], col[1], qualifiers))
 
         # If this is an alias, register it in the LCA map for subsequent expressions
         if (
@@ -475,7 +507,7 @@ def map_aggregate(
             and len(exp.alias.name) > 0
         ):
             alias_name = exp.alias.name[0]
-            spark_name, snowpark_column = col
+            spark_name, snowpark_column = cols[0]
 
             # Register the alias pointing to the result of its expression
             # This handles both simple aliases (k as lca) and complex ones (lca + 1 as col)
@@ -486,7 +518,8 @@ def map_aggregate(
         if is_group_by_all:
             new_agg_count = get_sql_aggregate_function_count()
             if new_agg_count == agg_count:
-                raw_groupings.append(col)
+                for col in cols:
+                    raw_groupings.append(col)
             else:
                 agg_count = new_agg_count
 
@@ -496,7 +529,7 @@ def map_aggregate(
 
     spark_columns: list[str] = []
     snowpark_columns: list[str] = []
-    snowpark_column_types: list[snowpark_types.DataType] = []
+    snowpark_column_types: list[FieldType] = []
     all_qualifiers: list[set[ColumnQualifier]] = []
 
     # Use grouping columns directly without aliases
@@ -509,7 +542,7 @@ def map_aggregate(
 
         spark_columns.append(spark_name)
         snowpark_columns.append(alias)
-        snowpark_column_types.append(snowpark_column.typ)
+        snowpark_column_types.append(snowpark_column.field_type)
         all_qualifiers.append(qualifiers)
 
         aggregations.append(snowpark_column.col.alias(alias))

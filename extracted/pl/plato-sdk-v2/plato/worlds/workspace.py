@@ -357,7 +357,7 @@ class Workspace:
             for mount in self._lazy_mounts.values()
         )
         if not has_changes:
-            logger.info("Workspace '%s': no changes at '%s', skipping commit", self.name, step_name)
+            logger.debug("Workspace '%s': no changes at '%s', skipping commit", self.name, step_name)
             dvc_files = self._collect_dvc_files(list(self._lazy_mounts.keys()))
             if dvc_files:
                 await self._ensure_credentials()
@@ -430,7 +430,7 @@ class Workspace:
         dvc_files = ref.get("dvc_files", {})
         self._last_restored_dvc_files = dvc_files
         if not dvc_files:
-            logger.info("Workspace '%s' step '%s' has no DVC files", self.name, step_name)
+            logger.debug("Workspace '%s' step '%s' has no DVC files", self.name, step_name)
             self._last_ref_step = step_name
             return True
 
@@ -469,7 +469,7 @@ class Workspace:
                 dvc_path = self._repo_root / f"{dir_name}.dvc"
                 dvc_path.write_text(dvc_content)
 
-        logger.info("Restored workspace '%s' step '%s': %d dir(s)", self.name, step_name, len(dvc_files))
+        logger.debug("Restored workspace '%s' step '%s': %d dir(s)", self.name, step_name, len(dvc_files))
         self._last_ref_step = step_name
         return True
 
@@ -789,7 +789,7 @@ class Workspace:
                     )
                     total_uploaded += len(chunk)
 
-            logger.info("Uploaded %d audit events for step '%s'", total_uploaded, step_name)
+            logger.debug("Uploaded %d audit events for step '%s'", total_uploaded, step_name)
 
             for path in scope_files:
                 try:

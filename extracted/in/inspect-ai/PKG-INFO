@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: inspect_ai
-Version: 0.3.209
+Version: 0.3.210
 Summary: Framework for large language model evaluations
 Author: UK AI Security Institute
 License: MIT License
@@ -63,7 +63,7 @@ Requires-Dist: adlfs>=2025.8.0; extra == "dev"
 Requires-Dist: anthropic>=0.96.0; extra == "dev"
 Requires-Dist: azure-identity; extra == "dev"
 Requires-Dist: azure-ai-inference; extra == "dev"
-Requires-Dist: fastapi; extra == "dev"
+Requires-Dist: fastapi>=0.119.0; extra == "dev"
 Requires-Dist: google-genai>=1.69.0; extra == "dev"
 Requires-Dist: griffe>=2; extra == "dev"
 Requires-Dist: groq>=0.28.0; extra == "dev"
@@ -74,7 +74,7 @@ Requires-Dist: jsonpath-ng; extra == "dev"
 Requires-Dist: markdown; extra == "dev"
 Requires-Dist: mcp>=1.10.0; extra == "dev"
 Requires-Dist: mistralai>=2.0.0; extra == "dev"
-Requires-Dist: moto[server]; extra == "dev"
+Requires-Dist: moto[server]>=5.1.5; extra == "dev"
 Requires-Dist: mypy>=1.17.0; extra == "dev"
 Requires-Dist: nbformat; extra == "dev"
 Requires-Dist: openai>=2.26.0; extra == "dev"

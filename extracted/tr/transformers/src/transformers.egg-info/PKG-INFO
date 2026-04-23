@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: transformers
-Version: 5.5.4
+Version: 5.6.0
 Summary: Transformers: the model-definition framework for state-of-the-art machine learning models in text, vision, audio, and multimodal models, for both inference and training.
 Home-page: https://github.com/huggingface/transformers
 Author: The Hugging Face team (past and future) with the help of all our contributors (https://github.com/huggingface/transformers/graphs/contributors)
@@ -55,6 +55,7 @@ Requires-Dist: libcst; extra == "quality"
 Requires-Dist: rich; extra == "quality"
 Requires-Dist: ty==0.0.20; extra == "quality"
 Requires-Dist: tomli; extra == "quality"
+Requires-Dist: transformers-mlinter==0.1.0; extra == "quality"
 Provides-Extra: docs
 Requires-Dist: hf-doc-builder; extra == "docs"
 Provides-Extra: kernels
@@ -150,6 +151,7 @@ Requires-Dist: libcst; extra == "testing"
 Requires-Dist: rich; extra == "testing"
 Requires-Dist: ty==0.0.20; extra == "testing"
 Requires-Dist: tomli; extra == "testing"
+Requires-Dist: transformers-mlinter==0.1.0; extra == "testing"
 Requires-Dist: faiss-cpu; extra == "testing"
 Requires-Dist: datasets>=2.15.0; extra == "testing"
 Requires-Dist: sentencepiece!=0.1.92,>=0.1.91; extra == "testing"
@@ -197,6 +199,7 @@ Requires-Dist: libcst; extra == "deepspeed-testing"
 Requires-Dist: rich; extra == "deepspeed-testing"
 Requires-Dist: ty==0.0.20; extra == "deepspeed-testing"
 Requires-Dist: tomli; extra == "deepspeed-testing"
+Requires-Dist: transformers-mlinter==0.1.0; extra == "deepspeed-testing"
 Requires-Dist: faiss-cpu; extra == "deepspeed-testing"
 Requires-Dist: datasets>=2.15.0; extra == "deepspeed-testing"
 Requires-Dist: sentencepiece!=0.1.92,>=0.1.91; extra == "deepspeed-testing"
@@ -284,6 +287,7 @@ Requires-Dist: libcst; extra == "dev"
 Requires-Dist: rich; extra == "dev"
 Requires-Dist: ty==0.0.20; extra == "dev"
 Requires-Dist: tomli; extra == "dev"
+Requires-Dist: transformers-mlinter==0.1.0; extra == "dev"
 Requires-Dist: faiss-cpu; extra == "dev"
 Requires-Dist: datasets>=2.15.0; extra == "dev"
 Requires-Dist: sentencepiece!=0.1.92,>=0.1.91; extra == "dev"

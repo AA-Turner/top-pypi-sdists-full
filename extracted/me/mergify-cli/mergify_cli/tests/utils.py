@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import dataclasses
+import json
 import subprocess
 import typing
 from unittest import mock
@@ -22,6 +23,34 @@ from unittest import mock
 
 if typing.TYPE_CHECKING:
     from collections import abc
+
+
+def assert_stdout_is_single_json_document(stdout: str) -> typing.Any:
+    """Assert that ``stdout`` contains exactly one JSON document and return it.
+
+    Formalizes the ``--json`` output discipline: under ``--json`` mode,
+    stdout MUST be exactly one JSON document and nothing else — no
+    progress bars, no status messages, no prefix or suffix text. Any
+    non-JSON content breaks downstream scripts that pipe the output
+    into ``jq``, ``python -m json.tool``, or similar.
+
+    ``json.loads`` rejects trailing non-whitespace content, so calling
+    this is equivalent to calling ``json.loads(stdout)`` — the helper
+    exists to name the invariant and produce a clearer failure message.
+
+    Use this in any test that exercises a ``--json`` code path.
+    """
+    try:
+        return json.loads(stdout)
+    except json.JSONDecodeError as e:
+        msg = (
+            "stdout is not a single JSON document — "
+            "likely a progress message, banner, or other text leaked "
+            "into the --json output path.\n"
+            f"json error: {e}\n"
+            f"stdout: {stdout!r}"
+        )
+        raise AssertionError(msg) from e
 
 
 class _CommitRequired(typing.TypedDict):
@@ -41,16 +70,36 @@ class GitMock:
         init=False,
         default_factory=dict,
     )
+    _mocked_errors: list[tuple[str, ...]] = dataclasses.field(
+        init=False,
+        default_factory=list,
+    )
     _commits: list[Commit] = dataclasses.field(init=False, default_factory=list)
     _called: list[tuple[str, ...]] = dataclasses.field(init=False, default_factory=list)
 
     def mock(self, *args: str, output: str) -> None:
         self._mocked[args] = output
 
+    def mock_error(self, *args: str) -> None:
+        """Register a one-shot call that should raise CommandError.
+
+        Each registration is consumed once; registering the same args twice
+        means the first two calls raise and subsequent calls fall through to
+        ``_mocked`` (or "not mocked").
+        """
+        self._mocked_errors.append(args)
+
     def has_been_called_with(self, *args: str) -> bool:
         return args in self._called
 
     async def __call__(self, *args: str) -> str:
+        from mergify_cli import utils
+
+        if args in self._mocked_errors:
+            self._mocked_errors.remove(args)
+            self._called.append(args)
+            raise utils.CommandError(args, 128, b"")
+
         if args in self._mocked:
             self._called.append(args)
             return self._mocked[args]
@@ -79,6 +128,19 @@ class GitMock:
         remote_shas: dict[str, str] | None = None,
         no_verify: bool = False,
     ) -> None:
+        # Register the rev-parse --verify probe used by fetch_notes_ref
+        # (local ref absent → CommandError so the fetch is attempted)
+        self.mock_error("rev-parse", "--verify", "refs/notes/mergify/stack")
+
+        # Register the refs/notes/mergify fetch probe (no + since local ref absent)
+        self.mock(
+            "fetch",
+            "origin",
+            "--no-write-fetch-head",
+            "refs/notes/mergify/stack:refs/notes/mergify/stack",
+            output="",
+        )
+
         # Register batch log mock
         records = []
         for c in self._commits:
@@ -90,6 +152,24 @@ class GitMock:
             "--format=%H%x00%s%x00%b%x1e",
             "base_commit_sha..current-branch",
             output="\x1e".join(records) + "\x1e" if records else "",
+        )
+
+        # Register batch note-read mock (empty = "no note")
+        for c in self._commits:
+            self.mock(
+                "notes",
+                "--ref=refs/notes/mergify/stack",
+                "show",
+                c["sha"],
+                output="",
+            )
+
+        # Register notes rev-parse --verify (used to check if local ref exists)
+        self.mock(
+            "rev-parse",
+            "--verify",
+            "refs/notes/mergify/stack",
+            output="fake_notes_sha",
         )
 
         # Register batch push mock with explicit per-ref leases
@@ -113,13 +193,17 @@ class GitMock:
 
         no_verify_args: tuple[str, ...] = ("--no-verify",) if no_verify else ()
 
+        # notes_ref_fetched=True: lease uses the SHA from rev-parse --verify
+        notes_lease = "--force-with-lease=refs/notes/mergify/stack:fake_notes_sha"
         self.mock(
             "push",
             "--atomic",
             *no_verify_args,
             *lease_args,
+            notes_lease,
             "origin",
             *refspecs,
+            "+refs/notes/mergify/stack:refs/notes/mergify/stack",
             output="",
         )
 

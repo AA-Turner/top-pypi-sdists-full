@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: voila
-Version: 0.5.11
+Version: 0.5.12
 Summary: Voilà turns Jupyter notebooks into standalone web applications
 Project-URL: Homepage, https://github.com/voila-dashboards/voila
 Author: Voila Development Team
@@ -41,17 +41,18 @@ Keywords: Jupyter,JupyterLab,Voila
 Classifier: Framework :: Jupyter
 Classifier: Framework :: Jupyter :: JupyterLab
 Classifier: Framework :: Jupyter :: JupyterLab :: 3
+Classifier: Framework :: Jupyter :: JupyterLab :: 4
 Classifier: Framework :: Jupyter :: JupyterLab :: Extensions
 Classifier: Framework :: Jupyter :: JupyterLab :: Extensions :: Prebuilt
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
-Requires-Python: >=3.8
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.10
 Requires-Dist: jupyter-client<9,>=7.4.4
 Requires-Dist: jupyter-core>=4.11.0
 Requires-Dist: jupyter-server<3,>=1.18
@@ -201,7 +202,7 @@ The sources of the Jupyter notebook can be displayed in a Voilà app if option `
 
 ### Voilà dashboards with other language kernels\*\*
 
-Voilà is built upon Jupyter standard formats and protocols, and is agnostic to the programming language of the notebook. In this example, we present an example of a Voilà application powered by the C++ Jupyter kernel [xeus-cling](https://github.com/jupyter-xeus/xeus-cling), and the [xleaflet](https://github.com/jupyter-xeus/xleaflet) project.
+Voilà is built upon Jupyter standard formats and protocols, and is agnostic to the programming language of the notebook. In this example, we present an example of a Voilà application powered by the C++ Jupyter kernel [xeus-cpp](https://github.com/compiler-research/xeus-cpp), and the [xleaflet](https://github.com/jupyter-xeus/xleaflet) project.
 
 ![Voilà cling](voila-cling.gif)
 

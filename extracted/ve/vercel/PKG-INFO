@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vercel
-Version: 0.5.7
+Version: 0.5.8
 Summary: Python SDK for Vercel
 License-Expression: MIT
 Requires-Python: >=3.10

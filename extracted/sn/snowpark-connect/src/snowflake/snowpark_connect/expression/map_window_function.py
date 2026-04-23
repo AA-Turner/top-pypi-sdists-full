@@ -339,4 +339,4 @@ def map_window_function(
 
         result_exp = window_func.over(window)
 
-        return spark_col_name, TypedColumn(result_exp, lambda: window_func.types)
+        return spark_col_name, TypedColumn(result_exp, lambda: window_func.field_types)

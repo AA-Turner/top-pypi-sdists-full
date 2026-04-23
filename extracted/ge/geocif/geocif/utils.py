@@ -854,6 +854,77 @@ def display_run_summary(title, params, wait=20):
         wait_or_keypress(wait)
 
 
+def detect_seasons_from_calendar(calendar_path, country, crop, max_season=3):
+    """Auto-detect valid seasons for a country/crop from the crop calendar Excel file.
+
+    Checks for sheets named ``{crop}_{N}`` (or just ``{crop}`` for wheat).
+    A season is valid when the sheet exists AND the country has at least one
+    row with positive calendar values (> 0).  Values of -1 or all-zero
+    indicate the crop/season is not grown in that country.
+
+    Args:
+        calendar_path: Path to the crop calendar Excel file (.xlsx).
+        country: Country name (as it appears in the calendar's "country" column).
+        crop: Full crop name (e.g. "soybean", "maize", "winter_wheat").
+        max_season: Maximum season number to probe.
+
+    Returns:
+        Sorted list of valid season integers (e.g. [1] or [1, 2]).
+        Returns [1] if calendar cannot be read or no seasons found.
+    """
+    from pathlib import Path
+
+    calendar_path = Path(calendar_path)
+    if not calendar_path.exists():
+        return [1]
+
+    try:
+        xl = pd.ExcelFile(calendar_path)
+        sheet_names = xl.sheet_names
+    except Exception:
+        return [1]
+
+    # Wheat has a single season with sheet name = crop name
+    if crop in ("winter_wheat", "spring_wheat"):
+        if crop in sheet_names:
+            return [1]
+        xl.close()
+        return [1]
+
+    country_lower = country.lower().replace("_", " ")
+    found = []
+
+    for s in range(1, max_season + 1):
+        sheet = f"{crop}_{s}"
+        if sheet not in sheet_names:
+            continue
+
+        try:
+            df = pd.read_excel(xl, sheet_name=sheet)
+        except Exception:
+            continue
+
+        # Find country column
+        country_col = next(
+            (c for c in df.columns if c.lower() == "country"), None
+        )
+        if country_col is None:
+            continue
+
+        # Filter to this country
+        rows = df[df[country_col].str.lower().str.strip() == country_lower]
+        if rows.empty:
+            continue
+
+        # Check for positive calendar values (1=planting, 2=growing, 3=harvest)
+        cal_cols = [c for c in df.columns if c not in ("admin", "country", "Country2", "Admin2")]
+        if (rows[cal_cols] > 0).any(axis=None):
+            found.append(s)
+
+    xl.close()
+    return found if found else [1]
+
+
 def filter_cid_columns(df, fixed_cols, target, stat_cols):
     """Get CID feature column names, excluding fixed/target/meta/engineered columns.
 

@@ -20,14 +20,16 @@ existing incentive that has already been applied to the account. Use the
 fetch_incentives.py example to get the available incentives.
 """
 
-
 import argparse
 import sys
 
 from google.ads.googleads.client import GoogleAdsClient
 from google.ads.googleads.errors import GoogleAdsException
-from google.ads.googleads.v23.services import ApplyIncentiveRequest, ApplyIncentiveResponse
-from google.ads.googleads.v23.services.services.incentive_service.client import (
+from google.ads.googleads.v24.services import (
+    ApplyIncentiveRequest,
+    ApplyIncentiveResponse,
+)
+from google.ads.googleads.v24.services.services.incentive_service.client import (
     IncentiveServiceClient,
 )
 
@@ -36,7 +38,7 @@ def main(
     client: GoogleAdsClient,
     customer_id: str,
     incentive_id: str,
-    country_code: str = None,
+    country_code: str,
 ) -> None:
     """Applies an incentive for the ads customer.
 
@@ -46,7 +48,9 @@ def main(
         country_code: The country code of the user.
         incentive_id: The incentive ID to select.
     """
-    incentive_service: IncentiveServiceClient = client.get_service("IncentiveService")
+    incentive_service: IncentiveServiceClient = client.get_service(
+        "IncentiveService"
+    )
     apply_incentive_request: ApplyIncentiveRequest = client.get_type(
         "ApplyIncentiveRequest"
     )
@@ -89,14 +93,14 @@ if __name__ == "__main__":
         "-k",
         "--country_code",
         type=str,
-        required=False,
+        required=True,
         help="The country code of the user (e.g. 'US').",
     )
     args = parser.parse_args()
 
     # GoogleAdsClient will read the google-ads.yaml configuration file in the
     # home directory if none is specified.
-    googleads_client = GoogleAdsClient.load_from_storage(version="v23")
+    googleads_client = GoogleAdsClient.load_from_storage(version="v24")
 
     try:
         main(

@@ -15,15 +15,15 @@ _sym_db = _symbol_database.Default()
 from isolate.connections.grpc.definitions import common_pb2 as common__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0b\x61gent.proto\x1a\x0c\x63ommon.proto\"n\n\x0c\x46unctionCall\x12#\n\x08\x66unction\x18\x01 \x01(\x0b\x32\x11.SerializedObject\x12*\n\nsetup_func\x18\x02 \x01(\x0b\x32\x11.SerializedObjectH\x00\x88\x01\x01\x42\r\n\x0b_setup_func24\n\x05\x41gent\x12+\n\x03Run\x12\r.FunctionCall\x1a\x11.PartialRunResult\"\x00\x30\x01\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0b\x61gent.proto\x1a\x0c\x63ommon.proto\"\xae\x01\n\x0c\x46unctionCall\x12*\n\nsetup_func\x18\x02 \x01(\x0b\x32\x11.SerializedObjectH\x01\x88\x01\x01\x12\x1a\n\x12run_on_main_thread\x18\x04 \x01(\x08\x12%\n\x08\x66unction\x18\x01 \x01(\x0b\x32\x11.SerializedObjectH\x00\x12\x14\n\nentrypoint\x18\x03 \x01(\tH\x00\x42\n\n\x08\x63\x61llableB\r\n\x0b_setup_func24\n\x05\x41gent\x12+\n\x03Run\x12\r.FunctionCall\x1a\x11.PartialRunResult\"\x00\x30\x01\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'agent_pb2', _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
   DESCRIPTOR._options = None
-  _globals['_FUNCTIONCALL']._serialized_start=29
-  _globals['_FUNCTIONCALL']._serialized_end=139
-  _globals['_AGENT']._serialized_start=141
-  _globals['_AGENT']._serialized_end=193
+  _globals['_FUNCTIONCALL']._serialized_start=30
+  _globals['_FUNCTIONCALL']._serialized_end=204
+  _globals['_AGENT']._serialized_start=206
+  _globals['_AGENT']._serialized_end=258
 # @@protoc_insertion_point(module_scope)

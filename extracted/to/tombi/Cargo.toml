@@ -3,7 +3,7 @@ resolver = "2"
 members = ["crates/*", "extensions/*", "rust/*"]
 
 [workspace.package]
-version = "0.9.20"  # We use git tags for versioning. This is just a placeholder.
+version = "0.9.21"  # We use git tags for versioning. This is just a placeholder.
 # tombi: lint.rules.deprecated.disabled = true
 authors = ["ya7010 <ya7010@outlook.com>"]
 edition = "2024"
@@ -121,3 +121,7 @@ ignored = [
   "wasm-bindgen",
   "wasm-bindgen-futures",
 ]
+
+[workspace.lints.rust]
+aarch64_softfloat_neon = "warn"
+deprecated = "warn"

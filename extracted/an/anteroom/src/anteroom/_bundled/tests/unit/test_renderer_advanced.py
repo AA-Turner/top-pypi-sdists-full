@@ -56,7 +56,7 @@ class TestToolDedupFlushing:
 
         output = buf.getvalue()
         # First call renders, second deduped (no second line printed)
-        assert "Reading" in output
+        assert "Read /a.py" in _strip_ansi(output)
         # The count should increment silently; only flush reveals total
 
     def test_different_key_flushes_previous(self) -> None:
@@ -73,7 +73,7 @@ class TestToolDedupFlushing:
 
         plain = _strip_ansi(buf.getvalue())
         assert "read 2 files total" in plain
-        assert "bash" in plain.lower()
+        assert "Ran ls" in plain
 
     def test_dedup_flush_label_editing(self) -> None:
         label = _dedup_flush_label("Editing", 5)
@@ -140,7 +140,7 @@ class TestSubagentRendering:
         assert "agent-1" in plain
         assert "Analyze the code" in plain
         assert "2.5s" in plain
-        assert "2 tool calls" in plain
+        assert "2 tools" in plain
 
     def test_subagent_with_error(self) -> None:
         buf = StringIO()
@@ -161,7 +161,8 @@ class TestSubagentRendering:
             render_subagent_tool("agent-3", "read_file", {"path": "/test.py"})
 
         plain = _strip_ansi(buf.getvalue())
-        assert "Reading" in plain
+        assert "agent-3" in plain
+        assert "read_file" not in plain
 
     def test_subagent_depth_indentation(self) -> None:
         buf = StringIO()
@@ -172,7 +173,7 @@ class TestSubagentRendering:
 
         plain = _strip_ansi(buf.getvalue())
         assert "deep-agent" in plain
-        assert "1 tool call" in plain  # singular
+        assert "1 tool" in plain  # singular
 
 
 class TestDiffRendering:

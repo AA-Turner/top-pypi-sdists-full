@@ -824,7 +824,8 @@ const App = (() => {
         _eventSource.addEventListener('agent_run_started', (e) => {
             const data = JSON.parse(e.data);
             if (data.conversation_id === state.currentConversationId || !data.conversation_id) {
-                Chat.renderDetachedChip(data.run_id, data.prompt, 'running');
+                const label = data.description || data.prompt || '';
+                Chat.renderDetachedChip(data.run_id, label, 'running');
             }
         });
 
@@ -833,7 +834,8 @@ const App = (() => {
             if (data.conversation_id === state.currentConversationId || !data.conversation_id) {
                 if (_deliveredNotificationIds.has(data.run_id)) return;
                 _deliveredNotificationIds.add(data.run_id);
-                Chat.renderDetachedChip(data.run_id, data.summary || '', data.status);
+                const label = data.description || data.summary || '';
+                Chat.renderDetachedChip(data.run_id, label, data.status);
                 Chat.showCompletionToast(`Agent ${(data.run_id || '').slice(0, 8)}: ${data.status}`);
             }
         });
@@ -1647,10 +1649,16 @@ const App = (() => {
         Chat.updateBgIndicator(state.bgTaskCount);
     }
 
+    function _testDeliverAgentStarted(data) {
+        const label = data.description || data.prompt || '';
+        Chat.renderDetachedChip(data.run_id, label, 'running');
+    }
+
     function _testDeliverAgentCompleted(data) {
         if (_deliveredNotificationIds.has(data.run_id)) return;
         _deliveredNotificationIds.add(data.run_id);
-        Chat.renderDetachedChip(data.run_id, data.summary || '', data.status);
+        const label = data.description || data.summary || '';
+        Chat.renderDetachedChip(data.run_id, label, data.status);
         Chat.showCompletionToast(`Agent ${(data.run_id || '').slice(0, 8)}: ${data.status}`);
     }
 
@@ -1658,11 +1666,17 @@ const App = (() => {
         _deliveredNotificationIds.clear();
     }
 
+    // #1491 — test hook to drive renderHookOutcome() from Playwright tests.
+    function _testDeliverHookOutcome(data) {
+        Chat.renderHookOutcome(data);
+    }
+
     return {
         state, api, _handle401, _getCsrfToken, _selectModel, newConversation, loadConversation,
         loadDatabases, addDatabase, loadSpaces, refreshModels, formatTimestamp,
         getTheme, setTheme, THEMES, openMcpModal, openSettings,
         setPlanMode, _showPlanContent, _debugLog,
-        _testDeliverTaskCompleted, _testDeliverAgentCompleted, _testClearDeliveredIds,
+        _testDeliverTaskCompleted, _testDeliverAgentStarted, _testDeliverAgentCompleted, _testClearDeliveredIds,
+        _testDeliverHookOutcome,
     };
 })();

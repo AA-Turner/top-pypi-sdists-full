@@ -295,17 +295,20 @@ class TestFooterModeLifecycle:
         mod._plan_visible = False
         mod._plan_steps = []
         mod._toolbar_invalidator = None
+        mod._toolbar_is_active = None
 
     def teardown_method(self) -> None:
         self.mod._footer_mode = False
         self.mod._repl_mode = False
         self.mod._toolbar_invalidator = None
+        self.mod._toolbar_is_active = None
 
     def test_footer_mode_set_by_start_thinking(self) -> None:
-        """start_thinking sets _footer_mode when _repl_mode and invalidator set."""
+        """start_thinking sets _footer_mode when _repl_mode, invalidator, and active probe are set."""
         r = self.mod
         r._repl_mode = True
         r._toolbar_invalidator = MagicMock()
+        r._toolbar_is_active = lambda: True
         r._stdout = MagicMock()
 
         r.start_thinking()
@@ -317,17 +320,43 @@ class TestFooterModeLifecycle:
         r = self.mod
         r._repl_mode = True
         r._toolbar_invalidator = None
+        r._toolbar_is_active = lambda: True
         r._stdout = MagicMock()
 
         r.start_thinking()
 
         assert r._footer_mode is False
 
+    def test_footer_mode_not_set_when_toolbar_inactive(self) -> None:
+        """Invalidator present but _toolbar_is_active returns False → fallback raw path (#1512)."""
+        r = self.mod
+        r._repl_mode = True
+        r._toolbar_invalidator = MagicMock()
+        r._toolbar_is_active = lambda: False
+        r._stdout = MagicMock()
+
+        r.start_thinking()
+
+        assert r._footer_mode is False
+
+    def test_footer_mode_set_when_is_active_probe_absent(self) -> None:
+        """When _toolbar_is_active is None, falls back to pre-#1512 behaviour (invalidator alone)."""
+        r = self.mod
+        r._repl_mode = True
+        r._toolbar_invalidator = MagicMock()
+        r._toolbar_is_active = None
+        r._stdout = MagicMock()
+
+        r.start_thinking()
+
+        assert r._footer_mode is True
+
     def test_footer_mode_not_set_when_plan_active(self) -> None:
         """Plan-mode uses raw ANSI path, _footer_mode stays False."""
         r = self.mod
         r._repl_mode = True
         r._toolbar_invalidator = MagicMock()
+        r._toolbar_is_active = lambda: True
         r._stdout = MagicMock()
         r._plan_visible = True
         r._plan_steps = [{"text": "step 1", "status": "pending"}]
@@ -367,11 +396,25 @@ class TestFooterModeLifecycle:
         r._repl_mode = True
         mock_inv = MagicMock()
         r._toolbar_invalidator = mock_inv
+        r._toolbar_is_active = lambda: True
         r._stdout = MagicMock()
 
         r.start_thinking()
 
         mock_inv.assert_called()
+
+    def test_invalidator_not_called_when_toolbar_inactive(self) -> None:
+        """When toolbar surface is inactive, invalidator must not be called during start_thinking."""
+        r = self.mod
+        r._repl_mode = True
+        mock_inv = MagicMock()
+        r._toolbar_invalidator = mock_inv
+        r._toolbar_is_active = lambda: False
+        r._stdout = MagicMock()
+
+        r.start_thinking()
+
+        mock_inv.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_invalidator_called_on_stop_thinking(self) -> None:

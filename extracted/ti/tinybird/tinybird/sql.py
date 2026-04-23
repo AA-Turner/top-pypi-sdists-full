@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, Iterable, List, Optional
 
 valid_chars_name: str = string.ascii_letters + string.digits + "._`*<>+-'"
-valid_chars_fn: str = valid_chars_name + "[](),=!?:/ \n\t\r"
+valid_chars_fn: str = valid_chars_name + "[](),=!?:/% \n\t\r"
 # Use sets for O(1) membership checks in hot loops
 _VALID_CHARS_NAME_SET = set(valid_chars_name)
 _VALID_CHARS_FN_SET = set(valid_chars_fn)

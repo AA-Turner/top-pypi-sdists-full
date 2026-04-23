@@ -17,7 +17,7 @@ from typing import Any
 from aiohomematic.const import ScheduleProfile, WeekdayStr
 from aiohomematic.interfaces import ClimateWeekProfileDataPointProtocol
 from aiohomematic.interfaces.model import DeviceProtocol
-from aiohomematic.model.schedule_models import ClimateWeekdaySchedule
+from aiohomematic.model.schedule_models import ClimateSchedulePeriod, ClimateWeekdaySchedule
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -126,7 +126,7 @@ async def set_climate_schedule_weekday(
 
     weekday_data = ClimateWeekdaySchedule(
         base_temperature=base_temperature,
-        periods=simple_weekday_list,
+        periods=[ClimateSchedulePeriod(**period) for period in simple_weekday_list],
     )
     await wp_dp.set_schedule_weekday(
         profile=ScheduleProfile(profile),

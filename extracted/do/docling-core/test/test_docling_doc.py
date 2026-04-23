@@ -6,7 +6,8 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Optional, Union
 from unittest.mock import Mock
-
+from io import BytesIO
+import base64
 import pytest
 import yaml
 from PIL import Image as PILImage
@@ -51,6 +52,7 @@ from docling_core.types.doc import (
 from docling_core.types.doc.document import FieldHeadingItem, FieldItem, FieldRegionItem, FieldValueItem
 from docling_core.types.doc.document import CURRENT_VERSION, PageItem
 from docling_core.types.doc.webvtt import WebVTTFile
+from docling_core.utils.settings import settings
 
 from .test_data_gen_flag import GEN_TEST_DATA
 
@@ -795,7 +797,158 @@ def test_image_ref():
     }
     image = ImageRef.model_validate(data_path)
     assert isinstance(image.uri, Path)
-    assert image.uri.name == "image.png"
+
+
+def test_image_ref_blocks_file_scheme():
+    """Test that file:// URI scheme is blocked."""
+    fig_image = PILImage.new(mode="RGB", size=(2, 2), color=(0, 0, 0))
+    image_ref = ImageRef.from_pil(image=fig_image, dpi=72)
+
+    image_ref.uri = AnyUrl("file:///tmp/test.png")
+
+    with pytest.raises(ValueError, match="file:// URI scheme is not enabled"):
+        _ = image_ref.pil_image
+
+
+def test_image_ref_blocks_oversized_base64():
+    """Test that oversized base64 data URIs are blocked."""
+    import base64
+
+    large_bytes = b"X" * (28 * 1024 * 1024)
+    large_data = base64.b64encode(large_bytes).decode('ascii')
+    data_uri = f"data:image/png;base64,{large_data}"
+
+    image_ref = ImageRef(
+        dpi=72,
+        mimetype="image/png",
+        size=Size(width=100, height=100),
+        uri=AnyUrl(data_uri)
+    )
+
+    with pytest.raises(ValueError, match="exceeds size limit"):
+        _ = image_ref.pil_image
+
+
+
+def test_image_ref_accepts_valid_base64():
+    """Test that valid base64 data URIs within size limit work correctly."""
+    import base64
+    from io import BytesIO
+
+    fig_image = PILImage.new(mode="RGB", size=(1, 1), color=(255, 0, 0))
+
+    # Convert to base64 data URI
+    buffer = BytesIO()
+    fig_image.save(buffer, format="PNG")
+    img_bytes = buffer.getvalue()
+    img_base64 = base64.b64encode(img_bytes).decode('ascii')
+    data_uri = f"data:image/png;base64,{img_base64}"
+
+    # Create ImageRef with data URI
+    image_ref = ImageRef(
+        dpi=72,
+        mimetype="image/png",
+        size=Size(width=1, height=1),
+        uri=AnyUrl(data_uri)
+    )
+
+    # Should successfully decode the image
+    decoded_image = image_ref.pil_image
+    assert isinstance(decoded_image, PILImage.Image)
+    assert decoded_image.size == (1, 1)
+    assert decoded_image.mode == "RGB"
+
+
+def test_file_uri_allowed_with_env_var():
+    """Test that file:// URIs work when enabled via settings."""
+    test_img_path = Path("/tmp/test_docling_env.png")
+    img = PILImage.new("RGB", (100, 100), color="red")
+    img.save(test_img_path)
+
+    orig_allow_image_file_uri = settings.allow_image_file_uri
+    try:
+        settings.allow_image_file_uri = True
+
+        image_ref = ImageRef(
+            dpi=72,
+            mimetype="image/png",
+            size=Size(width=100, height=100),
+            uri=AnyUrl(f"file://{test_img_path}"),
+        )
+
+        pil_img = image_ref.pil_image
+        assert pil_img is not None
+        assert pil_img.size == (100, 100)
+        assert pil_img.mode == "RGB"
+    finally:
+        test_img_path.unlink(missing_ok=True)
+        settings.allow_image_file_uri = orig_allow_image_file_uri
+
+
+def test_file_uri_blocked_by_default():
+    """Test that file:// URIs are blocked by default."""
+    image_ref = ImageRef(
+        dpi=72,
+        mimetype="image/png",
+        size=Size(width=100, height=100),
+        uri=AnyUrl("file:///tmp/test.png"),
+    )
+
+    with pytest.raises(ValueError, match="file:// URI scheme is not enabled"):
+        _ = image_ref.pil_image
+
+
+def test_max_decoded_size_custom():
+    """Test that oversized images are rejected based on custom limit."""
+    orig_max_image_decoded_size = settings.max_image_decoded_size
+    try:
+        settings.max_image_decoded_size = 100  # 100 bytes limit
+
+        # Create image that will exceed 100 bytes when base64 decoded
+        # A 50x50 RGB image is 50*50*3 = 7500 bytes uncompressed
+        img = PILImage.new("RGB", (50, 50), color="green")
+        buffer = BytesIO()
+        img.save(buffer, format="PNG")
+        img_bytes = buffer.getvalue()
+
+        # Verify the decoded size will exceed our limit
+        assert len(img_bytes) > 100, f"Test image is only {len(img_bytes)} bytes, need > 100"
+
+        encoded = base64.b64encode(img_bytes).decode("utf-8")
+        data_uri = f"data:image/png;base64,{encoded}"
+
+        image_ref = ImageRef(
+            dpi=72,
+            mimetype="image/png",
+            size=Size(width=50, height=50),
+            uri=AnyUrl(data_uri),
+        )
+
+        with pytest.raises(ValueError, match="Decoded image exceeds size limit"):
+            _ = image_ref.pil_image
+    finally:
+        settings.max_image_decoded_size = orig_max_image_decoded_size
+
+def test_max_decoded_size_default():
+    """Test that small images work with default 20MB limit."""
+    img = PILImage.new("RGB", (100, 100), color="blue")
+    buffer = BytesIO()
+    img.save(buffer, format="PNG")
+    img_bytes = buffer.getvalue()
+
+    encoded = base64.b64encode(img_bytes).decode("utf-8")
+    data_uri = f"data:image/png;base64,{encoded}"
+
+    image_ref = ImageRef(
+        dpi=72,
+        mimetype="image/png",
+        size=Size(width=100, height=100),
+        uri=AnyUrl(data_uri),
+    )
+
+    pil_img = image_ref.pil_image
+    assert pil_img is not None
+    assert pil_img.size == (100, 100)
 
 
 def test_upgrade_content_layer_from_1_0_0() -> None:

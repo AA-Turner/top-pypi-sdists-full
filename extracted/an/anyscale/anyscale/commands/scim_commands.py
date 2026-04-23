@@ -5,9 +5,11 @@ These commands handle SCIM-specific functionality like enforcing
 user group permissions after SCIM is enabled.
 """
 
-from typing import Dict
+from typing import Dict, List
 
 import click
+from rich.console import Console
+from rich.table import Table
 
 from anyscale._private.anyscale_client import AnyscaleClient
 from anyscale.cli_logger import BlockLogger
@@ -155,4 +157,93 @@ def enforce_group_permissions(dry_run: bool) -> None:
         raise
     except Exception as e:  # noqa: BLE001
         log.error(f"Failed to migrate SCIM permissions: {e}")
+        raise click.ClickException(str(e))
+
+
+def _analyze_permissions(result: Dict) -> List[Dict]:
+    """Analyze SCIM user permissions and return entries with incomplete setup.
+
+    Checks each non-service-account user's cloud permissions. A cloud role that
+    is not readonly but has no project-level permissions is flagged as incomplete.
+
+    Args:
+        result: The API response dict from list_scim_user_permissions,
+                containing a "users" list.
+
+    Returns:
+        List of dicts with keys: email, cloud_name, role, issue.
+    """
+    warnings: List[Dict] = []
+    for user in result.get("users", []):
+        if user.get("is_service_account"):
+            continue
+        clouds = user.get("clouds") or []
+        if not clouds:
+            continue
+        for cloud in clouds:
+            if cloud.get("role") == "readonly":
+                continue
+            projects = cloud.get("projects") or []
+            if not projects:
+                warnings.append(
+                    {
+                        "email": user.get("user_email", "unknown"),
+                        "cloud_name": cloud.get("cloud_name", "unknown"),
+                        "role": cloud.get("role", "unknown"),
+                        "issue": "No project permissions",
+                    }
+                )
+    return warnings
+
+
+@scim_cli.command(
+    name="check-permissions",
+    cls=AnyscaleCommand,
+    example=command_examples.SCIM_CHECK_PERMISSIONS_EXAMPLE,
+    is_beta=True,
+)
+def check_permissions() -> None:
+    """Check for SCIM users with incomplete permission setup.
+
+    Identifies users who have a cloud role (owner or collaborator) but are
+    missing project-level permissions. These users can access the cloud but
+    cannot use any projects within it.
+    """
+    client = AnyscaleClient()
+
+    try:
+        log.info("Checking SCIM user permissions...")
+        response = client.list_scim_user_permissions()
+        result = response.get("result", response)
+        warnings = _analyze_permissions(result)
+
+        if not warnings:
+            click.echo("All SCIM users have complete permission setup.")
+            return
+
+        table = Table(show_header=True, header_style="bold")
+        table.add_column("User Email", no_wrap=True)
+        table.add_column("Cloud", no_wrap=True)
+        table.add_column("Role", no_wrap=True)
+        table.add_column("Issue", no_wrap=True)
+
+        for w in warnings:
+            table.add_row(w["email"], w["cloud_name"], w["role"], w["issue"])
+
+        click.echo("Users with incomplete SCIM permission setup:")
+        Console().print(table)
+        n = len({w["email"] for w in warnings})
+        noun = "user" if n == 1 else "users"
+        verb = "has" if n == 1 else "have"
+        click.echo(f"\n{n} {noun} {verb} incomplete permission setup.")
+        click.echo("\nRun 'anyscale policy set' to grant project-level permissions.")
+        click.echo(
+            "See https://docs.anyscale.com/administration/organization/scim"
+            " for details."
+        )
+
+    except click.ClickException:
+        raise
+    except Exception as e:  # noqa: BLE001
+        log.error(f"Failed to check SCIM permissions: {e}")
         raise click.ClickException(str(e))

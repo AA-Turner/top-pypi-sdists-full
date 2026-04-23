@@ -69,6 +69,8 @@ extensions = ['sphinx.ext.intersphinx',
               'sphinx.ext.napoleon',
               'sphinx_autodoc_typehints',
               'sphinxcontrib.towncrier',
+              'sphinx_copybutton',
+              'sphinx_inline_tabs',
               'sphinx_issues']
 
 issues_github_path = "pyinstaller/pyinstaller"

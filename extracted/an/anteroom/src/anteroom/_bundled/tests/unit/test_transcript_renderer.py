@@ -8,6 +8,7 @@ from unittest.mock import patch
 
 from rich.console import Console
 
+from anteroom.cli import renderer as _renderer
 from anteroom.cli.transcript_renderer import (
     TRANSCRIPT_ROLES,
     render_step_transcript,
@@ -18,11 +19,30 @@ _ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
 
 
 def _capture(func, *args, **kwargs) -> str:
-    """Capture Rich console output, stripped of ANSI codes."""
+    """Capture Rich console output, stripped of ANSI codes.
+
+    The transcript renderer now routes ``transcript_assistant``,
+    ``transcript_stdout`` and ``transcript_stderr`` through the shared
+    ``anteroom.cli.renderer`` module (#1370). For those events the text
+    lands on ``renderer.console`` / ``renderer._stdout_console`` rather
+    than the console passed into ``func``. Combine both output streams
+    so callers continue to see a single string.
+    """
     buf = io.StringIO()
     console = Console(file=buf, width=120, force_terminal=True, color_system="truecolor")
-    func(console, *args, **kwargs)
-    return _ANSI_RE.sub("", buf.getvalue())
+    rbuf = io.StringIO()
+    rconsole = Console(file=rbuf, width=120, force_terminal=True, color_system="truecolor")
+    original_console = _renderer.console
+    original_stdout_console = _renderer._stdout_console
+    _renderer.console = rconsole
+    _renderer._stdout_console = rconsole
+    try:
+        func(console, *args, **kwargs)
+    finally:
+        _renderer.console = original_console
+        _renderer._stdout_console = original_stdout_console
+    combined = buf.getvalue() + rbuf.getvalue()
+    return _ANSI_RE.sub("", combined)
 
 
 class TestTranscriptRoles:

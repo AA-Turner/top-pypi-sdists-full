@@ -10,14 +10,23 @@ changes need REPL-level integration coverage per .claude/rules/ux-testing.md.
 
 from __future__ import annotations
 
+import asyncio
 import re
 from pathlib import Path
+from types import SimpleNamespace
 
+from prompt_toolkit.completion import Completion
+from prompt_toolkit.document import Document
+
+from anteroom.cli import repl as repl_module
 from anteroom.cli.commands import (
     ALL_COMMAND_NAMES,
+    COMMAND_ARGUMENT_COMPLETIONS,
     COMMAND_DESCRIPTIONS,
+    SUBCOMMAND_ARGUMENT_COMPLETIONS,
     SUBCOMMAND_COMPLETIONS,
 )
+from anteroom.cli.repl import AnteroomCompleter
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -85,8 +94,10 @@ class TestSharedMetadataWiring:
         source = _read_repl_source()
         assert "from anteroom.cli.commands import" in source
         assert "ALL_COMMAND_NAMES" in source
-        assert "COMMAND_DESCRIPTIONS" in source
-        assert "SUBCOMMAND_COMPLETIONS" in source
+        # Command display is delegated to command_palette; descriptions live in commands.py
+        assert "command_palette" in source
+        # Subcommand completions delegated via get_subcommand_completions()
+        assert "get_subcommand_completions" in source
 
     def test_all_command_names_have_descriptions(self) -> None:
         """Every command in ALL_COMMAND_NAMES must have a description."""
@@ -160,3 +171,106 @@ class TestPackSubcommandConsistency:
         assert unreachable == set(), (
             f"SUBCOMMAND_COMPLETIONS['pack'] advertises subcommands the REPL cannot execute: {unreachable}"
         )
+
+
+class TestRuntimeCompleter:
+    def _make_completer(self, tmp_path: Path) -> AnteroomCompleter:
+        db = SimpleNamespace()
+        return AnteroomCompleter(
+            commands=list(ALL_COMMAND_NAMES),
+            skill_names=[],
+            skill_descriptions={},
+            working_dir=str(tmp_path),
+            db=db,
+            completion_cls=Completion,
+        )
+
+    def test_shared_metadata_exposes_file_contexts(self) -> None:
+        assert COMMAND_ARGUMENT_COMPLETIONS["upload"] == "path"
+        assert SUBCOMMAND_ARGUMENT_COMPLETIONS["space"]["load"] == "path"
+
+    def test_upload_path_completion(self, tmp_path: Path) -> None:
+        (tmp_path / "alpha.txt").write_text("x")
+        completer = self._make_completer(tmp_path)
+        completions = list(completer.get_completions(Document("/upload al", cursor_position=10), None))
+        assert any(c.text == "alpha.txt " for c in completions)
+
+    def test_space_load_quoted_path_completion(self, tmp_path: Path) -> None:
+        (tmp_path / "space config.yaml").write_text("x")
+        completer = self._make_completer(tmp_path)
+        completions = list(completer.get_completions(Document('/space load "spa', cursor_position=16), None))
+        assert any(c.text == '"space config.yaml" ' for c in completions)
+
+    def test_at_file_completion_for_nested_directory(self, tmp_path: Path) -> None:
+        nested = tmp_path / "docs"
+        nested.mkdir()
+        (nested / "guide.md").write_text("x")
+        completer = self._make_completer(tmp_path)
+        completions = list(completer.get_completions(Document("@docs/g", cursor_position=7), None))
+        assert any(c.text == "@docs/guide.md " for c in completions)
+
+    def test_slug_completion_for_resume(self, tmp_path: Path, monkeypatch) -> None:
+        monkeypatch.setattr(
+            repl_module.storage,
+            "list_conversation_slugs",
+            lambda _db, limit=50: [("auth-refactor", "Auth Refactor")],
+        )
+        completer = self._make_completer(tmp_path)
+        completions = list(completer.get_completions(Document("/resume au", cursor_position=10), None))
+        assert any(c.text == "auth-refactor" for c in completions)
+
+    def test_async_completion_matches_sync_completion(self, tmp_path: Path) -> None:
+        (tmp_path / "alpha.txt").write_text("x")
+        completer = self._make_completer(tmp_path)
+        document = Document("/upload al", cursor_position=10)
+
+        sync = [c.text for c in completer.get_completions(document, None)]
+
+        async def _collect() -> list[str]:
+            results: list[str] = []
+            async for completion in completer.get_completions_async(document, None):
+                results.append(completion.text)
+            return results
+
+        assert asyncio.run(_collect()) == sync
+
+
+# ---------------------------------------------------------------------------
+
+
+class TestCommandPaletteAutoSelect:
+    """Verify select_first is always False (#1501).
+
+    Secondary check — confirms the correct value is passed to start_completion.
+    Live buffer behavior is verified in test_repl_command_palette_pty.py.
+    """
+
+    def _simulate_buffer_change(self, text: str) -> bool | None:
+        """Return the select_first value that would be passed to start_completion."""
+        from unittest.mock import MagicMock
+
+        captured: list[bool] = []
+
+        mock_buf = MagicMock()
+
+        def fake_start_completion(select_first: bool = True) -> None:
+            captured.append(select_first)
+
+        mock_buf.start_completion.side_effect = fake_start_completion
+
+        from anteroom.cli.command_palette import should_open_command_palette
+
+        if should_open_command_palette(text):
+            mock_buf.start_completion(select_first=False)
+
+        return captured[0] if captured else None
+
+    def test_bare_slash_does_not_preselect(self) -> None:
+        """Bare / must open the palette without pre-selecting any item."""
+        assert self._simulate_buffer_change("/") is False
+
+    def test_filtered_query_does_not_preselect(self) -> None:
+        """A typed query must never pre-select — palette opens unselected for all inputs."""
+        assert self._simulate_buffer_change("/n") is False
+        assert self._simulate_buffer_change("/switch") is False
+        assert self._simulate_buffer_change("/new") is False

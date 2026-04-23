@@ -8,7 +8,13 @@ from filelock import FileLock
 
 from dbt_mcp.config.config_providers.admin_api import DefaultAdminApiConfigProvider
 from dbt_mcp.config.headers import TokenProvider
-from dbt_mcp.config.settings import DbtMcpSettings
+from dbt_mcp.config.settings import (
+    DbtMcpSettings,
+    _build_dbt_platform_url,
+    validate_dbt_cli_settings,
+    validate_dbt_platform_settings,
+    validate_settings,
+)
 from dbt_mcp.dbt_admin.client import DbtAdminAPIClient
 from dbt_mcp.oauth.context_manager import DbtPlatformContextManager
 from dbt_mcp.oauth.dbt_platform import DbtPlatformContext
@@ -149,7 +155,9 @@ async def get_dbt_platform_context(
 ) -> DbtPlatformContext:
     # Some MCP hosts (Claude Desktop) tend to run multiple MCP servers instances.
     # We need to lock so that only one can run the oauth flow.
-    with FileLock(dbt_user_dir / "mcp.lock"):
+    # Resolve the lock file path to handle multi-level symbolic links (see #533).
+    lock_path = (dbt_user_dir / "mcp.lock").resolve()
+    with FileLock(lock_path):
         dbt_ctx = dbt_platform_context_manager.read_context()
 
         # If context is complete, check token validity
@@ -202,13 +210,6 @@ class CredentialsProvider:
         logger.info(f"Settings: {settings}")
 
     async def get_credentials(self) -> "tuple[DbtMcpSettings, TokenProvider]":
-        from dbt_mcp.config.settings import (
-            _build_dbt_platform_url,
-            validate_dbt_cli_settings,
-            validate_dbt_platform_settings,
-            validate_settings,
-        )
-
         if self.token_provider is not None:
             # If token provider is already set, just return the cached values
             return self.settings, self.token_provider
@@ -252,6 +253,7 @@ class CredentialsProvider:
             )
             self.settings.dbt_account_id = dbt_platform_context.account_id
             self.settings.host_prefix = dbt_platform_context.host_prefix
+            self.settings.dbt_project_ids = dbt_platform_context.selected_project_ids
             self.settings.dbt_host = self.settings.base_host
             if not dbt_platform_context.decoded_access_token:
                 raise ValueError("No decoded access token found in OAuth context")

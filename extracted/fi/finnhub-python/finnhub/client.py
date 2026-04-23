@@ -534,3 +534,28 @@ class Client:
 
     def bank_branch(self, symbol):
         return self._get("/bank-branch", params={"symbol": symbol})
+
+    def company_net_income_estimates(self, symbol, freq=None):
+        return self._get("/stock/net-income-estimate", params={
+            "symbol": symbol,
+            "freq": freq
+        })
+
+    def company_pretax_income_estimates(self, symbol, freq=None):
+        return self._get("/stock/pretax-income-estimate", params={
+            "symbol": symbol,
+            "freq": freq
+        })
+
+    def company_gross_income_estimates(self, symbol, freq=None):
+        return self._get("/stock/gross-income-estimate", params={
+            "symbol": symbol,
+            "freq": freq
+        })
+
+    def company_dps_estimates(self, symbol, freq=None):
+        return self._get("/stock/dps-estimate", params={
+            "symbol": symbol,
+            "freq": freq
+        })
+        

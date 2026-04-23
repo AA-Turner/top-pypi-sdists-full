@@ -1,3 +1,4 @@
+import re
 import subprocess
 import sys
 import textwrap
@@ -16,7 +17,22 @@ from isolate.backends.pyenv import PyenvEnvironment, _get_pyenv_executable
 from isolate.backends.remote import IsolateServer
 from isolate.backends.settings import IsolateSettings
 from isolate.backends.virtualenv import VirtualPythonEnvironment
-from isolate.logs import LogLevel, LogSource
+from isolate.logs import Log, LogLevel, LogSource
+
+# gRPC C core on macOS emits log lines to stderr after fork(),
+# polluting captured user logs. Examples:
+#   I0404 01:07:18.985849 331910 ev_poll_posix.cc:593] FD from fork ...
+#   I0404 01:13:01.344279 380102 chttp2_transport.cc:1369] Got goaway ...
+_GRPC_CORE_RE = re.compile(
+    r"^[IWED]\d{4} "  # gRPC log level + MMDD
+    r"\d{2}:\d{2}:\d{2}\.\d+\s+"  # timestamp
+    r"\d+\s+"  # PID
+    r"\S+\.cc:\d+\]"  # source.cc:line]
+)
+
+
+def _filter_grpc_noise(logs: List[Log]) -> List[Log]:
+    return [log for log in logs if log.message and not _GRPC_CORE_RE.match(log.message)]
 
 
 class GenericEnvironmentTests:
@@ -793,7 +809,9 @@ def test_isolate_server_logs_level_inference(isolate_server):
             )
         )
 
-    user_logs = [log for log in collected_logs if log.source == LogSource.USER]
+    user_logs = _filter_grpc_noise(
+        [log for log in collected_logs if log.source == LogSource.USER]
+    )
     assert len(user_logs) == 6
     assert [log.level for log in user_logs] == [
         LogLevel.DEBUG,

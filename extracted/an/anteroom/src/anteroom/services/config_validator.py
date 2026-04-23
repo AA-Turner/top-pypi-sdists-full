@@ -93,6 +93,7 @@ _KNOWN_TOP_LEVEL = {
     "trusted_proxy",
     "workflow",
     "pack_sources",
+    "hooks",
 }
 
 # Known keys per section
@@ -145,6 +146,10 @@ _KNOWN_KEYS: dict[str, set[str]] = {
         "model_context_window",
         "planning",
         "usage",
+        "hierarchy",
+        "streaming",
+        "live_tools",
+        "density",
     },
     "cli.planning": {"enabled", "auto_threshold_tools", "auto_mode"},
     "cli.usage": {"week_days", "month_days", "model_costs", "budgets"},
@@ -155,6 +160,29 @@ _KNOWN_KEYS: dict[str, set[str]] = {
         "max_tokens_per_day",
         "warn_threshold_percent",
         "action_on_exceed",
+    },
+    "cli.hierarchy": {
+        "show_timestamps",
+        "turn_separator_char",
+        "code_block_language_label",
+    },
+    "cli.streaming": {
+        "enabled",
+        "refresh_hz",
+        "live_in_exec_mode",
+        "code_fence_container",
+    },
+    "cli.live_tools": {
+        "show_args_in_verbose",
+        "show_metric_suffix",
+        "metric_max_chars",
+    },
+    "cli.density": {
+        "mode",
+        "collapse_repeats",
+        "diff_context_lines",
+        "head_lines",
+        "tail_lines",
     },
     "embeddings": {
         "enabled",
@@ -832,6 +860,177 @@ def validate_config(raw: dict[str, Any]) -> ValidationResult:
                             severity="warning",
                         )
                     )
+
+    # Validate hooks section
+    hooks_raw = raw.get("hooks")
+    if hooks_raw is not None:
+        if not isinstance(hooks_raw, dict):
+            result.errors.append(ConfigError(path="hooks", message="hooks must be a mapping", severity="error"))
+        else:
+            # Reject unsupported top-level event keys in the hooks mapping.
+            # Phase-2 events are reserved but not yet wired into the runtime.
+            from .hooks import PHASE_1_HOOK_EVENTS, PHASE_2_HOOK_EVENTS
+
+            for event_key in hooks_raw:
+                if event_key in PHASE_2_HOOK_EVENTS:
+                    result.errors.append(
+                        ConfigError(
+                            path=f"hooks.{event_key}",
+                            message=(
+                                f"'{event_key}' is a reserved phase-2 lifecycle hook event and is not yet supported. "
+                                "It will be available in a later release. "
+                                "Currently supported events: pre_tool, post_tool."
+                            ),
+                            severity="error",
+                        )
+                    )
+                elif event_key not in PHASE_1_HOOK_EVENTS:
+                    result.errors.append(
+                        ConfigError(
+                            path=f"hooks.{event_key}",
+                            message=(
+                                f"unknown hook event '{event_key}'; currently supported events: pre_tool, post_tool."
+                            ),
+                            severity="error",
+                        )
+                    )
+
+            for event_key in ("pre_tool", "post_tool"):
+                entries = hooks_raw.get(event_key)
+                if entries is None:
+                    continue
+                if not isinstance(entries, list):
+                    result.errors.append(
+                        ConfigError(
+                            path=f"hooks.{event_key}",
+                            message=f"hooks.{event_key} must be a list",
+                            severity="error",
+                        )
+                    )
+                    continue
+                for i, entry in enumerate(entries):
+                    if not isinstance(entry, dict):
+                        result.errors.append(
+                            ConfigError(
+                                path=f"hooks.{event_key}[{i}]",
+                                message="hook entry must be a mapping",
+                                severity="error",
+                            )
+                        )
+                        continue
+                    prefix = f"hooks.{event_key}[{i}]"
+                    hook_id = str(entry.get("id", "")).strip()
+                    if not hook_id:
+                        result.errors.append(
+                            ConfigError(
+                                path=f"{prefix}.id",
+                                message="hook entry missing required 'id' field",
+                                severity="error",
+                            )
+                        )
+                    matcher = entry.get("matcher")
+                    if matcher is not None and not isinstance(matcher, dict):
+                        result.errors.append(
+                            ConfigError(
+                                path=f"{prefix}.matcher",
+                                message="matcher must be a mapping",
+                                severity="error",
+                            )
+                        )
+                    runner = entry.get("runner")
+                    if runner is None:
+                        # Runner is required — parser falls back to an empty
+                        # command runner, but that never runs anything
+                        # meaningful.  Surface it as an error so operators
+                        # see the config issue rather than silently losing
+                        # the hook.
+                        result.errors.append(
+                            ConfigError(
+                                path=f"{prefix}.runner",
+                                message="hook entry missing required 'runner' field",
+                                severity="error",
+                            )
+                        )
+                    elif not isinstance(runner, dict):
+                        result.errors.append(
+                            ConfigError(
+                                path=f"{prefix}.runner",
+                                message="runner must be a mapping",
+                                severity="error",
+                            )
+                        )
+                    else:
+                        runner_type = runner.get("type", "command")
+                        if runner_type not in ("command", "webhook"):
+                            result.errors.append(
+                                ConfigError(
+                                    path=f"{prefix}.runner.type",
+                                    message=f"runner type must be 'command' or 'webhook', got {runner_type!r}",
+                                    severity="error",
+                                )
+                            )
+                            continue
+                        if runner_type == "command" and not str(runner.get("command", "")).strip():
+                            result.errors.append(
+                                ConfigError(
+                                    path=f"{prefix}.runner.command",
+                                    message="command runner requires a non-empty 'command' field",
+                                    severity="error",
+                                )
+                            )
+                        if runner_type == "webhook":
+                            _url = str(runner.get("url", "")).strip()
+                            if not _url:
+                                result.errors.append(
+                                    ConfigError(
+                                        path=f"{prefix}.runner.url",
+                                        message="webhook runner requires a non-empty 'url' field",
+                                        severity="error",
+                                    )
+                                )
+                            elif not (_url.startswith("https://") or _url.startswith("http://")):
+                                result.errors.append(
+                                    ConfigError(
+                                        path=f"{prefix}.runner.url",
+                                        message=(
+                                            "webhook runner url must use http:// or https:// scheme"
+                                            f" (got {_url.split('://')[0]!r})"
+                                        ),
+                                        severity="error",
+                                    )
+                                )
+                        timeout = runner.get("timeout")
+                        if timeout is not None:
+                            # Booleans are a subclass of int in Python;
+                            # reject them explicitly so ``timeout: true``
+                            # doesn't silently become ``1``.
+                            if isinstance(timeout, bool):
+                                result.errors.append(
+                                    ConfigError(
+                                        path=f"{prefix}.runner.timeout",
+                                        message=f"timeout must be an integer, got {timeout!r}",
+                                        severity="error",
+                                    )
+                                )
+                            else:
+                                try:
+                                    t = int(timeout)
+                                    if t < 1 or t > 30:
+                                        result.errors.append(
+                                            ConfigError(
+                                                path=f"{prefix}.runner.timeout",
+                                                message=f"timeout must be between 1 and 30 seconds, got {t}",
+                                                severity="warning",
+                                            )
+                                        )
+                                except (ValueError, TypeError):
+                                    result.errors.append(
+                                        ConfigError(
+                                            path=f"{prefix}.runner.timeout",
+                                            message=f"timeout must be an integer, got {timeout!r}",
+                                            severity="error",
+                                        )
+                                    )
 
     return result
 

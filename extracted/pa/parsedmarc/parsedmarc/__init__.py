@@ -38,7 +38,11 @@ import xmltodict
 from expiringdict import ExpiringDict
 from mailsuite.smtp import send_email
 
-from parsedmarc.constants import __version__
+from parsedmarc.constants import (
+    DEFAULT_DNS_MAX_RETRIES,
+    DEFAULT_DNS_TIMEOUT,
+    __version__,
+)
 from parsedmarc.log import logger
 from parsedmarc.mail import (
     GmailConnection,
@@ -301,7 +305,8 @@ def _parse_report_record(
     reverse_dns_map_url: Optional[str] = None,
     offline: bool = False,
     nameservers: Optional[list[str]] = None,
-    dns_timeout: float = 2.0,
+    dns_timeout: float = DEFAULT_DNS_TIMEOUT,
+    dns_retries: int = DEFAULT_DNS_MAX_RETRIES,
 ) -> dict[str, Any]:
     """
     Converts a record from a DMARC aggregate report into a more consistent
@@ -312,11 +317,13 @@ def _parse_report_record(
         always_use_local_files (bool): Do not download files
         reverse_dns_map_path (str): Path to a reverse DNS map file
         reverse_dns_map_url (str): URL to a reverse DNS map file
-        ip_db_path (str): Path to a MMDB file from MaxMind or DBIP
+        ip_db_path (str): Path to a MMDB file from IPinfo, MaxMind, or DBIP
         offline (bool): Do not query online for geolocation or DNS
         nameservers (list): A list of one or more nameservers to use
         (Cloudflare's public DNS resolvers by default)
         dns_timeout (float): Sets the DNS timeout in seconds
+        dns_retries (int): Number of times to retry DNS queries on timeout
+            or other transient errors
 
     Returns:
         dict: The converted record
@@ -336,6 +343,7 @@ def _parse_report_record(
         offline=offline,
         nameservers=nameservers,
         timeout=dns_timeout,
+        retries=dns_retries,
     )
     new_record["source"] = new_record_source
     new_record["count"] = int(record["row"]["count"])
@@ -668,7 +676,8 @@ def parse_aggregate_report_xml(
     reverse_dns_map_url: Optional[str] = None,
     offline: bool = False,
     nameservers: Optional[list[str]] = None,
-    timeout: float = 2.0,
+    timeout: float = DEFAULT_DNS_TIMEOUT,
+    retries: int = DEFAULT_DNS_MAX_RETRIES,
     keep_alive: Optional[Callable] = None,
     normalize_timespan_threshold_hours: float = 24.0,
 ) -> AggregateReport:
@@ -676,7 +685,7 @@ def parse_aggregate_report_xml(
 
     Args:
         xml (str): A string of DMARC aggregate report XML
-        ip_db_path (str): Path to a MMDB file from MaxMind or DBIP
+        ip_db_path (str): Path to a MMDB file from IPinfo, MaxMind, or DBIP
         always_use_local_files (bool): Do not download files
         reverse_dns_map_path (str): Path to a reverse DNS map file
         reverse_dns_map_url (str): URL to a reverse DNS map file
@@ -684,6 +693,8 @@ def parse_aggregate_report_xml(
         nameservers (list): A list of one or more nameservers to use
             (Cloudflare's public DNS resolvers by default)
         timeout (float): Sets the DNS timeout in seconds
+        retries (int): Number of times to retry DNS queries on timeout or
+            other transient errors
         keep_alive (callable): Keep alive function
         normalize_timespan_threshold_hours (float): Normalize timespans beyond this
 
@@ -828,6 +839,7 @@ def parse_aggregate_report_xml(
                         reverse_dns_map_url=reverse_dns_map_url,
                         nameservers=nameservers,
                         dns_timeout=timeout,
+                        dns_retries=retries,
                     )
                     _append_parsed_record(
                         parsed_record=report_record,
@@ -849,6 +861,7 @@ def parse_aggregate_report_xml(
                 offline=offline,
                 nameservers=nameservers,
                 dns_timeout=timeout,
+                dns_retries=retries,
             )
             _append_parsed_record(
                 parsed_record=report_record,
@@ -982,7 +995,8 @@ def parse_aggregate_report_file(
     reverse_dns_map_url: Optional[str] = None,
     ip_db_path: Optional[str] = None,
     nameservers: Optional[list[str]] = None,
-    dns_timeout: float = 2.0,
+    dns_timeout: float = DEFAULT_DNS_TIMEOUT,
+    dns_retries: int = DEFAULT_DNS_MAX_RETRIES,
     keep_alive: Optional[Callable] = None,
     normalize_timespan_threshold_hours: float = 24.0,
 ) -> AggregateReport:
@@ -995,10 +1009,12 @@ def parse_aggregate_report_file(
         always_use_local_files (bool): Do not download files
         reverse_dns_map_path (str): Path to a reverse DNS map file
         reverse_dns_map_url (str): URL to a reverse DNS map file
-        ip_db_path (str): Path to a MMDB file from MaxMind or DBIP
+        ip_db_path (str): Path to a MMDB file from IPinfo, MaxMind, or DBIP
         nameservers (list): A list of one or more nameservers to use
             (Cloudflare's public DNS resolvers by default)
         dns_timeout (float): Sets the DNS timeout in seconds
+        dns_retries (int): Number of times to retry DNS queries on timeout
+            or other transient errors
         keep_alive (callable): Keep alive function
         normalize_timespan_threshold_hours (float): Normalize timespans beyond this
 
@@ -1020,6 +1036,7 @@ def parse_aggregate_report_file(
         offline=offline,
         nameservers=nameservers,
         timeout=dns_timeout,
+        retries=dns_retries,
         keep_alive=keep_alive,
         normalize_timespan_threshold_hours=normalize_timespan_threshold_hours,
     )
@@ -1097,6 +1114,9 @@ def parsed_aggregate_reports_to_csv_rows(
             row["source_base_domain"] = record["source"]["base_domain"]
             row["source_name"] = record["source"]["name"]
             row["source_type"] = record["source"]["type"]
+            row["source_asn"] = record["source"]["asn"]
+            row["source_asn_name"] = record["source"]["asn_name"]
+            row["source_asn_domain"] = record["source"]["asn_domain"]
             row["count"] = record["count"]
             row["spf_aligned"] = record["alignment"]["spf"]
             row["dkim_aligned"] = record["alignment"]["dkim"]
@@ -1188,6 +1208,9 @@ def parsed_aggregate_reports_to_csv(
         "source_base_domain",
         "source_name",
         "source_type",
+        "source_asn",
+        "source_asn_name",
+        "source_asn_domain",
         "count",
         "spf_aligned",
         "dkim_aligned",
@@ -1230,7 +1253,8 @@ def parse_forensic_report(
     offline: bool = False,
     ip_db_path: Optional[str] = None,
     nameservers: Optional[list[str]] = None,
-    dns_timeout: float = 2.0,
+    dns_timeout: float = DEFAULT_DNS_TIMEOUT,
+    dns_retries: int = DEFAULT_DNS_MAX_RETRIES,
     strip_attachment_payloads: bool = False,
 ) -> ForensicReport:
     """
@@ -1239,7 +1263,7 @@ def parse_forensic_report(
     Args:
         feedback_report (str): A message's feedback report as a string
         sample (str): The RFC 822 headers or RFC 822 message sample
-        ip_db_path (str): Path to a MMDB file from MaxMind or DBIP
+        ip_db_path (str): Path to a MMDB file from IPinfo, MaxMind, or DBIP
         always_use_local_files (bool): Do not download files
         reverse_dns_map_path (str): Path to a reverse DNS map file
         reverse_dns_map_url (str): URL to a reverse DNS map file
@@ -1248,6 +1272,8 @@ def parse_forensic_report(
         nameservers (list): A list of one or more nameservers to use
             (Cloudflare's public DNS resolvers by default)
         dns_timeout (float): Sets the DNS timeout in seconds
+        dns_retries (int): Number of times to retry DNS queries on timeout
+            or other transient errors
         strip_attachment_payloads (bool): Remove attachment payloads from
             forensic report results
 
@@ -1302,6 +1328,7 @@ def parse_forensic_report(
             offline=offline,
             nameservers=nameservers,
             timeout=dns_timeout,
+            retries=dns_retries,
         )
         parsed_report["source"] = parsed_report_source
         del parsed_report["source_ip"]
@@ -1385,6 +1412,9 @@ def parsed_forensic_reports_to_csv_rows(
         row["source_base_domain"] = report["source"]["base_domain"]
         row["source_name"] = report["source"]["name"]
         row["source_type"] = report["source"]["type"]
+        row["source_asn"] = report["source"]["asn"]
+        row["source_asn_name"] = report["source"]["asn_name"]
+        row["source_asn_domain"] = report["source"]["asn_domain"]
         row["source_country"] = report["source"]["country"]
         del row["source"]
         row["subject"] = report["parsed_sample"].get("subject")
@@ -1430,6 +1460,9 @@ def parsed_forensic_reports_to_csv(
         "source_base_domain",
         "source_name",
         "source_type",
+        "source_asn",
+        "source_asn_name",
+        "source_asn_domain",
         "delivery_result",
         "auth_failure",
         "reported_domain",
@@ -1461,7 +1494,8 @@ def parse_report_email(
     reverse_dns_map_path: Optional[str] = None,
     reverse_dns_map_url: Optional[str] = None,
     nameservers: Optional[list[str]] = None,
-    dns_timeout: float = 2.0,
+    dns_timeout: float = DEFAULT_DNS_TIMEOUT,
+    dns_retries: int = DEFAULT_DNS_MAX_RETRIES,
     strip_attachment_payloads: bool = False,
     keep_alive: Optional[Callable] = None,
     normalize_timespan_threshold_hours: float = 24.0,
@@ -1471,13 +1505,15 @@ def parse_report_email(
 
     Args:
         input_: An emailed DMARC report in RFC 822 format, as bytes or a string
-        ip_db_path (str): Path to a MMDB file from MaxMind or DBIP
+        ip_db_path (str): Path to a MMDB file from IPinfo, MaxMind, or DBIP
         always_use_local_files (bool): Do not download files
         reverse_dns_map_path (str): Path to a reverse DNS map
         reverse_dns_map_url (str): URL to a reverse DNS map
         offline (bool): Do not query online for geolocation on DNS
         nameservers (list): A list of one or more nameservers to use
         dns_timeout (float): Sets the DNS timeout in seconds
+        dns_retries (int): Number of times to retry DNS queries on timeout
+            or other transient errors
         strip_attachment_payloads (bool): Remove attachment payloads from
             forensic report results
         keep_alive (callable): keep alive function
@@ -1604,6 +1640,7 @@ def parse_report_email(
                         offline=offline,
                         nameservers=nameservers,
                         timeout=dns_timeout,
+                        retries=dns_retries,
                         keep_alive=keep_alive,
                         normalize_timespan_threshold_hours=normalize_timespan_threshold_hours,
                     )
@@ -1639,6 +1676,7 @@ def parse_report_email(
                 reverse_dns_map_url=reverse_dns_map_url,
                 nameservers=nameservers,
                 dns_timeout=dns_timeout,
+                dns_retries=dns_retries,
                 strip_attachment_payloads=strip_attachment_payloads,
             )
         except InvalidForensicReport as e:
@@ -1665,7 +1703,8 @@ def parse_report_file(
     input_: Union[bytes, str, os.PathLike[str], os.PathLike[bytes], BinaryIO],
     *,
     nameservers: Optional[list[str]] = None,
-    dns_timeout: float = 2.0,
+    dns_timeout: float = DEFAULT_DNS_TIMEOUT,
+    dns_retries: int = DEFAULT_DNS_MAX_RETRIES,
     strip_attachment_payloads: bool = False,
     ip_db_path: Optional[str] = None,
     always_use_local_files: bool = False,
@@ -1684,9 +1723,11 @@ def parse_report_file(
         nameservers (list): A list of one or more nameservers to use
             (Cloudflare's public DNS resolvers by default)
         dns_timeout (float): Sets the DNS timeout in seconds
+        dns_retries (int): Number of times to retry DNS queries on timeout
+            or other transient errors
         strip_attachment_payloads (bool): Remove attachment payloads from
             forensic report results
-        ip_db_path (str): Path to a MMDB file from MaxMind or DBIP
+        ip_db_path (str): Path to a MMDB file from IPinfo, MaxMind, or DBIP
         always_use_local_files (bool): Do not download files
         reverse_dns_map_path (str): Path to a reverse DNS map
         reverse_dns_map_url (str): URL to a reverse DNS map
@@ -1723,6 +1764,7 @@ def parse_report_file(
             offline=offline,
             nameservers=nameservers,
             dns_timeout=dns_timeout,
+            dns_retries=dns_retries,
             keep_alive=keep_alive,
             normalize_timespan_threshold_hours=normalize_timespan_threshold_hours,
         )
@@ -1742,6 +1784,7 @@ def parse_report_file(
                     offline=offline,
                     nameservers=nameservers,
                     dns_timeout=dns_timeout,
+                    dns_retries=dns_retries,
                     strip_attachment_payloads=strip_attachment_payloads,
                     keep_alive=keep_alive,
                     normalize_timespan_threshold_hours=normalize_timespan_threshold_hours,
@@ -1758,7 +1801,8 @@ def get_dmarc_reports_from_mbox(
     input_: str,
     *,
     nameservers: Optional[list[str]] = None,
-    dns_timeout: float = 2.0,
+    dns_timeout: float = DEFAULT_DNS_TIMEOUT,
+    dns_retries: int = DEFAULT_DNS_MAX_RETRIES,
     strip_attachment_payloads: bool = False,
     ip_db_path: Optional[str] = None,
     always_use_local_files: bool = False,
@@ -1775,12 +1819,14 @@ def get_dmarc_reports_from_mbox(
         nameservers (list): A list of one or more nameservers to use
             (Cloudflare's public DNS resolvers by default)
         dns_timeout (float): Sets the DNS timeout in seconds
+        dns_retries (int): Number of times to retry DNS queries on timeout
+            or other transient errors
         strip_attachment_payloads (bool): Remove attachment payloads from
             forensic report results
         always_use_local_files (bool): Do not download files
         reverse_dns_map_path (str): Path to a reverse DNS map file
         reverse_dns_map_url (str): URL to a reverse DNS map file
-        ip_db_path (str): Path to a MMDB file from MaxMind or DBIP
+        ip_db_path (str): Path to a MMDB file from IPinfo, MaxMind, or DBIP
         offline (bool): Do not make online queries for geolocation or DNS
         normalize_timespan_threshold_hours (float): Normalize timespans beyond this
 
@@ -1811,6 +1857,7 @@ def get_dmarc_reports_from_mbox(
                     offline=offline,
                     nameservers=nameservers,
                     dns_timeout=dns_timeout,
+                    dns_retries=dns_retries,
                     strip_attachment_payloads=sa,
                     normalize_timespan_threshold_hours=normalize_timespan_threshold_hours,
                 )
@@ -1855,6 +1902,7 @@ def get_dmarc_reports_from_mailbox(
     offline: bool = False,
     nameservers: Optional[list[str]] = None,
     dns_timeout: float = 6.0,
+    dns_retries: int = DEFAULT_DNS_MAX_RETRIES,
     strip_attachment_payloads: bool = False,
     results: Optional[ParsingResults] = None,
     batch_size: int = 10,
@@ -1871,13 +1919,15 @@ def get_dmarc_reports_from_mailbox(
         archive_folder (str): The folder to move processed mail to
         delete (bool): Delete  messages after processing them
         test (bool): Do not move or delete messages after processing them
-        ip_db_path (str): Path to a MMDB file from MaxMind or DBIP
+        ip_db_path (str): Path to a MMDB file from IPinfo, MaxMind, or DBIP
         always_use_local_files (bool): Do not download files
         reverse_dns_map_path (str): Path to a reverse DNS map file
         reverse_dns_map_url (str): URL to a reverse DNS map file
         offline (bool): Do not query online for geolocation or DNS
         nameservers (list): A list of DNS nameservers to query
         dns_timeout (float): Set the DNS query timeout
+        dns_retries (int): Number of times to retry DNS queries on timeout
+            or other transient errors
         strip_attachment_payloads (bool): Remove attachment payloads from
             forensic report results
         results (dict): Results from the previous run
@@ -2001,6 +2051,7 @@ def get_dmarc_reports_from_mailbox(
                 msg_content,
                 nameservers=nameservers,
                 dns_timeout=dns_timeout,
+                dns_retries=dns_retries,
                 ip_db_path=ip_db_path,
                 always_use_local_files=always_use_local_files,
                 reverse_dns_map_path=reverse_dns_map_path,
@@ -2159,6 +2210,7 @@ def get_dmarc_reports_from_mailbox(
             test=test,
             nameservers=nameservers,
             dns_timeout=dns_timeout,
+            dns_retries=dns_retries,
             strip_attachment_payloads=strip_attachment_payloads,
             results=results,
             ip_db_path=ip_db_path,
@@ -2189,6 +2241,7 @@ def watch_inbox(
     offline: bool = False,
     nameservers: Optional[list[str]] = None,
     dns_timeout: float = 6.0,
+    dns_retries: int = DEFAULT_DNS_MAX_RETRIES,
     strip_attachment_payloads: bool = False,
     batch_size: int = 10,
     since: Optional[Union[datetime, date, str]] = None,
@@ -2208,7 +2261,7 @@ def watch_inbox(
         test (bool): Do not move or delete messages after processing them
         check_timeout (int): Number of seconds to wait for a IMAP IDLE response
             or the number of seconds until the next mail check
-        ip_db_path (str): Path to a MMDB file from MaxMind or DBIP
+        ip_db_path (str): Path to a MMDB file from IPinfo, MaxMind, or DBIP
         always_use_local_files (bool): Do not download files
         reverse_dns_map_path (str): Path to a reverse DNS map file
         reverse_dns_map_url (str): URL to a reverse DNS map file
@@ -2216,6 +2269,8 @@ def watch_inbox(
         nameservers (list): A list of one or more nameservers to use
             (Cloudflare's public DNS resolvers by default)
         dns_timeout (float): Set the DNS query timeout
+        dns_retries (int): Number of times to retry DNS queries on timeout
+            or other transient errors
         strip_attachment_payloads (bool): Replace attachment payloads in
             forensic report samples with None
         batch_size (int): Number of messages to read and process before saving
@@ -2239,6 +2294,7 @@ def watch_inbox(
             offline=offline,
             nameservers=nameservers,
             dns_timeout=dns_timeout,
+            dns_retries=dns_retries,
             strip_attachment_payloads=strip_attachment_payloads,
             batch_size=batch_size,
             since=since,

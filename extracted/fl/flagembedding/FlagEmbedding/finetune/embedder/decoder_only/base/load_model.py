@@ -71,7 +71,7 @@ def get_model(model_args: DecoderOnlyEmbedderModelArguments, output_dir: str, re
         model = AutoModel.from_pretrained(
             model_args.model_name_or_path,
             # torch_dtype=torch.bfloat16,
-            use_flash_attention_2=True if model_args.use_flash_attn else False,
+            attn_implementation = "flash_attention_2" if model_args.use_flash_attn else None,
             token=model_args.token,
             cache_dir=model_args.cache_dir,
             from_tf=bool(".ckpt" in model_args.model_name_or_path),
@@ -152,7 +152,7 @@ def save_merged_model(model_args: DecoderOnlyEmbedderModelArguments, output_dir:
         model = AutoModel.from_pretrained(
             model_args.model_name_or_path,
             # torch_dtype=torch.bfloat16,
-            use_flash_attention_2=True if model_args.use_flash_attn else False,
+            attn_implementation = "flash_attention_2" if model_args.use_flash_attn else None,
             token=model_args.token,
             cache_dir=model_args.cache_dir,
             from_tf=bool(".ckpt" in model_args.model_name_or_path),
@@ -169,6 +169,8 @@ def save_merged_model(model_args: DecoderOnlyEmbedderModelArguments, output_dir:
 
     if os.path.exists(os.path.join(output_dir, 'embedding', 'emb.pth')):
         model.set_input_embeddings(torch.load(os.path.join(output_dir, 'embedding', 'emb.pth')))
+        # modify the vocab size in the model configuration
+        model.config.vocab_size = len(tokenizer)
 
     try:
         model = PeftModel.from_pretrained(model, output_dir)
@@ -180,6 +182,4 @@ def save_merged_model(model_args: DecoderOnlyEmbedderModelArguments, output_dir:
     tokenizer = AutoTokenizer.from_pretrained(output_dir, trust_remote_code=model_args.trust_remote_code)
     tokenizer.save_pretrained(os.path.join(output_dir, 'merged_model'))
 
-    # modify the vocab size in the model configuration
-    model.config.vocab_size = len(tokenizer)
     model.save_pretrained(os.path.join(output_dir, 'merged_model'))

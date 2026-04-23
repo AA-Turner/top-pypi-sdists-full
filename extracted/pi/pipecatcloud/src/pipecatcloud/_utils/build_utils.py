@@ -19,15 +19,15 @@ import io
 import os
 import tarfile
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, List, Optional, Set, Tuple
 
 import aiohttp
 from loguru import logger
 
 # Default patterns to exclude from build context
-DEFAULT_EXCLUSIONS: Set[str] = {
+DEFAULT_EXCLUSIONS: set[str] = {
     # Version control
     ".git",
     ".gitignore",
@@ -116,7 +116,7 @@ class BuildStatus:
         return status in cls.TERMINAL_STATUSES
 
 
-def _should_exclude(path: Path, exclusions: Set[str], base_path: Path) -> bool:
+def _should_exclude(path: Path, exclusions: set[str], base_path: Path) -> bool:
     """
     Check if a path should be excluded from the build context.
 
@@ -143,7 +143,27 @@ def _should_exclude(path: Path, exclusions: Set[str], base_path: Path) -> bool:
     return False
 
 
-def load_dockerignore(context_dir: Path) -> Optional[Set[str]]:
+def _normalize_pattern(pattern: str) -> str:
+    """Normalize a single ``.dockerignore`` pattern for ``fnmatch`` matching.
+
+    The matcher in ``_should_exclude`` walks the tree and compares each
+    path component against every pattern with ``fnmatch.fnmatch``, which
+    treats the pattern as literal text. ``.dockerignore`` (and the
+    companion ``.gitignore`` grammar users pattern after) allows a few
+    pieces of sugar that ``fnmatch`` does not understand: a trailing
+    slash meaning "directory only", and a leading ``./`` anchoring to
+    the context root. Both forms are common in the wild and routinely
+    silently match nothing under a raw ``fnmatch`` implementation, so
+    we strip them here to make the pattern intent actually take effect.
+    """
+    normalized = pattern.strip()
+    if normalized.startswith("./"):
+        normalized = normalized[2:]
+    normalized = normalized.rstrip("/")
+    return normalized
+
+
+def load_dockerignore(context_dir: Path) -> set[str] | None:
     """
     Load patterns from .dockerignore file if it exists.
 
@@ -159,12 +179,15 @@ def load_dockerignore(context_dir: Path) -> Optional[Set[str]]:
 
     patterns = set()
     try:
-        with open(dockerignore_path, "r") as f:
+        with open(dockerignore_path) as f:
             for line in f:
-                line = line.strip()
+                stripped = line.strip()
                 # Skip comments and empty lines
-                if line and not line.startswith("#"):
-                    patterns.add(line)
+                if not stripped or stripped.startswith("#"):
+                    continue
+                normalized = _normalize_pattern(stripped)
+                if normalized:
+                    patterns.add(normalized)
     except Exception as e:
         logger.warning(f"Failed to read .dockerignore: {e}")
         return None
@@ -172,7 +195,7 @@ def load_dockerignore(context_dir: Path) -> Optional[Set[str]]:
     return patterns
 
 
-def get_exclusions(context_dir: Path, extra_patterns: Optional[List[str]] = None) -> Set[str]:
+def get_exclusions(context_dir: Path, extra_patterns: list[str] | None = None) -> set[str]:
     """
     Get the set of exclusion patterns to use.
 
@@ -195,13 +218,16 @@ def get_exclusions(context_dir: Path, extra_patterns: Optional[List[str]] = None
     # Use defaults + extras
     exclusions = DEFAULT_EXCLUSIONS.copy()
     if extra_patterns:
-        exclusions.update(extra_patterns)
+        for extra in extra_patterns:
+            normalized = _normalize_pattern(extra)
+            if normalized:
+                exclusions.add(normalized)
     return exclusions
 
 
 def create_deterministic_tarball(
     context_dir: str,
-    exclusions: Set[str],
+    exclusions: set[str],
     dockerfile_path: str = "Dockerfile",
 ) -> BuildContext:
     """
@@ -235,7 +261,7 @@ def create_deterministic_tarball(
         raise FileNotFoundError(f"Dockerfile not found: {dockerfile_full}")
 
     # Collect all files, sorted alphabetically
-    files_to_add: List[Tuple[Path, str]] = []
+    files_to_add: list[tuple[Path, str]] = []
 
     for root, dirs, files in os.walk(base_path):
         root_path = Path(root)
@@ -363,8 +389,8 @@ async def poll_build_status(
     api_client,
     poll_interval: float = 3.0,
     max_duration: float = 600.0,  # 10 minutes
-    status_callback: Optional[Callable[[dict], None]] = None,
-) -> Tuple[bool, dict]:
+    status_callback: Callable[[dict], None] | None = None,
+) -> tuple[bool, dict]:
     """
     Poll build status until completion or timeout.
 

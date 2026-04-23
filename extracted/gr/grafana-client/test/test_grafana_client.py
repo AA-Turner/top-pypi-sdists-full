@@ -1,7 +1,10 @@
+import sys
 import unittest
 from unittest.mock import Mock, patch
 
-import niquests
+import niquests.auth
+import niquests.exceptions
+import pytest
 
 from grafana_client.api import GrafanaApi
 from grafana_client.client import (
@@ -11,6 +14,8 @@ from grafana_client.client import (
     HeaderAuth,
     TokenAuth,
 )
+
+pytestmark = pytest.mark.integration
 
 
 class MockResponse:
@@ -39,6 +44,7 @@ frontend_settings_buildinfo_payload = {
 }
 
 
+@unittest.skipIf("unittest" in sys.argv[0], "Skipping unittest, please use pytest")
 class TestGrafanaClient(unittest.TestCase):
     def test_grafana_client_user_agent_default(self):
         grafana = GrafanaApi.from_url()
@@ -118,19 +124,6 @@ class TestGrafanaClient(unittest.TestCase):
             timeout=5.0,
         )
 
-    def test_grafana_client_timeout(self):
-        grafana = GrafanaApi(
-            ("admin", "admin"),
-            host="play.grafana.org",
-            url_path_prefix="",
-            protocol="https",
-            verify=False,
-            timeout=0.0001,
-        )
-
-        with self.assertRaises(GrafanaTimeoutError):
-            grafana.folder.get_all_folders()
-
     def test_grafana_client_basic_auth(self):
         grafana = GrafanaApi(("admin", "admin"), host="localhost", url_path_prefix="", protocol="https", port="3000")
         self.assertTrue(isinstance(grafana.client.auth, niquests.auth.HTTPBasicAuth))
@@ -169,7 +162,7 @@ class TestGrafanaClient(unittest.TestCase):
         self.assertRaises(niquests.exceptions.ConnectionError, lambda: grafana.connect())
 
     @patch("grafana_client.client.GrafanaClient.__getattr__")
-    def test_grafana_client_version_basic(self, mock_get):
+    def test_grafana_client_version_standard(self, mock_get):
         mock_get.return_value = Mock()
         mock_get.return_value.return_value = frontend_settings_buildinfo_payload
         grafana = GrafanaApi(auth=None, host="localhost", url_path_prefix="", protocol="http", port="3000")
@@ -198,3 +191,10 @@ class TestGrafanaClient(unittest.TestCase):
         )
         response = grafana.alertingprovisioning.delete_alertrule("foobar")
         self.assertIsNone(response)
+
+
+def test_grafana_client_timeout(docker_grafana):
+    grafana = GrafanaApi.from_url(docker_grafana, timeout=0.0001)
+    with pytest.raises(GrafanaTimeoutError) as excinfo:
+        grafana.folder.get_all_folders()
+    assert excinfo.match("timed out")

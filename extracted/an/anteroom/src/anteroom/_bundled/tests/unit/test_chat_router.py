@@ -44,7 +44,7 @@ def _make_tool_ctx(*, conversation_id: str = "conv-test-1", db: Any = None) -> T
         uname="testuser",
         conversation_id=conversation_id,
         tools_openai=[],
-        subagent_events={},
+        subagent_events=asyncio.Queue(),
         subagent_limiter=MagicMock(),
         sa_config=MagicMock(),
         request_config=MagicMock(),

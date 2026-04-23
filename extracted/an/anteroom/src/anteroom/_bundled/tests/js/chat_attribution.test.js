@@ -1,5 +1,5 @@
 /**
- * JS unit tests for the chat.js attribution footer (#923).
+ * JS unit tests for the chat.js attribution footer (#923, #1473).
  *
  * Follows the same inline-copy pattern as chat_save_memory.test.js:
  * loading the full chat.js IIFE into jsdom is heavy because of all
@@ -15,6 +15,21 @@
 
 import { describe, it, expect, beforeEach } from 'vitest';
 
+// #1473 — prefer canonical <section>_count field; fall back to
+// truncation-aware computation for older persisted snapshots.
+// This is a sync copy of _attrCount from chat.js and must stay in sync.
+function _attrCount(snapshot, section) {
+    const countField = section + '_count';
+    if (snapshot[countField] !== undefined) {
+        const n = parseInt(snapshot[countField], 10);
+        if (!isNaN(n)) return n;
+    }
+    const items = snapshot[section] || [];
+    const last = items[items.length - 1];
+    const truncated = (last && last.truncated !== undefined) ? last.truncated : 0;
+    return items.length - (truncated ? 1 : 0) + truncated;
+}
+
 function _addAttributionFooter(msgEl, snapshot) {
     if (!msgEl || !snapshot || typeof snapshot !== 'object') return;
 
@@ -24,12 +39,18 @@ function _addAttributionFooter(msgEl, snapshot) {
     const summary = document.createElement('summary');
     summary.className = 'attribution-summary';
     const parts = [
-        `${(snapshot.turns || []).length} turns`,
-        `${(snapshot.memory || []).length} memories`,
-        `${(snapshot.sources || []).length} sources`,
-        `${(snapshot.tools || []).length} tools`,
-        `${(snapshot.packs || []).length} packs`,
+        `${_attrCount(snapshot, 'turns')} turns`,
+        `${_attrCount(snapshot, 'memory')} memories`,
+        `${_attrCount(snapshot, 'sources')} sources`,
+        `${_attrCount(snapshot, 'tools')} tools`,
+        `${_attrCount(snapshot, 'packs')} packs`,
     ];
+    // #1462 — instruction-file segment. Hidden when no file loaded so
+    // the default footer stays compact, matching the CLI footer rule.
+    const _instrCount = _attrCount(snapshot, 'instructions');
+    if (_instrCount) {
+        parts.push(`${_instrCount} ${_instrCount === 1 ? 'instruction file' : 'instruction files'}`);
+    }
     if (snapshot.dlp_match_count) parts.push(`DLP:${snapshot.dlp_match_count}`);
     if (snapshot.output_filter_match_count) parts.push(`OF:${snapshot.output_filter_match_count}`);
     summary.textContent = `Why this context? — ${parts.join(' · ')}`;
@@ -42,6 +63,9 @@ function _addAttributionFooter(msgEl, snapshot) {
     body.appendChild(_attrSection('RAG sources', snapshot.sources, ['label', 'type']));
     body.appendChild(_attrSection('Tool calls', snapshot.tools, ['id', 'name']));
     body.appendChild(_attrSection('Attached packs', snapshot.packs, ['namespace', 'name', 'scope']));
+    // #1462 — project instructions section. Every user-derived value
+    // (path) flows through textContent only; see _attrSection.
+    body.appendChild(_attrSection('Project instructions', snapshot.instructions, ['path', 'scope', 'estimated_tokens']));
     details.appendChild(body);
 
     msgEl.appendChild(details);
@@ -101,13 +125,14 @@ function typical() {
         sources: [{ label: 'README.md', type: 'source_chunk' }],
         tools: [{ id: 'tc-1', name: 'read_file' }],
         packs: [{ namespace: 'core', name: 'alpha', scope: 'global' }],
+        instructions: [{ path: '/repo/ANTEROOM.md', scope: 'project', estimated_tokens: 9894 }],
         dlp_match_count: 0,
         output_filter_match_count: 0,
     };
 }
 
 describe('_addAttributionFooter', () => {
-    it('renders five sections with items from a typical snapshot', () => {
+    it('renders six sections with items from a typical snapshot', () => {
         const msg = document.getElementById('msg');
         _addAttributionFooter(msg, typical());
         const footer = msg.querySelector('.attribution-footer');
@@ -119,6 +144,7 @@ describe('_addAttributionFooter', () => {
             'RAG sources',
             'Tool calls',
             'Attached packs',
+            'Project instructions',
         ]);
         const body = footer.textContent;
         expect(body).toContain('m-1');
@@ -126,6 +152,7 @@ describe('_addAttributionFooter', () => {
         expect(body).toContain('README.md');
         expect(body).toContain('read_file');
         expect(body).toContain('core');
+        expect(body).toContain('/repo/ANTEROOM.md');
     });
 
     it('summary reflects counts and omits DLP/OF when zero', () => {
@@ -137,8 +164,56 @@ describe('_addAttributionFooter', () => {
         expect(summary).toContain('1 sources');
         expect(summary).toContain('1 tools');
         expect(summary).toContain('1 packs');
+        // #1462 — singular noun for exactly one file.
+        expect(summary).toContain('1 instruction file');
         expect(summary).not.toContain('DLP:');
         expect(summary).not.toContain('OF:');
+    });
+
+    // #1462 — instructions-section tests
+    it('summary hides instructions count when no file loaded', () => {
+        const msg = document.getElementById('msg');
+        _addAttributionFooter(msg, {
+            turns: [], memory: [], sources: [], tools: [], packs: [],
+            instructions: [],
+            dlp_match_count: 0, output_filter_match_count: 0,
+        });
+        const summary = msg.querySelector('.attribution-summary').textContent;
+        expect(summary).not.toContain('instruction');
+    });
+
+    it('summary uses plural noun when multiple instruction files load', () => {
+        const msg = document.getElementById('msg');
+        _addAttributionFooter(msg, {
+            turns: [], memory: [], sources: [], tools: [], packs: [],
+            instructions: [
+                { path: '/home/u/.anteroom/ANTEROOM.md', scope: 'global', estimated_tokens: 400 },
+                { path: '/repo/ANTEROOM.md', scope: 'project', estimated_tokens: 9000 },
+            ],
+            dlp_match_count: 0, output_filter_match_count: 0,
+        });
+        const summary = msg.querySelector('.attribution-summary').textContent;
+        expect(summary).toContain('2 instruction files');
+    });
+
+    it('renders instructions[].path via textContent even when hostile', () => {
+        // The path field is user-controlled (any filesystem location). If a
+        // hostile payload reaches the renderer, it must NOT execute. This
+        // mirrors the XSS discipline applied to every other per-field test.
+        const msg = document.getElementById('msg');
+        const hostile = '<img src=x onerror="window.__INSTR_PWNED__=true">';
+        _addAttributionFooter(msg, {
+            turns: [], memory: [], sources: [], tools: [], packs: [],
+            instructions: [{ path: hostile, scope: 'project', estimated_tokens: 1 }],
+            dlp_match_count: 0, output_filter_match_count: 0,
+        });
+        const footer = msg.querySelector('.attribution-footer');
+        // Rendered as literal text (textContent), not as parsed HTML.
+        expect(footer.textContent).toContain(hostile);
+        // No <img> element attached (innerHTML would have created one).
+        expect(msg.querySelectorAll('img').length).toBe(0);
+        // And no onerror side effect ran.
+        expect(globalThis.__INSTR_PWNED__).toBeUndefined();
     });
 
     it('surfaces DLP:N and OF:N in summary when non-zero', () => {
@@ -157,11 +232,12 @@ describe('_addAttributionFooter', () => {
         const msg = document.getElementById('msg');
         _addAttributionFooter(msg, {
             turns: [], memory: [], sources: [], tools: [], packs: [],
+            instructions: [],
             dlp_match_count: 0,
             output_filter_match_count: 0,
         });
         const empties = msg.querySelectorAll('.attribution-empty');
-        expect(empties.length).toBe(5);
+        expect(empties.length).toBe(6);
         empties.forEach(e => expect(e.textContent).toBe('(none)'));
     });
 
@@ -252,5 +328,64 @@ describe('_addAttributionFooter', () => {
         const emptyItems = footer.querySelectorAll('.attribution-list li');
         expect(emptyItems.length).toBe(2);
         emptyItems.forEach(li => expect(li.textContent).toBe('(empty)'));
+    });
+
+    // #1473 — canonical count field tests
+    it('_attrCount prefers the canonical <section>_count field', () => {
+        // With tools_count=30 the function should return 30 even if the list has
+        // only 21 entries (cap + sentinel).
+        const snap = {
+            tools: Array.from({ length: 20 }, (_, i) => ({ id: `tc-${i}`, name: `tool_${i}` })).concat([{ truncated: 10 }]),
+            tools_count: 30,
+        };
+        expect(_attrCount(snap, 'tools')).toBe(30);
+    });
+
+    it('_attrCount falls back to truncation-aware computation for legacy snapshots', () => {
+        // Legacy snapshot: no tools_count, tools list ends in sentinel.
+        const snap = {
+            tools: Array.from({ length: 20 }, (_, i) => ({ id: `tc-${i}`, name: `tool_${i}` })).concat([{ truncated: 10 }]),
+        };
+        expect(_attrCount(snap, 'tools')).toBe(30);
+    });
+
+    it('summary shows 30 tools for a truncated-then-counted snapshot', () => {
+        const msg = document.getElementById('msg');
+        const tools = Array.from({ length: 20 }, (_, i) => ({ id: `tc-${i}`, name: `tool_${i}` }));
+        tools.push({ truncated: 10 });
+        _addAttributionFooter(msg, {
+            turns: [],
+            memory: [],
+            sources: [],
+            tools,
+            tools_count: 30,
+            packs: [],
+            instructions: [],
+            dlp_match_count: 0,
+            output_filter_match_count: 0,
+        });
+        const summary = msg.querySelector('.attribution-summary').textContent;
+        expect(summary).toContain('30 tools');
+        expect(summary).not.toContain('21 tools');
+    });
+
+    it('summary shows 30 tools for legacy truncated dict without count field', () => {
+        const msg = document.getElementById('msg');
+        const tools = Array.from({ length: 20 }, (_, i) => ({ id: `tc-${i}`, name: `tool_${i}` }));
+        tools.push({ truncated: 10 });
+        _addAttributionFooter(msg, {
+            turns: [],
+            memory: [],
+            sources: [],
+            tools,
+            // No tools_count field — legacy shape, fallback must compute 30.
+            packs: [],
+            instructions: [],
+            dlp_match_count: 0,
+            output_filter_match_count: 0,
+        });
+        const summary = msg.querySelector('.attribution-summary').textContent;
+        expect(summary).toContain('30 tools');
+        expect(summary).not.toContain('21 tools');
     });
 });

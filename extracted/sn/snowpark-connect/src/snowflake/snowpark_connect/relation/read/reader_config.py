@@ -131,6 +131,7 @@ CSV_READ_SUPPORTED_OPTIONS = lowercase_set(
         "multiLine",
         # "charToEscapeQuoteEscaping",
         # "samplingRatio",
+        # enforceSchema is consumed by map_read_csv, not forwarded to Snowpark
         # "enforceSchema",
         # "emptyValue",
         # "locale",
@@ -145,6 +146,7 @@ CSV_READ_SUPPORTED_OPTIONS = lowercase_set(
         # "quoteAll",
         "rowsToInferSchema",  # Snowflake specific option, number of rows to infer schema
         "relaxTypesToInferSchema",  # Snowflake specific option, whether to relax types to infer schema
+        "mergeSchema",  # SCOS: union CSV columns across multiple paths (not in OSS Spark CSV)
     }
 )
 
@@ -152,7 +154,8 @@ CSV_READ_SUPPORTED_OPTIONS = lowercase_set(
 CSV_READ_DEFAULT_CONFIG = lowercase_dict_keys(
     {
         "header": "false",
-        "inferSchema": "true",
+        "inferSchema": "false",
+        "enforceSchema": "true",
         # TODO: This default is ok for reads, but it should be removed for writes because it will lead to
         # quoting even when it is not necessary.
         "quote": '"',
@@ -345,6 +348,15 @@ class CsvReaderConfig(ReaderWriterConfig):
     # spark reader options that snowpark is able to handle.
     # Spark options are here: https://spark.apache.org/docs/latest/sql-data-sources-csv.html
     # Snowpark options are here: https://docs.snowflake.com/en/sql-reference/sql/create-file-format
+
+    # Options consumed by map_read_csv.py but not forwarded to Snowpark.
+    _INTERNALLY_CONSUMED_OPTIONS = frozenset(
+        {
+            "enforceschema",
+            "comment",
+        }
+    )
+
     def __init__(self, options: dict[str, str]) -> None:
         super().__init__(
             _Config(
@@ -353,6 +365,8 @@ class CsvReaderConfig(ReaderWriterConfig):
                 boolean_config_list=[
                     "header",
                     "inferSchema",
+                    "enforceSchema",
+                    "mergeSchema",
                     "multiLine",
                     "ignoreLeadingWhiteSpace",
                     "ignoreTrailingWhiteSpace",
@@ -370,7 +384,16 @@ class CsvReaderConfig(ReaderWriterConfig):
         )
 
     def convert_to_snowpark_args(self) -> dict[str, Any]:
-        snowpark_config = super().convert_to_snowpark_args()
+        snowpark_config = {}
+        for key, value in self.config.items():
+            if key in self.supported_options:
+                snowpark_config[key] = value
+            elif key not in self._INTERNALLY_CONSUMED_OPTIONS:
+                logger.warning(
+                    f"Reader option '{key}' is not supported and will be ignored. Results may differ from Spark."
+                )
+        for key in snowpark_config.keys():
+            snowpark_config[key] = self._get_config_setting(key)
         return csv_convert_to_snowpark_args(snowpark_config)
 
 
@@ -634,27 +657,19 @@ class ParquetReaderConfig(ReaderWriterConfig):
         # the default value (false). TODO: Add support for spark.sql.parquet.binaryAsString equal to "true".
         snowpark_args["BINARY_AS_TEXT"] = False
 
-        # Set USE_VECTORIZED_SCANNER from global config. This will become the default in a future BCR.
-        snowpark_args["USE_VECTORIZED_SCANNER"] = global_config._get_config_setting(
-            "snowpark.connect.parquet.useVectorizedScanner"
-        )
+        # Always use the vectorized scanner. The non-vectorized path returns Parquet
+        # MAP columns in their physical {"key_value": [...]} shape which
+        # TRY_CAST(... AS MAP(K,V)) cannot unwrap, collapsing every map value to
+        # NULL (see SNOW-3390852). Telemetry shows no external customer overrides
+        # this, so the user-facing knob has been removed in favour of a hardcoded
+        # TRUE here.
+        snowpark_args["USE_VECTORIZED_SCANNER"] = True
 
         # Set USE_LOGICAL_TYPE from global config to properly handle Parquet logical types like TIMESTAMP.
         # Without this, Parquet TIMESTAMP (INT64 physical) is incorrectly read as NUMBER(38,0).
-        use_logical_type = global_config._get_config_setting(
+        snowpark_args["USE_LOGICAL_TYPE"] = global_config._get_config_setting(
             "snowpark.connect.parquet.useLogicalType"
         )
-        snowpark_args["USE_LOGICAL_TYPE"] = use_logical_type
-
-        if not use_logical_type:
-            logger.warning(
-                "The default value of 'snowpark.connect.parquet.useLogicalType' is currently 'false'. "
-                "Starting in version 1.22.0, the default will change to 'true', which enables proper "
-                "handling of Parquet logical types (TIMESTAMP, DATE, DECIMAL). "
-                "To adopt the new behavior now, set: "
-                "spark.conf.set('snowpark.connect.parquet.useLogicalType', 'true'). "
-                "To suppress this warning, set it to 'true'."
-            )
 
         return snowpark_args
 

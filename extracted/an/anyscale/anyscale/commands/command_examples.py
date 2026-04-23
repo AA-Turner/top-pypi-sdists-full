@@ -799,6 +799,35 @@ aws_config:
   memorydb_cluster_name: my-memorydb-cluster
 """
 
+CLOUD_RESOURCE_SETUP_EXAMPLE = """\
+# Set up K8s resources in an existing cloud on AWS (requires AWS credentials in environment)
+$ anyscale cloud resource setup --provider aws --region us-west-2 --cloud my-cloud \\
+    --stack k8s --cluster-name my-eks-cluster
+Output
+(anyscale +1.0s) Adding K8s resources to cloud 'my-cloud' (cld_abc123) on AWS
+(anyscale +1.5s) Required CLI tools are installed (kubectl, helm, aws)
+(anyscale +2.3s) Using namespace: anyscale-operator
+(anyscale +5.2s) Cluster discovered: arn:aws:eks:us-west-2:123456789012:cluster/my-eks-cluster
+(anyscale +8.4s) Setting up AWS infrastructure...
+(anyscale +1m12.3s) CloudFormation stack created
+Do you want to install the nginx ingress subchart? [Y/n]: Y
+(anyscale +1m15.7s) Installing Anyscale operator...
+(anyscale +1m20.5s) Generated Helm values file: anyscale-helm-values-aws-anyscale-operator-20241015_175602.yaml
+(anyscale +2m45.3s) Helm installation completed successfully
+(anyscale +2m45.4s) Successfully added K8s resources to cloud 'my-cloud'.
+
+# Set up VM resources in an existing cloud on GCP (requires gcloud credentials in environment)
+$ anyscale cloud resource setup --provider gcp --region us-central1 --cloud my-cloud \\
+    --stack vm --project-id my-project-abc123
+Output
+(anyscale +1.0s) Adding VM resources to cloud 'my-cloud' (cld_abc123)
+(anyscale +5.8s) Setting up GCP infrastructure...
+(anyscale +15.4s) Created GCS bucket: anyscale-vm-us-central1-a1b2c3d4
+(anyscale +18.7s) Created service account: anyscale-access-e5f6g7h8@my-project-abc123.iam.gserviceaccount.com
+(anyscale +25.3s) GCP resources created successfully
+(anyscale +28.1s) Successfully added VM resources to cloud 'my-cloud'.
+"""
+
 CLOUD_RESOURCE_DELETE_EXAMPLE = """\
 $ anyscale cloud resource delete --cloud my-cloud --resource my-resource
 Output
@@ -1082,6 +1111,25 @@ user2@example.com:
   - orphan-user@example.com
 
 (anyscale +2.0s) SCIM permission migration completed successfully.
+"""
+
+SCIM_CHECK_PERMISSIONS_EXAMPLE = """\
+# Check which users are missing project-level permissions
+$ anyscale scim check-permissions
+(anyscale +0.8s) Checking SCIM user permissions...
+Users with incomplete SCIM permission setup:
+┏━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ User Email           ┃ Cloud      ┃ Role         ┃ Issue                   ┃
+┡━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ alice@company.com    │ Production │ collaborator │ No project permissions  │
+│ bob@company.com      │ Production │ collaborator │ No project permissions  │
+│ bob@company.com      │ Staging    │ owner        │ No project permissions  │
+└──────────────────────┴────────────┴──────────────┴─────────────────────────┘
+
+2 users have incomplete permission setup.
+
+Run 'anyscale policy set' to grant project-level permissions.
+See https://docs.anyscale.com/administration/organization/scim for details.
 """
 
 SCIM_LIST_USERS_PERMISSIONS_EXAMPLE = """\

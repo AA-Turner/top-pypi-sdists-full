@@ -1,15 +1,15 @@
 Metadata-Version: 2.4
 Name: bioversions
-Version: 0.8.328
+Version: 0.9.1
 Summary: Get the current version for biological databases
 Keywords: snekpack,cookiecutter,databases,biological databases,biomedical databases
 Author: Charles Tapley Hoyt
 Author-email: Charles Tapley Hoyt <cthoyt@gmail.com>
+License-Expression: MIT
 License-File: LICENSE
 Classifier: Development Status :: 4 - Beta
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Framework :: Pytest
 Classifier: Framework :: tox
@@ -20,20 +20,20 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Typing :: Typed
 Requires-Dist: requests
 Requires-Dist: beautifulsoup4
 Requires-Dist: cachier>=2.2.1
-Requires-Dist: pystow[bs4]>=0.7.8
+Requires-Dist: pystow[bs4]>=0.8.0
 Requires-Dist: click
 Requires-Dist: click-default-group
-Requires-Dist: dataclasses-json
 Requires-Dist: tabulate
 Requires-Dist: more-click
 Requires-Dist: pyyaml
 Requires-Dist: tqdm
-Requires-Dist: bioregistry[align]>=0.11.35
+Requires-Dist: bioregistry[align]>=0.13.0
 Requires-Dist: lxml
 Requires-Dist: pydantic>=2.0
 Requires-Dist: psycopg2-binary

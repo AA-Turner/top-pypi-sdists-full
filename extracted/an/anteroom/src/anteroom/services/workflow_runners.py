@@ -172,7 +172,7 @@ async def execute_agent_runner(
     if confirm_callback is not None:
 
         async def _wrapped_executor(name: str, args: dict[str, Any], **kwargs: Any) -> dict[str, Any]:
-            return await tool_executor(name, args, confirm_callback=confirm_callback, **kwargs)
+            return dict(await tool_executor(name, args, confirm_callback=confirm_callback, **kwargs))
 
         actual_executor = _wrapped_executor
 
@@ -238,7 +238,8 @@ async def execute_agent_runner(
                         if row["id"] in _injected_input_ids:
                             continue
                         action_label = row.get("source_action", "update")
-                        injection_queue.put_nowait(  # type: ignore[union-attr]
+                        assert injection_queue is not None
+                        injection_queue.put_nowait(
                             {
                                 "role": "user",
                                 "content": f"[Workflow input — {action_label}] {row['content']}",

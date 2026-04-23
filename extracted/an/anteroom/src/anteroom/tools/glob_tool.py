@@ -16,7 +16,8 @@ _working_dir: str = os.getcwd()
 DEFINITION: dict[str, Any] = {
     "name": "glob_files",
     "description": (
-        "Find files matching a glob pattern. Returns matching file paths sorted by modification time (newest first)."
+        "Find files and directories matching a glob pattern. "
+        "Returns matching paths sorted by modification time (newest first)."
     ),
     "parameters": {
         "type": "object",
@@ -58,14 +59,17 @@ async def handle(pattern: str, path: str | None = None, **_: Any) -> dict[str, A
     resolved_base = safe_resolve_pathlib(base)
     results = []
     for m in matches[:_MAX_RESULTS]:
-        if not m.is_file():
+        if not m.is_file() and not m.is_dir():
             continue
         try:
             if not safe_resolve_pathlib(m).is_relative_to(resolved_base):
                 continue
         except (OSError, ValueError):
             continue
-        results.append(str(m.relative_to(base)))
+        rel_path = str(m.relative_to(base))
+        if m.is_dir():
+            rel_path += "/"
+        results.append(rel_path)
     truncated = len(matches) > _MAX_RESULTS
 
     return {"files": results, "count": len(results), "truncated": truncated}

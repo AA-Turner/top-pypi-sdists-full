@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pydantic-deep
-Version: 0.3.15
+Version: 0.3.17
 Summary: Batteries-included agent harness for Python — tool-calling, sandboxed execution, multi-agent teams, and unlimited context on Pydantic AI
 Project-URL: Homepage, https://github.com/vstorm-co/pydantic-deepagents
 Project-URL: Documentation, https://github.com/vstorm-co/pydantic-deepagents
@@ -37,6 +37,7 @@ Provides-Extra: all
 Requires-Dist: agent-client-protocol>=0.8.0; extra == 'all'
 Requires-Dist: fastapi>=0.125.0; extra == 'all'
 Requires-Dist: html2text>=2020.1; extra == 'all'
+Requires-Dist: liteparse>=0.1.0; extra == 'all'
 Requires-Dist: logfire>=4.0; extra == 'all'
 Requires-Dist: playwright>=1.40.0; extra == 'all'
 Requires-Dist: prompt-toolkit>=3.0.0; extra == 'all'
@@ -61,6 +62,8 @@ Requires-Dist: rich>=13.0.0; extra == 'cli'
 Requires-Dist: textual>=3.0.0; extra == 'cli'
 Requires-Dist: tomli>=2.0; (python_version < '3.11') and extra == 'cli'
 Requires-Dist: typer>=0.12.0; extra == 'cli'
+Provides-Extra: liteparse
+Requires-Dist: liteparse>=0.1.0; extra == 'liteparse'
 Provides-Extra: logfire
 Requires-Dist: logfire>=4.0; extra == 'logfire'
 Provides-Extra: sandbox
@@ -118,6 +121,8 @@ Description-Content-Type: text/markdown
 
 ## What's New
 
+- **2026-04-22** &nbsp;**v0.3.17** — LiteParse document parsing toolset (`include_liteparse=True`). Parse PDFs, DOCX, XLSX and more locally with optional OCR.
+- **2026-04-22** &nbsp;**v0.3.16** — `instructions=` now replaces `BASE_PROMPT` directly. Use `f"{BASE_PROMPT}\n\n..."` to extend it. Subagents still get `BASE_PROMPT` automatically.
 - **2026-04-12** &nbsp;**v0.3.8** — Stuck loop detection, context limit warnings for the model, expanded context file discovery (CLAUDE.md, .cursorrules, etc.), eviction & orphan repair migrated to capabilities hooks.
 - **2026-04-11** &nbsp;**v0.3.6** — One-command installer + self-update: `curl -fsSL .../install.sh | bash` installs everything automatically. New `pydantic-deep update` command. Startup update notifications with 24-hour PyPI cache.
 - **2026-04-10** &nbsp;**v0.3.5** — Headless runner (`pydantic-deep run`), Docker sandbox with named workspaces, browser automation via Playwright, Harbor adapter for Terminal Bench evaluation.
@@ -162,6 +167,10 @@ Pydantic Deep Agents is an **agent harness** — the complete infrastructure tha
 <tr>
 <td><b>📚 Skills system</b></td>
 <td>Domain-specific knowledge loaded on demand from SKILL.md files. Built-in skills: code-review, refactor, test-writer, git-workflow, and more.</td>
+</tr>
+<tr>
+<td><b>📄 Document parsing</b></td>
+<td>Parse PDFs, DOCX, XLSX, PPTX, and images with optional OCR via LiteParse. Runs locally — no cloud services required.</td>
 </tr>
 <tr>
 <td><b>🔌 MCP</b></td>
@@ -304,6 +313,7 @@ agent = create_deep_agent(
     include_memory=True,        # Persistent memory across sessions
     include_plan=True,          # Structured planning before execution
     include_teams=True,         # Agent teams with shared TODO lists + message bus
+    include_liteparse=True,     # Document parsing — PDF, DOCX, XLSX + OCR
     web_search=True,            # Tool-calling: web search
     web_fetch=True,             # Tool-calling: web fetch
     thinking="high",            # Extended thinking / reasoning effort

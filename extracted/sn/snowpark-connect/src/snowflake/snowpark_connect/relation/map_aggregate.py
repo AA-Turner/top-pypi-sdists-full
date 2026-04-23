@@ -11,7 +11,7 @@ import snowflake.snowpark.functions as snowpark_fn
 from snowflake import snowpark
 from snowflake.snowpark import Column
 from snowflake.snowpark._internal.analyzer.unary_expression import Alias
-from snowflake.snowpark.types import DataType, StructType
+from snowflake.snowpark.types import StructType
 from snowflake.snowpark_connect.column_name_handler import (
     make_column_names_snowpark_compatible,
 )
@@ -33,7 +33,7 @@ from snowflake.snowpark_connect.relation.utils import (
     create_pivot_column_condition,
     map_pivot_value_to_spark_column_name,
 )
-from snowflake.snowpark_connect.typed_column import TypedColumn
+from snowflake.snowpark_connect.typed_column import FieldType, TypedColumn
 from snowflake.snowpark_connect.utils import expression_transformer
 from snowflake.snowpark_connect.utils.context import (
     grouping_by_scala_udf_key,
@@ -64,12 +64,13 @@ def map_group_by_aggregate(
     for rel_aggregate_expression, aggregate_original_column in zip(
         rel.aggregate.aggregate_expressions, columns.aggregation_columns
     ):
-        aggregate_original_data_type = aggregate_original_column.data_type
+        aggregate_original_field_type = aggregate_original_column.field_type
+        actual_data_type = aggregate_original_field_type.datatype
 
         if not (
             rel_aggregate_expression.HasField("unresolved_function")
             and rel_aggregate_expression.unresolved_function.function_name == "reduce"
-        ) or not isinstance(aggregate_original_data_type, StructType):
+        ) or not isinstance(actual_data_type, StructType):
             continue
 
         if len(columns.grouping_columns) > 0:
@@ -85,7 +86,7 @@ def map_group_by_aggregate(
         return unpack_struct_output_to_container(
             df=result,
             output_column_name=result.columns[0],
-            output_type=aggregate_original_data_type,
+            output_type=actual_data_type,
             spark_field_names=input_df_container.column_map.get_spark_columns(),
         )
 
@@ -97,7 +98,7 @@ def map_group_by_aggregate(
         aggregate_expressions=list(rel.aggregate.aggregate_expressions),
         spark_columns=columns.spark_names(),
         raw_aggregations=[
-            (col.spark_name, TypedColumn(col.expression, col.data_type))
+            (col.spark_name, TypedColumn(col.expression, col.field_type))
             for col in columns.aggregation_columns
         ],
     )
@@ -106,7 +107,7 @@ def map_group_by_aggregate(
         dataframe=result,
         spark_column_names=columns.spark_names(),
         snowpark_column_names=columns.snowpark_names(),
-        snowpark_column_types=columns.data_types(),
+        snowpark_column_types=columns.field_types(),
         column_qualifiers=columns.get_qualifiers(),
         parent_column_name_map=input_df_container.column_map,
         equivalent_snowpark_names=columns.get_equivalent_snowpark_names(),
@@ -141,7 +142,7 @@ def map_rollup_aggregate(
         dataframe=result,
         spark_column_names=columns.spark_names(),
         snowpark_column_names=columns.snowpark_names(),
-        snowpark_column_types=columns.data_types(),
+        snowpark_column_types=columns.field_types(),
         column_qualifiers=columns.get_qualifiers(),
         parent_column_name_map=input_container.column_map,
         equivalent_snowpark_names=columns.get_equivalent_snowpark_names(),
@@ -175,7 +176,7 @@ def map_cube_aggregate(
         dataframe=result,
         spark_column_names=columns.spark_names(),
         snowpark_column_names=columns.snowpark_names(),
-        snowpark_column_types=columns.data_types(),
+        snowpark_column_types=columns.field_types(),
         column_qualifiers=columns.get_qualifiers(),
         parent_column_name_map=input_container.column_map,
         equivalent_snowpark_names=columns.get_equivalent_snowpark_names(),
@@ -222,8 +223,8 @@ def map_pivot_aggregate(
     final_pivot_names = []
     grouping_columns_qualifiers = []
     grouping_eq_snowpark_names = []
-    grouping_column_types: list[DataType] = []
-    pivot_agg_column_types: list[DataType] = []
+    grouping_column_types: list[FieldType] = []
+    pivot_agg_column_types: list[FieldType] = []
 
     grouping_columns = columns.grouping_expressions()
     if grouping_columns:
@@ -242,7 +243,7 @@ def map_pivot_aggregate(
                     snowpark_name
                 )
             )
-            grouping_column_types.append(columns.grouping_columns[idx].data_type)
+            grouping_column_types.append(columns.grouping_columns[idx].field_type)
 
     for pv_value in pivot_values:
         pv_value_spark, pv_is_null = map_pivot_value_to_spark_column_name(pv_value)
@@ -280,7 +281,7 @@ def map_pivot_aggregate(
             aggregations.append(curr_expression)
             spark_col_names.append(spark_col_name)
             final_pivot_names.append(snowpark_col_name)
-            pivot_agg_column_types.append(columns.aggregation_columns[i].data_type)
+            pivot_agg_column_types.append(columns.aggregation_columns[i].field_type)
 
     result_df = (
         input_df_actual.group_by(*grouping_columns)
@@ -309,7 +310,7 @@ class _ColumnMetadata:
     expression: snowpark.Column
     spark_name: str
     snowpark_name: str
-    data_type: DataType
+    field_type: FieldType | None
     qualifiers: set[ColumnQualifier]
     equivalent_snowpark_names: set[str]
 
@@ -352,13 +353,13 @@ class _Columns:
             col.qualifiers for col in self.grouping_columns + self.aggregation_columns
         ]
 
-    def data_types(self) -> list[DataType] | None:
+    def field_types(self) -> list[FieldType] | None:
         if not self.can_infer_schema:
             return None
         return [
-            col.data_type
+            col.field_type
             for col in self.grouping_columns + self.aggregation_columns
-            if col.data_type is not None
+            if col.field_type is not None
         ]
 
     def get_equivalent_snowpark_names(self) -> list[set[str]]:
@@ -405,7 +406,7 @@ def map_aggregate_helper(
                 snowpark_column.col if skip_alias else snowpark_column.col.alias(alias),
                 new_name,
                 None if skip_alias else alias,
-                snowpark_column.typ,
+                snowpark_column.field_type,
                 qualifiers=snowpark_column.get_qualifiers(),
                 equivalent_snowpark_names=equivalent_snowpark_names,
             )
@@ -424,11 +425,11 @@ def map_aggregate_helper(
 
         def type_agg_expr(
             agg_exp: TypedColumn, schema_inferrable: bool
-        ) -> DataType | None:
+        ) -> FieldType | None:
             if not schema_inferrable:
                 return None
             try:
-                return agg_exp.typ
+                return agg_exp.field_type
             except Exception:
                 # This type used for schema inference optimization purposes.
                 # typer may not be able to infer the type of some expressions

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sys
+import types
 from typing import Optional
 
 import matplotlib.pyplot as plt
@@ -97,6 +98,73 @@ def run_emulated_workflow(simulation, path=None, **kwargs):
             freqs=simulation.freqs, num_modes=simulation.mode_spec.num_modes
         )
     raise TypeError(f"Unsupported workflow type for emulation: {type(simulation).__name__}")
+
+
+@pytest.mark.parametrize(
+    ("acq_func", "expected_type", "expected_attr", "expected_value"),
+    [
+        ("ucb", "UpperConfidenceBound", "kappa", 2.5),
+        ("ei", "ExpectedImprovement", "xi", 0.0),
+        ("poi", "ProbabilityOfImprovement", "xi", 0.0),
+    ],
+)
+def test_bayopt_new_api_supports_acquisition_constructors_without_random_state(
+    monkeypatch, acq_func, expected_type, expected_attr, expected_value
+):
+    class UpperConfidenceBound:
+        def __init__(self, kappa):
+            self.kappa = kappa
+
+    class ExpectedImprovement:
+        def __init__(self, xi):
+            self.xi = xi
+
+    class ProbabilityOfImprovement:
+        def __init__(self, xi):
+            self.xi = xi
+
+    class ModernBayesianOptimization:
+        def __init__(
+            self,
+            f,
+            pbounds,
+            acquisition_function=None,
+            random_state=None,
+            allow_duplicate_points=False,
+        ):
+            self.f = f
+            self.pbounds = pbounds
+            self.acquisition_function = acquisition_function
+            self.random_state = random_state
+            self.allow_duplicate_points = allow_duplicate_points
+
+        def suggest(self):
+            return {"x": 0.5}
+
+    bayes_opt = types.ModuleType("bayes_opt")
+    bayes_opt.__version__ = "2.0.0"
+    bayes_opt.__path__ = []
+    bayes_opt.BayesianOptimization = ModernBayesianOptimization
+
+    acquisition = types.ModuleType("bayes_opt.acquisition")
+    acquisition.UpperConfidenceBound = UpperConfidenceBound
+    acquisition.ExpectedImprovement = ExpectedImprovement
+    acquisition.ProbabilityOfImprovement = ProbabilityOfImprovement
+
+    monkeypatch.setitem(sys.modules, "bayes_opt", bayes_opt)
+    monkeypatch.setitem(sys.modules, "bayes_opt.acquisition", acquisition)
+
+    method = tdd.MethodBayOpt(initial_iter=1, n_iter=1, seed=1, acq_func=acq_func)
+    optimizer, suggest = method._get_bayopt_optimizer(
+        run_fn=lambda args_list: [0.0 for _ in args_list],
+        boundary_dict={"x": (0.0, 1.0)},
+    )
+
+    assert isinstance(optimizer, ModernBayesianOptimization)
+    assert type(optimizer.acquisition_function).__name__ == expected_type
+    assert getattr(optimizer.acquisition_function, expected_attr) == expected_value
+    assert optimizer.random_state == 1
+    assert suggest() == {"x": 0.5}
 
 
 def emulated_batch_run(simulations, path_dir: Optional[str] = None, **kwargs):
@@ -740,6 +808,73 @@ def test_sample_specific(sweep_method, monkeypatch):
     ts_sim_complex_df = ts_sim_complex.to_dataframe()
 
     assert ts_sim_complex_df["test4"][0] == 3.14
+
+
+def test_method_grid_filter_func():
+    method = tdd.MethodGrid(
+        filter_func=lambda radius, num_spheres, tag: radius > num_spheres and tag == "tag1"
+    )
+    design_space = init_design_space(sweep_method=method)
+
+    result = design_space.run(float_non_td_combined, verbose=False)
+    result_df = result.to_dataframe()
+
+    assert len(result.coords) == 3
+    assert all(result_df["radius"] > result_df["num_spheres"])
+    assert set(result_df["tag"]) == {"tag1"}
+
+
+def test_method_monte_carlo_filter_func():
+    design_space = tdd.DesignSpace(
+        parameters=[
+            tdd.ParameterFloat(name="p1", span=(0.0, 1.0)),
+            tdd.ParameterFloat(name="p2", span=(0.0, 1.0)),
+        ],
+        method=tdd.MethodMonteCarlo(num_points=40, seed=1, filter_func=lambda p1, p2: p1 > p2),
+    )
+
+    result = design_space.run(lambda p1, p2: p1 - p2, verbose=False)
+    result_df = result.to_dataframe()
+
+    assert len(result.coords) == 40
+    assert all(result_df["p1"] > result_df["p2"])
+
+
+def test_method_filter_func_can_reject_all_samples():
+    design_space = init_design_space(
+        sweep_method=tdd.MethodGrid(filter_func=lambda **kwargs: False)
+    )
+
+    with pytest.raises(ValueError, match="No valid parameter combinations remain"):
+        design_space.run(float_non_td_combined, verbose=False)
+
+
+def test_method_monte_carlo_filter_func_attempts_per_sample():
+    design_space = tdd.DesignSpace(
+        parameters=[
+            tdd.ParameterFloat(name="p1", span=(0.0, 1.0)),
+        ],
+        method=tdd.MethodMonteCarlo(
+            num_points=5,
+            seed=1,
+            filter_attempts_per_sample=2,
+            filter_func=lambda p1: p1 > 2.0,
+        ),
+    )
+
+    with pytest.raises(ValueError, match="increase 'filter_attempts_per_sample'"):
+        design_space.run(lambda p1: p1, verbose=False)
+
+
+def test_method_filter_func_signature_validated_on_init():
+    with pytest.raises(ValueError, match="must accept keyword arguments"):
+        tdd.DesignSpace(
+            parameters=[
+                tdd.ParameterFloat(name="p1", span=(0.0, 1.0)),
+                tdd.ParameterFloat(name="p2", span=(0.0, 1.0)),
+            ],
+            method=tdd.MethodGrid(filter_func=lambda p1: p1 > 0.5),
+        )
 
 
 method_module_convert = {

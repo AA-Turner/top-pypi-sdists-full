@@ -1,6 +1,6 @@
 [project]
 name = "rapidata"
-version = "3.9.4"
+version = "3.9.6"
 description = "Rapidata package containing the Rapidata Python Client to interact with the Rapidata Web API in an easy way."
 authors = [{ name = "Rapidata AG", email = "info@rapidata.ai" }]
 requires-python = ">=3.10,<4"
@@ -24,6 +24,7 @@ dependencies = [
     "opentelemetry-exporter-otlp>=1.27.0",
     "diskcache>=5.6.3,<6",
     "hatchling>=1.28.0",
+    "qrcode>=8.0,<9",
 ]
 
 [dependency-groups]

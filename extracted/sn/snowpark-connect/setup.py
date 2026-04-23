@@ -46,7 +46,7 @@ setup(
         "cloudpickle",
         "fsspec",
         "jpype1",
-        "protobuf>=4.25.3,<6.32.0",
+        "protobuf>=4.25.3,<6.34",
         "s3fs>=2025.3.0",  # prod-297255-inc0132291
         "snowflake.core>=1.0.5,<2",
         "snowflake-snowpark-python[pandas]>=1.49.0,<1.50.0",

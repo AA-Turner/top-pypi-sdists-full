@@ -234,7 +234,7 @@ PREVIEW_CONNECTOR_SERVICES = ["s3", "s3_iamrole", "gcs"]
 pp = pprint.PrettyPrinter()
 
 valid_chars_name: str = string.ascii_letters + string.digits + "._`*<>+-'"
-valid_chars_fn: str = valid_chars_name + "[](),=!?:/ \n\t\r"
+valid_chars_fn: str = valid_chars_name + "[](),=!?:/% \n\t\r"
 
 
 class UnkownExtensionerror(Exception): ...

@@ -259,12 +259,7 @@ fn build_synthetic_response(id: String, name: String, input: serde_json::Value) 
         model: String::new(),
         stop_reason: None,
         stop_sequence: None,
-        usage: Usage {
-            input_tokens: 0,
-            output_tokens: 0,
-            cache_creation_input_tokens: None,
-            cache_read_input_tokens: None,
-        },
+        usage: Usage::default(),
     }
 }
 

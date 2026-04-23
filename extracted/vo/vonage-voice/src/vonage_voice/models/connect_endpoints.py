@@ -3,6 +3,7 @@ from typing import Literal, Optional
 from pydantic import BaseModel, Field
 from vonage_utils.types import Dtmf, PhoneNumber, SipUri
 
+from .common import WebsocketAuthorization
 from .enums import ConnectEndpointType
 
 
@@ -27,11 +28,13 @@ class PhoneEndpoint(BaseModel):
         number (PhoneNumber): The phone number to call.
         dtmfAnswer (Optional[Dtmf]): The DTMF tones to send when the call is answered.
         onAnswer (Optional[OnAnswer]): Settings for what to do when the call is answered.
+        shaken (Optional[str]): STIR/SHAKEN Identity header content to use for this call.
     """
 
     number: PhoneNumber
     dtmfAnswer: Optional[Dtmf] = None
     onAnswer: Optional[OnAnswer] = None
+    shaken: Optional[str] = None
     type: ConnectEndpointType = ConnectEndpointType.PHONE
 
 
@@ -52,16 +55,19 @@ class WebsocketEndpoint(BaseModel):
 
     Args:
         uri (str): The URI of the WebSocket connection.
-        contentType (Literal['audio/l16;rate=8000', 'audio/l16;rate=16000']): The internet
-            media type for the audio you are streaming.
+        contentType (Literal['audio/l16;rate=8000', 'audio/l16;rate=16000', 'audio/l16;rate=24000']):
+            The internet media type for the audio you are streaming.
         headers (Optional[dict]): The headers to include with the WebSocket connection.
+        authorization (WebsocketAuthorization, Optional): Authorization configuration for
+            the WebSocket handshake.
     """
 
     uri: str
-    contentType: Literal['audio/l16;rate=16000', 'audio/l16;rate=8000'] = Field(
-        None, serialization_alias='content-type'
-    )
+    contentType: Literal[
+        'audio/l16;rate=8000', 'audio/l16;rate=16000', 'audio/l16;rate=24000'
+    ] = Field(None, serialization_alias='content-type')
     headers: Optional[dict] = None
+    authorization: Optional[WebsocketAuthorization] = None
     type: ConnectEndpointType = ConnectEndpointType.WEBSOCKET
 
 

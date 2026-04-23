@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gymnasium
-Version: 1.2.3
+Version: 1.3.0
 Summary: A standard API for reinforcement learning and a diverse set of reference environments (formerly Gym).
 Author-email: Farama Foundation <contact@farama.org>
 License: MIT License
@@ -29,20 +29,20 @@ Provides-Extra: atari
 Requires-Dist: ale_py>=0.9; extra == "atari"
 Provides-Extra: box2d
 Requires-Dist: box2d==2.3.10; extra == "box2d"
-Requires-Dist: pygame>=2.1.3; extra == "box2d"
+Requires-Dist: pygame-ce>=2.1.3; extra == "box2d"
 Requires-Dist: swig==4.*; extra == "box2d"
 Provides-Extra: classic-control
-Requires-Dist: pygame>=2.1.3; extra == "classic-control"
+Requires-Dist: pygame-ce>=2.1.3; extra == "classic-control"
 Provides-Extra: classic-control
-Requires-Dist: pygame>=2.1.3; extra == "classic-control"
+Requires-Dist: pygame-ce>=2.1.3; extra == "classic-control"
 Provides-Extra: mujoco
 Requires-Dist: mujoco>=2.1.5; extra == "mujoco"
 Requires-Dist: imageio>=2.14.1; extra == "mujoco"
 Requires-Dist: packaging>=23.0; extra == "mujoco"
 Provides-Extra: toy-text
-Requires-Dist: pygame>=2.1.3; extra == "toy-text"
+Requires-Dist: pygame-ce>=2.1.3; extra == "toy-text"
 Provides-Extra: toy-text
-Requires-Dist: pygame>=2.1.3; extra == "toy-text"
+Requires-Dist: pygame-ce>=2.1.3; extra == "toy-text"
 Provides-Extra: jax
 Requires-Dist: jax>=0.4.16; extra == "jax"
 Requires-Dist: jaxlib>=0.4.16; extra == "jax"
@@ -64,14 +64,14 @@ Requires-Dist: opencv-python>=3.0; extra == "other"
 Requires-Dist: seaborn>=0.13; extra == "other"
 Provides-Extra: all
 Requires-Dist: ale_py>=0.9; extra == "all"
-Requires-Dist: box2d==2.3.10; extra == "all"
-Requires-Dist: pygame>=2.1.3; extra == "all"
+Requires-Dist: box2d-py==2.3.5; extra == "all"
+Requires-Dist: pygame-ce>=2.1.3; extra == "all"
 Requires-Dist: swig==4.*; extra == "all"
-Requires-Dist: pygame>=2.1.3; extra == "all"
+Requires-Dist: pygame-ce>=2.1.3; extra == "all"
 Requires-Dist: mujoco>=2.1.5; extra == "all"
 Requires-Dist: imageio>=2.14.1; extra == "all"
 Requires-Dist: packaging>=23.0; extra == "all"
-Requires-Dist: pygame>=2.1.3; extra == "all"
+Requires-Dist: pygame-ce>=2.1.3; extra == "all"
 Requires-Dist: jax>=0.4.16; extra == "all"
 Requires-Dist: jaxlib>=0.4.16; extra == "all"
 Requires-Dist: flax>=0.5.0; extra == "all"
@@ -151,7 +151,7 @@ env.close()
 Please note that this is an incomplete list, and just includes libraries that the maintainers most commonly point newcomers to when asked for recommendations.
 
 * [CleanRL](https://github.com/vwxyzjn/cleanrl) is a learning library based on the Gymnasium API. It is designed to cater to newer people in the field and provides very good reference implementations.
-* [PettingZoo](https://github.com/Farama-Foundation/PettingZoo) is a multi-agent version of Gymnasium with a number of implemented environments, i.e. multi-agent Atari environments.
+* [PettingZoo](https://github.com/Farama-Foundation/PettingZoo) is a multi-agent version of Gymnasium with a number of implemented environments, for example, multi-agent Atari environments.
 * The Farama Foundation also has a collection of many other [environments](https://farama.org/projects) that are maintained by the same team as Gymnasium and use the Gymnasium API.
 
 ## Environment Versioning
@@ -179,16 +179,3 @@ You can cite Gymnasium using our related paper (https://arxiv.org/abs/2407.17032
   year={2024}
 }
 ```
-
-## Repository Sponsors
-
-<h3 style="margin-bottom:10;margin-top:0"><a href="https://ref.wisprflow.ai/UnmiceG">Wispr Flow</a></h3>
-
-<a href="https://ref.wisprflow.ai/UnmiceG">
-  <img src="assets/wispr-flow.svg" alt="Wispr Flow" width="100">
-</a>
-
-<h3 style="margin-bottom:10;margin-top:0">Dictation that understands code</h3>
-<h4 style="margin-top:0;">Ship 4x faster with developer-first dictation that works in every app.</h4>
-
-<p style="margin-top:50;">If you'd like to sponsor Gymnasium or other Farama repositories and have your logo here, <a href="mailto:contact@farama.org">contact us</a>.</p>

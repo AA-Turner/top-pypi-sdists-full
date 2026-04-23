@@ -366,6 +366,9 @@ __all__ = (
     "ReservedInstanceTypeDef",
     "ResponseMetadataTypeDef",
     "RevokeVpcEndpointAccessRequestTypeDef",
+    "RollbackServiceSoftwareOptionsTypeDef",
+    "RollbackServiceSoftwareUpdateRequestTypeDef",
+    "RollbackServiceSoftwareUpdateResponseTypeDef",
     "S3GlueDataCatalogTypeDef",
     "S3VectorsEngineTypeDef",
     "SAMLIdpTypeDef",
@@ -730,6 +733,7 @@ class SnapshotOptionsTypeDef(TypedDict):
 
 class SoftwareUpdateOptionsTypeDef(TypedDict):
     AutoSoftwareUpdateEnabled: NotRequired[bool]
+    UseLatestServiceSoftwareForBlueGreen: NotRequired[bool]
 
 
 class VPCOptionsTypeDef(TypedDict):
@@ -1251,6 +1255,17 @@ class RevokeVpcEndpointAccessRequestTypeDef(TypedDict):
     DomainName: str
     Account: NotRequired[str]
     Service: NotRequired[Literal["application.opensearchservice.amazonaws.com"]]
+
+
+class RollbackServiceSoftwareOptionsTypeDef(TypedDict):
+    CurrentVersion: NotRequired[str]
+    NewVersion: NotRequired[str]
+    RollbackAvailable: NotRequired[bool]
+    Description: NotRequired[str]
+
+
+class RollbackServiceSoftwareUpdateRequestTypeDef(TypedDict):
+    DomainName: str
 
 
 class SAMLIdpTypeDef(TypedDict):
@@ -1923,6 +1938,11 @@ class ReservedInstanceTypeDef(TypedDict):
     State: NotRequired[str]
     PaymentOption: NotRequired[ReservedInstancePaymentOptionType]
     RecurringCharges: NotRequired[list[RecurringChargeTypeDef]]
+
+
+class RollbackServiceSoftwareUpdateResponseTypeDef(TypedDict):
+    RollbackServiceSoftwareOptions: RollbackServiceSoftwareOptionsTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class SAMLOptionsInputTypeDef(TypedDict):

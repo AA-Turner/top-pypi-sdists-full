@@ -16,7 +16,7 @@ from isolate.backends import (
     EnvironmentConnection,
 )
 from isolate.connections._local import PythonExecutionBase, agent_startup
-from isolate.connections.common import serialize_object
+from isolate.connections.common import serialize_object, validate_entrypoint
 from isolate.connections.grpc import agent, definitions
 from isolate.connections.grpc.configuration import get_default_options
 from isolate.connections.grpc.interface import from_grpc
@@ -117,10 +117,27 @@ class GRPCExecutionBase(EnvironmentConnection):
             was_it_raised=False,
             stringized_traceback=None,
         )
-        function_call = definitions.FunctionCall(
-            function=function,
+        return self._run_function_call(
+            definitions.FunctionCall(function=function),
         )
 
+    def run_entrypoint(
+        self,
+        entrypoint: str,
+        *,
+        run_on_main_thread: bool = False,
+    ) -> CallResultType:  # type: ignore[type-var]
+        validate_entrypoint(entrypoint)
+        return self._run_function_call(
+            definitions.FunctionCall(
+                entrypoint=entrypoint,
+                run_on_main_thread=run_on_main_thread,
+            ),
+        )
+
+    def _run_function_call(
+        self, function_call: definitions.FunctionCall
+    ) -> CallResultType:  # type: ignore[type-var]
         with self._establish_bridge() as bridge:
             for partial_result in bridge.Run(function_call):
                 for raw_log in partial_result.logs:

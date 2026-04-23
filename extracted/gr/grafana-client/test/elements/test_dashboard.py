@@ -1,138 +1,92 @@
+import sys
 import unittest
 
-from grafana_client import GrafanaApi
+import pytest
+from verlib2 import Version
 
-from ..compat import requests_mock
+from grafana_client.client import GrafanaBadInputError, GrafanaClientError
+from grafana_client.model import PersonalPreferences
+
+pytestmark = pytest.mark.integration
 
 
+@unittest.skipIf("unittest" in sys.argv[0], "Skipping unittest, please use pytest")
 class DashboardTestCase(unittest.TestCase):
-    def setUp(self):
-        self.grafana = GrafanaApi(("admin", "admin"), host="localhost", url_path_prefix="", protocol="http")
+    @pytest.fixture(autouse=True)
+    def use_fixtures(
+        self,
+        grafana_api,
+        dashboard_folder_permissions,
+        dashboard_id: int,
+        dashboard_uid: str,
+        folder_id: str,
+        folder_uid: str,
+    ):
+        self.grafana = grafana_api
+        self.dashboard_id = dashboard_id
+        self.dashboard_uid = dashboard_uid
+        self.folder_id = folder_id
+        self.folder_uid = folder_uid
+        self.permissions = dashboard_folder_permissions
 
-    @requests_mock.Mocker()
-    def test_get_dashboard(self, m):
-        m.get(
-            "http://localhost/api/dashboards/uid/cIBgcSjkk",
-            json={
-                "dashboard": {
-                    "id": 1,
-                    "uid": "cIBgcSjkk",
-                    "title": "Production Overview",
-                    "tags": ["templated"],
-                    "timezone": "browser",
-                    "schemaVersion": 16,
-                    "version": 0,
-                },
-                "meta": {
-                    "isStarred": "false",
-                    "url": "/d/cIBgcSjkk/production-overview",
-                    "slug": "production-overview",
-                },
-            },
-        )
-        dashboard = self.grafana.dashboard.get_dashboard("cIBgcSjkk")
-        self.assertEqual(dashboard["dashboard"]["uid"], "cIBgcSjkk")
+    def test_get_dashboard_by_uid(self):
+        dashboard = self.grafana.dashboard.get_dashboard(self.dashboard_uid)
+        self.assertEqual(dashboard["dashboard"]["uid"], self.dashboard_uid)
 
-    @requests_mock.Mocker()
-    def test_get_dashboard_by_name_grafana7(self, m):
-        m.get(
-            "http://localhost/api/frontend/settings",
-            json={"buildInfo": {"commit": "6f8c1d9fe4", "version": "7.5.11"}},
-        )
-        m.get(
-            "http://localhost/api/dashboards/db/Production Overview",
-            json={
-                "dashboard": {
-                    "id": 1,
-                    "uid": "cIBgcSjkk",
-                    "title": "Production Overview",
-                    "tags": ["templated"],
-                    "timezone": "browser",
-                    "schemaVersion": 16,
-                    "version": 0,
-                },
-                "meta": {
-                    "isStarred": "false",
-                    "url": "/d/cIBgcSjkk/production-overview",
-                    "slug": "production-overview",
-                },
-            },
-        )
-        dashboard = self.grafana.dashboard.get_dashboard_by_name("Production Overview")
-        self.assertEqual(dashboard["dashboard"]["title"], "Production Overview")
+    def test_get_dashboard_by_name_grafana7(self):
+        if self.grafana.get_version() < Version("8"):
+            dashboard = self.grafana.dashboard.get_dashboard_by_name("productionoverview")
+            self.assertEqual(dashboard["dashboard"]["title"], "ProductionOverview")
+        else:
+            pytest.skip("Grafana 8 and higher does not support getting dashboards by slug")
 
-    @requests_mock.Mocker()
-    def test_get_dashboard_by_name_grafana8(self, m):
-        m.get(
-            "http://localhost/api/frontend/settings",
-            json={"buildInfo": {"commit": "unknown", "version": "8.0.2"}},
-        )
-        with self.assertRaises(DeprecationWarning) as ex:
-            self.grafana.dashboard.get_dashboard_by_name("foobar")
-        self.assertEqual(
-            "Grafana 8 and higher does not support getting dashboards by slug",
-            str(ex.exception),
-        )
+    def test_get_dashboard_by_name(self):
+        def probe():
+            return self.grafana.dashboard.get_dashboard_by_name("productionoverview")
 
-    @requests_mock.Mocker()
-    def test_update_dashboard(self, m):
-        """
-        Verify a general dashboard update.
-        """
-        m.post(
-            "http://localhost/api/dashboards/db",
-            json={
-                "id": 1,
-                "uid": "cIBgcSjkk",
-                "url": "/d/cIBgcSjkk/production-overview",
-                "status": "success",
-                "version": 1,
-                "slug": "production-overview",
-            },
-        )
+        if self.grafana.get_version() >= Version("8"):
+            with self.assertRaises(GrafanaClientError) as context:
+                probe()
+            self.assertEqual(404, context.exception.status_code)
+            self.assertIn("Not found", context.exception.message)
+        else:
+            dashboard = probe()
+            self.assertEqual(self.dashboard_uid, dashboard["dashboard"]["uid"])
+
+    def test_update_dashboard_standard(self):
+        """Verify a general dashboard update."""
         dashboard = self.grafana.dashboard.update_dashboard(
             {
                 "dashboard": {
-                    "id": 1,
-                    "uid": "cIBgcSjkk",
-                    "title": "Production Overview",
-                    "tags": ["templated"],
-                    "timezone": "browser",
-                    "schemaVersion": 16,
-                    "version": 0,
+                    "uid": self.dashboard_uid,
+                    "title": "Production Overview NG",
                 },
-                "folderId": 0,
-                "overwrite": "false",
+                "overwrite": True,
             }
         )
-
-        self.assertEqual(dashboard["uid"], "cIBgcSjkk")
+        self.assertEqual(dashboard["uid"], self.dashboard_uid)
         self.assertEqual(dashboard["status"], "success")
+        self.assertEqual(dashboard["version"], 2)
 
-    @requests_mock.Mocker()
-    def test_update_dashboard_roundtrip_folder_1(self, m):
+    def test_update_dashboard_roundtrip_folder_1(self):
         """
         Verify that a dashboard update will use the "folderId"
         from the nested "meta" object.
-        This is important when roundtripping dashboard payloads.
+        This is important when round-tripping dashboard payloads.
         """
-        m.post(
-            "http://localhost/api/dashboards/db",
-            json={},
-        )
-        self.grafana.dashboard.update_dashboard(
+        db = self.grafana.dashboard.update_dashboard(
             {
                 "meta": {
-                    "folderId": 123,
+                    "folderId": self.folder_id,
                 },
-                "dashboard": {},
+                "dashboard": {"title": "default"},
             }
         )
+        # folderUid only exists with Grafana 11 and higher.
+        if self.grafana.get_version() >= Version("11"):
+            self.assertEqual(db["folderUid"], self.folder_uid)
 
-        self.assertEqual(m.last_request.json()["folderId"], 123)
-
-    @requests_mock.Mocker()
-    def test_update_dashboard_roundtrip_folder_2(self, m):
+    def test_update_dashboard_roundtrip_folder_2(self):
         """
         Verify that a dashboard update will use the "folderId"
         from the toplevel dashboard payload, even if it is present
@@ -140,183 +94,69 @@ class DashboardTestCase(unittest.TestCase):
         This is important when roundtripping dashboard payloads and
         intentionally wanting to move the dashboard to a different folder.
         """
-        m.post(
-            "http://localhost/api/dashboards/db",
-            json={},
-        )
-        self.grafana.dashboard.update_dashboard(
+        db = self.grafana.dashboard.update_dashboard(
             {
                 "meta": {
                     "folderId": 123,
                 },
-                "dashboard": {},
-                "folderId": 456,
+                "dashboard": {"title": "default"},
+                "folderId": self.folder_id,
             }
         )
+        db = self.grafana.dashboard.get_dashboard(db["uid"])
+        self.assertEqual(db["meta"]["folderId"], self.folder_id)
 
-        self.assertEqual(m.last_request.json()["folderId"], 456)
-
-    @requests_mock.Mocker()
-    def test_get_home_dashboard(self, m):
-        m.get(
-            "http://localhost/api/dashboards/home",
-            json={
-                "dashboard": {
-                    "editable": "false",
-                    "hideControls": "true",
-                    "nav": [{"enable": "false", "type": "timepicker"}],
-                    "style": "dark",
-                    "tags": [],
-                    "templating": {"list": []},
-                    "time": {},
-                    "timezone": "browser",
-                    "title": "Home",
-                    "version": 5,
-                },
-                "meta": {
-                    "isHome": "true",
-                    "canSave": "false",
-                    "canEdit": "false",
-                    "canStar": "false",
-                    "url": "",
-                    "expires": "0001-01-01T00:00:00Z",
-                    "created": "0001-01-01T00:00:00Z",
-                },
-            },
-        )
+    def test_get_home_dashboard(self):
+        self.grafana.user.update_preferences(PersonalPreferences(homeDashboardId=self.dashboard_id))
         dashboard = self.grafana.dashboard.get_home_dashboard()
-        self.assertEqual(dashboard["meta"]["isHome"], "true")
+        assert dashboard == {"redirectUri": "/d/cIBgcSjkk/productionoverview"}
+        # TODO: The original response looks like this. However, as soon as the personal preferences
+        #       will be updated, we haven't found a way to deterministically restore the original content
+        #       per Grafana API. This is why the test case now calls `update_preferences` and validates
+        #       the `redirectUri` response payload to provide a stable outcome.
+        #       Any suggestions to improve are welcome.
+        """
+        self.assertEqual(dashboard["dashboard"]["title"], "Home")
+        self.assertEqual(dashboard["meta"]["url"], "")
+        if self.grafana.get_version() < Version("9"):
+            self.assertEqual(dashboard["meta"]["isHome"], True)
+        if self.grafana.get_version() >= Version("8"):
+            self.assertEqual(dashboard["meta"]["canDelete"], False)
+        """
 
-    @requests_mock.Mocker()
-    def test_delete_dashboard(self, m):
-        m.delete(
-            "http://localhost/api/dashboards/uid/cIBgcSjkk",
-            json={"title": "Production Overview"},
-        )
-        response = self.grafana.dashboard.delete_dashboard("cIBgcSjkk")
-        self.assertEqual(response["title"], "Production Overview")
+    def test_delete_dashboard(self):
+        response = self.grafana.dashboard.delete_dashboard(self.dashboard_uid)
+        self.assertEqual(response["title"], "ProductionOverview")
 
-    @requests_mock.Mocker()
-    def test_get_dashboards_tags(self, m):
-        m.get(
-            "http://localhost/api/dashboards/tags",
-            json=[{"term": "tag1", "count": 1}, {"term": "tag2", "count": 4}],
-        )
+    def test_get_dashboards_tags(self):
         tags = self.grafana.dashboard.get_dashboards_tags()
         self.assertEqual(len(tags), 2)
-        self.assertEqual(tags[0]["term"], "tag1")
+        self.assertEqual(tags[0]["term"], "bazqux")
 
-    def mocker_provision_permissions(self, mock):
-        response_data = [
-            {
-                "id": 1,
-                "dashboardId": 1,
-                "created": "2017-06-20T02:00:00+02:00",
-                "updated": "2017-06-20T02:00:00+02:00",
-                "userId": 0,
-                "userLogin": "",
-                "userEmail": "",
-                "teamId": 0,
-                "team": "",
-                "role": "Viewer",
-                "permission": 1,
-                "permissionName": "View",
-                "uid": "foobar",
-                "title": "",
-                "slug": "",
-                "isFolder": "false",
-                "url": "",
-            },
-            {
-                "id": 2,
-                "dashboardId": 1,
-                "created": "2017-06-20T02:00:00+02:00",
-                "updated": "2017-06-20T02:00:00+02:00",
-                "userId": 0,
-                "userLogin": "",
-                "userEmail": "",
-                "teamId": 0,
-                "team": "",
-                "role": "Editor",
-                "permission": 2,
-                "permissionName": "Edit",
-                "uid": "bazqux",
-                "title": "",
-                "slug": "",
-                "isFolder": "false",
-                "url": "",
-            },
-        ]
-        mock.get(
-            "http://localhost/api/dashboards/id/1/permissions",
-            json=response_data,
-        )
-        mock.get(
-            "http://localhost/api/dashboards/uid/foobar/permissions",
-            json=response_data,
-        )
-        mock.post(
-            "http://localhost/api/dashboards/id/1/permissions",
-            json={"message": "Dashboard permissions updated"},
-        )
-        mock.post(
-            "http://localhost/api/dashboards/uid/foobar/permissions",
-            json={"message": "Dashboard permissions updated"},
-        )
+    def test_dashboard_permissions_by_id(self):
+        grafana8 = Version("8") <= self.grafana.get_version() < Version("9")
+        if self.grafana.get_version() >= Version("12"):
+            pytest.skip("Grafana 12 no longer supports accessing dashboards by id, use uids instead.")
 
-    @requests_mock.Mocker()
-    def test_get_dashboard_permissions(self, m):
-        self.mocker_provision_permissions(m)
-        permissions = self.grafana.dashboard.get_dashboard_permissions(1)
-        self.assertEqual(len(permissions), 2)
-        self.assertEqual(permissions[0]["dashboardId"], 1)
+        if grafana8:
+            with self.assertRaises(GrafanaBadInputError) as context:
+                self.grafana.dashboard.update_permissions_by_id(self.dashboard_id, self.permissions)
+            self.assertEqual(400, context.exception.status_code)
+            self.assertIn("you can only override a permission to be higher", context.exception.message)
+            return
 
-    @requests_mock.Mocker()
-    def test_get_dashboard_permissions_by_id(self, m):
-        self.mocker_provision_permissions(m)
-        permissions = self.grafana.dashboard.get_permissions_by_id(1)
-        self.assertEqual(len(permissions), 2)
-        self.assertEqual(permissions[0]["dashboardId"], 1)
+        response = self.grafana.dashboard.update_permissions_by_id(self.dashboard_id, self.permissions)
+        self.assertEqual(response["message"], "Dashboard permissions updated")
 
-    @requests_mock.Mocker()
-    def test_get_dashboard_permissions_by_uid(self, m):
-        self.mocker_provision_permissions(m)
-        permissions = self.grafana.dashboard.get_permissions_by_uid("foobar")
-        self.assertEqual(len(permissions), 2)
-        self.assertEqual(permissions[0]["uid"], "foobar")
+        permissions = self.grafana.dashboard.get_permissions_by_id(self.dashboard_id)
+        self.assertEqual(len(permissions), 4)
 
-    permission_data = {
-        "items": [
-            {"role": "Viewer", "permission": 1},
-            {"role": "Editor", "permission": 2},
-            {"teamId": 1, "permission": 1},
-            {"userId": 11, "permission": 4},
-        ]
-    }
+    def test_dashboard_permissions_by_uid(self):
+        if self.grafana.get_version() < Version("9"):
+            pytest.skip("Grafana 8 and earlier do not support accessing dashboards by uid for permission updates.")
 
-    @requests_mock.Mocker()
-    def test_update_dashboard_permissions(self, m):
-        self.mocker_provision_permissions(m)
-        permissions = self.grafana.dashboard.update_dashboard_permissions(
-            1,
-            self.permission_data,
-        )
-        self.assertEqual(permissions["message"], "Dashboard permissions updated")
+        response = self.grafana.dashboard.update_permissions_by_uid(self.dashboard_uid, self.permissions)
+        self.assertEqual(response["message"], "Dashboard permissions updated")
 
-    @requests_mock.Mocker()
-    def test_update_dashboard_permissions_by_id(self, m):
-        self.mocker_provision_permissions(m)
-        permissions = self.grafana.dashboard.update_permissions_by_id(
-            1,
-            self.permission_data,
-        )
-        self.assertEqual(permissions["message"], "Dashboard permissions updated")
-
-    @requests_mock.Mocker()
-    def test_update_dashboard_permissions_by_uid(self, m):
-        self.mocker_provision_permissions(m)
-        permissions = self.grafana.dashboard.update_permissions_by_uid(
-            "foobar",
-            self.permission_data,
-        )
-        self.assertEqual(permissions["message"], "Dashboard permissions updated")
+        permissions = self.grafana.dashboard.get_permissions_by_uid(self.dashboard_uid)
+        self.assertEqual(len(permissions), 4)

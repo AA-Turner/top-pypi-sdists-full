@@ -108,4 +108,4 @@ def invalidate_cache(db: Any, space_id: str | None = None) -> int:
     else:
         cursor = db.execute("DELETE FROM workflow_llm_cache")
     db.commit()
-    return cursor.rowcount
+    return int(cursor.rowcount)

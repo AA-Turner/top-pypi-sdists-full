@@ -4,6 +4,7 @@ import shutil
 import struct
 import warnings
 from collections.abc import Iterable, Mapping, Sequence
+from io import BufferedWriter
 from pathlib import Path
 from typing import Any, Callable, Optional, cast
 
@@ -35,9 +36,17 @@ DLHandler = Callable[[DLMessage], None]
 
 
 class DeviceLink:
-    def __init__(self, service: ServiceConnection, root_path: Path) -> None:
+    def __init__(
+        self,
+        service: ServiceConnection,
+        root_path: Path,
+        preserve_file: Optional[Callable[[str, str], bool]] = None,
+        post_file_receive: Optional[Callable[[str, str], None]] = None,
+    ) -> None:
         self.service: ServiceConnection = service
         self.root_path: Path = root_path
+        self.preserve_file = preserve_file
+        self.post_file_receive = post_file_receive
         self._dl_handlers: dict[str, DLHandler] = {
             "DLMessageCreateDirectory": self.create_directory,
             "DLMessageUploadFiles": self.upload_files,
@@ -99,8 +108,8 @@ class DeviceLink:
         status: dict[str, dict[str, Any]] = {}
         files = cast(Iterable[str], message[1])
         for file in files:
-            await self._sendall(struct.pack(SIZE_FORMAT, len(file)))
-            await self._sendall(file.encode())
+            file_bytes = file.encode()
+            await self._sendall(struct.pack(SIZE_FORMAT, len(file_bytes)) + file_bytes)
 
             try:
                 file_path = self.root_path / file
@@ -114,8 +123,11 @@ class DeviceLink:
                         chunk_data = file_handle.read(chunk_size)
                         if not chunk_data:
                             break
-                        await self._sendall(struct.pack(SIZE_FORMAT, len(chunk_data) + struct.calcsize(CODE_FORMAT)))
-                        await self._sendall(struct.pack(CODE_FORMAT, CODE_FILE_DATA) + chunk_data)
+                        await self._sendall(
+                            struct.pack(SIZE_FORMAT, len(chunk_data) + struct.calcsize(CODE_FORMAT))
+                            + struct.pack(CODE_FORMAT, CODE_FILE_DATA)
+                            + chunk_data
+                        )
 
                 buffer = struct.pack(SIZE_FORMAT, struct.calcsize(CODE_FORMAT)) + struct.pack(CODE_FORMAT, CODE_SUCCESS)
                 await self._sendall(buffer)
@@ -124,8 +136,12 @@ class DeviceLink:
                     "DLFileErrorString": e.strerror,
                     "DLFileErrorCode": ctypes.c_uint64(ERRNO_TO_DEVICE_ERROR[e.errno]).value,
                 }
-                await self._sendall(struct.pack(SIZE_FORMAT, len(e.strerror) + struct.calcsize(CODE_FORMAT)))
-                await self._sendall(struct.pack(CODE_FORMAT, CODE_ERROR_LOCAL) + e.strerror.encode())
+                error_bytes = e.strerror.encode()
+                await self._sendall(
+                    struct.pack(SIZE_FORMAT, len(error_bytes) + struct.calcsize(CODE_FORMAT))
+                    + struct.pack(CODE_FORMAT, CODE_ERROR_LOCAL)
+                    + error_bytes
+                )
 
         await self._sendall(FILE_TRANSFER_TERMINATOR)
         if status:
@@ -160,12 +176,15 @@ class DeviceLink:
             (size,) = struct.unpack(SIZE_FORMAT, await self._recvall(struct.calcsize(SIZE_FORMAT)))
             (code,) = struct.unpack(CODE_FORMAT, await self._recvall(struct.calcsize(CODE_FORMAT)))
             size -= struct.calcsize(CODE_FORMAT)
-            with open(self.root_path / file_name, "wb") as fd:
-                while size and code == CODE_FILE_DATA:
-                    fd.write(await self._recvall(size))
-                    (size,) = struct.unpack(SIZE_FORMAT, await self._recvall(struct.calcsize(SIZE_FORMAT)))
-                    (code,) = struct.unpack(CODE_FORMAT, await self._recvall(struct.calcsize(CODE_FORMAT)))
-                    size -= struct.calcsize(CODE_FORMAT)
+            should_preserve = self.preserve_file(file_name, device_name) if self.preserve_file is not None else True
+            if should_preserve:
+                with open(self.root_path / file_name, "wb") as fd:
+                    size, code = await self._consume_file_transfer(size, code, fd)
+            else:
+                path = self.root_path / file_name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.touch()
+                size, code = await self._consume_file_transfer(size, code)
             if code == CODE_ERROR_REMOTE:
                 # iOS 17 beta devices give this error for: backup_manifest.db
                 error_message = (await self._recvall(size)).decode()
@@ -175,7 +194,21 @@ class DeviceLink:
                 )
                 continue
             assert code == CODE_SUCCESS
+            if self.post_file_receive is not None:
+                self.post_file_receive(file_name, device_name)
         await self.status_response(0)
+
+    async def _consume_file_transfer(
+        self, size: int, code: int, destination: Optional[BufferedWriter] = None
+    ) -> tuple[int, int]:
+        while size and code == CODE_FILE_DATA:
+            chunk = await self._recvall(size)
+            if destination is not None:
+                destination.write(chunk)
+            (size,) = struct.unpack(SIZE_FORMAT, await self._recvall(struct.calcsize(SIZE_FORMAT)))
+            (code,) = struct.unpack(CODE_FORMAT, await self._recvall(struct.calcsize(CODE_FORMAT)))
+            size -= struct.calcsize(CODE_FORMAT)
+        return size, code
 
     async def get_free_disk_space(self, _message: DLMessage) -> None:
         freespace = shutil.disk_usage(self.root_path).free
@@ -184,19 +217,29 @@ class DeviceLink:
     async def move_items(self, message: DLMessage) -> None:
         items = cast(Mapping[str, str], message[1])
         for src, dst in items.items():
+            source = self.root_path / src
+            if not source.exists() and self.preserve_file is not None:
+                continue
             dest = self.root_path / dst
             dest.parent.mkdir(parents=True, exist_ok=True)
-            shutil.move(self.root_path / src, dest)
+            shutil.move(source, dest)
+            if self.post_file_receive is not None:
+                self.post_file_receive(dst, src)
         await self.status_response(0)
 
     async def copy_item(self, message: DLMessage) -> None:
         src = self.root_path / cast(str, message[1])
+        if not src.exists() and self.preserve_file is not None:
+            await self.status_response(0)
+            return
         dest = self.root_path / cast(str, message[2])
         dest.parent.mkdir(parents=True, exist_ok=True)
         if src.is_dir():
             shutil.copytree(src, dest)
         else:
             shutil.copy(src, dest)
+        if self.post_file_receive is not None:
+            self.post_file_receive(cast(str, message[2]), cast(str, message[1]))
         await self.status_response(0)
 
     async def purge_disk_space(self, _message: DLMessage) -> None:

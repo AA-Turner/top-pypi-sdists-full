@@ -27,7 +27,7 @@ import tidy3d.web as web
 from tidy3d import Box, Geometry, GeometryGroup
 from tidy3d.components.autograd.derivative_utils import DerivativeInfo
 from tidy3d.components.autograd.field_map import FieldMap
-from tidy3d.components.autograd.utils import get_static, is_tidy_box
+from tidy3d.components.autograd.utils import get_static, hasbox, is_tidy_box
 from tidy3d.components.base import TRACED_FIELD_KEYS_ATTR
 from tidy3d.components.data.data_array import DataArray
 from tidy3d.components.geometry.primitives import discretization_wavelength
@@ -39,6 +39,7 @@ from tidy3d.plugins.smatrix.run import _run_local
 from tidy3d.web import run, run_async
 from tidy3d.web.api.autograd import autograd as autograd_module
 from tidy3d.web.api.autograd.autograd import run_async_custom, run_custom, verify_custom_vjp
+from tidy3d.web.api.autograd.context import AutogradContext
 from tidy3d.web.api.autograd.types import CustomVJPConfig, NumericalStructureConfig
 
 from ...utils import (
@@ -121,12 +122,6 @@ def _make_di(paths, freq):
         },
         frequencies=[freq],
         bounds=((-1, -1, -1), (1, 1, 1)),
-        eps_out=td.ScalarFieldDataArray(
-            [[[[1.0]]]], coords={"x": [0], "y": [0], "z": [0], "f": [freq]}
-        ),
-        eps_in=td.ScalarFieldDataArray(
-            [[[[2.0]]]], coords={"x": [0], "y": [0], "z": [0], "f": [freq]}
-        ),
         bounds_intersect=((-1, -1, -1), (1, 1, 1)),
         simulation_bounds=((-2, -2, -2), (2, 2, 2)),
         updated_epsilon=lambda geom: td.ScalarFieldDataArray(
@@ -236,8 +231,6 @@ def use_emulated_run(monkeypatch):
 
         # reload(tidy3d.web.api.autograd.autograd)
         from tidy3d.web.api.autograd.autograd import (
-            AUX_KEY_SIM_DATA_FWD,
-            AUX_KEY_SIM_DATA_ORIGINAL,
             postprocess_adj,
             postprocess_fwd,
         )
@@ -252,20 +245,22 @@ def use_emulated_run(monkeypatch):
                 sim_combined = sim_original._with_adjoint_monitors(sim_fields_keys)
                 sim_data_combined = run_emulated(sim_combined, task_name=task_name)
 
-                # store both original and fwd data aux_data
-                aux_data = {}
+                # store both original and forward data in the typed context
+                context = AutogradContext()
 
                 _ = postprocess_fwd(
                     sim_data_combined=sim_data_combined,
                     sim_original=sim_original,
-                    aux_data=aux_data,
+                    context=context,
                 )
 
-                # cache original and fwd data locally for test
-                cache[task_name_fwd] = copy.copy(aux_data)
-                cache[task_name_fwd][AUX_KEY_SIM_FIELDS_KEYS] = sim_fields_keys
+                # cache original and forward data locally for test
+                cache[task_name_fwd] = {
+                    "context": copy.copy(context),
+                    AUX_KEY_SIM_FIELDS_KEYS: sim_fields_keys,
+                }
                 # return original data only
-                return aux_data[AUX_KEY_SIM_DATA_ORIGINAL], task_name_fwd
+                return context.simulation_data_original, task_name_fwd
             else:
                 return run_emulated(simulation, task_name=task_name), task_name_fwd
 
@@ -277,9 +272,9 @@ def use_emulated_run(monkeypatch):
             sim_data_adj = run_emulated(simulation, task_name="task_name")
 
             # grab the fwd and original data from the cache
-            aux_data_fwd = cache[task_name_fwd]
-            sim_data_orig = aux_data_fwd[AUX_KEY_SIM_DATA_ORIGINAL]
-            sim_data_fwd = aux_data_fwd[AUX_KEY_SIM_DATA_FWD]
+            cached_context = cache[task_name_fwd]["context"]
+            sim_data_orig = cached_context.simulation_data_original
+            sim_data_fwd = cached_context.simulation_data_forward
 
             # Reuse forward permittivity monitor payloads in the emulated adjoint data so
             # geometry-gradient spacing logic sees consistent permittivity on both sides.
@@ -1873,7 +1868,11 @@ def test_async_vjp_parallel_only_keeps_full_sim_field_keys(monkeypatch):
         data_fields_original_dict={task_name: {("data", 0, "amps"): np.array([1.0])}},
         sim_fields_original_dict={task_name: sim_fields_original},
         sims_original={task_name: SIM_BASE},
-        aux_data_dict={task_name: {autograd_module.AUX_KEY_SIM_DATA_ORIGINAL: None}},
+        contexts={
+            task_name: AutogradContext(
+                simulation_data_original=object(),
+            )
+        },
         local_gradient=False,
         max_num_adjoint_per_fwd=1,
         numerical_structures={},
@@ -1915,11 +1914,11 @@ def test_async_vjp_sequential_path_keeps_full_sim_field_keys(monkeypatch):
         data_fields_original_dict={task_name: {("data", 0, "amps"): np.array([1.0])}},
         sim_fields_original_dict={task_name: sim_fields_original},
         sims_original={task_name: SIM_BASE},
-        aux_data_dict={
-            task_name: {
-                autograd_module.AUX_KEY_SIM_DATA_ORIGINAL: None,
-                autograd_module.AUX_KEY_FWD_TASK_ID: "fwd_task_id",
-            }
+        contexts={
+            task_name: AutogradContext(
+                simulation_data_original=object(),
+                forward_task_id="fwd_task_id",
+            )
         },
         local_gradient=False,
         max_num_adjoint_per_fwd=1,
@@ -1963,10 +1962,10 @@ def test_vjp_sequential_path_keeps_full_sim_field_keys(monkeypatch):
         sim_fields_original=sim_fields_original,
         sim_original=SIM_BASE,
         task_name=task_name,
-        aux_data={
-            autograd_module.AUX_KEY_SIM_DATA_ORIGINAL: None,
-            autograd_module.AUX_KEY_FWD_TASK_ID: "fwd_task_id",
-        },
+        context=AutogradContext(
+            simulation_data_original=object(),
+            forward_task_id="fwd_task_id",
+        ),
         local_gradient=False,
         max_num_adjoint_per_fwd=1,
         numerical_structures={},
@@ -2234,7 +2233,7 @@ def test_autograd_run_does_not_mutate_input_attrs(monkeypatch):
         sim_fields,
         sim_original,
         task_name,
-        aux_data,
+        context,
         local_gradient,
         max_num_adjoint_per_fwd,
         **run_kwargs,
@@ -2242,12 +2241,12 @@ def test_autograd_run_does_not_mutate_input_attrs(monkeypatch):
         captured["sim_original"] = sim_original
         captured["payload"] = sim_original.attrs.get(TRACED_FIELD_KEYS_ATTR)
         captured["sim_fields"] = sim_fields
-        captured["aux_data"] = aux_data
+        captured["context"] = context
         return sim_fields
 
-    def fake_postprocess_run(traced_fields_data, aux_data):
+    def fake_postprocess_run(traced_fields_data, context):
         captured["postprocess_data"] = traced_fields_data
-        captured["postprocess_aux"] = aux_data
+        captured["postprocess_context"] = context
         return "sentinel"
 
     monkeypatch.setattr(autograd_module, "_run_primitive", fake_run_primitive)
@@ -2261,8 +2260,12 @@ def test_autograd_run_does_not_mutate_input_attrs(monkeypatch):
     assert captured["sim_original"] is not sim
     assert captured["sim_original"].attrs.get(TRACED_FIELD_KEYS_ATTR) == payload
     assert captured["postprocess_data"] == captured["sim_fields"]
-    assert captured["postprocess_aux"] is captured["aux_data"]
-    assert captured["postprocess_aux"] == {}
+    assert captured["postprocess_context"] is captured["context"]
+    assert isinstance(captured["postprocess_context"], AutogradContext)
+    assert captured["postprocess_context"].simulation_data_original is None
+    assert captured["postprocess_context"].simulation_data_forward is None
+    assert captured["postprocess_context"].forward_task_id is None
+    assert captured["postprocess_context"].parallel_adjoint_state is None
 
 
 def test_sim_traced_override_structures():
@@ -3062,12 +3065,6 @@ def test_pole_residue(monkeypatch):
         },
         frequencies=[freq],
         bounds=((-1, -1, -1), (1, 1, 1)),
-        eps_out=td.ScalarFieldDataArray(
-            [[[[1.0]]]], coords={"x": [0], "y": [0], "z": [0], "f": [1.94e14]}
-        ),
-        eps_in=td.ScalarFieldDataArray(
-            [[[[2.0]]]], coords={"x": [0], "y": [0], "z": [0], "f": [1.94e14]}
-        ),
         bounds_intersect=((-1, -1, -1), (1, 1, 1)),
         simulation_bounds=((-2, -2, -2), (2, 2, 2)),
         updated_epsilon=lambda geom: td.ScalarFieldDataArray(
@@ -3114,12 +3111,6 @@ def test_adaptive_spacing(eps_real):
             )
             for key in eps_keys
         },
-        eps_in=td.ScalarFieldDataArray(
-            [[[[eps_real]]]], coords={"x": [0], "y": [0], "z": [0], "f": [freq]}
-        ),
-        eps_out=td.ScalarFieldDataArray(
-            [[[[1.0]]]], coords={"x": [0], "y": [0], "z": [0], "f": [freq]}
-        ),
         frequencies=[freq],
         bounds=((-1, -1, -1), (1, 1, 1)),
         bounds_intersect=((-1, -1, -1), (1, 1, 1)),
@@ -3198,12 +3189,6 @@ def test_adaptive_spacing_cache(rng, redirect_stdout_to_stderr, monkeypatch):
         },
         frequencies=[freq],
         bounds=((-1, -1, -1), (1, 1, 1)),
-        eps_out=td.ScalarFieldDataArray(
-            eps_out_data, coords={"x": xcoord, "y": ycoord, "z": zcoord, "f": [freq]}
-        ),
-        eps_in=td.ScalarFieldDataArray(
-            eps_in_data, coords={"x": xcoord, "y": ycoord, "z": zcoord, "f": [freq]}
-        ),
         bounds_intersect=((-1, -1, -1), (1, 1, 1)),
         simulation_bounds=((-2, -2, -2), (2, 2, 2)),
         updated_epsilon=lambda geom: td.ScalarFieldDataArray(
@@ -3249,12 +3234,6 @@ def test_cylinder_discretization(eps_real):
             )
             for key in eps_keys
         },
-        eps_in=td.ScalarFieldDataArray(
-            [[[[eps_real]]]], coords={"x": [0], "y": [0], "z": [0], "f": [freq]}
-        ),
-        eps_out=td.ScalarFieldDataArray(
-            [[[[1.0]]]], coords={"x": [0], "y": [0], "z": [0], "f": [freq]}
-        ),
         frequencies=[freq],
         bounds=((-1, -1, -1), (1, 1, 1)),
         bounds_intersect=((-1, -1, -1), (1, 1, 1)),
@@ -3273,6 +3252,114 @@ def test_cylinder_discretization(eps_real):
         assert np.isclose(expected_wvl_mat, wvl_mat), (
             "Unexpected wavelength for discretizing cylinder!"
         )
+
+
+def test_outside_snapped_points_reach_simulation_boundary_true():
+    freq = 2.0e14
+    coords = {"x": [0.0, 0.2], "y": [0.0], "z": [0.0], "f": [freq]}
+
+    def scalar_field(value):
+        return td.ScalarFieldDataArray(
+            np.full((2, 1, 1, 1), value, dtype=float),
+            coords=coords,
+            dims=("x", "y", "z", "f"),
+        )
+
+    info = DerivativeInfo(
+        paths={},
+        E_der_map={},
+        D_der_map={},
+        E_fwd={},
+        D_fwd={},
+        E_adj={},
+        D_adj={},
+        eps_data={key: scalar_field(2.0) for key in ("eps_xx", "eps_yy", "eps_zz")},
+        frequencies=[freq],
+        bounds=((0.0, -1.0, -1.0), (1.0, 1.0, 1.0)),
+        bounds_intersect=((0.0, -1.0, -1.0), (1.0, 1.0, 1.0)),
+        simulation_bounds=((0.0, -1.0, -1.0), (1.0, 1.0, 1.0)),
+        updated_epsilon=lambda geom: td.ScalarFieldDataArray(
+            [[[[1.0]]]], coords={"x": [0], "y": [0], "z": [0], "f": [freq]}
+        ),
+    )
+
+    spatial_coords = np.array([[1.0, 0.0, 0.0]])
+    normals = np.array([[1.0, 0.0, 0.0]])
+    assert info._outside_snapped_points_reach_simulation_boundary(
+        spatial_coords=spatial_coords, normals=normals
+    )
+
+
+def test_outside_snapped_points_reach_simulation_boundary_false():
+    freq = 2.0e14
+    coords = {"x": [0.0, 0.2], "y": [0.0], "z": [0.0], "f": [freq]}
+
+    def scalar_field(value):
+        return td.ScalarFieldDataArray(
+            np.full((2, 1, 1, 1), value, dtype=float),
+            coords=coords,
+            dims=("x", "y", "z", "f"),
+        )
+
+    info = DerivativeInfo(
+        paths={},
+        E_der_map={},
+        D_der_map={},
+        E_fwd={},
+        D_fwd={},
+        E_adj={},
+        D_adj={},
+        eps_data={key: scalar_field(2.0) for key in ("eps_xx", "eps_yy", "eps_zz")},
+        frequencies=[freq],
+        bounds=((0.0, -1.0, -1.0), (1.0, 1.0, 1.0)),
+        bounds_intersect=((0.0, -1.0, -1.0), (1.0, 1.0, 1.0)),
+        simulation_bounds=((0.0, -1.0, -1.0), (1.0, 1.0, 1.0)),
+        updated_epsilon=lambda geom: td.ScalarFieldDataArray(
+            [[[[1.0]]]], coords={"x": [0], "y": [0], "z": [0], "f": [freq]}
+        ),
+    )
+
+    spatial_coords = np.array([[0.5, 0.0, 0.0]])
+    normals = np.array([[1.0, 0.0, 0.0]])
+    assert not info._outside_snapped_points_reach_simulation_boundary(
+        spatial_coords=spatial_coords, normals=normals
+    )
+
+
+def test_outside_snapped_points_reach_simulation_boundary_false_for_inward_normal():
+    freq = 2.0e14
+    coords = {"x": [0.0, 0.2], "y": [0.0], "z": [0.0], "f": [freq]}
+
+    def scalar_field(value):
+        return td.ScalarFieldDataArray(
+            np.full((2, 1, 1, 1), value, dtype=float),
+            coords=coords,
+            dims=("x", "y", "z", "f"),
+        )
+
+    info = DerivativeInfo(
+        paths={},
+        E_der_map={},
+        D_der_map={},
+        E_fwd={},
+        D_fwd={},
+        E_adj={},
+        D_adj={},
+        eps_data={key: scalar_field(2.0) for key in ("eps_xx", "eps_yy", "eps_zz")},
+        frequencies=[freq],
+        bounds=((0.0, -1.0, -1.0), (1.0, 1.0, 1.0)),
+        bounds_intersect=((0.0, -1.0, -1.0), (1.0, 1.0, 1.0)),
+        simulation_bounds=((0.0, -1.0, -1.0), (1.0, 1.0, 1.0)),
+        updated_epsilon=lambda geom: td.ScalarFieldDataArray(
+            [[[[1.0]]]], coords={"x": [0], "y": [0], "z": [0], "f": [freq]}
+        ),
+    )
+
+    spatial_coords = np.array([[1.0, 0.0, 0.0]])
+    normals = np.array([[-1.0, 0.0, 0.0]])
+    assert not info._outside_snapped_points_reach_simulation_boundary(
+        spatial_coords=spatial_coords, normals=normals
+    )
 
 
 def test_custom_pole_residue(monkeypatch):
@@ -3334,12 +3421,6 @@ def test_custom_pole_residue(monkeypatch):
         },
         frequencies=[freq],
         bounds=((-1, -1, -1), (1, 1, 1)),
-        eps_in=td.ScalarFieldDataArray(
-            [[[[2.0]]]], coords={"x": [0], "y": [0], "z": [0], "f": [freq]}
-        ),
-        eps_out=td.ScalarFieldDataArray(
-            [[[[1.0]]]], coords={"x": [0], "y": [0], "z": [0], "f": [freq]}
-        ),
         bounds_intersect=((-1, -1, -1), (1, 1, 1)),
         simulation_bounds=((-2, -2, -2), (2, 2, 2)),
         updated_epsilon=lambda geom: td.ScalarFieldDataArray(
@@ -3395,12 +3476,6 @@ def test_custom_pole_residue_unstructured_derivatives():
         },
         frequencies=[3e8],
         bounds=((-1, -1, -1), (1, 1, 1)),
-        eps_out=td.ScalarFieldDataArray(
-            [[[[1.0]]]], coords={"x": [0], "y": [0], "z": [0], "f": [3e8]}
-        ),
-        eps_in=td.ScalarFieldDataArray(
-            [[[[2.0]]]], coords={"x": [0], "y": [0], "z": [0], "f": [3e8]}
-        ),
         bounds_intersect=((-1, -1, -1), (1, 1, 1)),
         simulation_bounds=((-2, -2, -2), (2, 2, 2)),
         updated_epsilon=lambda geom: td.ScalarFieldDataArray(
@@ -4206,6 +4281,18 @@ class TestTidyArrayBox:
     def test_is_tidy_box(self):
         da = DataArray(tracer_arr, dims=tuple(map(str, range(tracer_arr.ndim))))
         assert is_tidy_box(da.data)
+
+    def test_hasbox_dataclass(self):
+        @dataclass(frozen=True)
+        class _Leaf:
+            value: object
+
+        @dataclass(frozen=True)
+        class _Node:
+            leaf: _Leaf
+
+        assert not hasbox(_Node(leaf=_Leaf(value=1.0)))
+        assert hasbox(_Node(leaf=_Leaf(value=tracer_arr)))
 
     def test_real(self):
         npt.assert_allclose(tracer_arr.real._value, tracer_arr._value.real)

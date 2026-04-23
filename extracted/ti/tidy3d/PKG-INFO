@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tidy3d
-Version: 2.11.0
+Version: 2.11.1
 Summary: A fast FDTD solver
 Project-URL: Homepage, https://github.com/flexcompute/tidy3d
 Project-URL: Repository, https://github.com/flexcompute/tidy3d
@@ -20,41 +20,41 @@ Requires-Python: <3.15,>=3.10
 Requires-Dist: autograd<2.0.0,>=1.7.0
 Requires-Dist: boto3<2.0.0,>=1.28.0
 Requires-Dist: click<9.0.0,>=8.1.0
-Requires-Dist: dask<2026.0.0,>=2025.12.0
+Requires-Dist: dask<2027.0.0,>=2025.12.0
 Requires-Dist: filelock<4.0.0,>=3.20.1
-Requires-Dist: h5netcdf==1.0.2
-Requires-Dist: h5py<3.15,>=3.0.0; python_version < '3.14'
+Requires-Dist: h5netcdf<2.0.0,>=1.0.2
+Requires-Dist: h5py<3.17,>=3.0.0; python_version < '3.14'
 Requires-Dist: h5py<3.17,>=3.16.0; python_version >= '3.14'
-Requires-Dist: importlib-metadata<9.0.0,>=6.0.0
+Requires-Dist: importlib-metadata<10.0.0,>=6.0.0
 Requires-Dist: joblib<2.0.0,>=1.5.3
 Requires-Dist: matplotlib<4.0.0,>=3.10.0
 Requires-Dist: numpy<2.5.0,>=2.2.6
-Requires-Dist: pandas<3.0,>=2.2
+Requires-Dist: pandas<4.0,>=2.2
 Requires-Dist: pydantic-settings<3.0.0,>=2.10.0
 Requires-Dist: pydantic<3,>=2.10.3
 Requires-Dist: pyjwt<3.0.0,>=2.10.1
 Requires-Dist: pyroots<0.6.0,>=0.5.0
 Requires-Dist: pyyaml<7.0.0,>=6.0.3
 Requires-Dist: requests<3.0.0,>=2.31.0
-Requires-Dist: responses<0.26.0,>=0.25.8
-Requires-Dist: rich<14.0,>=13.0
+Requires-Dist: responses<0.27.0,>=0.25.8
+Requires-Dist: rich<15.0,>=13.0
 Requires-Dist: scipy<2.0,>=1.14
 Requires-Dist: shapely<3.0,>=2.0
 Requires-Dist: toml<0.11.0,>=0.10.2
-Requires-Dist: tomlkit<0.14.0,>=0.13.2
+Requires-Dist: tomlkit<0.15.0,>=0.13.2
 Requires-Dist: typing-extensions<5.0.0,>=4.15.0
-Requires-Dist: xarray<2026.0.0,>=2023.08
+Requires-Dist: xarray<2026.5.0,>=2023.08
 Provides-Extra: design
-Requires-Dist: bayesian-optimization<2; extra == 'design'
+Requires-Dist: bayesian-optimization<4.0.0,>=2.0.0; extra == 'design'
 Requires-Dist: pygad==3.3.1; extra == 'design'
 Requires-Dist: pyswarms<2.0.0,>=1.3.0; extra == 'design'
 Provides-Extra: dev
-Requires-Dist: bayesian-optimization<2; extra == 'dev'
+Requires-Dist: bayesian-optimization<4.0.0,>=2.0.0; extra == 'dev'
 Requires-Dist: cma<5.0.0,>=4.4.1; extra == 'dev'
 Requires-Dist: coverage<8.0.0,>=7.13.1; extra == 'dev'
 Requires-Dist: diff-cover<11.0.0,>=10.1.0; extra == 'dev'
 Requires-Dist: dill<0.5.0,>=0.4.0; extra == 'dev'
-Requires-Dist: gdstk<0.10.0,>=0.9.49; extra == 'dev'
+Requires-Dist: gdstk<1.1,>=0.9.49; extra == 'dev'
 Requires-Dist: grcwa<0.2.0,>=0.1.2; extra == 'dev'
 Requires-Dist: ipython<9.0.0,>=8.38.0; extra == 'dev'
 Requires-Dist: jinja2<4.0.0,>=3.1.2; extra == 'dev'
@@ -110,7 +110,7 @@ Requires-Dist: vtk<10.0.0,>=9.6.0; extra == 'dev'
 Requires-Dist: zizmor<2.0.0,>=1.20.0; extra == 'dev'
 Provides-Extra: docs
 Requires-Dist: cma<5.0.0,>=4.4.1; extra == 'docs'
-Requires-Dist: gdstk<0.10.0,>=0.9.49; extra == 'docs'
+Requires-Dist: gdstk<1.1,>=0.9.49; extra == 'docs'
 Requires-Dist: grcwa<0.2.0,>=0.1.2; extra == 'docs'
 Requires-Dist: ipython<9.0.0,>=8.38.0; extra == 'docs'
 Requires-Dist: jinja2<4.0.0,>=3.1.2; extra == 'docs'
@@ -137,9 +137,9 @@ Requires-Dist: sphinx<9.0.0,>=6; extra == 'docs'
 Requires-Dist: sphinxemoji<0.4.0,>=0.3.2; extra == 'docs'
 Requires-Dist: tmm<0.3.0,>=0.2.0; extra == 'docs'
 Provides-Extra: extras
-Requires-Dist: tidy3d-extras==2.11.0; extra == 'extras'
+Requires-Dist: tidy3d-extras==2.11.1; extra == 'extras'
 Provides-Extra: gdstk
-Requires-Dist: gdstk<0.10.0,>=0.9.49; extra == 'gdstk'
+Requires-Dist: gdstk<1.1,>=0.9.49; extra == 'gdstk'
 Provides-Extra: heatcharge
 Requires-Dist: networkx<3.0.0,>=2.6.3; extra == 'heatcharge'
 Requires-Dist: rtree==1.2.0; extra == 'heatcharge'

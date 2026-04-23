@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 import httpx
+from pydantic import ConfigDict, PrivateAttr
 
 from plato.chronos.analysis import (
     SessionAnalysis,
@@ -137,6 +138,10 @@ class _ChronosBase:
         self._base_url = (base_url or os.environ.get("CHRONOS_URL") or _DEFAULT_CHRONOS_URL).rstrip("/")
         self._api_key = api_key or os.environ.get("PLATO_API_KEY")
         self._timeout = timeout
+
+    @property
+    def base_url(self) -> str:
+        return self._base_url
 
     def _build_launch_body(
         self,
@@ -275,13 +280,13 @@ class Chronos(_ChronosBase):
         allow_prerelease: bool = False,
         parent_session_id: str | None = None,
         world_name: str | None = None,
-    ) -> LaunchJobResponse:
+    ) -> ChronosSession:
         body = self._build_launch_body(
             package, config, child_worlds, tags, runtime, allow_prerelease, parent_session_id, world_name=world_name
         )
         resp = launch_job.sync(self._client, body=body)
         _emit_child_session_span(resp.session_id, package)
-        return resp
+        return ChronosSession._from_launch(resp, self)
 
     # -- Sessions --
 
@@ -303,13 +308,13 @@ class Chronos(_ChronosBase):
         self,
         session_id: str,
         poll_interval: float = 5.0,
-        timeout: float | None = None,
+        timeout: float | None = 3600.0,
     ) -> SessionResponse:
         start = time.monotonic()
         while True:
             status_resp = self.get_status(session_id)
             elapsed = int(time.monotonic() - start)
-            logger.info("Session %s: status=%s (elapsed=%ds)", session_id, status_resp.status, elapsed)
+            logger.debug("Session %s: status=%s (elapsed=%ds)", session_id, status_resp.status, elapsed)
             if status_resp.status in _TERMINAL_STATUSES:
                 return self.get_session(session_id)
             if timeout is not None and (time.monotonic() - start) >= timeout:
@@ -597,7 +602,7 @@ class Chronos(_ChronosBase):
         if status.stdout.strip():
             _run("git", "commit", "-m", f"{session_id}: {ref['step_name']}")
 
-        logger.info("Pulling workspace '%s' session=%s (step=%s) ...", repo_name, session_id[:8], ref["step_name"])
+        logger.debug("Pulling workspace '%s' session=%s (step=%s) ...", repo_name, session_id[:8], ref["step_name"])
         _run(dvc_bin, "pull", "--force")
 
         data_dirs = list(dvc_files.keys())
@@ -649,13 +654,13 @@ class AsyncChronos(_ChronosBase):
         allow_prerelease: bool = False,
         parent_session_id: str | None = None,
         world_name: str | None = None,
-    ) -> LaunchJobResponse:
+    ) -> AsyncChronosSession:
         body = self._build_launch_body(
             package, config, child_worlds, tags, runtime, allow_prerelease, parent_session_id, world_name=world_name
         )
         resp = await launch_job.asyncio(self._client, body=body)
         _emit_child_session_span(resp.session_id, package)
-        return resp
+        return AsyncChronosSession._from_launch(resp, self)
 
     # -- Sessions --
 
@@ -677,13 +682,13 @@ class AsyncChronos(_ChronosBase):
         self,
         session_id: str,
         poll_interval: float = 5.0,
-        timeout: float | None = None,
+        timeout: float | None = 3600.0,
     ) -> SessionResponse:
         start = time.monotonic()
         while True:
             status_resp = await self.get_status(session_id)
             elapsed = int(time.monotonic() - start)
-            logger.info("Session %s: status=%s (elapsed=%ds)", session_id, status_resp.status, elapsed)
+            logger.debug("Session %s: status=%s (elapsed=%ds)", session_id, status_resp.status, elapsed)
             if status_resp.status in _TERMINAL_STATUSES:
                 return await self.get_session(session_id)
             if timeout is not None and (time.monotonic() - start) >= timeout:
@@ -1099,7 +1104,7 @@ class AsyncChronos(_ChronosBase):
         if stdout.decode().strip():
             await _run("git", "commit", "-m", f"{session_id}: {ref['step_name']}")
 
-        logger.info("Pulling workspace '%s' session=%s (step=%s) ...", repo_name, session_id[:8], ref["step_name"])
+        logger.debug("Pulling workspace '%s' session=%s (step=%s) ...", repo_name, session_id[:8], ref["step_name"])
         await _run(dvc_bin, "pull", "--force")
 
         data_dirs = list(dvc_files.keys())
@@ -1115,3 +1120,76 @@ class AsyncChronos(_ChronosBase):
 
     async def __aexit__(self, *args: Any) -> None:
         await self.close()
+
+
+# ---------------------------------------------------------------------------
+# Session wrappers — returned by launch() for ergonomic per-session access.
+# Subclass LaunchJobResponse so existing callers reading .session_id /
+# .plato_session_id / .status off the launch response keep working.
+# ---------------------------------------------------------------------------
+
+
+class ChronosSession(LaunchJobResponse):
+    """Sync Chronos session wrapper returned by :meth:`Chronos.launch`."""
+
+    model_config = ConfigDict(extra="allow", arbitrary_types_allowed=True)
+
+    _parent: Chronos | None = PrivateAttr(default=None)
+
+    @classmethod
+    def _from_launch(cls, resp: LaunchJobResponse, parent: Chronos) -> ChronosSession:
+        session = cls.model_validate(resp.model_dump())
+        session._parent = parent
+        return session
+
+    def get_status(self) -> SessionStatusResponse:
+        return self._parent.get_status(self.session_id)
+
+    def get_details(self) -> SessionResponse:
+        return self._parent.get_session(self.session_id)
+
+    def get_logs(self, *, include_audit_events: bool = False) -> SessionLogsResponse:
+        return self._parent.get_logs(self.session_id, include_audit_events=include_audit_events)
+
+    def wait_until_complete(
+        self,
+        timeout: float | None = 3600.0,
+        poll_interval: float = 5.0,
+    ) -> SessionResponse:
+        return self._parent.wait_for_completion(self.session_id, poll_interval=poll_interval, timeout=timeout)
+
+    def stop(self) -> SessionResponse:
+        return self._parent.stop(self.session_id)
+
+
+class AsyncChronosSession(LaunchJobResponse):
+    """Async Chronos session wrapper returned by :meth:`AsyncChronos.launch`."""
+
+    model_config = ConfigDict(extra="allow", arbitrary_types_allowed=True)
+
+    _parent: AsyncChronos | None = PrivateAttr(default=None)
+
+    @classmethod
+    def _from_launch(cls, resp: LaunchJobResponse, parent: AsyncChronos) -> AsyncChronosSession:
+        session = cls.model_validate(resp.model_dump())
+        session._parent = parent
+        return session
+
+    async def get_status(self) -> SessionStatusResponse:
+        return await self._parent.get_status(self.session_id)
+
+    async def get_details(self) -> SessionResponse:
+        return await self._parent.get_session(self.session_id)
+
+    async def get_logs(self, *, include_audit_events: bool = False) -> SessionLogsResponse:
+        return await self._parent.get_logs(self.session_id, include_audit_events=include_audit_events)
+
+    async def wait_until_complete(
+        self,
+        timeout: float | None = 3600.0,
+        poll_interval: float = 5.0,
+    ) -> SessionResponse:
+        return await self._parent.wait_for_completion(self.session_id, poll_interval=poll_interval, timeout=timeout)
+
+    async def stop(self) -> SessionResponse:
+        return await self._parent.stop(self.session_id)

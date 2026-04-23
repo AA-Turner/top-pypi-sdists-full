@@ -83,6 +83,8 @@ class Teams(Base):
         :return:
         """
         add_team_path = "/teams"
+        if isinstance(team, str):
+            team = {"name": team}
         return await self.client.POST(add_team_path, json=team)
 
     async def update_team(self, team_id, team):
@@ -141,7 +143,7 @@ class Teams(Base):
         :return:
         """
         warnings.warn("This method is deprecated, please use `get_preferences`", DeprecationWarning)
-        return self.get_preferences(team_id=team_id)
+        return await self.get_preferences(team_id=team_id)
 
     async def update_team_preferences(self, team_id: int, preferences: t.Dict):
         """
@@ -152,7 +154,7 @@ class Teams(Base):
         """
         warnings.warn("This method is deprecated, please use `update_preferences`", DeprecationWarning)
         preferences = PersonalPreferences(**preferences)
-        return self.update_preferences(team_id=team_id, preferences=preferences)
+        return await self.update_preferences(team_id=team_id, preferences=preferences)
 
     async def get_preferences(self, team_id: int):
         """

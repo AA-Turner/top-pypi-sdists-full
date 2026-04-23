@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: mypy-boto3-ivs
-Version: 1.42.3
-Summary: Type annotations for boto3 IVS 1.42.3 service generated with mypy-boto3-builder 8.12.0
+Version: 1.42.94
+Summary: Type annotations for boto3 IVS 1.42.94 service generated with mypy-boto3-builder 8.12.0
 Author-email: Vlad Emelianov <vlad.emelianov.nz@gmail.com>
 License-Expression: MIT
 Project-URL: Homepage, https://github.com/youtype/mypy_boto3_builder
@@ -42,7 +42,7 @@ Dynamic: license-file
 
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
-Type annotations for [boto3 IVS 1.42.3](https://pypi.org/project/boto3/)
+Type annotations for [boto3 IVS 1.42.94](https://pypi.org/project/boto3/)
 compatible with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -104,7 +104,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.42.3' mypy-boto3-builder`
+   `uvx --with 'boto3==1.42.94' mypy-boto3-builder`
 2. Select `boto3-stubs` AWS SDK.
 3. Add `IVS` service.
 4. Use provided commands to install generated packages.
@@ -337,6 +337,7 @@ from boto3.session import Session
 
 from mypy_boto3_ivs import IVSClient
 from mypy_boto3_ivs.paginator import (
+    ListAdConfigurationsPaginator,
     ListChannelsPaginator,
     ListPlaybackKeyPairsPaginator,
     ListRecordingConfigurationsPaginator,
@@ -348,6 +349,9 @@ client: IVSClient = Session().client("ivs")
 
 # Explicit type annotations are optional here
 # Types should be correctly discovered by mypy and IDEs
+list_ad_configurations_paginator: ListAdConfigurationsPaginator = client.get_paginator(
+    "list_ad_configurations"
+)
 list_channels_paginator: ListChannelsPaginator = client.get_paginator("list_channels")
 list_playback_key_pairs_paginator: ListPlaybackKeyPairsPaginator = client.get_paginator(
     "list_playback_key_pairs"
@@ -388,12 +392,12 @@ Full list of `IVS` TypeDefs can be found in
 
 ```python
 # TypedDict usage example
-from mypy_boto3_ivs.type_defs import AudioConfigurationTypeDef
+from mypy_boto3_ivs.type_defs import MediaTailorPlaybackConfigurationTypeDef
 
 
-def get_value() -> AudioConfigurationTypeDef:
+def get_value() -> MediaTailorPlaybackConfigurationTypeDef:
     return {
-        "channels": ...,
+        "playbackConfigurationArn": ...,
     }
 ```
 

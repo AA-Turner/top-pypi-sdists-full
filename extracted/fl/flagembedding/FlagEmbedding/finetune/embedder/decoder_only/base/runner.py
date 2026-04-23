@@ -43,7 +43,7 @@ class DecoderOnlyEmbedderRunner(AbsEmbedderRunner):
             self.model_args.tokenizer_name if self.model_args.tokenizer_name else self.model_args.model_name_or_path,
             token=self.model_args.token,
             cache_dir=self.model_args.cache_dir,
-            use_fast=False,
+            use_fast=self.model_args.use_fast_tokenizer,
             add_eos_token=True,
             trust_remote_code=self.model_args.trust_remote_code,
         )
@@ -85,6 +85,8 @@ class DecoderOnlyEmbedderRunner(AbsEmbedderRunner):
             temperature=self.training_args.temperature,
             sub_batch_size=self.training_args.sub_batch_size,
             kd_loss_type=self.training_args.kd_loss_type,
+            use_mrl=self.training_args.use_mrl,
+            mrl_dims=self.training_args.mrl_dims,
             sentence_pooling_method=self.training_args.sentence_pooling_method,
             normalize_embeddings=self.training_args.normalize_embeddings
         )
@@ -110,7 +112,7 @@ class DecoderOnlyEmbedderRunner(AbsEmbedderRunner):
             args=self.training_args,
             train_dataset=self.train_dataset,
             data_collator=self.data_collator,
-            tokenizer=self.tokenizer
+            processing_class=self.tokenizer
         )
         if self.data_args.same_dataset_within_batch:
             trainer.add_callback(EmbedderTrainerCallbackForDataRefresh(self.train_dataset))

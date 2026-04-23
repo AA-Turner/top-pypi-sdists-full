@@ -47,6 +47,8 @@ CommandKind = Literal[
     "show_detail",
     "show_attribution",
     "toggle_verbose",
+    "expand_last_tool",
+    "set_density",
     # Skills
     "show_skills",
     # Spaces
@@ -104,6 +106,8 @@ CommandKind = Literal[
     # Forwarding
     "forward_prompt",
 ]
+
+CommandArgumentCompletion = Literal["conversation_slug", "path", "directory"]
 
 # ---------------------------------------------------------------------------
 # Data models
@@ -217,6 +221,8 @@ class CommandResult:
     # Upload / reprocess
     upload_path: str | None = None
     reprocess_arg: str | None = None
+    # Density (#1367)
+    density_mode: str | None = None
     # Display control
     echo_user: bool = True
 
@@ -226,54 +232,154 @@ class CommandResult:
 # ---------------------------------------------------------------------------
 
 COMMAND_DESCRIPTIONS: dict[str, str] = {
-    "new": "new conversation",
-    "append": "add to last message",
-    "last": "continue last conversation",
-    "list": "list conversations",
-    "search": "search conversations",
-    "resume": "resume a conversation",
-    "delete": "delete a conversation",
-    "rename": "rename a conversation",
-    "slug": "show conversation slug",
-    "rewind": "undo messages",
-    "compact": "compress context",
-    "conventions": "show directory conventions",
-    "instructions": "show directory conventions (alias)",
-    "tools": "list available tools",
-    "skills": "list loaded skills",
-    "reload-skills": "reload skill files",
-    "pack": "manage packs",
-    "packs": "list installed packs",
-    "space": "manage spaces",
-    "spaces": "list spaces",
-    "mcp": "MCP server status",
-    "model": "switch model",
-    "plan": "planning mode",
-    "upload": "upload a file",
-    "reprocess": "reprocess sources",
-    "usage": "token usage stats",
-    "verbose": "cycle verbosity",
-    "detail": "tool call details",
-    "attribution": "show per-turn context attribution",
-    "help": "show help",
-    "artifact": "manage artifacts",
-    "artifacts": "list artifacts",
-    "artifact-check": "artifact health check",
-    "task": "background task status and output",
-    "tasks": "list background tasks",
-    "config": "view/edit scoped config",
-    "clear": "clear screen",
-    "copy": "copy last response",
-    "spec": "manage specs",
-    "specs": "list specs",
-    "mission": "manage missions",
-    "missions": "list missions",
-    "memory": "manage memories",
-    "memories": "list memories",
-    "agent": "manage detached agents",
-    "agents": "list detached agents",
-    "quit": "exit",
-    "exit": "exit",
+    "new": "Start a fresh conversation",
+    "append": "Append text to the latest note message",
+    "last": "Resume the most recent conversation",
+    "list": "Browse recent conversations",
+    "search": "Search conversation history",
+    "resume": "Resume a conversation by slug, ID, or number",
+    "delete": "Delete a conversation",
+    "rename": "Rename the current conversation",
+    "slug": "View or update the conversation slug",
+    "rewind": "Rewind to an earlier message",
+    "compact": "Compact the current conversation context",
+    "conventions": "Show the active project conventions",
+    "instructions": "Show the active project conventions",
+    "tools": "Inspect available tools",
+    "skills": "Inspect loaded skills",
+    "reload-skills": "Reload skill files from disk",
+    "pack": "Install, inspect, or attach packs",
+    "packs": "List installed packs",
+    "space": "Switch, inspect, and edit spaces",
+    "spaces": "List available spaces",
+    "mcp": "Inspect or reconnect MCP servers",
+    "model": "Show, list, or switch models",
+    "plan": "Turn planning mode on, off, or review it",
+    "upload": "Upload a file into the knowledge base",
+    "reprocess": "Re-extract uploaded source content",
+    "usage": "Review token and cost usage",
+    "verbose": "Cycle the session verbosity",
+    "detail": "Replay tool calls with full output",
+    "expand": "Re-render the last tool result in detail",
+    "density": "Change tool-result density",
+    "attribution": "Show the last turn's attribution snapshot",
+    "help": "Open the command help",
+    "artifact": "Inspect and manage artifacts",
+    "artifacts": "List artifacts",
+    "artifact-check": "Run artifact health checks",
+    "task": "Inspect task status and output",
+    "tasks": "List background tasks",
+    "config": "Open or edit scoped config",
+    "clear": "Clear the screen and start a fresh conversation",
+    "copy": "Copy the last assistant response",
+    "spec": "Inspect and manage specs",
+    "specs": "List specs",
+    "mission": "Inspect and manage missions",
+    "missions": "List missions",
+    "memory": "Inspect and manage memories",
+    "memories": "List memories",
+    "agent": "Inspect and manage detached agents",
+    "agents": "List detached agents",
+    "quit": "Exit the REPL",
+    "exit": "Exit the REPL",
+}
+
+COMMAND_INTENT_LABELS: dict[str, str] = {
+    "conversation": "Conversation",
+    "workspace": "Workspace",
+    "inspect": "Inspect",
+    "workflow": "Workflow",
+    "session": "Session",
+}
+
+COMMAND_INTENTS: dict[str, str] = {
+    "new": "conversation",
+    "append": "conversation",
+    "last": "conversation",
+    "list": "conversation",
+    "search": "conversation",
+    "resume": "conversation",
+    "delete": "conversation",
+    "rename": "conversation",
+    "slug": "conversation",
+    "rewind": "conversation",
+    "compact": "conversation",
+    "clear": "conversation",
+    "upload": "workspace",
+    "reprocess": "workspace",
+    "space": "workspace",
+    "spaces": "workspace",
+    "pack": "workspace",
+    "packs": "workspace",
+    "artifact": "workspace",
+    "artifacts": "workspace",
+    "artifact-check": "workspace",
+    "memory": "workspace",
+    "memories": "workspace",
+    "config": "workspace",
+    "mission": "workflow",
+    "missions": "workflow",
+    "spec": "workflow",
+    "specs": "workflow",
+    "plan": "workflow",
+    "task": "workflow",
+    "tasks": "workflow",
+    "agent": "workflow",
+    "agents": "workflow",
+    "conventions": "inspect",
+    "instructions": "inspect",
+    "tools": "inspect",
+    "skills": "inspect",
+    "reload-skills": "inspect",
+    "mcp": "inspect",
+    "usage": "inspect",
+    "detail": "inspect",
+    "expand": "inspect",
+    "density": "inspect",
+    "attribution": "inspect",
+    "help": "inspect",
+    "model": "session",
+    "verbose": "session",
+    "copy": "session",
+    "quit": "session",
+    "exit": "session",
+}
+
+COMMAND_ARGUMENT_HINTS: dict[str, str] = {
+    "new": "<note|document|title>",
+    "append": "<text>",
+    "list": "[limit]",
+    "search": "<query>",
+    "resume": "<number|slug|id>",
+    "delete": "<number|slug|id>",
+    "rename": "<title>",
+    "slug": "[name]",
+    "space": "<subcommand>",
+    "pack": "<subcommand>",
+    "artifact": "<subcommand>",
+    "mcp": "<subcommand>",
+    "model": "[list|name]",
+    "plan": "<subcommand>",
+    "upload": "<path>",
+    "reprocess": "[all|source_id]",
+    "task": "<subcommand>",
+    "memory": "<subcommand>",
+    "agent": "<subcommand>",
+    "spec": "<subcommand>",
+    "mission": "<subcommand>",
+    "config": "<subcommand>",
+    "density": "<mode>",
+}
+
+COMMAND_SEARCH_TERMS: dict[str, tuple[str, ...]] = {
+    "new": ("chat", "note", "document", "start"),
+    "list": ("recent", "history"),
+    "resume": ("open", "continue"),
+    "clear": ("reset", "fresh"),
+    "tools": ("available", "mcp"),
+    "usage": ("tokens", "cost", "stats"),
+    "model": ("picker", "switch"),
+    "help": ("commands", "shortcuts"),
 }
 
 SUBCOMMAND_COMPLETIONS: dict[str, list[str]] = {
@@ -318,6 +424,25 @@ SUBCOMMAND_COMPLETIONS: dict[str, list[str]] = {
     "memory": ["list", "show", "create", "edit", "delete"],
     "agent": ["list", "status", "cancel", "retry"],
     "task": ["list", "show", "output", "tail", "cancel"],
+    "density": ["minimal", "compact", "normal", "detailed"],
+}
+
+COMMAND_ARGUMENT_COMPLETIONS: dict[str, CommandArgumentCompletion] = {
+    "resume": "conversation_slug",
+    "delete": "conversation_slug",
+    "rename": "conversation_slug",
+    "upload": "path",
+}
+
+SUBCOMMAND_ARGUMENT_COMPLETIONS: dict[str, dict[str, CommandArgumentCompletion]] = {
+    "space": {
+        "load": "path",
+        "map": "directory",
+    },
+    "pack": {
+        "install": "path",
+        "update": "path",
+    },
 }
 
 ALL_COMMAND_NAMES: list[str] = [
@@ -353,6 +478,8 @@ ALL_COMMAND_NAMES: list[str] = [
     "usage",
     "verbose",
     "detail",
+    "expand",
+    "density",
     "attribution",
     "help",
     "clear",
@@ -411,6 +538,22 @@ def get_builtin_names() -> frozenset[str]:
     command to the engine automatically prevents skill name collisions.
     """
     return frozenset(ALL_COMMAND_NAMES)
+
+
+def get_subcommand_completions(command_name: str) -> tuple[str, ...]:
+    """Return shared subcommand completion metadata for a slash command."""
+    return tuple(SUBCOMMAND_COMPLETIONS.get(command_name, ()))
+
+
+def get_argument_completion_kind(
+    command_name: str,
+    *,
+    subcommand: str | None = None,
+) -> CommandArgumentCompletion | None:
+    """Return the shared argument-completion kind for a command/subcommand."""
+    if subcommand:
+        return SUBCOMMAND_ARGUMENT_COMPLETIONS.get(command_name, {}).get(subcommand)
+    return COMMAND_ARGUMENT_COMPLETIONS.get(command_name)
 
 
 # ---------------------------------------------------------------------------
@@ -624,6 +767,36 @@ def execute_slash_command(prompt: str, context: CommandContext) -> CommandResult
     # -- Detail --
     if parsed.name == "/detail":
         return CommandResult(kind="show_detail", command=parsed, echo_user=False)
+
+    # -- Expand (#1367) --
+    if parsed.name == "/expand":
+        return CommandResult(kind="expand_last_tool", command=parsed, echo_user=False)
+
+    # -- Density (#1367) --
+    if parsed.name == "/density":
+        valid_modes = ("minimal", "compact", "normal", "detailed")
+        arg = parsed.arg.strip().lower()
+        if not arg:
+            return CommandResult(
+                kind="show_message",
+                command=parsed,
+                message=(
+                    "Usage: `/density {minimal|compact|normal|detailed}` — "
+                    "controls per-tool-result verbosity for the current session."
+                ),
+            )
+        if arg not in valid_modes:
+            return CommandResult(
+                kind="show_message",
+                command=parsed,
+                message=(f"Unknown density '{arg}'. Valid: minimal, compact, normal, detailed."),
+            )
+        return CommandResult(
+            kind="set_density",
+            command=parsed,
+            density_mode=arg,
+            echo_user=False,
+        )
 
     # -- Upload --
     if parsed.name == "/upload":

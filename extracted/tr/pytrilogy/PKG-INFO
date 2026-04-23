@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytrilogy
-Version: 0.3.234
+Version: 0.3.235
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.9
@@ -18,6 +18,7 @@ Requires-Dist: plotext ; extra == 'cli'
 Requires-Dist: fastapi ; extra == 'serve'
 Requires-Dist: uvicorn ; extra == 'serve'
 Requires-Dist: altair ; extra == 'analysis'
+Requires-Dist: vl-convert-python ; extra == 'analysis'
 Provides-Extra: odbc
 Provides-Extra: postgres
 Provides-Extra: bigquery
@@ -89,8 +90,9 @@ cd faa-demo
 # what's available with `trilogy explore flight.preql`)
 trilogy run --import flight "select carrier.code, count(id) as flight_count order by flight_count desc;"
 
+
 # Plot it
-trilogy run --import flight "chart barh set y_axis:carrier.name set x_axis:flight_count from select carrier.name, count(id) as flight_count order by flight_count desc limit 10;"
+trilogy run --import flight "chart layer barh ( y_axis <- carrier.name, x_axis <- count(id) as flight_count ) order by flight_count desc limit 10;"
 
 # 3. Add a derived datasource by grabbing the hosted snippet
 trilogy file write reporting.preql --from-url https://raw.githubusercontent.com/trilogy-data/trilogy-public-models/refs/heads/main/examples/duckdb/faa/example.preql

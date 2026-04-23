@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: lazr.uri
-Version: 1.0.7
+Version: 1.0.8
 Summary: A self-contained, easily reusable library for parsing, manipulating, and generating URIs.
 Home-page: https://launchpad.net/lazr.uri
 Download-URL: https://launchpad.net/lazr.uri/+download
@@ -25,6 +25,8 @@ License-File: COPYING.txt
 Requires-Dist: setuptools
 Provides-Extra: docs
 Requires-Dist: Sphinx; extra == "docs"
+Dynamic: download-url
+Dynamic: license-file
 
 A self-contained, easily reusable library for parsing, manipulating,
 and generating URIs.
@@ -47,6 +49,11 @@ and generating URIs.
 =================
 NEWS for lazr.uri
 =================
+
+1.0.8 (2026-04-22)
+==================
+
+- Make compatible with setuptools versions greater than 82 (props to ~churchyard on Launchpad for this).
 
 1.0.7 (2024-12-09)
 ==================

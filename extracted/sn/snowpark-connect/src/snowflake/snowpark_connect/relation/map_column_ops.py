@@ -79,7 +79,11 @@ from snowflake.snowpark_connect.type_mapping import (
     map_snowpark_to_pyspark_types,
     proto_to_snowpark_type,
 )
-from snowflake.snowpark_connect.typed_column import SelectedProjectionSpec, TypedColumn
+from snowflake.snowpark_connect.typed_column import (
+    FieldType,
+    SelectedProjectionSpec,
+    TypedColumn,
+)
 from snowflake.snowpark_connect.utils import context
 from snowflake.snowpark_connect.utils.context import (
     clear_lca_alias_map,
@@ -99,6 +103,26 @@ from snowflake.snowpark_connect.utils.udtf_utils import (
 from snowflake.snowpark_connect.utils.udxf_import_utils import (
     get_python_udxf_import_files,
 )
+
+
+def _rekey_column_metadata(
+    input_metadata: dict | None,
+    old_names: list[str],
+    new_names: list[str],
+) -> dict | None:
+    """Re-key column_metadata from old spark column names to new names.
+
+    Used to preserve UDT metadata through column rename, drop, and toDF operations.
+    For drop operations, pass the same list for both old_names and new_names.
+    Returns None if input_metadata is None or no keys survive.
+    """
+    if not input_metadata:
+        return None
+    result = {}
+    for old_name, new_name in zip(old_names, new_names):
+        if old_name in input_metadata:
+            result[new_name] = input_metadata[old_name]
+    return result or None
 
 
 def _resolve_selected_table_function_columns(
@@ -197,10 +221,18 @@ def map_drop(
         )
 
     result: snowpark.DataFrame = input_df.drop(*columns_to_drop)
+
+    # Preserve UDT metadata for surviving columns after drop.
+    surviving_names = [c.spark_name for c in new_columns]
+    surviving_metadata = _rekey_column_metadata(
+        input_container.column_map.column_metadata, surviving_names, surviving_names
+    )
+
     return DataFrameContainer.create_with_column_mapping(
         dataframe=result,
         spark_column_names=[c.spark_name for c in new_columns],
         snowpark_column_names=[c.snowpark_name for c in new_columns],
+        column_metadata=surviving_metadata,
         column_qualifiers=[c.qualifiers for c in new_columns],
         parent_column_name_map=column_map,
         equivalent_snowpark_names=[c.equivalent_snowpark_names for c in new_columns],
@@ -370,7 +402,7 @@ def map_project(
             select_list.append(aliased_col)
             new_snowpark_columns.append(snowpark_column)
             new_spark_columns.append(spark_name)
-            column_types.extend(mapper.types)
+            column_types.extend(mapper.field_types)
             qualifiers.append(mapper.get_qualifiers())
             projected_output_positions.append(next_output_position)
             projected_output_cast_types.append(None)
@@ -389,7 +421,7 @@ def map_project(
                 # full expression would break when the expression contains aggregates
                 # (the intermediate with_columns projection would re-introduce aggregates
                 # without a GROUP BY).
-                alias_types = mapper.types
+                alias_types = mapper.field_types
                 typed_alias = TypedColumn(
                     snowpark_fn.col(snowpark_column),
                     lambda types=alias_types: types,
@@ -436,7 +468,7 @@ def map_project(
             next_output_position += len(all_result_columns)
             new_snowpark_columns.extend(result_columns)
             new_spark_columns.extend(new_spark_names)
-            column_types.extend(mapper.types)
+            column_types.extend(mapper.field_types)
             qualifiers.extend(mapper.get_multi_col_qualifiers(len(new_spark_names)))
             equivalent_snowpark_names.extend(
                 [
@@ -709,10 +741,18 @@ def map_to_df(
             result_spark_column_names.append(new_column_names[new_name_idx])
             new_name_idx += 1
 
+    # Preserve UDT metadata through toDF rename.
+    renamed_metadata = _rekey_column_metadata(
+        input_container.column_map.column_metadata,
+        visible_spark_columns,
+        result_spark_column_names,
+    )
+
     result_container = DataFrameContainer.create_with_column_mapping(
         dataframe=result,
         spark_column_names=result_spark_column_names,
         snowpark_column_names=visible_snowpark_columns,
+        column_metadata=renamed_metadata,
         parent_column_name_map=input_container.column_map,
         table_name=input_container.table_name,
         alias=input_container.alias,
@@ -865,7 +905,10 @@ def map_to_schema(
         dataframe=result_with_casting,
         spark_column_names=new_column_names,
         snowpark_column_names=snowpark_new_column_names,
-        snowpark_column_types=[field.datatype for field in snowpark_schema.fields],
+        snowpark_column_types=[
+            FieldType(field.datatype, field.nullable)
+            for field in snowpark_schema.fields
+        ],
         column_metadata=column_metadata,
         parent_column_name_map=input_container.column_map,
         equivalent_snowpark_names=[set()] * len(new_column_names),
@@ -1022,10 +1065,18 @@ def map_with_columns_renamed(
     new_df = input_df.select("*")
     column_is_hidden = [c.is_hidden for c in input_container.column_map.columns]
     all_columns = input_container.column_map.columns
+
+    # Preserve UDT metadata through withColumnRenamed.
+    old_spark_names = [c.spark_name for c in all_columns]
+    renamed_metadata = _rekey_column_metadata(
+        input_container.column_map.column_metadata, old_spark_names, new_spark_names
+    )
+
     result_container = DataFrameContainer.create_with_column_mapping(
         dataframe=new_df,
         spark_column_names=new_spark_names,
         snowpark_column_names=[c.snowpark_name for c in all_columns],
+        column_metadata=renamed_metadata,
         column_qualifiers=[c.qualifiers for c in all_columns],
         parent_column_name_map=input_container.column_map.get_parent_column_name_map(),
         table_name=input_container.table_name,
@@ -1094,7 +1145,7 @@ def map_with_columns(
                 [expr.col] * len(all_instances_of_spark_column_name)
             )
             with_columns_types.extend(
-                expr.types * len(all_instances_of_spark_column_name)
+                expr.field_types * len(all_instances_of_spark_column_name)
             )
             new_spark_names.extend([name] * len(all_instances_of_spark_column_name))
         else:
@@ -1105,7 +1156,7 @@ def map_with_columns(
             )
             with_column_offset += 1
             with_columns_exprs.append(expr.col)
-            with_columns_types.extend(expr.types)
+            with_columns_types.extend(expr.field_types)
             new_spark_names.append(name)
 
     if input_container.has_zero_columns():
@@ -1178,7 +1229,7 @@ def map_with_columns(
         result._select_statement.flatten_disabled = True
 
     snowpark_name_to_type = dict(
-        [(f.name, f.datatype) for f in input_df.schema.fields]
+        [(f.name, FieldType(f.datatype, f.nullable)) for f in input_df.schema.fields]
         + list(zip(with_columns_names, with_columns_types))
     )
 
@@ -1282,9 +1333,7 @@ def map_unpivot(
 
     def get_column_names(
         relation: relation_proto.Relation, df: snowpark.DataFrame
-    ) -> tuple[
-        list[str], list[str], list[str], list[str], list[snowpark_types.DataType]
-    ]:
+    ) -> tuple[list[str], list[str], list[str], list[str], list[FieldType], bool]:
         """This function takes the input Snowpark dataframe and the input relation,
         and returns the Snowpark and Spark column names.
 
@@ -1294,6 +1343,7 @@ def map_unpivot(
             unpivot_col_names: contains the Snowpark unpivot column names
             unpivot_spark_names: contains the Spark unpivot column names
             id_col_types: contains the types of the id columns
+            any_value_nullable: True if any unpivot value column is nullable
         """
         spark_columns = []
         id_col_names = []
@@ -1304,22 +1354,25 @@ def map_unpivot(
                 id_col, input_container.column_map, typer
             )
             id_col_names.append(typed_column.col.get_name())
-            id_col_types.append(typed_column.typ)
+            id_col_types.append(typed_column.field_type)
             spark_columns.append(spark_name)
 
         # unpivot_col_names contains the Snowpark column names sent to GS.
         # unpivot_spark_name contains the Spark column names.
         unpivot_col_names = []
         unpivot_spark_names = []
+        unpivot_value_nullables: list[bool] = []
         for v in relation.unpivot.values.values:
             spark_name, typed_column = map_single_column_expression(
                 v, input_container.column_map, typer
             )
             unpivot_col_names.append(typed_column.col.get_name())
             unpivot_spark_names.append(spark_name)
+            unpivot_value_nullables.append(typed_column.field_type.nullable)
 
         if not rel.unpivot.HasField("values"):
             # When `values` is `None`, all non-id columns will be unpivoted.
+            input_schema_nullable = {f.name: f.nullable for f in df.schema.fields}
             for snowpark_name, spark_name in zip(
                 input_container.column_map.get_snowpark_columns(),
                 input_container.column_map.get_spark_columns(),
@@ -1336,7 +1389,13 @@ def map_unpivot(
                         ).get_name()
                     )
                     unpivot_spark_names.append(spark_name)
+                    unpivot_value_nullables.append(
+                        input_schema_nullable.get(snowpark_name, True)
+                    )
 
+        any_value_nullable = (
+            any(unpivot_value_nullables) if unpivot_value_nullables else True
+        )
         spark_columns.append(relation.unpivot.variable_column_name)
         spark_columns.append(relation.unpivot.value_column_name)
         return (
@@ -1345,6 +1404,7 @@ def map_unpivot(
             unpivot_col_names,
             unpivot_spark_names,
             id_col_types,
+            any_value_nullable,
         )
 
     (
@@ -1353,6 +1413,7 @@ def map_unpivot(
         unpivot_col_names,
         unpivot_spark_names,
         id_col_types,
+        any_value_nullable,
     ) = get_column_names(rel, input_df)
     (
         snowpark_value_column_name,
@@ -1464,8 +1525,8 @@ def map_unpivot(
     # - Variable column is always StringType (contains column names)
     # - Value column type computed by should_cast_type
     result_column_types = id_col_types + [
-        snowpark_types.StringType(),
-        value_column_type,
+        FieldType(snowpark_types.StringType(), nullable=False),
+        FieldType(value_column_type, nullable=any_value_nullable),
     ]
 
     return DataFrameContainer.create_with_column_mapping(

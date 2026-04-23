@@ -1,1 +1,2 @@
-__version__ = "0.3.38"
+__version__ = "1.0.0"
+CORE_VERSION = "1.0.0"

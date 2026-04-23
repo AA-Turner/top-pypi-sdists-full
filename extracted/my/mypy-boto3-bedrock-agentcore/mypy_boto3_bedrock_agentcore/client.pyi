@@ -78,6 +78,8 @@ from .type_defs import (
     InvokeBrowserResponseTypeDef,
     InvokeCodeInterpreterRequestTypeDef,
     InvokeCodeInterpreterResponseTypeDef,
+    InvokeHarnessRequestTypeDef,
+    InvokeHarnessResponseTypeDef,
     ListActorsInputTypeDef,
     ListActorsOutputTypeDef,
     ListBrowserSessionsRequestTypeDef,
@@ -396,6 +398,16 @@ class BedrockAgentCoreClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/invoke_code_interpreter.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore/client/#invoke_code_interpreter)
+        """
+
+    def invoke_harness(
+        self, **kwargs: Unpack[InvokeHarnessRequestTypeDef]
+    ) -> InvokeHarnessResponseTypeDef:
+        """
+        Operation to invoke a Harness.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/invoke_harness.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore/client/#invoke_harness)
         """
 
     def list_actors(self, **kwargs: Unpack[ListActorsInputTypeDef]) -> ListActorsOutputTypeDef:

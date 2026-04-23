@@ -5,24 +5,18 @@ This module handles the Extended Tektronix hex format, an extension
 of the standard Tektronix format with 24-bit addressing and symbol support.
 
 Format specification:
-
-- Data records: ``%LL6CCAAAAADD``
-
-  - LL: Length field (``2 * (data_length + 5)`` in hex)
+- Data records: %LL6CCAAAAADD
+  - LL: Length field (2 * (data_length + 5) in hex)
   - 6: Record type identifier
   - CC: Checksum (nibble sum)
   - AAAAAA: 24-bit address (hex)
   - DD: Data bytes (hex)
-
-- Symbol records: ``%LL3CCU``
-
+- Symbol records: %LL3CCU
   - LL: Length field
   - 3: Symbol type identifier
   - CC: Checksum
   - U: Symbol string (name + address)
-
-- EOF records: ``%LL8CCAAAAADD``
-
+- EOF records: %LL8CCAAAAADD
   - 8: EOF type identifier
 """
 

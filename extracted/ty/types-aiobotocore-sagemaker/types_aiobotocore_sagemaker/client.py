@@ -689,6 +689,8 @@ from .type_defs import (
     SendPipelineExecutionStepFailureResponseTypeDef,
     SendPipelineExecutionStepSuccessRequestTypeDef,
     SendPipelineExecutionStepSuccessResponseTypeDef,
+    StartClusterHealthCheckRequestTypeDef,
+    StartClusterHealthCheckResponseTypeDef,
     StartEdgeDeploymentStageRequestTypeDef,
     StartInferenceExperimentRequestTypeDef,
     StartInferenceExperimentResponseTypeDef,
@@ -4037,6 +4039,16 @@ class SageMakerClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/send_pipeline_execution_step_success.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#send_pipeline_execution_step_success)
+        """
+
+    async def start_cluster_health_check(
+        self, **kwargs: Unpack[StartClusterHealthCheckRequestTypeDef]
+    ) -> StartClusterHealthCheckResponseTypeDef:
+        """
+        Start deep health checks for a SageMaker HyperPod cluster.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/start_cluster_health_check.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#start_cluster_health_check)
         """
 
     async def start_edge_deployment_stage(

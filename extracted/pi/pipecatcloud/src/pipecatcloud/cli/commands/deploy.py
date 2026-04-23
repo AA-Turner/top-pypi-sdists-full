@@ -6,7 +6,6 @@
 
 import asyncio
 from pathlib import Path
-from typing import Optional
 
 import typer
 from loguru import logger
@@ -50,10 +49,10 @@ ALIVE_CHECK_SLEEP = 5
 
 async def _cloud_build_flow(
     build_config: BuildConfig,
-    region: Optional[str],
+    region: str | None,
     org: str,
     auto_yes: bool,
-) -> Optional[str]:
+) -> str | None:
     """
     Execute the cloud build flow.
 
@@ -487,7 +486,7 @@ def create_deploy_command(app: typer.Typer):
     @with_deploy_config
     async def deploy(
         deploy_config=typer.Option(None, hidden=True),
-        config_file: Optional[str] = CONFIG_FILE_OPTION,
+        config_file: str | None = CONFIG_FILE_OPTION,
         agent_name: str = typer.Argument(
             None, help="Name of the agent to deploy e.g. 'my-agent'", show_default=False
         ),
@@ -514,10 +513,9 @@ def create_deploy_command(app: typer.Typer):
             None,
             "--max-agents",
             "-max",
-            help="Maximum number of allowed agents",
+            help="Maximum number of allowed agents (default cap 50, contact support to raise)",
             rich_help_panel="Deployment Configuration",
             min=1,
-            max=50,
         ),
         secret_set: str = typer.Option(
             None,
@@ -553,12 +551,20 @@ def create_deploy_command(app: typer.Typer):
             help="Agent profile to use for deployment",
             rich_help_panel="Deployment Configuration",
         ),
-        region: Optional[Region] = typer.Option(
+        region: Region | None = typer.Option(
             None,
             "--region",
             "-r",
             help="Region for service deployment",
             rich_help_panel="Deployment Configuration",
+        ),
+        max_session_duration: int | None = typer.Option(
+            None,
+            "--max-session-duration",
+            help="Maximum session duration in seconds (60-14400, default 7200). Sessions are terminated when this limit is reached.",
+            rich_help_panel="Deployment Configuration",
+            min=60,
+            max=14400,
         ),
         force: bool = typer.Option(
             False,
@@ -616,7 +622,6 @@ def create_deploy_command(app: typer.Typer):
             help="[Deprecated] Use --max-agents instead",
             hidden=True,
             min=1,
-            max=50,
         ),
     ):
         # Handle @deprecated options
@@ -658,6 +663,11 @@ def create_deploy_command(app: typer.Typer):
         partial_config.enable_krisp = krisp or partial_config.enable_krisp
         partial_config.agent_profile = profile or partial_config.agent_profile
         partial_config.force_redeploy = force
+        partial_config.max_session_duration = (
+            max_session_duration
+            if max_session_duration is not None
+            else partial_config.max_session_duration
+        )
 
         # Override build config from CLI args
         if build_dir:
@@ -797,6 +807,17 @@ def create_deploy_command(app: typer.Typer):
                 f"[bold white]Agent profile:[/bold white] {'[dim]None[/dim]' if not partial_config.agent_profile else '[green]' + partial_config.agent_profile + '[/green]'}",
                 f"[bold white]Krisp (deprecated):[/bold white] {'[dim]Disabled[/dim]' if not partial_config.enable_krisp else '[green]Enabled[/green]'}",
                 f"[bold white]Krisp VIVA:[/bold white] {'[dim]Disabled[/dim]' if not partial_config.krisp_viva.audio_filter else '[green]Enabled (' + partial_config.krisp_viva.audio_filter + ')[/green]'}",
+            ]
+        )
+
+        if partial_config.websocket_auth:
+            content_items.append(
+                f"[bold white]WebSocket auth:[/bold white] [green]{partial_config.websocket_auth}[/green]"
+            )
+
+        content_items.extend(
+            [
+                f"[bold white]Max session duration:[/bold white] {'[dim]Default[/dim]' if partial_config.max_session_duration is None else '[green]' + str(partial_config.max_session_duration) + 's[/green]'}",
                 "\n[dim]Scaling configuration:[/dim]",
             ]
         )

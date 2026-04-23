@@ -476,6 +476,21 @@ class Client:
     def get_run_result_triage_history(self, job_id):
         return self._api_call("get_run_result_triage_history", run_checks_job_id=job_id)
 
+    def download_entity_time_series_csv(
+        self,
+        quality_check_run_id: int,
+        entity: str,
+        metric_name: str,
+    ) -> bytes:
+        response = self._api_call(
+            "download_entity_time_series_csv",
+            empty_response=True,
+            quality_check_run_id=quality_check_run_id,
+            entity=entity,
+            metric_name=metric_name,
+        )
+        return response.content
+
     def create_check(self, table_id, check_type, **params):
         return self._api_call(
             "create_check",

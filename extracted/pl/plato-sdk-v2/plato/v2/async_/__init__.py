@@ -1,12 +1,10 @@
 """Plato SDK v2 - Async API."""
 
 from plato._generated.models import ArtifactInfoResponse
-from plato.v2.async_.chronos import AsyncChronos
-from plato.v2.async_.chronos import ChronosSession as AsyncChronosSession
+from plato.v2.async_.cdp_bridge import shared_cdp_chromium
 from plato.v2.async_.client import AsyncPlato as Plato
 from plato.v2.async_.environment import Environment
 from plato.v2.async_.flow_backends import (
-    AgentBrowserBackend,
     FlowBackend,
     PlaywrightBackend,
     make_ssh_run_cmd,
@@ -24,8 +22,6 @@ __all__ = [
     "FlowExecutionError",
     "FlowBackend",
     "PlaywrightBackend",
-    "AgentBrowserBackend",
     "make_ssh_run_cmd",
-    "AsyncChronos",
-    "AsyncChronosSession",
+    "shared_cdp_chromium",
 ]

@@ -88,6 +88,85 @@ class TestUnknownKeys:
         )
         assert not result.has_warnings
 
+    def test_cli_hierarchy_known_no_warnings(self) -> None:
+        result = validate_config(
+            {
+                "cli": {
+                    "hierarchy": {
+                        "show_timestamps": True,
+                        "turn_separator_char": "─",
+                        "code_block_language_label": True,
+                    },
+                },
+            }
+        )
+        assert not result.has_warnings, [e.path for e in result.errors]
+
+    def test_cli_streaming_known_no_warnings(self) -> None:
+        result = validate_config(
+            {
+                "cli": {
+                    "streaming": {
+                        "enabled": True,
+                        "refresh_hz": 20.0,
+                        "live_in_exec_mode": False,
+                        "code_fence_container": True,
+                    },
+                },
+            }
+        )
+        assert not result.has_warnings, [e.path for e in result.errors]
+
+    def test_unknown_key_in_cli_hierarchy(self) -> None:
+        result = validate_config({"cli": {"hierarchy": {"mystery": True}}})
+        assert result.has_warnings
+        assert any("cli.hierarchy.mystery" in e.path for e in result.errors)
+
+    def test_unknown_key_in_cli_streaming(self) -> None:
+        result = validate_config({"cli": {"streaming": {"mystery": True}}})
+        assert result.has_warnings
+        assert any("cli.streaming.mystery" in e.path for e in result.errors)
+
+    def test_cli_live_tools_known_no_warnings(self) -> None:
+        result = validate_config(
+            {
+                "cli": {
+                    "live_tools": {
+                        "show_args_in_verbose": True,
+                        "show_metric_suffix": True,
+                        "metric_max_chars": 40,
+                    },
+                },
+            }
+        )
+        assert not result.has_warnings, [e.path for e in result.errors]
+
+    def test_unknown_key_in_cli_live_tools(self) -> None:
+        result = validate_config({"cli": {"live_tools": {"mystery": True}}})
+        assert result.has_warnings
+        assert any("cli.live_tools.mystery" in e.path for e in result.errors)
+
+    def test_cli_density_known_no_warnings(self) -> None:
+        result = validate_config(
+            {
+                "cli": {
+                    "density": {
+                        "mode": "compact",
+                        "collapse_repeats": True,
+                        "diff_context_lines": 3,
+                        "head_lines": 3,
+                        "tail_lines": 2,
+                    },
+                },
+            }
+        )
+        assert not result.has_warnings, [e.path for e in result.errors]
+
+    def test_unknown_key_in_cli_density(self) -> None:
+        result = validate_config({"cli": {"density": {"mystery": True}}})
+        assert result.has_warnings
+        assert any("cli.density.mystery" in e.path for e in result.errors)
+
 
 class TestIntFields:
     def test_valid_int(self) -> None:

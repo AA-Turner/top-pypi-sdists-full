@@ -14,6 +14,7 @@ from typing import Any, Dict, Optional
 
 import jpype
 import pyspark.sql.connect.proto.base_pb2 as proto_base
+from packaging.version import InvalidVersion, parse as parse_version
 from tzlocal import get_localzone_name
 
 from snowflake import snowpark
@@ -41,6 +42,11 @@ from snowflake.snowpark_connect.utils.telemetry import (
     telemetry,
 )
 from snowflake.snowpark_connect.version import VERSION as sas_version
+
+# Server parameter for CTE optimization: enabled when Snowpark Connect version >= this value
+SNOWPARK_CONNECT_USE_CTE_OPTIMIZATION_VERSION = (
+    "SNOWPARK_CONNECT_USE_CTE_OPTIMIZATION_VERSION"
+)
 
 
 def str_to_bool(boolean_str: str) -> bool:
@@ -164,13 +170,10 @@ class GlobalConfig:
         # SNOW-2719980: Remove this flag after test fragility issues are resolved
         "snowpark.connect.localRelation.optimizeSmallData": "true",
         "spark.sql.execution.arrow.maxRecordsPerBatch": "10000",  # TODO: no-op
-        # USE_VECTORIZED_SCANNER will become the default in a future BCR; Snowflake recommends setting it to TRUE for new workloads.
-        # This significantly reduces latency for loading Parquet files by downloading only relevant columnar sections into memory.
-        "snowpark.connect.parquet.useVectorizedScanner": "true",
         # USE_LOGICAL_TYPE enables proper handling of Parquet logical types (TIMESTAMP, DATE, DECIMAL).
         # Without useLogicalType set to "true", Parquet TIMESTAMP (INT64 physical) is incorrectly read as NUMBER(38,0).
-        # BCR planned for 1.22.0: the default will change from "false" to "true". (SNOW-3245146)
-        "snowpark.connect.parquet.useLogicalType": "false",
+        # SNOW-3245146: default flipped from "false" to "true" in 1.23.0.
+        "snowpark.connect.parquet.useLogicalType": "true",
         "spark.sql.legacy.dataset.nameNonStructGroupingKeyAsValue": "false",
         "snowpark.connect.handleIntegralOverflow": "false",
         "snowpark.connect.scala.version": "2.12",
@@ -197,7 +200,6 @@ class GlobalConfig:
         "spark.sql.crossJoin.enabled",
         "spark.sql.caseSensitive",
         "snowpark.connect.localRelation.optimizeSmallData",
-        "snowpark.connect.parquet.useVectorizedScanner",
         "snowpark.connect.parquet.useLogicalType",
         "spark.sql.ansi.enabled",
         "spark.sql.legacy.allowHashOnMapType",
@@ -367,7 +369,9 @@ class SessionConfig:
 
     default_session_config = {
         "snowpark.connect.sql.passthrough": "false",
-        "snowpark.connect.cte.optimization_enabled": "false",
+        # None means "not explicitly set" - defer to snowpark's server-side parameter
+        # When explicitly set to "true" or "false", user's choice takes priority
+        "snowpark.connect.cte.optimization_enabled": None,
         "snowpark.connect.udtf.compatibility_mode": "false",
         "snowpark.connect.views.duplicate_column_names_handling_mode": "rename",
         "spark.sql.execution.pythonUDTF.arrow.enabled": "false",
@@ -764,9 +768,23 @@ def set_snowflake_parameters(
                         snowpark_session.use_schema(prev)
         case "snowpark.connect.cte.optimization_enabled":
             # Set CTE optimization on the snowpark session
-            cte_enabled = str_to_bool(value)
-            snowpark_session.cte_optimization_enabled = cte_enabled
-            logger.debug(f"Updated snowpark session CTE optimization: {cte_enabled}")
+            # If value is None (unset/default), restore to snowpark-connect server parameter default
+            # If explicitly set to true/false, use user's choice
+            if value is None:
+                # Restore to snowpark-connect default based on SNOWPARK_CONNECT_USE_CTE_OPTIMIZATION_VERSION
+                cte_enabled = is_cte_optimization_enabled_for_connect_version(
+                    snowpark_session
+                )
+                snowpark_session.cte_optimization_enabled = cte_enabled
+                logger.debug(
+                    f"Restored snowpark session CTE optimization to server default: {cte_enabled}"
+                )
+            else:
+                cte_enabled = str_to_bool(value)
+                snowpark_session.cte_optimization_enabled = cte_enabled
+                logger.debug(
+                    f"Updated snowpark session CTE optimization (user override): {cte_enabled}"
+                )
         case "snowpark.connect.structured_types.fix":
             # TODO: SNOW-2367714 Remove this once the fix is automatically enabled in Snowpark
             snowpark.context._enable_fix_2360274 = str_to_bool(value)
@@ -810,9 +828,51 @@ def get_return_dml_metadata_enabled() -> bool:
     return get_boolean_session_config_param("snowpark.connect.sql.returnDmlMetadata")
 
 
-def get_cte_optimization_enabled() -> bool:
-    """Get the CTE optimization configuration setting."""
-    return get_boolean_session_config_param("snowpark.connect.cte.optimization_enabled")
+def is_cte_optimization_enabled_for_connect_version(
+    snowpark_session: snowpark.Session,
+) -> bool:
+    """Whether CTE optimization is enabled per Snowpark Connect server parameter.
+
+    Same idea as ``Session.is_feature_enabled_for_version`` in snowpark-python: the
+    session parameter is a *minimum* Snowpark Connect version. CTE is enabled when::
+
+        snowpark_connect_version >= SNOWPARK_CONNECT_USE_CTE_OPTIMIZATION_VERSION
+
+    Example: parameter ``1.20.0`` enables CTE only for Connect 1.20.0 and newer;
+    a 1.17.0 client evaluates to False. To enable CTE for 1.17.0, set the
+    parameter to ``1.17.0`` (or lower), or upgrade the client.
+
+    Non-string, empty, or unparseable version values are treated as disabled.
+    """
+    raw = snowpark_session._conn._get_client_side_session_parameter(
+        SNOWPARK_CONNECT_USE_CTE_OPTIMIZATION_VERSION, ""
+    )
+    connect_ver = ".".join(map(str, sas_version))
+    if not isinstance(raw, str) or raw == "":
+        return False
+    try:
+        return parse_version(connect_ver) >= parse_version(raw)
+    except InvalidVersion:
+        logger.debug(
+            "Ignoring invalid %s value %r (not a valid version string); "
+            "CTE optimization off",
+            SNOWPARK_CONNECT_USE_CTE_OPTIMIZATION_VERSION,
+            raw,
+        )
+        return False
+
+
+def get_cte_optimization_enabled() -> bool | None:
+    """Get the CTE optimization configuration setting.
+
+    Returns:
+        True/False if explicitly set by user, None if not set (defer to snowpark-connect server default).
+    """
+    session_config = sessions_config[get_spark_session_id()]
+    value = session_config["snowpark.connect.cte.optimization_enabled"]
+    if value is None:
+        return None  # Not explicitly set, defer to snowpark's server-side parameter
+    return str_to_bool(value)
 
 
 def get_success_file_generation_enabled() -> bool:

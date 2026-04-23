@@ -1088,9 +1088,18 @@ class RFDETR:
               0-indexed; ``class_names[0]`` is the first class regardless of the
               original dataset format (COCO category IDs are remapped to 0-based
               indices during training).
-            * ``"source_image"`` – the original input image (only present when
-              ``include_source_image=True``, which is the default).
             * ``"source_shape"`` – ``(height, width)`` tuple of the source image dimensions.
+
+            The ``metadata`` dict of each :class:`~supervision.Detections` object
+            contains:
+
+            * ``"source_image"`` – the original input image as a ``uint8`` numpy
+              array of shape ``(H, W, 3)`` (only present when
+              ``include_source_image=True``, which is the default).  Stored in
+              ``metadata`` rather than ``data`` so that boolean and integer indexing
+              of :class:`~supervision.Detections` works correctly — supervision
+              indexes every value in ``data`` by the detection mask, but passes
+              ``metadata`` through unchanged.
 
         Raises:
             ValueError: If ``shape`` cannot be unpacked as a two-element sequence,
@@ -1247,24 +1256,33 @@ class RFDETR:
                     class_id=labels.cpu().numpy(),
                 )
 
-            detections.data["source_image"] = source_images[i]
-            detections.data["source_shape"] = orig_sizes[i]
+            detections.metadata["source_image"] = source_images[i]
+            detections.data["source_shape"] = np.tile(np.array(orig_sizes[i], dtype=np.int64), (len(detections), 1))
 
             # Attach class names so callers can map class_id → name without a
             # separate lookup.  class_id is always 0-indexed regardless of the
             # original dataset format (COCO category IDs are remapped during
             # training), so class_names[class_id] is the correct mapping.
             # Always set data["class_name"] for a consistent interface.
+            #
+            # RF-DETR uses num_classes + 1 logits internally; class index n is the
+            # background/no-object class and is expected — map it to "__background__"
+            # without warning.  Indices outside [0, n] are genuinely unexpected and
+            # still produce an empty string with a one-time warning.
             class_ids = detections.class_id if detections.class_id is not None else np.array([], dtype=int)
-            oob_ids = [cid for cid in class_ids if not (0 <= cid < n)]
-            if oob_ids:
+            truly_oob = [cid for cid in class_ids if not (0 <= cid <= n)]
+            if truly_oob:
                 logger.warning_once(
-                    "predict() encountered class_id values out of range [0, %d): %s — mapping to empty string",
+                    "predict() encountered class_id values out of range [0, %d]: %s — mapping to empty string",
                     n,
-                    oob_ids[:5],
+                    truly_oob[:5],
                 )
             detections.data["class_name"] = np.array(
-                [model_class_names[cid] if 0 <= cid < n else "" for cid in class_ids], dtype=object
+                [
+                    model_class_names[cid] if 0 <= cid < n else ("__background__" if cid == n else "")
+                    for cid in class_ids
+                ],
+                dtype=object,
             )
 
             detections_list.append(detections)
@@ -1433,10 +1451,18 @@ class RFDETRLarge(RFDETR):
     def __init__(self, **kwargs):
         self.init_error = None
         self.is_deprecated = False
+        # When the user explicitly sets a custom resolution, a PE size mismatch
+        # is caused by the resolution change — not by deprecated weights.  Guard
+        # against the fallback heuristic misclassifying it as deprecated weights.
+        # Only suppress the fallback when the provided resolution genuinely differs
+        # from the class default; passing resolution=<default> explicitly (e.g. from
+        # a serialised config round-trip) must still allow the deprecated-weights retry.
+        _default_resolution = RFDETRLargeConfig.model_fields["resolution"].default
+        _custom_resolution = "resolution" in kwargs and kwargs.get("resolution") != _default_resolution
         try:
             super().__init__(**kwargs)
         except (ValueError, RuntimeError) as exc:
-            if not self._should_fallback_to_deprecated_config(exc):
+            if _custom_resolution or not self._should_fallback_to_deprecated_config(exc):
                 raise
             self.init_error = exc
             self.is_deprecated = True

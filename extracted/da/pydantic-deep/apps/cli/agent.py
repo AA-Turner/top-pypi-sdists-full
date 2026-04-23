@@ -8,7 +8,7 @@ from typing import Any
 from pydantic_ai_backends import LocalBackend
 
 from apps.cli.prompts import build_cli_instructions
-from pydantic_deep.agent import create_deep_agent
+from pydantic_deep.agent import DEFAULT_INSTRUCTIONS, create_deep_agent
 from pydantic_deep.capabilities.hooks import Hook, HookEvent, HookInput, HookResult
 from pydantic_deep.deps import DeepAgentDeps
 
@@ -85,6 +85,7 @@ def create_cli_agent(  # noqa: C901
     temperature: float | None = None,
     include_browser: bool | None = None,
     browser_headless: bool | None = None,
+    include_liteparse: bool | None = None,
 ) -> tuple[Any, DeepAgentDeps]:
     """Create a CLI-configured agent with all pydantic-deep capabilities.
 
@@ -170,10 +171,13 @@ def create_cli_agent(  # noqa: C901
     if extra_middleware:
         middleware.extend(extra_middleware)
 
-    # Build dynamic system prompt (tool-specific guidance lives in tool descriptions)
-    instructions = build_cli_instructions(
-        non_interactive=non_interactive,
-        lean=lean,
+    instructions = (
+        DEFAULT_INSTRUCTIONS
+        + "\n\n"
+        + build_cli_instructions(
+            non_interactive=non_interactive,
+            lean=lean,
+        )
     )
 
     # Append working directory context
@@ -253,6 +257,9 @@ def create_cli_agent(  # noqa: C901
     _browser = include_browser if include_browser is not None else config.include_browser
     effective_browser = _browser if not lean else False
 
+    _liteparse = include_liteparse if include_liteparse is not None else config.include_liteparse
+    effective_liteparse = _liteparse if not lean else False
+
     # Model settings — explicit param > model_settings dict > non-interactive > config
     effective_model_settings: dict[str, Any] = {}
     if non_interactive:
@@ -325,6 +332,8 @@ def create_cli_agent(  # noqa: C901
         context_discovery=_context_disc if not lean else False,
         # Teams
         include_teams=(include_teams if include_teams is not None else config.include_teams),
+        # Document parsing
+        include_liteparse=effective_liteparse,
         # Self-improvement
         include_improve=True,
         # Web tools — explicit params override config

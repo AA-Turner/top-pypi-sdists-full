@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ipinfo
-Version: 5.5.0
+Version: 5.6.0
 Summary: Official Python library for IPInfo
 Project-URL: Homepage, https://github.com/ipinfo/python
 Project-URL: Documentation, https://ipinfo.io/developers
@@ -8,9 +8,9 @@ Author-email: IPinfo <support@ipinfo.io>
 License: Apache License 2.0
 License-File: LICENSE
 Requires-Python: >=3.10
-Requires-Dist: aiohttp<=4,>=3.12.14
-Requires-Dist: cachetools==4.2.0
-Requires-Dist: requests>=2.18.4
+Requires-Dist: aiohttp<4,>=3
+Requires-Dist: cachetools<8,>=4.2
+Requires-Dist: requests<3,>=2.18.4
 Description-Content-Type: text/markdown
 
 # [<img src="https://ipinfo.io/static/ipinfo-small.svg" alt="IPinfo" width="24"/>](https://ipinfo.io/) IPinfo Python Client Library

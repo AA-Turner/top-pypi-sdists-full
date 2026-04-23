@@ -18,7 +18,7 @@ import signal
 import subprocess
 import sys
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Awaitable, TypeVar
+from typing import TYPE_CHECKING, Any, Awaitable, TypeVar, cast
 
 from rich.console import Console
 from rich.table import Table
@@ -89,7 +89,7 @@ async def _run_interruptibly(awaitable: Awaitable[_T]) -> tuple[_T | None, bool]
             except (NotImplementedError, RuntimeError, ValueError):
                 installed_sigint_handler = False
 
-        task = asyncio.create_task(awaitable)
+        task = cast(asyncio.Task[_T], asyncio.ensure_future(awaitable))
         if not installed_sigint_handler:
             try:
                 return await task, False
@@ -344,10 +344,12 @@ def _summarize_tool_result(tool_name: str, output: Any, *, status: str = "") -> 
         if tool_name == "glob_files":
             files = parsed.get("files")
             if isinstance(files, list):
-                names = ", ".join(Path(str(f)).name for f in files[:3])
+                names = ", ".join(
+                    f"{Path(str(f)).name}/" if str(f).endswith("/") else Path(str(f)).name for f in files[:3]
+                )
                 suffix = f": {names}" if names else ""
                 more = f" (+{len(files) - 3})" if len(files) > 3 else ""
-                return f"{len(files)} files{suffix}{more}"
+                return f"{len(files)} paths{suffix}{more}"
         if tool_name == "grep":
             content = str(parsed.get("content", "")).strip()
             if content:
@@ -643,7 +645,7 @@ def _resolve_current_space_id(db: Any) -> str | None:
 
         space = resolve_space_by_cwd(db, str(Path.cwd()))
         if space:
-            return space["id"]
+            return str(space["id"])
     except Exception:
         pass
     return None
@@ -746,8 +748,9 @@ def _spawn_detached_workflow_process(
         proc = subprocess.Popen(cmd, **kwargs)
     finally:
         stdout = kwargs.get("stdout")
-        if stdout not in (None, subprocess.DEVNULL):
-            stdout.close()
+        close_fn = getattr(stdout, "close", None)
+        if callable(close_fn):
+            close_fn()
 
     if proc.poll() is not None:
         raise RuntimeError(f"Detached workflow process exited immediately for run {run_id}")
@@ -970,13 +973,15 @@ def _handle_run(config: AppConfig, db: Any, args: argparse.Namespace) -> None:
     detach = bool(getattr(args, "detach", False))
 
     async def _prepare_run() -> dict[str, Any]:
-        return await engine.prepare_run(
-            definition,
-            target_kind=target_kind,
-            target_ref=target_ref,
-            inputs=inputs,
-            space_id=current_space_id,
-            param_overrides=param_overrides or None,
+        return dict(
+            await engine.prepare_run(
+                definition,
+                target_kind=target_kind,
+                target_ref=target_ref,
+                inputs=inputs,
+                space_id=current_space_id,
+                param_overrides=param_overrides or None,
+            )
         )
 
     try:
@@ -1011,7 +1016,7 @@ def _handle_run(config: AppConfig, db: Any, args: argparse.Namespace) -> None:
         return
 
     async def _execute_prepared() -> dict[str, Any]:
-        return await engine.execute_pending_run(run_id, definition)
+        return dict(await engine.execute_pending_run(run_id, definition))
 
     try:
         run, interrupted = asyncio.run(_run_interruptibly(_execute_prepared()))
@@ -1037,6 +1042,7 @@ def _handle_run(config: AppConfig, db: Any, args: argparse.Namespace) -> None:
         _cleanup_event_bus(_event_bus)
         return
 
+    assert run is not None
     _print_run_progress(db, run)
     _cleanup_event_bus(_event_bus)
 
@@ -1459,6 +1465,7 @@ def _handle_resume(config: AppConfig, db: Any, args: argparse.Namespace) -> None
     definition_path = getattr(args, "definition", None)
     workflow_id = run.get("workflow_id", "")
 
+    path: Path | None
     if definition_path:
         path = Path(definition_path)
     else:
@@ -1533,6 +1540,7 @@ def _handle_resume(config: AppConfig, db: Any, args: argparse.Namespace) -> None
         _cleanup_event_bus(_event_bus)
         return
 
+    assert result is not None
     _print_run_progress(db, result)
     _cleanup_event_bus(_event_bus)
 
@@ -2243,10 +2251,10 @@ def _handle_triggers(config: AppConfig, db: Any, args: argparse.Namespace) -> No
         if not schedule_id:
             console.print("[red]Error:[/red] schedule_id is required")
             return
-        enabled = 1 if trigger_action == "enable" else 0
-        result = update_schedule(db, schedule_id, enabled=enabled)
+        enabled_flag = 1 if trigger_action == "enable" else 0
+        result = update_schedule(db, schedule_id, enabled=enabled_flag)
         if result:
-            state = "enabled" if enabled else "disabled"
+            state = "enabled" if enabled_flag else "disabled"
             console.print(f"[green]Schedule {schedule_id[:12]}... {state}[/green]")
         else:
             console.print(f"[red]Error:[/red] Schedule not found: {schedule_id}")

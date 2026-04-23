@@ -51,6 +51,9 @@ __all__ = (
     "GatewayPolicyEngineModeType",
     "GatewayProtocolTypeType",
     "GatewayStatusType",
+    "HarnessStatusType",
+    "HarnessToolTypeType",
+    "HarnessTruncationStrategyType",
     "InboundTokenClaimValueTypeType",
     "KeyTypeType",
     "ListAgentRuntimeEndpointsPaginatorName",
@@ -63,6 +66,7 @@ __all__ = (
     "ListEvaluatorsPaginatorName",
     "ListGatewayTargetsPaginatorName",
     "ListGatewaysPaginatorName",
+    "ListHarnessesPaginatorName",
     "ListMemoriesPaginatorName",
     "ListOauth2CredentialProvidersPaginatorName",
     "ListOnlineEvaluationConfigsPaginatorName",
@@ -190,6 +194,17 @@ GatewayProtocolTypeType = Literal["MCP"]
 GatewayStatusType = Literal[
     "CREATING", "DELETING", "FAILED", "READY", "UPDATE_UNSUCCESSFUL", "UPDATING"
 ]
+HarnessStatusType = Literal[
+    "CREATE_FAILED", "CREATING", "DELETE_FAILED", "DELETING", "READY", "UPDATE_FAILED", "UPDATING"
+]
+HarnessToolTypeType = Literal[
+    "agentcore_browser",
+    "agentcore_code_interpreter",
+    "agentcore_gateway",
+    "inline_function",
+    "remote_mcp",
+]
+HarnessTruncationStrategyType = Literal["none", "sliding_window", "summarization"]
 InboundTokenClaimValueTypeType = Literal["STRING", "STRING_ARRAY"]
 KeyTypeType = Literal["CustomerManagedKey", "ServiceManagedKey"]
 ListAgentRuntimeEndpointsPaginatorName = Literal["list_agent_runtime_endpoints"]
@@ -202,6 +217,7 @@ ListCodeInterpretersPaginatorName = Literal["list_code_interpreters"]
 ListEvaluatorsPaginatorName = Literal["list_evaluators"]
 ListGatewayTargetsPaginatorName = Literal["list_gateway_targets"]
 ListGatewaysPaginatorName = Literal["list_gateways"]
+ListHarnessesPaginatorName = Literal["list_harnesses"]
 ListMemoriesPaginatorName = Literal["list_memories"]
 ListOauth2CredentialProvidersPaginatorName = Literal["list_oauth2_credential_providers"]
 ListOnlineEvaluationConfigsPaginatorName = Literal["list_online_evaluation_configs"]
@@ -223,7 +239,7 @@ MemoryViewType = Literal["full", "without_decryption"]
 NetworkModeType = Literal["PUBLIC", "VPC"]
 OAuthGrantTypeType = Literal["AUTHORIZATION_CODE", "CLIENT_CREDENTIALS"]
 OnlineEvaluationConfigStatusType = Literal[
-    "ACTIVE", "CREATE_FAILED", "CREATING", "DELETING", "UPDATE_FAILED", "UPDATING"
+    "ACTIVE", "CREATE_FAILED", "CREATING", "DELETING", "ERROR", "UPDATE_FAILED", "UPDATING"
 ]
 OnlineEvaluationExecutionStatusType = Literal["DISABLED", "ENABLED"]
 OverrideTypeType = Literal[
@@ -722,6 +738,7 @@ PaginatorName = Literal[
     "list_evaluators",
     "list_gateway_targets",
     "list_gateways",
+    "list_harnesses",
     "list_memories",
     "list_oauth2_credential_providers",
     "list_online_evaluation_configs",

@@ -1,15 +1,13 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: FlagEmbedding
-Version: 1.3.5
+Version: 1.4.0
 Summary: FlagEmbedding
 Home-page: https://github.com/FlagOpen/FlagEmbedding
 Author-email: 2906698981@qq.com
-License: UNKNOWN
-Platform: UNKNOWN
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: torch>=1.6.0
-Requires-Dist: transformers>=4.44.2
+Requires-Dist: transformers<6.0.0,>=4.44.2
 Requires-Dist: datasets>=2.19.0
 Requires-Dist: accelerate>=0.20.1
 Requires-Dist: sentence_transformers
@@ -20,6 +18,14 @@ Requires-Dist: protobuf
 Provides-Extra: finetune
 Requires-Dist: deepspeed; extra == "finetune"
 Requires-Dist: flash-attn; extra == "finetune"
+Dynamic: author-email
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: summary
 
 [<img src="./imgs/FlagOpen.png">](https://flagopen.baai.ac.cn/)
 

@@ -419,6 +419,7 @@ ALL_MODULES = [
             cloud_commands.cloud_verify,
             cloud_commands.list_cloud,
             cloud_commands.cloud_resource_create,
+            cloud_commands.cloud_resource_setup,
             cloud_commands.cloud_resource_delete,
             cloud_commands.cloud_config_get,
             cloud_commands.cloud_config_update,
@@ -453,6 +454,7 @@ ALL_MODULES = [
         ],
         cli_command_group_prefix={
             cloud_commands.cloud_resource_create: "resource",
+            cloud_commands.cloud_resource_setup: "resource",
             cloud_commands.cloud_resource_delete: "resource",
             cloud_commands.cloud_config_get: "config",
             cloud_commands.cloud_config_update: "config",
@@ -661,7 +663,10 @@ ALL_MODULES = [
         title="SCIM",
         filename="scim.md",
         cli_prefix="anyscale scim",
-        cli_commands=[scim_commands.enforce_group_permissions,],
+        cli_commands=[
+            scim_commands.enforce_group_permissions,
+            scim_commands.check_permissions,
+        ],
         sdk_prefix="anyscale.scim",
         sdk_commands=[],
         models=[],

@@ -8,6 +8,7 @@ import numpy as np
 import pandas
 import pyspark.sql.connect.proto.relations_pb2 as relation_proto
 from pyspark.errors.exceptions.base import AnalysisException, IllegalArgumentException
+from pyspark.sql.types import StructField
 
 import snowflake.snowpark.functions as fn
 import snowflake.snowpark.types as snowpark_types
@@ -17,7 +18,6 @@ from snowflake.snowpark_connect.config import get_boolean_session_config_param
 from snowflake.snowpark_connect.dataframe_container import DataFrameContainer
 from snowflake.snowpark_connect.error.error_codes import ErrorCodes
 from snowflake.snowpark_connect.error.error_utils import attach_custom_error_code
-from snowflake.snowpark_connect.includes.python.pyspark.sql.types import StructField
 from snowflake.snowpark_connect.relation.map_relation import map_relation
 from snowflake.snowpark_connect.utils.session import get_or_create_snowpark_session
 

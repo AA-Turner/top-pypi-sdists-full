@@ -786,6 +786,7 @@ class QuerySet(Generic[T]):
             self.model.extract_related_names()
         )
         updates = {k: v for k, v in kwargs.items() if k in self_fields}
+        updates = self.model.populate_onupdate_value(updates)
         updates = self.model.validate_enums(updates)
         updates = self.model.translate_columns_to_aliases(updates)
 
@@ -1112,7 +1113,11 @@ class QuerySet(Generic[T]):
         last_primary_key = None
         pk_alias = self.model.get_column_alias(self.model_config.pkname)
 
-        async with self.model_config.database.get_query_executor() as executor:
+        # Server-side cursor (asyncpg/aiomysql) requires an open transaction,
+        # which AUTOCOMMIT does not provide.
+        async with self.model_config.database.get_query_executor(
+            transactional=True
+        ) as executor:
             async for row in executor.iterate(expr):
                 current_primary_key = row[pk_alias]
                 if last_primary_key == current_primary_key or last_primary_key is None:
@@ -1210,15 +1215,30 @@ class QuerySet(Generic[T]):
         if pk_name not in columns:
             columns.append(pk_name)
 
+        onupdate_fields = self.model._onupdate_fields
+        for field_name in onupdate_fields:
+            if field_name not in columns:
+                columns.append(field_name)
+
         columns = [self.model.get_column_alias(k) for k in columns]
 
         for i, obj in enumerate(objects):
+            explicit_fields = obj.__setattr_fields__
             new_kwargs = obj.model_dump()
             if new_kwargs.get(pk_name) is None:
                 raise ModelPersistenceError(
                     "You cannot update unsaved objects. "
                     f"{self.model.__name__} has to have {pk_name} filled."
                 )
+            new_kwargs = obj.populate_onupdate_value(
+                new_kwargs, explicit_fields=explicit_fields
+            )
+            obj.update_from_dict(
+                {
+                    field_name: new_kwargs[field_name]
+                    for field_name in onupdate_fields - explicit_fields
+                }
+            )
             new_kwargs = obj.prepare_model_to_update(new_kwargs)
             ready_objects.append(
                 {"new_" + k: v for k, v in new_kwargs.items() if k in columns}
@@ -1244,11 +1264,16 @@ class QuerySet(Generic[T]):
         # databases bind params only where query is passed as string
         # otherwise it just passes all data to values and results in unconsumed columns
         expr = str(expr)  # type: ignore
-        async with self.model_config.database.get_query_executor() as executor:
+        # Multi-row execute_many: run in an explicit transaction so all rows
+        # share a single COMMIT instead of one per row under AUTOCOMMIT.
+        async with self.model_config.database.get_query_executor(
+            transactional=True
+        ) as executor:
             await executor.execute_many(expr, ready_objects)
 
         for obj in objects:
             obj.set_save_status(True)
+            obj.__setattr_fields__.clear()
 
         await cast(
             type["Model"], self.model_cls

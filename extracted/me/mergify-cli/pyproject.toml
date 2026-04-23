@@ -28,7 +28,7 @@ dependencies = [
     "opentelemetry-sdk==1.41.0",
     "tenacity==9.1.4",
     "pyyaml==6.0.3",
-    "pydantic==2.13.2",
+    "pydantic==2.13.3",
     "questionary>=2.0.0",
     "tzlocal==5.3.1",
 ]
@@ -45,7 +45,7 @@ Changelog = "https://github.com/Mergifyio/mergify-cli/releases"
 
 [dependency-groups]
 dev = [
-    "mypy==1.20.1",
+    "mypy==1.20.2",
     "mypy-extensions==1.1.0",
     "ruff==0.15.11",
     "pytest==9.0.3",
@@ -224,6 +224,12 @@ runtime-evaluated-decorators = [
     "PLR2004",
     # Function is declared async, but doesn't await or use async features.
     "RUF029",
+]
+"compat-tests/**/*.py" = [
+    # Use of assert detected — this is pytest
+    "S101",
+    # subprocess call: check for execution of untrusted input
+    "S603",
 ]
 
 [tool.ruff.lint.isort]

@@ -129,6 +129,6 @@ async def retry_agent_run(request: Request, run_id: str) -> dict[str, Any]:
             mcp_manager=mcp_manager,
             config=config.safety.subagent if config.safety else None,
         )
-        return result
+        return dict(result)
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc

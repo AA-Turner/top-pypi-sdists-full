@@ -198,6 +198,26 @@ def test_create_server_raises_on_bind_failure() -> None:
             create_server("localhost:50051")
 
 
+class TestValidateEntrypoint:
+    """Client-side syntax checks for ``"module:attr"`` entrypoint strings."""
+
+    def test_accepts_simple(self) -> None:
+        from isolate.connections.common import validate_entrypoint
+
+        validate_entrypoint("mod:attr")
+        validate_entrypoint("pkg.sub.mod:my_func")
+
+    @pytest.mark.parametrize(
+        "bad",
+        ["nope", ":attr", "mod:", "a:b:c", "", ":"],
+    )
+    def test_rejects_malformed(self, bad: str) -> None:
+        from isolate.connections.common import validate_entrypoint
+
+        with pytest.raises(ValueError, match="Invalid entrypoint"):
+            validate_entrypoint(bad)
+
+
 class TestEstablishBridge:
     """Tests for the polling loop in GRPCExecutionBase._establish_bridge."""
 

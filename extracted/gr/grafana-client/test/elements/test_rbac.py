@@ -1,9 +1,22 @@
+"""
+Role-based access control API is only available in Grafana Cloud or Grafana Enterprise.
+
+https://grafana.com/docs/grafana/latest/administration/roles-and-permissions/access-control/
+https://grafana.com/docs/grafana/latest/developer-resources/api-reference/http-api/access_control/
+"""
+
+import sys
 import unittest
+
+import pytest
 
 from grafana_client import GrafanaApi
 from test.elements.test_rbac_fixtures import PERMISSION_RBAC_DATASOURCE, RBAC_ROLES_ALL
 
 from ..compat import requests_mock
+
+if "pytest" in sys.argv[0]:
+    pytest.skip("Skipping pytest, please use unittest", allow_module_level=True)
 
 
 class RbacTestCase(unittest.TestCase):

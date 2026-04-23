@@ -398,6 +398,30 @@ class TestToolCalls:
         tc = create_tool_call(db, msg["id"], "tool", "srv", {}, tool_call_id="custom-123")
         assert tc["id"] == "custom-123"
 
+    def test_create_tool_call_with_iteration(self, db: sqlite3.Connection) -> None:
+        conv = create_conversation(db, title="Iter")
+        msg = create_message(db, conv["id"], "assistant", "calling")
+        tc = create_tool_call(db, msg["id"], "bash", "srv", {}, iteration=3)
+        assert tc["iteration"] == 3
+
+    def test_create_tool_call_iteration_defaults_none(self, db: sqlite3.Connection) -> None:
+        conv = create_conversation(db, title="NoIter")
+        msg = create_message(db, conv["id"], "assistant", "calling")
+        tc = create_tool_call(db, msg["id"], "read_file", "srv", {})
+        assert tc["iteration"] is None
+
+    def test_list_tool_calls_ordered_by_iteration_nulls_first(self, db: sqlite3.Connection) -> None:
+        conv = create_conversation(db, title="Ordering")
+        msg = create_message(db, conv["id"], "assistant", "calling")
+        # Insert in reverse order to test sort
+        create_tool_call(db, msg["id"], "c", "srv", {}, iteration=2)
+        create_tool_call(db, msg["id"], "b", "srv", {}, iteration=1)
+        create_tool_call(db, msg["id"], "a", "srv", {}, iteration=None)
+        tcs = list_tool_calls(db, msg["id"])
+        assert tcs[0]["tool_name"] == "a"  # null iteration first
+        assert tcs[1]["tool_name"] == "b"  # iteration=1
+        assert tcs[2]["tool_name"] == "c"  # iteration=2
+
 
 class TestSearchConversations:
     def test_search_by_title(self, db: sqlite3.Connection) -> None:

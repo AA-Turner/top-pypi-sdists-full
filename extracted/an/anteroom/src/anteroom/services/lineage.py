@@ -1,4 +1,4 @@
-"""Audit lineage emitters for workflow runs and memory promotion (#925).
+"""Audit lineage emitters for workflow runs, memory promotion, and hooks (#925, #1490).
 
 Centralises the construction and emission of structured audit events for
 governed durable actions. Every emitter is safe to call with
@@ -19,25 +19,43 @@ Workflow:
     ``workflow.run.failed``     — run reached terminal failure state
     ``workflow.run.cancelled``  — run terminated via cancel request
 
+Subagent:
+    ``subagent.spawned``        — detached subagent run was enqueued
+    ``subagent.started``        — detached subagent began execution
+    ``subagent.completed``      — detached subagent finished successfully
+    ``subagent.failed``         — detached subagent ended in failure
+    ``subagent.cancelled``      — detached subagent was cancelled
+
 Memory:
     ``memory.proposed``         — candidate memory created
     ``memory.approved``         — candidate transitioned to active
     ``memory.rejected``         — candidate transitioned to rejected
 
+Hook (#1490, #1492):
+    ``hook.completed``          — hook ran and returned allow or ask
+    ``hook.denied``             — hook returned deny (tool call blocked or continuation stopped)
+    ``hook.timed_out``          — hook runner timed out (fail-open, outcome=allow)
+    ``hook.failed``             — hook runner raised an exception (fail-open, outcome=allow)
+    ``hook.approval_resolved``  — user resolved a hook-escalated approval (approved/denied)
+
 Category prefixes follow the ``AuditWriter.is_event_enabled`` convention
 (``event_type.split('.')[0]`` is the category gated by ``audit.events``).
-The ``workflow`` and ``memory`` categories must be registered in
-:class:`anteroom.config.AuditConfig.events` for emissions to land.
+The ``workflow``, ``subagent``, ``memory``, and ``hook`` categories must be
+registered in :class:`anteroom.config.AuditConfig.events` for emissions
+to land.
 """
 
 from __future__ import annotations
 
+import hashlib
+import json
 import logging
 from typing import TYPE_CHECKING, Any
 
 from .audit import AuditEntry
 
 if TYPE_CHECKING:
+    from ..config import HooksConfig
     from ..db import ThreadSafeConnection
     from .audit import AuditWriter
 
@@ -47,8 +65,15 @@ logger = logging.getLogger(__name__)
 # Allowed lifecycle events — matches ``workflow_executor`` terminal states.
 _WORKFLOW_LIFECYCLE_EVENTS = frozenset({"started", "completed", "failed", "cancelled"})
 
+# Allowed subagent lifecycle events — mirrors workflow terminal states plus
+# ``spawned`` for the pre-start governance checkpoint.
+_SUBAGENT_LIFECYCLE_EVENTS = frozenset({"spawned", "started", "completed", "failed", "cancelled"})
+
 # Allowed memory promotion events.
 _MEMORY_PROMOTION_EVENTS = frozenset({"proposed", "approved", "rejected"})
+
+# Allowed hook lifecycle events (#1490, #1492).
+_HOOK_LIFECYCLE_EVENTS = frozenset({"completed", "denied", "timed_out", "failed", "approval_resolved"})
 
 
 def _safe_emit(writer: AuditWriter | None, entry: AuditEntry) -> None:
@@ -184,6 +209,54 @@ def emit_workflow_run_lifecycle(
 
 
 # ---------------------------------------------------------------------------
+# Subagent emitters
+# ---------------------------------------------------------------------------
+
+
+def emit_subagent_lifecycle(
+    audit_writer: AuditWriter | None,
+    event: str,
+    *,
+    run_id: str,
+    conversation_id: str = "",
+    user_id: str = "",
+    model: str = "",
+    parent_run_id: str = "",
+    details: dict[str, Any] | None = None,
+) -> None:
+    """Emit ``subagent.{event}`` lifecycle event.
+
+    *event* must be one of ``"spawned"``, ``"started"``, ``"completed"``,
+    ``"failed"``, or ``"cancelled"``.
+
+    Severity is ``"info"`` for ``spawned``/``started``/``completed`` and
+    ``"warning"`` for ``failed``/``cancelled`` to match the ``workflow.run.*``
+    emitter's convention so SIEM dashboards can default-filter happy-path
+    noise consistently across durable governed actions.
+    """
+    if event not in _SUBAGENT_LIFECYCLE_EVENTS:
+        logger.warning("emit_subagent_lifecycle: unknown event %r — dropping", event)
+        return
+    severity = "warning" if event in ("failed", "cancelled") else "info"
+    payload: dict[str, Any] = {"run_id": run_id}
+    if conversation_id:
+        payload["conversation_id"] = conversation_id
+    if model:
+        payload["model"] = model
+    if parent_run_id:
+        payload["parent_run_id"] = parent_run_id
+    if details:
+        payload.update(details)
+    entry = AuditEntry.create(
+        event_type=f"subagent.{event}",
+        severity=severity,
+        user_id=user_id,
+        details=payload,
+    )
+    _safe_emit(audit_writer, entry)
+
+
+# ---------------------------------------------------------------------------
 # Memory emitters
 # ---------------------------------------------------------------------------
 
@@ -212,6 +285,158 @@ def emit_memory_promotion(
         event_type=f"memory.{event}",
         severity=severity,
         user_id=reviewer_id,
+        details=payload,
+    )
+    _safe_emit(audit_writer, entry)
+
+
+# ---------------------------------------------------------------------------
+# Hook emitters (#1490)
+# ---------------------------------------------------------------------------
+
+
+def _hook_snapshot_hash(entry_payload: dict[str, Any]) -> str:
+    """Return a stable SHA-256 hash for one hook-config entry payload."""
+    canonical = json.dumps(entry_payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def emit_hook_snapshot(audit_writer: AuditWriter | None, hooks_config: "HooksConfig") -> None:
+    """Emit ``hook.snapshot`` for the resolved hook config in effect at startup."""
+    entries_payload: list[dict[str, Any]] = []
+    for entry in [*hooks_config.pre_tool, *hooks_config.post_tool]:
+        hash_payload = {
+            "id": entry.id,
+            "event": entry.event,
+            "matcher": {
+                "tool_name": entry.matcher.tool_name,
+                "arguments": dict(entry.matcher.arguments),
+            },
+            "runner": {
+                "type": entry.runner.type,
+                "command": entry.runner.command,
+                "url": entry.runner.url,
+                "timeout": entry.runner.timeout,
+            },
+            "message": entry.message,
+            "trust_source": entry.trust_source,
+        }
+        entries_payload.append(
+            {
+                "id": entry.id,
+                "event": entry.event,
+                "trust_source": entry.trust_source,
+                "is_executable": entry.is_executable,
+                "runner_type": entry.runner.type,
+                "entry_sha256": _hook_snapshot_hash(hash_payload),
+            }
+        )
+
+    audit_entry = AuditEntry.create(
+        event_type="hook.snapshot",
+        severity="info",
+        details={"hook_count": len(entries_payload), "entries": entries_payload},
+    )
+    _safe_emit(audit_writer, audit_entry)
+
+
+def emit_hook_lifecycle(
+    audit_writer: AuditWriter | None,
+    event: str,
+    *,
+    hook_id: str,
+    hook_event: str,
+    tool_name: str,
+    outcome: str,
+    execution_ms: float = 0.0,
+    message: str = "",
+    tool_call_id: str = "",
+    conversation_id: str = "",
+    user_id: str = "",
+    details: dict[str, Any] | None = None,
+) -> None:
+    """Emit ``hook.{event}`` for a single resolved hook execution.
+
+    *event* must be one of ``"completed"``, ``"denied"``, ``"timed_out"``,
+    or ``"failed"``.
+
+    Payload fields:
+
+    - ``hook_id``      — stable identifier from :class:`HookEntryConfig`
+    - ``hook_event``   — ``"pre_tool"`` or ``"post_tool"``
+    - ``tool_name``    — the tool being intercepted
+    - ``tool_call_id`` — stable identifier for the intercepted tool call
+    - ``outcome``      — the routing decision (``allow``, ``deny``, ``ask``)
+    - ``execution_ms`` — wall-clock time of the runner in milliseconds
+    - ``message``      — optional message from the hook response
+
+    Severity is ``"warning"`` for ``denied``, ``timed_out``, and ``failed``
+    (operator attention warranted); ``"info"`` for ``completed``.
+    """
+    if event not in _HOOK_LIFECYCLE_EVENTS:
+        logger.warning("emit_hook_lifecycle: unknown event %r — dropping", event)
+        return
+    severity = "warning" if event != "completed" else "info"
+    payload: dict[str, Any] = {
+        "hook_id": hook_id,
+        "hook_event": hook_event,
+        "tool_name": tool_name,
+        "outcome": outcome,
+        "execution_ms": round(execution_ms, 2),
+    }
+    if message:
+        payload["message"] = message
+    if tool_call_id:
+        payload["tool_call_id"] = tool_call_id
+    if conversation_id:
+        payload["conversation_id"] = conversation_id
+    if details:
+        payload.update(details)
+    entry = AuditEntry.create(
+        event_type=f"hook.{event}",
+        severity=severity,
+        user_id=user_id,
+        details=payload,
+    )
+    _safe_emit(audit_writer, entry)
+
+
+def emit_hook_approval_resolved(
+    audit_writer: AuditWriter | None,
+    *,
+    hook_id: str,
+    tool_name: str,
+    resolution: str,
+    tool_call_id: str = "",
+    conversation_id: str = "",
+    user_id: str = "",
+) -> None:
+    """Emit ``hook.approval_resolved`` when a user resolves a hook-escalated approval.
+
+    Called after the approval callback returns for a hook ``ask`` outcome so
+    the audit trail can distinguish hook-driven escalations from tier-based
+    approval prompts.
+
+    *resolution* must be ``"approved"`` or ``"denied"``.
+    Severity is ``"info"`` for approved and ``"warning"`` for denied.
+    """
+    if resolution not in ("approved", "denied"):
+        logger.warning("emit_hook_approval_resolved: unknown resolution %r — dropping", resolution)
+        return
+    severity = "warning" if resolution == "denied" else "info"
+    payload: dict[str, Any] = {
+        "hook_id": hook_id,
+        "tool_name": tool_name,
+        "resolution": resolution,
+    }
+    if tool_call_id:
+        payload["tool_call_id"] = tool_call_id
+    if conversation_id:
+        payload["conversation_id"] = conversation_id
+    entry = AuditEntry.create(
+        event_type="hook.approval_resolved",
+        severity=severity,
+        user_id=user_id,
         details=payload,
     )
     _safe_emit(audit_writer, entry)

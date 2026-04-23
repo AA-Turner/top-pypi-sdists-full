@@ -9,15 +9,23 @@ import pyspark.sql.connect.proto.relations_pb2 as relation_proto
 from pyspark.errors.exceptions.base import IllegalArgumentException
 
 from snowflake import snowpark
+from snowflake.snowpark._internal.analyzer.analyzer_utils import unquote_if_quoted
 from snowflake.snowpark._internal.type_utils import convert_sp_to_sf_type
 from snowflake.snowpark._internal.xml_schema_inference import merge_struct_types
-from snowflake.snowpark.exceptions import SnowparkDataframeReaderException
+from snowflake.snowpark.exceptions import (
+    SnowparkDataframeReaderException,
+    SnowparkSQLException,
+)
 from snowflake.snowpark.functions import sql_expr
 from snowflake.snowpark.types import ArrayType, DataType, StructField, StructType
 from snowflake.snowpark_connect.config import get_string_session_config_param
 from snowflake.snowpark_connect.dataframe_container import DataFrameContainer
 from snowflake.snowpark_connect.error.error_codes import ErrorCodes
 from snowflake.snowpark_connect.error.error_utils import attach_custom_error_code
+from snowflake.snowpark_connect.relation.io_utils import (
+    get_stage_url_prefix,
+    is_external_cloud_url,
+)
 from snowflake.snowpark_connect.relation.read.metadata_utils import (
     add_filename_metadata_to_reader,
 )
@@ -27,6 +35,7 @@ from snowflake.snowpark_connect.relation.read.utils import (
     get_spark_column_names_from_snowpark_columns,
     rename_columns_as_snowflake_standard,
 )
+from snowflake.snowpark_connect.relation.utils import random_string
 from snowflake.snowpark_connect.type_support import emulate_integral_types
 from snowflake.snowpark_connect.utils.snowpark_connect_logging import logger
 from snowflake.snowpark_connect.utils.telemetry import (
@@ -122,6 +131,9 @@ def map_read_xml(
 
     if schema is not None:
         snowpark_options["inferschema"] = False
+        # Internal flag to tell Snowpark to skip the XML schema inference pass regardless of
+        # inferSchema=True or False, maintaining 1-pass reading when user schema is provided.
+        snowpark_options["_xml_skip_inference"] = True
 
     apply_metadata_exclusion_pattern(snowpark_options)
 
@@ -430,7 +442,11 @@ def _quote_top_level_schema_fields(schema: StructType) -> StructType:
 def _get_all_xml_file_paths(paths: list[str], session: snowpark.Session) -> list[str]:
     paths = [str(p) for p in paths]
     paths = [p[1:-1] if p.startswith("'") and p.endswith("'") else p for p in paths]
-    stage_url_cache = {}
+    stage_url_cache: dict[str, str | None] = {}
+    # Cache cloned temp stage references per original stage name so that
+    # multiple XML paths on the same external stage reuse a single clone
+    # instead of issuing redundant CREATE TEMP STAGE ... CLONE DDLs.
+    xml_clone_cache: dict[str, str | None] = {}
     result = []
     for path in paths:
         try:
@@ -441,10 +457,10 @@ def _get_all_xml_file_paths(paths: list[str], session: snowpark.Session) -> list
                 continue
 
             stage_name = path[1:].split("/", 1)[0]
-            is_external_stage = _is_external_stage_cloud_path(ls_result[0][0])
+            is_external_stage = is_external_cloud_url(ls_result[0][0])
             if stage_name not in stage_url_cache:
                 stage_url = (
-                    _get_stage_url_prefix(stage_name, session)
+                    get_stage_url_prefix(stage_name, session)
                     if is_external_stage
                     else stage_name
                 )
@@ -454,6 +470,26 @@ def _get_all_xml_file_paths(paths: list[str], session: snowpark.Session) -> list
             if is_external_stage and not stage_url:
                 result.append(path)
                 continue
+
+            # The XML UDTF sandbox cannot resolve credentials on named
+            # persistent external stages. Re-wire to a session-scoped temp
+            # stage so the UDTF can read files without data movement.
+            if is_external_stage:
+                if stage_name not in xml_clone_cache:
+                    xml_clone_cache[stage_name] = _clone_xml_external_stage(
+                        stage_name, session
+                    )
+                temp_stage = xml_clone_cache[stage_name]
+                if temp_stage is not None:
+                    original_suffix = (
+                        path[1:].split("/", 1)[1] if "/" in path[1:] else None
+                    )
+                    parts = [temp_stage]
+                    if original_suffix is not None:
+                        parts.append(original_suffix)
+                    path = "/".join(parts)
+                    stage_name = temp_stage.lstrip("@")
+
             files = [res[0] for res in ls_result]
             res = _generate_list_of_files(
                 stage_name, path, files, stage_url or stage_name
@@ -470,6 +506,37 @@ def _get_all_xml_file_paths(paths: list[str], session: snowpark.Session) -> list
     return result
 
 
+def _clone_xml_external_stage(
+    stage_name: str,
+    session: snowpark.Session,
+) -> str | None:
+    """Clone an external stage to a session-scoped temp stage for XML reads.
+
+    The XML UDTF sandbox cannot resolve credentials on named external
+    stages.  Cloning to a temp stage preserves all properties (URL,
+    credentials, storage integration), making it accessible to the XML UDTF,
+    and incurring no data movement costs.
+
+    Returns the fully-qualified temp stage reference (e.g. ``@DB.SCHEMA.name``)
+    or ``None`` if the clone fails.
+    """
+    clone_stage_name = random_string(5, "spark_connect_xml_stage_ext_")
+    try:
+        session.sql(
+            f"CREATE OR REPLACE TEMP STAGE {clone_stage_name} CLONE {stage_name}"
+        ).collect()
+    except SnowparkSQLException:
+        logger.warning("CLONE failed for stage %s, skipping rewrite", stage_name)
+        return None
+    except Exception:
+        logger.error("Unexpected error cloning stage %s", stage_name, exc_info=True)
+        return None
+
+    db = unquote_if_quoted(session.get_current_database())
+    schema = unquote_if_quoted(session.get_current_schema())
+    return f"@{db}.{schema}.{clone_stage_name}"
+
+
 def _generate_list_of_files(
     stage_name: str,
     path: str,
@@ -481,7 +548,7 @@ def _generate_list_of_files(
     stage_token = f"@{stage_name}"
     path_suffix = path[len(stage_token) :]
     listed_roots = [stage_url]
-    if not _is_external_stage_cloud_path(stage_url):
+    if not is_external_cloud_url(stage_url):
         # LS on fully-qualified internal stages can return rows rooted at the
         # unqualified stage name (for example, my_stage/...) while the input path
         # uses DB.SCHEMA.MY_STAGE. Include both forms for matching.
@@ -533,57 +600,6 @@ def _replace_prefix_case_insensitive(
     if source.lower().startswith(prefix.lower()):
         return f"{replacement}{source[len(prefix):]}"
     return source
-
-
-def _get_stage_url_prefix(stage_name: str, session: snowpark.Session) -> str | None:
-    """
-    Return URL property value from DESCRIBE STAGE via RESULT_SCAN(query_id).
-    """
-    try:
-        describe_job = session.sql(f"DESCRIBE STAGE {stage_name}").collect_nowait()
-        describe_query_id = describe_job.query_id
-        describe_job.result()
-    except Exception:
-        return None
-
-    if not describe_query_id:
-        return None
-
-    scan_sql = (
-        "SELECT COALESCE("
-        "PARSE_JSON(REGEXP_REPLACE(\"property_value\", '/$', ''))[0]::string, "
-        "PARSE_JSON(REGEXP_REPLACE(\"property_value\", '/$', ''))::string, "
-        "REGEXP_REPLACE(\"property_value\", '/$', '')::string"
-        ") AS url "
-        f"FROM TABLE(RESULT_SCAN('{describe_query_id}')) "
-        "WHERE \"property\" = 'URL'"
-    )
-    try:
-        url_rows = session.sql(scan_sql).collect()
-    except Exception:
-        return None
-
-    if not url_rows:
-        return None
-    try:
-        url = url_rows[0][0]
-    except Exception:
-        return None
-    if url is None:
-        return None
-    return str(url).strip().strip('"').strip("'").rstrip("/")
-
-
-def _is_external_stage_cloud_path(path: str) -> bool:
-    return (
-        path.startswith("s3://")
-        or path.startswith("s3a://")  # AWS S3
-        or path.startswith("azure://")
-        or path.startswith("abfss://")
-        or path.startswith("wasbs://")  # Azure
-        or path.startswith("gcs://")
-        or path.startswith("gs://")  # GCP
-    )
 
 
 def _cast_all_to_variant(df: snowpark.DataFrame) -> snowpark.DataFrame:

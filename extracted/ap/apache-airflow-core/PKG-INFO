@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: apache-airflow-core
-Version: 3.2.0
+Version: 3.2.1
 Summary: Core packages for Apache Airflow, schedule and API server
 Project-URL: Bug Tracker, https://github.com/apache/airflow/issues
 Project-URL: Documentation, https://airflow.apache.org/docs/
@@ -40,7 +40,7 @@ Requires-Dist: apache-airflow-providers-common-io>=1.6.3
 Requires-Dist: apache-airflow-providers-common-sql>=1.28.1
 Requires-Dist: apache-airflow-providers-smtp>=2.3.1
 Requires-Dist: apache-airflow-providers-standard>=1.9.0
-Requires-Dist: apache-airflow-task-sdk==1.2.0
+Requires-Dist: apache-airflow-task-sdk==1.2.1
 Requires-Dist: argcomplete>=1.10
 Requires-Dist: asgiref>=2.3.0; python_version < '3.14'
 Requires-Dist: asgiref>=3.11.1; python_version >= '3.14'
@@ -100,7 +100,7 @@ Requires-Dist: uuid6>=2024.7.10
 Requires-Dist: uvicorn>=0.37.0
 Provides-Extra: all
 Requires-Dist: graphviz>=0.20; (sys_platform != 'darwin') and extra == 'all'
-Requires-Dist: gunicorn<25.1.0,>=23.0.0; extra == 'all'
+Requires-Dist: gunicorn!=25.1.0,>=23.0.0; extra == 'all'
 Requires-Dist: opentelemetry-exporter-prometheus>=0.47b0; extra == 'all'
 Requires-Dist: pykerberos>=1.1.13; extra == 'all'
 Requires-Dist: requests-kerberos>=0.14.0; extra == 'all'
@@ -115,7 +115,7 @@ Requires-Dist: greenlet>=3.3.2; (python_version >= '3.14') and extra == 'async'
 Provides-Extra: graphviz
 Requires-Dist: graphviz>=0.20; (sys_platform != 'darwin') and extra == 'graphviz'
 Provides-Extra: gunicorn
-Requires-Dist: gunicorn<25.1.0,>=23.0.0; extra == 'gunicorn'
+Requires-Dist: gunicorn!=25.1.0,>=23.0.0; extra == 'gunicorn'
 Provides-Extra: kerberos
 Requires-Dist: pykerberos>=1.1.13; extra == 'kerberos'
 Requires-Dist: requests-kerberos>=0.14.0; extra == 'kerberos'

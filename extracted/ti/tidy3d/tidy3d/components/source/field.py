@@ -24,6 +24,7 @@ from tidy3d.components.validators import (
     assert_plane,
     assert_single_freq_in_range,
     assert_volumetric,
+    is_close_to_glancing_angle,
     warn_backward_waist_distance,
     warn_if_dataset_none,
 )
@@ -177,13 +178,15 @@ class BroadbandSource(Source, ABC):
     def _validate_num_freqs_limit(self) -> Self:
         """Enforce method-specific bounds on num_freqs."""
         if self.broadband_method == "chebyshev" and self.num_freqs > 20:
-            raise SetupError(
-                f"For broadband_method='chebyshev', 'num_freqs' must be <= 20, got {self.num_freqs}."
+            self._raise_validation_error_at_loc(
+                f"For broadband_method='chebyshev', 'num_freqs' must be <= 20, got {self.num_freqs}.",
+                "num_freqs",
             )
         if self.broadband_method == "pole_residue" and self.num_freqs < 3:
-            raise SetupError(
+            self._raise_validation_error_at_loc(
                 f"For broadband_method='pole_residue', 'num_freqs' must be >= 3, got {self.num_freqs}. "
-                "The vector fitting algorithm requires more frequency samples than fit coefficients."
+                "The vector fitting algorithm requires more frequency samples than fit coefficients.",
+                "num_freqs",
             )
         return self
 
@@ -335,7 +338,9 @@ class CustomFieldSource(FieldSource, PlanarSource):
                 tangential_field = field + cmp_name
                 if tangential_field in val.field_components:
                     return self
-        raise SetupError("No tangential field found in the suppled 'field_dataset'.")
+        self._raise_validation_error_at_loc(
+            SetupError("No tangential field found in the suppled 'field_dataset'."), "field_dataset"
+        )
 
     def _compute_dataset_derivatives(
         self,
@@ -532,7 +537,7 @@ class AngledFieldSource(DirectionalSource, ABC):
     def glancing_incidence(cls, val: float) -> float:
         """Warn if close to glancing incidence."""
         static_val = get_static(val)
-        if np.abs(np.pi / 2 - static_val) < GLANCING_CUTOFF:
+        if is_close_to_glancing_angle(static_val, GLANCING_CUTOFF):
             log.warning(
                 "Angled source propagation axis close to glancing angle. "
                 "For best results, switch the injection axis.",
@@ -798,10 +803,11 @@ class PlaneWave(AngledFieldSource, PlanarSource, BroadbandSource):
         freq_min, freq_max = self.source_time.frequency_range_sigma(sigma=CHEB_GRID_WIDTH)
         f_crit = self.source_time._freq0 * np.sin(self.angle_theta)
         if f_crit * CRITICAL_FREQUENCY_FACTOR > freq_max:
-            raise SetupError(
+            self._raise_validation_error_at_loc(
                 "Broadband plane wave source defined with a bandwidth too close to the critical "
                 "frequency of oblique incidence. Increase the source bandwidth, or disable the "
-                "broadband handling by setting 'num_freqs' to 1."
+                "broadband handling by setting 'num_freqs' to 1.",
+                "num_freqs",
             )
         return self
 
@@ -1322,7 +1328,7 @@ class AstigmaticGaussianBeam(AbstractGaussianBeam):
     Notes
     -----
 
-        This class implements the simple astigmatic Gaussian beam described in _`[1]`.
+        This class implements the simple astigmatic Gaussian beam described in [1]_.
 
         **References**:
 

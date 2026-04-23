@@ -15,7 +15,7 @@ from typing import Any, Literal, get_type_hints
 
 from pydantic import BaseModel, Field
 
-from plato.otel import emit_step
+from plato.otel import emit_step, start_debug_span
 
 logger = logging.getLogger(__name__)
 
@@ -554,7 +554,7 @@ def verifier(fn: Any | None = None, *, stage: str | None = None) -> Any:
                 if tracer is None:
                     output, _ = await _async_run(inner_fn, verifier_id, return_model, *args, **kwargs)
                     return output
-                with tracer.start_as_current_span("verification.run") as span:
+                with start_debug_span(tracer, "verification.run") as span:
                     span.set_attribute("verification.verifier_id", verifier_id)
                     span.set_attribute("verification.stage", scope.stage)
                     output, result = await _async_run(inner_fn, verifier_id, return_model, *args, **kwargs)
@@ -593,7 +593,7 @@ def verifier(fn: Any | None = None, *, stage: str | None = None) -> Any:
             if tracer is None:
                 output, _ = _sync_run(inner_fn, verifier_id, return_model, *args, **kwargs)
                 return output
-            with tracer.start_as_current_span("verification.run") as span:
+            with start_debug_span(tracer, "verification.run") as span:
                 span.set_attribute("verification.verifier_id", verifier_id)
                 span.set_attribute("verification.stage", scope.stage)
                 output, result = _sync_run(inner_fn, verifier_id, return_model, *args, **kwargs)

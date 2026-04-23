@@ -36,6 +36,7 @@ from anyscale.commands.scim_commands import scim_cli
 from anyscale.commands.service_account_commands import service_account_cli
 from anyscale.commands.service_commands import service_cli
 from anyscale.commands.session_commands_hidden import session_cli
+from anyscale.commands.skills_commands import skills_cli
 from anyscale.commands.user_commands import user_cli
 from anyscale.commands.user_group_commands import user_group_cli
 from anyscale.commands.workspace_commands_v2 import workspace_cli as workspace_cli_v2
@@ -144,6 +145,7 @@ cli.add_command(organization_invitation_cli)
 cli.add_command(user_group_cli)
 cli.add_command(scim_cli)
 cli.add_command(policy_cli)
+cli.add_command(skills_cli)
 
 ALIASES = {
     "h": anyscale_help,

@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
-from typing import Any
+from typing import Any, cast
 
 from ..config import AppConfig
 from .token_provider import TokenProvider, TokenProviderError
@@ -40,6 +40,7 @@ def _get_openai_error_types() -> tuple[tuple[type[Exception], ...], tuple[type[E
 
         _PERMANENT_ERRORS = (NotFoundError, UnprocessableEntityError)
         _TRANSIENT_ERRORS = (RateLimitError, APIConnectionError, APITimeoutError, InternalServerError)
+    assert _TRANSIENT_ERRORS is not None
     return _PERMANENT_ERRORS, _TRANSIENT_ERRORS
 
 
@@ -111,7 +112,7 @@ class EmbeddingService:
                 input=truncated,
                 dimensions=self._dimensions,
             )
-            return response.data[0].embedding
+            return cast(list[float], response.data[0].embedding)
         except AuthenticationError:
             if not _auth_retried and self._try_refresh_token():
                 return await self.embed(text, _auth_retried=True)

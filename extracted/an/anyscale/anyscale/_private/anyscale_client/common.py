@@ -39,6 +39,8 @@ from anyscale.client.openapi_client.models import (
     ResourceTagResourceType,
     ServerSessionToken,
     SessionState,
+    SkillsManifestResponse,
+    TermsStatusResponse,
     UpdatePolicyRequest,
     UserGroup,
     UsergroupListResponse,
@@ -87,7 +89,7 @@ from anyscale.utils.workspace_notification import WorkspaceNotification
 # Maybe just make it part of the release process to update it, or fetch the
 # default builds and get the latest one. The best thing to do is probably
 # to populate this in the backend.
-DEFAULT_RAY_VERSION = "2.55.0"  # RAY_RELEASE_UPDATE: update to latest version
+DEFAULT_RAY_VERSION = "2.55.1"  # RAY_RELEASE_UPDATE: update to latest version
 DEFAULT_PYTHON_VERSION = "py311"
 RUNTIME_ENV_PACKAGE_FORMAT = "pkg_{content_hash}.zip"
 
@@ -1169,4 +1171,28 @@ class AnyscaleClientInterface(ABC):
     @abstractmethod
     def get_user_info(self) -> Any:
         """Get information about the current user."""
+        raise NotImplementedError
+
+    # ---- Skills ----
+
+    @abstractmethod
+    def get_skills_manifest(
+        self, *, version: Optional[str] = None, include_bundle_url: bool = True,
+    ) -> SkillsManifestResponse:
+        """Get the skills manifest for a version.
+
+        When include_bundle_url is False, the response omits the presigned
+        bundle URL and checksum, and the backend does not require the user
+        to have accepted the license terms.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_skills_terms(self, *, version: Optional[str] = None) -> TermsStatusResponse:
+        """Get the current user's terms acceptance status for a skills version."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def accept_skills_terms(self, *, license_hash: str) -> None:
+        """Accept the skills license terms."""
         raise NotImplementedError

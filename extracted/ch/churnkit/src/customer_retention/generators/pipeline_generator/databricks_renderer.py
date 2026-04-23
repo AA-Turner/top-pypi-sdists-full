@@ -836,7 +836,7 @@ def apply_event_aggregation(df):
     agg_exprs = [F.count("*").alias("event_count_{{ window }}")]
     for col in numeric_columns:
         _blocked = COLUMN_BLOCKED_FUNCS.get(col, [])
-{%- for agg_func in config.aggregation.agg_funcs if agg_func != "count" %}
+{%- for agg_func in config.aggregation.agg_funcs %}
         if "{{ agg_func }}" not in _blocked:
             agg_exprs.append(F.{{ agg_func }}(col).alias(f"{col}_{{ agg_func }}_{{ window }}"))
 {%- endfor %}
@@ -880,7 +880,7 @@ def apply_event_aggregation(df):
     return merged, reference_date
 {% endif %}
 
-{%- if config.temporal_features %}
+{%- if config.temporal_features and config.temporal_features.has_renderable_content() %}
 
 def compute_temporal_features(agg_df, raw_df):
     \"\"\"Source: Temporal Deep Dive > Lag Features\"\"\"
@@ -891,6 +891,12 @@ def compute_temporal_features(agg_df, raw_df):
         lag_window_days={{ config.temporal_features.lag_window_days }},
         num_lags={{ config.temporal_features.num_lags }},
         lag_aggregations={{ config.temporal_features.lag_agg_funcs }},
+        compute_velocity={{ 'velocity' in config.temporal_features.feature_groups }},
+        compute_acceleration={{ 'acceleration' in config.temporal_features.feature_groups }},
+        compute_lifecycle={{ 'lifecycle' in config.temporal_features.feature_groups }},
+        compute_recency={{ 'recency' in config.temporal_features.feature_groups }},
+        compute_regularity={{ 'regularity' in config.temporal_features.feature_groups }},
+        compute_cohort={{ 'cohort_comparison' in config.temporal_features.feature_groups }},
     )
     engineer = SparkTemporalFeatureEngineer(eng_config)
     result = engineer.compute(raw_df, ENTITY_COLUMN, TIME_COLUMN, value_cols)
@@ -940,7 +946,7 @@ def run_bronze_event():
 {%- else %}
     agg_df, reference_date = apply_event_aggregation(df)
 {%- endif %}
-{%- if config.temporal_features %}
+{%- if config.temporal_features and config.temporal_features.has_renderable_content() %}
     agg_df = compute_temporal_features(agg_df, raw_df)
 {%- endif %}
 {%- if config.text_features %}

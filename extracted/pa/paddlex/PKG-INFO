@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: paddlex
-Version: 3.5.0
+Version: 3.5.1
 Summary: Low-code development tool based on PaddlePaddle.
 Author: PaddlePaddle Authors
 Author-email: 
@@ -30,7 +30,7 @@ Requires-Dist: chardet
 Requires-Dist: colorlog
 Requires-Dist: filelock
 Requires-Dist: huggingface-hub
-Requires-Dist: modelscope<1.30,>=1.28.0; python_version == "3.8"
+Requires-Dist: modelscope<1.29.2,>=1.28.0; python_version == "3.8"
 Requires-Dist: modelscope>=1.28.0; python_version >= "3.9"
 Requires-Dist: numpy<2.4,>=1.24
 Requires-Dist: packaging

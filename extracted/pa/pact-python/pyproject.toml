@@ -2,7 +2,7 @@
 
 [project]
 name = "pact-python"
-version = "3.3.0"
+version = "3.3.1"
 description = "Tool for creating and verifying consumer-driven contracts using the Pact framework."
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -123,7 +123,7 @@ test = [
   "testcontainers~=4.0",
 ]
 types = [
-  "mypy==1.20.1",
+  "mypy==1.20.2",
   "types-grpcio~=1.0",
   "types-protobuf~=7.34",
   "types-requests~=2.0",
@@ -337,3 +337,9 @@ build-backend = "hatchling.build"
 
     [tool.uv.workspace]
     members = ["pact-python-cli", "pact-python-ffi"]
+
+  [tool.yamlfix]
+  line_length = 100
+  section_whitelines = 1
+  sequence_style = "block_style"
+  whitelines = 1

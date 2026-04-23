@@ -17,7 +17,11 @@ from dns.nameserver import Nameserver
 from dns.rdatatype import RdataType
 from expiringdict import ExpiringDict
 
-from checkdmarc._constants import DNSSEC_CACHE_MAX_AGE_SECONDS, DNSSEC_CACHE_MAX_LEN
+from checkdmarc._constants import (
+    DEFAULT_DNS_TIMEOUT,
+    DNSSEC_CACHE_MAX_AGE_SECONDS,
+    DNSSEC_CACHE_MAX_LEN,
+)
 from checkdmarc.utils import get_base_domain, normalize_domain
 
 """Copyright 2019-2023 Sean Whalen
@@ -49,7 +53,7 @@ def get_dnskey(
     domain: str,
     *,
     nameservers: Optional[Sequence[str | Nameserver]] = None,
-    timeout: float = 2.0,
+    timeout: float = DEFAULT_DNS_TIMEOUT,
     cache: Optional[ExpiringDict] = None,
 ) -> Optional[dict]:
     """
@@ -110,7 +114,7 @@ def test_dnssec(
     domain: str,
     *,
     nameservers: Optional[Sequence[str | Nameserver]] = None,
-    timeout: float = 2.0,
+    timeout: float = DEFAULT_DNS_TIMEOUT,
     cache: Optional[ExpiringDict] = None,
 ) -> bool:
     """
@@ -176,7 +180,7 @@ def get_tlsa_records(
     hostname: str,
     *,
     nameservers: Optional[Sequence[str | Nameserver]] = None,
-    timeout: float = 2.0,
+    timeout: float = DEFAULT_DNS_TIMEOUT,
     port: int = 25,
     protocol: str = "tcp",
     cache: Optional[ExpiringDict] = None,

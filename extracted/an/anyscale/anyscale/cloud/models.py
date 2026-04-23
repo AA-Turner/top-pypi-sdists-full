@@ -349,6 +349,7 @@ aws_config:
     - sg-12345678901234567
   anyscale_iam_role_id: arn:aws:iam::123456789012:role/anyscale-iam-role
   cluster_iam_role_id: arn:aws:iam::123456789012:role/cluster-node-role
+  cluster_instance_profile_id: arn:aws:iam::123456789012:instance-profile/cluster-node-profile
   memorydb_cluster_name: my-memorydb-cluster
 """
 
@@ -378,6 +379,17 @@ aws_config:
     )
     cluster_iam_role_id: Optional[str] = field(
         default=None, metadata={"docstring": "The IAM role ARN used by Ray clusters."},
+    )
+    cluster_instance_profile_id: Optional[str] = field(
+        default=None,
+        metadata={
+            "docstring": (
+                "The IAM instance profile ARN attached to Ray cluster nodes. "
+                "Defaults to the instance profile with the same name as the "
+                "`cluster_iam_role_id` role. Set this explicitly when your IAM "
+                "tooling generates a profile name that differs from the role name."
+            )
+        },
     )
     memorydb_cluster_name: Optional[str] = field(
         default=None, metadata={"docstring": "The MemoryDB cluster name."},
@@ -517,6 +529,7 @@ aws_config:
   - sg-12345678901234567
   anyscale_iam_role_id: arn:aws:iam::123456789012:role/anyscale-iam-role
   cluster_iam_role_id: arn:aws:iam::123456789012:role/cluster-node-role
+  cluster_instance_profile_id: arn:aws:iam::123456789012:instance-profile/cluster-node-profile
   memorydb_cluster_name: my-memorydb-cluster
 """
 

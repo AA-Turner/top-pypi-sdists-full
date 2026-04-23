@@ -10,19 +10,27 @@ from box_sdk_gen.internal.utils import to_string
 
 from box_sdk_gen.serialization.json import deserialize
 
+from typing import Union
+
 from box_sdk_gen.serialization.json import serialize
 
 from box_sdk_gen.internal.null_value import NullValue
 
-from typing import Union
-
 from box_sdk_gen.networking.fetch_options import ResponseFormat
+
+from box_sdk_gen.schemas.retention_policy_max_extension_length_request import (
+    RetentionPolicyMaxExtensionLengthRequestEnum,
+)
 
 from box_sdk_gen.schemas.retention_policies import RetentionPolicies
 
 from box_sdk_gen.schemas.client_error import ClientError
 
 from box_sdk_gen.schemas.retention_policy import RetentionPolicy
+
+from box_sdk_gen.schemas.retention_policy_max_extension_length_request import (
+    RetentionPolicyMaxExtensionLengthRequest,
+)
 
 from box_sdk_gen.schemas.user_mini import UserMini
 
@@ -154,9 +162,10 @@ class RetentionPoliciesManager:
         disposition_action: CreateRetentionPolicyDispositionAction,
         *,
         description: Optional[str] = None,
-        retention_length: Optional[str] = None,
+        retention_length: Optional[Union[str, int]] = None,
         retention_type: Optional[CreateRetentionPolicyRetentionType] = None,
         can_owner_extend_retention: Optional[bool] = None,
+        max_extension_length: Optional[RetentionPolicyMaxExtensionLengthRequest] = None,
         are_owners_notified: Optional[bool] = None,
         custom_notification_recipients: Optional[List[UserMini]] = None,
         extra_headers: Optional[Dict[str, Optional[str]]] = None
@@ -186,7 +195,7 @@ class RetentionPoliciesManager:
         content.  If the policy has a `policy_type` of
         `indefinite`, the `retention_length` will also be
         `indefinite`., defaults to None
-                :type retention_length: Optional[str], optional
+                :type retention_length: Optional[Union[str, int]], optional
                 :param retention_type: Specifies the retention type:
 
         * `modifiable`: You can modify the retention policy. For example,
@@ -225,6 +234,7 @@ class RetentionPoliciesManager:
             'retention_length': retention_length,
             'retention_type': retention_type,
             'can_owner_extend_retention': can_owner_extend_retention,
+            'max_extension_length': max_extension_length,
             'are_owners_notified': are_owners_notified,
             'custom_notification_recipients': custom_notification_recipients,
         }
@@ -301,9 +311,10 @@ class RetentionPoliciesManager:
         description: Union[Optional[str], NullValue] = None,
         disposition_action: Optional[str] = None,
         retention_type: Union[Optional[str], NullValue] = None,
-        retention_length: Optional[str] = None,
+        retention_length: Optional[Union[str, int]] = None,
         status: Union[Optional[str], NullValue] = None,
         can_owner_extend_retention: Union[Optional[bool], NullValue] = None,
+        max_extension_length: Optional[RetentionPolicyMaxExtensionLengthRequest] = None,
         are_owners_notified: Union[Optional[bool], NullValue] = None,
         custom_notification_recipients: Union[
             Optional[List[UserBase]], NullValue
@@ -354,7 +365,7 @@ class RetentionPoliciesManager:
         content.  If the policy has a `policy_type` of
         `indefinite`, the `retention_length` will also be
         `indefinite`., defaults to None
-                :type retention_length: Optional[str], optional
+                :type retention_length: Optional[Union[str, int]], optional
                 :param status: Used to retire a retention policy.
 
         If not retiring a policy, do not include this parameter
@@ -383,6 +394,7 @@ class RetentionPoliciesManager:
             'retention_length': retention_length,
             'status': status,
             'can_owner_extend_retention': can_owner_extend_retention,
+            'max_extension_length': max_extension_length,
             'are_owners_notified': are_owners_notified,
             'custom_notification_recipients': custom_notification_recipients,
         }

@@ -3,7 +3,7 @@
 class FiscalizationProvider(object):
     """
     Решение ЮKassa, которое магазин использует для отправки чеков. Возможные значения:
-        * [54-ФЗ: Чеки от ЮKassa](/developers/payment-acceptance/receipts/54fz/yoomoney/basics) — `avanpost`
+        * [54-ФЗ: Чеки от ЮKassa](/developers/payment-acceptance/receipts/54fz/yoomoney/basics) — ~`avanpost` (ООО «Аванпост»), ~`yoo_receipt` (ООО «АйтиГрупп»)
         * [54-ФЗ: сторонняя онлайн-касса](/developers/payment-acceptance/receipts/54fz/other-services/basics) (наименование онлайн-кассы) — ~`a_qsi` (aQsi online), ~`atol` (АТОЛ Онлайн), ~`business_ru` (Бизнес.ру), ~`digital_kassa` (digitalkassa), ~`evotor` (Эвотор), ~`first_ofd` (Первый ОФД), ~`kit_invest` (Кит Инвест), ~`komtet` (КОМТЕТ Касса), ~`life_pay` (LIFE PAY), ~`mertrade` (Mertrade), ~`modul_kassa` (МодульКасса), ~`rocket` (RocketR), ~`shtrih_m` (Orange Data).
     """  # noqa: E501
 
@@ -25,7 +25,7 @@ class FiscalizationProvider(object):
     A_QSI = "a_qsi"
     """aQsi online"""
     AVANPOST = "avanpost"
-    """54-ФЗ: Чеки от ЮKassa"""
+    """54-ФЗ: Чеки от ЮKassa  (ООО «Аванпост»)"""
     MERTRADE = "mertrade"
     """Mertrade"""
     FIRST_OFD = "first_ofd"
@@ -38,3 +38,5 @@ class FiscalizationProvider(object):
     """digitalkassa"""
     KOMTET = "komtet"
     """КОМТЕТ Касса"""
+    YOO_RECEIPT = "yoo_receipt"
+    """54-ФЗ: Чеки от ЮKassa (ООО «АйтиГрупп»)"""

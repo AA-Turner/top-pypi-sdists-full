@@ -1,6 +1,6 @@
 """Shared layout utilities for the Anteroom CLI.
 
-Provides prompt prefix styling, input lexer, and path shortening.
+Provides prompt prefix styling, input lexer, and input-toolbar helpers.
 """
 
 from __future__ import annotations
@@ -65,6 +65,66 @@ def input_line_prefix(line_number: int, wrap_count: int) -> "StyleAndTextTuples"
             parts.append(("class:prompt.bg", f"[{_bg_task_count} bg] "))
         return parts
     return [("class:prompt.continuation", ". ")]
+
+
+def get_editing_mode_badge(
+    editing_mode: str,
+    *,
+    app: Any | None = None,
+    show_mode_badge: bool = True,
+) -> str | None:
+    """Return a compact mode badge for the input toolbar."""
+    if not show_mode_badge:
+        return None
+    mode = (editing_mode or "").strip().lower()
+    if mode == "vi":
+        vi_state = getattr(app, "vi_state", None)
+        input_mode = getattr(vi_state, "input_mode", None)
+        input_name = str(input_mode).split(".")[-1].replace("_", " ").upper() if input_mode is not None else ""
+        if "NAVIGATION" in input_name:
+            return "VI NAV"
+        if "REPLACE" in input_name:
+            return "VI REPLACE"
+        return "VI INSERT"
+    if mode == "emacs":
+        return "EMACS"
+    return None
+
+
+def get_input_hint(
+    *,
+    hint_context: str,
+    paste_line_count: int = 0,
+) -> str | None:
+    """Return a context-aware, low-noise hint string for the prompt toolbar."""
+    if hint_context == "multiline":
+        if paste_line_count > 0:
+            return f"{paste_line_count} pasted lines review before Enter"
+        return "Multiline Enter sends Alt+Enter newline"
+    if hint_context == "idle":
+        return "Tab complete Alt+Enter newline Ctrl+D exit"
+    return None
+
+
+def build_input_toolbar_fragments(
+    *,
+    editing_mode: str,
+    app: Any | None = None,
+    show_mode_badge: bool = True,
+    hint_context: str = "",
+    paste_line_count: int = 0,
+) -> "StyleAndTextTuples":
+    """Format input-specific toolbar fragments appended to the status toolbar."""
+    parts: StyleAndTextTuples = []
+    badge = get_editing_mode_badge(editing_mode, app=app, show_mode_badge=show_mode_badge)
+    hint = get_input_hint(hint_context=hint_context, paste_line_count=paste_line_count)
+    if badge:
+        parts.append(("class:bottom-toolbar.mode", badge))
+    if badge and hint:
+        parts.append(("class:bottom-toolbar.sep", " \u00b7 "))
+    if hint:
+        parts.append(("class:bottom-toolbar.hint", hint))
+    return parts
 
 
 # ---------------------------------------------------------------------------

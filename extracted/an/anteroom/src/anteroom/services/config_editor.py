@@ -431,25 +431,53 @@ def _read_yaml(path: Path) -> dict[str, Any]:
 
 
 def _write_yaml(path: Path, data: dict[str, Any]) -> None:
-    """Write a YAML file atomically with 0600 permissions.
+    """Write a YAML file with a durable atomic-write pattern.
 
-    Writes to a temporary sibling file first, then atomically replaces the
-    target.  This prevents config corruption if the process crashes mid-write.
+    1. Write content to a temporary sibling file.
+    2. fsync the temp file so data reaches stable storage before the rename.
+    3. chmod 0600 the temp file.
+    4. os.replace() to atomically swap it into place.
+    5. fsync the parent directory so the directory entry is durable.
+
+    Steps 1-4 prevent corruption on crash mid-write; step 5 ensures the
+    rename itself survives a power loss before the OS flushes the directory
+    (relevant on Linux ext4 without data=journal, and some network filesystems).
     """
     path.parent.mkdir(parents=True, exist_ok=True)
     content = yaml.dump(data, default_flow_style=False, sort_keys=False)
     tmp = path.with_suffix(".yaml.tmp")
     try:
-        tmp.write_text(content, encoding="utf-8")
+        with open(tmp, "w", encoding="utf-8") as f:
+            f.write(content)
+            f.flush()
+            os.fsync(f.fileno())
         try:
             tmp.chmod(stat.S_IRUSR | stat.S_IWUSR)
         except OSError:
             pass
         os.replace(str(tmp), str(path))
+        try:
+            dir_fd = os.open(str(path.parent), os.O_RDONLY)
+            try:
+                os.fsync(dir_fd)
+            finally:
+                os.close(dir_fd)
+        except OSError:
+            pass
     except BaseException:
-        # Clean up the temp file on any failure
         tmp.unlink(missing_ok=True)
         raise
+
+
+def _snapshot_personal_config(config_path: Path, source: str) -> None:
+    """Snapshot the personal config before a write.  Never raises."""
+    try:
+        from .config_history import ConfigHistoryService, get_backup_dir
+
+        backup_dir = get_backup_dir(config_path.parent)
+        ConfigHistoryService(backup_dir).snapshot(config_path, source=source)
+    except Exception:
+        logger.debug("Config snapshot failed (non-fatal)", exc_info=True)
 
 
 def write_personal_field(dot_path: str, value: Any, config_path: Path | None = None) -> Path:
@@ -464,6 +492,7 @@ def write_personal_field(dot_path: str, value: Any, config_path: Path | None = N
 
         config_path = _get_config_path()
 
+    _snapshot_personal_config(config_path, source="config_editor")
     raw = _read_yaml(config_path)
     _set_nested(raw, dot_path, value)
     _write_yaml(config_path, raw)
@@ -577,6 +606,7 @@ def reset_personal_field(dot_path: str, config_path: Path | None = None) -> bool
     raw = _read_yaml(config_path)
     deleted = _delete_nested(raw, dot_path)
     if deleted:
+        _snapshot_personal_config(config_path, source="config_editor")
         _write_yaml(config_path, raw)
     return deleted
 

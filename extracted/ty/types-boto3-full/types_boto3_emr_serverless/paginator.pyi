@@ -15,6 +15,7 @@ Usage::
         ListApplicationsPaginator,
         ListJobRunAttemptsPaginator,
         ListJobRunsPaginator,
+        ListSessionsPaginator,
     )
 
     session = Session()
@@ -23,6 +24,7 @@ Usage::
     list_applications_paginator: ListApplicationsPaginator = client.get_paginator("list_applications")
     list_job_run_attempts_paginator: ListJobRunAttemptsPaginator = client.get_paginator("list_job_run_attempts")
     list_job_runs_paginator: ListJobRunsPaginator = client.get_paginator("list_job_runs")
+    list_sessions_paginator: ListSessionsPaginator = client.get_paginator("list_sessions")
     ```
 """
 
@@ -40,6 +42,8 @@ from .type_defs import (
     ListJobRunAttemptsResponseTypeDef,
     ListJobRunsRequestPaginateTypeDef,
     ListJobRunsResponseTypeDef,
+    ListSessionsRequestPaginateTypeDef,
+    ListSessionsResponseTypeDef,
 )
 
 if sys.version_info >= (3, 12):
@@ -47,7 +51,12 @@ if sys.version_info >= (3, 12):
 else:
     from typing_extensions import Unpack
 
-__all__ = ("ListApplicationsPaginator", "ListJobRunAttemptsPaginator", "ListJobRunsPaginator")
+__all__ = (
+    "ListApplicationsPaginator",
+    "ListJobRunAttemptsPaginator",
+    "ListJobRunsPaginator",
+    "ListSessionsPaginator",
+)
 
 if TYPE_CHECKING:
     _ListApplicationsPaginatorBase = Paginator[ListApplicationsResponseTypeDef]
@@ -101,4 +110,22 @@ class ListJobRunsPaginator(_ListJobRunsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/emr-serverless/paginator/ListJobRuns.html#EMRServerless.Paginator.ListJobRuns.paginate)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_emr_serverless/paginators/#listjobrunspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListSessionsPaginatorBase = Paginator[ListSessionsResponseTypeDef]
+else:
+    _ListSessionsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListSessionsPaginator(_ListSessionsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/emr-serverless/paginator/ListSessions.html#EMRServerless.Paginator.ListSessions)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_emr_serverless/paginators/#listsessionspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListSessionsRequestPaginateTypeDef]
+    ) -> PageIterator[ListSessionsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/emr-serverless/paginator/ListSessions.html#EMRServerless.Paginator.ListSessions.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_emr_serverless/paginators/#listsessionspaginator)
         """

@@ -3,11 +3,136 @@
 #ifndef PDF_PAGE_XOBJECT_IMAGE_RESOURCE_H
 #define PDF_PAGE_XOBJECT_IMAGE_RESOURCE_H
 
+#include <cstdint>
+#include <cstring>
+
+#include <parse/utils/color/icc_utils.h>
 #include <parse/utils/jpeg/jpeg_utils.h>
 #include <parse/qpdf/qpdf_compat.h>
 
 namespace pdflib
 {
+
+  namespace detail
+  {
+    inline int icc_signature_to_components(char const* sig)
+    {
+      if(std::memcmp(sig, "GRAY", 4) == 0) return 1;
+      if(std::memcmp(sig, "RGB ", 4) == 0) return 3;
+      if(std::memcmp(sig, "CMYK", 4) == 0) return 4;
+
+      if(sig[1] == 'C' and sig[2] == 'L' and sig[3] == 'R')
+        {
+          if(sig[0] >= '2' and sig[0] <= '9') return sig[0] - '0';
+          if(sig[0] >= 'A' and sig[0] <= 'F') return 10 + (sig[0] - 'A');
+        }
+
+      return 0;
+    }
+
+    inline int infer_icc_components_from_profile(QPDFObjectHandle icc_stream,
+                                                 std::string const& context)
+    {
+      if(not icc_stream.isStream())
+        {
+          LOG_S(WARNING) << context << ": ICC object is not a stream";
+          return 0;
+        }
+
+      try
+        {
+          auto profile = to_shared_ptr(icc_stream.getStreamData());
+          if(not profile or profile->getSize() < 20)
+            {
+              LOG_S(WARNING) << context << ": ICC profile too small to inspect";
+              return 0;
+            }
+
+          auto const* bytes = reinterpret_cast<std::uint8_t const*>(profile->getBuffer());
+          int const n = icc_signature_to_components(reinterpret_cast<char const*>(bytes + 16));
+
+          if(n > 0)
+            {
+              LOG_S(INFO) << context << ": inferred ICC components from profile header: N=" << n;
+            }
+          else
+            {
+              LOG_S(WARNING) << context << ": unsupported ICC data color space signature";
+            }
+          return n;
+        }
+      catch(std::exception const& e)
+        {
+          LOG_S(WARNING) << context << ": failed to inspect ICC profile stream: " << e.what();
+          return 0;
+        }
+    }
+
+    inline int cmyk_process_component_index(std::string const& name)
+    {
+      if(name == "/Cyan")    return 0;
+      if(name == "/Magenta") return 1;
+      if(name == "/Yellow")  return 2;
+      if(name == "/Black")   return 3;
+      return -1;
+    }
+
+    inline bool device_n_names_are_process_cmyk_subset(
+      std::vector<std::string> const& names)
+    {
+      if(names.empty())
+        {
+          return false;
+        }
+
+      for(auto const& name : names)
+        {
+          if(cmyk_process_component_index(name) < 0)
+            {
+              return false;
+            }
+        }
+
+      return true;
+    }
+
+    inline std::shared_ptr<std::vector<uint8_t>> expand_device_n_palette_to_cmyk(
+      std::shared_ptr<std::vector<uint8_t>> const& palette,
+      std::vector<std::string> const&              names)
+    {
+      if(not palette or names.empty())
+        {
+          return nullptr;
+        }
+
+      const std::size_t src_components = names.size();
+      if(src_components == 0 or (palette->size() % src_components) != 0)
+        {
+          return nullptr;
+        }
+
+      const std::size_t entry_count = palette->size() / src_components;
+      auto expanded = std::make_shared<std::vector<uint8_t>>();
+      expanded->assign(entry_count * 4u, 0u);
+
+      for(std::size_t entry = 0; entry < entry_count; ++entry)
+        {
+          const std::size_t src_offset = entry * src_components;
+          const std::size_t dst_offset = entry * 4u;
+          for(std::size_t i = 0; i < src_components; ++i)
+            {
+              const int dst_component = cmyk_process_component_index(names[i]);
+              if(dst_component >= 0)
+                {
+                  (*expanded)[dst_offset + static_cast<std::size_t>(dst_component)] =
+                    (*palette)[src_offset + i];
+                }
+            }
+        }
+
+      return expanded;
+    }
+  }
 
   template<>
   class pdf_resource<PAGE_XOBJECT_IMAGE>
@@ -31,9 +156,13 @@ namespace pdflib
     int                      get_bits_per_component() const;
     std::string              get_color_space() const;
     int                      get_icc_components() const;
+    int                      get_device_n_components() const;
+    std::vector<std::string> get_device_n_names() const;
     int                      get_indexed_hival() const;
     std::string              get_indexed_base_cs() const;
     std::shared_ptr<std::vector<uint8_t>> get_indexed_palette() const;
+    std::vector<std::string> get_indexed_base_device_n_names() const;
+    bool                     get_indexed_base_device_n_single_black() const;
     std::string              get_intent() const;
     std::vector<std::string> get_filters() const;
 
@@ -53,6 +182,8 @@ namespace pdflib
 
     bool                     has_decoded_stream_data() const;
     std::shared_ptr<Buffer>  get_decoded_stream_data() const;
+    bool                     has_soft_mask_data() const;
+    std::shared_ptr<std::vector<uint8_t>> get_soft_mask_data() const;
 
     // Determine file extension from filters (e.g. ".jpg", ".jp2", ".jb2", ".bin")
     std::string pick_extension() const;
@@ -72,6 +203,7 @@ namespace pdflib
     void init_filters();
 
     void init_stream_data();
+    void init_soft_mask_data();
 
   private:
 
@@ -88,15 +220,22 @@ namespace pdflib
     int              bits_per_component;
     std::string      color_space;
     int              icc_components = 0;  // number of color components from /ICCBased /N entry; 0 if not ICCBased
+    int              device_n_components = 0; // number of components from /DeviceN names array; 0 if not DeviceN
+    std::vector<std::string> device_n_names; // names from /DeviceN colorant array
     int              indexed_hival  = -1; // hival from /Indexed color space; -1 if not Indexed
     std::string      indexed_base_cs;    // base color space name for /Indexed (e.g. "/DeviceRGB")
     std::shared_ptr<std::vector<uint8_t>> indexed_palette; // raw palette bytes: (hival+1)*ncomps bytes
+    std::shared_ptr<std::vector<uint8_t>> indexed_base_icc_profile;
+    int              indexed_base_icc_components = 0;
+    std::vector<std::string> indexed_base_device_n_names;
+    bool             indexed_base_device_n_single_black = false;
     std::string      intent;
     std::vector<std::string> image_filters;
 
     // Stream data
     std::shared_ptr<Buffer> raw_stream_data;
     std::shared_ptr<Buffer> decoded_stream_data;
+    std::shared_ptr<std::vector<uint8_t>> soft_mask_data;
 
     // PDF image semantics
     std::vector<double> decode_array; // length 2*ncomp when present
@@ -104,7 +243,7 @@ namespace pdflib
     bool image_mask = false;
 
     // /CCITTFaxDecode parameters from /DecodeParms
-    int  ccitt_k          = -1;    // /K: -1=Group4, 0=Group3-1D, >0=Group3-mixed
+    int  ccitt_k          = 0;     // /K default per PDF spec: 0=Group3-1D, <0=Group4, >0=Group3-mixed
     bool ccitt_black_is_1 = false; // /BlackIs1: true means 1-bit=black
     std::shared_ptr<Buffer> jbig2_globals_data;
   };
@@ -118,6 +257,7 @@ namespace pdflib
     image_filters(),
     raw_stream_data(nullptr),
     decoded_stream_data(nullptr),
+    soft_mask_data(nullptr),
     jbig2_globals_data(nullptr)
   {}
 
@@ -167,9 +307,10 @@ namespace pdflib
       json_xobject_dict = to_json(qpdf_xobject_dict);
     }
 
-    init_image_properties();
     init_filters();
+    init_image_properties();
     init_stream_data();
+    init_soft_mask_data();
   }
 
   void pdf_resource<PAGE_XOBJECT_IMAGE>::init_image_properties()
@@ -240,11 +381,35 @@ namespace pdflib
                         else
                           {
                             LOG_S(WARNING) << "ICCBased stream missing /N entry";
+                            icc_components = detail::infer_icc_components_from_profile(
+                              icc_stream, "ICCBased");
                           }
                       }
                     else
                       {
                         LOG_S(WARNING) << "ICCBased: second array element is not a stream";
+                      }
+                  }
+                else if(name_obj.isName() and name_obj.getName() == "/DeviceN")
+                  {
+                    device_n_names.clear();
+                    auto names_obj = qpdf_cs.getArrayItem(1);
+                    if(names_obj.isArray())
+                      {
+                        device_n_components = names_obj.getArrayNItems();
+                        for(int i = 0; i < names_obj.getArrayNItems(); ++i)
+                          {
+                            auto name = names_obj.getArrayItem(i);
+                            if(name.isName())
+                              {
+                                device_n_names.push_back(name.getName());
+                              }
+                          }
+                        LOG_S(INFO) << "DeviceN color space: N=" << device_n_components;
+                      }
+                    else
+                      {
+                        LOG_S(WARNING) << "DeviceN color space: names array missing";
                       }
                   }
                 else if(name_obj.isName() and name_obj.getName() == "/Indexed"
@@ -254,6 +419,10 @@ namespace pdflib
 
                     // base color space
                     auto base_obj = qpdf_cs.getArrayItem(1);
+                    indexed_base_device_n_single_black = false;
+                    indexed_base_icc_profile.reset();
+                    indexed_base_icc_components = 0;
+                    indexed_base_device_n_names.clear();
                     if(base_obj.isName())
                       {
                         indexed_base_cs = base_obj.getName();
@@ -266,10 +435,21 @@ namespace pdflib
                             auto icc_stream = base_obj.getArrayItem(1);
                             if(icc_stream.isStream())
                               {
+                                auto profile_buf = to_shared_ptr(icc_stream.getStreamData());
+                                if(profile_buf and profile_buf->getSize() > 0)
+                                  {
+                                    auto const* ptr = reinterpret_cast<const uint8_t*>(
+                                      profile_buf->getBuffer());
+                                    indexed_base_icc_profile =
+                                      std::make_shared<std::vector<uint8_t>>(
+                                        ptr, ptr + profile_buf->getSize());
+                                  }
+
                                 auto icc_dict = icc_stream.getDict();
                                 if(icc_dict.hasKey("/N") and icc_dict.getKey("/N").isInteger())
                                   {
                                     const int n = icc_dict.getKey("/N").getIntValue();
+                                    indexed_base_icc_components = n;
                                     if(n == 1)      { indexed_base_cs = "/DeviceGray"; }
                                     else if(n == 3) { indexed_base_cs = "/DeviceRGB"; }
                                     else if(n == 4) { indexed_base_cs = "/DeviceCMYK"; }
@@ -284,11 +464,66 @@ namespace pdflib
                                 else
                                   {
                                     LOG_S(WARNING) << "Indexed ICCBased base missing /N entry";
+                                    const int n = detail::infer_icc_components_from_profile(
+                                      icc_stream, "Indexed ICCBased base");
+                                    indexed_base_icc_components = n;
+                                    if(n == 1)      { indexed_base_cs = "/DeviceGray"; }
+                                    else if(n == 3) { indexed_base_cs = "/DeviceRGB"; }
+                                    else if(n == 4) { indexed_base_cs = "/DeviceCMYK"; }
                                   }
                               }
                             else
                               {
                                 LOG_S(WARNING) << "Indexed ICCBased base: second array element is not a stream";
+                              }
+                          }
+                        else if(base_name.isName() and base_name.getName() == "/DeviceN")
+                          {
+                            auto names_obj = base_obj.getArrayItem(1);
+                            if(names_obj.isArray())
+                              {
+                                std::vector<std::string> nested_names;
+                                for(int i = 0; i < names_obj.getArrayNItems(); ++i)
+                                  {
+                                    auto name = names_obj.getArrayItem(i);
+                                    if(name.isName())
+                                      {
+                                        nested_names.push_back(name.getName());
+                                      }
+                                  }
+                                indexed_base_device_n_names = nested_names;
+
+                                const int nested_n = static_cast<int>(nested_names.size());
+                                const bool single_black =
+                                  nested_n == 1
+                                  and nested_names[0] == "/Black";
+                                const bool process_cmyk_subset =
+                                  detail::device_n_names_are_process_cmyk_subset(nested_names);
+                                indexed_base_device_n_single_black = single_black;
+
+                                if(single_black)       { indexed_base_cs = "/DeviceGray"; }
+                                else if(process_cmyk_subset)
+                                  {
+                                    indexed_base_cs = "/DeviceCMYK";
+                                    LOG_S(INFO) << "Indexed DeviceN base uses process CMYK subset; "
+                                                << "will expand palette to CMYK";
+                                  }
+                                else if(nested_n == 3)
+                                  {
+                                    indexed_base_cs = "/DeviceRGB";
+                                  }
+                                else if(nested_n == 4)
+                                  {
+                                    indexed_base_cs = "/DeviceCMYK";
+                                  }
+                                else
+                                  {
+                                    indexed_base_cs = "/DeviceN";
+                                    LOG_S(WARNING) << "Indexed DeviceN base has unsupported component layout N="
+                                                   << nested_n;
+                                  }
+                                LOG_S(INFO) << "Indexed DeviceN base: N=" << nested_n
+                                            << " -> " << indexed_base_cs;
                               }
                           }
                         else if(base_name.isName())
@@ -344,6 +579,52 @@ namespace pdflib
                           {
                             LOG_S(WARNING) << "Indexed color space: unrecognized lookup table type";
                           }
+
+                        if(indexed_base_cs == "/DeviceCMYK"
+                           and not indexed_base_device_n_names.empty()
+                           and detail::device_n_names_are_process_cmyk_subset(
+                             indexed_base_device_n_names))
+                          {
+                            auto expanded =
+                              detail::expand_device_n_palette_to_cmyk(indexed_palette,
+                                                                      indexed_base_device_n_names);
+                            if(expanded)
+                              {
+                                indexed_palette = std::move(expanded);
+                                LOG_S(INFO) << "Indexed DeviceN palette expanded to CMYK: "
+                                            << indexed_palette->size() << " bytes";
+                              }
+                            else
+                              {
+                                LOG_S(WARNING) << "Indexed DeviceN palette expansion to CMYK failed";
+                              }
+                          }
+
+                        if(indexed_base_icc_profile
+                           and not indexed_base_icc_profile->empty()
+                           and indexed_base_icc_components > 0
+                           and indexed_palette
+                           and not indexed_palette->empty())
+                          {
+                            auto rgb_palette = icc::transform_palette_to_rgb(
+                              *indexed_palette,
+                              indexed_base_icc_components,
+                              *indexed_base_icc_profile);
+                            if(not rgb_palette.empty())
+                              {
+                                indexed_palette = std::make_shared<std::vector<uint8_t>>(
+                                  std::move(rgb_palette));
+                                indexed_base_cs = "/DeviceRGB";
+                                indexed_base_device_n_names.clear();
+                                indexed_base_device_n_single_black = false;
+                                LOG_S(INFO) << "Indexed ICCBased palette converted to RGB: "
+                                            << indexed_palette->size() << " bytes";
+                              }
+                            else
+                              {
+                                LOG_S(WARNING) << "Indexed ICCBased palette RGB conversion failed";
+                              }
+                          }
                       }
                   }
               }
@@ -392,9 +673,15 @@ namespace pdflib
       }
     else
       {
-	// p 210, table 90: Default decode arrays
-	if(color_space=="/DeviceGray")
+        if(image_mask)
+          {
+            LOG_S(INFO) << "no `/Decode` found: using default [0 1] for image mask";
+            decode_array = {0.0, 1.0};
+            decode_present = true;
+          }
+        else if(color_space=="/DeviceGray")
 	  {
+	    // p 210, table 90: Default decode arrays
 	    LOG_S(WARNING) << "no `/Decode` found: falling back on default for " << color_space;
 	    decode_array = {
 	      //1, 0
@@ -431,6 +718,22 @@ namespace pdflib
 	      }
 	    decode_present = not decode_array.empty();
 	  }
+        else if(device_n_components > 0)
+          {
+            const bool single_black =
+              device_n_components == 1
+              and device_n_names.size() == 1
+              and device_n_names[0] == "/Black";
+            LOG_S(INFO) << "no `/Decode` found: using default for DeviceN N="
+                        << device_n_components
+                        << " single_black=" << (single_black ? "true" : "false");
+            for(int i = 0; i < device_n_components; ++i)
+              {
+                decode_array.push_back(single_black ? 1.0 : 0.0);
+                decode_array.push_back(single_black ? 0.0 : 1.0);
+              }
+            decode_present = not decode_array.empty();
+          }
 	else if(indexed_hival >= 0)
 	  {
 	    // Indexed: default decode is [0, hival] (one component — the palette index)
@@ -447,15 +750,43 @@ namespace pdflib
     if(json_xobject_dict.count("/DecodeParms"))
       {
         auto& dp = json_xobject_dict["/DecodeParms"];
+        int decode_parms_index = -1;
+        for(std::size_t i = 0; i < image_filters.size(); ++i)
+          {
+            if(image_filters[i] == "/JBIG2Decode" or image_filters[i] == "/CCITTFaxDecode")
+              {
+                decode_parms_index = static_cast<int>(i);
+                break;
+              }
+          }
+        LOG_S(INFO) << "DecodeParms lookup for xobject_key=" << xobject_key
+                    << " filter_index=" << decode_parms_index
+                    << " filters=" << nlohmann::json(image_filters).dump();
+
         // DecodeParms can be a dict or an array of dicts (one per filter).
-        // For a single /CCITTFaxDecode we always look in the first (or only) dict.
-        auto* parms_ptr = dp.is_object() ? &dp
-                        : (dp.is_array() and not dp.empty() and dp[0].is_object())
-                            ? &dp[0]
-                            : nullptr;
+        // When it is an array, choose the object corresponding to the relevant
+        // filter instead of always assuming index 0.
+        auto* parms_ptr = dp.is_object() ? &dp : nullptr;
+        if(dp.is_array())
+          {
+            if(decode_parms_index >= 0
+               and decode_parms_index < static_cast<int>(dp.size())
+               and dp[decode_parms_index].is_object())
+              {
+                parms_ptr = &dp[decode_parms_index];
+              }
+            else if(not dp.empty() and dp[0].is_object())
+              {
+                LOG_S(WARNING) << "DecodeParms array missing dictionary at filter index "
+                               << decode_parms_index << ", falling back to index 0";
+                parms_ptr = &dp[0];
+              }
+          }
         if(parms_ptr)
           {
             auto& parms = *parms_ptr;
+            LOG_S(INFO) << "selected DecodeParms for xobject_key=" << xobject_key
+                        << ": " << parms.dump();
             if(parms.count("/K") and parms["/K"].is_number())
               {
                 ccitt_k = parms["/K"].get<int>();
@@ -466,11 +797,26 @@ namespace pdflib
               }
 
             auto qpdf_dp = qpdf_xobject_dict.getKey("/DecodeParms");
-            QPDFObjectHandle qpdf_parms =
-              qpdf_dp.isDictionary() ? qpdf_dp
-              : (qpdf_dp.isArray() and qpdf_dp.getArrayNItems() > 0 and qpdf_dp.getArrayItem(0).isDictionary())
-                  ? qpdf_dp.getArrayItem(0)
-                  : QPDFObjectHandle();
+            QPDFObjectHandle qpdf_parms;
+            if(qpdf_dp.isDictionary())
+              {
+                qpdf_parms = qpdf_dp;
+              }
+            else if(qpdf_dp.isArray())
+              {
+                if(decode_parms_index >= 0
+                   and decode_parms_index < qpdf_dp.getArrayNItems()
+                   and qpdf_dp.getArrayItem(decode_parms_index).isDictionary())
+                  {
+                    qpdf_parms = qpdf_dp.getArrayItem(decode_parms_index);
+                  }
+                else if(qpdf_dp.getArrayNItems() > 0 and qpdf_dp.getArrayItem(0).isDictionary())
+                  {
+                    LOG_S(WARNING) << "QPDF DecodeParms array missing dictionary at filter index "
+                                   << decode_parms_index << ", falling back to index 0";
+                    qpdf_parms = qpdf_dp.getArrayItem(0);
+                  }
+              }
 
             if(qpdf_parms.isDictionary() and qpdf_parms.hasKey("/JBIG2Globals"))
               {
@@ -479,15 +825,32 @@ namespace pdflib
                   {
                     try
                       {
-                        jbig2_globals_data = to_shared_ptr(globals_stream.getRawStreamData());
+                        jbig2_globals_data = to_shared_ptr(globals_stream.getStreamData());
+                        LOG_S(INFO) << "JBIG2Globals source=decoded for xobject_key="
+                                    << xobject_key;
                         LOG_S(INFO) << "JBIG2Globals size: "
                                     << (jbig2_globals_data ? jbig2_globals_data->getSize() : 0)
                                     << " bytes";
                       }
                     catch(std::exception const& e)
                       {
-                        LOG_S(WARNING) << "failed to get JBIG2Globals stream data: " << e.what();
-                        jbig2_globals_data = nullptr;
+                        LOG_S(WARNING) << "failed to get decoded JBIG2Globals stream data: "
+                                       << e.what() << " -- falling back to raw stream data";
+                        try
+                          {
+                            jbig2_globals_data = to_shared_ptr(globals_stream.getRawStreamData());
+                            LOG_S(INFO) << "JBIG2Globals source=raw for xobject_key="
+                                        << xobject_key;
+                            LOG_S(INFO) << "JBIG2Globals size: "
+                                        << (jbig2_globals_data ? jbig2_globals_data->getSize() : 0)
+                                        << " bytes";
+                          }
+                        catch(std::exception const& raw_e)
+                          {
+                            LOG_S(WARNING) << "failed to get raw JBIG2Globals stream data: "
+                                           << raw_e.what();
+                            jbig2_globals_data = nullptr;
+                          }
                       }
                   }
                 else
@@ -571,6 +934,90 @@ namespace pdflib
       }
   }
 
+  void pdf_resource<PAGE_XOBJECT_IMAGE>::init_soft_mask_data()
+  {
+    soft_mask_data.reset();
+
+    if(not qpdf_xobject_dict.hasKey("/SMask"))
+      {
+        return;
+      }
+
+    auto qpdf_smask = qpdf_xobject_dict.getKey("/SMask");
+    if(not qpdf_smask.isStream())
+      {
+        LOG_S(WARNING) << "SMask present but is not a stream for xobject_key=" << xobject_key;
+        return;
+      }
+
+    pdf_resource<PAGE_XOBJECT_IMAGE> smask;
+    smask.set(xobject_key + "/SMask", qpdf_smask);
+
+    if(smask.get_image_width() != image_width or smask.get_image_height() != image_height)
+      {
+        LOG_S(WARNING) << "SMask size mismatch for xobject_key=" << xobject_key
+                       << " image=" << image_width << "x" << image_height
+                       << " smask=" << smask.get_image_width() << "x" << smask.get_image_height();
+        return;
+      }
+
+    const bool gray_mask =
+      smask.get_color_space() == "/DeviceGray"
+      or (smask.get_color_space().find("/ICCBased") != std::string::npos
+          and smask.get_icc_components() == 1);
+    if(not gray_mask)
+      {
+        LOG_S(WARNING) << "SMask color space unsupported for xobject_key=" << xobject_key
+                       << " smask_cs=" << smask.get_color_space()
+                       << " smask_icc_components=" << smask.get_icc_components();
+        return;
+      }
+
+    if(smask.get_bits_per_component() != 8)
+      {
+        LOG_S(WARNING) << "SMask bits/component unsupported for xobject_key=" << xobject_key
+                       << " smask_bpc=" << smask.get_bits_per_component();
+        return;
+      }
+
+    if(not smask.has_decoded_stream_data())
+      {
+        LOG_S(WARNING) << "SMask has no decoded stream data for xobject_key=" << xobject_key;
+        return;
+      }
+
+    auto smask_buf = smask.get_decoded_stream_data();
+    const size_t expected = static_cast<size_t>(image_width) * image_height;
+    if(smask_buf->getSize() < expected)
+      {
+        LOG_S(WARNING) << "SMask decoded stream too small for xobject_key=" << xobject_key
+                       << " size=" << smask_buf->getSize()
+                       << " expected>=" << expected;
+        return;
+      }
+
+    auto out = std::make_shared<std::vector<uint8_t>>();
+    out->resize(expected);
+
+    auto const* src = reinterpret_cast<uint8_t const*>(smask_buf->getBuffer());
+    auto const decode = smask.get_decode_array();
+    const bool has_decode = smask.has_decode_array() and decode.size() >= 2;
+    for(size_t i = 0; i < expected; ++i)
+      {
+        uint8_t alpha = src[i];
+        if(has_decode)
+          {
+            alpha = jpeg::apply_decode_component(alpha, decode[0], decode[1]);
+          }
+        (*out)[i] = alpha;
+      }
+
+    soft_mask_data = std::move(out);
+
+    LOG_S(INFO) << "decoded SMask for xobject_key=" << xobject_key
+                << " alpha_size=" << soft_mask_data->size();
+  }
+
   // --- Getters ---
 
   int pdf_resource<PAGE_XOBJECT_IMAGE>::get_image_width() const
@@ -598,6 +1045,16 @@ namespace pdflib
     return icc_components;
   }
 
+  int pdf_resource<PAGE_XOBJECT_IMAGE>::get_device_n_components() const
+  {
+    return device_n_components;
+  }
+
+  std::vector<std::string> pdf_resource<PAGE_XOBJECT_IMAGE>::get_device_n_names() const
+  {
+    return device_n_names;
+  }
+
   int pdf_resource<PAGE_XOBJECT_IMAGE>::get_indexed_hival() const
   {
     return indexed_hival;
@@ -611,6 +1068,16 @@ namespace pdflib
   std::shared_ptr<std::vector<uint8_t>> pdf_resource<PAGE_XOBJECT_IMAGE>::get_indexed_palette() const
   {
     return indexed_palette;
+  }
+
+  std::vector<std::string> pdf_resource<PAGE_XOBJECT_IMAGE>::get_indexed_base_device_n_names() const
+  {
+    return indexed_base_device_n_names;
+  }
+
+  bool pdf_resource<PAGE_XOBJECT_IMAGE>::get_indexed_base_device_n_single_black() const
+  {
+    return indexed_base_device_n_single_black;
   }
 
   std::string pdf_resource<PAGE_XOBJECT_IMAGE>::get_intent() const
@@ -676,6 +1143,16 @@ namespace pdflib
   std::shared_ptr<Buffer> pdf_resource<PAGE_XOBJECT_IMAGE>::get_decoded_stream_data() const
   {
     return decoded_stream_data;
+  }
+
+  bool pdf_resource<PAGE_XOBJECT_IMAGE>::has_soft_mask_data() const
+  {
+    return (soft_mask_data != nullptr and not soft_mask_data->empty());
+  }
+
+  std::shared_ptr<std::vector<uint8_t>> pdf_resource<PAGE_XOBJECT_IMAGE>::get_soft_mask_data() const
+  {
+    return soft_mask_data;
   }
 
   // --- File I/O ---

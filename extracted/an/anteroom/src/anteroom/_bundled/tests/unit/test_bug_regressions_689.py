@@ -5,6 +5,7 @@ Each test proves a specific bug that was found in untested code and fixed.
 
 from __future__ import annotations
 
+import asyncio
 import inspect
 from types import SimpleNamespace
 from typing import Any
@@ -58,6 +59,7 @@ def _make_stream_ctx(**overrides: object) -> MagicMock:
     ctx.mcp_manager = None
     ctx.prompt_meta = {}
     ctx.user_msg = None
+    ctx.subagent_events = asyncio.Queue()
     for k, v in overrides.items():
         setattr(ctx, k, v)
     return ctx

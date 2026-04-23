@@ -13,7 +13,6 @@ import logging
 import re
 import shutil
 import sqlite3
-import stat
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -27,6 +26,13 @@ import yaml
 
 from .artifact_storage import delete_artifact, upsert_artifact
 from .artifacts import ArtifactSource, ArtifactType, build_fqn
+from .skill_bundles import (
+    _extract_yaml_frontmatter,
+    _inline_resources,
+    _is_symlink,
+    _parse_resource_list_from_frontmatter,
+    _resolve_bundle_resources,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -141,14 +147,6 @@ def parse_manifest(manifest_path: Path) -> PackManifest:
     )
 
 
-def _is_symlink(path: Path) -> bool:
-    """Check if *path* is a symlink using lstat (never follows the link)."""
-    try:
-        return stat.S_ISLNK(path.lstat().st_mode)
-    except OSError:
-        return False
-
-
 def validate_manifest(manifest: PackManifest, pack_dir: Path) -> list[str]:
     """Validate that all artifacts referenced in the manifest exist as files.
 
@@ -246,133 +244,6 @@ def _resolve_artifact_file(art: ManifestArtifact, pack_dir: Path) -> Path | None
             return candidate
 
     return None
-
-
-def _extract_yaml_frontmatter(text: str, path: Path) -> tuple[str, dict[str, Any]]:
-    """Extract YAML front matter from Markdown text.
-
-    Front matter is delimited by ``---`` on the first line and a closing
-    ``---`` on its own line.  Returns ``(body, metadata)`` where *body* is
-    the text after the closing delimiter.
-
-    If no front matter delimiters are found, returns ``(text, {})``.
-
-    Raises ``ValueError`` when delimiters are present but the YAML between
-    them is invalid or not a mapping — malformed front matter must never
-    silently degrade to empty metadata.
-    """
-    if not text.startswith("---\n") and not text.startswith("---\r\n"):
-        return text, {}
-
-    # Find the closing delimiter after the opening line.
-    # Search from the newline that ends the opening "---" so that
-    # back-to-back "---\n---\n" (empty front matter) is matched.
-    first_newline = text.index("\n")
-    close_idx = text.find("\n---\n", first_newline)
-    close_len = 4  # length of \n---\n
-    if close_idx == -1:
-        close_idx = text.find("\n---\r\n", first_newline)
-        close_len = 5
-    if close_idx == -1:
-        # Check for closing delimiter at end of file (no trailing newline)
-        stripped = text.rstrip()
-        if stripped.endswith("\n---") or stripped.endswith("\r\n---"):
-            close_idx = stripped.rfind("\n---")
-            close_len = len(stripped) - close_idx
-        else:
-            msg = f"Unclosed front matter in {path}: opening '---' found but no closing '---'"
-            raise ValueError(msg)
-
-    yaml_block = text[first_newline + 1 : close_idx]
-    body = text[close_idx + close_len + 1 :] if close_idx + close_len < len(text) else ""
-
-    try:
-        data = yaml.safe_load(yaml_block)
-    except yaml.YAMLError as e:
-        msg = f"Invalid YAML in front matter of {path}: {e}"
-        raise ValueError(msg) from e
-
-    if data is None:
-        return body, {}
-
-    if not isinstance(data, dict):
-        msg = f"Front matter in {path} must be a YAML mapping, got {type(data).__name__}"
-        raise ValueError(msg)
-
-    return body, data
-
-
-# ---------------------------------------------------------------------------
-# Bundle resource utilities
-# ---------------------------------------------------------------------------
-
-_RESOURCE_EXTENSIONS = frozenset({".md", ".txt", ".yaml", ".yml", ".json", ".xml", ".csv", ".py", ".js", ".ts", ".sh"})
-
-
-def _parse_resource_list_from_frontmatter(content: str, skill_path: Path) -> list[str]:
-    """Extract ``resources:`` list from SKILL.md frontmatter.
-
-    Returns an empty list if the field is absent or the content lacks
-    frontmatter.
-    """
-    if not content.startswith("---\n") and not content.startswith("---\r\n"):
-        return []
-    try:
-        _body, meta = _extract_yaml_frontmatter(content, skill_path)
-    except ValueError:
-        return []
-    raw = meta.get("resources")
-    if not raw or not isinstance(raw, list):
-        return []
-    return [str(r) for r in raw if isinstance(r, str) and r]
-
-
-def _resolve_bundle_resources(
-    skill_dir: Path,
-    resource_list: list[str],
-    boundary_dir: Path,
-) -> list[tuple[str, str]]:
-    """Resolve and read declared resource files for a bundled skill.
-
-    Returns a list of ``(relative_path, content)`` tuples.
-    Raises ``ValueError`` for path traversal or symlink violations.
-    """
-    resolved_boundary = boundary_dir.resolve()
-    results: list[tuple[str, str]] = []
-    for rel_path in resource_list:
-        candidate = (skill_dir / rel_path).resolve()
-        if _is_symlink(skill_dir / rel_path):
-            msg = f"Symlink not allowed for resource: {rel_path}"
-            raise ValueError(msg)
-        if not candidate.is_relative_to(resolved_boundary):
-            msg = f"Path traversal blocked for resource: {rel_path}"
-            raise ValueError(msg)
-        if not candidate.is_file():
-            msg = f"Declared resource not found: {rel_path}"
-            raise ValueError(msg)
-        if candidate.suffix not in _RESOURCE_EXTENSIONS:
-            msg = f"Unsupported resource extension: {rel_path} (allowed: {', '.join(sorted(_RESOURCE_EXTENSIONS))})"
-            raise ValueError(msg)
-        # Skip binary files (null bytes in first 512 bytes)
-        raw = candidate.read_bytes()
-        if b"\x00" in raw[:512]:
-            msg = f"Binary file not allowed as resource: {rel_path}"
-            raise ValueError(msg)
-        results.append((rel_path, raw.decode("utf-8")))
-    return results
-
-
-def _inline_resources(skill_content: str, resources: list[tuple[str, str]]) -> str:
-    """Append resource files as a structured section after skill content."""
-    if not resources:
-        return skill_content
-    parts = [skill_content.rstrip(), "\n\n<bundled_resources>"]
-    for rel_path, content in resources:
-        parts.append(f'\n<resource path="{rel_path}">')
-        parts.append(content)
-        parts.append("</resource>")
-    parts.append("\n</bundled_resources>\n")
-    return "\n".join(parts)
 
 
 def _read_artifact_content(

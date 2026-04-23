@@ -16,10 +16,12 @@ from mergify_cli.stack import edit as stack_edit_mod
 from mergify_cli.stack import list as stack_list_mod
 from mergify_cli.stack import move as stack_move_mod
 from mergify_cli.stack import new as stack_new_mod
+from mergify_cli.stack import note as stack_note_mod
 from mergify_cli.stack import open as stack_open_mod
 from mergify_cli.stack import push as stack_push_mod
 from mergify_cli.stack import reorder as stack_reorder_mod
 from mergify_cli.stack import setup as stack_setup_mod
+from mergify_cli.stack import squash as stack_squash_mod
 from mergify_cli.stack import sync as stack_sync_mod
 
 
@@ -200,6 +202,46 @@ async def setup(*, force: bool, check: bool) -> None:
 @utils.run_with_asyncio
 async def edit(*, commit: str | None) -> None:
     await stack_edit_mod.stack_edit(commit_prefix=commit)
+
+
+@stack.command(help="Attach a 'why was this commit amended' note to a commit")
+@click.argument("commit", required=False, default=None)
+@click.option(
+    "-m",
+    "--message",
+    "message",
+    default=None,
+    help="Note message. If omitted, opens $GIT_EDITOR.",
+)
+@click.option(
+    "--append",
+    "do_append",
+    is_flag=True,
+    help="Append to an existing note instead of replacing",
+)
+@click.option(
+    "--remove",
+    "do_remove",
+    is_flag=True,
+    help="Remove the note on the target commit",
+)
+@utils.run_with_asyncio
+async def note(
+    *,
+    commit: str | None,
+    message: str | None,
+    do_append: bool,
+    do_remove: bool,
+) -> None:
+    if do_remove and (message is not None or do_append):
+        msg = "--remove cannot be combined with --message or --append"
+        raise click.UsageError(msg)
+    await stack_note_mod.stack_note(
+        commit=commit,
+        message=message,
+        append=do_append,
+        remove=do_remove,
+    )
 
 
 @stack.command(help="Reorder the stack's commits")
@@ -566,3 +608,68 @@ async def open_cmd(
         token=ctx.obj["token"],
         commit=commit,
     )
+
+
+@stack.command(help="Fixup commits into their parent (drops their messages)")
+@click.argument("commits", nargs=-1, required=True)
+@click.option(
+    "--dry-run",
+    "-n",
+    is_flag=True,
+    default=False,
+    help="Show the plan without rebasing",
+)
+@utils.run_with_asyncio
+async def fixup(*, commits: tuple[str, ...], dry_run: bool) -> None:
+    await stack_squash_mod.stack_fixup(list(commits), dry_run=dry_run)
+
+
+@stack.command(help="Squash commits into a target commit")
+@click.argument("tokens", nargs=-1, required=True)
+@click.option(
+    "-m",
+    "--message",
+    "message",
+    default=None,
+    help="Final commit message (required to rename; otherwise target's is kept)",
+)
+@click.option(
+    "--dry-run",
+    "-n",
+    is_flag=True,
+    default=False,
+    help="Show the plan without rebasing",
+)
+@utils.run_with_asyncio
+async def squash(
+    *,
+    tokens: tuple[str, ...],
+    message: str | None,
+    dry_run: bool,
+) -> None:
+    srcs, target = _parse_squash_tokens(tokens)
+    await stack_squash_mod.stack_squash(
+        src_prefixes=srcs,
+        target_prefix=target,
+        message=message,
+        dry_run=dry_run,
+    )
+
+
+def _parse_squash_tokens(tokens: tuple[str, ...]) -> tuple[list[str], str]:
+    """Parse ``SRC... into TARGET`` from a flat tuple of tokens.
+
+    Raises :class:`click.BadParameter` on shape errors.
+    """
+    into_positions = [i for i, t in enumerate(tokens) if t == "into"]
+    if len(into_positions) != 1:
+        msg = "squash requires exactly one 'into' keyword: SRC... into TARGET"
+        raise click.BadParameter(msg)
+    idx = into_positions[0]
+    srcs = list(tokens[:idx])
+    after = tokens[idx + 1 :]
+    if not srcs:
+        raise click.BadParameter("at least one source commit required before 'into'")
+    if len(after) != 1:
+        raise click.BadParameter("exactly one target commit required after 'into'")
+    return srcs, after[0]

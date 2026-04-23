@@ -15,15 +15,12 @@ package_dir = \
 install_requires = \
 ['packaging >= 24.0']
 
-extras_require = \
-{'test': ['pytest >= 6.0.0', 'setuptools >= 77']}
-
 entry_points = \
 {'console_scripts': ['wheel = wheel._commands:main'],
  'distutils.commands': ['bdist_wheel = wheel.bdist_wheel:bdist_wheel']}
 
 setup(name='wheel',
-      version='0.46.3',
+      version='0.47.0',
       description='Command line tool for manipulating wheel files',
       author=None,
       author_email='Daniel Holth <dholth@fastmail.fm>',
@@ -32,7 +29,6 @@ setup(name='wheel',
       package_data=package_data,
       package_dir=package_dir,
       install_requires=install_requires,
-      extras_require=extras_require,
       entry_points=entry_points,
       python_requires='>=3.9',
      )

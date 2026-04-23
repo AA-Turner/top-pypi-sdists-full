@@ -9,13 +9,48 @@ pub enum ImageSource {
 }
 
 #[derive(Debug, Deserialize, Clone)]
+pub struct CacheCreation {
+    ephemeral_1h_input_tokens: i32,
+    ephemeral_5m_input_tokens: i32,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct ServerToolUsage {
+    web_fetch_requests: i32,
+    web_search_requests: i32,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+#[serde(rename_all = "snake_case")]
+pub enum ServiceTier {
+    Standard,
+    Priority,
+    Batch,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+#[serde(untagged)]
+pub enum ServiceTierWrapper {
+    KnownServiceTier(ServiceTier),
+    String(String),
+}
+
+#[derive(Debug, Deserialize, Clone, Default)]
 pub struct Usage {
-    pub input_tokens: u32,
-    pub output_tokens: u32,
+    pub input_tokens: i32,
+    pub output_tokens: i32,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub cache_creation_input_tokens: Option<u32>,
+    pub cache_creation_input_tokens: Option<i32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub cache_read_input_tokens: Option<u32>,
+    pub cache_read_input_tokens: Option<i32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cache_creation: Option<CacheCreation>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub inference_geo: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub server_tool_use: Option<ServerToolUsage>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub service_tier: Option<ServiceTierWrapper>,
 }
 
 #[derive(Debug, Deserialize, Clone, Serialize)]

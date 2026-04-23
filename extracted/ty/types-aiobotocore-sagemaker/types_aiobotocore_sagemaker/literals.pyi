@@ -86,6 +86,7 @@ __all__ = (
     "ClusterEventResourceTypeType",
     "ClusterInstanceStatusType",
     "ClusterInstanceTypeType",
+    "ClusterInterfaceTypeType",
     "ClusterKubernetesTaintEffectType",
     "ClusterNodeProvisioningModeType",
     "ClusterNodeRecoveryType",
@@ -775,7 +776,12 @@ AvailabilityZoneBalanceEnforcementModeType = Literal["PERMISSIVE"]
 AwsManagedHumanLoopRequestSourceType = Literal[
     "AWS/Rekognition/DetectModerationLabels/Image/V3", "AWS/Textract/AnalyzeDocument/Forms/V1"
 ]
-BatchAddClusterNodesErrorCodeType = Literal["InstanceGroupNotFound", "InvalidInstanceGroupStatus"]
+BatchAddClusterNodesErrorCodeType = Literal[
+    "IncompatibleAvailabilityZones",
+    "IncompatibleInstanceTypes",
+    "InstanceGroupNotFound",
+    "InvalidInstanceGroupStatus",
+]
 BatchDeleteClusterNodesErrorCodeType = Literal["InvalidNodeStatus", "NodeIdInUse", "NodeIdNotFound"]
 BatchRebootClusterNodesErrorCodeType = Literal[
     "InstanceIdInUse", "InstanceIdNotFound", "InternalServerError", "InvalidInstanceStatus"
@@ -921,6 +927,12 @@ ClusterInstanceTypeType = Literal[
     "ml.g6e.4xlarge",
     "ml.g6e.8xlarge",
     "ml.g6e.xlarge",
+    "ml.g7e.12xlarge",
+    "ml.g7e.24xlarge",
+    "ml.g7e.2xlarge",
+    "ml.g7e.48xlarge",
+    "ml.g7e.4xlarge",
+    "ml.g7e.8xlarge",
     "ml.gr6.4xlarge",
     "ml.gr6.8xlarge",
     "ml.i3en.12xlarge",
@@ -993,6 +1005,7 @@ ClusterInstanceTypeType = Literal[
     "ml.trn2.3xlarge",
     "ml.trn2.48xlarge",
 ]
+ClusterInterfaceTypeType = Literal["efa", "efa-only"]
 ClusterKubernetesTaintEffectType = Literal["NoExecute", "NoSchedule", "PreferNoSchedule"]
 ClusterNodeProvisioningModeType = Literal["Continuous"]
 ClusterNodeRecoveryType = Literal["Automatic", "None"]
@@ -2762,6 +2775,7 @@ ServiceName = Literal[
     "inspector",
     "inspector-scan",
     "inspector2",
+    "interconnect",
     "internetmonitor",
     "invoicing",
     "iot",
@@ -2818,6 +2832,7 @@ ServiceName = Literal[
     "marketplace-agreement",
     "marketplace-catalog",
     "marketplace-deployment",
+    "marketplace-discovery",
     "marketplace-entitlement",
     "marketplace-reporting",
     "marketplacecommerceanalytics",
@@ -2915,6 +2930,7 @@ ServiceName = Literal[
     "rum",
     "s3",
     "s3control",
+    "s3files",
     "s3outposts",
     "s3tables",
     "s3vectors",

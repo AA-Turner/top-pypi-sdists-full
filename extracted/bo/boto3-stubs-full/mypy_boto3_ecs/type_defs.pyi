@@ -29,6 +29,7 @@ from .literals import (
     AgentUpdateStatusType,
     ApplicationProtocolType,
     AssignPublicIpType,
+    AutoRepairActionsStatusType,
     AvailabilityZoneRebalancingType,
     BareMetalType,
     BurstablePerformanceType,
@@ -119,6 +120,7 @@ __all__ = (
     "AttachmentStateChangeTypeDef",
     "AttachmentTypeDef",
     "AttributeTypeDef",
+    "AutoRepairConfigurationTypeDef",
     "AutoScalingGroupProviderTypeDef",
     "AutoScalingGroupProviderUpdateTypeDef",
     "AwsVpcConfigurationOutputTypeDef",
@@ -570,6 +572,9 @@ class AttributeTypeDef(TypedDict):
     targetType: NotRequired[Literal["container-instance"]]
     targetId: NotRequired[str]
 
+class AutoRepairConfigurationTypeDef(TypedDict):
+    actionsStatus: NotRequired[AutoRepairActionsStatusType]
+
 class ManagedScalingTypeDef(TypedDict):
     status: NotRequired[ManagedScalingStatusType]
     targetCapacity: NotRequired[int]
@@ -712,6 +717,7 @@ InstanceHealthCheckResultTypeDef = TypedDict(
     {
         "type": NotRequired[InstanceHealthCheckTypeType],
         "status": NotRequired[InstanceHealthCheckStateType],
+        "statusReason": NotRequired[str],
         "lastUpdated": NotRequired[datetime],
         "lastStatusChange": NotRequired[datetime],
     },
@@ -2837,6 +2843,7 @@ class ManagedInstancesProviderTypeDef(TypedDict):
     instanceLaunchTemplate: NotRequired[InstanceLaunchTemplateOutputTypeDef]
     propagateTags: NotRequired[PropagateMITagsType]
     infrastructureOptimization: NotRequired[InfrastructureOptimizationTypeDef]
+    autoRepairConfiguration: NotRequired[AutoRepairConfigurationTypeDef]
 
 class InstanceLaunchTemplateTypeDef(TypedDict):
     ec2InstanceProfileArn: str
@@ -2984,6 +2991,7 @@ class UpdateManagedInstancesProviderConfigurationTypeDef(TypedDict):
     instanceLaunchTemplate: InstanceLaunchTemplateUpdateTypeDef
     propagateTags: NotRequired[PropagateMITagsType]
     infrastructureOptimization: NotRequired[InfrastructureOptimizationTypeDef]
+    autoRepairConfiguration: NotRequired[AutoRepairConfigurationTypeDef]
 
 class ServiceConnectServiceOutputTypeDef(TypedDict):
     portName: str
@@ -3139,6 +3147,7 @@ class CreateManagedInstancesProviderConfigurationTypeDef(TypedDict):
     instanceLaunchTemplate: InstanceLaunchTemplateUnionTypeDef
     propagateTags: NotRequired[PropagateMITagsType]
     infrastructureOptimization: NotRequired[InfrastructureOptimizationTypeDef]
+    autoRepairConfiguration: NotRequired[AutoRepairConfigurationTypeDef]
 
 class UpdateCapacityProviderRequestTypeDef(TypedDict):
     name: str

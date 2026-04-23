@@ -1546,6 +1546,11 @@ class MultipartUploadPart(ServiceResource):
     checksum_crc64_nvme: str
     checksum_sha1: str
     checksum_sha256: str
+    checksum_sha512: str
+    checksum_md5: str
+    checksum_xxhash64: str
+    checksum_xxhash3: str
+    checksum_xxhash128: str
     meta: S3ResourceMeta  # type: ignore[override]
 
     def get_available_subresources(self) -> Sequence[str]:
@@ -1608,6 +1613,11 @@ class Object(ServiceResource):
     checksum_crc64_nvme: str
     checksum_sha1: str
     checksum_sha256: str
+    checksum_sha512: str
+    checksum_md5: str
+    checksum_xxhash64: str
+    checksum_xxhash3: str
+    checksum_xxhash128: str
     checksum_type: ChecksumTypeType
     e_tag: str
     missing_meta: int

@@ -965,6 +965,7 @@ class DatadogAppSecMode(enum.Enum):
         "api_key": "apiKey",
         "api_key_secret": "apiKeySecret",
         "api_key_secret_arn": "apiKeySecretArn",
+        "api_key_secret_field": "apiKeySecretField",
         "api_key_ssm_arn": "apiKeySsmArn",
         "apm": "apm",
         "checks_cardinality": "checksCardinality",
@@ -994,6 +995,7 @@ class DatadogECSBaseProps:
         api_key: typing.Optional[builtins.str] = None,
         api_key_secret: typing.Optional["_aws_cdk_aws_secretsmanager_ceddda9d.ISecret"] = None,
         api_key_secret_arn: typing.Optional[builtins.str] = None,
+        api_key_secret_field: typing.Optional[builtins.str] = None,
         api_key_ssm_arn: typing.Optional[builtins.str] = None,
         apm: typing.Optional[typing.Union["APMFeatureConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         checks_cardinality: typing.Optional["Cardinality"] = None,
@@ -1019,6 +1021,7 @@ class DatadogECSBaseProps:
         :param api_key: The Datadog API key string. Must define at least 1 source for the API key.
         :param api_key_secret: The Datadog API key secret. Must define at least 1 source for the API key.
         :param api_key_secret_arn: The ARN of the Datadog API key secret. Must define at least 1 source for the API key.
+        :param api_key_secret_field: The JSON field to read from the Datadog API key secret in Secrets Manager. Applies to ``apiKeySecret`` and ``apiKeySecretArn``.
         :param api_key_ssm_arn: The ARN of the Datadog API key in SSM Parameter Store. Must define at least 1 source for the API key.
         :param apm: APM feature configuration.
         :param checks_cardinality: The Datadog Agent checks tag cardinality.
@@ -1053,6 +1056,7 @@ class DatadogECSBaseProps:
             check_type(argname="argument api_key", value=api_key, expected_type=type_hints["api_key"])
             check_type(argname="argument api_key_secret", value=api_key_secret, expected_type=type_hints["api_key_secret"])
             check_type(argname="argument api_key_secret_arn", value=api_key_secret_arn, expected_type=type_hints["api_key_secret_arn"])
+            check_type(argname="argument api_key_secret_field", value=api_key_secret_field, expected_type=type_hints["api_key_secret_field"])
             check_type(argname="argument api_key_ssm_arn", value=api_key_ssm_arn, expected_type=type_hints["api_key_ssm_arn"])
             check_type(argname="argument apm", value=apm, expected_type=type_hints["apm"])
             check_type(argname="argument checks_cardinality", value=checks_cardinality, expected_type=type_hints["checks_cardinality"])
@@ -1080,6 +1084,8 @@ class DatadogECSBaseProps:
             self._values["api_key_secret"] = api_key_secret
         if api_key_secret_arn is not None:
             self._values["api_key_secret_arn"] = api_key_secret_arn
+        if api_key_secret_field is not None:
+            self._values["api_key_secret_field"] = api_key_secret_field
         if api_key_ssm_arn is not None:
             self._values["api_key_ssm_arn"] = api_key_ssm_arn
         if apm is not None:
@@ -1148,6 +1154,15 @@ class DatadogECSBaseProps:
         Must define at least 1 source for the API key.
         '''
         result = self._values.get("api_key_secret_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def api_key_secret_field(self) -> typing.Optional[builtins.str]:
+        '''The JSON field to read from the Datadog API key secret in Secrets Manager.
+
+        Applies to ``apiKeySecret`` and ``apiKeySecretArn``.
+        '''
+        result = self._values.get("api_key_secret_field")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -1317,6 +1332,7 @@ class DatadogECSFargate(
         api_key: typing.Optional[builtins.str] = None,
         api_key_secret: typing.Optional["_aws_cdk_aws_secretsmanager_ceddda9d.ISecret"] = None,
         api_key_secret_arn: typing.Optional[builtins.str] = None,
+        api_key_secret_field: typing.Optional[builtins.str] = None,
         api_key_ssm_arn: typing.Optional[builtins.str] = None,
         apm: typing.Optional[typing.Union["APMFeatureConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         checks_cardinality: typing.Optional["Cardinality"] = None,
@@ -1344,6 +1360,7 @@ class DatadogECSFargate(
         :param api_key: The Datadog API key string. Must define at least 1 source for the API key.
         :param api_key_secret: The Datadog API key secret. Must define at least 1 source for the API key.
         :param api_key_secret_arn: The ARN of the Datadog API key secret. Must define at least 1 source for the API key.
+        :param api_key_secret_field: The JSON field to read from the Datadog API key secret in Secrets Manager. Applies to ``apiKeySecret`` and ``apiKeySecretArn``.
         :param api_key_ssm_arn: The ARN of the Datadog API key in SSM Parameter Store. Must define at least 1 source for the API key.
         :param apm: APM feature configuration.
         :param checks_cardinality: The Datadog Agent checks tag cardinality.
@@ -1371,6 +1388,7 @@ class DatadogECSFargate(
             api_key=api_key,
             api_key_secret=api_key_secret,
             api_key_secret_arn=api_key_secret_arn,
+            api_key_secret_field=api_key_secret_field,
             api_key_ssm_arn=api_key_ssm_arn,
             apm=apm,
             checks_cardinality=checks_cardinality,
@@ -1407,6 +1425,7 @@ class DatadogECSFargate(
         api_key: typing.Optional[builtins.str] = None,
         api_key_secret: typing.Optional["_aws_cdk_aws_secretsmanager_ceddda9d.ISecret"] = None,
         api_key_secret_arn: typing.Optional[builtins.str] = None,
+        api_key_secret_field: typing.Optional[builtins.str] = None,
         api_key_ssm_arn: typing.Optional[builtins.str] = None,
         apm: typing.Optional[typing.Union["APMFeatureConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         checks_cardinality: typing.Optional["Cardinality"] = None,
@@ -1440,6 +1459,7 @@ class DatadogECSFargate(
         :param api_key: The Datadog API key string. Must define at least 1 source for the API key.
         :param api_key_secret: The Datadog API key secret. Must define at least 1 source for the API key.
         :param api_key_secret_arn: The ARN of the Datadog API key secret. Must define at least 1 source for the API key.
+        :param api_key_secret_field: The JSON field to read from the Datadog API key secret in Secrets Manager. Applies to ``apiKeySecret`` and ``apiKeySecretArn``.
         :param api_key_ssm_arn: The ARN of the Datadog API key in SSM Parameter Store. Must define at least 1 source for the API key.
         :param apm: APM feature configuration.
         :param checks_cardinality: The Datadog Agent checks tag cardinality.
@@ -1472,6 +1492,7 @@ class DatadogECSFargate(
             api_key=api_key,
             api_key_secret=api_key_secret,
             api_key_secret_arn=api_key_secret_arn,
+            api_key_secret_field=api_key_secret_field,
             api_key_ssm_arn=api_key_ssm_arn,
             apm=apm,
             checks_cardinality=checks_cardinality,
@@ -1504,6 +1525,7 @@ class DatadogECSFargate(
         "api_key": "apiKey",
         "api_key_secret": "apiKeySecret",
         "api_key_secret_arn": "apiKeySecretArn",
+        "api_key_secret_field": "apiKeySecretField",
         "api_key_ssm_arn": "apiKeySsmArn",
         "apm": "apm",
         "checks_cardinality": "checksCardinality",
@@ -1535,6 +1557,7 @@ class DatadogECSFargateProps(DatadogECSBaseProps):
         api_key: typing.Optional[builtins.str] = None,
         api_key_secret: typing.Optional["_aws_cdk_aws_secretsmanager_ceddda9d.ISecret"] = None,
         api_key_secret_arn: typing.Optional[builtins.str] = None,
+        api_key_secret_field: typing.Optional[builtins.str] = None,
         api_key_ssm_arn: typing.Optional[builtins.str] = None,
         apm: typing.Optional[typing.Union["APMFeatureConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         checks_cardinality: typing.Optional["Cardinality"] = None,
@@ -1562,6 +1585,7 @@ class DatadogECSFargateProps(DatadogECSBaseProps):
         :param api_key: The Datadog API key string. Must define at least 1 source for the API key.
         :param api_key_secret: The Datadog API key secret. Must define at least 1 source for the API key.
         :param api_key_secret_arn: The ARN of the Datadog API key secret. Must define at least 1 source for the API key.
+        :param api_key_secret_field: The JSON field to read from the Datadog API key secret in Secrets Manager. Applies to ``apiKeySecret`` and ``apiKeySecretArn``.
         :param api_key_ssm_arn: The ARN of the Datadog API key in SSM Parameter Store. Must define at least 1 source for the API key.
         :param apm: APM feature configuration.
         :param checks_cardinality: The Datadog Agent checks tag cardinality.
@@ -1602,6 +1626,7 @@ class DatadogECSFargateProps(DatadogECSBaseProps):
             check_type(argname="argument api_key", value=api_key, expected_type=type_hints["api_key"])
             check_type(argname="argument api_key_secret", value=api_key_secret, expected_type=type_hints["api_key_secret"])
             check_type(argname="argument api_key_secret_arn", value=api_key_secret_arn, expected_type=type_hints["api_key_secret_arn"])
+            check_type(argname="argument api_key_secret_field", value=api_key_secret_field, expected_type=type_hints["api_key_secret_field"])
             check_type(argname="argument api_key_ssm_arn", value=api_key_ssm_arn, expected_type=type_hints["api_key_ssm_arn"])
             check_type(argname="argument apm", value=apm, expected_type=type_hints["apm"])
             check_type(argname="argument checks_cardinality", value=checks_cardinality, expected_type=type_hints["checks_cardinality"])
@@ -1631,6 +1656,8 @@ class DatadogECSFargateProps(DatadogECSBaseProps):
             self._values["api_key_secret"] = api_key_secret
         if api_key_secret_arn is not None:
             self._values["api_key_secret_arn"] = api_key_secret_arn
+        if api_key_secret_field is not None:
+            self._values["api_key_secret_field"] = api_key_secret_field
         if api_key_ssm_arn is not None:
             self._values["api_key_ssm_arn"] = api_key_ssm_arn
         if apm is not None:
@@ -1703,6 +1730,15 @@ class DatadogECSFargateProps(DatadogECSBaseProps):
         Must define at least 1 source for the API key.
         '''
         result = self._values.get("api_key_secret_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def api_key_secret_field(self) -> typing.Optional[builtins.str]:
+        '''The JSON field to read from the Datadog API key secret in Secrets Manager.
+
+        Applies to ``apiKeySecret`` and ``apiKeySecretArn``.
+        '''
+        result = self._values.get("api_key_secret_field")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -1886,6 +1922,7 @@ class DatadogECSFargateTaskDefinition(
         api_key: typing.Optional[builtins.str] = None,
         api_key_secret: typing.Optional["_aws_cdk_aws_secretsmanager_ceddda9d.ISecret"] = None,
         api_key_secret_arn: typing.Optional[builtins.str] = None,
+        api_key_secret_field: typing.Optional[builtins.str] = None,
         api_key_ssm_arn: typing.Optional[builtins.str] = None,
         apm: typing.Optional[typing.Union["APMFeatureConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         checks_cardinality: typing.Optional["Cardinality"] = None,
@@ -1916,6 +1953,7 @@ class DatadogECSFargateTaskDefinition(
         :param api_key: The Datadog API key string. Must define at least 1 source for the API key.
         :param api_key_secret: The Datadog API key secret. Must define at least 1 source for the API key.
         :param api_key_secret_arn: The ARN of the Datadog API key secret. Must define at least 1 source for the API key.
+        :param api_key_secret_field: The JSON field to read from the Datadog API key secret in Secrets Manager. Applies to ``apiKeySecret`` and ``apiKeySecretArn``.
         :param api_key_ssm_arn: The ARN of the Datadog API key in SSM Parameter Store. Must define at least 1 source for the API key.
         :param apm: APM feature configuration.
         :param checks_cardinality: The Datadog Agent checks tag cardinality.
@@ -1948,6 +1986,7 @@ class DatadogECSFargateTaskDefinition(
             api_key=api_key,
             api_key_secret=api_key_secret,
             api_key_secret_arn=api_key_secret_arn,
+            api_key_secret_field=api_key_secret_field,
             api_key_ssm_arn=api_key_ssm_arn,
             apm=apm,
             checks_cardinality=checks_cardinality,
@@ -4522,6 +4561,7 @@ def _typecheckingstub__d27d29c3a8198268022c64bd85cfc6542074c930488b7326c79b53336
     api_key: typing.Optional[builtins.str] = None,
     api_key_secret: typing.Optional[_aws_cdk_aws_secretsmanager_ceddda9d.ISecret] = None,
     api_key_secret_arn: typing.Optional[builtins.str] = None,
+    api_key_secret_field: typing.Optional[builtins.str] = None,
     api_key_ssm_arn: typing.Optional[builtins.str] = None,
     apm: typing.Optional[typing.Union[APMFeatureConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     checks_cardinality: typing.Optional[Cardinality] = None,
@@ -4556,6 +4596,7 @@ def _typecheckingstub__7e36e6c3fc3a4574bfd3006ff2c205658f6beefccb62229aea1be683f
     api_key: typing.Optional[builtins.str] = None,
     api_key_secret: typing.Optional[_aws_cdk_aws_secretsmanager_ceddda9d.ISecret] = None,
     api_key_secret_arn: typing.Optional[builtins.str] = None,
+    api_key_secret_field: typing.Optional[builtins.str] = None,
     api_key_ssm_arn: typing.Optional[builtins.str] = None,
     apm: typing.Optional[typing.Union[APMFeatureConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     checks_cardinality: typing.Optional[Cardinality] = None,
@@ -4585,6 +4626,7 @@ def _typecheckingstub__203f4e755dbe1abe14e7ebcd9aed8ad2720b707b756d8dd72acc9e252
     api_key: typing.Optional[builtins.str] = None,
     api_key_secret: typing.Optional[_aws_cdk_aws_secretsmanager_ceddda9d.ISecret] = None,
     api_key_secret_arn: typing.Optional[builtins.str] = None,
+    api_key_secret_field: typing.Optional[builtins.str] = None,
     api_key_ssm_arn: typing.Optional[builtins.str] = None,
     apm: typing.Optional[typing.Union[APMFeatureConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     checks_cardinality: typing.Optional[Cardinality] = None,
@@ -4621,6 +4663,7 @@ def _typecheckingstub__1b705bc69b69e399d2d0fd2c5c39581aa92dc32dccf1793d2785f3b83
     api_key: typing.Optional[builtins.str] = None,
     api_key_secret: typing.Optional[_aws_cdk_aws_secretsmanager_ceddda9d.ISecret] = None,
     api_key_secret_arn: typing.Optional[builtins.str] = None,
+    api_key_secret_field: typing.Optional[builtins.str] = None,
     api_key_ssm_arn: typing.Optional[builtins.str] = None,
     apm: typing.Optional[typing.Union[APMFeatureConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     checks_cardinality: typing.Optional[Cardinality] = None,

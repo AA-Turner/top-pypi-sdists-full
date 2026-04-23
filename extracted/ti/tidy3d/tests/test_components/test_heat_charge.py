@@ -18,7 +18,7 @@ from tidy3d.components.tcad.types import (
 )
 from tidy3d.exceptions import DataError
 
-from ..utils import AssertLogLevel
+from ..utils import AssertLogLevel, assert_single_value_error_loc
 
 
 class CHARGE_SIMULATION:
@@ -1272,6 +1272,23 @@ def test_grid_spec_validation(grid_specs):
         distance_grid.updated_copy(dl_interface=-1)
     with pytest.raises(ValidationError):
         distance_grid.updated_copy(distance_interface=2, distance_bulk=1)
+    with pytest.raises(ValidationError) as excinfo:
+        _ = td.GridRefinementRegion(
+            center=(0, 0, 0),
+            size=(1, 0, 0),
+            dl_internal=0.1,
+            transition_thickness=0.2,
+        )
+    assert_single_value_error_loc(excinfo, ("size",), "volumetric or planar")
+    with pytest.raises(ValidationError) as excinfo:
+        _ = td.GridRefinementLine(
+            r1=(0, 0, 0),
+            r2=(1e-7, 0, 0),
+            dl_near=0.1,
+            distance_near=0.2,
+            distance_bulk=0.4,
+        )
+    assert_single_value_error_loc(excinfo, ("r2",), "line length must be greater than")
 
 
 def test_min_mesh_size(grid_specs):
@@ -1531,14 +1548,16 @@ def test_plot_mesh_2d_auto_sel():
     plt.close()
 
 
-def test_conduction_simulation_has_conductors(conduction_simulation, structures):
-    """Test whether error is raised if conduction simulation has no conductors."""
+def test_conduction_monitors_cross_conductors(conduction_simulation, structures):
+    """Conduction voltage monitors must intersect conducting materials."""
 
-    with pytest.raises(ValidationError):
+    with pytest.raises(ValidationError) as excinfo:
         _ = conduction_simulation.updated_copy(
-            monitors=(),
             structures=(structures["insulator_structure"],),
         )
+    assert_single_value_error_loc(
+        excinfo, ("monitors", 0), "does not cross any conducting materials"
+    )
 
 
 def test_coupling_source(conduction_simulation, heat_simulation):
@@ -1549,6 +1568,50 @@ def test_coupling_source(conduction_simulation, heat_simulation):
 
     with pytest.raises(ValidationError):
         _ = heat_simulation.updated_copy(sources=(td.HeatFromElectricSource(),))
+
+
+def test_heat_charge_analysis_spec_error_loc(heat_simulation):
+    with pytest.raises(ValidationError) as excinfo:
+        _ = heat_simulation.updated_copy(analysis_spec=td.SSACAnalysis(freqs=[1e12]))
+    assert_single_value_error_loc(excinfo, ("boundary_spec",), "SSACVoltageSource")
+
+
+def test_charge_simulation_voltage_bc_error_loc(heat_simulation):
+    with pytest.raises(ValidationError) as excinfo:
+        _ = heat_simulation.updated_copy(
+            analysis_spec=td.IsothermalSteadyChargeDCAnalysis(temperature=300)
+        )
+    assert_single_value_error_loc(excinfo, ("boundary_spec",), "VoltageBC")
+
+
+def test_heat_charge_monitor_error_loc(heat_simulation):
+    monitors = tuple(
+        monitor
+        for monitor in heat_simulation.monitors
+        if not isinstance(monitor, td.TemperatureMonitor)
+    )
+    with pytest.raises(ValidationError) as excinfo:
+        _ = heat_simulation.updated_copy(monitors=monitors)
+    assert_single_value_error_loc(excinfo, ("monitors",), "TemperatureMonitor")
+
+
+def test_conduction_sim_monitor_error_loc(conduction_simulation):
+    with pytest.raises(ValidationError) as excinfo:
+        _ = conduction_simulation.updated_copy(monitors=())
+    assert_single_value_error_loc(excinfo, ("monitors",), "SteadyPotentialMonitor")
+
+
+def test_conduction_sim_voltage_array_error_loc(conduction_simulation):
+    boundary_spec = list(conduction_simulation.boundary_spec)
+    for ind, bc in enumerate(boundary_spec):
+        if isinstance(bc.condition, td.VoltageBC):
+            boundary_spec[ind] = bc.updated_copy(
+                condition=td.VoltageBC(source=td.DCVoltageSource(voltage=[0.0, 1.0]))
+            )
+            break
+    with pytest.raises(ValidationError) as excinfo:
+        _ = conduction_simulation.updated_copy(boundary_spec=tuple(boundary_spec))
+    assert_single_value_error_loc(excinfo, ("boundary_spec",), "array of voltages")
 
 
 # --------------------------
@@ -2529,21 +2592,23 @@ def test_unsteady_heat_analysis(heat_simulation):
         analysis_spec=unsteady_analysis_spec, monitors=(temp_mnt,)
     )
 
-    with pytest.raises(ValidationError):
+    with pytest.raises(ValidationError) as excinfo:
         temp_mnt = temp_mnt.updated_copy(unstructured=False)
         _ = unsteady_sim.updated_copy(monitors=(temp_mnt,))
+    assert_single_value_error_loc(excinfo, ("monitors",), "to be unstructured")
 
     with pytest.raises(ValidationError):
         temp_mnt = temp_mnt.updated_copy(unstructured=True, interval=0)
         _ = unsteady_sim.updated_copy(monitors=(temp_mnt,))
 
     # try simulation with excessive time steps
-    with pytest.raises(ValidationError):
+    with pytest.raises(ValidationError) as excinfo:
         mew_spex = td.UnsteadyHeatAnalysis(
             initial_temperature=300,
             unsteady_spec=td.UnsteadySpec(time_step=0.1, total_time_steps=100000),
         )
         _ = unsteady_sim.updated_copy(analysis_spec=mew_spex)
+    assert_single_value_error_loc(excinfo, ("analysis_spec",), "number of time-steps")
 
 
 def test_heat_conduction_simulations():

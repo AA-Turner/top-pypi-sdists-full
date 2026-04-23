@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: anteroom
-Version: 1.168.0
+Version: 1.169.0
 Summary: Anteroom - your gateway to AI conversation
 License-Expression: Apache-2.0
 Classifier: Programming Language :: Python :: 3
@@ -73,6 +73,7 @@ Requires-Dist: httpx>=0.25.0; extra == "kitchensink"
 Requires-Dist: ruff>=0.15.4; extra == "kitchensink"
 Requires-Dist: mypy>=1.15.0; extra == "kitchensink"
 Requires-Dist: types-PyYAML>=6.0.0; extra == "kitchensink"
+Requires-Dist: syrupy>=4.6; extra == "kitchensink"
 Provides-Extra: dev
 Requires-Dist: pytest>=8.3.5; extra == "dev"
 Requires-Dist: pytest-asyncio>=0.26.0; extra == "dev"
@@ -86,6 +87,7 @@ Requires-Dist: mypy>=1.15.0; extra == "dev"
 Requires-Dist: types-PyYAML>=6.0.0; extra == "dev"
 Requires-Dist: pip-audit>=2.9.0; extra == "dev"
 Requires-Dist: semgrep>=1.152.0; extra == "dev"
+Requires-Dist: syrupy>=4.6; extra == "dev"
 Dynamic: license-file
 
 <p align="center">
@@ -194,6 +196,8 @@ A full-featured chat interface with spaces, folders, tags, file attachments, can
 ### CLI REPL
 
 An agentic terminal with **13 built-in tools** (+ 3 optional MS Office tools), MCP integration, sub-agent orchestration, a skills system, and planning mode &mdash; all with Rich markdown rendering.
+
+Type a bare `/` to open the in-terminal command palette. It ranks commands by intent, shows short action-oriented descriptions, and inserts editable scaffolds like `/search ` or `/space ` before you execute anything.
 
 ```
 $ aroom chat
@@ -356,6 +360,7 @@ Built to [OWASP ASVS Level 2](SECURITY.md) standards. Not bolted on &mdash; bake
 - **Token budgets**: Per-request, per-conversation, per-day limits (cost governance at scale)
 - **Sub-agent isolation**: Concurrency, depth, iteration, timeout, and output caps
 - **Team config enforcement**: Lock security settings across the entire organization
+- **Config backup history**: Versioned snapshots of configuration with restore capability (`aroom config history/diff/restore`)
 - **DLP**: Configurable data loss prevention rules
 
 <br>

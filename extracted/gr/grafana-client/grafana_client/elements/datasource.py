@@ -178,7 +178,7 @@ class Datasource(Base):
             raise NotImplementedError("Deprecated since Grafana 10.2.3")
 
         get_datasource_path = "/datasources/%s/enable-permissions" % datasource_id
-        return self.client.POST(get_datasource_path)
+        return self.client.POST(get_datasource_path, json={})
 
     def disable_datasource_permissions(self, datasource_id):
         """
@@ -191,7 +191,7 @@ class Datasource(Base):
             raise NotImplementedError("Deprecated since Grafana 10.2.3")
 
         get_datasource_path = "/datasources/%s/disable-permissions" % datasource_id
-        return self.client.POST(get_datasource_path)
+        return self.client.POST(get_datasource_path, json={})
 
     def get_datasource_permissions(self, datasource_id):
         """
@@ -236,7 +236,7 @@ class Datasource(Base):
 
     def get_datasource_proxy_data(
         self,
-        datasource_id,
+        datasource_id=None,
         query_type="query",
         version="v1",  # noqa: ARG002
         expr=None,
@@ -244,10 +244,13 @@ class Datasource(Base):
         start=None,
         end=None,
         step=None,
+        *,
+        datasource_uid=None,
     ):
         """
 
         :param datasource_id:
+        :param datasource_uid:
         :param version: api_version currently v1
         :param query_type: query_range |query
         :param expr: expr to query
@@ -261,13 +264,15 @@ class Datasource(Base):
             )
         )
         if query_type == "query":
-            return self.query(datasource_id=datasource_id, query=expr, timestamp=time)
+            return self.query(datasource_id=datasource_id, datasource_uid=datasource_uid, query=expr, timestamp=time)
         elif query_type == "query_range":
-            return self.query_range(datasource_id=datasource_id, query=expr, start=start, end=end, step=step)
+            return self.query_range(
+                datasource_id=datasource_id, datasource_uid=datasource_uid, query=expr, start=start, end=end, step=step
+            )
         else:
             raise KeyError(f"Unknown or invalid query type: {query_type}")
 
-    def query(self, datasource_id, query, timestamp, access="proxy"):
+    def query(self, datasource_id=None, query=None, timestamp=None, access="proxy", *, datasource_uid=None):
         """
 
         :param datasource_id:
@@ -276,7 +281,12 @@ class Datasource(Base):
         :param access:
         :return:
         """
-        post_query_path = "/datasources/%s/%s/api/v1/query" % (access, datasource_id)
+        if datasource_id:
+            post_query_path = "/datasources/%s/%s/api/v1/query" % (access, datasource_id)
+        elif datasource_uid:
+            post_query_path = "/datasources/%s/uid/%s/api/v1/query" % (access, datasource_uid)
+        else:
+            raise ValueError("Either datasource_id or datasource_uid must be provided")
         return self.client.POST(
             post_query_path,
             data={
@@ -285,7 +295,9 @@ class Datasource(Base):
             },
         )
 
-    def query_range(self, datasource_id, query, start, end, step, access="proxy"):
+    def query_range(
+        self, datasource_id=None, query=None, start=None, end=None, step=None, access="proxy", *, datasource_uid=None
+    ):
         """
 
         :param datasource_id:
@@ -296,10 +308,15 @@ class Datasource(Base):
         :param access:
         :return:
         """
-        post_query_range_path = "/datasources/%s/%s/api/v1/query_range" % (access, datasource_id)
+        if datasource_id:
+            post_query_range_path = "/datasources/%s/%s/api/v1/query_range" % (access, datasource_id)
+        elif datasource_uid:
+            post_query_range_path = "/datasources/%s/uid/%s/api/v1/query_range" % (access, datasource_uid)
+        else:
+            raise ValueError("Either datasource_id or datasource_uid must be provided")
         return self.client.POST(post_query_range_path, data={"query": query, "start": start, "end": end, "step": step})
 
-    def series(self, datasource_id, match, start, end, access="proxy"):
+    def series(self, datasource_id=None, match=None, start=None, end=None, access="proxy", *, datasource_uid=None):
         """
 
         :param datasource_id:
@@ -309,7 +326,12 @@ class Datasource(Base):
         :param access:
         :return:
         """
-        post_series_path = "/datasources/%s/%s/api/v1/series" % (access, datasource_id)
+        if datasource_id:
+            post_series_path = "/datasources/%s/%s/api/v1/series" % (access, datasource_id)
+        elif datasource_uid:
+            post_series_path = "/datasources/%s/uid/%s/api/v1/series" % (access, datasource_uid)
+        else:
+            raise ValueError("Either datasource_id or datasource_uid must be provided")
         return self.client.POST(post_series_path, data={"match[]": match, "start": start, "end": end})
 
     def smartquery(
@@ -336,6 +358,7 @@ class Datasource(Base):
         access_type = datasource["access"]
 
         # Sanity checks.
+        model = {}
         if not request and not expression:
             raise ValueError("request or expression must be given")
         elif not request:
@@ -386,17 +409,17 @@ class Datasource(Base):
                 and request["data"]["queries"][0]["instant"]
             ):
                 return self.query(
-                    datasource.get("id"),
-                    request["expr"],
-                    request["data"]["to"],
+                    datasource_id=datasource.get("id"),
+                    query=request["expr"],
+                    timestamp=["data"]["to"],
                 )
             else:
                 return self.query_range(
-                    datasource.get("id"),
-                    request["expr"],
-                    request["data"]["from"],
-                    request["data"]["to"],
-                    request["data"]["step"],
+                    datasource_id=datasource.get("id"),
+                    query=request["expr"],
+                    start=request["data"]["from"],
+                    end=request["data"]["to"],
+                    step=request["data"]["step"],
                 )
 
         # For all others, use the generic data source communication endpoint.
@@ -445,7 +468,7 @@ class Datasource(Base):
         try:
             response = self.smartquery(datasource, expression)
             response_display = response
-            if VERBOSE:  # pragma:nocover
+            if VERBOSE:  # pragma: no cover
                 response_display = json.dumps(response, indent=2)
             logger.debug(f"Health check query response is: {response_display}")
             success = False
@@ -534,15 +557,20 @@ class Datasource(Base):
             response = ex.response
             if isinstance(response, dict):
                 if datasource_type == "elasticsearch":
-                    error = response["error"]
-                    status_code = response["status"]
-                    if "root_cause" in error:
-                        error = error["root_cause"][0]
-                        error_type = error["type"]
-                        error_reason = error["reason"]
-                        message = f"Status: {status_code}. Type: {error_type}. Reason: {error_reason}"
+                    if "error" in response:
+                        error = response["error"]
+                        status_code = response["status"]
+                        if "root_cause" in error:
+                            error = error["root_cause"][0]
+                            error_type = error["type"]
+                            error_reason = error["reason"]
+                            message = f"Status: {status_code}. Type: {error_type}. Reason: {error_reason}"
+                        else:
+                            message = str(error)
+                    elif "message" in response:
+                        message = response["message"]
                     else:
-                        message = str(error)
+                        raise ValueError("Unknown Elasticsearch error response") from ex
 
                 elif "results" in ex.response:
                     message = response["results"]["test"]["error"]
@@ -551,7 +579,7 @@ class Datasource(Base):
             else:
                 message = str(ex)
 
-        except ReadTimeout as ex:  # pragma:nocover
+        except ReadTimeout as ex:  # pragma: no cover
             message = str(ex)
             success = False
             response = None

@@ -1,9 +1,8 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: vonage-account
-Version: 1.1.1
+Version: 1.1.2
 Summary: Vonage Account API package
 Author-email: Vonage <devrel@vonage.com>
-License: Apache-2.0
 Project-URL: homepage, https://github.com/Vonage/vonage-python-sdk
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3

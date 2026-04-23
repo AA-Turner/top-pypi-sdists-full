@@ -20,6 +20,7 @@ from snowflake.snowpark_connect.relation.output_struct_utils import (
     unpack_struct_output_to_container,
 )
 from snowflake.snowpark_connect.type_mapping import proto_to_snowpark_type
+from snowflake.snowpark_connect.typed_column import FieldType
 from snowflake.snowpark_connect.utils.context import get_spark_session_id
 from snowflake.snowpark_connect.utils.java_udtf_utils import (
     JAVA_UDTF_PREFIX,
@@ -91,7 +92,9 @@ def _call_udtf(
         dataframe=result_df,
         spark_column_names=output_cols,
         snowpark_column_names=output_cols,
-        snowpark_column_types=[field.datatype for field in return_type.fields],
+        snowpark_column_types=[
+            FieldType(field.datatype, field.nullable) for field in return_type.fields
+        ],
     )
 
 

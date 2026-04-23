@@ -1,0 +1,51 @@
+# Dependabot configuration
+# Reference: https://docs.github.com/en/code-security/dependabot/working-with-dependabot/dependabot-options-reference
+#
+# Policy: security updates only. Version-update PRs are disabled per
+# ecosystem via `open-pull-requests-limit: 0`. Security-update PRs are
+# managed separately in repo Settings -> Code security and continue to
+# fire when the GitHub Advisory Database reports a vulnerability
+# matching a pinned dep.
+#
+# The `cooldown` blocks are retained so the 7/14-day policy is already
+# in place if version updates are ever re-enabled. Cooldown does NOT
+# apply to security-update PRs.
+version: 2
+updates:
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 0
+    cooldown:
+      default-days: 7
+      semver-major-days: 14
+      semver-minor-days: 7
+      semver-patch-days: 7
+      include:
+        - "*"
+
+  - package-ecosystem: "cargo"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 0
+    cooldown:
+      default-days: 7
+      semver-major-days: 14
+      semver-minor-days: 7
+      semver-patch-days: 7
+      include:
+        - "*"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 0
+    cooldown:
+      # github-actions ecosystem only supports default-days; semver-* fields
+      # are rejected because action tags don't follow strict semver.
+      default-days: 7
+      include:
+        - "*"

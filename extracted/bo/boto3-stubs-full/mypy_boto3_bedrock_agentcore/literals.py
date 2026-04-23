@@ -34,6 +34,11 @@ __all__ = (
     "DescriptorTypeType",
     "EventFilterConditionType",
     "ExtractionJobStatusType",
+    "HarnessConversationRoleType",
+    "HarnessStopReasonType",
+    "HarnessToolTypeType",
+    "HarnessToolUseStatusType",
+    "HarnessToolUseTypeType",
     "LanguageRuntimeType",
     "ListActorsPaginatorName",
     "ListEventsPaginatorName",
@@ -42,6 +47,7 @@ __all__ = (
     "ListSessionsPaginatorName",
     "MemoryRecordStatusType",
     "MouseButtonType",
+    "OAuthGrantTypeType",
     "Oauth2FlowTypeType",
     "OperatorTypeType",
     "PaginatorName",
@@ -70,6 +76,32 @@ ContentBlockTypeType = Literal["image", "resource", "resource_link", "text"]
 DescriptorTypeType = Literal["A2A", "AGENT_SKILLS", "CUSTOM", "MCP"]
 EventFilterConditionType = Literal["HAS_EVENTS"]
 ExtractionJobStatusType = Literal["FAILED"]
+HarnessConversationRoleType = Literal["assistant", "user"]
+HarnessStopReasonType = Literal[
+    "content_filtered",
+    "end_turn",
+    "interrupted",
+    "malformed_model_output",
+    "malformed_tool_use",
+    "max_iterations_exceeded",
+    "max_output_tokens_exceeded",
+    "max_tokens",
+    "model_context_window_exceeded",
+    "partial_turn",
+    "stop_sequence",
+    "timeout_exceeded",
+    "tool_result",
+    "tool_use",
+]
+HarnessToolTypeType = Literal[
+    "agentcore_browser",
+    "agentcore_code_interpreter",
+    "agentcore_gateway",
+    "inline_function",
+    "remote_mcp",
+]
+HarnessToolUseStatusType = Literal["error", "success"]
+HarnessToolUseTypeType = Literal["mcp_tool_use", "server_tool_use", "tool_use"]
 LanguageRuntimeType = Literal["deno", "nodejs", "python"]
 ListActorsPaginatorName = Literal["list_actors"]
 ListEventsPaginatorName = Literal["list_events"]
@@ -78,6 +110,7 @@ ListMemoryRecordsPaginatorName = Literal["list_memory_records"]
 ListSessionsPaginatorName = Literal["list_sessions"]
 MemoryRecordStatusType = Literal["FAILED", "SUCCEEDED"]
 MouseButtonType = Literal["LEFT", "MIDDLE", "RIGHT"]
+OAuthGrantTypeType = Literal["AUTHORIZATION_CODE", "CLIENT_CREDENTIALS"]
 Oauth2FlowTypeType = Literal["M2M", "USER_FEDERATION"]
 OperatorTypeType = Literal["EQUALS_TO", "EXISTS", "NOT_EXISTS"]
 ProgrammingLanguageType = Literal["javascript", "python", "typescript"]

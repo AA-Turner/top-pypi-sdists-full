@@ -32,21 +32,39 @@ class Sip(BaseModel):
     type: Channel = Channel.SIP
 
 
+class WebsocketAuthorization(BaseModel):
+    """Authorization settings for a WebSocket endpoint.
+
+    Args:
+        type (Literal['vonage', 'custom']): The authorization mode. Use `vonage` to have
+            Vonage generate and send a JWT for you, or `custom` to provide your own
+            Authorization header value.
+        value (str, Optional): Authorization header value to send when `type` is
+            `custom`. Ignored for `vonage`.
+    """
+
+    type: Literal['vonage', 'custom']
+    value: Optional[str] = None
+
+
 class Websocket(BaseModel):
     """Model for a WebSocket connection.
 
     Args:
         uri (str): The URI of the WebSocket connection.
-        content_type (Literal['audio/l16;rate=8000', 'audio/l16;rate=16000']): The content
-            type of the audio stream.
+        content_type (Literal['audio/l16;rate=8000', 'audio/l16;rate=16000', 'audio/l16;rate=24000']):
+            The content type of the audio stream.
         headers (Optional[dict]): The headers to include with the WebSocket connection.
+        authorization (WebsocketAuthorization, Optional): Authorization configuration for
+            the WebSocket handshake.
     """
 
     uri: str = Field(..., min_length=1)
-    content_type: Literal['audio/l16;rate=8000', 'audio/l16;rate=16000'] = Field(
-        'audio/l16;rate=16000', serialization_alias='content-type'
-    )
+    content_type: Literal[
+        "audio/l16;rate=8000", "audio/l16;rate=16000", "audio/l16;rate=24000"
+    ] = Field("audio/l16;rate=16000", serialization_alias="content-type")
     headers: Optional[dict] = None
+    authorization: Optional[WebsocketAuthorization] = None
     type: Channel = Channel.WEBSOCKET
 
 
@@ -74,6 +92,6 @@ class AdvancedMachineDetection(BaseModel):
             machine beep to be detected.
     """
 
-    behavior: Optional[Literal['continue', 'hangup']] = None
-    mode: Optional[Literal['default', 'detect', 'detect_beep']] = None
+    behavior: Optional[Literal["continue", "hangup"]] = None
+    mode: Optional[Literal["default", "detect", "detect_beep"]] = None
     beep_timeout: Optional[int] = Field(None, ge=45, le=120)

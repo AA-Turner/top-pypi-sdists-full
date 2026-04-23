@@ -187,9 +187,11 @@ class ApiReturn:
 # %% ../nbs/api/00_core.ipynb #7cc39ba9
 class JSONResponse(JSONResponseOrig):
     "Same as starlette's version, but auto-stringifies non serializable types"
-    def render(self, content: Any) -> bytes:
-        res = json.dumps(content, ensure_ascii=False, allow_nan=False, indent=None, separators=(",", ":"), default=str)
+    def render(self, content:Any)->bytes:
+        def _default(o): return list(o) if is_listy(o) else str(o)
+        res = json.dumps(content, ensure_ascii=False, allow_nan=False, indent=None, separators=(",",":"), default=_default)
         return res.encode("utf-8")
+
 
 # %% ../nbs/api/00_core.ipynb #5fa96e3a
 async def _find_p(conn, data, hdrs, arg:str, p:Parameter):
@@ -210,7 +212,7 @@ async def _find_p(conn, data, hdrs, arg:str, p:Parameter):
     if anno is empty:
         if arg.lower()=='ws' or 'request'.startswith(arg.lower()): return conn
         if 'session'.startswith(arg.lower()): return conn.scope.get('session', {})
-        if arg.lower()=='scope': return dict2obj(conn.scope)
+        if arg.lower()=='scope': return conn.scope
         if arg.lower()=='data': return data
         if arg.lower()=='htmx': return _get_htmx(hdrs)
         if arg.lower()=='app': return conn.scope['app']
@@ -369,16 +371,8 @@ def _find_targets(req, resp):
             t = resp.attrs.pop(k, None)
             if t: resp.attrs[v] = _url_for(req, t)
 
-def _apply_ft(o):
-    "Apply FastTag transformation recursively to object `o`"
-    if isinstance(o, tuple): o = tuple(_apply_ft(c) for c in o)
-    if hasattr(o, '__ft__'): o = o.__ft__()
-    if isinstance(o, FT): o.children = tuple(_apply_ft(c) for c in o.children)
-    return o
-
 def _to_xml(req, resp, indent):
     "Convert response to XML string with target URL resolution"
-    resp = _apply_ft(resp)
     _find_targets(req, resp)
     return to_xml(resp, indent=indent)
 

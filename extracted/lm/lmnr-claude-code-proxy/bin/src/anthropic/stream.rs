@@ -1,5 +1,7 @@
 use serde::Deserialize;
 
+use crate::anthropic::common::ServerToolUsage;
+
 use super::common::StopReason;
 use super::error::ApiError;
 use super::response::MessageResponse;
@@ -76,5 +78,13 @@ pub struct MessageDelta {
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct DeltaUsage {
-    pub output_tokens: u32,
+    pub output_tokens: i32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub input_tokens: Option<i32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cache_read_input_tokens: Option<i32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cache_creation_input_tokens: Option<i32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub server_tool_use: Option<ServerToolUsage>,
 }

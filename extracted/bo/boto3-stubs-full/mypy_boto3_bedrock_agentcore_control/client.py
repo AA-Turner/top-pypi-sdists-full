@@ -37,6 +37,7 @@ from .paginator import (
     ListEvaluatorsPaginator,
     ListGatewaysPaginator,
     ListGatewayTargetsPaginator,
+    ListHarnessesPaginator,
     ListMemoriesPaginator,
     ListOauth2CredentialProvidersPaginator,
     ListOnlineEvaluationConfigsPaginator,
@@ -67,6 +68,8 @@ from .type_defs import (
     CreateGatewayResponseTypeDef,
     CreateGatewayTargetRequestTypeDef,
     CreateGatewayTargetResponseTypeDef,
+    CreateHarnessRequestTypeDef,
+    CreateHarnessResponseTypeDef,
     CreateMemoryInputTypeDef,
     CreateMemoryOutputTypeDef,
     CreateOauth2CredentialProviderRequestTypeDef,
@@ -100,6 +103,8 @@ from .type_defs import (
     DeleteGatewayResponseTypeDef,
     DeleteGatewayTargetRequestTypeDef,
     DeleteGatewayTargetResponseTypeDef,
+    DeleteHarnessRequestTypeDef,
+    DeleteHarnessResponseTypeDef,
     DeleteMemoryInputTypeDef,
     DeleteMemoryOutputTypeDef,
     DeleteOauth2CredentialProviderRequestTypeDef,
@@ -132,6 +137,8 @@ from .type_defs import (
     GetGatewayResponseTypeDef,
     GetGatewayTargetRequestTypeDef,
     GetGatewayTargetResponseTypeDef,
+    GetHarnessRequestTypeDef,
+    GetHarnessResponseTypeDef,
     GetMemoryInputTypeDef,
     GetMemoryOutputTypeDef,
     GetOauth2CredentialProviderRequestTypeDef,
@@ -174,6 +181,8 @@ from .type_defs import (
     ListGatewaysResponseTypeDef,
     ListGatewayTargetsRequestTypeDef,
     ListGatewayTargetsResponseTypeDef,
+    ListHarnessesRequestTypeDef,
+    ListHarnessesResponseTypeDef,
     ListMemoriesInputTypeDef,
     ListMemoriesOutputTypeDef,
     ListOauth2CredentialProvidersRequestTypeDef,
@@ -220,6 +229,8 @@ from .type_defs import (
     UpdateGatewayResponseTypeDef,
     UpdateGatewayTargetRequestTypeDef,
     UpdateGatewayTargetResponseTypeDef,
+    UpdateHarnessRequestTypeDef,
+    UpdateHarnessResponseTypeDef,
     UpdateMemoryInputTypeDef,
     UpdateMemoryOutputTypeDef,
     UpdateOauth2CredentialProviderRequestTypeDef,
@@ -400,6 +411,16 @@ class BedrockAgentCoreControlClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#create_gateway_target)
         """
 
+    def create_harness(
+        self, **kwargs: Unpack[CreateHarnessRequestTypeDef]
+    ) -> CreateHarnessResponseTypeDef:
+        """
+        Operation to create a Harness.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/create_harness.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#create_harness)
+        """
+
     def create_memory(
         self, **kwargs: Unpack[CreateMemoryInputTypeDef]
     ) -> CreateMemoryOutputTypeDef:
@@ -569,6 +590,16 @@ class BedrockAgentCoreControlClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/delete_gateway_target.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#delete_gateway_target)
+        """
+
+    def delete_harness(
+        self, **kwargs: Unpack[DeleteHarnessRequestTypeDef]
+    ) -> DeleteHarnessResponseTypeDef:
+        """
+        Operation to delete a Harness.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/delete_harness.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#delete_harness)
         """
 
     def delete_memory(
@@ -747,6 +778,14 @@ class BedrockAgentCoreControlClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_gateway_target.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#get_gateway_target)
+        """
+
+    def get_harness(self, **kwargs: Unpack[GetHarnessRequestTypeDef]) -> GetHarnessResponseTypeDef:
+        """
+        Operation to get a single Harness.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_harness.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#get_harness)
         """
 
     def get_memory(self, **kwargs: Unpack[GetMemoryInputTypeDef]) -> GetMemoryOutputTypeDef:
@@ -958,6 +997,16 @@ class BedrockAgentCoreControlClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/list_gateways.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#list_gateways)
+        """
+
+    def list_harnesses(
+        self, **kwargs: Unpack[ListHarnessesRequestTypeDef]
+    ) -> ListHarnessesResponseTypeDef:
+        """
+        Operation to list Harnesses.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/list_harnesses.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#list_harnesses)
         """
 
     def list_memories(
@@ -1203,6 +1252,16 @@ class BedrockAgentCoreControlClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#update_gateway_target)
         """
 
+    def update_harness(
+        self, **kwargs: Unpack[UpdateHarnessRequestTypeDef]
+    ) -> UpdateHarnessResponseTypeDef:
+        """
+        Operation to update a Harness.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/update_harness.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#update_harness)
+        """
+
     def update_memory(
         self, **kwargs: Unpack[UpdateMemoryInputTypeDef]
     ) -> UpdateMemoryOutputTypeDef:
@@ -1397,6 +1456,17 @@ class BedrockAgentCoreControlClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_gateways"]
     ) -> ListGatewaysPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_harnesses"]
+    ) -> ListHarnessesPaginator:
         """
         Create a paginator for an operation.
 

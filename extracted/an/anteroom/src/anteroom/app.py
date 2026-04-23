@@ -14,7 +14,7 @@ from collections import OrderedDict
 from collections.abc import Awaitable, Callable
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Any, AsyncGenerator
+from typing import Any, AsyncGenerator, cast
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -149,11 +149,6 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     app.state.bg_manager = BackgroundTaskManager(db=app.state.db, data_dir=config.app.data_dir, event_bus=event_bus)
 
-    # Detached subagent manager (#1314)
-    from .services.detached_subagent_manager import DetachedSubagentManager
-
-    app.state.detach_manager = DetachedSubagentManager(db=app.state.db, event_bus=event_bus)
-
     mcp_manager = None
     if config.mcp_servers:
         _write_progress(_progress_path, "mcp_servers", "running", detail=f"{len(config.mcp_servers)} servers")
@@ -231,11 +226,24 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     # Initialize audit writer
     from .services.audit import create_audit_writer
+    from .services.lineage import emit_hook_snapshot
 
     _private_key = config.identity.private_key if config.identity else ""
     app.state.audit_writer = create_audit_writer(config, private_key_pem=_private_key)
     if app.state.audit_writer.enabled:
         logger.info("Audit log enabled: %s", app.state.audit_writer.log_dir)
+        emit_hook_snapshot(app.state.audit_writer, config.hooks)
+
+    # Detached subagent manager (#1314) — constructed after audit_writer
+    # so subagent.* lifecycle events land on the same writer (#1459).
+    from .services.detached_subagent_manager import DetachedSubagentManager
+
+    app.state.detach_manager = DetachedSubagentManager(
+        db=app.state.db,
+        event_bus=event_bus,
+        config=config.safety.subagent,
+        audit_writer=app.state.audit_writer if app.state.audit_writer.enabled else None,
+    )
 
     # Start retention worker when either conversation retention (storage)
     # or memory retention (#625) is configured. Memory-only mode passes
@@ -991,8 +999,8 @@ def create_app(config: AppConfig | None = None, enforced_fields: list[str] | Non
 
     auth_token = _derive_auth_token(config)
     token_hash = hashlib.sha256(auth_token.encode()).hexdigest()
-    app.add_middleware(  # type: ignore[arg-type]
-        BearerTokenMiddleware,
+    app.add_middleware(
+        cast(Any, BearerTokenMiddleware),
         token_hash=token_hash,
         auth_token=auth_token,
         secure_cookies=config.app.tls,

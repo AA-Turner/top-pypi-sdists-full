@@ -62,6 +62,7 @@ def configure_snowpark_session(session: snowpark.Session):
     from snowflake.snowpark_connect.config import (
         get_cte_optimization_enabled,
         global_config,
+        is_cte_optimization_enabled_for_connect_version,
     )
 
     global SKIP_SESSION_CONFIGURATION
@@ -95,9 +96,21 @@ def configure_snowpark_session(session: snowpark.Session):
     session._use_scoped_temp_objects = False
 
     # Configure CTE optimization based on session configuration
-    cte_optimization_enabled = get_cte_optimization_enabled()
-    session.cte_optimization_enabled = cte_optimization_enabled
-    logger.debug(f"CTE optimization enabled: {cte_optimization_enabled}")
+    # If get_cte_optimization_enabled() returns None, use snowpark-connect server parameter
+    # (SNOWPARK_CONNECT_USE_CTE_OPTIMIZATION_VERSION) and Snowpark Connect version.
+    # If explicitly set by user, use user's choice.
+    cte_optimization_setting = get_cte_optimization_enabled()
+    if cte_optimization_setting is not None:
+        session.cte_optimization_enabled = cte_optimization_setting
+        logger.info(f"CTE optimization set by user config: {cte_optimization_setting}")
+    else:
+        session.cte_optimization_enabled = (
+            is_cte_optimization_enabled_for_connect_version(session)
+        )
+        logger.info(
+            f"CTE optimization using snowpark-connect server default: "
+            f"{session.cte_optimization_enabled}"
+        )
 
     # Default query tag to be used unless overridden by user using AppName or spark.addTag()
     query_tag = "SNOWPARK_CONNECT_QUERY"
