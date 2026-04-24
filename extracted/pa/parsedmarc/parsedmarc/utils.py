@@ -152,8 +152,8 @@ class IPAddressInfo(TypedDict):
     name: Optional[str]
     type: Optional[str]
     asn: Optional[int]
-    asn_name: Optional[str]
-    asn_domain: Optional[str]
+    as_name: Optional[str]
+    as_domain: Optional[str]
 
 
 def decode_base64(data: str) -> bytes:
@@ -460,6 +460,155 @@ def load_ip_db(
     logger.info("Using bundled IP database")
 
 
+class _IPDatabaseRecord(TypedDict):
+    country: Optional[str]
+    asn: Optional[int]
+    as_name: Optional[str]
+    as_domain: Optional[str]
+
+
+class InvalidIPinfoAPIKey(Exception):
+    """Raised when the IPinfo API rejects the configured token."""
+
+
+# IPinfo Lite REST API. When ``_IPINFO_API_TOKEN`` is set,
+# ``get_ip_address_db_record()`` queries the API first and falls back to the
+# bundled/cached MMDB on any non-2xx response or network error. A 401/403
+# propagates as ``InvalidIPinfoAPIKey`` so the CLI exits fatally.
+#
+# The IPinfo Lite API is documented as having no daily or monthly request
+# limit ("unlimited access"), so there is no rate-limit or quota handling
+# here — adding it would be inventing behavior the service doesn't document.
+# Authentication uses the documented ``?token=`` query parameter.
+_IPINFO_API_URL = "https://api.ipinfo.io/lite"
+_IPINFO_API_TOKEN: Optional[str] = None
+_IPINFO_API_TIMEOUT: float = 5.0
+
+
+def configure_ipinfo_api(
+    token: Optional[str],
+    *,
+    probe: bool = True,
+) -> None:
+    """Configure the IPinfo Lite REST API as the primary source for IP lookups.
+
+    When a token is configured, ``get_ip_address_db_record()`` hits the API
+    first for every lookup and falls back to the MMDB on network errors. An
+    invalid token raises ``InvalidIPinfoAPIKey`` — the CLI catches that and
+    exits fatally.
+
+    Args:
+        token: IPinfo API token. ``None`` or empty disables the API.
+        probe: If ``True``, verify the token by looking up ``1.1.1.1``. A
+            401/403 raises ``InvalidIPinfoAPIKey``; other errors are logged
+            and the token is still accepted so per-request fallback can take
+            over.
+    """
+    global _IPINFO_API_TOKEN
+    _IPINFO_API_TOKEN = token or None
+
+    if not _IPINFO_API_TOKEN or not probe:
+        return
+
+    try:
+        _ipinfo_api_lookup("1.1.1.1")
+    except InvalidIPinfoAPIKey:
+        raise
+    except Exception as e:
+        logger.warning(f"IPinfo API probe failed (will fall back per-request): {e}")
+    else:
+        logger.info("IPinfo API configured")
+
+
+def _ipinfo_api_lookup(ip_address: str) -> Optional[_IPDatabaseRecord]:
+    """Look up an IP via the IPinfo Lite REST API.
+
+    Returns the normalized record on success, or ``None`` on network error or
+    any non-2xx response (other than 401/403). 401/403 raises
+    ``InvalidIPinfoAPIKey``.
+    """
+    if not _IPINFO_API_TOKEN:
+        return None
+
+    url = f"{_IPINFO_API_URL}/{ip_address}"
+    params = {"token": _IPINFO_API_TOKEN}
+    headers = {"User-Agent": USER_AGENT, "Accept": "application/json"}
+    try:
+        response = requests.get(
+            url, headers=headers, params=params, timeout=_IPINFO_API_TIMEOUT
+        )
+    except requests.exceptions.RequestException as e:
+        logger.debug(f"IPinfo API request for {ip_address} failed: {e}")
+        return None
+
+    if response.status_code in (401, 403):
+        raise InvalidIPinfoAPIKey(
+            f"IPinfo API rejected the configured token (HTTP {response.status_code})"
+        )
+    if not response.ok:
+        logger.debug(
+            f"IPinfo API returned HTTP {response.status_code} for {ip_address}"
+        )
+        return None
+
+    try:
+        payload = response.json()
+    except ValueError:
+        logger.debug(f"IPinfo API returned non-JSON for {ip_address}")
+        return None
+    if not isinstance(payload, dict):
+        return None
+
+    return _normalize_ip_record(payload)
+
+
+def _normalize_ip_record(record: dict) -> _IPDatabaseRecord:
+    """Normalize an IPinfo / MaxMind record to the internal shape.
+
+    Shared between the API path and the MMDB path so both schemas produce the
+    same output: country as ISO code, ASN as plain int, as_name string,
+    as_domain lowercased.
+    """
+    country: Optional[str] = None
+    asn: Optional[int] = None
+    as_name: Optional[str] = None
+    as_domain: Optional[str] = None
+
+    code = record.get("country_code")
+    if code is None:
+        nested = record.get("country")
+        if isinstance(nested, dict):
+            code = nested.get("iso_code")
+    if isinstance(code, str):
+        country = code
+
+    raw_asn = record.get("asn")
+    if isinstance(raw_asn, int):
+        asn = raw_asn
+    elif isinstance(raw_asn, str) and raw_asn:
+        digits = raw_asn.removeprefix("AS").removeprefix("as")
+        if digits.isdigit():
+            asn = int(digits)
+    if asn is None:
+        mm_asn = record.get("autonomous_system_number")
+        if isinstance(mm_asn, int):
+            asn = mm_asn
+
+    name = record.get("as_name") or record.get("autonomous_system_organization")
+    if isinstance(name, str) and name:
+        as_name = name
+    domain = record.get("as_domain")
+    if isinstance(domain, str) and domain:
+        as_domain = domain.lower()
+
+    return {
+        "country": country,
+        "asn": asn,
+        "as_name": as_name,
+        "as_domain": as_domain,
+    }
+
+
 def _get_ip_database_path(db_path: Optional[str]) -> str:
     db_paths = [
         "ipinfo_lite.mmdb",
@@ -505,71 +654,35 @@ def _get_ip_database_path(db_path: Optional[str]) -> str:
     return db_path
 
 
-class _IPDatabaseRecord(TypedDict):
-    country: Optional[str]
-    asn: Optional[int]
-    asn_name: Optional[str]
-    asn_domain: Optional[str]
-
-
 def get_ip_address_db_record(
     ip_address: str, *, db_path: Optional[str] = None
 ) -> _IPDatabaseRecord:
-    """Look up an IP in the configured MMDB and return country + ASN fields.
+    """Look up an IP and return country + ASN fields.
+
+    If the IPinfo Lite API is configured via ``configure_ipinfo_api()``, the
+    API is queried first; any non-fatal failure (rate limit, quota, network)
+    falls through to the MMDB. An invalid API token raises
+    ``InvalidIPinfoAPIKey`` and is not caught here.
 
     IPinfo Lite carries ``country_code``, ``as_name``, and ``as_domain`` on
     every record. MaxMind/DBIP country-only databases carry only country, so
-    ``asn_name`` / ``asn_domain`` come back None for those users.
+    ``as_name`` / ``as_domain`` come back None for those users.
     """
+    api_record = _ipinfo_api_lookup(ip_address)
+    if api_record is not None:
+        return api_record
+
     resolved_path = _get_ip_database_path(db_path)
     db_reader = maxminddb.open_database(resolved_path)
     record = db_reader.get(ip_address)
-
-    country: Optional[str] = None
-    asn: Optional[int] = None
-    asn_name: Optional[str] = None
-    asn_domain: Optional[str] = None
-    if isinstance(record, dict):
-        # Support both the IPinfo schema (flat top-level ``country_code``) and
-        # the MaxMind/DBIP schema (nested ``country.iso_code``) so users
-        # dropping in their own MMDB from any of these providers keeps working.
-        code = record.get("country_code")
-        if code is None:
-            nested = record.get("country")
-            if isinstance(nested, dict):
-                code = nested.get("iso_code")
-        if isinstance(code, str):
-            country = code
-
-        # Normalize ASN to a plain integer. IPinfo stores it as a string like
-        # "AS15169"; MaxMind's ASN DB uses ``autonomous_system_number`` as an
-        # int. Integer form lets consumers do range queries and sort
-        # numerically; display-time formatting with an "AS" prefix is trivial.
-        raw_asn = record.get("asn")
-        if isinstance(raw_asn, int):
-            asn = raw_asn
-        elif isinstance(raw_asn, str) and raw_asn:
-            digits = raw_asn.removeprefix("AS").removeprefix("as")
-            if digits.isdigit():
-                asn = int(digits)
-        if asn is None:
-            mm_asn = record.get("autonomous_system_number")
-            if isinstance(mm_asn, int):
-                asn = mm_asn
-
-        name = record.get("as_name") or record.get("autonomous_system_organization")
-        if isinstance(name, str) and name:
-            asn_name = name
-        domain = record.get("as_domain")
-        if isinstance(domain, str) and domain:
-            asn_domain = domain.lower()
-
-    return {
-        "country": country,
-        "asn": asn,
-        "asn_name": asn_name,
-        "asn_domain": asn_domain,
-    }
+    if not isinstance(record, dict):
+        return {
+            "country": None,
+            "asn": None,
+            "as_name": None,
+            "as_domain": None,
+        }
+    return _normalize_ip_record(record)
 
 
 def get_ip_address_country(
@@ -781,8 +894,8 @@ def get_ip_address_info(
         "name": None,
         "type": None,
         "asn": None,
-        "asn_name": None,
-        "asn_domain": None,
+        "as_name": None,
+        "as_domain": None,
     }
     if offline:
         reverse_dns = None
@@ -796,8 +909,8 @@ def get_ip_address_info(
     db_record = get_ip_address_db_record(ip_address, db_path=ip_db_path)
     info["country"] = db_record["country"]
     info["asn"] = db_record["asn"]
-    info["asn_name"] = db_record["asn_name"]
-    info["asn_domain"] = db_record["asn_domain"]
+    info["as_name"] = db_record["as_name"]
+    info["as_domain"] = db_record["as_domain"]
     info["reverse_dns"] = reverse_dns
 
     if reverse_dns is not None:
@@ -830,14 +943,14 @@ def get_ip_address_info(
                 url=reverse_dns_map_url,
                 offline=offline,
             )
-        if info["asn_domain"] and info["asn_domain"] in map_value:
-            service = map_value[info["asn_domain"]]
+        if info["as_domain"] and info["as_domain"] in map_value:
+            service = map_value[info["as_domain"]]
             info["name"] = service["name"]
             info["type"] = service["type"]
-        elif info["asn_name"]:
+        elif info["as_name"]:
             # ASN-domain not in the map: surface the raw AS name with no
             # classification. Better than leaving the row unattributed.
-            info["name"] = info["asn_name"]
+            info["name"] = info["as_name"]
 
     if cache is not None:
         cache[ip_address] = info

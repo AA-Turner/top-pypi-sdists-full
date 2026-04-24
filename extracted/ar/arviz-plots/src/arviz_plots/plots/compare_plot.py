@@ -5,6 +5,7 @@ from typing import Any, Literal
 
 import numpy as np
 from arviz_base import rcParams
+from arviz_base.validate import validate_dict_argument
 from xarray import Dataset, DataTree
 
 from arviz_plots.plot_collection import PlotCollection
@@ -14,7 +15,7 @@ from arviz_plots.plots.utils import get_visual_kwargs
 def plot_compare(
     cmp_df,
     *,
-    relative_scale=False,
+    relative_scale=True,
     rotated=False,
     hide_top_model=False,
     backend=None,
@@ -49,19 +50,25 @@ def plot_compare(
 
     Parameters
     ----------
-    comp_df : pandas.DataFrame
+    cmp_df : pandas.DataFrame
         Usually this will be the result of the :func:`arviz_stats.compare` function.
-        It is assumed that the DataFrame has two columns one named `elpd`, `mlpd`, or `gmpd`,
-        the other named `se`, and the index is the model names. Additionally,
-        it is assumed that the first row of the DataFrame is the top model.
+        It is assumed that the first row of the DataFrame is the top model and
+        the DataFrame has at least two columns:
+
+        * When ``relative_scale`` is True: one named `elpd_diff`, `mlpd_diff`,
+          or `gmpd_diff`, the other named `dse`, and the index is the model names.
+        * When ``relative_scale`` is False: one named `elpd`, `mlpd`, or `gmpd`,
+          the other named `se`, and the index is the model names.
+
     relative_scale : bool, optional.
-        If True, the `stats` values are scaled relative to the best model.
+        If True, the `stats`_diff and dse values are used instead of `stats` and se.
+        This turns the comparison into a difference from the best model.
         Defaults to True.
     rotated : bool, optional
         If True, the plot is rotated, with models on the y-axis and ELPD on the x-axis.
         Defaults to False.
     hide_top_model : bool, optional
-        If True, the top model (first row of `comp_df`) will not appear as a point with error bars
+        If True, the top model (first row of `cmp_df`) will not appear as a point with error bars
         or in the axis labels. Its performance can still be accessed by the visuals `ref_line`
         and/or `ref_band`. Defaults to False.
     backend : {"bokeh", "matplotlib", "plotly"}
@@ -112,22 +119,29 @@ def plot_compare(
     .. [3] Sivula et al. *Uncertainty in Bayesian Leave-One-Out Cross-Validation Based Model
         Comparison*. (2025). https://doi.org/10.48550/arXiv.2008.10296
     """
-    # Set default backend
     if backend is None:
         backend = rcParams["plot.backend"]
-
-    if visuals is None:
-        visuals = {}
+    visuals = validate_dict_argument(visuals, (plot_compare, "visuals"))
 
     # Check we have the required columns
-    valid_stats = [col for col in ("elpd", "mlpd", "gmpd") if col in cmp_df.columns]
+    if relative_scale:
+        required_stats_cols = {"elpd_diff", "mlpd_diff", "gmpd_diff"}
+    else:
+        required_stats_cols = {"elpd", "mlpd", "gmpd"}
+    required_se_column = "dse" if relative_scale else "se"
+
+    valid_stats = [col for col in required_stats_cols if col in cmp_df.columns]
     if not valid_stats:
         raise ValueError(
-            "The DataFrame must contain one of the following columns: 'elpd', 'mlpd', or 'gmpd'."
+            f"When relative_scale is {relative_scale}, the DataFrame "
+            f"must contain one of the following columns: {', '.join(required_stats_cols)}."
         )
-    stats = valid_stats[0]
-    if "se" not in cmp_df.columns:
-        raise ValueError("The DataFrame must contain a 'se' column for standard errors.")
+
+    if required_se_column not in cmp_df.columns:
+        raise ValueError(
+            f"When relative_scale is {relative_scale}, the DataFrame "
+            f"must contain a {required_se_column} column for standard errors."
+        )
 
     # Get plotting backend
     p_be = import_module(f"arviz_plots.backend.{backend}")
@@ -146,31 +160,33 @@ def plot_compare(
     figsize_units = "dots"
 
     figure, target = p_be.create_plotting_grid(
-        1, figsize=figsize, figsize_units=figsize_units, **figure_kwargs
+        1, figsize=figsize, figsize_units=figsize_units, squeeze=False, **figure_kwargs
     )
 
     # Create plot collection
     plot_collection = PlotCollection(
         Dataset({}),
         viz_dt=DataTree.from_dict(
-            {"/": Dataset({"figure": np.array(figure, dtype=object), "plot": target})}
+            {"/": Dataset({"figure": np.array(figure, dtype=object), "plot": target.squeeze()})}
         ),
         backend=backend,
         **pc_kwargs,
     )
 
-    if isinstance(target, np.ndarray):
-        target = target.tolist()
+    target = target.item()
+
+    # Obtain stats value and se and setup y axis label
+    stats = valid_stats[0]
+    if relative_scale:
+        se_key = "dse"
+        relative_scale_label = "ratio" if stats == "gmpd_diff" else "difference"
+        label_score = f"{stats.replace('_diff', '').upper()} ({relative_scale_label})"
+    else:
+        se_key = "se"
+        label_score = f"{stats.upper()}"
 
     perf_stats = cmp_df[stats].values
-    ses = cmp_df["se"].values
-
-    # Set scale relative to the best model
-    if relative_scale:
-        perf_stats = perf_stats - perf_stats[0]
-        label_score = f"{stats.upper()} (relative)"
-    else:
-        label_score = stats.upper()
+    ses = cmp_df[se_key].values
 
     # Create labels for the models
     label_models = cmp_df.index[hide_top_model:]

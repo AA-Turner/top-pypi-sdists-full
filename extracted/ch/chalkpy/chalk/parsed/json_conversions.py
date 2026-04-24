@@ -665,12 +665,19 @@ def convert_type_to_gql(
                     aggregation=mat.aggregation,
                     aggregateOn=(
                         UpsertFeatureReferenceGQL(
-                            underlying=_get_feature_id(mat.aggregate_on, root_fqn=False),
+                            underlying=_get_feature_id(mat.aggregate_on[0], root_fqn=False),
                             path=[_get_path_component(p) for p in t.path or []],
                         )
-                        if mat.aggregate_on is not None
+                        if len(mat.aggregate_on) > 0
                         else None
                     ),
+                    aggregateOnFeatures=[
+                        UpsertFeatureReferenceGQL(
+                            underlying=_get_feature_id(f, root_fqn=False),
+                            path=[_get_path_component(p) for p in t.path or []],
+                        )
+                        for f in mat.aggregate_on
+                    ],
                     dtype=serialize_dtype(mat.pyarrow_dtype),
                     backfillResolver=mat.backfill_resolver,
                     backfillLookbackDuration=(

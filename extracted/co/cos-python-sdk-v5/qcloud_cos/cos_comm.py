@@ -66,6 +66,8 @@ maplist = {
     'TrafficLimit': 'x-cos-traffic-limit',
     'Accept': 'Accept',
     'AcceptEncoding': 'Accept-Encoding',
+    "Callback": "x-cos-callback",
+    "CallbackVar": "x-cos-callback-var",
 }
 
 

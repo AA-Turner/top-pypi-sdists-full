@@ -1515,10 +1515,10 @@ class AppBase:
         return myzipfile
 
     def get_file_namespace_ids(self, namespace):
-        return self.get_file_category_ids(self, namespace)
+        return self.get_file_category_ids(namespace)
 
     def get_file_category(self, category):
-        return self.get_file_namespace(self, category)
+        return self.get_file_namespace(category)
 
     # Things to consider for files:
     # - How can you download / stream a file? 
@@ -2130,13 +2130,25 @@ class AppBase:
         # Forcing this to run due to potential self.full_execution loading issues in cloud run
         fullexecution = {}
         if self.standalone == True:
+            standalone_variables = []
+            try:
+                for param in self.action["parameters"]:
+                    standalone_variables.append({
+                        "name": param.get("name", ""),
+                        "value": param.get("value", ""),
+                    })
+            except Exception:
+                pass
+
             fullexecution = {
                 "workflow": {
                     "id": "STANDALONE",
                     "execution_org": {
                         "id": "STANDALONE"
                     }
-                }
+                },
+                "results": [],
+                "execution_variables": standalone_variables,
             }
 
         elif True or (isinstance(self.full_execution, str) and len(self.full_execution) == 0):
@@ -2937,16 +2949,16 @@ class AppBase:
 
             if isinstance(parseditem, dict) or isinstance(parseditem, list):
                 try:
-                    parseditem = json.dumps(parseditem)
+                    parseditem = json.dumps(parseditem, ensure_ascii=False)
                 except json.decoder.JSONDecodeError as e:
                     pass
 
             if is_loop:
                 if parsersplit[-1] == "#":
-                    parseditem = "${SHUFFLE_NO_SPLITTER%s}$" % json.dumps(data)
+                    parseditem = "${SHUFFLE_NO_SPLITTER%s}$" % json.dumps(data, ensure_ascii=False)
                 else:
                     # Return value: ${id[12345, 45678]}$
-                    parseditem = "${%s%s}$" % (parsersplit[-1], json.dumps(data))
+                    parseditem = "${%s%s}$" % (parsersplit[-1], json.dumps(data, ensure_ascii=False))
 
 
             returndata = str(parseditem)+str(appendresult)
@@ -2959,7 +2971,7 @@ class AppBase:
             # This breaks EVERYTHING
             try:
                 if (returndata.endswith("}") and returndata.endswith("}")) or (returndata.startswith("[") and returndata.endswith("]")):
-                    return json.dumps(json.loads(returndata)), is_loop
+                    return json.dumps(json.loads(returndata), ensure_ascii=False), is_loop
                 else:
                     return returndata, is_loop
             except json.decoder.JSONDecodeError as e:
@@ -3297,7 +3309,7 @@ class AppBase:
                 data = parameter["value"]
                 actualitem = re.findall(match, data, re.MULTILINE)
 
-                #self.logger.info("STATIC PARSED: %s" % actualitem)
+                #self.logger.info("STATIC PARSED: %s => %s" % (data, actualitem))
                 #self.logger.info("[INFO] Done with regex matching")
                 if len(actualitem) > 0:
                     for replace in actualitem:
@@ -3313,6 +3325,7 @@ class AppBase:
                         # Trying without string dumping.
                         #self.logger.info("TO BE REPLACED: %s" % to_be_replaced)
                         value, is_loop = get_json_value(fullexecution, to_be_replaced) 
+
 
                         # Adds debug info for variables we fail to find
                         try:
@@ -3350,11 +3363,31 @@ class AppBase:
                             #    returnvalue = fix_json_string_value(value)
                             #    value = returnvalue
 
-                            parameter["value"] = parameter["value"].replace(to_be_replaced, value, 1)
+                            # Check if the value above it is valid JSON already
+                            is_valid_json = False
+                            try:
+                                if (parameter["value"].startswith("{") and parameter["value"].endswith("}")) or (parameter["value"].startswith("[") and parameter["value"].endswith("]")):
+                                    json.loads(parameter["value"])
+                                    is_valid_json = True
+                            except:
+                                pass
+
+                            # Sanitise it, so that JSON in JSON doesn't necessarily break
+                            if is_valid_json:
+                                # Quotes => Newlines => Carriage returns
+                                tmpvalue = value.replace('\\\"', '\"', -1)
+                                tmpvalue = tmpvalue.replace('\"', '\\"', -1)
+                                tmpvalue = tmpvalue.replace("\\\n", "\\n", -1)
+                                tmpvalue = tmpvalue.replace("\n", "\\n", -1)
+                                tmpvalue = tmpvalue.replace("\\\r", "\\r", -1)
+                                tmpvalue = tmpvalue.replace("\r", "\\r", -1)
+                                parameter["value"] = parameter["value"].replace(to_be_replaced, tmpvalue, 1)
+                            else:
+                                parameter["value"] = parameter["value"].replace(to_be_replaced, value, 1)
                         elif isinstance(value, dict) or isinstance(value, list):
                             # Changed from JSON dump to str() 28.05.2021
                             # This makes it so the parameters gets lists and dicts straight up
-                            parameter["value"] = parameter["value"].replace(to_be_replaced, json.dumps(value), 1)
+                            parameter["value"] = parameter["value"].replace(to_be_replaced, json.dumps(value, ensure_ascii=False), 1)
 
                             #try:
                             #    parameter["value"] = parameter["value"].replace(to_be_replaced, json.dumps(value))
@@ -3364,7 +3397,7 @@ class AppBase:
                         else:
                             self.logger.error("[ERROR] Unknown type %s" % type(value))
                             try:
-                                parameter["value"] = parameter["value"].replace(to_be_replaced, json.dumps(value), 1)
+                                parameter["value"] = parameter["value"].replace(to_be_replaced, json.dumps(value, ensure_ascii=False), 1)
                             except json.decoder.JSONDecodeError as e:
                                 parameter["value"] = parameter["value"].replace(to_be_replaced, value, 1)
 
@@ -3612,6 +3645,8 @@ class AppBase:
         #
         #
         #
+        if self.standalone:
+            fullexecution["execution_argument"] = '{"activity":[{"attachments":[],"content":"@AIAgent what about 1.2.3.4?","details":"From: Diego Ruiz\nTo: phishing@example.com\nSubject: FW: [SUSPICIOUS] IT Support — Action required: reset your MFA\nDate: Thu, 23 Apr 2026 12:49:48 GMT\n\nHi security team,\n\nForwarding the email below — it looks like a phishing attempt impersonating IT support. I did not click the link.\n\nI also noticed my colleague Sarah Chen (Finance Analyst) received the exact same message. I have not been able to confirm yet whether she clicked it. Could you take a look?\n\nThanks,\nDiego Ruiz\nSenior Accountant, Finance\n\n---------- Forwarded message ----------\nFrom: IT Support\nTo: diego.ruiz@example.com\nSubject: [Action required] Reset your MFA within 24 hours\nDate: Thu, 23 Apr 2026 12:35:48 GMT\n\nDear user,\n\nOur records indicate that your multi-factor authentication enrollment is out of date. To avoid losing access to your account, please reset your MFA within the next 24 hours by visiting the secure portal below:\n\nhttps://112.94.99.84/mfa-reset?u=schen\n\nIf you do not complete this step, your account will be temporarily suspended.\n\nThank you,\nIT Support Team"}'
 
         # THE START IS ACTUALLY RIGHT HERE :O
         # Checks whether conditions are met, otherwise set 
@@ -3853,7 +3888,11 @@ class AppBase:
                                     for key, value in replacements.items():
                                         replacement = value
                                         try:
-                                            replacement = json.dumps(json.loads(value)[i])
+                                            replacement_item = json.loads(value)[i]
+                                            if isinstance(replacement_item, (dict, list)):
+                                                replacement = json.dumps(replacement_item, ensure_ascii=False)
+                                            else:
+                                                replacement = str(replacement_item)
                                         except IndexError as e:
                                             self.logger.info(f"[ERROR] Failed handling value parsing with index: {e}")
                                             pass
@@ -4098,8 +4137,11 @@ class AppBase:
                                     break
                                 except TypeError as e:
                                     newres = ""
-                                    self.logger.info(f"[ERROR] Got function exec type error: {e}")
+
                                     try:
+                                        if not "got unexpected" in f"{e}":
+                                            self.logger.info(f"[ERROR] Got function exec type error: {e}")
+
                                         e = json.loads(f"{e}")
                                     except:
                                         e = f"{e}"
@@ -4192,13 +4234,13 @@ class AppBase:
                                     "file_ids": file_ids
                                 }
                                 
-                                result = json.dumps(tmp_result)
+                                result = json.dumps(tmp_result, ensure_ascii=False)
                             elif isinstance(newres, str):
                                 #self.logger.info("[INFO] Handling return as string of length %d" % len(newres))
                                 result += newres
                             elif isinstance(newres, dict) or isinstance(newres, list):
                                 try:
-                                    result += json.dumps(newres, indent=4)
+                                    result += json.dumps(newres, indent=4, ensure_ascii=False)
                                 except json.JSONDecodeError as e:
                                     self.logger.info("[WARNING] Failed decoding result: %s" % e)
                                     try:
@@ -4263,7 +4305,7 @@ class AppBase:
                                 # This part is weird lol
                                 if json_object:
                                     try:
-                                        result = json.dumps(results)
+                                        result = json.dumps(results, ensure_ascii=False)
                                     except json.JSONDecodeError as e:
                                         self.logger.info(f"Failed to decode: {e}")
                                         result = results
@@ -4293,7 +4335,14 @@ class AppBase:
                                 result = results
 
                     if self.standalone or self.authorization == "standalone": 
-                        print("\n\n===== Successful result From the Function =====\n\n%s" % result)
+                        valid_json = False
+                        try:
+                            json_object = json.loads(result)
+                            valid_json = True
+                        except Exception as e:
+                            pass
+
+                        print("\n\n===== Successful result From the Function (JSON: %s) =====\n\n%s" % (valid_json, result))
                         exit()
 
                     self.action_result["status"] = "SUCCESS" 

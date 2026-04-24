@@ -1,4 +1,6 @@
-# Copyright 2022 StreamSets Inc.
+#  IBM Confidential
+#  PID 5900-BAF
+#  Copyright StreamSets Inc., an IBM Company 2024
 
 # fmt: off
 from collections import OrderedDict
@@ -40,24 +42,6 @@ def test_get_top_usage(metering_report):
         assert top_environments is not None and isinstance(top_environments, OrderedDict)
         assert top_jobs is not None and isinstance(top_jobs, OrderedDict)
         assert top_users is not None and isinstance(top_users, OrderedDict)
-
-
-@pytest.mark.skip("Skipping test until TLKT-1653 is completed")
-def test_view_job_runs(metering_report):
-    usage_metrics = ['pipeline_hours', 'total_units', 'clock_hours']
-
-    for metric in usage_metrics:
-        # Pick the most active job from the list of top jobs
-        job_id = list(metering_report.get_top_jobs(metric).items())[0][0]
-        job_runs = metering_report.view_job_runs(job_id)
-        assert job_runs is not None and isinstance(job_runs, OrderedDict)
-        # A job run should be an OrderedDict in the format:
-        # (job_id, {'start_run_time': value, 'total_run_time': value, 'units': value, 'clock_time': value})
-        for item in list(job_runs.items()):
-            assert isinstance(item, tuple) and isinstance(item[1], dict)
-            for key in item[1].keys():
-                assert key in ['start_run_time', 'total_run_time', 'units', 'clock_time']
-                assert item[1][key] is not None
 
 
 @pytest.mark.skip("Skipping test until TLKT-1653 is completed")

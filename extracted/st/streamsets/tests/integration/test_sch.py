@@ -1,6 +1,7 @@
 #  IBM Confidential
 #  PID 5900-BAF
 #  Copyright StreamSets Inc., an IBM Company 2024
+from copy import deepcopy
 
 # fmt: off
 import pytest
@@ -63,7 +64,7 @@ def test_delete_active_deployment(test_environment, sch):
             assert EXPECTED_ERROR_MESSAGE == error_message["ISSUES"][0]["message"]
         sch.delete_deployment(deployment)
         with pytest.raises(ValueError):
-            sch.deployments.get(deployment_id=deployment.deployment_id)
+            sch.deployments.get(id=deployment.id)
     except Exception as e:
         sch.delete_deployment(deployment, stop=True)
         raise e
@@ -84,7 +85,7 @@ def test_delete_active_environment(sch):
         assert environment.state == 'ACTIVE'
         sch.delete_environment(environment)
         with pytest.raises(ValueError):
-            sch.environments.get(environment_id=environment.environment_id)
+            sch.environments.get(id=environment.id)
     except Exception as e:
         sch.delete_environment(environment, stop=True)
         raise e
@@ -123,7 +124,7 @@ def test_delete_active_environment_with_active_deployment(sch):
             assert EXPECTED_ERROR_MESSAGE_CONTAINS in error_message["ISSUES"][0]["message"]
         sch.delete_environment(environment, stop=True)
         with pytest.raises(ValueError):
-            sch.environments.get(environment_id=environment.environment_id)
+            sch.environments.get(id=environment.id)
     except Exception as e:
         sch.delete_environment(environment, stop=True)
         raise e
@@ -155,7 +156,7 @@ def test_delete_active_environment_with_inactive_deployment(sch):
         assert deployment.state != 'ACTIVE'
         sch.delete_environment(environment, stop=True)
         with pytest.raises(ValueError):
-            sch.environments.get(environment_id=environment.environment_id)
+            sch.environments.get(id=environment.id)
     except Exception as e:
         sch.delete_environment(environment, stop=True)
         raise e
@@ -190,7 +191,37 @@ def test_delete_deactivated_environment_with_inactive_deployment(sch):
         assert environment.state == 'DEACTIVATED'
         sch.delete_environment(environment, stop=True)
         with pytest.raises(ValueError):
-            sch.environments.get(environment_id=environment.environment_id)
+            sch.environments.get(id=environment.id)
     except Exception as e:
         sch.delete_environment(environment, stop=True)
         raise e
+
+
+def test_connection_lazy_loading_behavior(sch, invalid_aws_engineless_test_connection):
+    connection = sch.connections.get(id=invalid_aws_engineless_test_connection.id)
+
+    original_data_internal = connection._data_internal.copy()
+    original_connection_definition_internal = deepcopy(connection._connection_definition_internal)
+    original_name = connection.name
+    original_sdc_id = connection.sdc_id
+
+    # Simulate pre-lazy-load state
+    connection._connection_definition_internal = None
+
+    # Manual overrides
+    connection.name = "MANUAL_NAME_OVERRIDE"
+    connection.sdc_id = "MANUAL_SDCID_OVERRIDE"
+
+    try:
+        # Trigger lazy loading
+        connection._load_data()
+
+        # Validate overridden fields are preserved
+        assert connection.name == "MANUAL_NAME_OVERRIDE"
+        assert connection.sdc_id == "MANUAL_SDCID_OVERRIDE"
+
+    finally:
+        connection._connection_definition_internal = original_connection_definition_internal
+        connection._data_internal = original_data_internal
+        connection.name = original_name
+        connection.sdc_id = original_sdc_id

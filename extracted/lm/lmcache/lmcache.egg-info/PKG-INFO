@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lmcache
-Version: 0.4.3
+Version: 0.4.4
 Summary: A LLM serving engine extension to reduce TTFT and increase throughput, especially under long-context scenarios.
 Author-email: LMCache Team <lmcacheteam@gmail.com>
 License-Expression: Apache-2.0
@@ -32,15 +32,14 @@ Requires-Dist: cufile-python
 Requires-Dist: fastapi
 Requires-Dist: httpx
 Requires-Dist: msgspec
-Requires-Dist: nixl; python_version < "3.13"
 Requires-Dist: numpy<=2.2.6
 Requires-Dist: numba
 Requires-Dist: nvtx
-Requires-Dist: opentelemetry-api>=1.20.0
+Requires-Dist: opentelemetry-api<=1.40.0,>=1.20.0
 Requires-Dist: opentelemetry-sdk>=1.20.0
 Requires-Dist: opentelemetry-exporter-otlp>=1.20.0
-Requires-Dist: opentelemetry-exporter-prometheus>=0.50b0
-Requires-Dist: prometheus_client>=0.18.0
+Requires-Dist: opentelemetry-exporter-prometheus<=0.61b0,>=0.50b0
+Requires-Dist: prometheus_client<=0.24.1,>=0.18.0
 Requires-Dist: psutil
 Requires-Dist: py-cpuinfo
 Requires-Dist: pyyaml
@@ -55,7 +54,9 @@ Requires-Dist: transformers>=4.51.1
 Requires-Dist: uvicorn
 Requires-Dist: httptools
 Requires-Dist: cupy-cuda12x
+Requires-Dist: nixl; python_version < "3.13"
 Dynamic: license-file
+Dynamic: requires-dist
 
 <div align="center">
   <p align="center">

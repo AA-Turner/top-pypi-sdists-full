@@ -64,6 +64,12 @@ if TYPE_CHECKING:
 logger = structlog.stdlib.get_logger(__name__)
 
 
+# Read-mask preset for Threads.get callers that need metadata/config but not
+# the large "values" column. Used by state get/update/bulk/history which
+# only need graph_id (from metadata) and the thread config.
+THREAD_METADATA_READ_MASK_PATHS: list[str] = ["metadata", "config"]
+
+
 THREAD_STATUS_TO_PB = {
     "idle": enum_thread_status.idle,
     "busy": enum_thread_status.busy,
@@ -471,6 +477,7 @@ class Threads(Authenticated):
         ctx: Auth.types.BaseAuthContext | None = None,
         filters: Auth.types.FilterType | list[pb.AuthFilter] | None = None,
         include_ttl: bool = False,
+        read_mask_paths: list[str] | None = None,
     ) -> AsyncIterator[Thread]:
         """Get a thread by ID.
 
@@ -482,6 +489,11 @@ class Threads(Authenticated):
                      Accepts either raw dict filters (FilterType) or pre-processed
                      proto filters (list[pb.AuthFilter]).
             include_ttl: When True, include TTL information in the response.
+            read_mask_paths: Optional list of field names to fetch from the DB.
+                None (default) fetches all columns. When set, only those columns
+                (plus always-included identity/status columns) are queried.
+                Use ["metadata", "config"] to skip the large "values" column, or
+                [] for an auth/existence check that discards the thread body.
         """
         auth_filters = await Threads.handle_event(
             ctx, "read", {"thread_id": str(thread_id)}
@@ -496,10 +508,16 @@ class Threads(Authenticated):
                 # Raw dict format, convert to proto
                 auth_filters = (auth_filters or []) + _filters_to_proto(filters)
 
+        read_mask = (
+            field_mask_pb2.FieldMask(paths=read_mask_paths)
+            if read_mask_paths is not None
+            else None
+        )
         request = pb.GetThreadRequest(
             thread_id=pb.UUID(value=_normalize_uuid(thread_id)),
             filters=auth_filters,
             include_ttl=include_ttl if include_ttl else None,
+            read_mask=read_mask,
         )
         client = await get_shared_client()
         response = await client.threads.Get(request)
@@ -974,7 +992,12 @@ class Threads(Authenticated):
 
             async with conn.pipeline():
                 thread, checkpoint_iter, graph_id = await asyncio.gather(
-                    Threads.get(conn, thread_id, ctx=ctx),
+                    Threads.get(
+                        conn,
+                        thread_id,
+                        ctx=ctx,
+                        read_mask_paths=THREAD_METADATA_READ_MASK_PATHS,
+                    ),
                     checkpointer.aget_iter(config),
                     Threads.get_graph_id(thread_id),
                 )
@@ -1037,7 +1060,13 @@ class Threads(Authenticated):
 
             async with conn.pipeline():
                 thread, checkpoint_iter, graph_id, run_count = await asyncio.gather(
-                    Threads.get(conn, thread_id, ctx=ctx, filters=filters),
+                    Threads.get(
+                        conn,
+                        thread_id,
+                        ctx=ctx,
+                        filters=filters,
+                        read_mask_paths=THREAD_METADATA_READ_MASK_PATHS,
+                    ),
                     checkpointer.aget_iter(config),
                     Threads.get_graph_id(thread_id),
                     Runs.count(thread_id=thread_id, statuses=["pending", "running"]),
@@ -1130,7 +1159,13 @@ class Threads(Authenticated):
 
             async with conn.pipeline():
                 thread, graph_id = await asyncio.gather(
-                    Threads.get(conn, thread_id, ctx=ctx, filters=filters),
+                    Threads.get(
+                        conn,
+                        thread_id,
+                        ctx=ctx,
+                        filters=filters,
+                        read_mask_paths=THREAD_METADATA_READ_MASK_PATHS,
+                    ),
                     Threads.get_graph_id(config["configurable"]["thread_id"]),
                 )
             thread = await fetchone(thread)
@@ -1218,7 +1253,12 @@ class Threads(Authenticated):
             """Get the history of a thread."""
             async with conn.pipeline():
                 thread, graph_id = await asyncio.gather(
-                    Threads.get(conn, config["configurable"]["thread_id"], ctx=ctx),
+                    Threads.get(
+                        conn,
+                        config["configurable"]["thread_id"],
+                        ctx=ctx,
+                        read_mask_paths=THREAD_METADATA_READ_MASK_PATHS,
+                    ),
                     Threads.get_graph_id(config["configurable"]["thread_id"]),
                 )
             thread = await fetchone(thread)

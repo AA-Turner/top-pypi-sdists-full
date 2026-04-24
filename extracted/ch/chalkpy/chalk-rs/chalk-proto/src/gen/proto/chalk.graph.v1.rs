@@ -934,6 +934,7 @@ pub struct WindowAggregation {
     pub bucket_duration: ::core::option::Option<::prost_types::Duration>,
     #[prost(string, tag="4")]
     pub aggregation: ::prost::alloc::string::String,
+    #[deprecated]
     #[prost(message, optional, tag="5")]
     pub aggregate_on: ::core::option::Option<FeatureReference>,
     #[prost(message, optional, tag="6")]
@@ -979,6 +980,8 @@ pub struct WindowAggregation {
     /// If empty, one run with no tags is produced (backward-compatible).
     #[prost(message, repeated, tag="16")]
     pub backfill_tag_sets: ::prost::alloc::vec::Vec<BackfillTagSet>,
+    #[prost(message, repeated, tag="17")]
+    pub aggregate_on_features: ::prost::alloc::vec::Vec<FeatureReference>,
 }
 /// Represents one tag set for a scheduled aggregate backfill run.
 #[allow(clippy::derive_partial_eq_without_eq)]

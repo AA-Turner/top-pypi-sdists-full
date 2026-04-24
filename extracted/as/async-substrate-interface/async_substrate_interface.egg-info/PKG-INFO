@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: async-substrate-interface
-Version: 2.0.0
+Version: 2.0.1
 Summary: Asyncio library for interacting with substrate. Mostly API-compatible with py-substrate-interface
 Author: Opentensor Foundation
 Author-email: BD Himes <b@latent.to>
@@ -55,7 +55,7 @@ Requires-Dist: pytest-asyncio==0.26.0; extra == "dev"
 Requires-Dist: pytest-mock==3.14.0; extra == "dev"
 Requires-Dist: pytest-split==0.10.0; extra == "dev"
 Requires-Dist: pytest-xdist==3.6.1; extra == "dev"
-Requires-Dist: pytest-rerunfailures==10.2; extra == "dev"
+Requires-Dist: pytest-rerunfailures>=14.0; extra == "dev"
 Requires-Dist: bittensor-wallet>=4.0.0; extra == "dev"
 Requires-Dist: pytest-forked; extra == "dev"
 Requires-Dist: mypy>=1.20.1; extra == "dev"

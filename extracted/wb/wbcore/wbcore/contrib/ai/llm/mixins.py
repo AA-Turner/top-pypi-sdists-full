@@ -1,10 +1,18 @@
 from celery import chain, shared_task
+from django.db import DataError
 from django.db.models import Model
 
 from wbcore.workers import Queue
 
 
-@shared_task(queue=Queue.BACKGROUND.value)
+@shared_task(
+    queue=Queue.BACKGROUND.value,
+    autoretry_for=(DataError,),
+    retry_backoff=10,
+    max_retries=2,  # retry 5 times maximum
+    default_retry_delay=60,  # retry in 60s
+    retry_jitter=False,
+)
 def save_instance_as_task(instance):
     instance.save(_with_llm=False)
 

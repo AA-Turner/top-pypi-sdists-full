@@ -188,8 +188,9 @@ class SeaDatabricksClient(DatabricksClient):
             ValueError: If the warehouse ID cannot be extracted from the path
         """
 
-        warehouse_pattern = re.compile(r".*/warehouses/(.+)")
-        endpoint_pattern = re.compile(r".*/endpoints/(.+)")
+        # [^?&]+ stops at query params (e.g. ?o= for SPOG routing)
+        warehouse_pattern = re.compile(r".*/warehouses/([^?&]+)")
+        endpoint_pattern = re.compile(r".*/endpoints/([^?&]+)")
 
         for pattern in [warehouse_pattern, endpoint_pattern]:
             match = pattern.match(http_path)
@@ -463,6 +464,7 @@ class SeaDatabricksClient(DatabricksClient):
         async_op: bool,
         enforce_embedded_schema_correctness: bool,
         row_limit: Optional[int] = None,
+        query_tags: Optional[Dict[str, Optional[str]]] = None,
     ) -> Union[SeaResultSet, None]:
         """
         Execute a SQL command using the SEA backend.
@@ -529,6 +531,7 @@ class SeaDatabricksClient(DatabricksClient):
             row_limit=row_limit,
             parameters=sea_parameters if sea_parameters else None,
             result_compression=result_compression,
+            query_tags=query_tags,
         )
 
         response_data = self._http_client._make_request(

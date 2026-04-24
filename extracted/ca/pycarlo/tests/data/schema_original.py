@@ -9686,6 +9686,7 @@ class FindingFilterInput(sgqlc.types.Input):
         "use_cases",
         "asset_mcon",
         "parent_finding_uuid",
+        "include_children",
         "search_query",
         "needs_attention",
         "detection_time_start",
@@ -9721,6 +9722,14 @@ class FindingFilterInput(sgqlc.types.Input):
 
     parent_finding_uuid = sgqlc.types.Field(UUID, graphql_name="parentFindingUuid")
     """Return only findings whose parent finding has this UUID."""
+
+    include_children = sgqlc.types.Field(Boolean, graphql_name="includeChildren")
+    """Whether to include findings derived from a parent finding (e.g.,
+    individual monitors deployed from a coverage-gap finding).
+    Defaults to false so top-level lists show only root findings. Set
+    to true when explicitly fetching children (e.g., for a parent's
+    detail view).
+    """
 
     search_query = sgqlc.types.Field(String, graphql_name="searchQuery")
 
@@ -53230,6 +53239,12 @@ class Mutation(sgqlc.types.Type):
                 ("notes", sgqlc.types.Arg(String, graphql_name="notes", default=None)),
                 ("priority", sgqlc.types.Arg(String, graphql_name="priority", default=None)),
                 (
+                    "sampling_config",
+                    sgqlc.types.Arg(
+                        MonitorSamplingConfigInput, graphql_name="samplingConfig", default=None
+                    ),
+                ),
+                (
                     "schedule_config",
                     sgqlc.types.Arg(
                         sgqlc.types.non_null(ScheduleConfigInput),
@@ -53278,6 +53293,8 @@ class Mutation(sgqlc.types.Type):
     * `monitor_type` (`BulkMonitorTypeEnum!`): Type of bulk monitor
     * `notes` (`String`): Notes for the monitor
     * `priority` (`String`): Priority of the monitor (P1-P5)
+    * `sampling_config` (`MonitorSamplingConfigInput`): Sampling
+      configuration for child metric monitors.
     * `schedule_config` (`ScheduleConfigInput!`)None
     * `tags` (`[TagKeyValuePairInput]`): Monitor tags
     * `uuid` (`UUID`): UUID of the bulk monitor. If specified, it
@@ -56901,6 +56918,7 @@ class Query(sgqlc.types.Type):
         "get_use_case_table_summary",
         "get_use_case_tables",
         "get_table_use_cases",
+        "get_use_case_table_details",
         "get_shared_query",
         "favorite_assets",
         "is_favorite",
@@ -71603,6 +71621,7 @@ class Query(sgqlc.types.Type):
                         default=None,
                     ),
                 ),
+                ("domain_uuid", sgqlc.types.Arg(UUID, graphql_name="domainUuid", default=None)),
             )
         ),
     )
@@ -71624,6 +71643,10 @@ class Query(sgqlc.types.Type):
       include-all-assets domains — every deduped tag matches every
       agentic domain the caller has access to, because agentic domains
       logically contain every asset.
+    * `domain_uuid` (`UUID`): Restrict the search to a single domain.
+      The caller must have access to this domain; passing an
+      inaccessible UUID returns an authorization error. When omitted,
+      the search is scoped to the caller's accessible domains.
     """
 
     get_iamresource_definitions = sgqlc.types.Field(
@@ -73951,6 +73974,7 @@ class Query(sgqlc.types.Type):
                     "first",
                     sgqlc.types.Arg(sgqlc.types.non_null(Int), graphql_name="first", default=None),
                 ),
+                ("domain_id", sgqlc.types.Arg(UUID, graphql_name="domainId", default=None)),
                 ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
                 ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
                 ("last", sgqlc.types.Arg(Int, graphql_name="last", default=None)),
@@ -73963,6 +73987,10 @@ class Query(sgqlc.types.Type):
 
     * `warehouse_id` (`UUID!`): The warehouse UUID
     * `first` (`Int!`): Number of items to return (page size)
+    * `domain_id` (`UUID`): Filter to use cases with at least one
+      tagged asset in this domain. Must be one of the domains the user
+      has access to. When omitted, the user's domain restrictions (if
+      any) are applied automatically.
     * `before` (`String`)None
     * `after` (`String`)None
     * `last` (`Int`)None
@@ -74025,6 +74053,7 @@ class Query(sgqlc.types.Type):
                     "criticality",
                     sgqlc.types.Arg(Criticality, graphql_name="criticality", default=None),
                 ),
+                ("domain_id", sgqlc.types.Arg(UUID, graphql_name="domainId", default=None)),
                 ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
                 ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
                 ("last", sgqlc.types.Arg(Int, graphql_name="last", default=None)),
@@ -74043,6 +74072,9 @@ class Query(sgqlc.types.Type):
       golden tables'). Defaults to true. (default: `true`)
     * `criticality` (`Criticality`): When set, only return tables with
       this criticality level.
+    * `domain_id` (`UUID`): Filter to tables in this domain. Must be
+      one of the domains the user has access to. When omitted, the
+      user's domain restrictions (if any) are applied automatically.
     * `before` (`String`)None
     * `after` (`String`)None
     * `last` (`Int`)None
@@ -74077,6 +74109,60 @@ class Query(sgqlc.types.Type):
 
     * `mcons` (`[String!]!`): List of table MCONs to look up
     * `warehouse_id` (`UUID!`): The warehouse UUID
+    """
+
+    get_use_case_table_details = sgqlc.types.Field(
+        "UseCaseTableDetailConnection",
+        graphql_name="getUseCaseTableDetails",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "warehouse_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="warehouseId", default=None
+                    ),
+                ),
+                (
+                    "first",
+                    sgqlc.types.Arg(sgqlc.types.non_null(Int), graphql_name="first", default=None),
+                ),
+                ("mcon", sgqlc.types.Arg(String, graphql_name="mcon", default=None)),
+                (
+                    "table_description_query",
+                    sgqlc.types.Arg(String, graphql_name="tableDescriptionQuery", default=None),
+                ),
+                (
+                    "similar_to_mcon",
+                    sgqlc.types.Arg(String, graphql_name="similarToMcon", default=None),
+                ),
+                ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
+                ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
+                ("last", sgqlc.types.Arg(Int, graphql_name="last", default=None)),
+            )
+        ),
+    )
+    """(experimental) Search UseCaseTable rows for a warehouse.
+    Optionally look up by mcon, or rank results by semantic similarity
+    — either to a natural-language query or to another mcon's stored
+    embedding. At most one of mcon, tableDescriptionQuery, or
+    similarToMcon may be supplied.
+
+    Arguments:
+
+    * `warehouse_id` (`UUID!`): The warehouse UUID
+    * `first` (`Int!`): Number of items to return (page size)
+    * `mcon` (`String`): When set, return only the row for this mcon.
+    * `table_description_query` (`String`): When set, rank results by
+      semantic similarity of this query against each table's
+      description embedding. Rows without a stored embedding are
+      excluded.
+    * `similar_to_mcon` (`String`): When set, find tables similar to
+      this mcon — uses its stored embedding as the query vector and
+      ranks the rest of the warehouse by cosine similarity. The seed
+      mcon itself is excluded from the results.
+    * `before` (`String`)None
+    * `after` (`String`)None
+    * `last` (`Int`)None
     """
 
     get_shared_query = sgqlc.types.Field(
@@ -85642,6 +85728,76 @@ class UseCaseTableConnection(sgqlc.types.relay.Connection):
 
     total_count = sgqlc.types.Field(Int, graphql_name="totalCount")
     """Total number of tables matching the query"""
+
+
+class UseCaseTableDetail(sgqlc.types.Type):
+    """A warehouse table tracked for use-case criticality scoring.
+    Backed by UseCaseTableModel. Distinct from UseCaseTableOutput,
+    which wraps ObjectPropertyModel tags for the `getUseCaseTables`
+    query.
+    """
+
+    __schema__ = schema
+    __field_names__ = (
+        "id",
+        "mcon",
+        "table_description",
+        "is_golden",
+        "similarity_score",
+        "use_cases",
+    )
+    id = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="id")
+    """Stable UseCaseTable identifier"""
+
+    mcon = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="mcon")
+    """Unique table identifier (MCON)"""
+
+    table_description = sgqlc.types.Field(String, graphql_name="tableDescription")
+    """LLM-generated description of the table"""
+
+    is_golden = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isGolden")
+    """Whether this table is classified as a golden-layer table"""
+
+    similarity_score = sgqlc.types.Field(Float, graphql_name="similarityScore")
+    """Cosine similarity to the semantic-search query (1.0 = identical
+    direction, 0.0 = orthogonal). Null when no semantic search was
+    performed.
+    """
+
+    use_cases = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(TableUseCaseMembership))),
+        graphql_name="useCases",
+    )
+    """Use case memberships for this table."""
+
+
+class UseCaseTableDetailConnection(sgqlc.types.relay.Connection):
+    """Paginated list of use case table details."""
+
+    __schema__ = schema
+    __field_names__ = ("page_info", "edges", "total_count")
+    page_info = sgqlc.types.Field(sgqlc.types.non_null(PageInfo), graphql_name="pageInfo")
+    """Pagination data for this connection."""
+
+    edges = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of("UseCaseTableDetailEdge")), graphql_name="edges"
+    )
+    """Contains the nodes in this connection."""
+
+    total_count = sgqlc.types.Field(Int, graphql_name="totalCount")
+    """Total number of tables matching the query"""
+
+
+class UseCaseTableDetailEdge(sgqlc.types.Type):
+    """A Relay edge containing a `UseCaseTableDetail` and its cursor."""
+
+    __schema__ = schema
+    __field_names__ = ("node", "cursor")
+    node = sgqlc.types.Field(UseCaseTableDetail, graphql_name="node")
+    """The item at the end of the edge"""
+
+    cursor = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="cursor")
+    """A cursor for use in pagination"""
 
 
 class UseCaseTableEdge(sgqlc.types.Type):

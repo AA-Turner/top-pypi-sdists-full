@@ -35,6 +35,7 @@ class MwsNetworksArgs:
                  workspace_id: Optional[pulumi.Input[_builtins.str]] = None):
         """
         The set of arguments for constructing a MwsNetworks resource.
+
         :param pulumi.Input[_builtins.str] account_id: Account Id that could be found in the top right corner of [Accounts Console](https://accounts.cloud.databricks.com/)
         :param pulumi.Input[_builtins.str] network_name: name under which this network is registered
         :param pulumi.Input['MwsNetworksGcpNetworkInfoArgs'] gcp_network_info: a block consists of Google Cloud specific information for this network, for example the VPC ID, subnet ID, and secondary IP ranges. It has the following fields:
@@ -225,6 +226,7 @@ class _MwsNetworksState:
                  workspace_id: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering MwsNetworks resources.
+
         :param pulumi.Input[_builtins.str] account_id: Account Id that could be found in the top right corner of [Accounts Console](https://accounts.cloud.databricks.com/)
         :param pulumi.Input['MwsNetworksGcpNetworkInfoArgs'] gcp_network_info: a block consists of Google Cloud specific information for this network, for example the VPC ID, subnet ID, and secondary IP ranges. It has the following fields:
         :param pulumi.Input[_builtins.str] network_id: (String) id of network to be used for MwsWorkspaces resource.
@@ -463,21 +465,21 @@ class MwsNetworks(pulumi.CustomResource):
         config = pulumi.Config()
         # Account Id that could be found in the top right corner of https://accounts.cloud.databricks.com/
         databricks_account_id = config.require_object("databricksAccountId")
-        dbx_private_vpc = google.index.ComputeNetwork("dbx_private_vpc",
+        dbx_private_vpc = google.ComputeNetwork("dbx_private_vpc",
             project=google_project,
             name=ftf-network-{suffix.result},
             auto_create_subnetworks=False)
-        network_with_private_secondary_ip_ranges = google.index.ComputeSubnetwork("network-with-private-secondary-ip-ranges",
+        network_with_private_secondary_ip_ranges = google.ComputeSubnetwork("network-with-private-secondary-ip-ranges",
             name=ftest-dbx-{suffix.result},
             ip_cidr_range=10.0.0.0/16,
             region=us-central1,
             network=dbx_private_vpc.id,
             private_ip_google_access=True)
-        router = google.index.ComputeRouter("router",
+        router = google.ComputeRouter("router",
             name=fmy-router-{suffix.result},
             region=network_with_private_secondary_ip_ranges.region,
             network=dbx_private_vpc.id)
-        nat = google.index.ComputeRouterNat("nat",
+        nat = google.ComputeRouterNat("nat",
             name=fmy-router-nat-{suffix.result},
             router=router.name,
             region=router.region,
@@ -535,6 +537,7 @@ class MwsNetworks(pulumi.CustomResource):
         * MwsVpcEndpoint to register aws_vpc_endpoint resources with Databricks such that they can be used as part of a MwsNetworks configuration.
         * MwsPrivateAccessSettings to create a Private Access Setting that can be used as part of a MwsWorkspaces resource to create a [Databricks Workspace that leverages AWS PrivateLink](https://docs.databricks.com/administration-guide/cloud-configurations/aws/privatelink.html) or [GCP Private Service Connect](https://docs.gcp.databricks.com/administration-guide/cloud-configurations/gcp/private-service-connect.html).
         * MwsWorkspaces to set up [AWS and GCP workspaces](https://docs.databricks.com/getting-started/overview.html#e2-architecture-1).
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -599,21 +602,21 @@ class MwsNetworks(pulumi.CustomResource):
         config = pulumi.Config()
         # Account Id that could be found in the top right corner of https://accounts.cloud.databricks.com/
         databricks_account_id = config.require_object("databricksAccountId")
-        dbx_private_vpc = google.index.ComputeNetwork("dbx_private_vpc",
+        dbx_private_vpc = google.ComputeNetwork("dbx_private_vpc",
             project=google_project,
             name=ftf-network-{suffix.result},
             auto_create_subnetworks=False)
-        network_with_private_secondary_ip_ranges = google.index.ComputeSubnetwork("network-with-private-secondary-ip-ranges",
+        network_with_private_secondary_ip_ranges = google.ComputeSubnetwork("network-with-private-secondary-ip-ranges",
             name=ftest-dbx-{suffix.result},
             ip_cidr_range=10.0.0.0/16,
             region=us-central1,
             network=dbx_private_vpc.id,
             private_ip_google_access=True)
-        router = google.index.ComputeRouter("router",
+        router = google.ComputeRouter("router",
             name=fmy-router-{suffix.result},
             region=network_with_private_secondary_ip_ranges.region,
             network=dbx_private_vpc.id)
-        nat = google.index.ComputeRouterNat("nat",
+        nat = google.ComputeRouterNat("nat",
             name=fmy-router-nat-{suffix.result},
             router=router.name,
             region=router.region,
@@ -671,6 +674,7 @@ class MwsNetworks(pulumi.CustomResource):
         * MwsVpcEndpoint to register aws_vpc_endpoint resources with Databricks such that they can be used as part of a MwsNetworks configuration.
         * MwsPrivateAccessSettings to create a Private Access Setting that can be used as part of a MwsWorkspaces resource to create a [Databricks Workspace that leverages AWS PrivateLink](https://docs.databricks.com/administration-guide/cloud-configurations/aws/privatelink.html) or [GCP Private Service Connect](https://docs.gcp.databricks.com/administration-guide/cloud-configurations/gcp/private-service-connect.html).
         * MwsWorkspaces to set up [AWS and GCP workspaces](https://docs.databricks.com/getting-started/overview.html#e2-architecture-1).
+
 
         :param str resource_name: The name of the resource.
         :param MwsNetworksArgs args: The arguments to use to populate this resource's properties.

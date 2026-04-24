@@ -191,6 +191,15 @@ pub enum MetricKind {
     GpuThrottleReasons = 61,
     GpuFp16Activity = 62,
     GpuCount = 63,
+    PullQueryQueueDepth = 64,
+    PullQueryOldestUnackedAge = 65,
+    PullQueryProcessed = 66,
+    PullQueryLatency = 67,
+    ContainerCount = 68,
+    ScalingGroupReplicaCount = 69,
+    PullQueryMaxInflight = 70,
+    PullQueryConcurrencyTarget = 71,
+    PullQueryOpenConnections = 72,
 }
 impl MetricKind {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -263,6 +272,15 @@ impl MetricKind {
             MetricKind::GpuThrottleReasons => "METRIC_KIND_GPU_THROTTLE_REASONS",
             MetricKind::GpuFp16Activity => "METRIC_KIND_GPU_FP16_ACTIVITY",
             MetricKind::GpuCount => "METRIC_KIND_GPU_COUNT",
+            MetricKind::PullQueryQueueDepth => "METRIC_KIND_PULL_QUERY_QUEUE_DEPTH",
+            MetricKind::PullQueryOldestUnackedAge => "METRIC_KIND_PULL_QUERY_OLDEST_UNACKED_AGE",
+            MetricKind::PullQueryProcessed => "METRIC_KIND_PULL_QUERY_PROCESSED",
+            MetricKind::PullQueryLatency => "METRIC_KIND_PULL_QUERY_LATENCY",
+            MetricKind::ContainerCount => "METRIC_KIND_CONTAINER_COUNT",
+            MetricKind::ScalingGroupReplicaCount => "METRIC_KIND_SCALING_GROUP_REPLICA_COUNT",
+            MetricKind::PullQueryMaxInflight => "METRIC_KIND_PULL_QUERY_MAX_INFLIGHT",
+            MetricKind::PullQueryConcurrencyTarget => "METRIC_KIND_PULL_QUERY_CONCURRENCY_TARGET",
+            MetricKind::PullQueryOpenConnections => "METRIC_KIND_PULL_QUERY_OPEN_CONNECTIONS",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -332,6 +350,15 @@ impl MetricKind {
             "METRIC_KIND_GPU_THROTTLE_REASONS" => Some(Self::GpuThrottleReasons),
             "METRIC_KIND_GPU_FP16_ACTIVITY" => Some(Self::GpuFp16Activity),
             "METRIC_KIND_GPU_COUNT" => Some(Self::GpuCount),
+            "METRIC_KIND_PULL_QUERY_QUEUE_DEPTH" => Some(Self::PullQueryQueueDepth),
+            "METRIC_KIND_PULL_QUERY_OLDEST_UNACKED_AGE" => Some(Self::PullQueryOldestUnackedAge),
+            "METRIC_KIND_PULL_QUERY_PROCESSED" => Some(Self::PullQueryProcessed),
+            "METRIC_KIND_PULL_QUERY_LATENCY" => Some(Self::PullQueryLatency),
+            "METRIC_KIND_CONTAINER_COUNT" => Some(Self::ContainerCount),
+            "METRIC_KIND_SCALING_GROUP_REPLICA_COUNT" => Some(Self::ScalingGroupReplicaCount),
+            "METRIC_KIND_PULL_QUERY_MAX_INFLIGHT" => Some(Self::PullQueryMaxInflight),
+            "METRIC_KIND_PULL_QUERY_CONCURRENCY_TARGET" => Some(Self::PullQueryConcurrencyTarget),
+            "METRIC_KIND_PULL_QUERY_OPEN_CONNECTIONS" => Some(Self::PullQueryOpenConnections),
             _ => None,
         }
     }
@@ -361,6 +388,7 @@ pub enum FilterKind {
     TopicName = 19,
     SubscriptionName = 20,
     PartitionName = 21,
+    ScalingGroup = 22,
 }
 impl FilterKind {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -391,6 +419,7 @@ impl FilterKind {
             FilterKind::TopicName => "FILTER_KIND_TOPIC_NAME",
             FilterKind::SubscriptionName => "FILTER_KIND_SUBSCRIPTION_NAME",
             FilterKind::PartitionName => "FILTER_KIND_PARTITION_NAME",
+            FilterKind::ScalingGroup => "FILTER_KIND_SCALING_GROUP",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -418,6 +447,7 @@ impl FilterKind {
             "FILTER_KIND_TOPIC_NAME" => Some(Self::TopicName),
             "FILTER_KIND_SUBSCRIPTION_NAME" => Some(Self::SubscriptionName),
             "FILTER_KIND_PARTITION_NAME" => Some(Self::PartitionName),
+            "FILTER_KIND_SCALING_GROUP" => Some(Self::ScalingGroup),
             _ => None,
         }
     }
@@ -759,6 +789,55 @@ impl ChartLinkKind {
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CronAggregateBackfill {
+    #[prost(string, tag="1")]
+    pub name: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub schedule: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub file_name: ::prost::alloc::string::String,
+    #[prost(string, repeated, tag="4")]
+    pub features: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(string, repeated, tag="5")]
+    pub resolvers: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(string, repeated, tag="6")]
+    pub query_tags: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(enumeration="CronAggregateBackfillTarget", tag="7")]
+    pub target: i32,
+    #[prost(string, optional, tag="8")]
+    pub resource_group: ::core::option::Option<::prost::alloc::string::String>,
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum CronAggregateBackfillTarget {
+    Unspecified = 0,
+    Online = 1,
+    Offline = 2,
+}
+impl CronAggregateBackfillTarget {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            CronAggregateBackfillTarget::Unspecified => "CRON_AGGREGATE_BACKFILL_TARGET_UNSPECIFIED",
+            CronAggregateBackfillTarget::Online => "CRON_AGGREGATE_BACKFILL_TARGET_ONLINE",
+            CronAggregateBackfillTarget::Offline => "CRON_AGGREGATE_BACKFILL_TARGET_OFFLINE",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "CRON_AGGREGATE_BACKFILL_TARGET_UNSPECIFIED" => Some(Self::Unspecified),
+            "CRON_AGGREGATE_BACKFILL_TARGET_ONLINE" => Some(Self::Online),
+            "CRON_AGGREGATE_BACKFILL_TARGET_OFFLINE" => Some(Self::Offline),
+            _ => None,
+        }
+    }
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct RecomputeSettings {
     #[prost(string, repeated, tag="1")]
     pub feature_fqns: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
@@ -899,6 +978,8 @@ pub struct Export {
     pub graph: ::core::option::Option<super::super::graph::v1::Graph>,
     #[prost(message, repeated, tag="2")]
     pub crons: ::prost::alloc::vec::Vec<CronQuery>,
+    #[prost(message, repeated, tag="12")]
+    pub cron_aggregate_backfills: ::prost::alloc::vec::Vec<CronAggregateBackfill>,
     #[prost(message, repeated, tag="3")]
     pub charts: ::prost::alloc::vec::Vec<Chart>,
     #[prost(message, repeated, tag="4")]

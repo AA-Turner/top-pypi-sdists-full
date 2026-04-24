@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: together
-Version: 2.9.0
+Version: 2.10.0
 Summary: The official Python library for the together API
 Project-URL: Homepage, https://github.com/togethercomputer/together-py
 Project-URL: Repository, https://github.com/togethercomputer/together-py
@@ -23,10 +23,10 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Requires-Dist: anyio<5,>=3.5.0
-Requires-Dist: click>=8.1.7
-Requires-Dist: detect-agent>=0.1.1
+Requires-Dist: cyclopts>=4.6.0
+Requires-Dist: detect-agent>=0.2.0
 Requires-Dist: distro<2,>=1.7.0
 Requires-Dist: filelock>=3.13.1
 Requires-Dist: httpx<1,>=0.23.0
@@ -49,6 +49,7 @@ Requires-Dist: aiohttp; extra == 'aiohttp'
 Requires-Dist: httpx-aiohttp>=0.1.9; extra == 'aiohttp'
 Provides-Extra: cli
 Requires-Dist: pyyaml; extra == 'cli'
+Requires-Dist: questionary>=2.1.1; extra == 'cli'
 Provides-Extra: pyarrow
 Requires-Dist: pyarrow-stubs>=10.0.1.7; extra == 'pyarrow'
 Requires-Dist: pyarrow>=16.1.0; extra == 'pyarrow'

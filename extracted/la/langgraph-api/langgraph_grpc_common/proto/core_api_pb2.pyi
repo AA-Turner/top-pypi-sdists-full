@@ -1440,26 +1440,40 @@ class GetThreadRequest(_message.Message):
     THREAD_ID_FIELD_NUMBER: _builtins.int
     FILTERS_FIELD_NUMBER: _builtins.int
     INCLUDE_TTL_FIELD_NUMBER: _builtins.int
+    READ_MASK_FIELD_NUMBER: _builtins.int
     include_ttl: _builtins.bool
     """When true, include TTL information in the response."""
     @_builtins.property
     def thread_id(self) -> Global___UUID: ...
     @_builtins.property
     def filters(self) -> _containers.RepeatedCompositeFieldContainer[Global___AuthFilter]: ...
+    @_builtins.property
+    def read_mask(self) -> _field_mask_pb2.FieldMask:
+        """If set, only the specified fields are returned in the response.
+        Omitting "values" avoids fetching large checkpoint state when the
+        caller only needs metadata/config (e.g. state update operations).
+        """
+
     def __init__(
         self,
         *,
         thread_id: Global___UUID | None = ...,
         filters: _abc.Iterable[Global___AuthFilter] | None = ...,
         include_ttl: _builtins.bool | None = ...,
+        read_mask: _field_mask_pb2.FieldMask | None = ...,
     ) -> None: ...
-    _HasFieldArgType: _TypeAlias = _typing.Literal["_include_ttl", b"_include_ttl", "include_ttl", b"include_ttl", "thread_id", b"thread_id"]  # noqa: Y015
+    _HasFieldArgType: _TypeAlias = _typing.Literal["_include_ttl", b"_include_ttl", "_read_mask", b"_read_mask", "include_ttl", b"include_ttl", "read_mask", b"read_mask", "thread_id", b"thread_id"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["_include_ttl", b"_include_ttl", "filters", b"filters", "include_ttl", b"include_ttl", "thread_id", b"thread_id"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["_include_ttl", b"_include_ttl", "_read_mask", b"_read_mask", "filters", b"filters", "include_ttl", b"include_ttl", "read_mask", b"read_mask", "thread_id", b"thread_id"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     _WhichOneofReturnType__include_ttl: _TypeAlias = _typing.Literal["include_ttl"]  # noqa: Y015
     _WhichOneofArgType__include_ttl: _TypeAlias = _typing.Literal["_include_ttl", b"_include_ttl"]  # noqa: Y015
+    _WhichOneofReturnType__read_mask: _TypeAlias = _typing.Literal["read_mask"]  # noqa: Y015
+    _WhichOneofArgType__read_mask: _TypeAlias = _typing.Literal["_read_mask", b"_read_mask"]  # noqa: Y015
+    @_typing.overload
     def WhichOneof(self, oneof_group: _WhichOneofArgType__include_ttl) -> _WhichOneofReturnType__include_ttl | None: ...
+    @_typing.overload
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__read_mask) -> _WhichOneofReturnType__read_mask | None: ...
 
 Global___GetThreadRequest: _TypeAlias = GetThreadRequest  # noqa: Y015
 

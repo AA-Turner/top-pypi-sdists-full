@@ -1570,8 +1570,8 @@ class MainController:
             title (str): Display name for the tasklet stage.
             file (str): Relative path where the tasklet's Python code will be stored.
                 Must end with .py extension.
-            workflow_position (Tuple[int, int], optional): X, Y coordinates for the
-                tasklet's position in the visual workflow editor. Defaults to (0, 0).
+            workflow_position (list[int], optional): [x, y] coordinates for the
+                tasklet's position in the visual workflow editor. Defaults to [0, 0].
             id (Optional[str], optional): Custom identifier for the tasklet. If None,
                 a unique ID will be automatically generated.
 
@@ -1593,7 +1593,7 @@ class MainController:
             validator = controller.create_tasklet(
                 title="Input Validator",
                 file="tasklet_validate_input.py",
-                workflow_position=(200, 300),
+                workflow_position=[200, 300],
                 id="input-validator"
             )
             ```
@@ -1644,8 +1644,8 @@ class MainController:
             title (str): Display name for the form stage.
             file (str): Relative path where the form's Python code will be stored.
                 Must end with .py extension.
-            workflow_position (Tuple[int, int], optional): X, Y coordinates for the
-                form's position in the visual workflow editor. Defaults to (0, 0).
+            workflow_position (list[int], optional): [x, y] coordinates for the
+                form's position in the visual workflow editor. Defaults to [0, 0].
             id (Optional[str], optional): Custom identifier for the form. If None,
                 a unique ID will be automatically generated.
 
@@ -1667,7 +1667,7 @@ class MainController:
             custom_form = controller.create_form(
                 title="Data Input Form",
                 file="form_data_input.py",
-                workflow_position=(100, 200),
+                workflow_position=[100, 200],
                 id="custom-form-id"
             )
             ```
@@ -1767,8 +1767,8 @@ class MainController:
             title (str): Display name for the hook stage.
             file (str): Relative path where the hook's Python code will be stored.
                 Must end with .py extension.
-            workflow_position (Tuple[int, int], optional): X, Y coordinates for the
-                hook's position in the visual workflow editor. Defaults to (0, 0).
+            workflow_position (list[int], optional): [x, y] coordinates for the
+                hook's position in the visual workflow editor. Defaults to [0, 0].
             id (Optional[str], optional): Custom identifier for the hook. If None,
                 a unique ID will be automatically generated.
 
@@ -1790,7 +1790,7 @@ class MainController:
             api_hook = controller.create_hook(
                 title="User API Endpoint",
                 file="hook_user_api.py",
-                workflow_position=(300, 150),
+                workflow_position=[300, 150],
                 id="user-api-hook"
             )
             ```
@@ -1846,8 +1846,8 @@ class MainController:
             title (str): Display name for the page stage.
             file (str): Relative path where the page's Python code will be stored.
                 Must end with .py extension.
-            workflow_position (Tuple[int, int], optional): X, Y coordinates for the
-                page's position in the visual workflow editor. Defaults to (0, 0).
+            workflow_position (list[int], optional): [x, y] coordinates for the
+                page's position in the visual workflow editor. Defaults to [0, 0].
             id (Optional[str], optional): Custom identifier for the page. If None,
                 a unique ID will be automatically generated.
 
@@ -1869,7 +1869,7 @@ class MainController:
             custom_page = controller.create_page_stage(
                 title="Admin Panel",
                 file="page_admin.py",
-                workflow_position=(100, 200),
+                workflow_position=[100, 200],
                 id="custom-page-id"
             )
             ```
@@ -2003,8 +2003,8 @@ class MainController:
             title (str): Display name for the job stage.
             file (str): Relative path where the job's Python code will be stored.
                 Must end with .py extension.
-            workflow_position (Tuple[int, int], optional): X, Y coordinates for the
-                job's position in the visual workflow editor. Defaults to (0, 0).
+            workflow_position (list[int], optional): [x, y] coordinates for the
+                job's position in the visual workflow editor. Defaults to [0, 0].
             id (Optional[str], optional): Custom identifier for the job. If None,
                 a unique ID will be automatically generated.
 
@@ -2026,7 +2026,7 @@ class MainController:
             cleanup_job = controller.create_job(
                 title="Weekly Cleanup",
                 file="job_cleanup.py",
-                workflow_position=(500, 100),
+                workflow_position=[500, 100],
                 id="weekly-cleanup"
             )
             ```

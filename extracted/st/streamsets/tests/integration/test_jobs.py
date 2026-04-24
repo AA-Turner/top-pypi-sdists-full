@@ -1,4 +1,6 @@
-# Copyright 2022 StreamSets Inc.
+#  IBM Confidential
+#  PID 5900-BAF
+#  Copyright StreamSets Inc., an IBM Company 2024
 
 # fmt: off
 import json
@@ -32,11 +34,11 @@ def simple_pipeline(sch, sch_authoring_sdc_id):
     try:
         yield pipeline
     finally:
-        sch.api_client.delete_pipeline(pipeline.pipeline_id)
+        sch.api_client.delete_pipeline(pipeline.id)
 
 
 @pytest.fixture(scope="module")
-def simple_job_template(sch, simple_pipeline, sch_executor_sdc_label):
+def simple_job_template(sch, simple_pipeline, sch_engine_sdc_label):
     job_builder = sch.get_job_builder()
     job_template = job_builder.build(
         'Job Template SDK Tests {}'.format(get_random_string()),
@@ -44,7 +46,7 @@ def simple_job_template(sch, simple_pipeline, sch_executor_sdc_label):
         job_template=True,
         runtime_parameters={'x': 'y', 'a': 'b'},
     )
-    job_template.data_collector_labels = sch_executor_sdc_label
+    job_template.data_collector_labels = sch_engine_sdc_label
     sch.add_job(job_template)
 
     try:
@@ -54,14 +56,14 @@ def simple_job_template(sch, simple_pipeline, sch_executor_sdc_label):
 
 
 @pytest.fixture(scope="module")
-def sample_jobs(sch, simple_pipeline, sch_executor_sdc_label):
+def sample_jobs(sch, simple_pipeline, sch_engine_sdc_label):
     """A set of simple jobs based on simple pipeline."""
     job_builder = sch.get_job_builder()
 
     jobs = []
     for i in range(5):
         job = job_builder.build('test_simple_job_fetch_{}'.format(i), pipeline=simple_pipeline)
-        job.data_collector_labels = sch_executor_sdc_label
+        job.data_collector_labels = sch_engine_sdc_label
         sch.add_job(job)
         jobs.append(job)
 
@@ -91,7 +93,7 @@ def test_job_in_returns_true(sch, sample_jobs):
 
 def test_job_contains(sch, sample_jobs):
     job = sample_jobs[0]
-    assert sch.jobs.contains(id=job.job_id)
+    assert sch.jobs.contains(id=job.id)
     assert sch.jobs.contains(job_name=job.job_name)
     assert not sch.jobs.contains(id='impossible_to_clash_with_this_^%@@!$!%^!!%#RWQ')
 
@@ -115,7 +117,7 @@ def test_job_tag_supports_colons(sample_jobs):
 def test_jobs_getitem_works(sample_jobs):
     job = sample_jobs[0]
     assert isinstance(job, Job)
-    assert job.job_id
+    assert job.id
     # Assuming 5 to be a safe number of attributes to say that the job is populated.
     assert len(job._data) > 5
 
@@ -131,11 +133,11 @@ def test_get_all_jobs(sch, sample_jobs):
             sch.start_job(job)
             started_jobs.append(job)
         inactive_jobs = sch.jobs.get_all(job_status='INACTIVE')
-        inactive_job_ids = [job.job_id for job in inactive_jobs]
-        assert all(job.job_id in inactive_job_ids for job in jobs[2:])
+        inactive_job_ids = [job.id for job in inactive_jobs]
+        assert all(job.id in inactive_job_ids for job in jobs[2:])
         active_jobs = sch.jobs.get_all(job_status='ACTIVE')
-        active_job_ids = [job.job_id for job in active_jobs]
-        assert all(job.job_id in active_job_ids for job in jobs[:2])
+        active_job_ids = [job.id for job in active_jobs]
+        assert all(job.id in active_job_ids for job in jobs[:2])
         single_job = sch.jobs.get(job_search_operation='EQUALS', job_search_text=jobs[0].job_name)
         assert isinstance(single_job, Job)
         single_inactive_job = sch.jobs.get(
@@ -147,20 +149,26 @@ def test_get_all_jobs(sch, sample_jobs):
             sch.stop_job(job)
 
 
+def test_get_only_job_instances(sch, sample_jobs, simple_job_template):
+    all_jobs = sch.jobs.get_all()
+    for job in all_jobs:
+        assert not job.job_template
+
+
 def test_jobs_get_all_returns_seekable_list(sch):
     assert isinstance(sch.jobs.get_all(), SeekableList)
     assert isinstance(sch.jobs.get_all(job_status='INACTIVE'), SeekableList)
 
 
 def test_jobs_get_by_id(sch, sample_jobs):
-    sample_job_id = sample_jobs[0].job_id
+    sample_job_id = sample_jobs[0].id
     job = sch.jobs.get(id=sample_job_id)
     assert isinstance(job, Job)
-    assert job.job_id == sample_job_id
+    assert job.id == sample_job_id
 
 
 def test_jobs_get_by_id_raises_value_error(sch, sample_jobs):
-    job_id = sample_jobs[0].job_id
+    job_id = sample_jobs[0].id
     fake_job_id = '{}zxyf'.format(job_id)
     with pytest.raises(ValueError):
         sch.jobs.get(id=fake_job_id)
@@ -170,7 +178,7 @@ def test_jobs_cast_to_list(sch, sample_jobs):
     jobs = list(sch.jobs)
     assert isinstance(jobs, list)
     assert isinstance(jobs[0], Job)
-    assert not ({job.job_id for job in sample_jobs} - {job.job_id for job in jobs})
+    assert not ({job.id for job in sample_jobs} - {job.id for job in jobs})
 
 
 def test_jobs_with_filters(sch, sample_jobs):
@@ -195,10 +203,10 @@ def test_job_acl_permissions(sch, sample_user):
 
     # Add
     acl.add_permission(permission)
-    assert set(sch.jobs.get(job_id=job.job_id).acl.permissions.get(subject_id=sample_user.id).actions) == set(actions)
+    assert set(sch.jobs.get(id=job.id).acl.permissions.get(subject_id=sample_user.id).actions) == set(actions)
 
     # Get
-    permissions = sch.jobs.get(job_id=job.job_id).acl.permissions
+    permissions = sch.jobs.get(id=job.id).acl.permissions
     assert isinstance(permissions, SeekableList)
     sample_permission = permissions[0]
     assert isinstance(sample_permission, Permission)
@@ -215,7 +223,7 @@ def test_job_acl_permissions(sch, sample_user):
     # Remove
     acl.remove_permission(permission)
     with pytest.raises(ValueError):
-        sch.jobs.get(job_id=job.job_id).acl.permissions.get(subject_id=sample_user.id)
+        sch.jobs.get(id=job.id).acl.permissions.get(subject_id=sample_user.id)
 
 
 def test_job_acl_permissions_invalid_subject_id(sample_jobs):
@@ -273,7 +281,7 @@ def test_job_templates_different_params_param_value(sch, simple_job_template):
             sch.delete_job(job)
 
 
-def test_delete_job_template_and_associated_job_instances(sch, simple_pipeline, sch_executor_sdc_label):
+def test_delete_job_template_and_associated_job_instances(sch, simple_pipeline, sch_engine_sdc_label):
     job_builder = sch.get_job_builder()
     job_template = job_builder.build(
         'Job Template SDK Tests {}'.format(get_random_string()),
@@ -281,7 +289,7 @@ def test_delete_job_template_and_associated_job_instances(sch, simple_pipeline, 
         job_template=True,
         runtime_parameters={'x': 'y', 'a': 'b'},
     )
-    job_template.data_collector_labels = sch_executor_sdc_label
+    job_template.data_collector_labels = sch_engine_sdc_label
     sch.add_job(job_template)
 
     jobs = sch.start_job_template(job_template, number_of_instances=3)
@@ -297,32 +305,32 @@ def test_delete_job_template_and_associated_job_instances(sch, simple_pipeline, 
         sch.delete_job(job_template)
 
         with pytest.raises(ValueError):
-            sch.jobs.get(id=job_template.job_id)
-        deleted_ids.add(job_template.job_id)
+            sch.jobs.get(id=job_template.id)
+        deleted_ids.add(job_template.id)
 
         with pytest.raises(ValueError):
-            sch.jobs.get(id=jobs[0].job_id)
-        deleted_ids.add(jobs[0].job_id)
+            sch.jobs.get(id=jobs[0].id)
+        deleted_ids.add(jobs[0].id)
 
         with pytest.raises(ValueError):
-            sch.jobs.get(id=jobs[1].job_id)
-        deleted_ids.add(jobs[1].job_id)
+            sch.jobs.get(id=jobs[1].id)
+        deleted_ids.add(jobs[1].id)
 
         with pytest.raises(ValueError):
-            sch.jobs.get(id=jobs[2].job_id)
-        deleted_ids.add(jobs[2].job_id)
+            sch.jobs.get(id=jobs[2].id)
+        deleted_ids.add(jobs[2].id)
     except Exception as e:
         for job in jobs:
-            if job.job_id not in deleted_ids:
+            if job.id not in deleted_ids:
                 sch.stop_job(job)
                 sch.delete_job(job)
-        if job_template.job_id not in deleted_ids:
+        if job_template.id not in deleted_ids:
             sch.delete_job(job_template)
 
         raise e
 
 
-def test_delete_job_template_with_no_instances(sch, simple_pipeline, sch_executor_sdc_label):
+def test_delete_job_template_with_no_instances(sch, simple_pipeline, sch_engine_sdc_label):
     job_builder = sch.get_job_builder()
     job_template = job_builder.build(
         'Job Template SDK Tests {}'.format(get_random_string()),
@@ -330,11 +338,11 @@ def test_delete_job_template_with_no_instances(sch, simple_pipeline, sch_executo
         job_template=True,
         runtime_parameters={'x': 'y', 'a': 'b'},
     )
-    job_template.data_collector_labels = sch_executor_sdc_label
+    job_template.data_collector_labels = sch_engine_sdc_label
     sch.add_job(job_template)
     job_template_deleted = False
     try:
-        job_template = sch.jobs.get(job_name=job_template.job_name)
+        job_template = sch.jobs.get(job_name=job_template.job_name, job_template=True)
 
         sch.delete_job(job_template)
 
@@ -418,10 +426,10 @@ def test_history(sch, sample_jobs):
     assert isinstance(job.history[-1].run_history[0], JobRunEvent)
 
 
-def test_import_export(sch, simple_pipeline, sch_executor_sdc_label):
+def test_import_export(sch, simple_pipeline, sch_engine_sdc_label):
     job_builder = sch.get_job_builder()
     job = job_builder.build('test_import_export_job', pipeline=simple_pipeline)
-    job.data_collector_labels = sch_executor_sdc_label
+    job.data_collector_labels = sch_engine_sdc_label
     sch.add_job(job)
 
     with open('/tmp/jobs_exported.zip', 'wb') as jobs_file:
@@ -437,11 +445,11 @@ def test_import_export(sch, simple_pipeline, sch_executor_sdc_label):
 
 
 @pytest.mark.skip('Currently skipping as it is failing and need to debug this')
-def test_time_series_metrics(sch, simple_pipeline, sch_executor_sdc_label):
+def test_time_series_metrics(sch, simple_pipeline, sch_engine_sdc_label):
     job_builder = sch.get_job_builder()
     job = job_builder.build('test_job_time_series_metrics', pipeline=simple_pipeline)
     job.enable_time_series_analysis = True
-    job.data_collector_labels = sch_executor_sdc_label
+    job.data_collector_labels = sch_engine_sdc_label
     sch.add_job(job)
 
     sch.start_job(job)
@@ -492,7 +500,7 @@ def test_update_job(sch, simple_pipeline):
         sch.publish_pipeline(simple_pipeline)
 
         sch.upgrade_job(job)
-        job = sch.jobs.get(job_id=job.job_id)
+        job = sch.jobs.get(id=job.id)
 
         assert job.pipeline_commit_label == 'v2'
 
@@ -514,7 +522,7 @@ def test_duplicate_job(sch, simple_pipeline):
         duplicated_jobs = sch.duplicate_job(job)
         assert isinstance(duplicated_jobs, SeekableList)
         assert len(duplicated_jobs) == 1
-        assert sch.jobs.get(job_name='{} copy'.format(job.job_name)).job_id == duplicated_jobs[0].job_id
+        assert sch.jobs.get(job_name='{} copy'.format(job.job_name)).id == duplicated_jobs[0].id
     finally:
         try:
             for duplicated_job in duplicated_jobs:
@@ -533,7 +541,7 @@ def test_duplicate_jobs(sch, simple_pipeline):
         assert isinstance(duplicated_jobs, SeekableList)
         assert len(duplicated_jobs) == 3
         for i in range(3):
-            assert sch.jobs.get(job_name='{}{}'.format(name, i + 1)).job_id == duplicated_jobs[i].job_id
+            assert sch.jobs.get(job_name='{}{}'.format(name, i + 1)).id == duplicated_jobs[i].id
     finally:
         try:
             for duplicated_job in duplicated_jobs:
@@ -552,14 +560,14 @@ def test_delete_latest_metrics_job(sch, sample_jobs):
         sch.stop_job(job)
         sch.wait_for_job_status(job, 'INACTIVE', 300)
 
-        latest_metrics = sch.api_client.get_job_latest_metrics(job.job_id).response.json()
+        latest_metrics = sch.api_client.get_job_latest_metrics(job.id).response.json()
         assert latest_metrics['counters']['pipeline.batchCount.counter']['count'] > 0, str(
             latest_metrics['counters']['pipeline.batchCount.counter']
         )
 
-        sch.api_client.delete_job_latest_metrics([job.job_id])
+        sch.api_client.delete_job_latest_metrics([job.id])
 
-        latest_metrics = sch.api_client.get_job_latest_metrics(job.job_id).response.json()
+        latest_metrics = sch.api_client.get_job_latest_metrics(job.id).response.json()
         assert len(latest_metrics['counters']) == 0
 
     finally:
@@ -570,9 +578,9 @@ def test_delete_latest_metrics_job(sch, sample_jobs):
 def test_get_jobs_using_job_id(sch, sample_jobs):
     job = sample_jobs[0]
 
-    first_job_retrieval = sch.jobs.get(job_id=job.job_id)
-    second_job_retrieval = sch.jobs.get(id=job.job_id)
-    assert first_job_retrieval.job_id == second_job_retrieval.job_id
+    first_job_retrieval = sch.jobs.get(id=job.id)
+    second_job_retrieval = sch.jobs.get(id=job.id)
+    assert first_job_retrieval.id == second_job_retrieval.id
     assert first_job_retrieval.job_name == second_job_retrieval.job_name
 
 
@@ -585,8 +593,8 @@ def test_create_jobs(sch, simple_pipeline):
 
     try:
         response = sch.api_client.create_jobs([job_one._data, job_two._data]).response.json()
-        assert sch.jobs.get(job_name='test_create_jobs_one').job_id in [response[0]['id'], response[1]['id']]
-        assert sch.jobs.get(job_name='test_create_jobs_two').job_id in [response[0]['id'], response[1]['id']]
+        assert sch.jobs.get(job_name='test_create_jobs_one').id in [response[0]['id'], response[1]['id']]
+        assert sch.jobs.get(job_name='test_create_jobs_two').id in [response[0]['id'], response[1]['id']]
 
     finally:
         # job_builder doesn't create an ID when creating a job, the server creates the ID
@@ -595,7 +603,7 @@ def test_create_jobs(sch, simple_pipeline):
         sch.delete_job(sch.jobs.get(job_name='test_create_jobs_two'))
 
 
-def test_run_error(sch, sch_authoring_transformer_id, sch_executor_transformer_label):
+def test_run_error(sch, sch_authoring_transformer_id, sch_engine_transformer_label):
     pipeline_builder = sch.get_pipeline_builder(engine_type='transformer', engine_id=sch_authoring_transformer_id)
 
     dev_data_generator = pipeline_builder.add_stage('Dev Raw Data Source')
@@ -610,7 +618,7 @@ def test_run_error(sch, sch_authoring_transformer_id, sch_executor_transformer_l
     job_builder = sch.get_job_builder()
     job = job_builder.build('test_run_error', pipeline=run_error_pipeline)
     try:
-        job.data_collector_labels = sch_executor_transformer_label
+        job.data_collector_labels = sch_engine_transformer_label
         sch.add_job(job)
 
         with pytest.raises(RunError) as e:
@@ -621,10 +629,10 @@ def test_run_error(sch, sch_authoring_transformer_id, sch_executor_transformer_l
         sch.wait_for_job_status(job, 'INACTIVE')
     finally:
         sch.delete_job(job)
-        sch.api_client.delete_pipeline(run_error_pipeline.pipeline_id)
+        sch.api_client.delete_pipeline(run_error_pipeline.id)
 
 
-def test_start_error(sch, sch_authoring_transformer_id, sch_executor_transformer_label):
+def test_start_error(sch, sch_authoring_transformer_id, sch_engine_transformer_label):
     dummy_cluster = {
         'databricksConfig.baseUrl': 'https://dummy.cluster.com',
         'databricksConfig.clusterConfig': json.dumps(
@@ -652,7 +660,7 @@ def test_start_error(sch, sch_authoring_transformer_id, sch_executor_transformer
     job_builder = sch.get_job_builder()
     job = job_builder.build('test_start_error', pipeline=start_error_pipeline)
     try:
-        job.data_collector_labels = sch_executor_transformer_label
+        job.data_collector_labels = sch_engine_transformer_label
         sch.add_job(job)
 
         with pytest.raises((StartError, StartingError)) as e:
@@ -662,4 +670,4 @@ def test_start_error(sch, sch_authoring_transformer_id, sch_executor_transformer
         sch.wait_for_job_status(job, 'INACTIVE')
     finally:
         sch.delete_job(job)
-        sch.api_client.delete_pipeline(start_error_pipeline.pipeline_id)
+        sch.api_client.delete_pipeline(start_error_pipeline.id)

@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import TYPE_CHECKING, Collection
 
+from chalk.queries._schedule_entity_name import validate_schedule_entity_name
 from chalk.utils.duration import CronTab, Duration
 
 if TYPE_CHECKING:
@@ -31,6 +32,10 @@ class ScheduledAggregateBackfill:
     ):
         super().__init__()
         self.errors = []
+
+        name_err = validate_schedule_entity_name(name, entity_noun="Scheduled aggregate backfill")
+        if name_err is not None:
+            self.errors.append(name_err)
 
         if name in SCHEDULED_AGGREGATE_BACKFILL_REGISTRY:
             self.errors.append(

@@ -7,7 +7,7 @@ import urllib.request
 from sky.utils import directory_utils
 
 # Replaced with the current commit when building the wheels.
-_SKYPILOT_COMMIT_SHA = 'b5ee396e794c718bc0dde06e0b681b3475373df8'
+_SKYPILOT_COMMIT_SHA = 'df57e9cc6f434b56be354379580a26fdfeef8a63'
 
 
 def _get_git_commit():
@@ -37,7 +37,7 @@ def _get_git_commit():
 
 
 __commit__ = _get_git_commit()
-__version__ = '1.0.0.dev20260422'
+__version__ = '1.0.0.dev20260423'
 __root_dir__ = directory_utils.get_sky_dir()
 
 
@@ -83,6 +83,7 @@ _set_http_proxy_env_vars()
 # Keep this order to avoid cyclic imports
 # pylint: disable=wrong-import-position
 from sky import backends
+from sky import batch  # noqa: F401 # pylint: disable=unused-import
 from sky import clouds
 from sky.admin_policy import AdminPolicy
 from sky.admin_policy import MutatedUserRequest
@@ -251,4 +252,6 @@ __all__ = [
     # Registry
     'CLOUD_REGISTRY',
     'JOBS_RECOVERY_STRATEGY_REGISTRY',
+    # Batch processing
+    'batch',
 ]

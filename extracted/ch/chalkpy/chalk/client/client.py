@@ -39,6 +39,7 @@ from chalk.client.models import (
     OfflineQueryDeadlineOptions,
     OfflineQueryInfo,
     OfflineQueryInputUri,
+    OfflineQueryReport,
     OnlineQuery,
     OnlineQueryContext,
     PlanQueryResponse,
@@ -1085,6 +1086,7 @@ class ChalkClient:
         completion_deadline
             If specified as a timedelta, applies a completion deadline to each shard; each shard of the query will fail (without being retried) if not completed within the duration.
             If specified as an OfflineQueryDeadlineOptions, allows more fine-grained control of shard- or query-level deadlines, with options to retry on shard failure or not.
+            If not specified, defaults to an 18-hour deadline for each shard with no retries.
         max_retries
             Number of times failed offline query shards can be retried. The maximum number of attempts is 1 higher than this number and each shard has an independent retry budget.
             Errors that appear to be deterministic will not provoke retries.
@@ -1289,6 +1291,25 @@ class ChalkClient:
         --------
         >>> from chalk.client import ChalkClient
         >>> ChalkClient().list_jobs(state="running", limit=10)
+        """
+        ...
+
+    def get_offline_query_report(self, offline_query_id: str) -> Optional[OfflineQueryReport]:
+        """
+        Get the batch report associated with the offline query in environment.
+
+        Parameters
+        ----------
+        offline_query_id
+            Offline query's ID.
+
+        environment_id
+            Environment ID of offline query.
+
+        Returns
+        -------
+        Optional[OfflineQueryReport]
+            The OfflineQueryReport object if it exists.
         """
         ...
 

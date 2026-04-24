@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: asdf
-Version: 5.2.0
+Version: 5.3.0
 Summary: Python implementation of the ASDF Standard
 Author: The ASDF Developers
 Project-URL: documentation, https://asdf.readthedocs.io/en/stable/
@@ -23,25 +23,26 @@ Requires-Dist: attrs>=22.2.0
 Provides-Extra: all
 Requires-Dist: asdf[lz4]; extra == "all"
 Requires-Dist: asdf[http]; extra == "all"
-Provides-Extra: lz4
-Requires-Dist: lz4>=0.10; extra == "lz4"
-Provides-Extra: http
-Requires-Dist: fsspec[http]>=2022.8.2; extra == "http"
 Provides-Extra: docs
 Requires-Dist: sphinx-asdf>=0.2.2; extra == "docs"
 Requires-Dist: graphviz; extra == "docs"
 Requires-Dist: sphinx-inline-tabs; extra == "docs"
 Requires-Dist: tomli; python_version < "3.11" and extra == "docs"
 Requires-Dist: furo; extra == "docs"
+Provides-Extra: http
+Requires-Dist: fsspec[http]>=2022.8.2; extra == "http"
+Provides-Extra: lz4
+Requires-Dist: lz4>=0.10; extra == "lz4"
 Provides-Extra: tests
 Requires-Dist: asdf[all]; extra == "tests"
 Requires-Dist: psutil; extra == "tests"
 Requires-Dist: pytest>=8; extra == "tests"
-Provides-Extra: test
-Requires-Dist: asdf[tests]; extra == "test"
+Requires-Dist: syrupy>=5.1; extra == "tests"
 Provides-Extra: benchmark
 Requires-Dist: asdf[tests]; extra == "benchmark"
 Requires-Dist: pytest-benchmark; extra == "benchmark"
+Provides-Extra: test
+Requires-Dist: asdf[tests]; extra == "test"
 Dynamic: license-file
 
 ASDF - Advanced Scientific Data Format

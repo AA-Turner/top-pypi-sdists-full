@@ -3,15 +3,11 @@
 import copy
 import json
 
-from dal import forward
-
-from django import VERSION
 from django import forms
-try:
-    from django.urls import reverse
-except ImportError:
-    from django.core.urlresolvers import reverse
+from django.urls import reverse
 from django.utils.safestring import mark_safe
+
+from dal import forward
 
 
 class WidgetMixin(object):
@@ -48,7 +44,7 @@ class WidgetMixin(object):
         """Instanciate a widget with a URL and a list of fields to forward."""
         self.url = url
         self.forward = forward or []
-        self.placeholder = kwargs.get("attrs", {}).get("data-placeholder")
+        self.placeholder = (kwargs.get("attrs") or {}).get("data-placeholder")
         super(WidgetMixin, self).__init__(*args, **kwargs)
 
     def build_attrs(self, *args, **kwargs):
@@ -97,34 +93,6 @@ class WidgetMixin(object):
                 '</div>'
         else:
             return ""
-
-    def render_options(self, *args):
-        """
-        Django-compatibility method for option rendering.
-
-        Should only render selected options, by setting self.choices before
-        calling the parent method.
-
-        Remove this code when dropping support for Django<1.10.
-        """
-        selected_choices_arg = 1 if VERSION < (1, 10) else 0
-
-        # Filter out None values, not needed for autocomplete
-        selected_choices = [str(c) for c
-                            in args[selected_choices_arg] if c]
-
-        all_choices = copy.copy(self.choices)
-        if self.url:
-            self.filter_choices_to_render(selected_choices)
-        elif not self.allow_multiple_selected:
-            if self.placeholder:
-                self.choices.insert(0, (None, ""))
-
-        html = super(WidgetMixin, self).render_options(*args)
-
-        self.choices = all_choices
-
-        return html
 
     def optgroups(self, name, value, attrs=None):
         """

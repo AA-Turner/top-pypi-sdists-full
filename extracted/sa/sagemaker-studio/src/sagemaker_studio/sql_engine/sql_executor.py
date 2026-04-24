@@ -15,6 +15,7 @@ from .database_transformer import DatabaseTransformer, SqlStatement
 from .dynamodb_transformer import DynamoDBTransformer
 from .mssql_transformer import MSSQLTransformer
 from .mysql_transformer import MySQLTransformer
+from .opensearch_transformer import OpenSearchTransformer
 from .postgresql_transformer import PostgreSQLTransformer
 from .redshift_transformer import RedshiftTransformer
 from .resource_fetching_definition import FetchMode, SQLAlchemyMetadataAction
@@ -69,6 +70,7 @@ class SqlExecutor:
             "DYNAMODB": DynamoDBTransformer,
             "SQLSERVER": MSSQLTransformer,
             "POSTGRESQL": PostgreSQLTransformer,
+            "OPENSEARCH": OpenSearchTransformer,
         }
 
     @staticmethod

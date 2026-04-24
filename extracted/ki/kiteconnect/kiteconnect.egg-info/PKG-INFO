@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kiteconnect
-Version: 5.1.0
+Version: 5.2.0
 Summary: The official Python client for the Kite Connect trading API
 Home-page: https://kite.trade
 Download-URL: https://github.com/zerodhatech/pykiteconnect
@@ -71,6 +71,29 @@ Kite Connect is a set of REST-like APIs that expose many capabilities required t
 - **Drop Support for Python 2.7**: Starting from version v5, support for Python 2.7 has been discontinued. This decision was made due to the [announcement](https://github.com/actions/setup-python/issues/672) by `setup-python`, which stopped supporting Python 2.x since May 2023.
 
 - **For Python 2.x Users**: If you are using Python 2.x, you can continue using the `kiteconnect` library, but please stick to the <= 4.x.x versions of the library. You can find the previous releases on the [PyKiteConnect GitHub Releases](https://github.com/zerodha/pykiteconnect/releases) page.
+
+## v5.2 - Auto slice orders
+
+- Added `place_autoslice_order()` for placing orders that exceed exchange freeze limits. The order is automatically split into multiple smaller orders internally and the response contains the parent `order_id` along with a `children` list, where each child is either a placed order (`order_id`) or an `error` payload.
+
+  ```python
+  response = kite.place_autoslice_order(
+      variety=kite.VARIETY_REGULAR,
+      exchange=kite.EXCHANGE_NFO,
+      tradingsymbol="NIFTY25APRFUT",
+      transaction_type=kite.TRANSACTION_TYPE_BUY,
+      quantity=100000,
+      product=kite.PRODUCT_MIS,
+      order_type=kite.ORDER_TYPE_MARKET,
+  )
+
+  parent_order_id = response["order_id"]
+  for child in response.get("children", []):
+      if "order_id" in child:
+          ...  # child placed
+      else:
+          ...  # child["error"] payload
+  ```
 
 ## Installing the client
 

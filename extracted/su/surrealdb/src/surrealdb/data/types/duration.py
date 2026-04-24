@@ -1,7 +1,8 @@
 import re
 from dataclasses import dataclass
 from math import floor
-from typing import Union
+
+from surrealdb.errors import InvalidDurationError
 
 UNITS = {
     "ns": 1,
@@ -22,7 +23,7 @@ class Duration:
     elapsed: int = 0  # nanoseconds
 
     @staticmethod
-    def parse(value: Union[str, int], nanoseconds: int = 0) -> "Duration":
+    def parse(value: str | int, nanoseconds: int = 0) -> "Duration":
         if isinstance(value, int):
             return Duration(nanoseconds + value * UNITS["s"])
         else:
@@ -31,14 +32,14 @@ class Duration:
             matches = re.findall(pattern, value.lower())
 
             if not matches:
-                raise ValueError(f"Invalid duration format: {value}")
+                raise InvalidDurationError(f"Invalid duration format: {value}")
 
             total_ns = nanoseconds
             for num_str, unit in matches:
                 num = int(num_str)
                 if unit not in UNITS:
                     # this will never happen because the regex only matches valid units
-                    raise ValueError(f"Unknown duration unit: {unit}")
+                    raise InvalidDurationError(f"Unknown duration unit: {unit}")
                 total_ns += num * UNITS[unit]
 
             return Duration(total_ns)

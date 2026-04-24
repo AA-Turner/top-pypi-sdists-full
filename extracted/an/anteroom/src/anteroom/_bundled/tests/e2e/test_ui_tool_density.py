@@ -150,6 +150,33 @@ def _compact_mode_events() -> list[dict[str, object]]:
     ]
 
 
+def _compact_mode_events_for_tool(tool_name: str) -> list[dict[str, object]]:
+    return [
+        {
+            "type": "tool_call_start",
+            "data": {
+                "id": "t1",
+                "tool_name": tool_name,
+                "server_name": "",
+                "input": {"path": "sample.txt"},
+                "input_preview": "sample.txt",
+            },
+        },
+        {
+            "type": "tool_call_end",
+            "data": {
+                "id": "t1",
+                "output": {"ok": True},
+                "status": "success",
+                "summary": f"{tool_name} finished",
+                "output_preview": f"{tool_name} finished",
+                "error_class": None,
+                "output_shape_hash": f"hash-{tool_name}",
+            },
+        },
+    ]
+
+
 def _compact_mode_error_events(error_class: str) -> list[dict[str, object]]:
     return [
         {
@@ -339,6 +366,15 @@ class TestCompactModeRendering:
         assert result["errors"] == []
         after = result["after"]
         assert "tool-repeat-collapsed" not in after
+
+    @pytest.mark.parametrize("tool_name", ["glob_files", "read_file", "grep"])
+    def test_real_file_tool_events_render_cleanly(self, authenticated_page, tool_name: str) -> None:
+        page = authenticated_page
+        result = page.evaluate(_DISPATCH_SCRIPT, _compact_mode_events_for_tool(tool_name))
+        assert result["errors"] == []
+        after = result["after"]
+        assert "tool-summary-body" in after
+        assert tool_name in after
 
 
 @requires_playwright

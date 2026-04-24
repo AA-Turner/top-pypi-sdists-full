@@ -1,4 +1,6 @@
-# Copyright 2019 StreamSets Inc.
+#  IBM Confidential
+#  PID 5900-BAF
+#  Copyright StreamSets Inc., an IBM Company 2024
 
 """Common exceptions."""
 
@@ -38,13 +40,6 @@ class BadRequestError(HTTPError):
         super().__init__(response.text)
 
 
-class LegacyDeploymentInactiveError(Exception):
-    """Legacy deployment status changed into INACTIVE_ERROR."""
-
-    def __init__(self, message):
-        self.message = message
-
-
 class ValidationError(Exception):
     """Validation issues."""
 
@@ -59,11 +54,11 @@ class JobInactiveError(Exception):
         self.message = message
 
 
-class JobRunnerError(Exception):
+class JobRunnerError(HTTPError):
     """JobRunner errors."""
 
-    def __init__(self, code, message):
-        super().__init__('{}: {}'.format(code, message))
+    def __init__(self, code, message, **kwargs):
+        super().__init__('{}: {}'.format(code, message), **kwargs)
         self.code = code
         self.message = message
 
@@ -202,6 +197,20 @@ class ServiceDefinitionNotFound(Exception):
 
 class EnginelessError(Exception):
     """Publishing an engineless designed pipeline error"""
+
+    def __init__(self, message):
+        self.message = message
+
+
+class InitializationError(Exception):
+    """Error upon initializing a class"""
+
+    def __init__(self, message):
+        self.message = message
+
+
+class UnpublishedError(Exception):
+    """Error upon using an object not added to ControlHub."""
 
     def __init__(self, message):
         self.message = message

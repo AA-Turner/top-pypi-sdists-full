@@ -71,18 +71,6 @@ class Project:
                 raise ValueError("Domain ID not found in environment. Please specify a domain ID.")
             self.domain_id = domain_from_env
 
-        # Fetch domain info to identify express domain using iamSignIns and domainVersion
-        domain_response = self._sagemaker_studio_api.datazone_api.get_domain(
-            identifier=self.domain_id
-        )
-        iam_sign_ins = domain_response.get("iamSignIns", [])
-        domain_version = domain_response.get("domainVersion")
-        # Express domains have both IAM_ROLE and IAM_USER in iamSignIns and domainVersion is V2
-        # If domainVersion is missing, treat as non-express
-        self._is_express_mode = (
-            "IAM_ROLE" in iam_sign_ins and "IAM_USER" in iam_sign_ins and domain_version == "V2"
-        )
-
         if not self.id:
             self.id = self._utils._get_project_id(
                 self._sagemaker_studio_api.datazone_api, self.domain_id, self.name
@@ -104,6 +92,19 @@ class Project:
         self.project_status = get_project_response.get("projectStatus")
         self.project_profile_id = get_project_response.get("projectProfileId")
         self.domain_unit_id = get_project_response.get("domainUnitId")
+
+        self._is_express_mode = self._check_express_mode()
+
+    def _check_express_mode(self) -> bool:
+        """Determine if the project uses express mode by checking for a default.iam connection."""
+        default_iam_connections = self._sagemaker_studio_api.datazone_api.list_connections(
+            domainIdentifier=self.domain_id,
+            projectIdentifier=self.id,
+            type="IAM",
+            name="default.iam",
+        ).get("items", [])
+
+        return len(default_iam_connections) > 0
 
     def _get_iam_connection_name(self) -> str:
         """

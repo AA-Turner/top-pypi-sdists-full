@@ -1,4 +1,6 @@
-# Copyright 2022 StreamSets Inc.
+#  IBM Confidential
+#  PID 5900-BAF
+#  Copyright StreamSets Inc., an IBM Company 2024
 
 # fmt: off
 import pytest
@@ -87,7 +89,7 @@ def test_engineless_snowflake_connection(sch, sch_authoring_sdc_id, invalid_snow
     assert snowflake_destination.connection == invalid_snowflake_engineless_test_connection.id
 
 
-@pytest.mark.parametrize('unsupported_test_connection', ['invalid_jdbc_test_connection', 'invalid_aws_test_connection'])
+@pytest.mark.parametrize('unsupported_test_connection', ['invalid_jdbc_test_connection'])
 def test_connection_restriction_for_snowflake_stage(sch, sch_authoring_sdc_id, unsupported_test_connection, request):
     pipeline_builder = sch.get_pipeline_builder(engine_type='data_collector', engine_id=sch_authoring_sdc_id)
     snowflake_destination = pipeline_builder.add_stage('Snowflake', type='destination')

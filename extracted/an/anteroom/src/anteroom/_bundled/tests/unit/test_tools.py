@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import os
 import tempfile
 from pathlib import Path
@@ -981,6 +982,24 @@ class TestReadFileTool:
         read.set_working_dir("/tmp")
         result = await read.handle(path="/tmp/nonexistent_12345.txt")
         assert "error" in result
+
+    @pytest.mark.asyncio
+    async def test_read_file_uses_to_thread(self) -> None:
+        from anteroom.tools import read
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
+            f.write("line one\nline two\n")
+            f.flush()
+            path = f.name
+
+        try:
+            read.set_working_dir(os.path.dirname(path))
+            with patch("anteroom.tools.read.asyncio.to_thread", wraps=asyncio.to_thread) as mock_to_thread:
+                result = await read.handle(path=path)
+            assert "line one" in result["content"]
+            mock_to_thread.assert_called_once()
+        finally:
+            os.unlink(path)
 
 
 class TestWriteFileTool:

@@ -196,13 +196,8 @@ def rhat(
     coords : dict, optional
         Dictionary of dimension/index names to coordinate values defining a subset
         of the data for which to perform the computation.
-    method : str, default "rank"
-        Valid methods are:
-        - "rank"        # recommended by Vehtari et al. (2021)
-        - "split"
-        - "folded"
-        - "z_scale"
-        - "identity"
+    method : {"rank", "identity", "split", "z_scale", "folded"}, default "rank"
+        Select the R-hat computation method. See Notes section for more details.
     chain_axis, draw_axis : int, optional
         Integer indicators of the axis that correspond to the chain and the draw dimension.
         `chain_axis` can be ``None``.
@@ -232,6 +227,14 @@ def rhat(
 
     Rank values are calculated over all the chains with ``scipy.stats.rankdata``.
     Each chain is split in two and normalized with the z-transform following [1]_.
+
+    Each available method corresponds to a different formulation of the convergence diagnostic:
+
+    * identity: Original R-hat as proposed in Gelman and Rubin (1992)
+    * split: Split-chain R-hat, improves detection of non-convergence (Gelman et al.)
+    * z_scale: Rank-normalized split R-hat using z-transformation (Vehtari et al., 2021)
+    * folded: Rank-normalized split R-hat on folded values, sensitive to scale differences
+    * rank: Recommended diagnostic combining rank-normalization and folding approaches
 
     References
     ----------
@@ -434,10 +437,11 @@ def mcse(
     coords=None,
     method="mean",
     prob=None,
+    circular=False,
     chain_axis=0,
     draw_axis=1,
 ):
-    """Calculate Markov Chain Standard Error statistic.
+    r"""Calculate Markov Chain Standard Error statistic.
 
     Parameters
     ----------
@@ -468,6 +472,9 @@ def mcse(
         - "quantile"
     prob : float, or tuple of two floats, optional
         Probability value "quantile".
+    circular : bool, default False
+        Whether to treat the data as circular in the :math:`[-\pi, \pi]` interval
+        when computing the MCSE.
     chain_axis, draw_axis : int, optional
         Integer indicators of the axis that correspond to the chain and the draw dimension.
         `chain_axis` can be ``None``.
@@ -507,6 +514,7 @@ def mcse(
             data,
             method=method,
             prob=prob,
+            circular=circular,
             chain_axis=chain_axis,
             draw_axis=draw_axis,
         )
@@ -521,12 +529,15 @@ def mcse(
             coords=coords,
             method=method,
             prob=prob,
+            circular=circular,
         )
 
     if isinstance(data, xr.DataArray):
         if coords is not None:
             data = data.sel(coords)
-        return data.azstats.mcse(sample_dims=sample_dims, method=method, prob=prob)
+        return data.azstats.mcse(
+            sample_dims=sample_dims, method=method, prob=prob, circular=circular
+        )
 
     if isinstance(data, xr.DataTree):
         data = data.azstats.filter_vars(
@@ -534,7 +545,9 @@ def mcse(
         ).datatree
         if coords is not None:
             data = data.sel(coords)
-        return data.azstats.mcse(sample_dims=sample_dims, group=group, method=method, prob=prob)
+        return data.azstats.mcse(
+            sample_dims=sample_dims, group=group, method=method, prob=prob, circular=circular
+        )
 
     data = convert_to_dataset(data, group=group)
 
@@ -542,7 +555,7 @@ def mcse(
     if coords is not None:
         data = data.sel(coords)
 
-    return data.azstats.mcse(sample_dims=sample_dims, method=method, prob=prob)
+    return data.azstats.mcse(sample_dims=sample_dims, method=method, prob=prob, circular=circular)
 
 
 def bfmi(

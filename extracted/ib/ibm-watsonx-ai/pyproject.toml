@@ -9,7 +9,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ibm_watsonx_ai"
-version = "1.5.6"
+version = "1.5.10"
 requires-python = ">=3.11,<3.14"
 authors = [
   {name = "IBM"}
@@ -77,6 +77,7 @@ rag = [
     "langgraph>=0.2.40,<0.7",
     "langchain-chroma>=0.1.4,<=0.2.5",
     "langchain-milvus>=0.1.8,<=0.2.1",
+    "pymilvus<=2.6.6",
     "langchain-text-splitters>=0.3,<0.4",
     "grpcio>=1.54.3",
     "python-docx>=1.1.2,<=1.2.0",
@@ -117,6 +118,7 @@ test_core = [
     "pytest-asyncio>=1.0,<2",
     "pytest-cov",
     "pytest-timeout",
+    "pytest-dependency",
     "allure-python-commons",
     "python-dotenv",
 ]

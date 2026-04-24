@@ -895,7 +895,50 @@ def concat_table_chunks(
                 result_table[j].extend(table_chunks[i].column_table[j])
         return ColumnTable(result_table, table_chunks[0].column_names)
     else:
-        return pyarrow.concat_tables(table_chunks)
+        return pyarrow.concat_tables(table_chunks, promote_options="default")
+
+
+def serialize_query_tags(
+    query_tags: Optional[Dict[str, Optional[str]]]
+) -> Optional[str]:
+    """
+    Serialize query_tags dictionary to a string format.
+
+    Format: "key1:value1,key2:value2"
+    Special cases:
+    - If value is None, omit the colon and value (e.g., "key1:value1,key2,key3:value3")
+    - Escape special characters (:, ,, \\) in values with a leading backslash
+    - Backslashes in keys are escaped; other special characters in keys are not escaped
+
+    Args:
+        query_tags: Dictionary of query tags where keys are strings and values are optional strings
+
+    Returns:
+        Serialized string or None if query_tags is None or empty
+    """
+    if not query_tags:
+        return None
+
+    def escape_value(value: str) -> str:
+        """Escape special characters in tag values."""
+        # Escape backslash first to avoid double-escaping
+        value = value.replace("\\", r"\\")
+        # Escape colon and comma
+        value = value.replace(":", r"\:")
+        value = value.replace(",", r"\,")
+        return value
+
+    serialized_parts = []
+    for key, value in query_tags.items():
+        escaped_key = key.replace("\\", r"\\")
+        if value is None:
+            # No colon or value when value is None
+            serialized_parts.append(escaped_key)
+        else:
+            escaped_value = escape_value(value)
+            serialized_parts.append(f"{escaped_key}:{escaped_value}")
+
+    return ",".join(serialized_parts)
 
 
 def build_client_context(server_hostname: str, version: str, **kwargs):
@@ -914,11 +957,17 @@ def build_client_context(server_hostname: str, version: str, **kwargs):
     )
 
     # Build user agent
+    from databricks.sql.common.agent import detect as detect_agent
+
     user_agent_entry = kwargs.get("user_agent_entry", "")
     if user_agent_entry:
         user_agent = f"PyDatabricksSqlConnector/{version} ({user_agent_entry})"
     else:
         user_agent = f"PyDatabricksSqlConnector/{version}"
+
+    agent_product = detect_agent()
+    if agent_product:
+        user_agent += f" agent/{agent_product}"
 
     # Explicitly construct ClientContext with proper types
     return ClientContext(

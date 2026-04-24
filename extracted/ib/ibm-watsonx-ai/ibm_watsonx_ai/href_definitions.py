@@ -218,6 +218,15 @@ TEXT_EXTRACTION = "{}/ml/v1/text/extractions/{}"
 TEXT_CLASSIFICATIONS = "{}/ml/v1/text/classifications"
 TEXT_CLASSIFICATION = "{}/ml/v1/text/classifications/{}"
 
+TEXT_SCHEMAS_CREATES = "{}/ml/v1/text/schemas/create"
+TEXT_SCHEMAS_CREATE = "{}/ml/v1/text/schemas/create/{}"
+TEXT_SCHEMAS_IMPROVES = "{}/ml/v1/text/schemas/improve"
+TEXT_SCHEMAS_IMPROVE = "{}/ml/v1/text/schemas/improve/{}"
+TEXT_SCHEMAS_MERGES = "{}/ml/v1/text/schemas/merge"
+TEXT_SCHEMAS_MERGE = "{}/ml/v1/text/schemas/merge/{}"
+TEXT_SCHEMAS_CLUSTERS = "{}/ml/v1/text/schemas/cluster"
+TEXT_SCHEMAS_CLUSTER = "{}/ml/v1/text/schemas/cluster/{}"
+
 RERANK = "{}/ml/v1/text/rerank"
 
 EXPORTS = "{}/v2/asset_exports"
@@ -969,6 +978,30 @@ class HrefDefinitions:
 
     def get_text_classification_href(self, text_classification_id: str) -> str:
         return TEXT_CLASSIFICATION.format(self.url, text_classification_id)
+
+    def get_text_schemas_creates_href(self) -> str:
+        return TEXT_SCHEMAS_CREATES.format(self.url)
+
+    def get_text_schemas_create_href(self, create_schema_job_id: str) -> str:
+        return TEXT_SCHEMAS_CREATE.format(self.url, create_schema_job_id)
+
+    def get_text_schemas_improves_href(self) -> str:
+        return TEXT_SCHEMAS_IMPROVES.format(self.url)
+
+    def get_text_schemas_improve_href(self, improve_schema_job_id: str) -> str:
+        return TEXT_SCHEMAS_IMPROVE.format(self.url, improve_schema_job_id)
+
+    def get_text_schemas_merges_href(self) -> str:
+        return TEXT_SCHEMAS_MERGES.format(self.url)
+
+    def get_text_schemas_merge_href(self, merge_schema_job_id: str) -> str:
+        return TEXT_SCHEMAS_MERGE.format(self.url, merge_schema_job_id)
+
+    def get_text_schemas_clusters_href(self) -> str:
+        return TEXT_SCHEMAS_CLUSTERS.format(self.url)
+
+    def get_text_schemas_cluster_href(self, cluster_schema_job_id: str) -> str:
+        return TEXT_SCHEMAS_CLUSTER.format(self.url, cluster_schema_job_id)
 
     def get_rerank_href(self) -> str:
         return RERANK.format(self.url)

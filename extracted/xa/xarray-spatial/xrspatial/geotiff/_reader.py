@@ -17,7 +17,28 @@ from ._compression import (
 )
 from ._dtypes import SUB_BYTE_BPS, tiff_dtype_to_numpy
 from ._geotags import GeoInfo, GeoTransform, extract_geo_info
-from ._header import IFD, TIFFHeader, parse_all_ifds, parse_header
+from ._header import IFD, TIFFHeader, parse_all_ifds, parse_header, validate_tile_layout
+
+# ---------------------------------------------------------------------------
+# Allocation guard: reject TIFF dimensions that would exhaust memory
+# ---------------------------------------------------------------------------
+
+#: Default maximum total pixel count (width * height * samples).
+#: ~1 billion pixels, which is ~4 GB for float32 single-band.
+#: Override per-call via the ``max_pixels`` keyword argument.
+MAX_PIXELS_DEFAULT = 1_000_000_000
+
+
+def _check_dimensions(width, height, samples, max_pixels):
+    """Raise ValueError if the requested allocation exceeds *max_pixels*."""
+    total = width * height * samples
+    if total > max_pixels:
+        raise ValueError(
+            f"TIFF image dimensions ({width} x {height} x {samples} = "
+            f"{total:,} pixels) exceed the safety limit of "
+            f"{max_pixels:,} pixels.  Pass a larger max_pixels value to "
+            f"read_to_array() if this file is legitimate."
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -226,12 +247,29 @@ def _open_source(source: str):
 
 
 def _apply_predictor(chunk: np.ndarray, pred: int, width: int,
-                     height: int, bytes_per_sample: int) -> np.ndarray:
-    """Apply the appropriate predictor decode to decompressed data."""
+                     height: int, bytes_per_sample: int,
+                     samples: int = 1) -> np.ndarray:
+    """Apply the appropriate predictor decode to decompressed data.
+
+    ``width``, ``height``, ``bytes_per_sample``, and ``samples`` describe
+    the raw pixel layout before predictor inversion: ``width * samples``
+    samples per row, each ``bytes_per_sample`` bytes wide.
+
+    Predictor=2 (horizontal differencing) works byte-wise on a stride of
+    ``bytes_per_sample * samples``.
+
+    Predictor=3 (floating-point) byte-swizzles each row into
+    ``bytes_per_sample`` interleaved lanes of length ``width * samples``,
+    per TIFF Technical Note 3.  Passing ``bytes_per_sample * samples`` as
+    the lane count (the pre-fix behaviour) swizzles over the wrong lane
+    count and scrambles multi-band pixel values.
+    """
     if pred == 2:
-        return predictor_decode(chunk, width, height, bytes_per_sample)
+        return predictor_decode(chunk, width, height,
+                                bytes_per_sample * samples)
     elif pred == 3:
-        return fp_predictor_decode(chunk, width, height, bytes_per_sample)
+        return fp_predictor_decode(chunk, width * samples, height,
+                                   bytes_per_sample)
     return chunk
 
 
@@ -267,7 +305,7 @@ def _decode_strip_or_tile(data_slice, compression, width, height, samples,
         if not chunk.flags.writeable:
             chunk = chunk.copy()
         chunk = _apply_predictor(chunk, pred, width, height,
-                                 bytes_per_sample * samples)
+                                 bytes_per_sample, samples=samples)
 
     if is_sub_byte:
         pixels = unpack_bits(chunk, bps, pixel_count)
@@ -292,7 +330,8 @@ _NATIVE_ORDER = '<' if _sys.byteorder == 'little' else '>'
 # ---------------------------------------------------------------------------
 
 def _read_strips(data: bytes, ifd: IFD, header: TIFFHeader,
-                 dtype: np.dtype, window=None) -> np.ndarray:
+                 dtype: np.dtype, window=None,
+                 max_pixels: int = MAX_PIXELS_DEFAULT) -> np.ndarray:
     """Read a strip-organized TIFF image.
 
     Parameters
@@ -307,6 +346,8 @@ def _read_strips(data: bytes, ifd: IFD, header: TIFFHeader,
         Output pixel dtype.
     window : tuple or None
         (row_start, col_start, row_stop, col_stop) or None for full image.
+    max_pixels : int
+        Maximum allowed pixel count (width * height * samples).
 
     Returns
     -------
@@ -343,6 +384,8 @@ def _read_strips(data: bytes, ifd: IFD, header: TIFFHeader,
 
     out_h = r1 - r0
     out_w = c1 - c0
+
+    _check_dimensions(out_w, out_h, samples, max_pixels)
 
     if samples > 1:
         result = np.empty((out_h, out_w, samples), dtype=dtype)
@@ -408,7 +451,8 @@ def _read_strips(data: bytes, ifd: IFD, header: TIFFHeader,
 # ---------------------------------------------------------------------------
 
 def _read_tiles(data: bytes, ifd: IFD, header: TIFFHeader,
-                dtype: np.dtype, window=None) -> np.ndarray:
+                dtype: np.dtype, window=None,
+                max_pixels: int = MAX_PIXELS_DEFAULT) -> np.ndarray:
     """Read a tile-organized TIFF image.
 
     Parameters
@@ -423,6 +467,8 @@ def _read_tiles(data: bytes, ifd: IFD, header: TIFFHeader,
         Output pixel dtype.
     window : tuple or None
         (row_start, col_start, row_stop, col_stop) or None for full image.
+    max_pixels : int
+        Maximum allowed pixel count (width * height * samples).
 
     Returns
     -------
@@ -446,6 +492,14 @@ def _read_tiles(data: bytes, ifd: IFD, header: TIFFHeader,
     if offsets is None or byte_counts is None:
         raise ValueError("Missing tile offsets or byte counts")
 
+    if tw <= 0 or th <= 0:
+        raise ValueError(
+            f"Invalid tile dimensions: TileWidth={tw}, TileLength={th}")
+
+    # Reject crafted tile dims that would force huge per-tile allocations.
+    # A single tile's decoded bytes must also fit under the pixel budget.
+    _check_dimensions(tw, th, samples, max_pixels)
+
     planar = ifd.planar_config
     tiles_across = math.ceil(width / tw)
     tiles_down = math.ceil(height / th)
@@ -461,6 +515,13 @@ def _read_tiles(data: bytes, ifd: IFD, header: TIFFHeader,
 
     out_h = r1 - r0
     out_w = c1 - c0
+
+    _check_dimensions(out_w, out_h, samples, max_pixels)
+
+    # Reject malformed TIFFs whose declared tile grid exceeds the number of
+    # supplied TileOffsets entries. Silent skipping in the CPU loop below
+    # would mask the problem, and the GPU path reads OOB. See issue #1219.
+    validate_tile_layout(ifd)
 
     _alloc = np.zeros if window is not None else np.empty
     if samples > 1:
@@ -545,7 +606,9 @@ def _read_tiles(data: bytes, ifd: IFD, header: TIFFHeader,
 # ---------------------------------------------------------------------------
 
 def _read_cog_http(url: str, overview_level: int | None = None,
-                   band: int | None = None) -> tuple[np.ndarray, GeoInfo]:
+                   band: int | None = None,
+                   max_pixels: int = MAX_PIXELS_DEFAULT,
+                   ) -> tuple[np.ndarray, GeoInfo]:
     """Read a COG via HTTP range requests.
 
     Parameters
@@ -556,6 +619,8 @@ def _read_cog_http(url: str, overview_level: int | None = None,
         Which overview to read (0 = full res, 1 = first overview, etc.).
     band : int
         Band index (0-based, for multi-band files).
+    max_pixels : int
+        Maximum allowed pixel count (width * height * samples).
 
     Returns
     -------
@@ -610,8 +675,20 @@ def _read_cog_http(url: str, overview_level: int | None = None,
     offsets = ifd.tile_offsets
     byte_counts = ifd.tile_byte_counts
 
+    if tw <= 0 or th <= 0:
+        raise ValueError(
+            f"Invalid tile dimensions: TileWidth={tw}, TileLength={th}")
+
     tiles_across = math.ceil(width / tw)
     tiles_down = math.ceil(height / th)
+
+    _check_dimensions(width, height, samples, max_pixels)
+    # A single tile's decoded bytes must also fit under the pixel budget.
+    _check_dimensions(tw, th, samples, max_pixels)
+
+    # Reject malformed TIFFs whose declared tile grid exceeds the supplied
+    # TileOffsets length. See issue #1219.
+    validate_tile_layout(ifd)
 
     if samples > 1:
         result = np.empty((height, width, samples), dtype=dtype)
@@ -653,7 +730,9 @@ def _read_cog_http(url: str, overview_level: int | None = None,
 # ---------------------------------------------------------------------------
 
 def read_to_array(source: str, *, window=None, overview_level: int | None = None,
-                  band: int | None = None) -> tuple[np.ndarray, GeoInfo]:
+                  band: int | None = None,
+                  max_pixels: int = MAX_PIXELS_DEFAULT,
+                  ) -> tuple[np.ndarray, GeoInfo]:
     """Read a GeoTIFF/COG to a numpy array.
 
     Parameters
@@ -666,13 +745,18 @@ def read_to_array(source: str, *, window=None, overview_level: int | None = None
         Overview level (0 = full res).
     band : int
         Band index for multi-band files.
+    max_pixels : int
+        Maximum allowed total pixel count (width * height * samples).
+        Prevents memory exhaustion from crafted TIFF headers.
+        Default is 1 billion (~4 GB for float32 single-band).
 
     Returns
     -------
     (np.ndarray, GeoInfo) tuple
     """
     if source.startswith(('http://', 'https://')):
-        return _read_cog_http(source, overview_level=overview_level, band=band)
+        return _read_cog_http(source, overview_level=overview_level, band=band,
+                              max_pixels=max_pixels)
 
     # Local file or cloud storage: read all bytes then parse
     if _is_fsspec_uri(source):
@@ -701,9 +785,11 @@ def read_to_array(source: str, *, window=None, overview_level: int | None = None
         geo_info = extract_geo_info(ifd, data, header.byte_order)
 
         if ifd.is_tiled:
-            arr = _read_tiles(data, ifd, header, dtype, window)
+            arr = _read_tiles(data, ifd, header, dtype, window,
+                              max_pixels=max_pixels)
         else:
-            arr = _read_strips(data, ifd, header, dtype, window)
+            arr = _read_strips(data, ifd, header, dtype, window,
+                               max_pixels=max_pixels)
 
         # For multi-band with band selection, extract single band
         if arr.ndim == 3 and ifd.samples_per_pixel > 1 and band is not None:

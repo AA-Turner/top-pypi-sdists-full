@@ -1,4 +1,6 @@
-# Copyright 2020 StreamSets Inc.
+#  IBM Confidential
+#  PID 5900-BAF
+#  Copyright StreamSets Inc., an IBM Company 2024
 
 """
 This module contains project-wide constants.
@@ -8,26 +10,21 @@ This module contains project-wide constants.
 import collections
 
 from .exceptions import ConnectError, InvalidError, RunError, RunningError, StartError, StartingError, ValidationError
+from .utils import EngineType
 
 # fmt: on
+
+
+COLLECTOR = EngineType.COLLECTOR
+TRANSFORMER = EngineType.TRANSFORMER
+SNOWPARK = EngineType.SNOWPARK
+EDGE = EngineType.EDGE
 
 
 ENGINE_AUTHENTICATION_METHOD_FORM = 'form'
 ENGINE_AUTHENTICATION_METHOD_ASTER = 'aster'
 
-SDC_EXECUTOR_TYPE = 'COLLECTOR'
-SNOWFLAKE_EXECUTOR_TYPE = 'SNOWPARK'
 SNOWFLAKE_ENGINE_ID = 'SYSTEM_SNOWPARK_ENGINE_ID'
-TRANSFORMER_EXECUTOR_TYPE = 'TRANSFORMER'
-
-SDC_DEPLOYMENT_TYPE = 'DC'
-TRANSFORMER_DEPLOYMENT_TYPE = 'TF'
-
-EXECUTOR_TO_DEPLOYMENT_MAP = {
-    SDC_EXECUTOR_TYPE: SDC_DEPLOYMENT_TYPE,
-    TRANSFORMER_EXECUTOR_TYPE: TRANSFORMER_DEPLOYMENT_TYPE,
-}
-
 ENGINELESS_ENGINE_ID = 'SYSTEM_DESIGNER'
 ENGINELESS_CONNECTION_ID = 'ENGINELESS_ID'
 
@@ -39,6 +36,11 @@ DEFAULT_MAX_CPU_LOAD_VALUE = 80.0
 DEFAULT_MAX_MEMORY_USED_VALUE = 100.0
 DEFAULT_MAX_PIPELINES_RUNNING_VALUE = 1000000
 
+PIPELINE_BUILDER_ENGINE_TYPES = {
+    'data_collector': COLLECTOR,
+    'transformer': TRANSFORMER,
+    'snowflake': SNOWPARK,
+}
 
 # This is a dictionary mapping stage names to attribute aliases. As an example, if a particular
 # stage had a label updated in a more recent SDC release, the older attribute name should be mapped
@@ -142,6 +144,14 @@ SDC_STAGE_ATTRIBUTE_RENAME_ALIASES = {
         # https://git.io/J1O0w
         'database_time_zone': 'db_time_zone',
     },
+}
+
+# This dictionary remaps a pairing of real name and label used to access it in the SDK, to a new way to access it in the
+# SDK. It is useful to overwrite the SDK automatic conversion of names to labels.
+SNOWFLAKE_REMAPPING = {
+    ('role', 'snowflakeCommonConfig.snowflakeConnection.customSnowflakeRole'): 'role',
+    ('schema', 'snowflakeCommonConfig.snowflakeConnection.schema'): 'schema',
+    ('warehouse', 'snowflakeCommonConfig.snowflakeConnection.warehouse'): 'warehouse',
 }
 
 # This is a dictionary mapping stage names to attribute aliases. As an example, if a particular
@@ -423,3 +433,6 @@ SDC_CONNECTIONS_BW_COMPATIBILITY = {
         }
     },
 }
+
+# Key used to verify that swagger response can work in the sdk
+SWAGGER_API_KEY = 'components'  # pragma: allowlist secret

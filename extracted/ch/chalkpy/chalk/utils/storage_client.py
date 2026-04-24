@@ -30,6 +30,7 @@ from chalk.utils.async_helpers import to_async_iterable
 from chalk.utils.collections import unwrap_optional
 from chalk.utils.log_with_context import get_logger
 from chalk.utils.missing_dependency import missing_dependency_exception
+from chalk.utils.retry import retry_call
 from chalk.utils.tracing import safe_distribution, safe_incr, safe_trace
 
 if TYPE_CHECKING:
@@ -214,51 +215,44 @@ class GCSStorageClient(StorageClient):
         blob.metadata = metadata
         _logger.debug(f"Uploading file '{file_uri}' of size {num_bytes} bytes")
 
-        from tenacity import RetryCallState, Retrying, stop_after_attempt, wait_fixed
+        def _log_upload_retry(attempt_number: int, _exc: Exception) -> None:
+            safe_incr(
+                counter="chalk.engine.gcs_bulk_upload_output.retry",
+                value=attempt_number,
+                tags=["success:False"],
+            )
 
-        def _log_upload_retry(state: RetryCallState) -> None:
-            if state.outcome is not None:
-                safe_incr(
-                    counter="chalk.engine.gcs_bulk_upload_output.retry",
-                    value=state.attempt_number,
-                    tags=[f"success:{not state.outcome.failed}"],
+        def _upload() -> None:
+            # matters for retries
+            data.seek(0)
+            with safe_trace(
+                "CloudStorageBulkUploadOutput.do_upload",
+                attributes={
+                    "size_bytes": str(num_bytes),
+                    "file_uri": file_uri,
+                },
+            ):
+                # Not using the actual filename in the tag to avoid tag blowup
+                safe_distribution(
+                    "chalk.engine.storage_client.files_uploaded",
+                    1,
+                    tags=[f"bucket:{self.bucket}", f"protocol:{self.protocol}"],
+                )
+                safe_distribution(
+                    "chalk.engine.storage_client.bytes_uploaded",
+                    num_bytes,
+                    tags=[f"bucket:{self.bucket}", f"protocol:{self.protocol}"],
+                )
+                blob.upload_from_file(
+                    data,
+                    size=num_bytes,
+                    content_type=content_type,
+                    if_generation_match=blob.generation,
                 )
 
         # Empirically this appears to fail occasionally, so let's just try it five times.
         # FIXME: Configure the retrying on the google storage client, instead of doing our own wrapper around it
-        for attempt in Retrying(
-            stop=stop_after_attempt(5),
-            reraise=True,
-            wait=wait_fixed(3),
-            after=_log_upload_retry,
-        ):
-            # matters for retries
-            data.seek(0)
-            with attempt:
-                with safe_trace(
-                    "CloudStorageBulkUploadOutput.do_upload",
-                    attributes={
-                        "size_bytes": str(num_bytes),
-                        "file_uri": file_uri,
-                    },
-                ):
-                    # Not using the actual filename in the tag to avoid tag blowup
-                    safe_distribution(
-                        "chalk.engine.storage_client.files_uploaded",
-                        1,
-                        tags=[f"bucket:{self.bucket}", f"protocol:{self.protocol}"],
-                    )
-                    safe_distribution(
-                        "chalk.engine.storage_client.bytes_uploaded",
-                        num_bytes,
-                        tags=[f"bucket:{self.bucket}", f"protocol:{self.protocol}"],
-                    )
-                    blob.upload_from_file(
-                        data,
-                        size=num_bytes,
-                        content_type=content_type,
-                        if_generation_match=blob.generation,
-                    )
+        retry_call(_upload, attempts=5, wait=3, after_failure=_log_upload_retry)
 
     @overload
     @override

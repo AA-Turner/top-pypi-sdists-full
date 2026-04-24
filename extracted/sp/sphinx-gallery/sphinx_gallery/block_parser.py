@@ -1,10 +1,10 @@
 """BlockParser divides non `.py` source files into blocks of code and markup text."""
 
 import ast
-import codecs
 import re
 from pathlib import Path
 from textwrap import dedent
+from typing import Any, Iterable, Literal
 
 import pygments.lexers
 import pygments.token
@@ -12,6 +12,7 @@ from sphinx.errors import ExtensionError
 from sphinx.util.logging import getLogger
 
 from .py_source_parser import FLAG_BODY, Block
+from .typing import GalleryConfig
 
 logger = getLogger("sphinx-gallery")
 
@@ -32,19 +33,27 @@ class BlockParser:
 
     Parameters
     ----------
-    source_file : str
+    source_file : str or Path
         A file name that has a suffix compatible with files that are subsequently parsed
     gallery_conf : dict
         Contains the configuration of Sphinx-Gallery.
     """
 
-    def __init__(self, source_file, gallery_conf):
-        source_file = Path(source_file)
-        if name := gallery_conf["filetype_parsers"].get(source_file.suffix):
+    def __init__(self, source_file: str | Path, gallery_conf: GalleryConfig) -> None:
+        source_path = Path(source_file)
+        if name := gallery_conf["filetype_parsers"].get(source_path.suffix):
             self.lexer = pygments.lexers.find_lexer_class_by_name(name)()
         else:
-            self.lexer = pygments.lexers.find_lexer_class_for_filename(source_file)()
-        self.language = self.lexer.name
+            lexer_class = pygments.lexers.find_lexer_class_for_filename(source_path)
+            if lexer_class is None:
+                raise ExtensionError(
+                    f"Sphinx-gallery could not find a lexer for files with "
+                    f"the suffix '{source_path.suffix}'. Please specify a "
+                    f"'filetype_parsers' entry in the 'sphinx_gallery_conf' "
+                    f"setting."
+                )
+            self.lexer = lexer_class()
+        self.language: str = self.lexer.name
 
         # determine valid comment syntaxes. For each possible syntax, the tuple contains
         # - A test comment
@@ -86,10 +95,10 @@ class BlockParser:
             self.multiline_cleanup = re.compile(r"\s*")
 
         comment_start = "|".join(self.allowed_comments)
-        allowed_special = "|".join(allowed_special)
-        if allowed_special:
+        allowed_special_str = "|".join(allowed_special)
+        if allowed_special_str:
             self.start_special = re.compile(
-                f"(?:(?:{comment_start}) ?%% ?|{allowed_special})(.*)"
+                f"(?:(?:{comment_start}) ?%% ?|{allowed_special_str})(.*)"
             )
         else:
             self.start_special = re.compile(f"(?:{comment_start}) ?%% ?(.*)")
@@ -115,12 +124,16 @@ class BlockParser:
             re.MULTILINE,
         )
 
-    def split_code_and_text_blocks(self, source_file, return_node=False):
+    def split_code_and_text_blocks(
+        self,
+        source_file: str | Path,
+        return_node: bool = False,
+    ) -> tuple[dict, list[Block], None]:
         """Return list with source file separated into code and text blocks.
 
         Parameters
         ----------
-        source_file : str
+        source_file : str or Path
             Path to the source file.
         return_node : bool
             Ignored; returning an ast node is not supported
@@ -137,13 +150,14 @@ class BlockParser:
         node : None
             Returning an ast node is not supported.
         """
-        with codecs.open(source_file, "r", "utf-8") as fid:
-            content = fid.read()
+        content = Path(source_file).read_text(encoding="utf-8")
         # change from Windows format to UNIX for uniformity
         content = content.replace("\r\n", "\n")
         return self._split_content(content)
 
-    def _get_content_lines(self, content):
+    def _get_content_lines(
+        self, content: str
+    ) -> Iterable[tuple[pygments.token._TokenType, str]]:
         """
         Combine individual tokens into lines.
 
@@ -151,7 +165,7 @@ class BlockParser:
         the line.
         """
         current_line = []
-        line_token = pygments.token.Whitespace
+        line_token: pygments.token._TokenType = pygments.token.Whitespace
         for token, text in self.lexer.get_tokens(content):
             if line_token == pygments.token.Whitespace:
                 line_token = token
@@ -173,7 +187,7 @@ class BlockParser:
             else:
                 current_line.append(text)
 
-    def _get_blocks(self, content):
+    def _get_blocks(self, content: str) -> Iterable[Block]:
         """
         Generate a sequence of "blocks" from the lines in ``content``.
 
@@ -200,7 +214,7 @@ class BlockParser:
             needs_multiline_cleanup = False
             return lines
 
-        def finalize_block(mode, block):
+        def finalize_block(mode: Literal["text", "code"], block: list[str]) -> Block:
             nonlocal start_text
             if mode == "text":
                 if needs_multiline_cleanup:
@@ -226,10 +240,10 @@ class BlockParser:
                 text = "\n".join(block)
             return Block(mode, text, n - len(block))
 
-        block = []
-        mode = None
+        block: list[str] = []
+        mode: Literal["text", "code"] | None = None
         for n, (token, text) in enumerate(self._get_content_lines(content)):
-            if mode == "text" and token in pygments.token.Whitespace:
+            if mode == "text" and token in pygments.token.Whitespace:  # type: ignore[comparison-overlap]
                 # Blank line ends current text block
                 if block:
                     yield finalize_block(mode, block)
@@ -241,6 +255,7 @@ class BlockParser:
             ):
                 # start of a text block; end the current block
                 if block:
+                    assert mode is not None
                     yield finalize_block(mode, block)
                 mode, block = "text", []
                 if (trailing_text := m.group(1)) is not None:
@@ -271,10 +286,11 @@ class BlockParser:
                     else:
                         block.append(text)
                 else:
-                    block.append(self.continue_text.search(text).group(1))
+                    block.append(self.continue_text.search(text).group(1))  # type: ignore[union-attr]
             elif mode != "code":
                 # start of a code block
                 if block:
+                    assert mode is not None
                     yield finalize_block(mode, block)
                 mode, block = "code", [text]
             else:
@@ -283,9 +299,10 @@ class BlockParser:
 
         # end of input ends final block
         if block:
+            assert mode is not None
             yield finalize_block(mode, block)
 
-    def _split_content(self, content):
+    def _split_content(self, content: str) -> tuple[dict, list[Block], None]:
         """
         Split the input content into blocks.
 
@@ -310,7 +327,7 @@ class BlockParser:
 
         return file_conf, blocks, None
 
-    def extract_file_config(self, content):
+    def extract_file_config(self, content: str) -> dict[str, Any]:
         """Pull out the file-specific config specified in the docstring."""
         file_conf = {}
         for match in re.finditer(self.infile_config_pattern, content):
@@ -328,7 +345,7 @@ class BlockParser:
                 file_conf[name] = value
         return file_conf
 
-    def remove_ignore_blocks(self, code_block):
+    def remove_ignore_blocks(self, code_block: str) -> str:
         """
         Return the content of *code_block* with ignored areas removed.
 
@@ -352,7 +369,7 @@ class BlockParser:
             )
         return re.subn(self.ignore_block_pattern, "", code_block)[0]
 
-    def remove_config_comments(self, code_block):
+    def remove_config_comments(self, code_block: str) -> str:
         """
         Return the content of *code_block* with in-file config comments removed.
 

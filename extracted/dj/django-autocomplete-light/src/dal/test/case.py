@@ -2,16 +2,11 @@
 
 import uuid
 
-from django import VERSION
+import pytest
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.staticfiles.testing import StaticLiveServerTestCase
 from django.db import transaction
-try:
-    from django.urls import reverse
-except ImportError:
-    from django.core.urlresolvers import reverse
-
-import pytest
+from django.urls import reverse
 
 
 @pytest.mark.usefixtures('cls_browser')
@@ -40,7 +35,12 @@ class AutocompleteTestCase(StaticLiveServerTestCase):
 
     def click(self, selector):
         """Click an element by css selector."""
-        self.browser.find_by_css(selector).first.click()
+        element = self.browser.find_by_css(selector).first
+        self.browser.execute_script(
+            'arguments[0].scrollIntoView({block: "center"});',
+            element._element,
+        )
+        element.click()
 
     def enter_text(self, selector, text):
         """Enter text in an element by css selector."""
@@ -85,10 +85,6 @@ class OptionMixin(object):
         """Create a unique option from self.model into self.option."""
         unique_name = str(uuid.uuid1())
 
-        if VERSION < (1, 10):
-            # Support for the name to be changed through a popup in the admin.
-            unique_name = unique_name.replace('-', '')
-
         option, created = self.model.objects.get_or_create(
             name=unique_name)
         return option
@@ -99,6 +95,6 @@ class ContentTypeOptionMixin(OptionMixin):
 
     def create_option(self):
         """Return option, content type."""
-        option = super(ContentTypeOptionMixin, self).create_option()
+        option = super().create_option()
         ctype = ContentType.objects.get_for_model(option)
         return option, ctype

@@ -1,4 +1,6 @@
-# Copyright 2022 StreamSets Inc.
+#  IBM Confidential
+#  PID 5900-BAF
+#  Copyright StreamSets Inc., an IBM Company 2024
 
 # fmt: off
 from streamsets.sdk.sdc import DataCollector
@@ -9,9 +11,9 @@ from streamsets.sdk.sdc import DataCollector
 def test_get_field_data(sch, sch_authoring_sdc):
     # Test Record.get_field_data where dpath is used
     # Since we only support snapshot, where dpath is used, on only non SCH DataCollector, we construct it here
-    sdc_executor = DataCollector(server_url=sch_authoring_sdc.engine_url, control_hub=sch, sdc_id=sch_authoring_sdc.id)
+    sdc_engine = DataCollector(server_url=sch_authoring_sdc.engine_url, control_hub=sch, sdc_id=sch_authoring_sdc.id)
 
-    pipeline_builder = sdc_executor.get_pipeline_builder()
+    pipeline_builder = sdc_engine.get_pipeline_builder()
     dev_data_generator = pipeline_builder.add_stage('Dev Data Generator')
     # we add a bit of a delay so as we do not overwhelm the SDC instance
     dev_data_generator.set_attributes(
@@ -25,9 +27,9 @@ def test_get_field_data(sch, sch_authoring_sdc):
     dev_data_generator >> trash
     pipeline = pipeline_builder.build('testing get_field_data')
 
-    sdc_executor.add_pipeline(pipeline)
+    sdc_engine.add_pipeline(pipeline)
     try:
-        snapshot = sdc_executor.capture_snapshot(pipeline, start_pipeline=True).snapshot
+        snapshot = sdc_engine.capture_snapshot(pipeline, start_pipeline=True).snapshot
         assert isinstance(snapshot[pipeline.origin_stage].output[0].get_field_data('/stringField').value, str)
     finally:
-        sdc_executor.stop_pipeline(pipeline)
+        sdc_engine.stop_pipeline(pipeline)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ansys-edb-core
-Version: 0.3.0
+Version: 0.3.1
 Summary: A python wrapper for Ansys Edb service
 Author-email: "ANSYS, Inc." <pyansys.support@ansys.com>
 Maintainer-email: PyAnsys developers <pyansys.maintainers@ansys.com>

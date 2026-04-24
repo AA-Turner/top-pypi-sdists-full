@@ -9,9 +9,9 @@ requires = [
 name = "sphinx-gallery"
 description = "A Sphinx extension that builds an HTML gallery of examples from any set of Python scripts."
 readme = "README.rst"
-license = { "text" = '3-clause BSD' }
+license = { text = "3-clause BSD" }
 authors = [
-  { name = "Óscar Nájera", email = 'najera.oscar@gmail.com' },
+  { name = "Óscar Nájera", email = "najera.oscar@gmail.com" },
 ]
 requires-python = ">=3.10"
 classifiers = [
@@ -31,7 +31,7 @@ dynamic = [
 ]
 dependencies = [
   "pillow",
-  "sphinx>=5",
+  "sphinx>=6", # 6.0.0 out on 2022/12/29
 ]
 optional-dependencies.animations = [
   "sphinxcontrib-video",
@@ -45,6 +45,7 @@ optional-dependencies.dev = [
   "jupyterlite-sphinx>=0.17.1",
   "lxml",
   "matplotlib",
+  "mypy",
   "numpy",
   "packaging",
   "plotly",
@@ -55,6 +56,9 @@ optional-dependencies.dev = [
   "sphinx-design",
   "sphinxcontrib-video",
   "statsmodels",
+  "types-docutils",
+  "types-pillow",
+  "types-pygments",
 ]
 optional-dependencies.jupyterlite = [
   "jupyterlite-sphinx",
@@ -65,10 +69,10 @@ optional-dependencies.parallel = [
 optional-dependencies.recommender = [
   "numpy",
 ]
-optional-dependencies.show_api_usage = [
+optional-dependencies.show-api-usage = [
   "graphviz",
 ]
-optional-dependencies.show_memory = [
+optional-dependencies.show-memory = [
   "memory-profiler",
 ]
 urls.Documentation = "https://sphinx-gallery.github.io"
@@ -77,18 +81,14 @@ scripts.sphinx_gallery_py2jupyter = "sphinx_gallery.notebook:python_to_jupyter_c
 
 [tool.setuptools]
 include-package-data = true
-
-[tool.setuptools.dynamic]
-version = { attr = "sphinx_gallery.__version__" }
-
-[tool.setuptools.packages.find]
-where = [
+dynamic.version = { attr = "sphinx_gallery.__version__" }
+packages.find.where = [
   ".",
-] # list of folders that contain the packages (["."] by default)
-include = [
+]  # list of folders that contain the packages (["."] by default)
+packages.find.include = [
   "sphinx_gallery*",
-] # package names should match these glob patterns (["*"] by default)
-namespaces = true # allow scanning PEP 420 namespaces (true by default)
+]  # package names should match these glob patterns (["*"] by default)
+packages.find.namespaces = true  # allow scanning PEP 420 namespaces (true by default)
 
 [tool.ruff]
 exclude = [
@@ -106,7 +106,6 @@ lint.ignore = [
   "D105", # Missing docstring in magic method
   "D401", # First line of docstring should be in imperative mood
 ]
-
 lint.per-file-ignores."*examples*/*.py" = [
   "D205", # 1 blank line required between summary line and description
   "D400", # First line should end with a period
@@ -145,8 +144,51 @@ builtin = "clear,rare,informal,names,usage"
 # Words are case sensitive based on how they are written in the dictionary file
 ignore-words-list = "master"
 
-[tool.pytest.ini_options]
-addopts = [
+[tool.mypy]
+python_version = "3.10"  # keep in sync with requires-python
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+check_untyped_defs = true
+no_implicit_optional = true
+local_partial_types = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+strict_equality = true
+show_error_codes = true
+exclude = [
+  "^build/",
+  "^doc/",
+  "^examples/",
+  "^examples/plotly_examples/",
+  "^pyvista_examples/",
+  "^tutorials/",
+  "^sphinx_gallery/tests/tinybuild/",
+  "^sphinx_gallery\\.egg-info/",
+]
+
+# Ignore test files for now
+[[tool.mypy.overrides]]
+module = "sphinx_gallery.tests.*"
+ignore_errors = true
+
+# Third-party packages without type stubs
+[[tool.mypy.overrides]]
+module = [
+  "joblib.*",
+  "memory_profiler.*",
+  "matplotlib.*",
+  "seaborn.*",
+  "plotly.*",
+  "pypandoc",
+  "graphviz",
+]
+ignore_missing_imports = true
+
+[tool.pytest]
+ini_options.addopts = [
   "--color=yes",
   "--cov-report=",
   "--cov=sphinx_gallery",
@@ -155,9 +197,9 @@ addopts = [
   "--tb=short",
   "--junit-xml=junit-results.xml",
 ]
-python_files = "tests/*.py"
-norecursedirs = "build _build auto_examples gen_modules sphinx_gallery/tests/tinybuild"
-filterwarnings = [
+ini_options.python_files = "tests/*.py"
+ini_options.norecursedirs = "build _build auto_examples gen_modules sphinx_gallery/tests/tinybuild"
+ini_options.filterwarnings = [
   "ignore:.*HasTraits.trait_.*:DeprecationWarning",
   "ignore:.*importing the ABCs.*:DeprecationWarning",
   "ignore:np.loads is deprecated, use pickle.loads instead:DeprecationWarning",
@@ -165,8 +207,8 @@ filterwarnings = [
   "ignore:node class .* is already registered.*:",
   "ignore:node.Node.* is obsoleted by Node.*:",
 ]
-junit_family = "xunit2"
-markers = [
+ini_options.junit_family = "xunit2"
+ini_options.markers = [
   "add_conf: Configuration file.",
-  "add_rst: Add rst file to src.",
+  "add_file: Add file to src.",
 ]

@@ -5,7 +5,9 @@ import glob
 import json
 import os
 import sys
+import tempfile
 import time
+import zipfile
 from typing import Any, Dict, Generator, List, Optional
 
 import requests
@@ -298,35 +300,94 @@ class Workspace:
         batch_name=None,
         num_retries=0,
         is_prediction=False,
-    ):
+        *,
+        use_zip_upload: bool = False,
+        tags: Optional[List[str]] = None,
+        split: Optional[str] = None,
+        wait: bool = True,
+        poll_interval: float = 5.0,
+        poll_timeout: float = 3600.0,
+    ) -> Optional[dict]:
         """
         Upload a dataset to Roboflow.
 
+        A `.zip` ``dataset_path`` or ``use_zip_upload=True`` routes to the
+        server's async zip upload flow. Everything else (directory inputs by
+        default) keeps the legacy per-image flow.
+
         Args:
-            dataset_path (str): path to the dataset
+            dataset_path (str): path to the dataset directory or a `.zip` file.
             project_name (str): name of the project
-            num_workers (int): number of workers to use for parallel uploads
+            num_workers (int): number of workers to use for parallel uploads (per-image flow only)
             dataset_format (str): format of the dataset (`voc`, `yolov8`, `yolov5`)
             project_license (str): license of the project (set to `private` for private projects, only available for paid customers)
             project_type (str): type of the project (only `object-detection` is supported)
             batch_name (str, optional): name of the batch to upload the images to. Defaults to an automatically generated value.
             num_retries (int, optional): number of times to retry uploading an image if the upload fails. Defaults to 0.
             is_prediction (bool, optional): whether the annotations provided in the dataset are predictions and not ground truth. Defaults to False.
-        """  # noqa: E501 // docs
-        from roboflow.util import folderparser
-        from roboflow.util.image_utils import load_labelmap
+            use_zip_upload (bool, optional): opt-in to the zip flow for a directory input (the SDK zips it client-side). Ignored when dataset_path is already a `.zip`.
+            tags (list[str], optional): zip flow only — tags to apply to the uploaded batch.
+            split (str, optional): zip flow only — dataset split for the uploaded batch.
+            wait (bool, optional): zip flow only — poll for processing completion. Defaults to True.
+            poll_interval (float, optional): zip flow only — seconds between status polls.
+            poll_timeout (float, optional): zip flow only — total seconds to wait before timing out.
 
+        Returns:
+            dict | None: zip flow returns the final/pending status dict; per-image flow returns None.
+        """  # noqa: E501 // docs
         if dataset_format != "NOT_USED":
             print("Warning: parameter 'dataset_format' is deprecated and will be removed in a future release")
         project, created = self._get_or_create_project(
             project_id=project_name, license=project_license, type=project_type
         )
-        is_classification = project.type == "classification"
-        parsed_dataset = folderparser.parsefolder(dataset_path, is_classification=is_classification)
         if created:
             print(f"Created project {project.id}")
         else:
             print(f"Uploading to existing project {project.id}")
+
+        is_zip_file = dataset_path.lower().endswith(".zip") and os.path.isfile(dataset_path)
+        use_zip_flow = is_zip_file or use_zip_upload
+        if use_zip_flow and is_prediction:
+            raise RoboflowError(
+                "Zip upload flow does not support is_prediction=True. "
+                "Call upload_dataset without use_zip_upload for prediction uploads."
+            )
+
+        if use_zip_flow:
+            project_slug = project.id.rsplit("/")[1]
+            temp_zip = None
+            try:
+                if dataset_path.lower().endswith(".zip") and os.path.isfile(dataset_path):
+                    zip_path = dataset_path
+                else:
+                    zip_path = temp_zip = _zip_directory(dataset_path)
+                    print(f"Zipped {dataset_path} -> {zip_path}")
+
+                init = rfapi.init_zip_upload(
+                    self.__api_key,
+                    self.url,
+                    project_slug,
+                    split=split,
+                    tags=tags,
+                    batch_name=batch_name,
+                )
+                print(f"Uploading zip to Roboflow (task_id={init['taskId']})...")
+                rfapi.upload_zip_to_signed_url(init["signedUrl"], zip_path)
+
+                if not wait:
+                    print(f"Zip uploaded; not waiting for processing. task_id={init['taskId']}")
+                    return {"task_id": init["taskId"], "status": "pending"}
+
+                return _poll_zip_status(self.__api_key, self.url, init["taskId"], poll_interval, poll_timeout)
+            finally:
+                if temp_zip and os.path.exists(temp_zip):
+                    os.unlink(temp_zip)
+
+        from roboflow.util import folderparser
+        from roboflow.util.image_utils import load_labelmap
+
+        is_classification = project.type == "classification"
+        parsed_dataset = folderparser.parsefolder(dataset_path, is_classification=is_classification)
         images = parsed_dataset["images"]
 
         location = parsed_dataset["location"]
@@ -433,6 +494,8 @@ class Workspace:
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
             list(executor.map(_upload, images))
+
+        return None
 
     def _get_or_create_project(self, project_id, license: str = "MIT", type: str = "object-detection"):
         try:
@@ -620,23 +683,27 @@ class Workspace:
             filename (str, optional): The name of the weights file. Defaults to "weights/best.pt".
         """
 
-        from roboflow.util.model_processor import process
+        from roboflow.util.model_processor import process, validate_model_type_for_project
         from roboflow.util.versions import normalize_yolo_model_type
 
         if not project_ids:
             raise ValueError("At least one project ID must be provided")
 
-        # Validate if provided project URLs belong to user's projects
-        user_projects = set(project.split("/")[-1] for project in self.projects())
+        # Validate if provided project URLs belong to user's projects, and look up
+        # each one's type (already cached on self.project_list — no extra API call).
+        projects_by_id = {p["id"].split("/")[-1]: p for p in self.project_list if "id" in p}
         for project_id in project_ids:
-            if project_id not in user_projects:
+            if project_id not in projects_by_id:
                 raise ValueError(f"Project {project_id} is not accessible in this workspace")
 
         model_type = normalize_yolo_model_type(model_type)
-        zip_file_name = process(model_type, model_path, filename)
+        zip_file_name, model_type = process(model_type, model_path, filename)
 
         if zip_file_name is None:
             raise RuntimeError("Failed to process model")
+
+        for project_id in project_ids:
+            validate_model_type_for_project(model_type, projects_by_id[project_id].get("type", ""), project_id)
 
         self._upload_zip(model_type, model_path, project_ids, model_name, zip_file_name)
 
@@ -1271,3 +1338,47 @@ class Workspace:
         json_value = {"name": self.name, "url": self.url, "projects": projects}
 
         return json.dumps(json_value, indent=2)
+
+
+def _zip_directory(src_dir: str) -> str:
+    """Zip src_dir into a temp file, skipping hidden and macOS-junk entries."""
+    fd, zip_path = tempfile.mkstemp(suffix=".zip", prefix="roboflow-upload-")
+    os.close(fd)
+    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+        for root, dirs, files in os.walk(src_dir):
+            dirs[:] = [d for d in dirs if not d.startswith(".") and d != "__MACOSX"]
+            for name in files:
+                if name.startswith(".") or name == "Thumbs.db":
+                    continue
+                abs_path = os.path.join(root, name)
+                rel = os.path.relpath(abs_path, src_dir)
+                zf.write(abs_path, arcname=rel)
+    return zip_path
+
+
+def _poll_zip_status(
+    api_key: str,
+    workspace_url: str,
+    task_id: str,
+    poll_interval: float,
+    poll_timeout: float,
+) -> dict:
+    deadline = time.monotonic() + poll_timeout
+    last_progress = None
+    while True:
+        status = rfapi.get_zip_upload_status(api_key, workspace_url, task_id)
+        state = status.get("status")
+        progress = (status.get("progress") or {}).get("current")
+        if progress is not None and progress != last_progress:
+            print(f"  zip-upload progress: {progress}")
+            last_progress = progress
+        if state in {"completed", "failed"}:
+            return status
+        if time.monotonic() >= deadline:
+            raise RoboflowError(
+                f"Zip upload polling timed out after {poll_timeout}s "
+                f"(task_id={task_id}, last_status={state}). "
+                f"Call Workspace.upload_dataset(..., wait=False) and poll with "
+                f"rfapi.get_zip_upload_status to check later."
+            )
+        time.sleep(poll_interval)

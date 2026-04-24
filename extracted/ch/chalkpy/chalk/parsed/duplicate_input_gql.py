@@ -100,6 +100,7 @@ class UpsertWindowMaterializationGQL:
     bucketDuration: float
     aggregation: str
     aggregateOn: Optional[UpsertFeatureReferenceGQL]
+    aggregateOnFeatures: List[UpsertFeatureReferenceGQL]
     dtype: Optional[str] = None
     backfillResolver: Optional[str] = None
     backfillLookbackDuration: Optional[float] = None

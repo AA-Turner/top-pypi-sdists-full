@@ -728,7 +728,7 @@ class Grant(pulumi.CustomResource):
             purpose="SERVICE",
             comment="Managed by TF")
         external_creds = databricks.Grant("external_creds",
-            credential=external.id,
+            credential=external.databricks_credential_id,
             principal="Data Engineers",
             privileges=["ACCESS"])
         ```
@@ -845,6 +845,7 @@ class Grant(pulumi.CustomResource):
         ## Other access control
 
         You can control Databricks General Permissions through Permissions resource.
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -1119,7 +1120,7 @@ class Grant(pulumi.CustomResource):
             purpose="SERVICE",
             comment="Managed by TF")
         external_creds = databricks.Grant("external_creds",
-            credential=external.id,
+            credential=external.databricks_credential_id,
             principal="Data Engineers",
             privileges=["ACCESS"])
         ```
@@ -1236,6 +1237,7 @@ class Grant(pulumi.CustomResource):
         ## Other access control
 
         You can control Databricks General Permissions through Permissions resource.
+
 
         :param str resource_name: The name of the resource.
         :param GrantArgs args: The arguments to use to populate this resource's properties.

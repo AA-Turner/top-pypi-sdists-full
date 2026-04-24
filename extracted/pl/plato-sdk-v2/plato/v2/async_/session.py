@@ -1373,6 +1373,40 @@ class Session:
                 with contextlib.suppress(Exception):
                     await browser.close()
 
+    async def _stabilize_post_login(
+        self,
+        result: LoginResult,
+        log: logging.Logger,
+    ) -> None:
+        """Reload login pages at ``networkidle``, close stray tabs, surface login page.
+
+        Shared by :meth:`login_via_cdp` and :meth:`login_via_agent_browser`:
+        both hand the Chromium off to an external consumer (a world driving
+        the browser; an agent-browser daemon) that attaches immediately
+        after login. SPAs like Mattermost / Docmost finish JWT / token /
+        workspace-hydration setup *after* the form submit promise resolves,
+        so the consumer can race that setup. Reloading each logged-in page
+        with ``wait_until="networkidle"`` pins the SPA in its post-auth
+        steady state; closing leftover ``about:blank`` tabs keeps the
+        consumer from picking one as the active page; ``bring_to_front``
+        makes the login page the focused tab.
+        """
+        login_pages = set(result.pages.values())
+        for page in list(result.pages.values()):
+            await asyncio.sleep(2)
+            with contextlib.suppress(Exception):
+                await page.reload(wait_until="networkidle", timeout=15000)
+            await asyncio.sleep(1)
+            log.info("Post-login page URL: %s", page.url)
+        for tab in list(result.context.pages):
+            if tab not in login_pages and tab.url == "about:blank":
+                with contextlib.suppress(Exception):
+                    await tab.close()
+        primary = next(iter(result.pages.values()), None)
+        if primary is not None:
+            with contextlib.suppress(Exception):
+                await primary.bring_to_front()
+
     async def login_via_cdp(
         self,
         cdp_url: str,
@@ -1410,22 +1444,7 @@ class Session:
                 retries=retries,
                 retry_delay_ms=retry_delay_ms,
             )
-            context = result.context
-            login_pages = set(result.pages.values())
-            for page in list(result.pages.values()):
-                await asyncio.sleep(2)
-                with contextlib.suppress(Exception):
-                    await page.reload(wait_until="networkidle", timeout=15000)
-                await asyncio.sleep(1)
-                active_log.info("Post-login page URL: %s", page.url)
-            for tab in list(context.pages):
-                if tab not in login_pages and tab.url == "about:blank":
-                    with contextlib.suppress(Exception):
-                        await tab.close()
-            primary = next(iter(result.pages.values()), None)
-            if primary is not None:
-                with contextlib.suppress(Exception):
-                    await primary.bring_to_front()
+            await self._stabilize_post_login(result, active_log)
 
     async def login_via_agent_browser(
         self,
@@ -1436,6 +1455,7 @@ class Session:
         shell_prefix: str = CLAUDE_CODE_SSH_SHELL_PREFIX,
         flow: str = "login",
         port: int | None = None,
+        screenshots_dir: Path | None = None,
         retries: int = 0,
         retry_delay_ms: int = 0,
         log: logging.Logger | None = None,
@@ -1502,17 +1522,13 @@ class Session:
                 # callers can pass ``session.envs`` without pre-filtering.
                 continue
 
-            public_url = await self._public_url(env, port=port)
-            env_flow = await self._fetch_login_flow(env, flow)
             cdp_port = CDP_PORT_BASE + idx
             profile_dir = f"/tmp/plato-ab-{env.alias}-{self.session_id}"
 
             active_log.info(
-                "agent-browser login: env=%s flow=%s session=%s url=%s cdp_port=%d",
+                "agent-browser login: env=%s flow=%s cdp_port=%d",
                 env.alias,
-                env_flow.name,
-                env.alias,
-                public_url,
+                flow,
                 cdp_port,
             )
 
@@ -1525,8 +1541,9 @@ class Session:
                 profile_dir=profile_dir,
                 log=active_log,
             ) as local_cdp_url:
-                # Attach the agent-browser daemon to the same chromium so it
-                # inherits the browser state once Playwright finishes login.
+                # Attach the agent-browser daemon BEFORE Playwright drives
+                # login so it's ready to inherit cookies once the SPA finishes
+                # its post-auth setup.
                 rc, _, err = await run_cmd(
                     [
                         "agent-browser",
@@ -1544,41 +1561,28 @@ class Session:
                 async with async_playwright() as pw:
                     browser = await pw.chromium.connect_over_cdp(local_cdp_url)
                     try:
-                        context = browser.contexts[0] if browser.contexts else await browser.new_context()
-                        page = context.pages[0] if context.pages else await context.new_page()
-                        executor = FlowExecutor(
-                            flow=env_flow,
-                            page=page,
-                            log=active_log,
-                            base_url=public_url,
+                        # Route through ``self.login()`` so FlowExecutor is
+                        # wired identically to ``login_via_cdp``:
+                        # ``screenshots_dir`` threaded through, no spurious
+                        # ``base_url``, same per-env retry structure.
+                        context = browser.contexts[0] if browser.contexts else None
+                        result = await self.login(
+                            browser=browser,
+                            context=context,
+                            flow=flow,
+                            screenshots_dir=screenshots_dir,
+                            port=port,
+                            env_alias=env.alias,
+                            retries=retries,
+                            retry_delay_ms=retry_delay_ms,
                         )
-
-                        last_error: Exception | None = None
-                        for attempt in range(1 + retries):
-                            try:
-                                await page.goto(public_url)
-                                await executor.execute()
-                                break
-                            except Exception as e:
-                                last_error = e
-                                if attempt < retries:
-                                    active_log.warning(
-                                        "login failed for %s (attempt %d/%d), retrying in %dms: %s",
-                                        env.alias,
-                                        attempt + 1,
-                                        1 + retries,
-                                        retry_delay_ms,
-                                        e,
-                                    )
-                                    await asyncio.sleep(retry_delay_ms / 1000)
-                        else:
-                            assert last_error is not None
-                            raise last_error
+                        await self._stabilize_post_login(result, active_log)
                     finally:
                         # Disconnect the Playwright client only. The remote
                         # chromium stays alive and the agent-browser daemon
                         # keeps its CDP attachment.
-                        await browser.close()
+                        with contextlib.suppress(Exception):
+                            await browser.close()
 
             logged_in.append(env.alias)
 

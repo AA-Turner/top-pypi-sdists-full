@@ -1,7 +1,7 @@
 import asyncio
 from collections.abc import AsyncIterator, Awaitable, Callable
 from typing import Any, Literal, cast
-from uuid import UUID, uuid4
+from uuid import UUID
 
 import orjson
 import structlog
@@ -374,7 +374,7 @@ async def stream_run_stateless(
     payload["if_not_exists"] = "create"
     on_disconnect = payload.get("on_disconnect", "continue")
     run_id = uuid7()
-    thread_id = uuid4()
+    thread_id = uuid7()
 
     sub = await Runs.Stream.subscribe(run_id, thread_id)
     try:
@@ -468,7 +468,7 @@ async def wait_run_stateless(request: ApiRequest):
     payload["if_not_exists"] = "create"
     on_disconnect = payload.get("on_disconnect", "continue")
     run_id = uuid7()
-    thread_id = uuid4()
+    thread_id = uuid7()
 
     sub = await Runs.Stream.subscribe(run_id, thread_id)
     try:
@@ -533,7 +533,7 @@ async def list_runs(
 
     async with connect() as conn:
         thread, runs = await asyncio.gather(
-            Threads.get(conn, thread_id),
+            Threads.get(conn, thread_id, read_mask_paths=[]),
             Runs.search(
                 conn,
                 thread_id,
@@ -562,7 +562,7 @@ async def get_run(request: ApiRequest):
 
     async with connect() as conn:
         thread, run = await asyncio.gather(
-            Threads.get(conn, thread_id),
+            Threads.get(conn, thread_id, read_mask_paths=[]),
             Runs.get(
                 conn,
                 run_id,

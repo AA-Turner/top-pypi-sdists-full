@@ -1,9 +1,12 @@
 Metadata-Version: 2.4
 Name: wpipe
-Version: 2.1.0
+Version: 2.1.5
 Summary: Pipeline library with API integration for task orchestration and execution tracking
-Home-page: https://github.com/wisrovi/wpipe
-Author: William Steve Rodriguez Villamizar
+Project-URL: Homepage, https://github.com/wisrovi/wpipe
+Project-URL: Documentation, https://wpipe.readthedocs.io/en/latest/
+Project-URL: Repository, https://github.com/wisrovi/wpipe
+Project-URL: Issues, https://github.com/wisrovi/wpipe/issues
+Project-URL: Changelog, https://github.com/wisrovi/wpipe/blob/main/CHANGELOG.md
 Author-email: William Steve Rodriguez Villamizar <wisrovi.rodriguez@gmail.com>
 License: MIT License
         
@@ -39,56 +42,46 @@ License: MIT License
         🌐 Website: https://wisrovi.github.io/wpipe/
         
         ¡Gracias por usar WPipe!
-        
-Project-URL: Homepage, https://github.com/wisrovi/wpipe
-Project-URL: Documentation, https://wpipe.readthedocs.io/en/latest/
-Project-URL: Repository, https://github.com/wisrovi/wpipe
-Project-URL: Issues, https://github.com/wisrovi/wpipe/issues
-Project-URL: Changelog, https://github.com/wisrovi/wpipe/blob/main/CHANGELOG.md
-Keywords: pipeline,workflow,tasks,orchestration,api,worker
+License-File: LICENSE
+Keywords: api,orchestration,pipeline,tasks,worker,workflow
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Classifier: License :: OSI Approved :: MIT License
-Classifier: Operating System :: OS Independent
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Classifier: Intended Audience :: Developers
-Classifier: Development Status :: 5 - Production/Stable
-Requires-Python: >=3.6
-Description-Content-Type: text/markdown
-License-File: LICENSE
-Requires-Dist: requests>=2.31.0
+Requires-Python: >=3.9
+Requires-Dist: fastapi>=0.100.0
 Requires-Dist: loguru>=0.7.0
 Requires-Dist: pandas>=2.0.0
-Requires-Dist: pyyaml>=6.0.1
-Requires-Dist: tqdm>=4.66.0
-Requires-Dist: rich>=13.7.0
 Requires-Dist: pydantic>=2.0.0
-Requires-Dist: fastapi>=0.100.0
+Requires-Dist: pyyaml>=6.0.1
+Requires-Dist: requests>=2.31.0
+Requires-Dist: rich>=13.7.0
+Requires-Dist: tqdm>=4.66.0
 Requires-Dist: uvicorn>=0.23.0
 Requires-Dist: wsqlite>=0.1.0
 Provides-Extra: dev
-Requires-Dist: pytest>=7.4.0; extra == "dev"
-Requires-Dist: pytest-cov>=4.1.0; extra == "dev"
-Requires-Dist: black>=23.0.0; extra == "dev"
-Requires-Dist: ruff>=0.1.0; extra == "dev"
-Requires-Dist: mypy>=1.7.0; extra == "dev"
+Requires-Dist: black>=23.0.0; extra == 'dev'
+Requires-Dist: mypy>=1.7.0; extra == 'dev'
+Requires-Dist: pytest-cov>=4.1.0; extra == 'dev'
+Requires-Dist: pytest>=7.4.0; extra == 'dev'
+Requires-Dist: ruff>=0.1.0; extra == 'dev'
 Provides-Extra: docs
-Requires-Dist: sphinx>=7.2.0; extra == "docs"
-Requires-Dist: sphinx-rtd-theme>=2.0.0; extra == "docs"
-Requires-Dist: sphinx-copybutton>=0.5.0; extra == "docs"
-Requires-Dist: myst-parser>=2.0.0; extra == "docs"
-Requires-Dist: sphinx-sitemap>=2.5.0; extra == "docs"
-Requires-Dist: sphinx-design>=0.5.0; extra == "docs"
-Dynamic: author
-Dynamic: home-page
-Dynamic: license-file
-Dynamic: requires-python
+Requires-Dist: myst-parser>=2.0.0; extra == 'docs'
+Requires-Dist: sphinx-copybutton>=0.5.0; extra == 'docs'
+Requires-Dist: sphinx-design>=0.5.0; extra == 'docs'
+Requires-Dist: sphinx-rtd-theme>=2.0.0; extra == 'docs'
+Requires-Dist: sphinx-sitemap>=2.5.0; extra == 'docs'
+Requires-Dist: sphinx>=7.2.0; extra == 'docs'
+Description-Content-Type: text/markdown
 
-# 🚀 WPipe v2.1.0
+# 🚀 WPipe v2.1.1
 
 **El motor de orquestación de pipelines más rápido, resiliente y puro para Python.**
 
@@ -511,7 +504,7 @@ exporter.export_pipeline_logs(format="json", output_path="reporte.json")
 
 | Aspecto | Detalle |
 |--------|---------|
-| **LTS** | WPipe v1.6+ cuenta con soporte a largo plazo |
+| **LTS** | WPipe v2.1+ cuenta con soporte a largo plazo |
 | **Test Coverage** | 95%+ pruebas en entornos síncronos y asíncronos |
 | **Arquitectura** | Unificación bajo `wsqlite`, sin SQL crudo en el núcleo |
 | **Python** | Compatible con Python 3.9+ |

@@ -31,7 +31,6 @@ from typing import (
 )
 from urllib.parse import urlparse
 
-import pandas as pd
 import requests as requests
 from typing_extensions import assert_never
 
@@ -62,10 +61,12 @@ from chalk.integrations.catalogs.base_catalog import BaseCatalog
 from chalk.utils.df_utils import read_parquet
 from chalk.utils.log_with_context import get_logger
 from chalk.utils.missing_dependency import missing_dependency_exception
+from chalk.utils.pandas_utils import require_pandas
 from chalk.utils.pl_helpers import apply_compat, polars_group_by_instead_of_groupby
 from chalk.utils.threading import DEFAULT_IO_EXECUTOR
 
 if TYPE_CHECKING:
+    import pandas as pd
     import polars as pl
     import pyarrow as pa
     import torch
@@ -377,6 +378,7 @@ def _load_dataset_inner(
         elif return_type == "polars_dataframe":
             return final_df.collect()
         elif return_type == "pandas":
+            require_pandas()
             return final_df.collect().to_pandas()
 
 

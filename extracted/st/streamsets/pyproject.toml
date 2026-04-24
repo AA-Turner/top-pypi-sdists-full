@@ -5,20 +5,17 @@ authors = [
 ]
 description = "A Python SDK for StreamSets"
 readme = {file = "README.rst", content-type = "text/x-rst"}
-requires-python = ">=3.4"
+requires-python = ">=3.10"
 classifiers=[
     'Development Status :: 5 - Production/Stable',
-    'Programming Language :: Python :: 3.4',
-    'Programming Language :: Python :: 3.5',
-    'Programming Language :: Python :: 3.6',
-    'Programming Language :: Python :: 3.7',
-    'Programming Language :: Python :: 3.8',
-    'Programming Language :: Python :: 3.9',
     'Programming Language :: Python :: 3.10',
     'Programming Language :: Python :: 3.11',
     'Programming Language :: Python :: 3.12',
+    'Programming Language :: Python :: 3.13',
+    'Programming Language :: Python :: 3.14',
+    'Programming Language :: Python :: 3.15',
 ]
-dependencies = ['dpath==1.5.0', 'inflection', 'PyYAML', 'requests']
+dependencies = ['dpath==1.5.0', 'inflection', 'PyYAML', 'requests >= 2.33.0']
 dynamic = ["version"]
 
 [tool.setuptools]
@@ -30,5 +27,5 @@ zip-safe = false
 version = {attr = "streamsets.sdk.__version__.__version__"}
 
 [build-system]
-requires = ["setuptools", "setuptools-scm"]
+requires = ["setuptools>=80.9.0", "setuptools-scm"]
 build-backend = "setuptools.build_meta"

@@ -544,7 +544,9 @@ def _stats_cupy(
     values_by_zone = values[sorted_indices]
 
     # filter out values that are non-finite or values equal to nodata_values
-    if nodata_values:
+    # Note: use `is not None` instead of truthiness so that nodata_values=0
+    # (a common sentinel) still triggers the filter, matching the numpy path.
+    if nodata_values is not None:
         filter_values = cupy.isfinite(values_by_zone) & (
             values_by_zone != nodata_values)
     else:
@@ -1405,6 +1407,206 @@ def crosstab(
         zone_ids, unique_cats, cat_ids, nodata_values, agg
     )
     return crosstab_df
+
+
+# ---------------------------------------------------------------------------
+# Hypsometric integral
+# ---------------------------------------------------------------------------
+
+def _hi_numpy(zones_data, values_data, nodata):
+    """Numpy backend for hypsometric integral."""
+    unique_zones = np.unique(zones_data[np.isfinite(zones_data)])
+    if nodata is not None:
+        unique_zones = unique_zones[unique_zones != nodata]
+
+    out = np.full(values_data.shape, np.nan, dtype=np.float64)
+
+    for z in unique_zones:
+        mask = (zones_data == z) & np.isfinite(values_data)
+        if not np.any(mask):
+            continue
+        vals = values_data[mask]
+        mn, mx = vals.min(), vals.max()
+        if mx == mn:
+            continue  # flat zone -> NaN
+        hi = (vals.mean() - mn) / (mx - mn)
+        out[mask] = hi
+    return out
+
+
+def _hi_cupy(zones_data, values_data, nodata):
+    """CuPy backend for hypsometric integral — transfer to host, compute, return."""
+    import cupy as cp
+    result_np = _hi_numpy(cp.asnumpy(zones_data), cp.asnumpy(values_data), nodata)
+    return cp.asarray(result_np)
+
+
+@delayed
+def _hi_block_stats(z_block, v_block, nodata):
+    """Per-chunk: return dict mapping local zone IDs to (min, max, sum, count).
+
+    Each block discovers its own zones, so the driver never has to compute
+    a global unique-zone set up front. Sparse zones (geographic) stay sparse
+    in the returned dict instead of being padded to a full (n_zones, 4) array.
+    """
+    finite_v = np.isfinite(v_block)
+    finite_z = np.isfinite(z_block)
+    valid = finite_z & finite_v
+    if not np.any(valid):
+        return {}
+
+    z_valid = z_block[valid]
+    v_valid = v_block[valid]
+    uzones = np.unique(z_valid)
+
+    result = {}
+    for z in uzones:
+        if nodata is not None and z == nodata:
+            continue
+        mask = z_valid == z
+        vals = v_valid[mask]
+        if vals.size == 0:
+            continue
+        result[z.item() if hasattr(z, 'item') else z] = (
+            float(vals.min()),
+            float(vals.max()),
+            float(vals.sum()),
+            int(vals.size),
+        )
+    return result
+
+
+@delayed
+def _hi_reduce(partials_list):
+    """Stream-merge per-block dicts into global hi_lookup.
+
+    Scheduler peak memory is O(n_zones) for the merged dict, rather than
+    O(n_blocks * n_zones) from a stacked array.  Per-block partials arrive
+    as a Python list but are iterated once and can be released.
+    """
+    merged = {}
+    for partial in partials_list:
+        for z, (mn, mx, s, c) in partial.items():
+            if z in merged:
+                om, oM, os_, oc = merged[z]
+                merged[z] = (min(om, mn), max(oM, mx), os_ + s, oc + c)
+            else:
+                merged[z] = (mn, mx, s, c)
+
+    hi_lookup = {}
+    for z, (mn, mx, s, c) in merged.items():
+        if c == 0 or mx == mn:
+            hi_lookup[z] = np.nan
+        else:
+            hi_lookup[z] = (s / c - mn) / (mx - mn)
+    return hi_lookup
+
+
+def _hi_dask_numpy(zones_data, values_data, nodata):
+    """Dask+numpy backend for hypsometric integral.
+
+    Single graph evaluation: each block computes its local (zone -> stats)
+    dict, then a streaming reduce merges them into a lookup table, then
+    map_blocks paints the result.  No up-front `_unique_finite_zones`
+    compute and no O(n_blocks * n_zones) scheduler-side stack.
+    """
+    zones_blocks = zones_data.to_delayed().ravel()
+    values_blocks = values_data.to_delayed().ravel()
+
+    partials = [
+        _hi_block_stats(zb, vb, nodata)
+        for zb, vb in zip(zones_blocks, values_blocks)
+    ]
+
+    hi_lookup = dask.compute(_hi_reduce(partials))[0]
+
+    if not hi_lookup:
+        return da.full(values_data.shape, np.nan, dtype=np.float64,
+                       chunks=values_data.chunks)
+
+    def _paint(zones_chunk, values_chunk, hi_map):
+        out = np.full(zones_chunk.shape, np.nan, dtype=np.float64)
+        for z, hi_val in hi_map.items():
+            mask = (zones_chunk == z) & np.isfinite(values_chunk)
+            out[mask] = hi_val
+        return out
+
+    return da.map_blocks(
+        _paint, zones_data, values_data, hi_map=hi_lookup,
+        dtype=np.float64, meta=np.array(()),
+    )
+
+
+def _hi_dask_cupy(zones_data, values_data, nodata):
+    """Dask+cupy backend: convert chunks to numpy, delegate."""
+    zones_cpu = zones_data.map_blocks(
+        lambda x: x.get(), dtype=zones_data.dtype, meta=np.array(()),
+    )
+    values_cpu = values_data.map_blocks(
+        lambda x: x.get(), dtype=values_data.dtype, meta=np.array(()),
+    )
+    return _hi_dask_numpy(zones_cpu, values_cpu, nodata)
+
+
+def hypsometric_integral(
+    zones,
+    values,
+    nodata=0,
+    column=None,
+    rasterize_kw=None,
+    name='hypsometric_integral',
+):
+    """Hypsometric integral (HI) per zone, painted back to a raster.
+
+    HI measures geomorphic maturity: ``(mean - min) / (max - min)``
+    computed over elevations within each zone.  Values range from 0 to 1.
+
+    Parameters
+    ----------
+    zones : xr.DataArray, GeoDataFrame, or list of (geometry, value) pairs
+        Zone definitions.  Integer zone IDs.  GeoDataFrame and list-of-pairs
+        inputs are rasterized using *values* as the template grid.
+    values : xr.DataArray
+        2D elevation raster (float), same shape as *zones*.
+    nodata : int or None, default 0
+        Zone ID that means "no zone".  Excluded from computation; those
+        cells get NaN in the output.  Set to ``None`` to include all IDs.
+    column : str, optional
+        Column in a GeoDataFrame containing zone IDs.
+    rasterize_kw : dict, optional
+        Extra keyword arguments for ``rasterize()`` when *zones* is vector.
+    name : str, default ``'hypsometric_integral'``
+        Name for the output DataArray.
+
+    Returns
+    -------
+    xr.DataArray
+        Float64 raster, same shape/dims/coords as *values*.  Each cell
+        holds the HI of its zone.  NaN for nodata zones, non-finite
+        elevation cells, and flat zones (elevation range = 0).
+    """
+    zones = _maybe_rasterize_zones(zones, values, column=column,
+                                   rasterize_kw=rasterize_kw)
+    validate_arrays(zones, values)
+
+    _nodata = nodata  # capture for closures
+
+    mapper = ArrayTypeFunctionMapping(
+        numpy_func=lambda z, v: _hi_numpy(z, v, _nodata),
+        cupy_func=lambda z, v: _hi_cupy(z, v, _nodata),
+        dask_func=lambda z, v: _hi_dask_numpy(z, v, _nodata),
+        dask_cupy_func=lambda z, v: _hi_dask_cupy(z, v, _nodata),
+    )
+
+    out = mapper(zones)(zones.data, values.data)
+
+    return xr.DataArray(
+        out,
+        name=name,
+        dims=values.dims,
+        coords=values.coords,
+        attrs=values.attrs,
+    )
 
 
 def _apply_numpy(zones_data, values_data, func, nodata):

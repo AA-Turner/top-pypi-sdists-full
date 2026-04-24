@@ -36,6 +36,41 @@ _MAX_RETRIES = 3
 _RETRY_BACKOFF = [2, 4, 8]  # seconds
 _RETRYABLE_STATUS_CODES = {502, 503, 504}
 
+# Unipile source.status values that mean the LinkedIn session is broken
+# and the account must be re-authenticated. CREDENTIALS is the common one
+# (cookies expired); CHECKPOINT means a 2FA/captcha is pending user action.
+UNHEALTHY_SOURCE_STATUSES = frozenset({
+    "CREDENTIALS",
+    "CHECKPOINT",
+    "RECONNECT_NEEDED",
+    "DISCONNECTED",
+    "ERROR",
+    "FAILED",
+    "EXPIRED",
+    "STOPPED",
+})
+
+
+def interpret_account_status(data: dict[str, Any]) -> tuple[bool, str]:
+    """Return (is_connected, message) for a Unipile account payload.
+
+    Unipile's real health signal lives in ``sources[].status`` (the messaging
+    source for LinkedIn). The legacy top-level ``status`` field is rarely
+    populated, so earlier versions of this check missed CREDENTIALS expiry
+    entirely and reported zombie accounts as connected.
+    """
+    sources = data.get("sources") or []
+    for src in sources:
+        status = str(src.get("status") or "").upper()
+        if status in UNHEALTHY_SOURCE_STATUSES:
+            return False, f"LinkedIn session needs reconnection (status: {status})"
+    legacy = str(
+        data.get("status") or data.get("state") or data.get("connection_status") or ""
+    ).lower()
+    if legacy in ("disconnected", "error", "failed", "expired"):
+        return False, f"Account status: {legacy}"
+    return True, "Connected"
+
 
 # ──────────────────────────────────────────────
 # Exceptions
@@ -397,11 +432,11 @@ class UnipileClient:
             resp.raise_for_status()
             data = resp.json()
 
-            status = data.get("status") or data.get("state") or data.get("connection_status") or ""
-            if isinstance(status, str) and status.lower() in ("disconnected", "error", "failed", "expired"):
-                return False, f"Account status: {status}"
+            is_ok, msg = interpret_account_status(data)
+            if not is_ok:
+                return False, msg
 
-            provider = (data.get("provider") or "").upper()
+            provider = (data.get("provider") or data.get("type") or "").upper()
             if provider and "LINKEDIN" not in provider:
                 return False, f"Account is not LinkedIn (provider: {provider})"
 

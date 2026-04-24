@@ -13,8 +13,8 @@ docker build --no-cache \
   --build-arg BUILD_COMMON=true \
   --build-arg BUILD_PYTORCH=true \
   --build-arg BUILD_JAX=true \
-  -t "x86_wheel" -f build_tools/wheel_utils/Dockerfile.x86 .
-docker run --runtime=nvidia --gpus=all --ipc=host "x86_wheel"
+  -t "x86_wheel1" -f build_tools/wheel_utils/Dockerfile.x86 .
+docker run --runtime=nvidia --gpus=all --ipc=host "x86_wheel1"
 docker cp $(docker ps -aq | head -1):/wheelhouse x86_wheelhouse_cu12
 
 # CUDA 13.
@@ -25,6 +25,6 @@ docker build --no-cache \
   --build-arg BUILD_COMMON=true \
   --build-arg BUILD_PYTORCH=false \
   --build-arg BUILD_JAX=false \
-  -t "x86_wheel" -f build_tools/wheel_utils/Dockerfile.x86 .
-docker run --runtime=nvidia --gpus=all --ipc=host "x86_wheel"
+  -t "x86_wheel2" -f build_tools/wheel_utils/Dockerfile.x86 .
+docker run --runtime=nvidia --gpus=all --ipc=host "x86_wheel2"
 docker cp $(docker ps -aq | head -1):/wheelhouse x86_wheelhouse_cu13

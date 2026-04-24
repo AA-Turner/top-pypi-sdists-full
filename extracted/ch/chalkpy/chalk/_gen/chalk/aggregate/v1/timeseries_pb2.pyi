@@ -34,19 +34,29 @@ class AggregateTimeSeriesRule(_message.Message):
     ) -> None: ...
 
 class AggregateTimeSeries(_message.Message):
-    __slots__ = ("namespace", "aggregate_on", "group_by", "rules", "filters_description", "bucket_feature")
+    __slots__ = (
+        "namespace",
+        "aggregate_on",
+        "group_by",
+        "rules",
+        "filters_description",
+        "bucket_feature",
+        "aggregate_on_features",
+    )
     NAMESPACE_FIELD_NUMBER: _ClassVar[int]
     AGGREGATE_ON_FIELD_NUMBER: _ClassVar[int]
     GROUP_BY_FIELD_NUMBER: _ClassVar[int]
     RULES_FIELD_NUMBER: _ClassVar[int]
     FILTERS_DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
     BUCKET_FEATURE_FIELD_NUMBER: _ClassVar[int]
+    AGGREGATE_ON_FEATURES_FIELD_NUMBER: _ClassVar[int]
     namespace: str
     aggregate_on: str
     group_by: _containers.RepeatedScalarFieldContainer[str]
     rules: _containers.RepeatedCompositeFieldContainer[AggregateTimeSeriesRule]
     filters_description: str
     bucket_feature: str
+    aggregate_on_features: _containers.RepeatedScalarFieldContainer[str]
     def __init__(
         self,
         namespace: _Optional[str] = ...,
@@ -55,4 +65,5 @@ class AggregateTimeSeries(_message.Message):
         rules: _Optional[_Iterable[_Union[AggregateTimeSeriesRule, _Mapping]]] = ...,
         filters_description: _Optional[str] = ...,
         bucket_feature: _Optional[str] = ...,
+        aggregate_on_features: _Optional[_Iterable[str]] = ...,
     ) -> None: ...

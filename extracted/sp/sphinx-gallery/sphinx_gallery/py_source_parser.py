@@ -8,7 +8,9 @@ import re
 import tokenize
 from collections import namedtuple
 from io import BytesIO
+from pathlib import Path
 from textwrap import dedent
+from typing import Any, Literal, overload
 
 from sphinx.errors import ExtensionError
 from sphinx.util.logging import getLogger
@@ -43,12 +45,12 @@ IGNORE_BLOCK_PATTERN = re.compile(
 )
 
 
-def parse_source_file(filename):
+def parse_source_file(filename: str | Path) -> tuple[ast.Module | None, str]:
     """Parse source file into AST node.
 
     Parameters
     ----------
-    filename : str
+    filename : str or Path
         File path
 
     Returns
@@ -56,9 +58,8 @@ def parse_source_file(filename):
     node : AST node
     content : utf-8 encoded string
     """
-    # builtin open automatically converts \r\n to \n
-    with open(filename, "r", encoding="utf-8") as fid:
-        content = fid.read()
+    # read_text automatically converts \r\n to \n
+    content = Path(filename).read_text(encoding="utf-8")
 
     try:
         node = ast.parse(content)
@@ -67,7 +68,7 @@ def parse_source_file(filename):
         return None, content
 
 
-def _get_docstring_and_rest(filename):
+def _get_docstring_and_rest(filename: Path) -> tuple[str, str, int, ast.Module | None]:
     """Separate ``filename`` content between docstring and the rest.
 
     Strongly inspired from ast.get_docstring.
@@ -110,6 +111,7 @@ def _get_docstring_and_rest(filename):
     docstring = ast.get_docstring(node)
     assert docstring is not None  # should be guaranteed above
     # This is just for backward compat
+    assert isinstance(node.body[0].value.value, str)
     if node.body[0].value.value[:1] == "\n":
         # just for strict backward compat here
         docstring = "\n" + docstring
@@ -129,7 +131,7 @@ def _get_docstring_and_rest(filename):
     return docstring, rest, lineno, node
 
 
-def extract_file_config(content):
+def extract_file_config(content: str) -> dict[str, Any]:
     """Pull out the file-specific config specified in the docstring."""
     file_conf = {}
     for match in re.finditer(INFILE_CONFIG_PATTERN, content):
@@ -149,17 +151,32 @@ def extract_file_config(content):
 
 
 Block = namedtuple("Block", ["type", "content", "lineno"])
-# type: "text" or "code"
-# content (str): the block lines as str
-# lineno (int): the line number where the block starts
+# Double comments to make mypy not error out on this notation
+## type: "text" or "code"
+## content (str): the block lines as str
+## lineno (int): the line number where the block starts
 
 
-def split_code_and_text_blocks(source_file, return_node=False):
+@overload
+def split_code_and_text_blocks(
+    source_file: str | Path,
+    return_node: Literal[True],
+) -> tuple[dict[str, Any], list, ast.Module | None]: ...
+
+
+@overload
+def split_code_and_text_blocks(
+    source_file: str | Path,
+    return_node: Literal[False] = False,
+) -> tuple[dict[str, Any], list]: ...
+
+
+def split_code_and_text_blocks(source_file: str | Path, return_node: bool = False):
     """Return list with source file separated into code and text blocks.
 
     Parameters
     ----------
-    source_file : str
+    source_file : str or Path
         Path to the source file.
     return_node : bool
         If True, return the ast node.
@@ -176,7 +193,9 @@ def split_code_and_text_blocks(source_file, return_node=False):
     node : ast.Module
         The parsed ast node.
     """
-    docstring, rest_of_content, lineno, node = _get_docstring_and_rest(source_file)
+    docstring, rest_of_content, lineno, node = _get_docstring_and_rest(
+        Path(source_file)
+    )
     blocks = [Block("text", docstring, 1)]
 
     file_conf = extract_file_config(rest_of_content)
@@ -207,13 +226,13 @@ def split_code_and_text_blocks(source_file, return_node=False):
     if remaining_content.strip():
         blocks.append(Block("code", remaining_content, lineno))
 
-    out = (file_conf, blocks)
     if return_node:
-        out += (node,)
-    return out
+        return file_conf, blocks, node
+    else:
+        return file_conf, blocks
 
 
-def remove_ignore_blocks(code_block):
+def remove_ignore_blocks(code_block: str) -> str:
     """
     Return the content of *code_block* with ignored areas removed.
 
@@ -237,7 +256,7 @@ def remove_ignore_blocks(code_block):
     return re.subn(IGNORE_BLOCK_PATTERN, "", code_block)[0]
 
 
-def remove_config_comments(code_block):
+def remove_config_comments(code_block: str) -> str:
     """
     Return the content of *code_block* with in-file config comments removed.
 

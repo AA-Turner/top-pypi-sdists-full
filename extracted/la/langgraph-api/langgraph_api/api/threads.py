@@ -1,5 +1,4 @@
 from typing import get_args
-from uuid import uuid4
 
 from starlette.exceptions import HTTPException
 from starlette.responses import Response
@@ -26,6 +25,7 @@ from langgraph_api.state import state_snapshot_to_thread_state
 from langgraph_api.utils import (
     fetchone,
     get_pagination_headers,
+    uuid7,
     validate_select_columns,
     validate_stream_id,
     validate_uuid,
@@ -69,7 +69,7 @@ async def create_thread(
             ["metadata"],
         )
 
-    thread_id = thread_id or str(uuid4())
+    thread_id = thread_id or str(uuid7())
     supersteps = payload.get("supersteps")
 
     if IS_POSTGRES_OR_GRPC_BACKEND and not supersteps:

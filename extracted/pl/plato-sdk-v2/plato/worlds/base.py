@@ -11,7 +11,7 @@ import traceback
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, ClassVar, Generic, cast, get_args, get_origin
+from typing import TYPE_CHECKING, Any, ClassVar, Generic, Literal, cast, get_args, get_origin
 
 import httpx
 from opentelemetry.trace import StatusCode
@@ -243,6 +243,7 @@ class BaseWorld(PreviewMixin, RuntimeMixin, ChronosSessionMixin, ABC, Generic[Co
         total_agents: int | None = None,
         review_fn: Any | None = None,
         max_review_continuations: int = 2,
+        review_exhaustion_policy: Literal["fail", "merge", "raise"] = "fail",
     ) -> AgentTask:
         """Get an agent runner for the given config.
 
@@ -262,6 +263,9 @@ class BaseWorld(PreviewMixin, RuntimeMixin, ChronosSessionMixin, ABC, Generic[Co
                 receives the agent hostname and must return a
                 :class:`~plato.agents.review_gate.ReviewGateResult`.
             max_review_continuations: Max agent retries after review failure.
+            review_exhaustion_policy: Behavior when review continuations are
+                exhausted. ``"fail"`` leaves the branch unmerged,
+                ``"merge"`` force-merges, and ``"raise"`` aborts the task.
         """
         from plato.agents.execution import AgentExecutionManager
         from plato.agents.mounts import AgentWorkspaceMount
@@ -303,6 +307,7 @@ class BaseWorld(PreviewMixin, RuntimeMixin, ChronosSessionMixin, ABC, Generic[Co
             warm_pool=warm_pool,
             session=self._plato_session,
             world_runtime_info=self._runtime_info,
+            review_exhaustion_policy=review_exhaustion_policy,
         )
 
         if warm_pool is None:
@@ -334,6 +339,7 @@ class BaseWorld(PreviewMixin, RuntimeMixin, ChronosSessionMixin, ABC, Generic[Co
         if review_fn is not None:
             runner._review_fn = review_fn
             runner._max_review_continuations = max_review_continuations
+            runner._review_exhaustion_policy = review_exhaustion_policy
 
         return runner
 

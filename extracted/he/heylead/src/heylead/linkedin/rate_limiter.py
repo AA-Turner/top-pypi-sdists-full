@@ -79,7 +79,7 @@ _ACTION_CAP_MAP: dict[str, tuple[int, list[str]]] = {
 
 # Cache for today's action counts (refreshed every 60 seconds)
 _daily_counts_cache: dict[str, Any] = {}
-_CACHE_TTL = 60  # seconds
+_CACHE_TTL = 300  # seconds — 5 min is fine, caps don't need second-level precision
 
 
 def _today_start_ts() -> int:

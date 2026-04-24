@@ -56,7 +56,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'StreamSets Platform SDK for Python'
-copyright = u'2023 StreamSets'
+copyright = u'Copyright StreamSets Inc., an IBM Company 2024'
 
 # The version info for the project you're documenting, acts as replacement
 # for |version| and |release|, also used in various other places throughout

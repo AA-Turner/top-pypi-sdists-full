@@ -4,6 +4,7 @@
 #  -----------------------------------------------------------------------------------------
 from __future__ import annotations
 
+import json
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Callable
 
@@ -252,18 +253,35 @@ class ICPAuth(RefreshableTokenAuth):
         """Get a pair of credentials required for the token generation.
 
         :return: string representing a dictionary of authentication credentials
-                         (username & password) or (username & api_key).
+                         (username & password) or (username & api_key), optionally with account_id.
         :rtype: str
         """
+        auth_dict = {"username": self._api_client.credentials.username}
+
         if self._api_client.credentials.api_key is not None:
-            return f'{{"username": "{self._api_client.credentials.username}", "api_key": "{self._api_client.credentials.api_key}"}}'
+            auth_dict["api_key"] = self._api_client.credentials.api_key
         else:
-            return f'{{"username": "{self._api_client.credentials.username}", "password": "{self._api_client.credentials.password}"}}'
+            auth_dict["password"] = self._api_client.credentials.password
+
+        if self._api_client.credentials.account_id is not None:
+            auth_dict["account_id"] = self._api_client.credentials.account_id
+
+        return json.dumps(auth_dict)
 
     def _get_cpd_bedrock_auth_data(self) -> str:
         """Get the data required for the token generation.
 
-        :return: string representing a dictionary of authentication credentials
+        :return: string representing URL-encoded authentication credentials, optionally with account_id
         :rtype: str
         """
-        return f"grant_type=password&username={self._api_client.credentials.username}&password={self._api_client.credentials.password}&scope=openid"
+        auth_params = [
+            "grant_type=password",
+            f"username={self._api_client.credentials.username}",
+            f"password={self._api_client.credentials.password}",
+            "scope=openid",
+        ]
+
+        if self._api_client.credentials.account_id is not None:
+            auth_params.append(f"account_id={self._api_client.credentials.account_id}")
+
+        return "&".join(auth_params)

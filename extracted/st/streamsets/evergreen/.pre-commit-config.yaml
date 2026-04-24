@@ -22,3 +22,9 @@ repos:
     hooks:
       - id: flake8
         args: ['--statistics', '--config', 'python/evergreen/.flake8']
+  - repo: https://github.com/ibm/detect-secrets
+    rev: 0.13.1+ibm.64.dss
+    hooks:
+      - id: detect-secrets # pragma: whitelist secret
+        additional_dependencies: [boxsdk<4]
+        args: [--baseline, .secrets.baseline, --use-all-plugins, --fail-on-unaudited]

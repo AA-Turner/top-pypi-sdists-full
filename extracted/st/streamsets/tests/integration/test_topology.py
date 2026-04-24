@@ -1,3 +1,7 @@
+#  IBM Confidential
+#  PID 5900-BAF
+#  Copyright StreamSets Inc., an IBM Company 2024
+
 # fmt: off
 import pytest
 
@@ -23,15 +27,15 @@ def simple_pipeline(sch, sch_authoring_sdc_id):
     try:
         yield pipeline
     finally:
-        sch.api_client.delete_pipeline(pipeline.pipeline_id)
+        sch.api_client.delete_pipeline(pipeline.id)
 
 
 @pytest.fixture(scope="module")
-def sample_job(sch, simple_pipeline, sch_executor_sdc_label):
+def sample_job(sch, simple_pipeline, sch_engine_sdc_label):
     """A simple jobs based on a simple pipeline."""
     job_builder = sch.get_job_builder()
     job = job_builder.build('test_simple_job_fetch', pipeline=simple_pipeline)
-    job.data_collector_labels = sch_executor_sdc_label
+    job.data_collector_labels = sch_engine_sdc_label
     sch.add_job(job)
 
     try:
@@ -43,11 +47,11 @@ def sample_job(sch, simple_pipeline, sch_executor_sdc_label):
 def test_topology_publish_ability(sch, sample_job):
     topology_builder = sch.get_topology_builder()
     topology_builder.add_job(sample_job)
-    assert topology_builder._topology['topologyDefinition']['topologyNodes'][0]['jobId'] == sample_job.job_id
+    assert topology_builder._topology['topologyDefinition']['topologyNodes'][0]['jobId'] == sample_job.id
     sample_topology = topology_builder.build("sample_topology")
     sch.publish_topology(sample_topology)
     try:
-        assert sch.topologies.get(topology_name='sample_topology').topology_id == sample_topology.topology_id
+        assert sch.topologies.get(topology_name='sample_topology').id == sample_topology.id
     finally:
         sch.delete_topology(sample_topology)
 

@@ -32,6 +32,7 @@ class MwsLogDeliveryArgs:
                  workspace_ids_filters: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.int]]]] = None):
         """
         The set of arguments for constructing a MwsLogDelivery resource.
+
         :param pulumi.Input[_builtins.str] account_id: Account Id that could be found in the top right corner of [Accounts Console](https://accounts.cloud.databricks.com/).
         :param pulumi.Input[_builtins.str] credentials_id: The ID for a Databricks credential configuration that represents the AWS IAM role with policy and trust relationship as described in the main billable usage documentation page.
         :param pulumi.Input[_builtins.str] log_type: The type of log delivery. `BILLABLE_USAGE` and `AUDIT_LOGS` are supported.
@@ -211,6 +212,7 @@ class _MwsLogDeliveryState:
                  workspace_ids_filters: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.int]]]] = None):
         """
         Input properties used for looking up and filtering MwsLogDelivery resources.
+
         :param pulumi.Input[_builtins.str] account_id: Account Id that could be found in the top right corner of [Accounts Console](https://accounts.cloud.databricks.com/).
         :param pulumi.Input[_builtins.str] config_id: Databricks log delivery configuration ID.
         :param pulumi.Input[_builtins.str] config_name: The optional human-readable name of the log delivery configuration. Defaults to empty.
@@ -418,7 +420,7 @@ class MwsLogDelivery(pulumi.CustomResource):
         config = pulumi.Config()
         # Account Id that could be found in the top right corner of https://accounts.cloud.databricks.com/
         databricks_account_id = config.require_object("databricksAccountId")
-        logdelivery_s3_bucket = aws.index.S3Bucket("logdelivery",
+        logdelivery_s3_bucket = aws.S3Bucket("logdelivery",
             bucket=f{prefix}-logdelivery,
             acl=private,
             force_destroy=True,
@@ -428,24 +430,24 @@ class MwsLogDelivery(pulumi.CustomResource):
                     name: f{prefix}-logdelivery,
                 },
             ]).result)
-        logdelivery_s3_bucket_public_access_block = aws.index.S3BucketPublicAccessBlock("logdelivery",
+        logdelivery_s3_bucket_public_access_block = aws.S3BucketPublicAccessBlock("logdelivery",
             bucket=logdelivery_s3_bucket.id,
             ignore_public_acls=True)
         logdelivery = databricks.get_aws_assume_role_policy(external_id=databricks_account_id,
             for_log_delivery=True)
-        logdelivery_versioning = aws.index.S3BucketVersioning("logdelivery_versioning",
+        logdelivery_versioning = aws.S3BucketVersioning("logdelivery_versioning",
             bucket=logdelivery_s3_bucket.id,
             versioning_configuration=[{
                 status: Disabled,
             }])
-        logdelivery_iam_role = aws.index.IamRole("logdelivery",
+        logdelivery_iam_role = aws.IamRole("logdelivery",
             name=f{prefix}-logdelivery,
             description=f({prefix}) UsageDelivery role,
             assume_role_policy=logdelivery.json,
             tags=tags)
         logdelivery_get_aws_bucket_policy = databricks.get_aws_bucket_policy(full_access_role=logdelivery_iam_role["arn"],
             bucket=logdelivery_s3_bucket["bucket"])
-        logdelivery_s3_bucket_policy = aws.index.S3BucketPolicy("logdelivery",
+        logdelivery_s3_bucket_policy = aws.S3BucketPolicy("logdelivery",
             bucket=logdelivery_s3_bucket.id,
             policy=logdelivery_get_aws_bucket_policy.json)
         wait = time.Sleep("wait", create_duration="10s",
@@ -529,6 +531,7 @@ class MwsLogDelivery(pulumi.CustomResource):
         ## Import
 
         !> Importing this resource is not currently supported.
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -571,7 +574,7 @@ class MwsLogDelivery(pulumi.CustomResource):
         config = pulumi.Config()
         # Account Id that could be found in the top right corner of https://accounts.cloud.databricks.com/
         databricks_account_id = config.require_object("databricksAccountId")
-        logdelivery_s3_bucket = aws.index.S3Bucket("logdelivery",
+        logdelivery_s3_bucket = aws.S3Bucket("logdelivery",
             bucket=f{prefix}-logdelivery,
             acl=private,
             force_destroy=True,
@@ -581,24 +584,24 @@ class MwsLogDelivery(pulumi.CustomResource):
                     name: f{prefix}-logdelivery,
                 },
             ]).result)
-        logdelivery_s3_bucket_public_access_block = aws.index.S3BucketPublicAccessBlock("logdelivery",
+        logdelivery_s3_bucket_public_access_block = aws.S3BucketPublicAccessBlock("logdelivery",
             bucket=logdelivery_s3_bucket.id,
             ignore_public_acls=True)
         logdelivery = databricks.get_aws_assume_role_policy(external_id=databricks_account_id,
             for_log_delivery=True)
-        logdelivery_versioning = aws.index.S3BucketVersioning("logdelivery_versioning",
+        logdelivery_versioning = aws.S3BucketVersioning("logdelivery_versioning",
             bucket=logdelivery_s3_bucket.id,
             versioning_configuration=[{
                 status: Disabled,
             }])
-        logdelivery_iam_role = aws.index.IamRole("logdelivery",
+        logdelivery_iam_role = aws.IamRole("logdelivery",
             name=f{prefix}-logdelivery,
             description=f({prefix}) UsageDelivery role,
             assume_role_policy=logdelivery.json,
             tags=tags)
         logdelivery_get_aws_bucket_policy = databricks.get_aws_bucket_policy(full_access_role=logdelivery_iam_role["arn"],
             bucket=logdelivery_s3_bucket["bucket"])
-        logdelivery_s3_bucket_policy = aws.index.S3BucketPolicy("logdelivery",
+        logdelivery_s3_bucket_policy = aws.S3BucketPolicy("logdelivery",
             bucket=logdelivery_s3_bucket.id,
             policy=logdelivery_get_aws_bucket_policy.json)
         wait = time.Sleep("wait", create_duration="10s",
@@ -682,6 +685,7 @@ class MwsLogDelivery(pulumi.CustomResource):
         ## Import
 
         !> Importing this resource is not currently supported.
+
 
         :param str resource_name: The name of the resource.
         :param MwsLogDeliveryArgs args: The arguments to use to populate this resource's properties.

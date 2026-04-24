@@ -70,20 +70,12 @@ GET_PROJECT_RESPONSE = {
     },
 }
 
-GET_DOMAIN_RESPONSE_EXPRESS = {
-    "id": "dzd_1234",
-    "name": "test-domain",
-    "iamSignIns": ["IAM_ROLE", "IAM_USER"],
-    "domainVersion": "V2",
+LIST_CONNECTIONS_EXPRESS_RESPONSE = {
+    "items": [{"name": "default.iam", "type": "IAM"}],
 }
 
-GET_DOMAIN_RESPONSE_STANDARD = {"id": "dzd_1234", "name": "test-domain"}
-
-GET_DOMAIN_RESPONSE_MISSING_VERSION = {
-    "id": "dzd_1234",
-    "name": "test-domain",
-    "iamSignIns": ["IAM_ROLE", "IAM_USER"],
-    # domainVersion is missing - should be treated as non-express
+LIST_CONNECTIONS_STANDARD_RESPONSE = {
+    "items": [],
 }
 
 DEFAULT_TOOLING_ENV = {
@@ -136,9 +128,9 @@ class TestProject(TestCase):
         self.mock_datazone_api.get_paginator.side_effect = lambda x: self.list_projects_paginator
         self.mock_datazone_api.get_project = Mock()
         self.mock_datazone_api.get_project.return_value = GET_PROJECT_RESPONSE
-        # Mock get_domain to return STANDARD mode by default
-        self.mock_datazone_api.get_domain = Mock()
-        self.mock_datazone_api.get_domain.return_value = GET_DOMAIN_RESPONSE_STANDARD
+        # Mock list_connections to return STANDARD mode (no default.iam) by default
+        self.mock_datazone_api.list_connections = Mock()
+        self.mock_datazone_api.list_connections.return_value = LIST_CONNECTIONS_STANDARD_RESPONSE
         with open(
             TestSageMakerUIHelper.get_mock_sagemaker_space_metadata_path(), "w"
         ) as metadata_json:
@@ -508,7 +500,7 @@ class TestProject(TestCase):
         get_domain_id_mock.return_value = "dzd_1234"
         get_aws_client_mock.side_effect = lambda x, y: self.mock_datazone_api
         # Set domain to EXPRESS mode
-        self.mock_datazone_api.get_domain.return_value = GET_DOMAIN_RESPONSE_EXPRESS
+        self.mock_datazone_api.list_connections.return_value = LIST_CONNECTIONS_EXPRESS_RESPONSE
         get_connection_by_name_mock.return_value = Connection(
             {"environmentUserRole": "arn:aws:iam:default_env_usr_role"},
             Mock(),
@@ -531,7 +523,6 @@ class TestProject(TestCase):
         get_domain_id_mock.return_value = "dzd_1234"
         get_aws_client_mock.side_effect = lambda x, y: self.mock_datazone_api
         # Set domain to STANDARD mode (default behavior)
-        self.mock_datazone_api.get_domain.return_value = GET_DOMAIN_RESPONSE_STANDARD
         get_connection_by_name_mock.return_value = Connection(
             {"environmentUserRole": "arn:aws:iam:project_env_usr_role"},
             Mock(),
@@ -553,7 +544,6 @@ class TestProject(TestCase):
         """Test that iam_role property caches the result and does not call connection lookup again"""
         get_domain_id_mock.return_value = "dzd_1234"
         get_aws_client_mock.side_effect = lambda x, y: self.mock_datazone_api
-        self.mock_datazone_api.get_domain.return_value = GET_DOMAIN_RESPONSE_STANDARD
         get_connection_by_name_mock.return_value = Connection(
             {"environmentUserRole": "arn:aws:iam:cached_role"},
             Mock(),
@@ -584,7 +574,6 @@ class TestProject(TestCase):
         get_domain_id_mock.return_value = "dzd_1234"
         get_aws_client_mock.side_effect = lambda x, y: self.mock_datazone_api
         # Set domain to STANDARD mode (uses project.iam)
-        self.mock_datazone_api.get_domain.return_value = GET_DOMAIN_RESPONSE_STANDARD
 
         # Connection lookup fails
         get_connection_by_name_mock.side_effect = AttributeError("project.iam not found")
@@ -734,7 +723,7 @@ class TestProject(TestCase):
         get_domain_id_mock.return_value = "dzd_1234"
         get_aws_client_mock.side_effect = lambda x, y: self.mock_datazone_api
         # Set domain to EXPRESS mode
-        self.mock_datazone_api.get_domain.return_value = GET_DOMAIN_RESPONSE_EXPRESS
+        self.mock_datazone_api.list_connections.return_value = LIST_CONNECTIONS_EXPRESS_RESPONSE
         mock_connection = Mock()
         get_connection_by_name_mock.return_value = mock_connection
         project = Project(id="aa76bmnbd042v")
@@ -752,8 +741,6 @@ class TestProject(TestCase):
         """Test connection() method in STANDARD domain mode (uses project.iam)"""
         get_domain_id_mock.return_value = "dzd_1234"
         get_aws_client_mock.side_effect = lambda x, y: self.mock_datazone_api
-        # Set domain to STANDARD mode (default behavior)
-        self.mock_datazone_api.get_domain.return_value = GET_DOMAIN_RESPONSE_STANDARD
         mock_connection = Mock()
         get_connection_by_name_mock.return_value = mock_connection
         project = Project(id="aa76bmnbd042v")
@@ -822,22 +809,3 @@ class TestProject(TestCase):
         with self.assertRaises(ValueError) as context:
             project.connection(name="test_connection", id="12345")
         self.assertIn("Cannot specify both 'name' and 'id' parameters", str(context.exception))
-
-    @patch("sagemaker_studio.sagemaker_studio_api.SageMakerStudioAPI._get_aws_client")
-    @patch("sagemaker_studio.utils._internal.InternalUtils._get_domain_id")
-    @patch("sagemaker_studio.connections.ConnectionService.get_connection_by_name")
-    def test_connection_missing_domain_version_uses_project_iam(
-        self, get_connection_by_name_mock: Mock, get_domain_id_mock: Mock, get_aws_client_mock: Mock
-    ):
-        """Test that domain with iamSignIns but missing domainVersion is treated as non-express"""
-        get_domain_id_mock.return_value = "dzd_1234"
-        get_aws_client_mock.side_effect = lambda x, y: self.mock_datazone_api
-        # Set domain with iamSignIns but missing domainVersion - should be treated as non-express
-        self.mock_datazone_api.get_domain.return_value = GET_DOMAIN_RESPONSE_MISSING_VERSION
-        mock_connection = Mock()
-        get_connection_by_name_mock.return_value = mock_connection
-        project = Project(id="aa76bmnbd042v")
-
-        result = project.connection()
-        get_connection_by_name_mock.assert_called_once_with(name="project.iam")
-        self.assertEqual(result, mock_connection)

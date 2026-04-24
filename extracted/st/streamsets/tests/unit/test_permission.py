@@ -1,4 +1,6 @@
-# Copyright 2024 StreamSets Inc.
+#  IBM Confidential
+#  PID 5900-BAF
+#  Copyright StreamSets Inc., an IBM Company 2024
 
 # fmt: off
 import pytest
@@ -33,9 +35,6 @@ class MockApiClient:
         return True
 
     def update_subscription_permissions(self, *args, **kwargs):
-        return True
-
-    def update_legacy_deployment_permissions(self, *args, **kwargs):
         return True
 
     def update_deployment_permissions(self, *args, **kwargs):

@@ -17,7 +17,6 @@ from sqlalchemy.testing.suite import (
     QuotedNameArgumentTest as _QuotedNameArgumentTest,
 )
 from sqlalchemy.testing.suite import TrueDivTest as _TrueDivTest
-from sqlalchemy.testing.suite import UnicodeSchemaTest as _UnicodeSchemaTest
 
 
 class ComponentReflectionTest(_ComponentReflectionTest):
@@ -242,7 +241,12 @@ class ComponentReflectionTest(_ComponentReflectionTest):
                     {
                         "column_names": ["data"],
                         "column_sorting": {"data": ("nulls_first",)},
-                        "dialect_options": {"postgresql_using": "prefix"},
+                        "dialect_options": {
+                            "postgresql_ops": {
+                                "data": None,
+                            },
+                            "postgresql_using": "prefix",
+                        },
                         "duplicates_constraint": "dingalings_data_key",
                         "name": "dingalings_data_key",
                         "unique": True,
@@ -253,7 +257,13 @@ class ComponentReflectionTest(_ComponentReflectionTest):
                             "address_id": ("nulls_first",),
                             "dingaling_id": ("nulls_first",),
                         },
-                        "dialect_options": {"postgresql_using": "prefix"},
+                        "dialect_options": {
+                            "postgresql_ops": {
+                                "address_id": None,
+                                "dingaling_id": None,
+                            },
+                            "postgresql_using": "prefix",
+                        },
                         "duplicates_constraint": "zz_dingalings_multiple",
                         "name": "zz_dingalings_multiple",
                         "unique": True,
@@ -263,7 +273,12 @@ class ComponentReflectionTest(_ComponentReflectionTest):
                     {
                         "column_names": ["email_address"],
                         "column_sorting": {"email_address": ("nulls_first",)},
-                        "dialect_options": {"postgresql_using": "prefix"},
+                        "dialect_options": {
+                            "postgresql_ops": {
+                                "email_address": None,
+                            },
+                            "postgresql_using": "prefix",
+                        },
                         "name": "ix_email_addresses_email_address",
                         "unique": False,
                     }
@@ -273,7 +288,12 @@ class ComponentReflectionTest(_ComponentReflectionTest):
                     {
                         "column_names": ["q"],
                         "column_sorting": {"q": ("desc", "nulls_last")},
-                        "dialect_options": {"postgresql_using": "prefix"},
+                        "dialect_options": {
+                            "postgresql_ops": {
+                                "q": None,
+                            },
+                            "postgresql_using": "prefix",
+                        },
                         "name": "noncol_idx_nopk",
                         "unique": False,
                     }
@@ -282,7 +302,12 @@ class ComponentReflectionTest(_ComponentReflectionTest):
                     {
                         "column_names": ["q"],
                         "column_sorting": {"q": ("desc", "nulls_last")},
-                        "dialect_options": {"postgresql_using": "prefix"},
+                        "dialect_options": {
+                            "postgresql_ops": {
+                                "q": None,
+                            },
+                            "postgresql_using": "prefix",
+                        },
                         "name": "noncol_idx_pk",
                         "unique": False,
                     }
@@ -295,14 +320,27 @@ class ComponentReflectionTest(_ComponentReflectionTest):
                             "test2": ("nulls_first",),
                             "user_id": ("nulls_first",),
                         },
-                        "dialect_options": {"postgresql_using": "prefix"},
+                        "dialect_options": {
+                            "postgresql_ops": {
+                                "test1": None,
+                                "test2": None,
+                                "user_id": None,
+                            },
+                            "postgresql_using": "prefix",
+                        },
                         "name": "users_all_idx",
                         "unique": False,
                     },
                     {
                         "column_names": ["test1", "test2"],
                         "column_sorting": {"test1": ("nulls_first",), "test2": ("nulls_first",)},
-                        "dialect_options": {"postgresql_using": "prefix"},
+                        "dialect_options": {
+                            "postgresql_ops": {
+                                "test1": None,
+                                "test2": None,
+                            },
+                            "postgresql_using": "prefix",
+                        },
                         "duplicates_constraint": "users_t_idx",
                         "name": "users_t_idx",
                         "unique": True,
@@ -464,9 +502,3 @@ class TrueDivTest(_TrueDivTest):
     def test_floordiv_integer_bound(self):
         # we return SELECT 15 / 10 as Decimal('1.5'), not Integer
         pass
-
-
-class UnicodeSchemaTest(_UnicodeSchemaTest):
-    def test_reflect(self, connection):
-        if not (config.db.dialect.driver == "asyncpg" and not config.db.dialect._is_v231plus):
-            super().test_reflect(connection)

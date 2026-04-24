@@ -181,7 +181,7 @@ class WindowConfigResolved:
     aggregation: str
     """'sum', 'count', 'min', 'max', etc."""
 
-    aggregate_on: Feature | None
+    aggregate_on: list[Feature]
     """If there was no provided child feature,
     as could be the case with count, we will
     pick the primary key"""

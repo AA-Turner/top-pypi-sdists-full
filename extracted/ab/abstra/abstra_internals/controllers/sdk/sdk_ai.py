@@ -210,7 +210,15 @@ class AiSDKController:
         )
 
         if response.get("error"):
-            raise Exception(response["error"])
+            err = response["error"]
+            try:
+                if isinstance(err, list):
+                    msg = "\n".join(f"[{e['supplier']}] {e['error']}" for e in err)
+                else:
+                    msg = str(err)
+            except Exception:
+                msg = str(err)
+            raise Exception(msg)
 
         if format:
             parameters_dict = response["tool_calls"][0]["function"]["arguments"]
@@ -304,8 +312,21 @@ class AiSDKController:
             )
 
         file_bytes = document_path.read_bytes()
-        return self.ai_client.parse_document(
+        response = self.ai_client.parse_document(
             model=model,
             file_content=file_bytes,
             mime_type=mime_type,
         )
+
+        if isinstance(response, dict) and response.get("error"):
+            err = response["error"]
+            try:
+                if isinstance(err, list):
+                    msg = "\n".join(f"[{e['supplier']}] {e['error']}" for e in err)
+                else:
+                    msg = str(err)
+            except Exception:
+                msg = str(err)
+            raise Exception(msg)
+
+        return response

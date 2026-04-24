@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ttp_templates
-Version: 0.5.1
+Version: 0.5.2
 Summary: Template Text Parser Templates collections
 License: MIT
 License-File: LICENSE
@@ -26,7 +26,7 @@ Requires-Dist: mkdocs-material-extensions ; extra == "docs"
 Requires-Dist: mkdocstrings[python] ; extra == "docs"
 Requires-Dist: pygments ; extra == "docs"
 Requires-Dist: pymdown-extensions ; extra == "docs"
-Requires-Dist: ttp (>=0.6.0)
+Requires-Dist: ttp (>=0.10.0)
 Project-URL: Documentation, https://dmulyalin.github.io/ttp_templates/
 Project-URL: Homepage, https://github.com/dmulyalin/ttp_templates
 Project-URL: Repository, https://github.com/dmulyalin/ttp_templates

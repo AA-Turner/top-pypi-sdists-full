@@ -208,6 +208,7 @@ class AgentExecutionManager:
             ),
             max_continuations=task._max_review_continuations,
             result_dir=result_dir,
+            exhaustion_policy=getattr(task, "_review_exhaustion_policy", "fail"),
         )
 
     async def _prepare_git_mount(

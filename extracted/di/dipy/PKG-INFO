@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: dipy
-Version: 1.12.0
+Version: 1.12.1
 Summary: Diffusion MRI Imaging in Python
 Keywords: dipy,diffusionimaging,dti,tracking,tractography,diffusionmri,mri,tractometry,connectomics,brain,dipymri,microstructure,deeplearning,registration,segmentations,simulation,medical,imaging,brain,machinelearning,signalprocessing
 Author-Email: DIPY developers <dipy@python.org>
@@ -46,9 +46,10 @@ Classifier: Intended Audience :: Science/Research
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Scientific/Engineering
@@ -62,7 +63,7 @@ Project-URL: documentation, https://docs.dipy.org/stable/
 Project-URL: source, https://github.com/dipy/dipy
 Project-URL: download, https://pypi.org/project/dipy/#files
 Project-URL: tracker, https://github.com/dipy/dipy/issues
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Requires-Dist: numpy>=1.22.4
 Requires-Dist: scipy>=1.8
 Requires-Dist: nibabel>=3.0.0

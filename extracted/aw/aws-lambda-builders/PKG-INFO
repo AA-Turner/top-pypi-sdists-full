@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aws_lambda_builders
-Version: 1.63.0
+Version: 1.64.0
 Summary: Python library to compile, build & package AWS Lambda functions for several runtimes & frameworks.
 Home-page: https://github.com/awslabs/aws-lambda-builders
 Author: Amazon Web Services
@@ -15,8 +15,6 @@ Classifier: Intended Audience :: Information Technology
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -25,23 +23,20 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Internet
 Classifier: Topic :: Software Development :: Build Tools
 Classifier: Topic :: Utilities
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 License-File: LICENSE
 License-File: NOTICE
 Requires-Dist: setuptools
 Requires-Dist: wheel
 Provides-Extra: dev
-Requires-Dist: coverage==7.10.7; python_version >= "3.9" and extra == "dev"
-Requires-Dist: coverage==7.6.1; python_version < "3.9" and extra == "dev"
+Requires-Dist: coverage==7.13.5; extra == "dev"
 Requires-Dist: flake8==3.8.4; extra == "dev"
-Requires-Dist: pytest-cov==6.3.0; python_version >= "3.9" and extra == "dev"
-Requires-Dist: pytest-cov==5.0.0; python_version < "3.9" and extra == "dev"
+Requires-Dist: pytest-cov==6.3.0; extra == "dev"
 Requires-Dist: pytest>=6.1.1; extra == "dev"
 Requires-Dist: parameterized==0.9.0; extra == "dev"
 Requires-Dist: pyelftools~=0.32; extra == "dev"
-Requires-Dist: black==25.11.0; python_version >= "3.9" and extra == "dev"
-Requires-Dist: black==24.8.0; python_version < "3.9" and extra == "dev"
-Requires-Dist: ruff==0.15.2; extra == "dev"
+Requires-Dist: black==26.3.1; extra == "dev"
+Requires-Dist: ruff==0.15.7; extra == "dev"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

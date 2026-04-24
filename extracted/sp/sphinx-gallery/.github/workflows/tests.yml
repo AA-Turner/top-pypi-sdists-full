@@ -44,10 +44,6 @@ jobs:
             locale: C
           - os: ubuntu-latest
             python: '3.11'
-            sphinx_version: '5'
-            distrib: pip
-          - os: ubuntu-latest
-            python: '3.11'
             sphinx_version: '6'
             distrib: mamba
           - os: ubuntu-latest
@@ -58,10 +54,14 @@ jobs:
             python: '3.13'
             sphinx_version: '8'
             distrib: pip
+          - os: ubuntu-latest
+            python: '3.14'
+            sphinx_version: '9'
+            distrib: pip
           - os: macos-latest
             python: '3.12'
             sphinx_version: 'default'
-            distrib: mamba  # only use mamba on macOS to avoid Python shell issues
+            distrib: pip
           - os: windows-latest
             python: '3.11'
             sphinx_version: 'default'
@@ -81,14 +81,14 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
         if: matrix.distrib != 'mamba'
       # Python (if conda)
-      - uses: mamba-org/setup-micromamba@v2
+      - uses: mamba-org/setup-micromamba@v3
         with:
           environment-name: test
           init-shell: bash
           create-args: >-
             python=${{ env.PYTHON_VERSION }} pip numpy setuptools matplotlib pillow
             pytest pytest-cov coverage seaborn statsmodels plotly joblib wheel libiconv
-            pygraphviz memory_profiler ipython pypandoc lxml conda-libmamba-solver mamba
+            pygraphviz memory_profiler ipython pypandoc lxml conda-libmamba-solver
             ffmpeg intersphinx-registry
         if: matrix.distrib == 'mamba'
       # Make sure that things work even if the locale is set to C (which
@@ -118,4 +118,4 @@ jobs:
         if: matrix.distrib != 'minimal' && matrix.sphinx_version != '4'
       - run: make -C doc SPHINXOPTS= html -j 2
         if: matrix.distrib != 'minimal' && matrix.sphinx_version != '4'
-      - uses: codecov/codecov-action@v5
+      - uses: codecov/codecov-action@v6

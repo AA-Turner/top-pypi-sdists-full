@@ -355,6 +355,61 @@ _PROSPECT_JOB_TYPES = frozenset({
     JOB_AUTO_REPLY, JOB_ENGAGE, JOB_FOLLOW, JOB_PROFILE_VIEW, JOB_ENDORSE,
 })
 
+# Jobs that hit LinkedIn via Unipile. When the Unipile session is in a broken
+# state (CREDENTIALS, CHECKPOINT, etc.) these jobs would either fail or serve
+# stale data, so we short-circuit them until the user reconnects. LLM/DB-only
+# jobs (classify, rematch, backfill_*) keep running so post-reconnect catch-up
+# is already staged.
+_LINKEDIN_JOB_TYPES = frozenset({
+    JOB_INVITE, JOB_SEND_DM, JOB_EMAIL_INVITE, JOB_FOLLOWUP,
+    JOB_AUTO_REPLY, JOB_ENGAGE, JOB_FOLLOW, JOB_PROFILE_VIEW, JOB_ENDORSE,
+    JOB_CHECK_REPLIES, JOB_CHECK_POST_COMMENTS,
+    JOB_WITHDRAW_INVITE, JOB_BACKFILL_PROFILES, JOB_RESEARCH_CONTACTS,
+    JOB_SYNC_CONNECTIONS, JOB_VERIFY_ACTIONS,
+    JOB_COLLECT_KEYWORD_SIGNALS, JOB_SCAN_PROSPECT_POSTS,
+    JOB_COLLECT_PROFILE_VIEWS, JOB_DETECT_JOB_CHANGES,
+    JOB_COLLECT_COMPETITOR_SIGNALS, JOB_COLLECT_HIRING_SIGNALS,
+    JOB_COLLECT_NEWS_SIGNALS, JOB_COLLECT_COMPANY_PAGE,
+    JOB_COLLECT_COMPANY_FOLLOWERS, JOB_COLLECT_POSTS_DISTRIBUTED,
+    JOB_MINE_COMMENTS,
+    JOB_BRAND_POST, JOB_BRAND_ENGAGE,
+})
+
+# Cache the last verify_account result so we don't hit the API on every job.
+_ACCOUNT_STATUS_CACHE_TTL_SECONDS = 60
+_account_status_cache: dict[str, Any] = {"checked_at": 0.0, "ok": True, "msg": ""}
+
+
+async def _ensure_account_connected() -> tuple[bool, str]:
+    """Return (is_connected, message) for the active LinkedIn account.
+
+    Cached for 60s so hot-tick scheduler loops don't DDoS Unipile. Returns
+    (True, "") if no account is configured — in that case other guards kick in.
+    """
+    now = time.time()
+    if now - _account_status_cache["checked_at"] < _ACCOUNT_STATUS_CACHE_TTL_SECONDS:
+        return bool(_account_status_cache["ok"]), str(_account_status_cache["msg"])
+
+    try:
+        from ..linkedin import get_account_id, get_linkedin_client
+        account_id = get_account_id()
+        if not account_id:
+            _account_status_cache.update({"checked_at": now, "ok": True, "msg": ""})
+            return True, ""
+        client = get_linkedin_client()
+        try:
+            ok, msg = await client.verify_account(account_id)
+        finally:
+            await client.close()
+        _account_status_cache.update({"checked_at": now, "ok": ok, "msg": msg})
+        return ok, msg
+    except Exception as e:
+        # If the verify call itself errors, don't block jobs — let them fail
+        # individually with better signal. But log so we can track.
+        logger.warning("_ensure_account_connected: probe failed: %s", e)
+        _account_status_cache.update({"checked_at": now, "ok": True, "msg": ""})
+        return True, ""
+
 
 async def _check_exclusion(job: dict[str, Any]) -> str | None:
     """Skip jobs targeting contacts excluded from automation."""
@@ -398,6 +453,18 @@ async def execute_job(job: dict[str, Any]) -> str:
         return exclusion_msg
 
     job_type = job["job_type"]
+
+    # ── Connection gate: skip LinkedIn-dependent jobs when the Unipile
+    # session is broken (CREDENTIALS, CHECKPOINT, etc.). The dashboard
+    # shows a reconnect link; the scheduler resumes on the next tick
+    # after the user completes OAuth.
+    if job_type in _LINKEDIN_JOB_TYPES:
+        ok, msg = await _ensure_account_connected()
+        if not ok:
+            return JobResult(
+                outcome="deferred",
+                message=f"LinkedIn disconnected — deferred ({msg}).",
+            )
 
     executors = {
         JOB_INVITE: _execute_invite,

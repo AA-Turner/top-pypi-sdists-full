@@ -1,4 +1,6 @@
-# Copyright 2021 StreamSets Inc.
+#  IBM Confidential
+#  PID 5900-BAF
+#  Copyright StreamSets Inc., an IBM Company 2024
 
 """Abstractions to interact with the ControlHub REST API."""
 
@@ -21,15 +23,12 @@ from requests.exceptions import HTTPError
 from . import aster_api, st_models
 from .__version__ import __version__
 from .analytics import FUNCTION_CALLS_HEADERS_KEY, INTERACTIVE_MODE_HEADERS_KEY, AnalyticsHeaders
-from .constants import STATUS_ERRORS
+from .constants import COLLECTOR, SNOWPARK, STATUS_ERRORS
 from .exceptions import (
-    ConnectionError, InvalidCredentialsError, JobInactiveError, JobRunnerError, LegacyDeploymentInactiveError,
-    MultipleIssuesError, ProjectAccessError,
+    ConnectionError, InvalidCredentialsError, JobInactiveError, JobRunnerError, MultipleIssuesError, ProjectAccessError,
 )
-from .utils import (
-    SDC_DEFAULT_EXECUTION_MODE, get_decoded_jwt, get_params, join_url_parts, retry_on_connection_error,
-    wait_and_retry_on_http_error, wait_for_condition,
-)
+from .retry import http_retry
+from .utils import SDC_DEFAULT_EXECUTION_MODE, get_decoded_jwt, get_params, join_url_parts, wait_for_condition
 
 # fmt: on
 
@@ -51,6 +50,7 @@ APPS_REQUIRING_PROJECT_ID = [
 # The `#:` constructs at the end of assignments are part of Sphinx's autodoc functionality.
 DEFAULT_BANNER_API_VERSION = 1  #:
 DEFAULT_EXPLORER_API_VERSION = 1
+DEFAULT_IMPORTER_API_VERSION = 3
 DEFAULT_SCH_API_VERSION = 1  #:
 DEFAULT_SDP_API_VERSION = 2  #:
 DEFAULT_METERING_API_VERSION = 3  #:
@@ -85,7 +85,15 @@ class ApiClient(object):
     Args:
         component_id (:obj:`str`): Control Hub component ID.
         auth_token (:obj:`str`): Control Hub auth token.
-        api_version (:obj:`int`, optional): The DPM API version. Default: :py:const:`DEFAULT_DPM_API_VERSION`
+        api_version (:obj:`int`, optional): The Control Hub API version. Default: :py:const:`DEFAULT_SCH_API_VERSION`
+        banner_api_version (:obj:`int`, optional): Banner API version. Default: :py:const:`DEFAULT_BANNER_API_VERSION`
+        sdp_api_version (:obj:`int`, optional): SDP API version. Default: :py:const:`DEFAULT_SDP_API_VERSION`
+        metering_api_version (:obj:`int`, optional): Metering API version.
+            Default: :py:const:`DEFAULT_METERING_API_VERSION`
+        explorer_api_version (:obj:`int`, optional): Explorer API version.
+            Default: :py:const:`DEFAULT_EXPLORER_API_VERSION`
+        importer_api_version (:obj:`int`, optional): Importer API version.
+            Default: :py:const:`DEFAULT_IMPORTER_API_VERSION`
         session_attributes (:obj:`dict`, optional): A dictionary of attributes to set on the underlying
             :py:class:`requests.Session` instance at initialization. Default: ``None``
     """
@@ -100,6 +108,7 @@ class ApiClient(object):
         sdp_api_version=DEFAULT_SDP_API_VERSION,
         metering_api_version=DEFAULT_METERING_API_VERSION,
         explorer_api_version=DEFAULT_EXPLORER_API_VERSION,
+        importer_api_version=DEFAULT_IMPORTER_API_VERSION,
         session_attributes=None,
         **kwargs,
     ):
@@ -110,6 +119,7 @@ class ApiClient(object):
         self.sdp_api_version = sdp_api_version
         self.metering_api_version = metering_api_version
         self.explorer_api_version = explorer_api_version
+        self.importer_api_version = importer_api_version
 
         try:
             # Query ASTER with the org ID to determine the SCH instance URL.
@@ -501,6 +511,27 @@ class ApiClient(object):
         """
         endpoint = '/v{}/organization/{}/groups'.format(self.api_version, org_id)
         response = self._put(app='security', data=body, endpoint=endpoint)
+        return Command(self, response)
+
+    def import_group(self, source_sch_version, data, replace=False, dry_run=False):
+        """Import a group.
+
+        Args:
+            source_sch_version (:obj:`str`): Source Control Hub version.
+            data (:obj:`dict`): Data that complies with Swagger definition.
+            replace (:obj:`bool`, optional): Default: ``False``
+            dry_run (:obj:`bool`, optional): Default: ``False``
+
+        Returns:
+            An instance of :py:class:`streamsets.sdk.sch_api.Command`.
+        """
+        params = {'dry-run': dry_run, 'replace': replace}
+        response = self._post(
+            app='security',
+            endpoint='/v{}/importer/{}/group'.format(self.importer_api_version, source_sch_version),
+            params=params,
+            data=data,
+        )
         return Command(self, response)
 
     def get_all_groups(
@@ -1332,13 +1363,406 @@ class ApiClient(object):
         """Get pipeline definitions.
 
         Args:
-            executor_type (:obj:`str`): Executor type of the pipeline.
+            executor_type (:obj:`str`): Engine type of the pipeline.
 
         Returns:
             An instance of :py:class:`streamsets.sdk.sch_api.Command`.
         """
         params = get_params(parameters=locals(), exclusions=('self',))
         response = self._get(app='pipelinestore', endpoint='/v{}/definitions'.format(self.api_version), params=params)
+        return Command(self, response)
+
+    def post_snowflake_pipeline_databases_search_start(
+        self, pipeline_id, engine_id=None, rev=0, tunneling_instance_id=None
+    ):
+        """Post start snowflake pipeline databases search request.
+
+        Args:
+            pipeline_id (:obj:`str`): Pipeline ID.
+            engine_id (:obj:`str`, optional): Engine ID. Default: ``None``.
+            rev (:obj:`int`, optional): Pipeline revision. Default: ``0``.
+            tunneling_instance_id (:obj:`str`, optional): Tunneling instance ID. Default: ``None``.
+
+        Returns:
+            An instance of :py:class:`streamsets.sdk.sch_api.Command`.
+        """
+        endpoint = '/v{}/pipeline/{}/databases'.format(self.api_version, pipeline_id)
+        params = get_params(
+            parameters=locals(), exclusions=('self', 'engine_id', 'pipeline_id', 'tunneling_instance_id')
+        )
+        if tunneling_instance_id and engine_id:
+            response = self._post_via_tunneling(
+                endpoint=endpoint, engine_id=engine_id, params=params, tunneling_instance_id=tunneling_instance_id
+            )
+        else:
+            response = self._post(
+                app='pipelinestore',
+                endpoint='/v{}/pipeline/snowflake/rest{}'.format(self.api_version, endpoint),
+                params=params,
+            )
+        return Command(self, response)
+
+    def get_snowflake_pipeline_databases_search_status(
+        self, pipeline_id, id, engine_id=None, rev=0, tunneling_instance_id=None
+    ):
+        """Get snowflake pipeline databases search status.
+
+        Args:
+            pipeline_id (:obj:`str`): Pipeline ID.
+            id (:obj:`str`): ID of the search request.
+            engine_id (:obj:`str`, optional): Engine ID. Default: ``None``.
+            rev (:obj:`int`, optional): Pipeline revision. Default: ``0``.
+            tunneling_instance_id (:obj:`str`, optional): Tunneling instance ID. Default: ``None``.
+
+        Returns:
+            An instance of :py:class:`streamsets.sdk.sch_api.Command`.
+        """
+        endpoint = '/v{}/pipeline/{}/databases'.format(self.api_version, pipeline_id)
+        params = get_params(
+            parameters=locals(), exclusions=('self', 'engine_id', 'pipeline_id', 'tunneling_instance_id')
+        )
+        if tunneling_instance_id and engine_id:
+            response = self._get_via_tunneling(
+                endpoint=endpoint, engine_id=engine_id, params=params, tunneling_instance_id=tunneling_instance_id
+            )
+        else:
+            response = self._get(
+                app='pipelinestore',
+                endpoint='/v{}/pipeline/snowflake/rest{}'.format(self.api_version, endpoint),
+                params=params,
+            )
+        return Command(self, response)
+
+    def delete_snowflake_pipeline_databases_search_cancel(
+        self, pipeline_id, id, engine_id=None, rev=0, tunneling_instance_id=None
+    ):
+        """Delete snowflake pipeline databases search request.
+
+        Args:
+            pipeline_id (:obj:`str`): Pipeline ID.
+            id (:obj:`str`): ID of the search request.
+            engine_id (:obj:`str`, optional): Engine ID. Default: ``None``.
+            rev (:obj:`int`, optional): Pipeline revision. Default: ``0``.
+            tunneling_instance_id (:obj:`str`, optional): Tunneling instance ID. Default: ``None``.
+
+        Returns:
+            An instance of :py:class:`streamsets.sdk.sch_api.Command`.
+        """
+        endpoint = '/v{}/pipeline/{}/databases'.format(self.api_version, pipeline_id)
+        params = get_params(
+            parameters=locals(), exclusions=('self', 'engine_id', 'pipeline_id', 'tunneling_instance_id')
+        )
+        if tunneling_instance_id and engine_id:
+            response = self._delete_via_tunneling(
+                endpoint=endpoint, engine_id=engine_id, params=params, tunneling_instance_id=tunneling_instance_id
+            )
+        else:
+            response = self._delete(
+                app='pipelinestore',
+                endpoint='/v{}/pipeline/snowflake/rest{}'.format(self.api_version, endpoint),
+                params=params,
+            )
+        return Command(self, response)
+
+    def post_snowflake_pipeline_user_defined_functions_search_start(
+        self,
+        pipeline_id,
+        database=None,
+        engine_id=None,
+        filter_text=None,
+        rev=0,
+        schema=None,
+        tunneling_instance_id=None,
+    ):
+        """Post start snowflake pipeline user defined functions search request.
+
+        Args:
+            pipeline_id (:obj:`str`): Pipeline ID.
+            database (:obj:`str`, optional): Name of the Snowflake database. Default: ``None``.
+            engine_id (:obj:`str`, optional): Engine ID. Default: ``None``.
+            filter_text (:obj:`str`, optional): Filter response text. Default: ``None``.
+            rev (:obj:`int`, optional): Pipeline revision. Default: ``0``.
+            schema (:obj:`str`, optional: Name of the Snowflake schema. Default: ``None``.
+            tunneling_instance_id (:obj:`str`, optional): Tunneling instance ID. Default: ``None``.
+
+        Returns:
+            An instance of :py:class:`streamsets.sdk.sch_api.Command`.
+        """
+        params = get_params(
+            parameters=locals(), exclusions=('self', 'engine_id', 'pipeline_id', 'tunneling_instance_id')
+        )
+        if schema and not database:
+            raise ValueError("The 'database' param must be set to use the 'schema' param.")
+        endpoint = '/v{}/pipeline/{}/userDefinedFunctions'.format(self.api_version, pipeline_id)
+        if tunneling_instance_id and engine_id:
+            response = self._post_via_tunneling(
+                endpoint=endpoint, engine_id=engine_id, params=params, tunneling_instance_id=tunneling_instance_id
+            )
+        else:
+            response = self._post(
+                app='pipelinestore',
+                endpoint='/v{}/pipeline/snowflake/rest{}'.format(self.api_version, endpoint),
+                params=params,
+            )
+        return Command(self, response)
+
+    def get_snowflake_pipeline_user_defined_functions_search_status(
+        self, pipeline_id, id, engine_id=None, rev=0, tunneling_instance_id=None
+    ):
+        """Get snowflake pipeline user defined functions search request status.
+
+        Args:
+            pipeline_id (:obj:`str`): Pipeline ID.
+            id (:obj:`str`): ID of the search request.
+            engine_id (:obj:`str`, optional): Engine ID. Default: ``None``.
+            rev (:obj:`int`, optional): Pipeline revision. Default: ``0``.
+            tunneling_instance_id (:obj:`str`, optional): Tunneling instance ID. Default: ``None``.
+
+        Returns:
+            An instance of :py:class:`streamsets.sdk.sch_api.Command`.
+        """
+        endpoint = '/v{}/pipeline/{}/userDefinedFunctions'.format(self.api_version, pipeline_id)
+        params = get_params(
+            parameters=locals(), exclusions=('self', 'engine_id', 'pipeline_id', 'tunneling_instance_id')
+        )
+        if tunneling_instance_id and engine_id:
+            response = self._get_via_tunneling(
+                endpoint=endpoint, engine_id=engine_id, params=params, tunneling_instance_id=tunneling_instance_id
+            )
+        else:
+            response = self._get(
+                app='pipelinestore',
+                endpoint='/v{}/pipeline/snowflake/rest{}'.format(self.api_version, endpoint),
+                params=params,
+            )
+        return Command(self, response)
+
+    def delete_snowflake_pipeline_user_defined_fucntions_search_cancel(
+        self, pipeline_id, id, engine_id=None, rev=0, tunneling_instance_id=None
+    ):
+        """Delete snowflake pipeline user defined functions search request.
+
+        Args:
+            pipeline_id (:obj:`str`): Pipeline ID.
+            id (:obj:`str`): ID of the search request.
+            engine_id (:obj:`str`, optional): Engine ID. Default: ``None``.
+            rev (:obj:`int`, optional): Pipeline revision. Default: ``0``.
+            tunneling_instance_id (:obj:`str`, optional): Tunneling instance ID. Default: ``None``.
+
+        Returns:
+            An instance of :py:class:`streamsets.sdk.sch_api.Command`.
+        """
+        endpoint = '/v{}/pipeline/{}/userDefinedFunctions'.format(self.api_version, pipeline_id)
+        params = get_params(
+            parameters=locals(), exclusions=('self', 'engine_id', 'pipeline_id', 'tunneling_instance_id')
+        )
+        if tunneling_instance_id and engine_id:
+            response = self._delete_via_tunneling(
+                endpoint=endpoint, engine_id=engine_id, params=params, tunneling_instance_id=tunneling_instance_id
+            )
+        else:
+            response = self._delete(
+                app='pipelinestore',
+                endpoint='v{}/pipeline/snowflake/rest{}'.format(self.api_version, endpoint),
+                params=params,
+            )
+        return Command(self, response)
+
+    def post_snowflake_pipeline_procedures_search_start(
+        self,
+        pipeline_id,
+        database=None,
+        engine_id=None,
+        filter_text=None,
+        rev=0,
+        schema=None,
+        tunneling_instance_id=None,
+    ):
+        """Post start snowflake pipeline procedures search request.
+
+        Args:
+            pipeline_id (:obj:`str`): Pipeline ID.
+            database (:obj:`str`, optional): Name of the Snowflake database. Default: ``None``.
+            engine_id (:obj:`str`, optional): Engine ID. Default: ``None``.
+            filter_text (:obj:`str`, optional): Filter response text. Default: ``None``.
+            rev (:obj:`int`, optional): Pipeline revision. Default: ``0``.
+            schema (:obj:`str`, optional: Name of the Snowflake schema. Default: ``None``.
+            tunneling_instance_id (:obj:`str`, optional): Tunneling instance ID. Default: ``None``.
+
+        Returns:
+            An instance of :py:class:`streamsets.sdk.sch_api.Command`.
+        """
+        endpoint = '/v{}/pipeline/{}/procedures'.format(self.api_version, pipeline_id)
+        params = get_params(
+            parameters=locals(), exclusions=('self', 'engine_id', 'pipeline_id', 'tunneling_instance_id')
+        )
+        if schema and not database:
+            raise ValueError("The 'database' param must be set to use the 'schema' param.")
+        if tunneling_instance_id and engine_id:
+            response = self._post_via_tunneling(
+                endpoint=endpoint, engine_id=engine_id, params=params, tunneling_instance_id=tunneling_instance_id
+            )
+        else:
+            response = self._post(
+                app='pipelinestore',
+                endpoint='/v{}/pipeline/snowflake/rest{}'.format(self.api_version, endpoint),
+                params=params,
+            )
+        return Command(self, response)
+
+    def get_snowflake_pipeline_procedures_search_status(
+        self, pipeline_id, id, engine_id=None, rev=0, tunneling_instance_id=None
+    ):
+        """Get snowflake pipeline procedures search status.
+
+        Args:
+            pipeline_id (:obj:`str`): Pipeline ID.
+            id (:obj:`str`): ID of the search request.
+            engine_id (:obj:`str`, optional): Engine ID. Default: ``None``.
+            rev (:obj:`int`, optional): Pipeline revision. Default: ``0``.
+            tunneling_instance_id (:obj:`str`, optional): Tunneling instance ID. Default: ``None``.
+
+        Returns:
+            An instance of :py:class:`streamsets.sdk.sch_api.Command`.
+        """
+        endpoint = '/v{}/pipeline/{}/procedures'.format(self.api_version, pipeline_id)
+        params = get_params(
+            parameters=locals(), exclusions=('self', 'engine_id', 'pipeline_id', 'tunneling_instance_id')
+        )
+        if tunneling_instance_id and engine_id:
+            response = self._get_via_tunneling(
+                endpoint=endpoint, engine_id=engine_id, params=params, tunneling_instance_id=tunneling_instance_id
+            )
+        else:
+            response = self._get(
+                app='pipelinestore',
+                endpoint='/v{}/pipeline/snowflake/rest{}'.format(self.api_version, endpoint),
+                params=params,
+            )
+        return Command(self, response)
+
+    def delete_snowflake_pipeline_procedures_search_cancel(
+        self, pipeline_id, id, engine_id=None, rev=0, tunneling_instance_id=None
+    ):
+        """Delete snowflake pipeline procedures search request.
+
+        Args:
+            pipeline_id (:obj:`str`): Pipeline ID.
+            id (:obj:`str`): ID of the search request.
+            engine_id (:obj:`str`, optional): Engine ID. Default: ``None``.
+            rev (:obj:`int`, optional): Pipeline revision. Default: ``0``.
+            tunneling_instance_id (:obj:`str`, optional): Tunneling instance ID. Default: ``None``.
+
+        Returns:
+            An instance of :py:class:`streamsets.sdk.sch_api.Command`.
+        """
+        endpoint = '/v{}/pipeline/{}/procedures'.format(self.api_version, pipeline_id)
+        params = get_params(
+            parameters=locals(), exclusions=('self', 'engine_id', 'pipeline_id', 'tunneling_instance_id')
+        )
+        if tunneling_instance_id and engine_id:
+            response = self._delete_via_tunneling(
+                endpoint=endpoint, engine_id=engine_id, params=params, tunneling_instance_id=tunneling_instance_id
+            )
+        else:
+            response = self._delete(
+                app='pipelinestore',
+                endpoint='/v{}/pipeline/snowflake/rest{}'.format(self.api_version, endpoint),
+                params=params,
+            )
+        return Command(self, response)
+
+    def post_snowflake_pipeline_schemas_search_start(
+        self, pipeline_id, database, engine_id=None, rev=0, tunneling_instance_id=None
+    ):
+        """Post start snowflake pipeline schemas search request.
+
+        Args:
+            pipeline_id (:obj:`str`): Pipeline ID.
+            database (:obj:`str`): Name of the Snowflake database.
+            engine_id (:obj:`str`, optional): Engine ID. Default: ``None``.
+            rev (:obj:`int`, optional): Pipeline revision. Default: ``0``.
+            tunneling_instance_id (:obj:`str`, optional): Tunneling instance ID. Default: ``None``.
+
+        Returns:
+            An instance of :py:class:`streamsets.sdk.sch_api.Command`.
+        """
+        endpoint = '/v{}/pipeline/{}/schemas'.format(self.api_version, pipeline_id)
+        params = get_params(
+            parameters=locals(), exclusions=('self', 'engine_id', 'pipeline_id', 'tunneling_instance_id')
+        )
+        if tunneling_instance_id and engine_id:
+            response = self._post_via_tunneling(
+                endpoint=endpoint, engine_id=engine_id, params=params, tunneling_instance_id=tunneling_instance_id
+            )
+        else:
+            response = self._post(
+                app='pipelinestore',
+                endpoint='/v{}/pipeline/snowflake/rest{}'.format(self.api_version, endpoint),
+                params=params,
+            )
+        return Command(self, response)
+
+    def get_snowflake_pipeline_schemas_search_status(
+        self, pipeline_id, id, engine_id=None, rev=0, tunneling_instance_id=None
+    ):
+        """Get snowflake pipeline schemas search status.
+
+        Args:
+            pipeline_id (:obj:`str`): Pipeline ID.
+            id (:obj:`str`): ID of the search request.
+            engine_id (:obj:`str`, optional): Engine ID. Default: ``None``.
+            rev (:obj:`int`, optional): Pipeline revision. Default: ``0``.
+            tunneling_instance_id (:obj:`str`, optional): Tunneling instance ID. Default: ``None``.
+
+        Returns:
+            An instance of :py:class:`streamsets.sdk.sch_api.Command`.
+        """
+        endpoint = '/v{}/pipeline/{}/databases'.format(self.api_version, pipeline_id)
+        params = get_params(
+            parameters=locals(), exclusions=('self', 'engine_id', 'pipeline_id', 'tunneling_instance_id')
+        )
+        if tunneling_instance_id and engine_id:
+            response = self._get_via_tunneling(
+                endpoint=endpoint, engine_id=engine_id, params=params, tunneling_instance_id=tunneling_instance_id
+            )
+        else:
+            response = self._get(
+                app='pipelinestore',
+                endpoint='/v{}/pipeline/snowflake/rest{}'.format(self.api_version, endpoint),
+                params=params,
+            )
+        return Command(self, response)
+
+    def delete_snowflake_pipeline_schemas_search_cancel(
+        self, pipeline_id, id, engine_id=None, rev=0, tunneling_instance_id=None
+    ):
+        """Delete snowflake pipeline schemas search request.
+
+        Args:
+            pipeline_id (:obj:`str`): Pipeline ID.
+            id (:obj:`str`): ID of the search request.
+            engine_id (:obj:`str`, optional): Engine ID. Default: ``None``.
+            rev (:obj:`int`, optional): Pipeline revision. Default: ``0``.
+            tunneling_instance_id (:obj:`str`, optional): Tunneling instance ID. Default: ``None``.
+
+        Returns:
+            An instance of :py:class:`streamsets.sdk.sch_api.Command`.
+        """
+        endpoint = '/v{}/pipeline/{}/databases'.format(self.api_version, pipeline_id)
+        params = get_params(
+            parameters=locals(), exclusions=('self', 'engine_id', 'pipeline_id', 'tunneling_instance_id')
+        )
+        if tunneling_instance_id and engine_id:
+            response = self._delete_via_tunneling(
+                endpoint=endpoint, engine_id=engine_id, params=params, tunneling_instance_id=tunneling_instance_id
+            )
+        else:
+            response = self._delete(
+                app='pipelinestore',
+                endpoint='/v{}/pipeline/snowflake/rest{}'.format(self.api_version, endpoint),
+                params=params,
+            )
         return Command(self, response)
 
     def get_all_pipeline_labels(self, organization, parent_id=None, offset=None, len=None, order=None):
@@ -1598,7 +2022,7 @@ class ApiClient(object):
         )
         return Command(self, response)
 
-    def validate_engine_pipeline(self, engine_id, pipeline_id, tunneling_instance_id, rev=0, timeout=2000):
+    def validate_engine_pipeline(self, engine_id, pipeline_id, tunneling_instance_id, rev=0, timeout=500000):
         """Validate Datacollector or Transformer pipeline.
 
         Args:
@@ -1847,6 +2271,28 @@ class ApiClient(object):
         )
         return Command(self, response)
 
+    def import_pipeline(self, source_sch_version, pipeline_zip, replace=False, dry_run=False):
+        """Import a pipeline.
+
+        Args:
+            source_sch_version (:obj:`str`): Source Control Hub version.
+            pipeline_zip (:obj:`io.BytesIO`): Zipfile bytes.
+            replace (:obj:`bool`, optional): Default: ``False``
+            dry_run (:obj:`bool`, optional): Default: ``False``
+
+        Returns:
+            An instance of :py:class:`streamsets.sdk.sch_api.Command`.
+        """
+        params = {'dry-run': dry_run, 'replace': replace}
+        response = self._post(
+            app='pipelinestore',
+            endpoint='/v{}/importer/{}/pipeline'.format(self.importer_api_version, source_sch_version),
+            params=params,
+            files={'pipelineZip': pipeline_zip},
+            headers={'content-type': None},
+        )
+        return Command(self, response)
+
     def import_pipelines(
         self,
         commit_message,
@@ -2079,6 +2525,28 @@ class ApiClient(object):
         )
         return Command(self, response)
 
+    def import_subscription(self, source_sch_version, subscription_zip, replace=False, dry_run=False):
+        """Import a subscription.
+
+        Args:
+            source_sch_version (:obj:`str`): Source Control Hub version.
+            subscription_zip (:obj:`io.BytesIO`): Zipfile bytes.
+            replace (:obj:`bool`, optional): Default: ``False``
+            dry_run (:obj:`bool`, optional): Default: ``False``
+
+        Returns:
+            An instance of :py:class:`streamsets.sdk.sch_api.Command`.
+        """
+        params = {'dry-run': dry_run, 'replace': replace}
+        response = self._post(
+            app='notification',
+            endpoint='/v{}/importer/{}/subscription'.format(self.importer_api_version, source_sch_version),
+            params=params,
+            files={'subscriptionZip': subscription_zip},
+            headers={'content-type': None},
+        )
+        return Command(self, response)
+
     def get_subscription_acl(self, subscription_id):
         """Get the ACL of an Event Subscription.
 
@@ -2124,102 +2592,6 @@ class ApiClient(object):
         response = self._post(
             app='notification',
             endpoint='/v{}/eventsub/{}/permissions/{}'.format(self.api_version, subscription_id, subject_id),
-            data=body,
-        )
-        return Command(self, response)
-
-    def get_provisioning_agent_acl(self, dpm_agent_id):
-        """Get the ACL of a Provisioning Agent.
-
-        Args:
-            dpm_agent_id (:obj:`str`): ID of the Provisioning Agent.
-
-        Returns:
-            An instance of :py:class:`streamsets.sdk.sch_api.Command`.
-        """
-        response = self._get(app='provisioning', endpoint='/v{}/dpmAgent/{}/acl'.format(self.api_version, dpm_agent_id))
-        return Command(self, response)
-
-    def set_provisioning_agent_acl(self, dpm_agent_id, dpm_agent_acl_json):
-        """Set the ACL of a Provisioning Agent.
-
-        Args:
-            dpm_agent_id (:obj:`str`): ID of the Provisioning Agent.
-            dpm_agent_acl_json (:obj:`str`): ACL of the Subscription in JSON format.
-
-        Returns:
-            An instance of :py:class:`streamsets.sdk.sch_api.Command`.
-        """
-        response = self._post(
-            app='provisioning',
-            endpoint='/v{}/dpmAgent/{}/acl'.format(self.api_version, dpm_agent_id),
-            data=dpm_agent_acl_json,
-        )
-        return Command(self, response)
-
-    def update_provisioning_agent_permissions(self, body, dpm_agent_id, subject_id):
-        """Update the permissions of a Provisioning Agent for a specific subject.
-
-        Args:
-            body (:obj:`dict`): JSON representation of permission attributes to update.
-            dpm_agent_id (:obj:`str:): ID of the Provisioning Agent.
-            subject_id (:obj:`str`): ID of the subject.
-
-        Returns:
-            An instance of :py:class:`streamsets.sdk.sch_api.Command`.
-        """
-        response = self._post(
-            app='provisioning',
-            endpoint='/v{}/dpmAgent/{}/permissions/{}'.format(self.api_version, dpm_agent_id, subject_id),
-            data=body,
-        )
-        return Command(self, response)
-
-    def get_legacy_deployment_acl(self, deployment_id):
-        """Get the ACL of a Deployment.
-
-        Args:
-            deployment_id (:obj:`str`): ID of the Deployment.
-
-        Returns:
-            An instance of :py:class:`streamsets.sdk.sch_api.Command`.
-        """
-        response = self._get(
-            app='provisioning', endpoint='/v{}/deployment/{}/acl'.format(self.api_version, deployment_id)
-        )
-        return Command(self, response)
-
-    def set_legacy_deployment_acl(self, deployment_id, deployment_acl_json):
-        """Set the ACL of a Deployment.
-
-        Args:
-            deployment_id (:obj:`str`): ID of the Deployment.
-            deployment_acl_json (:obj:`str`): ACL of the Deployment in JSON format.
-
-        Returns:
-            An instance of :py:class:`streamsets.sdk.sch_api.Command`.
-        """
-        response = self._post(
-            app='provisioning',
-            endpoint='/v{}/deployment/{}/acl'.format(self.api_version, deployment_id),
-            data=deployment_acl_json,
-        )
-        return Command(self, response)
-
-    def update_legacy_deployment_permissions(self, body, deployment_id, subject_id):
-        """Update the permissions of a Deployment for a specific subject.
-
-        Args:
-            body (:obj:`dict`): JSON representation of permission attributes to update.
-            deployment_id (:obj:`str:): ID of the Deployment.
-            subject_id (:obj:`str`): ID of the subject.
-
-        Returns:
-            An instance of :py:class:`streamsets.sdk.sch_api.Command`.
-        """
-        response = self._post(
-            app='provisioning',
-            endpoint='/v{}/deployment/{}/permissions/{}'.format(self.api_version, deployment_id, subject_id),
             data=body,
         )
         return Command(self, response)
@@ -2484,7 +2856,7 @@ class ApiClient(object):
         response = self._get(app='jobrunner', endpoint=endpoint, params=params)
         return Command(self, response)
 
-    def get_active_jobs(
+    def get_jobs_by_pipeline_commit(
         self,
         organization,
         pipeline_commit_id,
@@ -2497,7 +2869,7 @@ class ApiClient(object):
         draft_run=False,
         with_wrapper=False,
     ):
-        """Returns all active Jobs for given Pipeline Commit ID.
+        """Returns all Jobs for given Pipeline Commit ID.
 
         Args:
             organization (:obj:`str`)
@@ -2742,6 +3114,50 @@ class ApiClient(object):
             app='jobrunner',
             endpoint='/v{}/jobs/deleteJobTemplates'.format(self.api_version),
             data=job_template_ids_json,
+        )
+        return Command(self, response)
+
+    def import_job(self, source_sch_version, job_zip, replace=False, dry_run=False):
+        """Import a job.
+
+        Args:
+            source_sch_version (:obj:`str`): Source Control Hub version.
+            job_zip (:obj:`io.BytesIO`): Zipfile bytes.
+            replace (:obj:`bool`, optional): Default: ``False``
+            dry_run (:obj:`bool`, optional): Default: ``False``
+
+        Returns:
+            An instance of :py:class:`streamsets.sdk.sch_api.Command`.
+        """
+        params = {'dry-run': dry_run, 'replace': replace}
+        response = self._post(
+            app='jobrunner',
+            endpoint='/v{}/importer/{}/job'.format(self.importer_api_version, source_sch_version),
+            params=params,
+            files={'jobZip': job_zip},
+            headers={'content-type': None},
+        )
+        return Command(self, response)
+
+    def import_job_offset(self, source_sch_version, job_id, data, replace=False, dry_run=False):
+        """Import job offset.
+
+        Args:
+            source_sch_version (:obj:`str`): Source Control Hub version.
+            job_id (:obj:`str`): Job ID.
+            data (:obj:`dict`): Data that complies with Swagger definition.
+            replace (:obj:`bool`, optional): Default: ``False``
+            dry_run (:obj:`bool`, optional): Default: ``False``
+
+        Returns:
+            An instance of :py:class:`streamsets.sdk.sch_api.Command`.
+        """
+        params = {'dry-run': dry_run, 'replace': replace}
+        response = self._post(
+            app='jobrunner',
+            endpoint='/v{}/importer/{}/job/{}/offset'.format(self.importer_api_version, source_sch_version, job_id),
+            params=params,
+            data=data,
         )
         return Command(self, response)
 
@@ -4176,7 +4592,7 @@ class ApiClient(object):
         )
         return Command(self, response)
 
-    def get_all_registered_executor_labels(
+    def get_all_registered_engine_labels(
         self, organization, executor_type, edge=False, offset=0, len=-1, with_wrapper=False
     ):
         """Return labels for all registered SDC instances.
@@ -4196,7 +4612,7 @@ class ApiClient(object):
         response = self._get(app='jobrunner', endpoint='/v{}/sdcs/labels'.format(self.api_version), params=params)
         return Command(self, response)
 
-    def get_all_registered_executor_versions(
+    def get_all_registered_engine_versions(
         self, organization, executor_type, edge=False, offset=0, len=-1, with_wrapper=False
     ):
         """Return versions for all registered SDC instances.
@@ -4361,7 +4777,7 @@ class ApiClient(object):
         response = self._get(app='jobrunner', endpoint=endpoint, params=params)
         return Command(self, response)
 
-    @wait_and_retry_on_http_error
+    @http_retry()
     def get_draft_run_logs(self, engine_id, engine_pipeline_id, tunneling_instance_id, ending_offset=-1):
         """Get the logs for the given engine_id using the engine's tunneling endpoint.
 
@@ -4382,7 +4798,7 @@ class ApiClient(object):
         )
         return Command(self, response)
 
-    @wait_and_retry_on_http_error
+    @http_retry()
     def get_draft_run_snapshots(self, engine_id, engine_pipeline_id, job_id, tunneling_instance_id, job_run_count=1):
         """Get the snapshots for the draft run.
 
@@ -4405,7 +4821,7 @@ class ApiClient(object):
         )
         return Command(self, response)
 
-    @wait_and_retry_on_http_error
+    @http_retry()
     def get_snapshot_data(
         self, engine_id, engine_pipeline_id, snapshot_id, job_id, tunneling_instance_id, job_run_count=1
     ):
@@ -4432,7 +4848,7 @@ class ApiClient(object):
         )
         return Command(self, response)
 
-    @wait_and_retry_on_http_error
+    @http_retry()
     def generate_snapshot(self, engine_id, engine_pipeline_id, snapshot_label, tunneling_instance_id, batch_size=50000):
         """Generate a snapshot.
 
@@ -4457,7 +4873,7 @@ class ApiClient(object):
         )
         return Command(self, response)
 
-    @wait_and_retry_on_http_error
+    @http_retry()
     def remove_snapshot(self, engine_id, engine_pipeline_id, snapshot_id, tunneling_instance_id, job_run_count=1):
         """Remove a snapshot.
 
@@ -4594,295 +5010,6 @@ class ApiClient(object):
         response = self._get(app='jobrunner', endpoint=endpoint, params=params)
         return Command(self, response)
 
-    def return_all_provisioning_agents(
-        self, organization, offset, len, order_by, order, version=None, with_wrapper=False
-    ):
-        """Returns all provisioning agents.
-
-        Args:
-            organization (:obj:`str`)
-            offset (:obj:`str`)
-            len (:obj:`str`)
-            order_by (:obj:`str`)
-            order (:obj:`str`)
-            version (:obj:`str`, optional): Default: ``None``
-            with_wrapper (:obj:`bool`, optional): Default: ``False``.
-
-        Returns:
-            An instance of :py:class:`streamsets.sdk.sch_api.Command`.
-        """
-        params = get_params(parameters=locals(), exclusions=('self',))
-        response = self._get(app='provisioning', endpoint='/v{}/dpmAgents'.format(self.api_version), params=params)
-        return Command(self, response)
-
-    def return_all_provisioning_agent_versions(self, organization, offset, len, with_wrapper=False):
-        """Returns the versions of all provisioning agents.
-
-        Args:
-            organization (:obj:`str`)
-            offset (:obj:`str`)
-            len (:obj:`str`)
-            with_wrapper (:obj:`bool`, optional): Default: ``False``.
-
-        Returns:
-            An instance of :py:class:`streamsets.sdk.sch_api.Command`.
-        """
-        params = get_params(parameters=locals(), exclusions=('self',))
-        response = self._get(
-            app='provisioning', endpoint='v{}/dpmAgents/versions'.format(self.api_version), params=params
-        )
-        return Command(self, response)
-
-    def get_provisioning_agent(self, agent_id):
-        """Returns a provisioning agent by id.
-
-        Args:
-            agent_id (:obj:`str`)
-
-        Returns:
-            An instance of :py:class:`streamsets.sdk.sch_api.Command`.
-        """
-        response = self._get(app='provisioning', endpoint='/v{}/dpmAgent/{}'.format(self.api_version, agent_id))
-        return Command(self, response)
-
-    def delete_provisioning_agent(self, agent_id):
-        """Deletes a provisioning agent by id.
-
-        Args:
-            agent_id (:obj:`str`)
-
-        Returns:
-            An instance of :py:class:`streamsets.sdk.sch_api.Command`.
-        """
-        response = self._delete(app='provisioning', endpoint='/v{}/dpmAgent/{}'.format(self.api_version, agent_id))
-        return Command(self, response)
-
-    def return_all_legacy_deployments(
-        self, organization, offset, len, order_by, order, dpm_agent_id, deployment_status, with_wrapper=False
-    ):
-        """Returns all provisioning agents.
-
-        Args:
-            organization (:obj:`str`)
-            offset (:obj:`str`)
-            len (:obj:`str`)
-            order_by (:obj:`str`)
-            order (:obj:`str`)
-            dpm_agent_id (:obj:`str`)
-            deployment_status (:obj:`str`)
-            with_wrapper (:obj:`bool`, optional): Default: ``False``
-
-        Returns:
-            An instance of :py:class:`streamsets.sdk.sch_api.Command`.
-        """
-        params = get_params(parameters=locals(), exclusions=('self',))
-        response = self._get(app='provisioning', endpoint='/v{}/deployments'.format(self.api_version), params=params)
-        return Command(self, response)
-
-    def get_legacy_deployment(self, deployment_id):
-        """Returns a deployment by id.
-
-        Args:
-            deployment_id (:obj:`str`)
-
-        Returns:
-            An instance of :py:class:`streamsets.sdk.sch_api.Command`.
-        """
-        response = self._get(app='provisioning', endpoint='/v{}/deployment/{}'.format(self.api_version, deployment_id))
-        return Command(self, response)
-
-    def get_legacy_deployments_by_status(
-        self, organization, offset, len, order_by, order, deployment_status, with_wrapper=False
-    ):
-        """Returns all legacy deployments, filtered by status.
-
-        Args:
-            organization (:obj:`str`)
-            offset (:obj:`str`)
-            len (:obj:`str`)
-            order_by (:obj:`str`)
-            order (:obj:`str`)
-            deployment_status (:obj:`str`)
-            with_wrapper (:obj:`bool`, optional): Default: ``False``
-
-        Returns:
-            An instance of :py:class:`streamsets.sdk.sch_api.Command`.
-        """
-        params = get_params(parameters=locals(), exclusions=('self',))
-        response = self._get(
-            app='provisioning', endpoint='/v{}/deployments/byStatus'.format(self.api_version), params=params
-        )
-        return Command(self, response)
-
-    def get_legacy_deployment_status(self, organization, offset, len, with_wrapper=False):
-        """Returns all legacy deployment statuses.
-
-        Args:
-            organization (:obj:`str`)
-            offset (:obj:`str`)
-            len (:obj:`str`)
-            with_wrapper (:obj:`bool`, optional): Default: ``False``
-
-        Returns:
-            An instance of :py:class:`streamsets.sdk.sch_api.Command`.
-        """
-        params = get_params(parameters=locals(), exclusions=('self',))
-        response = self._get(
-            app='provisioning', endpoint='/v{}/deployments/status'.format(self.api_version), params=params
-        )
-        return Command(self, response)
-
-    def create_legacy_deployment(self, body):
-        """Create a new deployment for the given Deployment model.
-
-        Args:
-            body (:obj:`dict`): JSON representation of deployment object.
-
-        Returns:
-            An instance of :py:class:`streamsets.sdk.sch_api.Command`.
-        """
-        response = self._put(app='provisioning', data=body, endpoint='/v{}/deployments'.format(self.api_version))
-        return Command(self, response)
-
-    def update_legacy_deployment(self, deployment_id, body):
-        """Update a deployment for the given Deployment model.
-
-        Args:
-            deployment_id (:obj:`str`): Deployment ID.
-            body (:obj:`dict`): Deployment object json.
-
-        Returns:
-            An instance of :py:class:`streamsets.sdk.sch_api.Command`.
-        """
-        response = self._post(
-            app='provisioning', data=body, endpoint='/v{}/deployment/{}'.format(self.api_version, deployment_id)
-        )
-        return Command(self, response)
-
-    def scale_legacy_deployment(self, deployment_id, num_instances):
-        """Scale up/down active deployment.
-
-        Args:
-            deployment_id (:obj:`str`): Deployment ID.
-            num_instances (:obj:`int`): Number of sdc instances.
-
-        Returns:
-            An instance of :py:class:`streamsets.sdk.sch_api.Command`.
-        """
-        params = get_params(parameters=locals(), exclusions=('self', 'deployment_id'))
-        response = self._post(
-            app='provisioning',
-            endpoint='/v{}/deployment/{}/scale'.format(self.api_version, deployment_id),
-            params=params,
-        )
-        return Command(self, response)
-
-    def wait_for_legacy_deployment_statuses(self, deployment_id, statuses, timeout_sec=300):
-        """Wait for deployment status.
-
-        Args:
-            deployment_id (:obj:`str`)
-            statuses (:obj:`list`): List of Deployment statuses.
-            timeout_sec (:obj:`int`, optional): Timeout for wait, in seconds. Default: ``300``.
-        """
-
-        def condition(deployment_id):
-            status_json = self.get_legacy_deployment(deployment_id).response.json()
-            current_status = status_json['currentDeploymentStatus']['status']
-            logger.debug('Status of deployment (id: %s) is %s ...', deployment_id, current_status)
-            if current_status == 'INACTIVE_ERROR':
-                raise LegacyDeploymentInactiveError('Deployment status changed to INACTIVE_ERROR')
-            return current_status in statuses
-
-        def failure(timeout):
-            raise TimeoutError('Timed out after {} seconds while waiting for status.'.format(timeout))
-
-        def success(time):
-            logger.debug('Deployment reached desired status after %s s.', time)
-
-        logger.debug('Deployment %s waiting for status %s ...', deployment_id, statuses)
-        wait_for_condition(
-            condition=condition,
-            condition_kwargs={'deployment_id': deployment_id},
-            timeout=timeout_sec,
-            failure=failure,
-            success=success,
-        )
-
-    def start_legacy_deployment(self, deployment_id, dpm_agent_id):
-        """Starts a deployment.
-
-        Args:
-            deployment_id (:obj:`str`)
-            dpm_agent_id (:obj:`str`)
-
-        Returns:
-            An instance of :py:class:`streamsets.sdk.sch_api.Command`.
-        """
-        params = get_params(parameters=locals(), exclusions=('self', 'deployment_id'))
-        response = self._post(
-            app='provisioning',
-            endpoint='/v{}/deployment/{}/start'.format(self.api_version, deployment_id),
-            params=params,
-        )
-        return DeploymentStartStopCommand(self, response)
-
-    def stop_legacy_deployment(self, deployment_id):
-        """Starts a deployment.
-
-        Args:
-            deployment_id (:obj:`str`)
-
-        Returns:
-            An instance of :py:class:`streamsets.sdk.sch_api.Command`.
-        """
-        response = self._post(
-            app='provisioning', endpoint='/v{}/deployment/{}/stop'.format(self.api_version, deployment_id)
-        )
-        return DeploymentStartStopCommand(self, response)
-
-    def legacy_deployments_acknowledge_errors(self, body):
-        """Acknowledge deployment errors.
-
-        Args:
-            body (:obj:`list`): Deployment IDs.
-
-        Returns:
-            An instance of :py:class:`streamsets.sdk.sch_api.Command`.
-        """
-        response = self._post(
-            app='provisioning', data=body, endpoint='/v{}/deployments/acknowledgeErrors'.format(self.api_version)
-        )
-        return Command(self, response)
-
-    def delete_legacy_deployment(self, deployment_id):
-        """Delete a deployment for the given deployment ID.
-
-        Args:
-            deployment_id (:obj:`str`): Deployment ID.
-
-        Returns:
-            An instance of :py:class:`streamsets.sdk.sch_api.Command`.
-        """
-        response = self._delete(
-            app='provisioning', endpoint='/v{}/deployment/{}'.format(self.api_version, deployment_id)
-        )
-        return Command(self, response)
-
-    def delete_legacy_deployments(self, body):
-        """Delete all deployments for the given deployment IDs.
-
-        Args:
-            body (:obj:`list`): Deployment IDs.
-
-        Returns:
-            An instance of :py:class:`streamsets.sdk.sch_api.Command`.
-        """
-        response = self._post(
-            app='provisioning', data=body, endpoint='/v{}/deployments/deleteDeployments'.format(self.api_version)
-        )
-        return Command(self, response)
-
     def return_all_topologies(self, organization, offset, len, order_by, order, with_wrapper=False, filter_text=None):
         """Returns all jobs.
 
@@ -4992,6 +5119,28 @@ class ApiClient(object):
         response = self._post(app='topology', endpoint='/v{}/topology/{}/validate'.format(self.api_version, commit_id))
         return Command(self, response)
 
+    def import_topology(self, source_sch_version, topology_zip, replace=False, dry_run=False):
+        """Import a topology.
+
+        Args:
+            source_sch_version (:obj:`str`): Source Control Hub version.
+            topology_zip (:obj:`io.BytesIO`): Zipfile bytes.
+            replace (:obj:`bool`, optional): Default: ``False``
+            dry_run (:obj:`bool`, optional): Default: ``False``
+
+        Returns:
+            An instance of :py:class:`streamsets.sdk.sch_api.Command`.
+        """
+        params = {'dry-run': dry_run, 'replace': replace}
+        response = self._post(
+            app='topology',
+            endpoint='/v{}/importer/{}/topology'.format(self.importer_api_version, source_sch_version),
+            params=params,
+            files={'topologyZip': topology_zip},
+            headers={'content-type': None},
+        )
+        return Command(self, response)
+
     def import_topologies(
         self,
         topologies_file,
@@ -5085,187 +5234,7 @@ class ApiClient(object):
         )
         return Command(self, response)
 
-    def return_all_report_definitions(self, organization, offset, len, order_by, order, filter_text):
-        """Returns all jobs.
-
-        Args:
-            organization (:obj:`str`)
-            offset (:obj:`str`)
-            len (:obj:`str`)
-            order_by (:obj:`str`)
-            order (:obj:`str`)
-            filter_text (:obj:`str`)
-
-        Returns:
-            An instance of :py:class:`streamsets.sdk.sch_api.Command`.
-        """
-        params = get_params(parameters=locals(), exclusions=('self',))
-        response = self._get(app='reporting', endpoint='/v{}/reports'.format(self.api_version), params=params)
-        return Command(self, response)
-
-    def return_all_reports_from_definition(self, report_definition_id, offset, len):
-        """Return all Reports generated using given Report Definition Id.
-
-        Args:
-            report_definition_id (:obj:`str`): Report Definition Id.
-            offset (:obj:`int`): Offset for the results returned.
-            len (:obj:`int`): Total number of results returned.
-
-        Returns:
-            An instance of :py:class:`streamsets.sdk.sch_api.Command`.
-        """
-        params = get_params(parameters=locals(), exclusions=('self', report_definition_id))
-        response = self._get(
-            app='reporting',
-            endpoint='/v{}/report/{}/reports'.format(self.api_version, report_definition_id),
-            params=params,
-        )
-        return Command(self, response)
-
-    def get_report_for_given_report_id(self, report_definition_id, report_id):
-        """Get report for given Report Id and Report Definition Id.
-
-        Args:
-            report_definition_id (:obj:`str`): Report Definition Id.
-            report_id (:obj:`str`): Report Id.
-
-        Returns:
-            An instance of :py:class:`streamsets.sdk.sch_api.Command`.
-        """
-        response = self._get(
-            app='reporting', endpoint='/v{}/report/{}/{}'.format(self.api_version, report_definition_id, report_id)
-        )
-        return Command(self, response)
-
-    def create_new_report_definition(self, body):
-        """Create a new Report Definition.
-
-        Args:
-            body (:obj:`dict`): Report Definition in JSON format.
-
-        Returns:
-            An instance of :py:class:`streamsets.sdk.sch_api.Command`.
-        """
-        response = self._put(app='reporting', endpoint='/v{}/reports'.format(self.api_version), data=body)
-        return Command(self, response)
-
-    def update_report_definition(self, report_definition_id, body):
-        """Update an existing Report Definition.
-
-        Args:
-            body (:obj:`dict`): Report Definition in JSON format.
-            report_definition_id (:obj:`str`): Report Definition Id.
-
-        Returns:
-            An instance of :py:class:`streamsets.sdk.sch_api.Command`.
-        """
-        response = self._post(
-            app='reporting', endpoint='/v{}/report/{}'.format(self.api_version, report_definition_id), data=body
-        )
-        return Command(self, response)
-
-    def delete_report_definition(self, report_definition_id):
-        """Delete an existing Report Definition.
-
-        Args:
-            report_definition_id (:obj:`str`): Report Definition id.
-
-        Returns:
-            An instance of :py:class:`streamsets.sdk.sch_api.Command`.
-        """
-        response = self._delete(
-            app='reporting', endpoint='/v{}/report/{}'.format(self.api_version, report_definition_id)
-        )
-        return Command(self, response)
-
-    def generate_report_for_report_definition(self, report_definition_id, trigger_time):
-        """Generate Report for given Report Definition.
-
-        Args:
-            report_definition_id (:obj:`str`): Report Definition id.
-
-        Returns:
-            An instance of :py:class:`streamsets.sdk.sch_api.Command`.
-        """
-        params = get_params(parameters=locals(), exclusions=('self', 'report_definition_id'))
-        response = self._post(
-            app='reporting',
-            endpoint='/v{}/report/{}/generateReport'.format(self.api_version, report_definition_id),
-            params=params,
-        )
-        return Command(self, response)
-
-    def download_report(self, report_definition_id, report_id, report_format):
-        """Download Report in a report format for given report definition and report id.
-
-        Args:
-            report_definition_id (:obj:`str`): Report Definition id.
-            report_id (:obj:`str`): Report id.
-            report_format (:obj:`str`): Report Format ('PDF')
-
-        Returns:
-            An instance of :py:class:`streamsets.sdk.sch_api.Command`.
-        """
-        params = get_params(parameters=locals(), exclusions=('self', 'report_definition_id', 'report_id'))
-        response = self._get(
-            app='reporting',
-            endpoint='/v{}/report/{}/{}/download'.format(self.api_version, report_definition_id, report_id),
-            params=params,
-        )
-        return Command(self, response)
-
-    def get_report_definition_acl(self, report_definition_id):
-        """Get Report Definition ACL.
-
-        Args:
-            report_definition_id (:obj:`str`): Report Definition id.
-
-        Returns:
-            An instance of :py:class:`streamsets.sdk.sch_api.Command`.
-        """
-        response = self._get(
-            app='reporting', endpoint='/v{}/report/{}/acl'.format(self.api_version, report_definition_id)
-        )
-        return Command(self, response)
-
-    def set_report_definition_acl(self, report_definition_id, report_definition_acl_json):
-        """Update Report Definition ACL.
-
-        Args:
-            report_definition_id (:obj:`str`): Report Definition id.
-            report_definition_acl_json (:obj:`str`): Report Definition ACL in JSON format.
-
-        Returns:
-            An instance of :py:class:`streamsets.sdk.sch_api.Command`.
-        """
-        response = self._post(
-            app='reporting',
-            endpoint='/v{}/report/{}/acl'.format(self.api_version, report_definition_id),
-            data=report_definition_acl_json,
-        )
-        return Command(self, response)
-
-    def update_report_definition_permissions(self, data, report_definition_id, subject_id):
-        """Update the Report Definition permissions.
-
-        Args:
-            data (:obj:`dict`): JSON representation of permission attributes to update.
-            report_definition_id (:obj:`str`): Report Definition id.
-            subject_id (:obj:`str`): Id of the subject.
-
-        Returns:
-            An instance of :py:class:`streamsets.sdk.sch_api.Command`.
-        """
-        response = self._post(
-            app='reporting',
-            endpoint='/v{}/report/{}/permissions/{}'.format(self.api_version, report_definition_id, subject_id),
-            data=data,
-        )
-        return Command(self, response)
-
-    def get_metering_daily_report(
-        self, start, end, search=None, zone=None, allow_incomplete_days=True, report_type=None
-    ):
+    def get_metering_daily_report(self, start, end, search=None, zone=None, report_type=None):
         """Get the daily metering report.
 
         Args:
@@ -5273,7 +5242,6 @@ class ApiClient(object):
             end (:obj:`long`)
             search (:obj:`str`, optional): Default: ``None``.
             zone (:obj:`str`, optional): Default: ``None``.
-            allow_incomplete_days (:obj:`bool`, optional): Default: ``True``.
             report_type (:obj:`str`, optional): Default: ``None``.
 
         Returns:
@@ -5286,14 +5254,13 @@ class ApiClient(object):
         return Command(self, response)
 
     def get_metering_daily_report_by_content_type(
-        self, start, end, allow_incomplete_days=True, content_type="text/csv", report_type=None, search=None, zone=None
+        self, start, end, content_type="text/csv", report_type=None, search=None, zone=None
     ):
         """Get the daily metering report.
 
         Args:
             start (:obj:`long`)
             end (:obj:`long`)
-            allow_incomplete_days (:obj:`bool`, optional): Default: ``True``.
             content_type (:py:obj:`str`, optional): Format of the returned data. Default: ``"text/csv"``.
             report_type (:obj:`str`, optional): Default: ``None``.
             search (:obj:`str`, optional): Default: ``None``.
@@ -5320,27 +5287,16 @@ class ApiClient(object):
         )
         return Command(self, response)
 
-    def get_metering_report_for_job(self, job_id, start, end, zone=None, allow_incomplete_days=True, report_type=None):
-        """Get the metering report for a job.
-
-        Args:
-            job_id (:obj:`str`)
-            start (:obj:`long`)
-            end (:obj:`long`)
-            zone (:obj:`str`, optional): Default: ``None``.
-            allow_incomplete_days (:obj:`bool`, optional): Default: ``True``.
-            report_type (:obj:`str`, optional): Default: ``None``.
-
-        Returns:
-            An instance of :py:class:`streamsets.sdk.sch_api.Command`.
-        """
-        params = get_params(parameters=locals(), exclusions=('self', 'job_id'))
-        response = self._get(
-            app='metering', endpoint='v{}/reports/job/{}'.format(self.metering_api_version, job_id), params=params
-        )
-        return Command(self, response)
-
-    def get_metering_event(self, order_by=None, order=None, page=None, size=None, search=None, with_wrapper=False):
+    def get_metering_event(
+        self,
+        order_by=None,
+        order=None,
+        page=None,
+        size=None,
+        search=None,
+        with_wrapper=False,
+        metering_api_version=None,
+    ):
         """Get raw metering data from the metering app.
 
         Args:
@@ -5350,12 +5306,23 @@ class ApiClient(object):
             size (:obj:`int`, optional): Default: ``None``.
             search (:obj:`str`, optional): Default: ``None``.
             with_wrapper (:obj:`bool`, optional): Default: ``False``
+            metering_api_version (:obj:`int`, optional): Version of the API to use. Default: ``None``
 
         Returns:
             An instance of :py:class:`streamsets.sdk.aster_api.Command`
         """
-        params = get_params(parameters=locals(), exclusions=('self',))
-        response = self._get(app='metering', endpoint='v{}/event'.format(self.metering_api_version), params=params)
+        params = get_params(
+            parameters=locals(),
+            exclusions=(
+                'self',
+                'metering_api_version',
+            ),
+        )
+        response = self._get(
+            app='metering',
+            endpoint='v{}/event'.format(metering_api_version or self.metering_api_version),
+            params=params,
+        )
         return Command(self, response)
 
     def get_metering_record_count_events(
@@ -5378,6 +5345,35 @@ class ApiClient(object):
         response = self._get(
             app='metering', endpoint='v{}/record-count/event'.format(self.metering_api_version), params=params
         )
+        return Command(self, response)
+
+    def get_metering_resource_event(self, search=None, page=None, size=None, sort=None, direction=None):
+        """Get raw metering data from the resource event metering app.
+
+        Args:
+            search (:obj:`str`, optional): Default: ``None``.
+            page (:obj:`str`, optional): Default: ``None``.
+            size (:obj:`str`, optional): Default: ``None``.
+            sort (:obj:`str`, optional): Default: ``None``.
+            direction (:obj:`str`, optional): Default: ``None``
+
+        Returns:
+            An instance of :py:class:`streamsets.sdk.aster_api.Command`
+        """
+        params = get_params(parameters=locals(), exclusions=('self',))
+        response = self._get(app='metering', endpoint='v4/resource-event', params=params)
+        return Command(self, response)
+
+    def update_resource_events(self, body):
+        """Update resource events.
+
+        Args:
+            body (:obj:`dict`): Complies to Swagger definition.
+
+        Returns:
+            An instance of :py:class:`streamsets.sdk.sch_api.Command`.
+        """
+        response = self._post(app='metering', endpoint='v4/resource-events', data=body)
         return Command(self, response)
 
     def return_all_pipeline_templates(
@@ -5689,6 +5685,31 @@ class ApiClient(object):
         )
         return Command(self, response)
 
+    def import_scheduled_task(self, source_sch_version, scheduler_job_zip, replace=False, dry_run=False):
+        """Import a scheduled task.
+
+        Args:
+            source_sch_version (:obj:`str`): Source Control Hub version.
+            scheduler_job_zip (:obj:`io.BytesIO`): Zipfile bytes.
+            replace (:obj:`bool`, optional): Default: ``False``
+            dry_run (:obj:`bool`, optional): Default: ``False``
+
+        Returns:
+            An instance of :py:class:`streamsets.sdk.sch_api.Command`.
+        """
+        endpoint = '/v{}/importer/{}/schedulerjob/pageId=SchedulerJobCreatePage'.format(
+            self.importer_api_version, source_sch_version
+        )
+        params = {'dry-run': dry_run, 'replace': replace}
+        response = self._post(
+            app='scheduler',
+            endpoint=endpoint,
+            params=params,
+            files={'schedulerJobZip': scheduler_job_zip},
+            headers={'content-type': None},
+        )
+        return Command(self, response)
+
     def create_scheduled_task(self, data, api_version):
         """Creates a new Scheduled Task.
 
@@ -5845,10 +5866,16 @@ class ApiClient(object):
         response = self._get(app='security', endpoint='/v{}/ldap'.format(self.api_version))
         return Command(self, response)
 
-    def get_all_executor_stats(
-        self, label=None, offset=None, len=None, order_by='LAST_REPORTED_TIME', order='ASC', executor_type='COLLECTOR'
+    def get_all_engine_stats(
+        self,
+        label=None,
+        offset=None,
+        len=None,
+        order_by='LAST_REPORTED_TIME',
+        order='ASC',
+        executor_type=COLLECTOR.value,
     ):
-        """Returns executor uptime, Memory/CPU usage by executor at JVM level.
+        """Returns engin uptime, Memory/CPU usage by engine at JVM level.
 
         Args:
             label (:obj:`str`, optional): Default: ``None``.
@@ -5856,7 +5883,7 @@ class ApiClient(object):
             len (obj:`int`, optional): Default: ``None``.
             order_by (:obj:`str`, optional): Default: ``LAST_REPORTED_TIME``.
             order (:obj:`str`, optional): Default: ``ASC``.
-            executor_type (:obj:`str`, optional): Default: ``COLLECTOR``.
+            executor_type (:obj:`str`, optional): Default: ``'COLLECTOR'``.
 
         Returns:
             An instance of :py:class:`streamsets.sdk.sch_api.Command`.
@@ -6160,7 +6187,7 @@ class ApiClient(object):
         filter_text=None,
         job_status='INACTIVE',
         job_label=None,
-        executor_type='COLLECTOR',
+        executor_type=COLLECTOR.value,
     ):
         """Get all jobs with red state.
 
@@ -6186,10 +6213,10 @@ class ApiClient(object):
         )
         return Command(self, response)
 
-    def get_executor_cpu_usage_time_series(
+    def get_engine_cpu_usage_time_series(
         self, executor_id, time_filter_condition='LAST_5M', limit=None, start_time=None, end_time=None
     ):
-        """Returns CPU usage by executor at JVM level overtime.
+        """Returns CPU usage by engine at JVM level overtime.
 
         Args:
             executor_id (:obj:`str`)
@@ -6209,7 +6236,7 @@ class ApiClient(object):
         )
         return Command(self, response)
 
-    def get_executor_memory_usage_time_series(
+    def get_engine_memory_usage_time_series(
         self, executor_id, time_filter_condition='LAST_5M', limit=None, start_time=None, end_time=None
     ):
         """Returns memory usage by executor at JVM level overtime.
@@ -6708,6 +6735,7 @@ class ApiClient(object):
         response = self._delete(
             app='provisioning', endpoint='/v{}/csp/environment/{}'.format(self.api_version, environment_id)
         )
+
         return Command(self, response)
 
     def delete_environments(self, environment_ids, stop=True):
@@ -7859,6 +7887,7 @@ class ApiClient(object):
             params=params,
             data=deployment_ids,
         )
+
         return Command(self, response)
 
     def update_deployment(self, deployment_id, body, complete='undefined', process_if_enabled='undefined'):
@@ -8058,17 +8087,27 @@ class ApiClient(object):
         initial_status = self.get_deployment(deployment_id).response.json()['status']
         wait_for_condition(condition=condition, timeout=timeout_sec, failure=failure, success=success)
 
-    def wait_for_deployment_state_display_label(self, deployment_id, state_display_label, timeout_sec=900):
+    def wait_for_deployment_state_display_label(
+        self,
+        deployment_id,
+        state_display_label,
+        timeout_sec=900,
+        treat_error_target_as_success: bool = False,
+    ):
         """Block until a deployment reaches the desired state_display_label.
 
         Args:
             deployment_id (:obj:`str`): The deployment id.
             state_display_label (:obj:`str`): The desired state_display_label to wait for.
             timeout_sec (:obj:`int`, optional): Timeout to wait for ``deployment`` to reach ``status``, in seconds.
-                Default: ``300``.
+                Default: ``900``.
+            treat_error_target_as_success (bool, optional): If True and `state_display_label` is an
+                error state (e.g., 'DEACTIVATION_ERROR'), reaching it will be treated as success
+                instead of raising. Default: False.
 
         Raises:
             TimeoutError: If ``timeout_sec`` passes without ``deployment`` reaching ``state_display_label``.
+            RuntimeError: If an unexpected error state is entered.
         """
 
         def condition():
@@ -8078,6 +8117,13 @@ class ApiClient(object):
 
             # Check that deployment transitioned into an error state
             error_states = ("ACTIVATION_ERROR", "DEACTIVATION_ERROR")
+            if (
+                treat_error_target_as_success
+                and state_display_label == 'DEACTIVATION_ERROR'
+                and current_state_display_label == 'DEACTIVATION_ERROR'
+            ):
+                return True
+
             if (
                 current_state_display_label in error_states
                 and current_state_display_label != initial_state_display_label
@@ -8099,6 +8145,24 @@ class ApiClient(object):
         logger.debug('deployment %s waiting for state_display_label %s ...', deployment_id, state_display_label)
         initial_state_display_label = self.get_deployment(deployment_id).response.json()['stateDisplayLabel']
         wait_for_condition(condition=condition, timeout=timeout_sec, failure=failure, success=success)
+
+    def force_stop_deployment(self, deployment_id: str, confirm: bool = False):
+        """Force stop a deployment.
+
+        Args:
+            deployment_id (:obj:`str`): Id of the deployment.
+            confirm (:obj:`bool`, optional): Must be True to actually perform the
+                force stop. Defaults to False.
+
+        Returns:
+            An instance of :py:class:`streamsets.sdk.sch_api.Command`.
+        """
+        response = self._post(
+            app='provisioning',
+            endpoint='/v{}/csp/deployment/{}/forceStop'.format(self.api_version, deployment_id),
+            params={'confirm': 'true' if confirm else 'false'},
+        )
+        return Command(self, response)
 
     def get_deployment_engine_token(self, deployment_id):
         """Fetches a Engine Token for the Deployment.
@@ -8255,27 +8319,6 @@ class ApiClient(object):
         """
         params = get_params(parameters=locals(), exclusions=('self', 'deployment_id'))
         endpoint = '/v{}/sdcs/cspDeployment/{}'.format(self.api_version, deployment_id)
-        response = self._get(app='jobrunner', endpoint=endpoint, params=params)
-        return Command(self, response)
-
-    def get_legacy_deployment_sdcs(
-        self, deployment_id, offset=None, len=None, order_by='LAST_REPORTED_TIME', order='ASC', with_wrapper=False
-    ):
-        """Returns all registered SDCs list for a Legacy Deployment ID.
-
-        Args:
-            deployment_id (:obj:`str`): Deployment ID
-            offset (:obj:`str`, optional): Default: ``None``
-            len (:obj:`int`, optional): Default: ``None``
-            order_by (:obj:`str`, optional): Default: ``'LAST_REPORTED_TIME'``
-            order (:obj:`str`, optional): Default: ``'ASC'``
-            with_wrapper (:obj:`bool`, optional): Default: ``None``
-
-        Returns:
-            An instance of :py:class:`streamsets.sdk.sch_api.Command`.
-        """
-        params = get_params(parameters=locals(), exclusions=('self', 'deployment_id'))
-        endpoint = '/v{}/sdcs/legacyDeployment/{}'.format(self.api_version, deployment_id)
         response = self._get(app='jobrunner', endpoint=endpoint, params=params)
         return Command(self, response)
 
@@ -8734,8 +8777,8 @@ class ApiClient(object):
         len_=100,
         offset=0,
         search='',
-        up_truncate=False,
         timeout=60000,
+        up_truncate=False,
     ):
         """Start a System Explorer search for a stage.
 
@@ -8753,9 +8796,9 @@ class ApiClient(object):
                 size of 1000. Default: 0
             search (:obj:`str`, optional):  The search query, an RSQL predicate where the Explorer schema elements of
                 the stage are the valid RSQL selector names. Default: ''
+            timeout (:obj:`int`, optional): Timeout in milliseconds for the search request. Default: 60000
             up_truncate (:obj:`bool`, optional): Return the result tree starting from the searched schema element.
                 Default: False
-            timeout (:obj:`int`, optional): Timeout in milliseconds for the search request. Default: 60000
 
         Returns:
             An instance of :py:class:`streamsets.sdk.sch_api.Command`.
@@ -9095,43 +9138,36 @@ class ApiClient(object):
         response = self._put(app="security", endpoint=f"/v{self.api_version}/project/{project_id}/groups", data=body)
         return Command(self, response)
 
-    def get_banner_api(self):
-        try:
-            response = self._get(app='banner', endpoint='swagger.json')
-            return response.json()
-        except HTTPError:
-            return None
-
     def get_provisioning_api(self):
-        response = self._get(app='provisioning', endpoint='swagger.json')
+        response = self._get(app='provisioning', endpoint='openapi.json')
         return response.json()
 
     def get_connection_api(self):
-        response = self._get(app='connection', endpoint='swagger.json')
+        response = self._get(app='connection', endpoint='openapi.json')
         return response.json()
 
     def get_security_api(self):
-        response = self._get(app='security', endpoint='swagger.json')
+        response = self._get(app='security', endpoint='openapi.json')
         return response.json()
 
     def get_pipelinestore_api(self):
-        response = self._get(app='pipelinestore', endpoint='swagger.json')
+        response = self._get(app='pipelinestore', endpoint='openapi.json')
         return response.json()
 
     def get_job_api(self):
-        response = self._get(app='jobrunner', endpoint='swagger.json')
+        response = self._get(app='jobrunner', endpoint='openapi.json')
         return response.json()
 
     def get_topology_api(self):
-        response = self._get(app='topology', endpoint='swagger.json')
+        response = self._get(app='topology', endpoint='openapi.json')
         return response.json()
 
     def get_scheduler_api(self):
-        response = self._get(app='scheduler', endpoint='swagger.json')
+        response = self._get(app='scheduler', endpoint='openapi.json')
         return response.json()
 
     def get_notification_api(self):
-        response = self._get(app='notification', endpoint='swagger.json')
+        response = self._get(app='notification', endpoint='openapi.json')
         return response.json()
 
     def get_translations_json(self):
@@ -9139,15 +9175,12 @@ class ApiClient(object):
         return response.json()
 
     def get_sla_api(self):
-        response = self._get(app='sla', endpoint='swagger.json')
+        response = self._get(app='sla', endpoint='openapi.json')
         return response.json()
 
     def get_sequencing_api(self):
-        try:
-            response = self._get(app='sequencing', endpoint='swagger.json')
-            return response.json()
-        except Exception:
-            return None
+        response = self._get(app='sequencing', endpoint='openapi.json')
+        return response.json()
 
     # Internal functions only below.
     def _update_project_param_based_on_app(self, app, params):
@@ -9163,7 +9196,7 @@ class ApiClient(object):
         if app in APPS_REQUIRING_PROJECT_ID:
             params.update(get_params({'project': self.current_project_id}))
 
-    @retry_on_connection_error
+    @http_retry()
     def _delete(self, app, endpoint, rest='rest', params=None):
         # update params with which project we are running in
         params = params or {}
@@ -9175,7 +9208,7 @@ class ApiClient(object):
         self._handle_http_error(response)
         return response
 
-    @retry_on_connection_error
+    @http_retry()
     def _delete_via_tunneling(
         self, endpoint, tunneling_instance_id, rest='rest', tunneling='tunneling', engine_id=None, params=None
     ):
@@ -9197,7 +9230,7 @@ class ApiClient(object):
         self._handle_http_error(response)
         return response
 
-    @retry_on_connection_error
+    @http_retry()
     def _get(self, endpoint, app=None, rest='rest', params=None, headers=None, absolute_endpoint=False):
         # update params with which project we are running in
         params = params or {}
@@ -9209,7 +9242,7 @@ class ApiClient(object):
         self._handle_http_error(response)
         return response
 
-    @retry_on_connection_error
+    @http_retry()
     def _get_via_tunneling(
         self, endpoint, tunneling_instance_id, rest='rest', tunneling='tunneling', engine_id=None, params=None
     ):
@@ -9231,7 +9264,7 @@ class ApiClient(object):
         self._handle_http_error(response)
         return response
 
-    @retry_on_connection_error
+    @http_retry()
     def _post(
         self, endpoint, app=None, rest='rest', params=None, data=None, files=None, headers=None, absolute_endpoint=False
     ):
@@ -9249,7 +9282,7 @@ class ApiClient(object):
         self._handle_http_error(response)
         return response
 
-    @retry_on_connection_error
+    @http_retry()
     def _post_via_tunneling(
         self,
         endpoint,
@@ -9276,7 +9309,7 @@ class ApiClient(object):
         self._handle_http_error(response)
         return response
 
-    @retry_on_connection_error
+    @http_retry()
     def _put(self, app, endpoint, rest='rest', params=None, data=None):
         # update params with which project we are running in
         params = params or {}
@@ -9288,7 +9321,7 @@ class ApiClient(object):
         self._handle_http_error(response)
         return response
 
-    @retry_on_connection_error
+    @http_retry()
     def _put_via_tunneling(
         self,
         endpoint,
@@ -9327,7 +9360,7 @@ class ApiClient(object):
                 for issue in response.json().get('ISSUES', []):
                     code = issue.get('code', '')
                     if code.startswith('JOBRUNNER'):
-                        errors.append(JobRunnerError(code=code, message=issue['message']))
+                        errors.append(JobRunnerError(code=code, message=issue['message'], response=response))
                     elif code.startswith('CONNECTION'):
                         errors.append(ConnectionError(code=code, message=issue['message']))
                     elif code == "RESTAPI_08":
@@ -9566,7 +9599,7 @@ class StartJobsCommand(Command):
         def all_pipeline_instances_running(job):
             job.refresh()
             pipeline_instance_engines = (
-                job.data_collectors if getattr(job, 'executor_type', 'COLLECTOR') == 'COLLECTOR' else job.transformers
+                job.data_collectors if job.engine_type in [COLLECTOR.value, None] else job.transformers
             )
             logger.debug(
                 'Pipeline instance engines: %s', ', '.join(engine.url for engine in pipeline_instance_engines) or 'none'
@@ -9579,7 +9612,7 @@ class StartJobsCommand(Command):
             job.refresh()
             logger.debug('Saw job status <%s, %s>.', job.status.status, job.status.color)
             pipeline_instance_engines = (
-                job.data_collectors if getattr(job, 'executor_type', 'COLLECTOR') == 'COLLECTOR' else job.transformers
+                job.data_collectors if job.engine_type in [COLLECTOR.value, None] else job.transformers
             )
             for pipeline_status in job.pipeline_status:
                 logger.debug(
@@ -9623,7 +9656,7 @@ class StartJobsCommand(Command):
                 continue
 
             logger.debug('Waiting for job %s to start successfully ...', job.job_name)
-            if job.executor_type != 'SNOWPARK':
+            if job.engine_type != SNOWPARK.value:
                 logger.debug(
                     'Waiting for %s pipeline %s ...',
                     job.number_of_instances,
@@ -9653,19 +9686,6 @@ class JobStartStopCommand(Command):
         self.api_client.wait_for_job_status(self.response.json()['jobId'], status, timeout_sec)
 
 
-class DeploymentStartStopCommand(Command):
-    """Command to interact with the response of Start/Stop Deployment."""
-
-    def wait_for_legacy_deployment_statuses(self, statuses, timeout_sec=300):
-        """Wait for deployment statuses.
-
-        Args:
-            statuses (:obj:`list`): List of Deployment statuses.
-            timeout_sec (:obj:`int`, optional): Timeout for wait, in seconds. Default: ``300``.
-        """
-        self.api_client.wait_for_legacy_deployment_statuses(self.response.json()['deploymentId'], statuses, timeout_sec)
-
-
 class AdminToolApiClient(object):
     """
     API client to communicate with a ControlHub admin tool.
@@ -9674,7 +9694,7 @@ class AdminToolApiClient(object):
         base_url (:obj:`str`): ControlHub instance's server URL.
         username (:obj:`str`): ControlHub username.
         password (:obj:`str`): ControlHub password.
-        api_version (:obj:`int`, optional): The DPM API version. Default: :py:const:`DEFAULT_DPM_API_VERSION`
+        api_version (:obj:`int`, optional): The Control Hub API version. Default: :py:const:`DEFAULT_SCH_API_VERSION`
     """
 
     def __init__(self, base_url, username, password, api_version=DEFAULT_SCH_API_VERSION):

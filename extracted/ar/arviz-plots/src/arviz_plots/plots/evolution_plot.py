@@ -9,6 +9,7 @@ import numpy as np
 import xarray as xr
 from arviz_base import rcParams
 from arviz_base.labels import BaseLabeller
+from arviz_base.validate import validate_dict_argument, validate_sample_dims
 
 from arviz_plots.plot_collection import PlotCollection
 from arviz_plots.plots.utils import (
@@ -247,23 +248,15 @@ def plot_ess_evolution(
         assessing convergence of MCMC*. Bayesian Analysis. 16(2) (2021)
         https://doi.org/10.1214/20-BA1221. arXiv preprint https://arxiv.org/abs/1903.08008
     """
-    # initial defaults
-    if sample_dims is None:
-        sample_dims = rcParams["data.sample_dims"]
-    if isinstance(sample_dims, str):
-        sample_dims = [sample_dims]
-
-    # mutable inputs
-    if visuals is None:
-        visuals = {}
-
-    if stats is None:
-        stats = {}
+    aes_by_visuals = validate_dict_argument(aes_by_visuals, (plot_ess_evolution, "aes_by_visuals"))
+    visuals = validate_dict_argument(visuals, (plot_ess_evolution, "visuals"))
+    stats = validate_dict_argument(stats, (plot_ess_evolution, "stats"))
 
     # processing dt/group/coords/filtering
     distribution = process_group_variables_coords(
         dt, group=group, var_names=var_names, filter_vars=filter_vars, coords=coords
     )
+    sample_dims = validate_sample_dims(sample_dims, data=distribution)
 
     if backend is None:
         if plot_collection is None:
@@ -292,10 +285,6 @@ def plot_ess_evolution(
         )
 
     # set plot collection dependent defaults (like aesthetics mappings for each visual)
-    if aes_by_visuals is None:
-        aes_by_visuals = {}
-    else:
-        aes_by_visuals = aes_by_visuals.copy()
     aes_by_visuals.setdefault("ess_bulk", plot_collection.aes_set)
     aes_by_visuals.setdefault("ess_bulk_line", plot_collection.aes_set)
     aes_by_visuals.setdefault("ess_tail", plot_collection.aes_set)
@@ -324,44 +313,6 @@ def plot_ess_evolution(
 
     ess_bulk_dataset = None
 
-    # defining common ess_dataset computing function
-    def compute_ess_dataset(
-        distribution,
-        xdata,
-        draw_divisions,
-        method,  # "bulk" or "tail"
-        method_dims,  # bulk_dims or tail_dims
-        relative,
-        stats,
-    ):
-        first_sample_dim = sample_dims[-1]  # take the last dim of the sample dims
-        ess_y_dataset = xr.concat(
-            [
-                distribution.isel(({first_sample_dim: slice(None, draw_div)})).azstats.ess(
-                    sample_dims=method_dims,
-                    method=method,
-                    relative=relative,
-                    **stats.get(f"ess_{method}", {}),
-                )
-                for draw_div in draw_divisions
-            ],
-            dim="ess_dim",
-        )
-
-        # converting xdata into an xr dataarray
-        xdata_da = xr.DataArray(xdata, dims="ess_dim")
-        # broadcasting xdata_da to match shape of each variable in ess_y_dataset and
-        # creating a new dataset from dict of broadcasted xdata
-        xdata_dataset = xr.Dataset(
-            {var_name: xdata_da.broadcast_like(da) for var_name, da in ess_y_dataset.items()}
-        )
-        # concatenating xdata_dataset and ess_y_dataset along plot_axis
-        ess_dataset = xr.concat([xdata_dataset, ess_y_dataset], dim="plot_axis").assign_coords(
-            plot_axis=["x", "y"]
-        )
-
-        return ess_dataset
-
     bulk_kwargs = get_visual_kwargs(visuals, "ess_bulk")
     if bulk_kwargs is not False:
         bulk_dims, bulk_aes, bulk_ignore = filter_aes(
@@ -372,6 +323,7 @@ def plot_ess_evolution(
             distribution,
             xdata,
             draw_divisions,
+            sample_dims,
             "bulk",
             bulk_dims,
             relative,
@@ -396,6 +348,7 @@ def plot_ess_evolution(
                 distribution,
                 xdata,
                 draw_divisions,
+                sample_dims,
                 "bulk",
                 bulk_line_dims,
                 relative,
@@ -426,6 +379,7 @@ def plot_ess_evolution(
             distribution,
             xdata,
             draw_divisions,
+            sample_dims,
             "tail",
             tail_dims,
             relative,
@@ -451,6 +405,7 @@ def plot_ess_evolution(
                 distribution,
                 xdata,
                 draw_divisions,
+                sample_dims,
                 "tail",
                 tail_line_dims,
                 relative,
@@ -652,10 +607,9 @@ def plot_ess_evolution(
         if "color" not in ylabels_aes:
             ylabel_kwargs.setdefault("color", "B1")
 
-        ylabel = "{}"
         ylabel_kwargs.setdefault(
             "text",
-            ylabel.format("Relative ESS") if relative is not False else ylabel.format("ESS"),
+            "Relative ESS" if relative is not False else "ESS",
         )
 
         plot_collection.map(
@@ -667,3 +621,43 @@ def plot_ess_evolution(
         )
 
     return plot_collection
+
+
+def compute_ess_dataset(
+    distribution,
+    xdata,
+    draw_divisions,
+    sample_dims,
+    method,  # "bulk" or "tail"
+    method_dims,  # bulk_dims or tail_dims
+    relative,
+    stats,
+):
+    """Compute ess for all relevant subsets (internal helper)."""
+    first_sample_dim = sample_dims[-1]  # take the last dim of the sample dims
+    ess_y_dataset = xr.concat(
+        [
+            distribution.isel(({first_sample_dim: slice(None, draw_div)})).azstats.ess(
+                sample_dims=method_dims,
+                method=method,
+                relative=relative,
+                **stats.get(f"ess_{method}", {}),
+            )
+            for draw_div in draw_divisions
+        ],
+        dim="ess_dim",
+    )
+
+    # converting xdata into an xr dataarray
+    xdata_da = xr.DataArray(xdata, dims="ess_dim")
+    # broadcasting xdata_da to match shape of each variable in ess_y_dataset and
+    # creating a new dataset from dict of broadcasted xdata
+    xdata_dataset = xr.Dataset(
+        {var_name: xdata_da.broadcast_like(da) for var_name, da in ess_y_dataset.items()}
+    )
+    # concatenating xdata_dataset and ess_y_dataset along plot_axis
+    ess_dataset = xr.concat([xdata_dataset, ess_y_dataset], dim="plot_axis").assign_coords(
+        plot_axis=["x", "y"]
+    )
+
+    return ess_dataset

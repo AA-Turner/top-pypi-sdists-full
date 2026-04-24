@@ -277,7 +277,20 @@ def _get_underlying_type(t: type, feature_name: str) -> type:
     return t
 
 
-def _parse_agg_function_call(expr: Underscore | None) -> Tuple[str, Underscore, FrozenOrderedSet[Tuple[str, Any]]]:
+def _parse_simple_feature_ref(arg_name: str, arg_val: Any) -> str:
+    """
+    Turns a simple underscore feature reference such as _.a into a while performing validation
+    This is temporary as we should move this parsing to engine
+    """
+    if isinstance(arg_val, UnderscoreAttr):
+        if isinstance(arg_val._chalk__parent, UnderscoreRoot):
+            return arg_val._chalk__attr
+    raise ChalkParseError(f"expected a feature for '{arg_name}', like `_.amount`, but got {arg_val}")
+
+
+def _parse_agg_function_call(
+    expr: Underscore | None,
+) -> Tuple[str, Underscore, FrozenOrderedSet[Tuple[str, Any]], list[str]]:
     if not isinstance(expr, UnderscoreCall):
         raise ChalkParseError(
             "missing aggregation function call for materialized aggregate feature -- if materialization is enabled, the expression must include an aggregation function (e.g. .count())"
@@ -294,17 +307,31 @@ def _parse_agg_function_call(expr: Underscore | None) -> Tuple[str, Underscore, 
         raise ChalkParseError(f"aggregation should be one of {', '.join(supported_aggs)}")
 
     opts = FrozenOrderedSet()
+    additional_features = list[str]()
     if aggregation == "approx_top_k":
         # Special arg validation for approx_top_k, first_k, and last_k.
         if len(call_expr._chalk__args) > 0:
             raise ChalkParseError("should not have any positional arguments")
-        elif {"k"} != call_expr._chalk__kwargs.keys():
-            raise ChalkParseError("expecting exactly one required keyword argument 'k'")
+        allowed_kwargs = {"k", "by", "return_total_weight"}
+        unexpected_kwargs = call_expr._chalk__kwargs.keys() - allowed_kwargs
+        if unexpected_kwargs:
+            raise ChalkParseError(
+                f"unexpected keyword arguments for 'approx_top_k': {', '.join(sorted(unexpected_kwargs))}"
+            )
+        elif "k" not in call_expr._chalk__kwargs.keys():
+            raise ChalkParseError("expecting keyword argument 'k' for 'approx_top_k'")
         elif not isinstance(call_expr._chalk__kwargs.get("k"), int):
             raise ChalkParseError(
                 f"expecting 'int' type argument for 'k', but received arg of type '{type(call_expr._chalk__kwargs.get('k'))}'"
             )
-        opts = FrozenOrderedSet(call_expr._chalk__kwargs.items())
+        if "by" in call_expr._chalk__kwargs.keys():
+            additional_features.append(_parse_simple_feature_ref("by", call_expr._chalk__kwargs.get("by")))
+        # Keep only `k` in the materialization's `aggregation_kwargs`. `by` is lifted into
+        # `additional_features` above. `return_total_weight` is read from the underscore expression kwargs
+        # Only `k` survives round-tripping in the proto
+        opts = FrozenOrderedSet(
+            (k, v) for k, v in call_expr._chalk__kwargs.items() if k not in ("by", "return_total_weight")
+        )
     elif aggregation == "approx_percentile":
         if len(call_expr._chalk__args) > 0:
             raise ChalkParseError("should not have any positional arguments")
@@ -323,6 +350,9 @@ def _parse_agg_function_call(expr: Underscore | None) -> Tuple[str, Underscore, 
             raise ChalkParseError("should not have any keyword arguments")
         if len(call_expr._chalk__args) != 2:
             raise ChalkParseError("expecting exactly two positional arguments, 'by' and 'k'")
+        # The first positional arg is the comparator feature (the `by` column).
+        # Add it as an additional feature so downstream knows to sort by that column
+        additional_features.append(_parse_simple_feature_ref("by", call_expr._chalk__args[0]))
         if not isinstance(call_expr._chalk__args[1], int):
             raise ChalkParseError(
                 f"expecting 'int' type argument for 'k', but received arg of type '{type(call_expr._chalk__args[1])}'"
@@ -331,7 +361,7 @@ def _parse_agg_function_call(expr: Underscore | None) -> Tuple[str, Underscore, 
     elif len(call_expr._chalk__args) > 0 or len(call_expr._chalk__kwargs) > 0:
         raise ChalkParseError("should not have any arguments or keyword arguments")
 
-    return aggregation, function_attribute._chalk__parent, opts
+    return aggregation, function_attribute._chalk__parent, opts, additional_features
 
 
 def _parse_projection(expr: Underscore | None) -> str:
@@ -350,8 +380,8 @@ def _get_has_many_class(
     parent: Type[Features],
     has_many_feature_name: str,
     group_names: list[str],
-    aggregated_feature_name: str | None,
-) -> Tuple[Type[Features], list[Feature], Feature | None]:
+    aggregated_feature_names: list[str],
+) -> Tuple[Type[Features], list[Feature], list[Feature]]:
     """
     If the has-many class and aggregated features are found:
         Tuple[
@@ -395,22 +425,27 @@ def _get_has_many_class(
             )
         group_by_features.append(joined_feature)
 
-    if aggregated_feature_name is None:
-        return joined_class, group_by_features, None
+    aggregated_features = list[Feature]()
 
-    aggregated_feature_wrapper = getattr(joined_class, aggregated_feature_name, None)
-    if aggregated_feature_wrapper is None:
-        raise ChalkParseError(
-            f"joined class '{_get_printable_name(joined_class)}' missing feature '{aggregated_feature_name}'"
-        )
+    for aggregated_feature_name in aggregated_feature_names:
+        aggregated_feature_wrapper = getattr(joined_class, aggregated_feature_name, None)
+        if aggregated_feature_wrapper is None and aggregated_feature_name == "ts":
+            # if feature's name is 'ts' and joined_class doesn't have it, assume it's '__chalk_ts__'
+            aggregated_feature_wrapper = joined_class.__chalk_ts__
 
-    aggregated_feature = unwrap_feature(aggregated_feature_wrapper)
-    if not aggregated_feature.is_scalar:
-        raise ChalkParseError(
-            f"joined feature '{aggregated_feature.window_stem}' not a scalar, like a 'float' or an 'int'"
-        )
+        if aggregated_feature_wrapper is None:
+            raise ChalkParseError(
+                f"joined class '{_get_printable_name(joined_class)}' missing feature '{aggregated_feature_name}'"
+            )
 
-    return joined_class, group_by_features, aggregated_feature
+        aggregated_feature = unwrap_feature(aggregated_feature_wrapper)
+        if not aggregated_feature.is_scalar and not aggregated_feature.is_feature_time:
+            raise ChalkParseError(
+                f"joined feature '{aggregated_feature.window_stem}' not a scalar, like a 'float' or an 'int'"
+            )
+        aggregated_features.append(aggregated_feature)
+
+    return joined_class, group_by_features, aggregated_features
 
 
 def run_post_import_fixups():
@@ -505,7 +540,7 @@ def parse_grouped_window(f: Feature) -> WindowConfigResolved:
 
     aggregation_expr = call_expr._chalk__args[0]
 
-    aggregation, par, aggregation_kwargs = _parse_agg_function_call(aggregation_expr)
+    aggregation, par, aggregation_kwargs, additional_features = _parse_agg_function_call(aggregation_expr)
 
     # If it's an error, we'll tolerate `.count()`, so leave it be for now.
     try:
@@ -555,16 +590,18 @@ def parse_grouped_window(f: Feature) -> WindowConfigResolved:
 
     has_many_name = _parse_projection(has_many_parent)
 
-    joined_class, group_key_features, aggregated_feature = _get_has_many_class(
+    aggregate_on_names = ([] if child_feature_name is None else [child_feature_name]) + additional_features
+
+    joined_class, group_key_features, aggregated_features = _get_has_many_class(
         parent=f.features_cls,
         has_many_feature_name=has_many_name,
         group_names=group_keys,
-        aggregated_feature_name=child_feature_name,
+        aggregated_feature_names=aggregate_on_names,
     )
     _check_types(
         feature_name=f.name,
         aggregation=aggregation,
-        joined_feature=aggregated_feature,
+        joined_feature=aggregated_features[0] if aggregated_features else None,
         this_annotation=kind,
     )
 
@@ -580,7 +617,7 @@ def parse_grouped_window(f: Feature) -> WindowConfigResolved:
         bucket_duration_seconds=bucket_duration_seconds,
         bucket_start=bucket_start,
         aggregation=aggregation,
-        aggregate_on=aggregated_feature,
+        aggregate_on=aggregated_features,
         aggregation_kwargs=aggregation_kwargs,
         pyarrow_dtype=pyarrow_dtype,
         filters=parsed_filters,
@@ -699,7 +736,9 @@ def clean_filters(joined_class: Type[Features], filters: list[UnderscoreFunction
 def parse_windowed_materialization(f: Feature) -> WindowConfigResolved | None:
     if f.window_duration is None:
         return None
-    aggregation, getitem_expression, aggregation_kwargs = _parse_agg_function_call(f.underscore_expression)
+    aggregation, getitem_expression, aggregation_kwargs, additional_features = _parse_agg_function_call(
+        f.underscore_expression
+    )
 
     filters: list[UnderscoreFunction] = []
     aggregated_value = None
@@ -741,11 +780,13 @@ def parse_windowed_materialization(f: Feature) -> WindowConfigResolved | None:
     if f.features_cls is None:
         raise ChalkParseError("feature class is None")
 
-    joined_class, group_by_features, aggregated_feature = _get_has_many_class(
+    aggregate_on_names = ([] if aggregated_value is None else [aggregated_value]) + additional_features
+
+    joined_class, group_by_features, aggregated_features = _get_has_many_class(
         parent=f.features_cls,
         has_many_feature_name=child_attr_name,
         group_names=[],
-        aggregated_feature_name=aggregated_value,
+        aggregated_feature_names=aggregate_on_names,
     )
 
     if aggregation == "sum" or aggregation == "mean":
@@ -759,7 +800,7 @@ def parse_windowed_materialization(f: Feature) -> WindowConfigResolved | None:
     _check_types(
         feature_name=f.window_stem,
         aggregation=aggregation,
-        joined_feature=aggregated_feature,
+        joined_feature=aggregated_features[0] if aggregated_features else None,
         this_annotation=f.typ.parsed_annotation,
     )
 
@@ -823,7 +864,7 @@ def parse_windowed_materialization(f: Feature) -> WindowConfigResolved | None:
         bucket_duration_seconds=int(bucket_duration.total_seconds()),
         bucket_start=bucket_start,
         aggregation=aggregation,
-        aggregate_on=aggregated_feature,
+        aggregate_on=aggregated_features,
         aggregation_kwargs=aggregation_kwargs,
         pyarrow_dtype=f.converter.pyarrow_dtype,
         filters=parsed_filters,

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import os
 from typing import Any
 
@@ -31,17 +32,9 @@ def set_working_dir(d: str) -> None:
     _working_dir = d
 
 
-async def handle(path: str, offset: int = 1, limit: int | None = None, **_: Any) -> dict[str, Any]:
-    resolved, error = validate_path(path, _working_dir)
-    if error:
-        return {"error": error}
-    if not os.path.isfile(resolved):
-        return {"error": f"File not found: {path}"}
-    try:
-        with open(resolved, encoding="utf-8", errors="replace") as f:
-            lines = f.readlines()
-    except OSError:
-        return {"error": "Unable to read file"}
+def _read_numbered_content(resolved: str, offset: int, limit: int | None) -> tuple[str, int, int]:
+    with open(resolved, encoding="utf-8", errors="replace") as f:
+        lines = f.readlines()
 
     start = max(0, offset - 1)
     end = start + limit if limit else len(lines)
@@ -55,4 +48,18 @@ async def handle(path: str, offset: int = 1, limit: int | None = None, **_: Any)
     if len(content) > _MAX_OUTPUT:
         content = content[:_MAX_OUTPUT] + "\n... (truncated)"
 
-    return {"content": content, "total_lines": len(lines), "lines_shown": len(selected)}
+    return content, len(lines), len(selected)
+
+
+async def handle(path: str, offset: int = 1, limit: int | None = None, **_: Any) -> dict[str, Any]:
+    resolved, error = validate_path(path, _working_dir)
+    if error:
+        return {"error": error}
+    if not os.path.isfile(resolved):
+        return {"error": f"File not found: {path}"}
+    try:
+        content, total_lines, lines_shown = await asyncio.to_thread(_read_numbered_content, resolved, offset, limit)
+    except OSError:
+        return {"error": "Unable to read file"}
+
+    return {"content": content, "total_lines": total_lines, "lines_shown": lines_shown}

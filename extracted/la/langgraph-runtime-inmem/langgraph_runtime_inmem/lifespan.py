@@ -35,7 +35,11 @@ async def lifespan(
     )
     from langgraph_api import store as api_store  # noqa: PLC0415
     from langgraph_api.asyncio import SimpleTaskGroup, set_event_loop  # noqa: PLC0415
-    from langgraph_api.http import start_http_client, stop_http_client  # noqa: PLC0415
+    from langgraph_api.http import (  # noqa: PLC0415
+        start_http_client,
+        stop_http_client,
+        stop_webhook_http_client,
+    )
     from langgraph_api.js.ui import start_ui_bundler, stop_ui_bundler  # noqa: PLC0415
     from langgraph_api.metadata import metadata_loop  # noqa: PLC0415
 
@@ -135,6 +139,7 @@ async def lifespan(
         await stop_ui_bundler()
         await graph.stop_remote_graphs()
         await stop_http_client()
+        await stop_webhook_http_client()
         await stop_pool()
 
 

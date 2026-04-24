@@ -55,6 +55,7 @@ from chalk.utils.df_utils import (
 )
 from chalk.utils.duration import Duration, parse_chalk_duration
 from chalk.utils.missing_dependency import missing_dependency_exception
+from chalk.utils.pandas_utils import is_pandas_dataframe, require_pandas
 from chalk.utils.pl_helpers import (
     polars_group_by_instead_of_groupby,
     polars_hist_column_is_breakpoint,
@@ -361,18 +362,12 @@ class DataFrame(metaclass=DataFrameMeta):
                 DeprecationWarning("ChalkDataFrameImpl(pandas_dataframe=...) has been renamed to DataFrame(data=...)")
             )
             data = pandas_dataframe
-        try:
-            import pandas as pd
-        except ImportError:
-            pass
-        else:
-            if isinstance(data, pd.DataFrame):
-                # Convert the columns to root fqn strings
-                # str(Feature) and str(FeatureWrapper) return the root fqns
-                data = data.rename(columns={k: str(k) for k in data.columns})
-                assert isinstance(data, pd.DataFrame)
-                data.columns = data.columns.astype("string")
-                data = pl.from_pandas(data)
+        if is_pandas_dataframe(data):
+            # Convert the columns to root fqn strings
+            # str(Feature) and str(FeatureWrapper) return the root fqns
+            data = data.rename(columns={k: str(k) for k in data.columns})
+            data.columns = data.columns.astype("string")
+            data = pl.from_pandas(data)
         if isinstance(data, pa.RecordBatch):
             data = pa.Table.from_batches([data])
         if isinstance(data, pa.Table):
@@ -2023,13 +2018,8 @@ class DataFrame(metaclass=DataFrameMeta):
             other = other.to_polars()
         if isinstance(other, pl.LazyFrame):
             other = other.collect()
-        try:
-            import pandas as pd
-        except ImportError:
-            pass
-        else:
-            if isinstance(other, pd.DataFrame):
-                other = pl.from_pandas(other)
+        if is_pandas_dataframe(other):
+            other = pl.from_pandas(other)
         if op in ("eq", "ne", "lt", "le", "ge", "gt"):
             if isinstance(other, pl.DataFrame):
                 return self._perform_comp_df(op, other, convert_dtypes=convert_dtypes)
@@ -2263,10 +2253,7 @@ class DataFrame(metaclass=DataFrameMeta):
         pandas.DataFrame
             The data formatted as a `pandas.DataFrame`.
         """
-        try:
-            import pandas as pd
-        except:
-            raise missing_dependency_exception("chalkpy[pandas]")
+        pd = require_pandas()
 
         def types_mapper(dtype: pa.DataType):
             if dtype in (pa.utf8(), pa.large_utf8()):

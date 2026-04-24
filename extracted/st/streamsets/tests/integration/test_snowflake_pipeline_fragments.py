@@ -1,4 +1,6 @@
-# Copyright 2022 StreamSets Inc.
+#  IBM Confidential
+#  PID 5900-BAF
+#  Copyright StreamSets Inc., an IBM Company 2024
 
 # fmt: off
 import json
@@ -240,8 +242,8 @@ def test_update_pipelines_with_different_fragment_version(sch):
         )
         assert len(pipeline.commits) == 2
     finally:
-        sch.delete_pipeline(sch.pipelines.get(pipeline_id=pipeline.pipeline_id))
-        sch.delete_pipeline(sch.pipelines.get(pipeline_id=fragment.pipeline_id, fragment=True))
+        sch.delete_pipeline(sch.pipelines.get(id=pipeline.id))
+        sch.delete_pipeline(sch.pipelines.get(id=fragment.id, fragment=True))
 
 
 @pytest.fixture(scope='module')

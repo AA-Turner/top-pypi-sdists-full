@@ -688,6 +688,8 @@ class BatchReport(_message.Message):
         "generated_at",
         "all_errors",
         "operation_metadata",
+        "started_at",
+        "ended_at",
     )
     OPERATION_ID_FIELD_NUMBER: _ClassVar[int]
     OPERATION_KIND_FIELD_NUMBER: _ClassVar[int]
@@ -701,6 +703,8 @@ class BatchReport(_message.Message):
     GENERATED_AT_FIELD_NUMBER: _ClassVar[int]
     ALL_ERRORS_FIELD_NUMBER: _ClassVar[int]
     OPERATION_METADATA_FIELD_NUMBER: _ClassVar[int]
+    STARTED_AT_FIELD_NUMBER: _ClassVar[int]
+    ENDED_AT_FIELD_NUMBER: _ClassVar[int]
     operation_id: str
     operation_kind: BatchOpKind
     status: BatchOpStatus
@@ -713,6 +717,8 @@ class BatchReport(_message.Message):
     generated_at: _timestamp_pb2.Timestamp
     all_errors: _containers.RepeatedCompositeFieldContainer[_chalk_error_pb2.ChalkError]
     operation_metadata: _struct_pb2.Value
+    started_at: _timestamp_pb2.Timestamp
+    ended_at: _timestamp_pb2.Timestamp
     def __init__(
         self,
         operation_id: _Optional[str] = ...,
@@ -727,6 +733,8 @@ class BatchReport(_message.Message):
         generated_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         all_errors: _Optional[_Iterable[_Union[_chalk_error_pb2.ChalkError, _Mapping]]] = ...,
         operation_metadata: _Optional[_Union[_struct_pb2.Value, _Mapping]] = ...,
+        started_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        ended_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
     ) -> None: ...
 
 class GetBatchReportRequest(_message.Message):

@@ -27,6 +27,7 @@ class MwsCredentialsArgs:
                  external_id: Optional[pulumi.Input[_builtins.str]] = None):
         """
         The set of arguments for constructing a MwsCredentials resource.
+
         :param pulumi.Input[_builtins.str] credentials_name: name of credentials to register
         :param pulumi.Input[_builtins.str] role_arn: ARN of cross-account role
         :param pulumi.Input[_builtins.str] account_id: **(Deprecated)** Maintained for backwards compatibility and will be removed in a later version. It should now be specified under a provider instance where `host = "https://accounts.cloud.databricks.com"`
@@ -129,6 +130,7 @@ class _MwsCredentialsState:
                  role_arn: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering MwsCredentials resources.
+
         :param pulumi.Input[_builtins.str] account_id: **(Deprecated)** Maintained for backwards compatibility and will be removed in a later version. It should now be specified under a provider instance where `host = "https://accounts.cloud.databricks.com"`
         :param pulumi.Input[_builtins.int] creation_time: (Integer) time of credentials registration
         :param pulumi.Input[_builtins.str] credentials_id: (String) identifier of credentials
@@ -255,12 +257,12 @@ class MwsCredentials(pulumi.CustomResource):
         # Names of created resources will be prefixed with this value
         prefix = config.require_object("prefix")
         this = databricks.get_aws_assume_role_policy(external_id=databricks_account_id)
-        cross_account_role = aws.index.IamRole("cross_account_role",
+        cross_account_role = aws.IamRole("cross_account_role",
             name=f{prefix}-crossaccount,
             assume_role_policy=this.json,
             tags=tags)
         this_get_aws_cross_account_policy = databricks.get_aws_cross_account_policy()
-        this_iam_role_policy = aws.index.IamRolePolicy("this",
+        this_iam_role_policy = aws.IamRolePolicy("this",
             name=f{prefix}-policy,
             role=cross_account_role.id,
             policy=this_get_aws_cross_account_policy.json)
@@ -279,6 +281,7 @@ class MwsCredentials(pulumi.CustomResource):
         * MwsNetworks to [configure VPC](https://docs.databricks.com/administration-guide/cloud-configurations/aws/customer-managed-vpc.html) & subnets for new workspaces within AWS.
         * MwsStorageConfigurations to configure root bucket new workspaces within AWS.
         * MwsWorkspaces to set up [AWS and GCP workspaces](https://docs.databricks.com/getting-started/overview.html#e2-architecture-1).
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -314,12 +317,12 @@ class MwsCredentials(pulumi.CustomResource):
         # Names of created resources will be prefixed with this value
         prefix = config.require_object("prefix")
         this = databricks.get_aws_assume_role_policy(external_id=databricks_account_id)
-        cross_account_role = aws.index.IamRole("cross_account_role",
+        cross_account_role = aws.IamRole("cross_account_role",
             name=f{prefix}-crossaccount,
             assume_role_policy=this.json,
             tags=tags)
         this_get_aws_cross_account_policy = databricks.get_aws_cross_account_policy()
-        this_iam_role_policy = aws.index.IamRolePolicy("this",
+        this_iam_role_policy = aws.IamRolePolicy("this",
             name=f{prefix}-policy,
             role=cross_account_role.id,
             policy=this_get_aws_cross_account_policy.json)
@@ -338,6 +341,7 @@ class MwsCredentials(pulumi.CustomResource):
         * MwsNetworks to [configure VPC](https://docs.databricks.com/administration-guide/cloud-configurations/aws/customer-managed-vpc.html) & subnets for new workspaces within AWS.
         * MwsStorageConfigurations to configure root bucket new workspaces within AWS.
         * MwsWorkspaces to set up [AWS and GCP workspaces](https://docs.databricks.com/getting-started/overview.html#e2-architecture-1).
+
 
         :param str resource_name: The name of the resource.
         :param MwsCredentialsArgs args: The arguments to use to populate this resource's properties.

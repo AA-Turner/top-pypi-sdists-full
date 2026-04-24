@@ -195,6 +195,16 @@ class TeamServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_team__pb2.AssignScimGroupEnvironmentRoleRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.AssignScimGroupEnvironmentRoleResponse.FromString,
         )
+        self.DeleteScimGroup = channel.unary_unary(
+            "/chalk.server.v1.TeamService/DeleteScimGroup",
+            request_serializer=chalk_dot_server_dot_v1_dot_team__pb2.DeleteScimGroupRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.DeleteScimGroupResponse.FromString,
+        )
+        self.DeleteScimGroupUsers = channel.unary_unary(
+            "/chalk.server.v1.TeamService/DeleteScimGroupUsers",
+            request_serializer=chalk_dot_server_dot_v1_dot_team__pb2.DeleteScimGroupUsersRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.DeleteScimGroupUsersResponse.FromString,
+        )
         self.CreateCustomRole = channel.unary_unary(
             "/chalk.server.v1.TeamService/CreateCustomRole",
             request_serializer=chalk_dot_server_dot_v1_dot_team__pb2.CreateCustomRoleRequest.SerializeToString,
@@ -441,6 +451,18 @@ class TeamServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def DeleteScimGroup(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def DeleteScimGroupUsers(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
     def CreateCustomRole(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -647,6 +669,16 @@ def add_TeamServiceServicer_to_server(servicer, server):
             servicer.AssignScimGroupEnvironmentRole,
             request_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.AssignScimGroupEnvironmentRoleRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_team__pb2.AssignScimGroupEnvironmentRoleResponse.SerializeToString,
+        ),
+        "DeleteScimGroup": grpc.unary_unary_rpc_method_handler(
+            servicer.DeleteScimGroup,
+            request_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.DeleteScimGroupRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_team__pb2.DeleteScimGroupResponse.SerializeToString,
+        ),
+        "DeleteScimGroupUsers": grpc.unary_unary_rpc_method_handler(
+            servicer.DeleteScimGroupUsers,
+            request_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.DeleteScimGroupUsersRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_team__pb2.DeleteScimGroupUsersResponse.SerializeToString,
         ),
         "CreateCustomRole": grpc.unary_unary_rpc_method_handler(
             servicer.CreateCustomRole,
@@ -1711,6 +1743,64 @@ class TeamService(object):
             "/chalk.server.v1.TeamService/AssignScimGroupEnvironmentRole",
             chalk_dot_server_dot_v1_dot_team__pb2.AssignScimGroupEnvironmentRoleRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_team__pb2.AssignScimGroupEnvironmentRoleResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def DeleteScimGroup(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.TeamService/DeleteScimGroup",
+            chalk_dot_server_dot_v1_dot_team__pb2.DeleteScimGroupRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_team__pb2.DeleteScimGroupResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def DeleteScimGroupUsers(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.TeamService/DeleteScimGroupUsers",
+            chalk_dot_server_dot_v1_dot_team__pb2.DeleteScimGroupUsersRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_team__pb2.DeleteScimGroupUsersResponse.FromString,
             options,
             channel_credentials,
             insecure,

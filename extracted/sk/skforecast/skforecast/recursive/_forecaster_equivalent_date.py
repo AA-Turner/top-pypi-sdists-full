@@ -247,6 +247,7 @@ class ForecasterEquivalentDate():
             "supports_window_features": False,
             "supports_transformer_series": False,
             "supports_transformer_exog": False,
+            "supports_categorical_features": False,
             "supports_weight_func": False,
             "supports_differentiation": False,
 
@@ -319,9 +320,9 @@ class ForecasterEquivalentDate():
                 </ul>
             </details>
             <p>
-                <a href="https://skforecast.org/{__version__}/api/forecasterequivalentdate.html">&#128712 <strong>API Reference</strong></a>
+                <a href="https://skforecast.org/{__version__}/api/forecasterequivalentdate.html">&#128214; <strong>API Reference</strong></a>
                 &nbsp;&nbsp;
-                <a href="https://skforecast.org/{__version__}/user_guides/forecasting-baseline.html">&#128462 <strong>User Guide</strong></a>
+                <a href="https://skforecast.org/{__version__}/user_guides/forecasting-baseline.html">&#128221; <strong>User Guide</strong></a>
             </p>
         </div>
         """

@@ -4,7 +4,6 @@ from chalk.features._encoding._feature_converters import (  # noqa: F401  # pyri
     _DEFAULT_FEATURE_ENCODING_OPTIONS,
     _FROM_NEW,
     _UNSUPPORTED_MISSING_VALUE_STRATEGY_MESSAGE,
-    AttrsFeatureConverter,
     BoolFeatureConverter,
     BytesFeatureConverter,
     DataclassFeatureConverter,
@@ -74,6 +73,12 @@ from chalk.features._encoding._feature_converters import (  # noqa: F401  # pyri
 # Also re-export items that were previously transitively importable from this module.
 from chalk.features._encoding.primitive import TPrimitive  # noqa: F401
 from chalk.features._encoding.pyarrow import pyarrow_to_polars  # noqa: F401
+from chalk.utils.attrs_utils import get_attrs
+
+_HAS_ATTRS = get_attrs() is not None
+
+if _HAS_ATTRS:
+    from chalk.features._encoding._feature_converters import AttrsFeatureConverter  # noqa: F401
 
 # pyright: reportPrivateUsage=false
 
@@ -100,7 +105,6 @@ __all__ = [
     "_raise_unsupported_missing_value_strategy",
     "_unwrap_scalar_value",
     "_UNSUPPORTED_MISSING_VALUE_STRATEGY_MESSAGE",
-    "AttrsFeatureConverter",
     "DictFeatureConverter",
     "FeatureConverter",
     "MissingValueError",
@@ -155,3 +159,6 @@ __all__ = [
     "IPv4FeatureConverter",
     "IPv6FeatureConverter",
 ]
+
+if _HAS_ATTRS:
+    __all__.append("AttrsFeatureConverter")

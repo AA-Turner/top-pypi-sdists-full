@@ -1,4 +1,6 @@
-# Copyright 2023 StreamSets Inc.
+#  IBM Confidential
+#  PID 5900-BAF
+#  Copyright StreamSets Inc., an IBM Company 2024
 
 # fmt: off
 import pytest
@@ -1248,7 +1250,7 @@ def test_connect_outputs_to_multi_lane_fixed_stage(sch, sch_authoring_sdc_id):
         publish_response = sch.publish_pipeline(pipeline)
 
         # Retrieve the pipeline again and validate the same changes are seen after pushing to SCH
-        pipeline = sch.pipelines.get(pipeline_id=pipeline.pipeline_id)
+        pipeline = sch.pipelines.get(id=pipeline.id)
         dev_raw_data_source = pipeline.stages.get(instance_name='DevRawDataSource_01')
         deduplicator = pipeline.stages.get(instance_name='RecordDeduplicator_01')
         trash1 = pipeline.stages.get(instance_name='Trash_01')
@@ -1301,7 +1303,7 @@ def test_connect_inputs_to_multi_lane_fixed_stage(sch, sch_authoring_sdc_id):
         publish_response = sch.publish_pipeline(pipeline)
 
         # Retrieve the pipeline again and validate the same changes are seen after pushing to SCH
-        pipeline = sch.pipelines.get(pipeline_id=pipeline.pipeline_id)
+        pipeline = sch.pipelines.get(id=pipeline.id)
         dev_raw_data_source = pipeline.stages.get(instance_name='DevRawDataSource_01')
         deduplicator = pipeline.stages.get(instance_name='RecordDeduplicator_01')
         field_flattener = pipeline.stages.get(instance_name='FieldFlattener_01')
@@ -1345,7 +1347,7 @@ def test_connect_via_legacy_rshift_operator(sch, sch_authoring_sdc_id):
         publish_response = sch.publish_pipeline(pipeline)
 
         # Retrieve the pipeline again and validate the same changes are seen after pushing to SCH
-        pipeline = sch.pipelines.get(pipeline_id=pipeline.pipeline_id)
+        pipeline = sch.pipelines.get(id=pipeline.id)
         dev_raw_data_source = pipeline.stages.get(instance_name='DevRawDataSource_01')
         deduplicator = pipeline.stages.get(instance_name='RecordDeduplicator_01')
         trash1 = pipeline.stages.get(instance_name='Trash_01')
@@ -1652,7 +1654,7 @@ def test_copy_inputs_and_copy_outputs(sch, sample_pipeline):
     assert dev._data['outputLanes'][0] in trash._data['inputLanes']
 
     sch.publish_pipeline(sample_pipeline)
-    sample_pipeline = sch.pipelines.get(pipeline_id=sample_pipeline.pipeline_id)
+    sample_pipeline = sch.pipelines.get(id=sample_pipeline.id)
     dev = sample_pipeline.stages.get(instance_name='DevDataGenerator_01')
     trash = sample_pipeline.stages.get(instance_name='Trash_01')
     field_renamer = sample_pipeline.stages.get(instance_name='FieldRenamer_01')

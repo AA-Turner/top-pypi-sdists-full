@@ -47,6 +47,7 @@ class PipelineArgs:
                  name: Optional[pulumi.Input[_builtins.str]] = None,
                  notifications: Optional[pulumi.Input[Sequence[pulumi.Input['PipelineNotificationArgs']]]] = None,
                  photon: Optional[pulumi.Input[_builtins.bool]] = None,
+                 pipeline_id: Optional[pulumi.Input[_builtins.str]] = None,
                  provider_config: Optional[pulumi.Input['PipelineProviderConfigArgs']] = None,
                  restart_window: Optional[pulumi.Input['PipelineRestartWindowArgs']] = None,
                  root_path: Optional[pulumi.Input[_builtins.str]] = None,
@@ -63,6 +64,7 @@ class PipelineArgs:
                  usage_policy_id: Optional[pulumi.Input[_builtins.str]] = None):
         """
         The set of arguments for constructing a Pipeline resource.
+
         :param pulumi.Input[_builtins.bool] allow_duplicate_names: Optional boolean flag. If false, deployment will fail if name conflicts with that of another pipeline. default is `false`.
         :param pulumi.Input[_builtins.str] budget_policy_id: optional string specifying ID of the budget policy for this Lakeflow Declarative Pipeline.
         :param pulumi.Input[_builtins.str] catalog: The name of default catalog in Unity Catalog. *Change of this parameter forces recreation of the pipeline if you switch from `storage` to `catalog` or vice versa.  If pipeline was already created with `catalog` set, the value could be changed.* (Conflicts with `storage`).
@@ -79,6 +81,7 @@ class PipelineArgs:
         :param pulumi.Input[Sequence[pulumi.Input['PipelineLibraryArgs']]] libraries: blocks - Specifies pipeline code.
         :param pulumi.Input[_builtins.str] name: A user-friendly name for this pipeline. The name can be used to identify pipeline jobs in the UI.
         :param pulumi.Input[_builtins.bool] photon: A flag indicating whether to use Photon engine. The default value is `false`.
+        :param pulumi.Input[_builtins.str] pipeline_id: Canonical unique identifier of the Lakeflow Declarative Pipeline.
         :param pulumi.Input[_builtins.str] root_path: An optional string specifying the root path for this pipeline. This is used as the root directory when editing the pipeline in the Databricks user interface and it is added to `sys.path` when executing Python sources during pipeline execution.
         :param pulumi.Input['PipelineRunAsArgs'] run_as: The user or the service principal the pipeline runs as. See run_as Configuration Block below.
         :param pulumi.Input[_builtins.str] schema: The default schema (database) where tables are read from or published to. The presence of this attribute implies that the pipeline is in direct publishing mode.
@@ -140,6 +143,8 @@ class PipelineArgs:
             pulumi.set(__self__, "notifications", notifications)
         if photon is not None:
             pulumi.set(__self__, "photon", photon)
+        if pipeline_id is not None:
+            pulumi.set(__self__, "pipeline_id", pipeline_id)
         if provider_config is not None:
             pulumi.set(__self__, "provider_config", provider_config)
         if restart_window is not None:
@@ -450,6 +455,18 @@ class PipelineArgs:
     @photon.setter
     def photon(self, value: Optional[pulumi.Input[_builtins.bool]]):
         pulumi.set(self, "photon", value)
+
+    @_builtins.property
+    @pulumi.getter(name="pipelineId")
+    def pipeline_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Canonical unique identifier of the Lakeflow Declarative Pipeline.
+        """
+        return pulumi.get(self, "pipeline_id")
+
+    @pipeline_id.setter
+    def pipeline_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "pipeline_id", value)
 
     @_builtins.property
     @pulumi.getter(name="providerConfig")
@@ -631,6 +648,7 @@ class _PipelineState:
                  name: Optional[pulumi.Input[_builtins.str]] = None,
                  notifications: Optional[pulumi.Input[Sequence[pulumi.Input['PipelineNotificationArgs']]]] = None,
                  photon: Optional[pulumi.Input[_builtins.bool]] = None,
+                 pipeline_id: Optional[pulumi.Input[_builtins.str]] = None,
                  provider_config: Optional[pulumi.Input['PipelineProviderConfigArgs']] = None,
                  restart_window: Optional[pulumi.Input['PipelineRestartWindowArgs']] = None,
                  root_path: Optional[pulumi.Input[_builtins.str]] = None,
@@ -647,6 +665,7 @@ class _PipelineState:
                  usage_policy_id: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering Pipeline resources.
+
         :param pulumi.Input[_builtins.bool] allow_duplicate_names: Optional boolean flag. If false, deployment will fail if name conflicts with that of another pipeline. default is `false`.
         :param pulumi.Input[_builtins.str] budget_policy_id: optional string specifying ID of the budget policy for this Lakeflow Declarative Pipeline.
         :param pulumi.Input[_builtins.str] catalog: The name of default catalog in Unity Catalog. *Change of this parameter forces recreation of the pipeline if you switch from `storage` to `catalog` or vice versa.  If pipeline was already created with `catalog` set, the value could be changed.* (Conflicts with `storage`).
@@ -663,6 +682,7 @@ class _PipelineState:
         :param pulumi.Input[Sequence[pulumi.Input['PipelineLibraryArgs']]] libraries: blocks - Specifies pipeline code.
         :param pulumi.Input[_builtins.str] name: A user-friendly name for this pipeline. The name can be used to identify pipeline jobs in the UI.
         :param pulumi.Input[_builtins.bool] photon: A flag indicating whether to use Photon engine. The default value is `false`.
+        :param pulumi.Input[_builtins.str] pipeline_id: Canonical unique identifier of the Lakeflow Declarative Pipeline.
         :param pulumi.Input[_builtins.str] root_path: An optional string specifying the root path for this pipeline. This is used as the root directory when editing the pipeline in the Databricks user interface and it is added to `sys.path` when executing Python sources during pipeline execution.
         :param pulumi.Input['PipelineRunAsArgs'] run_as: The user or the service principal the pipeline runs as. See run_as Configuration Block below.
         :param pulumi.Input[_builtins.str] schema: The default schema (database) where tables are read from or published to. The presence of this attribute implies that the pipeline is in direct publishing mode.
@@ -724,6 +744,8 @@ class _PipelineState:
             pulumi.set(__self__, "notifications", notifications)
         if photon is not None:
             pulumi.set(__self__, "photon", photon)
+        if pipeline_id is not None:
+            pulumi.set(__self__, "pipeline_id", pipeline_id)
         if provider_config is not None:
             pulumi.set(__self__, "provider_config", provider_config)
         if restart_window is not None:
@@ -1034,6 +1056,18 @@ class _PipelineState:
     @photon.setter
     def photon(self, value: Optional[pulumi.Input[_builtins.bool]]):
         pulumi.set(self, "photon", value)
+
+    @_builtins.property
+    @pulumi.getter(name="pipelineId")
+    def pipeline_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Canonical unique identifier of the Lakeflow Declarative Pipeline.
+        """
+        return pulumi.get(self, "pipeline_id")
+
+    @pipeline_id.setter
+    def pipeline_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "pipeline_id", value)
 
     @_builtins.property
     @pulumi.getter(name="providerConfig")
@@ -1218,6 +1252,7 @@ class Pipeline(pulumi.CustomResource):
                  name: Optional[pulumi.Input[_builtins.str]] = None,
                  notifications: Optional[pulumi.Input[Sequence[pulumi.Input[Union['PipelineNotificationArgs', 'PipelineNotificationArgsDict']]]]] = None,
                  photon: Optional[pulumi.Input[_builtins.bool]] = None,
+                 pipeline_id: Optional[pulumi.Input[_builtins.str]] = None,
                  provider_config: Optional[pulumi.Input[Union['PipelineProviderConfigArgs', 'PipelineProviderConfigArgsDict']]] = None,
                  restart_window: Optional[pulumi.Input[Union['PipelineRestartWindowArgs', 'PipelineRestartWindowArgsDict']]] = None,
                  root_path: Optional[pulumi.Input[_builtins.str]] = None,
@@ -1312,6 +1347,7 @@ class Pipeline(pulumi.CustomResource):
         * Job to manage [Databricks Jobs](https://docs.databricks.com/jobs.html) to run non-interactive code in a databricks_cluster.
         * Notebook to manage [Databricks Notebooks](https://docs.databricks.com/notebooks/index.html).
 
+
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.bool] allow_duplicate_names: Optional boolean flag. If false, deployment will fail if name conflicts with that of another pipeline. default is `false`.
@@ -1330,6 +1366,7 @@ class Pipeline(pulumi.CustomResource):
         :param pulumi.Input[Sequence[pulumi.Input[Union['PipelineLibraryArgs', 'PipelineLibraryArgsDict']]]] libraries: blocks - Specifies pipeline code.
         :param pulumi.Input[_builtins.str] name: A user-friendly name for this pipeline. The name can be used to identify pipeline jobs in the UI.
         :param pulumi.Input[_builtins.bool] photon: A flag indicating whether to use Photon engine. The default value is `false`.
+        :param pulumi.Input[_builtins.str] pipeline_id: Canonical unique identifier of the Lakeflow Declarative Pipeline.
         :param pulumi.Input[_builtins.str] root_path: An optional string specifying the root path for this pipeline. This is used as the root directory when editing the pipeline in the Databricks user interface and it is added to `sys.path` when executing Python sources during pipeline execution.
         :param pulumi.Input[Union['PipelineRunAsArgs', 'PipelineRunAsArgsDict']] run_as: The user or the service principal the pipeline runs as. See run_as Configuration Block below.
         :param pulumi.Input[_builtins.str] schema: The default schema (database) where tables are read from or published to. The presence of this attribute implies that the pipeline is in direct publishing mode.
@@ -1424,6 +1461,7 @@ class Pipeline(pulumi.CustomResource):
         * Job to manage [Databricks Jobs](https://docs.databricks.com/jobs.html) to run non-interactive code in a databricks_cluster.
         * Notebook to manage [Databricks Notebooks](https://docs.databricks.com/notebooks/index.html).
 
+
         :param str resource_name: The name of the resource.
         :param PipelineArgs args: The arguments to use to populate this resource's properties.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -1465,6 +1503,7 @@ class Pipeline(pulumi.CustomResource):
                  name: Optional[pulumi.Input[_builtins.str]] = None,
                  notifications: Optional[pulumi.Input[Sequence[pulumi.Input[Union['PipelineNotificationArgs', 'PipelineNotificationArgsDict']]]]] = None,
                  photon: Optional[pulumi.Input[_builtins.bool]] = None,
+                 pipeline_id: Optional[pulumi.Input[_builtins.str]] = None,
                  provider_config: Optional[pulumi.Input[Union['PipelineProviderConfigArgs', 'PipelineProviderConfigArgsDict']]] = None,
                  restart_window: Optional[pulumi.Input[Union['PipelineRestartWindowArgs', 'PipelineRestartWindowArgsDict']]] = None,
                  root_path: Optional[pulumi.Input[_builtins.str]] = None,
@@ -1514,6 +1553,7 @@ class Pipeline(pulumi.CustomResource):
             __props__.__dict__["name"] = name
             __props__.__dict__["notifications"] = notifications
             __props__.__dict__["photon"] = photon
+            __props__.__dict__["pipeline_id"] = pipeline_id
             __props__.__dict__["provider_config"] = provider_config
             __props__.__dict__["restart_window"] = restart_window
             __props__.__dict__["root_path"] = root_path
@@ -1564,6 +1604,7 @@ class Pipeline(pulumi.CustomResource):
             name: Optional[pulumi.Input[_builtins.str]] = None,
             notifications: Optional[pulumi.Input[Sequence[pulumi.Input[Union['PipelineNotificationArgs', 'PipelineNotificationArgsDict']]]]] = None,
             photon: Optional[pulumi.Input[_builtins.bool]] = None,
+            pipeline_id: Optional[pulumi.Input[_builtins.str]] = None,
             provider_config: Optional[pulumi.Input[Union['PipelineProviderConfigArgs', 'PipelineProviderConfigArgsDict']]] = None,
             restart_window: Optional[pulumi.Input[Union['PipelineRestartWindowArgs', 'PipelineRestartWindowArgsDict']]] = None,
             root_path: Optional[pulumi.Input[_builtins.str]] = None,
@@ -1601,6 +1642,7 @@ class Pipeline(pulumi.CustomResource):
         :param pulumi.Input[Sequence[pulumi.Input[Union['PipelineLibraryArgs', 'PipelineLibraryArgsDict']]]] libraries: blocks - Specifies pipeline code.
         :param pulumi.Input[_builtins.str] name: A user-friendly name for this pipeline. The name can be used to identify pipeline jobs in the UI.
         :param pulumi.Input[_builtins.bool] photon: A flag indicating whether to use Photon engine. The default value is `false`.
+        :param pulumi.Input[_builtins.str] pipeline_id: Canonical unique identifier of the Lakeflow Declarative Pipeline.
         :param pulumi.Input[_builtins.str] root_path: An optional string specifying the root path for this pipeline. This is used as the root directory when editing the pipeline in the Databricks user interface and it is added to `sys.path` when executing Python sources during pipeline execution.
         :param pulumi.Input[Union['PipelineRunAsArgs', 'PipelineRunAsArgsDict']] run_as: The user or the service principal the pipeline runs as. See run_as Configuration Block below.
         :param pulumi.Input[_builtins.str] schema: The default schema (database) where tables are read from or published to. The presence of this attribute implies that the pipeline is in direct publishing mode.
@@ -1640,6 +1682,7 @@ class Pipeline(pulumi.CustomResource):
         __props__.__dict__["name"] = name
         __props__.__dict__["notifications"] = notifications
         __props__.__dict__["photon"] = photon
+        __props__.__dict__["pipeline_id"] = pipeline_id
         __props__.__dict__["provider_config"] = provider_config
         __props__.__dict__["restart_window"] = restart_window
         __props__.__dict__["root_path"] = root_path
@@ -1833,6 +1876,14 @@ class Pipeline(pulumi.CustomResource):
         A flag indicating whether to use Photon engine. The default value is `false`.
         """
         return pulumi.get(self, "photon")
+
+    @_builtins.property
+    @pulumi.getter(name="pipelineId")
+    def pipeline_id(self) -> pulumi.Output[_builtins.str]:
+        """
+        Canonical unique identifier of the Lakeflow Declarative Pipeline.
+        """
+        return pulumi.get(self, "pipeline_id")
 
     @_builtins.property
     @pulumi.getter(name="providerConfig")

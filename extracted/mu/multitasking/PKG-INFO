@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: multitasking
-Version: 0.0.12
+Version: 0.0.13
 Summary: Non-blocking Python methods using decorators
 Home-page: https://github.com/ranaroussi/multitasking
 Author: Ran Aroussi
@@ -52,7 +52,7 @@ using a decorator. Perfect for I/O-bound tasks, API calls, web scraping,
 and any scenario where you want to run multiple operations concurrently
 without the complexity of manual thread or process management.
 
-✨ **What's New in v0.0.12**
+✨ **What’s New in v0.0.12**
 ----------------------------
 
 -  🎯 **Full Type Hint Support**: Complete type annotations for better
@@ -552,19 +552,7 @@ Support
 
 -  📖 **Documentation**: This README and inline code documentation
 -  🐛 **Issues**: `GitHub Issues <https://github.com/ranaroussi/multitasking/issues>`__
--  🐦 **Twitter**: [@aroussi](https://twitter.com/aroussi)
-
-Changelog
-=========
-
-**v0.0.12-rc** - ✨ Added comprehensive type hints throughout the
-codebase - 📚 Enhanced documentation with detailed docstrings and inline
-comments - 🔧 Improved error handling with specific exception types - 🚀
-Optimized task creation and pool management logic - 🛡️ Made codebase
-fully PEP8 compliant and linter-friendly - 🧹 Better code organization
-and maintainability
-
-**v0.0.11** (Latest) - Previous stable release
+-  🐦 **Twitter**: `@aroussi <https://twitter.com/aroussi>`__
 
 --------------
 

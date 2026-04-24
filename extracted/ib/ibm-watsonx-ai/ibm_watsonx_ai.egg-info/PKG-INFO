@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ibm_watsonx_ai
-Version: 1.5.6
+Version: 1.5.10
 Summary: IBM watsonx.ai API Client
 Author: IBM
 Maintainer-email: Maria Oleszkiewicz <maria.oleszkiewicz@pl.ibm.com>, Mateusz Szewczyk <Mateusz.Szewczyk@ibm.com>
@@ -47,6 +47,7 @@ Requires-Dist: langchain-ibm<0.4,>=0.3; extra == "rag"
 Requires-Dist: langgraph<0.7,>=0.2.40; extra == "rag"
 Requires-Dist: langchain-chroma<=0.2.5,>=0.1.4; extra == "rag"
 Requires-Dist: langchain-milvus<=0.2.1,>=0.1.8; extra == "rag"
+Requires-Dist: pymilvus<=2.6.6; extra == "rag"
 Requires-Dist: langchain-text-splitters<0.4,>=0.3; extra == "rag"
 Requires-Dist: grpcio>=1.54.3; extra == "rag"
 Requires-Dist: python-docx<=1.2.0,>=1.1.2; extra == "rag"

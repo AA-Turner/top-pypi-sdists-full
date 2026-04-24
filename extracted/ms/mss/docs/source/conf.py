@@ -6,17 +6,32 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
+import ctypes
+
+# Monkey-patch PROT_READ into mmap if missing (Windows), so that we can
+# import the Linux shared-memory backend implementation while building the
+# documentation.
+import mmap
+
+if not hasattr(mmap, "PROT_READ"):
+    mmap.PROT_READ = 1
+
 import mss
 
 # -- General configuration ------------------------------------------------
 
 extensions = [
+    "myst_parser",
+    "sphinx.ext.autodoc",
     "sphinx_copybutton",
     "sphinx.ext.intersphinx",
     "sphinx_new_tab_link",
 ]
 templates_path = ["_templates"]
-source_suffix = {".rst": "restructuredtext"}
+source_suffix = {
+    ".rst": "restructuredtext",
+    ".md": "markdown",
+}
 master_doc = "index"
 new_tab_link_show_external_link_icon = True
 
@@ -29,7 +44,19 @@ version = mss.__version__
 release = "latest"
 language = "en"
 todo_include_todos = True
+autodoc_member_order = "bysource"
+autodoc_default_options = {
+    "members": True,
+    "undoc-members": True,
+    "show-inheritance": True,
+}
+# Suppress duplicate target warnings for re-exported classes
+suppress_warnings = ["ref.python"]
 
+# Monkey-patch WINFUNCTYPE and WinError into ctypes, so that we can
+# import mss.windows while building the documentation.
+ctypes.WINFUNCTYPE = ctypes.CFUNCTYPE  # type:ignore[attr-defined]
+ctypes.WinError = lambda _code=None, _descr=None: OSError()  # type:ignore[attr-defined]
 
 # -- Options for HTML output ----------------------------------------------
 
@@ -38,6 +65,7 @@ html_theme_options = {
     "accent_color": "lime",
     "globaltoc_expand_depth": 1,
     "toctree_titles_only": False,
+    "show_ai_links": False,
 }
 html_favicon = "../icon.png"
 html_context = {

@@ -9,6 +9,7 @@ import pytest
 from streamsets.sdk import ControlHub
 from streamsets.sdk.sch_api import ApiClient
 from streamsets.sdk.sch_models import SelfManagedDeployment
+from streamsets.sdk.utils import DeploymentEngineType, EngineType
 
 from .resources.self_managed_deployments_data import DUMMY_DEPLOYMENT_JSON
 
@@ -112,6 +113,22 @@ def test_invalid_install_mechanism(self_managed_deployment):
 
     with pytest.raises(ValueError):
         self_managed_deployment.install_script(install_mechanism=invalid_install_mechanism)
+
+
+def test_engine_type_is_selected_from_engine_configuration(dummy_deployment_data):
+    deployment = SelfManagedDeployment(dummy_deployment_data)
+
+    assert (
+        deployment.engine_type
+        == EngineType[DeploymentEngineType(dummy_deployment_data.get('engineConfiguration', {}).get('engineType')).name]
+    )
+    engine_type = dummy_deployment_data.get('engineConfiguration').pop('engineType')
+
+    assert deployment.engine_type == EngineType(None)
+    dummy_deployment_data['engineType'] = engine_type
+    deployment = SelfManagedDeployment(dummy_deployment_data)
+
+    assert deployment.engine_type == EngineType[DeploymentEngineType(dummy_deployment_data.get('engineType')).name]
 
 
 def test_invalid_install_type(self_managed_deployment):

@@ -5,6 +5,7 @@ from sagemaker_studio.connections.sql_helper.big_query_sql_helper import BigQuer
 from sagemaker_studio.connections.sql_helper.ddb_sql_helper import DDBSQLHelper
 from sagemaker_studio.connections.sql_helper.mssql_sql_helper import MSSQLHelper
 from sagemaker_studio.connections.sql_helper.mysql_sql_helper import MySQLHelper
+from sagemaker_studio.connections.sql_helper.opensearch_sql_helper import OpenSearchSQLHelper
 from sagemaker_studio.connections.sql_helper.postgresql_helper import PostgreSQLHelper
 from sagemaker_studio.connections.sql_helper.redshift_sql_helper import RedshiftSqlHelper
 from sagemaker_studio.connections.sql_helper.snowflake_sql_helper import SnowflakeSqlHelper
@@ -54,5 +55,7 @@ class HelperFactory:
             return MSSQLHelper
         if type == "POSTGRESQL":
             return PostgreSQLHelper
+        if type == "OPENSEARCH":
+            return OpenSearchSQLHelper
         else:
             return None

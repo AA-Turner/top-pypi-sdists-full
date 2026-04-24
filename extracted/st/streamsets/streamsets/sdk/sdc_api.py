@@ -1,4 +1,6 @@
-# Copyright 2021 StreamSets Inc.
+#  IBM Confidential
+#  PID 5900-BAF
+#  Copyright StreamSets Inc., an IBM Company 2024
 
 """Abstractions to interact with the SDC REST API."""
 
@@ -19,6 +21,7 @@ import urllib3
 from . import sdc_models
 from .constants import STATUS_ERRORS
 from .exceptions import BadRequestError, InternalServerError
+from .retry import http_retry
 from .utils import get_params, join_url_parts, pipeline_json_encoder, wait_for_condition
 
 # fmt: on
@@ -1260,6 +1263,7 @@ class ApiClient(object):
         return response.json() if response.content else []
 
     # Internal functions only below.
+    @http_retry()
     def _delete(self, endpoint, params={}):
         url = join_url_parts(self.server_url, '/rest', endpoint)
         if self._tunneling_instance_id:
@@ -1268,6 +1272,7 @@ class ApiClient(object):
         response.raise_for_status()
         return response
 
+    @http_retry()
     def _get(self, endpoint, params={}, absolute_endpoint=False):
         url = endpoint if absolute_endpoint else join_url_parts(self.server_url, '/rest', endpoint)
         if self._tunneling_instance_id:
@@ -1276,6 +1281,7 @@ class ApiClient(object):
         self._handle_http_error(response)
         return response
 
+    @http_retry()
     def _post(
         self,
         endpoint,
@@ -1297,6 +1303,7 @@ class ApiClient(object):
         self._handle_http_error(response)
         return response
 
+    @http_retry()
     def _put(self, endpoint, params={}, data=None, is_data_format_json=True):
         url = join_url_parts(self.server_url, '/rest', endpoint)
         if is_data_format_json:

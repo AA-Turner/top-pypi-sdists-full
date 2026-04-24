@@ -763,6 +763,10 @@ class TokenBucket:
             self.tokens = min(self.capacity, remaining_tokens)
 
 
+class NoneResponseError(ValueError):
+    """The value returned from HTTPTransport.handle_request is None"""
+
+
 class RetryTransport(httpx.HTTPTransport):
     def __init__(
         self,
@@ -798,7 +802,9 @@ class RetryTransport(httpx.HTTPTransport):
         return self._effective_verify
 
     def handle_request(self, request: httpx.Request) -> httpx.Response:
-        response = None
+        response: httpx.Response | None = None
+        exceptions: list[Exception] = []
+
         effective_verify = self.get_effective_verify_for_client()
 
         for attempt in range(self.retries + 1):
@@ -808,14 +814,23 @@ class RetryTransport(httpx.HTTPTransport):
             try:
                 response = super().handle_request(request)
 
+                # super().handle_request may return None in cases when certificate
+                # verification fails. The reason for this behavior is unknown,
+                # but retrying with certificate validation turned off fixes this.
+                if response is None:
+                    raise NoneResponseError
             except (
                 httpx.ConnectError,
                 httpx.RemoteProtocolError,
                 httpx.ReadTimeout,
                 httpx.ConnectTimeout,
+                NoneResponseError,
             ) as e:
+                exceptions.append(e)
+
                 error_str = str(e)
-                is_ssl_error = any(
+
+                is_ssl_error = isinstance(e, NoneResponseError) or any(
                     ssl_keyword in error_str
                     for ssl_keyword in [
                         "CERTIFICATE_VERIFY_FAILED",
@@ -878,7 +893,17 @@ class RetryTransport(httpx.HTTPTransport):
             else:
                 break
 
-        return response  # type:ignore[return-value]
+        if response is not None:
+            return response
+
+        if exceptions:
+            raise ExceptionGroup(
+                f"Request could not be completed successfully in {self.retries + 1} attempts",
+                exceptions,
+            )
+
+        # If any iteration has been performed, either `response` or `exceptions` must be truthy
+        raise ValueError(f"Number of retries ({self.retries}) cannot be negative")
 
 
 class AsyncRetryTransport(httpx.AsyncHTTPTransport):
@@ -916,7 +941,9 @@ class AsyncRetryTransport(httpx.AsyncHTTPTransport):
         return self._effective_verify
 
     async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
-        response = None
+        response: httpx.Response | None = None
+        exceptions: list[Exception] = []
+
         effective_verify = self.get_effective_verify_for_client()
 
         for attempt in range(self.retries + 1):
@@ -926,14 +953,23 @@ class AsyncRetryTransport(httpx.AsyncHTTPTransport):
             try:
                 response = await super().handle_async_request(request)
 
+                # super().handle_request may return None in cases when certificate
+                # verification fails. The reason for this behavior is unknown,
+                # but retrying with certificate validation turned off fixes this.
+                if response is None:
+                    raise NoneResponseError
             except (
                 httpx.ConnectError,
                 httpx.RemoteProtocolError,
                 httpx.ReadTimeout,
                 httpx.ConnectTimeout,
+                NoneResponseError,
             ) as e:
+                exceptions.append(e)
+
                 error_str = str(e)
-                is_ssl_error = any(
+
+                is_ssl_error = isinstance(e, NoneResponseError) or any(
                     ssl_keyword in error_str
                     for ssl_keyword in [
                         "CERTIFICATE_VERIFY_FAILED",
@@ -996,4 +1032,14 @@ class AsyncRetryTransport(httpx.AsyncHTTPTransport):
             else:
                 break
 
-        return response  # type:ignore[return-value]
+        if response is not None:
+            return response
+
+        if exceptions:
+            raise ExceptionGroup(
+                f"Request could not be completed successfully in {self.retries + 1} attempts",
+                exceptions,
+            )
+
+        # If any iteration has been performed, either `response` or `exceptions` must be truthy
+        raise ValueError(f"Number of retries ({self.retries}) cannot be negative")

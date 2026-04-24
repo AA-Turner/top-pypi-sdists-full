@@ -119,7 +119,7 @@ def get_metastore(id: Optional[_builtins.str] = None,
     import pulumi_aws as aws
     import pulumi_databricks as databricks
 
-    metastore = aws.index.S3Bucket("metastore",
+    metastore = aws.S3Bucket("metastore",
         bucket=f{prefix}-metastore,
         force_destroy=True)
     this_metastore = databricks.Metastore("this",
@@ -181,7 +181,7 @@ def get_metastore_output(id: Optional[pulumi.Input[Optional[_builtins.str]]] = N
     import pulumi_aws as aws
     import pulumi_databricks as databricks
 
-    metastore = aws.index.S3Bucket("metastore",
+    metastore = aws.S3Bucket("metastore",
         bucket=f{prefix}-metastore,
         force_destroy=True)
     this_metastore = databricks.Metastore("this",

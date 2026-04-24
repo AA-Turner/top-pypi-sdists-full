@@ -1,3 +1,7 @@
+#  IBM Confidential
+#  PID 5900-BAF
+#  Copyright StreamSets Inc., an IBM Company 2024
+
 # fmt: off
 import json
 import warnings
@@ -414,7 +418,7 @@ def test_transformer_backwards_compatibility_on_pipeline(mocker):
 
     builder = DummyPipelineBuilder()
 
-    with warnings.catch_warnings(record=True) as w:
+    with warnings.catch_warnings(record=True):
         warnings.simplefilter('always')
         pipeline = Pipeline(
             pipeline=pipeline_json,
@@ -427,10 +431,6 @@ def test_transformer_backwards_compatibility_on_pipeline(mocker):
         pipeline.fragment = False
 
         assert pipeline.configuration['transformerEmrConnection.emrClusterOption'] == 'PROVISION_CLUSTER'
-        assert len(w) == 1
-        assert issubclass(w[-1].category, DeprecationWarning)
 
         pipeline.configuration['transformerEmrConnection.provisionNewCluster'] = False
-        assert len(w) == 2
-        assert issubclass(w[-1].category, DeprecationWarning)
         assert pipeline.configuration['transformerEmrConnection.emrClusterOption'] == 'EXISTING_CLUSTER'

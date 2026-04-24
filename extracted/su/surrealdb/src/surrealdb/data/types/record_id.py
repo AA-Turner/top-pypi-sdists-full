@@ -4,12 +4,14 @@ Defines the data type for the record ID.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Callable, Union, cast
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any, Union, cast
 
 from pydantic_core import core_schema
 from pydantic_core.core_schema import ValidationInfo
 
 from surrealdb.data.types.table import Table
+from surrealdb.errors import InvalidRecordIdError
 
 if TYPE_CHECKING:
     from pydantic import GetJsonSchemaHandler
@@ -105,7 +107,7 @@ class RecordID:
 
         """
         if ":" not in record_str:
-            raise ValueError(
+            raise InvalidRecordIdError(
                 'invalid string provided for parse. the expected string format is "table_name:record_id"'
             )
 
@@ -138,9 +140,9 @@ class RecordID:
                 ]
             ),
             serialization=core_schema.wrap_serializer_function_ser_schema(
-                lambda value, _handler, info: value
-                if info.mode == "python"
-                else str(value),
+                lambda value, _handler, info: (
+                    value if info.mode == "python" else str(value)
+                ),
                 info_arg=True,
             ),
         )

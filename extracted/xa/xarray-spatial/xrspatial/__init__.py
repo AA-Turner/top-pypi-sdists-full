@@ -35,6 +35,8 @@ from xrspatial.hydro import fill_d8  # noqa
 from xrspatial.interpolate import idw  # noqa
 from xrspatial.interpolate import kriging  # noqa
 from xrspatial.interpolate import spline  # noqa
+from xrspatial.kde import kde  # noqa
+from xrspatial.kde import line_density  # noqa
 from xrspatial.fire import burn_severity_class  # noqa
 from xrspatial.fire import dnbr  # noqa
 from xrspatial.fire import fireline_intensity  # noqa
@@ -91,6 +93,7 @@ from xrspatial.perlin import perlin  # noqa
 from xrspatial.preview import preview  # noqa
 from xrspatial.proximity import allocation  # noqa
 from xrspatial.rasterize import rasterize  # noqa
+from xrspatial.resample import resample  # noqa
 from xrspatial.proximity import direction  # noqa
 from xrspatial.proximity import euclidean_distance  # noqa
 from xrspatial.proximity import great_circle_distance  # noqa
@@ -118,6 +121,7 @@ from xrspatial.terrain_metrics import tpi  # noqa
 from xrspatial.terrain_metrics import tri  # noqa
 from xrspatial.hydro import twi  # noqa: unified wrapper
 from xrspatial.hydro import twi_d8  # noqa
+from xrspatial.polygon_clip import clip_polygon  # noqa
 from xrspatial.polygonize import polygonize  # noqa
 from xrspatial.viewshed import viewshed  # noqa
 from xrspatial.visibility import cumulative_viewshed  # noqa
@@ -135,6 +139,7 @@ from xrspatial.zonal import trim  # noqa
 from xrspatial.zonal import crosstab as zonal_crosstab  # noqa
 from xrspatial.zonal import regions as regions  # noqa
 from xrspatial.zonal import stats as zonal_stats  # noqa
+from xrspatial.zonal import hypsometric_integral  # noqa
 from xrspatial.zonal import suggest_zonal_canvas as suggest_zonal_canvas  # noqa
 from xrspatial.reproject import merge  # noqa
 from xrspatial.reproject import reproject  # noqa

@@ -1,6 +1,7 @@
 #  IBM Confidential
 #  PID 5900-BAF
 #  Copyright StreamSets Inc., an IBM Company 2024
+import copy
 
 # fmt: off
 from copy import deepcopy
@@ -9,9 +10,10 @@ import pytest
 
 from streamsets.sdk import ControlHub
 from streamsets.sdk.sch_api import ApiClient
-from streamsets.sdk.sch_models import SelfManagedDeployment
+from streamsets.sdk.sch_models import KubernetesDeployment, SelfManagedDeployment
 
-from .resources.sch_data import DUMMY_DEPLOYMENT_JSON, DUMMY_DEPLOYMENT_JSON_2
+from .conftest import MockCommand
+from .resources.sch_data import ALL_ENGINE_VERSIONS, DUMMY_DEPLOYMENT_JSON, DUMMY_DEPLOYMENT_JSON_2
 
 # fmt: on
 
@@ -35,33 +37,12 @@ class MockControlHub(ControlHub):
         super().update_deployment(deployment)
 
 
-class MockResponse:
-    def __init__(self, json_response):
-        self.response = json_response
-
-    def json(self):
-        return self.response
-
-    @property
-    def content(self):
-        return self.response.encode()
-
-    @property
-    def text(self):
-        return self.response
-
-
-class MockCommand:
-    def __init__(self, json_response):
-        self._response = json_response
-
-    @property
-    def response(self):
-        return MockResponse(self._response)
-
-
 class MockApiClient(ApiClient):
     def __init__(self, *args, **kwargs):
+        self._disabled_ids = []
+        self._wait_calls = []
+        self._force_calls = []
+        self.fail_disable = False
         pass  # do not call super()
 
     def enable_deployments(self, deployment_ids):
@@ -101,42 +82,29 @@ class MockApiClient(ApiClient):
 
     def get_engine_version(self, engine_version_id):
         return MockCommand(
-            {
-                "id": "DC:5.10.0::RC3",
-                "engineType": "DC",
-                "engineVersion": "5.10.0",
-                "creator": "a2ce9742-b78a-11eb-b93c-352da592f75a@admin",
-                "createTime": 1711051750490,
-                "lastModifiedBy": "a2ce9742-b78a-11eb-b93c-352da592f75a@admin",
-                "lastModifiedOn": 1711051750490,
-                "defaultJavaVersion": 8,
-                "supportedJavaVersions": "8,17",
-                'advancedConfiguration': None,
-            }
+            next(filter(lambda engine_config: engine_config['id'] == engine_version_id, ALL_ENGINE_VERSIONS))
         )
 
     def get_all_engine_versions(self, *args, **kwargs):
-        return MockCommand(
-            [
-                {
-                    "id": "DC:5.10.0::RC3",
-                    "engineType": "DC",
-                    "engineVersion": "5.9.0",
-                    "creator": "a2ce9742-b78a-11eb-b93c-352da592f75a@admin",
-                    "createTime": 1711051750490,
-                    "lastModifiedBy": "a2ce9742-b78a-11eb-b93c-352da592f75a@admin",
-                    "lastModifiedOn": 1711051750490,
-                    "disabled": True,
-                    "defaultJavaVersion": 8,
-                    "supportedJavaVersions": "8,17",
-                }
-            ]
-        )
+        return MockCommand(copy.deepcopy(ALL_ENGINE_VERSIONS))
 
     def get_self_managed_deployment_install_command(
         self, deployment_id, install_mechanism='DEFAULT', install_type=None, java_version=None
     ):
         return MockCommand(VALID_INSTALL_SCRIPT)
+
+    def disable_deployments(self, deployment_ids):
+        if self.fail_disable:
+            raise Exception("disable failed (mock)")
+        self._disabled_ids = list(deployment_ids)
+        return True
+
+    def wait_for_deployment_state_display_label(self, deployment_id, state_display_label, **kwargs):
+        self._wait_calls.append((deployment_id, state_display_label))
+
+    def force_stop_deployment(self, deployment_id, confirm=False):
+        self._force_calls.append((deployment_id, bool(confirm)))
+        return MockCommand({"ok": True})
 
 
 @pytest.fixture(scope="function")
@@ -196,3 +164,68 @@ def test_add_deployment_adds_disabled_engine(dummy_deployment_data_2):
     deployment = SelfManagedDeployment(dummy_deployment_data_2)
     deployment._control_hub = sch
     sch.add_deployment(deployment)
+
+
+def test_stop_deployment_no_force(dummy_deployment_data):
+    sch = MockControlHub()
+    payload = deepcopy(dummy_deployment_data)
+    deployment = SelfManagedDeployment(payload)
+    deployment._control_hub = sch
+
+    dep_id = payload["id"]
+    deployment._data_internal["id"] = dep_id
+    deployment._data_internal["deploymentId"] = dep_id
+    deployment._data_internal["type"] = "SELF"
+
+    result = sch.stop_deployment(deployment, force=False)
+
+    assert result is True
+
+    assert sch.api_client._disabled_ids == [dep_id]
+
+    assert any(state == "DEACTIVATED" for (_id, state) in sch.api_client._wait_calls)
+    assert any(call[0] == dep_id for call in sch.api_client._wait_calls)
+
+
+def test_stop_deployment_with_force_non_k8s_skips_force(caplog, dummy_deployment_data):
+    sch = MockControlHub()
+    sch.api_client.fail_disable = True
+
+    payload = deepcopy(dummy_deployment_data)
+    deployment = SelfManagedDeployment(payload)
+    deployment._control_hub = sch
+
+    dep_id = payload["id"]
+    deployment._data_internal["id"] = dep_id
+    deployment._data_internal["type"] = "SELF"
+
+    with pytest.raises(ValueError, match=r"force=True was specified, but no Kubernetes deployments were provided"):
+        sch.stop_deployment(deployment, force=True)
+
+    assert sch.api_client._force_calls == []
+    assert sch.api_client._disabled_ids == []
+    assert sch.api_client._wait_calls == []
+
+
+def test_stop_deployment_with_force_k8s_calls_force(dummy_deployment_data, caplog):
+    sch = MockControlHub()
+    sch.api_client.fail_disable = True
+
+    payload = deepcopy(dummy_deployment_data)
+    payload['type'] = 'KUBERNETES'
+    deployment = KubernetesDeployment(payload)
+    deployment._control_hub = sch
+
+    dep_id = payload["id"]
+    deployment._data_internal["id"] = dep_id
+    deployment._data_internal["deploymentId"] = dep_id
+    deployment._data_internal["type"] = "KUBERNETES"
+
+    result = sch.stop_deployment(deployment, force=True)
+
+    assert sch.api_client._force_calls == [(dep_id, True)]
+    assert sch.api_client._disabled_ids == []
+
+    assert any((_id == dep_id and state == "DEACTIVATION_ERROR") for (_id, state) in sch.api_client._wait_calls)
+
+    assert isinstance(result, MockCommand)

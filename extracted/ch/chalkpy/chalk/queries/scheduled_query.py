@@ -4,6 +4,7 @@ import inspect
 from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING, Collection
 
+from chalk.queries._schedule_entity_name import validate_schedule_entity_name
 from chalk.utils.duration import CronTab, Duration
 
 if TYPE_CHECKING:
@@ -109,6 +110,10 @@ class ScheduledQuery:
         """
         super().__init__()
         self.errors = []
+
+        name_err = validate_schedule_entity_name(name, entity_noun="Scheduled query")
+        if name_err is not None:
+            self.errors.append(name_err)
 
         if name in CRON_QUERY_REGISTRY:
             self.errors.append(

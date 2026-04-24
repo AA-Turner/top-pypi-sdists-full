@@ -5785,7 +5785,7 @@ class MetadataEntry:
         self,
         *,
         type: builtins.str,
-        data: typing.Optional[typing.Union[builtins.str, jsii.Number, builtins.bool, typing.Union["FileAssetMetadataEntry", typing.Dict[builtins.str, typing.Any]], typing.Union["ContainerImageAssetMetadataEntry", typing.Dict[builtins.str, typing.Any]], typing.Union["PropertyMutationMetadataEntry", typing.Dict[builtins.str, typing.Any]], typing.Sequence[typing.Union["Tag", typing.Dict[builtins.str, typing.Any]]], typing.Sequence[builtins.str]]] = None,
+        data: typing.Optional[typing.Union[builtins.str, jsii.Number, builtins.bool, typing.Union["FileAssetMetadataEntry", typing.Dict[builtins.str, typing.Any]], typing.Union["ContainerImageAssetMetadataEntry", typing.Dict[builtins.str, typing.Any]], typing.Union["PropertyMutationMetadataEntry", typing.Dict[builtins.str, typing.Any]], typing.Sequence[typing.Union[builtins.str, typing.Union["Tag", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         trace: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''A metadata entry in a cloud assembly artifact.
@@ -5817,13 +5817,13 @@ class MetadataEntry:
     @builtins.property
     def data(
         self,
-    ) -> typing.Optional[typing.Union[builtins.str, jsii.Number, builtins.bool, "FileAssetMetadataEntry", "ContainerImageAssetMetadataEntry", "PropertyMutationMetadataEntry", typing.List["Tag"], typing.List[builtins.str]]]:
+    ) -> typing.Optional[typing.Union[builtins.str, jsii.Number, builtins.bool, "FileAssetMetadataEntry", "ContainerImageAssetMetadataEntry", "PropertyMutationMetadataEntry", typing.List[typing.Union[builtins.str, "Tag"]]]]:
         '''The data.
 
         :default: - no data.
         '''
         result = self._values.get("data")
-        return typing.cast(typing.Optional[typing.Union[builtins.str, jsii.Number, builtins.bool, "FileAssetMetadataEntry", "ContainerImageAssetMetadataEntry", "PropertyMutationMetadataEntry", typing.List["Tag"], typing.List[builtins.str]]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.str, jsii.Number, builtins.bool, "FileAssetMetadataEntry", "ContainerImageAssetMetadataEntry", "PropertyMutationMetadataEntry", typing.List[typing.Union[builtins.str, "Tag"]]]], result)
 
     @builtins.property
     def trace(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -8345,7 +8345,7 @@ def _typecheckingstub__e87d7fb94dbe0854043094e6893c4c82194ad1f7deaaf154666c903b0
 def _typecheckingstub__57833f80f1b2df590b5e91b75b52a1e9f98ddd4831080bc83367183e412d6914(
     *,
     type: builtins.str,
-    data: typing.Optional[typing.Union[builtins.str, jsii.Number, builtins.bool, typing.Union[FileAssetMetadataEntry, typing.Dict[builtins.str, typing.Any]], typing.Union[ContainerImageAssetMetadataEntry, typing.Dict[builtins.str, typing.Any]], typing.Union[PropertyMutationMetadataEntry, typing.Dict[builtins.str, typing.Any]], typing.Sequence[typing.Union[Tag, typing.Dict[builtins.str, typing.Any]]], typing.Sequence[builtins.str]]] = None,
+    data: typing.Optional[typing.Union[builtins.str, jsii.Number, builtins.bool, typing.Union[FileAssetMetadataEntry, typing.Dict[builtins.str, typing.Any]], typing.Union[ContainerImageAssetMetadataEntry, typing.Dict[builtins.str, typing.Any]], typing.Union[PropertyMutationMetadataEntry, typing.Dict[builtins.str, typing.Any]], typing.Sequence[typing.Union[builtins.str, typing.Union[Tag, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     trace: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""

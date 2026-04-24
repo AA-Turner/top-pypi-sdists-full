@@ -5,8 +5,9 @@ convert it via its specific function.
 """
 
 import numpy as np
+import pandas as pd
 import xarray as xr
-from xarray import DataTree, open_datatree
+from xarray import Dataset, DataTree, open_datatree
 
 from arviz_base.base import dict_to_dataset
 
@@ -116,6 +117,13 @@ def convert_to_datatree(obj, **kwargs):
         dataset = dict_to_dataset(obj, **kwargs)
     elif isinstance(obj, np.ndarray):
         dataset = dict_to_dataset({"x": obj}, **kwargs)
+    elif (
+        hasattr(obj, "__array__")
+        and callable(getattr(obj, "__array__"))
+        and not isinstance(obj, pd.DataFrame)
+    ):
+        obj = np.asarray(obj)
+        dataset = dict_to_dataset({"x": obj}, **kwargs)
     # elif isinstance(obj, (list, tuple)) and isinstance(obj[0], str) and obj[0].endswith(".csv"):
     #     if group == "sample_stats":
     #         kwargs["posterior"] = obj
@@ -130,6 +138,7 @@ def convert_to_datatree(obj, **kwargs):
             "netcdf filename",
             "zarr filename",
             "numpy array",
+            "object with __array__",
             # "pystan fit",
             # "emcee fit",
             # "pyro mcmc fit",
@@ -177,6 +186,8 @@ def convert_to_dataset(obj, *, group="posterior", **kwargs):
     >>> convert_to_dataset({"mu": np.random.randn(500)})
     <xarray.Dataset> ...  # Posterior group with 'mu' variable
     """
+    if isinstance(obj, Dataset):
+        return obj
     if isinstance(obj, DataTree) and obj.name == group:
         return obj.to_dataset()
     inference_data = convert_to_datatree(obj, group=group, **kwargs)

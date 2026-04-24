@@ -1,4 +1,7 @@
-# Copyright Streamsets 2023
+#  IBM Confidential
+#  PID 5900-BAF
+#  Copyright StreamSets Inc., an IBM Company 2024
+
 
 from contextlib import nullcontext
 from unittest.mock import ANY
@@ -14,7 +17,9 @@ from .resources.pipeline_builder_data import CONFIG_TYPE_TEST_CASES_JSON as CONF
 # fmt: on
 
 
-@pytest.mark.parametrize('pipeline_builder', ['sch_sdc_pipeline_builder', 'sch_st_pipeline_builder'])
+@pytest.mark.parametrize(
+    'pipeline_builder', ['sch_sdc_pipeline_builder', 'sch_snowflake_pipeline_builder', 'sch_st_pipeline_builder']
+)
 def test_pipeline_builder_add_stage_stage_exist(pipeline_builder, request):
     pipeline_builder = request.getfixturevalue(pipeline_builder)
     stage_to_add = "Trash"
@@ -23,7 +28,16 @@ def test_pipeline_builder_add_stage_stage_exist(pipeline_builder, request):
     assert stage_to_add in dummy_pipeline_stage["instanceName"]
 
 
-@pytest.mark.parametrize('pipeline_builder', ['sch_sdc_pipeline_builder', 'sch_st_pipeline_builder'])
+def test_pipeline_builder_add_stage_stage_with_shorthand_library_name(sch_sdc_pipeline_builder):
+    stage_to_add = "Trash"
+    sch_sdc_pipeline_builder.add_stage(stage_to_add, library='basic')
+    dummy_pipeline_stage = sch_sdc_pipeline_builder._pipeline[sch_sdc_pipeline_builder._config_key]['stages'][0]
+    assert stage_to_add in dummy_pipeline_stage["instanceName"]
+
+
+@pytest.mark.parametrize(
+    'pipeline_builder', ['sch_sdc_pipeline_builder', 'sch_snowflake_pipeline_builder', 'sch_st_pipeline_builder']
+)
 def test_pipeline_builder_add_stage_stage_does_not_exist(pipeline_builder, request):
     pipeline_builder = request.getfixturevalue(pipeline_builder)
     fake_stage_name = "Cannot Exist"
@@ -32,7 +46,9 @@ def test_pipeline_builder_add_stage_stage_does_not_exist(pipeline_builder, reque
     assert str(e.value) == "Could not find stage ({}).".format(fake_stage_name)
 
 
-@pytest.mark.parametrize('pipeline_builder', ['sch_sdc_pipeline_builder', 'sch_st_pipeline_builder'])
+@pytest.mark.parametrize(
+    'pipeline_builder', ['sch_sdc_pipeline_builder', 'sch_snowflake_pipeline_builder', 'sch_st_pipeline_builder']
+)
 def test_add_stage_supported_types(pipeline_builder, request):
     pipeline_builder = request.getfixturevalue(pipeline_builder)
     snowflake_destination = pipeline_builder.add_stage('Snowflake', type='destination')

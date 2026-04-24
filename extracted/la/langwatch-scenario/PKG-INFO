@@ -1,14 +1,14 @@
 Metadata-Version: 2.4
 Name: langwatch-scenario
-Version: 0.7.24
+Version: 0.7.25
 Summary: The end-to-end agent testing library
 Author-email: LangWatch Team <support@langwatch.ai>
-License: AGPL-3.0
+License: Apache-2.0
 Project-URL: Homepage, https://github.com/langwatch/scenario
 Project-URL: Bug Tracker, https://github.com/langwatch/scenario/issues
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: GNU Affero General Public License v3
+Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
@@ -552,4 +552,4 @@ We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) f
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) for details.
+Apache License 2.0 — see [LICENSE](LICENSE) for details.

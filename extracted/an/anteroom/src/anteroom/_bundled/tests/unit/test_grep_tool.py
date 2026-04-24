@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -105,3 +107,19 @@ class TestHandleGrep:
         result = await handle(pattern="line two", path=str(tmp_tree), context=1)
         assert result["total_matches"] >= 1
         assert "line one" in result["content"]
+
+    @pytest.mark.asyncio
+    async def test_single_file_uses_to_thread(self, tmp_tree: Path) -> None:
+        with patch("anteroom.tools.grep.asyncio.to_thread", wraps=asyncio.to_thread) as mock_to_thread:
+            result = await handle(pattern="hello", path=str(tmp_tree / "hello.py"))
+
+        assert result["total_matches"] == 1
+        mock_to_thread.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_directory_search_uses_to_thread(self, tmp_tree: Path) -> None:
+        with patch("anteroom.tools.grep.asyncio.to_thread", wraps=asyncio.to_thread) as mock_to_thread:
+            result = await handle(pattern="import", path=str(tmp_tree))
+
+        assert result["total_matches"] >= 1
+        mock_to_thread.assert_called_once()

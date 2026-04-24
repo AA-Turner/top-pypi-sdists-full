@@ -1,4 +1,6 @@
-# Copyright 2022 StreamSets Inc.
+#  IBM Confidential
+#  PID 5900-BAF
+#  Copyright StreamSets Inc., an IBM Company 2024
 
 # fmt: off
 import traceback
@@ -48,7 +50,7 @@ def test__given_sample_environment_and_valid_environment_id__when_get_kubernetes
     sch, sample_environment
 ):
     # Given
-    environment_id = sample_environment.environment_id
+    environment_id = sample_environment.id
 
     # When
     # NOTICE that this test explicitly verifies that the SCH's API class implements the whole communication with the
@@ -69,7 +71,7 @@ def test__given_sample_environment_and_kubernetes_agent_events_and_no_kwargs__wh
 ):
     # Given
     kwargs = {}
-    kubernetes_agent_events = KubernetesAgentEvents(sch, sample_environment.environment_id)
+    kubernetes_agent_events = KubernetesAgentEvents(sch, sample_environment.id)
 
     # When
     # NOTICE that this test explicitly verifies that the events' collection (i.e., KubernetesAgentEvents) implements the

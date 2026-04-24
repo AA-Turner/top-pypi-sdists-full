@@ -65,6 +65,31 @@ Use the `agent-browser` CLI for all browser interaction:
 - `agent-browser get text <selector>` — get text content
 - `agent-browser wait <selector>` — wait for an element
 - `agent-browser wait --text "text"` — wait for text to appear
+
+The list above is the common set. For the full command surface (tabs,
+network interception, cookies, storage, trace recording, etc.) run
+`agent-browser --help`, or `agent-browser <command> --help` for details
+on any single command.
+
+## Fallbacks when snapshot is empty or unhelpful
+
+If `snapshot -i` returns no useful refs — common for canvas/SVG-heavy
+apps (n8n workflow editors, Figma, whiteboards, WebGL, Flutter Web) —
+do NOT keep clicking blindly or fall back to the target's REST API.
+Reach for one of these first:
+
+- `agent-browser get html` — raw DOM dump; scope with `-s <selector>`
+- `agent-browser eval '<js>'` — run JS in the page (dump hrefs, read
+  framework state, enumerate data-test-ids, etc.)
+- `agent-browser screenshot <path>` — take a screenshot, then drive
+  the mouse by pixel coordinates
+- `agent-browser mouse move <x> <y>` then `mouse down` / `mouse up` —
+  coordinate-based click (no single-shot form; compose move+down+up)
+- `agent-browser mouse wheel <dy> [dx]` — scroll when there is no
+  scrollable ref to target
+
+For canvas-only apps the loop is: `screenshot` → pick pixel → `mouse
+move x y && mouse down && mouse up`. No selector needed.
 """
 """``agent-browser`` CLI command reference.
 

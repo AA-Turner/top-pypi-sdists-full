@@ -470,7 +470,7 @@ class CliStreamingConfig:
     regardless of ``enabled`` — see ``cli/streaming.py`` for the guard.
     """
 
-    enabled: bool = True
+    enabled: bool = False
     refresh_hz: float = 20.0
     live_in_exec_mode: bool = False
     code_fence_container: bool = True
@@ -2367,7 +2367,7 @@ def load_config(
         streaming_raw = {}
     streaming_enabled_raw = os.environ.get(
         "AI_CHAT_CLI_STREAMING_ENABLED",
-        streaming_raw.get("enabled", True),
+        streaming_raw.get("enabled", False),
     )
     streaming_enabled = str(streaming_enabled_raw).lower() not in ("false", "0", "no")
     streaming_refresh_hz_raw = os.environ.get(

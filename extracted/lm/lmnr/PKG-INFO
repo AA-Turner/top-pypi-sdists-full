@@ -1,17 +1,18 @@
 Metadata-Version: 2.4
 Name: lmnr
-Version: 0.7.47
+Version: 0.7.48
 Summary: Python SDK for Laminar
 Author: lmnr.ai
 Author-email: lmnr.ai <founders@lmnr.ai>
 License-Expression: Apache-2.0
-Classifier: License :: OSI Approved :: Apache Software License
+License-File: LICENSE
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Requires-Dist: grpcio>=1
 Requires-Dist: httpx>=0.24.0,<1.0.0
 Requires-Dist: lmnr-claude-code-proxy>=0.1.17
 Requires-Dist: opentelemetry-api>=1.39.0,<2.0.0
@@ -23,12 +24,11 @@ Requires-Dist: opentelemetry-instrumentation-threading>=0.54b0,<1.0.0
 Requires-Dist: opentelemetry-semantic-conventions==0.60b1
 Requires-Dist: opentelemetry-semantic-conventions-ai==0.4.13
 Requires-Dist: orjson>=3.0.0,<4.0.0
-Requires-Dist: packaging>=22.0
+Requires-Dist: packaging>=22.0,<27.0
 Requires-Dist: pydantic>=2.0.3,<3.0.0
 Requires-Dist: python-dotenv>=1.0,<2.0
-Requires-Dist: tqdm>=4.0
+Requires-Dist: tqdm>=4.0,<5.0
 Requires-Dist: tenacity>=8.0,<10.0
-Requires-Dist: grpcio>=1
 Requires-Dist: opentelemetry-instrumentation-alephalpha==0.52.4 ; extra == 'alephalpha'
 Requires-Dist: opentelemetry-instrumentation-alephalpha==0.52.4 ; extra == 'all'
 Requires-Dist: opentelemetry-instrumentation-bedrock==0.52.4 ; extra == 'all'

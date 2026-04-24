@@ -1,11 +1,15 @@
+#  IBM Confidential
+#  PID 5900-BAF
+#  Copyright StreamSets Inc., an IBM Company 2024
+
 # fmt: off
 import json
-import warnings
+from contextlib import nullcontext
 
 import pytest
 from tests.mocks.mock_api import MockResponse
 
-from streamsets.sdk.constants import SNOWFLAKE_EXECUTOR_TYPE, STATUS_ERRORS
+from streamsets.sdk.constants import COLLECTOR, SNOWPARK, STATUS_ERRORS, EngineType
 from streamsets.sdk.exceptions import InvalidError
 from streamsets.sdk.sch_api import Command
 from streamsets.sdk.sch_models import Pipeline
@@ -51,6 +55,18 @@ class MockApiClient:
     def get_pipelines_definitions(self, val):
         return Command(self, MockResponse({"foo": "bar"}, 200))
 
+    def get_pipeline_commit(self, commit_id):
+        mock_data = {
+            'libraryDefinitions': json.dumps({'schemaVersion': 1}),
+            'pipelineDefinition': json.dumps({'title': 'dummy_value'}),
+            'currentRules': {
+                'rulesDefinition': json.dumps(
+                    {'metricsRuleDefinitions': [], 'driftRuleDefinitions': [], 'dataRuleDefinitions': []}
+                )
+            },
+        }
+        return Command(self, MockResponse(mock_data, 200))
+
 
 @pytest.fixture(scope="function")
 def dummy_pipeline():
@@ -62,7 +78,7 @@ def dummy_pipeline():
         'sdcId': 'a738b839-bac3-4118-b0f4-eb6509f0b7cf',
     }
     pipeline_definition_json = json.dumps({'title': 'dummy_value'})
-    rules_definition_json = {}
+    rules_definition_json = {'metricsRuleDefinitions': [], 'driftRuleDefinitions': [], 'dataRuleDefinitions': []}
     library_definitions_json = json.dumps({'schemaVersion': 1})
     builder = DummyPipelineBuilder()
 
@@ -76,6 +92,12 @@ def dummy_pipeline():
     )
 
 
+@pytest.fixture(scope="function")
+def dummy_collector_pipeline(dummy_pipeline):
+    dummy_pipeline._data['executorType'] = "COLLECTOR"
+    return dummy_pipeline
+
+
 def test_library_definitions_in_data_str_sanity(dummy_pipeline):
     assert isinstance(dummy_pipeline._data['libraryDefinitions'], str)
 
@@ -85,21 +107,35 @@ def test_library_definitions_in_data_str_after_calling_property_sanity(dummy_pip
     assert isinstance(dummy_pipeline._data['libraryDefinitions'], str)  # Check data didn't change
 
 
+@pytest.mark.parametrize(
+    "engine_type",
+    [engine_type for engine_type in EngineType],
+)
+def test_engine_types(dummy_pipeline, engine_type):
+    dummy_pipeline._data['executorType'] = engine_type.value
+    assert dummy_pipeline._data['executorType'] == engine_type.value
+    assert dummy_pipeline.engine_type == engine_type
+    dummy_pipeline.engine_type = engine_type
+    assert dummy_pipeline._data['executorType'] == engine_type.value
+    assert dummy_pipeline.engine_type == engine_type
+    assert isinstance(dummy_pipeline.engine_type, EngineType)
+
+
 def test_library_definitions_lazy_loading_data_collector(dummy_pipeline, mocker):
     def get_defs_dict():
-        return {"foo": "bar"}
+        return {"COLLECTOR": "bar"}
 
     def get_defs_str(val):
-        return '{"foo": "bar"}'
+        return '{"COLLECTOR": "bar"}'
 
     mocker.patch('json.dumps', side_effect=get_defs_str)
 
-    # Use mocker.Mock() here so that _control_hub.engines.get(id=self.sdc_id) in sch_models passes, MockControlHub does
+    # Use mocker.Mock() here so that _control_hub.engines.get(id=self.engine_id) in sch_models passes, MockControlHub does
     # not have an engines attribute as of writing this test.
     dummy_pipeline._control_hub = mocker.Mock()
 
-    dummy_pipeline.executor_type = "foo"
-    dummy_pipeline.sdc_id = "bar"
+    dummy_pipeline._data['executorType'] = COLLECTOR.value
+    dummy_pipeline.engine_id = "bar"
     dummy_pipeline._data['libraryDefinitions'] = None  # We want to trigger lazy loading in the next call
 
     # Lazy loading will be triggered, and we mock the json.dumps to return a string
@@ -111,7 +147,7 @@ def test_library_definitions_lazy_loading_data_collector(dummy_pipeline, mocker)
 
 
 def test_library_definitions_lazy_loading_snowflake(dummy_pipeline):
-    dummy_pipeline.executor_type = SNOWFLAKE_EXECUTOR_TYPE
+    dummy_pipeline._data['executorType'] = SNOWPARK.value
     dummy_pipeline._data['libraryDefinitions'] = None  # We want to trigger lazy loading in the next call
 
     # Lazy loading will be triggered, and we mock the json.dumps to return a string
@@ -150,7 +186,7 @@ def test_pipeline_get_stages():
         ],
         'connectionType': 'STREAMSETS_FOO_CLIENT',
     }
-    pipeline = {'pipelineId': 1, 'executorType': 'COLLECLTOR', 'name': 'foo_pipeline', 'version': 1}
+    pipeline = {'pipelineId': 1, 'executorType': 'COLLECTOR', 'name': 'foo_pipeline', 'version': 1}
     pipeline_definition = {'title': 'foo_pipeline', 'stages': [stage]}
     library_definitions = {'schemaVersion': 1, 'stages': [stage_definitions]}
     rules_definition = {}
@@ -245,17 +281,81 @@ def test_pipeline_engine_id(dummy_pipeline):
     assert dummy_pipeline.sdc_version == '6.1.1'
 
 
-def test_pipeline_sdc_id(dummy_pipeline):
-    fake_engine_id = 'wxyz0987'
-    assert dummy_pipeline.sdc_id
-    dummy_pipeline.sdc_id = fake_engine_id
-    assert dummy_pipeline._data['sdcId'] == fake_engine_id
-    assert dummy_pipeline.sdc_version == '5.6.1'
+@pytest.mark.parametrize(
+    'engine_type, exception',
+    [
+        ('COLLECTOR', nullcontext()),
+        ('TRANSFORMER', pytest.raises(TypeError)),
+        ('SNOWPARK', pytest.raises(TypeError)),
+        ('EDGE', pytest.raises(TypeError)),
+        (None, pytest.raises(TypeError)),
+    ],
+)
+def test_pipeline_add_rules_works_only_for_collector(engine_type, exception, dummy_pipeline):
+    dummy_pipeline._data['executorType'] = engine_type
+
+    with exception:
+        dummy_pipeline.add_data_rule(stream="Dev Raw Data Source 1 output Stream 1", label="data_rule_label")
+
+    with exception:
+        dummy_pipeline.add_datadrift_rule(stream="Dev Raw Data Source 1 output Stream 1", label="drift_rule_label")
+
+    with exception:
+        dummy_pipeline.add_metric_rule(alert_text="dummy metric rule")
 
 
-def test_pipeline_sdc_id_is_deprecated(dummy_pipeline):
-    with warnings.catch_warnings(record=True) as w:
-        warnings.simplefilter("always")
-        assert dummy_pipeline.sdc_id
-        assert len(w) == 1
-        assert issubclass(w[-1].category, DeprecationWarning)
+@pytest.mark.parametrize(
+    'rule_args, rule_kwargs, exception',
+    [
+        (["Dev Raw Data Source 1 output Stream 1", "data_rule_label"], {}, nullcontext()),
+        (["Dev Raw Data Source 1 output Stream 1"], {"label": "data_rule_label"}, nullcontext()),
+        ([], {"stream": "Dev Raw Data Source 1 output Stream 1", "label": "data_rule_label"}, nullcontext()),
+    ],
+)
+def test_pipeline_add_data_rule(rule_args, rule_kwargs, exception, dummy_collector_pipeline):
+    with exception:
+        dummy_collector_pipeline.add_data_rule(*rule_args, **rule_kwargs)
+
+        assert 1 == len(dummy_collector_pipeline._rules_definition['dataRuleDefinitions'])
+        assert (
+            "Dev Raw Data Source 1 output Stream 1"
+            == dummy_collector_pipeline._rules_definition['dataRuleDefinitions'][0]["lane"]
+        )
+        assert "data_rule_label" == dummy_collector_pipeline._rules_definition['dataRuleDefinitions'][0]["label"]
+
+
+@pytest.mark.parametrize(
+    'rule_args, rule_kwargs, exception',
+    [
+        (["Dev Raw Data Source 1 output Stream 1", "drift_rule_label"], {}, nullcontext()),
+        (["Dev Raw Data Source 1 output Stream 1"], {"label": "drift_rule_label"}, nullcontext()),
+        ([], {"stream": "Dev Raw Data Source 1 output Stream 1", "label": "drift_rule_label"}, nullcontext()),
+    ],
+)
+def test_pipeline_add_datadrift_rule(rule_args, rule_kwargs, exception, dummy_collector_pipeline):
+    with exception:
+        dummy_collector_pipeline.add_datadrift_rule(*rule_args, **rule_kwargs)
+
+        assert 1 == len(dummy_collector_pipeline._rules_definition['driftRuleDefinitions'])
+        assert (
+            "Dev Raw Data Source 1 output Stream 1"
+            == dummy_collector_pipeline._rules_definition['driftRuleDefinitions'][0]["lane"]
+        )
+        assert "drift_rule_label" == dummy_collector_pipeline._rules_definition['driftRuleDefinitions'][0]["label"]
+
+
+@pytest.mark.parametrize(
+    'rule_args, rule_kwargs, exception',
+    [
+        (["dummy metric rule"], {}, nullcontext()),
+        ([], {"alert_text": "dummy metric rule"}, nullcontext()),
+    ],
+)
+def test_pipeline_add_metric_rule(rule_args, rule_kwargs, exception, dummy_collector_pipeline):
+    with exception:
+        dummy_collector_pipeline.add_metric_rule(*rule_args, **rule_kwargs)
+
+        assert 1 == len(dummy_collector_pipeline._rules_definition['metricsRuleDefinitions'])
+        assert (
+            "dummy metric rule" == dummy_collector_pipeline._rules_definition['metricsRuleDefinitions'][0]["alertText"]
+        )

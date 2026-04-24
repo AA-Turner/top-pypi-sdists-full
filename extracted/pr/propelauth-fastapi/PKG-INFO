@@ -1,25 +1,17 @@
 Metadata-Version: 2.4
 Name: propelauth-fastapi
-Version: 4.3.2
+Version: 4.4.0
 Summary: A FastAPI library for managing authentication, backed by PropelAuth
-Home-page: https://github.com/propelauth/propelauth-fastapi
-Author: PropelAuth
-Author-email: support@propelauth.com
+Project-URL: Homepage, https://github.com/propelauth/propelauth-fastapi
+Author-email: PropelAuth <support@propelauth.com>
 License: MIT
-Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: propelauth-py==4.3.2
-Requires-Dist: requests
+Requires-Python: >=3.9
+Requires-Dist: fastapi
 Requires-Dist: httpx>=0.28.1
-Dynamic: author
-Dynamic: author-email
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: license
-Dynamic: license-file
-Dynamic: requires-dist
-Dynamic: summary
+Requires-Dist: propelauth-py==4.4.0
+Requires-Dist: requests
+Description-Content-Type: text/markdown
 
 <p align="center">
   <a href="https://www.propelauth.com?ref=github" target="_blank" align="center">

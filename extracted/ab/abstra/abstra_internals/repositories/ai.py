@@ -154,10 +154,10 @@ class LocalAIRepository(AIRepository):
     def prompt(self, prompt_request_body: CloudApiCliAiV2PromptPostRequest):
         response = self.client.post("/ai-v2/prompt", json=prompt_request_body.to_dict())
 
-        response.raise_for_status()
-
-        response = response.json()
-        return response
+        try:
+            return response.json()
+        except json.JSONDecodeError:
+            raise Exception(f"Error parsing JSON: {response.text}")
 
     def parse_document(self, model: str, file_content: bytes, mime_type: str):
         headers = resolve_headers()
@@ -168,9 +168,11 @@ class LocalAIRepository(AIRepository):
             headers={**headers, "Content-Type": mime_type},
             data=file_content,
         )
-        response.raise_for_status()
 
-        return response.json()
+        try:
+            return response.json()
+        except json.JSONDecodeError:
+            raise Exception(f"Error parsing JSON: {response.text}")
 
     def get_ai_messages(
         self,

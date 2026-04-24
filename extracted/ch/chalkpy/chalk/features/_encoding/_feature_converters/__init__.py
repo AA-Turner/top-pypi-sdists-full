@@ -2,6 +2,8 @@ from __future__ import annotations
 
 # pyright: reportPrivateUsage=false
 
+from chalk.utils.attrs_utils import get_attrs
+
 from ._base import (
     _DEFAULT_FEATURE_ENCODING_OPTIONS,
     _FROM_NEW,
@@ -55,7 +57,6 @@ from ._int_converter import (
     UInt32FeatureConverter,
     UInt64FeatureConverter,
 )
-from ._attrs_converter import AttrsFeatureConverter
 from ._dict_converter import DictFeatureConverter
 from ._list_converter import ListFeatureConverter
 from ._set_converter import SetFeatureConverter
@@ -70,6 +71,11 @@ from ._time_converter import Time32sFeatureConverter, Time32msFeatureConverter, 
 from ._timedelta_converter import TimedeltaFeatureConverter
 from ._typed_dict_converter import TypedDictFeatureConverter
 from ._uuid_ip_converters import UUIDFeatureConverter, IPv4FeatureConverter, IPv6FeatureConverter
+
+_HAS_ATTRS = get_attrs() is not None
+
+if _HAS_ATTRS:
+    from ._attrs_converter import AttrsFeatureConverter
 
 __all__ = [
     # _base
@@ -139,8 +145,6 @@ __all__ = [
     "ListFeatureConverter",
     # set_converter
     "SetFeatureConverter",
-    # attrs_converter
-    "AttrsFeatureConverter",
     # dict_converter
     "DictFeatureConverter",
     # namedtuple_converter
@@ -167,3 +171,6 @@ __all__ = [
     "IPv4FeatureConverter",
     "IPv6FeatureConverter",
 ]
+
+if _HAS_ATTRS:
+    __all__.append("AttrsFeatureConverter")

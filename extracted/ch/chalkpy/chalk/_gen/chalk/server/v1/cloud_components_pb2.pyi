@@ -746,6 +746,117 @@ class ListCloudComponentStorageResponse(_message.Message):
         self, storages: _Optional[_Iterable[_Union[CloudComponentStorageResponse, _Mapping]]] = ...
     ) -> None: ...
 
+class CreateCloudComponentContainerRegistryRequest(_message.Message):
+    __slots__ = ("container_registry",)
+    CONTAINER_REGISTRY_FIELD_NUMBER: _ClassVar[int]
+    container_registry: CloudComponentContainerRegistryRequest
+    def __init__(
+        self, container_registry: _Optional[_Union[CloudComponentContainerRegistryRequest, _Mapping]] = ...
+    ) -> None: ...
+
+class CreateCloudComponentContainerRegistryResponse(_message.Message):
+    __slots__ = ("container_registry",)
+    CONTAINER_REGISTRY_FIELD_NUMBER: _ClassVar[int]
+    container_registry: CloudComponentContainerRegistryResponse
+    def __init__(
+        self, container_registry: _Optional[_Union[CloudComponentContainerRegistryResponse, _Mapping]] = ...
+    ) -> None: ...
+
+class UpdateCloudComponentContainerRegistryRequest(_message.Message):
+    __slots__ = ("id", "container_registry")
+    ID_FIELD_NUMBER: _ClassVar[int]
+    CONTAINER_REGISTRY_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    container_registry: CloudComponentContainerRegistryRequest
+    def __init__(
+        self,
+        id: _Optional[str] = ...,
+        container_registry: _Optional[_Union[CloudComponentContainerRegistryRequest, _Mapping]] = ...,
+    ) -> None: ...
+
+class UpdateCloudComponentContainerRegistryResponse(_message.Message):
+    __slots__ = ("container_registry",)
+    CONTAINER_REGISTRY_FIELD_NUMBER: _ClassVar[int]
+    container_registry: CloudComponentContainerRegistryResponse
+    def __init__(
+        self, container_registry: _Optional[_Union[CloudComponentContainerRegistryResponse, _Mapping]] = ...
+    ) -> None: ...
+
+class GetCloudComponentContainerRegistryRequest(_message.Message):
+    __slots__ = ("id",)
+    ID_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    def __init__(self, id: _Optional[str] = ...) -> None: ...
+
+class GetCloudComponentContainerRegistryResponse(_message.Message):
+    __slots__ = ("container_registry",)
+    CONTAINER_REGISTRY_FIELD_NUMBER: _ClassVar[int]
+    container_registry: CloudComponentContainerRegistryResponse
+    def __init__(
+        self, container_registry: _Optional[_Union[CloudComponentContainerRegistryResponse, _Mapping]] = ...
+    ) -> None: ...
+
+class DeleteCloudComponentContainerRegistryRequest(_message.Message):
+    __slots__ = ("id",)
+    ID_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    def __init__(self, id: _Optional[str] = ...) -> None: ...
+
+class DeleteCloudComponentContainerRegistryResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class ListCloudComponentContainerRegistryRequest(_message.Message):
+    __slots__ = ("team_id",)
+    TEAM_ID_FIELD_NUMBER: _ClassVar[int]
+    team_id: str
+    def __init__(self, team_id: _Optional[str] = ...) -> None: ...
+
+class ListCloudComponentContainerRegistryResponse(_message.Message):
+    __slots__ = ("container_registries",)
+    CONTAINER_REGISTRIES_FIELD_NUMBER: _ClassVar[int]
+    container_registries: _containers.RepeatedCompositeFieldContainer[CloudComponentContainerRegistryResponse]
+    def __init__(
+        self,
+        container_registries: _Optional[_Iterable[_Union[CloudComponentContainerRegistryResponse, _Mapping]]] = ...,
+    ) -> None: ...
+
+class CreateBindingClusterContainerRegistryRequest(_message.Message):
+    __slots__ = ("cluster_id", "container_registry_id")
+    CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
+    CONTAINER_REGISTRY_ID_FIELD_NUMBER: _ClassVar[int]
+    cluster_id: str
+    container_registry_id: str
+    def __init__(self, cluster_id: _Optional[str] = ..., container_registry_id: _Optional[str] = ...) -> None: ...
+
+class CreateBindingClusterContainerRegistryResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class GetBindingClusterContainerRegistryRequest(_message.Message):
+    __slots__ = ("cluster_id",)
+    CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
+    cluster_id: str
+    def __init__(self, cluster_id: _Optional[str] = ...) -> None: ...
+
+class GetBindingClusterContainerRegistryResponse(_message.Message):
+    __slots__ = ("cluster_id", "container_registry_id")
+    CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
+    CONTAINER_REGISTRY_ID_FIELD_NUMBER: _ClassVar[int]
+    cluster_id: str
+    container_registry_id: str
+    def __init__(self, cluster_id: _Optional[str] = ..., container_registry_id: _Optional[str] = ...) -> None: ...
+
+class DeleteBindingClusterContainerRegistryRequest(_message.Message):
+    __slots__ = ("cluster_id",)
+    CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
+    cluster_id: str
+    def __init__(self, cluster_id: _Optional[str] = ...) -> None: ...
+
+class DeleteBindingClusterContainerRegistryResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
 class CreateBindingClusterGatewayRequest(_message.Message):
     __slots__ = ("cluster_id", "cluster_gateway_id")
     CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]

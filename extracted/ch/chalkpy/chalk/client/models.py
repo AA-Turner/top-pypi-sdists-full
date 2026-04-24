@@ -24,11 +24,14 @@ from chalk.queries.query_context import ContextJsonDict
 from chalk.utils.df_utils import read_parquet
 from chalk.utils.duration import timedelta_to_duration
 from chalk.utils.missing_dependency import missing_dependency_exception
+from chalk.utils.pandas_utils import require_pandas
 
 if TYPE_CHECKING:
     import pandas as pd
     import polars as pl
     from pydantic import BaseModel, Extra, Field, validator
+
+    from chalk._reporting.models import BatchOpKind, BatchOpStatus
 
     root_validator = lambda _: (lambda x: x)
 else:
@@ -45,7 +48,9 @@ MEMORY_REGEX = r"^\d+([EPTGMK]i|[EPTGMk])?$"
 TIMEDELTA_PREFIX = "delta:"  # used to disambiguate datetimes and timedeltas in string form
 
 FeatureReference: TypeAlias = Union[str, Any]
-UnloadResolvers: TypeAlias = Union[Sequence[Union[str, Resolver]], Mapping[Union[str, Resolver], Tuple[Any, ...]], None]
+UnloadResolvers: TypeAlias = Union[
+    Literal["all"], Sequence[Union[str, Resolver]], Mapping[Union[str, Resolver], Tuple[Any, ...]], None
+]
 
 _CHALK_DEBUG_FULL_TRACE = os.getenv("CHALK_DEBUG_FULL_TRACE") == "1"
 
@@ -332,6 +337,38 @@ class ChalkError(BaseModel, frozen=True):
             exception=exception,
             feature=feature,
             resolver=resolver,
+        )
+
+    @staticmethod
+    def from_proto(proto_error: Any) -> "ChalkError":
+        _ERROR_CODE_MAP = {
+            0: ErrorCode.INTERNAL_SERVER_ERROR,  # UNSPECIFIED
+            1: ErrorCode.PARSE_FAILED,
+            2: ErrorCode.RESOLVER_NOT_FOUND,
+            3: ErrorCode.INVALID_QUERY,
+            4: ErrorCode.VALIDATION_FAILED,
+            5: ErrorCode.RESOLVER_FAILED,
+            6: ErrorCode.RESOLVER_TIMED_OUT,
+            7: ErrorCode.UPSTREAM_FAILED,
+            8: ErrorCode.UNAUTHENTICATED,
+            9: ErrorCode.UNAUTHORIZED,
+            10: ErrorCode.CANCELLED,
+            11: ErrorCode.DEADLINE_EXCEEDED,
+        }
+
+        _ERROR_CATEGORY_MAP = {
+            0: ErrorCodeCategory.NETWORK,  # UNSPECIFIED
+            1: ErrorCodeCategory.REQUEST,
+            2: ErrorCodeCategory.FIELD,
+        }
+        return ChalkError(
+            code=_ERROR_CODE_MAP.get(int(proto_error.code), ErrorCode.INTERNAL_SERVER_ERROR),
+            category=_ERROR_CATEGORY_MAP.get(int(proto_error.category), ErrorCodeCategory.NETWORK),
+            message=proto_error.message,
+            display_primary_key=proto_error.display_primary_key or None,
+            display_primary_key_fqn=proto_error.display_primary_key_fqn or None,
+            feature=proto_error.feature or None,
+            resolver=proto_error.resolver or None,
         )
 
     if TYPE_CHECKING:
@@ -653,11 +690,10 @@ class BulkOnlineQueryResult:
         """
         Allows access to the results of an `OnlineQuery` submitted to `query_bulk` as a Pandas dataframe.
         """
+        pd = require_pandas()
         if self.scalars_df is not None:
             return self.scalars_df.to_pandas()
         else:
-            import pandas as pd
-
             return pd.DataFrame()
 
     # def get_feature_value(self, pkey: str | int, f: FeatureReference):
@@ -960,7 +996,7 @@ class CreateOfflineQueryJobRequest(BaseModel):
     """
 
     unload_resolvers: Optional[List[Dict[str, Any]]] = None
-    """Resolvers to pre-compute and unload from shard jobs. Each entry has 'fqn' and optional 'partition_by'."""
+    """Resolvers to pre-compute and unload from shard jobs. Each entry is a dict with 'fqn' and optional 'partition_by', or {"any": []} to auto-detect all eligible resolvers."""
 
     @root_validator
     def _validate_multiple_computers(cls, values: Dict[str, Any]):
@@ -1399,6 +1435,7 @@ class DatasetRevisionSummaryResponse(DatasetRevisionInfoResponse):
             raise ValueError(f"ShardBatchKey {shard_batch_key} not found in return")
 
     def to_pandas(self, shard_batch_key: Optional[ShardBatchKey] = None) -> pd.DataFrame:
+        require_pandas()
         if self.urls is None or len(self.urls) == 0:
             default_err_msg = f"dataset revision '{self.revision_id}' {self.type.value} could not be found"
             raise ValueError(self.error or default_err_msg)
@@ -1425,6 +1462,7 @@ class DatasetRevisionPreviewResponse(DatasetRevisionInfoResponse):
             raise ValueError(f"ShardBatchKey {shard_batch_key} not found in return")
 
     def to_pandas(self, shard_batch_key: Optional[ShardBatchKey] = None) -> pd.DataFrame:
+        require_pandas()
         if self.urls is None or len(self.urls) == 0:
             default_err_msg = f"dataset revision '{self.revision_id}' {self.type.value} could not be found"
             raise ValueError(self.error or default_err_msg)
@@ -2099,6 +2137,17 @@ class ScheduledQueryRun:
             blocker_operation_id=proto_run.blocker_operation_id,
             workflow_execution_id=proto_run.workflow_execution_id or None,
         )
+
+
+@dataclasses.dataclass
+class OfflineQueryReport:
+    operation_kind: BatchOpKind
+    status: BatchOpStatus
+    environment_id: str
+    deployment_id: str
+    started_at: Optional[datetime]
+    ended_at: Optional[datetime]
+    all_errors: Optional[List[ChalkError]] = None
 
 
 @dataclasses.dataclass

@@ -8,9 +8,12 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from streamsets.sdk import ControlHub
+from streamsets.sdk.sch_api import ApiClient
 from streamsets.sdk.sch_models import DeploymentBuilder, Pipeline
 from streamsets.sdk.sch_models import PipelineBuilder as SchSdcPipelineBuilder
 from streamsets.sdk.sch_models import StPipelineBuilder as SchStPipelineBuilder
+from streamsets.sdk.sch_models import StPipelineBuilder as SnowflakePipelineBuilder
 from streamsets.sdk.sdc_models import PipelineBuilder as SdcPipelineBuilder
 from streamsets.sdk.st_models import PipelineBuilder as StPipelineBuilder
 
@@ -18,6 +21,7 @@ from .resources.conftest_data import (
     AZURE_ENVIRONMENT_JSON, DEPLOYMENT_BUILDER_JSON, PIPELINE_BUILDER_DEFINITIONS_JSON, PIPELINE_BUILDER_JSON,
 )
 from .resources.pipeline_builder_data import PIPELINE_BUILDER_DEFINITIONS, PIPELINE_BUILDER_STAGE_DATA_DEFINITION
+from .resources.sch_data import ALL_ENGINE_VERSIONS
 
 # fmt: on
 
@@ -45,9 +49,56 @@ class DummyEngine:
         self._sch_pipeline = {"sdcId": 0}
 
 
-class MockControlHub:
+class MockResponse:
+    def __init__(self, json_response):
+        self.response = json_response
+
+    def json(self):
+        return self.response
+
+    @property
+    def content(self):
+        return self.response.encode()
+
+    @property
+    def text(self):
+        return self.response
+
+
+class MockCommand:
+    def __init__(self, json_response):
+        self._response = json_response
+
+    @property
+    def response(self):
+        return MockResponse(self._response)
+
+
+class MockApiClient(ApiClient):
+
+    def __init__(self, *args, **kwargs):
+        pass  # avoid calling super()
+
+    def get_engine_version(self, engine_version_id):
+        return MockCommand(
+            next(filter(lambda engine_config: engine_config['id'] == engine_version_id, ALL_ENGINE_VERSIONS))
+        )
+
+    def get_all_engine_versions(self, *args, **kwargs):
+        return MockCommand(
+            list(
+                filter(
+                    lambda config: config.get("engineType") == kwargs.get("engine_type"), deepcopy(ALL_ENGINE_VERSIONS)
+                )
+            )
+        )
+
+
+class MockControlHub(ControlHub):
     def __init__(self):
+        self.api_client = MockApiClient()
         self.organization = "12345"
+        pass  # do not call super()
 
     @property
     def engines(self):
@@ -88,6 +139,15 @@ def st_pipeline_builder(pipeline_builder_json, pipeline_builder_definitions):
 @pytest.fixture(scope="function")
 def sch_st_pipeline_builder(pipeline_builder_json, st_pipeline_builder):
     return SchStPipelineBuilder(
+        pipeline=pipeline_builder_json,
+        transformer_pipeline_builder=st_pipeline_builder,
+        control_hub=MockControlHub(),
+    )
+
+
+@pytest.fixture(scope="function")
+def sch_snowflake_pipeline_builder(pipeline_builder_json, st_pipeline_builder):
+    return SnowflakePipelineBuilder(
         pipeline=pipeline_builder_json,
         transformer_pipeline_builder=st_pipeline_builder,
         control_hub=MockControlHub(),

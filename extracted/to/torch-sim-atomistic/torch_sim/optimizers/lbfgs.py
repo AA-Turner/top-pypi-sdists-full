@@ -16,15 +16,19 @@ from typing import TYPE_CHECKING, Any
 import torch
 
 import torch_sim as ts
-from torch_sim.optimizers import cell_filters
-from torch_sim.optimizers.cell_filters import frechet_cell_filter_init
+from torch_sim.optimizers.cell_filters import (
+    CellLBFGSState,
+    _clamp_deform_grad_log,
+    compute_cell_forces,
+    deform_grad,
+    frechet_cell_filter_init,
+)
+from torch_sim.optimizers.state import LBFGSState
 from torch_sim.state import SimState
-from torch_sim.typing import StateDict
 
 
 if TYPE_CHECKING:
     from torch_sim.models.interface import ModelInterface
-    from torch_sim.optimizers import CellLBFGSState, LBFGSState
     from torch_sim.optimizers.cell_filters import CellFilter, CellFilterFuncs
 
 
@@ -108,11 +112,11 @@ def _per_system_vdot(
 
 
 def lbfgs_init(
-    state: SimState | StateDict,
+    state: SimState,
     model: "ModelInterface",
     *,
-    step_size: float = 0.1,
-    alpha: float | None = None,
+    step_size: float | torch.Tensor = 0.1,
+    alpha: float | torch.Tensor | None = None,
     cell_filter: "CellFilter | CellFilterFuncs | None" = None,
     **filter_kwargs: Any,
 ) -> "LBFGSState | CellLBFGSState":
@@ -129,7 +133,7 @@ def lbfgs_init(
         M_ext = M + 3 (extended with cell DOFs per system)
 
     Args:
-        state: Input state as SimState object or state parameter dict
+        state: Input SimState
         model: Model that computes energies, forces, and optionally stress
         step_size: Fixed per-system step length (damping factor).
             If using ASE mode (fixed alpha), set this to 1.0 (or your damping).
@@ -155,12 +159,7 @@ def lbfgs_init(
            optimization, and the step is scaled by `step_size` (damping).
            This matches `ase.optimize.LBFGS(alpha=70.0, damping=1.0)`.
     """
-    from torch_sim.optimizers import CellLBFGSState, LBFGSState
-
-    tensor_args = {"device": model.device, "dtype": model.dtype}
-
-    if not isinstance(state, SimState):
-        state = SimState(**state)
+    device, dtype = model.device, model.dtype
 
     n_systems = state.n_systems  # S
 
@@ -178,37 +177,30 @@ def lbfgs_init(
     # Initialize empty per-system history tensors
     # History shape: [S, H, M, 3] where H=0 at start, M = global_max_atoms
     s_history = torch.zeros(
-        (n_systems, 0, global_max_atoms, 3), **tensor_args
+        (n_systems, 0, global_max_atoms, 3), device=device, dtype=dtype
     )  # [S, 0, M, 3]
     y_history = torch.zeros(
-        (n_systems, 0, global_max_atoms, 3), **tensor_args
+        (n_systems, 0, global_max_atoms, 3), device=device, dtype=dtype
     )  # [S, 0, M, 3]
 
     # Alpha tensor: 0.0 means dynamic, >0 means fixed
-    alpha_val = 0.0 if alpha is None else alpha
-    alpha_tensor = torch.full((n_systems,), alpha_val, **tensor_args)  # [S]
+    alpha_tensor = torch.as_tensor(alpha or 0.0, device=device, dtype=dtype)
+    if alpha_tensor.ndim == 0:
+        alpha_tensor = alpha_tensor.expand(n_systems)
 
-    common_args = {
-        # Copy SimState attributes
-        "positions": state.positions.clone(),  # [N, 3]
-        "masses": state.masses.clone(),  # [N]
-        "cell": state.cell.clone(),  # [S, 3, 3]
-        "atomic_numbers": state.atomic_numbers.clone(),  # [N]
-        "system_idx": state.system_idx.clone(),  # [N]
-        "pbc": state.pbc,  # [S, 3]
-        "charge": state.charge,  # preserve charge
-        "spin": state.spin,  # preserve spin
-        "_constraints": state.constraints,  # preserve constraints
-        # Optimization state
+    step_size_tensor = torch.as_tensor(step_size, device=device, dtype=dtype)
+    if step_size_tensor.ndim == 0:
+        step_size_tensor = step_size_tensor.expand(n_systems)
+
+    lbfgs_attrs = {
         "forces": forces,  # [N, 3]
         "energy": energy,  # [S]
         "stress": stress,  # [S, 3, 3] or None
-        # L-BFGS specific state
         "prev_forces": forces.clone(),  # [N, 3]
         "prev_positions": state.positions.clone(),  # [N, 3]
         "s_history": s_history,  # [S, 0, M, 3]
         "y_history": y_history,  # [S, 0, M, 3]
-        "step_size": torch.full((n_systems,), step_size, **tensor_args),  # [S]
+        "step_size": step_size_tensor,  # [S]
         "alpha": alpha_tensor,  # [S]
         "n_iter": torch.zeros((n_systems,), device=model.device, dtype=torch.int32),
         "max_atoms": max_atoms,  # [S] atoms per system for padding
@@ -221,41 +213,37 @@ def lbfgs_init(
         # Store prev_positions as fractional (same as Cartesian for identity deform_grad)
         # Store prev_forces as scaled (same as Cartesian for identity deform_grad)
         reference_cell = state.cell.clone()  # [S, 3, 3]
-        cur_deform_grad = cell_filters.deform_grad(
-            reference_cell.mT, state.cell.mT
-        )  # [S, 3, 3]
+        cur_deform_grad = deform_grad(reference_cell.mT, state.cell.mT)  # [S, 3, 3]
 
-        # Initial fractional positions = positions
-        # cur_deform_grad[system_idx]: [N, 3, 3], positions: [N, 3] -> [N, 3]
         frac_positions = torch.linalg.solve(
             cur_deform_grad[state.system_idx],  # [N, 3, 3]
             state.positions.unsqueeze(-1),  # [N, 3, 1]
         ).squeeze(-1)  # [N, 3]
 
-        # Initial scaled forces = forces @ deform_grad = forces
-        # forces: [N, 3], cur_deform_grad[system_idx]: [N, 3, 3] -> [N, 3]
         scaled_forces = torch.bmm(
             forces.unsqueeze(1),  # [N, 1, 3]
             cur_deform_grad[state.system_idx],  # [N, 3, 3]
         ).squeeze(1)  # [N, 3]
 
-        common_args["reference_cell"] = reference_cell  # [S, 3, 3]
-        common_args["cell_filter"] = cell_filter_funcs
-        # Store fractional positions and scaled forces for ASE compatibility
-        common_args["prev_positions"] = frac_positions  # [N, 3]
-        common_args["prev_forces"] = scaled_forces  # [N, 3]
+        lbfgs_attrs["reference_cell"] = reference_cell  # [S, 3, 3]
+        lbfgs_attrs["cell_filter"] = cell_filter_funcs
+        lbfgs_attrs["prev_positions"] = frac_positions  # [N, 3] (fractional)
+        lbfgs_attrs["prev_forces"] = scaled_forces  # [N, 3] (scaled)
 
         # Extended per-system history includes cell DOFs (3 "virtual atoms" per system)
-        # History shape: [S, H, M+3, 3] where M = global_max_atoms
         extended_size_per_system = global_max_atoms + 3  # M_ext = M + 3
-        common_args["s_history"] = torch.zeros(
-            (n_systems, 0, extended_size_per_system, 3), **tensor_args
+        lbfgs_attrs["s_history"] = torch.zeros(
+            (n_systems, 0, extended_size_per_system, 3),
+            device=device,
+            dtype=dtype,
         )  # [S, 0, M_ext, 3]
-        common_args["y_history"] = torch.zeros(
-            (n_systems, 0, extended_size_per_system, 3), **tensor_args
+        lbfgs_attrs["y_history"] = torch.zeros(
+            (n_systems, 0, extended_size_per_system, 3),
+            device=device,
+            dtype=dtype,
         )  # [S, 0, M_ext, 3]
 
-        cell_state = CellLBFGSState(**common_args)
+        cell_state = CellLBFGSState.from_state(state, **lbfgs_attrs)
 
         # Initialize cell-specific attributes
         # After init: cell_positions [S, 3, 3], cell_forces [S, 3, 3], cell_factor [S]
@@ -265,9 +253,12 @@ def lbfgs_init(
         cell_state.prev_cell_positions = cell_state.cell_positions.clone()  # [S, 3, 3]
         cell_state.prev_cell_forces = cell_state.cell_forces.clone()  # [S, 3, 3]
 
+        cell_state.store_model_extras(model_output)
         return cell_state
 
-    return LBFGSState(**common_args)
+    lbfgs_state = LBFGSState.from_state(state, **lbfgs_attrs)
+    lbfgs_state.store_model_extras(model_output)
+    return lbfgs_state
 
 
 def lbfgs_step(  # noqa: PLR0915, C901
@@ -275,7 +266,7 @@ def lbfgs_step(  # noqa: PLR0915, C901
     model: "ModelInterface",
     *,
     max_history: int = 20,
-    max_step: float = 0.2,
+    max_step: float | torch.Tensor = 0.2,
     curvature_eps: float = 1e-12,
 ) -> "LBFGSState | CellLBFGSState":
     r"""Advance one L-BFGS iteration using the two-loop recursion.
@@ -316,16 +307,13 @@ def lbfgs_step(  # noqa: PLR0915, C901
     References:
         - Nocedal & Wright, Numerical Optimization (L-BFGS two-loop recursion).
     """
-    from torch_sim.optimizers import CellLBFGSState
-
-    is_cell_state = isinstance(state, CellLBFGSState)
     device, dtype = model.device, model.dtype
     eps = 1e-8 if dtype == torch.float32 else 1e-16
     n_systems = state.n_systems  # S
 
     # Derive max_atoms from history shape: [S, H, M, 3] or [S, H, M_ext, 3]
     history_dim = state.s_history.shape[2]  # M or M_ext
-    if is_cell_state:
+    if isinstance(state, CellLBFGSState):
         max_atoms_ext = history_dim  # M_ext = M + 3
         max_atoms = max_atoms_ext - 3  # M
     else:
@@ -336,7 +324,7 @@ def lbfgs_step(  # noqa: PLR0915, C901
     atom_mask = torch.arange(max_atoms, device=device)[None] < state.max_atoms[:, None]
 
     # Extended mask including cell DOFs: [S, M_ext]
-    if is_cell_state:
+    if isinstance(state, CellLBFGSState):
         ext_mask = torch.cat(
             [
                 atom_mask,
@@ -347,10 +335,10 @@ def lbfgs_step(  # noqa: PLR0915, C901
     else:
         ext_mask = atom_mask  # [S, M]
 
-    if is_cell_state:
+    if isinstance(state, CellLBFGSState):
         # Get current deformation gradient
         # reference_cell.mT: [S, 3, 3], row_vector_cell: [S, 3, 3]
-        cur_deform_grad = cell_filters.deform_grad(
+        cur_deform_grad = deform_grad(
             state.reference_cell.mT, state.row_vector_cell
         )  # [S, 3, 3]
 
@@ -464,7 +452,7 @@ def lbfgs_step(  # noqa: PLR0915, C901
     step = scale.view(-1, 1, 1) * step  # [S, M_ext, 3]
 
     # Split step into position and cell components
-    if is_cell_state:
+    if isinstance(state, CellLBFGSState):
         step_padded = step[:, :max_atoms]  # [S, M, 3]
         step_cell = step[:, max_atoms:]  # [S, 3, 3]
         # Convert padded step to atom-level
@@ -475,7 +463,7 @@ def lbfgs_step(  # noqa: PLR0915, C901
 
     # Save previous state for history update
     # For cell state: store fractional positions and scaled forces (ASE convention)
-    if is_cell_state:
+    if isinstance(state, CellLBFGSState):
         state.prev_positions = frac_positions.clone()  # [N, 3] (fractional)
         state.prev_forces = forces_scaled.clone()  # [N, 3] (scaled)
         state.prev_cell_positions = state.cell_positions.clone()  # [S, 3, 3]
@@ -484,7 +472,6 @@ def lbfgs_step(  # noqa: PLR0915, C901
         # Apply cell step
         dr_cell = step_cell  # [S, 3, 3]
         cell_positions_new = state.cell_positions + dr_cell  # [S, 3, 3]
-        state.cell_positions = cell_positions_new  # [S, 3, 3]
 
         # Determine if Frechet filter
         init_fn, _step_fn = state.cell_filter
@@ -494,11 +481,16 @@ def lbfgs_step(  # noqa: PLR0915, C901
             # Frechet: deform_grad = exp(cell_positions / cell_factor)
             cell_factor_reshaped = state.cell_factor.view(n_systems, 1, 1)
             deform_grad_log_new = cell_positions_new / cell_factor_reshaped  # [S, 3, 3]
+            deform_grad_log_new, cell_positions_new = _clamp_deform_grad_log(
+                deform_grad_log_new, cell_positions_new, cell_factor_reshaped
+            )
             deform_grad_new = torch.matrix_exp(deform_grad_log_new)  # [S, 3, 3]
         else:
             # UnitCell: deform_grad = cell_positions / cell_factor
             cell_factor_expanded = state.cell_factor.expand(n_systems, 3, 1)
             deform_grad_new = cell_positions_new / cell_factor_expanded  # [S, 3, 3]
+
+        state.cell_positions = cell_positions_new  # [S, 3, 3]
 
         # Update cell: new_cell = reference_cell @ deform_grad^T
         # Use set_constrained_cell to apply cell constraints (e.g. FixSymmetry)
@@ -510,7 +502,7 @@ def lbfgs_step(  # noqa: PLR0915, C901
         # Apply position step in fractional space, then convert to Cartesian
         new_frac = frac_positions + step_positions  # [N, 3]
 
-        new_deform_grad = cell_filters.deform_grad(
+        new_deform_grad = deform_grad(
             state.reference_cell.mT, state.row_vector_cell
         )  # [S, 3, 3]
         # new_positions = new_frac @ deform_grad^T
@@ -529,10 +521,11 @@ def lbfgs_step(  # noqa: PLR0915, C901
     new_forces = model_output["forces"]  # [N, 3]
     new_energy = model_output["energy"]  # [S]
     new_stress = model_output.get("stress")  # [S, 3, 3] or None
+    state.store_model_extras(model_output)
 
     # Update cell forces for next step: [S, 3, 3]
-    if is_cell_state:
-        cell_filters.compute_cell_forces(model_output, state)
+    if isinstance(state, CellLBFGSState):
+        compute_cell_forces(model_output, state)
 
     # Update state
     state.set_constrained_forces(new_forces)  # [N, 3]
@@ -541,9 +534,9 @@ def lbfgs_step(  # noqa: PLR0915, C901
 
     # Build new (s, y) for history in per-system format [S, M_ext, 3] or [S, M, 3]
     # s = position difference, y = gradient difference
-    if is_cell_state:
+    if isinstance(state, CellLBFGSState):
         # Get new scaled forces and fractional positions for history
-        new_deform_grad = cell_filters.deform_grad(
+        new_deform_grad = deform_grad(
             state.reference_cell.mT, state.row_vector_cell
         )  # [S, 3, 3]
         # new_forces: [N, 3] -> new_forces_scaled: [N, 3]
@@ -605,7 +598,7 @@ def lbfgs_step(  # noqa: PLR0915, C901
         s_hist = s_hist[:, -max_history:]  # [S, max_history, ...]
         y_hist = y_hist[:, -max_history:]
 
-    if is_cell_state:
+    if isinstance(state, CellLBFGSState):
         # Store fractional/scaled for next iteration
         state.prev_positions = new_frac_positions.clone()  # [N, 3] (fractional)
         state.prev_forces = new_forces_scaled.clone()  # [N, 3] (scaled)

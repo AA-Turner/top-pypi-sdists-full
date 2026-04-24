@@ -473,6 +473,9 @@ __all__ = (
     "LakeFormationConfigurationOutputTypeDef",
     "LakeFormationConfigurationTypeDef",
     "LakeFormationConfigurationUnionTypeDef",
+    "LakehousePropertiesInputTypeDef",
+    "LakehousePropertiesOutputTypeDef",
+    "LakehousePropertiesPatchTypeDef",
     "LessThanExpressionTypeDef",
     "LessThanOrEqualToExpressionTypeDef",
     "LikeExpressionTypeDef",
@@ -1105,6 +1108,9 @@ class HyperPodPropertiesInputTypeDef(TypedDict):
 class IamPropertiesInputTypeDef(TypedDict):
     glueLineageSyncEnabled: NotRequired[bool]
 
+class LakehousePropertiesInputTypeDef(TypedDict):
+    glueLineageSyncEnabled: NotRequired[bool]
+
 class MlflowPropertiesInputTypeDef(TypedDict):
     trackingServerArn: NotRequired[str]
 
@@ -1139,6 +1145,9 @@ class IamPropertiesOutputTypeDef(TypedDict):
     environmentId: NotRequired[str]
     glueLineageSyncEnabled: NotRequired[bool]
 
+class LakehousePropertiesOutputTypeDef(TypedDict):
+    glueLineageSyncEnabled: NotRequired[bool]
+
 class MlflowPropertiesOutputTypeDef(TypedDict):
     trackingServerArn: NotRequired[str]
 
@@ -1153,6 +1162,9 @@ class WorkflowsMwaaPropertiesOutputTypeDef(TypedDict):
     mwaaEnvironmentName: NotRequired[str]
 
 class IamPropertiesPatchTypeDef(TypedDict):
+    glueLineageSyncEnabled: NotRequired[bool]
+
+class LakehousePropertiesPatchTypeDef(TypedDict):
     glueLineageSyncEnabled: NotRequired[bool]
 
 class MlflowPropertiesPatchTypeDef(TypedDict):
@@ -5712,6 +5724,7 @@ class ConnectionPropertiesOutputTypeDef(TypedDict):
     mlflowProperties: NotRequired[MlflowPropertiesOutputTypeDef]
     workflowsMwaaProperties: NotRequired[WorkflowsMwaaPropertiesOutputTypeDef]
     workflowsServerlessProperties: NotRequired[dict[str, Any]]
+    lakehouseProperties: NotRequired[LakehousePropertiesOutputTypeDef]
 
 class DataSourceConfigurationOutputTypeDef(TypedDict):
     glueRunConfiguration: NotRequired[GlueRunConfigurationOutputTypeDef]
@@ -5756,6 +5769,7 @@ class ConnectionPropertiesPatchTypeDef(TypedDict):
     s3Properties: NotRequired[S3PropertiesPatchTypeDef]
     amazonQProperties: NotRequired[AmazonQPropertiesPatchTypeDef]
     mlflowProperties: NotRequired[MlflowPropertiesPatchTypeDef]
+    lakehouseProperties: NotRequired[LakehousePropertiesPatchTypeDef]
 
 class PolicyGrantMemberTypeDef(TypedDict):
     principal: NotRequired[PolicyGrantPrincipalOutputTypeDef]
@@ -6543,6 +6557,7 @@ class ConnectionPropertiesInputTypeDef(TypedDict):
     mlflowProperties: NotRequired[MlflowPropertiesInputTypeDef]
     workflowsMwaaProperties: NotRequired[WorkflowsMwaaPropertiesInputTypeDef]
     workflowsServerlessProperties: NotRequired[Mapping[str, Any]]
+    lakehouseProperties: NotRequired[LakehousePropertiesInputTypeDef]
 
 class CreateConnectionInputTypeDef(TypedDict):
     domainIdentifier: str

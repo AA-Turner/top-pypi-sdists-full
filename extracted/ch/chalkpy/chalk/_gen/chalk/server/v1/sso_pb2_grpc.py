@@ -40,6 +40,11 @@ class SsoServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_sso__pb2.DeleteSignOnProviderConfigurationRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_sso__pb2.DeleteSignOnProviderConfigurationResponse.FromString,
         )
+        self.GetSamlConfigurationByIssuer = channel.unary_unary(
+            "/chalk.server.v1.SsoService/GetSamlConfigurationByIssuer",
+            request_serializer=chalk_dot_server_dot_v1_dot_sso__pb2.GetSamlConfigurationByIssuerRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_sso__pb2.GetSamlConfigurationByIssuerResponse.FromString,
+        )
 
 
 class SsoServiceServicer(object):
@@ -75,6 +80,12 @@ class SsoServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def GetSamlConfigurationByIssuer(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
 
 def add_SsoServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -102,6 +113,11 @@ def add_SsoServiceServicer_to_server(servicer, server):
             servicer.DeleteSignOnProviderConfiguration,
             request_deserializer=chalk_dot_server_dot_v1_dot_sso__pb2.DeleteSignOnProviderConfigurationRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_sso__pb2.DeleteSignOnProviderConfigurationResponse.SerializeToString,
+        ),
+        "GetSamlConfigurationByIssuer": grpc.unary_unary_rpc_method_handler(
+            servicer.GetSamlConfigurationByIssuer,
+            request_deserializer=chalk_dot_server_dot_v1_dot_sso__pb2.GetSamlConfigurationByIssuerRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_sso__pb2.GetSamlConfigurationByIssuerResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler("chalk.server.v1.SsoService", rpc_method_handlers)
@@ -247,6 +263,35 @@ class SsoService(object):
             "/chalk.server.v1.SsoService/DeleteSignOnProviderConfiguration",
             chalk_dot_server_dot_v1_dot_sso__pb2.DeleteSignOnProviderConfigurationRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_sso__pb2.DeleteSignOnProviderConfigurationResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetSamlConfigurationByIssuer(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.SsoService/GetSamlConfigurationByIssuer",
+            chalk_dot_server_dot_v1_dot_sso__pb2.GetSamlConfigurationByIssuerRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_sso__pb2.GetSamlConfigurationByIssuerResponse.FromString,
             options,
             channel_credentials,
             insecure,

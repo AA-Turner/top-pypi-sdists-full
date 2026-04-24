@@ -41,7 +41,7 @@ funding = "https://opencollective.com/arviz"
 [project.optional-dependencies]
 # user facing optional dependency blocks
 xarray = [
-  "arviz-base>=1.0,<1.1",
+  "arviz-base>=1.1,<1.2",
   "xarray-einstats",
   "xarray>=2024.11.0",
 ]
@@ -138,6 +138,12 @@ disallow_untyped_defs = true
 [tool.pytest.ini_options]
 testpaths = [
     "tests",
+]
+
+filterwarnings = [
+    "error",
+    # netCDF4 C extension binary incompatibility with NumPy ABI; third-party issue
+    "ignore:numpy.ndarray size changed, may indicate binary incompatibility..*:RuntimeWarning",
 ]
 
 [tool.coverage.run]

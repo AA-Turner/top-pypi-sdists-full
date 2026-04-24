@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: darwin-py
-Version: 3.5.1
+Version: 3.5.2
 Summary: Library and command line interface for darwin.v7labs.com
 License: MIT
 License-File: LICENSE
@@ -26,7 +26,7 @@ Requires-Dist: albumentations (>=1.4.21,<2.0.0) ; extra == "ml"
 Requires-Dist: argcomplete (>=3.6.2,<4.0.0)
 Requires-Dist: azure-identity (>=1.19.0,<2.0.0) ; extra == "storage-azure" or extra == "storage-all"
 Requires-Dist: azure-storage-blob (>=12.23.0,<13.0.0) ; extra == "storage-azure" or extra == "storage-all"
-Requires-Dist: black (>=24.4.2,<25.0.0) ; extra == "dev"
+Requires-Dist: black (>=24.4.2,<27.0.0) ; extra == "dev"
 Requires-Dist: boto3 (>=1.42.3,<2.0.0) ; extra == "storage-aws" or extra == "storage-all"
 Requires-Dist: connected-components-3d (>=3.10.3,<4.0.0) ; extra == "medical"
 Requires-Dist: debugpy (>=1.8.1,<2.0.0) ; extra == "dev"
@@ -47,7 +47,7 @@ Requires-Dist: opencv-python-headless (==4.11.0.86) ; extra == "ocv"
 Requires-Dist: orjson (>=3.8.5,<4.0.0)
 Requires-Dist: pillow (>=12.1.1,<13.0.0)
 Requires-Dist: pydantic (>=2.0.0,<3.0.0)
-Requires-Dist: pytest (>=7.2.1,<8.0.0) ; extra == "dev" or extra == "test"
+Requires-Dist: pytest (>=7.2.1,<10.0.0) ; extra == "dev" or extra == "test"
 Requires-Dist: pytest-rerunfailures (>=12.0,<13.0) ; extra == "dev"
 Requires-Dist: python-dotenv (>=1.0.0,<2.0.0) ; extra == "dev" or extra == "test"
 Requires-Dist: pyyaml (>=6.0.1,<7.0.0)
@@ -93,7 +93,7 @@ Main functions are (but not limited to):
 -   Direct integration with PyTorch dataloaders
 -   Extracting video artifacts
 
-Support tested for python 3.9 - 3.12
+Support tested for python 3.10 - 3.13
 
 ## 🏁 Installation
 

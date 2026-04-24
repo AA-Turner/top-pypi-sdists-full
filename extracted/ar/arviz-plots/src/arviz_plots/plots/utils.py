@@ -41,7 +41,7 @@ def get_group(data, group, allow_missing=False):
     if isinstance(data, xr.Dataset):
         return data
     if hasattr(data, "name") and data.name == group:
-        return data.ds
+        return data.dataset
     try:
         data = data[group]
     except KeyError:
@@ -50,7 +50,7 @@ def get_group(data, group, allow_missing=False):
         return None
     if isinstance(data, xr.Dataset):
         return data
-    return data.ds
+    return data.dataset
 
 
 def get_visual_kwargs(visuals, name, default=None):
@@ -240,6 +240,7 @@ def _compute_func_da(func, da, active_dims, reduce_dims, kwargs=None):
         )
     if groupby_dims:
         da = da.groupby(groupby_dims)
+    reduce_dims = [dim for dim in reduce_dims if dim in da.dims]
     with warnings.catch_warnings():
         if "model" in da.dims:
             warnings.filterwarnings("ignore", message="Your data appears to have a single")
@@ -251,14 +252,18 @@ def _compute_func_da(func, da, active_dims, reduce_dims, kwargs=None):
 
 def _compute_func(func, data, active_dims, reduce_dims, var_names=None, kwargs=None):
     """Compute given function for taking into account active and dimensions to reduce."""
-    viz_out = xr.Dataset()
     if var_names is None:
         var_names = data.data_vars
+    out_das = []
     for var_name in var_names:
-        viz_out[var_name] = _compute_func_da(
+        out_da = _compute_func_da(
             func, data[var_name], active_dims=active_dims, reduce_dims=reduce_dims, kwargs=kwargs
         )
-    return viz_out
+        out_da.name = var_name
+        out_das.append(out_da)
+    if not out_das:
+        return xr.Dataset()
+    return xr.merge(out_das, compat="override", join="outer")
 
 
 def compute_dist(data, reduce_dims, active_dims, kind=None, stats=None):

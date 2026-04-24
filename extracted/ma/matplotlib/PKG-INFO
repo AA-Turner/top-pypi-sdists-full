@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: matplotlib
-Version: 3.10.8
+Version: 3.10.9
 Summary: Python plotting package
 Author: John D. Hunter, Michael Droettboom
 Author-Email: Unknown <matplotlib-users@python.org>
@@ -136,7 +136,7 @@ Requires-Dist: python-dateutil>=2.7
 Provides-Extra: dev
 Requires-Dist: meson-python<0.17.0,>=0.13.1; extra == "dev"
 Requires-Dist: pybind11!=2.13.3,>=2.13.2; extra == "dev"
-Requires-Dist: setuptools_scm>=7; extra == "dev"
+Requires-Dist: setuptools_scm<10,>=7; extra == "dev"
 Requires-Dist: setuptools>=64; extra == "dev"
 Description-Content-Type: text/markdown
 

@@ -803,6 +803,379 @@ async def _launch_env_world(
         return None
 
 
+def _compute_reject_walk(current_status: str, target: str) -> list[str] | None:
+    """Compute the DATA_REVIEWER-allowed status walk from current_status to target.
+
+    Mirrors DATA_REVIEWER_TRANSITIONS in plato/services/app/src/app/api/v1/simulator_routes.py.
+    Returns the list of intermediate + final statuses (empty = already there), or None
+    if there's no valid walk from the given starting state.
+    """
+    # DATA_REVIEWER allowed transitions:
+    #   data_review_requested ↔ data_in_progress
+    #   data_review_requested ↔ ready
+    #   data_in_progress → env_approved → env_review_requested → env_in_progress
+    to_data_in_progress: dict[str, list[str]] = {
+        "data_in_progress": [],
+        "data_review_requested": ["data_in_progress"],
+        "ready": ["data_review_requested", "data_in_progress"],
+    }
+    env_suffix = ["env_approved", "env_review_requested", "env_in_progress"]
+
+    if target == "data_in_progress":
+        return to_data_in_progress.get(current_status)
+
+    if target == "env_in_progress":
+        # Starting states on the env side (if user is re-running after partial walk)
+        mid_env = {
+            "env_in_progress": [],
+            "env_review_requested": ["env_in_progress"],
+            "env_approved": ["env_review_requested", "env_in_progress"],
+        }
+        if current_status in mid_env:
+            return mid_env[current_status]
+        prefix = to_data_in_progress.get(current_status)
+        if prefix is None:
+            return None
+        return prefix + env_suffix
+
+    return None
+
+
+async def _submit_reject_no_browser(
+    simulator_name: str,
+    artifact_id_arg: str | None,
+    message: str,
+    api_key: str,
+) -> None:
+    """Submit a reject review from a CLI message without opening the browser.
+
+    Mirrors the data-review extension's reject flow: prompts for level (data vs env)
+    and per-level sub-action, walks status back, posts reviews, updates assignees, and
+    optionally launches a datagen/env world.
+    """
+    base_url = _get_base_url()
+
+    async with httpx.AsyncClient(base_url=base_url, timeout=60.0) as client:
+        sim = await get_simulator_by_name.asyncio(
+            client=client,
+            name=simulator_name,
+            x_api_key=api_key,
+        )
+        simulator_id = sim.id
+        current_config = sim.config or {}
+        current_status = current_config.get("status", "not_started")
+
+        artifact_id = artifact_id_arg or current_config.get("data_artifact_id")
+        if not artifact_id:
+            console.print("[red]❌ No artifact ID available.[/red]")
+            console.print(
+                "[yellow]Specify artifact with: plato pm reject <sim> --artifact <uuid> -m ... "
+                "(or <sim>:<uuid>)[/yellow]"
+            )
+            raise typer.Exit(1)
+
+        console.print(f"[cyan]Artifact:[/cyan] {artifact_id}")
+        console.print(f"[cyan]Current status:[/cyan] {current_status}")
+        console.print(f"[cyan]Review message:[/cyan] {message}")
+
+        console.print("\n[bold]Reject level:[/bold]")
+        console.print("  1. data (bounce back to datagen)")
+        console.print("  2. env  (bounce all the way back to env)")
+        level_choice = typer.prompt("Choice [1/2]", default="1").strip()
+        if level_choice not in ("1", "2"):
+            console.print("[red]❌ Invalid choice.[/red]")
+            raise typer.Exit(1)
+
+        if level_choice == "1":
+            await _handle_data_level_reject(
+                client=client,
+                simulator_id=simulator_id,
+                simulator_name=simulator_name,
+                artifact_id=artifact_id,
+                message=message,
+                current_status=current_status,
+                current_config=current_config,
+                api_key=api_key,
+            )
+        else:
+            await _handle_env_level_reject(
+                client=client,
+                simulator_id=simulator_id,
+                simulator_name=simulator_name,
+                artifact_id=artifact_id,
+                message=message,
+                current_status=current_status,
+                current_config=current_config,
+                api_key=api_key,
+            )
+
+
+async def _handle_data_level_reject(
+    client: httpx.AsyncClient,
+    simulator_id: int,
+    simulator_name: str,
+    artifact_id: str,
+    message: str,
+    current_status: str,
+    current_config: dict,
+    api_key: str,
+) -> None:
+    """Data-level reject: status → data_in_progress, post data review, optional datagen."""
+    walk = _compute_reject_walk(current_status, "data_in_progress")
+    if walk is None:
+        console.print(f"[red]❌ Cannot walk from status '{current_status}' to data_in_progress as DATA_REVIEWER.[/red]")
+        console.print("[yellow]Use plato pm set-status if you need to force-set the status.[/yellow]")
+        raise typer.Exit(1)
+
+    console.print("\n[bold]Launch datagen?[/bold]")
+    console.print("  1. none")
+    console.print("  2. fresh (new datagen run)")
+    console.print("  3. resume (rerun with review feedback)")
+    datagen_choice = typer.prompt("Choice [1/2/3]", default="1").strip()
+    if datagen_choice not in ("1", "2", "3"):
+        console.print(f"[red]❌ Invalid choice '{datagen_choice}'. Expected 1, 2, or 3.[/red]")
+        raise typer.Exit(1)
+
+    datagen_action = None
+    datagen_iterations = 2
+    if datagen_choice in ("2", "3"):
+        datagen_action = "fresh" if datagen_choice == "2" else "resume"
+        datagen_iterations = typer.prompt("Iterations", default=2, type=int)
+
+    status_walk_str = " → ".join([current_status] + walk) if walk else f"{current_status} (no change)"
+    console.print("\n[bold]Review summary:[/bold]")
+    console.print("  Level:   data")
+    console.print("  Outcome: reject")
+    console.print(f"  Comment: {message}")
+    console.print(f"  Status:  {status_walk_str}")
+    if datagen_action:
+        console.print(f"  Datagen: {datagen_action} ({datagen_iterations} iterations)")
+
+    if not typer.confirm("Submit?", default=True):
+        console.print("[yellow]Cancelled — nothing submitted.[/yellow]")
+        return
+
+    for target_status in walk:
+        await update_simulator_status.asyncio(
+            client=client,
+            simulator_id=simulator_id,
+            body=UpdateStatusRequest(status=target_status),
+            x_api_key=api_key,
+        )
+    await add_simulator_review.asyncio(
+        client=client,
+        simulator_id=simulator_id,
+        body=AddReviewRequest(
+            review_type=ReviewType.data,
+            outcome=Outcome.reject,
+            artifact_id=artifact_id,
+            sim_comments=[SimReviewComment(comment=message)],
+        ),
+        x_api_key=api_key,
+    )
+
+    existing_data_assignees = current_config.get("data_assignees") or []
+    existing_data_review_assignees = current_config.get("data_review_assignees") or []
+    updates: dict = {}
+    if not existing_data_assignees:
+        updates["data_assignees"] = DEFAULT_DATA_ASSIGNEES
+    if not existing_data_review_assignees:
+        updates["data_review_assignees"] = DEFAULT_DATA_REVIEW_ASSIGNEES
+    if updates:
+        await update_simulator.asyncio(
+            client=client,
+            simulator_id=simulator_id,
+            body=AppApiV1SimulatorRoutesUpdateSimulatorRequest(**updates),
+            x_api_key=api_key,
+        )
+
+    console.print("\n[green]✅ Review submitted: reject (data level)[/green]")
+    console.print(f"[cyan]Status:[/cyan] {status_walk_str}")
+
+    if datagen_action:
+        launched_session = await _launch_datagen_world(
+            simulator_name=simulator_name,
+            artifact_id=artifact_id,
+            api_key=api_key,
+            iterations=datagen_iterations,
+            review_comments=[message] if datagen_action == "resume" else None,
+        )
+        if launched_session:
+            console.print(f"[green]✅ Datagen launched: {launched_session}[/green]")
+            console.print(f"[cyan]View:[/cyan] https://chronos.plato.so/sessions/{launched_session}")
+
+
+async def _handle_env_level_reject(
+    client: httpx.AsyncClient,
+    simulator_id: int,
+    simulator_name: str,
+    artifact_id: str,
+    message: str,
+    current_status: str,
+    current_config: dict,
+    api_key: str,
+) -> None:
+    """Env-level reject: walk status back to env_in_progress, post data+env reviews, optional env world."""
+    walk = _compute_reject_walk(current_status, "env_in_progress")
+    if walk is None:
+        console.print(f"[red]❌ Cannot walk from status '{current_status}' to env_in_progress as DATA_REVIEWER.[/red]")
+        console.print("[yellow]Use plato pm set-status if you need to force-set the status.[/yellow]")
+        raise typer.Exit(1)
+
+    github_url_from_config = current_config.get("source_code_url", "")
+    existing_env_assignees = current_config.get("env_assignees") or []
+
+    console.print("\n[bold]Launch a world?[/bold]")
+    console.print("  1. none")
+    if github_url_from_config:
+        console.print(f"  2. fresh (create from scratch — {github_url_from_config})")
+    else:
+        console.print("  2. fresh (create from scratch — no GitHub URL in config)")
+    console.print("  3. resume (continue create pipeline from last session)")
+    console.print(f"  4. fix (fix pipeline — data artifact {artifact_id[:8]}... + message as feedback)")
+    action_choice = typer.prompt("Choice [1/2/3/4]", default="1").strip()
+    if action_choice not in ("1", "2", "3", "4"):
+        console.print(f"[red]❌ Invalid choice '{action_choice}'. Expected 1, 2, 3, or 4.[/red]")
+        raise typer.Exit(1)
+
+    env_action: str | None = None
+    env_action_inputs: dict = {}
+    clear_assignees = False
+
+    if action_choice == "2":
+        env_action = "fresh"
+        github_url = typer.prompt("GitHub URL", default=github_url_from_config).strip()
+        if github_url:
+            env_action_inputs["github_url"] = github_url
+        else:
+            console.print("[yellow]No GitHub URL provided, skipping launch.[/yellow]")
+            env_action = None
+    elif action_choice == "3":
+        env_action = "resume"
+        last_session = _get_last_chronos_session(tags=["simcreator", simulator_name], api_key=api_key)
+        default_resume = ""
+        if last_session:
+            sid = last_session["public_id"]
+            status = last_session.get("status", "?")
+            created = last_session.get("created_at", "")[:16].replace("T", " ")
+            console.print(f"[cyan]Last simcreator session:[/cyan] {sid} ({status}, {created})")
+            default_resume = sid
+        resume_from = typer.prompt("Resume session (enter for above, 'none' for fresh)", default=default_resume).strip()
+        if resume_from.lower() == "none":
+            resume_from = ""
+        env_action_inputs["resume_from"] = resume_from
+    elif action_choice == "4":
+        env_action = "fix"
+
+    # On "none", auto-clear env assignees (nobody's been asked to do anything,
+    # so leave the env pool empty for re-triage). Other actions keep them.
+    if action_choice == "1" and existing_env_assignees:
+        console.print(f"[cyan]Current env assignees:[/cyan] {existing_env_assignees} — will be cleared")
+        clear_assignees = True
+
+    status_walk_str = " → ".join([current_status] + walk) if walk else f"{current_status} (no change)"
+    console.print("\n[bold]Review summary:[/bold]")
+    console.print("  Level:   env")
+    console.print("  Outcome: reject")
+    console.print(f"  Comment: {message}")
+    console.print(f"  Status walk: {status_walk_str}")
+    if env_action:
+        action_desc = env_action
+        if env_action == "fresh":
+            action_desc += f" ({env_action_inputs.get('github_url', '')})"
+        elif env_action == "resume":
+            rs = env_action_inputs.get("resume_from", "")
+            action_desc += f" ({rs[:12]}...)" if rs else " (fresh state)"
+        console.print(f"  World:   {action_desc}")
+        console.print(f"  Env assignees: → {DEFAULT_DATA_ASSIGNEES}")
+    elif clear_assignees:
+        console.print("  Clear env assignees: yes")
+
+    if not typer.confirm("Submit?", default=True):
+        console.print("[yellow]Cancelled — nothing submitted.[/yellow]")
+        return
+
+    # Walk status back using the DATA_REVIEWER-allowed path computed above
+    for target_status in walk:
+        await update_simulator_status.asyncio(
+            client=client,
+            simulator_id=simulator_id,
+            body=UpdateStatusRequest(status=target_status),
+            x_api_key=api_key,
+        )
+
+    await add_simulator_review.asyncio(
+        client=client,
+        simulator_id=simulator_id,
+        body=AddReviewRequest(
+            review_type=ReviewType.data,
+            outcome=Outcome.reject,
+            artifact_id=artifact_id,
+            sim_comments=[SimReviewComment(comment=message)],
+        ),
+        x_api_key=api_key,
+    )
+    await add_simulator_review.asyncio(
+        client=client,
+        simulator_id=simulator_id,
+        body=AddReviewRequest(
+            review_type=ReviewType.env,
+            outcome=Outcome.reject,
+            artifact_id=artifact_id,
+            sim_comments=[SimReviewComment(comment=message)],
+        ),
+        x_api_key=api_key,
+    )
+
+    if env_action:
+        try:
+            await update_simulator.asyncio(
+                client=client,
+                simulator_id=simulator_id,
+                body=AppApiV1SimulatorRoutesUpdateSimulatorRequest(
+                    env_assignees=DEFAULT_DATA_ASSIGNEES,
+                ),
+                x_api_key=api_key,
+            )
+            console.print(f"[green]✅ Set env_assignees → {DEFAULT_DATA_ASSIGNEES}[/green]")
+        except Exception as e:
+            console.print(f"[yellow]⚠️  Could not set env assignees: {e}[/yellow]")
+    elif clear_assignees:
+        try:
+            await update_simulator.asyncio(
+                client=client,
+                simulator_id=simulator_id,
+                body=AppApiV1SimulatorRoutesUpdateSimulatorRequest(
+                    env_assignees=[],
+                ),
+                x_api_key=api_key,
+            )
+            console.print("[green]✅ Cleared env assignees[/green]")
+        except Exception as e:
+            console.print(f"[yellow]⚠️  Could not clear assignees: {e}[/yellow]")
+
+    console.print("\n[green]✅ Reviews submitted: reject (data + env)[/green]")
+    console.print(f"[cyan]Status:[/cyan] {status_walk_str}")
+
+    if env_action:
+        # Extension semantics: env-level fix starts from the data artifact (the one
+        # under review), not the base artifact. Override base_artifact_id so
+        # _launch_env_world's fix branch uses our data artifact.
+        launch_config = {**current_config, "base_artifact_id": artifact_id} if env_action == "fix" else current_config
+        launched_session = await _launch_env_world(
+            action=env_action,
+            simulator_name=simulator_name,
+            artifact_id=artifact_id,
+            feedback=message,
+            api_key=api_key,
+            current_config=launch_config,
+            action_inputs=env_action_inputs,
+        )
+        if launched_session:
+            console.print(f"[green]✅ World launched: {launched_session}[/green]")
+            console.print(f"[cyan]View:[/cyan] https://chronos.plato.so/sessions/{launched_session}")
+
+
 async def _launch_datagen_world(
     simulator_name: str,
     artifact_id: str,
@@ -2245,6 +2618,64 @@ def set_status(
     handle_async(_run())
 
 
+@pm_app.command(name="reject")
+def reject(
+    simulator: str = typer.Argument(
+        ...,
+        help="Simulator name. Supports colon notation: sim:<artifact-uuid>",
+    ),
+    message: str = typer.Option(
+        ...,
+        "--message",
+        "-m",
+        help="Reject message — required. Saved as a sim_comment on the review record.",
+    ),
+    artifact: str = typer.Option(
+        None,
+        "--artifact",
+        "-a",
+        help="Artifact UUID to reject. If not provided, uses server's data_artifact_id.",
+    ),
+):
+    """Reject a sim without opening the browser.
+
+    Posts a reject review record with your message, walks status back using
+    DATA_REVIEWER-allowed transitions, and prompts for reject level (data vs env)
+    + a follow-up world action (none / fresh / resume / fix).
+
+    Works from any DATA_REVIEWER-walkable starting status (data_review_requested,
+    ready, data_in_progress, mid-env-walk states). For stuck sims, use
+    `plato pm set-status` instead.
+
+    Examples:
+        plato pm reject activepieces -m "login timeouts"
+        plato pm reject fathom:<uuid> -m "missing entries in X section"
+        plato pm reject boltcms -m "env needs fixing" -a <uuid>
+    """
+    api_key = require_api_key()
+
+    simulator_name, artifact_id = parse_simulator_artifact(
+        simulator, artifact, require_artifact=False, command_name="reject"
+    )
+    assert simulator_name is not None, "simulator_name must be set"
+
+    msg = message.strip()
+    if not msg:
+        console.print("[red]❌ --message must be non-empty[/red]")
+        raise typer.Exit(1)
+
+    console.print(f"[cyan]Simulator:[/cyan] {simulator_name}")
+
+    handle_async(
+        _submit_reject_no_browser(
+            simulator_name=simulator_name,
+            artifact_id_arg=artifact_id,
+            message=msg,
+            api_key=api_key,
+        )
+    )
+
+
 @pm_app.command(name="archive")
 def archive(
     simulators: list[str] = typer.Argument(..., help="Simulator name(s)"),
@@ -3055,6 +3486,8 @@ def review_data(
 
     Requires simulator status: data_review_requested
         -n, --next: Auto-pick the last simulator pending data review.
+
+    To reject without opening the browser, use: plato pm reject <sim> -m "<message>"
     """
     api_key = require_api_key()
 

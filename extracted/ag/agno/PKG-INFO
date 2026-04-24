@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agno
-Version: 2.5.17
+Version: 2.6.0
 Summary: The programming language for agentic software.
 Author-email: Ashpreet Bedi <ashpreet@agno.com>
 License:                                  Apache License
@@ -349,7 +349,7 @@ Requires-Dist: elevenlabs; extra == "elevenlabs"
 Provides-Extra: evm
 Requires-Dist: web3; extra == "evm"
 Provides-Extra: exa
-Requires-Dist: exa_py; extra == "exa"
+Requires-Dist: exa_py>=2.0.0; extra == "exa"
 Provides-Extra: seltz
 Requires-Dist: seltz>=0.2.0; extra == "seltz"
 Provides-Extra: fal
@@ -405,7 +405,7 @@ Requires-Dist: reportlab; extra == "reportlab"
 Provides-Extra: salesforce
 Requires-Dist: simple-salesforce; extra == "salesforce"
 Provides-Extra: scrapegraph
-Requires-Dist: scrapegraph-py; extra == "scrapegraph"
+Requires-Dist: scrapegraph-py>=2.0.0; extra == "scrapegraph"
 Provides-Extra: todoist
 Requires-Dist: todoist-api-python; extra == "todoist"
 Provides-Extra: valyu
@@ -507,7 +507,7 @@ Requires-Dist: chonkie; extra == "chonkie"
 Provides-Extra: agui
 Requires-Dist: ag-ui-protocol; extra == "agui"
 Provides-Extra: a2a
-Requires-Dist: a2a-sdk; extra == "a2a"
+Requires-Dist: a2a-sdk<1.0,>=0.3.0; extra == "a2a"
 Provides-Extra: slack
 Requires-Dist: slack_sdk>=3.40.0; extra == "slack"
 Provides-Extra: huggingface
@@ -640,7 +640,7 @@ Requires-Dist: twine; extra == "tests"
 Requires-Dist: build; extra == "tests"
 Requires-Dist: grpcio>=1.76.0; extra == "tests"
 Provides-Extra: integration-tests
-Requires-Dist: exa_py; extra == "integration-tests"
+Requires-Dist: exa_py>=2.0.0; extra == "integration-tests"
 Requires-Dist: ddgs; extra == "integration-tests"
 Requires-Dist: yfinance; extra == "integration-tests"
 Requires-Dist: sqlalchemy; extra == "integration-tests"
@@ -653,7 +653,7 @@ Requires-Dist: anthropic; extra == "demo"
 Requires-Dist: chromadb; extra == "demo"
 Requires-Dist: ddgs; extra == "demo"
 Requires-Dist: duckdb; extra == "demo"
-Requires-Dist: exa-py; extra == "demo"
+Requires-Dist: exa-py>=2.0.0; extra == "demo"
 Requires-Dist: fastapi[standard]; extra == "demo"
 Requires-Dist: google-genai; extra == "demo"
 Requires-Dist: matplotlib; extra == "demo"

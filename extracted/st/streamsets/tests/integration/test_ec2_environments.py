@@ -1,4 +1,6 @@
-# Copyright 2023 StreamSets Inc.
+#  IBM Confidential
+#  PID 5900-BAF
+#  Copyright StreamSets Inc., an IBM Company 2024
 
 
 def test_ec2_deployment(test_aws_environment, sch):

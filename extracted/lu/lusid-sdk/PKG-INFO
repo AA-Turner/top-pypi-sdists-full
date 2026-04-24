@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lusid-sdk
-Version: 2.3.102
+Version: 2.3.103
 Summary: LUSID API
 License: MIT
 Keywords: OpenAPI,OpenAPI-Generator,LUSID API,lusid-sdk
@@ -1163,6 +1163,7 @@ Class | Method | HTTP request | Description
  - [FilterPredicateComplianceParameter](docs/FilterPredicateComplianceParameter.md)
  - [FilterStep](docs/FilterStep.md)
  - [FilterStepRequest](docs/FilterStepRequest.md)
+ - [FilteredFundIdList](docs/FilteredFundIdList.md)
  - [FinalisedValuationPoint](docs/FinalisedValuationPoint.md)
  - [FixedLeg](docs/FixedLeg.md)
  - [FixedLegAllOfOverrides](docs/FixedLegAllOfOverrides.md)

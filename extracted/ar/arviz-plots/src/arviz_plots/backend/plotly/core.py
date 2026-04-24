@@ -50,59 +50,58 @@ def is_shared_x(fig):
     return True
 
 
-def apply_square_root_scale(plotly_plot):
-    """Apply a square root scale to the y-axis of a PlotlyPlot."""
+def apply_square_root_scale(plotly_plot, axis):
+    """Apply a square root scale to the x or y axis of a PlotlyPlot."""
     figure = plotly_plot.figure
     row = plotly_plot.row
     col = plotly_plot.col
 
-    if not hasattr(figure.layout, "grid") or figure.layout.grid is None:
-        raise ValueError("The figure does not have a grid layout required for faceting.")
+    transformed_all = []
+    original_all = []
 
-    figure_grid = figure.layout.grid
-    num_cols = figure_grid.columns if figure_grid.columns is not None else 1
-    index = (row - 1) * num_cols + col
-    yaxis_ref = "y" if index == 1 else f"y{index}"
-    layout_yaxis = "yaxis" if index == 1 else f"yaxis{index}"
-
-    y_transformed_all = []
-    y_original_all = []
-
-    for trace in figure.data:
-        if getattr(trace, "yaxis", None) == yaxis_ref:
-            if hasattr(trace, "y") and trace.y is not None:
-                y_data = np.array(trace.y, dtype=float)
-                y_data = np.maximum(y_data, 0.0)
-                y_transformed = np.sqrt(y_data)
-                trace.customdata = y_data.tolist()
-                trace.y = y_transformed.tolist()
+    for trace in figure.select_traces(row=row, col=col):
+        if hasattr(trace, axis) and getattr(trace, axis) is not None:
+            data = np.array(getattr(trace, axis), dtype=float)
+            data = np.maximum(data, 0.0)
+            transformed = np.sqrt(data)
+            trace.customdata = data.tolist()
+            setattr(trace, axis, transformed.tolist())
+            if axis == "y":
                 trace.hovertemplate = "x: %{x:.2~g}<br>y: %{customdata:.2~g}<extra></extra>"
-                y_transformed_all.extend(y_transformed)
-                y_original_all.extend(y_data)
+            else:
+                trace.hovertemplate = "x: %{customdata:.2~g}<br>y: %{y:.2~g}<extra></extra>"
+            transformed_all.extend(transformed)
+            original_all.extend(data)
 
-    if not y_transformed_all:
+    if not transformed_all:
         return
 
-    y_min = min(y_transformed_all)
-    y_max = max(y_transformed_all)
+    min_val = min(transformed_all)
+    max_val = max(transformed_all)
 
-    num_ticks = min(5, math.ceil((y_max**2 - y_min**2) / 2))
-    step_size = math.ceil((y_max**2 - y_min**2) / num_ticks)
-    start_tick = math.ceil(y_min**2)
+    # Compute ticks in original space, then sqrt-transform
+    orig_min = min(original_all)
+    orig_max = max(original_all)
+    num_ticks = min(5, math.ceil((orig_max - orig_min) / 2))
+    step_size = math.ceil((orig_max - orig_min) / num_ticks)
+    start_tick = math.ceil(orig_min)
     end_tick = step_size * num_ticks
     tickvals_transformed = [i**0.5 for i in range(start_tick, end_tick + 1, step_size)]
 
     if not tickvals_transformed:
-        tickvals_transformed = [y_min, y_max]
+        tickvals_transformed = [min_val, max_val]
 
     ticktext_original = [f"{round(tv**2)}" for tv in tickvals_transformed]
 
-    figure.layout[layout_yaxis].update(
-        tickvals=tickvals_transformed,
-        ticktext=ticktext_original,
-        range=[y_min, y_max + 0.5],
-        title=figure.layout[layout_yaxis].title,
-    )
+    axis_kwargs = {
+        "tickvals": tickvals_transformed,
+        "ticktext": ticktext_original,
+        "range": [min_val, max_val + 0.5],
+    }
+    if axis == "y":
+        plotly_plot.update_yaxes(**axis_kwargs)
+    else:
+        plotly_plot.update_xaxes(**axis_kwargs)
 
 
 def str_to_plotly_html(string):
@@ -841,7 +840,8 @@ def xlabel(string, target, *, size=unset, color=unset, **artist_kws):
     )
 
 
-def xticks(ticks, labels, target, *, rotation=unset, **artist_kws):
+@expand_aesthetic_aliases
+def xticks(ticks, labels, target, *, rotation=unset, color=unset, size=unset, **artist_kws):
     """Interface to plotly for setting ticks and labels of the x axis."""
     if labels is None:
         labels = [str(label) for label in labels]
@@ -852,11 +852,15 @@ def xticks(ticks, labels, target, *, rotation=unset, **artist_kws):
     }
     if rotation is not unset:
         kwargs["tickangle"] = -rotation
+    font_kwargs = _filter_kwargs({"color": color, "size": size}, {})
+    if font_kwargs:
+        kwargs["tickfont"] = font_kwargs
     target.update_xaxes(_filter_kwargs(kwargs, artist_kws))
     target.update_xaxes(automargin="bottom")
 
 
-def yticks(ticks, labels, target, *, rotation=unset, **artist_kws):
+@expand_aesthetic_aliases
+def yticks(ticks, labels, target, *, rotation=unset, color=unset, size=unset, **artist_kws):
     """Interface to plotly for setting ticks and labels of the y axis."""
     if labels is None:
         labels = [str(label) for label in labels]
@@ -868,7 +872,9 @@ def yticks(ticks, labels, target, *, rotation=unset, **artist_kws):
     }
     if rotation is not unset:
         kwargs["tickangle"] = -rotation
-
+    font_kwargs = _filter_kwargs({"color": color, "size": size}, {})
+    if font_kwargs:
+        kwargs["tickfont"] = font_kwargs
     target.update_yaxes(_filter_kwargs(kwargs, artist_kws))
 
 
@@ -892,10 +898,18 @@ def ylim(lims, target, **artist_kws):
     target.update_yaxes(range=lims, **artist_kws)  # pylint: disable=redefined-builtin
 
 
-def set_y_scale(target, scale):
-    """Interface to bokeh for setting the y scale of a plot."""
+def xscale(target, scale):
+    """Interface to plotly for setting the x scale of a plot."""
     if scale == "sqrt":
-        apply_square_root_scale(target)
+        apply_square_root_scale(target, axis="x")
+    else:
+        pass
+
+
+def yscale(target, scale):
+    """Interface to plotly for setting the y scale of a plot."""
+    if scale == "sqrt":
+        apply_square_root_scale(target, axis="y")
     else:
         pass
 

@@ -50,6 +50,9 @@ class Credentials:
     :param auth_url: URL for authentication, if not provided the default one will be used
     :type auth_url: str, optional
 
+    :param account_id: account ID for multi-tenant environments, applicable for ICP only
+    :type account_id: str, optional
+
     :param proxies: dictionary of proxies, containing protocol and URL mapping (example: `{ "https": "https://example.url.com" }`)
     :type proxies: dict, optional
 
@@ -103,7 +106,7 @@ class Credentials:
             url = "<URL>",
             token = access_token,
             instance_id = "openshift"
-            version = "5.0" # optional
+            version = "5.3" # optional
         )
 
     """
@@ -125,6 +128,7 @@ class Credentials:
         bedrock_url: str | None = None,
         platform_url: str | None = None,
         auth_url: str | None = None,
+        account_id: str | None = None,
         proxies: dict | None = None,
         verify: str | Path | bool | None = None,
     ) -> None:
@@ -147,6 +151,7 @@ class Credentials:
         self.bedrock_url = bedrock_url
         self.platform_url = platform_url
         self.auth_url = auth_url
+        self.account_id = account_id
         self.proxies = proxies
         self.verify = self._get_verify_value(verify)
         self._is_env_token = token is None and "token" in env_credentials
@@ -235,7 +240,7 @@ class Credentials:
             from ibm_watsonx_ai import Credentials
 
             credentials = Credentials.from_dict(
-                {"url": "<url>", "apikey": IAM_API_URL}
+                {"url": "<url>", "api_key": IAM_API_URL}
             )
 
         """
@@ -267,6 +272,7 @@ class Credentials:
             bedrock_url=credentials.get("bedrock_url"),
             platform_url=credentials.get("platform_url"),
             auth_url=credentials.get("auth_url"),
+            account_id=credentials.get("account_id"),
             proxies=credentials.get("proxies"),
             verify=credentials.get("verify", _verify),
         )
@@ -290,7 +296,7 @@ class Credentials:
             from ibm_watsonx_ai import Credentials
 
             credentials = Credentials.from_dict(
-                {"url": "<url>", "apikey": IAM_API_KEY}
+                {"url": "<url>", "api_key": IAM_API_KEY}
             )
 
             credentials_dict = credentials.to_dict()

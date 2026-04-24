@@ -219,6 +219,28 @@ mod completion_labels {
 
         test_completion_labels! {
             #[tokio::test]
+            async fn schema_override_used_table_key_with_remaining_nested_key(
+                r#"
+                [[schemas]]
+                path = "tombi://www.schemastore.org/tombi.json"
+                include = [".tombi.toml", "tombi.toml", "tombi/config.toml"]
+                overrides = [
+                  {
+                    targets = [""],
+                    format.rules.table-keys-order = "ascending",
+                    █
+                  }
+                ]
+                "#,
+                SchemaPath(tombi_schema_path()),
+            ) -> Ok([
+                "format",
+                "lint",
+            ]);
+        }
+
+        test_completion_labels! {
+            #[tokio::test]
             async fn tombi_lint_rules_key_empty_equal_warn_and_space(
                 r#"
                 [lint.rules]
@@ -2225,6 +2247,36 @@ mod completion_labels {
             async fn aaa_equal_array_bbb(
                 "aaa = [bbb█]"
             ) -> Ok(["$key"]);
+        }
+
+        test_completion_labels! {
+            #[tokio::test]
+            async fn aaa_equal_array_inline_table_bbb(
+                "aaa = [{ bbb█ }]"
+            ) -> Ok([
+                ".",
+                "=",
+            ]);
+        }
+
+        test_completion_labels! {
+            #[tokio::test]
+            async fn aaa_equal_array_inline_table_ccc_equal_inline_table_bbb(
+                "aaa = [{ ccc = { bbb█ } }]"
+            ) -> Ok([
+                ".",
+                "=",
+            ]);
+        }
+
+        test_completion_labels! {
+            #[tokio::test]
+            async fn aaa_equal_array_inline_table_ccc_dot_ddd_equal_inline_table_bbb(
+                "aaa = [{ ccc.ddd = { bbb█ } }]"
+            ) -> Ok([
+                ".",
+                "=",
+            ]);
         }
 
         test_completion_labels! {

@@ -1,23 +1,14 @@
 """Select2 widget implementation module."""
 
-try:
-    from functools import lru_cache
-except ImportError:
-    # py2
-    try:
-        from backports.functools_lru_cache import lru_cache
-    except ImportError:
-        lru_cache = None
-
-from dal.widgets import (
-    QuerySetSelectMixin,
-    Select,
-    SelectMultiple,
-    WidgetMixin
-)
+from functools import lru_cache
 
 from django import forms
 from django.conf import settings
+from django.db.models import Case, When
+from django.forms.models import ModelChoiceIterator
+
+from dal.widgets import QuerySetSelectMixin, Select, SelectMultiple, WidgetMixin
+
 try:
     # SELECT2_TRANSLATIONS is Django 2.x only
     from django.contrib.admin.widgets import SELECT2_TRANSLATIONS
@@ -57,13 +48,7 @@ def get_i18n_name(lang_code):
         return lang_code.split('-')[0]
 
 
-if lru_cache:
-    get_i18n_name = lru_cache()(get_i18n_name)
-else:
-    import warnings
-    warnings.warn(
-        'Python2: no cache on get_i18n_name, pip install backports.functools-lru-cache'
-    )
+get_i18n_name = lru_cache()(get_i18n_name)
 
 
 class Select2WidgetMixin(object):
@@ -113,28 +98,102 @@ class Select2WidgetMixin(object):
     autocomplete_function = 'select2'
 
 
+class Select2InitialRenderMixin:
+    """Mixin that ensures initial values are rendered even if not in choices.
+
+    Select2 widgets load options via AJAX, so the initial value is often
+    absent from the choices list at render time. This mixin temporarily
+    injects missing values so they appear as selected in the HTML output.
+    """
+
+    def render(self, name, value, attrs=None, renderer=None):
+        """Render widget, injecting missing initial values into choices."""
+        if not value:
+            return super().render(name, value, attrs=attrs, renderer=renderer)
+
+        if isinstance(value, (list, tuple)):
+            values = list(value)
+        else:
+            values = [value]
+
+        if isinstance(self.choices, ModelChoiceIterator):
+            # Queryset-backed widget: replace the queryset with a simple PK
+            # filter so self.choices stays a ModelChoiceIterator — converting
+            # it to a plain list breaks filter_choices_to_render in
+            # QuerySetSelectMixin and ModelSelect2Multiple (AttributeError on
+            # .queryset). Also preserve the original scalar value for
+            # single-select widgets.
+            original_queryset = self.choices.queryset
+            pk_values = [v for v in values if v]
+            self.choices.queryset = original_queryset.filter(pk__in=pk_values)
+            try:
+                render_value = values if self.allow_multiple_selected else value
+                return super().render(
+                    name, render_value, attrs=attrs, renderer=renderer
+                )
+            finally:
+                self.choices.queryset = original_queryset
+        else:
+            existing = dict(self.choices)
+            extended = [(v, v) for v in values if v not in existing]
+            if extended:
+                original_choices = self.choices
+                self.choices = list(self.choices) + extended
+                try:
+                    return super().render(name, values, attrs=attrs, renderer=renderer)
+                finally:
+                    self.choices = original_choices
+
+            return super().render(name, values, attrs=attrs, renderer=renderer)
+
+
 class Select2(Select2WidgetMixin, Select):
     """Select2 widget for regular choices."""
 
 
-class Select2Multiple(Select2WidgetMixin, SelectMultiple):
+class Select2Multiple(Select2InitialRenderMixin, Select2WidgetMixin, SelectMultiple):
     """Select2Multiple widget for regular choices."""
 
 
-class ListSelect2(WidgetMixin, Select2WidgetMixin, forms.Select):
+class ListSelect2(
+    Select2InitialRenderMixin,
+    WidgetMixin,
+    Select2WidgetMixin,
+    forms.Select,
+):
     """Select widget for regular choices and Select2."""
 
 
-class ModelSelect2(QuerySetSelectMixin,
-                   Select2WidgetMixin,
-                   forms.Select):
+class ModelSelect2(
+    Select2InitialRenderMixin,
+    QuerySetSelectMixin,
+    Select2WidgetMixin,
+    forms.Select,
+):
     """Select widget for QuerySet choices and Select2."""
 
 
-class ModelSelect2Multiple(QuerySetSelectMixin,
-                           Select2WidgetMixin,
-                           forms.SelectMultiple):
+class ModelSelect2Multiple(
+    Select2InitialRenderMixin,
+    QuerySetSelectMixin,
+    Select2WidgetMixin,
+    forms.SelectMultiple,
+):
     """SelectMultiple widget for QuerySet choices and Select2."""
+
+    def filter_choices_to_render(self, selected_choices):
+        """Filter choices preserving the order submitted by Select2."""
+        pks = [c for c in selected_choices if c]
+        try:
+            if not pks:
+                self.choices.queryset = self.choices.queryset.none()
+                return
+            preserved = Case(*[When(pk=pk, then=pos) for pos, pk in enumerate(pks)])
+            self.choices.queryset = self.choices.queryset.filter(
+                pk__in=pks
+            ).order_by(preserved)
+        except ValueError:
+            pass
 
 
 class TagSelect2(WidgetMixin,

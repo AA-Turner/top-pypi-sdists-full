@@ -35,18 +35,27 @@ class PathType(IntEnum):
     SVG = 13
     """Pre-rendered SVG map tile."""
 
-    VISUAL_SAFETY_ZONE = 25
-    """Vision-detected safety zone (Luba 2 Vision / Pro only)."""
-
-    VISUAL_OBSTACLE_ZONE = 26
-    """Vision-detected obstacle zone (Luba 2 Vision / Pro only)."""
-
     DYNAMICS_LINE = 18
     """Live mow-progress path for the current session.
 
     Frameless w.r.t. hash keys; stored flat in ``HashList.dynamics_line``.
     Fetched via ``CommonDataSaga`` with ``action=8, type=18``.
     """
+
+    CORRIDOR_LINE = 19
+    """Corridor line between mowing zones (MN231)."""
+
+    CORRIDOR_POINT = 20
+    """Corridor waypoint between mowing zones (MN231)."""
+
+    VIRTUAL_WALL = 21
+    """User-drawn virtual fence / keep-out line."""
+
+    VISUAL_SAFETY_ZONE = 25
+    """Vision-detected safety zone (Luba 2 Vision / Pro only)."""
+
+    VISUAL_OBSTACLE_ZONE = 26
+    """Vision-detected obstacle zone (Luba 2 Vision / Pro only)."""
 
 
 @dataclass
@@ -296,6 +305,9 @@ class HashList(DataClassORJSONMixin):
     )  # type 10, sub cmd 3 — breakpoint line data, keyed by ub_path_hash
     visual_safety_zone: dict[int, FrameList] = field(default_factory=dict)  # type 25
     visual_obstacle_zone: dict[int, FrameList] = field(default_factory=dict)  # type 26
+    corridor_line: dict[int, FrameList] = field(default_factory=dict)  # type 19
+    corridor_point: dict[int, FrameList] = field(default_factory=dict)  # type 20
+    virtual_wall: dict[int, FrameList] = field(default_factory=dict)  # type 21
     plan: dict[str, Plan] = field(default_factory=dict)
     area_name: list[AreaHashNameList] = field(default_factory=list)
     current_mow_path: dict[int, dict[int, MowPath]] = field(default_factory=dict)
@@ -332,6 +344,13 @@ class HashList(DataClassORJSONMixin):
         self.visual_obstacle_zone = {
             hash_id: frames for hash_id, frames in self.visual_obstacle_zone.items() if hash_id in hashlist
         }
+        self.corridor_line = {
+            hash_id: frames for hash_id, frames in self.corridor_line.items() if hash_id in hashlist
+        }
+        self.corridor_point = {
+            hash_id: frames for hash_id, frames in self.corridor_point.items() if hash_id in hashlist
+        }
+        self.virtual_wall = {hash_id: frames for hash_id, frames in self.virtual_wall.items() if hash_id in hashlist}
 
         area_hashes = list(self.area.keys())
         for hash_id, plan_task in self.plan.copy().items():
@@ -380,6 +399,9 @@ class HashList(DataClassORJSONMixin):
             self.svg.keys(),
             self.visual_safety_zone.keys(),
             self.visual_obstacle_zone.keys(),
+            self.corridor_line.keys(),
+            self.corridor_point.keys(),
+            self.virtual_wall.keys(),
         )
         if sub_cmd == 3:
             all_hash_ids = set(self.line.keys())
@@ -391,6 +413,45 @@ class HashList(DataClassORJSONMixin):
             for i in obj.data_couple
             if i not in all_hash_ids
         ]
+
+    def find_incomplete_hashes(self, sub_cmd: int = 0) -> list[int]:
+        """Return hashes declared in ``root_hash_lists`` that are not fully fetched.
+
+        A hash is considered incomplete when either:
+
+        * no entry exists for it in the per-type dict (``area`` / ``path`` /
+          ``obstacle`` / …) — never fetched, or
+        * an entry exists but :meth:`find_missing_frames` reports at least
+          one missing frame — interrupted mid-fetch.
+
+        This is stricter than :meth:`missing_hashlist`, which only checks
+        key-presence and therefore treats a partially-fetched area as done.
+        Callers that need to know "what still needs ``synchronize_hash_data``"
+        should use this method so interrupted areas trigger a fresh fetch.
+        """
+        path_type_mapping = self._get_path_type_mapping()
+        # missing_hashlist uses a union of *all* per-type keys for sub_cmd=0,
+        # so replicate that lookup for sub_cmd=0 too.
+        if sub_cmd == 3:
+            lookup: dict[int, FrameList] = self.line
+        else:
+            lookup = {}
+            for target in path_type_mapping.values():
+                if target is self.line:
+                    continue
+                for hash_id, frames in target.items():
+                    lookup[hash_id] = frames
+
+        incomplete: list[int] = []
+        for root_list in self.root_hash_lists:
+            if root_list.sub_cmd != sub_cmd:
+                continue
+            for obj in root_list.data:
+                for hash_id in obj.data_couple:
+                    entry = lookup.get(hash_id)
+                    if entry is None or self.find_missing_frames(entry):
+                        incomplete.append(hash_id)
+        return incomplete
 
     def missing_root_hash_frame(self, hash_list: NavGetHashListAck) -> list[int]:
         """Return 1-based frame numbers missing from the RootHashList matching *hash_list*."""
@@ -480,6 +541,9 @@ class HashList(DataClassORJSONMixin):
             PathType.SVG: self.svg,
             PathType.VISUAL_SAFETY_ZONE: self.visual_safety_zone,
             PathType.VISUAL_OBSTACLE_ZONE: self.visual_obstacle_zone,
+            PathType.CORRIDOR_LINE: self.corridor_line,
+            PathType.CORRIDOR_POINT: self.corridor_point,
+            PathType.VIRTUAL_WALL: self.virtual_wall,
         }
 
     def update(self, hash_data: NavGetCommData | SvgMessage) -> bool:
@@ -652,9 +716,23 @@ class HashList(DataClassORJSONMixin):
         return False
 
     def invalidate_maps(self, bol_hash: int) -> None:
-        """Clear ``root_hash_lists`` if its computed hash no longer matches *bol_hash*."""
-        if MurMurHashUtil.hash_unsigned_list(self.area_root_hashlist) != bol_hash:
-            self.root_hash_lists = []
+        """Trigger a map re-fetch when the device reports a new ``bol_hash``.
+
+        The ``bol_hash`` reported in every ``toapp_report_data`` is a checksum
+        of the current area-root hash list.  A mismatch means the map was
+        edited device-side.
+
+        Only ``root_hash_lists`` is cleared so that :class:`MapFetchSaga` knows
+        to re-request it.  Per-type dicts (``area``, ``path``, ``obstacle`` …)
+        are preserved: once the new root hash list is fetched,
+        :meth:`update_hash_lists` filters them to remove hash IDs that are no
+        longer present, so entries for deleted areas are discarded then rather
+        than now.  Hash IDs that remain in the new list re-use their cached
+        frames and are not re-fetched.
+        """
+        if MurMurHashUtil.hash_unsigned_list(self.area_root_hashlist) == bol_hash:
+            return
+        self.root_hash_lists = []
 
     def invalidate_mow_path(self, path_hash: int) -> None:
         """Clear cached mow-path data once the job has ended.

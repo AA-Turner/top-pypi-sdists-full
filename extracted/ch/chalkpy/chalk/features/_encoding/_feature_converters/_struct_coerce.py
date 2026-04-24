@@ -17,6 +17,7 @@ from typing import Any, Callable, List, cast
 
 from typing_extensions import get_args, get_origin
 
+from chalk.utils.attrs_utils import is_attrs_class
 from chalk.utils.collections import unwrap_optional_and_annotated_if_needed
 
 from ._base import _SCALAR_COERCIBLE_TYPES, _scalar_coerce_fn  # pyright: ignore[reportPrivateUsage]
@@ -37,13 +38,9 @@ def _build_to_primitive_converter(typ: type) -> "Callable[[Any], Any] | None":
         from ._dataclass_converter import _build_dc_to_dict  # pyright: ignore[reportPrivateUsage]
         return _build_dc_to_dict(inner)
 
-    try:
-        import attrs as _attrs
-        if isinstance(inner, type) and _attrs.has(inner):
-            from ._attrs_converter import _build_attrs_to_dict  # pyright: ignore[reportPrivateUsage]
-            return _build_attrs_to_dict(inner)
-    except ImportError:
-        pass
+    if is_attrs_class(inner):
+        from ._attrs_converter import _build_attrs_to_dict  # pyright: ignore[reportPrivateUsage]
+        return _build_attrs_to_dict(inner)
 
     from ._pydantic_converter import _is_pydantic_model, _build_model_to_dict  # pyright: ignore[reportPrivateUsage]
     if _is_pydantic_model(inner):
@@ -86,13 +83,9 @@ def _build_to_rich_converter(typ: type) -> "Callable[[Any], Any] | None":
         from ._dataclass_converter import _build_dict_to_dc  # pyright: ignore[reportPrivateUsage]
         return _build_dict_to_dc(inner)
 
-    try:
-        import attrs as _attrs
-        if isinstance(inner, type) and _attrs.has(inner):
-            from ._attrs_converter import _build_dict_to_attrs  # pyright: ignore[reportPrivateUsage]
-            return _build_dict_to_attrs(inner)
-    except ImportError:
-        pass
+    if is_attrs_class(inner):
+        from ._attrs_converter import _build_dict_to_attrs  # pyright: ignore[reportPrivateUsage]
+        return _build_dict_to_attrs(inner)
 
     from ._pydantic_converter import _is_pydantic_model, _build_dict_to_model  # pyright: ignore[reportPrivateUsage]
     if _is_pydantic_model(inner):

@@ -1,32 +1,9 @@
 from typing import overload
 from enum import IntEnum
 import datetime
-import typing
 
 import QuantConnect.Data
 import QuantConnect.Data.Custom
-import QuantConnect.DataSource
-
-
-class Quandl(QuantConnect.DataSource.NasdaqDataLink):
-    """Quandl Data Type (Deprecated, Use NasdaqDataLink instead.)"""
-
-    @overload
-    def __init__(self) -> None:
-        """Default Quandl constructor uses Close as its value column"""
-        ...
-
-    @overload
-    def __init__(self, value_column_name: str) -> None:
-        """
-        Constructor for creating customized Quandl instance which doesn't use close, price, settle or value as its value item.
-        
-        
-        This codeEntityType is protected.
-        
-        :param value_column_name: The name of the column we want to use as reference, the Value property
-        """
-        ...
 
 
 class FxcmVolume(QuantConnect.Data.BaseData):

@@ -1,2 +1,3 @@
-"""Base ArviZ version."""
-__version__ = "1.0.0"
+"""Plots ArviZ version."""
+
+__version__ = "1.1.0"

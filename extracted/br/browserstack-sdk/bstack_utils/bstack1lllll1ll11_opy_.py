@@ -1,49 +1,51 @@
 # coding: UTF-8
 import sys
-bstack11l1l_opy_ = sys.version_info [0] == 2
-bstack1ll11_opy_ = 2048
-bstack11ll11_opy_ = 7
-def bstack1l111l_opy_ (bstack11l11l_opy_):
-    global bstack1l11l_opy_
-    bstack1l1111l_opy_ = ord (bstack11l11l_opy_ [-1])
-    bstack1l1l11l_opy_ = bstack11l11l_opy_ [:-1]
-    bstack111l1_opy_ = bstack1l1111l_opy_ % len (bstack1l1l11l_opy_)
-    bstack11l1l1l_opy_ = bstack1l1l11l_opy_ [:bstack111l1_opy_] + bstack1l1l11l_opy_ [bstack111l1_opy_:]
-    if bstack11l1l_opy_:
-        bstack1111l1l_opy_ = unicode () .join ([unichr (ord (char) - bstack1ll11_opy_ - (bstack1lllll1_opy_ + bstack1l1111l_opy_) % bstack11ll11_opy_) for bstack1lllll1_opy_, char in enumerate (bstack11l1l1l_opy_)])
+bstack11llll_opy_ = sys.version_info [0] == 2
+bstack111ll1_opy_ = 2048
+bstack11ll1_opy_ = 7
+def bstack111ll11_opy_ (bstack1111l1_opy_):
+    global bstack1llll11_opy_
+    bstack1ll11l1_opy_ = ord (bstack1111l1_opy_ [-1])
+    bstack11ll_opy_ = bstack1111l1_opy_ [:-1]
+    bstack1llll1_opy_ = bstack1ll11l1_opy_ % len (bstack11ll_opy_)
+    bstack1ll1_opy_ = bstack11ll_opy_ [:bstack1llll1_opy_] + bstack11ll_opy_ [bstack1llll1_opy_:]
+    if bstack11llll_opy_:
+        bstack1l1_opy_ = unicode () .join ([unichr (ord (char) - bstack111ll1_opy_ - (bstack1l1l1l_opy_ + bstack1ll11l1_opy_) % bstack11ll1_opy_) for bstack1l1l1l_opy_, char in enumerate (bstack1ll1_opy_)])
     else:
-        bstack1111l1l_opy_ = str () .join ([chr (ord (char) - bstack1ll11_opy_ - (bstack1lllll1_opy_ + bstack1l1111l_opy_) % bstack11ll11_opy_) for bstack1lllll1_opy_, char in enumerate (bstack11l1l1l_opy_)])
-    return eval (bstack1111l1l_opy_)
-from time import sleep
-from datetime import datetime
-from urllib.parse import urlencode
-from bstack_utils.bstack1111l111l11_opy_ import bstack1111l111l1l_opy_
-from bstack_utils.constants import *
-import json
-class bstack1llllllllll_opy_:
-    def __init__(self, bstack111l1ll11_opy_, bstack1111l1111ll_opy_):
-        self.bstack111l1ll11_opy_ = bstack111l1ll11_opy_
-        self.bstack1111l1111ll_opy_ = bstack1111l1111ll_opy_
-        self.bstack1111l1111l1_opy_ = None
-    def __call__(self):
-        bstack1111l11111l_opy_ = {}
-        while True:
-            self.bstack1111l1111l1_opy_ = bstack1111l11111l_opy_.get(
-                bstack1l111l_opy_ (u"࠭࡮ࡦࡺࡷࡣࡵࡵ࡬࡭ࡡࡷ࡭ࡲ࡫ࠧᶣ"),
-                int(datetime.now().timestamp() * 1000)
-            )
-            bstack11111llllll_opy_ = self.bstack1111l1111l1_opy_ - int(datetime.now().timestamp() * 1000)
-            if bstack11111llllll_opy_ > 0:
-                sleep(bstack11111llllll_opy_ / 1000)
-            params = {
-                bstack1l111l_opy_ (u"ࠧࡵࡧࡶࡸࡤࡸࡵ࡯ࡡࡸࡹ࡮ࡪࠧᶤ"): self.bstack111l1ll11_opy_,
-                bstack1l111l_opy_ (u"ࠨࡶ࡬ࡱࡪࡹࡴࡢ࡯ࡳࠫᶥ"): int(datetime.now().timestamp() * 1000)
-            }
-            base_url = bstack1l111l_opy_ (u"ࠤ࡫ࡸࡹࡶࡳ࠻࠱࠲ࠦᶦ") + bstack1111l111111_opy_ + bstack1l111l_opy_ (u"ࠥ࠳ࡦࡻࡴࡰ࡯ࡤࡸࡪ࠵ࡡࡱ࡫࠲ࡺ࠶࠵ࠢᶧ")
-            if self.bstack1111l1111ll_opy_.lower() == bstack1l111l_opy_ (u"ࠦࡷ࡫ࡳࡶ࡮ࡷࡷࠧᶨ"):
-                bstack1111l11111l_opy_ = bstack1111l111l1l_opy_.results(base_url, params)
-            else:
-                bstack1111l11111l_opy_ = bstack1111l111l1l_opy_.bstack1111l111ll1_opy_(base_url, params)
-            if str(bstack1111l11111l_opy_.get(bstack1l111l_opy_ (u"ࠬࡹࡴࡢࡶࡸࡷࠬᶩ"), bstack1l111l_opy_ (u"࠭࠲࠱࠲ࠪᶪ"))) != bstack1l111l_opy_ (u"ࠧ࠵࠲࠷ࠫᶫ"):
-                break
-        return bstack1111l11111l_opy_.get(bstack1l111l_opy_ (u"ࠨࡦࡤࡸࡦ࠭ᶬ"), bstack1111l11111l_opy_)
+        bstack1l1_opy_ = str () .join ([chr (ord (char) - bstack111ll1_opy_ - (bstack1l1l1l_opy_ + bstack1ll11l1_opy_) % bstack11ll1_opy_) for bstack1l1l1l_opy_, char in enumerate (bstack1ll1_opy_)])
+    return eval (bstack1l1_opy_)
+from browserstack_sdk.bstack111ll11l_opy_ import bstack1ll1l1lll1_opy_
+from browserstack_sdk.bstack1lll11ll1ll_opy_ import RobotHandler
+def bstack1ll11l111_opy_(framework):
+    if framework.lower() == bstack111ll11_opy_ (u"ࠩࡳࡽࡹ࡫ࡳࡵࠩↁ"):
+        return bstack1ll1l1lll1_opy_.version()
+    elif framework.lower() == bstack111ll11_opy_ (u"ࠪࡶࡴࡨ࡯ࡵࠩↂ"):
+        return RobotHandler.version()
+    elif framework.lower() == bstack111ll11_opy_ (u"ࠫࡧ࡫ࡨࡢࡸࡨࠫↃ"):
+        import behave
+        return behave.__version__
+    elif framework.lower() == bstack111ll11_opy_ (u"ࠬࡶࡹࡵࡪࡲࡲ࠲࡭ࡥ࡯ࡧࡵ࡭ࡨ࠭ↄ"):
+        import sys
+        return bstack111ll11_opy_ (u"ࠨࡻࡾ࠰ࡾࢁ࠳ࢁࡽࠣↅ").format(sys.version_info.major, sys.version_info.minor, sys.version_info.micro)
+    else:
+        return bstack111ll11_opy_ (u"ࠧࡶࡰ࡮ࡲࡴࡽ࡮ࠨↆ")
+def bstack11l1lll11_opy_():
+    import importlib.metadata
+    framework_name = []
+    framework_version = []
+    try:
+        from selenium import webdriver
+        framework_name.append(bstack111ll11_opy_ (u"ࠨࡵࡨࡰࡪࡴࡩࡶ࡯ࠪↇ"))
+        framework_version.append(importlib.metadata.version(bstack111ll11_opy_ (u"ࠤࡶࡩࡱ࡫࡮ࡪࡷࡰࠦↈ")))
+    except:
+        pass
+    try:
+        import playwright
+        framework_name.append(bstack111ll11_opy_ (u"ࠪࡴࡱࡧࡹࡸࡴ࡬࡫࡭ࡺࠧ↉"))
+        framework_version.append(importlib.metadata.version(bstack111ll11_opy_ (u"ࠦࡵࡲࡡࡺࡹࡵ࡭࡬࡮ࡴࠣ↊")))
+    except:
+        pass
+    return {
+        bstack111ll11_opy_ (u"ࠬࡴࡡ࡮ࡧࠪ↋"): bstack111ll11_opy_ (u"࠭࡟ࠨ↌").join(framework_name),
+        bstack111ll11_opy_ (u"ࠧࡷࡧࡵࡷ࡮ࡵ࡮ࠨ↍"): bstack111ll11_opy_ (u"ࠨࡡࠪ↎").join(framework_version)
+    }

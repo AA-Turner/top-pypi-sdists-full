@@ -9,13 +9,14 @@ import pandas
 import pandas as pd
 import xarray as xr
 from numpy.typing import ArrayLike
-from xarray import DataArray, Dataset
+from xarray import DataArray, Dataset, DataTree
 
 from arviz_base.converters import convert_to_dataset
 from arviz_base.labels import BaseLabeller
 from arviz_base.rcparams import rcParams
 from arviz_base.sel_utils import xarray_sel_iter
 from arviz_base.utils import _var_names
+from arviz_base.validate import validate_sample_dims
 
 from .labels import Labeller
 
@@ -28,7 +29,7 @@ __all__ = [
 ]
 
 def extract(
-    data,
+    data: DataTree,
     group: str = ...,
     sample_dims: Sequence[Hashable] | None = ...,
     *,

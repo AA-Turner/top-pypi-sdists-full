@@ -10,6 +10,8 @@ from abc import (
 from chalk._gen.chalk.server.v1.online_store_insight_pb2 import (
     GetOnlineStoreConfigRequest,
     GetOnlineStoreConfigResponse,
+    GetOnlineStoreUsageStatsRequest,
+    GetOnlineStoreUsageStatsResponse,
 )
 from grpc import (
     Channel,
@@ -24,6 +26,10 @@ class OnlineStoreInsightServiceStub:
         GetOnlineStoreConfigRequest,
         GetOnlineStoreConfigResponse,
     ]
+    GetOnlineStoreUsageStats: UnaryUnaryMultiCallable[
+        GetOnlineStoreUsageStatsRequest,
+        GetOnlineStoreUsageStatsResponse,
+    ]
 
 class OnlineStoreInsightServiceServicer(metaclass=ABCMeta):
     @abstractmethod
@@ -32,6 +38,12 @@ class OnlineStoreInsightServiceServicer(metaclass=ABCMeta):
         request: GetOnlineStoreConfigRequest,
         context: ServicerContext,
     ) -> GetOnlineStoreConfigResponse: ...
+    @abstractmethod
+    def GetOnlineStoreUsageStats(
+        self,
+        request: GetOnlineStoreUsageStatsRequest,
+        context: ServicerContext,
+    ) -> GetOnlineStoreUsageStatsResponse: ...
 
 def add_OnlineStoreInsightServiceServicer_to_server(
     servicer: OnlineStoreInsightServiceServicer, server: Server

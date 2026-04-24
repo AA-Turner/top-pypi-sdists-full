@@ -83,6 +83,51 @@ class TestCoerceValue(TestCase):
     def test_no_type_passthrough(self):
         self.assertEqual(coerce_value("hello", {}), "hello")
 
+    def test_json_string_to_array(self):
+        self.assertEqual(coerce_value("[50, 60]", {"type": "array"}), [50, 60])
+
+    def test_json_string_to_empty_array(self):
+        self.assertEqual(coerce_value("[]", {"type": "array"}), [])
+
+    def test_json_string_to_string_array(self):
+        self.assertEqual(coerce_value('["a", "b"]', {"type": "array"}), ["a", "b"])
+
+    def test_json_string_to_nested_array(self):
+        self.assertEqual(
+            coerce_value("[[1, 2], [3, 4]]", {"type": "array"}), [[1, 2], [3, 4]]
+        )
+
+    def test_json_array_with_whitespace(self):
+        self.assertEqual(coerce_value("  [1, 2]  ", {"type": "array"}), [1, 2])
+
+    def test_bracketed_non_json_stays_string(self):
+        self.assertEqual(coerce_value("[INFO]", {"type": "array"}), "[INFO]")
+
+    def test_malformed_json_array_stays_string(self):
+        self.assertEqual(coerce_value("[1, 2,", {"type": "array"}), "[1, 2,")
+
+    def test_actual_array_passthrough(self):
+        self.assertEqual(coerce_value([1, 2], {"type": "array"}), [1, 2])
+
+    def test_non_bracketed_string_stays_for_array(self):
+        self.assertEqual(coerce_value("hello", {"type": "array"}), "hello")
+
+    def test_json_object_string_not_coerced_to_array(self):
+        # Object-shaped JSON should not become an array
+        self.assertEqual(coerce_value('{"a": 1}', {"type": "array"}), '{"a": 1}')
+
+    def test_json_string_to_object(self):
+        self.assertEqual(coerce_value('{"a": 1}', {"type": "object"}), {"a": 1})
+
+    def test_json_string_to_empty_object(self):
+        self.assertEqual(coerce_value("{}", {"type": "object"}), {})
+
+    def test_malformed_json_object_stays_string(self):
+        self.assertEqual(coerce_value('{"a": 1', {"type": "object"}), '{"a": 1')
+
+    def test_array_string_not_coerced_to_object(self):
+        self.assertEqual(coerce_value("[1, 2]", {"type": "object"}), "[1, 2]")
+
 
 class TestCoerceAndValidate(TestCase):
     """coerce_and_validate: combined coercion + validation."""
@@ -107,6 +152,75 @@ class TestCoerceAndValidate(TestCase):
         self.assertIsNone(val)
         # validate_type returns True for None when type has no explicit null handling
         # This is the fallback behavior
+        self.assertTrue(valid)
+
+    def test_json_string_coerced_to_array_and_valid(self):
+        val, valid = coerce_and_validate(
+            "[50, 60]", {"type": "array", "items": {"type": "integer"}}
+        )
+        self.assertEqual(val, [50, 60])
+        self.assertTrue(valid)
+
+    def test_json_string_coerced_to_fixed_tuple_and_valid(self):
+        # Mirrors the schema generated for `workflow_position: tuple[int, int]`.
+        tuple_schema = {
+            "type": "array",
+            "items": [{"type": "integer"}, {"type": "integer"}],
+            "minItems": 2,
+            "maxItems": 2,
+        }
+        val, valid = coerce_and_validate("[50, 60]", tuple_schema)
+        self.assertEqual(val, [50, 60])
+        self.assertTrue(valid)
+
+    def test_json_string_wrong_tuple_arity_invalid(self):
+        tuple_schema = {
+            "type": "array",
+            "items": [{"type": "integer"}, {"type": "integer"}],
+            "minItems": 2,
+            "maxItems": 2,
+        }
+        val, valid = coerce_and_validate("[50, 60, 70]", tuple_schema)
+        self.assertEqual(val, [50, 60, 70])
+        self.assertFalse(valid)
+
+    def test_malformed_json_array_stays_string_and_invalid(self):
+        val, valid = coerce_and_validate(
+            "[50, 60", {"type": "array", "items": {"type": "integer"}}
+        )
+        self.assertEqual(val, "[50, 60")
+        self.assertFalse(valid)
+
+    def test_plain_string_rejected_as_string_array(self):
+        # Regression: before the tighter validate_type check, "hello" would be
+        # treated as ["h","e","l","l","o"] and pass validation against items
+        # of type string.
+        val, valid = coerce_and_validate(
+            "hello", {"type": "array", "items": {"type": "string"}}
+        )
+        self.assertEqual(val, "hello")
+        self.assertFalse(valid)
+
+    def test_plain_string_rejected_for_array_without_items(self):
+        # Default items={"type":"string"} used to silently accept any string.
+        val, valid = coerce_and_validate("hello", {"type": "array"})
+        self.assertEqual(val, "hello")
+        self.assertFalse(valid)
+
+    def test_bytes_rejected_as_array(self):
+        val, valid = coerce_and_validate(b"abc", {"type": "array"})
+        self.assertFalse(valid)
+
+    def test_dict_rejected_as_array(self):
+        val, valid = coerce_and_validate({"a": 1}, {"type": "array"})
+        self.assertFalse(valid)
+
+    def test_python_tuple_accepted_as_array(self):
+        # Tuples are valid JSON-schema arrays — some Python callers pass tuples.
+        val, valid = coerce_and_validate(
+            (1, 2, 3), {"type": "array", "items": {"type": "integer"}}
+        )
+        self.assertEqual(val, (1, 2, 3))
         self.assertTrue(valid)
 
 
@@ -160,6 +274,35 @@ class TestValidateAndCoerceArguments(TestCase):
             {"anything": "goes"}, {"type": "object"}, "my_tool"
         )
         self.assertEqual(result, {"anything": "goes"})
+
+    def test_coerces_json_string_to_tuple_like_create_job(self):
+        # Reproduces the real create_job failure: LLM sends workflow_position as a
+        # JSON-encoded string instead of an actual array. The tuple schema below
+        # is exactly what type_to_json_schema emits for `tuple[int, int]`.
+        create_job_schema = {
+            "type": "object",
+            "properties": {
+                "title": {"type": "string"},
+                "file": {"type": "string"},
+                "workflow_position": {
+                    "type": "array",
+                    "items": [{"type": "integer"}, {"type": "integer"}],
+                    "minItems": 2,
+                    "maxItems": 2,
+                },
+            },
+            "required": ["title", "file"],
+        }
+        result = validate_and_coerce_arguments(
+            {
+                "file": "job_new.py",
+                "title": "New job",
+                "workflow_position": "[50, 60]",
+            },
+            create_job_schema,
+            "create_job",
+        )
+        self.assertEqual(result["workflow_position"], [50, 60])
 
 
 class TestSerializeToolResult(TestCase):

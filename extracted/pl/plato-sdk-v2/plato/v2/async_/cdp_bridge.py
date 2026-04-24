@@ -78,7 +78,12 @@ for dir in "${PLAYWRIGHT_BROWSERS_PATH:-}" /opt/playwright-browsers "$HOME/.cach
     if [ -x "$cand" ]; then printf '%s' "$cand"; exit 0; fi
   done
 done
-for cand in "$HOME"/.agent-browser/browsers/chrome-*/chrome-linux64/chrome \
+# agent-browser's own cache uses either ``chrome-<ver>/chrome`` (flat,
+# recent) or ``chrome-<ver>/chrome-linux64/chrome`` (nested, older/other
+# archives) depending on how its installer extracted the zip. Check both,
+# matching the dual-layout probe in ``cli/src/install.rs::chrome_binary_in_dir``.
+for cand in "$HOME"/.agent-browser/browsers/chrome-*/chrome \
+            "$HOME"/.agent-browser/browsers/chrome-*/chrome-linux64/chrome \
             "$HOME"/.agent-browser/browsers/chrome-*/chrome-linux/chrome; do
   if [ -x "$cand" ]; then printf '%s' "$cand"; exit 0; fi
 done
@@ -86,16 +91,34 @@ for name in google-chrome google-chrome-stable chromium chromium-browser; do
   p=$(command -v "$name" 2>/dev/null) || true
   if [ -n "$p" ]; then printf '%s' "$p"; exit 0; fi
 done
+# Nothing matched. Dump an inventory to stderr so a future failure tells us
+# exactly what's present instead of "rc=1 stderr=''".
+{
+  echo "no chromium found; inventory follows:"
+  echo "  HOME=$HOME PLAYWRIGHT_BROWSERS_PATH=${PLAYWRIGHT_BROWSERS_PATH:-UNSET}"
+  for d in "${PLAYWRIGHT_BROWSERS_PATH:-}" /opt/playwright-browsers \
+           "$HOME/.cache/ms-playwright" "$HOME/.agent-browser/browsers"; do
+    [ -n "$d" ] || continue
+    if [ -d "$d" ]; then
+      echo "  $d:"
+      ls -la "$d" 2>&1 | sed 's/^/    /' | head -20
+    else
+      echo "  $d: MISSING"
+    fi
+  done
+} 1>&2
 exit 1
 """
     rc, out, err = await run_cmd(["bash", "-c", script])
     resolved = out.strip()
     if rc != 0 or not resolved:
         raise RuntimeError(
-            "Could not locate a chromium binary on the remote host. "
-            "Expected one of: ~/.agent-browser/browsers/chrome-*, "
-            "system google-chrome/chromium, or ~/.cache/ms-playwright/chromium*. "
-            f"rc={rc} stdout={out[-200:]!r} stderr={err[-400:]!r}"
+            "Could not locate a chromium binary on the remote host. Checked "
+            "Playwright's cache ($PLAYWRIGHT_BROWSERS_PATH, "
+            "/opt/playwright-browsers, ~/.cache/ms-playwright), agent-browser's "
+            "cache (~/.agent-browser/browsers/chrome-*/{chrome,chrome-linux64/chrome,"
+            "chrome-linux/chrome}), and system google-chrome/chromium. "
+            f"rc={rc} stdout={out[-200:]!r} stderr={err[-600:]!r}"
         )
     return resolved
 
@@ -153,11 +176,20 @@ async def _spawn_chromium(
     of all three FDs ensures the backgrounded chromium never holds the
     parent's pipes.
     """
+    # Match the computer-use agent's chromium launch (``agents/computer-use/
+    # Dockerfile``, DISPLAY_WIDTH/HEIGHT = 1280/800). Flows like zulip's hide
+    # elements below a CSS breakpoint on narrow viewports — headless chromium
+    # with no ``--window-size`` defaults small enough that those elements
+    # resolve as ``hidden`` and Playwright's ``wait_for_selector`` (visible-
+    # by-default) times out. ``login_via_cdp`` has been running the same
+    # flows against the computer-use 1280×800 chrome for months, so pin the
+    # same dimensions here.
     log_path = f"/tmp/plato-cdp-chromium-{port}.log"
     script = (
         f"mkdir -p {shlex.quote(profile_dir)} && "
         f"( setsid {shlex.quote(chrome_bin)} "
         f"--headless --no-sandbox "
+        f"--window-size=1280,800 "
         f"--remote-debugging-port={port} "
         f"--remote-allow-origins=* "
         f"--user-data-dir={shlex.quote(profile_dir)} "

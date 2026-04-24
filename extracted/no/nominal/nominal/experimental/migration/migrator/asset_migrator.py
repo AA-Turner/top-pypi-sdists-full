@@ -4,9 +4,12 @@ import logging
 from dataclasses import dataclass
 from typing import Any, Sequence
 
+from nominal_api import scout_asset_api
+
 from nominal.core import NominalClient
 from nominal.core._event_types import SearchEventOriginType
 from nominal.core.asset import Asset
+from nominal.core.workbook import Workbook
 from nominal.experimental.migration.config.migration_data_config import MigrationDatasetConfig
 from nominal.experimental.migration.migrator.attachment_migrator import AttachmentMigrator
 from nominal.experimental.migration.migrator.base import Migrator, ResourceCopyOptions
@@ -95,7 +98,7 @@ class AssetMigrator(Migrator[Asset, AssetCopyOptions]):
         if existing_asset is not None:
             return existing_asset
 
-        return self.destination_client_for(source_asset).create_asset(
+        new_asset = self.destination_client_for(source_asset).create_asset(
             name=options.new_asset_name if options.new_asset_name is not None else source_asset.name,
             description=options.new_asset_description
             if options.new_asset_description is not None
@@ -105,6 +108,15 @@ class AssetMigrator(Migrator[Asset, AssetCopyOptions]):
             else source_asset.properties,
             labels=options.new_asset_labels if options.new_asset_labels is not None else source_asset.labels,
         )
+
+        if source_asset._get_latest_api().is_staged:
+            new_asset._clients.assets.update_asset(
+                new_asset._clients.auth_header,
+                scout_asset_api.UpdateAssetRequest(is_staged=True),
+                new_asset.rid,
+            )
+
+        return new_asset
 
     def _copy_asset_datasets(self, source_asset: Asset, destination_asset: Asset, options: AssetCopyOptions) -> None:
         if options.dataset_config is None:
@@ -212,8 +224,12 @@ class AssetMigrator(Migrator[Asset, AssetCopyOptions]):
         workbook_migrator = WorkbookMigrator(self.ctx)
         asset_workbooks = source_asset.search_workbooks(include_drafts=True)
         for workbook in asset_workbooks:
-            if workbook.asset_rids and len(workbook.asset_rids) == 1:
+            if not workbook.asset_rids:
+                continue
+            if len(workbook.asset_rids) == 1:
                 workbook_migrator.copy_from(workbook, WorkbookCopyOptions(destination_asset=new_asset))
+            else:
+                self._enqueue_multi_asset_workbook(workbook, list(workbook.asset_rids))
 
         if include_runs:
             for source_run in source_asset.list_runs():
@@ -223,5 +239,28 @@ class AssetMigrator(Migrator[Asset, AssetCopyOptions]):
                     continue
                 destination_run = self.ctx.destination_client_for(source_run).get_run(destination_run_rid)
                 for workbook in source_run.search_workbooks(include_drafts=True):
-                    if workbook.run_rids and len(workbook.run_rids) == 1:
+                    if not workbook.run_rids:
+                        continue
+                    if len(workbook.run_rids) == 1:
                         workbook_migrator.copy_from(workbook, WorkbookCopyOptions(destination_run=destination_run))
+                    else:
+                        self._enqueue_multi_run_workbook(workbook, list(workbook.run_rids))
+
+    def _enqueue_multi_asset_workbook(self, workbook: Workbook, source_asset_rids: list[str]) -> None:
+        missing = [
+            rid
+            for rid in source_asset_rids
+            if rid not in self.ctx.source_asset_rids
+            and self.ctx.migration_state.get_mapped_rid(ResourceType.ASSET, rid) is None
+        ]
+        if missing:
+            reason = f"assets not in migration scope: {missing}"
+            logger.warning("Skipping multi-asset workbook %s: %s", workbook.rid, reason)
+            self.ctx.migration_state.record_skip(ResourceType.WORKBOOK, workbook.rid, reason)
+        else:
+            logger.debug("Queuing multi-asset workbook %s for deferred migration", workbook.rid)
+            self.ctx.migration_state.record_pending_multi_asset_workbook(workbook.rid, source_asset_rids)
+
+    def _enqueue_multi_run_workbook(self, workbook: Workbook, source_run_rids: list[str]) -> None:
+        logger.debug("Queuing multi-run workbook %s for deferred migration", workbook.rid)
+        self.ctx.migration_state.record_pending_multi_run_workbook(workbook.rid, source_run_rids)

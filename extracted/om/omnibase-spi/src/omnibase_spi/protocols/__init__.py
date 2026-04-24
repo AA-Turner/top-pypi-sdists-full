@@ -399,6 +399,17 @@ from omnibase_spi.protocols.registry import (
     ProtocolProviderRegistry,
 )
 
+# Runtime protocols - Domain plugin lifecycle management + handler resolver
+# ModelDomainPluginConfig and ModelDomainPluginResult live in omnibase_core.models.runtime.
+from omnibase_spi.protocols.runtime.protocol_domain_plugin import ProtocolDomainPlugin
+from omnibase_spi.protocols.runtime.protocol_handleable import ProtocolHandleable
+from omnibase_spi.protocols.runtime.protocol_handler_ownership_query import (
+    ProtocolHandlerOwnershipQuery,
+)
+from omnibase_spi.protocols.runtime.protocol_handler_resolver import (
+    ProtocolHandlerResolver,
+)
+
 # Schema protocols (2 protocols) - Schema loading and validation
 from omnibase_spi.protocols.schema import (
     ProtocolSchemaLoader,
@@ -417,6 +428,14 @@ from omnibase_spi.protocols.security import (
 from omnibase_spi.protocols.semantic import (
     ProtocolAdvancedPreprocessor,
     ProtocolHybridRetriever,
+)
+
+# Service lifecycle protocols (3 protocols) - External service integrations
+# Ticket tracking, secret management, and code hosting platform abstractions
+from omnibase_spi.protocols.services import (
+    ProtocolCodeHost,
+    ProtocolSecretStore,
+    ProtocolTicketService,
 )
 
 # Storage protocols (6 protocols) - Data storage and persistence
@@ -475,6 +494,8 @@ from omnibase_spi.protocols.workflow_orchestration import (
 
 
 __all__ = [
+    # Runtime plugin protocol (models live in omnibase_core.models.runtime.model_domain_plugin)
+    "ProtocolDomainPlugin",
     # Container types and enums
     "InjectionScope",
     "LiteralAssignmentStrategy",
@@ -512,6 +533,7 @@ __all__ = [
     "ProtocolCircuitBreaker",
     "ProtocolCliWorkflow",
     "ProtocolClusterCoordinator",
+    "ProtocolCodeHost",
     "ProtocolCommunicationBridge",
     "ProtocolComputeNode",
     "ProtocolContainer",
@@ -565,13 +587,16 @@ __all__ = [
     "ProtocolFileProcessingTypeHandler",
     "ProtocolFileReader",
     "ProtocolGraphDatabaseHandler",
+    "ProtocolHandleable",
     "ProtocolHandler",
     "ProtocolHandlerBehaviorDescriptor",
     "ProtocolHandlerContract",
     "ProtocolHandlerContractFactory",
     "ProtocolHandlerDiscovery",
     "ProtocolHandlerInfo",
+    "ProtocolHandlerOwnershipQuery",
     "ProtocolHandlerRegistry",
+    "ProtocolHandlerResolver",
     "ProtocolHandlerSource",
     "ProtocolHealthDetails",
     "ProtocolHealthMonitor",
@@ -642,6 +667,7 @@ __all__ = [
     "ProtocolSchema",
     "ProtocolSchemaLoader",
     "ProtocolSchemaRegistry",
+    "ProtocolSecretStore",
     "ProtocolSecurityEvent",
     "ProtocolSequenceInfo",
     "ProtocolServiceDependency",
@@ -658,6 +684,7 @@ __all__ = [
     "ProtocolStorageBackendFactory",
     "ProtocolSyncEventBus",
     "ProtocolTaskSchedulingCriteria",
+    "ProtocolTicketService",
     "ProtocolTimeBasedOperations",
     "ProtocolToolDiscoveryService",
     "ProtocolTrustedSchemaLoader",

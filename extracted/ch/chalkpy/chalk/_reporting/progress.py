@@ -36,6 +36,7 @@ from chalk._reporting.rich.live import ChalkLive
 from chalk.client import ChalkBaseException, ChalkError
 from chalk.client.exc import CHALK_TRACE_ID_KEY
 from chalk.utils.log_with_context import get_logger
+from chalk.utils.retry import retry_call, retry_if_exception_message, wait_exponential_jitter
 
 if TYPE_CHECKING:
     from chalk.client.client_impl import ChalkAPIClientImpl
@@ -371,22 +372,17 @@ class ProgressService:
         while datetime.now() < must_receive_next_report_by and datetime.now() < completion_deadline:
             time.sleep(0.5)
 
-            from tenacity import Retrying, retry_if_exception_message, stop_after_attempt
-            from tenacity.wait import wait_exponential_jitter
-
-            for attempt in Retrying(
-                stop=stop_after_attempt(5),
+            batch_report = retry_call(
+                lambda: self.client.get_batch_report(self.operation_id, self._environment_id, self._shard_id),
+                attempts=5,
+                retry_if=retry_if_exception_message("504|dialing"),
                 wait=wait_exponential_jitter(),
-                reraise=True,
-                retry=retry_if_exception_message(match="504|dialing"),
-            ):
-                with attempt:
-                    batch_report = self.client.get_batch_report(self.operation_id, self._environment_id, self._shard_id)
-                    if batch_report is not None:
-                        if timeout is not None:
-                            must_receive_next_report_by = datetime.now() + timeout
-                        self._operation_kind = batch_report.operation_kind
-                        yield batch_report
+            )
+            if batch_report is not None:
+                if timeout is not None:
+                    must_receive_next_report_by = datetime.now() + timeout
+                self._operation_kind = batch_report.operation_kind
+                yield batch_report
         if datetime.now() >= completion_deadline:
             raise TimeoutError(
                 f"Timed out waiting ({completion_timeout}) for completion of operation with id '{self.operation_id}' (chalkpy=={chalk.__version__})"

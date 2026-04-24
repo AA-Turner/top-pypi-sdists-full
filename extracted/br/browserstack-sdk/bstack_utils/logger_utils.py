@@ -1,19 +1,19 @@
 # coding: UTF-8
 import sys
-bstack11l1l_opy_ = sys.version_info [0] == 2
-bstack1ll11_opy_ = 2048
-bstack11ll11_opy_ = 7
-def bstack1l111l_opy_ (bstack11l11l_opy_):
-    global bstack1l11l_opy_
-    bstack1l1111l_opy_ = ord (bstack11l11l_opy_ [-1])
-    bstack1l1l11l_opy_ = bstack11l11l_opy_ [:-1]
-    bstack111l1_opy_ = bstack1l1111l_opy_ % len (bstack1l1l11l_opy_)
-    bstack11l1l1l_opy_ = bstack1l1l11l_opy_ [:bstack111l1_opy_] + bstack1l1l11l_opy_ [bstack111l1_opy_:]
-    if bstack11l1l_opy_:
-        bstack1111l1l_opy_ = unicode () .join ([unichr (ord (char) - bstack1ll11_opy_ - (bstack1lllll1_opy_ + bstack1l1111l_opy_) % bstack11ll11_opy_) for bstack1lllll1_opy_, char in enumerate (bstack11l1l1l_opy_)])
+bstack11llll_opy_ = sys.version_info [0] == 2
+bstack111ll1_opy_ = 2048
+bstack11ll1_opy_ = 7
+def bstack111ll11_opy_ (bstack1111l1_opy_):
+    global bstack1llll11_opy_
+    bstack1ll11l1_opy_ = ord (bstack1111l1_opy_ [-1])
+    bstack11ll_opy_ = bstack1111l1_opy_ [:-1]
+    bstack1llll1_opy_ = bstack1ll11l1_opy_ % len (bstack11ll_opy_)
+    bstack1ll1_opy_ = bstack11ll_opy_ [:bstack1llll1_opy_] + bstack11ll_opy_ [bstack1llll1_opy_:]
+    if bstack11llll_opy_:
+        bstack1l1_opy_ = unicode () .join ([unichr (ord (char) - bstack111ll1_opy_ - (bstack1l1l1l_opy_ + bstack1ll11l1_opy_) % bstack11ll1_opy_) for bstack1l1l1l_opy_, char in enumerate (bstack1ll1_opy_)])
     else:
-        bstack1111l1l_opy_ = str () .join ([chr (ord (char) - bstack1ll11_opy_ - (bstack1lllll1_opy_ + bstack1l1111l_opy_) % bstack11ll11_opy_) for bstack1lllll1_opy_, char in enumerate (bstack11l1l1l_opy_)])
-    return eval (bstack1111l1l_opy_)
+        bstack1l1_opy_ = str () .join ([chr (ord (char) - bstack111ll1_opy_ - (bstack1l1l1l_opy_ + bstack1ll11l1_opy_) % bstack11ll1_opy_) for bstack1l1l1l_opy_, char in enumerate (bstack1ll1_opy_)])
+    return eval (bstack1l1_opy_)
 import sys
 import logging
 import tarfile
@@ -24,212 +24,212 @@ import requests
 import re
 import threading
 from requests_toolbelt.multipart.encoder import MultipartEncoder
-from bstack_utils.constants import bstack111111l11l1_opy_, EVENTS, bstack1111111ll11_opy_, bstack111111l1l1l_opy_, STAGE
+from bstack_utils.constants import bstack111111lllll_opy_, EVENTS, bstack1111111ll1l_opy_, bstack111111l11l1_opy_, STAGE
 import tempfile
 import json
-bstack1lll1ll1l111_opy_ = os.getenv(bstack1l111l_opy_ (u"ࠣࡄࡕࡓ࡜࡙ࡅࡓࡕࡗࡅࡈࡑ࡟ࡍࡑࡊࡣࡋࡏࡌࡆࠤ⑃"), None) or os.path.join(tempfile.gettempdir(), bstack1l111l_opy_ (u"ࠤࡥࡶࡴࡽࡳࡦࡴࡶࡸࡦࡩ࡫࠯ࡦࡨࡦࡺ࡭࠮࡭ࡱࡪࠦ⑄"))
-bstack1lll1ll111l1_opy_ = os.path.join(bstack1l111l_opy_ (u"ࠥࡰࡴ࡭ࠢ⑅"), bstack1l111l_opy_ (u"ࠫࡸࡪ࡫࠮ࡥ࡯࡭࠲ࡪࡥࡣࡷࡪ࠲ࡱࡵࡧࠨ⑆"))
-_1lll1l1ll111_opy_ = threading.Lock()
+bstack1lll1l1ll111_opy_ = os.getenv(bstack111ll11_opy_ (u"ࠢࡃࡔࡒ࡛ࡘࡋࡒࡔࡖࡄࡇࡐࡥࡌࡐࡉࡢࡊࡎࡒࡅࠣ⑐"), None) or os.path.join(tempfile.gettempdir(), bstack111ll11_opy_ (u"ࠣࡤࡵࡳࡼࡹࡥࡳࡵࡷࡥࡨࡱ࠮ࡥࡧࡥࡹ࡬࠴࡬ࡰࡩࠥ⑑"))
+bstack1lll1ll11111_opy_ = os.path.join(bstack111ll11_opy_ (u"ࠤ࡯ࡳ࡬ࠨ⑒"), bstack111ll11_opy_ (u"ࠪࡷࡩࡱ࠭ࡤ࡮࡬࠱ࡩ࡫ࡢࡶࡩ࠱ࡰࡴ࡭ࠧ⑓"))
+_1lll1l1l1l11_opy_ = threading.Lock()
 logging.Formatter.converter = time.gmtime
 def get_logger(name=__name__, level=None):
   logger = logging.getLogger(name)
   if level:
     logging.basicConfig(
       level=level,
-      format=bstack1l111l_opy_ (u"ࠬࠫࠨࡢࡵࡦࡸ࡮ࡳࡥࠪࡵࠣ࡟ࠪ࠮࡮ࡢ࡯ࡨ࠭ࡸࡣ࡛ࠦࠪ࡯ࡩࡻ࡫࡬࡯ࡣࡰࡩ࠮ࡹ࡝ࠡ࠯ࠣࠩ࠭ࡳࡥࡴࡵࡤ࡫ࡪ࠯ࡳࠨ⑇"),
-      datefmt=bstack1l111l_opy_ (u"࡚࠭ࠥ࠯ࠨࡱ࠲ࠫࡤࡕࠧࡋ࠾ࠪࡓ࠺ࠦࡕ࡝ࠫ⑈"),
+      format=bstack111ll11_opy_ (u"ࠫࠪ࠮ࡡࡴࡥࡷ࡭ࡲ࡫ࠩࡴࠢ࡞ࠩ࠭ࡴࡡ࡮ࡧࠬࡷࡢࡡࠥࠩ࡮ࡨࡺࡪࡲ࡮ࡢ࡯ࡨ࠭ࡸࡣࠠ࠮ࠢࠨࠬࡲ࡫ࡳࡴࡣࡪࡩ࠮ࡹࠧ⑔"),
+      datefmt=bstack111ll11_opy_ (u"࡙ࠬࠫ࠮ࠧࡰ࠱ࠪࡪࡔࠦࡊ࠽ࠩࡒࡀࠥࡔ࡜ࠪ⑕"),
       stream=sys.stdout
     )
   return logger
 def get_automation_logger(name=__name__, level=logging.DEBUG):
-  bstack1l111l_opy_ (u"ࠢࠣࠤࠍࠤࠥࡘࡥࡵࡷࡵࡲࡸࠦࡡࠡ࡮ࡲ࡫࡬࡫ࡲࠡࡶ࡫ࡥࡹࠦࡷࡳ࡫ࡷࡩࡸࠦ࡯࡯࡮ࡼࠤࡹࡵࠠࡢࡷࡷࡳࡲࡧࡴࡪࡱࡱ࠲ࡱࡵࡧࠡࡨ࡬ࡰࡪࠐࠠࠡࡅࡵࡩࡦࡺࡥࡴࠢࡤࡲࡩࠦ࡭ࡢࡰࡤ࡫ࡪࡹࠠࡪࡶࡶࠤࡴࡽ࡮ࠡࡣࡸࡸࡴࡳࡡࡵ࡫ࡲࡲࠥ࡬ࡩ࡭ࡧࠣ࡬ࡦࡴࡤ࡭ࡧࡵࠎࠥࠦࡏ࡯࡮ࡼࠤࡪࡴࡡࡣ࡮ࡨࡷࠥࡲ࡯ࡨࡩ࡬ࡲ࡬ࠦࡩࡧࠢࡅࡖࡔ࡝ࡓࡆࡔࡖࡘࡆࡉࡋࡠࡃࡘࡘࡔࡓࡁࡕࡋࡒࡒࡤࡒࡏࡈࡕࠣࡩࡳࡼࡩࡳࡱࡱࡱࡪࡴࡴࠡࡸࡤࡶ࡮ࡧࡢ࡭ࡧࠣ࡭ࡸࠦࡳࡦࡶࠣࡸࡴࠦࡡࠡࡶࡵࡹࡹ࡮ࡹࠡࡸࡤࡰࡺ࡫ࠊࠡࠢࡄࡶ࡬ࡹ࠺ࠋࠢࠣࠤࠥࡴࡡ࡮ࡧ࠽ࠤࡑࡵࡧࡨࡧࡵࠤࡳࡧ࡭ࡦࠢࠫࡨࡪ࡬ࡡࡶ࡮ࡷࡷࠥࡺ࡯ࠡࡡࡢࡲࡦࡳࡥࡠࡡࠬࠎࠥࠦࠠࠡ࡮ࡨࡺࡪࡲ࠺ࠡࡎࡲ࡫࡬࡯࡮ࡨࠢ࡯ࡩࡻ࡫࡬ࠡࠪࡧࡩ࡫ࡧࡵ࡭ࡶࡶࠤࡹࡵࠠࡅࡇࡅ࡙ࡌ࠯ࠊࠡࠢࡕࡩࡹࡻࡲ࡯ࡵ࠽ࠎࠥࠦࠠࠡ࡮ࡲ࡫࡬࡯࡮ࡨ࠰ࡏࡳ࡬࡭ࡥࡳ࠼ࠣࡇࡴࡴࡦࡪࡩࡸࡶࡪࡪࠠ࡭ࡱࡪ࡫ࡪࡸࠠࡵࡪࡤࡸࠥࡽࡲࡪࡶࡨࡷࠥࡵ࡮࡭ࡻࠣࡸࡴࠦࡡࡶࡶࡲࡱࡦࡺࡩࡰࡰ࠱ࡰࡴ࡭ࠠࠩ࡫ࡩࠤࡪࡴࡡࡣ࡮ࡨࡨ࠮ࠐࠠࠡࠤࠥࠦ⑉")
-  logger_name = bstack1l111l_opy_ (u"ࠣࡣࡸࡸࡴࡳࡡࡵ࡫ࡲࡲ࠳ࢁ࠰ࡾࠤ⑊").format(name)
+  bstack111ll11_opy_ (u"ࠨࠢࠣࠌࠣࠤࡗ࡫ࡴࡶࡴࡱࡷࠥࡧࠠ࡭ࡱࡪ࡫ࡪࡸࠠࡵࡪࡤࡸࠥࡽࡲࡪࡶࡨࡷࠥࡵ࡮࡭ࡻࠣࡸࡴࠦࡡࡶࡶࡲࡱࡦࡺࡩࡰࡰ࠱ࡰࡴ࡭ࠠࡧ࡫࡯ࡩࠏࠦࠠࡄࡴࡨࡥࡹ࡫ࡳࠡࡣࡱࡨࠥࡳࡡ࡯ࡣࡪࡩࡸࠦࡩࡵࡵࠣࡳࡼࡴࠠࡢࡷࡷࡳࡲࡧࡴࡪࡱࡱࠤ࡫࡯࡬ࡦࠢ࡫ࡥࡳࡪ࡬ࡦࡴࠍࠤࠥࡕ࡮࡭ࡻࠣࡩࡳࡧࡢ࡭ࡧࡶࠤࡱࡵࡧࡨ࡫ࡱ࡫ࠥ࡯ࡦࠡࡄࡕࡓ࡜࡙ࡅࡓࡕࡗࡅࡈࡑ࡟ࡂࡗࡗࡓࡒࡇࡔࡊࡑࡑࡣࡑࡕࡇࡔࠢࡨࡲࡻ࡯ࡲࡰࡰࡰࡩࡳࡺࠠࡷࡣࡵ࡭ࡦࡨ࡬ࡦࠢ࡬ࡷࠥࡹࡥࡵࠢࡷࡳࠥࡧࠠࡵࡴࡸࡸ࡭ࡿࠠࡷࡣ࡯ࡹࡪࠐࠠࠡࡃࡵ࡫ࡸࡀࠊࠡࠢࠣࠤࡳࡧ࡭ࡦ࠼ࠣࡐࡴ࡭ࡧࡦࡴࠣࡲࡦࡳࡥࠡࠪࡧࡩ࡫ࡧࡵ࡭ࡶࡶࠤࡹࡵࠠࡠࡡࡱࡥࡲ࡫࡟ࡠࠫࠍࠤࠥࠦࠠ࡭ࡧࡹࡩࡱࡀࠠࡍࡱࡪ࡫࡮ࡴࡧࠡ࡮ࡨࡺࡪࡲࠠࠩࡦࡨࡪࡦࡻ࡬ࡵࡵࠣࡸࡴࠦࡄࡆࡄࡘࡋ࠮ࠐࠠࠡࡔࡨࡸࡺࡸ࡮ࡴ࠼ࠍࠤࠥࠦࠠ࡭ࡱࡪ࡫࡮ࡴࡧ࠯ࡎࡲ࡫࡬࡫ࡲ࠻ࠢࡆࡳࡳ࡬ࡩࡨࡷࡵࡩࡩࠦ࡬ࡰࡩࡪࡩࡷࠦࡴࡩࡣࡷࠤࡼࡸࡩࡵࡧࡶࠤࡴࡴ࡬ࡺࠢࡷࡳࠥࡧࡵࡵࡱࡰࡥࡹ࡯࡯࡯࠰࡯ࡳ࡬ࠦࠨࡪࡨࠣࡩࡳࡧࡢ࡭ࡧࡧ࠭ࠏࠦࠠࠣࠤࠥ⑖")
+  logger_name = bstack111ll11_opy_ (u"ࠢࡢࡷࡷࡳࡲࡧࡴࡪࡱࡱ࠲ࢀ࠶ࡽࠣ⑗").format(name)
   logger = logging.getLogger(logger_name)
-  is_enabled = os.getenv(bstack1l111l_opy_ (u"ࠩࡅࡖࡔ࡝ࡓࡆࡔࡖࡘࡆࡉࡋࡠࡃࡘࡘࡔࡓࡁࡕࡋࡒࡒࡤࡒࡏࡈࡕࠪ⑋"), bstack1l111l_opy_ (u"ࠪࠫ⑌")).lower() == bstack1l111l_opy_ (u"ࠫࡹࡸࡵࡦࠩ⑍")
+  is_enabled = os.getenv(bstack111ll11_opy_ (u"ࠨࡄࡕࡓ࡜࡙ࡅࡓࡕࡗࡅࡈࡑ࡟ࡂࡗࡗࡓࡒࡇࡔࡊࡑࡑࡣࡑࡕࡇࡔࠩ⑘"), bstack111ll11_opy_ (u"ࠩࠪ⑙")).lower() == bstack111ll11_opy_ (u"ࠪࡸࡷࡻࡥࠨ⑚")
   if not is_enabled:
     logger.setLevel(logging.CRITICAL)
     logger.propagate = False
     return logger
-  with _1lll1l1ll111_opy_:
+  with _1lll1l1l1l11_opy_:
     if logger.handlers:
       return logger
-    bstack1lll1l1l11ll_opy_ = os.path.join(os.getcwd(), bstack1l111l_opy_ (u"ࠬࡲ࡯ࡨࠩ⑎"), bstack1l111l_opy_ (u"࠭ࡡࡶࡶࡲࡱࡦࡺࡩࡰࡰ࠱ࡰࡴ࡭ࠧ⑏"))
-    log_dir = os.path.dirname(bstack1lll1l1l11ll_opy_)
+    bstack1lll1l11lll1_opy_ = os.path.join(os.getcwd(), bstack111ll11_opy_ (u"ࠫࡱࡵࡧࠨ⑛"), bstack111ll11_opy_ (u"ࠬࡧࡵࡵࡱࡰࡥࡹ࡯࡯࡯࠰࡯ࡳ࡬࠭⑜"))
+    log_dir = os.path.dirname(bstack1lll1l11lll1_opy_)
     if not os.path.exists(log_dir):
       os.makedirs(log_dir)
-    bstack1lll1ll1111l_opy_ = logging.FileHandler(bstack1lll1l1l11ll_opy_)
-    bstack1lll1l11llll_opy_ = logging.Formatter(
-      fmt=bstack1l111l_opy_ (u"ࠧࠦࠪࡤࡷࡨࡺࡩ࡮ࡧࠬࡷࠥࡡࠥࠩࡰࡤࡱࡪ࠯ࡳ࡞࡝ࠨࠬࡱ࡫ࡶࡦ࡮ࡱࡥࡲ࡫ࠩࡴ࡟ࠣ࠱ࠥࡡࠠࡔࡆࡎ࠱ࡆ࡛ࡔࡐࡏࡄࡘࡎࡕࡎࠡ࡟ࠣࠩ࠭ࡳࡥࡴࡵࡤ࡫ࡪ࠯ࡳࠨ⑐"),
-      datefmt=bstack1l111l_opy_ (u"ࠨࠧ࡜࠱ࠪࡳ࠭ࠦࡦࡗࠩࡍࡀࠥࡎ࠼ࠨࡗ࡟࠭⑑"),
+    bstack1lll1l1lllll_opy_ = logging.FileHandler(bstack1lll1l11lll1_opy_)
+    bstack1lll1l1l11ll_opy_ = logging.Formatter(
+      fmt=bstack111ll11_opy_ (u"࠭ࠥࠩࡣࡶࡧࡹ࡯࡭ࡦࠫࡶࠤࡠࠫࠨ࡯ࡣࡰࡩ࠮ࡹ࡝࡜ࠧࠫࡰࡪࡼࡥ࡭ࡰࡤࡱࡪ࠯ࡳ࡞ࠢ࠰ࠤࡠࠦࡓࡅࡍ࠰ࡅ࡚࡚ࡏࡎࡃࡗࡍࡔࡔࠠ࡞ࠢࠨࠬࡲ࡫ࡳࡴࡣࡪࡩ࠮ࡹࠧ⑝"),
+      datefmt=bstack111ll11_opy_ (u"࡛ࠧࠦ࠰ࠩࡲ࠳ࠥࡥࡖࠨࡌ࠿ࠫࡍ࠻ࠧࡖ࡞ࠬ⑞"),
     )
-    bstack1lll1ll1111l_opy_.setFormatter(bstack1lll1l11llll_opy_)
-    bstack1lll1ll1111l_opy_.setLevel(level)
-    bstack1lll1ll1111l_opy_.addFilter(lambda r: r.name != bstack1l111l_opy_ (u"ࠩࡶࡩࡱ࡫࡮ࡪࡷࡰ࠲ࡼ࡫ࡢࡥࡴ࡬ࡺࡪࡸ࠮ࡳࡧࡰࡳࡹ࡫࠮ࡳࡧࡰࡳࡹ࡫࡟ࡤࡱࡱࡲࡪࡩࡴࡪࡱࡱࠫ⑒"))
-    logger.addHandler(bstack1lll1ll1111l_opy_)
+    bstack1lll1l1lllll_opy_.setFormatter(bstack1lll1l1l11ll_opy_)
+    bstack1lll1l1lllll_opy_.setLevel(level)
+    bstack1lll1l1lllll_opy_.addFilter(lambda r: r.name != bstack111ll11_opy_ (u"ࠨࡵࡨࡰࡪࡴࡩࡶ࡯࠱ࡻࡪࡨࡤࡳ࡫ࡹࡩࡷ࠴ࡲࡦ࡯ࡲࡸࡪ࠴ࡲࡦ࡯ࡲࡸࡪࡥࡣࡰࡰࡱࡩࡨࡺࡩࡰࡰࠪ⑟"))
+    logger.addHandler(bstack1lll1l1lllll_opy_)
     logger.setLevel(level)
     logger.propagate = False
   return logger
 def get_log_level():
-  bstack1lll1l1l1111_opy_ = os.environ.get(bstack1l111l_opy_ (u"ࠥࡆࡗࡕࡗࡔࡇࡕࡗ࡙ࡇࡃࡌࡡࡅࡍࡓࡇࡒ࡚ࡡࡇࡉࡇ࡛ࡇࠣ⑓"), bstack1l111l_opy_ (u"ࠦ࡫ࡧ࡬ࡴࡧࠥ⑔"))
-  return logging.DEBUG if bstack1lll1l1l1111_opy_.lower() == bstack1l111l_opy_ (u"ࠧࡺࡲࡶࡧࠥ⑕") else logging.INFO
-def bstack11ll1l111ll_opy_():
-  global bstack1lll1ll1l111_opy_
-  if os.path.exists(bstack1lll1ll1l111_opy_):
-    os.remove(bstack1lll1ll1l111_opy_)
-  if os.path.exists(bstack1lll1ll111l1_opy_):
-    os.remove(bstack1lll1ll111l1_opy_)
-def bstack1l1111l1l1_opy_():
+  bstack1lll1ll1111l_opy_ = os.environ.get(bstack111ll11_opy_ (u"ࠤࡅࡖࡔ࡝ࡓࡆࡔࡖࡘࡆࡉࡋࡠࡄࡌࡒࡆࡘ࡙ࡠࡆࡈࡆ࡚ࡍࠢ①"), bstack111ll11_opy_ (u"ࠥࡪࡦࡲࡳࡦࠤ②"))
+  return logging.DEBUG if bstack1lll1ll1111l_opy_.lower() == bstack111ll11_opy_ (u"ࠦࡹࡸࡵࡦࠤ③") else logging.INFO
+def bstack11lll1l111l_opy_():
+  global bstack1lll1l1ll111_opy_
+  if os.path.exists(bstack1lll1l1ll111_opy_):
+    os.remove(bstack1lll1l1ll111_opy_)
+  if os.path.exists(bstack1lll1ll11111_opy_):
+    os.remove(bstack1lll1ll11111_opy_)
+def bstack11ll1ll1l_opy_():
   for handler in logging.getLogger().handlers:
     logging.getLogger().removeHandler(handler)
 def configure_logger(config, log_level):
-  bstack1lll1l1l11l1_opy_ = log_level
-  if bstack1l111l_opy_ (u"࠭࡬ࡰࡩࡏࡩࡻ࡫࡬ࠨ⑖") in config and config[bstack1l111l_opy_ (u"ࠧ࡭ࡱࡪࡐࡪࡼࡥ࡭ࠩ⑗")] in bstack1111111ll11_opy_:
-    bstack1lll1l1l11l1_opy_ = bstack1111111ll11_opy_[config[bstack1l111l_opy_ (u"ࠨ࡮ࡲ࡫ࡑ࡫ࡶࡦ࡮ࠪ⑘")]]
-  if config.get(bstack1l111l_opy_ (u"ࠩࡧ࡭ࡸࡧࡢ࡭ࡧࡄࡹࡹࡵࡃࡢࡲࡷࡹࡷ࡫ࡌࡰࡩࡶࠫ⑙"), False):
-    logging.getLogger().setLevel(bstack1lll1l1l11l1_opy_)
-    return bstack1lll1l1l11l1_opy_
-  global bstack1lll1ll1l111_opy_
-  bstack1l1111l1l1_opy_()
-  bstack1lll1l1l1l11_opy_ = logging.Formatter(
-    fmt=bstack1l111l_opy_ (u"ࠪࠩ࠭ࡧࡳࡤࡶ࡬ࡱࡪ࠯ࡳࠡ࡝ࠨࠬࡳࡧ࡭ࡦࠫࡶࡡࡠࠫࠨ࡭ࡧࡹࡩࡱࡴࡡ࡮ࡧࠬࡷࡢࠦ࠭ࠡࠧࠫࡱࡪࡹࡳࡢࡩࡨ࠭ࡸ࠭⑚"),
-    datefmt=bstack1l111l_opy_ (u"ࠫࠪ࡟࠭ࠦ࡯࠰ࠩࡩ࡚ࠥࡉ࠼ࠨࡑ࠿ࠫࡓ࡛ࠩ⑛"),
+  bstack1lll1l11l111_opy_ = log_level
+  if bstack111ll11_opy_ (u"ࠬࡲ࡯ࡨࡎࡨࡺࡪࡲࠧ④") in config and config[bstack111ll11_opy_ (u"࠭࡬ࡰࡩࡏࡩࡻ࡫࡬ࠨ⑤")] in bstack1111111ll1l_opy_:
+    bstack1lll1l11l111_opy_ = bstack1111111ll1l_opy_[config[bstack111ll11_opy_ (u"ࠧ࡭ࡱࡪࡐࡪࡼࡥ࡭ࠩ⑥")]]
+  if config.get(bstack111ll11_opy_ (u"ࠨࡦ࡬ࡷࡦࡨ࡬ࡦࡃࡸࡸࡴࡉࡡࡱࡶࡸࡶࡪࡒ࡯ࡨࡵࠪ⑦"), False):
+    logging.getLogger().setLevel(bstack1lll1l11l111_opy_)
+    return bstack1lll1l11l111_opy_
+  global bstack1lll1l1ll111_opy_
+  bstack11ll1ll1l_opy_()
+  bstack1lll1l1ll1l1_opy_ = logging.Formatter(
+    fmt=bstack111ll11_opy_ (u"ࠩࠨࠬࡦࡹࡣࡵ࡫ࡰࡩ࠮ࡹࠠ࡜ࠧࠫࡲࡦࡳࡥࠪࡵࡠ࡟ࠪ࠮࡬ࡦࡸࡨࡰࡳࡧ࡭ࡦࠫࡶࡡࠥ࠳ࠠࠦࠪࡰࡩࡸࡹࡡࡨࡧࠬࡷࠬ⑧"),
+    datefmt=bstack111ll11_opy_ (u"ࠪࠩ࡞࠳ࠥ࡮࠯ࠨࡨ࡙ࠫࡈ࠻ࠧࡐ࠾࡙࡚ࠪࠨ⑨"),
   )
-  bstack1lll1ll111ll_opy_ = logging.StreamHandler(sys.stdout)
-  file_handler = logging.FileHandler(bstack1lll1ll1l111_opy_)
-  file_handler.setFormatter(bstack1lll1l1l1l11_opy_)
-  bstack1lll1ll111ll_opy_.setFormatter(bstack1lll1l1l1l11_opy_)
+  bstack1lll1l1llll1_opy_ = logging.StreamHandler(sys.stdout)
+  file_handler = logging.FileHandler(bstack1lll1l1ll111_opy_)
+  file_handler.setFormatter(bstack1lll1l1ll1l1_opy_)
+  bstack1lll1l1llll1_opy_.setFormatter(bstack1lll1l1ll1l1_opy_)
   file_handler.setLevel(logging.DEBUG)
-  bstack1lll1ll111ll_opy_.setLevel(log_level)
-  file_handler.addFilter(lambda r: r.name != bstack1l111l_opy_ (u"ࠬࡹࡥ࡭ࡧࡱ࡭ࡺࡳ࠮ࡸࡧࡥࡨࡷ࡯ࡶࡦࡴ࠱ࡶࡪࡳ࡯ࡵࡧ࠱ࡶࡪࡳ࡯ࡵࡧࡢࡧࡴࡴ࡮ࡦࡥࡷ࡭ࡴࡴࠧ⑜"))
+  bstack1lll1l1llll1_opy_.setLevel(log_level)
+  file_handler.addFilter(lambda r: r.name != bstack111ll11_opy_ (u"ࠫࡸ࡫࡬ࡦࡰ࡬ࡹࡲ࠴ࡷࡦࡤࡧࡶ࡮ࡼࡥࡳ࠰ࡵࡩࡲࡵࡴࡦ࠰ࡵࡩࡲࡵࡴࡦࡡࡦࡳࡳࡴࡥࡤࡶ࡬ࡳࡳ࠭⑩"))
   logging.getLogger().setLevel(logging.DEBUG)
-  bstack1lll1ll111ll_opy_.setLevel(bstack1lll1l1l11l1_opy_)
-  logging.getLogger().addHandler(bstack1lll1ll111ll_opy_)
+  bstack1lll1l1llll1_opy_.setLevel(bstack1lll1l11l111_opy_)
+  logging.getLogger().addHandler(bstack1lll1l1llll1_opy_)
   logging.getLogger().addHandler(file_handler)
-  return bstack1lll1l1l11l1_opy_
-def bstack1lll1ll11111_opy_(config):
+  return bstack1lll1l11l111_opy_
+def bstack1lll1l11l1ll_opy_(config):
   try:
-    bstack1lll1l1l1ll1_opy_ = set(bstack111111l1l1l_opy_)
-    bstack1lll1l1lllll_opy_ = bstack1l111l_opy_ (u"࠭ࠧ⑝")
-    with open(bstack1l111l_opy_ (u"ࠧࡣࡴࡲࡻࡸ࡫ࡲࡴࡶࡤࡧࡰ࠴ࡹ࡮࡮ࠪ⑞")) as bstack1lll1l1l1l1l_opy_:
-      bstack1lll1ll1l1ll_opy_ = bstack1lll1l1l1l1l_opy_.read()
-      bstack1lll1l1lllll_opy_ = re.sub(bstack1l111l_opy_ (u"ࡳࠩࡡࠬࡡࡹࠫࠪࡁࠦ࠲࠯ࠪ࡜࡯ࠩ⑟"), bstack1l111l_opy_ (u"ࠩࠪ①"), bstack1lll1ll1l1ll_opy_, flags=re.M)
-      bstack1lll1l1lllll_opy_ = re.sub(
-        bstack1l111l_opy_ (u"ࡵࠫࡣ࠮࡜ࡴ࠭ࠬࡃ࠭࠭②") + bstack1l111l_opy_ (u"ࠫࢁ࠭③").join(bstack1lll1l1l1ll1_opy_) + bstack1l111l_opy_ (u"ࠬ࠯࠮ࠫࠦࠪ④"),
-        bstack1l111l_opy_ (u"ࡸࠧ࡝࠴࠽ࠤࡠࡘࡅࡅࡃࡆࡘࡊࡊ࡝ࠨ⑤"),
-        bstack1lll1l1lllll_opy_, flags=re.M | re.I
+    bstack1lll1l1l1lll_opy_ = set(bstack111111l11l1_opy_)
+    bstack1lll1l11ll11_opy_ = bstack111ll11_opy_ (u"ࠬ࠭⑪")
+    with open(bstack111ll11_opy_ (u"࠭ࡢࡳࡱࡺࡷࡪࡸࡳࡵࡣࡦ࡯࠳ࡿ࡭࡭ࠩ⑫")) as bstack1lll1ll111ll_opy_:
+      bstack1lll1l1l1l1l_opy_ = bstack1lll1ll111ll_opy_.read()
+      bstack1lll1l11ll11_opy_ = re.sub(bstack111ll11_opy_ (u"ࡲࠨࡠࠫࡠࡸ࠱ࠩࡀࠥ࠱࠮ࠩࡢ࡮ࠨ⑬"), bstack111ll11_opy_ (u"ࠨࠩ⑭"), bstack1lll1l1l1l1l_opy_, flags=re.M)
+      bstack1lll1l11ll11_opy_ = re.sub(
+        bstack111ll11_opy_ (u"ࡴࠪࡢ࠭ࡢࡳࠬࠫࡂࠬࠬ⑮") + bstack111ll11_opy_ (u"ࠪࢀࠬ⑯").join(bstack1lll1l1l1lll_opy_) + bstack111ll11_opy_ (u"ࠫ࠮࠴ࠪࠥࠩ⑰"),
+        bstack111ll11_opy_ (u"ࡷ࠭࡜࠳࠼ࠣ࡟ࡗࡋࡄࡂࡅࡗࡉࡉࡣࠧ⑱"),
+        bstack1lll1l11ll11_opy_, flags=re.M | re.I
       )
-    def bstack1lll1ll11l11_opy_(dic):
-      bstack1lll1l1l1lll_opy_ = {}
+    def bstack1lll1l1l1ll1_opy_(dic):
+      bstack1lll1l11l1l1_opy_ = {}
       for key, value in dic.items():
-        if key in bstack1lll1l1l1ll1_opy_:
-          bstack1lll1l1l1lll_opy_[key] = bstack1l111l_opy_ (u"ࠧ࡜ࡔࡈࡈࡆࡉࡔࡆࡆࡠࠫ⑥")
+        if key in bstack1lll1l1l1lll_opy_:
+          bstack1lll1l11l1l1_opy_[key] = bstack111ll11_opy_ (u"࡛࠭ࡓࡇࡇࡅࡈ࡚ࡅࡅ࡟ࠪ⑲")
         else:
           if isinstance(value, dict):
-            bstack1lll1l1l1lll_opy_[key] = bstack1lll1ll11l11_opy_(value)
+            bstack1lll1l11l1l1_opy_[key] = bstack1lll1l1l1ll1_opy_(value)
           else:
-            bstack1lll1l1l1lll_opy_[key] = value
-      return bstack1lll1l1l1lll_opy_
-    bstack1lll1l1l1lll_opy_ = bstack1lll1ll11l11_opy_(config)
+            bstack1lll1l11l1l1_opy_[key] = value
+      return bstack1lll1l11l1l1_opy_
+    bstack1lll1l11l1l1_opy_ = bstack1lll1l1l1ll1_opy_(config)
     return {
-      bstack1l111l_opy_ (u"ࠨࡤࡵࡳࡼࡹࡥࡳࡵࡷࡥࡨࡱ࠮ࡺ࡯࡯ࠫ⑦"): bstack1lll1l1lllll_opy_,
-      bstack1l111l_opy_ (u"ࠩࡩ࡭ࡳࡧ࡬ࡤࡱࡱࡪ࡮࡭࠮࡫ࡵࡲࡲࠬ⑧"): json.dumps(bstack1lll1l1l1lll_opy_)
+      bstack111ll11_opy_ (u"ࠧࡣࡴࡲࡻࡸ࡫ࡲࡴࡶࡤࡧࡰ࠴ࡹ࡮࡮ࠪ⑳"): bstack1lll1l11ll11_opy_,
+      bstack111ll11_opy_ (u"ࠨࡨ࡬ࡲࡦࡲࡣࡰࡰࡩ࡭࡬࠴ࡪࡴࡱࡱࠫ⑴"): json.dumps(bstack1lll1l11l1l1_opy_)
     }
   except Exception as e:
     return {}
-def bstack1lll1l1ll11l_opy_(inipath, rootpath):
-  log_dir = os.path.join(os.getcwd(), bstack1l111l_opy_ (u"ࠪࡰࡴ࡭ࠧ⑨"))
+def bstack1lll1l11l11l_opy_(inipath, rootpath):
+  log_dir = os.path.join(os.getcwd(), bstack111ll11_opy_ (u"ࠩ࡯ࡳ࡬࠭⑵"))
   if not os.path.exists(log_dir):
     os.makedirs(log_dir)
-  bstack1lll1l11_opy_ = os.path.join(log_dir, bstack1l111l_opy_ (u"ࠫࡵࡿࡴࡦࡵࡷࡣࡨࡵ࡮ࡧ࡫ࡪࡷࠬ⑩"))
-  if not os.path.exists(bstack1lll1l11_opy_):
-    bstack1lll1l1lll1l_opy_ = {
-      bstack1l111l_opy_ (u"ࠧ࡯࡮ࡪࡲࡤࡸ࡭ࠨ⑪"): str(inipath),
-      bstack1l111l_opy_ (u"ࠨࡲࡰࡱࡷࡴࡦࡺࡨࠣ⑫"): str(rootpath)
+  bstack11l11l1ll1_opy_ = os.path.join(log_dir, bstack111ll11_opy_ (u"ࠪࡴࡾࡺࡥࡴࡶࡢࡧࡴࡴࡦࡪࡩࡶࠫ⑶"))
+  if not os.path.exists(bstack11l11l1ll1_opy_):
+    bstack1lll1ll111l1_opy_ = {
+      bstack111ll11_opy_ (u"ࠦ࡮ࡴࡩࡱࡣࡷ࡬ࠧ⑷"): str(inipath),
+      bstack111ll11_opy_ (u"ࠧࡸ࡯ࡰࡶࡳࡥࡹ࡮ࠢ⑸"): str(rootpath)
     }
-    with open(os.path.join(log_dir, bstack1l111l_opy_ (u"ࠧࡱࡻࡷࡩࡸࡺ࡟ࡤࡱࡱࡪ࡮࡭ࡳ࠯࡬ࡶࡳࡳ࠭⑬")), bstack1l111l_opy_ (u"ࠨࡹࠪ⑭")) as bstack1lll1l1l111l_opy_:
-      bstack1lll1l1l111l_opy_.write(json.dumps(bstack1lll1l1lll1l_opy_))
-def bstack1lll1ll1l1l1_opy_():
+    with open(os.path.join(log_dir, bstack111ll11_opy_ (u"࠭ࡰࡺࡶࡨࡷࡹࡥࡣࡰࡰࡩ࡭࡬ࡹ࠮࡫ࡵࡲࡲࠬ⑹")), bstack111ll11_opy_ (u"ࠧࡸࠩ⑺")) as bstack1lll1l1ll1ll_opy_:
+      bstack1lll1l1ll1ll_opy_.write(json.dumps(bstack1lll1ll111l1_opy_))
+def bstack1lll1l1lll1l_opy_():
   try:
-    bstack1lll1l11_opy_ = os.path.join(os.getcwd(), bstack1l111l_opy_ (u"ࠩ࡯ࡳ࡬࠭⑮"), bstack1l111l_opy_ (u"ࠪࡴࡾࡺࡥࡴࡶࡢࡧࡴࡴࡦࡪࡩࡶ࠲࡯ࡹ࡯࡯ࠩ⑯"))
-    if os.path.exists(bstack1lll1l11_opy_):
-      with open(bstack1lll1l11_opy_, bstack1l111l_opy_ (u"ࠫࡷ࠭⑰")) as bstack1lll1l1l111l_opy_:
-        bstack1lll1l1llll1_opy_ = json.load(bstack1lll1l1l111l_opy_)
-      return bstack1lll1l1llll1_opy_.get(bstack1l111l_opy_ (u"ࠬ࡯࡮ࡪࡲࡤࡸ࡭࠭⑱"), bstack1l111l_opy_ (u"࠭ࠧ⑲")), bstack1lll1l1llll1_opy_.get(bstack1l111l_opy_ (u"ࠧࡳࡱࡲࡸࡵࡧࡴࡩࠩ⑳"), bstack1l111l_opy_ (u"ࠨࠩ⑴"))
+    bstack11l11l1ll1_opy_ = os.path.join(os.getcwd(), bstack111ll11_opy_ (u"ࠨ࡮ࡲ࡫ࠬ⑻"), bstack111ll11_opy_ (u"ࠩࡳࡽࡹ࡫ࡳࡵࡡࡦࡳࡳ࡬ࡩࡨࡵ࠱࡮ࡸࡵ࡮ࠨ⑼"))
+    if os.path.exists(bstack11l11l1ll1_opy_):
+      with open(bstack11l11l1ll1_opy_, bstack111ll11_opy_ (u"ࠪࡶࠬ⑽")) as bstack1lll1l1ll1ll_opy_:
+        bstack1lll1l1lll11_opy_ = json.load(bstack1lll1l1ll1ll_opy_)
+      return bstack1lll1l1lll11_opy_.get(bstack111ll11_opy_ (u"ࠫ࡮ࡴࡩࡱࡣࡷ࡬ࠬ⑾"), bstack111ll11_opy_ (u"ࠬ࠭⑿")), bstack1lll1l1lll11_opy_.get(bstack111ll11_opy_ (u"࠭ࡲࡰࡱࡷࡴࡦࡺࡨࠨ⒀"), bstack111ll11_opy_ (u"ࠧࠨ⒁"))
   except:
     pass
   return None, None
-def bstack1lll1l1ll1ll_opy_():
+def bstack1lll1l1l111l_opy_():
   try:
-    bstack1lll1l11_opy_ = os.path.join(os.getcwd(), bstack1l111l_opy_ (u"ࠩ࡯ࡳ࡬࠭⑵"), bstack1l111l_opy_ (u"ࠪࡴࡾࡺࡥࡴࡶࡢࡧࡴࡴࡦࡪࡩࡶ࠲࡯ࡹ࡯࡯ࠩ⑶"))
-    if os.path.exists(bstack1lll1l11_opy_):
-      os.remove(bstack1lll1l11_opy_)
+    bstack11l11l1ll1_opy_ = os.path.join(os.getcwd(), bstack111ll11_opy_ (u"ࠨ࡮ࡲ࡫ࠬ⒂"), bstack111ll11_opy_ (u"ࠩࡳࡽࡹ࡫ࡳࡵࡡࡦࡳࡳ࡬ࡩࡨࡵ࠱࡮ࡸࡵ࡮ࠨ⒃"))
+    if os.path.exists(bstack11l11l1ll1_opy_):
+      os.remove(bstack11l11l1ll1_opy_)
   except:
     pass
-def bstack1ll111l11_opy_(config):
+def bstack111ll11lll_opy_(config):
   try:
     try:
-      from bstack_utils.bstack1llll111_opy_ import bstack111ll11l1_opy_
+      from bstack_utils.bstack1lll1l1ll1_opy_ import bstack1ll1l11l1_opy_
     except Exception:
-      bstack111ll11l1_opy_ = None
+      bstack1ll1l11l1_opy_ = None
     start_time = time.time()
-    from bstack_utils.helper import global_config, bstack111lll1ll_opy_
+    from bstack_utils.helper import global_config, bstack11ll1lll11_opy_
     from browserstack_sdk.sdk_cli.cli import cli
-    global bstack1lll1ll1l111_opy_
-    if config.get(bstack1l111l_opy_ (u"ࠫࡩ࡯ࡳࡢࡤ࡯ࡩࡆࡻࡴࡰࡅࡤࡴࡹࡻࡲࡦࡎࡲ࡫ࡸ࠭⑷"), False):
+    global bstack1lll1l1ll111_opy_
+    if config.get(bstack111ll11_opy_ (u"ࠪࡨ࡮ࡹࡡࡣ࡮ࡨࡅࡺࡺ࡯ࡄࡣࡳࡸࡺࡸࡥࡍࡱࡪࡷࠬ⒄"), False):
       return
-    uuid = os.getenv(bstack1l111l_opy_ (u"ࠬࡈࡒࡐ࡙ࡖࡉࡗ࡙ࡔࡂࡅࡎࡣ࡙ࡋࡓࡕࡊࡘࡆࡤ࡛ࡕࡊࡆࠪ⑸")) if os.getenv(bstack1l111l_opy_ (u"࠭ࡂࡓࡑ࡚ࡗࡊࡘࡓࡕࡃࡆࡏࡤ࡚ࡅࡔࡖࡋ࡙ࡇࡥࡕࡖࡋࡇࠫ⑹")) else global_config.get_property(bstack1l111l_opy_ (u"ࠢࡴࡦ࡮ࡖࡺࡴࡉࡥࠤ⑺"))
-    if not uuid or uuid == bstack1l111l_opy_ (u"ࠨࡰࡸࡰࡱ࠭⑻"):
+    uuid = os.getenv(bstack111ll11_opy_ (u"ࠫࡇࡘࡏࡘࡕࡈࡖࡘ࡚ࡁࡄࡍࡢࡘࡊ࡙ࡔࡉࡗࡅࡣ࡚࡛ࡉࡅࠩ⒅")) if os.getenv(bstack111ll11_opy_ (u"ࠬࡈࡒࡐ࡙ࡖࡉࡗ࡙ࡔࡂࡅࡎࡣ࡙ࡋࡓࡕࡊࡘࡆࡤ࡛ࡕࡊࡆࠪ⒆")) else global_config.get_property(bstack111ll11_opy_ (u"ࠨࡳࡥ࡭ࡕࡹࡳࡏࡤࠣ⒇"))
+    if not uuid or uuid == bstack111ll11_opy_ (u"ࠧ࡯ࡷ࡯ࡰࠬ⒈"):
       return
-    bstack1lll1l1lll11_opy_ = bstack111ll11l1_opy_.bstack11l1111ll_opy_(EVENTS.bstack111111l1lll_opy_.value) if bstack111ll11l1_opy_ else None
-    bstack1lll1l1ll1l1_opy_ = [bstack1l111l_opy_ (u"ࠩࡵࡩࡶࡻࡩࡳࡧࡰࡩࡳࡺࡳ࠯ࡶࡻࡸࠬ⑼"), bstack1l111l_opy_ (u"ࠪࡔ࡮ࡶࡦࡪ࡮ࡨࠫ⑽"), bstack1l111l_opy_ (u"ࠫࡵࡿࡰࡳࡱ࡭ࡩࡨࡺ࠮ࡵࡱࡰࡰࠬ⑾"), bstack1lll1ll1l111_opy_, bstack1lll1ll111l1_opy_]
-    bstack1lll1ll11lll_opy_, root_path = bstack1lll1ll1l1l1_opy_()
-    if bstack1lll1ll11lll_opy_ != None:
-      bstack1lll1l1ll1l1_opy_.append(bstack1lll1ll11lll_opy_)
+    bstack1lll1l1l1111_opy_ = bstack1ll1l11l1_opy_.bstack11lllll1_opy_(EVENTS.bstack11111l1lll1_opy_.value) if bstack1ll1l11l1_opy_ else None
+    bstack1lll1ll11l11_opy_ = [bstack111ll11_opy_ (u"ࠨࡴࡨࡵࡺ࡯ࡲࡦ࡯ࡨࡲࡹࡹ࠮ࡵࡺࡷࠫ⒉"), bstack111ll11_opy_ (u"ࠩࡓ࡭ࡵ࡬ࡩ࡭ࡧࠪ⒊"), bstack111ll11_opy_ (u"ࠪࡴࡾࡶࡲࡰ࡬ࡨࡧࡹ࠴ࡴࡰ࡯࡯ࠫ⒋"), bstack1lll1l1ll111_opy_, bstack1lll1ll11111_opy_]
+    bstack1lll1l11llll_opy_, root_path = bstack1lll1l1lll1l_opy_()
+    if bstack1lll1l11llll_opy_ != None:
+      bstack1lll1ll11l11_opy_.append(bstack1lll1l11llll_opy_)
     if root_path != None:
-      bstack1lll1l1ll1l1_opy_.append(os.path.join(root_path, bstack1l111l_opy_ (u"ࠬࡩ࡯࡯ࡨࡷࡩࡸࡺ࠮ࡱࡻࠪ⑿")))
-    bstack1lll1ll11ll1_opy_ = os.path.join(os.getcwd(), bstack1l111l_opy_ (u"࠭࡬ࡰࡩࠪ⒀"), bstack1l111l_opy_ (u"ࠧ࡬ࡧࡼ࠱ࡲ࡫ࡴࡳ࡫ࡦࡷ࠳ࡰࡳࡰࡰࠪ⒁"))
-    if os.path.exists(bstack1lll1ll11ll1_opy_):
-      bstack1lll1l1ll1l1_opy_.append(bstack1lll1ll11ll1_opy_)
-    output_file = os.path.join(tempfile.gettempdir(), bstack1l111l_opy_ (u"ࠨࡤࡶࡸࡦࡩ࡫࠮࡮ࡲ࡫ࡸ࠳ࠧ⒂") + uuid + bstack1l111l_opy_ (u"ࠩ࠱ࡸࡦࡸ࠮ࡨࡼࠪ⒃"))
-    with tarfile.open(output_file, bstack1l111l_opy_ (u"ࠥࡻ࠿࡭ࡺࠣ⒄")) as archive:
-      for file in filter(lambda f: os.path.exists(f), bstack1lll1l1ll1l1_opy_):
+      bstack1lll1ll11l11_opy_.append(os.path.join(root_path, bstack111ll11_opy_ (u"ࠫࡨࡵ࡮ࡧࡶࡨࡷࡹ࠴ࡰࡺࠩ⒌")))
+    bstack1lll1l11ll1l_opy_ = os.path.join(os.getcwd(), bstack111ll11_opy_ (u"ࠬࡲ࡯ࡨࠩ⒍"), bstack111ll11_opy_ (u"࠭࡫ࡦࡻ࠰ࡱࡪࡺࡲࡪࡥࡶ࠲࡯ࡹ࡯࡯ࠩ⒎"))
+    if os.path.exists(bstack1lll1l11ll1l_opy_):
+      bstack1lll1ll11l11_opy_.append(bstack1lll1l11ll1l_opy_)
+    output_file = os.path.join(tempfile.gettempdir(), bstack111ll11_opy_ (u"ࠧࡣࡵࡷࡥࡨࡱ࠭࡭ࡱࡪࡷ࠲࠭⒏") + uuid + bstack111ll11_opy_ (u"ࠨ࠰ࡷࡥࡷ࠴ࡧࡻࠩ⒐"))
+    with tarfile.open(output_file, bstack111ll11_opy_ (u"ࠤࡺ࠾࡬ࢀࠢ⒑")) as archive:
+      for file in filter(lambda f: os.path.exists(f), bstack1lll1ll11l11_opy_):
         try:
           archive.add(file,  arcname=os.path.basename(file))
         except:
           pass
-      for name, data in bstack1lll1ll11111_opy_(config).items():
+      for name, data in bstack1lll1l11l1ll_opy_(config).items():
         tarinfo = tarfile.TarInfo(name)
-        bstack1lll1ll11l1l_opy_ = data.encode()
-        tarinfo.size = len(bstack1lll1ll11l1l_opy_)
-        archive.addfile(tarinfo, io.BytesIO(bstack1lll1ll11l1l_opy_))
+        bstack1lll1l1ll11l_opy_ = data.encode()
+        tarinfo.size = len(bstack1lll1l1ll11l_opy_)
+        archive.addfile(tarinfo, io.BytesIO(bstack1lll1l1ll11l_opy_))
     multipart_data = MultipartEncoder(
       fields= {
-        bstack1l111l_opy_ (u"ࠫࡩࡧࡴࡢࠩ⒅"): (os.path.basename(output_file), open(os.path.abspath(output_file), bstack1l111l_opy_ (u"ࠬࡸࡢࠨ⒆")), bstack1l111l_opy_ (u"࠭ࡡࡱࡲ࡯࡭ࡨࡧࡴࡪࡱࡱ࠳ࡽ࠳ࡧࡻ࡫ࡳࠫ⒇")),
-        bstack1l111l_opy_ (u"ࠧࡤ࡮࡬ࡩࡳࡺࡂࡶ࡫࡯ࡨ࡚ࡻࡩࡥࠩ⒈"): uuid
+        bstack111ll11_opy_ (u"ࠪࡨࡦࡺࡡࠨ⒒"): (os.path.basename(output_file), open(os.path.abspath(output_file), bstack111ll11_opy_ (u"ࠫࡷࡨࠧ⒓")), bstack111ll11_opy_ (u"ࠬࡧࡰࡱ࡮࡬ࡧࡦࡺࡩࡰࡰ࠲ࡼ࠲࡭ࡺࡪࡲࠪ⒔")),
+        bstack111ll11_opy_ (u"࠭ࡣ࡭࡫ࡨࡲࡹࡈࡵࡪ࡮ࡧ࡙ࡺ࡯ࡤࠨ⒕"): uuid
       }
     )
-    bstack1lll1ll1l11l_opy_ = bstack111lll1ll_opy_(cli.config, [bstack1l111l_opy_ (u"ࠣࡣࡳ࡭ࡸࠨ⒉"), bstack1l111l_opy_ (u"ࠤࡲࡦࡸ࡫ࡲࡷࡣࡥ࡭ࡱ࡯ࡴࡺࠤ⒊"), bstack1l111l_opy_ (u"ࠥࡹࡵࡲ࡯ࡢࡦࠥ⒋")], bstack111111l11l1_opy_)
+    bstack1lll1l1l11l1_opy_ = bstack11ll1lll11_opy_(cli.config, [bstack111ll11_opy_ (u"ࠢࡢࡲ࡬ࡷࠧ⒖"), bstack111ll11_opy_ (u"ࠣࡱࡥࡷࡪࡸࡶࡢࡤ࡬ࡰ࡮ࡺࡹࠣ⒗"), bstack111ll11_opy_ (u"ࠤࡸࡴࡱࡵࡡࡥࠤ⒘")], bstack111111lllll_opy_)
     response = requests.post(
-      bstack1l111l_opy_ (u"ࠦࢀࢃ࠯ࡤ࡮࡬ࡩࡳࡺ࠭࡭ࡱࡪࡷ࠴ࡻࡰ࡭ࡱࡤࡨࠧ⒌").format(bstack1lll1ll1l11l_opy_),
+      bstack111ll11_opy_ (u"ࠥࡿࢂ࠵ࡣ࡭࡫ࡨࡲࡹ࠳࡬ࡰࡩࡶ࠳ࡺࡶ࡬ࡰࡣࡧࠦ⒙").format(bstack1lll1l1l11l1_opy_),
       data=multipart_data,
-      headers={bstack1l111l_opy_ (u"ࠬࡉ࡯࡯ࡶࡨࡲࡹ࠳ࡔࡺࡲࡨࠫ⒍"): multipart_data.content_type},
-      auth=(config[bstack1l111l_opy_ (u"࠭ࡵࡴࡧࡵࡒࡦࡳࡥࠨ⒎")], config[bstack1l111l_opy_ (u"ࠧࡢࡥࡦࡩࡸࡹࡋࡦࡻࠪ⒏")])
+      headers={bstack111ll11_opy_ (u"ࠫࡈࡵ࡮ࡵࡧࡱࡸ࠲࡚ࡹࡱࡧࠪ⒚"): multipart_data.content_type},
+      auth=(config[bstack111ll11_opy_ (u"ࠬࡻࡳࡦࡴࡑࡥࡲ࡫ࠧ⒛")], config[bstack111ll11_opy_ (u"࠭ࡡࡤࡥࡨࡷࡸࡑࡥࡺࠩ⒜")])
     )
     os.remove(output_file)
     if response.status_code != 200:
-      get_logger().debug(bstack1l111l_opy_ (u"ࠨࡇࡵࡶࡴࡸࠠࡶࡲ࡯ࡳࡦࡪࠠ࡭ࡱࡪࡷ࠿ࠦࠧ⒐") + response.status_code)
+      get_logger().debug(bstack111ll11_opy_ (u"ࠧࡆࡴࡵࡳࡷࠦࡵࡱ࡮ࡲࡥࡩࠦ࡬ࡰࡩࡶ࠾ࠥ࠭⒝") + response.status_code)
   except Exception as e:
-    get_logger().debug(bstack1l111l_opy_ (u"ࠩࡈࡼࡨ࡫ࡰࡵ࡫ࡲࡲࠥ࡯࡮ࠡࡵࡨࡲࡩ࡯࡮ࡨࠢ࡯ࡳ࡬ࡹ࠺ࠨ⒑") + str(e))
+    get_logger().debug(bstack111ll11_opy_ (u"ࠨࡇࡻࡧࡪࡶࡴࡪࡱࡱࠤ࡮ࡴࠠࡴࡧࡱࡨ࡮ࡴࡧࠡ࡮ࡲ࡫ࡸࡀࠧ⒞") + str(e))
   finally:
     try:
-      bstack11ll1l111ll_opy_()
-      bstack1lll1l1ll1ll_opy_()
+      bstack11lll1l111l_opy_()
+      bstack1lll1l1l111l_opy_()
     except:
       pass
-    if bstack111ll11l1_opy_ and bstack1lll1l1lll11_opy_:
-      bstack111ll11l1_opy_.end(EVENTS.bstack111111l1lll_opy_.value, bstack1lll1l1lll11_opy_ + bstack1l111l_opy_ (u"ࠥ࠾ࡸࡺࡡࡳࡶࠥ⒒"), bstack1lll1l1lll11_opy_ + bstack1l111l_opy_ (u"ࠦ࠿࡫࡮ࡥࠤ⒓"), status=True, failure=None, test_name=None)
+    if bstack1ll1l11l1_opy_ and bstack1lll1l1l1111_opy_:
+      bstack1ll1l11l1_opy_.end(EVENTS.bstack11111l1lll1_opy_.value, bstack1lll1l1l1111_opy_ + bstack111ll11_opy_ (u"ࠤ࠽ࡷࡹࡧࡲࡵࠤ⒟"), bstack1lll1l1l1111_opy_ + bstack111ll11_opy_ (u"ࠥ࠾ࡪࡴࡤࠣ⒠"), status=True, failure=None, test_name=None)
     try:
       elapsed = time.time() - start_time
-      get_logger().debug(bstack1l111l_opy_ (u"ࠧࡹࡥ࡯ࡦࡢࡰࡴ࡭ࡳࠡࡥࡲࡱࡵࡲࡥࡵࡧࡧࠤ࡮ࡴࠠࡼ࠼࠱࠷࡫ࢃࠠࡴࡧࡦࡳࡳࡪࡳࠣ⒔").format(elapsed))
+      get_logger().debug(bstack111ll11_opy_ (u"ࠦࡸ࡫࡮ࡥࡡ࡯ࡳ࡬ࡹࠠࡤࡱࡰࡴࡱ࡫ࡴࡦࡦࠣ࡭ࡳࠦࡻ࠻࠰࠶ࡪࢂࠦࡳࡦࡥࡲࡲࡩࡹࠢ⒡").format(elapsed))
     except Exception:
       pass

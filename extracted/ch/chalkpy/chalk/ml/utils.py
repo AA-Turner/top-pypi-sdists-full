@@ -55,6 +55,7 @@ class ModelEncoding(str, Enum):
     PROTOBUF = "MODEL_ENCODING_PROTOBUF"
     CBM = "MODEL_ENCODING_CBM"
     SAFETENSOR = "MODEL_ENCODING_SAFETENSORS"
+    BST = "MODEL_ENCODING_BST"
 
 
 class ModelClass(str, Enum):
@@ -159,6 +160,7 @@ def model_encoding_from_proto(me: pb.ModelEncoding) -> ModelEncoding:
         pb.ModelEncoding.MODEL_ENCODING_PROTOBUF: ModelEncoding.PROTOBUF,
         pb.ModelEncoding.MODEL_ENCODING_CBM: ModelEncoding.CBM,
         pb.ModelEncoding.MODEL_ENCODING_SAFETENSORS: ModelEncoding.SAFETENSOR,
+        pb.ModelEncoding.MODEL_ENCODING_BST: ModelEncoding.BST,
     }
     _me = mapping.get(me, None)
     if _me is None:

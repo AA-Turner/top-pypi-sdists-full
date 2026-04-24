@@ -181,7 +181,7 @@ jobs:
           export PATH="/usr/local/bin:$PATH"
           python -m pip install --no-build-isolation 'contourpy>=1.0.1'
           python -m pip install --upgrade cycler fonttools \
-              packaging pyparsing python-dateutil setuptools-scm \
+              packaging pyparsing python-dateutil 'setuptools-scm<10' \
               -r requirements_test.txt sphinx ipython
           python -m pip install --upgrade pycairo 'cairocffi>=0.8' PyGObject &&
              python -c 'import gi; gi.require_version("Gtk", "3.0"); from gi.repository import Gtk' &&

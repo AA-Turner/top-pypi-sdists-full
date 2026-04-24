@@ -481,3 +481,13 @@ window.addEventListener("load", function () {
 
     })(django.jQuery, yl);
 });
+
+document.addEventListener('htmx:afterSettle', function (e) {
+    if (window.__dal__initialize && window.django && django.jQuery) {
+        var $root = django.jQuery(e.detail.elt);
+        $root.find('[data-autocomplete-light-function]')
+            .addBack('[data-autocomplete-light-function]')
+            .excludeTemplateForms()
+            .each(window.__dal__initialize);
+    }
+});

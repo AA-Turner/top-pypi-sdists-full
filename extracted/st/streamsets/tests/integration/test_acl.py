@@ -1,4 +1,6 @@
-# Copyright 2024 StreamSets Inc.
+#  IBM Confidential
+#  PID 5900-BAF
+#  Copyright StreamSets Inc., an IBM Company 2024
 
 
 def test_deployment_acl(sch, sdc_deployment):
@@ -13,7 +15,7 @@ def test_deployment_acl(sch, sdc_deployment):
         deployment_acl.add_permission(permission)
         assert deployment_acl._data["permissions"][0]["actions"] == NEW_ACTION
         # Double check that the deployment was actually updated
-        deployment = sch.deployments.get(deployment_id=sdc_deployment.deployment_id)
+        deployment = sch.deployments.get(id=sdc_deployment.id)
         assert deployment.acl._data["permissions"][0]["actions"] == NEW_ACTION
     finally:
         permission.actions = original_actions
@@ -32,7 +34,7 @@ def test_environment_acl(sch, test_environment):
         environment_acl.add_permission(permission)
         assert environment_acl._data["permissions"][0]["actions"] == NEW_ACTION
         # Double check that the deployment was actually updated
-        environment = sch.environments.get(environment_id=test_environment.environment_id)
+        environment = sch.environments.get(id=test_environment.id)
         assert environment.acl._data["permissions"][0]["actions"] == NEW_ACTION
     finally:
         permission.actions = original_actions

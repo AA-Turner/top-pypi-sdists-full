@@ -57,6 +57,10 @@ class RunSnippetMessage(ControlMessage):
         )
 
 
+class PingMessage(ControlMessage):
+    type: str = "ping"
+
+
 @dataclass
 class QueueMessage:
     preexecution: PreExecution

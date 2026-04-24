@@ -6,6 +6,7 @@ from typing import Any, Literal
 import numpy as np
 from arviz_base import rcParams
 from arviz_base.labels import BaseLabeller
+from arviz_base.validate import validate_dict_argument, validate_sample_dims
 
 from arviz_plots.plot_collection import PlotCollection
 from arviz_plots.plots.utils import (
@@ -57,13 +58,16 @@ def plot_trace(
     ----------
     dt : DataTree
         Input data
-    var_names: str or list of str, optional
+    var_names : str or list of str, optional
         One or more variables to be plotted.
         Prefix the variables by ~ when you want to exclude them from the plot.
-    filter_vars: {None, “like”, “regex”}, optional, default=None
+    filter_vars : {None, "like", "regex"}, optional, default=None
         If None (default), interpret var_names as the real variables names.
         If “like”, interpret var_names as substrings of the real variables names.
         If “regex”, interpret var_names as regular expressions on the real variables names.
+    group : str, default "posterior"
+        Group to be plotted.
+    coords : dict, optional
     sample_dims : iterable, optional
         Dimensions to reduce unless mapped to an aesthetic.
         Defaults to ``rcParams["data.sample_dims"]``
@@ -82,7 +86,7 @@ def plot_trace(
         * xlabel -> :func:`~.visuals.labelled_x`
         * ticklabels -> :func:`~.visuals.ticklabel_props`
 
-    pc_kwargs : mapping
+    **pc_kwargs
         Passed to :class:`arviz_plots.PlotCollection`
 
     Returns
@@ -107,16 +111,12 @@ def plot_trace(
         >>> plot_trace(centered)
 
     """
-    if sample_dims is None:
-        sample_dims = rcParams["data.sample_dims"]
-    if isinstance(sample_dims, str):
-        sample_dims = [sample_dims]
-    if visuals is None:
-        visuals = {}
-
+    aes_by_visuals = validate_dict_argument(aes_by_visuals, (plot_trace, "aes_by_visuals"))
+    visuals = validate_dict_argument(visuals, (plot_trace, "visuals"))
     distribution = process_group_variables_coords(
         dt, group=group, var_names=var_names, filter_vars=filter_vars, coords=coords
     )
+    sample_dims = validate_sample_dims(sample_dims, data=distribution)
 
     if backend is None:
         if plot_collection is None:
@@ -146,10 +146,6 @@ def plot_trace(
     else:
         aux_dim_list = list(plot_collection.viz["plot"].dims)
 
-    if aes_by_visuals is None:
-        aes_by_visuals = {}
-    else:
-        aes_by_visuals = aes_by_visuals.copy()
     aes_by_visuals.setdefault("trace", plot_collection.aes_set)
     aes_by_visuals.setdefault("divergence", {"overlay"})
 

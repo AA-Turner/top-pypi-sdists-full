@@ -1,4 +1,6 @@
-# Copyright 2024 StreamSets Inc.
+#  IBM Confidential
+#  PID 5900-BAF
+#  Copyright StreamSets Inc., an IBM Company 2024
 
 # fmt: off
 import datetime
@@ -38,18 +40,18 @@ def simple_pipeline(sch, sch_authoring_sdc_id):
     try:
         yield pipeline
     finally:
-        sch.api_client.delete_pipeline(pipeline.pipeline_id)
+        sch.api_client.delete_pipeline(pipeline.id)
 
 
 @pytest.fixture(scope="module")
-def sample_jobs(sch, simple_pipeline, sch_executor_sdc_label):
+def sample_jobs(sch, simple_pipeline, sch_engine_sdc_label):
     """A set of simple jobs based on simple pipeline."""
     job_builder = sch.get_job_builder()
 
     jobs = []
     for i in range(5):
         job = job_builder.build('test_simple_job_fetch_{}'.format(i), pipeline=simple_pipeline)
-        job.data_collector_labels = sch_executor_sdc_label
+        job.data_collector_labels = sch_engine_sdc_label
         sch.add_job(job)
         jobs.append(job)
 
@@ -211,9 +213,6 @@ def test_get_and_delete_history_log_and_history_logs(sch, sample_jobs):
         sch.wait_for_job_sequence_status(job_sequence, 'INACTIVE')
         job_sequence.refresh()
 
-        logs = job_sequence.get_history_log()
-        assert isinstance(logs, SeekableList)
-
         logs = job_sequence.history_logs
         assert isinstance(logs, JobSequenceHistoryLogs)
         assert isinstance(logs[0], JobSequenceHistoryLog)
@@ -268,8 +267,8 @@ def test_add_steps_and_jobs_to_job_sequence(sch, sample_jobs):
         step = job_sequence_again_from_sch.steps[0]
         assert len(step.step_jobs) == 2
         assert isinstance(step.step_jobs[0], Job) and isinstance(step.step_jobs[1], Job)
-        job_ids = [job.job_id for job in step.step_jobs]
-        assert job1.job_id in job_ids and job2.job_id in job_ids
+        job_ids = [job.id for job in step.step_jobs]
+        assert job1.id in job_ids and job2.id in job_ids
 
         # test changing step names
         job_sequence_again_from_sch = sch.job_sequences.get(id=job_sequence.id)
@@ -420,7 +419,7 @@ def test_job_sequence_finish_conditions(sch, sample_jobs):
 
         # Make sure the appropriate job is returned
         returned_job = finish_condition.job
-        assert returned_job.job_id == job.job_id
+        assert returned_job.id == job.id
 
         # Delete Finish Condition
         step.delete_finish_condition(finish_condition)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: adafruit-circuitpython-connectionmanager
-Version: 3.1.7
+Version: 3.1.8
 Summary: A urllib3.poolmanager/urllib3.connectionpool-like library for managing sockets and connections
 Author-email: Adafruit Industries <circuitpython@adafruit.com>
 License-Expression: MIT

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sagemaker-mlops
-Version: 1.8.0
+Version: 1.9.0
 Summary: SageMaker MLOps package for workflow orchestration and model building
 Author: Amazon Web Services
 License:                                  Apache License
@@ -215,9 +215,9 @@ Classifier: Programming Language :: Python :: 3.12
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: sagemaker-core>=2.8.0
-Requires-Dist: sagemaker-train>=1.8.0
-Requires-Dist: sagemaker-serve>=1.8.0
+Requires-Dist: sagemaker-core>=2.9.0
+Requires-Dist: sagemaker-train>=1.9.0
+Requires-Dist: sagemaker-serve>=1.9.0
 Requires-Dist: boto3<2.0,>=1.42.2
 Requires-Dist: botocore<2.0,>=1.42.2
 Requires-Dist: pyiceberg[glue]>=0.8.0

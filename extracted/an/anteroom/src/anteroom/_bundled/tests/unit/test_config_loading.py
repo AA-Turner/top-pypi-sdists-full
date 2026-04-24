@@ -801,7 +801,7 @@ class TestCliConfig:
     def test_streaming_defaults(self, tmp_path: Path) -> None:
         cfg = _write_config(tmp_path, {"ai": {"base_url": "http://t", "api_key": "k"}})
         config, _ = load_config(cfg)
-        assert config.cli.streaming.enabled is True
+        assert config.cli.streaming.enabled is False
         assert config.cli.streaming.refresh_hz == 20.0
         assert config.cli.streaming.live_in_exec_mode is False
         assert config.cli.streaming.code_fence_container is True
@@ -882,7 +882,7 @@ class TestCliConfig:
             {"ai": {"base_url": "http://t", "api_key": "k"}, "cli": {"streaming": "notadict"}},
         )
         config, _ = load_config(cfg)
-        assert config.cli.streaming.enabled is True
+        assert config.cli.streaming.enabled is False
         assert config.cli.streaming.refresh_hz == 20.0
         assert config.cli.streaming.live_in_exec_mode is False
         assert config.cli.streaming.code_fence_container is True
@@ -898,6 +898,14 @@ class TestCliConfig:
         monkeypatch.setenv("AI_CHAT_CLI_STREAMING_ENABLED", "false")
         config, _ = load_config(cfg)
         assert config.cli.streaming.enabled is False
+
+    def test_streaming_env_override_enables_from_default_off(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        cfg = _write_config(tmp_path, {"ai": {"base_url": "http://t", "api_key": "k"}})
+        monkeypatch.setenv("AI_CHAT_CLI_STREAMING_ENABLED", "true")
+        config, _ = load_config(cfg)
+        assert config.cli.streaming.enabled is True
 
     def test_streaming_env_override_refresh_hz(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         cfg = _write_config(

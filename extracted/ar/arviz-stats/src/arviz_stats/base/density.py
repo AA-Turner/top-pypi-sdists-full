@@ -9,7 +9,8 @@ from scipy.optimize import brentq
 from scipy.signal import convolve, convolve2d
 from scipy.signal.windows import gaussian
 from scipy.sparse import coo_matrix
-from scipy.special import ive  # pylint: disable=no-name-in-module
+from scipy.special import betainc, ive  # pylint: disable=no-name-in-module
+from scipy.stats import binom
 
 from arviz_stats.base.core import _CoreBase
 
@@ -825,6 +826,94 @@ class _DensityBase(_CoreBase):
             eval_points = eval_points / eval_points.max()
             ecdf -= eval_points
         return eval_points, ecdf
+
+    @staticmethod
+    def _shapley_mean(values):
+        """Compute closed-form Shapley contributions for mean-aggregation."""
+        n = len(values)
+        if n == 0:
+            return values.copy()
+        if n == 1:
+            return np.zeros(1)
+
+        harmonic_n = np.sum(1.0 / np.arange(1, n + 1))
+        sum_values = np.sum(values)
+        mean_others = (sum_values - values) / (n - 1)
+
+        return (values / n) + ((harmonic_n - 1) / n) * (values - mean_others)
+
+    def _pot_c(self, ary):
+        """Pointwise Order-based Test with Cauchy combination (Beta-based tests)."""
+        ary = ary[np.isfinite(ary)]
+        n = len(ary)
+
+        if n == 0:
+            return np.nan, np.array([])
+
+        x_sorted = np.sort(ary)
+        i_vals = np.arange(1, n + 1)
+
+        probs = betainc(i_vals, i_vals[::-1], x_sorted)
+        ps = 2 * np.minimum(probs, 1 - probs)
+        cauchy_vals = np.tan((0.5 - ps) * np.pi)
+        p_value = self._cauchy_combination(ps, cauchy_vals, truncate=True)
+
+        shapley_vals = self._shapley_mean(cauchy_vals)
+
+        return p_value, shapley_vals
+
+    def _prit_c(self, ary):
+        """Pointwise Rank-based Individual Test with Cauchy combination (Binomial-based tests)."""
+        ary = ary[np.isfinite(ary)]
+        n = len(ary)
+
+        if n == 0:
+            return np.nan, np.array([])
+
+        x = np.sort(ary)
+        N = len(x)
+
+        ranks = np.searchsorted(x, x, side="right")
+
+        probs1 = binom.cdf(ranks, N, x)
+        probs2 = binom.cdf(ranks - 1, N, x)
+        ps = 2 * np.minimum(probs1, 1 - probs2)
+
+        cauchy_vals = np.tan((0.5 - ps) * np.pi)
+        p_value = self._cauchy_combination(ps, cauchy_vals, truncate=True)
+        shapley_vals = self._shapley_mean(cauchy_vals)
+
+        return p_value, shapley_vals
+
+    def _piet_c(self, ary):
+        """Pointwise Inverse-CDF Evaluation Tests Combination (Exp(1)-based tests)."""
+        ary = ary[np.isfinite(ary)]
+        n = len(ary)
+
+        if n == 0:
+            return np.nan, np.array([])
+
+        ary = np.sort(ary)
+        pe = -np.expm1(np.log(ary))
+        ps = 2 * np.minimum(pe, 1 - pe)
+        cauchy_vals = np.tan((0.5 - ps) * np.pi)
+        p_value = self._cauchy_combination(ps, cauchy_vals, truncate=False)
+        shapley_vals = self._shapley_mean(cauchy_vals)
+
+        return p_value, shapley_vals
+
+    def _cauchy_combination(self, ps, cauchy_vals, truncate):
+        """Combine p-values using the Cauchy combination method."""
+        if truncate:
+            idx = ps < 0.5
+            if not np.any(idx):
+                raise ValueError(
+                    "Cannot compute truncated Cauchy combination test. No p-values below 0.5 found."
+                )
+            cauchy_mean = np.mean(cauchy_vals[idx])
+        else:
+            cauchy_mean = np.mean(cauchy_vals)
+        return 0.5 - np.arctan(cauchy_mean) / np.pi
 
     def _compute_quantiles_and_binwidth(self, values, nquantiles, binwidth=None):
         """

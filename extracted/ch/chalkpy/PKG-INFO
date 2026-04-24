@@ -1,17 +1,18 @@
 Metadata-Version: 2.4
 Name: chalkpy
-Version: 2.119.3
+Version: 2.121.0
 Summary: Python SDK for Chalk
 Author: Chalk AI, Inc.
 Project-URL: Homepage, https://chalk.ai
 Project-URL: Documentation, https://docs.chalk.ai
 Project-URL: Changelog, https://docs.chalk.ai/docs/changelog
+Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Typing :: Typed
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Scientific/Engineering :: Information Analysis
@@ -20,7 +21,6 @@ Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: <3.15,>=3.10
 Description-Content-Type: text/markdown
-Requires-Dist: attrs>=21.3.0
 Requires-Dist: dataclasses_json>=0.5.7
 Requires-Dist: executing<3,>=1.2.0
 Requires-Dist: googleapis-common-protos>=1.56.0
@@ -29,7 +29,6 @@ Requires-Dist: ipywidgets>=8.0.6
 Requires-Dist: isodate<0.8,>=0.6.1
 Requires-Dist: numpy<3
 Requires-Dist: orjson
-Requires-Dist: pandas<3,>=1.5.1
 Requires-Dist: protobuf<8,>=4.25
 Requires-Dist: pyarrow>=16.1.0
 Requires-Dist: pydantic<3,>=1.0.0
@@ -38,15 +37,13 @@ Requires-Dist: python-dateutil<3,>=2.8.0
 Requires-Dist: pyyaml<7,>=6.0
 Requires-Dist: requests<2.33.0,>=2.31
 Requires-Dist: rich>=13.3.5
-Requires-Dist: tenacity
-Requires-Dist: tqdm
 Requires-Dist: typing_extensions>=4.0.0
 Provides-Extra: base
 Provides-Extra: dev
 Requires-Dist: boto3-stubs[s3]; extra == "dev"
 Requires-Dist: grpc-stubs; extra == "dev"
-Requires-Dist: pendulum; extra == "dev"
-Requires-Dist: pre-commit; extra == "dev"
+Requires-Dist: pandas<3,>=1.5.1; extra == "dev"
+Requires-Dist: prek; extra == "dev"
 Requires-Dist: pytest-asyncio>=0.24.0; extra == "dev"
 Requires-Dist: pytest-env; extra == "dev"
 Requires-Dist: pytest-timeout; extra == "dev"

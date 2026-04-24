@@ -1,4 +1,6 @@
-# Copyright 2022 StreamSets Inc.
+#  IBM Confidential
+#  PID 5900-BAF
+#  Copyright StreamSets Inc., an IBM Company 2024
 
 # fmt: off
 import json
@@ -78,9 +80,9 @@ def sample_pipeline(sch, snowflake_config):
 def test_iter(sch, sample_pipelines):
     iter_results = []
     for pipeline in sch.pipelines:
-        iter_results.append(pipeline.pipeline_id)
+        iter_results.append(pipeline.id)
     assert len(iter_results) >= len(sample_pipelines)
-    assert not ({pipeline.pipeline_id for pipeline in sample_pipelines} - set(iter_results))
+    assert not ({pipeline.id for pipeline in sample_pipelines} - set(iter_results))
 
 
 @pytest.mark.snowflake
@@ -97,9 +99,9 @@ def test_pipeline_in_returns_true(sch, sample_pipelines):
 @pytest.mark.snowflake
 def test_pipeline_contains(sch, sample_pipelines):
     pipeline = sample_pipelines[0]
-    assert sch.pipelines.contains(pipeline_id=pipeline.pipeline_id)
+    assert sch.pipelines.contains(id=pipeline.id)
     assert sch.pipelines.contains(name=pipeline.name)
-    assert not sch.pipelines.contains(pipeline_id='impossible_to_clash_with_this_zbsdudcugeqwgui')
+    assert not sch.pipelines.contains(id='impossible_to_clash_with_this_zbsdudcugeqwgui')
 
 
 @pytest.mark.snowflake
@@ -330,8 +332,8 @@ def test_duplicate_pipeline(sch, sample_pipeline):
         assert isinstance(duplicated_pipelines, SeekableList)
         assert len(duplicated_pipelines) == 1
         assert (
-            sch.pipelines.get(name='{} copy'.format(sample_pipeline.name), only_published=False).pipeline_id
-            == duplicated_pipelines[0].pipeline_id
+            sch.pipelines.get(name='{} copy'.format(sample_pipeline.name), only_published=False).id
+            == duplicated_pipelines[0].id
         )
     finally:
         for pipeline in duplicated_pipelines:
@@ -347,7 +349,7 @@ def test_duplicate_pipelines(sch, sample_pipeline):
 
     pipeline_id_to_object = {}
     for pipeline in duplicated_pipelines:
-        pipeline_id_to_object[pipeline.pipeline_id] = pipeline
+        pipeline_id_to_object[pipeline.id] = pipeline
 
     try:
         assert isinstance(duplicated_pipelines, SeekableList)
@@ -356,8 +358,8 @@ def test_duplicate_pipelines(sch, sample_pipeline):
         for duplicate_pipeline in duplicated_pipelines:
             pipeline = sch.pipelines.get(name=duplicate_pipeline.name, only_published=False)
 
-            assert pipeline.pipeline_id in pipeline_id_to_object
-            assert pipeline.name == pipeline_id_to_object[pipeline.pipeline_id].name
+            assert pipeline.id in pipeline_id_to_object
+            assert pipeline.name == pipeline_id_to_object[pipeline.id].name
 
     finally:
         for pipeline in duplicated_pipelines:
@@ -428,6 +430,8 @@ def test_publishing_duplicate_of_pipeline_draft(sch, snowflake_config):
     pipeline.configuration['warehouse'] = snowflake_config['warehouse']
     pipeline.configuration['schema'] = snowflake_config['schema']
     sch.publish_pipeline(pipeline, draft=True)
+
+    duplicated_pipeline = None
     try:
         duplicated_pipeline = sch.duplicate_pipeline(pipeline)[0]
         assert duplicated_pipeline.draft is True
@@ -437,7 +441,8 @@ def test_publishing_duplicate_of_pipeline_draft(sch, snowflake_config):
         assert getattr(duplicated_pipeline, 'draft', False) is False
         assert duplicated_pipeline.name == duplicated_pipeline_name
     finally:
-        sch.delete_pipeline(duplicated_pipeline)
+        if duplicated_pipeline:
+            sch.delete_pipeline(duplicated_pipeline)
         sch.delete_pipeline(pipeline)
 
 
@@ -472,7 +477,7 @@ def preview_pipeline(sch, snowflake_config):
 
 @pytest.mark.snowflake
 @pytest.mark.parametrize('push_limit_down', [True, False])
-def test_get_pipeline_preview_end_limit(sch, preview_pipeline, push_limit_down):
+def test_get_pipeline_preview_end_limit(sch, preview_pipeline, push_limit_down, is_snowflake_logged_in):
     sch.publish_pipeline(preview_pipeline)
     preview = sch.run_pipeline_preview(preview_pipeline, batch_size=1, push_limit_down=push_limit_down).preview
     assert preview is not None

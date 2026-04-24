@@ -602,6 +602,8 @@ class FalServerlessHost(Host):
             "health_check_config",
             "skip_retry_conditions",
             "termination_grace_period_seconds",
+            "secrets",
+            "data_mounts",
         }
     )
 
@@ -713,6 +715,8 @@ class FalServerlessHost(Host):
         termination_grace_period_seconds = options.host.get(
             "termination_grace_period_seconds"
         )
+        secrets = options.host.get("secrets")
+        data_mounts = options.host.get("data_mounts")
         machine_requirements = MachineRequirements(
             machine_types=machine_type,  # type: ignore
             num_gpus=options.host.get("num_gpus"),
@@ -763,6 +767,8 @@ class FalServerlessHost(Host):
             skip_retry_conditions=skip_retry_conditions,
             environment_name=environment_name,
             termination_grace_period_seconds=termination_grace_period_seconds,
+            secrets=secrets,
+            data_mounts=data_mounts,
         ):
             for log in partial_result.logs:
                 self._log_printer.print(log)
@@ -807,6 +813,8 @@ class FalServerlessHost(Host):
         request_timeout = options.host.get("request_timeout")
         startup_timeout = options.host.get("startup_timeout")
         regions = options.host.get("regions")
+        secrets = options.host.get("secrets")
+        data_mounts = options.host.get("data_mounts")
         machine_requirements = MachineRequirements(
             machine_types=machine_type,  # type: ignore
             num_gpus=options.host.get("num_gpus"),
@@ -844,6 +852,8 @@ class FalServerlessHost(Host):
             application_name=effective_app_name,
             auth_mode=effective_auth_mode,
             environment_name=self.environment_name,
+            secrets=secrets,
+            data_mounts=data_mounts,
         ):
             result_handler(partial_result)
 

@@ -13,13 +13,16 @@ from io import StringIO
 
 import pytest
 
+from streamsets.sdk.constants import ST_PIPELINE_BW_COMPATIBILITY
 from streamsets.sdk.sch_models import ACL, Configuration, Pipeline
-from streamsets.sdk.utils import SeekableList, get_random_string
+from streamsets.sdk.sdc_models import DataDriftRule, DataRule, MetricRule
+from streamsets.sdk.utils import SeekableList, Version, get_random_string
 
 # fmt: on
 
 NUM_PIPELINES = 12
 PIPELINE_NAME_PREFIX = '{}_pipeline_sdc_test'.format(str(datetime.now()))
+SLEEP_TIME_SEC_AFTER_ENGINE_RESTART = 60
 
 
 @pytest.fixture(scope="module")
@@ -74,9 +77,9 @@ def sample_pipeline(resources_label, sch, sch_authoring_sdc_id):
 def test_iter(sch, sample_pipelines):
     iter_results = []
     for pipeline in sch.pipelines:
-        iter_results.append(pipeline.pipeline_id)
+        iter_results.append(pipeline.id)
     assert len(iter_results) >= len(sample_pipelines)
-    assert not ({pipeline.pipeline_id for pipeline in sample_pipelines} - set(iter_results))
+    assert not ({pipeline.id for pipeline in sample_pipelines} - set(iter_results))
 
 
 def test_pipelines_get_returns_pipeline_object(sch, sample_pipelines):
@@ -90,9 +93,9 @@ def test_pipeline_in_returns_true(sch, sample_pipelines):
 
 def test_pipeline_contains(sch, sample_pipelines):
     pipeline = sample_pipelines[0]
-    assert sch.pipelines.contains(pipeline_id=pipeline.pipeline_id)
+    assert sch.pipelines.contains(id=pipeline.id)
     assert sch.pipelines.contains(name=pipeline.name)
-    assert not sch.pipelines.contains(pipeline_id='impossible_to_clash_with_this_zbsdudcugeqwgui')
+    assert not sch.pipelines.contains(id='impossible_to_clash_with_this_zbsdudcugeqwgui')
 
 
 def test_pipelines_len_works(sch, sample_pipelines):
@@ -221,23 +224,23 @@ def test_import_pipelines_v2(sch, sch_authoring_sdc_id):
     try:
         sch.publish_pipeline(pipeline)
 
-        pipeline_id = pipeline.pipeline_id
-        assert len(sch.pipelines.get_all(pipeline_id=pipeline_id)) == 1
+        pipeline_id = pipeline.id
+        assert len(sch.pipelines.get_all(id=pipeline_id)) == 1
 
         pipelines_zip_data = sch.export_pipelines([pipeline])
         sch.delete_pipeline(pipeline)
-        assert len(sch.pipelines.get_all(pipeline_id=pipeline_id)) == 0
+        assert len(sch.pipelines.get_all(id=pipeline_id)) == 0
 
         pipelines = sch.api_client.verify_import_pipelines(
             "Test Import Pipelines V2", pipelines_zip_data
         ).response.json()
         sch.api_client.import_pipelines_v2(pipelines)
 
-        assert len(sch.pipelines.get_all(pipeline_id=pipeline_id)) == 1
+        assert len(sch.pipelines.get_all(id=pipeline_id)) == 1
     except Exception as ex:
         raise ex
     finally:
-        if pipeline.pipeline_id:
+        if pipeline.id:
             sch.delete_pipeline(pipeline)
 
 
@@ -333,14 +336,14 @@ def test_update_pipeline_with_transformer(sch, sch_authoring_transformer_id):
         sch.delete_pipeline(pipeline)
 
 
-@pytest.mark.parametrize('executor_type', ('TRANSFORMER', 'DATACOLLECTOR'))
-def test_execution_mode_config(sch, executor_type, sch_authoring_sdc_id, sch_authoring_transformer_id):
-    if executor_type == 'TRANSFORMER':
+@pytest.mark.parametrize('engine_type', ('TRANSFORMER', 'DATACOLLECTOR'))
+def test_execution_mode_config(sch, engine_type, sch_authoring_sdc_id, sch_authoring_transformer_id):
+    if engine_type == 'TRANSFORMER':
         if len(sch.transformers) < 1:
             pytest.skip("Need at least one transformer instance to run this test")
         pipeline_builder = sch.get_pipeline_builder(engine_type='transformer', engine_id=sch_authoring_transformer_id)
         dev = pipeline_builder.add_stage('Dev Random')
-    elif executor_type == 'DATACOLLECTOR':
+    elif engine_type == 'DATACOLLECTOR':
         if len(sch.data_collectors) < 1:
             pytest.skip("Need at least one registered DataCollector instance to run this test")
         pipeline_builder = sch.get_pipeline_builder(engine_type='data_collector', engine_id=sch_authoring_sdc_id)
@@ -366,8 +369,8 @@ def test_duplicate_pipeline(sch, sample_pipeline):
         assert isinstance(duplicated_pipelines, SeekableList)
         assert len(duplicated_pipelines) == 1
         assert (
-            sch.pipelines.get(name='{} copy'.format(sample_pipeline.name), only_published=False).pipeline_id
-            == duplicated_pipelines[0].pipeline_id
+            sch.pipelines.get(name='{} copy'.format(sample_pipeline.name), only_published=False).id
+            == duplicated_pipelines[0].id
         )
     finally:
         for pipeline in duplicated_pipelines:
@@ -382,7 +385,7 @@ def test_duplicate_pipelines(sch, sample_pipeline):
 
     pipeline_id_to_object = {}
     for pipeline in duplicated_pipelines:
-        pipeline_id_to_object[pipeline.pipeline_id] = pipeline
+        pipeline_id_to_object[pipeline.id] = pipeline
 
     try:
         assert isinstance(duplicated_pipelines, SeekableList)
@@ -391,8 +394,8 @@ def test_duplicate_pipelines(sch, sample_pipeline):
         for duplicate_pipeline in duplicated_pipelines:
             pipeline = sch.pipelines.get(name=duplicate_pipeline.name, only_published=False)
 
-            assert pipeline.pipeline_id in pipeline_id_to_object
-            assert pipeline.name == pipeline_id_to_object[pipeline.pipeline_id].name
+            assert pipeline.id in pipeline_id_to_object
+            assert pipeline.name == pipeline_id_to_object[pipeline.id].name
 
     finally:
         for pipeline in duplicated_pipelines:
@@ -483,10 +486,10 @@ def test_retrieve_draft_pipeline_via_pipeline_id(sch, sch_authoring_sdc_id):
     pipeline = pipeline_builder.build('simple pipeline draft')
     sch.publish_pipeline(pipeline, draft=True)
     try:
-        draft_pipeline = sch.pipelines.get(pipeline_id=pipeline.pipeline_id, draft=True)
+        draft_pipeline = sch.pipelines.get(id=pipeline.id)
         assert pipeline.draft is True
         assert draft_pipeline.draft is True
-        assert draft_pipeline.pipeline_id == pipeline.pipeline_id
+        assert draft_pipeline.id == pipeline.id
         assert draft_pipeline.commit_id == pipeline.commit_id
     finally:
         sch.delete_pipeline(pipeline)
@@ -513,7 +516,7 @@ def test_pipeline_add_stage(sch, sch_authoring_sdc_id):
 
         # Assert that the stage exists in Platform
         sch.publish_pipeline(sample_pipeline)
-        sample_pipeline = sch.pipelines.get(pipeline_id=sample_pipeline.pipeline_id)
+        sample_pipeline = sch.pipelines.get(id=sample_pipeline.id)
         assert len(sample_pipeline.stages) == 3
         sample_pipeline.stages[-1].instance_name = 'DevDataGenerator_02'
 
@@ -521,6 +524,37 @@ def test_pipeline_add_stage(sch, sch_authoring_sdc_id):
         sample_pipeline.add_stage('Dev Data Generator')
         assert len(sample_pipeline.stages) == 4
         sample_pipeline.stages[-1].instance_name = 'DevDataGenerator_03'
+
+    except Exception as e:
+        raise e
+    finally:
+        sch.delete_pipeline(sample_pipeline)
+
+
+def test_pipeline_add_stage_with_shorthand_library_names(sch, sch_authoring_sdc_id, sch_authoring_transformer_id):
+    pipeline_builder = sch.get_pipeline_builder(engine_type='data_collector', engine_id=sch_authoring_sdc_id)
+    dev_data_generator = pipeline_builder.add_stage('Dev Data Generator', library='dev')
+    trash = pipeline_builder.add_stage('Trash', library='basic')
+    dev_data_generator >> trash
+    sample_pipeline = pipeline_builder.build('sample_pipeline_{}'.format(get_random_string()))
+    sch.publish_pipeline(sample_pipeline)
+
+    try:
+        # Assert that the inital stages are present
+        assert len(sample_pipeline.stages) == 2
+        sample_pipeline.stages[0].instance_name = 'DevDataGenerator_01'
+        sample_pipeline.stages[1].instance_name = 'Trash_01'
+
+        # Assert that the stage has been added in memory
+        sample_pipeline.add_stage('Amazon S3', library='aws')
+        assert len(sample_pipeline.stages) == 3
+        sample_pipeline.stages[-1].instance_name = 'AmazonS3_01'
+
+        # Assert that the stage exists in Platform
+        sch.publish_pipeline(sample_pipeline)
+        sample_pipeline = sch.pipelines.get(id=sample_pipeline.id)
+        assert len(sample_pipeline.stages) == 3
+        sample_pipeline.stages[-1].instance_name = 'AmazonS3_01'
 
     except Exception as e:
         raise e
@@ -556,7 +590,7 @@ def test_add_and_connect_stage_to_linear_pipeline(sch, sch_authoring_sdc_id):
 
         # Assert that the stage exists in Platform
         sch.publish_pipeline(sample_pipeline)
-        sample_pipeline = sch.pipelines.get(pipeline_id=sample_pipeline.pipeline_id)
+        sample_pipeline = sch.pipelines.get(id=sample_pipeline.id)
 
         assert len(sample_pipeline.stages) == 3
         sample_pipeline.stages[-1].instance_name = 'DevDataGenerator_01'
@@ -610,7 +644,7 @@ def test_add_multiple_destinations_to_linear_pipeline(sch, sch_authoring_sdc_id)
 
         # Assert that the stage exists in Platform
         sch.publish_pipeline(sample_pipeline)
-        sample_pipeline = sch.pipelines.get(pipeline_id=sample_pipeline.pipeline_id)
+        sample_pipeline = sch.pipelines.get(id=sample_pipeline.id)
 
         data_parser, trash_1, trash_2 = (
             sample_pipeline.stages[-3],
@@ -649,7 +683,7 @@ def test_add_stage_to_pipeline_in_v1_draft_mode(sch, sch_authoring_sdc_id):
     sch.publish_pipeline(pipeline, draft=True)
     try:
         # pull draft pipeline and add stages
-        pipeline = sch.pipelines.get(pipeline_id=pipeline.pipeline_id, draft=True)
+        pipeline = sch.pipelines.get(id=pipeline.id, draft=True)
         dev_data_generator = pipeline.add_stage('Dev Data Generator')
         trash = pipeline.add_stage('Trash')
         dev_data_generator >> trash
@@ -658,7 +692,7 @@ def test_add_stage_to_pipeline_in_v1_draft_mode(sch, sch_authoring_sdc_id):
         sch.publish_pipeline(pipeline)
 
         # assert that the changes carried over to control hub
-        pipeline = sch.pipelines.get(pipeline_id=pipeline.pipeline_id)
+        pipeline = sch.pipelines.get(id=pipeline.id)
         assert len(pipeline.stages) == 2
         assert pipeline.stages[0].instance_name == 'DevDataGenerator_01'
         assert pipeline.stages[1].instance_name == 'Trash_01'
@@ -959,7 +993,7 @@ def test_import_pipeline_and_build_with_regenerate_id_false_sdc(sch, sch_authori
     for index, stage in enumerate(pipeline_stages):
         assert stage.stage_name == sample_pipeline_stages[index].stage_name
 
-    assert pipeline.pipeline_id == sample_pipeline.pipeline_id
+    assert pipeline.id == sample_pipeline.id
 
 
 def test_import_pipeline_and_build_with_regenerate_id_false_transformer(
@@ -981,7 +1015,7 @@ def test_import_pipeline_and_build_with_regenerate_id_false_transformer(
     for index, stage in enumerate(pipeline_stages):
         assert stage.stage_name == sample_pipeline_stages[index].stage_name
 
-    assert pipeline.pipeline_id == sample_pipeline.pipeline_id
+    assert pipeline.id == sample_pipeline.id
 
 
 def test_import_pipeline_with_invalid_pipeline_type(sch, sch_authoring_sdc_id):
@@ -1054,6 +1088,176 @@ def test_call_get_pipeline_builder_with_disparate_engine_type_and_engine(sch, sc
         sch.get_pipeline_builder(engine_type, sch_authoring_id)
 
 
+@pytest.mark.parametrize(
+    "sch_authoring_id, engine_type",
+    [("sch_authoring_sdc_id", "data_collector"), ("sch_authoring_transformer_id", "transformer")],
+)
+def test_create_pipeline_with_description_and_persist_in_platform(sch, sch_authoring_id, engine_type, request):
+    sch_authoring_id = request.getfixturevalue(sch_authoring_id)
+
+    pb = sch.get_pipeline_builder(engine_type, sch_authoring_id)
+
+    pipeline_name = 'pipeline_sdc_test_{}'.format(get_random_string())
+    pipeline_description = 'pipeline_sdc_test_description_{}'.format(get_random_string())
+    changed_pipeline_description = f'{pipeline_description} 2'
+
+    pipeline = pb.build(title=pipeline_name, description=pipeline_description)
+    assert pipeline.description == pipeline_description
+
+    sch.publish_pipeline(pipeline)
+
+    try:
+        pipeline = sch.pipelines.get(name=pipeline_name)
+        assert pipeline.description == pipeline_description
+
+        pipeline.description = changed_pipeline_description
+        assert pipeline.description == changed_pipeline_description
+
+        sch.publish_pipeline(pipeline)
+        pipeline = sch.pipelines.get(name=pipeline_name)
+        assert pipeline.description == changed_pipeline_description
+    finally:
+        sch.delete_pipeline(pipeline)
+
+
+def test_publish_pipeline_fails_with_stage_that_doesnt_exist_in_engine_libraries(
+    sch, sdc_deployment, sch_authoring_sdc_id
+):
+    engine = sch.engines.get(id=sch_authoring_sdc_id)
+
+    # On the off-chance that the aws lib isn't installed, install it
+    if 'aws' not in sdc_deployment.engine_configuration.stage_libs:
+        sdc_deployment.engine_configuration.stage_libs.append('aws')
+        sch.update_deployment(sdc_deployment)
+        sch.restart_engines(engine)
+        time.sleep(SLEEP_TIME_SEC_AFTER_ENGINE_RESTART)
+
+    try:
+        pb = sch.get_pipeline_builder('data_collector', sch_authoring_sdc_id)
+        pb.add_stage('Dev Data Generator')
+        pipeline = pb.build(title='pipeline_{}'.format(get_random_string()))
+        s3 = pipeline.add_stage(label='Amazon S3', type='destination')
+        pipeline.stages[0] >> s3
+
+        # remove library and publish to trigger validation logic
+        sdc_deployment.engine_configuration.stage_libs.remove('aws')
+        sch.update_deployment(sdc_deployment)
+        sch.restart_engines(engine)
+        time.sleep(SLEEP_TIME_SEC_AFTER_ENGINE_RESTART)
+
+        with pytest.raises(ValueError):
+            sch.publish_pipeline(pipeline)
+
+    except Exception as e:
+        raise e
+
+    finally:
+        # Clean-up
+        sdc_deployment.engine_configuration.stage_libs.append('aws')
+        engine = sch.engines.get(id=sch_authoring_sdc_id)
+        sch.update_deployment(sdc_deployment)
+        sch.restart_engines(engine)
+        time.sleep(SLEEP_TIME_SEC_AFTER_ENGINE_RESTART)
+
+
+@pytest.mark.parametrize(
+    "sch_authoring_id, engine_type",
+    [("sch_authoring_sdc_id", "data_collector"), ("sch_authoring_transformer_id", "transformer")],
+)
+def test_pipeline_backwards_compatibility(sch, sch_authoring_id, engine_type, request):
+    sch_authoring_id = request.getfixturevalue(sch_authoring_id)
+    engine = sch.engines.get(id=sch_authoring_id)
+    engine_version = Version(engine.version)
+    if engine_type == 'transformer':
+        compatibility_map = ST_PIPELINE_BW_COMPATIBILITY
+    elif engine_type == 'data_collector':
+        compatibility_map = {}
+    test_run = False
+
+    for version, overrides in compatibility_map.items():
+        if engine_version >= Version(version):
+            test_run = True
+
+            pipeline = sch.get_pipeline_builder(engine_type, sch_authoring_id).build('test_compatibility')
+
+            sch.publish_pipeline(pipeline)
+            try:
+                for conf, map in overrides.items():
+                    for value, override in map['values'].items():
+                        pipeline.configuration[conf] = value
+                        assert pipeline.configuration[map['name']] == override
+            finally:
+                sch.delete_pipeline(pipeline)
+
+    # If no backwards compatibility dictionary was found for the selected engine type/version,
+    # mark the test as skipped, since nothing was actually tested.
+    if not test_run:
+        pytest.skip('No backwards compatibility definitions available for engine version and type.')
+
+
+def test_pipeline_add_rules(sch, sch_authoring_sdc_id):
+    if len(sch.data_collectors) < 1:
+        pytest.skip("Need at least one registered DataCollector instance to run this test")
+
+    pipeline_builder = sch.get_pipeline_builder(engine_type='COLLECTOR', engine_id=sch_authoring_sdc_id)
+    pipeline_name = "add_rules_test_pipeline"
+    pipeline = pipeline_builder.build(pipeline_name)
+
+    metric_rules_count = len(pipeline._rules_definition['metricsRuleDefinitions'])
+    drift_rules_count = len(pipeline._rules_definition['driftRuleDefinitions'])
+    data_rules_count = len(pipeline._rules_definition['dataRuleDefinitions'])
+
+    metric_rule = pipeline.add_metric_rule(alert_text="dummy metric rule")
+    data_rule = pipeline.add_data_rule(stream="Dev Raw Data Source 1 output Stream 1", label="data_rule_label")
+    drift_rule = pipeline.add_datadrift_rule(stream="Dev Raw Data Source 1 output Stream 1", label="drift_rule_label")
+
+    assert type(metric_rule) == MetricRule
+    assert type(data_rule) == DataRule
+    assert type(drift_rule) == DataDriftRule
+
+    sch.publish_pipeline(pipeline)
+
+    pipeline = sch.pipelines.get(name=pipeline_name)
+
+    assert metric_rules_count + 1 == len(pipeline._rules_definition['metricsRuleDefinitions'])
+    assert drift_rules_count + 1 == len(pipeline._rules_definition['driftRuleDefinitions'])
+    assert data_rules_count + 1 == len(pipeline._rules_definition['dataRuleDefinitions'])
+
+
+def test_event_and_origin_for_pipeline(sch, sample_pipeline):
+
+    # Test start events
+    start_event = sample_pipeline.set_start_event(label='JDBC Query')
+    assert start_event._data['uiInfo']['label'] == 'JDBC Query 1'
+    start_event.configuration.jdbc_connection_string = 'foo'
+    assert start_event.configuration.jdbc_connection_string == 'foo'
+
+    # Test stop events
+    stop_event = sample_pipeline.set_stop_event(label='JDBC Query')
+    assert stop_event._data['uiInfo']['label'] == 'JDBC Query 1'
+    stop_event.configuration.jdbc_connection_string = 'foo'
+    assert stop_event.configuration.jdbc_connection_string == 'foo'
+
+    # Test stop events
+    test_origin = sample_pipeline.set_test_origin(label='File Tail')
+    assert test_origin._data['uiInfo']['label'] == 'File Tail 1'
+    test_origin.configuration.on_record_error = 'foo'
+    assert test_origin.configuration.on_record_error == 'foo'
+
+    # Test if changes reflected on Platform
+    sch.publish_pipeline(pipeline=sample_pipeline)
+    sample_pipeline = sch.pipelines.get(pipeline_id=sample_pipeline.id)
+
+    assert sample_pipeline.start_event._data['uiInfo']['label'] == 'JDBC Query 1'
+    assert sample_pipeline.start_event.configuration.jdbc_connection_string == 'foo'
+
+    assert sample_pipeline.stop_event._data['uiInfo']['label'] == 'JDBC Query 1'
+    assert sample_pipeline.stop_event.configuration.jdbc_connection_string == 'foo'
+
+    assert sample_pipeline.test_origin._data['uiInfo']['label'] == 'File Tail 1'
+    assert sample_pipeline.test_origin.configuration.on_record_error == 'foo'
+
+
 def test_pipeline_pagination(sch, sch_authoring_sdc_id):
     pipeline_builder1 = sch.get_pipeline_builder(engine_type='data_collector', engine_id=sch_authoring_sdc_id)
     published_pipeline1 = pipeline_builder1.build(title='TEST_1')
@@ -1077,3 +1281,118 @@ def test_pipeline_pagination(sch, sch_authoring_sdc_id):
     handler.flush()
     log_contents = log_stream.getvalue()
     assert log_contents.find("Current offset was negative") == -1
+
+
+def test_pipeline_dir(sch, sample_pipeline):
+    expected_output = [
+        '_ATTRIBUTES_TO_IGNORE',
+        '_ATTRIBUTES_TO_REMAP',
+        '_REPR_METADATA',
+        '__class__',
+        '__delattr__',
+        '__dict__',
+        '__dir__',
+        '__doc__',
+        '__eq__',
+        '__format__',
+        '__ge__',
+        '__getattr__',
+        '__getattribute__',
+        '__getstate__',
+        '__gt__',
+        '__hash__',
+        '__init__',
+        '__init_subclass__',
+        '__le__',
+        '__lt__',
+        '__module__',
+        '__ne__',
+        '__new__',
+        '__reduce__',
+        '__reduce_ex__',
+        '__repr__',
+        '__setattr__',
+        '__sizeof__',
+        '__str__',
+        '__copy__',
+        '__deepcopy__',
+        '__subclasshook__',
+        '__weakref__',
+        '_attributes_to_ignore',
+        '_attributes_to_remap',
+        '_builder',
+        '_control_hub',
+        '_data',
+        '_data_internal',
+        '_get_builder',
+        '_get_stage_class',
+        '_library_definitions',
+        '_library_definitions_internal',
+        '_load_data',
+        '_parameters',
+        '_pipeline_definition',
+        '_pipeline_definition_internal',
+        '_repr_metadata',
+        '_rules_definition',
+        'acl',
+        'add_data_rule',
+        'add_datadrift_rule',
+        'add_fragment',
+        'add_label',
+        'add_metric_rule',
+        'add_stage',
+        'ci_config',
+        'commit_id',
+        'commit_message',
+        'commit_time',
+        'commits',
+        'committer',
+        'configuration',
+        'current_external_ci_status',
+        'current_rules',
+        'definition_remove_message',
+        'definition_remove_time',
+        'definition_remover',
+        'description',
+        'draft',
+        'engine_id',
+        'engine_type',
+        'error_stage',
+        'execution_mode',
+        'executor_type',
+        'external_ci_statuses',
+        'fragment',
+        'fragment_commit_ids',
+        'get_jobs_using_pipeline',
+        'id',
+        'labels',
+        'last_modified_by',
+        'last_modified_on',
+        'library_definitions',
+        'name',
+        'organization',
+        'parameters',
+        'parent_version',
+        'pipeline_definition',
+        'pipeline_id',
+        'pipeline_labels',
+        'provenance_meta_data',
+        'remove_label',
+        'remove_stages',
+        'sdc_id',
+        'sdc_version',
+        'set_start_event',
+        'set_stop_event',
+        'set_test_origin',
+        'stages',
+        'start_event',
+        'stats_aggregator_stage',
+        'stop_event',
+        'system',
+        'tags',
+        'test_origin',
+        'version',
+    ]
+
+    dir_output = dir(sample_pipeline)
+    assert set(dir_output).issubset(set(expected_output))

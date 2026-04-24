@@ -27,6 +27,7 @@ class PostgresEndpointArgs:
                  spec: Optional[pulumi.Input['PostgresEndpointSpecArgs']] = None):
         """
         The set of arguments for constructing a PostgresEndpoint resource.
+
         :param pulumi.Input[_builtins.str] endpoint_id: The ID to use for the Endpoint. This becomes the final component of the endpoint's resource name.
                The ID is required and must be 1-63 characters long, start with a lowercase letter, and contain only lowercase letters, numbers, and hyphens.
                For example, `primary` becomes `projects/my-app/branches/development/endpoints/primary`
@@ -108,6 +109,7 @@ class _PostgresEndpointState:
                  update_time: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering PostgresEndpoint resources.
+
         :param pulumi.Input[_builtins.str] create_time: (string) - A timestamp indicating when the compute endpoint was created
         :param pulumi.Input[_builtins.str] endpoint_id: The ID to use for the Endpoint. This becomes the final component of the endpoint's resource name.
                The ID is required and must be 1-63 characters long, start with a lowercase letter, and contain only lowercase letters, numbers, and hyphens.
@@ -359,6 +361,57 @@ class PostgresEndpoint(pulumi.CustomResource):
             })
         ```
 
+        ### High Availability Endpoint
+
+        Configure a single endpoint with multiple compute instances for high availability.
+        One compute instance acts as the read-write primary, while the remaining secondary compute instances stand ready for automatic failover.
+
+        ```python
+        import pulumi
+        import pulumi_databricks as databricks
+
+        ha_primary = databricks.PostgresEndpoint("ha_primary",
+            endpoint_id="primary",
+            parent=main["name"],
+            spec={
+                "endpoint_type": "ENDPOINT_TYPE_READ_WRITE",
+                "group": {
+                    "min": 2,
+                    "max": 2,
+                },
+            })
+        ```
+
+        ### High Availability Endpoint with Readable Secondaries
+
+        Enable readable secondaries to offload read traffic to replica computes via a
+        dedicated read-only host, in addition to hot-standby failover. Only supported
+        on read-write endpoints with more than one compute. The secondaries are optionally
+        exposed as read-only host via `enable_readable_secondaries`.
+
+        High availability requires scale-to-zero to be disabled.
+        Set `no_suspension = true` in `default_endpoint_settings` as shown in the example below.
+
+        ```python
+        import pulumi
+        import pulumi_databricks as databricks
+
+        ha_readable = databricks.PostgresEndpoint("ha_readable",
+            endpoint_id="primary",
+            parent=main["name"],
+            spec={
+                "endpoint_type": "ENDPOINT_TYPE_READ_WRITE",
+                "group": {
+                    "min": 2,
+                    "max": 2,
+                    "enable_readable_secondaries": True,
+                },
+                "default_endpoint_settings": {
+                    "noSuspension": True,
+                },
+            })
+        ```
+
         ### Complete Example
 
         ```python
@@ -391,6 +444,11 @@ class PostgresEndpoint(pulumi.CustomResource):
                 "autoscaling_limit_min_cu": 1,
                 "autoscaling_limit_max_cu": 9,
                 "no_suspension": True,
+                "group": {
+                    "min": 2,
+                    "max": 2,
+                    "enable_readable_secondaries": True,
+                },
             })
         read_replica = databricks.PostgresEndpoint("read_replica",
             endpoint_id="read-replica",
@@ -402,6 +460,7 @@ class PostgresEndpoint(pulumi.CustomResource):
                 "suspend_timeout_duration": "600s",
             })
         ```
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -513,6 +572,57 @@ class PostgresEndpoint(pulumi.CustomResource):
             })
         ```
 
+        ### High Availability Endpoint
+
+        Configure a single endpoint with multiple compute instances for high availability.
+        One compute instance acts as the read-write primary, while the remaining secondary compute instances stand ready for automatic failover.
+
+        ```python
+        import pulumi
+        import pulumi_databricks as databricks
+
+        ha_primary = databricks.PostgresEndpoint("ha_primary",
+            endpoint_id="primary",
+            parent=main["name"],
+            spec={
+                "endpoint_type": "ENDPOINT_TYPE_READ_WRITE",
+                "group": {
+                    "min": 2,
+                    "max": 2,
+                },
+            })
+        ```
+
+        ### High Availability Endpoint with Readable Secondaries
+
+        Enable readable secondaries to offload read traffic to replica computes via a
+        dedicated read-only host, in addition to hot-standby failover. Only supported
+        on read-write endpoints with more than one compute. The secondaries are optionally
+        exposed as read-only host via `enable_readable_secondaries`.
+
+        High availability requires scale-to-zero to be disabled.
+        Set `no_suspension = true` in `default_endpoint_settings` as shown in the example below.
+
+        ```python
+        import pulumi
+        import pulumi_databricks as databricks
+
+        ha_readable = databricks.PostgresEndpoint("ha_readable",
+            endpoint_id="primary",
+            parent=main["name"],
+            spec={
+                "endpoint_type": "ENDPOINT_TYPE_READ_WRITE",
+                "group": {
+                    "min": 2,
+                    "max": 2,
+                    "enable_readable_secondaries": True,
+                },
+                "default_endpoint_settings": {
+                    "noSuspension": True,
+                },
+            })
+        ```
+
         ### Complete Example
 
         ```python
@@ -545,6 +655,11 @@ class PostgresEndpoint(pulumi.CustomResource):
                 "autoscaling_limit_min_cu": 1,
                 "autoscaling_limit_max_cu": 9,
                 "no_suspension": True,
+                "group": {
+                    "min": 2,
+                    "max": 2,
+                    "enable_readable_secondaries": True,
+                },
             })
         read_replica = databricks.PostgresEndpoint("read_replica",
             endpoint_id="read-replica",
@@ -556,6 +671,7 @@ class PostgresEndpoint(pulumi.CustomResource):
                 "suspend_timeout_duration": "600s",
             })
         ```
+
 
         :param str resource_name: The name of the resource.
         :param PostgresEndpointArgs args: The arguments to use to populate this resource's properties.

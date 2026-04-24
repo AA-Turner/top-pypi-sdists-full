@@ -1,24 +1,21 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: streamsets
-Version: 6.6.2
+Version: 7.0.1
 Summary: A Python SDK for StreamSets
 Author: StreamSets Inc
 Classifier: Development Status :: 5 - Production/Stable
-Classifier: Programming Language :: Python :: 3.4
-Classifier: Programming Language :: Python :: 3.5
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Requires-Python: >=3.4
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 Requires-Dist: dpath==1.5.0
 Requires-Dist: inflection
 Requires-Dist: PyYAML
-Requires-Dist: requests
+Requires-Dist: requests>=2.33.0
 
 =========================
 StreamSets SDK for Python
@@ -26,10 +23,10 @@ StreamSets SDK for Python
 
 |Version| |Python|
 
-.. |Python| image:: https://shields.io/pypi/pyversions/streamsets.svg?style=flat
+.. |Python| image:: https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13%20%7C%203.14-blue
     :target: https://pypi.python.org/pypi/streamsets/
     :alt: Python Versions
-.. |Version| image:: http://img.shields.io/pypi/v/streamsets.svg?style=flat
+.. |Version| image:: https://img.shields.io/badge/pypi-v7.0.1-blue?style=flat
     :target: https://pypi.python.org/pypi/streamsets/
     :alt: Package Version
 

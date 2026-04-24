@@ -74,17 +74,32 @@ class AuditLog(_message.Message):
     ) -> None: ...
 
 class GetAuditLogsRequest(_message.Message):
-    __slots__ = ("start_time", "end_time", "endpoint_filter", "limit", "cursor")
+    __slots__ = (
+        "start_time",
+        "end_time",
+        "endpoint_filter",
+        "limit",
+        "cursor",
+        "timestamp_lower_bound_inclusive",
+        "timestamp_upper_bound_exclusive",
+        "agent_id_filter",
+    )
     START_TIME_FIELD_NUMBER: _ClassVar[int]
     END_TIME_FIELD_NUMBER: _ClassVar[int]
     ENDPOINT_FILTER_FIELD_NUMBER: _ClassVar[int]
     LIMIT_FIELD_NUMBER: _ClassVar[int]
     CURSOR_FIELD_NUMBER: _ClassVar[int]
+    TIMESTAMP_LOWER_BOUND_INCLUSIVE_FIELD_NUMBER: _ClassVar[int]
+    TIMESTAMP_UPPER_BOUND_EXCLUSIVE_FIELD_NUMBER: _ClassVar[int]
+    AGENT_ID_FILTER_FIELD_NUMBER: _ClassVar[int]
     start_time: _timestamp_pb2.Timestamp
     end_time: _timestamp_pb2.Timestamp
     endpoint_filter: _containers.RepeatedScalarFieldContainer[str]
     limit: int
     cursor: str
+    timestamp_lower_bound_inclusive: _timestamp_pb2.Timestamp
+    timestamp_upper_bound_exclusive: _timestamp_pb2.Timestamp
+    agent_id_filter: str
     def __init__(
         self,
         start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
@@ -92,6 +107,9 @@ class GetAuditLogsRequest(_message.Message):
         endpoint_filter: _Optional[_Iterable[str]] = ...,
         limit: _Optional[int] = ...,
         cursor: _Optional[str] = ...,
+        timestamp_lower_bound_inclusive: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        timestamp_upper_bound_exclusive: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        agent_id_filter: _Optional[str] = ...,
     ) -> None: ...
 
 class GetAuditLogsResponse(_message.Message):

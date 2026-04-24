@@ -1491,6 +1491,7 @@ HEADER_NAME_MAP: dict = {
     'End': 'Capsule End',
     'Duration': 'Capsule Duration',
     'IsUncertain': 'Capsule Is Uncertain',
+    'Capsule ID Property': 'Capsule ID Property',
     'Deleted at': 'Deleted At',
     'Deleted at_uom': 'Deleted At UOM',
     'created at': 'Created At',

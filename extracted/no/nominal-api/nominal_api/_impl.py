@@ -2762,18 +2762,20 @@ class authentication_api_UserSettings(ConjureBeanType):
             'timezone': ConjureFieldDefinition('timezone', OptionalTypeWrapper[authentication_api_TimezoneSetting]),
             'time_series_hover_tooltip_concise': ConjureFieldDefinition('timeSeriesHoverTooltipConcise', OptionalTypeWrapper[bool]),
             'chart_hover_tooltip_mode': ConjureFieldDefinition('chartHoverTooltipMode', OptionalTypeWrapper[authentication_api_ChartTooltipModeSetting]),
-            'default_number_formats': ConjureFieldDefinition('defaultNumberFormats', OptionalTypeWrapper[authentication_api_DefaultNumberFormatConfigurations])
+            'default_number_formats': ConjureFieldDefinition('defaultNumberFormats', OptionalTypeWrapper[authentication_api_DefaultNumberFormatConfigurations]),
+            'vim_mode_enabled': ConjureFieldDefinition('vimModeEnabled', OptionalTypeWrapper[bool])
         }
 
-    __slots__: List[str] = ['_default_time_range_type', '_appearance', '_timezone', '_time_series_hover_tooltip_concise', '_chart_hover_tooltip_mode', '_default_number_formats']
+    __slots__: List[str] = ['_default_time_range_type', '_appearance', '_timezone', '_time_series_hover_tooltip_concise', '_chart_hover_tooltip_mode', '_default_number_formats', '_vim_mode_enabled']
 
-    def __init__(self, appearance: Optional["authentication_api_AppearanceSetting"] = None, chart_hover_tooltip_mode: Optional["authentication_api_ChartTooltipModeSetting"] = None, default_number_formats: Optional["authentication_api_DefaultNumberFormatConfigurations"] = None, default_time_range_type: Optional["authentication_api_DefaultTimeRangeTypeSetting"] = None, time_series_hover_tooltip_concise: Optional[bool] = None, timezone: Optional["authentication_api_TimezoneSetting"] = None) -> None:
+    def __init__(self, appearance: Optional["authentication_api_AppearanceSetting"] = None, chart_hover_tooltip_mode: Optional["authentication_api_ChartTooltipModeSetting"] = None, default_number_formats: Optional["authentication_api_DefaultNumberFormatConfigurations"] = None, default_time_range_type: Optional["authentication_api_DefaultTimeRangeTypeSetting"] = None, time_series_hover_tooltip_concise: Optional[bool] = None, timezone: Optional["authentication_api_TimezoneSetting"] = None, vim_mode_enabled: Optional[bool] = None) -> None:
         self._default_time_range_type = default_time_range_type
         self._appearance = appearance
         self._timezone = timezone
         self._time_series_hover_tooltip_concise = time_series_hover_tooltip_concise
         self._chart_hover_tooltip_mode = chart_hover_tooltip_mode
         self._default_number_formats = default_number_formats
+        self._vim_mode_enabled = vim_mode_enabled
 
     @builtins.property
     def default_time_range_type(self) -> Optional["authentication_api_DefaultTimeRangeTypeSetting"]:
@@ -2798,6 +2800,10 @@ class authentication_api_UserSettings(ConjureBeanType):
     @builtins.property
     def default_number_formats(self) -> Optional["authentication_api_DefaultNumberFormatConfigurations"]:
         return self._default_number_formats
+
+    @builtins.property
+    def vim_mode_enabled(self) -> Optional[bool]:
+        return self._vim_mode_enabled
 
 
 authentication_api_UserSettings.__name__ = "UserSettings"
@@ -15652,6 +15658,72 @@ ingest_api_SearchIngestJobsResponse.__qualname__ = "SearchIngestJobsResponse"
 ingest_api_SearchIngestJobsResponse.__module__ = "nominal_api.ingest_api"
 
 
+class ingest_api_SearchStreamingSessionsRequest(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'page_size': ConjureFieldDefinition('pageSize', OptionalTypeWrapper[int]),
+            'next_page_token': ConjureFieldDefinition('nextPageToken', OptionalTypeWrapper[api_Token]),
+            'filter': ConjureFieldDefinition('filter', OptionalTypeWrapper[ingest_api_StreamingSessionSearchFilter])
+        }
+
+    __slots__: List[str] = ['_page_size', '_next_page_token', '_filter']
+
+    def __init__(self, filter: Optional["ingest_api_StreamingSessionSearchFilter"] = None, next_page_token: Optional[str] = None, page_size: Optional[int] = None) -> None:
+        self._page_size = page_size
+        self._next_page_token = next_page_token
+        self._filter = filter
+
+    @builtins.property
+    def page_size(self) -> Optional[int]:
+        """Defaults to 100. Clamped to 1_000 if larger, and to 1 if non-positive.
+        """
+        return self._page_size
+
+    @builtins.property
+    def next_page_token(self) -> Optional[str]:
+        return self._next_page_token
+
+    @builtins.property
+    def filter(self) -> Optional["ingest_api_StreamingSessionSearchFilter"]:
+        return self._filter
+
+
+ingest_api_SearchStreamingSessionsRequest.__name__ = "SearchStreamingSessionsRequest"
+ingest_api_SearchStreamingSessionsRequest.__qualname__ = "SearchStreamingSessionsRequest"
+ingest_api_SearchStreamingSessionsRequest.__module__ = "nominal_api.ingest_api"
+
+
+class ingest_api_SearchStreamingSessionsResponse(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'streaming_sessions': ConjureFieldDefinition('streamingSessions', List[ingest_api_StreamingSession]),
+            'next_page_token': ConjureFieldDefinition('nextPageToken', OptionalTypeWrapper[api_Token])
+        }
+
+    __slots__: List[str] = ['_streaming_sessions', '_next_page_token']
+
+    def __init__(self, streaming_sessions: List["ingest_api_StreamingSession"], next_page_token: Optional[str] = None) -> None:
+        self._streaming_sessions = streaming_sessions
+        self._next_page_token = next_page_token
+
+    @builtins.property
+    def streaming_sessions(self) -> List["ingest_api_StreamingSession"]:
+        return self._streaming_sessions
+
+    @builtins.property
+    def next_page_token(self) -> Optional[str]:
+        return self._next_page_token
+
+
+ingest_api_SearchStreamingSessionsResponse.__name__ = "SearchStreamingSessionsResponse"
+ingest_api_SearchStreamingSessionsResponse.__qualname__ = "SearchStreamingSessionsResponse"
+ingest_api_SearchStreamingSessionsResponse.__module__ = "nominal_api.ingest_api"
+
+
 class ingest_api_SignPartResponse(ConjureBeanType):
 
     @builtins.classmethod
@@ -15679,6 +15751,125 @@ class ingest_api_SignPartResponse(ConjureBeanType):
 ingest_api_SignPartResponse.__name__ = "SignPartResponse"
 ingest_api_SignPartResponse.__qualname__ = "SignPartResponse"
 ingest_api_SignPartResponse.__module__ = "nominal_api.ingest_api"
+
+
+class ingest_api_StreamingSession(ConjureBeanType):
+    """Public view of a streaming ingest session.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'session_rid': ConjureFieldDefinition('sessionRid', ingest_api_StreamingSessionRid),
+            'dataset_rid': ConjureFieldDefinition('datasetRid', api_rids_DatasetRid),
+            'status': ConjureFieldDefinition('status', ingest_api_StreamingSessionStatus),
+            'source': ConjureFieldDefinition('source', OptionalTypeWrapper[ingest_api_StreamingSessionSource]),
+            'bounds': ConjureFieldDefinition('bounds', OptionalTypeWrapper[api_Range]),
+            'points_count': ConjureFieldDefinition('pointsCount', int),
+            'created_at': ConjureFieldDefinition('createdAt', api_Timestamp)
+        }
+
+    __slots__: List[str] = ['_session_rid', '_dataset_rid', '_status', '_source', '_bounds', '_points_count', '_created_at']
+
+    def __init__(self, created_at: "api_Timestamp", dataset_rid: str, points_count: int, session_rid: str, status: "ingest_api_StreamingSessionStatus", bounds: Optional["api_Range"] = None, source: Optional["ingest_api_StreamingSessionSource"] = None) -> None:
+        self._session_rid = session_rid
+        self._dataset_rid = dataset_rid
+        self._status = status
+        self._source = source
+        self._bounds = bounds
+        self._points_count = points_count
+        self._created_at = created_at
+
+    @builtins.property
+    def session_rid(self) -> str:
+        return self._session_rid
+
+    @builtins.property
+    def dataset_rid(self) -> str:
+        return self._dataset_rid
+
+    @builtins.property
+    def status(self) -> "ingest_api_StreamingSessionStatus":
+        return self._status
+
+    @builtins.property
+    def source(self) -> Optional["ingest_api_StreamingSessionSource"]:
+        return self._source
+
+    @builtins.property
+    def bounds(self) -> Optional["api_Range"]:
+        return self._bounds
+
+    @builtins.property
+    def points_count(self) -> int:
+        return self._points_count
+
+    @builtins.property
+    def created_at(self) -> "api_Timestamp":
+        return self._created_at
+
+
+ingest_api_StreamingSession.__name__ = "StreamingSession"
+ingest_api_StreamingSession.__qualname__ = "StreamingSession"
+ingest_api_StreamingSession.__module__ = "nominal_api.ingest_api"
+
+
+class ingest_api_StreamingSessionSearchFilter(ConjureUnionType):
+    """Filter for streaming-session search. An empty `datasetRids` list matches all sessions.
+    """
+    _dataset_rids: Optional[List[str]] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'dataset_rids': ConjureFieldDefinition('datasetRids', List[api_rids_DatasetRid])
+        }
+
+    def __init__(
+            self,
+            dataset_rids: Optional[List[str]] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (dataset_rids is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if dataset_rids is not None:
+                self._dataset_rids = dataset_rids
+                self._type = 'datasetRids'
+
+        elif type_of_union == 'datasetRids':
+            if dataset_rids is None:
+                raise ValueError('a union value must not be None')
+            self._dataset_rids = dataset_rids
+            self._type = 'datasetRids'
+
+    @builtins.property
+    def dataset_rids(self) -> Optional[List[str]]:
+        return self._dataset_rids
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, ingest_api_StreamingSessionSearchFilterVisitor):
+            raise ValueError('{} is not an instance of ingest_api_StreamingSessionSearchFilterVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'datasetRids' and self.dataset_rids is not None:
+            return visitor._dataset_rids(self.dataset_rids)
+
+
+ingest_api_StreamingSessionSearchFilter.__name__ = "StreamingSessionSearchFilter"
+ingest_api_StreamingSessionSearchFilter.__qualname__ = "StreamingSessionSearchFilter"
+ingest_api_StreamingSessionSearchFilter.__module__ = "nominal_api.ingest_api"
+
+
+class ingest_api_StreamingSessionSearchFilterVisitor:
+
+    @abstractmethod
+    def _dataset_rids(self, dataset_rids: List[str]) -> Any:
+        pass
+
+
+ingest_api_StreamingSessionSearchFilterVisitor.__name__ = "StreamingSessionSearchFilterVisitor"
+ingest_api_StreamingSessionSearchFilterVisitor.__qualname__ = "StreamingSessionSearchFilterVisitor"
+ingest_api_StreamingSessionSearchFilterVisitor.__module__ = "nominal_api.ingest_api"
 
 
 class ingest_api_StreamingSessionService(Service):
@@ -15743,6 +15934,38 @@ class ingest_api_StreamingSessionService(Service):
             json=_json)
 
         return
+
+    def search_streaming_sessions(self, auth_header: str, request: "ingest_api_SearchStreamingSessionsRequest") -> "ingest_api_SearchStreamingSessionsResponse":
+        """Returns a paginated list of streaming sessions, optionally filtered by dataset.
+        """
+        _conjure_encoder = ConjureEncoder()
+
+        _headers: Dict[str, Any] = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': auth_header,
+        }
+
+        _params: Dict[str, Any] = {
+        }
+
+        _path_params: Dict[str, str] = {
+        }
+
+        _json: Any = _conjure_encoder.default(request)
+
+        _path = '/ingest/v1/streaming-sessions/search'
+        _path = _path.format(**_path_params)
+
+        _response: Response = self._request(
+            'POST',
+            self._uri + _path,
+            params=_params,
+            headers=_headers,
+            json=_json)
+
+        _decoder = ConjureDecoder()
+        return _decoder.decode(_response.json(), ingest_api_SearchStreamingSessionsResponse, self._return_none_for_unknown_union_types)
 
 
 ingest_api_StreamingSessionService.__name__ = "StreamingSessionService"
@@ -49138,34 +49361,26 @@ scout_compute_api_Asin.__module__ = "nominal_api.scout_compute_api"
 
 
 class scout_compute_api_Asset(ConjureBeanType):
-    """Query the data backing an asset
+    """Asset reference for `DataFrame.asset` and `CombineAssetsFrame`. The `rid` field accepts
+either a literal asset RID or a `StringConstant` reference resolved from `Context`.
     """
 
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
-            'rid': ConjureFieldDefinition('rid', scout_compute_api_StringConstant),
-            'data_scope': ConjureFieldDefinition('dataScope', scout_compute_api_StringConstant)
+            'rid': ConjureFieldDefinition('rid', scout_compute_api_StringConstant)
         }
 
-    __slots__: List[str] = ['_rid', '_data_scope']
+    __slots__: List[str] = ['_rid']
 
-    def __init__(self, data_scope: "scout_compute_api_StringConstant", rid: "scout_compute_api_StringConstant") -> None:
+    def __init__(self, rid: "scout_compute_api_StringConstant") -> None:
         self._rid = rid
-        self._data_scope = data_scope
 
     @builtins.property
     def rid(self) -> "scout_compute_api_StringConstant":
         """Resource identifier of an asset
         """
         return self._rid
-
-    @builtins.property
-    def data_scope(self) -> "scout_compute_api_StringConstant":
-        """A data scope is a special tag on an asset which further specifies the data to query. It is helpful for
-disambiguating duplicate channel names across sources.
-        """
-        return self._data_scope
 
 
 scout_compute_api_Asset.__name__ = "Asset"
@@ -49241,35 +49456,8 @@ scout_compute_api_AssetChannel.__qualname__ = "AssetChannel"
 scout_compute_api_AssetChannel.__module__ = "nominal_api.scout_compute_api"
 
 
-class scout_compute_api_AssetRid(ConjureBeanType):
-    """Asset resource identifier only (no data scope).
-    """
-
-    @builtins.classmethod
-    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
-        return {
-            'rid': ConjureFieldDefinition('rid', scout_compute_api_StringConstant)
-        }
-
-    __slots__: List[str] = ['_rid']
-
-    def __init__(self, rid: "scout_compute_api_StringConstant") -> None:
-        self._rid = rid
-
-    @builtins.property
-    def rid(self) -> "scout_compute_api_StringConstant":
-        """Resource identifier of an asset
-        """
-        return self._rid
-
-
-scout_compute_api_AssetRid.__name__ = "AssetRid"
-scout_compute_api_AssetRid.__qualname__ = "AssetRid"
-scout_compute_api_AssetRid.__module__ = "nominal_api.scout_compute_api"
-
-
 class scout_compute_api_AssetsSearchTarget(ConjureBeanType):
-    """Search assets. Each match expands to one branch per data scope on that asset.
+    """Search assets. Each match expands to one grouping per data scope on that asset.
     """
 
     @builtins.classmethod
@@ -51308,25 +51496,23 @@ scout_compute_api_ChannelSeriesVisitor.__module__ = "nominal_api.scout_compute_a
 
 
 class scout_compute_api_CombineAssetsFrame(ConjureBeanType):
-    """Combines explicit assets into one frame. Each asset expands to one tagged branch per data scope on that
-asset, with the same per-branch tags as asset-target SearchFrame (assetRid, dataScope).
+    """Combines explicit assets into one frame. Each asset expands to one tagged grouping per data scope on that
+asset, with the same per-grouping tags as asset-target SearchFrame (assetRid, dataScope).
     """
 
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
-            'assets': ConjureFieldDefinition('assets', List[scout_compute_api_AssetRid])
+            'assets': ConjureFieldDefinition('assets', List[scout_compute_api_Asset])
         }
 
     __slots__: List[str] = ['_assets']
 
-    def __init__(self, assets: List["scout_compute_api_AssetRid"]) -> None:
+    def __init__(self, assets: List["scout_compute_api_Asset"]) -> None:
         self._assets = assets
 
     @builtins.property
-    def assets(self) -> List["scout_compute_api_AssetRid"]:
-        """Each asset expands to one branch per data scope.
-        """
+    def assets(self) -> List["scout_compute_api_Asset"]:
         return self._assets
 
 
@@ -51336,25 +51522,24 @@ scout_compute_api_CombineAssetsFrame.__module__ = "nominal_api.scout_compute_api
 
 
 class scout_compute_api_CombineRunsFrame(ConjureBeanType):
-    """Combines explicit runs into one frame. Each run expands like SearchFrame with a runs target (dataset and
-asset data scopes; tags include runRid and assetRid/dataScope as applicable).
+    """Combines explicit runs into one frame. Each run expands to one tagged grouping per attached data source,
+with the same per-grouping tags as run-target SearchFrame (runRid, dataScope, plus assetRid for
+asset-typed sources).
     """
 
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
-            'runs': ConjureFieldDefinition('runs', List[scout_compute_api_RunRid])
+            'runs': ConjureFieldDefinition('runs', List[scout_compute_api_Run])
         }
 
     __slots__: List[str] = ['_runs']
 
-    def __init__(self, runs: List["scout_compute_api_RunRid"]) -> None:
+    def __init__(self, runs: List["scout_compute_api_Run"]) -> None:
         self._runs = runs
 
     @builtins.property
-    def runs(self) -> List["scout_compute_api_RunRid"]:
-        """Each run expands to one branch per data scope / data source.
-        """
+    def runs(self) -> List["scout_compute_api_Run"]:
         return self._runs
 
 
@@ -51364,34 +51549,28 @@ scout_compute_api_CombineRunsFrame.__module__ = "nominal_api.scout_compute_api"
 
 
 class scout_compute_api_CombinedFrame(ConjureBeanType):
-    """Combines multiple frames into a single frame, merging duplicate timestamps
-for the same series using the specified operation.
+    """Combines multiple frames into a single frame by taking the union of all points
+from each input (akin to SQL {@code UNION ALL}). Duplicate timestamps are preserved
+rather than merged; callers that need aggregation should wrap the selected series
+downstream.
     """
 
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
-            'inputs': ConjureFieldDefinition('inputs', List[scout_compute_api_TimeSeriesFrame]),
-            'numeric_merge_operation': ConjureFieldDefinition('numericMergeOperation', scout_compute_api_NumericUnionOperation)
+            'inputs': ConjureFieldDefinition('inputs', List[scout_compute_api_DataFrame])
         }
 
-    __slots__: List[str] = ['_inputs', '_numeric_merge_operation']
+    __slots__: List[str] = ['_inputs']
 
-    def __init__(self, inputs: List["scout_compute_api_TimeSeriesFrame"], numeric_merge_operation: "scout_compute_api_NumericUnionOperation") -> None:
+    def __init__(self, inputs: List["scout_compute_api_DataFrame"]) -> None:
         self._inputs = inputs
-        self._numeric_merge_operation = numeric_merge_operation
 
     @builtins.property
-    def inputs(self) -> List["scout_compute_api_TimeSeriesFrame"]:
+    def inputs(self) -> List["scout_compute_api_DataFrame"]:
         """The frames to combine.
         """
         return self._inputs
-
-    @builtins.property
-    def numeric_merge_operation(self) -> "scout_compute_api_NumericUnionOperation":
-        """Strategy for resolving duplicate timestamps in numeric channels.
-        """
-        return self._numeric_merge_operation
 
 
 scout_compute_api_CombinedFrame.__name__ = "CombinedFrame"
@@ -53334,12 +53513,12 @@ class scout_compute_api_Context(ConjureBeanType):
         return {
             'variables': ConjureFieldDefinition('variables', Dict[scout_compute_api_VariableName, scout_compute_api_VariableValue]),
             'function_variables': ConjureFieldDefinition('functionVariables', OptionalTypeWrapper[Dict[scout_compute_api_FunctionReference, scout_compute_api_FunctionVariables]]),
-            'frame_references': ConjureFieldDefinition('frameReferences', Dict[scout_compute_api_FrameReferenceName, scout_compute_api_TimeSeriesFrame])
+            'frame_references': ConjureFieldDefinition('frameReferences', Dict[scout_compute_api_FrameReferenceName, scout_compute_api_DataFrame])
         }
 
     __slots__: List[str] = ['_variables', '_function_variables', '_frame_references']
 
-    def __init__(self, frame_references: Dict[str, "scout_compute_api_TimeSeriesFrame"], variables: Dict[str, "scout_compute_api_VariableValue"], function_variables: Optional[Dict[str, "scout_compute_api_FunctionVariables"]] = None) -> None:
+    def __init__(self, frame_references: Dict[str, "scout_compute_api_DataFrame"], variables: Dict[str, "scout_compute_api_VariableValue"], function_variables: Optional[Dict[str, "scout_compute_api_FunctionVariables"]] = None) -> None:
         self._variables = variables
         self._function_variables = function_variables
         self._frame_references = frame_references
@@ -53353,7 +53532,7 @@ class scout_compute_api_Context(ConjureBeanType):
         return self._function_variables
 
     @builtins.property
-    def frame_references(self) -> Dict[str, "scout_compute_api_TimeSeriesFrame"]:
+    def frame_references(self) -> Dict[str, "scout_compute_api_DataFrame"]:
         """Named frames looked up by `FrameReference` nodes in the compute tree.
         """
         return self._frame_references
@@ -53921,6 +54100,300 @@ class scout_compute_api_CurveResultDetailsVisitor:
 scout_compute_api_CurveResultDetailsVisitor.__name__ = "CurveResultDetailsVisitor"
 scout_compute_api_CurveResultDetailsVisitor.__qualname__ = "CurveResultDetailsVisitor"
 scout_compute_api_CurveResultDetailsVisitor.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_DataFrame(ConjureUnionType):
+    """A logical bundle of named series. For the time being, columns are each a time series (series name + tags).
+A frame is either rooted in persisted data (asset or dataset) or defined as a transformation of another frame.
+    """
+    _asset: Optional["scout_compute_api_Asset"] = None
+    _dataset: Optional["scout_compute_api_Dataset"] = None
+    _search: Optional["scout_compute_api_SearchFrame"] = None
+    _combine_assets: Optional["scout_compute_api_CombineAssetsFrame"] = None
+    _combine_runs: Optional["scout_compute_api_CombineRunsFrame"] = None
+    _combine: Optional["scout_compute_api_CombinedFrame"] = None
+    _tag: Optional["scout_compute_api_TaggedFrame"] = None
+    _filter: Optional["scout_compute_api_FilteredFrame"] = None
+    _time_shift: Optional["scout_compute_api_TimeShiftedFrame"] = None
+    _with_numeric_series: Optional["scout_compute_api_WithNumericSeriesFrame"] = None
+    _with_enum_series: Optional["scout_compute_api_WithEnumSeriesFrame"] = None
+    _named_reference: Optional["scout_compute_api_FrameReference"] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'asset': ConjureFieldDefinition('asset', scout_compute_api_Asset),
+            'dataset': ConjureFieldDefinition('dataset', scout_compute_api_Dataset),
+            'search': ConjureFieldDefinition('search', scout_compute_api_SearchFrame),
+            'combine_assets': ConjureFieldDefinition('combineAssets', scout_compute_api_CombineAssetsFrame),
+            'combine_runs': ConjureFieldDefinition('combineRuns', scout_compute_api_CombineRunsFrame),
+            'combine': ConjureFieldDefinition('combine', scout_compute_api_CombinedFrame),
+            'tag': ConjureFieldDefinition('tag', scout_compute_api_TaggedFrame),
+            'filter': ConjureFieldDefinition('filter', scout_compute_api_FilteredFrame),
+            'time_shift': ConjureFieldDefinition('timeShift', scout_compute_api_TimeShiftedFrame),
+            'with_numeric_series': ConjureFieldDefinition('withNumericSeries', scout_compute_api_WithNumericSeriesFrame),
+            'with_enum_series': ConjureFieldDefinition('withEnumSeries', scout_compute_api_WithEnumSeriesFrame),
+            'named_reference': ConjureFieldDefinition('namedReference', scout_compute_api_FrameReference)
+        }
+
+    def __init__(
+            self,
+            asset: Optional["scout_compute_api_Asset"] = None,
+            dataset: Optional["scout_compute_api_Dataset"] = None,
+            search: Optional["scout_compute_api_SearchFrame"] = None,
+            combine_assets: Optional["scout_compute_api_CombineAssetsFrame"] = None,
+            combine_runs: Optional["scout_compute_api_CombineRunsFrame"] = None,
+            combine: Optional["scout_compute_api_CombinedFrame"] = None,
+            tag: Optional["scout_compute_api_TaggedFrame"] = None,
+            filter: Optional["scout_compute_api_FilteredFrame"] = None,
+            time_shift: Optional["scout_compute_api_TimeShiftedFrame"] = None,
+            with_numeric_series: Optional["scout_compute_api_WithNumericSeriesFrame"] = None,
+            with_enum_series: Optional["scout_compute_api_WithEnumSeriesFrame"] = None,
+            named_reference: Optional["scout_compute_api_FrameReference"] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (asset is not None) + (dataset is not None) + (search is not None) + (combine_assets is not None) + (combine_runs is not None) + (combine is not None) + (tag is not None) + (filter is not None) + (time_shift is not None) + (with_numeric_series is not None) + (with_enum_series is not None) + (named_reference is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if asset is not None:
+                self._asset = asset
+                self._type = 'asset'
+            if dataset is not None:
+                self._dataset = dataset
+                self._type = 'dataset'
+            if search is not None:
+                self._search = search
+                self._type = 'search'
+            if combine_assets is not None:
+                self._combine_assets = combine_assets
+                self._type = 'combineAssets'
+            if combine_runs is not None:
+                self._combine_runs = combine_runs
+                self._type = 'combineRuns'
+            if combine is not None:
+                self._combine = combine
+                self._type = 'combine'
+            if tag is not None:
+                self._tag = tag
+                self._type = 'tag'
+            if filter is not None:
+                self._filter = filter
+                self._type = 'filter'
+            if time_shift is not None:
+                self._time_shift = time_shift
+                self._type = 'timeShift'
+            if with_numeric_series is not None:
+                self._with_numeric_series = with_numeric_series
+                self._type = 'withNumericSeries'
+            if with_enum_series is not None:
+                self._with_enum_series = with_enum_series
+                self._type = 'withEnumSeries'
+            if named_reference is not None:
+                self._named_reference = named_reference
+                self._type = 'namedReference'
+
+        elif type_of_union == 'asset':
+            if asset is None:
+                raise ValueError('a union value must not be None')
+            self._asset = asset
+            self._type = 'asset'
+        elif type_of_union == 'dataset':
+            if dataset is None:
+                raise ValueError('a union value must not be None')
+            self._dataset = dataset
+            self._type = 'dataset'
+        elif type_of_union == 'search':
+            if search is None:
+                raise ValueError('a union value must not be None')
+            self._search = search
+            self._type = 'search'
+        elif type_of_union == 'combineAssets':
+            if combine_assets is None:
+                raise ValueError('a union value must not be None')
+            self._combine_assets = combine_assets
+            self._type = 'combineAssets'
+        elif type_of_union == 'combineRuns':
+            if combine_runs is None:
+                raise ValueError('a union value must not be None')
+            self._combine_runs = combine_runs
+            self._type = 'combineRuns'
+        elif type_of_union == 'combine':
+            if combine is None:
+                raise ValueError('a union value must not be None')
+            self._combine = combine
+            self._type = 'combine'
+        elif type_of_union == 'tag':
+            if tag is None:
+                raise ValueError('a union value must not be None')
+            self._tag = tag
+            self._type = 'tag'
+        elif type_of_union == 'filter':
+            if filter is None:
+                raise ValueError('a union value must not be None')
+            self._filter = filter
+            self._type = 'filter'
+        elif type_of_union == 'timeShift':
+            if time_shift is None:
+                raise ValueError('a union value must not be None')
+            self._time_shift = time_shift
+            self._type = 'timeShift'
+        elif type_of_union == 'withNumericSeries':
+            if with_numeric_series is None:
+                raise ValueError('a union value must not be None')
+            self._with_numeric_series = with_numeric_series
+            self._type = 'withNumericSeries'
+        elif type_of_union == 'withEnumSeries':
+            if with_enum_series is None:
+                raise ValueError('a union value must not be None')
+            self._with_enum_series = with_enum_series
+            self._type = 'withEnumSeries'
+        elif type_of_union == 'namedReference':
+            if named_reference is None:
+                raise ValueError('a union value must not be None')
+            self._named_reference = named_reference
+            self._type = 'namedReference'
+
+    @builtins.property
+    def asset(self) -> Optional["scout_compute_api_Asset"]:
+        """Single asset. Expands to one grouping per data scope on the asset. Groupings are tagged by
+`dataScope` only (not by `assetRid`, since every grouping comes from the same asset). Use
+`combineAssets` for the multi-asset form, which also tags each grouping by `assetRid`.
+        """
+        return self._asset
+
+    @builtins.property
+    def dataset(self) -> Optional["scout_compute_api_Dataset"]:
+        return self._dataset
+
+    @builtins.property
+    def search(self) -> Optional["scout_compute_api_SearchFrame"]:
+        return self._search
+
+    @builtins.property
+    def combine_assets(self) -> Optional["scout_compute_api_CombineAssetsFrame"]:
+        return self._combine_assets
+
+    @builtins.property
+    def combine_runs(self) -> Optional["scout_compute_api_CombineRunsFrame"]:
+        return self._combine_runs
+
+    @builtins.property
+    def combine(self) -> Optional["scout_compute_api_CombinedFrame"]:
+        return self._combine
+
+    @builtins.property
+    def tag(self) -> Optional["scout_compute_api_TaggedFrame"]:
+        return self._tag
+
+    @builtins.property
+    def filter(self) -> Optional["scout_compute_api_FilteredFrame"]:
+        return self._filter
+
+    @builtins.property
+    def time_shift(self) -> Optional["scout_compute_api_TimeShiftedFrame"]:
+        return self._time_shift
+
+    @builtins.property
+    def with_numeric_series(self) -> Optional["scout_compute_api_WithNumericSeriesFrame"]:
+        return self._with_numeric_series
+
+    @builtins.property
+    def with_enum_series(self) -> Optional["scout_compute_api_WithEnumSeriesFrame"]:
+        return self._with_enum_series
+
+    @builtins.property
+    def named_reference(self) -> Optional["scout_compute_api_FrameReference"]:
+        return self._named_reference
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_compute_api_DataFrameVisitor):
+            raise ValueError('{} is not an instance of scout_compute_api_DataFrameVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'asset' and self.asset is not None:
+            return visitor._asset(self.asset)
+        if self._type == 'dataset' and self.dataset is not None:
+            return visitor._dataset(self.dataset)
+        if self._type == 'search' and self.search is not None:
+            return visitor._search(self.search)
+        if self._type == 'combineAssets' and self.combine_assets is not None:
+            return visitor._combine_assets(self.combine_assets)
+        if self._type == 'combineRuns' and self.combine_runs is not None:
+            return visitor._combine_runs(self.combine_runs)
+        if self._type == 'combine' and self.combine is not None:
+            return visitor._combine(self.combine)
+        if self._type == 'tag' and self.tag is not None:
+            return visitor._tag(self.tag)
+        if self._type == 'filter' and self.filter is not None:
+            return visitor._filter(self.filter)
+        if self._type == 'timeShift' and self.time_shift is not None:
+            return visitor._time_shift(self.time_shift)
+        if self._type == 'withNumericSeries' and self.with_numeric_series is not None:
+            return visitor._with_numeric_series(self.with_numeric_series)
+        if self._type == 'withEnumSeries' and self.with_enum_series is not None:
+            return visitor._with_enum_series(self.with_enum_series)
+        if self._type == 'namedReference' and self.named_reference is not None:
+            return visitor._named_reference(self.named_reference)
+
+
+scout_compute_api_DataFrame.__name__ = "DataFrame"
+scout_compute_api_DataFrame.__qualname__ = "DataFrame"
+scout_compute_api_DataFrame.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_DataFrameVisitor:
+
+    @abstractmethod
+    def _asset(self, asset: "scout_compute_api_Asset") -> Any:
+        pass
+
+    @abstractmethod
+    def _dataset(self, dataset: "scout_compute_api_Dataset") -> Any:
+        pass
+
+    @abstractmethod
+    def _search(self, search: "scout_compute_api_SearchFrame") -> Any:
+        pass
+
+    @abstractmethod
+    def _combine_assets(self, combine_assets: "scout_compute_api_CombineAssetsFrame") -> Any:
+        pass
+
+    @abstractmethod
+    def _combine_runs(self, combine_runs: "scout_compute_api_CombineRunsFrame") -> Any:
+        pass
+
+    @abstractmethod
+    def _combine(self, combine: "scout_compute_api_CombinedFrame") -> Any:
+        pass
+
+    @abstractmethod
+    def _tag(self, tag: "scout_compute_api_TaggedFrame") -> Any:
+        pass
+
+    @abstractmethod
+    def _filter(self, filter: "scout_compute_api_FilteredFrame") -> Any:
+        pass
+
+    @abstractmethod
+    def _time_shift(self, time_shift: "scout_compute_api_TimeShiftedFrame") -> Any:
+        pass
+
+    @abstractmethod
+    def _with_numeric_series(self, with_numeric_series: "scout_compute_api_WithNumericSeriesFrame") -> Any:
+        pass
+
+    @abstractmethod
+    def _with_enum_series(self, with_enum_series: "scout_compute_api_WithEnumSeriesFrame") -> Any:
+        pass
+
+    @abstractmethod
+    def _named_reference(self, named_reference: "scout_compute_api_FrameReference") -> Any:
+        pass
+
+
+scout_compute_api_DataFrameVisitor.__name__ = "DataFrameVisitor"
+scout_compute_api_DataFrameVisitor.__qualname__ = "DataFrameVisitor"
+scout_compute_api_DataFrameVisitor.__module__ = "nominal_api.scout_compute_api"
 
 
 class scout_compute_api_DataSourceAndChannel(ConjureBeanType):
@@ -55671,6 +56144,8 @@ class scout_compute_api_EnumSeries(ConjureUnionType):
     _select1d_array_index: Optional["scout_compute_api_SelectIndexFrom1dEnumArraySeries"] = None
     _extract_from_struct: Optional["scout_compute_api_ExtractEnumFromStructSeries"] = None
     _event_aggregation: Optional["scout_compute_api_EventsEnumSeries"] = None
+    _select_enum: Optional["scout_compute_api_SelectSeries"] = None
+    _filter_by_tag: Optional["scout_compute_api_EnumTagFilterSeries"] = None
 
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
@@ -55687,7 +56162,9 @@ class scout_compute_api_EnumSeries(ConjureUnionType):
             'value_map': ConjureFieldDefinition('valueMap', scout_compute_api_ValueMapSeries),
             'select1d_array_index': ConjureFieldDefinition('select1dArrayIndex', scout_compute_api_SelectIndexFrom1dEnumArraySeries),
             'extract_from_struct': ConjureFieldDefinition('extractFromStruct', scout_compute_api_ExtractEnumFromStructSeries),
-            'event_aggregation': ConjureFieldDefinition('eventAggregation', scout_compute_api_EventsEnumSeries)
+            'event_aggregation': ConjureFieldDefinition('eventAggregation', scout_compute_api_EventsEnumSeries),
+            'select_enum': ConjureFieldDefinition('selectEnum', scout_compute_api_SelectSeries),
+            'filter_by_tag': ConjureFieldDefinition('filterByTag', scout_compute_api_EnumTagFilterSeries)
         }
 
     def __init__(
@@ -55705,10 +56182,12 @@ class scout_compute_api_EnumSeries(ConjureUnionType):
             select1d_array_index: Optional["scout_compute_api_SelectIndexFrom1dEnumArraySeries"] = None,
             extract_from_struct: Optional["scout_compute_api_ExtractEnumFromStructSeries"] = None,
             event_aggregation: Optional["scout_compute_api_EventsEnumSeries"] = None,
+            select_enum: Optional["scout_compute_api_SelectSeries"] = None,
+            filter_by_tag: Optional["scout_compute_api_EnumTagFilterSeries"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (aggregate is not None) + (raw is not None) + (channel is not None) + (derived is not None) + (resample is not None) + (time_range_filter is not None) + (time_shift is not None) + (union is not None) + (filter_transformation is not None) + (value_map is not None) + (select1d_array_index is not None) + (extract_from_struct is not None) + (event_aggregation is not None) != 1:
+            if (aggregate is not None) + (raw is not None) + (channel is not None) + (derived is not None) + (resample is not None) + (time_range_filter is not None) + (time_shift is not None) + (union is not None) + (filter_transformation is not None) + (value_map is not None) + (select1d_array_index is not None) + (extract_from_struct is not None) + (event_aggregation is not None) + (select_enum is not None) + (filter_by_tag is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if aggregate is not None:
@@ -55750,6 +56229,12 @@ class scout_compute_api_EnumSeries(ConjureUnionType):
             if event_aggregation is not None:
                 self._event_aggregation = event_aggregation
                 self._type = 'eventAggregation'
+            if select_enum is not None:
+                self._select_enum = select_enum
+                self._type = 'selectEnum'
+            if filter_by_tag is not None:
+                self._filter_by_tag = filter_by_tag
+                self._type = 'filterByTag'
 
         elif type_of_union == 'aggregate':
             if aggregate is None:
@@ -55816,6 +56301,16 @@ class scout_compute_api_EnumSeries(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._event_aggregation = event_aggregation
             self._type = 'eventAggregation'
+        elif type_of_union == 'selectEnum':
+            if select_enum is None:
+                raise ValueError('a union value must not be None')
+            self._select_enum = select_enum
+            self._type = 'selectEnum'
+        elif type_of_union == 'filterByTag':
+            if filter_by_tag is None:
+                raise ValueError('a union value must not be None')
+            self._filter_by_tag = filter_by_tag
+            self._type = 'filterByTag'
 
     @builtins.property
     def aggregate(self) -> Optional["scout_compute_api_AggregateEnumSeries"]:
@@ -55869,6 +56364,14 @@ class scout_compute_api_EnumSeries(ConjureUnionType):
     def event_aggregation(self) -> Optional["scout_compute_api_EventsEnumSeries"]:
         return self._event_aggregation
 
+    @builtins.property
+    def select_enum(self) -> Optional["scout_compute_api_SelectSeries"]:
+        return self._select_enum
+
+    @builtins.property
+    def filter_by_tag(self) -> Optional["scout_compute_api_EnumTagFilterSeries"]:
+        return self._filter_by_tag
+
     def accept(self, visitor) -> Any:
         if not isinstance(visitor, scout_compute_api_EnumSeriesVisitor):
             raise ValueError('{} is not an instance of scout_compute_api_EnumSeriesVisitor'.format(visitor.__class__.__name__))
@@ -55898,6 +56401,10 @@ class scout_compute_api_EnumSeries(ConjureUnionType):
             return visitor._extract_from_struct(self.extract_from_struct)
         if self._type == 'eventAggregation' and self.event_aggregation is not None:
             return visitor._event_aggregation(self.event_aggregation)
+        if self._type == 'selectEnum' and self.select_enum is not None:
+            return visitor._select_enum(self.select_enum)
+        if self._type == 'filterByTag' and self.filter_by_tag is not None:
+            return visitor._filter_by_tag(self.filter_by_tag)
 
 
 scout_compute_api_EnumSeries.__name__ = "EnumSeries"
@@ -55959,6 +56466,14 @@ class scout_compute_api_EnumSeriesVisitor:
     def _event_aggregation(self, event_aggregation: "scout_compute_api_EventsEnumSeries") -> Any:
         pass
 
+    @abstractmethod
+    def _select_enum(self, select_enum: "scout_compute_api_SelectSeries") -> Any:
+        pass
+
+    @abstractmethod
+    def _filter_by_tag(self, filter_by_tag: "scout_compute_api_EnumTagFilterSeries") -> Any:
+        pass
+
 
 scout_compute_api_EnumSeriesVisitor.__name__ = "EnumSeriesVisitor"
 scout_compute_api_EnumSeriesVisitor.__qualname__ = "EnumSeriesVisitor"
@@ -56008,6 +56523,37 @@ class scout_compute_api_EnumSeriesEqualityRanges(ConjureBeanType):
 scout_compute_api_EnumSeriesEqualityRanges.__name__ = "EnumSeriesEqualityRanges"
 scout_compute_api_EnumSeriesEqualityRanges.__qualname__ = "EnumSeriesEqualityRanges"
 scout_compute_api_EnumSeriesEqualityRanges.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_EnumTagFilterSeries(ConjureBeanType):
+    """Applies a tag predicate to the enum series produced by input.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'input': ConjureFieldDefinition('input', scout_compute_api_EnumSeries),
+            'predicate': ConjureFieldDefinition('predicate', scout_compute_api_TagPredicate)
+        }
+
+    __slots__: List[str] = ['_input', '_predicate']
+
+    def __init__(self, input: "scout_compute_api_EnumSeries", predicate: "scout_compute_api_TagPredicate") -> None:
+        self._input = input
+        self._predicate = predicate
+
+    @builtins.property
+    def input(self) -> "scout_compute_api_EnumSeries":
+        return self._input
+
+    @builtins.property
+    def predicate(self) -> "scout_compute_api_TagPredicate":
+        return self._predicate
+
+
+scout_compute_api_EnumTagFilterSeries.__name__ = "EnumTagFilterSeries"
+scout_compute_api_EnumTagFilterSeries.__qualname__ = "EnumTagFilterSeries"
+scout_compute_api_EnumTagFilterSeries.__module__ = "nominal_api.scout_compute_api"
 
 
 class scout_compute_api_EnumTimeRangeFilterSeries(ConjureBeanType):
@@ -56965,18 +57511,18 @@ filters into channel specs and folding against known tag assignments; does not a
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
-            'input': ConjureFieldDefinition('input', scout_compute_api_TimeSeriesFrame),
+            'input': ConjureFieldDefinition('input', scout_compute_api_DataFrame),
             'predicate': ConjureFieldDefinition('predicate', scout_compute_api_TagPredicate)
         }
 
     __slots__: List[str] = ['_input', '_predicate']
 
-    def __init__(self, input: "scout_compute_api_TimeSeriesFrame", predicate: "scout_compute_api_TagPredicate") -> None:
+    def __init__(self, input: "scout_compute_api_DataFrame", predicate: "scout_compute_api_TagPredicate") -> None:
         self._input = input
         self._predicate = predicate
 
     @builtins.property
-    def input(self) -> "scout_compute_api_TimeSeriesFrame":
+    def input(self) -> "scout_compute_api_DataFrame":
         return self._input
 
     @builtins.property
@@ -65697,6 +66243,34 @@ scout_compute_api_RootMeanSquare.__qualname__ = "RootMeanSquare"
 scout_compute_api_RootMeanSquare.__module__ = "nominal_api.scout_compute_api"
 
 
+class scout_compute_api_Run(ConjureBeanType):
+    """Run reference for `CombineRunsFrame`. The `rid` field accepts either a literal run RID or a
+`StringConstant` reference resolved from `Context`.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'rid': ConjureFieldDefinition('rid', scout_compute_api_StringConstant)
+        }
+
+    __slots__: List[str] = ['_rid']
+
+    def __init__(self, rid: "scout_compute_api_StringConstant") -> None:
+        self._rid = rid
+
+    @builtins.property
+    def rid(self) -> "scout_compute_api_StringConstant":
+        """Resource identifier of a run
+        """
+        return self._rid
+
+
+scout_compute_api_Run.__name__ = "Run"
+scout_compute_api_Run.__qualname__ = "Run"
+scout_compute_api_Run.__module__ = "nominal_api.scout_compute_api"
+
+
 class scout_compute_api_RunChannel(ConjureBeanType):
 
     @builtins.classmethod
@@ -65774,36 +66348,13 @@ scout_compute_api_RunChannel.__qualname__ = "RunChannel"
 scout_compute_api_RunChannel.__module__ = "nominal_api.scout_compute_api"
 
 
-class scout_compute_api_RunRid(ConjureBeanType):
-    """Run resource identifier only (no data scope).
-    """
-
-    @builtins.classmethod
-    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
-        return {
-            'rid': ConjureFieldDefinition('rid', scout_compute_api_StringConstant)
-        }
-
-    __slots__: List[str] = ['_rid']
-
-    def __init__(self, rid: "scout_compute_api_StringConstant") -> None:
-        self._rid = rid
-
-    @builtins.property
-    def rid(self) -> "scout_compute_api_StringConstant":
-        """Resource identifier of a run
-        """
-        return self._rid
-
-
-scout_compute_api_RunRid.__name__ = "RunRid"
-scout_compute_api_RunRid.__qualname__ = "RunRid"
-scout_compute_api_RunRid.__module__ = "nominal_api.scout_compute_api"
-
-
 class scout_compute_api_RunsSearchTarget(ConjureBeanType):
-    """Search runs. Each match with asset data scopes expands to branches for each data scope per asset.
-Each match with dataset data scopes expands to one branch per data scope.
+    """Search runs. Each matched run expands to one grouping per data source attached to the run:
+asset-typed data sources contribute one grouping per data scope on the asset; dataset-typed
+data sources contribute one grouping per dataset. Every grouping is tagged by `runRid` and
+`dataScope` (the asset's data scope name for asset-typed sources, or the run-local data
+source ref name for dataset-typed sources); asset-typed groupings additionally carry
+`assetRid`.
     """
 
     @builtins.classmethod
@@ -66456,27 +67007,27 @@ scout_compute_api_SelectOldestPointsSeries.__module__ = "nominal_api.scout_compu
 
 
 class scout_compute_api_SelectSeries(ConjureBeanType):
-    """Selects a specific series from a time series frame (might contain multiple tag groupings).
+    """Selects a specific series from a data frame (might contain multiple tag groupings).
     """
 
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
-            'time_series_frame': ConjureFieldDefinition('timeSeriesFrame', scout_compute_api_TimeSeriesFrame),
+            'data_frame': ConjureFieldDefinition('dataFrame', scout_compute_api_DataFrame),
             'name': ConjureFieldDefinition('name', scout_compute_api_StringConstant)
         }
 
-    __slots__: List[str] = ['_time_series_frame', '_name']
+    __slots__: List[str] = ['_data_frame', '_name']
 
-    def __init__(self, name: "scout_compute_api_StringConstant", time_series_frame: "scout_compute_api_TimeSeriesFrame") -> None:
-        self._time_series_frame = time_series_frame
+    def __init__(self, data_frame: "scout_compute_api_DataFrame", name: "scout_compute_api_StringConstant") -> None:
+        self._data_frame = data_frame
         self._name = name
 
     @builtins.property
-    def time_series_frame(self) -> "scout_compute_api_TimeSeriesFrame":
-        """The time series frame providing the data to query
+    def data_frame(self) -> "scout_compute_api_DataFrame":
+        """The data frame providing the data to query
         """
-        return self._time_series_frame
+        return self._data_frame
 
     @builtins.property
     def name(self) -> "scout_compute_api_StringConstant":
@@ -68782,20 +69333,20 @@ class scout_compute_api_TaggedFrame(ConjureBeanType):
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
-            'input': ConjureFieldDefinition('input', scout_compute_api_TimeSeriesFrame),
+            'input': ConjureFieldDefinition('input', scout_compute_api_DataFrame),
             'key': ConjureFieldDefinition('key', scout_compute_api_StringConstant),
             'value': ConjureFieldDefinition('value', scout_compute_api_StringConstant)
         }
 
     __slots__: List[str] = ['_input', '_key', '_value']
 
-    def __init__(self, input: "scout_compute_api_TimeSeriesFrame", key: "scout_compute_api_StringConstant", value: "scout_compute_api_StringConstant") -> None:
+    def __init__(self, input: "scout_compute_api_DataFrame", key: "scout_compute_api_StringConstant", value: "scout_compute_api_StringConstant") -> None:
         self._input = input
         self._key = key
         self._value = value
 
     @builtins.property
-    def input(self) -> "scout_compute_api_TimeSeriesFrame":
+    def input(self) -> "scout_compute_api_DataFrame":
         """The underlying frame to tag.
         """
         return self._input
@@ -69116,295 +69667,25 @@ scout_compute_api_TimeSeriesFitOptions.__qualname__ = "TimeSeriesFitOptions"
 scout_compute_api_TimeSeriesFitOptions.__module__ = "nominal_api.scout_compute_api"
 
 
-class scout_compute_api_TimeSeriesFrame(ConjureUnionType):
-    """A logical bundle of named time series, similar in spirit to a DataFrame whose
-columns are each a time series (series name + tags). A frame is either rooted in
-persisted data (asset or dataset) or defined as a transformation of another frame.
-    """
-    _asset: Optional["scout_compute_api_Asset"] = None
-    _dataset: Optional["scout_compute_api_Dataset"] = None
-    _search: Optional["scout_compute_api_SearchFrame"] = None
-    _combine_assets: Optional["scout_compute_api_CombineAssetsFrame"] = None
-    _combine_runs: Optional["scout_compute_api_CombineRunsFrame"] = None
-    _combine: Optional["scout_compute_api_CombinedFrame"] = None
-    _tag: Optional["scout_compute_api_TaggedFrame"] = None
-    _filter: Optional["scout_compute_api_FilteredFrame"] = None
-    _time_shift: Optional["scout_compute_api_TimeShiftedFrame"] = None
-    _with_numeric_series: Optional["scout_compute_api_WithNumericSeriesFrame"] = None
-    _named_reference: Optional["scout_compute_api_FrameReference"] = None
-
-    @builtins.classmethod
-    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
-        return {
-            'asset': ConjureFieldDefinition('asset', scout_compute_api_Asset),
-            'dataset': ConjureFieldDefinition('dataset', scout_compute_api_Dataset),
-            'search': ConjureFieldDefinition('search', scout_compute_api_SearchFrame),
-            'combine_assets': ConjureFieldDefinition('combineAssets', scout_compute_api_CombineAssetsFrame),
-            'combine_runs': ConjureFieldDefinition('combineRuns', scout_compute_api_CombineRunsFrame),
-            'combine': ConjureFieldDefinition('combine', scout_compute_api_CombinedFrame),
-            'tag': ConjureFieldDefinition('tag', scout_compute_api_TaggedFrame),
-            'filter': ConjureFieldDefinition('filter', scout_compute_api_FilteredFrame),
-            'time_shift': ConjureFieldDefinition('timeShift', scout_compute_api_TimeShiftedFrame),
-            'with_numeric_series': ConjureFieldDefinition('withNumericSeries', scout_compute_api_WithNumericSeriesFrame),
-            'named_reference': ConjureFieldDefinition('namedReference', scout_compute_api_FrameReference)
-        }
-
-    def __init__(
-            self,
-            asset: Optional["scout_compute_api_Asset"] = None,
-            dataset: Optional["scout_compute_api_Dataset"] = None,
-            search: Optional["scout_compute_api_SearchFrame"] = None,
-            combine_assets: Optional["scout_compute_api_CombineAssetsFrame"] = None,
-            combine_runs: Optional["scout_compute_api_CombineRunsFrame"] = None,
-            combine: Optional["scout_compute_api_CombinedFrame"] = None,
-            tag: Optional["scout_compute_api_TaggedFrame"] = None,
-            filter: Optional["scout_compute_api_FilteredFrame"] = None,
-            time_shift: Optional["scout_compute_api_TimeShiftedFrame"] = None,
-            with_numeric_series: Optional["scout_compute_api_WithNumericSeriesFrame"] = None,
-            named_reference: Optional["scout_compute_api_FrameReference"] = None,
-            type_of_union: Optional[str] = None
-            ) -> None:
-        if type_of_union is None:
-            if (asset is not None) + (dataset is not None) + (search is not None) + (combine_assets is not None) + (combine_runs is not None) + (combine is not None) + (tag is not None) + (filter is not None) + (time_shift is not None) + (with_numeric_series is not None) + (named_reference is not None) != 1:
-                raise ValueError('a union must contain a single member')
-
-            if asset is not None:
-                self._asset = asset
-                self._type = 'asset'
-            if dataset is not None:
-                self._dataset = dataset
-                self._type = 'dataset'
-            if search is not None:
-                self._search = search
-                self._type = 'search'
-            if combine_assets is not None:
-                self._combine_assets = combine_assets
-                self._type = 'combineAssets'
-            if combine_runs is not None:
-                self._combine_runs = combine_runs
-                self._type = 'combineRuns'
-            if combine is not None:
-                self._combine = combine
-                self._type = 'combine'
-            if tag is not None:
-                self._tag = tag
-                self._type = 'tag'
-            if filter is not None:
-                self._filter = filter
-                self._type = 'filter'
-            if time_shift is not None:
-                self._time_shift = time_shift
-                self._type = 'timeShift'
-            if with_numeric_series is not None:
-                self._with_numeric_series = with_numeric_series
-                self._type = 'withNumericSeries'
-            if named_reference is not None:
-                self._named_reference = named_reference
-                self._type = 'namedReference'
-
-        elif type_of_union == 'asset':
-            if asset is None:
-                raise ValueError('a union value must not be None')
-            self._asset = asset
-            self._type = 'asset'
-        elif type_of_union == 'dataset':
-            if dataset is None:
-                raise ValueError('a union value must not be None')
-            self._dataset = dataset
-            self._type = 'dataset'
-        elif type_of_union == 'search':
-            if search is None:
-                raise ValueError('a union value must not be None')
-            self._search = search
-            self._type = 'search'
-        elif type_of_union == 'combineAssets':
-            if combine_assets is None:
-                raise ValueError('a union value must not be None')
-            self._combine_assets = combine_assets
-            self._type = 'combineAssets'
-        elif type_of_union == 'combineRuns':
-            if combine_runs is None:
-                raise ValueError('a union value must not be None')
-            self._combine_runs = combine_runs
-            self._type = 'combineRuns'
-        elif type_of_union == 'combine':
-            if combine is None:
-                raise ValueError('a union value must not be None')
-            self._combine = combine
-            self._type = 'combine'
-        elif type_of_union == 'tag':
-            if tag is None:
-                raise ValueError('a union value must not be None')
-            self._tag = tag
-            self._type = 'tag'
-        elif type_of_union == 'filter':
-            if filter is None:
-                raise ValueError('a union value must not be None')
-            self._filter = filter
-            self._type = 'filter'
-        elif type_of_union == 'timeShift':
-            if time_shift is None:
-                raise ValueError('a union value must not be None')
-            self._time_shift = time_shift
-            self._type = 'timeShift'
-        elif type_of_union == 'withNumericSeries':
-            if with_numeric_series is None:
-                raise ValueError('a union value must not be None')
-            self._with_numeric_series = with_numeric_series
-            self._type = 'withNumericSeries'
-        elif type_of_union == 'namedReference':
-            if named_reference is None:
-                raise ValueError('a union value must not be None')
-            self._named_reference = named_reference
-            self._type = 'namedReference'
-
-    @builtins.property
-    def asset(self) -> Optional["scout_compute_api_Asset"]:
-        return self._asset
-
-    @builtins.property
-    def dataset(self) -> Optional["scout_compute_api_Dataset"]:
-        return self._dataset
-
-    @builtins.property
-    def search(self) -> Optional["scout_compute_api_SearchFrame"]:
-        return self._search
-
-    @builtins.property
-    def combine_assets(self) -> Optional["scout_compute_api_CombineAssetsFrame"]:
-        return self._combine_assets
-
-    @builtins.property
-    def combine_runs(self) -> Optional["scout_compute_api_CombineRunsFrame"]:
-        return self._combine_runs
-
-    @builtins.property
-    def combine(self) -> Optional["scout_compute_api_CombinedFrame"]:
-        return self._combine
-
-    @builtins.property
-    def tag(self) -> Optional["scout_compute_api_TaggedFrame"]:
-        return self._tag
-
-    @builtins.property
-    def filter(self) -> Optional["scout_compute_api_FilteredFrame"]:
-        return self._filter
-
-    @builtins.property
-    def time_shift(self) -> Optional["scout_compute_api_TimeShiftedFrame"]:
-        return self._time_shift
-
-    @builtins.property
-    def with_numeric_series(self) -> Optional["scout_compute_api_WithNumericSeriesFrame"]:
-        return self._with_numeric_series
-
-    @builtins.property
-    def named_reference(self) -> Optional["scout_compute_api_FrameReference"]:
-        return self._named_reference
-
-    def accept(self, visitor) -> Any:
-        if not isinstance(visitor, scout_compute_api_TimeSeriesFrameVisitor):
-            raise ValueError('{} is not an instance of scout_compute_api_TimeSeriesFrameVisitor'.format(visitor.__class__.__name__))
-        if self._type == 'asset' and self.asset is not None:
-            return visitor._asset(self.asset)
-        if self._type == 'dataset' and self.dataset is not None:
-            return visitor._dataset(self.dataset)
-        if self._type == 'search' and self.search is not None:
-            return visitor._search(self.search)
-        if self._type == 'combineAssets' and self.combine_assets is not None:
-            return visitor._combine_assets(self.combine_assets)
-        if self._type == 'combineRuns' and self.combine_runs is not None:
-            return visitor._combine_runs(self.combine_runs)
-        if self._type == 'combine' and self.combine is not None:
-            return visitor._combine(self.combine)
-        if self._type == 'tag' and self.tag is not None:
-            return visitor._tag(self.tag)
-        if self._type == 'filter' and self.filter is not None:
-            return visitor._filter(self.filter)
-        if self._type == 'timeShift' and self.time_shift is not None:
-            return visitor._time_shift(self.time_shift)
-        if self._type == 'withNumericSeries' and self.with_numeric_series is not None:
-            return visitor._with_numeric_series(self.with_numeric_series)
-        if self._type == 'namedReference' and self.named_reference is not None:
-            return visitor._named_reference(self.named_reference)
-
-
-scout_compute_api_TimeSeriesFrame.__name__ = "TimeSeriesFrame"
-scout_compute_api_TimeSeriesFrame.__qualname__ = "TimeSeriesFrame"
-scout_compute_api_TimeSeriesFrame.__module__ = "nominal_api.scout_compute_api"
-
-
-class scout_compute_api_TimeSeriesFrameVisitor:
-
-    @abstractmethod
-    def _asset(self, asset: "scout_compute_api_Asset") -> Any:
-        pass
-
-    @abstractmethod
-    def _dataset(self, dataset: "scout_compute_api_Dataset") -> Any:
-        pass
-
-    @abstractmethod
-    def _search(self, search: "scout_compute_api_SearchFrame") -> Any:
-        pass
-
-    @abstractmethod
-    def _combine_assets(self, combine_assets: "scout_compute_api_CombineAssetsFrame") -> Any:
-        pass
-
-    @abstractmethod
-    def _combine_runs(self, combine_runs: "scout_compute_api_CombineRunsFrame") -> Any:
-        pass
-
-    @abstractmethod
-    def _combine(self, combine: "scout_compute_api_CombinedFrame") -> Any:
-        pass
-
-    @abstractmethod
-    def _tag(self, tag: "scout_compute_api_TaggedFrame") -> Any:
-        pass
-
-    @abstractmethod
-    def _filter(self, filter: "scout_compute_api_FilteredFrame") -> Any:
-        pass
-
-    @abstractmethod
-    def _time_shift(self, time_shift: "scout_compute_api_TimeShiftedFrame") -> Any:
-        pass
-
-    @abstractmethod
-    def _with_numeric_series(self, with_numeric_series: "scout_compute_api_WithNumericSeriesFrame") -> Any:
-        pass
-
-    @abstractmethod
-    def _named_reference(self, named_reference: "scout_compute_api_FrameReference") -> Any:
-        pass
-
-
-scout_compute_api_TimeSeriesFrameVisitor.__name__ = "TimeSeriesFrameVisitor"
-scout_compute_api_TimeSeriesFrameVisitor.__qualname__ = "TimeSeriesFrameVisitor"
-scout_compute_api_TimeSeriesFrameVisitor.__module__ = "nominal_api.scout_compute_api"
-
-
 class scout_compute_api_TimeShiftedFrame(ConjureBeanType):
-    """Transforms a time series frame by adding a time offset to all its data.
+    """Transforms a frame by adding a time offset to all its data.
     """
 
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
-            'input': ConjureFieldDefinition('input', scout_compute_api_TimeSeriesFrame),
+            'input': ConjureFieldDefinition('input', scout_compute_api_DataFrame),
             'offset': ConjureFieldDefinition('offset', scout_compute_api_Duration)
         }
 
     __slots__: List[str] = ['_input', '_offset']
 
-    def __init__(self, input: "scout_compute_api_TimeSeriesFrame", offset: "scout_compute_api_Duration") -> None:
+    def __init__(self, input: "scout_compute_api_DataFrame", offset: "scout_compute_api_Duration") -> None:
         self._input = input
         self._offset = offset
 
     @builtins.property
-    def input(self) -> "scout_compute_api_TimeSeriesFrame":
+    def input(self) -> "scout_compute_api_DataFrame":
         """The underlying frame to time-shift.
         """
         return self._input
@@ -70584,6 +70865,50 @@ scout_compute_api_WindowSymmetry.__qualname__ = "WindowSymmetry"
 scout_compute_api_WindowSymmetry.__module__ = "nominal_api.scout_compute_api"
 
 
+class scout_compute_api_WithEnumSeriesFrame(ConjureBeanType):
+    """Adds a derived enum series to the base frame. If a series with the same name already exists,
+then it will be replaced.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'input': ConjureFieldDefinition('input', scout_compute_api_DataFrame),
+            'name': ConjureFieldDefinition('name', scout_compute_api_StringConstant),
+            'definition': ConjureFieldDefinition('definition', scout_compute_api_EnumSeries)
+        }
+
+    __slots__: List[str] = ['_input', '_name', '_definition']
+
+    def __init__(self, definition: "scout_compute_api_EnumSeries", input: "scout_compute_api_DataFrame", name: "scout_compute_api_StringConstant") -> None:
+        self._input = input
+        self._name = name
+        self._definition = definition
+
+    @builtins.property
+    def input(self) -> "scout_compute_api_DataFrame":
+        """The base frame to which the new series will be added.
+        """
+        return self._input
+
+    @builtins.property
+    def name(self) -> "scout_compute_api_StringConstant":
+        """Name of the new derived series.
+        """
+        return self._name
+
+    @builtins.property
+    def definition(self) -> "scout_compute_api_EnumSeries":
+        """Compute expression defining the series values.
+        """
+        return self._definition
+
+
+scout_compute_api_WithEnumSeriesFrame.__name__ = "WithEnumSeriesFrame"
+scout_compute_api_WithEnumSeriesFrame.__qualname__ = "WithEnumSeriesFrame"
+scout_compute_api_WithEnumSeriesFrame.__module__ = "nominal_api.scout_compute_api"
+
+
 class scout_compute_api_WithNumericSeriesFrame(ConjureBeanType):
     """Adds a derived numeric series to the base frame. If a series with the same name already exists,
 then it will be replaced.
@@ -70592,20 +70917,20 @@ then it will be replaced.
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
-            'input': ConjureFieldDefinition('input', scout_compute_api_TimeSeriesFrame),
+            'input': ConjureFieldDefinition('input', scout_compute_api_DataFrame),
             'name': ConjureFieldDefinition('name', scout_compute_api_StringConstant),
             'definition': ConjureFieldDefinition('definition', scout_compute_api_NumericSeries)
         }
 
     __slots__: List[str] = ['_input', '_name', '_definition']
 
-    def __init__(self, definition: "scout_compute_api_NumericSeries", input: "scout_compute_api_TimeSeriesFrame", name: "scout_compute_api_StringConstant") -> None:
+    def __init__(self, definition: "scout_compute_api_NumericSeries", input: "scout_compute_api_DataFrame", name: "scout_compute_api_StringConstant") -> None:
         self._input = input
         self._name = name
         self._definition = definition
 
     @builtins.property
-    def input(self) -> "scout_compute_api_TimeSeriesFrame":
+    def input(self) -> "scout_compute_api_DataFrame":
         """The base frame to which the new series will be added.
         """
         return self._input
@@ -74250,8 +74575,9 @@ class scout_compute_resolved_api_EnumSeriesNode(ConjureUnionType):
     _raw: Optional["scout_compute_resolved_api_RawEnumSeriesNode"] = None
     _resample: Optional["scout_compute_resolved_api_EnumResampleSeriesNode"] = None
     _time_range_filter: Optional["scout_compute_resolved_api_EnumTimeRangeFilterSeriesNode"] = None
-    _time_shift: Optional["scout_compute_resolved_api_EnumTimeShiftSeriesNode"] = None
+    _time_shift: Optional["scout_compute_resolved_api_TimeShiftSeriesNode"] = None
     _union: Optional["scout_compute_resolved_api_EnumUnionSeriesNode"] = None
+    _tag_injection: Optional["scout_compute_resolved_api_TagInjectionSeriesNode"] = None
     _aggregate: Optional["scout_compute_resolved_api_AggregateEnumSeriesNode"] = None
     _filter_transformation: Optional["scout_compute_resolved_api_EnumFilterTransformationSeriesNode"] = None
     _value_map: Optional["scout_compute_resolved_api_ValueMapSeriesNode"] = None
@@ -74265,8 +74591,9 @@ class scout_compute_resolved_api_EnumSeriesNode(ConjureUnionType):
             'raw': ConjureFieldDefinition('raw', scout_compute_resolved_api_RawEnumSeriesNode),
             'resample': ConjureFieldDefinition('resample', scout_compute_resolved_api_EnumResampleSeriesNode),
             'time_range_filter': ConjureFieldDefinition('timeRangeFilter', scout_compute_resolved_api_EnumTimeRangeFilterSeriesNode),
-            'time_shift': ConjureFieldDefinition('timeShift', scout_compute_resolved_api_EnumTimeShiftSeriesNode),
+            'time_shift': ConjureFieldDefinition('timeShift', scout_compute_resolved_api_TimeShiftSeriesNode),
             'union': ConjureFieldDefinition('union', scout_compute_resolved_api_EnumUnionSeriesNode),
+            'tag_injection': ConjureFieldDefinition('tagInjection', scout_compute_resolved_api_TagInjectionSeriesNode),
             'aggregate': ConjureFieldDefinition('aggregate', scout_compute_resolved_api_AggregateEnumSeriesNode),
             'filter_transformation': ConjureFieldDefinition('filterTransformation', scout_compute_resolved_api_EnumFilterTransformationSeriesNode),
             'value_map': ConjureFieldDefinition('valueMap', scout_compute_resolved_api_ValueMapSeriesNode),
@@ -74280,8 +74607,9 @@ class scout_compute_resolved_api_EnumSeriesNode(ConjureUnionType):
             raw: Optional["scout_compute_resolved_api_RawEnumSeriesNode"] = None,
             resample: Optional["scout_compute_resolved_api_EnumResampleSeriesNode"] = None,
             time_range_filter: Optional["scout_compute_resolved_api_EnumTimeRangeFilterSeriesNode"] = None,
-            time_shift: Optional["scout_compute_resolved_api_EnumTimeShiftSeriesNode"] = None,
+            time_shift: Optional["scout_compute_resolved_api_TimeShiftSeriesNode"] = None,
             union: Optional["scout_compute_resolved_api_EnumUnionSeriesNode"] = None,
+            tag_injection: Optional["scout_compute_resolved_api_TagInjectionSeriesNode"] = None,
             aggregate: Optional["scout_compute_resolved_api_AggregateEnumSeriesNode"] = None,
             filter_transformation: Optional["scout_compute_resolved_api_EnumFilterTransformationSeriesNode"] = None,
             value_map: Optional["scout_compute_resolved_api_ValueMapSeriesNode"] = None,
@@ -74290,7 +74618,7 @@ class scout_compute_resolved_api_EnumSeriesNode(ConjureUnionType):
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (literal is not None) + (raw is not None) + (resample is not None) + (time_range_filter is not None) + (time_shift is not None) + (union is not None) + (aggregate is not None) + (filter_transformation is not None) + (value_map is not None) + (array_select is not None) + (extract_from_struct is not None) != 1:
+            if (literal is not None) + (raw is not None) + (resample is not None) + (time_range_filter is not None) + (time_shift is not None) + (union is not None) + (tag_injection is not None) + (aggregate is not None) + (filter_transformation is not None) + (value_map is not None) + (array_select is not None) + (extract_from_struct is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if literal is not None:
@@ -74311,6 +74639,9 @@ class scout_compute_resolved_api_EnumSeriesNode(ConjureUnionType):
             if union is not None:
                 self._union = union
                 self._type = 'union'
+            if tag_injection is not None:
+                self._tag_injection = tag_injection
+                self._type = 'tagInjection'
             if aggregate is not None:
                 self._aggregate = aggregate
                 self._type = 'aggregate'
@@ -74357,6 +74688,11 @@ class scout_compute_resolved_api_EnumSeriesNode(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._union = union
             self._type = 'union'
+        elif type_of_union == 'tagInjection':
+            if tag_injection is None:
+                raise ValueError('a union value must not be None')
+            self._tag_injection = tag_injection
+            self._type = 'tagInjection'
         elif type_of_union == 'aggregate':
             if aggregate is None:
                 raise ValueError('a union value must not be None')
@@ -74400,12 +74736,16 @@ class scout_compute_resolved_api_EnumSeriesNode(ConjureUnionType):
         return self._time_range_filter
 
     @builtins.property
-    def time_shift(self) -> Optional["scout_compute_resolved_api_EnumTimeShiftSeriesNode"]:
+    def time_shift(self) -> Optional["scout_compute_resolved_api_TimeShiftSeriesNode"]:
         return self._time_shift
 
     @builtins.property
     def union(self) -> Optional["scout_compute_resolved_api_EnumUnionSeriesNode"]:
         return self._union
+
+    @builtins.property
+    def tag_injection(self) -> Optional["scout_compute_resolved_api_TagInjectionSeriesNode"]:
+        return self._tag_injection
 
     @builtins.property
     def aggregate(self) -> Optional["scout_compute_resolved_api_AggregateEnumSeriesNode"]:
@@ -74442,6 +74782,8 @@ class scout_compute_resolved_api_EnumSeriesNode(ConjureUnionType):
             return visitor._time_shift(self.time_shift)
         if self._type == 'union' and self.union is not None:
             return visitor._union(self.union)
+        if self._type == 'tagInjection' and self.tag_injection is not None:
+            return visitor._tag_injection(self.tag_injection)
         if self._type == 'aggregate' and self.aggregate is not None:
             return visitor._aggregate(self.aggregate)
         if self._type == 'filterTransformation' and self.filter_transformation is not None:
@@ -74478,11 +74820,15 @@ class scout_compute_resolved_api_EnumSeriesNodeVisitor:
         pass
 
     @abstractmethod
-    def _time_shift(self, time_shift: "scout_compute_resolved_api_EnumTimeShiftSeriesNode") -> Any:
+    def _time_shift(self, time_shift: "scout_compute_resolved_api_TimeShiftSeriesNode") -> Any:
         pass
 
     @abstractmethod
     def _union(self, union: "scout_compute_resolved_api_EnumUnionSeriesNode") -> Any:
+        pass
+
+    @abstractmethod
+    def _tag_injection(self, tag_injection: "scout_compute_resolved_api_TagInjectionSeriesNode") -> Any:
         pass
 
     @abstractmethod
@@ -74546,35 +74892,6 @@ scout_compute_resolved_api_EnumTimeRangeFilterSeriesNode.__qualname__ = "EnumTim
 scout_compute_resolved_api_EnumTimeRangeFilterSeriesNode.__module__ = "nominal_api.scout_compute_resolved_api"
 
 
-class scout_compute_resolved_api_EnumTimeShiftSeriesNode(ConjureBeanType):
-
-    @builtins.classmethod
-    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
-        return {
-            'input': ConjureFieldDefinition('input', scout_compute_resolved_api_EnumSeriesNode),
-            'duration': ConjureFieldDefinition('duration', scout_run_api_Duration)
-        }
-
-    __slots__: List[str] = ['_input', '_duration']
-
-    def __init__(self, duration: "scout_run_api_Duration", input: "scout_compute_resolved_api_EnumSeriesNode") -> None:
-        self._input = input
-        self._duration = duration
-
-    @builtins.property
-    def input(self) -> "scout_compute_resolved_api_EnumSeriesNode":
-        return self._input
-
-    @builtins.property
-    def duration(self) -> "scout_run_api_Duration":
-        return self._duration
-
-
-scout_compute_resolved_api_EnumTimeShiftSeriesNode.__name__ = "EnumTimeShiftSeriesNode"
-scout_compute_resolved_api_EnumTimeShiftSeriesNode.__qualname__ = "EnumTimeShiftSeriesNode"
-scout_compute_resolved_api_EnumTimeShiftSeriesNode.__module__ = "nominal_api.scout_compute_resolved_api"
-
-
 class scout_compute_resolved_api_EnumToNumericSeriesNode(ConjureBeanType):
 
     @builtins.classmethod
@@ -74611,17 +74928,22 @@ scout_compute_resolved_api_EnumToNumericSeriesNode.__module__ = "nominal_api.sco
 
 
 class scout_compute_resolved_api_EnumUnionSeriesNode(ConjureBeanType):
+    """Combines multiple enum series into one. If {@code operation} is present, duplicate
+timestamps within a tag group are merged by the given operation. If {@code operation} is
+absent, the inputs are concatenated (SQL {@code UNION ALL}) and duplicate timestamps are
+preserved; callers that need aggregation should wrap the output downstream.
+    """
 
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
             'input': ConjureFieldDefinition('input', List[scout_compute_resolved_api_EnumSeriesNode]),
-            'operation': ConjureFieldDefinition('operation', scout_compute_api_EnumUnionOperation)
+            'operation': ConjureFieldDefinition('operation', OptionalTypeWrapper[scout_compute_api_EnumUnionOperation])
         }
 
     __slots__: List[str] = ['_input', '_operation']
 
-    def __init__(self, input: List["scout_compute_resolved_api_EnumSeriesNode"], operation: "scout_compute_api_EnumUnionOperation") -> None:
+    def __init__(self, input: List["scout_compute_resolved_api_EnumSeriesNode"], operation: Optional["scout_compute_api_EnumUnionOperation"] = None) -> None:
         self._input = input
         self._operation = operation
 
@@ -74630,7 +74952,7 @@ class scout_compute_resolved_api_EnumUnionSeriesNode(ConjureBeanType):
         return self._input
 
     @builtins.property
-    def operation(self) -> "scout_compute_api_EnumUnionOperation":
+    def operation(self) -> Optional["scout_compute_api_EnumUnionOperation"]:
         return self._operation
 
 
@@ -76312,33 +76634,6 @@ scout_compute_resolved_api_NumericArraySeriesNodeVisitor.__qualname__ = "Numeric
 scout_compute_resolved_api_NumericArraySeriesNodeVisitor.__module__ = "nominal_api.scout_compute_resolved_api"
 
 
-class scout_compute_resolved_api_NumericCombineWithTagsSeriesNode(ConjureBeanType):
-    """Concatenates multiple numeric series into a single series without aggregating duplicate timestamps.
-Each entry is a NumericTagInjectionSeriesNode. All entries must use the same tag keys with different 
-tag values.
-    """
-
-    @builtins.classmethod
-    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
-        return {
-            'combine_with_tags': ConjureFieldDefinition('combineWithTags', List[scout_compute_resolved_api_NumericTagInjectionSeriesNode])
-        }
-
-    __slots__: List[str] = ['_combine_with_tags']
-
-    def __init__(self, combine_with_tags: List["scout_compute_resolved_api_NumericTagInjectionSeriesNode"]) -> None:
-        self._combine_with_tags = combine_with_tags
-
-    @builtins.property
-    def combine_with_tags(self) -> List["scout_compute_resolved_api_NumericTagInjectionSeriesNode"]:
-        return self._combine_with_tags
-
-
-scout_compute_resolved_api_NumericCombineWithTagsSeriesNode.__name__ = "NumericCombineWithTagsSeriesNode"
-scout_compute_resolved_api_NumericCombineWithTagsSeriesNode.__qualname__ = "NumericCombineWithTagsSeriesNode"
-scout_compute_resolved_api_NumericCombineWithTagsSeriesNode.__module__ = "nominal_api.scout_compute_resolved_api"
-
-
 class scout_compute_resolved_api_NumericFilterTransformationSeriesNode(ConjureBeanType):
     """Outputs the values of the numeric plot value within the ranges specified by a ranges node
     """
@@ -76578,12 +76873,11 @@ class scout_compute_resolved_api_NumericSeriesNode(ConjureUnionType):
     _signal_filter: Optional["scout_compute_resolved_api_SignalFilterSeriesNode"] = None
     _sum: Optional["scout_compute_resolved_api_SumSeriesNode"] = None
     _scale: Optional["scout_compute_resolved_api_ScaleSeriesNode"] = None
-    _tag_injection: Optional["scout_compute_resolved_api_NumericTagInjectionSeriesNode"] = None
+    _tag_injection: Optional["scout_compute_resolved_api_TagInjectionSeriesNode"] = None
     _time_difference: Optional["scout_compute_resolved_api_TimeDifferenceSeriesNode"] = None
     _time_range_filter: Optional["scout_compute_resolved_api_NumericTimeRangeFilterSeriesNode"] = None
-    _time_shift: Optional["scout_compute_resolved_api_NumericTimeShiftSeriesNode"] = None
+    _time_shift: Optional["scout_compute_resolved_api_TimeShiftSeriesNode"] = None
     _union: Optional["scout_compute_resolved_api_NumericUnionSeriesNode"] = None
-    _combine_with_tags: Optional["scout_compute_resolved_api_NumericCombineWithTagsSeriesNode"] = None
     _unit_conversion: Optional["scout_compute_resolved_api_UnitConversionSeriesNode"] = None
     _value_difference: Optional["scout_compute_resolved_api_ValueDifferenceSeriesNode"] = None
     _filter_transformation: Optional["scout_compute_resolved_api_NumericFilterTransformationSeriesNode"] = None
@@ -76624,12 +76918,11 @@ class scout_compute_resolved_api_NumericSeriesNode(ConjureUnionType):
             'signal_filter': ConjureFieldDefinition('signalFilter', scout_compute_resolved_api_SignalFilterSeriesNode),
             'sum': ConjureFieldDefinition('sum', scout_compute_resolved_api_SumSeriesNode),
             'scale': ConjureFieldDefinition('scale', scout_compute_resolved_api_ScaleSeriesNode),
-            'tag_injection': ConjureFieldDefinition('tagInjection', scout_compute_resolved_api_NumericTagInjectionSeriesNode),
+            'tag_injection': ConjureFieldDefinition('tagInjection', scout_compute_resolved_api_TagInjectionSeriesNode),
             'time_difference': ConjureFieldDefinition('timeDifference', scout_compute_resolved_api_TimeDifferenceSeriesNode),
             'time_range_filter': ConjureFieldDefinition('timeRangeFilter', scout_compute_resolved_api_NumericTimeRangeFilterSeriesNode),
-            'time_shift': ConjureFieldDefinition('timeShift', scout_compute_resolved_api_NumericTimeShiftSeriesNode),
+            'time_shift': ConjureFieldDefinition('timeShift', scout_compute_resolved_api_TimeShiftSeriesNode),
             'union': ConjureFieldDefinition('union', scout_compute_resolved_api_NumericUnionSeriesNode),
-            'combine_with_tags': ConjureFieldDefinition('combineWithTags', scout_compute_resolved_api_NumericCombineWithTagsSeriesNode),
             'unit_conversion': ConjureFieldDefinition('unitConversion', scout_compute_resolved_api_UnitConversionSeriesNode),
             'value_difference': ConjureFieldDefinition('valueDifference', scout_compute_resolved_api_ValueDifferenceSeriesNode),
             'filter_transformation': ConjureFieldDefinition('filterTransformation', scout_compute_resolved_api_NumericFilterTransformationSeriesNode),
@@ -76670,12 +76963,11 @@ class scout_compute_resolved_api_NumericSeriesNode(ConjureUnionType):
             signal_filter: Optional["scout_compute_resolved_api_SignalFilterSeriesNode"] = None,
             sum: Optional["scout_compute_resolved_api_SumSeriesNode"] = None,
             scale: Optional["scout_compute_resolved_api_ScaleSeriesNode"] = None,
-            tag_injection: Optional["scout_compute_resolved_api_NumericTagInjectionSeriesNode"] = None,
+            tag_injection: Optional["scout_compute_resolved_api_TagInjectionSeriesNode"] = None,
             time_difference: Optional["scout_compute_resolved_api_TimeDifferenceSeriesNode"] = None,
             time_range_filter: Optional["scout_compute_resolved_api_NumericTimeRangeFilterSeriesNode"] = None,
-            time_shift: Optional["scout_compute_resolved_api_NumericTimeShiftSeriesNode"] = None,
+            time_shift: Optional["scout_compute_resolved_api_TimeShiftSeriesNode"] = None,
             union: Optional["scout_compute_resolved_api_NumericUnionSeriesNode"] = None,
-            combine_with_tags: Optional["scout_compute_resolved_api_NumericCombineWithTagsSeriesNode"] = None,
             unit_conversion: Optional["scout_compute_resolved_api_UnitConversionSeriesNode"] = None,
             value_difference: Optional["scout_compute_resolved_api_ValueDifferenceSeriesNode"] = None,
             filter_transformation: Optional["scout_compute_resolved_api_NumericFilterTransformationSeriesNode"] = None,
@@ -76695,7 +76987,7 @@ class scout_compute_resolved_api_NumericSeriesNode(ConjureUnionType):
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (constant is not None) + (arithmetic is not None) + (bit_operation is not None) + (count_duplicate is not None) + (cumulative_sum is not None) + (derivative is not None) + (integral is not None) + (max is not None) + (mean is not None) + (min is not None) + (offset is not None) + (product is not None) + (oldest_points is not None) + (raw is not None) + (resample is not None) + (rolling_operation is not None) + (aggregate is not None) + (signal_filter is not None) + (sum is not None) + (scale is not None) + (tag_injection is not None) + (time_difference is not None) + (time_range_filter is not None) + (time_shift is not None) + (union is not None) + (combine_with_tags is not None) + (unit_conversion is not None) + (value_difference is not None) + (filter_transformation is not None) + (threshold_filter is not None) + (drop_nan is not None) + (array_select is not None) + (absolute_timestamp is not None) + (newest_points is not None) + (ranges_numeric_aggregation_to_numeric is not None) + (filter_by_expression is not None) + (scalar_udf is not None) + (enum_to_numeric is not None) + (refprop is not None) + (extract_from_struct is not None) + (z_score is not None) + (tag_by_intervals is not None) != 1:
+            if (constant is not None) + (arithmetic is not None) + (bit_operation is not None) + (count_duplicate is not None) + (cumulative_sum is not None) + (derivative is not None) + (integral is not None) + (max is not None) + (mean is not None) + (min is not None) + (offset is not None) + (product is not None) + (oldest_points is not None) + (raw is not None) + (resample is not None) + (rolling_operation is not None) + (aggregate is not None) + (signal_filter is not None) + (sum is not None) + (scale is not None) + (tag_injection is not None) + (time_difference is not None) + (time_range_filter is not None) + (time_shift is not None) + (union is not None) + (unit_conversion is not None) + (value_difference is not None) + (filter_transformation is not None) + (threshold_filter is not None) + (drop_nan is not None) + (array_select is not None) + (absolute_timestamp is not None) + (newest_points is not None) + (ranges_numeric_aggregation_to_numeric is not None) + (filter_by_expression is not None) + (scalar_udf is not None) + (enum_to_numeric is not None) + (refprop is not None) + (extract_from_struct is not None) + (z_score is not None) + (tag_by_intervals is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if constant is not None:
@@ -76773,9 +77065,6 @@ class scout_compute_resolved_api_NumericSeriesNode(ConjureUnionType):
             if union is not None:
                 self._union = union
                 self._type = 'union'
-            if combine_with_tags is not None:
-                self._combine_with_tags = combine_with_tags
-                self._type = 'combineWithTags'
             if unit_conversion is not None:
                 self._unit_conversion = unit_conversion
                 self._type = 'unitConversion'
@@ -76950,11 +77239,6 @@ class scout_compute_resolved_api_NumericSeriesNode(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._union = union
             self._type = 'union'
-        elif type_of_union == 'combineWithTags':
-            if combine_with_tags is None:
-                raise ValueError('a union value must not be None')
-            self._combine_with_tags = combine_with_tags
-            self._type = 'combineWithTags'
         elif type_of_union == 'unitConversion':
             if unit_conversion is None:
                 raise ValueError('a union value must not be None')
@@ -77117,7 +77401,7 @@ class scout_compute_resolved_api_NumericSeriesNode(ConjureUnionType):
         return self._scale
 
     @builtins.property
-    def tag_injection(self) -> Optional["scout_compute_resolved_api_NumericTagInjectionSeriesNode"]:
+    def tag_injection(self) -> Optional["scout_compute_resolved_api_TagInjectionSeriesNode"]:
         return self._tag_injection
 
     @builtins.property
@@ -77129,16 +77413,12 @@ class scout_compute_resolved_api_NumericSeriesNode(ConjureUnionType):
         return self._time_range_filter
 
     @builtins.property
-    def time_shift(self) -> Optional["scout_compute_resolved_api_NumericTimeShiftSeriesNode"]:
+    def time_shift(self) -> Optional["scout_compute_resolved_api_TimeShiftSeriesNode"]:
         return self._time_shift
 
     @builtins.property
     def union(self) -> Optional["scout_compute_resolved_api_NumericUnionSeriesNode"]:
         return self._union
-
-    @builtins.property
-    def combine_with_tags(self) -> Optional["scout_compute_resolved_api_NumericCombineWithTagsSeriesNode"]:
-        return self._combine_with_tags
 
     @builtins.property
     def unit_conversion(self) -> Optional["scout_compute_resolved_api_UnitConversionSeriesNode"]:
@@ -77257,8 +77537,6 @@ class scout_compute_resolved_api_NumericSeriesNode(ConjureUnionType):
             return visitor._time_shift(self.time_shift)
         if self._type == 'union' and self.union is not None:
             return visitor._union(self.union)
-        if self._type == 'combineWithTags' and self.combine_with_tags is not None:
-            return visitor._combine_with_tags(self.combine_with_tags)
         if self._type == 'unitConversion' and self.unit_conversion is not None:
             return visitor._unit_conversion(self.unit_conversion)
         if self._type == 'valueDifference' and self.value_difference is not None:
@@ -77381,7 +77659,7 @@ class scout_compute_resolved_api_NumericSeriesNodeVisitor:
         pass
 
     @abstractmethod
-    def _tag_injection(self, tag_injection: "scout_compute_resolved_api_NumericTagInjectionSeriesNode") -> Any:
+    def _tag_injection(self, tag_injection: "scout_compute_resolved_api_TagInjectionSeriesNode") -> Any:
         pass
 
     @abstractmethod
@@ -77393,15 +77671,11 @@ class scout_compute_resolved_api_NumericSeriesNodeVisitor:
         pass
 
     @abstractmethod
-    def _time_shift(self, time_shift: "scout_compute_resolved_api_NumericTimeShiftSeriesNode") -> Any:
+    def _time_shift(self, time_shift: "scout_compute_resolved_api_TimeShiftSeriesNode") -> Any:
         pass
 
     @abstractmethod
     def _union(self, union: "scout_compute_resolved_api_NumericUnionSeriesNode") -> Any:
-        pass
-
-    @abstractmethod
-    def _combine_with_tags(self, combine_with_tags: "scout_compute_resolved_api_NumericCombineWithTagsSeriesNode") -> Any:
         pass
 
     @abstractmethod
@@ -77472,38 +77746,6 @@ class scout_compute_resolved_api_NumericSeriesNodeVisitor:
 scout_compute_resolved_api_NumericSeriesNodeVisitor.__name__ = "NumericSeriesNodeVisitor"
 scout_compute_resolved_api_NumericSeriesNodeVisitor.__qualname__ = "NumericSeriesNodeVisitor"
 scout_compute_resolved_api_NumericSeriesNodeVisitor.__module__ = "nominal_api.scout_compute_resolved_api"
-
-
-class scout_compute_resolved_api_NumericTagInjectionSeriesNode(ConjureBeanType):
-    """Injects constant tag key-value pairs into a series for downstream grouping or filtering.
-No injected key may already exist on the input grouping tags.
-    """
-
-    @builtins.classmethod
-    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
-        return {
-            'input': ConjureFieldDefinition('input', scout_compute_resolved_api_NumericSeriesNode),
-            'tags': ConjureFieldDefinition('tags', Dict[str, str])
-        }
-
-    __slots__: List[str] = ['_input', '_tags']
-
-    def __init__(self, input: "scout_compute_resolved_api_NumericSeriesNode", tags: Dict[str, str]) -> None:
-        self._input = input
-        self._tags = tags
-
-    @builtins.property
-    def input(self) -> "scout_compute_resolved_api_NumericSeriesNode":
-        return self._input
-
-    @builtins.property
-    def tags(self) -> Dict[str, str]:
-        return self._tags
-
-
-scout_compute_resolved_api_NumericTagInjectionSeriesNode.__name__ = "NumericTagInjectionSeriesNode"
-scout_compute_resolved_api_NumericTagInjectionSeriesNode.__qualname__ = "NumericTagInjectionSeriesNode"
-scout_compute_resolved_api_NumericTagInjectionSeriesNode.__module__ = "nominal_api.scout_compute_resolved_api"
 
 
 class scout_compute_resolved_api_NumericThresholdFilterSeriesNode(ConjureBeanType):
@@ -77579,47 +77821,23 @@ scout_compute_resolved_api_NumericTimeRangeFilterSeriesNode.__qualname__ = "Nume
 scout_compute_resolved_api_NumericTimeRangeFilterSeriesNode.__module__ = "nominal_api.scout_compute_resolved_api"
 
 
-class scout_compute_resolved_api_NumericTimeShiftSeriesNode(ConjureBeanType):
-
-    @builtins.classmethod
-    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
-        return {
-            'input': ConjureFieldDefinition('input', scout_compute_resolved_api_NumericSeriesNode),
-            'duration': ConjureFieldDefinition('duration', scout_run_api_Duration)
-        }
-
-    __slots__: List[str] = ['_input', '_duration']
-
-    def __init__(self, duration: "scout_run_api_Duration", input: "scout_compute_resolved_api_NumericSeriesNode") -> None:
-        self._input = input
-        self._duration = duration
-
-    @builtins.property
-    def input(self) -> "scout_compute_resolved_api_NumericSeriesNode":
-        return self._input
-
-    @builtins.property
-    def duration(self) -> "scout_run_api_Duration":
-        return self._duration
-
-
-scout_compute_resolved_api_NumericTimeShiftSeriesNode.__name__ = "NumericTimeShiftSeriesNode"
-scout_compute_resolved_api_NumericTimeShiftSeriesNode.__qualname__ = "NumericTimeShiftSeriesNode"
-scout_compute_resolved_api_NumericTimeShiftSeriesNode.__module__ = "nominal_api.scout_compute_resolved_api"
-
-
 class scout_compute_resolved_api_NumericUnionSeriesNode(ConjureBeanType):
+    """Combines multiple numeric series into one. If {@code operation} is present, duplicate
+timestamps within a tag group are merged by the given operation. If {@code operation} is
+absent, the inputs are concatenated (SQL {@code UNION ALL}) and duplicate timestamps are
+preserved; callers that need aggregation should wrap the output downstream.
+    """
 
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
             'input': ConjureFieldDefinition('input', List[scout_compute_resolved_api_NumericSeriesNode]),
-            'operation': ConjureFieldDefinition('operation', scout_compute_api_NumericUnionOperation)
+            'operation': ConjureFieldDefinition('operation', OptionalTypeWrapper[scout_compute_api_NumericUnionOperation])
         }
 
     __slots__: List[str] = ['_input', '_operation']
 
-    def __init__(self, input: List["scout_compute_resolved_api_NumericSeriesNode"], operation: "scout_compute_api_NumericUnionOperation") -> None:
+    def __init__(self, input: List["scout_compute_resolved_api_NumericSeriesNode"], operation: Optional["scout_compute_api_NumericUnionOperation"] = None) -> None:
         self._input = input
         self._operation = operation
 
@@ -77628,7 +77846,7 @@ class scout_compute_resolved_api_NumericUnionSeriesNode(ConjureBeanType):
         return self._input
 
     @builtins.property
-    def operation(self) -> "scout_compute_api_NumericUnionOperation":
+    def operation(self) -> Optional["scout_compute_api_NumericUnionOperation"]:
         return self._operation
 
 
@@ -80996,6 +81214,38 @@ scout_compute_resolved_api_TagFiltersVisitor.__qualname__ = "TagFiltersVisitor"
 scout_compute_resolved_api_TagFiltersVisitor.__module__ = "nominal_api.scout_compute_resolved_api"
 
 
+class scout_compute_resolved_api_TagInjectionSeriesNode(ConjureBeanType):
+    """Injects constant tag key-value pairs into a series for downstream grouping or filtering.
+No injected key may already exist on the input grouping tags.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'input': ConjureFieldDefinition('input', scout_compute_resolved_api_SeriesNode),
+            'tags': ConjureFieldDefinition('tags', Dict[str, str])
+        }
+
+    __slots__: List[str] = ['_input', '_tags']
+
+    def __init__(self, input: "scout_compute_resolved_api_SeriesNode", tags: Dict[str, str]) -> None:
+        self._input = input
+        self._tags = tags
+
+    @builtins.property
+    def input(self) -> "scout_compute_resolved_api_SeriesNode":
+        return self._input
+
+    @builtins.property
+    def tags(self) -> Dict[str, str]:
+        return self._tags
+
+
+scout_compute_resolved_api_TagInjectionSeriesNode.__name__ = "TagInjectionSeriesNode"
+scout_compute_resolved_api_TagInjectionSeriesNode.__qualname__ = "TagInjectionSeriesNode"
+scout_compute_resolved_api_TagInjectionSeriesNode.__module__ = "nominal_api.scout_compute_resolved_api"
+
+
 class scout_compute_resolved_api_TaggedInterval(ConjureBeanType):
 
     @builtins.classmethod
@@ -81239,6 +81489,35 @@ class scout_compute_resolved_api_TimeSeriesFitOptions(ConjureBeanType):
 scout_compute_resolved_api_TimeSeriesFitOptions.__name__ = "TimeSeriesFitOptions"
 scout_compute_resolved_api_TimeSeriesFitOptions.__qualname__ = "TimeSeriesFitOptions"
 scout_compute_resolved_api_TimeSeriesFitOptions.__module__ = "nominal_api.scout_compute_resolved_api"
+
+
+class scout_compute_resolved_api_TimeShiftSeriesNode(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'input': ConjureFieldDefinition('input', scout_compute_resolved_api_SeriesNode),
+            'duration': ConjureFieldDefinition('duration', scout_run_api_Duration)
+        }
+
+    __slots__: List[str] = ['_input', '_duration']
+
+    def __init__(self, duration: "scout_run_api_Duration", input: "scout_compute_resolved_api_SeriesNode") -> None:
+        self._input = input
+        self._duration = duration
+
+    @builtins.property
+    def input(self) -> "scout_compute_resolved_api_SeriesNode":
+        return self._input
+
+    @builtins.property
+    def duration(self) -> "scout_run_api_Duration":
+        return self._duration
+
+
+scout_compute_resolved_api_TimeShiftSeriesNode.__name__ = "TimeShiftSeriesNode"
+scout_compute_resolved_api_TimeShiftSeriesNode.__qualname__ = "TimeShiftSeriesNode"
+scout_compute_resolved_api_TimeShiftSeriesNode.__module__ = "nominal_api.scout_compute_resolved_api"
 
 
 class scout_compute_resolved_api_UnionRangesNode(ConjureBeanType):

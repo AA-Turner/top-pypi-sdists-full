@@ -45,6 +45,17 @@ DATABASE_URI = env("DATABASE_URI", cast=str, default=getenv("POSTGRES_URI", unde
 # Not in public docs: infrastructure, set by platform
 MIGRATIONS_PATH = env("MIGRATIONS_PATH", cast=str, default="/storage/migrations")
 POSTGRES_POOL_MAX_SIZE = env("LANGGRAPH_POSTGRES_POOL_MAX_SIZE", cast=int, default=150)
+
+# Checkpoint ingestion batch controls
+# Go defaults (core/config/config.go): CHECKPOINT_MAX_BATCH_SIZE=1000, CHECKPOINT_BATCH_DELAY=0.005 (5ms)
+# CHECKPOINT_BATCH_DELAY uses float seconds to match Go's time.Duration env parsing convention.
+# storage_postgres/Makefile sets these to the Go defaults for CI/local dev.
+# TODO(braa): flip these to match Go defaults once validated in production (LSD-1404)
+CHECKPOINT_MAX_BATCH_SIZE: int | None = env(
+    "CHECKPOINT_MAX_BATCH_SIZE", cast=int, default=None
+)
+CHECKPOINT_BATCH_DELAY: float = env("CHECKPOINT_BATCH_DELAY", cast=float, default=0.0)
+
 RESUMABLE_STREAM_TTL_SECONDS = env(
     "RESUMABLE_STREAM_TTL_SECONDS",
     cast=int,
@@ -579,6 +590,8 @@ __all__ = [
     "BG_JOB_SHUTDOWN_GRACE_PERIOD_SECS",
     "BG_JOB_TIMEOUT_SECS",
     "CHECKPOINTER_CONFIG",
+    "CHECKPOINT_BATCH_DELAY",
+    "CHECKPOINT_MAX_BATCH_SIZE",
     "CORS_ALLOW_ORIGINS",
     "CORS_CONFIG",
     "CRON_SCHEDULER_SLEEP_TIME",

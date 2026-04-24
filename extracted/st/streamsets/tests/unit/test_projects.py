@@ -121,13 +121,13 @@ def test_remove_user_raises_value_error(sample_project, new_user):
 
 
 def test_add_group_raises_value_error(sample_project, new_group):
-    new_group.group_id = None
+    new_group.id = None
     with pytest.raises(ValueError):
         sample_project.add_group(new_group)
 
 
 def test_remove_group_raises_value_error(sample_project, new_group):
-    new_group.group_id = None
+    new_group.id = None
     with pytest.raises(ValueError):
         sample_project.remove_group(new_group)
 
@@ -161,7 +161,7 @@ def test_add_group_does_not_add_already_existing_group(sample_project, new_group
 
     assert len(sample_project.groups) == previous_length + 1
     assert new_group in sample_project.groups
-    assert len(sample_project.groups.get_all(group_id=already_existing_group.group_id)) == 1
+    assert len(sample_project.groups.get_all(id=already_existing_group.id)) == 1
 
 
 def test_remove_user(sample_project):

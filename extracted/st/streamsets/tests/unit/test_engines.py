@@ -1,3 +1,7 @@
+#  IBM Confidential
+#  PID 5900-BAF
+#  Copyright StreamSets Inc., an IBM Company 2024
+
 # fmt: off
 from copy import deepcopy
 
@@ -5,6 +9,7 @@ import pytest
 
 from streamsets.sdk.sch_api import Command
 from streamsets.sdk.sch_models import CollectionModelResults, Engine, Engines
+from streamsets.sdk.utils import EngineType
 
 from .resources.engines_data import GET_ENGINE_RESPONSE_COLLECTOR_JSON, GET_ENGINE_RESPONSE_TRANSFORMER_JSON
 
@@ -112,7 +117,12 @@ def test_engines_get_with_id(engine_json, request):
 
 @pytest.mark.parametrize(
     "engine_json,engine_type",
-    [("get_engine_response_collector_json", "COLLECTOR"), ("get_engine_response_transformer_json", "TRANSFORMER")],
+    [
+        ("get_engine_response_collector_json", EngineType.COLLECTOR.value),
+        ("get_engine_response_transformer_json", EngineType.TRANSFORMER.value),
+        ("get_engine_response_collector_json", EngineType.COLLECTOR),
+        ("get_engine_response_transformer_json", EngineType.TRANSFORMER),
+    ],
 )
 def test_engines_get_with_id_and_type(engine_json, engine_type, request):
     engine_json = request.getfixturevalue(engine_json)
@@ -129,7 +139,12 @@ def test_engines_get_with_id_and_type(engine_json, engine_type, request):
 
 @pytest.mark.parametrize(
     "engine_json,engine_type",
-    [("get_engine_response_collector_json", "TRANSFORMER"), ("get_engine_response_transformer_json", "COLLECTOR")],
+    [
+        ("get_engine_response_collector_json", EngineType.TRANSFORMER.value),
+        ("get_engine_response_transformer_json", EngineType.COLLECTOR.value),
+        ("get_engine_response_collector_json", EngineType.TRANSFORMER),
+        ("get_engine_response_transformer_json", EngineType.COLLECTOR),
+    ],
 )
 def test_engines_get_with_incorrect_type(engine_json, engine_type, request):
     engine_json = request.getfixturevalue(engine_json)

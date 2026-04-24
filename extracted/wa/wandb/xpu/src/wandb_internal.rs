@@ -908,11 +908,35 @@ pub mod error_info {
         }
     }
 }
-/// RunExitRecord: exit status of process
+/// Complete the run and wait for it to upload.
+///
+/// This record is special because it is written to the transaction log
+/// but also requires a response, unlike other record types. It plays an
+/// important role in finishing a run: First, after sending this, the client
+/// guarantees not to send any more run-modifying records (but can still query
+/// things like OperationStats). Second, a response to this record means
+/// that all of the run's data has been uploaded.
+///
+/// After getting a response to this record, the client may make some final
+/// queries and must end with an "inform_finish" request to allow the internal
+/// service to clean up.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct RunExitRecord {
+    /// Whether to mark the run successful (if zero) or failed (if nonzero).
+    ///
+    /// Ignored if not_complete
     #[prost(int32, tag = "1")]
     pub exit_code: i32,
+    /// If set, keeps the run in the Running state instead of transitioning it
+    /// to a completed state.
+    ///
+    /// If not set, the value of the x_update_finish_state setting is used.
+    /// Prefer to rely on the setting instead of this field.
+    ///
+    /// This is used in "shared" mode by secondary nodes. Only the primary node
+    /// for a run sets its completion state.
+    #[prost(bool, tag = "3")]
+    pub not_complete: bool,
     #[prost(int32, tag = "2")]
     pub runtime: i32,
     #[prost(message, optional, tag = "200")]
@@ -1590,7 +1614,7 @@ pub struct AlertResult {}
 pub struct Request {
     #[prost(
         oneof = "request::RequestType",
-        tags = "1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 17, 20, 21, 23, 24, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 77, 78, 79, 81, 82, 83, 1000"
+        tags = "1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 17, 20, 21, 23, 24, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 77, 78, 81, 82, 83, 1000"
     )]
     pub request_type: ::core::option::Option<request::RequestType>,
 }
@@ -1662,8 +1686,6 @@ pub mod request {
         JobInput(super::JobInputRequest),
         #[prost(message, tag = "78")]
         LinkArtifact(super::LinkArtifactRequest),
-        #[prost(message, tag = "79")]
-        RunFinishWithoutExit(super::RunFinishWithoutExitRequest),
         #[prost(message, tag = "81")]
         SyncFinish(super::SyncFinishRequest),
         /// Requests information about tasks the service is performing.
@@ -1681,7 +1703,7 @@ pub mod request {
 pub struct Response {
     #[prost(
         oneof = "response::ResponseType",
-        tags = "18, 19, 20, 24, 25, 26, 27, 28, 29, 30, 31, 35, 36, 37, 64, 65, 66, 67, 68, 69, 71, 70, 72, 74, 1000"
+        tags = "18, 19, 20, 24, 25, 26, 27, 28, 29, 30, 31, 35, 36, 37, 64, 65, 66, 67, 68, 69, 71, 70, 74, 1000"
     )]
     pub response_type: ::core::option::Option<response::ResponseType>,
 }
@@ -1733,8 +1755,6 @@ pub mod response {
         LinkArtifactResponse(super::LinkArtifactResponse),
         #[prost(message, tag = "70")]
         SyncResponse(super::SyncResponse),
-        #[prost(message, tag = "72")]
-        RunFinishWithoutExitResponse(super::RunFinishWithoutExitResponse),
         #[prost(message, tag = "74")]
         OperationsResponse(super::OperationStatsResponse),
         #[prost(message, tag = "1000")]
@@ -2339,14 +2359,6 @@ pub struct RunStartRequest {
 }
 #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct RunStartResponse {}
-/// RunFinishWithoutExitRequest: finish the run without updating the exit status on the server
-#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
-pub struct RunFinishWithoutExitRequest {
-    #[prost(message, optional, tag = "200")]
-    pub info: ::core::option::Option<RequestInfo>,
-}
-#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
-pub struct RunFinishWithoutExitResponse {}
 /// CheckVersion:
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct CheckVersionRequest {

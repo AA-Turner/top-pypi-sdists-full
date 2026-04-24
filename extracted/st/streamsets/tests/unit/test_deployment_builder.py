@@ -1,4 +1,7 @@
-# Copyright Streamsets 2023
+#  IBM Confidential
+#  PID 5900-BAF
+#  Copyright StreamSets Inc., an IBM Company 2024
+
 import random
 
 # fmt: off
@@ -7,29 +10,29 @@ import pytest
 from streamsets.sdk.constants import (
     DEFAULT_MAX_CPU_LOAD_VALUE, DEFAULT_MAX_MEMORY_USED_VALUE, DEFAULT_MAX_PIPELINES_RUNNING_VALUE,
 )
-from streamsets.sdk.utils import get_random_string
+from streamsets.sdk.utils import DeploymentEngineType, EngineType, get_random_string
 
 # fmt: on
 
 DEFAULT_LOCATION_VALUE = None
 DEFAULT_LABEL_VALUE = None
 DEFAULT_TAGS_VALUE = None
-DEFAULT_ENGINE_BUILD_VALUE = None
+DEFAULT_ENGINE_BUILD_VALUE = "Released"
 DEFAULT_SCALA_BINARY_VALUE = None
 
 
 class MockEnvironment:
     def __init__(self):
         self.environment_type = 'SELF'
-        self.environment_id = '123456789'
+        self.id = '123456789'
 
 
 @pytest.fixture(scope="function")
-def passed_arguments():
-    passed_arguments = {
+def deployment_dc_arguments():
+    return {
         'deployment_name': 'deployment_name_{}'.format(get_random_string()),
         'engine_type': 'DC',
-        'engine_version': '5.1.0',
+        'engine_version': '5.10.0',
         'environment': MockEnvironment(),
         'external_resource_location': 'https::{}.com'.format(get_random_string()),
         'engine_labels': ['engine_label_{}'.format(get_random_string()), 'engine_label_{}'.format(get_random_string())],
@@ -40,10 +43,45 @@ def passed_arguments():
             'deployment_tag_{}'.format(get_random_string()),
             'deployment_tag_{}'.format(get_random_string()),
         ],
-        'engine_build': 'engine_build_{}'.format(get_random_string()),
-        'scala_binary_version': '1.4.0',
+        'engine_build': 'RC3',
+        'scala_binary_version': None,
     }
-    return passed_arguments
+
+
+@pytest.fixture(scope="function")
+def deployment_tf_arguments():
+    return {
+        'deployment_name': 'deployment_name_{}'.format(get_random_string()),
+        'engine_type': 'TF',
+        'engine_version': '5.10.0',
+        'environment': MockEnvironment(),
+        'external_resource_location': 'https::{}.com'.format(get_random_string()),
+        'engine_labels': ['engine_label_{}'.format(get_random_string()), 'engine_label_{}'.format(get_random_string())],
+        'max_cpu_load': random.randint(1, 10),
+        'max_memory_used': random.randint(1, 100),
+        'max_pipelines_running': random.randint(1, 100000),
+        'deployment_tags': [
+            'deployment_tag_{}'.format(get_random_string()),
+            'deployment_tag_{}'.format(get_random_string()),
+        ],
+        'engine_build': 'RC3',
+        'scala_binary_version': '2.12',
+    }
+
+
+@pytest.fixture(params=['deployment_dc_arguments', 'deployment_tf_arguments'])
+def passed_arguments(request):
+    return request.getfixturevalue(request.param)
+
+
+def get_engine_version_id(engine_type: str, engine_version: str, engine_build: str, scala_binary_version: str) -> str:
+    """Quick util method to get the engine_version_id from a bunch of params.
+    If an engine_build is not passed to DeploymentBuilder.build it will usually become Released."""
+    return (
+        f"{engine_type}:{engine_version}:{scala_binary_version}:{engine_build}"
+        if engine_type == "TF"
+        else f"{engine_type}:{engine_version}::{engine_build}"
+    )
 
 
 @pytest.mark.parametrize(
@@ -105,8 +143,8 @@ def test_deployment_builder_build_respects_arguments_passed(
     # Make sure all passed arguments are respected
     assert deployment._data['name'] == passed_arguments['deployment_name']
     assert deployment._data['type'] == deployment_type
-    assert deployment._data['engineVersion'] == passed_arguments['engine_version']
-    assert deployment._data['envId'] == passed_arguments['environment'].environment_id
+    assert deployment.engine_configuration.engine_version == passed_arguments['engine_version']
+    assert deployment.environment == passed_arguments['environment'].id
     assert (
         deployment._data['engineConfiguration']['externalResourcesUri']
         == passed_arguments['external_resource_location']
@@ -118,11 +156,19 @@ def test_deployment_builder_build_respects_arguments_passed(
     assert [deployment['tag'] for deployment in deployment._data['deploymentTags']] == passed_arguments[
         'deployment_tags'
     ]
-    assert deployment._data['engineBuild'] == passed_arguments['engine_build']
-    assert deployment._data['scalaBinaryVersion'] == passed_arguments['scala_binary_version']
+    assert deployment.engine_configuration.engine_version_id == get_engine_version_id(
+        passed_arguments['engine_type'],
+        passed_arguments['engine_version'],
+        passed_arguments['engine_build'],
+        scala_binary_version=passed_arguments['scala_binary_version'],
+    )
+
+    assert deployment.engine_configuration.scala_binary_version == passed_arguments['scala_binary_version']
 
     if deployment_type == "AWS":
         assert deployment._data['sshKeySource'] == "NONE"
+
+    assert deployment.engine_type == EngineType[DeploymentEngineType(passed_arguments['engine_type']).name]
 
 
 @pytest.mark.parametrize(
@@ -140,7 +186,6 @@ def test_deployment_builder_build_respects_default_values(
 ):
     deployment_builder = request.getfixturevalue(deployment_builder)
     passed_arguments['environment'].environment_type = deployment_type
-
     deployment = deployment_builder.build(
         deployment_name=passed_arguments['deployment_name'],
         environment=passed_arguments['environment'],
@@ -155,15 +200,19 @@ def test_deployment_builder_build_respects_default_values(
     assert deployment._data['engineConfiguration']['maxMemoryUsed'] == DEFAULT_MAX_MEMORY_USED_VALUE
     assert deployment._data['engineConfiguration']['maxPipelinesRunning'] == DEFAULT_MAX_PIPELINES_RUNNING_VALUE
     assert deployment._data['deploymentTags'] == DEFAULT_TAGS_VALUE
-    assert deployment._data['engineBuild'] == DEFAULT_ENGINE_BUILD_VALUE
-    assert deployment._data['scalaBinaryVersion'] == DEFAULT_SCALA_BINARY_VALUE
+    assert deployment.engine_configuration.engine_version_id == get_engine_version_id(
+        passed_arguments['engine_type'],
+        passed_arguments['engine_version'],
+        DEFAULT_ENGINE_BUILD_VALUE,
+        scala_binary_version=passed_arguments['scala_binary_version'],
+    )
+    assert deployment.engine_configuration.scala_binary_version == DEFAULT_SCALA_BINARY_VALUE
 
 
 @pytest.mark.parametrize(
     "key_to_change, value",
     [
         ('deployment_name', 1),
-        ('engine_type', 1),
         ('engine_version', 1),
         ('external_resource_location', 1),
         ('engine_labels', 'STRING VALUE'),
@@ -254,3 +303,55 @@ def test_deployment_builder_build_fails_for_value_over_100_for_max_memory_used(
             engine_labels=passed_arguments['engine_labels'],
             max_memory_used=1000.0,
         )
+
+
+def test_deployment_builder_build_fails_on_invalid_engine_types(self_deployment_builder, passed_arguments, request):
+    passed_arguments['environment'].environment_type = 'SELF'
+    passed_arguments['engine_type'] = 'INVALID'
+    passed_arguments['engine_type'] = 1
+
+    with pytest.raises(ValueError):
+        self_deployment_builder.build(
+            deployment_name=passed_arguments['deployment_name'],
+            engine_type=passed_arguments['engine_type'],
+            engine_version=passed_arguments['engine_version'],
+            environment=passed_arguments['environment'],
+            external_resource_location=passed_arguments['external_resource_location'],
+            engine_labels=passed_arguments['engine_labels'],
+            max_cpu_load=passed_arguments['max_cpu_load'],
+            max_memory_used=passed_arguments['max_memory_used'],
+            max_pipelines_running=passed_arguments['max_pipelines_running'],
+            deployment_tags=passed_arguments['deployment_tags'],
+            engine_build=passed_arguments['engine_build'],
+            scala_binary_version=passed_arguments['scala_binary_version'],
+        )
+
+
+@pytest.mark.parametrize(
+    "engine_type, enum_type",
+    [
+        ('DC', EngineType.COLLECTOR),
+        ('TF', EngineType.TRANSFORMER),
+        ('SF', EngineType.SNOWPARK),
+    ],
+)
+def test_deployment_returns_correct_engine_type(engine_type, enum_type, passed_arguments, self_deployment_builder):
+    passed_arguments['environment'].environment_type = 'SELF'
+    passed_arguments['engine_type'] = engine_type
+
+    deployment = self_deployment_builder.build(
+        deployment_name=passed_arguments['deployment_name'],
+        engine_type=passed_arguments['engine_type'],
+        engine_version=passed_arguments['engine_version'],
+        environment=passed_arguments['environment'],
+        external_resource_location=passed_arguments['external_resource_location'],
+        engine_labels=passed_arguments['engine_labels'],
+        max_cpu_load=passed_arguments['max_cpu_load'],
+        max_memory_used=passed_arguments['max_memory_used'],
+        max_pipelines_running=passed_arguments['max_pipelines_running'],
+        deployment_tags=passed_arguments['deployment_tags'],
+        engine_build=passed_arguments['engine_build'],
+        scala_binary_version=passed_arguments['scala_binary_version'] if engine_type == 'TF' else None,
+    )
+
+    assert deployment.engine_type == enum_type

@@ -44,6 +44,7 @@ class WorldTestContext(Protocol):
         total_agents: int | None = None,
         review_fn: object | None = None,
         max_review_continuations: int = 2,
+        review_exhaustion_policy: Literal["fail", "merge", "raise"] = "fail",
     ) -> AgentTask: ...
 
     async def checkpoint(self, label: str, *, trigger_span_id: str = "") -> None: ...

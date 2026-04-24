@@ -188,6 +188,7 @@ class _MountState:
                  wasb: Optional[pulumi.Input['MountWasbArgs']] = None):
         """
         Input properties used for looking up and filtering Mount resources.
+
         :param pulumi.Input[_builtins.str] source: (String) HDFS-compatible url
         """
         if abfs is not None:
@@ -435,7 +436,7 @@ class Mount(pulumi.CustomResource):
         resource_group = config.require("resourceGroup")
         # Name of the Databricks Workspace
         workspace_name = config.require("workspaceName")
-        this = azurerm.index.databricks_workspace(name=workspace_name,
+        this = azurerm.databricks_workspace(name=workspace_name,
             resource_group_name=resource_group)
         smallest = databricks.get_node_type(local_disk=True)
         latest = databricks.get_spark_version()
@@ -519,7 +520,7 @@ class Mount(pulumi.CustomResource):
             key="service_principal_key",
             string_value=ar_m__clien_t__secret,
             scope=terraform.name)
-        this = azurerm.index.StorageAccount("this",
+        this = azurerm.StorageAccount("this",
             name=f{prefix}datalake,
             resource_group_name=resource_group_name,
             location=resource_group_location,
@@ -527,11 +528,11 @@ class Mount(pulumi.CustomResource):
             account_replication_type=GRS,
             account_kind=StorageV2,
             is_hns_enabled=True)
-        this_role_assignment = azurerm.index.RoleAssignment("this",
+        this_role_assignment = azurerm.RoleAssignment("this",
             scope=this.id,
             role_definition_name=Storage Blob Data Contributor,
             principal_id=current.object_id)
-        this_storage_container = azurerm.index.StorageContainer("this",
+        this_storage_container = azurerm.StorageContainer("this",
             name=marketing,
             storage_account_name=this.name,
             container_access_type=private)
@@ -616,14 +617,14 @@ class Mount(pulumi.CustomResource):
         import pulumi_azurerm as azurerm
         import pulumi_databricks as databricks
 
-        blobaccount = azurerm.index.StorageAccount("blobaccount",
+        blobaccount = azurerm.StorageAccount("blobaccount",
             name=f{prefix}blob,
             resource_group_name=resource_group_name,
             location=resource_group_location,
             account_tier=Standard,
             account_replication_type=LRS,
             account_kind=StorageV2)
-        marketing = azurerm.index.StorageContainer("marketing",
+        marketing = azurerm.StorageContainer("marketing",
             name=marketing,
             storage_account_name=blobaccount.name,
             container_access_type=private)
@@ -672,6 +673,7 @@ class Mount(pulumi.CustomResource):
         ## Import
 
         !> Importing this resource is not currently supported.
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -760,7 +762,7 @@ class Mount(pulumi.CustomResource):
         resource_group = config.require("resourceGroup")
         # Name of the Databricks Workspace
         workspace_name = config.require("workspaceName")
-        this = azurerm.index.databricks_workspace(name=workspace_name,
+        this = azurerm.databricks_workspace(name=workspace_name,
             resource_group_name=resource_group)
         smallest = databricks.get_node_type(local_disk=True)
         latest = databricks.get_spark_version()
@@ -844,7 +846,7 @@ class Mount(pulumi.CustomResource):
             key="service_principal_key",
             string_value=ar_m__clien_t__secret,
             scope=terraform.name)
-        this = azurerm.index.StorageAccount("this",
+        this = azurerm.StorageAccount("this",
             name=f{prefix}datalake,
             resource_group_name=resource_group_name,
             location=resource_group_location,
@@ -852,11 +854,11 @@ class Mount(pulumi.CustomResource):
             account_replication_type=GRS,
             account_kind=StorageV2,
             is_hns_enabled=True)
-        this_role_assignment = azurerm.index.RoleAssignment("this",
+        this_role_assignment = azurerm.RoleAssignment("this",
             scope=this.id,
             role_definition_name=Storage Blob Data Contributor,
             principal_id=current.object_id)
-        this_storage_container = azurerm.index.StorageContainer("this",
+        this_storage_container = azurerm.StorageContainer("this",
             name=marketing,
             storage_account_name=this.name,
             container_access_type=private)
@@ -941,14 +943,14 @@ class Mount(pulumi.CustomResource):
         import pulumi_azurerm as azurerm
         import pulumi_databricks as databricks
 
-        blobaccount = azurerm.index.StorageAccount("blobaccount",
+        blobaccount = azurerm.StorageAccount("blobaccount",
             name=f{prefix}blob,
             resource_group_name=resource_group_name,
             location=resource_group_location,
             account_tier=Standard,
             account_replication_type=LRS,
             account_kind=StorageV2)
-        marketing = azurerm.index.StorageContainer("marketing",
+        marketing = azurerm.StorageContainer("marketing",
             name=marketing,
             storage_account_name=blobaccount.name,
             container_access_type=private)
@@ -997,6 +999,7 @@ class Mount(pulumi.CustomResource):
         ## Import
 
         !> Importing this resource is not currently supported.
+
 
         :param str resource_name: The name of the resource.
         :param MountArgs args: The arguments to use to populate this resource's properties.

@@ -1,4 +1,6 @@
-# Copyright 2019 StreamSets Inc.
+#  IBM Confidential
+#  PID 5900-BAF
+#  Copyright StreamSets Inc., an IBM Company 2024
 
 # fmt: off
 import base64
@@ -21,8 +23,8 @@ from .constants import (
 from .exceptions import ServiceDefinitionNotFound
 from .models import Configuration, _StageWithPredicates
 from .utils import (
-    SeekableList, determine_fragment_label, format_log, get_attribute, get_color_icon_from_stage_definition,
-    get_open_output_lanes, get_params, pipeline_json_encoder,
+    SeekableList, determine_fragment_label, format_log, get_accepted_labels_libraries_and_names, get_attribute,
+    get_color_icon_from_stage_definition, get_open_output_lanes, get_params, pipeline_json_encoder,
 )
 
 # fmt: on
@@ -808,9 +810,16 @@ class PipelineBuilder:
                     if 'FragmentDestination' in stage['instanceName'] or 'FragmentProcessor' in stage['instanceName']:
                         # Upto one input lane is supported in fragments. So, just setting the input lanes of the first
                         # stage should do.
-                        pipeline._data['pipelineConfig']['fragments'][frag_count - 1]['stages'][0]['inputLanes'] = (
-                            stage['inputLanes']
+                        stage_fragment_instance_id = stage['uiInfo']['fragmentInstanceId']
+                        fragment = next(
+                            (
+                                fragment
+                                for fragment in pipeline._data['pipelineConfig']['fragments']
+                                if fragment.get('fragmentInstanceId') == stage_fragment_instance_id
+                            ),
+                            None,
                         )
+                        fragment['stages'][0]['inputLanes'] = stage['inputLanes']
 
             if 'fragments' in pipeline._data['pipelineConfig'] and pipeline._data['pipelineConfig']['fragments']:
                 pipeline._data['fragmentCommitIds'] = self._fragment_commit_ids
@@ -860,9 +869,9 @@ class PipelineBuilder:
         Returns:
             An instance of :py:class:`streamsets.sdk.sdc_models.Stage`.
         """
-        if not fragment.pipeline_id:
-            raise ValueError('Fragment must exist in this organization in order to be added to a pipeline')
-        fragment = self._control_hub.pipelines.get(pipeline_id=fragment.pipeline_id)
+        if not fragment.id:
+            raise ValueError('Fragment must be published before adding to a Pipeline')
+        fragment = self._control_hub.pipelines.get(id=fragment.id)
 
         # Get stage instance and stage label using the stage name from the fragment configuration
         name = fragment._pipeline_definition['uiInfo']['fragmentStageConfiguration']['stageName']
@@ -967,7 +976,7 @@ class PipelineBuilder:
                 'parameterNamePrefix': parameter_name_prefix,
                 'pipelineCommitId': fragment.commit_id,
                 'pipelineCommitLabel': 'v{}'.format(fragment.version),
-                'pipelineId': fragment.pipeline_id,
+                'pipelineId': fragment.id,
             }
         )
 
@@ -1062,11 +1071,28 @@ class PipelineBuilder:
         Returns:
             An instance of :py:class:`streamsets.sdk.sdc_models.Stage`.
         """
+        accepted_labels, accepted_libraries, accepted_java_names = get_accepted_labels_libraries_and_names(
+            self, 'startEventStage'
+        )
+
+        if label and label not in accepted_labels:
+            raise ValueError('Stage with label {} is not a supported start event stage'.format(label))
+        if name and name not in accepted_java_names:
+            raise ValueError('Stage with name {} is not a supported start event stage'.format(name))
+        if library and library not in accepted_libraries:
+            raise ValueError('Stage with library {} is not a supported start event stage'.format(library))
+
         stage_instance, stage_definition = next(
             (stage.instance, stage.definition)
             for stage in self._get_stage_data(label=label, name=name, library=library)
             if stage.definition.get('pipelineLifecycleStage') is True
         )
+
+        # We need instanceName in the form <instance_name>_StartEventStage and not <instance_name>_01
+        instance_name_split_list = stage_instance['instanceName'].split('_')
+        instance_name_split_list[-1] = 'StartEventStage'
+        stage_instance['instanceName'] = '_'.join(instance_name_split_list)
+
         self._pipeline[self._config_key]['startEventStages'] = [stage_instance]
         self._set_pipeline_configuration('startEventStage', self._stage_to_configuration_name(stage_instance))
         return self._all_stages.get(stage_instance['stageName'], Stage)(
@@ -1092,11 +1118,28 @@ class PipelineBuilder:
         Returns:
             An instance of :py:class:`streamsets.sdk.sdc_models.Stage`.
         """
+        accepted_labels, accepted_libraries, accepted_java_names = get_accepted_labels_libraries_and_names(
+            self, 'stopEventStage'
+        )
+
+        if label and label not in accepted_labels:
+            raise ValueError('Stage with label {} is not a supported stop event stage'.format(label))
+        if name and name not in accepted_java_names:
+            raise ValueError('Stage with name {} is not a supported stop event stage'.format(name))
+        if library and library not in accepted_libraries:
+            raise ValueError('Stage with library {} is not a supported stop event stage'.format(library))
+
         stage_instance, stage_definition = next(
             (stage.instance, stage.definition)
             for stage in self._get_stage_data(label=label, name=name, library=library)
             if stage.definition.get('pipelineLifecycleStage') is True
         )
+
+        # We need instanceName in the form <instance_name>_StartEventStage and not <instance_name>_01
+        instance_name_split_list = stage_instance['instanceName'].split('_')
+        instance_name_split_list[-1] = 'StopEventStage'
+        stage_instance['instanceName'] = '_'.join(instance_name_split_list)
+
         self._pipeline[self._config_key]['stopEventStages'] = [stage_instance]
         self._set_pipeline_configuration('stopEventStage', self._stage_to_configuration_name(stage_instance))
         return self._all_stages.get(stage_instance['stageName'], Stage)(
@@ -1121,12 +1164,30 @@ class PipelineBuilder:
 
         Returns:
             An instance of :py:class:`streamsets.sdk.sdc_models.Stage`.
+
         """
+        accepted_labels, accepted_libraries, accepted_java_names = get_accepted_labels_libraries_and_names(
+            self, 'testOriginStage'
+        )
+
+        if label and label not in accepted_labels:
+            raise ValueError('Stage with label {} is not a supported test origin stage'.format(label))
+        if name and name not in accepted_java_names:
+            raise ValueError('Stage with name {} is not a supported test origin stage'.format(name))
+        if library and library not in accepted_libraries:
+            raise ValueError('Stage with library {} is not a supported test origin stage'.format(library))
+
         stage_instance, stage_definition = next(
             (stage.instance, stage.definition)
             for stage in self._get_stage_data(label=label, name=name, library=library)
             if stage.definition.get('type') == 'SOURCE'
         )
+
+        # We need instanceName in the form <instance_name>_StartEventStage and not <instance_name>_01
+        instance_name_split_list = stage_instance['instanceName'].split('_')
+        instance_name_split_list[-1] = 'TestOriginStage'
+        stage_instance['instanceName'] = '_'.join(instance_name_split_list)
+
         self._pipeline[self._config_key]['testOriginStage'] = stage_instance
         self._set_pipeline_configuration('testOriginStage', self._stage_to_configuration_name(stage_instance))
         return self._all_stages.get(stage_instance['stageName'], Stage)(

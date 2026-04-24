@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: harbor
-Version: 0.4.0
+Version: 0.5.0
 Summary: A framework for evaluating and optimizing agents and models using sandboxed environments.
 Author: Alex Shaw
 Author-email: Alex Shaw <alexgshaw64@gmail.com>
@@ -31,15 +31,20 @@ Requires-Dist: harbor[cloud] ; extra == 'all'
 Requires-Dist: harbor[tinker] ; extra == 'all'
 Requires-Dist: harbor[e2b] ; extra == 'cloud'
 Requires-Dist: harbor[daytona] ; extra == 'cloud'
+Requires-Dist: harbor[islo] ; extra == 'cloud'
 Requires-Dist: harbor[modal] ; extra == 'cloud'
 Requires-Dist: harbor[runloop] ; extra == 'cloud'
 Requires-Dist: harbor[gke] ; extra == 'cloud'
+Requires-Dist: harbor[tensorlake] ; extra == 'cloud'
 Requires-Dist: daytona>=0.121.0 ; extra == 'daytona'
 Requires-Dist: e2b>=2.4.2 ; extra == 'e2b'
 Requires-Dist: dockerfile-parse>=2.0.1 ; extra == 'e2b'
 Requires-Dist: kubernetes>=32.0.0 ; extra == 'gke'
+Requires-Dist: islo>=0.2.0 ; extra == 'islo'
+Requires-Dist: dockerfile-parse>=2.0.1 ; extra == 'islo'
 Requires-Dist: modal>=1.4.0 ; extra == 'modal'
 Requires-Dist: runloop-api-client>=1.2.0 ; extra == 'runloop'
+Requires-Dist: tensorlake>=0.4.45 ; extra == 'tensorlake'
 Requires-Dist: tinker>=0.14.0 ; extra == 'tinker'
 Requires-Dist: tinker-cookbook>=0.1.0 ; extra == 'tinker'
 Requires-Python: >=3.12
@@ -48,8 +53,10 @@ Provides-Extra: cloud
 Provides-Extra: daytona
 Provides-Extra: e2b
 Provides-Extra: gke
+Provides-Extra: islo
 Provides-Extra: modal
 Provides-Extra: runloop
+Provides-Extra: tensorlake
 Provides-Extra: tinker
 Description-Content-Type: text/markdown
 

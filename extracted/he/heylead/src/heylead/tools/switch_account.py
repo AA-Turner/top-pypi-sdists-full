@@ -159,6 +159,15 @@ async def run_list_linkedin_accounts() -> str:
             except Exception:
                 connectivity_map[acc["id"]] = (True, "")  # Assume OK on error
 
+        # If the current account is disconnected, fetch a reconnect link up front
+        reconnect_url = ""
+        current_connected, _ = connectivity_map.get(current_id, (True, ""))
+        if not current_connected and isinstance(client, BackendClient):
+            try:
+                reconnect_url = await client.get_reconnect_link()
+            except Exception:
+                reconnect_url = ""
+
         lines = ["**Connected LinkedIn accounts:**\n"]
         for i, acc in enumerate(linkedin_accounts, 1):
             markers = []
@@ -172,7 +181,7 @@ async def run_list_linkedin_accounts() -> str:
             # Connectivity badge
             is_connected, conn_msg = connectivity_map.get(acc["id"], (True, ""))
             if not is_connected:
-                markers.append("Disconnected")
+                markers.append("⚠️ Disconnected")
 
             marker_str = f" ← {', '.join(markers)}" if markers else ""
 
@@ -180,10 +189,18 @@ async def run_list_linkedin_accounts() -> str:
             lines.append(f"{i}. `{acc['id']}` — {display}{marker_str}")
             if not is_connected:
                 lines.append(f"   ⚠️ {conn_msg}")
+                if acc["id"] == current_id and reconnect_url:
+                    lines.append(f"   🔗 Reconnect: {reconnect_url}")
             if acc["linkedin_url"]:
                 lines.append(f"   LinkedIn: {acc['linkedin_url']}")
 
         lines.append("")
+        if not current_connected and reconnect_url:
+            lines.append(
+                "**Your LinkedIn session has expired.** Open the reconnect link "
+                "above, sign in, and new messages will flow in within 5 min."
+            )
+            lines.append("")
         lines.append("Use switch_account_to(account_id='...') to switch.")
         lines.append("Use set_search_account(account_id='...') to pin a premium search account.")
         return "\n".join(lines)

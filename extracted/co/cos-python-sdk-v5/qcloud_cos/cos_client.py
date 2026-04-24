@@ -261,7 +261,7 @@ class CosS3Client(object):
 
             self._session = CosS3Client.__built_in_sessions
             self._use_built_in_pool = True
-            logger.info("bound built-in connection pool when new client. maxsize=%d,%d" % (self._conf._pool_connections, self._conf._pool_maxsize))
+            logger.debug("bound built-in connection pool when new client. maxsize=%d,%d" % (self._conf._pool_connections, self._conf._pool_maxsize))
         else:
             self._session = session
             self._use_built_in_pool = False
@@ -271,7 +271,7 @@ class CosS3Client(object):
         built_in_sessions = requests.session()
         built_in_sessions.mount('http://', requests.adapters.HTTPAdapter(pool_connections=PoolConnections, pool_maxsize=PoolMaxSize))
         built_in_sessions.mount('https://', requests.adapters.HTTPAdapter(pool_connections=PoolConnections, pool_maxsize=PoolMaxSize))
-        logger.info("generate built-in connection pool success. maxsize=%d,%d" % (PoolConnections, PoolMaxSize))
+        logger.debug("generate built-in connection pool success. maxsize=%d,%d" % (PoolConnections, PoolMaxSize))
         return built_in_sessions
 
     def handle_built_in_connection_pool_by_pid(self):
@@ -295,7 +295,7 @@ class CosS3Client(object):
 
             # 重新绑定到内置连接池
             self._session = CosS3Client.__built_in_sessions
-            logger.info("bound built-in connection pool when new processor. maxsize=%d,%d" % (self._conf._pool_connections, self._conf._pool_maxsize))
+            logger.debug("bound built-in connection pool when new processor. maxsize=%d,%d" % (self._conf._pool_connections, self._conf._pool_maxsize))
 
     def get_conf(self):
         """获取配置"""
@@ -4185,8 +4185,14 @@ class CosS3Client(object):
             lst = sorted(lst, key=lambda x: x['PartNumber'])  # 按PartNumber升序排列
 
             # 完成分块上传
+            # 增加callback头部
+            complete_headers = dict()
+            if 'Callback' in kwargs:
+                complete_headers['Callback'] = kwargs['Callback']
+            if 'CallbackVar' in kwargs:
+                complete_headers['CallbackVar'] = kwargs['CallbackVar']
             rt = self.complete_multipart_upload(Bucket=Bucket, Key=Key, UploadId=uploadid,
-                                                MultipartUpload={'Part': lst})
+                                                MultipartUpload={'Part': lst}, **complete_headers)
             return rt
 
     def _head_object_when_copy(self, CopySource, **kwargs):

@@ -27,6 +27,7 @@ class PostgresProjectArgs:
                  spec: Optional[pulumi.Input['PostgresProjectSpecArgs']] = None):
         """
         The set of arguments for constructing a PostgresProject resource.
+
         :param pulumi.Input[_builtins.str] project_id: The ID to use for the Project. This becomes the final component of the project's resource name.
                The ID is required and must be 1-63 characters long, start with a lowercase letter, and contain only lowercase letters, numbers, and hyphens.
                For example, `my-app` becomes `projects/my-app`
@@ -113,6 +114,7 @@ class _PostgresProjectState:
                  update_time: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering PostgresProject resources.
+
         :param pulumi.Input[_builtins.str] create_time: (string) - A timestamp indicating when the project was created
         :param pulumi.Input['PostgresProjectInitialEndpointSpecArgs'] initial_endpoint_spec: Configuration settings for the initial Read/Write endpoint created inside the default branch for a newly
                created project. If omitted, the initial endpoint created will have default settings, without high availability
@@ -313,6 +315,31 @@ class PostgresProject(pulumi.CustomResource):
             })
         ```
 
+        ### Project with High Availability Endpoint
+
+        Create a project whose initial read-write endpoint is configured with multiple compute instances for high availability.
+        One compute instance acts as the read-write primary.
+        The remaining secondary compute instances are ready for automatic failover if the primary becomes unavailable.
+
+        ```python
+        import pulumi
+        import pulumi_databricks as databricks
+
+        ha = databricks.PostgresProject("ha",
+            project_id="ha-project",
+            spec={
+                "pg_version": 17,
+                "display_name": "HA Production Project",
+            },
+            initial_endpoint_spec={
+                "group": {
+                    "min": 2,
+                    "max": 2,
+                    "enable_readable_secondaries": False,
+                },
+            })
+        ```
+
         ### Referencing in Other Resources
 
         ```python
@@ -332,6 +359,7 @@ class PostgresProject(pulumi.CustomResource):
                 "no_expiry": True,
             })
         ```
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -390,6 +418,31 @@ class PostgresProject(pulumi.CustomResource):
             })
         ```
 
+        ### Project with High Availability Endpoint
+
+        Create a project whose initial read-write endpoint is configured with multiple compute instances for high availability.
+        One compute instance acts as the read-write primary.
+        The remaining secondary compute instances are ready for automatic failover if the primary becomes unavailable.
+
+        ```python
+        import pulumi
+        import pulumi_databricks as databricks
+
+        ha = databricks.PostgresProject("ha",
+            project_id="ha-project",
+            spec={
+                "pg_version": 17,
+                "display_name": "HA Production Project",
+            },
+            initial_endpoint_spec={
+                "group": {
+                    "min": 2,
+                    "max": 2,
+                    "enable_readable_secondaries": False,
+                },
+            })
+        ```
+
         ### Referencing in Other Resources
 
         ```python
@@ -409,6 +462,7 @@ class PostgresProject(pulumi.CustomResource):
                 "no_expiry": True,
             })
         ```
+
 
         :param str resource_name: The name of the resource.
         :param PostgresProjectArgs args: The arguments to use to populate this resource's properties.

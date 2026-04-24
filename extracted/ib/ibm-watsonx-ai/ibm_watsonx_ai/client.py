@@ -935,6 +935,7 @@ to `APIClient.service_instance.get_details` method.
         zen: bool = False,
         projects_token: bool = False,
         _token: str | None = None,
+        include_container_id: bool = False,
     ) -> dict:
         headers = {}
 
@@ -968,6 +969,12 @@ to `APIClient.service_instance.get_details` method.
                 json.loads(base64.b64decode(client_headers_env).decode("utf-8"))
             )
 
+        if include_container_id:
+            if self.default_project_id:
+                headers["X-IBM-PROJECT-ID"] = self.default_project_id
+            elif self.default_space_id:
+                headers["X-IBM-SPACE-ID"] = self.default_space_id
+
         if self._user_headers:
             headers.update(self._user_headers)
 
@@ -979,19 +986,22 @@ to `APIClient.service_instance.get_details` method.
         no_content_type: bool = False,
         zen: bool = False,
         projects_token: bool = False,
+        include_container_id: bool = False,
     ) -> dict:
         return self._get_headers(
-            content_type,
-            no_content_type,
-            zen,
-            projects_token,
+            content_type=content_type,
+            no_content_type=no_content_type,
+            zen=zen,
+            projects_token=projects_token,
             _token=await self._auth_method.aget_token(),
+            include_container_id=include_container_id,
         )
 
     def get_headers(
         self,
         content_type: str | None = "application/json",
         include_user_agent: bool = False,
+        include_container_id: bool = False,
     ) -> dict:
         """Get HTTP headers used during requests.
 
@@ -1001,6 +1011,10 @@ to `APIClient.service_instance.get_details` method.
         :param include_user_agent: whether the result should include `User-Agent` header, defaults to `False`
         :type include_user_agent: bool, optional
 
+        :param include_container_id: whether header with project/space id should be included into generated headers, defaults to `False`
+        :type include_user_agent: bool, optional
+
+
         :return: headers used during requests
         :rtype: dict
         """
@@ -1009,6 +1023,7 @@ to `APIClient.service_instance.get_details` method.
             content_type=content_type or "",
             no_content_type=content_type is None,
             zen=not include_user_agent,
+            include_container_id=include_container_id,
         )
 
     def set_token(self, token: str) -> None:

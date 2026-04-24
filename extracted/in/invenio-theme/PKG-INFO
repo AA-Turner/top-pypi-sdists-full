@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: invenio-theme
-Version: 4.6.0
+Version: 4.7.0
 Summary: "Invenio standard theme."
 Home-page: https://github.com/inveniosoftware/invenio-theme
 Author: Invenio Collaboration
@@ -71,6 +71,11 @@ Further documentation available at https://invenio-theme.readthedocs.io/
 
 Changes
 =======
+
+Version v4.7.0 (released 2026-04-23)
+
+- collections: adds css required for collection CRUD UI
+- site: add collections rules
 
 Version v4.6.0 (released 2026-03-09)
 

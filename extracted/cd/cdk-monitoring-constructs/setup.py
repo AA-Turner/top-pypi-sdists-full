@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "cdk-monitoring-constructs",
-    "version": "9.22.2",
+    "version": "9.23.0",
     "description": "cdk-monitoring-constructs",
     "license": "Apache-2.0",
     "url": "https://github.com/cdklabs/cdk-monitoring-constructs",
@@ -26,7 +26,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "cdk_monitoring_constructs._jsii": [
-            "cdk-monitoring-constructs@9.22.2.jsii.tgz"
+            "cdk-monitoring-constructs@9.23.0.jsii.tgz"
         ],
         "cdk_monitoring_constructs": [
             "py.typed"
@@ -36,7 +36,7 @@ kwargs = json.loads(
     "install_requires": [
         "aws-cdk-lib>=2.160.0, <3.0.0",
         "constructs>=10.0.5, <11.0.0",
-        "jsii>=1.127.0, <2.0.0",
+        "jsii>=1.128.0, <2.0.0",
         "publication>=0.0.3",
         "typeguard==2.13.3"
     ],

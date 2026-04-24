@@ -1,3 +1,4 @@
+# pylint: disable=too-many-lines
 """Class with array functions.
 
 "array" functions work on any dimension array,
@@ -223,7 +224,7 @@ class BaseArray(_DensityBase, _DiagnosticsBase):
         rhat_ufunc = make_ufunc(rhat_func, n_output=1, n_input=1, n_dims=2, ravel=False)
         return rhat_ufunc(ary, superchain_ids=superchain_ids)
 
-    def mcse(self, ary, chain_axis=-2, draw_axis=-1, method="mean", prob=None):
+    def mcse(self, ary, chain_axis=-2, draw_axis=-1, method="mean", prob=None, circular=False):
         """Compute of mcse on array-like inputs.
 
         See docstring of :func:`arviz_stats.mcse` for full description of computation
@@ -246,7 +247,11 @@ class BaseArray(_DensityBase, _DiagnosticsBase):
         ary, chain_axis, draw_axis = process_chain_none(ary, chain_axis, draw_axis)
         ary, _ = process_ary_axes(ary, [chain_axis, draw_axis])
         mcse_func = getattr(self, f"_mcse_{method}")
-        func_kwargs = {} if prob is None else {"prob": prob}
+        func_kwargs = {}
+        if prob is not None:
+            func_kwargs["prob"] = prob
+        if method != "sd":
+            func_kwargs["circular"] = circular
         mcse_array = make_ufunc(mcse_func, n_output=1, n_input=1, n_dims=2, ravel=False)
         return mcse_array(ary, **func_kwargs)
 
@@ -419,7 +424,7 @@ class BaseArray(_DensityBase, _DiagnosticsBase):
 
     # pylint: disable=redefined-builtin, too-many-return-statements
     # noqa: PLR0911
-    def histogram(self, ary, bins=None, range=None, weights=None, axis=-1, density=None):
+    def histogram(self, ary, bins=None, range=None, weights=None, axis=-1, density=True):
         """Compute histogram over provided axis.
 
         Parameters
@@ -429,7 +434,7 @@ class BaseArray(_DensityBase, _DiagnosticsBase):
         range : (float, float), optional
         weights : array-like, optional
         axis : int, sequence of int or None, default -1
-        density : bool, optional
+        density : bool, default True
 
         Returns
         -------
@@ -443,7 +448,11 @@ class BaseArray(_DensityBase, _DiagnosticsBase):
         axes = [ax if ax >= 0 else ary.ndim + ax for ax in axis]
         reordered_axes = [i for i in np.arange(ary.ndim) if i not in axes] + list(axes)
         if weights is not None:
-            assert ary.shape == weights.shape
+            if ary.shape != weights.shape:
+                raise ValueError(
+                    "`weights` must have the same shape as `ary`. "
+                    f"Got ary.shape={ary.shape}, weights.shape={weights.shape}"
+                )
             weights = np.transpose(weights, axes=reordered_axes)
         ary = np.transpose(ary, axes=reordered_axes)
         broadcased_shape = ary.shape[: -len(axes)]
@@ -473,7 +482,13 @@ class BaseArray(_DensityBase, _DiagnosticsBase):
                     ary, bins=bins, range=range, density=density, shape_from_1st=True
                 )
             # ensure broadcasting over range
-            assert range.shape[:-1] == broadcased_shape
+            if range.shape[:-1] != broadcased_shape:
+                expected_shape = broadcased_shape + (2,)
+                raise ValueError(
+                    "`range` has incompatible shape. "
+                    f"Expected shape {expected_shape}, "
+                    f"got range.shape={range.shape}"
+                )
             if weights is not None:
                 # ensure broadcasting over weights
                 histogram_ufunc = make_ufunc(
@@ -494,7 +509,12 @@ class BaseArray(_DensityBase, _DiagnosticsBase):
             )
             return histogram_ufunc(ary, range, shape_from_1st=True)
         # ensure broadcasting over bins
-        assert bins.shape[:-1] == broadcased_shape
+        if bins.shape[:-1] != broadcased_shape:
+            raise ValueError(
+                "`bins` has incompatible shape. "
+                f"Expected leading dimensions {broadcased_shape}, "
+                f"got bins.shape={bins.shape}"
+            )
         if (range is None) or (np.size(range) == 2):
             # avoid broadcasting over range
             if weights is not None:
@@ -517,7 +537,13 @@ class BaseArray(_DensityBase, _DiagnosticsBase):
             )
             return histogram_ufunc(ary, bins, shape_from_1st=True)
         # ensure broadcasting over range
-        assert range.shape[:-1] == broadcased_shape
+        if range.shape[:-1] != broadcased_shape:
+            expected_shape = broadcased_shape + (2,)
+            raise ValueError(
+                "`range` has incompatible shape. "
+                f"Expected shape {expected_shape}, "
+                f"got range.shape={range.shape}"
+            )
         if weights is not None:
             # ensure broadcasting over weights
             histogram_ufunc = make_ufunc(
@@ -539,7 +565,7 @@ class BaseArray(_DensityBase, _DiagnosticsBase):
         return histogram_ufunc(ary, bins, range, shape_from_1st=True)
 
     def kde(self, ary, axis=-1, circular=False, grid_len=512, **kwargs):
-        """Compute of kde on array-like inputs.
+        """Compute KDE on array-like inputs.
 
         Parameters
         ----------
@@ -548,12 +574,35 @@ class BaseArray(_DensityBase, _DiagnosticsBase):
         circular : bool, default False
         grid_len : int, default 512
         **kwargs
+            Additional keyword arguments passed to the underlying KDE implementation.
+            Depending on whether `circular` is True or False, supported arguments include:
+
+            * bw : int, float, or str, optional
+                The bandwidth or the method to estimate it. Options include "scott",
+                "silverman", "isj", "experimental", or "taylor" (if circular).
+                Defaults to "experimental" (or "taylor" if circular).
+            * bw_fct : float, optional
+                A multiplier for `bw` to tune smoothness manually. Defaults to 1.
+            * adaptive : bool, optional
+                If True, uses an adaptive bandwidth. Not compatible with circular KDE.
+                Defaults to False.
+            * extend : bool, optional
+                If True, extends the observed range for linear KDE. Defaults to False.
+            * extend_fct : float, optional
+                Number of standard deviations to widen bounds if `extend` is True.
+                Defaults to 0.5.
+            * bound_correction : bool, optional
+                Whether to perform boundary correction on linear bounds. Defaults to True.
+            * custom_lims : list or tuple, optional
+                Custom bounds for the range of `ary`. Defaults to None.
+            * cumulative : bool, optional
+                If True, returns the CDF instead of the PDF. Defaults to False.
 
         Returns
         -------
         grid, pdf, bw : array-like
             `grid` and `pdf` will have the same shape: the same as `ary` minus the dimensions
-            in `axis` plus an extra dimension of lenght `grid_len`. Same for `bw`
+            in `axis` plus an extra dimension of length `grid_len`. Same for `bw`
             except it will not have the extra dimension.
         """
         ary, axes = process_ary_axes(ary, axis)
@@ -636,6 +685,53 @@ class BaseArray(_DensityBase, _DiagnosticsBase):
             out_shape=((npoints,), (npoints,)),
             npoints=npoints,
             pit=pit,
+            **kwargs,
+        )
+
+    def uniformity_test(self, ary, axis=-1, method="pot_c", **kwargs):
+        """Pointwise uniformity test for PIT values.
+
+        Computes a uniformity test p-value and Shapley contributions for PIT values.
+
+        Parameters
+        ----------
+        ary : array-like
+            PIT values in [0, 1].
+        axis : int, sequence of int or None, default -1
+            Dimensions to reduce.
+        method : str, optional
+            Method to use for the uniformity test.
+            Valid options are pot_c (default), prit_c and piet_c.
+        **kwargs
+            Additional keyword arguments.
+
+        Returns
+        -------
+        p_value, shapley_vals : array-like
+            ``p_value`` has the batch shape (input shape minus reduced axes).
+            ``shapley_vals`` has the batch shape plus the reduced dimension length.
+        """
+        ary, axes = process_ary_axes(ary, axis)
+        n_points = int(np.prod([ary.shape[ax] for ax in axes]))
+        if method == "pot_c":
+            test_func = self._pot_c
+        elif method == "prit_c":
+            test_func = self._prit_c
+        elif method == "piet_c":
+            test_func = self._piet_c
+        else:
+            raise ValueError(
+                f"Requested method '{method}' but it must be one of 'pot_c', 'prit_c' or 'piet_c'"
+            )
+        uni_test_ufunc = make_ufunc(
+            test_func,
+            n_output=2,
+            n_input=1,
+            n_dims=len(axes),
+        )
+        return uni_test_ufunc(
+            ary,
+            out_shape=((), (n_points,)),
             **kwargs,
         )
 
@@ -773,7 +869,7 @@ class BaseArray(_DensityBase, _DiagnosticsBase):
         skipna : bool, default False
             Whether to ignore NaN values when computing the mean.
         axis : int, sequence of int or None, default -1
-            Axis or axes along which to compute the mode.
+            Axis or axes along which to compute the mean.
 
         Returns
         -------
@@ -804,7 +900,7 @@ class BaseArray(_DensityBase, _DiagnosticsBase):
         skipna : bool, default False
             Whether to ignore NaN values when computing the median.
         axis : int, sequence of int or None, default -1
-            Axis or axes along which to compute the mode.
+            Axis or axes along which to compute the median.
 
         Returns
         -------
@@ -851,6 +947,132 @@ class BaseArray(_DensityBase, _DiagnosticsBase):
             ravel=False,
         )
         return mode_ufunc(ary, round_to=round_to, skipna=skipna)
+
+    def std(self, ary, round_to=None, skipna=False, axis=None):
+        """Compute standard deviation of values along the specified axis.
+
+        Parameters
+        ----------
+        values : array-like
+            Input array.
+        round_to : int or str, optional
+            If integer, number of decimal places to round the result. If string of the
+            form '2g' number of significant digits to round the result. Defaults to '2g'.
+            Use None to return raw numbers.
+        skipna : bool, default False
+            Whether to ignore NaN values when computing the standard deviation.
+        axis : int, sequence of int or None, default -1
+            Axis or axes along which to compute the standard deviation.
+
+        Returns
+        -------
+        std : array-like
+            Standard deviation of the input values along the specified axis.
+        """
+        ary, axes = process_ary_axes(ary, axis)
+        std_ufunc = make_ufunc(
+            self._std,
+            n_output=1,
+            n_input=1,
+            n_dims=len(axes),
+            ravel=False,
+        )
+        return std_ufunc(ary, round_to=round_to, skipna=skipna)
+
+    def var(self, ary, round_to=None, skipna=False, axis=None):
+        """Compute variance of values along the specified axis.
+
+        Parameters
+        ----------
+        values : array-like
+            Input array.
+        round_to : int or str, optional
+            If integer, number of decimal places to round the result. If string of the
+            form '2g' number of significant digits to round the result. Defaults to '2g'.
+            Use None to return raw numbers.
+        skipna : bool, default False
+            Whether to ignore NaN values when computing the variance.
+        axis : int, sequence of int or None, default -1
+            Axis or axes along which to compute the variance.
+
+        Returns
+        -------
+        var : array-like
+            Variance of the input values along the specified axis.
+        """
+        ary, axes = process_ary_axes(ary, axis)
+        var_ufunc = make_ufunc(
+            self._var,
+            n_output=1,
+            n_input=1,
+            n_dims=len(axes),
+            ravel=False,
+        )
+        return var_ufunc(ary, round_to=round_to, skipna=skipna)
+
+    def mad(self, ary, round_to=None, skipna=False, axis=None):
+        """Compute mean absolute deviation of values along the specified axis.
+
+        Parameters
+        ----------
+        values : array-like
+            Input array.
+        round_to : int or str, optional
+            If integer, number of decimal places to round the result. If string of the
+            form '2g' number of significant digits to round the result. Defaults to '2g'.
+            Use None to return raw numbers.
+        skipna : bool, default False
+            Whether to ignore NaN values when computing the mean absolute deviation.
+        axis : int, sequence of int or None, default -1
+            Axis or axes along which to compute the mean absolute deviation.
+
+        Returns
+        -------
+        mad : array-like
+            Mean absolute deviation of the input values along the specified axis.
+        """
+        ary, axes = process_ary_axes(ary, axis)
+        mad_ufunc = make_ufunc(
+            self._mad,
+            n_output=1,
+            n_input=1,
+            n_dims=len(axes),
+            ravel=False,
+        )
+        return mad_ufunc(ary, round_to=round_to, skipna=skipna)
+
+    def iqr(self, ary, quantiles=(0.25, 0.75), round_to=None, skipna=False, axis=None):
+        """Compute interquantile range of values along the specified axis.
+
+        Parameters
+        ----------
+        values : array-like
+            Input array.
+        quantiles : tuple of float, default (0.25, 0.75)
+            Quantiles to compute the interquartile range.
+        round_to : int or str, optional
+            If integer, number of decimal places to round the result. If string of the
+            form '2g' number of significant digits to round the result. Defaults to '2g'.
+            Use None to return raw numbers.
+        skipna : bool, default False
+            Whether to ignore NaN values when computing the interquantile range.
+        axis : int, sequence of int or None, default -1
+            Axis or axes along which to compute the interquantile range.
+
+        Returns
+        -------
+        iqr : array-like
+            Interquantile range of the input values along the specified axis.
+        """
+        ary, axes = process_ary_axes(ary, axis)
+        iqr_ufunc = make_ufunc(
+            self._iqr,
+            n_output=1,
+            n_input=1,
+            n_dims=len(axes),
+            ravel=False,
+        )
+        return iqr_ufunc(ary, quantiles=quantiles, round_to=round_to, skipna=skipna)
 
     def loo(
         self,
@@ -1042,6 +1264,7 @@ class BaseArray(_DensityBase, _DiagnosticsBase):
         chain_axis=-2,
         draw_axis=-1,
         random_state=None,
+        pareto_pit=False,
     ):
         """Compute LOO-PIT values with PSIS-LOO-CV weights.
 
@@ -1059,6 +1282,8 @@ class BaseArray(_DensityBase, _DiagnosticsBase):
             Axis for draws.
         random_state : int or Generator, optional
             Random seed or Generator for tie-breaking. If None, uses seed 214.
+        pareto_pit : bool, optional
+            If True, use Pareto-smoothed PIT values. Default is False.
 
         Returns
         -------
@@ -1076,8 +1301,12 @@ class BaseArray(_DensityBase, _DiagnosticsBase):
         else:
             rng = np.random.default_rng(random_state)
 
-        loo_pit_ufunc = make_ufunc(self._loo_pit, n_output=1, n_input=3, n_dims=len(axes))
-        return loo_pit_ufunc(ary, y_obs, log_weights, rng=rng)
+        n_sample_dims = len(axes)
+        sample_size = int(np.prod(ary.shape[-n_sample_dims:]))
+        ary = ary.reshape(*ary.shape[:-n_sample_dims], sample_size)
+        log_weights = log_weights.reshape(*log_weights.shape[:-n_sample_dims], sample_size)
+
+        return self._loo_pit(ary, y_obs, log_weights, rng=rng, pareto_pit=pareto_pit)
 
     def loo_expectation(
         self,

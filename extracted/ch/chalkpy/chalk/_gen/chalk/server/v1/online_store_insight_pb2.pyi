@@ -1,8 +1,16 @@
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
+from google.protobuf import timestamp_pb2 as _timestamp_pb2
+from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
-from typing import ClassVar as _ClassVar, Mapping as _Mapping, Optional as _Optional, Union as _Union
+from typing import (
+    ClassVar as _ClassVar,
+    Iterable as _Iterable,
+    Mapping as _Mapping,
+    Optional as _Optional,
+    Union as _Union,
+)
 
 DESCRIPTOR: _descriptor.FileDescriptor
 
@@ -89,4 +97,38 @@ class GetOnlineStoreConfigResponse(_message.Message):
         self,
         dynamodb: _Optional[_Union[DynamoDBConfig, _Mapping]] = ...,
         elasticache: _Optional[_Union[ElasticacheConfig, _Mapping]] = ...,
+    ) -> None: ...
+
+class OnlineStoreUsageStat(_message.Message):
+    __slots__ = ("namespace", "feature", "entity_count", "total_memory_bytes")
+    NAMESPACE_FIELD_NUMBER: _ClassVar[int]
+    FEATURE_FIELD_NUMBER: _ClassVar[int]
+    ENTITY_COUNT_FIELD_NUMBER: _ClassVar[int]
+    TOTAL_MEMORY_BYTES_FIELD_NUMBER: _ClassVar[int]
+    namespace: str
+    feature: str
+    entity_count: int
+    total_memory_bytes: int
+    def __init__(
+        self,
+        namespace: _Optional[str] = ...,
+        feature: _Optional[str] = ...,
+        entity_count: _Optional[int] = ...,
+        total_memory_bytes: _Optional[int] = ...,
+    ) -> None: ...
+
+class GetOnlineStoreUsageStatsRequest(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class GetOnlineStoreUsageStatsResponse(_message.Message):
+    __slots__ = ("stats", "collected_at")
+    STATS_FIELD_NUMBER: _ClassVar[int]
+    COLLECTED_AT_FIELD_NUMBER: _ClassVar[int]
+    stats: _containers.RepeatedCompositeFieldContainer[OnlineStoreUsageStat]
+    collected_at: _timestamp_pb2.Timestamp
+    def __init__(
+        self,
+        stats: _Optional[_Iterable[_Union[OnlineStoreUsageStat, _Mapping]]] = ...,
+        collected_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
     ) -> None: ...

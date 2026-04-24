@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xarray-spatial
-Version: 0.9.6
+Version: 0.9.7
 Summary: xarray-based spatial analysis tools
 Home-page: https://github.com/xarray-contrib/xarray-spatial
 Author: Xarray-Spatial Developers
@@ -211,6 +211,7 @@ Native GeoTIFF and Cloud Optimized GeoTIFF reader/writer. No GDAL required.
 |:-----|:------------|:-----:|:----:|:--------:|:-------------:|:-----:|
 | [open_geotiff](xrspatial/geotiff/__init__.py) | Read GeoTIFF / COG / VRT | ✅️ | ✅️ | ✅️ | ✅️ | ✅️ |
 | [to_geotiff](xrspatial/geotiff/__init__.py) | Write DataArray as GeoTIFF / COG | ✅️ | ✅️ | ✅️ | ✅️ | ✅️ |
+| [write_geotiff_gpu](xrspatial/geotiff/__init__.py) | GPU-accelerated GeoTIFF / COG write | | | ✅️ | | |
 | [write_vrt](xrspatial/geotiff/__init__.py) | Generate VRT mosaic from GeoTIFFs | ✅️ | | | | |
 
 `open_geotiff` and `to_geotiff` auto-dispatch to the correct backend:
@@ -229,6 +230,10 @@ open_geotiff('mosaic.vrt')                           # VRT mosaic (auto-detected
 to_geotiff(cupy_array, 'out.tif')                    # auto-detects GPU
 to_geotiff(data, 'out.tif', gpu=True)                # force GPU compress
 to_geotiff(data, 'ortho.tif', compression='jpeg')    # JPEG for orthophotos
+to_geotiff(data, 'cog.tif', cog=True)                # COG with auto overviews
+to_geotiff(data, 'cog.tif', cog=True,                # COG with explicit levels
+           overview_levels=[2, 4, 8],
+           overview_resampling='nearest')
 write_vrt('mosaic.vrt', ['tile1.tif', 'tile2.tif'])  # generate VRT
 
 open_geotiff('dem.tif', dtype='float32')             # half memory
@@ -255,7 +260,7 @@ ds.xrs.open_geotiff('large_dem.tif')                 # read windowed to Dataset 
 - Cloud storage: S3 (`s3://`), GCS (`gs://`), Azure (`az://`) via fsspec
 - GPUDirect Storage: SSD→GPU direct DMA via KvikIO (optional)
 - Thread-safe mmap reads, atomic writes, HTTP connection reuse (urllib3)
-- Overview generation: mean, nearest, min, max, median, mode, cubic
+- Overview generation (CPU and GPU): mean, nearest, min, max, median, mode, cubic
 - Planar config, big-endian byte swap, PixelIsArea/PixelIsPoint
 
 **Read performance** (real-world files, A6000 GPU):
@@ -289,10 +294,11 @@ ds.xrs.open_geotiff('large_dem.tif')                 # read windowed to Dataset 
 **Consistency:** 100% pixel-exact match vs rioxarray on all tested files (Landsat 8, Copernicus DEM, USGS 1-arc-second, USGS 1-meter).
 
 -----------
-### **Reproject / Merge**
+### **Reproject / Merge / Resample**
 
 | Name | Description | Source | NumPy xr.DataArray | Dask xr.DataArray | CuPy GPU xr.DataArray | Dask GPU xr.DataArray |
 |:----------:|:------------|:------:|:----------------------:|:--------------------:|:-------------------:|:------:|
+| [Resample](xrspatial/resample.py) | Changes raster resolution (cell size) without reprojection. Nearest, bilinear, cubic, average, mode, min, max, median methods | Standard (interpolation / block aggregation) | ✅️ | ✅️ | ✅️ | ✅️ |
 | [Reproject](xrspatial/reproject/__init__.py) | Reprojects a raster to a new CRS with Numba JIT / CUDA coordinate transforms and resampling. Supports vertical datums (EGM96, EGM2008) and horizontal datum shifts (NAD27, OSGB36, etc.) | Standard (inverse mapping) | ✅️ | ✅️ | ✅️ | ✅️ |
 | [Merge](xrspatial/reproject/__init__.py) | Merges multiple rasters into a single mosaic with configurable overlap strategy | Standard (mosaic) | ✅️ | ✅️ | 🔄 | 🔄 |
 
@@ -526,6 +532,7 @@ Same-CRS tiles skip reprojection entirely and are placed by direct coordinate al
 | Name | Description | Source | NumPy xr.DataArray | Dask xr.DataArray | CuPy GPU xr.DataArray | Dask GPU xr.DataArray |
 |:----------:|:------------|:------:|:----------------------:|:--------------------:|:-------------------:|:------:|
 | [Apply](xrspatial/zonal.py) | Applies a custom function to each zone in a classified raster | Standard | ✅️ | ✅️ | ✅️ | ✅️ |
+| [Clip Polygon](xrspatial/polygon_clip.py) | Clips a raster to an arbitrary polygon with masking | Standard | ✅️ | ✅️ | ✅️ | ✅️ |
 | [Crop](xrspatial/zonal.py) | Extracts the bounding rectangle of a specific zone | Standard | ✅️ | ✅️ | ✅️ | ✅️ |
 | [Regions](xrspatial/zonal.py) | Identifies connected regions of non-zero cells | Standard (CCL) | ✅️ | ✅️ | ✅️ | ✅️ |
 | [Trim](xrspatial/zonal.py) | Removes nodata border rows and columns from a raster | Standard | ✅️ | ✅️ | ✅️ | ✅️ |
@@ -580,6 +587,15 @@ Same-CRS tiles skip reprojection entirely and are placed by direct coordinate al
 | [Polygonize](xrspatial/polygonize.py) | Converts contiguous regions of equal value into vector polygons | Standard (CCL) | ✅️ | ✅️ | ✅️ | 🔄 |
 | [Contours](xrspatial/contour.py) | Extracts elevation contour lines (isolines) from a raster surface | Standard (marching squares) | ✅️ | ✅️ | 🔄 | 🔄 |
 | [Rasterize](xrspatial/rasterize.py) | Rasterizes vector geometries (polygons, lines, points) from a GeoDataFrame | Standard (scanline, Bresenham) | ✅️ | | ✅️ | |
+
+--------
+
+### **Kernel Density Estimation**
+
+| Name | Description | Source | NumPy xr.DataArray | Dask xr.DataArray | CuPy GPU xr.DataArray | Dask GPU xr.DataArray |
+|:-----|:------------|:------:|:------------------:|:-----------------:|:---------------------:|:---------------------:|
+| [KDE](xrspatial/kde.py) | Point-to-raster kernel density estimation (Gaussian, Epanechnikov, quartic) | Silverman 1986 | ✅️ | ✅️ | ✅️ | ✅️ |
+| [Line Density](xrspatial/kde.py) | Line-segment-to-raster density estimation | Standard | ✅️ | | | |
 
 --------
 

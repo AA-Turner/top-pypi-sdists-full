@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: nemo-toolkit
-Version: 2.7.2
+Version: 2.7.3
 Summary: NeMo - a toolkit for Conversational AI
 Home-page: https://github.com/nvidia/nemo
 Download-URL: https://github.com/NVIDIA/NeMo/releases
@@ -341,7 +341,6 @@ Requires-Dist: sacremoses>=0.0.43; extra == "common-only"
 Requires-Dist: sentencepiece<1.0.0; extra == "common-only"
 Provides-Extra: asr-only
 Requires-Dist: braceexpand; extra == "asr-only"
-Requires-Dist: diskcache; extra == "asr-only"
 Requires-Dist: editdistance; extra == "asr-only"
 Requires-Dist: einops; extra == "asr-only"
 Requires-Dist: jiwer<4.0.0,>=3.1.0; extra == "asr-only"
@@ -409,7 +408,6 @@ Requires-Dist: pypinyin-dict; extra == "tts"
 Requires-Dist: seaborn; extra == "tts"
 Requires-Dist: pyopenjtalk; extra == "tts"
 Requires-Dist: braceexpand; extra == "tts"
-Requires-Dist: diskcache; extra == "tts"
 Requires-Dist: editdistance; extra == "tts"
 Requires-Dist: einops; extra == "tts"
 Requires-Dist: jiwer<4.0.0,>=3.1.0; extra == "tts"
@@ -478,7 +476,6 @@ Requires-Dist: tabulate>=0.8.7; extra == "slu"
 Requires-Dist: textdistance>=4.1.5; extra == "slu"
 Requires-Dist: tqdm; extra == "slu"
 Requires-Dist: braceexpand; extra == "slu"
-Requires-Dist: diskcache; extra == "slu"
 Requires-Dist: editdistance; extra == "slu"
 Requires-Dist: einops; extra == "slu"
 Requires-Dist: jiwer<4.0.0,>=3.1.0; extra == "slu"
@@ -616,7 +613,6 @@ Requires-Dist: pandas; extra == "all"
 Requires-Dist: sacremoses>=0.0.43; extra == "all"
 Requires-Dist: sentencepiece<1.0.0; extra == "all"
 Requires-Dist: braceexpand; extra == "all"
-Requires-Dist: diskcache; extra == "all"
 Requires-Dist: editdistance; extra == "all"
 Requires-Dist: einops; extra == "all"
 Requires-Dist: jiwer<4.0.0,>=3.1.0; extra == "all"
@@ -738,7 +734,6 @@ Requires-Dist: nv_one_logger_training_telemetry>=2.3.1; extra == "common"
 Requires-Dist: nv_one_logger_pytorch_lightning_integration>=2.3.1; extra == "common"
 Provides-Extra: asr
 Requires-Dist: braceexpand; extra == "asr"
-Requires-Dist: diskcache; extra == "asr"
 Requires-Dist: editdistance; extra == "asr"
 Requires-Dist: einops; extra == "asr"
 Requires-Dist: jiwer<4.0.0,>=3.1.0; extra == "asr"

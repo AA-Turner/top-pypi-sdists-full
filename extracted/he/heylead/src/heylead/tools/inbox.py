@@ -3,15 +3,32 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import time
 from datetime import datetime, timezone
 from typing import Any
 
 from ..ai.inbound_qualifier import _classify_fast
+from ..db import aio as db
 from ..linkedin import get_account_id, get_linkedin_client
 
 logger = logging.getLogger(__name__)
+
+
+def _contact_provider_id(contact: dict) -> str:
+    """Extract LinkedIn provider_id (ACoAAA...) from a global contact row."""
+    pj = contact.get("profile_json") or {}
+    if isinstance(pj, str):
+        try:
+            pj = json.loads(pj)
+        except (ValueError, TypeError):
+            pj = {}
+    if isinstance(pj, dict):
+        pid = pj.get("provider_id") or ""
+        if pid:
+            return str(pid)
+    return ""
 
 
 def _relative_time(ts: int) -> str:
@@ -262,6 +279,32 @@ async def _resolve_chat(
                             contact_name_resolved = ci["contact_name"]
                             contact_provider_id = ci["contact_provider_id"]
                             break
+
+        # Fallback: search the global contact base, then ask Unipile to
+        # resolve (or create) a chat for that contact's provider_id.
+        # Handles the case where the target chat is not in the recent
+        # inbox page returned by Unipile (e.g. stale sort, inbound-only DM).
+        if not chat_id:
+            try:
+                candidates = await db.search_global_contacts(query=name, limit=5)
+            except Exception as e:
+                logger.debug("global contact search failed for '%s': %s", name, e)
+                candidates = []
+            for contact in candidates:
+                pid = _contact_provider_id(contact)
+                if not pid:
+                    continue
+                try:
+                    found = await client.find_chat_for_user(account_id, pid)
+                except Exception as e:
+                    logger.debug("find_chat_for_user failed for %s: %s", pid[:20], e)
+                    continue
+                if found:
+                    chat_id = found
+                    contact_name_resolved = contact.get("name") or ""
+                    contact_headline = contact.get("title") or ""
+                    contact_provider_id = pid
+                    break
 
         if not chat_id:
             return (

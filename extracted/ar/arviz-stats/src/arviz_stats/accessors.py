@@ -116,7 +116,21 @@ class _BaseAccessor:
         return self._apply("mcse", sample_dims=sample_dims, method=method, prob=prob, **kwargs)
 
     def kde(self, dim=None, **kwargs):
-        """Compute the KDE for all variables in the dataset."""
+        """Compute the KDE for all variables in the dataset.
+
+        Parameters
+        ----------
+        dim : str or sequence of str, optional
+            Dimension(s) over which to compute the KDE.
+        **kwargs : any, optional
+            Additional keyword arguments forwarded to the array or dataarray interface.
+            See :func:`arviz_stats.base.array_stats.kde` for the full list of supported arguments.
+
+        Returns
+        -------
+        xarray.Dataset
+            A dataset containing the KDE grids and pdf values for each variable.
+        """
         return self._apply("kde", dim=dim, **kwargs)
 
     def qds(self, dim=None, **kwargs):
@@ -138,6 +152,10 @@ class _BaseAccessor:
     def ecdf(self, dim=None, **kwargs):
         """Compute the ecdf for all variables in the dataset."""
         return self._apply("ecdf", dim=dim, **kwargs)
+
+    def uniformity_test(self, dim=None, method="pot_c", **kwargs):
+        """Compute pointwise uniformity test for all variables in the dataset."""
+        return self._apply("uniformity_test", dim=dim, method=method, **kwargs)
 
     def pareto_min_ss(self, sample_dims=None, **kwargs):
         """Compute the min sample size for all variables in the dataset."""
@@ -217,6 +235,7 @@ class _BaseAccessor:
         pareto_k=None,
         sample_dims=None,
         random_state=None,
+        pareto_pit=False,
         **kwargs,
     ):
         """Compute LOO-PIT values with PSIS-LOO-CV weights."""
@@ -229,6 +248,7 @@ class _BaseAccessor:
             pareto_k=pareto_k,
             sample_dims=sample_dims,
             random_state=random_state,
+            pareto_pit=pareto_pit,
             **kwargs,
         )
 
@@ -321,6 +341,22 @@ class _BaseAccessor:
     def mode(self, dim=None, **kwargs):
         """Compute mode for all variables in the dataset."""
         return self._apply("mode", dim=dim, **kwargs)
+
+    def std(self, dim=None, **kwargs):
+        """Compute standard deviation for all variables in the dataset."""
+        return self._apply("std", dim=dim, **kwargs)
+
+    def var(self, dim=None, **kwargs):
+        """Compute variance for all variables in the dataset."""
+        return self._apply("var", dim=dim, **kwargs)
+
+    def mad(self, dim=None, **kwargs):
+        """Compute median absolute deviation for all variables in the dataset."""
+        return self._apply("mad", dim=dim, **kwargs)
+
+    def iqr(self, dim=None, **kwargs):
+        """Compute interquantile range for all variables in the dataset."""
+        return self._apply("iqr", dim=dim, **kwargs)
 
     def srs_estimator(self, n_data_points, **kwargs):
         """Compute simple random sampling estimate for subsampled LOO."""

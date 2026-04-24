@@ -1,4 +1,6 @@
-# Copyright 2024 StreamSets Inc.
+#  IBM Confidential
+#  PID 5900-BAF
+#  Copyright StreamSets Inc., an IBM Company 2024
 
 # fmt: off
 from copy import deepcopy
@@ -33,7 +35,7 @@ class MockControlHub(ControlHub):
 
     @property
     def _sequencing_api(self):
-        return {'definitions': {'USequence': JOB_SEQUENCE_BUILDER_JSON}}
+        return {'components': {'schemas': {'USequence': JOB_SEQUENCE_BUILDER_JSON}}}
 
 
 class MockApiClient:
@@ -113,7 +115,7 @@ def dummy_step():
 def dummy_finish_condition(dummy_step, dummy_job):
     finish_condition_json = dict(FINISH_CONDITION_JSON)
     return FinishCondition(
-        finish_condition=finish_condition_json, job_id=dummy_job.job_id, step=dummy_step, control_hub=MockControlHub()
+        finish_condition=finish_condition_json, job_id=dummy_job.id, step=dummy_step, control_hub=MockControlHub()
     )
 
 
@@ -225,12 +227,12 @@ def test_mark_job_as_finished_with_incorrect_type(job_sequence, job):
 
 def test_mark_job_as_finished(job_sequence, dummy_job):
     dummy_job.job_sequence = True
-    assert job_sequence.mark_job_as_finished(dummy_job).response.json() == dummy_job.job_id
+    assert job_sequence.mark_job_as_finished(dummy_job).response.json() == dummy_job.id
 
 
 def test_get_history_log_incorrect_value(job_sequence):
     with pytest.raises(ValueError):
-        job_sequence.get_history_log('1', '2')
+        job_sequence.history_logs.get_all(log_type='invalid')
 
 
 @pytest.mark.parametrize(
@@ -248,6 +250,7 @@ def test_remove_step_with_step_not_in_sequence(job_sequence, dummy_step):
 
 
 def test_remove_step(job_sequence):
+
     step = job_sequence.steps[0]
     id = job_sequence.id
     step_ids_after_removal = {'2': 1, '3': 2, '4': 3}
@@ -296,7 +299,7 @@ def test_add_step_parallel_jobs_true(job_sequence, dummy_jobs, ignore_error):
     job_sequence.add_step_with_jobs(dummy_jobs, True, ignore_error)
 
     assert job_sequence._data[0] == id
-    job_ids = [job.job_id for job in dummy_jobs]
+    job_ids = [job.id for job in dummy_jobs]
     assert job_sequence._data[1] == [{"stepNumber": NUM_OF_STEPS + 1, "ignoreError": ignore_error, "jobIds": job_ids}]
 
 
@@ -314,7 +317,7 @@ def test_add_step_parallel_jobs_false(job_sequence, dummy_jobs, ignore_error):
         assert job_sequence._data[1][idx] == {
             "stepNumber": NUM_OF_STEPS + idx + 1,
             "ignoreError": ignore_error,
-            "jobIds": [job.job_id],
+            "jobIds": [job.id],
         }
 
 

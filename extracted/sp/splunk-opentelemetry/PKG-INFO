@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: splunk-opentelemetry
-Version: 2.10.0
+Version: 2.10.1
 Project-URL: Documentation, https://github.com/signalfx/splunk-otel-python#readme
 Project-URL: Issues, https://github.com/signalfx/splunk-otel-python/issues
 Project-URL: Source, https://github.com/signalfx/splunk-otel-python
@@ -27,6 +27,7 @@ Requires-Dist: opentelemetry-propagator-b3==1.41.0
 Requires-Dist: opentelemetry-sdk==1.41.0
 Requires-Dist: opentelemetry-semantic-conventions==0.62b0
 Requires-Dist: protobuf>=6.33.5
+Requires-Dist: wrapt<2.0.0,>=1.0.0
 Description-Content-Type: text/markdown
 
 # splunk-opentelemetry

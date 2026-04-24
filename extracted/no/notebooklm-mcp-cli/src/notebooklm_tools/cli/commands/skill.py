@@ -242,9 +242,7 @@ def _inject_version_to_agents_md(agents_path: Path) -> None:
         pass
 
 
-def install_skill_md(
-    install_path: Path, frontmatter_extras: dict[str, str] | None = None
-) -> None:
+def install_skill_md(install_path: Path, frontmatter_extras: dict[str, str] | None = None) -> None:
     """Install SKILL.md format to a directory.
 
     Args:

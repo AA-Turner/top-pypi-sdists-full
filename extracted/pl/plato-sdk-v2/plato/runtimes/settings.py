@@ -59,7 +59,7 @@ class RuntimeSettings(BaseSettings):
     )
 
     codex_vm_image: str = Field(
-        default="383806609161.dkr.ecr.us-west-1.amazonaws.com/vm/rootfs/plato-agents/codex:3.0.28",
+        default="383806609161.dkr.ecr.us-west-1.amazonaws.com/vm/rootfs/plato-agents/codex:3.0.35",
         description="Default Docker image for Codex agent runtimes.",
     )
 

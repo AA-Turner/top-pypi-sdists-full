@@ -20,7 +20,7 @@ from ..exceptions import IgnoredArgumentWarning
 class BaseFold():
     """
     Base class for all Fold classes in skforecast. All fold classes should specify
-    all the parameters that can be set at the class level in their ``__init__``.
+    all the parameters that can be set at the class level in their `__init__`.
 
     Parameters
     ----------
@@ -463,9 +463,9 @@ class OneStepAheadFold(BaseFold):
                 </ul>
             </details>
             <p>
-                <a href="https://skforecast.org/{__version__}/api/model_selection.html#skforecast.model_selection._split.OneStepAheadFold">&#128712 <strong>API Reference</strong></a>
+                <a href="https://skforecast.org/{__version__}/api/model_selection.html#skforecast.model_selection._split.OneStepAheadFold">&#128214; <strong>API Reference</strong></a>
                 &nbsp;&nbsp;
-                <a href="https://skforecast.org/{__version__}/faq/parameters-search-backtesting-vs-one-step-ahead.html">&#128462 <strong>User Guide</strong></a>
+                <a href="https://skforecast.org/{__version__}/faq/parameters-search-backtesting-vs-one-step-ahead.html">&#128221; <strong>User Guide</strong></a>
             </p>
         </div>
         """
@@ -684,7 +684,7 @@ class TimeSeriesFold(BaseFold):
         - If `True`, the forecaster is refitted in each fold.
         - If `False`, the forecaster is trained only in the first fold.
         - If an integer, the forecaster is trained in the first fold and then refitted
-          every `refit` folds.
+        every `refit` folds.
     fixed_train_size : bool, default True
         Whether the training size is fixed or increases in each fold.
     gap : int, default 0
@@ -865,9 +865,9 @@ class TimeSeriesFold(BaseFold):
                 </ul>
             </details>
             <p>
-                <a href="https://skforecast.org/{__version__}/api/model_selection.html#skforecast.model_selection._split.TimeSeriesFold">&#128712 <strong>API Reference</strong></a>
+                <a href="https://skforecast.org/{__version__}/api/model_selection.html#skforecast.model_selection._split.TimeSeriesFold">&#128214; <strong>API Reference</strong></a>
                 &nbsp;&nbsp;
-                <a href="https://skforecast.org/{__version__}/user_guides/backtesting.html#timeseriesfold">&#128462 <strong>User Guide</strong></a>
+                <a href="https://skforecast.org/{__version__}/user_guides/backtesting.html#timeseriesfold">&#128221; <strong>User Guide</strong></a>
             </p>
         </div>
         """
@@ -1042,6 +1042,13 @@ class TimeSeriesFold(BaseFold):
                 test_iloc_start = self.initial_train_size + i * (self.fold_stride)
             
             if self.window_size is not None:
+                # NOTE: When window_size > test_iloc_start (e.g. a large
+                # context_length for ForecasterFoundation on a short series),
+                # this value is negative. Python range slicing silently clips
+                # negative start indices to 0, so the resulting last_window
+                # will contain all available history up to test_iloc_start
+                # rather than exactly window_size observations. This is the
+                # intended expanding-window behaviour for early folds.
                 last_window_iloc_start = test_iloc_start - self.window_size
 
             test_iloc_end = test_iloc_start + self.gap + self.steps

@@ -1,0 +1,2 @@
+import{Mn as e,Nn as t,bt as n,en as r}from"./index-BkA_-rSU.js";import{t as i}from"./mermaid-parser.core-DHRBiWhs.js";var a={parse:e(async e=>{let n=await i(`info`,e);t.debug(n)},`parse`)},o={version:`11.14.0`},s={parser:a,db:{getVersion:e(()=>o.version,`getVersion`)},renderer:{draw:e((e,i,a)=>{t.debug(`rendering info diagram
+`+e);let o=n(i);r(o,100,400,!0),o.append(`g`).append(`text`).attr(`x`,100).attr(`y`,40).attr(`class`,`version`).attr(`font-size`,32).style(`text-anchor`,`middle`).text(`v${a}`)},`draw`)}};export{s as diagram};

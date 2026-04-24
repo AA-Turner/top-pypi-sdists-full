@@ -731,3 +731,252 @@ class TextClassificationParameters(BaseSchema):
             "languages": ["en"],
             "semantic_config": TextClassificationSemanticConfig.get_sample_params(),
         }
+
+
+####################
+#  Create Schemas  #
+####################
+
+
+class CreateSchemasMode(StrEnum):
+    STANDARD = "standard"
+    HIGH_QUALITY = "high_quality"
+
+
+@dataclass
+class CreateSchemasSemanticConfig(BaseSchema):
+    default_model_name: str | None = None
+
+    @classmethod
+    def get_sample_params(cls) -> dict[str, Any]:
+        """Provide example values for CreateSchemasSemanticConfig."""
+        return {"default_model_name": "mistral-medium-2505"}
+
+
+@dataclass
+class CreateSchemasParameters(BaseSchema):
+    mode: CreateSchemasMode | None = None
+    ocr_mode: OCRMode | None = None
+    auto_rotation_correction: bool | None = None
+    languages: list[str] | None = None
+    additional_prompt_instructions: str | None = None
+    enable_grounding: bool | None = None
+    max_pages_to_process: int | None = None
+    semantic_config: CreateSchemasSemanticConfig | None = None
+
+    @classmethod
+    def get_sample_params(cls) -> dict[str, Any]:
+        """Provide example values for CreateSchemasParameters."""
+        return {
+            "mode": CreateSchemasMode.STANDARD,
+            "ocr_mode": OCRMode.ENABLED,
+            "auto_rotation_correction": False,
+            "languages": ["en"],
+            "additional_prompt_instructions": "Focus on extracting key financial data and dates",
+            "enable_grounding": False,
+            "max_pages_to_process": 20,
+            "semantic_config": CreateSchemasSemanticConfig.get_sample_params(),
+        }
+
+
+#####################
+#  Improve Schemas  #
+#####################
+
+
+@dataclass
+class ImproveSchemasFields(BaseSchema):
+    description: str
+    example: str
+    available_options: list[str] | None = None
+
+    @classmethod
+    def get_sample_params(cls) -> dict[str, Any]:
+        """Provide example values for ImproveSchemasFields."""
+        return {
+            "description": "The total amount due on the invoice",
+            "example": "1250.00",
+            "available_options": ["USD", "EUR", "GBP"],
+        }
+
+
+@dataclass
+class ImproveSchemasSchemaDefinition(BaseSchema):
+    document_type: str
+    document_description: str
+    fields: ImproveSchemasFields | None = None
+    additional_prompt_instructions: str | None = None
+
+    @classmethod
+    def get_sample_params(cls) -> dict[str, Any]:
+        """Provide example values for ImproveSchemasSchemaDefinition."""
+        return {
+            "document_type": "Corporate_Annual_Review",
+            "document_description": "Annual review doc",
+            "fields": ImproveSchemasFields.get_sample_params(),
+            "additional_prompt_instructions": "Pay special attention to currency symbols and date formats",
+        }
+
+
+@dataclass
+class ImproveSchemasSemanticConfig(BaseSchema):
+    default_model_name: str | None = None
+
+    @classmethod
+    def get_sample_params(cls) -> dict[str, Any]:
+        """Provide example values for ImproveSchemasSemanticConfig."""
+        return {"default_model_name": "mistral-medium-2505"}
+
+
+@dataclass
+class ImproveSchemasParameters(BaseSchema):
+    schema: ImproveSchemasSchemaDefinition
+    semantic_config: ImproveSchemasSemanticConfig | None = None
+
+    @classmethod
+    def get_sample_params(cls) -> dict[str, Any]:
+        """Provide example values for ImproveSchemasParameters."""
+        return {
+            "schema": ImproveSchemasSchemaDefinition.get_sample_params(),
+            "semantic_config": ImproveSchemasSemanticConfig.get_sample_params(),
+        }
+
+
+###################
+#  Merge Schemas  #
+###################
+
+
+@dataclass
+class MergeSchemasFields(BaseSchema):
+    description: str
+    example: str
+    available_options: list[str] | None = None
+
+    @classmethod
+    def get_sample_params(cls) -> dict[str, Any]:
+        """Provide example values for MergeSchemasFields."""
+        return {
+            "description": "Name",
+            "example": "Name of the user",
+            "available_options": ["John Doe", "Jane Smith", "Company Name"],
+        }
+
+
+@dataclass
+class MergeSchemasSchemaDefinition(BaseSchema):
+    document_type: str
+    document_description: str
+    fields: MergeSchemasFields | None = None
+    additional_prompt_instructions: str | None = None
+
+    @classmethod
+    def get_sample_params(cls) -> dict[str, Any]:
+        """Provide example values for MergeSchemasSchemaDefinition."""
+        return {
+            "document_type": "Passport",
+            "document_description": "Passport document to get the schema",
+            "fields": MergeSchemasFields.get_sample_params(),
+            "additional_prompt_instructions": "Ensure consistent field naming across merged schemas",
+        }
+
+
+@dataclass
+class MergeSchemasSemanticConfig(BaseSchema):
+    default_model_name: str | None = None
+
+    @classmethod
+    def get_sample_params(cls) -> dict[str, Any]:
+        """Provide example values for MergeSchemasSemanticConfig."""
+        return {"default_model_name": "mistral-medium-2505"}
+
+
+@dataclass
+class MergeSchemasParameters(BaseSchema):
+    schemas: list[MergeSchemasSchemaDefinition]
+    semantic_config: MergeSchemasSemanticConfig | None = None
+
+    @classmethod
+    def get_sample_params(cls) -> dict[str, Any]:
+        """Provide example values for MergeSchemasParameters."""
+        return {
+            "schemas": [MergeSchemasSchemaDefinition.get_sample_params()],
+            "semantic_config": MergeSchemasSemanticConfig.get_sample_params(),
+        }
+
+
+#####################
+#  Cluster Schemas  #
+#####################
+
+
+@dataclass
+class ClusterSchemasFields(BaseSchema):
+    description: str
+    example: str
+    available_options: list[str] | None = None
+
+    @classmethod
+    def get_sample_params(cls) -> dict[str, Any]:
+        """Provide example values for ClusterSchemasFields."""
+        return {
+            "description": "Unique identifier for this invoice",
+            "example": "4420188494",
+            "available_options": ["numeric", "alphanumeric", "UUID"],
+        }
+
+
+@dataclass
+class ClusterSchemasSchemaDefinition(BaseSchema):
+    document_type: str
+    document_description: str
+    fields: ClusterSchemasFields | None = None
+    additional_prompt_instructions: str | None = None
+
+    @classmethod
+    def get_sample_params(cls) -> dict[str, Any]:
+        """Provide example values for ClusterSchemasSchemaDefinition."""
+        return {
+            "document_type": "Invoice",
+            "document_description": "Invoice form from Company A",
+            "fields": ClusterSchemasFields.get_sample_params(),
+            "additional_prompt_instructions": "Group similar invoice formats together based on field structure",
+        }
+
+
+@dataclass
+class ClusterSchemasDocument(BaseSchema):
+    document_name: str
+    schema: ClusterSchemasSchemaDefinition
+
+    @classmethod
+    def get_sample_params(cls) -> dict[str, Any]:
+        """Provide example values for ClusterSchemasDocument."""
+        return {
+            "document_name": "example_pdf.pdf",
+            "schema": ClusterSchemasSchemaDefinition.get_sample_params(),
+        }
+
+
+@dataclass
+class ClusterSchemasSemanticConfig(BaseSchema):
+    default_model_name: str | None = None
+
+    @classmethod
+    def get_sample_params(cls) -> dict[str, Any]:
+        """Provide example values for ClusterSchemasSemanticConfig."""
+        return {"default_model_name": "mistral-medium-2505"}
+
+
+@dataclass
+class ClusterSchemasParameters(BaseSchema):
+    schemas: list[ClusterSchemasDocument]
+    semantic_config: ClusterSchemasSemanticConfig | None = None
+
+    @classmethod
+    def get_sample_params(cls) -> dict[str, Any]:
+        """Provide example values for ClusterSchemasParameters."""
+        return {
+            "schemas": [ClusterSchemasDocument.get_sample_params()],
+            "semantic_config": ClusterSchemasSemanticConfig.get_sample_params(),
+        }

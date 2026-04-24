@@ -24,6 +24,7 @@ class ExternalLocationArgs:
                  credential_name: pulumi.Input[_builtins.str],
                  url: pulumi.Input[_builtins.str],
                  comment: Optional[pulumi.Input[_builtins.str]] = None,
+                 effective_file_event_queue: Optional[pulumi.Input['ExternalLocationEffectiveFileEventQueueArgs']] = None,
                  enable_file_events: Optional[pulumi.Input[_builtins.bool]] = None,
                  encryption_details: Optional[pulumi.Input['ExternalLocationEncryptionDetailsArgs']] = None,
                  fallback: Optional[pulumi.Input[_builtins.bool]] = None,
@@ -39,6 +40,7 @@ class ExternalLocationArgs:
                  skip_validation: Optional[pulumi.Input[_builtins.bool]] = None):
         """
         The set of arguments for constructing a ExternalLocation resource.
+
         :param pulumi.Input[_builtins.str] credential_name: Name of the StorageCredential to use with this external location.
         :param pulumi.Input[_builtins.str] url: Path URL in cloud storage, of the form: `s3://[bucket-host]/[bucket-dir]` (AWS), `abfss://[user]@[host]/[path]` (Azure), `gs://[bucket-host]/[bucket-dir]` (GCP).   If the URL contains special characters, such as space, `&`, etc., they should be percent-encoded (space > `%20`, etc.).
         :param pulumi.Input[_builtins.str] comment: User-supplied free-form text.
@@ -56,6 +58,8 @@ class ExternalLocationArgs:
         pulumi.set(__self__, "url", url)
         if comment is not None:
             pulumi.set(__self__, "comment", comment)
+        if effective_file_event_queue is not None:
+            pulumi.set(__self__, "effective_file_event_queue", effective_file_event_queue)
         if enable_file_events is not None:
             pulumi.set(__self__, "enable_file_events", enable_file_events)
         if encryption_details is not None:
@@ -118,6 +122,15 @@ class ExternalLocationArgs:
     @comment.setter
     def comment(self, value: Optional[pulumi.Input[_builtins.str]]):
         pulumi.set(self, "comment", value)
+
+    @_builtins.property
+    @pulumi.getter(name="effectiveFileEventQueue")
+    def effective_file_event_queue(self) -> Optional[pulumi.Input['ExternalLocationEffectiveFileEventQueueArgs']]:
+        return pulumi.get(self, "effective_file_event_queue")
+
+    @effective_file_event_queue.setter
+    def effective_file_event_queue(self, value: Optional[pulumi.Input['ExternalLocationEffectiveFileEventQueueArgs']]):
+        pulumi.set(self, "effective_file_event_queue", value)
 
     @_builtins.property
     @pulumi.getter(name="enableFileEvents")
@@ -274,6 +287,7 @@ class _ExternalLocationState:
                  credential_id: Optional[pulumi.Input[_builtins.str]] = None,
                  credential_name: Optional[pulumi.Input[_builtins.str]] = None,
                  effective_enable_file_events: Optional[pulumi.Input[_builtins.bool]] = None,
+                 effective_file_event_queue: Optional[pulumi.Input['ExternalLocationEffectiveFileEventQueueArgs']] = None,
                  enable_file_events: Optional[pulumi.Input[_builtins.bool]] = None,
                  encryption_details: Optional[pulumi.Input['ExternalLocationEncryptionDetailsArgs']] = None,
                  fallback: Optional[pulumi.Input[_builtins.bool]] = None,
@@ -292,6 +306,7 @@ class _ExternalLocationState:
                  url: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering ExternalLocation resources.
+
         :param pulumi.Input[_builtins.str] comment: User-supplied free-form text.
         :param pulumi.Input[_builtins.int] created_at: Time at which this external location was created, in epoch milliseconds.
         :param pulumi.Input[_builtins.str] created_by: Username of external location creator.
@@ -324,6 +339,8 @@ class _ExternalLocationState:
             pulumi.set(__self__, "credential_name", credential_name)
         if effective_enable_file_events is not None:
             pulumi.set(__self__, "effective_enable_file_events", effective_enable_file_events)
+        if effective_file_event_queue is not None:
+            pulumi.set(__self__, "effective_file_event_queue", effective_file_event_queue)
         if enable_file_events is not None:
             pulumi.set(__self__, "enable_file_events", enable_file_events)
         if encryption_details is not None:
@@ -434,6 +451,15 @@ class _ExternalLocationState:
     @effective_enable_file_events.setter
     def effective_enable_file_events(self, value: Optional[pulumi.Input[_builtins.bool]]):
         pulumi.set(self, "effective_enable_file_events", value)
+
+    @_builtins.property
+    @pulumi.getter(name="effectiveFileEventQueue")
+    def effective_file_event_queue(self) -> Optional[pulumi.Input['ExternalLocationEffectiveFileEventQueueArgs']]:
+        return pulumi.get(self, "effective_file_event_queue")
+
+    @effective_file_event_queue.setter
+    def effective_file_event_queue(self, value: Optional[pulumi.Input['ExternalLocationEffectiveFileEventQueueArgs']]):
+        pulumi.set(self, "effective_file_event_queue", value)
 
     @_builtins.property
     @pulumi.getter(name="enableFileEvents")
@@ -624,6 +650,7 @@ class ExternalLocation(pulumi.CustomResource):
                  opts: Optional[pulumi.ResourceOptions] = None,
                  comment: Optional[pulumi.Input[_builtins.str]] = None,
                  credential_name: Optional[pulumi.Input[_builtins.str]] = None,
+                 effective_file_event_queue: Optional[pulumi.Input[Union['ExternalLocationEffectiveFileEventQueueArgs', 'ExternalLocationEffectiveFileEventQueueArgsDict']]] = None,
                  enable_file_events: Optional[pulumi.Input[_builtins.bool]] = None,
                  encryption_details: Optional[pulumi.Input[Union['ExternalLocationEncryptionDetailsArgs', 'ExternalLocationEncryptionDetailsArgsDict']]] = None,
                  fallback: Optional[pulumi.Input[_builtins.bool]] = None,
@@ -740,6 +767,7 @@ class ExternalLocation(pulumi.CustomResource):
         ```
 
         Example `encryption_details` specifying SSE_S3 encryption:
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -864,6 +892,7 @@ class ExternalLocation(pulumi.CustomResource):
 
         Example `encryption_details` specifying SSE_S3 encryption:
 
+
         :param str resource_name: The name of the resource.
         :param ExternalLocationArgs args: The arguments to use to populate this resource's properties.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -881,6 +910,7 @@ class ExternalLocation(pulumi.CustomResource):
                  opts: Optional[pulumi.ResourceOptions] = None,
                  comment: Optional[pulumi.Input[_builtins.str]] = None,
                  credential_name: Optional[pulumi.Input[_builtins.str]] = None,
+                 effective_file_event_queue: Optional[pulumi.Input[Union['ExternalLocationEffectiveFileEventQueueArgs', 'ExternalLocationEffectiveFileEventQueueArgsDict']]] = None,
                  enable_file_events: Optional[pulumi.Input[_builtins.bool]] = None,
                  encryption_details: Optional[pulumi.Input[Union['ExternalLocationEncryptionDetailsArgs', 'ExternalLocationEncryptionDetailsArgsDict']]] = None,
                  fallback: Optional[pulumi.Input[_builtins.bool]] = None,
@@ -908,6 +938,7 @@ class ExternalLocation(pulumi.CustomResource):
             if credential_name is None and not opts.urn:
                 raise TypeError("Missing required property 'credential_name'")
             __props__.__dict__["credential_name"] = credential_name
+            __props__.__dict__["effective_file_event_queue"] = effective_file_event_queue
             __props__.__dict__["enable_file_events"] = enable_file_events
             __props__.__dict__["encryption_details"] = encryption_details
             __props__.__dict__["fallback"] = fallback
@@ -948,6 +979,7 @@ class ExternalLocation(pulumi.CustomResource):
             credential_id: Optional[pulumi.Input[_builtins.str]] = None,
             credential_name: Optional[pulumi.Input[_builtins.str]] = None,
             effective_enable_file_events: Optional[pulumi.Input[_builtins.bool]] = None,
+            effective_file_event_queue: Optional[pulumi.Input[Union['ExternalLocationEffectiveFileEventQueueArgs', 'ExternalLocationEffectiveFileEventQueueArgsDict']]] = None,
             enable_file_events: Optional[pulumi.Input[_builtins.bool]] = None,
             encryption_details: Optional[pulumi.Input[Union['ExternalLocationEncryptionDetailsArgs', 'ExternalLocationEncryptionDetailsArgsDict']]] = None,
             fallback: Optional[pulumi.Input[_builtins.bool]] = None,
@@ -1000,6 +1032,7 @@ class ExternalLocation(pulumi.CustomResource):
         __props__.__dict__["credential_id"] = credential_id
         __props__.__dict__["credential_name"] = credential_name
         __props__.__dict__["effective_enable_file_events"] = effective_enable_file_events
+        __props__.__dict__["effective_file_event_queue"] = effective_file_event_queue
         __props__.__dict__["enable_file_events"] = enable_file_events
         __props__.__dict__["encryption_details"] = encryption_details
         __props__.__dict__["fallback"] = fallback
@@ -1067,6 +1100,11 @@ class ExternalLocation(pulumi.CustomResource):
     @pulumi.getter(name="effectiveEnableFileEvents")
     def effective_enable_file_events(self) -> pulumi.Output[_builtins.bool]:
         return pulumi.get(self, "effective_enable_file_events")
+
+    @_builtins.property
+    @pulumi.getter(name="effectiveFileEventQueue")
+    def effective_file_event_queue(self) -> pulumi.Output[Optional['outputs.ExternalLocationEffectiveFileEventQueue']]:
+        return pulumi.get(self, "effective_file_event_queue")
 
     @_builtins.property
     @pulumi.getter(name="enableFileEvents")

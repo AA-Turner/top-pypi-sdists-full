@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import logging
 import unicodedata
+import warnings
 from collections import defaultdict
 from dataclasses import dataclass, field
 from io import BytesIO
@@ -36,6 +37,9 @@ from neo4j_graphrag.experimental.components.types import (
 )
 
 logger = logging.getLogger(__name__)
+
+INTERNAL_ID_PROPERTY = "__id__"
+"""Parquet column name for the graph-internal node identifier (not a user property)."""
 
 _FALLBACK_FILESTEM = "unnamed"
 
@@ -75,38 +79,178 @@ def sanitize_parquet_filestem(name: str) -> str:
     return result
 
 
+def _constraint_relationship_type_unset(constraint: dict[str, Any]) -> bool:
+    rt = constraint.get("relationship_type")
+    return rt is None or (isinstance(rt, str) and rt.strip() == "")
+
+
+def _resolve_constraint_property_names(constraint: dict[str, Any]) -> list[str]:
+    """Resolve property names from a constraint dict (``property_names`` or ``property_name``)."""
+    pns = constraint.get("property_names") or ()
+    if pns:
+        return list(pns)
+    pn = constraint.get("property_name", "")
+    return [pn] if pn else []
+
+
+def get_uniqueness_property_names_for_node_type(
+    schema: Optional[dict[str, Any]], node_label: str
+) -> list[str]:
+    """Property names with a UNIQUENESS constraint for this node label (flat, order as in schema)."""
+    if not schema:
+        return []
+    out: list[str] = []
+    for constraint in schema.get("constraints", ()) or ():
+        if constraint.get("type") != "UNIQUENESS":
+            continue
+        if constraint.get("node_type", "") != node_label:
+            continue
+        out.extend(_resolve_constraint_property_names(constraint))
+    return out
+
+
+def get_key_property_names_for_node_type(
+    schema: Optional[dict[str, Any]], node_label: str
+) -> list[str]:
+    """Property names with a KEY constraint (node scope) for this node label (flat)."""
+    if not schema:
+        return []
+    out: list[str] = []
+    for constraint in schema.get("constraints", ()) or ():
+        if constraint.get("type") != "KEY":
+            continue
+        if constraint.get("node_type", "") != node_label:
+            continue
+        if not _constraint_relationship_type_unset(constraint):
+            continue
+        out.extend(_resolve_constraint_property_names(constraint))
+    return out
+
+
+def get_key_constraints_for_node_type(
+    schema: Optional[dict[str, Any]], node_label: str
+) -> list[tuple[str, ...]]:
+    """KEY constraints for a node label, preserving composite grouping.
+
+    Returns a list of tuples, each containing the property names for one KEY constraint.
+    """
+    if not schema:
+        return []
+    out: list[tuple[str, ...]] = []
+    for constraint in schema.get("constraints", ()) or ():
+        if constraint.get("type") != "KEY":
+            continue
+        if constraint.get("node_type", "") != node_label:
+            continue
+        if not _constraint_relationship_type_unset(constraint):
+            continue
+        props = _resolve_constraint_property_names(constraint)
+        if props:
+            out.append(tuple(props))
+    return out
+
+
+def _first_single_property_key_name_from_groups(
+    key_constraints: list[tuple[str, ...]],
+) -> Optional[str]:
+    """First property name among KEY groups that list exactly one property, if any."""
+    for t in key_constraints:
+        if len(t) == 1:
+            return t[0]
+    return None
+
+
+def get_uniqueness_constraints_for_node_type(
+    schema: Optional[dict[str, Any]], node_label: str
+) -> list[tuple[str, ...]]:
+    """UNIQUENESS constraints for a node label, preserving composite grouping.
+
+    Returns a list of tuples, each containing the property names for one UNIQUENESS constraint.
+    """
+    if not schema:
+        return []
+    out: list[tuple[str, ...]] = []
+    for constraint in schema.get("constraints", ()) or ():
+        if constraint.get("type") != "UNIQUENESS":
+            continue
+        if constraint.get("node_type", "") != node_label:
+            continue
+        props = _resolve_constraint_property_names(constraint)
+        if props:
+            out.append(tuple(props))
+    return out
+
+
+def enrich_key_constraints_for_node_type(
+    schema: Optional[dict[str, Any]], node_label: str
+) -> list[tuple[str, ...]]:
+    """KEY constraint groups for export metadata, ensuring a single-property KEY exists.
+
+    If the schema has no single-property KEY for this label (including no KEY at all,
+    or only composite KEYs), appends a synthetic ``("__id__",)`` group so downstream
+    import specs always see at least one single-property KEY per node type.
+    """
+    base = get_key_constraints_for_node_type(schema, node_label)
+    if _first_single_property_key_name_from_groups(base) is not None:
+        return base
+    return [*base, (INTERNAL_ID_PROPERTY,)]
+
+
+def flatten_key_constraint_property_names(
+    key_constraints: list[tuple[str, ...]],
+) -> list[str]:
+    """Flatten grouped KEY tuples to a column list (schema / export order)."""
+    out: list[str] = []
+    for t in key_constraints:
+        out.extend(t)
+    return out
+
+
+def get_relationship_join_key_property_name(
+    schema: Optional[dict[str, Any]], node_label: str
+) -> str:
+    """Property used in relationship Parquet ``from``/``to`` and endpoint metadata.
+
+    Returns the first **single-property** KEY from the schema for this label; if none,
+    returns ``__id__`` (internal node id in row values). Independent of
+    :func:`enrich_key_constraints_for_node_type` ordering, but aligned with it:
+    when the schema has no single-property KEY, the join key is ``__id__`` and
+    enrichment adds a KEY on ``__id__``.
+    """
+    base = get_key_constraints_for_node_type(schema, node_label)
+    name = _first_single_property_key_name_from_groups(base)
+    return name if name is not None else INTERNAL_ID_PROPERTY
+
+
+def get_primary_key_column_names_for_node_type(
+    schema: Optional[dict[str, Any]], node_label: str
+) -> list[str]:
+    """Column names flagged as primary key: enriched KEY properties (see enrich_key_constraints)."""
+    return flatten_key_constraint_property_names(
+        enrich_key_constraints_for_node_type(schema, node_label)
+    )
+
+
 def get_unique_properties_for_node_type(
     schema: Optional[dict[str, Any]], node_label: str
 ) -> list[str]:
-    """Extract unique property names from schema constraints for a given node type.
+    """Deprecated synonym for :func:`get_primary_key_column_names_for_node_type`.
 
-    1. If the schema has constraints, use uniqueness constraints
-    2. Otherwise, fall back to "__id__"
-
-    Args:
-        schema: The GraphSchema as a dictionary (may contain 'constraints' key)
-        node_label: The label for the node type
-
-    Returns:
-        List of property names that have uniqueness constraints
+    Historically this returned UNIQUENESS-backed property names (with a ``__id__``
+    fallback). It now follows **primary-key** semantics (KEY constraints, else
+    ``__id__``). Use :func:`get_uniqueness_property_names_for_node_type` or
+    :func:`get_primary_key_column_names_for_node_type` instead.
     """
-    default = ["__id__"]
-    if not schema:
-        return default
-
-    constraints = schema.get("constraints", ())
-    unique_properties: list[str] = []
-
-    for constraint in constraints:
-        # Check if this constraint applies to the node's label
-        if constraint.get("type") == "UNIQUENESS":
-            constraint_node_type = constraint.get("node_type", "")
-            if constraint_node_type == node_label:
-                property_name = constraint.get("property_name", "")
-                if property_name:
-                    unique_properties.append(property_name)
-
-    return unique_properties or default
+    warnings.warn(
+        "get_unique_properties_for_node_type is deprecated and its meaning has "
+        f"changed: it now mirrors get_primary_key_column_names_for_node_type (KEY / "
+        f"{INTERNAL_ID_PROPERTY}), not UNIQUENESS-only lists. Use "
+        "get_uniqueness_property_names_for_node_type or "
+        "get_primary_key_column_names_for_node_type.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return get_primary_key_column_names_for_node_type(schema, node_label)
 
 
 @dataclass
@@ -123,10 +267,16 @@ class FileMetadata:
     relationship_type: Optional[str] = None
     relationship_head: Optional[str] = None
     relationship_tail: Optional[str] = None
-    # Key property info - computed once by the formatter
-    key_properties: Optional[list[str]] = None  # For nodes
-    head_node_key_properties: Optional[list[str]] = None  # For relationships
-    tail_node_key_properties: Optional[list[str]] = None  # For relationships
+    # Schema-driven column roles for KGWriter metadata (see ParquetWriter)
+    primary_key_property_names: Optional[list[str]] = None
+    uniqueness_property_names: Optional[list[str]] = None
+    head_primary_key_property_names: Optional[list[str]] = None
+    head_uniqueness_property_names: Optional[list[str]] = None
+    tail_primary_key_property_names: Optional[list[str]] = None
+    tail_uniqueness_property_names: Optional[list[str]] = None
+    # Grouped constraint metadata (preserves composite grouping)
+    key_constraints: Optional[list[tuple[str, ...]]] = None
+    uniqueness_constraints: Optional[list[tuple[str, ...]]] = None
 
 
 @dataclass
@@ -298,7 +448,7 @@ class Neo4jGraphParquetFormatter:
                 labels.append("__Entity__")
 
             row: dict[str, Any] = {
-                "__id__": node.id,
+                INTERNAL_ID_PROPERTY: node.id,
                 "labels": labels,
             }
 
@@ -311,39 +461,23 @@ class Neo4jGraphParquetFormatter:
 
         return label_to_rows
 
-    def _get_key_property_name_for_label(self, node_label: str) -> Optional[str]:
-        """Get the primary key property name for a node label from schema constraints.
-
-        Args:
-            node_label: The label of the node type
-
-        Returns:
-            The property name that is the primary key, or None if using default "__id__"
-        """
-        unique_props = get_unique_properties_for_node_type(self.schema, node_label)
-        # If the only property is "__id__" (the default), return None to use node.id
-        if unique_props == ["__id__"]:
-            return None
-        return unique_props[0]
-
     def _get_node_key_property_value(self, node: Neo4jNode) -> Any:
-        """Get the primary key property value for a node.
+        """Get the join key value for relationship Parquet ``from``/``to`` columns.
 
-        Uses schema constraints to find the primary key property name,
-        then returns the value of that property from the node.
+        Uses :func:`get_relationship_join_key_property_name` so row values match
+        relationship endpoint metadata (single-property KEY or ``__id__``).
 
         Args:
             node: The Neo4jNode to get the key value from
 
         Returns:
-            The value of the primary key property, or node.id if no constraint is found
+            The property value for the join key, or ``node.id`` when the join key is ``__id__``.
 
         Raises:
             ValueError: If the node is missing the key property or if the property value is null
         """
-        key_prop = self._get_key_property_name_for_label(node.label)
-        if not key_prop:
-            # there is no key property, we use the node ID
+        key_prop = get_relationship_join_key_property_name(self.schema, node.label)
+        if key_prop == INTERNAL_ID_PROPERTY:
             return node.id
         if key_prop not in node.properties:
             # the Key property is missing from the node properties
@@ -481,13 +615,52 @@ class Neo4jGraphParquetFormatter:
             import pyarrow.parquet as pq
 
             self._normalize_column_types(rows)
-            table = pa.Table.from_pylist(rows)
-            # Write to BytesIO buffer
+
+            # Build an explicit schema from the union of all keys to avoid
+            # silent column drops when the first row lacks some keys (e.g. embeddings).
+            # Dict preserves first-seen insertion order for deterministic column ordering.
+            all_keys: dict[str, None] = {k: None for row in rows for k in row}
+            # Collect the first non-null, non-empty-list value per key for type inference.
+            # Also track keys that carry at least one empty list, so we can fall back to
+            # list<null> when no richer sample exists (rather than pa.null(), which cannot
+            # hold [] values).
+            sample: dict[str, Any] = {}
+            has_empty_list: set[str] = set()
+            for row in rows:
+                for k, v in row.items():
+                    if v == []:
+                        has_empty_list.add(k)
+                    elif k not in sample and v is not None:
+                        sample[k] = v
+
+            fields: list[pa.Field] = []
+            for k in all_keys:
+                if k in sample:
+                    t: Any = pa.infer_type([sample[k]])
+                    if pa.types.is_list(t) and (
+                        pa.types.is_floating(t.value_type)
+                        or pa.types.is_integer(t.value_type)
+                    ):
+                        t = pa.list_(pa.float32())
+                elif k in has_empty_list:
+                    # Only empty lists seen — use list<null> so [] values round-trip correctly.
+                    # Note: list<null> is a known limitation; some consumers (DuckDB, Spark)
+                    # may not handle this type well.
+                    t = pa.list_(pa.null())
+                else:
+                    t = pa.null()
+                fields.append(pa.field(k, t))
+
+            schema = pa.schema(fields) if fields else None
+            table = pa.Table.from_pylist(rows, schema=schema)
+
             buffer = BytesIO()
             pq.write_table(table, buffer)
             buffer.seek(0)
             return buffer.read(), table.schema
-        except (ValueError, TypeError) as e:
+        except ImportError:
+            raise
+        except (ValueError, TypeError, pa.ArrowInvalid) as e:
             raise ValueError(
                 f"Failed to create Parquet table for {entity_name}: {e}"
             ) from e
@@ -542,6 +715,7 @@ class Neo4jGraphParquetFormatter:
             if current_label not in lexical_graph_config.lexical_graph_node_labels:
                 labels_list.append("__Entity__")
 
+            enriched_keys = enrich_key_constraints_for_node_type(self.schema, label)
             file_metadata.append(
                 FileMetadata(
                     filename=filename,
@@ -549,7 +723,14 @@ class Neo4jGraphParquetFormatter:
                     is_node=True,
                     labels=labels_list,
                     node_label=label,
-                    key_properties=get_unique_properties_for_node_type(
+                    primary_key_property_names=flatten_key_constraint_property_names(
+                        enriched_keys
+                    ),
+                    uniqueness_property_names=get_uniqueness_property_names_for_node_type(
+                        self.schema, label
+                    ),
+                    key_constraints=enriched_keys,
+                    uniqueness_constraints=get_uniqueness_constraints_for_node_type(
                         self.schema, label
                     ),
                 )
@@ -577,10 +758,16 @@ class Neo4jGraphParquetFormatter:
                     relationship_type=rtype,
                     relationship_head=head_label,
                     relationship_tail=tail_label,
-                    head_node_key_properties=get_unique_properties_for_node_type(
+                    head_primary_key_property_names=[
+                        get_relationship_join_key_property_name(self.schema, head_label)
+                    ],
+                    head_uniqueness_property_names=get_uniqueness_property_names_for_node_type(
                         self.schema, head_label
                     ),
-                    tail_node_key_properties=get_unique_properties_for_node_type(
+                    tail_primary_key_property_names=[
+                        get_relationship_join_key_property_name(self.schema, tail_label)
+                    ],
+                    tail_uniqueness_property_names=get_uniqueness_property_names_for_node_type(
                         self.schema, tail_label
                     ),
                 )

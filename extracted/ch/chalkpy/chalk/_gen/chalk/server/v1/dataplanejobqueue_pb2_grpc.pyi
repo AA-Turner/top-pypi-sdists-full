@@ -10,6 +10,8 @@ from abc import (
 from chalk._gen.chalk.server.v1.dataplanejobqueue_pb2 import (
     CancelWorkflowExecutionRequest,
     CancelWorkflowExecutionResponse,
+    EnqueueJobRequest,
+    EnqueueJobResponse,
     ExplainOperationProgressRequest,
     ExplainOperationProgressResponse,
     ForceCancelJobQueueJobRequest,
@@ -119,4 +121,33 @@ class DataPlaneJobQueueServiceServicer(metaclass=ABCMeta):
 
 def add_DataPlaneJobQueueServiceServicer_to_server(
     servicer: DataPlaneJobQueueServiceServicer, server: Server
+) -> None: ...
+
+class DataPlaneJobEnqueueServiceStub:
+    """Sibling to DataPlaneJobQueueService for writing (enqueuing) into the job queue.
+    Kept separate from DataPlaneJobQueueService so write-permission scopes can be
+    tightened independently of the read-oriented surface.
+    """
+
+    def __init__(self, channel: Channel) -> None: ...
+    EnqueueJob: UnaryUnaryMultiCallable[
+        EnqueueJobRequest,
+        EnqueueJobResponse,
+    ]
+
+class DataPlaneJobEnqueueServiceServicer(metaclass=ABCMeta):
+    """Sibling to DataPlaneJobQueueService for writing (enqueuing) into the job queue.
+    Kept separate from DataPlaneJobQueueService so write-permission scopes can be
+    tightened independently of the read-oriented surface.
+    """
+
+    @abstractmethod
+    def EnqueueJob(
+        self,
+        request: EnqueueJobRequest,
+        context: ServicerContext,
+    ) -> EnqueueJobResponse: ...
+
+def add_DataPlaneJobEnqueueServiceServicer_to_server(
+    servicer: DataPlaneJobEnqueueServiceServicer, server: Server
 ) -> None: ...

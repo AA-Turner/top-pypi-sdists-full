@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: trimesh
-Version: 4.11.5
+Version: 4.12.0
 Summary: Import, export, process, analyze and view triangular meshes.
 Author-email: Michael Dawson-Haggerty <mikedh@kerfed.com>
 License: The MIT License (MIT)
@@ -59,7 +59,7 @@ Requires-Dist: xxhash; extra == "easy"
 Requires-Dist: rtree; extra == "easy"
 Requires-Dist: httpx; extra == "easy"
 Requires-Dist: scipy; extra == "easy"
-Requires-Dist: embreex; platform_machine == "x86_64" and extra == "easy"
+Requires-Dist: embreex; extra == "easy"
 Requires-Dist: pillow; extra == "easy"
 Requires-Dist: vhacdx; python_version >= "3.9" and extra == "easy"
 Requires-Dist: mapbox_earcut>=1.0.2; python_version >= "3.9" and extra == "easy"

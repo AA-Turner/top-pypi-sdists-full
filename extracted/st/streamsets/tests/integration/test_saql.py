@@ -1,4 +1,6 @@
-# Copyright 2022 StreamSets Inc.
+#  IBM Confidential
+#  PID 5900-BAF
+#  Copyright StreamSets Inc., an IBM Company 2024
 
 # fmt: off
 import pytest
@@ -84,11 +86,11 @@ def simple_pipeline(resources_label, sch, sch_authoring_sdc_id):
     try:
         yield pipeline
     finally:
-        sch.api_client.delete_pipeline(pipeline.pipeline_id)
+        sch.api_client.delete_pipeline(pipeline.id)
 
 
 @pytest.fixture(scope="module")
-def sample_jobs(resources_label, sch, simple_pipeline, sch_executor_sdc_label):
+def sample_jobs(resources_label, sch, simple_pipeline, sch_engine_sdc_label):
     """A set of simple jobs based on simple pipeline."""
     job_builder = sch.get_job_builder()
 
@@ -98,7 +100,7 @@ def sample_jobs(resources_label, sch, simple_pipeline, sch_executor_sdc_label):
             'test_simple_saql_job_fetch_{}_{}_{}'.format(resources_label, i, get_random_string()),
             pipeline=simple_pipeline,
         )
-        job.data_collector_labels = sch_executor_sdc_label
+        job.data_collector_labels = sch_engine_sdc_label
         sch.add_job(job)
         jobs.append(job)
 
@@ -110,7 +112,7 @@ def sample_jobs(resources_label, sch, simple_pipeline, sch_executor_sdc_label):
 
 
 @pytest.fixture(scope="module")
-def sample_job_templates(resources_label, sch, simple_pipeline, sch_executor_sdc_label):
+def sample_job_templates(resources_label, sch, simple_pipeline, sch_engine_sdc_label):
     job_builder = sch.get_job_builder()
 
     jobs = []
@@ -121,7 +123,7 @@ def sample_job_templates(resources_label, sch, simple_pipeline, sch_executor_sdc
             job_template=True,
             runtime_parameters={'x': 'y', 'a': 'b'},
         )
-        job.data_collector_labels = sch_executor_sdc_label
+        job.data_collector_labels = sch_engine_sdc_label
         sch.add_job(job)
         jobs.append(job)
 

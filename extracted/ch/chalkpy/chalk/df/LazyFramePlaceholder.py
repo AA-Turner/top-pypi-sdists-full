@@ -8,9 +8,12 @@ engine.
 
 from __future__ import annotations
 
+import inspect
+import json
 import typing
 import uuid
 from dataclasses import dataclass
+from os import PathLike
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional, TypeAlias
 
@@ -32,6 +35,43 @@ if TYPE_CHECKING:
 
 
 MaterializedTable: TypeAlias = pyarrow.RecordBatch | pyarrow.Table
+
+_SQL_SOURCE_REFERENCE_TYPE_KEY = "__chalk_dataframe_reference_type__"
+_SQL_SOURCE_REFERENCE_TYPE_VALUE = "sql_source"
+_SQL_SOURCE_KWARGS_KEY = "kwargs_json"
+_SERIALIZED_SQL_SOURCE_KINDS = {
+    "athena",
+    "bigquery",
+    "clickhouse",
+    "cloudsql",
+    "databricks",
+    "dynamodb",
+    "mssql",
+    "mysql",
+    "postgres",
+    "postgresql",
+    "redshift",
+    "snowflake",
+    "spanner",
+    "sqlite",
+    "trino",
+}
+_SQL_SOURCE_UNSERIALIZABLE_CONSTRUCTOR_KWARGS = {
+    "executor",
+    "integration_variable_override",
+    "s3_client",
+}
+_SQL_SOURCE_UNSERIALIZABLE_CONSTRUCTOR_KWARGS_BY_KIND = {
+    # Redshift's impl accepts these, but the public RedshiftSource wrapper does not.
+    "redshift": {"s3_bucket", "unload_iam_role"},
+}
+_SQL_SOURCE_CONSTRUCTOR_ATTR_OVERRIDES = {
+    "spanner": {
+        "database": "database_id",
+        "instance": "instance_id",
+        "project": "project_id",
+    },
+}
 
 
 @dataclass
@@ -1730,6 +1770,66 @@ def _convert_to_dataframe_proto(
     # This map will memoize the constructor for a specified `LazyFramePlaceholder`.
     lazy_frame_placeholder_cache: dict[LazyFramePlaceholder, dataframe_pb2.DataFrameIndex] = {}
 
+    def _serialize_sql_source_reference(value: Any) -> dict[str, str]:
+        from chalk.sql._internal.sql_source import BaseSQLSource  # pyright: ignore[reportPrivateUsage]
+
+        if not isinstance(value, BaseSQLSource):
+            raise ValueError(f"LazyFramePlaceholder.from_datasource source must be a SQL datasource, got {type(value)}")
+
+        def _source_constructor_kwargs(source: BaseSQLSource) -> dict[str, Any]:
+            kind_value = source.kind.value
+            if kind_value not in _SERIALIZED_SQL_SOURCE_KINDS:
+                raise ValueError(f"Unsupported serialized SQL datasource kind: {kind_value}")
+            attr_overrides = _SQL_SOURCE_CONSTRUCTOR_ATTR_OVERRIDES.get(kind_value, {})
+            unserializable_kwargs = _SQL_SOURCE_UNSERIALIZABLE_CONSTRUCTOR_KWARGS | (
+                _SQL_SOURCE_UNSERIALIZABLE_CONSTRUCTOR_KWARGS_BY_KIND.get(kind_value, set())
+            )
+            kwargs = {}
+            for parameter in inspect.signature(type(source).__init__).parameters.values():
+                if parameter.name == "self" or parameter.kind in {
+                    inspect.Parameter.VAR_KEYWORD,
+                    inspect.Parameter.VAR_POSITIONAL,
+                }:
+                    continue
+                if parameter.name in unserializable_kwargs:
+                    continue
+                if parameter.name == "engine_args":
+                    constructor_value = getattr(source, "_raw_engine_args", {})
+                elif parameter.name == "async_engine_args":
+                    constructor_value = getattr(source, "_raw_async_engine_args", {})
+                else:
+                    attr_name = attr_overrides.get(parameter.name, parameter.name)
+                    if not hasattr(source, attr_name):
+                        raise ValueError(
+                            "Cannot serialize SQL datasource "
+                            + f"{source!r}; constructor parameter {parameter.name!r} "
+                            + f"is not exposed as datasource attribute {attr_name!r}"
+                        )
+                    constructor_value = getattr(source, attr_name)
+                if constructor_value is None or constructor_value == {}:
+                    continue
+                if isinstance(constructor_value, PathLike):
+                    constructor_value = str(constructor_value)
+                kwargs[parameter.name] = constructor_value
+            return kwargs
+
+        serialized = dict(value.to_json())
+        kind = serialized.get("kind")
+        if not kind:
+            raise ValueError(f"Cannot serialize SQL datasource {value!r}; missing datasource kind")
+        kwargs = _source_constructor_kwargs(value)
+        try:
+            kwargs_json = json.dumps(kwargs)
+        except TypeError as e:
+            raise ValueError(
+                f"Cannot serialize SQL datasource {value!r}; datasource constructor kwargs must be JSON-serializable"
+            ) from e
+        return {
+            _SQL_SOURCE_REFERENCE_TYPE_KEY: _SQL_SOURCE_REFERENCE_TYPE_VALUE,
+            "kind": kind,
+            _SQL_SOURCE_KWARGS_KEY: kwargs_json,
+        }
+
     def _convert_dataframe(df: LazyFramePlaceholder) -> dataframe_pb2.DataFrameIndex:
         """
         Recursively converts a `LazyFramePlaceholder` into a proto message.
@@ -1747,8 +1847,16 @@ def _convert_to_dataframe_proto(
         else:
             self_proto = _convert_dataframe(df_constructor.self_dataframe)
 
+        args = list(df_constructor.args)
+        kwargs = dict(df_constructor.kwargs)
+        if df_constructor.function_name == "from_datasource":
+            if "source" in kwargs:
+                kwargs["source"] = _serialize_sql_source_reference(kwargs["source"])
+            elif args:
+                args[0] = _serialize_sql_source_reference(args[0])
+
         proto_args = dataframe_pb2.PyList(
-            list_items=[_convert_arg(arg_value) for arg_value in df_constructor.args],
+            list_items=[_convert_arg(arg_value) for arg_value in args],
         )
         proto_kwargs = dataframe_pb2.PyDict(
             dict_entries=[
@@ -1756,7 +1864,7 @@ def _convert_to_dataframe_proto(
                     entry_key=_convert_arg(kwarg_name),
                     entry_value=_convert_arg(kwarg_value),
                 )
-                for kwarg_name, kwarg_value in df_constructor.kwargs.items()
+                for kwarg_name, kwarg_value in kwargs.items()
             ],
         )
 
@@ -1858,6 +1966,51 @@ def _convert_from_dataframe_proto(
     """
     df_values: list[LazyFramePlaceholder] = []
 
+    def _deserialize_sql_source_reference(value: Any) -> Any:
+        if not isinstance(value, dict) or value.get(_SQL_SOURCE_REFERENCE_TYPE_KEY) != _SQL_SOURCE_REFERENCE_TYPE_VALUE:
+            return value
+
+        kind = value.get("kind")
+        if not isinstance(kind, str) or not kind:
+            raise ValueError(f"Serialized SQL datasource is missing a valid kind: {value!r}")
+
+        kwargs_json = value.get(_SQL_SOURCE_KWARGS_KEY)
+        if not isinstance(kwargs_json, str):
+            raise ValueError(f"Serialized SQL datasource is missing constructor kwargs: {value!r}")
+        kwargs = json.loads(kwargs_json)
+        if not isinstance(kwargs, dict):
+            raise ValueError(f"Serialized SQL datasource kwargs must decode to a dict: {value!r}")
+
+        import chalk.sql as chalk_sql
+
+        constructors = {
+            "athena": chalk_sql.AthenaSource,
+            "bigquery": chalk_sql.BigQuerySource,
+            "clickhouse": chalk_sql.ClickhouseSource,
+            "cloudsql": chalk_sql.CloudSQLSource,
+            "databricks": chalk_sql.DatabricksSource,
+            "dynamodb": chalk_sql.DynamoDBSource,
+            "mssql": chalk_sql.MSSQLSource,
+            "mysql": chalk_sql.MySQLSource,
+            "postgres": chalk_sql.PostgreSQLSource,
+            "postgresql": chalk_sql.PostgreSQLSource,
+            "redshift": chalk_sql.RedshiftSource,
+            "snowflake": chalk_sql.SnowflakeSource,
+            "spanner": chalk_sql.SpannerSource,
+            "trino": chalk_sql.TrinoSource,
+        }
+        if kind == "sqlite":
+            filename = kwargs.pop("filename", None)
+            constructor = chalk_sql.SQLiteFileSource if filename is not None else chalk_sql.SQLiteInMemorySource
+            if filename is not None:
+                kwargs = {"filename": filename, **kwargs}
+        else:
+            constructor = constructors.get(kind)
+        if constructor is None:
+            raise ValueError(f"Unsupported serialized SQL datasource kind: {kind}")
+
+        return constructor(**kwargs)
+
     def _convert_dataframe_index(df: dataframe_pb2.DataFrameIndex) -> LazyFramePlaceholder:
         if df.dataframe_op_index < 0 or df.dataframe_op_index >= len(df_values):
             raise ValueError(
@@ -1879,6 +2032,11 @@ def _convert_from_dataframe_proto(
 
         args = [_convert_arg(arg) for arg in df.args.list_items]
         kwargs = {_convert_arg(entry.entry_key): _convert_arg(entry.entry_value) for entry in df.kwargs.dict_entries}
+        if df.function_name == "from_datasource":
+            if "source" in kwargs:
+                kwargs["source"] = _deserialize_sql_source_reference(kwargs["source"])
+            elif args:
+                args[0] = _deserialize_sql_source_reference(args[0])
 
         return method(*args, **kwargs)
 

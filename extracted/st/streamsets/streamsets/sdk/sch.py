@@ -1,21 +1,12 @@
-# Copyright 2021 StreamSets Inc.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+#  IBM Confidential
+#  PID 5900-BAF
+#  Copyright StreamSets Inc., an IBM Company 2024
 
 """Abstractions for interacting with ControlHub."""
 
 # fmt: off
 import copy
+import io
 import json
 import logging
 import threading
@@ -28,28 +19,28 @@ import requests
 from . import aster_api, sch_api, sdc_models
 from .analytics import analytics_class_decorator
 from .constants import (
-    ENGINELESS_ENGINE_ID, EXECUTOR_TO_DEPLOYMENT_MAP, SDC_DEPLOYMENT_TYPE, SDC_EXECUTOR_TYPE, SNOWFLAKE_ENGINE_ID,
-    SNOWFLAKE_EXECUTOR_TYPE, STATUS_ERRORS, TRANSFORMER_DEPLOYMENT_TYPE, TRANSFORMER_EXECUTOR_TYPE,
+    COLLECTOR, ENGINELESS_ENGINE_ID, PIPELINE_BUILDER_ENGINE_TYPES, SNOWFLAKE_ENGINE_ID, SNOWPARK, STATUS_ERRORS,
+    SWAGGER_API_KEY, TRANSFORMER,
 )
-from .exceptions import EnginelessError, JobInactiveError, ValidationError
+from .exceptions import EnginelessError, InitializationError, JobInactiveError, ValidationError
 from .sch_models import (
     ActionAudits, AdminTool, Alert, ApiCredentialBuilder, ApiCredentials, AWSEnvironment, AzureEnvironment,
     AzureVMDeployment, ClassificationRuleBuilder, Configuration, Connection, ConnectionAudits, ConnectionBuilder,
-    Connections, ConnectionTags, ConnectionVerificationResult, DataSlaBuilder, Deployment, DeploymentBuilder,
+    Connections, ConnectionTags, ConnectionVerificationResult, Deployment, DeploymentBuilder,
     DeploymentEngineConfigurations, Deployments, DraftRuns, EC2Deployment, Engine, Engines, EnvironmentBuilder,
     Environments, GCEDeployment, GCPEnvironment, GroupBuilder, Groups, Job, JobBuilder, Jobs, JobSequence,
-    JobSequenceBuilder, JobSequences, KubernetesDeployment, KubernetesEnvironment, LegacyDeploymentBuilder,
-    LegacyDeployments, LoginAudits, MeteringUsage, NotImplementedDeployment, NotImplementedEnvironment,
-    OrganizationBuilder, Organizations, Pipeline, PipelineBuilder, PipelineLabels, Pipelines, Project, ProjectBuilder,
-    Projects, ProtectionMethodBuilder, ProtectionPolicies, ProtectionPolicy, ProtectionPolicyBuilder,
-    ProvisioningAgents, ReportDefinitions, SAQLSearch, SAQLSearchBuilder, SAQLSearches, ScheduledTask,
+    JobSequenceBuilder, JobSequences, KubernetesDeployment, KubernetesEnvironment, LoginAudits, MeteringUsage,
+    NotImplementedDeployment, NotImplementedEnvironment, OrganizationBuilder, Organizations, Pipeline, PipelineBuilder,
+    PipelineLabels, Pipelines, Project, ProjectBuilder, Projects, ProtectionMethodBuilder, ProtectionPolicies,
+    ProtectionPolicy, ProtectionPolicyBuilder, SAQLSearch, SAQLSearchBuilder, SAQLSearches, ScheduledTask,
     ScheduledTaskActions, ScheduledTaskBuilder, ScheduledTasks, SelfManagedDeployment, SelfManagedEnvironment,
-    StPipelineBuilder, SubscriptionAudit, SubscriptionBuilder, Subscriptions, Topologies, Topology, TopologyBuilder,
-    UserBuilder, Users,
+    SnowflakePipelineBuilder, StPipelineBuilder, SubscriptionAudit, SubscriptionBuilder, Subscriptions, Topologies,
+    Topology, TopologyBuilder, UserBuilder, Users,
 )
 from .utils import (
-    SDC_DEFAULT_EXECUTION_MODE, TRANSFORMER_EXECUTION_MODES, SeekableList, get_stage_library_display_name_from_library,
-    get_stage_library_name_from_display_name, reversed_dict, validate_pipeline_stages, wait_for_condition,
+    SDC_DEFAULT_EXECUTION_MODE, TRANSFORMER_EXECUTION_MODES, DeploymentEngineType, EngineType, SeekableList, Version,
+    get_stage_library_display_name_from_library, get_stage_library_name_from_display_name, reversed_dict, validate_job,
+    validate_pipeline_stages, wait_for_condition,
 )
 
 # fmt: on
@@ -60,6 +51,7 @@ DEFAULT_ASTER_SERVER_URL = 'https://cloud.login.streamsets.com'
 DEFAULT_DATA_COLLECTOR_STAGE_LIBS = ['basic', 'dataformats', 'dev']
 DEFAULT_SYSTEM_SDC_ID = 'SYSTEM_SDC_ID'
 DEFAULT_TRANSFORMER_STAGE_LIBS = ['basic', 'file']
+DEFAULT_TRANSFORMER_SNOWFLAKE_STAGE_LIBS = ['basic', 'aws-secrets-manager-credentialstore']
 # Defaults as defined by the UI: https://t.ly/b-Ay
 DEFAULT_USER_ROLES = [
     'connection:user',
@@ -101,8 +93,6 @@ class ControlHub:
         groups (:py:class:`streamsets.sdk.sch_models.Groups`): ControlHub Groups.
         data_collectors (Returns a :py:class:`streamsets.sdk.utils.SeekableList` of :py:class:`streamsets.sdk.sch_models.DataCollector` instances.): Data Collector instances registered under ControlHub.
         transformers (Returns a :py:class:`streamsets.sdk.utils.SeekableList` of :py:class:`streamsets.sdk.sch_models.Transformer` instances.): Transformer instances registered under ControlHub.
-        provisioning_agents (:py:class:`streamsets.sdk.sch_models.ProvisioningAgents): Provisioning Agents registered to the ControlHub instance.
-        legacy_deployments (:py:class:`streamsets.sdk.sch_models.LegacyDeployments`): LegacyDeployments instances.
         organizations (:py:class:`streamsets.sdk.sch_models.Organizations`): All the organizations that the current user belongs to.
         api_credentials (A :py:obj:`streamsets.sdk.utils.SeekableList` of :py:class:`streamsets.sdk.sch_models.ApiCredential`): ControlHub Api Credentials.
         pipelines (:py:class:`streamsets.sdk.sch_models.Pipelines`): ControlHub Pipelines.
@@ -168,17 +158,21 @@ class ControlHub:
 
         # We keep the Swagger API definitions as attributes for later use by various
         # builders.
-        self._banner_api = self.api_client.get_banner_api()
-        self._connection_api = self.api_client.get_connection_api()
-        self._job_api = self.api_client.get_job_api()
-        self._pipelinestore_api = self.api_client.get_pipelinestore_api()
-        self._provisioning_api = self.api_client.get_provisioning_api()
-        self._security_api = self.api_client.get_security_api()
-        self._sequencing_api = self.api_client.get_sequencing_api()
-        self._topology_api = self.api_client.get_topology_api()
-        self._scheduler_api = self.api_client.get_scheduler_api()
-        self._notification_api = self.api_client.get_notification_api()
-        self._sla_api = self.api_client.get_sla_api()
+        try:
+            self._connection_api = self._validate_api(api_dictionary=self.api_client.get_connection_api())
+            self._job_api = self._validate_api(api_dictionary=self.api_client.get_job_api())
+            self._pipelinestore_api = self._validate_api(api_dictionary=self.api_client.get_pipelinestore_api())
+            self._provisioning_api = self._validate_api(api_dictionary=self.api_client.get_provisioning_api())
+            self._security_api = self._validate_api(api_dictionary=self.api_client.get_security_api())
+            self._sequencing_api = self._validate_api(api_dictionary=self.api_client.get_sequencing_api())
+            self._topology_api = self._validate_api(api_dictionary=self.api_client.get_topology_api())
+            self._scheduler_api = self._validate_api(api_dictionary=self.api_client.get_scheduler_api())
+            self._notification_api = self._validate_api(api_dictionary=self.api_client.get_notification_api())
+            self._sla_api = self._validate_api(api_dictionary=self.api_client.get_sla_api())
+        except requests.exceptions.HTTPError as e:
+            raise InitializationError(
+                "Error retrieving data. ControlHub cannot be initialized. Please try again."
+            ) from e
 
         self._en_translations = self.api_client.get_translations_json()
 
@@ -193,6 +187,12 @@ class ControlHub:
     def _call_data_collectors(self):
         self.data_collectors
         self.transformers
+
+    def _validate_api(self, api_dictionary):
+        if api_dictionary is None or SWAGGER_API_KEY not in api_dictionary:
+            # Switch to Error when DPM-23141 is resolved
+            warnings.warn('ControlHub failed to initialize properly. You may have problems creating various objects')
+        return api_dictionary
 
     def _get_aster_api_client(self):
         # Allows us to retrieve an ApiClient from aster_api ad-hoc without having to instantiate one when we initialize
@@ -260,8 +260,8 @@ class ControlHub:
         """Get a pipeline builder instance with which a pipeline can be created.
 
         Args:
-            engine_type (:obj:`str`): The type of pipeline that will be created. The options are ``'data_collector'``,
-                                      ``'snowflake'`` or ``'transformer'``.
+            engine_type (:obj:`streamsets.sdk.utils.EngineType`): The type of pipeline that will be created.
+                                    The options are ``COLLECTOR``, ``SNOWPARK`` or ``TRANSFORMER``.
             engine_id (:obj:`str`): The ID of the Data Collector or Transformer in which to author the pipeline if not
                                     using Transformer for Snowflake.
             fragment (:obj:`boolean`, optional): Specify if a fragment builder. Default: ``False``.
@@ -270,29 +270,32 @@ class ControlHub:
             An instance of :py:class:`streamsets.sdk.sch_models.PipelineBuilder` or
             :py:class:`streamsets.sdk.sch_models.StPipelineBuilder`.
         """
+        if engine_type in PIPELINE_BUILDER_ENGINE_TYPES:
+            engine_type = PIPELINE_BUILDER_ENGINE_TYPES[engine_type]
+        else:
+            engine_type = EngineType(engine_type)
 
-        deployment_types_with_engine_id = {'data_collector': 'COLLECTOR', 'transformer': 'TRANSFORMER'}
+        deployment_types_with_engine_id = [COLLECTOR, TRANSFORMER]
         engineless_design = False
         if not engine_type and not engine_id:
             engineless_design = True
-            authoring_engine = None
         elif engine_type in deployment_types_with_engine_id:
             if not engine_id:
-                raise ValueError("Pipelines of type 'data_collector' or 'transformer' require an engine id.")
-            authoring_engine = self.engines.get(engine_type=deployment_types_with_engine_id[engine_type], id=engine_id)
-        elif engine_type == 'snowflake':
-            if engine_id:
-                raise ValueError("Pipelines of type 'snowflake' do not use an engine id.")
-            authoring_engine = None
-        else:
+                raise ValueError("Pipelines of type COLLECTOR or TRANSFORMER require an engine id.")
+        elif engine_type is not SNOWPARK:
             raise TypeError('unrecognised engine type: {!r} (ID={})'.format(engine_type, engine_id))
 
-        pipeline = {property: None for property in self._pipelinestore_api['definitions']['PipelineJson']['properties']}
+        authoring_engine = self.engines.get(engine_type=engine_type, id=engine_id) if engine_id else None
+
+        pipeline = {
+            property: None
+            for property in self._pipelinestore_api['components']['schemas']['PipelineJson']['properties']
+        }
 
         if authoring_engine is not None:  # i.e. `data_collector` or `transformer`
-            data_collector_instance = authoring_engine._instance
+            engine_instance = authoring_engine._instance
             if fragment:
-                create_fragment_response = data_collector_instance.api_client.create_fragment(
+                create_fragment_response = engine_instance.api_client.create_fragment(
                     'Pipeline Builder', draft=True
                 ).response.json()
                 pipeline_definition = json.dumps(create_fragment_response['pipelineFragmentConfig'])
@@ -322,36 +325,34 @@ class ControlHub:
                     pipelineRules=json.loads(pipeline_commit['currentRules']['rulesDefinition']),
                     libraryDefinitions=pipeline_commit['libraryDefinitions'],
                 )
-                data_collector_instance._pipeline = pipeline_json
+                engine_instance._pipeline = pipeline_json
                 self.api_client.delete_pipeline(pipeline_id)
             pipeline['sdcId'] = authoring_engine.id
             pipeline['sdcVersion'] = authoring_engine.version
-            pipeline['executorType'] = (
-                SDC_EXECUTOR_TYPE if engine_type == "data_collector" else TRANSFORMER_EXECUTOR_TYPE
-            )
-            executor_pipeline_builder = data_collector_instance.get_pipeline_builder(fragment=fragment)
+            pipeline['executorType'] = str(engine_type)
+            engine_pipeline_builder = engine_instance.get_pipeline_builder(fragment=fragment)
 
-        elif engine_type == 'snowflake':
+        elif engine_type == SNOWPARK:
             # A :py:class:`streamsets.sdk.sdc_models.PipelineBuilder` instance takes an empty pipeline and a
             # dictionary of definitions as arguments. To get the former, we generate a pipeline, export it,
             # and then delete it. For the latter, we simply pass along `aux_definitions`.
             commit_pipeline_json = {
                 'name': 'Pipeline Builder',
                 'sdcId': SNOWFLAKE_ENGINE_ID,
-                'executorType': SNOWFLAKE_EXECUTOR_TYPE,
+                'executorType': str(engine_type),
                 'fragment': fragment,
                 'failIfExists': True,
             }
             create_pipeline_response = self.api_client.commit_pipeline(
                 new_pipeline=True,
                 import_pipeline=False,
-                execution_mode=SNOWFLAKE_EXECUTOR_TYPE,
+                execution_mode=str(engine_type),
                 pipeline_type='SNOWPARK_PIPELINE',
                 body=commit_pipeline_json,
                 fragment=fragment,
             ).response.json()
             pipeline_id = create_pipeline_response['pipelineId']
-            aux_definitions = self.api_client.get_pipelines_definitions(SNOWFLAKE_EXECUTOR_TYPE).response.json()
+            aux_definitions = self.api_client.get_pipelines_definitions(str(engine_type)).response.json()
 
             pipeline_config = json.loads(create_pipeline_response['pipelineDefinition'])
 
@@ -367,7 +368,7 @@ class ControlHub:
                 'libraryDefinitions': aux_definitions,
             }
             self.api_client.delete_pipeline(pipeline_id)
-            executor_pipeline_builder = sdc_models.PipelineBuilder(
+            engine_pipeline_builder = sdc_models.PipelineBuilder(
                 pipeline=aux_pipeline, definitions=aux_definitions, fragment=fragment
             )
             pipeline['sdcVersion'] = create_pipeline_response['sdcVersion']
@@ -378,7 +379,7 @@ class ControlHub:
             engine_version_id = kwargs.get('engine_version_id', self._default_engine_version_id())
             empty_pipeline = self.api_client.create_designer_pipeline(engine_version_id).response.json()
             engine_definitions = self.api_client.get_designer_engine_definition(engine_version_id).response.json()
-            executor_pipeline_builder = sdc_models.PipelineBuilder(
+            engine_pipeline_builder = sdc_models.PipelineBuilder(
                 pipeline=empty_pipeline, definitions=engine_definitions, fragment=False
             )
             pipeline['sdcId'] = "SYSTEM_DESIGNER"
@@ -390,21 +391,224 @@ class ControlHub:
                 'Please try upgrading the SDK and contact streamsets for support if this error persists.'
             )
 
-        if engine_type == 'transformer':
+        if engine_type == TRANSFORMER:
             return StPipelineBuilder(
                 pipeline=pipeline,
-                transformer_pipeline_builder=executor_pipeline_builder,
+                transformer_pipeline_builder=engine_pipeline_builder,
                 control_hub=self,
                 fragment=fragment,
                 engine_start_up_time=authoring_engine._data["startUpTime"],
             )
-
+        elif engine_type == SNOWPARK and engine_id is not None:
+            return SnowflakePipelineBuilder(
+                pipeline=pipeline,
+                transformer_pipeline_builder=engine_pipeline_builder,
+                control_hub=self,
+                fragment=fragment,
+                engine_start_up_time=authoring_engine._data["startUpTime"],
+            )
         return PipelineBuilder(
             pipeline=pipeline,
-            data_collector_pipeline_builder=executor_pipeline_builder,
+            data_collector_pipeline_builder=engine_pipeline_builder,
             control_hub=self,
             fragment=fragment,
             engine_start_up_time=authoring_engine._data["startUpTime"] if authoring_engine else 0,
+        )
+
+    def _start_poll_delete_search_request(self, start, status, delete, common_args, resource=None, search_args=None):
+        """Returns the result of the search requested
+
+        Args:
+            start (:obj:`function`): Callback to start the search request.
+            status (:obj:`function`): Callback to fetch the status of the search request.
+            delete (:obj:`function`): Callback to delete the search request.
+            common_args (:obj:`dict`): Dict containing all the common args for the requests.
+            resource (:obj:`str`: Optional): Name of the resource to search for. Default ``None``.
+            start_args (:obj:`dict`: Optional): Dict containing all the search request specific args. Default ``None``.
+
+        Rreturns:
+            An instance of :py:class:`streamsets.sdk.sch_api.Command`.
+        """
+        search_args = search_args or {}
+        search_args.update(common_args)
+        response = start(**search_args)
+        id = response.response.json().get('id', '')
+        common_args['id'] = id
+        responses = []
+
+        def failure(timeout=None, exception=False):
+            delete(**common_args)
+            if exception:
+                raise ValueError(f'An ERROR status was reached before retrieving the resource: {resource}.')
+            else:
+                raise TimeoutError(
+                    f'Timeout reached after {timeout} seconds while searching for the resource {resource}.'
+                )
+
+        def condition(responses=[]):
+            response = status(**common_args)
+            status_str = response.response.json().get('status', '')
+            if status_str == 'ERROR':
+                failure(exception=True)
+            responses.append(response)
+            return status_str == 'FINISHED'
+
+        wait_for_condition(condition, condition_kwargs={'responses': responses}, failure=failure, timeout=600)
+        return responses[-1]
+
+    def get_snowflake_pipeline_databases(self, pipeline, tunneling=False):
+        """Return all the snowflake databases
+
+        Args:
+            pipeline (:py:class:`streamsets.sdk.sch_models.Pipeline`): Pipeline object.
+            tunneling (:obj:`bool`: optional): Enable tunneling for hosted instances. Default: ``False``.
+
+        Rreturns:
+            An instance of :py:class:`streamsets.sdk.sch_api.Command`.
+        """
+        engine_id = None
+        tunneling_instance_id = None
+        if tunneling:
+            engine_id = pipeline.engine_id
+            tunneling_instance_id_request = self.api_client.get_tunneling_instance_id(engine_id)
+            tunneling_instance_id = tunneling_instance_id_request.response.json().get('instanceId')
+
+        pipeline_fqn = f'{pipeline.id.split(":")[0]}__{pipeline.organization}__{pipeline.committer}'
+        common_args = {
+            'pipeline_id': pipeline_fqn,
+            'engine_id': engine_id,
+            'rev': pipeline.commit_id,
+            'tunneling_instance_id': tunneling_instance_id,
+        }
+        return self._start_poll_delete_search_request(
+            start=self.api_client.post_snowflake_pipeline_databases_search_start,
+            status=self.api_client.get_snowflake_pipeline_databases_search_status,
+            delete=self.api_client.delete_snowflake_pipeline_databases_search_cancel,
+            common_args=common_args,
+            resource='databases',
+        )
+
+    def get_snowflake_pipeline_user_defined_functions(
+        self, pipeline, database=None, filter_text=None, schema=None, tunneling=False
+    ):
+        """Return user defined functions for the pipeline
+
+        Args:
+            pipeline (:py:class:`streamsets.sdk.sch_models.Pipeline`): Pipeline object.
+            database (:obj:`str`, optional): Name of the Snowflake database. Default: ``None``.
+            filter_text (:obj:`str`: optional): Filter response text. Default: ``None``.
+            schema (:obj:`str`, optional: Name of the Snowflake schema. Default: ``None``.
+            tunneling (:obj:`bool`: optional): Enable tunneling for hosted instances. Default: ``False``.
+
+        Rreturns:
+            An instance of :py:class:`streamsets.sdk.sch_api.Command`.
+        """
+        engine_id = None
+        tunneling_instance_id = None
+        if tunneling:
+            engine_id = pipeline.engine_id
+            tunneling_instance_id_request = self.api_client.get_tunneling_instance_id(engine_id)
+            tunneling_instance_id = tunneling_instance_id_request.response.json().get('instanceId')
+
+        pipeline_fqn = f'{pipeline.id.split(":")[0]}__{pipeline.organization}__{pipeline.committer}'
+        common_args = {
+            'pipeline_id': pipeline_fqn,
+            'engine_id': engine_id,
+            'rev': pipeline.commit_id,
+            'tunneling_instance_id': tunneling_instance_id,
+        }
+        search_args = {
+            'database': database,
+            'schema': schema,
+            'filter_text': filter_text,
+        }
+        return self._start_poll_delete_search_request(
+            start=self.api_client.post_snowflake_pipeline_user_defined_functions_search_start,
+            status=self.api_client.get_snowflake_pipeline_user_defined_functions_search_status,
+            delete=self.api_client.delete_snowflake_pipeline_databases_search_cancel,
+            common_args=common_args,
+            resource='UDF',
+            search_args=search_args,
+        )
+
+    def get_snowflake_pipeline_procedures(
+        self, pipeline, database=None, filter_text=None, schema=None, tunneling=False
+    ):
+        """Return procedures for the pipeline
+
+        Args:
+            pipeline (:py:class:`streamsets.sdk.sch_models.Pipeline`): Pipeline object.
+            database (:obj:`str`, optional): Name of the Snowflake database. Default: ``None``.
+            filter_text (:obj:`str`: optional): Filter response text. Default: ``None``.
+            schema (:obj:`str`, optional: Name of the Snowflake schema. Default: ``None``.
+            tunneling (:obj:`bool`: optional): Enable tunneling for hosted instances. Default: ``False``.
+
+        Rreturns:
+            An instance of :py:class:`streamsets.sdk.sch_api.Command`.
+        """
+        engine_id = None
+        tunneling_instance_id = None
+        if tunneling:
+            engine_id = pipeline.engine_id
+            tunneling_instance_id_request = self.api_client.get_tunneling_instance_id(engine_id)
+            tunneling_instance_id = tunneling_instance_id_request.response.json().get('instanceId')
+
+        pipeline_fqn = f'{pipeline.id.split(":")[0]}__{pipeline.organization}__{pipeline.committer}'
+        common_args = {
+            'pipeline_id': pipeline_fqn,
+            'engine_id': engine_id,
+            'rev': pipeline.commit_id,
+            'tunneling_instance_id': tunneling_instance_id,
+        }
+        search_args = {
+            'database': database,
+            'schema': schema,
+            'filter_text': filter_text,
+        }
+        return self._start_poll_delete_search_request(
+            start=self.api_client.post_snowflake_pipeline_procedures_search_start,
+            status=self.api_client.get_snowflake_pipeline_procedures_search_status,
+            delete=self.api_client.delete_snowflake_pipeline_procedures_search_cancel,
+            common_args=common_args,
+            resource='procedures',
+            search_args=search_args,
+        )
+
+    def get_snowflake_pipeline_schemas(self, pipeline, database, tunneling=False):
+        """Return all the snowflake schemas
+
+        Args:
+            pipeline (:py:class:`streamsets.sdk.sch_models.Pipeline`): Pipeline object.
+            database (:obj:`str`): Name of the Snowflake database.
+            tunneling (:obj:`bool`: optional): Enable tunneling for hosted instances. Default: ``False``.
+
+        Rreturns:
+            An instance of :py:class:`streamsets.sdk.sch_api.Command`.
+        """
+        engine_id = None
+        tunneling_instance_id = None
+        if tunneling:
+            engine_id = pipeline.engine_id
+            tunneling_instance_id_request = self.api_client.get_tunneling_instance_id(engine_id)
+            tunneling_instance_id = tunneling_instance_id_request.response.json().get('instanceId')
+
+        pipeline_fqn = f'{pipeline.id.split(":")[0]}__{pipeline.organization}__{pipeline.committer}'
+        common_args = {
+            'pipeline_id': pipeline_fqn,
+            'engine_id': engine_id,
+            'rev': pipeline.commit_id,
+            'tunneling_instance_id': tunneling_instance_id,
+        }
+        search_args = {
+            'database': database,
+        }
+        return self._start_poll_delete_search_request(
+            start=self.api_client.post_snowflake_pipeline_schemas_search_start,
+            status=self.api_client.get_snowflake_pipeline_schemas_search_status,
+            delete=self.api_client.delete_snowflake_pipeline_schemas_search_cancel,
+            common_args=common_args,
+            resource='schemas',
+            search_args=search_args,
         )
 
     def publish_pipeline(self, pipeline, commit_message='New pipeline', draft=False, validate=False):
@@ -428,13 +632,12 @@ class ControlHub:
         pipeline._pipeline_definition = pipeline_definition
         pipeline._data['pipelineDefinition'] = pipeline_definition
         execution_mode = pipeline.configuration.get('executionMode', SDC_DEFAULT_EXECUTION_MODE)
-
-        if execution_mode != SNOWFLAKE_EXECUTOR_TYPE:
+        if pipeline.engine_id != SNOWFLAKE_ENGINE_ID:
             # A :py:class:`streamsets.sdk.sch_models.Pipeline` instance with no commit ID hasn't been
             # published to ControlHub before, so we do so first.
             if not pipeline.commit_id:
-                commit_pipeline_json = {'name': pipeline._pipeline_definition['title'], 'sdcId': pipeline.sdc_id}
-                if pipeline.sdc_id != DEFAULT_SYSTEM_SDC_ID:
+                commit_pipeline_json = {'name': pipeline._pipeline_definition['title'], 'sdcId': pipeline.engine_id}
+                if pipeline.engine_id != DEFAULT_SYSTEM_SDC_ID:
                     commit_pipeline_json.update(
                         {
                             'pipelineDefinition': json.dumps(pipeline._pipeline_definition),
@@ -447,6 +650,8 @@ class ControlHub:
 
                 if execution_mode in TRANSFORMER_EXECUTION_MODES:
                     commit_pipeline_json.update({'executorType': 'TRANSFORMER'})
+                elif execution_mode == SNOWPARK:
+                    commit_pipeline_json.update({'executorType': 'SNOWPARK'})
                 pipeline._data = self.api_client.commit_pipeline(
                     new_pipeline=True,
                     import_pipeline=False,
@@ -454,7 +659,7 @@ class ControlHub:
                     execution_mode=execution_mode,
                     body=commit_pipeline_json,
                 ).response.json()
-                if pipeline.sdc_id == ENGINELESS_ENGINE_ID:
+                if pipeline.engine_id == ENGINELESS_ENGINE_ID:
                     raise EnginelessError(
                         'The SDK does not support publishing engineless pipelines. Please visit the UI to get '
                         'instructions on how to install a deployment and engine, to proceed further.'
@@ -469,7 +674,7 @@ class ControlHub:
             elif not getattr(pipeline, 'draft', False):
                 pipeline._data = self.api_client.create_pipeline_draft(
                     commit_id=pipeline.commit_id,
-                    authoring_sdc_id=pipeline.sdc_id,
+                    authoring_sdc_id=pipeline.engine_id,
                     authoring_sdc_version=pipeline.sdc_version,
                 ).response.json()
                 # The pipeline name & description is overwritten when drafts are created, so we account for it here.
@@ -480,7 +685,7 @@ class ControlHub:
             pipeline._pipeline_definition['metadata'].update(
                 {
                     'dpm.pipeline.rules.id': pipeline.current_rules['id'],
-                    'dpm.pipeline.id': pipeline.pipeline_id,
+                    'dpm.pipeline.id': pipeline.id,
                     'dpm.pipeline.version': pipeline.version,
                     'dpm.pipeline.commit.id': pipeline.commit_id,
                 }
@@ -497,11 +702,11 @@ class ControlHub:
         entity_id = 'fragmentId' if 'fragmentId' in pipeline_definition else 'pipelineId'
         sdc_pipeline_id = pipeline_definition[entity_id]
 
-        if execution_mode == SNOWFLAKE_EXECUTOR_TYPE:
+        if pipeline.engine_id == SNOWFLAKE_ENGINE_ID:
             if pipeline.commit_id and not getattr(pipeline, 'draft', False):
                 pipeline._data = self.api_client.create_pipeline_draft(
                     commit_id=pipeline.commit_id,
-                    authoring_sdc_id=pipeline.sdc_id,
+                    authoring_sdc_id=pipeline.engine_id,
                     authoring_sdc_version=pipeline.sdc_version,
                 ).response.json()
                 # The pipeline name & description is overwritten when drafts are created, so we account for it here.
@@ -510,7 +715,7 @@ class ControlHub:
                 pipeline.commit_id = pipeline._data['commitId']
 
             pipeline.execution_mode = execution_mode
-            library_definitions = self.api_client.get_pipelines_definitions(SNOWFLAKE_EXECUTOR_TYPE).response.text
+            library_definitions = self.api_client.get_pipelines_definitions(SNOWPARK.value).response.text
             pipeline_envelope = {
                 'pipelineDefinition': json.dumps(pipeline._pipeline_definition),
                 'rulesDefinition': json.dumps(pipeline._rules_definition),
@@ -545,7 +750,7 @@ class ControlHub:
 
             # Import the pipeline
             try:
-                engine_api_client = self.engines.get(id=pipeline.sdc_id)._instance.api_client
+                engine_api_client = self.engines.get(id=pipeline.engine_id)._instance.api_client
                 if pipeline.fragment:
                     response_envelope = engine_api_client.import_fragment(
                         fragment_id=sdc_pipeline_id,
@@ -565,7 +770,7 @@ class ControlHub:
             except ValueError as ex:
                 raise Exception(
                     'The authoring engine for this pipeline does not exist in Control Hub. Please update '
-                    'the authoring engine via pipeline.sdc_id'
+                    'the authoring engine via pipeline.engine_id'
                 ) from ex
 
         response_envelope[config_key]['pipelineId'] = sdc_pipeline_id
@@ -579,7 +784,7 @@ class ControlHub:
                 pipeline._data['libraryDefinitions'] = response_envelope['libraryDefinitions']
         else:
             pipeline._data['libraryDefinitions'] = None
-        if execution_mode == SNOWFLAKE_EXECUTOR_TYPE:
+        if pipeline.engine_id == SNOWFLAKE_ENGINE_ID:
             if 'currentRules' in response_envelope:
                 pipeline._data['currentRules'] = dict(
                     rulesDefinition=response_envelope['currentRules']['rulesDefinition']
@@ -615,7 +820,7 @@ class ControlHub:
         """
         if only_selected_version:
             return self.api_client.delete_pipeline_commit(pipeline.commit_id)
-        return self.api_client.delete_pipeline(pipeline.pipeline_id)
+        return self.api_client.delete_pipeline(pipeline.id)
 
     def duplicate_pipeline(self, pipeline, name=None, description='New Pipeline', number_of_copies=1):
         """Duplicate an existing pipeline.
@@ -636,7 +841,9 @@ class ControlHub:
 
         duplicated_pipelines = SeekableList()
 
-        duplicate_pipeline_properties = self._pipelinestore_api['definitions']['DuplicatePipelineJson']['properties']
+        duplicate_pipeline_properties = self._pipelinestore_api['components']['schemas']['DuplicatePipelineJson'][
+            'properties'
+        ]
         duplicate_body = {property_: None for property_ in duplicate_pipeline_properties}
         duplicate_body.update(
             {'namePrefix': dummy_name_prefix, 'description': description, 'numberOfCopies': number_of_copies}
@@ -724,12 +931,12 @@ class ControlHub:
         dummy_name_prefix = '{}:{}'.format(name, str(uuid.uuid4()))
 
         duplicated_jobs = SeekableList()
-        duplicate_job_properties = self._job_api['definitions']['DuplicateJobJson']['properties']
+        duplicate_job_properties = self._job_api['components']['schemas']['DuplicateJobJson']['properties']
         duplicate_body = {property_: None for property_ in duplicate_job_properties}
         duplicate_body.update(
             {'namePrefix': dummy_name_prefix, 'description': description, 'numberOfCopies': number_of_copies}
         )
-        self.api_client.duplicate_job(job_id=job.job_id, body=duplicate_body)
+        self.api_client.duplicate_job(job_id=job.id, body=duplicate_body)
 
         for i in range(number_of_copies):
             job_name = '{}{}'.format(dummy_name_prefix, i + 1 if number_of_copies > 1 else '')
@@ -749,7 +956,7 @@ class ControlHub:
         """
         user = {}
         # Update the UserJson with the API definitions from Swagger.
-        user_properties = self._security_api['definitions']['UserJson']['properties']
+        user_properties = self._security_api['components']['schemas']['UserJson']['properties']
         user.update({property_: None for property_ in user_properties})
 
         # Set other properties based on defaults from the web UI.
@@ -779,7 +986,10 @@ class ControlHub:
         aster_api_client = self._get_aster_api_client()
         # User is an either an administrator for their organization ('ADMINISTRATOR') or a regular user ('OPERATOR').
         # The user's roles store either 'org-admin' or 'org-user' accordingly.
-        user_data = {'email': user.email_address, 'role': 'ADMINISTRATOR' if 'org-admin' in user.roles else 'OPERATOR'}
+        user_data = {
+            'email': user.email_address,
+            'role': 'ADMINISTRATOR' if 'org-admin' in user.organization_roles else 'OPERATOR',
+        }
         aster_user = aster_api_client.invite_org_users(body=user_data).response.json()
         # Second, retrieve the user entry from Platform and update the roles/groups selected during UserBuilder.build()
         sch_user_id = '{}@{}'.format(aster_user['data']['schUser'], self.organization)
@@ -950,7 +1160,7 @@ class ControlHub:
             An instance of :py:class:`streamsets.sdk.sch_models.GroupBuilder`.
         """
         # Update the GroupJson with the API definitions from Swagger.
-        group_properties = self._security_api['definitions']['GroupJson']['properties']
+        group_properties = self._security_api['components']['schemas']['GroupJson']['properties']
         group = {property_: None for property_ in group_properties}
 
         # Set other properties based on defaults from the web UI.
@@ -985,7 +1195,7 @@ class ControlHub:
         """
         logger.info('Updating a group %s ...', group)
         update_group_command = self.api_client.update_group(
-            body=group._data, org_id=self.organization, group_id=group.group_id
+            body=group._data, org_id=self.organization, group_id=group.id
         )
         group._data = update_group_command.response.json()
         return update_group_command
@@ -1001,9 +1211,9 @@ class ControlHub:
         """
         if len(groups) == 1:
             logger.info('Deleting a group %s ...', groups[0])
-            delete_group_command = self.api_client.delete_group(org_id=self.organization, group_id=groups[0].group_id)
+            delete_group_command = self.api_client.delete_group(org_id=self.organization, group_id=groups[0].id)
         else:
-            group_ids = [group.group_id for group in groups]
+            group_ids = [group.id for group in groups]
             logger.info('Deleting groups %s ...', group_ids)
             delete_group_command = self.api_client.delete_groups(body=group_ids, org_id=self.organization)
         return delete_group_command
@@ -1025,7 +1235,7 @@ class ControlHub:
             Returns a :py:class:`streamsets.sdk.utils.SeekableList` of
             :py:class:`streamsets.sdk.sch_models.DataCollector` instances.
         """
-        return self.engines.get_all(engine_type='COLLECTOR')
+        return self.engines.get_all(engine_type=COLLECTOR)
 
     @property
     def transformers(self):
@@ -1035,192 +1245,7 @@ class ControlHub:
             Returns a :py:class:`streamsets.sdk.utils.SeekableList` of
             :py:class:`streamsets.sdk.sch_models.Transformer` instances.
         """
-        return self.engines.get_all(engine_type='TRANSFORMER')
-
-    @property
-    def provisioning_agents(self):
-        """Provisioning Agents registered to the ControlHub instance.
-
-        Returns:
-            An instance of :py:class:`streamsets.sdk.sch_models.ProvisioningAgents`.
-        """
-        return ProvisioningAgents(self, self.organization)
-
-    def delete_provisioning_agent(self, provisioning_agent):
-        """Delete provisioning agent.
-
-        Args:
-            provisioning_agent (:py:class:`streamets.sdk.sch_models.ProvisioningAgent`):
-
-        Returns:
-            An instance of :py:class:`streamsets.sdk.sch_api.Command`.
-        """
-        return self.api_client.delete_provisioning_agent(provisioning_agent.id)
-
-    def deactivate_provisioning_agent(self, provisioning_agent):
-        """Deactivate provisioning agent.
-
-        Args:
-            provisioning_agent (:py:class:`streamets.sdk.sch_models.ProvisioningAgent`):
-
-        Returns:
-            An instance of :py:class:`streamsets.sdk.sch_api.Command`.
-        """
-        return self.api_client.deactivate_components(org_id=self.organization, components_json=[provisioning_agent.id])
-
-    def activate_provisioning_agent(self, provisioning_agent):
-        """Activate provisioning agent.
-
-        Args:
-            provisioning_agent (:py:class:`streamets.sdk.sch_models.ProvisioningAgent`):
-
-        Returns:
-            An instance of :py:class:`streamsets.sdk.sch_api.Command`.
-        """
-        return self.api_client.activate_components(org_id=self.organization, components_json=[provisioning_agent.id])
-
-    def delete_provisioning_agent_token(self, provisioning_agent):
-        """Delete provisioning agent token.
-
-        Args:
-            provisioning_agent (:py:class:`streamets.sdk.sch_models.ProvisioningAgent`):
-
-        Returns:
-            An instance of :py:class:`streamsets.sdk.sch_api.Command`.
-        """
-        return self.api_client.delete_components(org_id=self.organization, components_json=[provisioning_agent.id])
-
-    @property
-    def legacy_deployments(self):
-        """Deployments.
-
-        Returns:
-            An instance of :py:class:`streamsets.sdk.sch_models.LegacyDeployments`.
-        """
-        return LegacyDeployments(self, self.organization)
-
-    def get_legacy_deployment_builder(self):
-        """Get a deployment builder instance with which a legacy deployment can be created.
-
-        Returns:
-            An instance of :py:class:`streamsets.sdk.sch_models.LegacyDeploymentBuilder`.
-        """
-        deployment = {
-            'name': None,
-            'description': None,
-            'labels': None,
-            'numInstances': None,
-            'spec': None,
-            'agentId': None,
-        }
-        return LegacyDeploymentBuilder(dict(deployment))
-
-    def add_legacy_deployment(self, deployment):
-        """Add a legacy deployment.
-
-        Args:
-            deployment (:py:class:`streamsets.sdk.sch_models.LegacyDeployment`): Deployment object.
-
-        Returns:
-            An instance of :py:class:`streamsets.sdk.sch_api.Command`.
-        """
-        create_deployment_command = self.api_client.create_legacy_deployment(deployment._data)
-        # Update :py:class:`streamsets.sdk.sch_models.LegacyDeployment` with updated Deployment metadata.
-        deployment._data = create_deployment_command.response.json()
-        deployment._control_hub = self
-        return create_deployment_command
-
-    def update_legacy_deployment(self, deployment):
-        """Update a deployment.
-
-        Args:
-            deployment (:py:class:`streamsets.sdk.sch_models.LegacyDeployment`): Deployment object.
-
-        Returns:
-            An instance of :py:class:`streamsets.sdk.sch_api.Command`.
-        """
-        logger.info('Updating deployment %s ...', deployment)
-        update_deployment_command = self.api_client.update_legacy_deployment(
-            deployment_id=deployment.id, body=deployment._data
-        )
-        deployment._data = update_deployment_command.response.json()
-        return update_deployment_command
-
-    def scale_legacy_deployment(self, deployment, num_instances):
-        """Scale up/down active deployment.
-
-        Args:
-            deployment (:py:class:`streamsets.sdk.sch_models.LegacyDeployment`): Deployment object.
-            num_instances (:obj:`int`): Number of sdc instances.
-
-        Returns:
-            An instance of :py:class:`streamsets.sdk.sch_api.Command`.
-        """
-        scale_deployment_command = self.api_client.scale_legacy_deployment(
-            deployment_id=deployment.id, num_instances=num_instances
-        )
-        deployment._data = self.legacy_deployments.get(id=deployment.id)._data
-        return scale_deployment_command
-
-    def delete_legacy_deployment(self, *deployments):
-        """Delete deployments.
-
-        Args:
-            *deployments: One or more instances of :py:class:`streamsets.sdk.sch_models.LegacyDeployment`.
-
-        Returns:
-            An instance of :py:class:`streamsets.sdk.sch_api.Command`.
-        """
-        if len(deployments) == 1:
-            logger.info('Deleting deployment %s ...', deployments[0])
-            delete_deployment_command = self.api_client.delete_legacy_deployment(deployment_id=deployments[0].id)
-        else:
-            deployment_ids = [deployment.id for deployment in deployments]
-            logger.info('Deleting deployments %s ...', deployment_ids)
-            delete_deployment_command = self.api_client.delete_legacy_deployments(body=deployment_ids)
-        return delete_deployment_command
-
-    def start_legacy_deployment(self, deployment, **kwargs):
-        """Start Deployment.
-
-        Args:
-            deployment (:py:class:`streamsets.sdk.sch_models.LegacyDeployment`): Deployment instance.
-            wait (:obj:`bool`, optional): Wait for deployment to start. Default: ``True``.
-            wait_for_statuses (:obj:`list`, optional): Deployment statuses to wait on. Default: ``['ACTIVE']``.
-
-        Returns:
-            An instance of :py:class:`streamsets.sdk.sch_api.DeploymentStartStopCommand`.
-        """
-        provisioning_agent_id = deployment.provisioning_agent.id
-        start_cmd = self.api_client.start_legacy_deployment(deployment.id, provisioning_agent_id)
-        if kwargs.get('wait', True):
-            start_cmd.wait_for_legacy_deployment_statuses(kwargs.get('wait_for_statuses', ['ACTIVE']))
-        return start_cmd
-
-    def stop_legacy_deployment(self, deployment, wait_for_statuses=['INACTIVE']):
-        """Stop Deployment.
-
-        Args:
-            deployment (:py:class:`streamsets.sdk.sch_models.LegacyDeployment`): Deployment instance.
-            wait_for_statuses (:obj:`list`, optional): List of statuses to wait for. Default: ``['INACTIVE']``.
-
-        Returns:
-            An instance of :py:class:`streamsets.sdk.sch_api.DeploymentStartStopCommand`.
-        """
-        stop_cmd = self.api_client.stop_legacy_deployment(deployment.id)
-        if wait_for_statuses:
-            stop_cmd.wait_for_legacy_deployment_statuses(wait_for_statuses)
-        return stop_cmd
-
-    def acknowledge_legacy_deployment_error(self, *deployments):
-        """Acknowledge errors for one or more deployments.
-
-        Args:
-            *deployments: One or more instances of :py:class:`streamsets.sdk.sch_models.LegacyDeployment`.
-        """
-        deployment_ids = [deployment.id for deployment in deployments]
-        logger.info('Acknowledging errors for deployment(s) %s ...', deployment_ids)
-        self.api_client.legacy_deployments_acknowledge_errors(deployment_ids)
+        return self.engines.get_all(engine_type=TRANSFORMER)
 
     def deactivate_engine(self, engine):
         """Deactivate an engine.
@@ -1302,7 +1327,7 @@ class ControlHub:
         return self.api_client.get_sdc_labels(data_collector_id=engine.id).response.json()
 
     def update_engine_resource_thresholds(
-        self, engine, max_cpu_load=None, max_memory_used=None, max_pipelines_running=None
+        self, engine, max_cpu_load=None, max_memory_used=None, max_pipelines_running=None, override_engine_maxes=True
     ):
         """Updates engine resource thresholds.
 
@@ -1311,6 +1336,7 @@ class ControlHub:
             max_cpu_load (:obj:`float`, optional): Max CPU load in percentage. Default: ``None``.
             max_memory_used (:obj:`int`, optional): Max memory used in MB. Default: ``None``.
             max_pipelines_running (:obj:`int`, optional): Max pipelines running. Default: ``None``.
+            override_engine_maxes (:obj:`bool`, optional): Whether to Override Engine Maxes. Default: ``True``.
 
         Returns:
             An instance of :py:class:`streamsets.sdk.sch_api.Command`.
@@ -1318,6 +1344,7 @@ class ControlHub:
         thresholds = {
             'maxMemoryUsed': max_memory_used,
             'maxCpuLoad': max_cpu_load,
+            'overrideEngineMaxes': override_engine_maxes,
             'maxPipelinesRunning': max_pipelines_running,
         }
         thresholds_to_be_updated = {k: v for k, v in thresholds.items() if v is not None}
@@ -1337,15 +1364,26 @@ class ControlHub:
         logger.info('Balancing all jobs on Engine(s) %s ...', engine_ids)
         self.api_client.balance_data_collectors(engine_ids)
 
-    def delete_unregistered_auth_tokens(self, executor_type):
+    def delete_unregistered_auth_tokens(self, engine_type):
         """Delete auth tokens for engines that have been unregistered.
 
         Args:
-            executor_type (:obj:`str`): The executor type. Acceptable values are 'DATACOLLECTOR' or 'TRANSFORMER'.
+            engine_type (:obj:`streamsets.sdk.utils.EngineType`): The engine type. Acceptable values are 'COLLECTOR' or 'TRANSFORMER'.
         Returns:
             An instance of :py:class:`streamsets.sdk.sch_api.Command`.
         """
-        return self.api_client.delete_non_registered_components(self.organization, executor_type)
+        engine_type_map = {COLLECTOR: 'DATACOLLECTOR', TRANSFORMER: 'TRANSFORMER'}
+        # Keep backwards compatibility
+        if engine_type in engine_type_map.values():
+            engine_type = next(key for key, value in engine_type_map.items() if value == engine_type)
+
+        try:
+            return self.api_client.delete_non_registered_components(self.organization, engine_type_map[engine_type])
+        except KeyError:
+            raise ValueError(
+                "Please enter a valid streamsets.sdk.utils.EngineType object."
+                "Acceptable values are 'COLLECTOR' or 'TRANSFORMER'"
+            )
 
     def shutdown_engines(self, *engines):
         """Call shutdown on the given engine(s).
@@ -1377,7 +1415,7 @@ class ControlHub:
         Returns:
             An instance of :py:class:`streamsets.sdk.sch_models.JobBuilder`.
         """
-        job_properties = self._job_api['definitions']['JobJson']['properties']
+        job_properties = self._job_api['components']['schemas']['JobJson']['properties']
         job = {property_: None for property_ in job_properties}
 
         # Set other properties based on defaults from the web UI.
@@ -1434,7 +1472,7 @@ class ControlHub:
         Returns:
             An instance of :py:class:`streamsets.sdk.sch_models.OrganizationBuilder`.
         """
-        new_org_properties = self._security_api['definitions']['NewOrganizationJson']['properties']
+        new_org_properties = self._security_api['components']['schemas']['NewOrganizationJson']['properties']
         organization = {property_: None for property_ in new_org_properties}
 
         # Set other properties based on defaults from the web UI.
@@ -1521,7 +1559,7 @@ class ControlHub:
         Returns:
             An instance of :py:class:`streamsets.sdk.sch_models.ApiCredentialBuilder`.
         """
-        api_creds_properties = self._security_api['definitions']['ApiCredentialsJson']['properties']
+        api_creds_properties = self._security_api['components']['schemas']['ApiCredentialsJson']['properties']
         api_credential = {property_: None for property_ in api_creds_properties}
         return ApiCredentialBuilder(api_credential=api_credential, control_hub=self)
 
@@ -1639,13 +1677,15 @@ class ControlHub:
         """Import pipelines from archived zip directory.
 
         Args:
-            archive (:obj:`file`): file containing the pipelines.
+            archive (:obj:`bytes` or :obj:`io.BufferedReader`): File-like object of a zip file containing the pipelines.
             commit_message (:obj:`str`): Commit message.
             fragments (:obj:`bool`, optional): Indicates if pipeline contains fragments.
 
         Returns:
             A :py:obj:`streamsets.sdk.utils.SeekableList` of :py:class:`streamsets.sdk.sch_models.Pipeline`.
         """
+        if not isinstance(archive, (bytes, io.BufferedReader)):
+            raise TypeError(f"Invalid type {type(archive)}. Type must be either bytes or io.BufferedReader.")
         return SeekableList(
             [
                 Pipeline(
@@ -1661,7 +1701,7 @@ class ControlHub:
             ]
         )
 
-    def import_pipeline(self, pipeline, commit_message, name=None, data_collector_instance=None):
+    def import_pipeline(self, pipeline, commit_message, name=None, engine_instance=None):
         """Import pipeline from json file.
 
         Args:
@@ -1669,7 +1709,7 @@ class ControlHub:
             commit_message (:obj:`str`): Commit message.
             name (:obj:`str`, optional): Name of the pipeline. If left out, pipeline name from JSON object will be
                                          used. Default ``None``.
-            data_collector_instance (:py:class:`streamsets.sdk.sch_models.DataCollector`): If excluded, system sdc will
+            engine_instance (:obj:`:py:class:`streamsets.sdk.sch_models.Engine``): If excluded, system engine will
                                                                                            be used. Default ``None``.
 
         Returns:
@@ -1677,7 +1717,7 @@ class ControlHub:
         """
         if name is None:
             name = pipeline['pipelineConfig']['title']
-        sdc_id = data_collector_instance.id if data_collector_instance is not None else DEFAULT_SYSTEM_SDC_ID
+        sdc_id = engine_instance.id if engine_instance is not None else DEFAULT_SYSTEM_SDC_ID
         pipeline['pipelineConfig']['info']['sdcId'] = sdc_id
         commit_pipeline_json = {
             'name': name,
@@ -1732,7 +1772,7 @@ class ControlHub:
         if not pipeline.draft:
             raise Exception("Pipeline isn't in draft mode, draft run can't be started.")
 
-        job_response = self.api_client.get_draft_run_job_for_pipeline_id(pipeline.pipeline_id).response
+        job_response = self.api_client.get_draft_run_job_for_pipeline_id(pipeline.id).response
         if job_response.content:
             job_id = job_response.json()["id"]
         else:
@@ -1825,7 +1865,9 @@ class ControlHub:
         Returns:
             An instance of :py:class:`streamsets.sdk.sch_models.JobSequenceBuilder`.
         """
-        job_sequence = {property: None for property in self._sequencing_api['definitions']['USequence']['properties']}
+        job_sequence = {
+            property: None for property in self._sequencing_api['components']['schemas']['USequence']['properties']
+        }
         job_sequence['id'] = None
         job_sequence['nextRunTime'] = None
 
@@ -2019,6 +2061,24 @@ class ControlHub:
         sorted_alerts = sorted(active_alerts + acknowledged_alerts, key=lambda x: x['triggeredOn'])
         return SeekableList(Alert(alert, control_hub=self) for alert in sorted_alerts)
 
+    @property
+    def jobs_in_error_state(self):
+        """Job in Error State Reports.
+
+        Returns:
+            A :py:obj:`streamsets.sdk.utils.SeekableList` of :py:class:`streamsets.sdk.sch_models.Job`.
+        """
+        return SeekableList(filter(lambda job: job.status.color == 'RED', self.jobs))
+
+    @property
+    def unhealthy_and_offline_engines(self):
+        """Unhealthy and offline engines.
+
+        Returns:
+            A :py:obj:`streamsets.sdk.utils.SeekableList` of :py:class:`streamsets.sdk.sch_models.Engine`.
+        """
+        return SeekableList(filter(lambda engine: not engine.responding, self.engines))
+
     def add_job(self, job):
         """Add a job.
 
@@ -2028,7 +2088,8 @@ class ControlHub:
         Returns:
             An instance of :py:class:`streamsets.sdk.sch_api.Command`.
         """
-        new_job_properties = self._job_api['definitions']['NewJobJson']['properties']
+        validate_job(job)
+        new_job_properties = self._job_api['components']['schemas']['NewJobJson']['properties']
         new_job_json = {property_: value for property_, value in job._data.items() if property_ in new_job_properties}
         logger.info('Adding job %s ...', job.job_name)
         create_job_command = self.api_client.create_job(body=new_job_json)
@@ -2036,7 +2097,7 @@ class ControlHub:
         job._data = create_job_command.response.json()
 
         if self.data_protector_enabled:
-            policies = dict(jobId=job.job_id)
+            policies = dict(jobId=job.id)
             if job.read_policy:
                 policies['readPolicyId'] = job.read_policy._id
             else:
@@ -2077,8 +2138,7 @@ class ControlHub:
             An instance of :py:class:`streamsets.sdk.sch_models.Job`.
         """
         logger.warning('This method has been superseded by update_job and will be removed in a future release.')
-        logger.info('Editing job %s with job id %s ...', job.job_name, job.job_id)
-        return Job(self.api_client.update_job(job_id=job.job_id, job_json=job._data).response.json())
+        return self.update_job(job)
 
     def update_job(self, job):
         """Update a job.
@@ -2089,8 +2149,9 @@ class ControlHub:
         Returns:
             An instance of :py:class:`streamsets.sdk.sch_models.Job`.
         """
-        logger.info('Updating job %s with job id %s ...', job.job_name, job.job_id)
-        return Job(self.api_client.update_job(job_id=job.job_id, job_json=job._data).response.json())
+        validate_job(job)
+        logger.info('Updating job %s with job id %s ...', job.job_name, job.id)
+        return Job(self.api_client.update_job(job_id=job.id, job_json=job._data).response.json())
 
     def upgrade_job(self, *jobs):
         """Upgrade job(s) to latest pipeline version.
@@ -2101,7 +2162,7 @@ class ControlHub:
         Returns:
             A :py:obj:`streamsets.sdk.utils.SeekableList` of :py:class:`streamsets.sdk.sch_models.Job`.
         """
-        job_ids = [job.job_id for job in jobs]
+        job_ids = [job.id for job in jobs]
         self.api_client.upgrade_jobs(job_ids)
         return SeekableList(self.jobs.get(id=job_id) for job_id in job_ids)
 
@@ -2142,7 +2203,7 @@ class ControlHub:
         Returns:
             An instance of type :py:obj:`bytes` indicating the content of zip file with job json files.
         """
-        job_ids = [job.job_id for job in jobs]
+        job_ids = [job.id for job in jobs]
         return self.api_client.export_jobs(body=job_ids).response.content
 
     def reset_origin(self, *jobs):
@@ -2156,7 +2217,7 @@ class ControlHub:
         Returns:
             A :py:obj:`streamsets.sdk.utils.SeekableList` of :py:class:`streamsets.sdk.sch_models.Job`.
         """
-        job_ids = [job.job_id for job in jobs]
+        job_ids = [job.id for job in jobs]
         self.api_client.reset_jobs_offset(job_ids)
         return SeekableList(self.jobs.get(id=job_id) for job_id in job_ids)
 
@@ -2179,9 +2240,9 @@ class ControlHub:
         if not offset_file and offset_json is None:
             raise ValueError("Exactly one of the arguments offset_file and offset_json should be specified.")
         if offset_json is not None:
-            job_json = self.api_client.upload_job_offset_as_json(job.job_id, offset_json).response.json()
+            job_json = self.api_client.upload_job_offset_as_json(job.id, offset_json).response.json()
         else:
-            job_json = self.api_client.upload_job_offset(job.job_id, offset_file).response.json()
+            job_json = self.api_client.upload_job_offset(job.id, offset_file).response.json()
         return Job(job_json, self)
 
     def get_current_job_status(self, job):
@@ -2190,8 +2251,8 @@ class ControlHub:
         Args:
             job (:py:class:`streamsets.sdk.sch_models.Job`): Job object.
         """
-        logger.info('Fetching job status for job id %s ...', job.job_id)
-        return self.api_client.get_current_job_status(job_id=job.job_id)
+        logger.info('Fetching job status for job id %s ...', job.id)
+        return self.api_client.get_current_job_status(job_id=job.id)
 
     def delete_job(self, *jobs):
         """Delete one or more jobs.
@@ -2203,9 +2264,9 @@ class ControlHub:
         job_template_ids = []
         for job in jobs:
             if job.job_template:
-                job_template_ids.append(job.job_id)
+                job_template_ids.append(job.id)
             else:
-                job_ids.append(job.job_id)
+                job_ids.append(job.id)
 
         if job_template_ids:
             self.api_client.cascade_delete_job_template(job_template_ids)
@@ -2236,7 +2297,7 @@ class ControlHub:
         job_names = [job.job_name for job in jobs]
         logger.info('Starting %s (%s) ...', 'jobs' if len(job_names) > 1 else 'job', ', '.join(job_names))
 
-        job_ids = [job.job_id for job in jobs]
+        job_ids = [job.id for job in jobs]
         start_jobs_command = self.api_client.start_jobs(job_ids)
         # The startJobs endpoint in ControlHub returns an OK with no other data in the body. As such, we add
         #  the list of jobs passed to this method as an attribute to the StartJobsCommand returned by
@@ -2305,7 +2366,7 @@ class ControlHub:
         if instance_name_suffix == 'PARAM_VALUE':
             assert parameter_name is not None, "Please specify a parameter name."
 
-        job_template_properties = self._job_api['definitions']['JobTemplateCreationInfoJson']['properties']
+        job_template_properties = self._job_api['components']['schemas']['JobTemplateCreationInfoJson']['properties']
         start_job_template_json = {property_: None for property_ in job_template_properties}
 
         if runtime_parameters is None:
@@ -2330,11 +2391,11 @@ class ControlHub:
         # However, create_and_start_job_instances_async returns a list of jobs and hence the ID attribute is id
         jobs_response = (
             self.api_client.create_and_start_job_instances(
-                job_template.job_id, start_job_template_json, inherit_permissions
+                job_template.id, start_job_template_json, inherit_permissions
             )
             if not asynchronous
             else self.api_client.create_and_start_job_instances_async(
-                job_template.job_id, start_job_template_json, inherit_permissions
+                job_template.id, start_job_template_json, inherit_permissions
             )
         )
         id_key = 'jobId' if not asynchronous else 'id'
@@ -2343,7 +2404,7 @@ class ControlHub:
         for job_response in jobs_response.response.json():
             job = self.jobs.get(id=job_response[id_key])
             if wait:
-                self.api_client.wait_for_job_status(job_id=job.job_id, status='ACTIVE')
+                self.api_client.wait_for_job_status(job_id=job.id, status='ACTIVE')
             if wait_for_data_collectors:
 
                 def job_has_data_collector(job):
@@ -2369,7 +2430,7 @@ class ControlHub:
         Returns:
             An instance of :py:class:`streamsets.sdk.sch_api.StopJobsCommand`.
         """
-        jobs_ = {job.job_id: job for job in jobs}
+        jobs_ = {job.id: job for job in jobs}
         job_ids = list(jobs_.keys())
         logger.info('Stopping job(s) %s ...', job_ids)
         # At the end, we'll return the command from the job being stopped, so we hold onto it while we update
@@ -2538,23 +2599,22 @@ class ControlHub:
         Raises:
             :py:obj:`streamsets.sdk.exceptions.ValidationError`: If validation fails.
         """
-        if not pipeline.pipeline_id:
+        if not pipeline.id:
             raise Exception('The pipeline must have been published to Control Hub before attempting to validate it')
-        if pipeline.executor_type != 'SNOWPARK':
-            engine_instance, engine_pipeline_id = self._add_pipeline_to_executor_if_not_exists(pipeline)
+        engine_instance, engine_pipeline_id = self._add_pipeline_to_engine_if_not_exists(pipeline)
+        if engine_instance:
             if self.use_websocket_tunneling:
-                tunneling_instance_id = self.api_client.get_tunneling_instance_id(pipeline.sdc_id).response.json()[
+                tunneling_instance_id = self.api_client.get_tunneling_instance_id(pipeline.engine_id).response.json()[
                     'instanceId'
                 ]
                 validate_command = self.api_client.validate_engine_pipeline(
-                    engine_id=pipeline.sdc_id,
+                    engine_id=pipeline.engine_id,
                     pipeline_id=engine_pipeline_id,
                     tunneling_instance_id=tunneling_instance_id,
-                ).wait_for_validate(engine_id=pipeline.sdc_id, tunneling_instance_id=tunneling_instance_id)
+                ).wait_for_validate(engine_id=pipeline.engine_id, tunneling_instance_id=tunneling_instance_id)
             else:
                 validate_command = engine_instance.api_client.validate_pipeline(engine_pipeline_id).wait_for_validate()
         else:
-            _, engine_pipeline_id = self._add_pipeline_to_executor_if_not_exists(pipeline)
             validate_command = self.api_client.validate_snowflake_pipeline(
                 engine_pipeline_id, timeout=500000
             ).wait_for_validate()
@@ -2581,7 +2641,7 @@ class ControlHub:
         test_origin=False,
         read_policy=None,
         write_policy=None,
-        executor=None,
+        engine=None,
         **kwargs,
     ):
         """Run pipeline preview.
@@ -2600,21 +2660,21 @@ class ControlHub:
                 If not provided, uses default read policy if one available. Default: ``None``.
             write_policy (:py:obj:`streamsets.sdk.sch_models.ProtectionPolicy`): Write Policy for preview.
                 If not provided, uses default write policy if one available. Default: ``None``.
-            executor (:py:obj:`streamsets.sdk.sch_models.DataCollector`, optional): The Data Collector
-                in which to preview the pipeline. If omitted, ControlHub's first executor SDC will be used.
+            engine (:py:obj:`streamsets.sdk.sch_models.DataCollector`, optional): The Data Collector
+                in which to preview the pipeline. If omitted, ControlHub's first SDC engine will be used.
                 Default: ``None``.
 
         Returns:
             An instance of :py:class:`streamsets.sdk.sdc_api.PreviewCommand`.
         """
-        # Note: We only support SDC and Snowflake executor for now
+        # Note: We only support SDC and Snowflake engine for now
         # Note: system data collector cannot be used for pipeline preview
-        executor_type = getattr(pipeline, 'executor_type', 'COLLECTOR')
-        if executor_type != SNOWFLAKE_EXECUTOR_TYPE and not executor and len(self.data_collectors) < 1:
-            raise Exception('No executor found')
+        engine_type = getattr(pipeline, 'engine_type', COLLECTOR)
+        if engine_type != SNOWPARK and not engine and len(self.data_collectors) < 1:
+            raise Exception('No engine found')
 
         if self.data_protector_enabled:
-            executor_instance = (executor or self.data_collectors[0])._instance
+            engine_instance = (engine or self.data_collectors[0])._instance
 
             if not read_policy:
                 read_protection_policies = self._get_protection_policies('Read')
@@ -2636,13 +2696,13 @@ class ControlHub:
 
             parameters = {
                 'pipelineCommitId': pipeline.commit_id,
-                'pipelineId': pipeline.pipeline_id,
+                'pipelineId': pipeline.id,
                 'read.policy.id': read_policy_id,
                 'write.policy.id': write_policy_id,
                 'classification.catalogId': self._classification_catalog_id,
             }
 
-            return executor_instance.run_dynamic_pipeline_preview(
+            return engine_instance.run_dynamic_pipeline_preview(
                 type='PROTECTION_POLICY',
                 parameters=parameters,
                 batches=batches,
@@ -2654,10 +2714,10 @@ class ControlHub:
                 test_origin=test_origin,
             )
 
-        executor_instance, executor_pipeline_id = self._add_pipeline_to_executor_if_not_exists(pipeline)
-        if executor_instance:
-            return executor_instance.run_pipeline_preview(
-                pipeline_id=executor_pipeline_id,
+        engine_instance, engine_pipeline_id = self._add_pipeline_to_engine_if_not_exists(pipeline)
+        if engine_instance:
+            return engine_instance.run_pipeline_preview(
+                pipeline_id=engine_pipeline_id,
                 batches=batches,
                 batch_size=batch_size,
                 skip_targets=skip_targets,
@@ -2669,7 +2729,7 @@ class ControlHub:
             )
 
         return self.run_snowflake_pipeline_preview(
-            pipeline_id=executor_pipeline_id,
+            pipeline_id=engine_pipeline_id,
             batches=batches,
             batch_size=batch_size,
             skip_targets=skip_targets,
@@ -2745,21 +2805,21 @@ class ControlHub:
         Returns:
             An instance of :py:class:`streamsets.sdk.sdc_api.StartPipelineCommand`.
         """
-        executor_instance, executor_pipeline_id = self._add_pipeline_to_executor_if_not_exists(
+        engine_instance, engine_pipeline_id = self._add_pipeline_to_engine_if_not_exists(
             pipeline=pipeline, reset_origin=reset_origin, parameters=parameters
         )
         # Update pipeline rules as seen at https://git.io/JURT4
-        pipeline_rules_command = executor_instance.api_client.get_pipeline_rules(pipeline_id=executor_pipeline_id)
+        pipeline_rules_command = engine_instance.api_client.get_pipeline_rules(pipeline_id=engine_pipeline_id)
         pipeline_rules = pipeline._rules_definition
         pipeline_rules['uuid'] = pipeline_rules_command.response.json()['uuid']
-        executor_instance.api_client.update_pipeline_rules(pipeline_id=executor_pipeline_id, pipeline=pipeline_rules)
-        start_pipeline_command = executor_instance.start_pipeline(executor_pipeline_id)
-        start_pipeline_command.executor_pipeline = pipeline
-        start_pipeline_command.executor_instance = executor_instance
+        engine_instance.api_client.update_pipeline_rules(pipeline_id=engine_pipeline_id, pipeline=pipeline_rules)
+        start_pipeline_command = engine_instance.start_pipeline(engine_pipeline_id)
+        start_pipeline_command.engine_pipeline = pipeline
+        start_pipeline_command.engine_instance = engine_instance
         return start_pipeline_command
 
-    def _add_pipeline_to_executor_if_not_exists(self, pipeline, reset_origin=False, parameters=None):
-        """Util function to add ControlHub pipeline to executor.
+    def _add_pipeline_to_engine_if_not_exists(self, pipeline, reset_origin=False, parameters=None):
+        """Util function to add ControlHub pipeline to engine.
 
         Args:
             pipeline (:py:obj:`streamsets.sdk.sch_models.Pipeline`): Pipeline object.
@@ -2770,64 +2830,63 @@ class ControlHub:
             An instance of :obj:`tuple` of (:py:obj:`streamsets.sdk.DataCollector` or
                 :py:obj:`streamsets.sdk.Transformer` and :py:obj:`streamsets.sdk.sdc_models.Pipeline`)
         """
-        executor_type = getattr(pipeline, 'executor_type', 'COLLECTOR') or 'COLLECTOR'
         principal_user_id = self.api_client.get_current_user().response.json()['principalId']
-        executor_pipeline_id = 'testRun__{}__{}__{}'.format(
-            pipeline.pipeline_id.split(':')[0], self.organization, principal_user_id
+        engine_pipeline_id = 'testRun__{}__{}__{}'.format(
+            pipeline.id.split(':')[0], self.organization, principal_user_id
         )
-        if executor_type == SNOWFLAKE_EXECUTOR_TYPE:
-            authoring_executor_instance = None
+        if pipeline.engine_id == SNOWFLAKE_ENGINE_ID:
+            authoring_engine_instance = None
         else:
-            authoring_executor = self.engines.get(id=pipeline.sdc_id)
-            authoring_executor_instance = authoring_executor._instance
-        if authoring_executor_instance:
-            pipeline_status_command = authoring_executor_instance.api_client.get_pipeline_status(
-                pipeline_id=executor_pipeline_id, only_if_exists=True
+            authoring_engine = self.engines.get(id=pipeline.engine_id)
+            authoring_engine_instance = authoring_engine._instance
+        if authoring_engine_instance:
+            pipeline_status_command = authoring_engine_instance.api_client.get_pipeline_status(
+                pipeline_id=engine_pipeline_id, only_if_exists=True
             )
         else:
             pipeline_status_command = self.api_client.get_snowflake_pipeline(
-                pipeline_id=executor_pipeline_id, only_if_exists=True
+                pipeline_id=engine_pipeline_id, only_if_exists=True
             )
         if not pipeline_status_command.response.text:
-            if authoring_executor_instance:
-                authoring_executor_instance.api_client.create_pipeline(
-                    pipeline_title=executor_pipeline_id,
+            if authoring_engine_instance:
+                authoring_engine_instance.api_client.create_pipeline(
+                    pipeline_title=engine_pipeline_id,
                     description="New Pipeline",
                     auto_generate_pipeline_id=False,
                     draft=False,
                 )
             else:
                 self.api_client.create_snowflake_pipeline(
-                    pipeline_title=executor_pipeline_id,
+                    pipeline_title=engine_pipeline_id,
                     description="New Pipeline",
                     auto_generate_pipeline_id=False,
                     draft=False,
                 )
         elif reset_origin:
-            if authoring_executor_instance:
-                authoring_executor_instance.api_client.reset_origin_offset(pipeline_id=executor_pipeline_id)
+            if authoring_engine_instance:
+                authoring_engine_instance.api_client.reset_origin_offset(pipeline_id=engine_pipeline_id)
             else:
-                self.api_client.reset_snowflake_origin_offset(pipeline_id=executor_pipeline_id)
-        if authoring_executor_instance:
-            pipeline_info = authoring_executor_instance.api_client.get_pipeline_configuration(
-                pipeline_id=executor_pipeline_id, get='info'
+                self.api_client.reset_snowflake_origin_offset(pipeline_id=engine_pipeline_id)
+        if authoring_engine_instance:
+            pipeline_info = authoring_engine_instance.api_client.get_pipeline_configuration(
+                pipeline_id=engine_pipeline_id, get='info'
             )
         else:
             pipeline_info = self.api_client.get_snowflake_pipeline_configuration(
-                pipeline_id=executor_pipeline_id, get='info'
+                pipeline_id=engine_pipeline_id, get='info'
             )
         if parameters:
             pipeline.parameters = parameters
-        executor_pipeline_json = pipeline._pipeline_definition
-        executor_pipeline_json['pipelineId'] = executor_pipeline_id
-        executor_pipeline_json['uuid'] = pipeline_info['uuid']
-        if authoring_executor_instance:
-            authoring_executor_instance.api_client.update_pipeline(
-                pipeline_id=executor_pipeline_id, pipeline=executor_pipeline_json
+        engine_pipeline_json = pipeline._pipeline_definition
+        engine_pipeline_json['pipelineId'] = engine_pipeline_id
+        engine_pipeline_json['uuid'] = pipeline_info['uuid']
+        if authoring_engine_instance:
+            authoring_engine_instance.api_client.update_pipeline(
+                pipeline_id=engine_pipeline_id, pipeline=engine_pipeline_json
             )
         else:
-            self.api_client.update_snowflake_pipeline(pipeline_id=executor_pipeline_id, pipeline=executor_pipeline_json)
-        return authoring_executor_instance, executor_pipeline_id
+            self.api_client.update_snowflake_pipeline(pipeline_id=engine_pipeline_id, pipeline=engine_pipeline_json)
+        return authoring_engine_instance, engine_pipeline_id
 
     def stop_test_pipeline_run(self, start_pipeline_command):
         """Stop the test run of pipeline.
@@ -2838,7 +2897,7 @@ class ControlHub:
         Returns:
             An instance of :py:class:`streamsets.sdk.sdc_api.StopPipelineCommand`.
         """
-        return start_pipeline_command.executor_instance.stop_pipeline(start_pipeline_command.executor_pipeline)
+        return start_pipeline_command.engine_instance.stop_pipeline(start_pipeline_command.engine_pipeline)
 
     def preview_classification_rule(self, classification_rule, parameter_data, data_collector=None):
         """Dynamic preview of a classification rule.
@@ -2847,7 +2906,7 @@ class ControlHub:
             classification_rule (:py:obj:`streamsets.sdk.sch_models.ClassificationRule`): Classification Rule object.
             parameter_data (:obj:`dict`): A python dict representation of raw JSON parameters required for preview.
             data_collector (:py:obj:`streamsets.sdk.sch_models.DataCollector`, optional): The Data Collector
-                in which to preview the pipeline. If omitted, ControlHub's first executor SDC will be used.
+                in which to preview the pipeline. If omitted, ControlHub's first SDC engine will be used.
                 Default: ``None``.
 
         Returns:
@@ -2856,7 +2915,7 @@ class ControlHub:
         if self.data_protector_enabled:
             # Note: system data collector cannot be used for dynamic preview
             if not data_collector and len(self.data_collectors) < 1:
-                raise Exception('No executor DataCollector found')
+                raise Exception('No DataCollector engine found')
             else:
                 data_collector_instance = (data_collector or self.data_collectors[0])._instance
                 parameters = {
@@ -2977,22 +3036,6 @@ class ControlHub:
         """
         job_selection_types = self.api_client.get_job_selection_types(api_version=2).response.json()['response']['data']
         return ScheduledTaskBuilder(job_selection_types, self)
-
-    def publish_scheduled_task(self, task):
-        """Send the scheduled task to Control Hub. DEPRECATED
-
-        Args:
-            task (:py:class:`streamsets.sdk.sch_models.ScheduledTask`): Scheduled task object.
-
-        Returns:
-            An instance of :py:class:`streamsets.sdk.sch_api.Command`.
-        """
-        warnings.warn(
-            'The publish_scheduled_task method has been deprecated and will be removed in a future release. '
-            'Please use the add_scheduled_task method instead.',
-            DeprecationWarning,
-        )
-        return self.add_scheduled_task(task)
 
     def add_scheduled_task(self, task):
         """Add the scheduled task to Control Hub.
@@ -3183,7 +3226,7 @@ class ControlHub:
         Returns:
             An instance of :py:class:`streamsets.sdk.sch_models.SubscriptionBuilder`.
         """
-        event_sub_properties = self._notification_api['definitions']['EventSubscriptionJson']['properties']
+        event_sub_properties = self._notification_api['components']['schemas']['EventSubscriptionJson']['properties']
         subscription = {property_: None for property_ in event_sub_properties}
         subscription.update(dict(enabled=True, deleted=False, events=[]))
         return SubscriptionBuilder(subscription=subscription, control_hub=self)
@@ -3197,13 +3240,27 @@ class ControlHub:
         Returns:
             An instance of :py:class:`streamsets.sdk.sch_api.Command`.
         """
-        event_types = self._en_translations['notifications']['subscriptions']['events']
+        subscription_event_types = self._en_translations['notifications']['subscriptions']['events']
         subscription._data['events'] = [
-            {'eventType': reversed_dict(event_types)[event.event_type], 'filter': event.filter}
+            {'eventType': reversed_dict(subscription_event_types)[event.event_type], 'filter': event.filter}
             for event in subscription.events
         ]
-        action_config = subscription._data['externalActions'][0]['config']
-        encoded_config = json.dumps(action_config) if isinstance(action_config, dict) else action_config
+
+        subscription_action_types = list(self._en_translations['notifications']['subscriptions']['actions'].keys())
+        subscription_action = subscription._data['externalActions']
+
+        if subscription_action == [{}]:
+            raise ValueError('Missing action for subscription.')
+
+        if subscription_action[0]['eventType'] not in subscription_action_types:
+            raise ValueError('Unknown action for subscription : {}'.format(subscription_action[0]['eventType']))
+
+        subscription_action_config = subscription_action[0]['config']
+        encoded_config = (
+            json.dumps(subscription_action_config)
+            if isinstance(subscription_action_config, dict)
+            else subscription_action_config
+        )
         subscription._data['externalActions'][0]['config'] = encoded_config
         create_subscription_command = self.api_client.create_event_subscription(body=subscription._data)
         subscription._data = create_subscription_command.response.json()
@@ -3270,7 +3327,7 @@ class ControlHub:
         Args:
             *jobs: One or more instances of :py:class:`streamsets.sdk.sch_models.Job`.
         """
-        job_ids = [job.job_id for job in jobs]
+        job_ids = [job.id for job in jobs]
         logger.info('Acknowledging errors for job(s) %s ...', job_ids)
         self.api_client.jobs_acknowledge_errors(job_ids)
 
@@ -3280,7 +3337,7 @@ class ControlHub:
         Args:
             *jobs: One or more instances of :py:class:`streamsets.sdk.sch_models.Job`.
         """
-        job_ids = [job.job_id for job in jobs]
+        job_ids = [job.id for job in jobs]
         logger.info('Synchronizing job(s) %s ...', job_ids)
         self.api_client.sync_jobs(job_ids)
 
@@ -3290,7 +3347,7 @@ class ControlHub:
         Args:
             *jobs: One or more instances of :py:class:`streamsets.sdk.sch_models.Job`.
         """
-        job_ids = [job.job_id for job in jobs]
+        job_ids = [job.id for job in jobs]
         logger.info('Balancing job(s) %s ...', job_ids)
         self.api_client.balance_jobs(job_ids)
 
@@ -3302,7 +3359,7 @@ class ControlHub:
         """
         topology_json = {}
         # Update the topology_json with the API definitions from Swagger.
-        topology_properties = self._topology_api['definitions']['TopologyJson']['properties']
+        topology_properties = self._topology_api['components']['schemas']['TopologyJson']['properties']
         topology_json.update({property_: None for property_ in topology_properties})
         topology_json['organization'] = self.organization
         topology_json['topologyDefinition'] = {}
@@ -3319,11 +3376,11 @@ class ControlHub:
         Returns:
             An instance of :py:class:`streamsets.sdk.sch_models.DataSlaBuilder`.
         """
-        sla_properties = self._sla_api['definitions']['DataSlaJson']['properties']
-        data_sla = {property_: None for property_ in sla_properties}
-        data_sla['organization'] = self.organization
-
-        return DataSlaBuilder(data_sla, self)
+        warnings.warn(
+            'This method of streamsets.sdk.ControlHub.get_data_sla_builder will be removed in a '
+            'future release. Please use the streamsets.sdk.sch_models.Topology.get_data_sla_builder method instead.',
+            DeprecationWarning,
+        )
 
     @property
     def topologies(self):
@@ -3385,8 +3442,8 @@ class ControlHub:
         if only_selected_version:
             logger.info('Deleting topology version %s for topology %s ...', topology.commit_id, topology.topology_name)
             return self.api_client.delete_topology_versions(commits_json=[topology.commit_id])
-        logger.info('Deleting topology %s with topology id %s ...', topology.topology_name, topology.topology_id)
-        return self.api_client.delete_topologies(topologies_json=[topology.topology_id])
+        logger.info('Deleting topology %s with topology id %s ...', topology.topology_name, topology.id)
+        return self.api_client.delete_topologies(topologies_json=[topology.id])
 
     def publish_topology(self, topology, commit_message=None):
         """Publish a topology.
@@ -3427,54 +3484,6 @@ class ControlHub:
 
         return response
 
-    @property
-    def report_definitions(self):
-        """Report Definitions.
-
-        Returns:
-            An instance of :py:class:`streamsets.sdk.sch_models.ReportDefinitions`.
-        """
-        return ReportDefinitions(self)
-
-    def add_report_definition(self, report_definition):
-        """Add Report Definition to ControlHub.
-
-        Args:
-            report_definition (:py:class:`streamsets.sdk.sch_models.ReportDefinition`): Report Definition instance.
-
-        Returns:
-            An instance of :py:class:`streamsets.sdk.sch_api.Command`.
-        """
-        create_report_definition_command = self.api_client.create_new_report_definition(report_definition._data)
-        report_definition._data = create_report_definition_command.response.json()
-        return create_report_definition_command
-
-    def update_report_definition(self, report_definition):
-        """Update an existing Report Definition.
-
-        Args:
-            report_definition (:py:class:`streamsets.sdk.sch_models.ReportDefinition`): Report Definition instance.
-
-        Returns:
-            An instance of :py:class:`streamsets.sdk.sch_api.Command`.
-        """
-        update_report_definition_command = self.api_client.update_report_definition(
-            report_definition.id, report_definition._data
-        )
-        report_definition._data = update_report_definition_command.response.json()
-        return update_report_definition_command
-
-    def delete_report_definition(self, report_definition):
-        """Delete an existing Report Definition.
-
-        Args:
-            report_definition (:py:class:`streamsets.sdk.sch_models.ReportDefinition`): Report Definition instance.
-
-        Returns:
-            An instance of :py:class:`streamsets.sdk.sch_api.Command`.
-        """
-        return self.api_client.delete_report_definition(report_definition.id)
-
     def get_connection_builder(self):
         """Get a connection builder instance with which a connection can be created.
 
@@ -3482,7 +3491,7 @@ class ControlHub:
             An instance of :py:class:`streamsets.sdk.sch_models.ConnectionBuilder`.
         """
         # Update the ConnectionJson with the API definitions from Swagger.
-        connection_properties = self._connection_api['definitions']['ConnectionJson']['properties']
+        connection_properties = self._connection_api['components']['schemas']['ConnectionJson']['properties']
         connection = {property_: None for property_ in connection_properties}
         connection['organization'] = self.organization
 
@@ -3562,12 +3571,12 @@ class ControlHub:
 
         # get verifier information
         library_definition = json.loads(connection.library_definition)
-        executor_type = self.engines.get(id=connection.sdc_id).engine_type
+        engine_type = self.engines.get(id=connection.sdc_id).engine_type
         verifier_definitions_map = dict()
         for verifier_definition in library_definition['verifierDefinitions']:
             library_name = get_stage_library_display_name_from_library(
                 stage_library_name=verifier_definition['library'],
-                deployment_type=EXECUTOR_TO_DEPLOYMENT_MAP.get(executor_type),
+                engine_type=engine_type,
             )
             verifier_definitions_map[library_name] = verifier_definition
 
@@ -3632,7 +3641,7 @@ class ControlHub:
         if not environments:
             logger.info('No environments to activate. Returning')
             return
-        environment_ids = [environment.environment_id for environment in environments]
+        environment_ids = [environment.id for environment in environments]
         logger.info('Activating environments %s ...', environment_ids)
         activate_environments_command = self.api_client.enable_environments(environment_ids)
 
@@ -3640,7 +3649,7 @@ class ControlHub:
         for environment in environments:
             try:
                 self.api_client.wait_for_environment_state_display_label(
-                    environment_id=environment.environment_id, state_display_label='ACTIVE', timeout_sec=timeout_sec
+                    environment_id=environment.id, state_display_label='ACTIVE', timeout_sec=timeout_sec
                 )
             except Exception as ex:
                 # just log the exceptions and ultimately raise the last one.
@@ -3668,7 +3677,7 @@ class ControlHub:
         if not environments:
             logger.info('No environments to deactivate. Returning')
             return
-        environment_ids = [environment.environment_id for environment in environments]
+        environment_ids = [environment.id for environment in environments]
         logger.info('Deactivating environments %s ...', environment_ids)
         deactivate_environments_command = self.api_client.disable_environments(environment_ids)
 
@@ -3676,7 +3685,7 @@ class ControlHub:
         for environment in environments:
             try:
                 self.api_client.wait_for_environment_state_display_label(
-                    environment_id=environment.environment_id, state_display_label='DEACTIVATED'
+                    environment_id=environment.id, state_display_label='DEACTIVATED'
                 )
                 # Update :py:class:`streamsets.sdk.sch_models.Environment` with updated Environment metadata.
             except Exception as ex:
@@ -3778,16 +3787,14 @@ class ControlHub:
         is_env_complete = environment.complete()
         is_complete = is_env_complete if is_env_complete else 'undefined'
         command = self.api_client.update_environment(
-            environment_id=environment.environment_id,
+            environment_id=environment.id,
             body=environment._data,
             complete=is_complete,
             process_if_enabled=is_complete,
         )
-        self.api_client.wait_for_environment_status(
-            environment_id=environment.environment_id, status='OK', timeout_sec=timeout_sec
-        )
+        self.api_client.wait_for_environment_status(environment_id=environment.id, status='OK', timeout_sec=timeout_sec)
 
-        environment._data = self.environments.get(environment_id=environment.environment_id)._data
+        environment._data = self.environments.get(id=environment.id)._data
         return command
 
     def delete_environment(self, *environments, stop=True):
@@ -3814,13 +3821,13 @@ class ControlHub:
                 [environment.environment_name for environment in enabled_environments],
             )
 
-        environment_ids = [environment.environment_id for environment in environments]
+        environment_ids = [environment.id for environment in environments]
         logger.info('Deleting environments %s ...', [environment.environment_name for environment in environments])
         self.api_client.delete_environments(environment_ids, stop=stop)
         delete_environment_exception = None
         for environment in environments:
             try:
-                self.api_client.wait_for_environment_to_be_deleted(environment_id=environment.environment_id)
+                self.api_client.wait_for_environment_to_be_deleted(environment_id=environment.id)
             except Exception as ex:
                 # just log the exceptions and ultimately raise the last one.
                 logger.debug(ex)
@@ -3837,7 +3844,7 @@ class ControlHub:
         Returns:
             An instance of :obj:`str`.
         """
-        command = self.api_client.get_kubernetes_apply_agent_yaml_command(environment.environment_id)
+        command = self.api_client.get_kubernetes_apply_agent_yaml_command(environment.id)
         # Returned response header has content-type: text/plain, which returns as bytes, hence decode them to a string.
         return command.response.content.decode('utf-8')
 
@@ -3854,7 +3861,7 @@ class ControlHub:
         if environment.environment_type != "KUBERNETES":
             raise TypeError("Can only fetch YAML for Kubernetes environments.")
 
-        command = self.api_client.get_kubernetes_environment_agent_yaml(environment.environment_id)
+        command = self.api_client.get_kubernetes_environment_agent_yaml(environment.id)
         return command.response.content.decode('utf-8')
 
     def get_environment_builder(self, environment_type='SELF'):
@@ -3868,7 +3875,7 @@ class ControlHub:
             An instance of :py:class:`streamsets.sdk.sch_models.EnvironmentBuilder`.
         """
         # Update the CSPEnvironmentJson with the API definitions from Swagger.
-        definitions = self._provisioning_api['definitions']
+        definitions = self._provisioning_api['components']['schemas']
         properties = copy.deepcopy(definitions['CspEnvironmentJson']['properties'])
         if environment_type == 'AWS':
             properties.update(definitions['AwsCspEnvironmentJson']['allOf'][1]['properties'])
@@ -3918,7 +3925,9 @@ class ControlHub:
         if name is None:
             name = "Clone of {}".format(deployment.deployment_name)
 
-        clone_deployment_properties = self._provisioning_api['definitions']['CspCloneDeploymentJson']['properties']
+        clone_deployment_properties = self._provisioning_api['components']['schemas']['CspCloneDeploymentJson'][
+            'properties'
+        ]
         clone_body = {property_: None for property_ in clone_deployment_properties}
         clone_body.update(
             {
@@ -3928,7 +3937,7 @@ class ControlHub:
                 'engineLabels': engine_labels,
             }
         )
-        command = self.api_client.clone_deployment(deployment_id=deployment.deployment_id, body=clone_body)
+        command = self.api_client.clone_deployment(deployment_id=deployment.id, body=clone_body)
         return Deployment(command.response.json()['deployment'])
 
     def start_deployment(self, *deployments):
@@ -3941,7 +3950,7 @@ class ControlHub:
         if not deployments:
             logger.info('No deployments to start. Returning')
             return
-        deployment_ids = [deployment.deployment_id for deployment in deployments]
+        deployment_ids = [deployment.id for deployment in deployments]
         logger.info('Starting deployments %s ...', deployment_ids)
         enable_deployments_command = self.api_client.enable_deployments(deployment_ids)
 
@@ -3949,7 +3958,7 @@ class ControlHub:
         for deployment in deployments:
             try:
                 self.api_client.wait_for_deployment_state_display_label(
-                    deployment_id=deployment.deployment_id, state_display_label='ACTIVE'
+                    deployment_id=deployment.id, state_display_label='ACTIVE'
                 )
             except Exception as ex:
                 # just log the exceptions and ultimately raise the last one.
@@ -3962,25 +3971,73 @@ class ControlHub:
             raise start_deployment_exception
         return enable_deployments_command
 
-    def stop_deployment(self, *deployments):
+    def stop_deployment(self, *deployments, force: bool = False, timeout_sec: int = 900):
         """Stop Deployments.
 
         Args:
             *deployments: One or more instances of :py:class:`streamsets.sdk.sch_models.Deployment`.
+            force (:obj:`bool`, optional): Force deployment to stop. Default: ``False``.
+            timeout_sec (int, optional): **Per-deployment** wait timeout (in seconds) applied while waiting
+                for the target state. For forced stops the target label is ``DEACTIVATION_ERROR``; for
+                non-forced stops the target label is ``DEACTIVATED``. Default: 900 (15 minutes).
+
+        Returns:
+            Union[Any, List[Any], None]:
+                - A single command object if exactly one stop command was issued.
+                - A list of command objects if multiple stop commands were issued.
+                - ``None`` if there were no deployments to stop.
+
+        Raises:
+            ValueError: If ``force=True`` is specified but no Kubernetes deployments were provided, or if
+                ``force=True`` is combined with any non-Kubernetes deployments.
+            Exception: Re-raises the last exception encountered while waiting for the target state.
         """
         deployments = [deployment for deployment in deployments if not isinstance(deployment, NotImplementedDeployment)]
         if not deployments:
             logger.info('No deployments to stop. Returning')
             return
-        deployment_ids = [deployment.deployment_id for deployment in deployments]
-        logger.info('Stopping deployments %s ...', deployment_ids)
-        stop_deployments_command = self.api_client.disable_deployments(deployment_ids)
+
+        force_stop_deployment_ids = []
+
+        if force:
+            # only force stop k8s deployments
+            force_stop_deployment_ids = [
+                deployment.id for deployment in deployments if isinstance(deployment, KubernetesDeployment)
+            ]
+
+        disable_deployment_ids = [
+            deployment.id for deployment in deployments if deployment.id not in force_stop_deployment_ids
+        ]
+
+        if force and not force_stop_deployment_ids:
+            raise ValueError(
+                "Invalid operation: force=True was specified, but no Kubernetes deployments were provided."
+            )
+        if force and force_stop_deployment_ids and disable_deployment_ids:
+            raise ValueError(
+                "Invalid operation: when force=True, only Kubernetes deployments may be stopped. "
+                "Non-Kubernetes deployments were also included."
+            )
+
+        stop_deployments_commands = []
+
+        if force_stop_deployment_ids:
+            for deployment_id in force_stop_deployment_ids:
+                stop_deployments_command = self.api_client.force_stop_deployment(deployment_id, confirm=True)
+                stop_deployments_commands.append(stop_deployments_command)
+        if disable_deployment_ids:
+            stop_deployments_command = self.api_client.disable_deployments(disable_deployment_ids)
+            stop_deployments_commands.append(stop_deployments_command)
 
         stop_deployment_exception = None
         for deployment in deployments:
             try:
+                is_forced_k8s = force and isinstance(deployment, KubernetesDeployment)
                 self.api_client.wait_for_deployment_state_display_label(
-                    deployment_id=deployment.deployment_id, state_display_label='DEACTIVATED'
+                    deployment_id=deployment.id,
+                    state_display_label=('DEACTIVATION_ERROR' if is_forced_k8s else 'DEACTIVATED'),
+                    timeout_sec=timeout_sec,
+                    treat_error_target_as_success=is_forced_k8s,
                 )
             except Exception as ex:
                 # just log the exceptions and ultimately raise the last one.
@@ -3991,7 +4048,7 @@ class ControlHub:
 
         if stop_deployment_exception:
             raise stop_deployment_exception
-        return stop_deployments_command
+        return stop_deployments_commands if len(stop_deployments_commands) != 1 else stop_deployments_commands[0]
 
     def add_deployment(self, deployment):
         """Add a deployment.
@@ -4004,48 +4061,19 @@ class ControlHub:
         """
         logger.info('Adding a deployment %s ...', deployment.deployment_name)
 
-        engine_type = deployment._data['engineType']
-        engine_version = deployment._data['engineVersion']
-        maybe_engine_build = deployment._data.get("engineBuild", None)
-        scala_binary_version = deployment._data['scalaBinaryVersion']
+        engine_type = deployment.engine_type
+        engine_version = deployment.engine_configuration.engine_version
+        scala_binary_version = deployment.engine_configuration.scala_binary_version
 
-        if engine_type == 'DC':
-            # The engine_id is used only when engineBuild is not None.
-            # Otherwise, it is set to None, not affecting the following query
-            if maybe_engine_build:
-                engine_build = maybe_engine_build
-                engine_id = f'{engine_type}:{engine_version}::{engine_build}'
-                logger.info('The deployment has version %s and build %s', engine_version, engine_build)
-            else:
-                engine_id = None
-
-            engine_version_config = self.engine_versions.get(
-                engine_type=engine_type, engine_version=engine_version, id=engine_id
-            )
-        elif engine_type == 'TF':
-            # The engine_id is used only when engineBuild is not None.
-            # Otherwise, it is set to None, not affecting the following query
-            if maybe_engine_build:
-                engine_build = maybe_engine_build
-                engine_id = f'{engine_type}:{engine_version}:{scala_binary_version}:{engine_build}'
-                logger.info('The deployment has version %s and build %s', engine_version, engine_build)
-            else:
-                engine_id = None
-
-            engine_version_config = self.engine_versions.get(
-                engine_type=engine_type,
-                engine_version=engine_version,
-                id=engine_id,
-                scala_binary_version=scala_binary_version,
-            )
+        engine_version_config = self.engine_versions.get(id=deployment.engine_configuration.engine_version_id)
 
         data = {
-            'name': deployment._data['name'],
-            'type': deployment._data['type'],
-            'engineType': engine_type,
+            'name': deployment.deployment_name,
+            'type': deployment.deployment_type,
+            'engineType': DeploymentEngineType[engine_type.name].value,
             'engineVersion': engine_version,
             'engineVersionId': engine_version_config.id,
-            'envId': deployment._data['envId'],
+            'envId': deployment.environment,
             'scalaBinaryVersion': scala_binary_version,
             'rawDeploymentTags': deployment._data['rawDeploymentTags'],
         }
@@ -4072,17 +4100,19 @@ class ControlHub:
             # Fill up stage_libs: default_stage_libs logic as defined at https://t.ly/ErQH
             if engine_config['stageLibs']:
                 stage_libs = engine_config['stageLibs']
-            elif engine_type == SDC_DEPLOYMENT_TYPE:
+            elif engine_type == COLLECTOR:
                 stage_libs = DEFAULT_DATA_COLLECTOR_STAGE_LIBS
-            elif engine_type == TRANSFORMER_DEPLOYMENT_TYPE:
+            elif engine_type == TRANSFORMER:
                 stage_libs = DEFAULT_TRANSFORMER_STAGE_LIBS
+            elif engine_type == SNOWPARK:
+                if Version('5.10.0') <= Version(engine_version):
+                    DEFAULT_TRANSFORMER_SNOWFLAKE_STAGE_LIBS.append('azure-keyvault-credentialstore')
+                stage_libs = DEFAULT_TRANSFORMER_SNOWFLAKE_STAGE_LIBS
 
             # Process the stage_libs
             processed_stage_libs = [
                 get_stage_library_name_from_display_name(
-                    stage_library_display_name=lib,
-                    deployment_type=engine_type,
-                    deployment_engine_version=engine_version,
+                    stage_library_display_name=lib, engine_type=engine_type, deployment_engine_version=engine_version
                 )
                 for lib in stage_libs
             ]
@@ -4208,13 +4238,13 @@ class ControlHub:
         is_env_complete = deployment.complete()
         is_complete = is_env_complete if is_env_complete else 'undefined'
         command = self.api_client.update_deployment(
-            deployment_id=deployment.deployment_id,
+            deployment_id=deployment.id,
             body=deployment._data,
             complete=is_complete,
             process_if_enabled=is_complete,
         )
-        self.api_client.wait_for_deployment_status(deployment_id=deployment.deployment_id, status='OK')
-        deployment._data = self.deployments.get(deployment_id=deployment.deployment_id)._data
+        self.api_client.wait_for_deployment_status(deployment_id=deployment.id, status='OK')
+        deployment._data = self.deployments.get(id=deployment.id)._data
         return command
 
     def delete_deployment(self, *deployments, stop=True):
@@ -4236,14 +4266,14 @@ class ControlHub:
                 [deployment.deployment_name for deployment in enabled_deployments],
             )
 
-        deployment_ids = [deployment.deployment_id for deployment in deployments]
+        deployment_ids = [deployment.id for deployment in deployments]
         logger.info('Deleting deployments %s ...', [deployment.deployment_name for deployment in deployments])
         self.api_client.delete_deployments(deployment_ids, stop=stop)
 
         delete_deployment_exception = None
         for deployment in deployments:
             try:
-                self.api_client.wait_for_deployment_to_be_deleted(deployment_id=deployment.deployment_id)
+                self.api_client.wait_for_deployment_to_be_deleted(deployment_id=deployment.id)
             except Exception as ex:
                 # just log the exceptions and ultimately raise the last one.
                 logger.debug(ex)
@@ -4262,8 +4292,8 @@ class ControlHub:
             return
         elif isinstance(deployment, NotImplementedDeployment):
             raise NotImplementedError("Cannot lock NotImplementedDeployment")
-        logger.info('Locking deployment %s ...', deployment.deployment_id)
-        lock_deployment_command = self.api_client.lock_deployment(deployment.deployment_id)
+        logger.info('Locking deployment %s ...', deployment.id)
+        lock_deployment_command = self.api_client.lock_deployment(deployment.id)
 
         # Update :py:class:`streamsets.sdk.sch_models.Deployment` with updated data.
         deployment.refresh()
@@ -4281,8 +4311,8 @@ class ControlHub:
             return
         elif isinstance(deployment, NotImplementedDeployment):
             raise NotImplementedError("Cannot unlock NotImplementedDeployment")
-        logger.info('Unlocking deployment %s ...', deployment.deployment_id)
-        unlock_deployment_command = self.api_client.unlock_deployment(deployment.deployment_id)
+        logger.info('Unlocking deployment %s ...', deployment.id)
+        unlock_deployment_command = self.api_client.unlock_deployment(deployment.id)
 
         # Update :py:class:`streamsets.sdk.sch_models.Deployment` with updated data.
         deployment.refresh()
@@ -4321,7 +4351,7 @@ class ControlHub:
             An instance of :py:class:`streamsets.sdk.sch_models.DeploymentBuilder`.
         """
         # Update the CSPDeploymentJson with the API definitions from Swagger.
-        definitions = self._provisioning_api['definitions']
+        definitions = self._provisioning_api['components']['schemas']
         properties = copy.deepcopy(definitions['CspDeploymentJson']['properties'])
         if deployment_type == 'SELF':
             properties.update(definitions['SelfManagedCspDeploymentJson']['allOf'][1]['properties'])
@@ -4478,9 +4508,9 @@ class ControlHub:
         """
 
         def condition():
-            executor_type = job.executor_type if job.executor_type else SDC_EXECUTOR_TYPE
-            if executor_type != SDC_EXECUTOR_TYPE:
-                raise Exception('This method is not yet supported for job with executor type other than COLLECTOR')
+            engine_type = job.engine_type if job.engine_type else COLLECTOR
+            if engine_type != COLLECTOR:
+                raise Exception('This method is not yet supported for job with engine type other than COLLECTOR')
 
             current_value = getattr(job.realtime_summary, metric)
             logger.debug('Job realtime summary %s has current value %s ...', metric, current_value)
@@ -4861,7 +4891,7 @@ class ControlHub:
         Returns:
             An instance of :py:class:`streamsets.sdk.sch_models.ProjectBuilder`.
         """
-        project_properties = self._security_api['definitions']['ProjectJson']['properties']
+        project_properties = self._security_api['components']['schemas']['ProjectJson']['properties']
         project = {property_: None for property_ in project_properties}
 
         return ProjectBuilder(project=project, control_hub=self)

@@ -7,8 +7,8 @@ from copy import deepcopy
 import pytest
 
 from streamsets.sdk import ControlHub
-from streamsets.sdk.constants import SDC_EXECUTOR_TYPE
 from streamsets.sdk.sch_models import Connection
+from streamsets.sdk.utils import EngineType
 
 from .resources.connections_data import CONNECTION_INTERNAL_JSON
 
@@ -16,7 +16,7 @@ from .resources.connections_data import CONNECTION_INTERNAL_JSON
 class DummyEngine:
     def __init__(self, _id):
         self.id = _id
-        self.engine_type = SDC_EXECUTOR_TYPE
+        self.engine_type = EngineType.COLLECTOR
 
 
 class DummyEngines:

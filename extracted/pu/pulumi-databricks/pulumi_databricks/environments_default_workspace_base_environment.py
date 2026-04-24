@@ -26,6 +26,7 @@ class EnvironmentsDefaultWorkspaceBaseEnvironmentArgs:
                  provider_config: Optional[pulumi.Input['EnvironmentsDefaultWorkspaceBaseEnvironmentProviderConfigArgs']] = None):
         """
         The set of arguments for constructing a EnvironmentsDefaultWorkspaceBaseEnvironment resource.
+
         :param pulumi.Input[_builtins.str] cpu_workspace_base_environment: The default workspace base environment for CPU compute.
                Format: workspace-base-environments/{workspace_base_environment}
         :param pulumi.Input[_builtins.str] gpu_workspace_base_environment: The default workspace base environment for GPU compute.
@@ -87,6 +88,7 @@ class _EnvironmentsDefaultWorkspaceBaseEnvironmentState:
                  provider_config: Optional[pulumi.Input['EnvironmentsDefaultWorkspaceBaseEnvironmentProviderConfigArgs']] = None):
         """
         Input properties used for looking up and filtering EnvironmentsDefaultWorkspaceBaseEnvironment resources.
+
         :param pulumi.Input[_builtins.str] cpu_workspace_base_environment: The default workspace base environment for CPU compute.
                Format: workspace-base-environments/{workspace_base_environment}
         :param pulumi.Input[_builtins.str] gpu_workspace_base_environment: The default workspace base environment for GPU compute.
@@ -181,10 +183,7 @@ class EnvironmentsDefaultWorkspaceBaseEnvironment(pulumi.CustomResource):
         import pulumi
         import pulumi_databricks as databricks
 
-        cpu_env = databricks.index.WorkspaceBaseEnvironment("cpu_env",
-            display_name=my-cpu-environment,
-            filepath=/Volumes/catalog/schema/volume/cpu-environment.yaml)
-        this = databricks.index.DefaultWorkspaceBaseEnvironment("this", cpu_workspace_base_environment=cpu_env.name)
+        this = databricks.EnvironmentsDefaultWorkspaceBaseEnvironment("this", cpu_workspace_base_environment="workspace-base-environments/my-base-env-12345")
         ```
 
         ### Set Defaults for Both CPU and GPU Compute
@@ -193,14 +192,14 @@ class EnvironmentsDefaultWorkspaceBaseEnvironment(pulumi.CustomResource):
         import pulumi
         import pulumi_databricks as databricks
 
-        cpu_env = databricks.index.WorkspaceBaseEnvironment("cpu_env",
-            display_name=my-cpu-environment,
-            filepath=/Volumes/catalog/schema/volume/cpu-environment.yaml)
-        gpu_env = databricks.index.WorkspaceBaseEnvironment("gpu_env",
-            display_name=my-gpu-environment,
-            filepath=/Volumes/catalog/schema/volume/gpu-environment.yaml,
-            base_environment_type=GPU_LARGE)
-        this = databricks.index.DefaultWorkspaceBaseEnvironment("this",
+        cpu_env = databricks.EnvironmentsWorkspaceBaseEnvironment("cpu_env",
+            display_name="my-cpu-environment",
+            filepath="/Volumes/catalog/schema/volume/cpu-environment.yaml")
+        gpu_env = databricks.EnvironmentsWorkspaceBaseEnvironment("gpu_env",
+            display_name="my-gpu-environment",
+            filepath="/Volumes/catalog/schema/volume/gpu-environment.yaml",
+            base_environment_type="GPU")
+        this = databricks.EnvironmentsDefaultWorkspaceBaseEnvironment("this",
             cpu_workspace_base_environment=cpu_env.name,
             gpu_workspace_base_environment=gpu_env.name)
         ```
@@ -211,8 +210,9 @@ class EnvironmentsDefaultWorkspaceBaseEnvironment(pulumi.CustomResource):
         import pulumi
         import pulumi_databricks as databricks
 
-        this = databricks.index.DefaultWorkspaceBaseEnvironment("this")
+        this = databricks.EnvironmentsDefaultWorkspaceBaseEnvironment("this")
         ```
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -243,10 +243,7 @@ class EnvironmentsDefaultWorkspaceBaseEnvironment(pulumi.CustomResource):
         import pulumi
         import pulumi_databricks as databricks
 
-        cpu_env = databricks.index.WorkspaceBaseEnvironment("cpu_env",
-            display_name=my-cpu-environment,
-            filepath=/Volumes/catalog/schema/volume/cpu-environment.yaml)
-        this = databricks.index.DefaultWorkspaceBaseEnvironment("this", cpu_workspace_base_environment=cpu_env.name)
+        this = databricks.EnvironmentsDefaultWorkspaceBaseEnvironment("this", cpu_workspace_base_environment="workspace-base-environments/my-base-env-12345")
         ```
 
         ### Set Defaults for Both CPU and GPU Compute
@@ -255,14 +252,14 @@ class EnvironmentsDefaultWorkspaceBaseEnvironment(pulumi.CustomResource):
         import pulumi
         import pulumi_databricks as databricks
 
-        cpu_env = databricks.index.WorkspaceBaseEnvironment("cpu_env",
-            display_name=my-cpu-environment,
-            filepath=/Volumes/catalog/schema/volume/cpu-environment.yaml)
-        gpu_env = databricks.index.WorkspaceBaseEnvironment("gpu_env",
-            display_name=my-gpu-environment,
-            filepath=/Volumes/catalog/schema/volume/gpu-environment.yaml,
-            base_environment_type=GPU_LARGE)
-        this = databricks.index.DefaultWorkspaceBaseEnvironment("this",
+        cpu_env = databricks.EnvironmentsWorkspaceBaseEnvironment("cpu_env",
+            display_name="my-cpu-environment",
+            filepath="/Volumes/catalog/schema/volume/cpu-environment.yaml")
+        gpu_env = databricks.EnvironmentsWorkspaceBaseEnvironment("gpu_env",
+            display_name="my-gpu-environment",
+            filepath="/Volumes/catalog/schema/volume/gpu-environment.yaml",
+            base_environment_type="GPU")
+        this = databricks.EnvironmentsDefaultWorkspaceBaseEnvironment("this",
             cpu_workspace_base_environment=cpu_env.name,
             gpu_workspace_base_environment=gpu_env.name)
         ```
@@ -273,8 +270,9 @@ class EnvironmentsDefaultWorkspaceBaseEnvironment(pulumi.CustomResource):
         import pulumi
         import pulumi_databricks as databricks
 
-        this = databricks.index.DefaultWorkspaceBaseEnvironment("this")
+        this = databricks.EnvironmentsDefaultWorkspaceBaseEnvironment("this")
         ```
+
 
         :param str resource_name: The name of the resource.
         :param EnvironmentsDefaultWorkspaceBaseEnvironmentArgs args: The arguments to use to populate this resource's properties.

@@ -54,6 +54,7 @@ def main() -> None:
     parse_kernels(subparsers)
     parse_models(subparsers)
     parse_files(subparsers)
+    parse_benchmarks(subparsers)
     parse_config(subparsers)
     if api.enable_oauth:
         parse_auth(subparsers)
@@ -274,6 +275,89 @@ def parse_competitions(subparsers) -> None:
     )
     parser_competitions_leaderboard._action_groups.append(parser_competitions_leaderboard_optional)
     parser_competitions_leaderboard.set_defaults(func=api.competition_leaderboard_cli)
+
+    # Competitions list episodes
+    parser_competitions_episodes = subparsers_competitions.add_parser(
+        "episodes", formatter_class=argparse.RawTextHelpFormatter, help=Help.command_competitions_episodes
+    )
+    parser_competitions_episodes_optional = parser_competitions_episodes._action_groups.pop()
+    parser_competitions_episodes_optional.add_argument(
+        "submission_id",
+        type=int,
+        help='Submission ID (find yours with "kaggle competitions submissions <competition>")',
+    )
+    parser_competitions_episodes_optional.add_argument(
+        "-v", "--csv", dest="csv_display", action="store_true", help=Help.param_csv
+    )
+    parser_competitions_episodes_optional.add_argument(
+        "-q", "--quiet", dest="quiet", action="store_true", help=Help.param_quiet
+    )
+    parser_competitions_episodes._action_groups.append(parser_competitions_episodes_optional)
+    parser_competitions_episodes.set_defaults(func=api.competition_list_episodes_cli)
+
+    # Competitions episode replay
+    parser_competitions_episode_replay = subparsers_competitions.add_parser(
+        "replay", formatter_class=argparse.RawTextHelpFormatter, help=Help.command_competitions_episode_replay
+    )
+    parser_competitions_episode_replay_optional = parser_competitions_episode_replay._action_groups.pop()
+    parser_competitions_episode_replay_optional.add_argument(
+        "episode_id", type=int, help='Episode ID (find these with "kaggle competitions episodes <submission_id>")'
+    )
+    parser_competitions_episode_replay_optional.add_argument(
+        "-p", "--path", dest="path", required=False, help=Help.param_downfolder
+    )
+    parser_competitions_episode_replay_optional.add_argument(
+        "-q", "--quiet", dest="quiet", action="store_true", help=Help.param_quiet
+    )
+    parser_competitions_episode_replay._action_groups.append(parser_competitions_episode_replay_optional)
+    parser_competitions_episode_replay.set_defaults(func=api.competition_episode_replay_cli)
+
+    # Competitions episode agent logs
+    parser_competitions_episode_logs = subparsers_competitions.add_parser(
+        "logs", formatter_class=argparse.RawTextHelpFormatter, help=Help.command_competitions_episode_logs
+    )
+    parser_competitions_episode_logs_optional = parser_competitions_episode_logs._action_groups.pop()
+    parser_competitions_episode_logs_optional.add_argument(
+        "episode_id", type=int, help='Episode ID (find these with "kaggle competitions episodes <submission_id>")'
+    )
+    parser_competitions_episode_logs_optional.add_argument(
+        "agent_index", type=int, help="Agent index (0-based position of the agent in the episode)"
+    )
+    parser_competitions_episode_logs_optional.add_argument(
+        "-p", "--path", dest="path", required=False, help=Help.param_downfolder
+    )
+    parser_competitions_episode_logs_optional.add_argument(
+        "-q", "--quiet", dest="quiet", action="store_true", help=Help.param_quiet
+    )
+    parser_competitions_episode_logs._action_groups.append(parser_competitions_episode_logs_optional)
+    parser_competitions_episode_logs.set_defaults(func=api.competition_episode_agent_logs_cli)
+
+    # Competitions list pages
+    parser_competitions_pages = subparsers_competitions.add_parser(
+        "pages", formatter_class=argparse.RawTextHelpFormatter, help=Help.command_competitions_pages
+    )
+    parser_competitions_pages_optional = parser_competitions_pages._action_groups.pop()
+    parser_competitions_pages_optional.add_argument("competition", nargs="?", default=None, help=Help.param_competition)
+    parser_competitions_pages_optional.add_argument(
+        "-c", "--competition", dest="competition_opt", required=False, help=argparse.SUPPRESS
+    )
+    parser_competitions_pages_optional.add_argument(
+        "-v", "--csv", dest="csv_display", action="store_true", help=Help.param_csv
+    )
+    parser_competitions_pages_optional.add_argument(
+        "-q", "--quiet", dest="quiet", action="store_true", help=Help.param_quiet
+    )
+    parser_competitions_pages_optional.add_argument(
+        "--content", dest="content", action="store_true", help="Show full page content"
+    )
+    parser_competitions_pages_optional.add_argument(
+        "--page-name",
+        dest="page_name",
+        required=False,
+        help='Filter to a specific page (e.g. "description", "rules", "evaluation")',
+    )
+    parser_competitions_pages._action_groups.append(parser_competitions_pages_optional)
+    parser_competitions_pages.set_defaults(func=api.competition_list_pages_cli)
 
 
 def parse_datasets(subparsers) -> None:
@@ -613,6 +697,24 @@ def parse_kernels(subparsers) -> None:
     )
     parser_kernels_status._action_groups.append(parser_kernels_status_optional)
     parser_kernels_status.set_defaults(func=api.kernels_status_cli)
+
+    # Kernels logs
+    parser_kernels_logs = subparsers_kernels.add_parser(
+        "logs", formatter_class=argparse.RawTextHelpFormatter, help=Help.command_kernels_logs
+    )
+    parser_kernels_logs_optional = parser_kernels_logs._action_groups.pop()
+    parser_kernels_logs_optional.add_argument("kernel", nargs="?", default=None, help=Help.param_kernel)
+    parser_kernels_logs_optional.add_argument(
+        "-k", "--kernel", dest="kernel_opt", required=False, help=argparse.SUPPRESS
+    )
+    parser_kernels_logs_optional.add_argument(
+        "-f", "--follow", dest="follow", action="store_true", required=False, help=Help.param_kernel_logs_follow
+    )
+    parser_kernels_logs_optional.add_argument(
+        "--interval", dest="interval", default=5, type=int, required=False, help=Help.param_kernel_logs_interval
+    )
+    parser_kernels_logs._action_groups.append(parser_kernels_logs_optional)
+    parser_kernels_logs.set_defaults(func=api.kernels_logs_cli)
 
     # Kernels delete
     parser_kernels_delete = subparsers_kernels.add_parser(
@@ -979,6 +1081,80 @@ def parse_files(subparsers) -> None:
     parser_files_upload.set_defaults(func=api.files_upload_cli)
 
 
+def parse_benchmarks(subparsers) -> None:
+    parser_benchmarks = subparsers.add_parser(
+        "benchmarks", formatter_class=argparse.RawTextHelpFormatter, help=Help.group_benchmarks, aliases=["b"]
+    )
+    subparsers_benchmarks = parser_benchmarks.add_subparsers(title="commands", dest="command")
+    subparsers_benchmarks.required = True
+    subparsers_benchmarks.choices = Help.benchmarks_choices
+
+    parse_benchmark_tasks(subparsers_benchmarks)
+    parse_benchmarks_auth(subparsers_benchmarks)
+
+
+def parse_benchmarks_auth(subparsers) -> None:
+    parser_auth = subparsers.add_parser(
+        "auth", formatter_class=argparse.RawTextHelpFormatter, help=Help.command_benchmarks_auth
+    )
+    parser_auth_optional = parser_auth._action_groups.pop()
+    parser_auth_optional.add_argument("-y", "--yes", dest="no_confirm", action="store_true", help=Help.param_yes)
+    parser_auth_optional.add_argument(
+        "--env-file", dest="env_file", default=".env", help=Help.param_benchmarks_env_file
+    )
+    parser_auth._action_groups.append(parser_auth_optional)
+    parser_auth.set_defaults(func=api.benchmarks_auth_cli)
+
+
+def parse_benchmark_tasks(subparsers) -> None:
+    parser_tasks = subparsers.add_parser(
+        "tasks", formatter_class=argparse.RawTextHelpFormatter, help=Help.group_benchmarks_tasks, aliases=["t"]
+    )
+    subparsers_tasks = parser_tasks.add_subparsers(title="commands", dest="command")
+    subparsers_tasks.required = True
+    subparsers_tasks.choices = Help.benchmarks_tasks_choices
+
+    # push
+    parser_push = subparsers_tasks.add_parser(
+        "push", formatter_class=argparse.RawTextHelpFormatter, help=Help.command_benchmarks_tasks_push
+    )
+    parser_push_optional = parser_push._action_groups.pop()
+    parser_push_optional.add_argument("task", help=Help.param_benchmarks_task)
+    parser_push_optional.add_argument("-f", "--file", dest="file", required=True, help=Help.param_benchmarks_file)
+    parser_push._action_groups.append(parser_push_optional)
+    parser_push.set_defaults(func=api.benchmarks_tasks_push_cli)
+
+    # run
+    parser_run = subparsers_tasks.add_parser(
+        "run", formatter_class=argparse.RawTextHelpFormatter, help=Help.command_benchmarks_tasks_run
+    )
+    parser_run_optional = parser_run._action_groups.pop()
+    parser_run_optional.add_argument("task", help=Help.param_benchmarks_task)
+    parser_run_optional.add_argument(
+        "-m", "--model", dest="model", nargs="+", required=False, help=Help.param_benchmarks_model
+    )
+    parser_run_optional.add_argument(
+        "--wait",
+        dest="wait",
+        type=int,
+        nargs="?",
+        const=0,
+        default=None,
+        required=False,
+        help=Help.param_benchmarks_wait,
+    )
+    parser_run_optional.add_argument(
+        "--poll-interval",
+        dest="poll_interval",
+        type=int,
+        default=10,
+        required=False,
+        help=Help.param_benchmarks_poll_interval,
+    )
+    parser_run._action_groups.append(parser_run_optional)
+    parser_run.set_defaults(func=api.benchmarks_tasks_run_cli)
+
+
 def parse_config(subparsers) -> None:
     parser_config = subparsers.add_parser(
         "config", formatter_class=argparse.RawTextHelpFormatter, help=Help.group_config
@@ -1068,16 +1244,31 @@ class Help(object):
         "m",
         "files",
         "f",
+        "benchmarks",
+        "b",
         "config",
         "auth",
     ]
-    competitions_choices = ["list", "files", "download", "submit", "submissions", "leaderboard"]
+    competitions_choices = [
+        "list",
+        "files",
+        "download",
+        "submit",
+        "submissions",
+        "leaderboard",
+        "episodes",
+        "replay",
+        "logs",
+        "pages",
+    ]
     datasets_choices = ["list", "files", "download", "create", "version", "init", "metadata", "status", "delete"]
-    kernels_choices = ["list", "files", "get", "init", "push", "pull", "output", "status", "update", "delete"]
+    kernels_choices = ["list", "files", "get", "init", "push", "pull", "output", "status", "logs", "update", "delete"]
     models_choices = ["instances", "i", "variations", "v", "get", "list", "init", "create", "delete", "update"]
     model_instances_choices = ["versions", "v", "get", "files", "list", "init", "create", "delete", "update"]
     model_instance_versions_choices = ["init", "create", "download", "delete", "files", "list"]
     files_choices = ["upload"]
+    benchmarks_choices = ["tasks", "t", "auth"]
+    benchmarks_tasks_choices = ["push", "run"]
     config_choices = ["view", "set", "unset"]
     auth_choices = ["login", "print-access-token", "revoke"]
 
@@ -1094,6 +1285,8 @@ class Help(object):
         + ", ".join(model_instances_choices)
         + "}\nmodels variations versions {"
         + ", ".join(model_instance_versions_choices)
+        + "}\nbenchmarks {"
+        + ", ".join(benchmarks_choices)
         + "}\nconfig {"
         + ", ".join(config_choices)
         + "}"
@@ -1108,6 +1301,8 @@ class Help(object):
     group_model_instances = "Commands related to Kaggle model variations"
     group_model_instance_versions = "Commands related to Kaggle model variations versions"
     group_files = "Commands related files"
+    group_benchmarks = "Commands related to Kaggle benchmarks"
+    group_benchmarks_tasks = "Commands related to benchmark tasks"
     group_config = "Configuration settings"
     group_auth = "Commands related to authentication"
 
@@ -1118,6 +1313,10 @@ class Help(object):
     command_competitions_submit = "Make a new competition submission"
     command_competitions_submissions = "Show your competition submissions"
     command_competitions_leaderboard = "Get competition leaderboard information"
+    command_competitions_episodes = "List episodes for a submission in a simulation competition"
+    command_competitions_episode_replay = "Download the replay for a simulation episode"
+    command_competitions_episode_logs = "Download agent logs for a simulation episode"
+    command_competitions_pages = "List pages for a competition"
 
     # Datasets commands
     command_datasets_list = "List available datasets"
@@ -1138,6 +1337,7 @@ class Help(object):
     command_kernels_pull = "Pull down code from a kernel"
     command_kernels_output = "Get data output from the latest kernel run"
     command_kernels_status = "Display the status of the latest kernel run"
+    command_kernels_logs = "Print the execution logs from the latest kernel run"
     command_kernels_delete = "Delete a kernel"
 
     # Models commands
@@ -1148,6 +1348,11 @@ class Help(object):
     command_models_new = "Create a new model"
     command_models_delete = "Delete a model"
     command_models_update = "Update a model"
+
+    # Benchmarks commands
+    command_benchmarks_auth = "Fetch and persist Model Proxy credential information"
+    command_benchmarks_tasks_push = "Create or update a task from a Python source file"
+    command_benchmarks_tasks_run = "Run a task against model(s)"
 
     # Files commands
     command_files_upload = "Upload files"
@@ -1305,6 +1510,8 @@ class Help(object):
         "Regex pattern to match against filenames. Only files matching the pattern will be downloaded."
     )
     param_kernel_acc = "Specify the type of accelerator to use for the kernel run"
+    param_kernel_logs_follow = "Continuously poll and print new log lines (like tail -f)"
+    param_kernel_logs_interval = "Polling interval in seconds for follow mode (default 5)"
 
     # Models params
     param_model = "Model URL suffix in format <owner>/<model-name>"
@@ -1364,6 +1571,14 @@ class Help(object):
     )
     param_files_upload_no_compress = "Whether to compress directories (zip) or not (tar)"
     param_files_upload_no_resume = "Whether to skip resumable uploads."
+
+    # Benchmarks params
+    param_benchmarks_env_file = "File to write environment variables to (default: .env)"
+    param_benchmarks_task = "Task name"
+    param_benchmarks_file = "Python source file containing the task definition"
+    param_benchmarks_model = "Model slug(s) to run the task against"
+    param_benchmarks_wait = "Wait for runs to complete (seconds). 0 means wait indefinitely."
+    param_benchmarks_poll_interval = "Polling interval in seconds when waiting for runs"
 
     # Config params
     param_config_name = "Name of the configuration parameter\n(one of " "competition, path, proxy)"

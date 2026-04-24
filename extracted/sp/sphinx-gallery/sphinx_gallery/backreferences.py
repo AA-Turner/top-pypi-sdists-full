@@ -5,21 +5,29 @@
 Parses example file code in order to keep track of used functions.
 """
 
+from __future__ import annotations
+
 import ast
 import inspect
+import json
 import os
 import re
 import sys
 from collections import defaultdict
 from html import escape
 from pathlib import Path
+from typing import TYPE_CHECKING, Any, NamedTuple
 
 import sphinx.util
 from sphinx.errors import ExtensionError
 
 from ._dummy import DummyClass  # noqa: F401
 from .scrapers import _find_image_ext
+from .typing import GalleryConfig
 from .utils import _W_KW, _replace_md5
+
+if TYPE_CHECKING:
+    from .py_source_parser import Block
 
 THUMBNAIL_PARENT_DIV = """
 .. raw:: html
@@ -45,27 +53,27 @@ class NameFinder(ast.NodeVisitor):
     Only retains names from imported modules.
     """
 
-    def __init__(self, global_variables=None):
+    def __init__(self, global_variables: dict[str, Any] | None = None):
         super().__init__()
-        self.imported_names = {}
-        self.global_variables = global_variables or {}
-        self.accessed_names = set()
+        self.imported_names: dict[str, str] = {}
+        self.global_variables: dict[str, Any] = global_variables or {}
+        self.accessed_names: set[str] = set()
 
-    def visit_Import(self, node, prefix=""):
+    def visit_Import(self, node, prefix: str = "") -> None:
         """For 'import' add node names to `imported_names`."""
         for alias in node.names:
             local_name = alias.asname or alias.name
             self.imported_names[local_name] = prefix + alias.name
 
-    def visit_ImportFrom(self, node):
+    def visit_ImportFrom(self, node) -> None:
         """For 'from import' add node names to `imported_names`, incl module prefix."""
         self.visit_Import(node, node.module + ".")
 
-    def visit_Name(self, node):
+    def visit_Name(self, node) -> None:
         """Add node id to `accessed_names`."""
         self.accessed_names.add(node.id)
 
-    def visit_Attribute(self, node):
+    def visit_Attribute(self, node) -> None:
         """Add attributes, including their prefix, to `accessed_names`."""
         attrs = []
         while isinstance(node, ast.Attribute):
@@ -80,7 +88,7 @@ class NameFinder(ast.NodeVisitor):
             # need to get a in a().b
             self.visit(node)
 
-    def get_mapping(self):
+    def get_mapping(self) -> list[tuple[str, str, bool, bool, bool]]:
         """Map names used in code, using AST nodes, to their fully qualified names.
 
         Returns
@@ -144,13 +152,13 @@ class NameFinder(ast.NodeVisitor):
                     for cc in classes:
                         module = inspect.getmodule(cc)
                         if module is not None:
-                            module = module.__name__.split(".")
+                            module_parts = module.__name__.split(".")
                             class_name = cc.__qualname__
                             # a.b.C.meth could be documented as a.C.meth,
                             # so go down the list
-                            for depth in range(len(module), 0, -1):
+                            for depth in range(len(module_parts), 0, -1):
                                 full_name = ".".join(
-                                    module[:depth] + [class_name] + method
+                                    module_parts[:depth] + [class_name] + method
                                 )
                                 options.append(
                                     (name, full_name, class_attr, is_class, False)
@@ -168,7 +176,7 @@ class NameFinder(ast.NodeVisitor):
         return options
 
 
-def _get_short_module_name(module_name, obj_name):
+def _get_short_module_name(module_name: str, obj_name: str) -> str | None:
     """Get the shortest possible module name."""
     if "." in obj_name:
         obj_name, attr = obj_name.split(".")
@@ -202,7 +210,7 @@ def _get_short_module_name(module_name, obj_name):
     return short_name
 
 
-def _make_ref_regex(default_role=""):
+def _make_ref_regex(default_role: str = "") -> str:
     """Make regex to find reference to python objects."""
     # keep roles variable in sync values shown in configuration.rst
     # "Add mini-galleries for API documentation"
@@ -218,7 +226,12 @@ def _make_ref_regex(default_role=""):
     )  # reference
 
 
-def identify_names(script_blocks, ref_regex, global_variables=None, node=""):
+def identify_names(
+    script_blocks: list[Block],
+    ref_regex: str,
+    global_variables: dict[str, Any] | None = None,
+    node="",
+) -> dict[str, list[dict[str, Any]]]:
     """Build a codeobj summary by identifying and resolving used names.
 
     Parameters
@@ -229,22 +242,23 @@ def identify_names(script_blocks, ref_regex, global_variables=None, node=""):
         the corresponding content string of block and the leading line number.
     ref_regex : str
         Regex to find references to python objects.
-    example_globals: Optional[Dict[str, Any]]
+    global_variables: Optional[Dict[str, Any]]
         Global variables for examples. Default=None
     node : ast.Module or str
         The parsed node. Default="".
 
     Returns
     -------
-    example_code_obj : Dict[str, Any]
+    example_code_obj : dict[str, list[dict[str, Any]]]
         Dict with information about all code object references found in an
-        example. Dict contains the following keys:
+        example. Keys are the names as used in the example, values are lists of
+        possible resolved objects with the following keys:
 
-            - example_code_obj['name'] : function or class name (str)
-            - example_code_obj['module'] : module name (str)
-            - example_code_obj['module_short'] : shortened module name (str)
-            - example_code_obj['is_class'] : whether object is class (bool)
-            - example_code_obj['is_explicit'] : whether object is an explicit
+            - code_obj['name'] : function or class name (str)
+            - code_obj['module'] : module name (str)
+            - code_obj['module_short'] : shortened module name (str)
+            - code_obj['is_class'] : whether object is class (bool)
+            - code_obj['is_explicit'] : whether object is an explicit
                 backreference (referred to by sphinx markup) (bool)
     """
     if node == "":  # mostly convenience for testing functions
@@ -258,7 +272,9 @@ def identify_names(script_blocks, ref_regex, global_variables=None, node=""):
     # Get matches from docstring inspection (explicit matches)
     text = "\n".join(block.content for block in script_blocks if block.type == "text")
     names.extend((x, x, False, False, True) for x in re.findall(ref_regex, text))
-    example_code_obj = dict()  # native dict preserves order nowadays
+    example_code_obj: dict[str, list[dict[str, Any]]] = (
+        dict()
+    )  # native dict preserves order nowadays
     # Make a list of all guesses, in `_embed_code_links` we will break
     # when we find a match
     for name, full_name, class_like, is_class, is_explicit in names:
@@ -266,16 +282,17 @@ def identify_names(script_blocks, ref_regex, global_variables=None, node=""):
             example_code_obj[name] = list()
         # name is as written in file (e.g. np.asarray)
         # full_name includes resolved import path (e.g. numpy.asarray)
-        splits = full_name.rsplit(".", 1 + class_like)
-        if len(splits) == 1:
-            splits = ("builtins", splits[0])
-        elif len(splits) == 3:  # class-like
+        parts = full_name.rsplit(".", 1 + class_like)
+        if len(parts) == 1:
+            module = "builtins"
+            attribute = parts[0]
+        elif len(parts) == 3:  # class-like
             assert class_like
-            splits = (splits[0], ".".join(splits[1:]))
+            module = parts[0]
+            attribute = ".".join(parts[1:])
         else:
             assert not class_like
-
-        module, attribute = splits
+            module, attribute = parts
 
         # get shortened module name
         module_short = _get_short_module_name(module, attribute)
@@ -293,7 +310,7 @@ def identify_names(script_blocks, ref_regex, global_variables=None, node=""):
 THUMBNAIL_TEMPLATE = """
 .. raw:: html
 
-    <div class="sphx-glr-thumbcontainer" tooltip="{intro}">
+    <div class="sphx-glr-thumbcontainer" {tags}tooltip="{intro}">
 
 .. only:: html
 
@@ -320,7 +337,7 @@ BACKREF_THUMBNAIL_TEMPLATE = (
 
 
 def _thumbnail_div(
-    target_dir, src_dir, fname, intro, title, is_backref=False, check=True
+    target_dir, src_dir, fname, intro, title, is_backref=False, check=True, *, tags=None
 ):
     """Generate reST to place a thumbnail in a gallery.
 
@@ -364,15 +381,39 @@ def _thumbnail_div(
 
     doc_name = "/" + (Path(full_dir) / fname).with_suffix("").as_posix()
 
+    tag_html_attr = ""
+    if tags:
+        tag_json = json.dumps(tags, ensure_ascii=False)
+        tag_html_attr = f"data-sgtags='{tag_json}' "
+
     template = BACKREF_THUMBNAIL_TEMPLATE if is_backref else THUMBNAIL_TEMPLATE
     return template.format(
-        intro=escape(intro), thumbnail=thumb, title=title, doc_name=doc_name
+        intro=escape(intro),
+        thumbnail=thumb,
+        title=title,
+        doc_name=doc_name,
+        tags=tag_html_attr,
     )
 
 
+class Backreference(NamedTuple):
+    fname: str
+    src_dir: str
+    target_dir: str
+    intro: str
+    title: str
+
+
 def _write_backreferences(
-    backrefs, seen_backrefs, gallery_conf, src_dir, target_dir, fname, intro, title
-):
+    backrefs: set[str],
+    seen_backrefs: set[str],
+    gallery_conf: GalleryConfig,
+    src_dir: str,
+    target_dir: str,
+    fname: str,
+    intro: str,
+    title: str,
+) -> dict[str, list[Backreference]] | None:
     """Write and return backreferences for one example.
 
     Backreferences '.examples' file written includes reST of the list of examples
@@ -382,7 +423,7 @@ def _write_backreferences(
     ----------
     backrefs : set[str]
         Back references to write.
-    seen_backrefs: set
+    seen_backrefs: set[str]
         Back references already encountered when parsing this example.
     gallery_conf : Dict[str, Any]
         Gallery configurations.
@@ -399,13 +440,13 @@ def _write_backreferences(
 
     Returns
     -------
-    backrefs_example : dict[str, tuple]
-        Dictionary where value is the backreference object and value
-        is a tuple containing: example filename, full path to example source directory,
+    backrefs_example : dict[str, list[Backreference]]
+        Dictionary where key is the backreference object name and value is a list of
+        tuples containing: example filename, full path to example source directory,
         full path to example target directory, intro, title.
     """
     if gallery_conf["backreferences_dir"] is None:
-        return
+        return None
 
     backrefs_example = defaultdict(list)
     for backref in backrefs:
@@ -416,7 +457,7 @@ def _write_backreferences(
         )
         seen = backref in seen_backrefs
         mode = "a" if seen else "w"
-        with open(include_path, mode, **_W_KW) as ex_file:
+        with open(include_path, mode, **_W_KW) as ex_file:  # type: ignore[call-overload]
             if not seen:
                 # Be aware that if the number of lines of this heading changes,
                 # the minigallery directive should be modified accordingly
@@ -438,11 +479,15 @@ def _write_backreferences(
                 )
             )
             seen_backrefs.add(backref)
-            backrefs_example[backref].append((fname, src_dir, target_dir, intro, title))
+            backrefs_example[backref].append(
+                Backreference(fname, src_dir, target_dir, intro, title)
+            )
     return dict(backrefs_example)
 
 
-def _finalize_backreferences(seen_backrefs, gallery_conf):
+def _finalize_backreferences(
+    seen_backrefs: set[str], gallery_conf: GalleryConfig
+) -> None:
     """Replace backref files only if necessary."""
     logger = sphinx.util.logging.getLogger("sphinx-gallery")
     if gallery_conf["backreferences_dir"] is None:
@@ -457,7 +502,7 @@ def _finalize_backreferences(seen_backrefs, gallery_conf):
         if os.path.isfile(path):
             # Close div containing all thumbnails
             # (it was open in _write_backreferences)
-            with open(path, "a", **_W_KW) as ex_file:
+            with open(path, "a", **_W_KW) as ex_file:  # type: ignore[call-overload]
                 ex_file.write(THUMBNAIL_PARENT_DIV_CLOSE)
             _replace_md5(path, mode="t")
         else:

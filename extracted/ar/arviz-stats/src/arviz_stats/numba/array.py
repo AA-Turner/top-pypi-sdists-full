@@ -20,7 +20,7 @@ def process_ary_axes(ary, axes):
     reordered_axes = [i for i in range(ary.ndim) if i not in axes] + list(axes)
     ary = np.transpose(ary, axes=reordered_axes)
     ary = ary.reshape((*ary.shape[: -len(axes)], -1))
-    return ary, axes
+    return ary
 
 
 @guvectorize(
@@ -65,18 +65,25 @@ class NumbaArray(BaseArray):
 
         axes = axis
         if axes is not None:
-            ary, axes = process_ary_axes(ary, axes)
+            ary = process_ary_axes(ary, axes)
             axes = [(-1,), (0,), (0,)]
         else:
             ary = ary.ravel()
+            axes = [(-1,), (0,), (0,)]
+
+        quantile_ary = np.atleast_1d(quantile)
 
         # pylint: disable=no-value-for-parameter, unexpected-keyword-arg
-        result = _quantile_ufunc(ary, quantile, axes=axes)
-        if np.ndim(quantile) == 0:
-            return result
-        return np.moveaxis(result, 0, -1)
+        result = _quantile_ufunc(ary, quantile_ary, axes=axes)
 
-    def _histogram(self, ary, bins=None, range=None, weights=None, density=None):  # pylint: disable=redefined-builtin
+        result = np.moveaxis(result, 0, -1)
+
+        if np.ndim(quantile) == 0:
+            return result[..., 0]
+
+        return result
+
+    def _histogram(self, ary, bins=None, range=None, weights=None, density=True):  # pylint: disable=redefined-builtin
         """Compute the histogram of the data."""
         if bins is None:
             bins = self._get_bins(ary)
@@ -128,6 +135,20 @@ class NumbaArray(BaseArray):
     def kde(self, ary, axis=-1, circular=False, grid_len=512, **kwargs):
         """Compute the guvectorized kde.
 
+        Parameters
+        ----------
+        ary : array-like
+            Input array.
+        axis : int, sequence of int or None, default -1
+            Axis or axes along which the KDE is computed.
+        circular : bool, default False
+            Whether the data is circular (e.g., angles).
+        grid_len : int, default 512
+            Number of points on the KDE grid.
+        **kwargs : any, optional
+            Additional keyword arguments forwarded to the array or dataarray interface.
+            See :func:`arviz_stats.base.array_stats.kde` for the full list of supported arguments.
+
         Notes
         -----
         There currenly is no jit compiling of the kde computation steps other than the
@@ -136,7 +157,7 @@ class NumbaArray(BaseArray):
         ensuring the proper method of the initialized class is the one being guvectorized.
         """
         if axis is not None:
-            ary, axis = process_ary_axes(ary, axis)
+            ary = process_ary_axes(ary, axis)
             kwargs["axes"] = [(-1,), (0,), (), (), ()]
         else:
             ary = ary.ravel()

@@ -224,6 +224,14 @@ def export_from_registry(*, include_captured_global_values: bool = False) -> exp
 
     crons: List[CronQuery] = []
     for cron in CRON_QUERY_REGISTRY.values():
+        if cron.errors:
+            failed_protos.append(
+                build_failed_import(
+                    "\n".join(cron.errors),
+                    f"scheduled query '{cron.name}'",
+                )
+            )
+            continue
         if not isinstance(cron.recompute_features, (Collection, bool)):  # pyright: ignore[reportUnnecessaryIsInstance]
             failed_protos.append(
                 build_failed_import(
@@ -271,8 +279,8 @@ def export_from_registry(*, include_captured_global_values: bool = False) -> exp
                 input_sql=cron.input_sql,
                 unload_resolvers=[
                     UnloadResolverSpec(
-                        fqn=spec["fqn"],
-                        partition_by=spec.get("partition_by", []),
+                        fqn="all" if "any" in spec else spec["fqn"],
+                        partition_by=[] if "any" in spec else spec.get("partition_by", []),
                     )
                     for spec in (cron.unload_resolvers or [])
                 ],

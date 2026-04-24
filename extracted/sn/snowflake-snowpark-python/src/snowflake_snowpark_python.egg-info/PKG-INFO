@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: snowflake-snowpark-python
-Version: 1.49.0
+Version: 1.50.0
 Summary: Snowflake Snowpark for Python
 Home-page: https://www.snowflake.com/
 Author: Snowflake, Inc
@@ -50,7 +50,7 @@ Requires-Dist: snowflake-connector-python[pandas]<5.0.0,>=3.17.0; extra == "pand
 Provides-Extra: modin
 Requires-Dist: snowflake-connector-python[pandas]<5.0.0,>=3.17.0; extra == "modin"
 Requires-Dist: modin<0.38.0,>=0.36.0; extra == "modin"
-Requires-Dist: pandas<=2.3.1; extra == "modin"
+Requires-Dist: pandas<=2.4; extra == "modin"
 Requires-Dist: tqdm; extra == "modin"
 Requires-Dist: ipywidgets; extra == "modin"
 Provides-Extra: secure-local-storage
@@ -74,10 +74,11 @@ Requires-Dist: tox; extra == "development"
 Requires-Dist: snowflake.core<2,>=1.0.0; extra == "development"
 Requires-Dist: psutil; extra == "development"
 Requires-Dist: lxml; extra == "development"
+Requires-Dist: pyarrow; extra == "development"
 Provides-Extra: modin-development
 Requires-Dist: snowflake-connector-python[pandas]<5.0.0,>=3.17.0; extra == "modin-development"
 Requires-Dist: modin<0.38.0,>=0.36.0; extra == "modin-development"
-Requires-Dist: pandas<=2.3.1; extra == "modin-development"
+Requires-Dist: pandas<=2.4; extra == "modin-development"
 Requires-Dist: tqdm; extra == "modin-development"
 Requires-Dist: ipywidgets; extra == "modin-development"
 Requires-Dist: pytest<8.0.0; extra == "modin-development"
@@ -98,6 +99,7 @@ Requires-Dist: tox; extra == "modin-development"
 Requires-Dist: snowflake.core<2,>=1.0.0; extra == "modin-development"
 Requires-Dist: psutil; extra == "modin-development"
 Requires-Dist: lxml; extra == "modin-development"
+Requires-Dist: pyarrow; extra == "modin-development"
 Requires-Dist: scipy<=1.16.3; extra == "modin-development"
 Requires-Dist: statsmodels; extra == "modin-development"
 Requires-Dist: scikit-learn; extra == "modin-development"

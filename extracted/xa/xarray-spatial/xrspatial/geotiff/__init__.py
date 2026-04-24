@@ -114,11 +114,19 @@ def _coords_to_transform(da: xr.DataArray) -> GeoTransform | None:
     )
 
 
-def _read_geo_info(source: str):
+def _read_geo_info(source: str, *, overview_level: int | None = None):
     """Read only the geographic metadata and image dimensions from a GeoTIFF.
 
-    Returns (geo_info, height, width) without reading pixel data.
+    Returns (geo_info, height, width, dtype, n_bands) without reading pixel
+    data.  Uses mmap for header-only access -- O(1) memory regardless of file
+    size.
+
+    Parameters
+    ----------
+    overview_level : int or None
+        Overview IFD index (0 = full resolution).
     """
+    from ._dtypes import tiff_dtype_to_numpy
     from ._geotags import extract_geo_info
     from ._header import parse_all_ifds, parse_header
 
@@ -128,9 +136,17 @@ def _read_geo_info(source: str):
     try:
         header = parse_header(data)
         ifds = parse_all_ifds(data, header)
-        ifd = ifds[0]
+        ifd_idx = 0
+        if overview_level is not None:
+            ifd_idx = min(overview_level, len(ifds) - 1)
+        ifd = ifds[ifd_idx]
         geo_info = extract_geo_info(ifd, data, header.byte_order)
-        return geo_info, ifd.height, ifd.width
+        bps = ifd.bits_per_sample
+        if isinstance(bps, tuple):
+            bps = bps[0]
+        file_dtype = tiff_dtype_to_numpy(bps, ifd.sample_format)
+        n_bands = ifd.samples_per_pixel if ifd.samples_per_pixel > 1 else 0
+        return geo_info, ifd.height, ifd.width, file_dtype, n_bands
     finally:
         data.close()
 
@@ -169,7 +185,8 @@ def open_geotiff(source: str, *, dtype=None, window=None,
                  band: int | None = None,
                  name: str | None = None,
                  chunks: int | tuple | None = None,
-                 gpu: bool = False) -> xr.DataArray:
+                 gpu: bool = False,
+                 max_pixels: int | None = None) -> xr.DataArray:
     """Read a GeoTIFF, COG, or VRT file into an xarray.DataArray.
 
     Automatically dispatches to the best backend:
@@ -200,6 +217,10 @@ def open_geotiff(source: str, *, dtype=None, window=None,
         Chunk size for Dask lazy reading.
     gpu : bool
         Use GPU-accelerated decompression (requires cupy + nvCOMP).
+    max_pixels : int or None
+        Maximum allowed pixel count (width * height * samples). None
+        uses the default (~1 billion). Raise to read legitimately
+        large files.
 
     Returns
     -------
@@ -209,22 +230,28 @@ def open_geotiff(source: str, *, dtype=None, window=None,
     # VRT files
     if source.lower().endswith('.vrt'):
         return read_vrt(source, dtype=dtype, window=window, band=band,
-                        name=name, chunks=chunks, gpu=gpu)
+                        name=name, chunks=chunks, gpu=gpu,
+                        max_pixels=max_pixels)
 
     # GPU path
     if gpu:
         return read_geotiff_gpu(source, dtype=dtype,
                                 overview_level=overview_level,
-                                name=name, chunks=chunks)
+                                name=name, chunks=chunks,
+                                max_pixels=max_pixels)
 
     # Dask path (CPU)
     if chunks is not None:
         return read_geotiff_dask(source, dtype=dtype, chunks=chunks,
                                  overview_level=overview_level, name=name)
 
+    kwargs = {}
+    if max_pixels is not None:
+        kwargs['max_pixels'] = max_pixels
     arr, geo_info = read_to_array(
         source, window=window,
         overview_level=overview_level, band=band,
+        **kwargs,
     )
 
     height, width = arr.shape[:2]
@@ -465,7 +492,10 @@ def to_geotiff(data: xr.DataArray | np.ndarray, path: str, *,
                               compression=compression,
                               compression_level=compression_level,
                               tile_size=tile_size,
-                              predictor=predictor)
+                              predictor=predictor,
+                              cog=cog,
+                              overview_levels=overview_levels,
+                              overview_resampling=overview_resampling)
             return
         except (ImportError, Exception):
             pass  # fall through to CPU path
@@ -870,11 +900,9 @@ def read_geotiff_dask(source: str, *, dtype=None, chunks: int | tuple = 512,
     if source.lower().endswith('.vrt'):
         return read_vrt(source, dtype=dtype, name=name, chunks=chunks)
 
-    # First, do a metadata-only read to get shape, dtype, coords, attrs
-    arr, geo_info = read_to_array(source, overview_level=overview_level)
-    full_h, full_w = arr.shape[:2]
-    n_bands = arr.shape[2] if arr.ndim == 3 else 0
-    file_dtype = arr.dtype
+    # Metadata-only read: O(1) memory via mmap, no pixel decompression
+    geo_info, full_h, full_w, file_dtype, n_bands = _read_geo_info(
+        source, overview_level=overview_level)
     nodata = geo_info.nodata
 
     # Nodata masking promotes integer arrays to float64 (for NaN).
@@ -908,6 +936,27 @@ def read_geotiff_dask(source: str, *, dtype=None, chunks: int | tuple = 512,
         ch_h = ch_w = chunks
     else:
         ch_h, ch_w = chunks
+
+    # Graph-size guard. Each chunk becomes a delayed task whose Python graph
+    # entry retains ~1KB. At very large chunk counts the graph itself OOMs
+    # the driver before any read executes (30TB at chunks=256 => ~500M tasks
+    # => ~500GB graph on host). Auto-scale chunks up to cap total task count.
+    _MAX_DASK_CHUNKS = 1_000_000
+    n_chunks = ((full_h + ch_h - 1) // ch_h) * ((full_w + ch_w - 1) // ch_w)
+    if n_chunks > _MAX_DASK_CHUNKS:
+        import math
+        scale = math.sqrt(n_chunks / _MAX_DASK_CHUNKS)
+        new_ch_h = int(math.ceil(ch_h * scale))
+        new_ch_w = int(math.ceil(ch_w * scale))
+        import warnings
+        warnings.warn(
+            f"read_geotiff_dask: requested chunks=({ch_h}, {ch_w}) on a "
+            f"{full_h}x{full_w} image would produce {n_chunks} dask tasks, "
+            f"exceeding the {_MAX_DASK_CHUNKS}-task cap. Auto-scaling to "
+            f"chunks=({new_ch_h}, {new_ch_w}).",
+            stacklevel=2,
+        )
+        ch_h, ch_w = new_ch_h, new_ch_w
 
     # Build dask array from delayed windowed reads
     rows = list(range(0, full_h, ch_h))
@@ -978,7 +1027,8 @@ def read_geotiff_gpu(source: str, *,
                      dtype=None,
                      overview_level: int | None = None,
                      name: str | None = None,
-                     chunks: int | tuple | None = None) -> xr.DataArray:
+                     chunks: int | tuple | None = None,
+                     max_pixels: int | None = None) -> xr.DataArray:
     """Read a GeoTIFF with GPU-accelerated decompression via Numba CUDA.
 
     Decompresses all tiles in parallel on the GPU and returns a
@@ -1001,6 +1051,9 @@ def read_geotiff_gpu(source: str, *,
         chunks, (row, col) tuple for rectangular.
     name : str or None
         Name for the DataArray.
+    max_pixels : int or None
+        Maximum allowed pixel count (width * height * samples). None
+        uses the default (~1 billion).
 
     Returns
     -------
@@ -1014,11 +1067,14 @@ def read_geotiff_gpu(source: str, *,
             "cupy is required for GPU reads. "
             "Install it with: pip install cupy-cuda12x")
 
-    from ._reader import _FileSource
-    from ._header import parse_header, parse_all_ifds
+    from ._reader import _FileSource, _check_dimensions, MAX_PIXELS_DEFAULT
+    from ._header import parse_header, parse_all_ifds, validate_tile_layout
     from ._dtypes import tiff_dtype_to_numpy
     from ._geotags import extract_geo_info
     from ._gpu_decode import gpu_decode_tiles
+
+    if max_pixels is None:
+        max_pixels = MAX_PIXELS_DEFAULT
 
     # Parse metadata on CPU (fast, <1ms)
     src = _FileSource(source)
@@ -1070,6 +1126,19 @@ def read_geotiff_gpu(source: str, *,
         th = ifd.tile_height
         width = ifd.width
         height = ifd.height
+
+        if tw <= 0 or th <= 0:
+            raise ValueError(
+                f"Invalid tile dimensions: TileWidth={tw}, TileLength={th}")
+
+        _check_dimensions(width, height, samples, max_pixels)
+        # A single tile's decoded bytes must also fit under the pixel budget.
+        _check_dimensions(tw, th, samples, max_pixels)
+
+        # Reject malformed TIFFs whose declared tile grid exceeds the
+        # supplied TileOffsets length. The GPU tile-assembly kernel would
+        # read OOB otherwise. See issue #1219.
+        validate_tile_layout(ifd)
 
     finally:
         src.close()
@@ -1154,13 +1223,20 @@ def write_geotiff_gpu(data, path: str, *,
                       compression: str = 'zstd',
                       compression_level: int | None = None,
                       tile_size: int = 256,
-                      predictor: bool = False) -> None:
+                      predictor: bool = False,
+                      cog: bool = False,
+                      overview_levels: list[int] | None = None,
+                      overview_resampling: str = 'mean') -> None:
     """Write a CuPy-backed DataArray as a GeoTIFF with GPU compression.
 
     Tiles are extracted and compressed on the GPU via nvCOMP, then
     assembled into a TIFF file on CPU. The CuPy array stays on device
     throughout compression -- only the compressed bytes transfer to CPU
     for file writing.
+
+    When ``cog=True``, generates overview pyramids on GPU and writes a
+    Cloud Optimized GeoTIFF with all IFDs at the file start for
+    efficient range-request access.
 
     Falls back to CPU compression if nvCOMP is not available.
 
@@ -1184,13 +1260,22 @@ def write_geotiff_gpu(data, path: str, *,
         Tile size in pixels (default 256).
     predictor : bool
         Apply horizontal differencing predictor.
+    cog : bool
+        Write as Cloud Optimized GeoTIFF with overviews.
+    overview_levels : list[int] or None
+        Overview decimation factors (e.g. [2, 4, 8]). Only used when
+        cog=True. If None and cog=True, auto-generates levels by
+        halving until the smallest overview fits in a single tile.
+    overview_resampling : str
+        Resampling method for overviews: 'mean' (default), 'nearest',
+        'min', 'max', 'median', or 'mode'.
     """
     try:
         import cupy
     except ImportError:
         raise ImportError("cupy is required for GPU writes")
 
-    from ._gpu_decode import gpu_compress_tiles
+    from ._gpu_decode import gpu_compress_tiles, make_overview_gpu
     from ._writer import (
         _compression_tag, _assemble_tiff, _write_bytes,
         GeoTransform as _GT,
@@ -1245,28 +1330,45 @@ def write_geotiff_gpu(data, path: str, *,
     comp_tag = _compression_tag(compression)
     pred_val = 2 if predictor else 1
 
-    # GPU compress
-    compressed_tiles = gpu_compress_tiles(
-        arr, tile_size, tile_size, width, height,
-        comp_tag, pred_val, np_dtype, samples)
+    def _gpu_compress_to_part(gpu_arr, w, h, spp):
+        """Compress a GPU array into a (stub, w, h, offsets, counts, tiles) tuple."""
+        compressed = gpu_compress_tiles(
+            gpu_arr, tile_size, tile_size, w, h,
+            comp_tag, pred_val, np_dtype, spp)
+        rel_off = []
+        bc = []
+        off = 0
+        for tile in compressed:
+            rel_off.append(off)
+            bc.append(len(tile))
+            off += len(tile)
+        stub = np.empty((1, 1, spp) if spp > 1 else (1, 1), dtype=np_dtype)
+        return (stub, w, h, rel_off, bc, compressed)
 
-    # Build offset/bytecount lists
-    rel_offsets = []
-    byte_counts = []
-    offset = 0
-    for tile in compressed_tiles:
-        rel_offsets.append(offset)
-        byte_counts.append(len(tile))
-        offset += len(tile)
+    # Full resolution
+    parts = [_gpu_compress_to_part(arr, width, height, samples)]
 
-    # Assemble TIFF on CPU (only metadata + compressed bytes)
-    # _assemble_tiff needs an array in parts[0] to detect samples_per_pixel
-    shape_stub = np.empty((1, 1, samples) if samples > 1 else (1, 1), dtype=np_dtype)
-    parts = [(shape_stub, width, height, rel_offsets, byte_counts, compressed_tiles)]
+    # Overview generation
+    if cog:
+        if overview_levels is None:
+            overview_levels = []
+            oh, ow = height, width
+            while oh > tile_size and ow > tile_size:
+                oh //= 2
+                ow //= 2
+                if oh > 0 and ow > 0:
+                    overview_levels.append(len(overview_levels) + 1)
+
+        current = arr
+        for _ in overview_levels:
+            current = make_overview_gpu(current, method=overview_resampling)
+            oh, ow = current.shape[:2]
+            parts.append(_gpu_compress_to_part(current, ow, oh, samples))
 
     file_bytes = _assemble_tiff(
         width, height, np_dtype, comp_tag, predictor, True, tile_size,
-        parts, geo_transform, epsg, nodata, is_cog=False,
+        parts, geo_transform, epsg, nodata,
+        is_cog=(cog and len(parts) > 1),
         raster_type=raster_type)
 
     _write_bytes(file_bytes, path)
@@ -1276,7 +1378,8 @@ def read_vrt(source: str, *, dtype=None, window=None,
              band: int | None = None,
              name: str | None = None,
              chunks: int | tuple | None = None,
-             gpu: bool = False) -> xr.DataArray:
+             gpu: bool = False,
+             max_pixels: int | None = None) -> xr.DataArray:
     """Read a GDAL Virtual Raster Table (.vrt) into an xarray.DataArray.
 
     The VRT's source GeoTIFFs are read via windowed reads and assembled
@@ -1308,13 +1411,20 @@ def read_vrt(source: str, *, dtype=None, window=None,
     """
     from ._vrt import read_vrt as _read_vrt_internal
 
-    arr, vrt = _read_vrt_internal(source, window=window, band=band)
+    arr, vrt = _read_vrt_internal(source, window=window, band=band,
+                                   max_pixels=max_pixels)
 
     if name is None:
         import os
         name = os.path.splitext(os.path.basename(source))[0]
 
-    # Build coordinates from GeoTransform
+    # Build coordinates from GeoTransform.
+    #
+    # GDAL's convention: when AREA_OR_POINT=Area (default) the
+    # GeoTransform origin is the top-left corner of pixel (0, 0) and
+    # pixel centers need a half-pixel shift.  When AREA_OR_POINT=Point
+    # the origin already *is* the center of pixel (0, 0) and no shift
+    # is applied.  This mirrors ``_geo_to_coords`` for non-VRT reads.
     gt = vrt.geo_transform
     if gt is not None:
         origin_x, res_x, _, origin_y, _, res_y = gt
@@ -1325,8 +1435,14 @@ def read_vrt(source: str, *, dtype=None, window=None,
         else:
             r0, c0 = 0, 0
         height, width = arr.shape[:2]
-        x = np.arange(width, dtype=np.float64) * res_x + origin_x + (c0 + 0.5) * res_x
-        y = np.arange(height, dtype=np.float64) * res_y + origin_y + (r0 + 0.5) * res_y
+        if vrt.raster_type == 'point':
+            x_shift = c0 * res_x
+            y_shift = r0 * res_y
+        else:
+            x_shift = (c0 + 0.5) * res_x
+            y_shift = (r0 + 0.5) * res_y
+        x = np.arange(width, dtype=np.float64) * res_x + origin_x + x_shift
+        y = np.arange(height, dtype=np.float64) * res_y + origin_y + y_shift
         coords = {'y': y, 'x': x}
     else:
         coords = {}
@@ -1337,6 +1453,8 @@ def read_vrt(source: str, *, dtype=None, window=None,
         if epsg is not None:
             attrs['crs'] = epsg
         attrs['crs_wkt'] = vrt.crs_wkt
+    if vrt.raster_type == 'point':
+        attrs['raster_type'] = 'point'
     if vrt.bands:
         nodata = vrt.bands[0].nodata
         if nodata is not None:

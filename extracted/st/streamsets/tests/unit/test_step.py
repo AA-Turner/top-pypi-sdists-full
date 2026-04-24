@@ -1,4 +1,6 @@
-# Copyright 2024 StreamSets Inc.
+#  IBM Confidential
+#  PID 5900-BAF
+#  Copyright StreamSets Inc., an IBM Company 2024
 
 # fmt: off
 from copy import deepcopy
@@ -103,7 +105,7 @@ def test_step_jobs(job_sequence_with_steps):
     assert isinstance(step.step_jobs, SeekableList)
     assert len(step.step_jobs) == 1
     assert isinstance(step.step_jobs[0], Job)
-    assert step._data['jobs'][0]['jobId'] == step.step_jobs[0].job_id
+    assert step._data['jobs'][0]['jobId'] == step.step_jobs[0].id
 
 
 def test_remove_jobs(job_sequence_with_steps):

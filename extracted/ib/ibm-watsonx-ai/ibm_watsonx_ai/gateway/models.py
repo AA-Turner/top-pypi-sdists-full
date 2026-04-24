@@ -52,7 +52,7 @@ class Models(WMLResource):
 
         response = self._client.httpx_client.post(
             self._client._href_definitions.get_gateway_models_href(provider_id),
-            headers=self._client._get_headers(),
+            headers=self._client._get_headers(include_container_id=True),
             json=request_json,
         )
 
@@ -78,21 +78,21 @@ class Models(WMLResource):
         if model_id:
             response = self._client.httpx_client.get(
                 self._client._href_definitions.get_gateway_model_href(model_id),
-                headers=self._client._get_headers(),
+                headers=self._client._get_headers(include_container_id=True),
             )
 
             return self._handle_response(200, "getting model details", response)
         elif provider_id:
             response = self._client.httpx_client.get(
                 self._client._href_definitions.get_gateway_models_href(provider_id),
-                headers=self._client._get_headers(),
+                headers=self._client._get_headers(include_container_id=True),
             )
 
             return self._handle_response(200, "getting models details", response)
         else:
             response = self._client.httpx_client.get(
                 self._client._href_definitions.get_gateway_all_tenant_models_href(),
-                headers=self._client._get_headers(),
+                headers=self._client._get_headers(include_container_id=True),
             )
 
             return self._handle_response(
@@ -137,7 +137,7 @@ class Models(WMLResource):
         """
         response = self._client.httpx_client.delete(
             self._client._href_definitions.get_gateway_model_href(model_id),
-            headers=self._client._get_headers(),
+            headers=self._client._get_headers(include_container_id=True),
         )
 
         return self._handle_response(

@@ -83,6 +83,11 @@ class MetricKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     METRIC_KIND_PULL_QUERY_OLDEST_UNACKED_AGE: _ClassVar[MetricKind]
     METRIC_KIND_PULL_QUERY_PROCESSED: _ClassVar[MetricKind]
     METRIC_KIND_PULL_QUERY_LATENCY: _ClassVar[MetricKind]
+    METRIC_KIND_CONTAINER_COUNT: _ClassVar[MetricKind]
+    METRIC_KIND_SCALING_GROUP_REPLICA_COUNT: _ClassVar[MetricKind]
+    METRIC_KIND_PULL_QUERY_MAX_INFLIGHT: _ClassVar[MetricKind]
+    METRIC_KIND_PULL_QUERY_CONCURRENCY_TARGET: _ClassVar[MetricKind]
+    METRIC_KIND_PULL_QUERY_OPEN_CONNECTIONS: _ClassVar[MetricKind]
 
 class FilterKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -108,6 +113,7 @@ class FilterKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     FILTER_KIND_TOPIC_NAME: _ClassVar[FilterKind]
     FILTER_KIND_SUBSCRIPTION_NAME: _ClassVar[FilterKind]
     FILTER_KIND_PARTITION_NAME: _ClassVar[FilterKind]
+    FILTER_KIND_SCALING_GROUP: _ClassVar[FilterKind]
 
 class ComparatorKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -263,6 +269,11 @@ METRIC_KIND_PULL_QUERY_QUEUE_DEPTH: MetricKind
 METRIC_KIND_PULL_QUERY_OLDEST_UNACKED_AGE: MetricKind
 METRIC_KIND_PULL_QUERY_PROCESSED: MetricKind
 METRIC_KIND_PULL_QUERY_LATENCY: MetricKind
+METRIC_KIND_CONTAINER_COUNT: MetricKind
+METRIC_KIND_SCALING_GROUP_REPLICA_COUNT: MetricKind
+METRIC_KIND_PULL_QUERY_MAX_INFLIGHT: MetricKind
+METRIC_KIND_PULL_QUERY_CONCURRENCY_TARGET: MetricKind
+METRIC_KIND_PULL_QUERY_OPEN_CONNECTIONS: MetricKind
 FILTER_KIND_UNSPECIFIED: FilterKind
 FILTER_KIND_FEATURE_STATUS: FilterKind
 FILTER_KIND_FEATURE_NAME: FilterKind
@@ -285,6 +296,7 @@ FILTER_KIND_COMPUTATION_CONTEXT: FilterKind
 FILTER_KIND_TOPIC_NAME: FilterKind
 FILTER_KIND_SUBSCRIPTION_NAME: FilterKind
 FILTER_KIND_PARTITION_NAME: FilterKind
+FILTER_KIND_SCALING_GROUP: FilterKind
 COMPARATOR_KIND_UNSPECIFIED: ComparatorKind
 COMPARATOR_KIND_EQ: ComparatorKind
 COMPARATOR_KIND_NEQ: ComparatorKind

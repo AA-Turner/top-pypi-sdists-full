@@ -1,4 +1,6 @@
-# Copyright 2021 StreamSets Inc.
+#  IBM Confidential
+#  PID 5900-BAF
+#  Copyright StreamSets Inc., an IBM Company 2024
 
 """Abstractions to interact with the ST REST API."""
 
@@ -18,6 +20,7 @@ import urllib3
 from . import st_models
 from .constants import ENGINE_AUTHENTICATION_METHOD_ASTER, ENGINE_AUTHENTICATION_METHOD_FORM, STATUS_ERRORS
 from .exceptions import BadRequestError, InternalServerError
+from .retry import http_retry
 from .utils import TRANSFORMER_PIPELINE_TYPE, get_params, join_url_parts, pipeline_json_encoder, wait_for_condition
 
 # fmt: on
@@ -58,7 +61,7 @@ class ApiClient(object):
         dump_log_on_error=False,
         session_attributes=None,
         headers=None,
-        **kwargs
+        **kwargs,
     ):
         self.server_url = server_url
         self.authentication_method = authentication_method
@@ -1080,7 +1083,141 @@ class ApiClient(object):
         response = self._get(endpoint='/v{}/stageLibraries/list'.format(self.api_version), params=params)
         return Command(self, response)
 
+    def start_streamflake_explorer_search(
+        self,
+        pipeline_id,
+        rev,
+        stage_id,
+        element='',
+        extra_depth=0,
+        fixed_params=None,
+        len_=100,
+        offset=0,
+        search='',
+        timeout=60000,
+        up_truncate=False,
+    ):
+        """Start a System Explorer search for a stage.
+
+        Args:
+            pipeline_id (:obj:`str`): Pipeline ID of the stage.
+            rev (:obj:`str`): Pipeline revision ID.
+            stage_id (:obj:`str`):  Stage ID on which the system explorer search is performed.
+            element (:obj:`str`, optional): The Explorer schema element for the search result, to set in the
+                stage configuration. Default: ''
+            extra_depth (:obj:`int`, optional): How many levels of children elements of the schema element being
+                searched should be returned. Default: 0
+            fixed_params (:obj:`dict`, optional): Fixed elements of the search. Defult: None
+            len_ (:obj:`str`, optional): Maximum number of records to retrieve. Default: 100
+            offset (:obj:`int`, optional): The offset from where to return data. Search result data pages have a fixed
+                size of 1000. Default: 0
+            search (:obj:`str`, optional):  The search query, an RSQL predicate where the Explorer schema elements of
+                the stage are the valid RSQL selector names. Default: ''
+            timeout (:obj:`int`, optional): Timeout in milliseconds for the search request. Default: 60000
+            up_truncate (:obj:`bool`, optional): Return the result tree starting from the searched schema element.
+                Default: False
+
+        Returns:
+            An instance of :py:class:`streamsets.sdk.st_api.Command`.
+        """
+        params = get_params(parameters=locals(), exclusions=('self', 'pipeline_id', 'stage_id'))
+        endpoint = '/v{}/pipeline/{}/streamflake-explorer/{}'.format(self.api_version, pipeline_id, stage_id)
+
+        if 'fixedParams' in params:
+            fixed = params.pop('fixedParams')
+            for parm, value in fixed.items():
+                params.update({f'fixed.{parm}': value})
+
+        response = self._post(endpoint=endpoint, params=params)
+        return Command(self, response)
+
+    def check_streamflake_explorer_search(self, explorer_id, pipeline_id, stage_id):
+        """Return a System Explorer search status/data.
+
+        Args:
+            explorer_id (:obj:`str`): Explorer search id.
+            pipeline_id (:obj:`str`): Pipeline ID of the stage.
+            stage_id (:obj:`str`):  Stage ID on which the system explorer search is performed.
+
+        Returns:
+            An instance of :py:class:`streamsets.sdk.st_api.Command`.
+        """
+        endpoint = '/v{}/pipeline/{}/streamflake-explorer/{}/{}'.format(
+            self.api_version, pipeline_id, stage_id, explorer_id
+        )
+        response = self._get(endpoint=endpoint)
+        return Command(self, response)
+
+    def stop_streamflake_explorer_search(self, explorer_id, pipeline_id, stage_id):
+        """Cancels a System Explorer search.
+
+        Args:
+            explorer_id (:obj:`str`): Explorer search id.
+            pipeline_id (:obj:`str`): Pipeline ID of the stage.
+            stage_id (:obj:`str`):  Stage ID on which the system explorer search is performed.
+
+        Returns:
+            An instance of :py:class:`streamsets.sdk.st_api.Command`.
+        """
+        endpoint = '/v{}/pipeline/{}/streamflake-explorer/{}/{}'.format(
+            self.api_version, pipeline_id, stage_id, explorer_id
+        )
+        response = self._delete(endpoint=endpoint)
+        return Command(self, response)
+
+    def start_streamflake_explorer_load(self, pipeline_id, rev, stage_id, reload=False, timeout=60000):
+        """Loads System Explorer data of a stage.
+
+        Args:
+            pipeline_id (:obj:`str`): Pipeline ID of the stage.
+            rev (:obj:`str`): Pipeline revision ID.
+            stage_id (:obj:`str`):  Stage ID on which the system explorer search is performed.
+            reload (:obj:`bool`, optional): Force the Explorer to reload metadata from the connection before
+                performing the search. Default: False
+            timeout (:obj:`int`, optional): Timeout in milliseconds for the search request. Default: 60000
+
+        Returns:
+            An instance of :py:class:`streamsets.sdk.st_api.Command`.
+        """
+        params = get_params(parameters=locals(), exclusions=('stage_id', 'pipeline_id', 'self'))
+        endpoint = '/v{}/pipeline/{}/streamflake-explorer-load/{}'.format(self.api_version, pipeline_id, stage_id)
+        response = self._post(endpoint=endpoint, params=params)
+        return Command(self, response)
+
+    def check_streamflake_explorer_load(self, pipeline_id, rev, stage_id):
+        """Returns System Explorer data load state of a stage.
+
+        Args:
+            pipeline_id (:obj:`str`): Pipeline ID of the stage.
+            rev (:obj:`str`): Pipeline revision ID.
+            stage_id (:obj:`str`):  Stage ID on which the system explorer search is performed.
+
+        Returns:
+            An instance of :py:class:`streamsets.sdk.st_api.Command`.
+        """
+        params = get_params(parameters=locals(), exclusions=('stage_id', 'pipeline_id', 'self'))
+        endpoint = '/v{}/pipeline/{}/streamflake-explorer-load/{}'.format(self.api_version, pipeline_id, stage_id)
+        response = self._get(endpoint=endpoint, params=params)
+        return Command(self, response)
+
+    def stop_streamflake_explorer_load(self, pipeline_id, rev, stage_id):
+        """Cancels the System Explorer data load of a stage.
+
+        Args:
+            pipeline_id (:obj:`str`): Pipeline ID of the stage.
+            rev (:obj:`str`): Pipeline revision ID.
+            stage_id (:obj:`str`):  Stage ID on which the system explorer search is performed.
+
+        Returns:
+            An instance of :py:class:`streamsets.sdk.st_api.Command`.
+        """
+        params = get_params(parameters=locals(), exclusions=('stage_id', 'pipeline_id', 'self'))
+        endpoint = '/v{}/pipeline/{}/streamflake-explorer-load/{}'.format(self.api_version, pipeline_id, stage_id)
+        response = self._delete(endpoint=endpoint, params=params)
+        return Command(self, response)
+
     # Internal functions only below.
+    @http_retry()
     def _delete(self, endpoint, params={}):
         url = join_url_parts(self.server_url, '/rest', endpoint)
         if self._tunneling_instance_id:
@@ -1089,6 +1226,7 @@ class ApiClient(object):
         response.raise_for_status()
         return response
 
+    @http_retry()
     def _get(self, endpoint, params={}, absolute_endpoint=False):
         url = endpoint if absolute_endpoint else join_url_parts(self.server_url, '/rest', endpoint)
         if self._tunneling_instance_id:
@@ -1097,6 +1235,7 @@ class ApiClient(object):
         self._handle_http_error(response)
         return response
 
+    @http_retry()
     def _post(
         self,
         endpoint,
@@ -1119,6 +1258,7 @@ class ApiClient(object):
         self._handle_http_error(response)
         return response
 
+    @http_retry()
     def _put(self, endpoint, params={}, data=None):
         url = join_url_parts(self.server_url, '/rest', endpoint)
         if self._tunneling_instance_id:

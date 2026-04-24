@@ -13,7 +13,7 @@ license = "MIT"
 name = "darwin-py"
 readme = "README.md"
 repository = "https://github.com/v7labs/darwin-py"
-version = "3.5.1"
+version = "3.5.2"
 [[tool.poetry.packages]]
 include = "darwin"
 
@@ -139,7 +139,7 @@ version = "^0.23.0"
 
 [tool.poetry.dependencies.black]
 optional = true
-version = "^24.4.2"
+version = ">=24.4.2,<27.0.0"
 
 [tool.poetry.dependencies.isort]
 optional = true
@@ -156,7 +156,7 @@ version = ">=0.25,<0.27"
 
 [tool.poetry.dependencies.pytest]
 optional = true
-version = "^7.2.1"
+version = ">=7.2.1,<10.0.0"
 
 [tool.poetry.dependencies.debugpy]
 optional = true

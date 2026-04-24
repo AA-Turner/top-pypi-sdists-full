@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import tempfile
+from io import BytesIO
 from pathlib import Path
 from typing import Any
 from unittest import mock
@@ -25,7 +26,9 @@ from neo4j_graphrag.experimental.components.filename_collision_handler import (
     FilenameCollisionHandler,
 )
 from neo4j_graphrag.experimental.components.parquet_formatter import (
+    INTERNAL_ID_PROPERTY,
     Neo4jGraphParquetFormatter,
+    get_unique_properties_for_node_type,
     sanitize_parquet_filestem,
 )
 from neo4j_graphrag.experimental.components.kg_writer import (
@@ -89,6 +92,13 @@ def test_sanitize_parquet_filestem_all_disallowed_replaced() -> None:
     # All disallowed chars become underscores (result non-empty, so no fallback)
     assert sanitize_parquet_filestem("...") == "___"
     assert sanitize_parquet_filestem("  ") == "__"
+
+
+def test_get_unique_properties_for_node_type_deprecation_warning() -> None:
+    with pytest.warns(DeprecationWarning, match="get_unique_properties_for_node_type"):
+        assert get_unique_properties_for_node_type(None, "Person") == [
+            INTERNAL_ID_PROPERTY
+        ]
 
 
 # --- FilenameCollisionHandler tests ---
@@ -649,20 +659,25 @@ async def test_parquet_writer_run_success() -> None:
         )
         assert "columns" in node_file_info
         assert any(
-            c["name"] == "__id__" and c["is_primary_key"]
+            c["name"] == INTERNAL_ID_PROPERTY
+            and c["is_primary_key"]
+            and c["is_unique"] is False
             for c in node_file_info["columns"]
+        )
+        assert {"type": "KEY", "properties": [INTERNAL_ID_PROPERTY]} in (
+            node_file_info.get("constraints") or []
         )
         rel_file_info = next(f for f in result.metadata["files"] if not f["is_node"])
         assert rel_file_info["relationship_type"] == "KNOWS"
         assert rel_file_info["start_node_source"] == "Person"
         assert rel_file_info["end_node_source"] == "Person"
-        assert rel_file_info["start_node_primary_keys"] == ["__id__"]
-        assert rel_file_info["end_node_primary_keys"] == ["__id__"]
+        assert rel_file_info["start_node_primary_keys"] == [INTERNAL_ID_PROPERTY]
+        assert rel_file_info["end_node_primary_keys"] == [INTERNAL_ID_PROPERTY]
 
-        # Read back and sanity-check (formatter uses __id__, labels, and flat properties)
+        # Read back and sanity-check (formatter uses internal id, labels, and flat properties)
         nodes_table = pq.read_table(out / "Person.parquet")
         assert nodes_table.num_rows == 2
-        assert "__id__" in nodes_table.column_names
+        assert INTERNAL_ID_PROPERTY in nodes_table.column_names
         assert "labels" in nodes_table.column_names
         assert "name" in nodes_table.column_names
 
@@ -671,6 +686,283 @@ async def test_parquet_writer_run_success() -> None:
         assert "from" in rels_table.column_names
         assert "to" in rels_table.column_names
         assert rels_table.column("type")[0].as_py() == "KNOWS"
+
+        rel_cols = {c["name"]: c for c in rel_file_info["columns"]}
+        assert rel_cols["from"]["is_primary_key"] is True
+        assert rel_cols["from"]["is_unique"] is False
+        assert rel_cols["to"]["is_primary_key"] is True
+        assert rel_cols["to"]["is_unique"] is False
+
+
+@pytest.mark.asyncio
+async def test_parquet_writer_relationship_joins_on_single_property_key() -> None:
+    """With a single-property KEY in schema, rel from/to use that property and metadata matches."""
+    pytest.importorskip("pyarrow")
+    import pyarrow.parquet as pq
+
+    schema_dict: dict[str, Any] = {
+        "node_types": [
+            {
+                "label": "Person",
+                "properties": [
+                    {"name": "email", "type": "STRING"},
+                    {"name": "name", "type": "STRING"},
+                ],
+            }
+        ],
+        "constraints": [
+            {
+                "type": "KEY",
+                "node_type": "Person",
+                "property_names": ["email"],
+                "relationship_type": None,
+            }
+        ],
+    }
+    with tempfile.TemporaryDirectory() as tmpdir:
+        out = Path(tmpdir)
+        dest = _LocalParquetDestination(out)
+        writer = ParquetWriter(
+            nodes_dest=dest,
+            relationships_dest=dest,
+            collision_handler=FilenameCollisionHandler(),
+        )
+        n1 = Neo4jNode(
+            id="n1",
+            label="Person",
+            properties={"email": "a@b.c", "name": "Alice"},
+        )
+        n2 = Neo4jNode(
+            id="n2",
+            label="Person",
+            properties={"email": "b@b.c", "name": "Bob"},
+        )
+        rel = Neo4jRelationship(
+            start_node_id="n1", end_node_id="n2", type="KNOWS", properties={}
+        )
+        graph = Neo4jGraph(nodes=[n1, n2], relationships=[rel])
+        result = await writer.run(graph=graph, schema=schema_dict)
+        assert result.status == "SUCCESS"
+        assert result.metadata is not None
+        rel_file = next(f for f in result.metadata["files"] if not f["is_node"])
+        assert rel_file["start_node_primary_keys"] == ["email"]
+        assert rel_file["end_node_primary_keys"] == ["email"]
+        rels_table = pq.read_table(Path(rel_file["file_path"]))
+        assert rels_table.column("from")[0].as_py() == "a@b.c"
+        assert rels_table.column("to")[0].as_py() == "b@b.c"
+
+
+@pytest.mark.asyncio
+async def test_parquet_writer_columns_uniqueness_sets_is_unique() -> None:
+    """UNIQUENESS maps to is_unique; synthetic single-property KEY on internal id when no schema KEY."""
+    pytest.importorskip("pyarrow")
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        out = Path(tmpdir)
+        dest = _LocalParquetDestination(out)
+        writer = ParquetWriter(
+            nodes_dest=dest,
+            relationships_dest=dest,
+            collision_handler=FilenameCollisionHandler(),
+        )
+        schema_dict: dict[str, Any] = {
+            "node_types": [
+                {
+                    "label": "Person",
+                    "properties": [
+                        {"name": "email", "type": "STRING"},
+                        {"name": "name", "type": "STRING"},
+                    ],
+                }
+            ],
+            "constraints": [
+                {
+                    "type": "UNIQUENESS",
+                    "node_type": "Person",
+                    "property_names": ["email"],
+                    "relationship_type": None,
+                }
+            ],
+        }
+        node = Neo4jNode(
+            id="n1",
+            label="Person",
+            properties={"email": "a@b.c", "name": "Alice"},
+        )
+        graph = Neo4jGraph(nodes=[node], relationships=[])
+        result = await writer.run(graph=graph, schema=schema_dict)
+        assert result.status == "SUCCESS"
+        assert result.metadata is not None
+        node_file = next(f for f in result.metadata["files"] if f["is_node"])
+        cols = {c["name"]: c for c in node_file["columns"]}
+        assert cols["email"]["is_unique"] is True
+        assert cols["email"]["is_primary_key"] is False
+        assert cols[INTERNAL_ID_PROPERTY]["is_primary_key"] is True
+        assert cols[INTERNAL_ID_PROPERTY]["is_unique"] is False
+        key_cs = [c for c in node_file["constraints"] if c["type"] == "KEY"]
+        assert key_cs == [{"type": "KEY", "properties": [INTERNAL_ID_PROPERTY]}]
+
+
+@pytest.mark.asyncio
+async def test_parquet_writer_columns_key_sets_is_primary_key() -> None:
+    """KEY maps to is_primary_key on that property; is_unique stays false."""
+    pytest.importorskip("pyarrow")
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        out = Path(tmpdir)
+        dest = _LocalParquetDestination(out)
+        writer = ParquetWriter(
+            nodes_dest=dest,
+            relationships_dest=dest,
+            collision_handler=FilenameCollisionHandler(),
+        )
+        schema_dict: dict[str, Any] = {
+            "node_types": [
+                {
+                    "label": "Person",
+                    "properties": [
+                        {"name": "email", "type": "STRING"},
+                        {"name": "name", "type": "STRING"},
+                    ],
+                }
+            ],
+            "constraints": [
+                {
+                    "type": "KEY",
+                    "node_type": "Person",
+                    "property_names": ["email"],
+                    "relationship_type": None,
+                }
+            ],
+        }
+        node = Neo4jNode(
+            id="n1",
+            label="Person",
+            properties={"email": "a@b.c", "name": "Alice"},
+        )
+        graph = Neo4jGraph(nodes=[node], relationships=[])
+        result = await writer.run(graph=graph, schema=schema_dict)
+        assert result.status == "SUCCESS"
+        assert result.metadata is not None
+        node_file = next(f for f in result.metadata["files"] if f["is_node"])
+        cols = {c["name"]: c for c in node_file["columns"]}
+        assert cols["email"]["is_primary_key"] is True
+        assert cols["email"]["is_unique"] is False
+
+
+@pytest.mark.asyncio
+async def test_parquet_writer_composite_key_constraint() -> None:
+    """Composite KEY marks all constituent properties as is_primary_key and emits structured constraints metadata."""
+    pytest.importorskip("pyarrow")
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        out = Path(tmpdir)
+        dest = _LocalParquetDestination(out)
+        writer = ParquetWriter(
+            nodes_dest=dest,
+            relationships_dest=dest,
+            collision_handler=FilenameCollisionHandler(),
+        )
+        schema_dict: dict[str, Any] = {
+            "node_types": [
+                {
+                    "label": "Actor",
+                    "properties": [
+                        {"name": "firstname", "type": "STRING"},
+                        {"name": "surname", "type": "STRING"},
+                        {"name": "age", "type": "INTEGER"},
+                    ],
+                }
+            ],
+            "constraints": [
+                {
+                    "type": "KEY",
+                    "node_type": "Actor",
+                    "property_names": ["firstname", "surname"],
+                    "relationship_type": None,
+                }
+            ],
+        }
+        node = Neo4jNode(
+            id="a1",
+            label="Actor",
+            properties={"firstname": "John", "surname": "Smith", "age": 42},
+        )
+        graph = Neo4jGraph(nodes=[node], relationships=[])
+        result = await writer.run(graph=graph, schema=schema_dict)
+        assert result.status == "SUCCESS"
+        assert result.metadata is not None
+        node_file = next(f for f in result.metadata["files"] if f["is_node"])
+        cols = {c["name"]: c for c in node_file["columns"]}
+        # Both properties in the composite KEY should be marked as primary key
+        assert cols["firstname"]["is_primary_key"] is True
+        assert cols["surname"]["is_primary_key"] is True
+        assert cols["age"]["is_primary_key"] is False
+        assert cols[INTERNAL_ID_PROPERTY]["is_primary_key"] is True
+        # Structured constraints metadata should preserve composite grouping
+        assert "constraints" in node_file
+        key_constraints = [c for c in node_file["constraints"] if c["type"] == "KEY"]
+        assert len(key_constraints) == 2
+        assert key_constraints[0]["properties"] == ["firstname", "surname"]
+        assert key_constraints[1]["properties"] == [INTERNAL_ID_PROPERTY]
+
+
+@pytest.mark.asyncio
+async def test_parquet_writer_composite_uniqueness_constraint() -> None:
+    """Composite UNIQUENESS marks all constituent properties as is_unique and emits structured constraints."""
+    pytest.importorskip("pyarrow")
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        out = Path(tmpdir)
+        dest = _LocalParquetDestination(out)
+        writer = ParquetWriter(
+            nodes_dest=dest,
+            relationships_dest=dest,
+            collision_handler=FilenameCollisionHandler(),
+        )
+        schema_dict: dict[str, Any] = {
+            "node_types": [
+                {
+                    "label": "Book",
+                    "properties": [
+                        {"name": "title", "type": "STRING"},
+                        {"name": "year", "type": "INTEGER"},
+                        {"name": "isbn", "type": "STRING"},
+                    ],
+                }
+            ],
+            "constraints": [
+                {
+                    "type": "UNIQUENESS",
+                    "node_type": "Book",
+                    "property_names": ["title", "year"],
+                    "relationship_type": None,
+                }
+            ],
+        }
+        node = Neo4jNode(
+            id="b1",
+            label="Book",
+            properties={"title": "Neo4j in Action", "year": 2024, "isbn": "123"},
+        )
+        graph = Neo4jGraph(nodes=[node], relationships=[])
+        result = await writer.run(graph=graph, schema=schema_dict)
+        assert result.status == "SUCCESS"
+        assert result.metadata is not None
+        node_file = next(f for f in result.metadata["files"] if f["is_node"])
+        cols = {c["name"]: c for c in node_file["columns"]}
+        assert cols["title"]["is_unique"] is True
+        assert cols["year"]["is_unique"] is True
+        assert cols["isbn"]["is_unique"] is False
+        # Structured constraints metadata
+        assert "constraints" in node_file
+        unique_constraints = [
+            c for c in node_file["constraints"] if c["type"] == "UNIQUENESS"
+        ]
+        assert len(unique_constraints) == 1
+        assert unique_constraints[0]["properties"] == ["title", "year"]
+        key_cs = [c for c in node_file["constraints"] if c["type"] == "KEY"]
+        assert key_cs == [{"type": "KEY", "properties": [INTERNAL_ID_PROPERTY]}]
 
 
 @pytest.mark.asyncio
@@ -767,3 +1059,301 @@ async def test_parquet_writer_mixed_property_types() -> None:
         # Both ages should have been coerced to str
         ages = {v.as_py() for v in table.column("age")}
         assert ages == {"45", "30"}
+
+
+# ---------------------------------------------------------------------------
+# Regression tests: node embedding column must be present regardless of row order
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "failed_first",
+    [
+        pytest.param(True, id="failed_batch_first"),
+        pytest.param(False, id="succeeded_batch_first"),
+    ],
+)
+def test_node_embedding_column_present_regardless_of_row_order(
+    failed_first: bool,
+) -> None:
+    """Embedding column must exist in the Parquet table regardless of which rows come first.
+
+    Regression test for the bug where failed-batch nodes (empty embedding_properties)
+    appearing before succeeded-batch nodes caused PyArrow to omit the embedding column
+    entirely from the inferred schema.
+    """
+    pytest.importorskip("pyarrow")
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+
+    formatter = Neo4jGraphParquetFormatter()
+
+    # Rows simulating two batches of the same node label:
+    # - failed-batch row: no embedding key (as if embedding_properties was empty)
+    # - succeeded-batch row: embedding key present
+    failed_row: dict[str, Any] = {
+        INTERNAL_ID_PROPERTY: "node-1",
+        "name": "Alice",
+        "labels": ["Person", "__Entity__"],
+    }
+    succeeded_row: dict[str, Any] = {
+        INTERNAL_ID_PROPERTY: "node-2",
+        "name": "Bob",
+        "labels": ["Person", "__Entity__"],
+        "embedding": [0.1, 0.2, 0.3],
+    }
+
+    rows = [failed_row, succeeded_row] if failed_first else [succeeded_row, failed_row]
+
+    parquet_bytes, schema = formatter.format_parquet(rows, "node label 'Person'")
+
+    # The embedding column must always be present in the schema
+    assert "embedding" in schema.names, (
+        f"'embedding' column missing from schema when failed_first={failed_first}. "
+        f"Schema columns: {schema.names}"
+    )
+
+    # Read back the table and verify nulls and types
+    table = pq.read_table(BytesIO(parquet_bytes))
+    assert "embedding" in table.column_names
+
+    # The row without an embedding should have a null value
+    rows_as_dicts = table.to_pylist()
+    rows_by_id = {r[INTERNAL_ID_PROPERTY]: r for r in rows_as_dicts}
+    assert (
+        rows_by_id["node-1"]["embedding"] is None
+    ), "Row without embedding should have null value in the embedding column"
+    assert (
+        rows_by_id["node-2"]["embedding"] is not None
+    ), "Row with embedding should have a non-null value in the embedding column"
+
+    # The embedding field type must be a list of floats (variable or fixed-size)
+    emb_field = schema.field("embedding")
+    emb_type = emb_field.type
+    # Because node-1 has null, the formatter must fall back to list_(float32)
+    assert pa.types.is_list(emb_type) or pa.types.is_fixed_size_list(
+        emb_type
+    ), f"Unexpected embedding field type: {emb_type}"
+    # The value type must be float32
+    assert (
+        emb_type.value_type == pa.float32()
+    ), f"Embedding value type should be float32, got {emb_type.value_type}"
+
+
+# ---------------------------------------------------------------------------
+# Regression tests: relationship embedding column must be present regardless of row order
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "failed_first",
+    [
+        pytest.param(True, id="failed_batch_first"),
+        pytest.param(False, id="succeeded_batch_first"),
+    ],
+)
+def test_relationship_embedding_column_present_regardless_of_row_order(
+    failed_first: bool,
+) -> None:
+    """Embedding column must exist in the relationship Parquet table regardless of which rows come first.
+
+    Regression test for the bug where failed-batch relationships (empty embedding_properties)
+    appearing before succeeded-batch relationships caused PyArrow to omit the embedding column
+    entirely from the inferred schema.
+    """
+    pytest.importorskip("pyarrow")
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+
+    formatter = Neo4jGraphParquetFormatter()
+
+    # Rows simulating two batches of the same relationship type:
+    # - failed-batch row: no embedding key (as if embedding_properties was empty)
+    # - succeeded-batch row: embedding key present
+    failed_row: dict[str, Any] = {
+        "from": "node-1",
+        "to": "node-2",
+        "from_label": "Person",
+        "to_label": "Person",
+        "type": "KNOWS",
+        "since": "2020",
+    }
+    succeeded_row: dict[str, Any] = {
+        "from": "node-3",
+        "to": "node-4",
+        "from_label": "Person",
+        "to_label": "Person",
+        "type": "KNOWS",
+        "since": "2021",
+        "embedding": [0.1, 0.2, 0.3],
+    }
+
+    rows = [failed_row, succeeded_row] if failed_first else [succeeded_row, failed_row]
+
+    parquet_bytes, schema = formatter.format_parquet(
+        rows, "relationship 'Person_KNOWS_Person'"
+    )
+
+    # The embedding column must always be present in the schema
+    assert "embedding" in schema.names, (
+        f"'embedding' column missing from relationship schema when failed_first={failed_first}. "
+        f"Schema columns: {schema.names}"
+    )
+
+    # Read back the table and verify nulls and types
+    table = pq.read_table(BytesIO(parquet_bytes))
+    assert "embedding" in table.column_names
+
+    # The row without an embedding should have a null value
+    rows_as_dicts = table.to_pylist()
+    rows_by_from = {r["from"]: r for r in rows_as_dicts}
+    assert (
+        rows_by_from["node-1"]["embedding"] is None
+    ), "Relationship row without embedding should have null value in the embedding column"
+    assert (
+        rows_by_from["node-3"]["embedding"] is not None
+    ), "Relationship row with embedding should have a non-null value in the embedding column"
+
+    # The embedding field type must be a list of floats (variable or fixed-size)
+    emb_field = schema.field("embedding")
+    emb_type = emb_field.type
+    # Because the failed row has null, the formatter must fall back to list_(float32)
+    assert pa.types.is_list(emb_type) or pa.types.is_fixed_size_list(
+        emb_type
+    ), f"Unexpected relationship embedding field type: {emb_type}"
+    # The value type must be float32
+    assert (
+        emb_type.value_type == pa.float32()
+    ), f"Relationship embedding value type should be float32, got {emb_type.value_type}"
+
+
+# ---------------------------------------------------------------------------
+# Degenerate case: all rows lack the embedding key (all-null column path)
+# ---------------------------------------------------------------------------
+
+
+def test_format_parquet_all_rows_missing_embedding_does_not_crash() -> None:
+    """format_parquet must not raise when no row has an embedding key.
+
+    When every row lacks a given key the formatter falls back to pa.null() for
+    that column's type.  This test verifies that path doesn't crash and that
+    the resulting table contains only the columns that were actually present.
+    """
+    pytest.importorskip("pyarrow")
+    import pyarrow.parquet as pq
+
+    formatter = Neo4jGraphParquetFormatter()
+
+    rows: list[dict[str, Any]] = [
+        {INTERNAL_ID_PROPERTY: "node-1", "name": "Alice", "labels": ["Person"]},
+        {INTERNAL_ID_PROPERTY: "node-2", "name": "Bob", "labels": ["Person"]},
+    ]
+
+    parquet_bytes, schema = formatter.format_parquet(rows, "node label 'Person'")
+
+    assert (
+        "embedding" not in schema.names
+    ), "Embedding column should not appear when no row carries an embedding key"
+
+    table = pq.read_table(BytesIO(parquet_bytes))
+    assert table.num_rows == 2
+    assert set(table.column_names) == {INTERNAL_ID_PROPERTY, "name", "labels"}
+
+
+# ---------------------------------------------------------------------------
+# Edge case: all rows have an empty list for the embedding key (all-null path)
+# ---------------------------------------------------------------------------
+
+
+def test_format_parquet_all_rows_empty_list_embedding_does_not_crash() -> None:
+    """format_parquet must not raise when every row has an empty list for the embedding key.
+
+    When the sample dict filters out empty lists (they are falsy but not None, so
+    they pass the `v is not None` guard), pa.infer_type([[]]) returns list<null>.
+    This test verifies the resulting table survives a Parquet round-trip and that
+    all embedding values are empty lists.
+    """
+    pytest.importorskip("pyarrow")
+    import pyarrow.parquet as pq
+
+    formatter = Neo4jGraphParquetFormatter()
+
+    rows: list[dict[str, Any]] = [
+        {
+            INTERNAL_ID_PROPERTY: "node-1",
+            "name": "Alice",
+            "labels": ["Person"],
+            "embedding": [],
+        },
+        {
+            INTERNAL_ID_PROPERTY: "node-2",
+            "name": "Bob",
+            "labels": ["Person"],
+            "embedding": [],
+        },
+    ]
+
+    parquet_bytes, schema = formatter.format_parquet(rows, "node label 'Person'")
+
+    assert (
+        "embedding" in schema.names
+    ), "Embedding column should be present even when all rows have an empty list"
+
+    table = pq.read_table(BytesIO(parquet_bytes))
+    assert table.num_rows == 2
+    assert "embedding" in table.column_names
+    for row in table.to_pylist():
+        assert (
+            row["embedding"] == []
+        ), f"Expected empty list for embedding, got {row['embedding']}"
+
+
+# ---------------------------------------------------------------------------
+# Edge case: empty-list row before a float-list row must not crash
+# ---------------------------------------------------------------------------
+
+
+def test_format_parquet_empty_list_before_float_embedding_does_not_crash() -> None:
+    """Empty-list row appearing before a float-list row must not raise.
+
+    If [] is picked up as the type-inference sample, pa.infer_type([[]]) returns
+    list<null>, which causes ArrowInvalid when writing the float-list row.
+    The fix skips both None and [] when collecting samples so the float-list row
+    always wins as the sample for embedding type inference.
+    """
+    pytest.importorskip("pyarrow")
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+
+    formatter = Neo4jGraphParquetFormatter()
+
+    rows: list[dict[str, Any]] = [
+        {
+            INTERNAL_ID_PROPERTY: "node-1",
+            "name": "Alice",
+            "labels": ["Person"],
+            "embedding": [],
+        },
+        {
+            INTERNAL_ID_PROPERTY: "node-2",
+            "name": "Bob",
+            "labels": ["Person"],
+            "embedding": [0.1, 0.2, 0.3],
+        },
+    ]
+
+    parquet_bytes, schema = formatter.format_parquet(rows, "node label 'Person'")
+
+    assert "embedding" in schema.names
+
+    emb_type = schema.field("embedding").type
+    assert pa.types.is_list(emb_type), f"Unexpected embedding type: {emb_type}"
+    assert emb_type.value_type == pa.float32()
+
+    table = pq.read_table(BytesIO(parquet_bytes))
+    rows_by_id = {r[INTERNAL_ID_PROPERTY]: r for r in table.to_pylist()}
+    assert (
+        rows_by_id["node-1"]["embedding"] is None
+        or rows_by_id["node-1"]["embedding"] == []
+    )
+    assert rows_by_id["node-2"]["embedding"] is not None

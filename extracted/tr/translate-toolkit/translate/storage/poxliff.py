@@ -30,7 +30,7 @@ from typing import TypeVar
 from lxml import etree
 
 from translate.misc.multistring import multistring
-from translate.misc.xml_helpers import get_safe_xml_parser, setXMLspace
+from translate.misc.xml_helpers import parse_xml, setXMLspace
 from translate.storage import base, lisa, poheader, xliff
 from translate.storage.placeables import general
 
@@ -308,6 +308,7 @@ class PoXliffUnit(xliff.xliffunit):
 
     @classmethod
     def createfromxmlElement(cls, element, namespace=None):
+        namespace = namespace or ""
         if element.tag.endswith("trans-unit"):
             object = cls(None, empty=True)
             object.xmlelement = element
@@ -410,8 +411,7 @@ class PoXliffFile(xliff.xlifffile[U], poheader.poheader):
             xml.seek(0)
             xmlsrc = xml.read()
             xml = xmlsrc
-        parser = get_safe_xml_parser()
-        self.document = etree.fromstring(xml, parser).getroottree()
+        self.document = parse_xml(xml).getroottree()
         self.initbody()
         root_node = self.document.getroot()
         assert root_node.tag == self.namespaced(self.rootNode)

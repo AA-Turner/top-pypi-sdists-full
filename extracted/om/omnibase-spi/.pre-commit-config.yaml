@@ -46,7 +46,8 @@ repos:
         #   contract_github_pr_status_event.py — default_topic in event contract (1 violation)
         #   event_registry.py                 — topic strings in registry mapping (6 violations)
         #   default_github_pr_poller.yaml     — topic in YAML contract default (1 violation)
-        exclude: ^(src/omnibase_spi/contracts/events/contract_git_hook_event\.py|src/omnibase_spi/contracts/events/contract_linear_snapshot_event\.py|src/omnibase_spi/contracts/events/contract_github_pr_status_event\.py|src/omnibase_spi/registry/event_registry\.py|src/omnibase_spi/contracts/defaults/default_github_pr_poller\.yaml)$
+        #   exceptions_skill_routing.py       — kafka_payload() event_type literal (1 violation)
+        exclude: ^(src/omnibase_spi/contracts/events/contract_git_hook_event\.py|src/omnibase_spi/contracts/events/contract_linear_snapshot_event\.py|src/omnibase_spi/contracts/events/contract_github_pr_status_event\.py|src/omnibase_spi/registry/event_registry\.py|src/omnibase_spi/contracts/defaults/default_github_pr_poller\.yaml|src/omnibase_spi/exceptions_skill_routing\.py)$
       - id: cosmetic-lint
       - id: no-untracked-todos
         stages: [pre-commit]
@@ -117,9 +118,9 @@ repos:
         language: system
         types: [python]
         files: ^src/.*\.py$
-        exclude: ^(tests/|scripts/|src/omnibase_spi/exceptions\.py).*$
+        exclude: ^(tests/|scripts/|src/omnibase_spi/exceptions\.py|src/omnibase_spi/exceptions_skill_routing\.py).*$
         pass_filenames: false
-        args: ['src/', '--exclude-pattern', 'exceptions.py']
+        args: ['src/', '--exclude-pattern', 'exceptions.py', '--exclude-pattern', 'exceptions_skill_routing.py']
         stages: [pre-commit]
 
       # Enhanced protocol duplicate detection
@@ -319,14 +320,15 @@ repos:
         always_run: true
         stages: [pre-commit]
 
-      # Markdown link validation (OMN-5086) — uses onex-validate-links from omnibase_core
-      - id: onex-validate-links
-        name: Validate markdown links
-        entry: uv run onex-validate-links --verbose
-        language: system
-        types: [markdown]
-        pass_filenames: false
-        stages: [pre-commit]
+    # TODO [OMN-7408]: re-enable after omnibase_core publishes onex-validate-links entry point to PyPI
+    # Markdown link validation (OMN-5086) — uses onex-validate-links from omnibase_core
+    # - id: onex-validate-links
+    #   name: Validate markdown links
+    #   entry: uv run onex-validate-links --verbose
+    #   language: system
+    #   types: [markdown]
+    #   pass_filenames: false
+    #   stages: [pre-commit]
 
 # Configuration
 default_install_hook_types: [pre-commit]

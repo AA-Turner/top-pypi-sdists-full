@@ -864,6 +864,7 @@ class ToProtoConverter:
 
         converter = f.converter
         aggregation_kwargs = dict(mat.aggregation_kwargs)
+        aggregate_on_features = [ToProtoConverter.create_feature_reference(feature=f) for f in mat.aggregate_on]
         res = pb.FeatureType(
             group_by=pb.GroupByFeatureType(
                 name=f.name,
@@ -884,18 +885,19 @@ class ToProtoConverter:
                 # expression=ToProtoConverter.convert_underscore(f.underscore_expression)
                 # if f.underscore_expression
                 # else None,
-                window_durations=[seconds_to_proto_duration(d) for d in f.group_by_windowed.buckets_seconds],
+                window_durations=(
+                    [seconds_to_proto_duration(d) for d in f.group_by_windowed.buckets_seconds]
+                    if f.group_by_windowed
+                    else None
+                ),
                 aggregation=pb.WindowAggregation(
                     namespace=mat.namespace,
                     group_by=[ToProtoConverter.create_feature_reference(feature=g) for g in mat.group_by],
                     bucket_duration=seconds_int_to_proto_duration(mat.bucket_duration_seconds),
                     bucket_start=datetime_to_proto_timestamp(mat.bucket_start),
                     aggregation=mat.aggregation,
-                    aggregate_on=(
-                        ToProtoConverter.create_feature_reference(feature=mat.aggregate_on)
-                        if mat.aggregate_on is not None
-                        else None
-                    ),
+                    aggregate_on=aggregate_on_features[0] if aggregate_on_features else None,
+                    aggregate_on_features=aggregate_on_features,
                     arrow_type=PrimitiveFeatureConverter.convert_pa_dtype_to_proto_dtype(mat.pyarrow_dtype),
                     filters=[ToProtoConverter.convert_filter(f) for f in mat.filters],
                     backfill_lookback_duration=(
@@ -980,6 +982,9 @@ class ToProtoConverter:
                 _dtype_feature = _ref
         converter = _dtype_feature.converter
         aggregation_kwargs = {} if wmp is None else dict(wmp.aggregation_kwargs)
+        aggregate_on_features = (
+            None if wmp is None else [ToProtoConverter.create_feature_reference(feature=f) for f in wmp.aggregate_on]
+        )
         res = pb.FeatureType(
             scalar=pb.ScalarFeatureType(
                 name=f.name,
@@ -1007,11 +1012,8 @@ class ToProtoConverter:
                                 bucket_duration=seconds_int_to_proto_duration(wmp.bucket_duration_seconds),
                                 bucket_start=datetime_to_proto_timestamp(wmp.bucket_start),
                                 aggregation=wmp.aggregation,
-                                aggregate_on=(
-                                    ToProtoConverter.create_feature_reference(feature=wmp.aggregate_on)
-                                    if wmp.aggregate_on is not None
-                                    else None
-                                ),
+                                aggregate_on=aggregate_on_features[0] if aggregate_on_features else None,
+                                aggregate_on_features=aggregate_on_features,
                                 arrow_type=PrimitiveFeatureConverter.convert_pa_dtype_to_proto_dtype(wmp.pyarrow_dtype),
                                 filters=[cls.convert_filter(f) for f in wmp.filters],
                                 backfill_lookback_duration=(

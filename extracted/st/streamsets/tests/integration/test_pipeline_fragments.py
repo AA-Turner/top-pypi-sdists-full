@@ -1,4 +1,6 @@
-# Copyright 2022 StreamSets Inc.
+#  IBM Confidential
+#  PID 5900-BAF
+#  Copyright StreamSets Inc., an IBM Company 2024
 
 # fmt: off
 import json
@@ -236,8 +238,8 @@ def test_update_pipelines_with_different_fragment_version(sch, sch_authoring_sdc
         )
         assert len(pipeline.commits) == 2
     finally:
-        sch.delete_pipeline(sch.pipelines.get(pipeline_id=pipeline.pipeline_id))
-        sch.delete_pipeline(sch.pipelines.get(pipeline_id=fragment.pipeline_id, fragment=True))
+        sch.delete_pipeline(sch.pipelines.get(id=pipeline.id))
+        sch.delete_pipeline(sch.pipelines.get(id=fragment.id, fragment=True))
 
 
 def test_add_fragment_with_event_lane(sch, sch_authoring_sdc_id):
@@ -269,8 +271,8 @@ def test_add_fragment_with_event_lane(sch, sch_authoring_sdc_id):
             if stage['uiInfo']['label'] == 'Dev Data Generator 1' and stage['eventLanes']:
                 assert '{}_EventLane'.format(stage['instanceName']) == stage['eventLanes'][0]
     finally:
-        sch.delete_pipeline(sch.pipelines.get(pipeline_id=pipeline.pipeline_id))
-        sch.delete_pipeline(sch.pipelines.get(pipeline_id=fragment.pipeline_id))
+        sch.delete_pipeline(sch.pipelines.get(id=pipeline.id))
+        sch.delete_pipeline(sch.pipelines.get(id=fragment.id))
 
 
 @pytest.fixture(scope='module')

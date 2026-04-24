@@ -1,4 +1,6 @@
-# Copyright 2021 StreamSets Inc.
+#  IBM Confidential
+#  PID 5900-BAF
+#  Copyright StreamSets Inc., an IBM Company 2024
 
 """Abstractions for interacting with StreamSets Transformer."""
 
@@ -16,7 +18,7 @@ from urllib.parse import urlparse
 import requests
 
 from . import st_api, st_models
-from .constants import ENGINE_AUTHENTICATION_METHOD_FORM
+from .constants import ENGINE_AUTHENTICATION_METHOD_FORM, SNOWPARK, TRANSFORMER
 from .exceptions import ValidationError
 from .utils import SeekableList
 
@@ -68,6 +70,7 @@ class Transformer:
         authentication_method=ENGINE_AUTHENTICATION_METHOD_FORM,
         control_hub=None,
         dump_log_on_error=False,
+        engine_type=TRANSFORMER,
         **kwargs
     ):
         self.server_url = server_url
@@ -76,6 +79,7 @@ class Transformer:
         self.aster_server_url = aster_server_url
         self.control_hub = control_hub
         self.dump_log_on_error = dump_log_on_error
+        self.engine_type = engine_type
 
         if self.server_url:
             sch_headers = (
@@ -568,12 +572,36 @@ class Transformer:
             )
 
     @property
-    def transformer_configuration(self):
-        """Return all configurations for StreamSets Transformer.
+    def streamflake_configuration(self):
+        """Return all configurations for StreamSets Transformer for Snowflake.
         Returns:
             A :obj:`dict` with property names as keys and property values as values.
         """
-        return self.api_client.get_transformer_configuration().response.json()
+        if self.engine_type != SNOWPARK:
+            logger.warning(
+                'The transformer_configuration can only be accessed by engines with EngineType SNOWPARK,'
+                ' however this engine has EngineType %s',
+                self.engine_type,
+            )
+            return None
+        else:
+            return self.api_client.get_transformer_configuration().response.json()
+
+    @property
+    def transformer_configuration(self):
+        """Return all configurations for StreamSets Transformer for Spark.
+        Returns:
+            A :obj:`dict` with property names as keys and property values as values.
+        """
+        if self.engine_type != TRANSFORMER:
+            logger.warning(
+                'The transformer_configuration can only be accessed by engines with EngineType TRANSFORMER,'
+                ' however this engine has EngineType %s',
+                self.engine_type,
+            )
+            return None
+        else:
+            return self.api_client.get_transformer_configuration().response.json()
 
     @property
     def id(self):

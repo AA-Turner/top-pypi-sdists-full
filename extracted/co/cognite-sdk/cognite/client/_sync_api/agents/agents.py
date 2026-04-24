@@ -1,6 +1,6 @@
 """
 ===============================================================================
-bfc6535f11bf8b175836aebca409eb8b
+178ce7222985b04d03174af7b7e0f525
 This file is auto-generated from the Async API modules, - do not edit manually!
 ===============================================================================
 """
@@ -35,7 +35,7 @@ class SyncAgentsAPI(SyncAPIClient):
 
     def upsert(self, agents: AgentUpsert | Sequence[AgentUpsert]) -> Agent | AgentList:
         """
-        `Create or update (upsert) one or more agents. <https://api-docs.cognite.com/20230101-beta/tag/Agents/operation/main_ai_agents_post/>`_
+        `Create or update (upsert) one or more agents <https://api-docs.cognite.com/20230101-beta/tag/Agents/operation/main_ai_agents_post/>`_.
 
         Args:
             agents (AgentUpsert | Sequence[AgentUpsert]): Agent or list of agents to create or update.
@@ -75,7 +75,39 @@ class SyncAgentsAPI(SyncAPIClient):
                 ...     labels=["published"],
                 ...     tools=[find_assets_tool],
                 ... )
-                >>> client.agents.upsert(agents=[agent])
+                >>> client.agents.upsert(agent)
+
+            Create an agent with the query tool:
+
+                >>> from cognite.client.data_classes.agents import (
+                ...     AgentUpsert,
+                ...     QueryAgentToolUpsert,
+                ...     QueryAgentToolConfiguration,
+                ...     DataModelInfo,
+                ...     InstanceSpaces,
+                ... )
+                >>> query_tool = QueryAgentToolUpsert(
+                ...     name="explore data",
+                ...     description="Run flexible queries against your data model",
+                ...     configuration=QueryAgentToolConfiguration(
+                ...         data_models=[
+                ...             DataModelInfo(
+                ...                 space="cdf_idm",
+                ...                 external_id="CogniteProcessIndustries",
+                ...                 version="v1",
+                ...             )
+                ...         ],
+                ...         instance_spaces=InstanceSpaces(type="all"),
+                ...     ),
+                ... )
+                >>> agent = AgentUpsert(
+                ...     external_id="my_agent",
+                ...     name="My Agent",
+                ...     labels=["published"],
+                ...     runtime_version="1.1.2-preview",
+                ...     tools=[query_tool],
+                ... )
+                >>> client.agents.upsert(agent)
 
             Create an agent with multiple different tools:
 
@@ -157,7 +189,7 @@ class SyncAgentsAPI(SyncAPIClient):
                 ...         ts_tool,
                 ...     ],
                 ... )
-                >>> client.agents.upsert(agents=[agent])
+                >>> client.agents.upsert(agent)
         """
         return run_sync(self.__async_client.agents.upsert(agents=agents))
 
@@ -171,7 +203,7 @@ class SyncAgentsAPI(SyncAPIClient):
         self, external_ids: str | SequenceNotStr[str], ignore_unknown_ids: bool = False
     ) -> Agent | AgentList | None:
         """
-        `Retrieve one or more agents by external ID. <https://api-docs.cognite.com/20230101-beta/tag/Agents/operation/get_agents_by_ids_ai_agents_byids_post/>`_
+        `Retrieve one or more agents by external ID <https://api-docs.cognite.com/20230101-beta/tag/Agents/operation/get_agents_by_ids_ai_agents_byids_post/>`_.
 
         Args:
             external_ids (str | SequenceNotStr[str]): The external id of the agent(s) to retrieve.
@@ -199,7 +231,7 @@ class SyncAgentsAPI(SyncAPIClient):
 
     def delete(self, external_ids: str | SequenceNotStr[str], ignore_unknown_ids: bool = False) -> None:
         """
-        `Delete one or more agents. <https://api-docs.cognite.com/20230101-beta/tag/Agents/operation/agent_delete_ai_agents_delete_post/>`_
+        `Delete one or more agents <https://api-docs.cognite.com/20230101-beta/tag/Agents/operation/agent_delete_ai_agents_delete_post/>`_.
 
         Args:
             external_ids (str | SequenceNotStr[str]): External ID of the agent or a list of external ids.
@@ -220,7 +252,7 @@ class SyncAgentsAPI(SyncAPIClient):
 
     def list(self) -> AgentList:
         """
-        `List agents. <https://api-docs.cognite.com/20230101-beta/tag/Agents/operation/agent_list_ai_agents_get/>`_
+        `List agents <https://api-docs.cognite.com/20230101-beta/tag/Agents/operation/agent_list_ai_agents_get/>`_.
 
         Returns:
             AgentList: The list of agents.
@@ -244,7 +276,7 @@ class SyncAgentsAPI(SyncAPIClient):
         actions: Sequence[Action] | None = None,
     ) -> AgentChatResponse:
         """
-        `Chat with an agent. <https://api-docs.cognite.com/20230101-beta/tag/Agents/operation/agent_session_ai_agents_chat_post/>`_
+        `Chat with an agent <https://api-docs.cognite.com/20230101-beta/tag/Agents/operation/agent_session_ai_agents_chat_post/>`_.
 
         Given a user query, the Atlas AI agent responds by reasoning and using the tools associated with it.
         Users can ensure conversation continuity by including the cursor from the previous response in subsequent requests.

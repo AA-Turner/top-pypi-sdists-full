@@ -24,12 +24,15 @@ class NotificationDestinationArgs:
                  display_name: pulumi.Input[_builtins.str],
                  config: Optional[pulumi.Input['NotificationDestinationConfigArgs']] = None,
                  destination_type: Optional[pulumi.Input[_builtins.str]] = None,
+                 notification_destination_id: Optional[pulumi.Input[_builtins.str]] = None,
                  provider_config: Optional[pulumi.Input['NotificationDestinationProviderConfigArgs']] = None):
         """
         The set of arguments for constructing a NotificationDestination resource.
+
         :param pulumi.Input[_builtins.str] display_name: The display name of the Notification Destination.
         :param pulumi.Input['NotificationDestinationConfigArgs'] config: The configuration of the Notification Destination. It must contain exactly one of the following blocks:
         :param pulumi.Input[_builtins.str] destination_type: the type of Notification Destination.
+        :param pulumi.Input[_builtins.str] notification_destination_id: The unique ID of the Notification Destination.
         :param pulumi.Input['NotificationDestinationProviderConfigArgs'] provider_config: Configure the provider for management through account provider. This block consists of the following fields:
         """
         pulumi.set(__self__, "display_name", display_name)
@@ -37,6 +40,8 @@ class NotificationDestinationArgs:
             pulumi.set(__self__, "config", config)
         if destination_type is not None:
             pulumi.set(__self__, "destination_type", destination_type)
+        if notification_destination_id is not None:
+            pulumi.set(__self__, "notification_destination_id", notification_destination_id)
         if provider_config is not None:
             pulumi.set(__self__, "provider_config", provider_config)
 
@@ -77,6 +82,18 @@ class NotificationDestinationArgs:
         pulumi.set(self, "destination_type", value)
 
     @_builtins.property
+    @pulumi.getter(name="notificationDestinationId")
+    def notification_destination_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        The unique ID of the Notification Destination.
+        """
+        return pulumi.get(self, "notification_destination_id")
+
+    @notification_destination_id.setter
+    def notification_destination_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "notification_destination_id", value)
+
+    @_builtins.property
     @pulumi.getter(name="providerConfig")
     def provider_config(self) -> Optional[pulumi.Input['NotificationDestinationProviderConfigArgs']]:
         """
@@ -95,12 +112,15 @@ class _NotificationDestinationState:
                  config: Optional[pulumi.Input['NotificationDestinationConfigArgs']] = None,
                  destination_type: Optional[pulumi.Input[_builtins.str]] = None,
                  display_name: Optional[pulumi.Input[_builtins.str]] = None,
+                 notification_destination_id: Optional[pulumi.Input[_builtins.str]] = None,
                  provider_config: Optional[pulumi.Input['NotificationDestinationProviderConfigArgs']] = None):
         """
         Input properties used for looking up and filtering NotificationDestination resources.
+
         :param pulumi.Input['NotificationDestinationConfigArgs'] config: The configuration of the Notification Destination. It must contain exactly one of the following blocks:
         :param pulumi.Input[_builtins.str] destination_type: the type of Notification Destination.
         :param pulumi.Input[_builtins.str] display_name: The display name of the Notification Destination.
+        :param pulumi.Input[_builtins.str] notification_destination_id: The unique ID of the Notification Destination.
         :param pulumi.Input['NotificationDestinationProviderConfigArgs'] provider_config: Configure the provider for management through account provider. This block consists of the following fields:
         """
         if config is not None:
@@ -109,6 +129,8 @@ class _NotificationDestinationState:
             pulumi.set(__self__, "destination_type", destination_type)
         if display_name is not None:
             pulumi.set(__self__, "display_name", display_name)
+        if notification_destination_id is not None:
+            pulumi.set(__self__, "notification_destination_id", notification_destination_id)
         if provider_config is not None:
             pulumi.set(__self__, "provider_config", provider_config)
 
@@ -149,6 +171,18 @@ class _NotificationDestinationState:
         pulumi.set(self, "display_name", value)
 
     @_builtins.property
+    @pulumi.getter(name="notificationDestinationId")
+    def notification_destination_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        The unique ID of the Notification Destination.
+        """
+        return pulumi.get(self, "notification_destination_id")
+
+    @notification_destination_id.setter
+    def notification_destination_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "notification_destination_id", value)
+
+    @_builtins.property
     @pulumi.getter(name="providerConfig")
     def provider_config(self) -> Optional[pulumi.Input['NotificationDestinationProviderConfigArgs']]:
         """
@@ -170,6 +204,7 @@ class NotificationDestination(pulumi.CustomResource):
                  config: Optional[pulumi.Input[Union['NotificationDestinationConfigArgs', 'NotificationDestinationConfigArgsDict']]] = None,
                  destination_type: Optional[pulumi.Input[_builtins.str]] = None,
                  display_name: Optional[pulumi.Input[_builtins.str]] = None,
+                 notification_destination_id: Optional[pulumi.Input[_builtins.str]] = None,
                  provider_config: Optional[pulumi.Input[Union['NotificationDestinationProviderConfigArgs', 'NotificationDestinationProviderConfigArgsDict']]] = None,
                  __props__=None):
         """
@@ -252,11 +287,13 @@ class NotificationDestination(pulumi.CustomResource):
             })
         ```
 
+
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[Union['NotificationDestinationConfigArgs', 'NotificationDestinationConfigArgsDict']] config: The configuration of the Notification Destination. It must contain exactly one of the following blocks:
         :param pulumi.Input[_builtins.str] destination_type: the type of Notification Destination.
         :param pulumi.Input[_builtins.str] display_name: The display name of the Notification Destination.
+        :param pulumi.Input[_builtins.str] notification_destination_id: The unique ID of the Notification Destination.
         :param pulumi.Input[Union['NotificationDestinationProviderConfigArgs', 'NotificationDestinationProviderConfigArgsDict']] provider_config: Configure the provider for management through account provider. This block consists of the following fields:
         """
         ...
@@ -345,6 +382,7 @@ class NotificationDestination(pulumi.CustomResource):
             })
         ```
 
+
         :param str resource_name: The name of the resource.
         :param NotificationDestinationArgs args: The arguments to use to populate this resource's properties.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -363,6 +401,7 @@ class NotificationDestination(pulumi.CustomResource):
                  config: Optional[pulumi.Input[Union['NotificationDestinationConfigArgs', 'NotificationDestinationConfigArgsDict']]] = None,
                  destination_type: Optional[pulumi.Input[_builtins.str]] = None,
                  display_name: Optional[pulumi.Input[_builtins.str]] = None,
+                 notification_destination_id: Optional[pulumi.Input[_builtins.str]] = None,
                  provider_config: Optional[pulumi.Input[Union['NotificationDestinationProviderConfigArgs', 'NotificationDestinationProviderConfigArgsDict']]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
@@ -378,6 +417,7 @@ class NotificationDestination(pulumi.CustomResource):
             if display_name is None and not opts.urn:
                 raise TypeError("Missing required property 'display_name'")
             __props__.__dict__["display_name"] = display_name
+            __props__.__dict__["notification_destination_id"] = notification_destination_id
             __props__.__dict__["provider_config"] = provider_config
         super(NotificationDestination, __self__).__init__(
             'databricks:index/notificationDestination:NotificationDestination',
@@ -392,6 +432,7 @@ class NotificationDestination(pulumi.CustomResource):
             config: Optional[pulumi.Input[Union['NotificationDestinationConfigArgs', 'NotificationDestinationConfigArgsDict']]] = None,
             destination_type: Optional[pulumi.Input[_builtins.str]] = None,
             display_name: Optional[pulumi.Input[_builtins.str]] = None,
+            notification_destination_id: Optional[pulumi.Input[_builtins.str]] = None,
             provider_config: Optional[pulumi.Input[Union['NotificationDestinationProviderConfigArgs', 'NotificationDestinationProviderConfigArgsDict']]] = None) -> 'NotificationDestination':
         """
         Get an existing NotificationDestination resource's state with the given name, id, and optional extra
@@ -403,6 +444,7 @@ class NotificationDestination(pulumi.CustomResource):
         :param pulumi.Input[Union['NotificationDestinationConfigArgs', 'NotificationDestinationConfigArgsDict']] config: The configuration of the Notification Destination. It must contain exactly one of the following blocks:
         :param pulumi.Input[_builtins.str] destination_type: the type of Notification Destination.
         :param pulumi.Input[_builtins.str] display_name: The display name of the Notification Destination.
+        :param pulumi.Input[_builtins.str] notification_destination_id: The unique ID of the Notification Destination.
         :param pulumi.Input[Union['NotificationDestinationProviderConfigArgs', 'NotificationDestinationProviderConfigArgsDict']] provider_config: Configure the provider for management through account provider. This block consists of the following fields:
         """
         opts = pulumi.ResourceOptions.merge(opts, pulumi.ResourceOptions(id=id))
@@ -412,6 +454,7 @@ class NotificationDestination(pulumi.CustomResource):
         __props__.__dict__["config"] = config
         __props__.__dict__["destination_type"] = destination_type
         __props__.__dict__["display_name"] = display_name
+        __props__.__dict__["notification_destination_id"] = notification_destination_id
         __props__.__dict__["provider_config"] = provider_config
         return NotificationDestination(resource_name, opts=opts, __props__=__props__)
 
@@ -438,6 +481,14 @@ class NotificationDestination(pulumi.CustomResource):
         The display name of the Notification Destination.
         """
         return pulumi.get(self, "display_name")
+
+    @_builtins.property
+    @pulumi.getter(name="notificationDestinationId")
+    def notification_destination_id(self) -> pulumi.Output[_builtins.str]:
+        """
+        The unique ID of the Notification Destination.
+        """
+        return pulumi.get(self, "notification_destination_id")
 
     @_builtins.property
     @pulumi.getter(name="providerConfig")

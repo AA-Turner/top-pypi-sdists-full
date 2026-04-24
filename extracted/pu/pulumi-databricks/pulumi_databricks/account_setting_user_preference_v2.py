@@ -27,6 +27,7 @@ class AccountSettingUserPreferenceV2Args:
                  user_id: Optional[pulumi.Input[_builtins.str]] = None):
         """
         The set of arguments for constructing a AccountSettingUserPreferenceV2 resource.
+
         :param pulumi.Input[_builtins.str] name: Name of the setting
         :param pulumi.Input[_builtins.str] user_id: User ID of the user
         """
@@ -93,6 +94,7 @@ class _AccountSettingUserPreferenceV2State:
                  user_id: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering AccountSettingUserPreferenceV2 resources.
+
         :param pulumi.Input['AccountSettingUserPreferenceV2EffectiveBooleanValArgs'] effective_boolean_val: (BooleanMessage)
         :param pulumi.Input['AccountSettingUserPreferenceV2EffectiveStringValArgs'] effective_string_val: (StringMessage)
         :param pulumi.Input[_builtins.str] name: Name of the setting
@@ -190,7 +192,7 @@ class AccountSettingUserPreferenceV2(pulumi.CustomResource):
                  user_id: Optional[pulumi.Input[_builtins.str]] = None,
                  __props__=None):
         """
-        [![Private Preview](https://img.shields.io/badge/Release_Stage-Private_Preview-blueviolet)](https://docs.databricks.com/aws/en/release-notes/release-types)
+        [![Public Beta](https://img.shields.io/badge/Release_Stage-Public_Beta-orange)](https://docs.databricks.com/aws/en/release-notes/release-types)
 
         User preference is a configurable value that determines how a feature or behavior works for a specific user within the Databricks platform.
 
@@ -204,7 +206,7 @@ class AccountSettingUserPreferenceV2(pulumi.CustomResource):
         import pulumi
         import pulumi_databricks as databricks
 
-        theme_setting = databricks.index.AccountUserSettingV2("theme_setting",
+        theme_setting = databricks.AccountUserSettingV2("theme_setting",
             user_id=<user-id>,
             name=enableDarkMode,
             string_val={
@@ -218,13 +220,14 @@ class AccountSettingUserPreferenceV2(pulumi.CustomResource):
         import pulumi
         import pulumi_databricks as databricks
 
-        enable_line_numbers = databricks.index.AccountUserSettingV2("enable_line_numbers",
+        enable_line_numbers = databricks.AccountUserSettingV2("enable_line_numbers",
             user_id=<user-id>,
             name=enableLineNumbers,
             boolean_val={
                 value: True,
             })
         ```
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -238,7 +241,7 @@ class AccountSettingUserPreferenceV2(pulumi.CustomResource):
                  args: Optional[AccountSettingUserPreferenceV2Args] = None,
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
-        [![Private Preview](https://img.shields.io/badge/Release_Stage-Private_Preview-blueviolet)](https://docs.databricks.com/aws/en/release-notes/release-types)
+        [![Public Beta](https://img.shields.io/badge/Release_Stage-Public_Beta-orange)](https://docs.databricks.com/aws/en/release-notes/release-types)
 
         User preference is a configurable value that determines how a feature or behavior works for a specific user within the Databricks platform.
 
@@ -252,7 +255,7 @@ class AccountSettingUserPreferenceV2(pulumi.CustomResource):
         import pulumi
         import pulumi_databricks as databricks
 
-        theme_setting = databricks.index.AccountUserSettingV2("theme_setting",
+        theme_setting = databricks.AccountUserSettingV2("theme_setting",
             user_id=<user-id>,
             name=enableDarkMode,
             string_val={
@@ -266,13 +269,14 @@ class AccountSettingUserPreferenceV2(pulumi.CustomResource):
         import pulumi
         import pulumi_databricks as databricks
 
-        enable_line_numbers = databricks.index.AccountUserSettingV2("enable_line_numbers",
+        enable_line_numbers = databricks.AccountUserSettingV2("enable_line_numbers",
             user_id=<user-id>,
             name=enableLineNumbers,
             boolean_val={
                 value: True,
             })
         ```
+
 
         :param str resource_name: The name of the resource.
         :param AccountSettingUserPreferenceV2Args args: The arguments to use to populate this resource's properties.

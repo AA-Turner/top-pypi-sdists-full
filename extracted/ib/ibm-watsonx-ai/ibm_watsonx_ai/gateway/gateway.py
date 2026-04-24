@@ -21,7 +21,7 @@ def _streaming_create(api_client: APIClient, url: str, request_json: dict) -> It
         method="POST",
         url=url,
         json=request_json,
-        headers=api_client._get_headers(),
+        headers=api_client._get_headers(include_container_id=True),
     )
 
     if hasattr(api_client.httpx_client, "post_stream"):
@@ -59,7 +59,7 @@ async def _streaming_acreate(
         method="POST",
         url=url,
         json=request_json,
-        headers=await api_client._aget_headers(),
+        headers=await api_client._aget_headers(include_container_id=True),
     )
 
     if hasattr(api_client.async_httpx_client, "post_stream"):
@@ -179,7 +179,7 @@ class Gateway(WMLResource):
 
                 response = self._client.httpx_client.post(
                     url=url,
-                    headers=self._client._get_headers(),
+                    headers=self._client._get_headers(include_container_id=True),
                     json=request_json,
                 )
 
@@ -240,7 +240,7 @@ class Gateway(WMLResource):
 
                 response = await self._client.async_httpx_client.post(
                     url=url,
-                    headers=await self._client._aget_headers(),
+                    headers=await self._client._aget_headers(include_container_id=True),
                     json=request_json,
                 )
 
@@ -312,7 +312,7 @@ class Gateway(WMLResource):
                 else:
                     response = self._client.httpx_client.post(
                         url=url,
-                        headers=self._client._get_headers(),
+                        headers=self._client._get_headers(include_container_id=True),
                         json=request_json,
                     )
 
@@ -375,7 +375,9 @@ class Gateway(WMLResource):
                 else:
                     response = await self._client.async_httpx_client.post(
                         url=url,
-                        headers=self._client._get_headers(),
+                        headers=await self._client._aget_headers(
+                            include_container_id=True
+                        ),
                         json=request_json,
                     )
 
@@ -408,7 +410,7 @@ class Gateway(WMLResource):
 
                 response = self._client.httpx_client.post(
                     self._client._href_definitions.get_gateway_embeddings_href(),
-                    headers=self._client._get_headers(),
+                    headers=self._client._get_headers(include_container_id=True),
                     json=request_json,
                 )
 
@@ -432,7 +434,7 @@ class Gateway(WMLResource):
 
                 response = await self._client.async_httpx_client.post(
                     self._client._href_definitions.get_gateway_embeddings_href(),
-                    headers=self._client._get_headers(),
+                    headers=await self._client._aget_headers(include_container_id=True),
                     json=request_json,
                 )
 

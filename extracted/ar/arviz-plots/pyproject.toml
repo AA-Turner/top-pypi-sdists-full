@@ -26,8 +26,8 @@ classifiers = [
 ]
 dynamic = ["version", "description"]
 dependencies = [
-  "arviz-base>=1.0,<1.1",
-  "arviz-stats[xarray]>=1.0,<1.1",
+  "arviz-base>=1.1,<1.2",
+  "arviz-stats[xarray]>=1.1,<1.2",
 ]
 
 [tool.flit.module]
@@ -111,7 +111,7 @@ disallow_untyped_defs = true
 # module = "thirdparty.*"
 # ignore_missing_imports = true
 
-[tool.pytest]
+[tool.pytest.ini_options]
 filterwarnings = ["error"]
 addopts = ["--strict-markers", "--durations=10"]
 markers = ["matplotlib", "bokeh", "plotly"]

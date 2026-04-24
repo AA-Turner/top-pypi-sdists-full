@@ -1,5 +1,5 @@
+import json
 import sys
-from collections.abc import Iterable, Sized
 
 # Python 3.10+ has types.UnionType for `int | None` syntax.
 # On older versions, _is_union_type() always returns False.
@@ -295,6 +295,26 @@ def coerce_value(value: object, schema: dict) -> object:
         if lower in ("false", "0", "no"):
             return False
 
+    if t == "array" and isinstance(value, str):
+        stripped = value.strip()
+        if stripped.startswith("[") and stripped.endswith("]"):
+            try:
+                parsed = json.loads(stripped)
+            except ValueError:
+                return value
+            if isinstance(parsed, list):
+                return parsed
+
+    if t == "object" and isinstance(value, str):
+        stripped = value.strip()
+        if stripped.startswith("{") and stripped.endswith("}"):
+            try:
+                parsed = json.loads(stripped)
+            except ValueError:
+                return value
+            if isinstance(parsed, dict):
+                return parsed
+
     return value
 
 
@@ -326,8 +346,9 @@ def validate_type(value: object, schema: dict) -> bool:
         return value is None
     elif t == "array":
         items = schema.get("items", {"type": "string"})
-        # Ensure value is Sized and Iterable before using len() or iterating
-        if not (isinstance(value, Sized) and isinstance(value, Iterable)):
+        # Only accept actual sequence types. str and bytes are Sized+Iterable but
+        # must not be treated as arrays
+        if not isinstance(value, (list, tuple)):
             return False
         # Handle tuple validation (items is a list of schemas)
         if isinstance(items, list):

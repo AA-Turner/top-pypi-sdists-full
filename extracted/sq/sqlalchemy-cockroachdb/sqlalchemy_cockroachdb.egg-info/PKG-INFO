@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sqlalchemy-cockroachdb
-Version: 2.0.3
+Version: 2.0.4
 Summary: CockroachDB dialect for SQLAlchemy
 Home-page: https://github.com/cockroachdb/sqlalchemy-cockroachdb
 Author: Cockroach Labs
@@ -13,13 +13,14 @@ Keywords: SQLAlchemy CockroachDB
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: SQLAlchemy
+Requires-Dist: SQLAlchemy<2.1,>=2.0.47
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -63,7 +64,7 @@ For more details on working with asyncpg, see
 
 ### psycopg
 
-For psycopg version 3 support (⚠️ experimental 🏗), you'll need to install
+For psycopg version 3 support, you'll need to install
 
 * [psycopg](https://pypi.org/project/psycopg/)
 
@@ -83,12 +84,12 @@ Use `pip` to install the latest release of this dialect.
 pip install sqlalchemy-cockroachdb
 ```
 
-NOTE: This version of the dialect requires SQLAlchemy 2.0 or later. To work with
+NOTE: This version of the dialect requires SQLAlchemy 2.0.x. To work with
 earlier versions of SQLAlchemy you'll need to install an earlier version of this
 dialect.
 
 ```
-pip install sqlalchemy-cockroachdb<2.0.0
+pip install "sqlalchemy-cockroachdb<2.0"
 ```
 
 Use a `cockroachdb` connection string when creating the `Engine`. For example,
@@ -120,7 +121,7 @@ from sqlalchemy import create_engine
 engine = create_engine('cockroachdb+psycopg://root@localhost:26257/defaultdb')
 ```
 
-To connect using psycopg for async operation (⚠️ experimental 🏗), see
+To connect using psycopg for async operation, see
 [README.psycopg.md](README.psycopg.md)
 
 

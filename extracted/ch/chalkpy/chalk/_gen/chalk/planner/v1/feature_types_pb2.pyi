@@ -497,6 +497,7 @@ class MaterializationWindowConfigParsed(_message.Message):
         "aggregation_kwarg_values",
         "bucket_feature",
         "approximate_offline_query",
+        "aggregate_on_features",
     )
     BASE_FIELD_NUMBER: _ClassVar[int]
     GROUP_BY_FIELD_NUMBER: _ClassVar[int]
@@ -505,6 +506,7 @@ class MaterializationWindowConfigParsed(_message.Message):
     AGGREGATION_KWARG_VALUES_FIELD_NUMBER: _ClassVar[int]
     BUCKET_FEATURE_FIELD_NUMBER: _ClassVar[int]
     APPROXIMATE_OFFLINE_QUERY_FIELD_NUMBER: _ClassVar[int]
+    AGGREGATE_ON_FEATURES_FIELD_NUMBER: _ClassVar[int]
     base: _graph_pb2.WindowAggregation
     group_by: _containers.RepeatedCompositeFieldContainer[FeatureReferenceIdV2]
     aggregate_on: FeatureReferenceIdV2
@@ -512,6 +514,7 @@ class MaterializationWindowConfigParsed(_message.Message):
     aggregation_kwarg_values: _containers.RepeatedCompositeFieldContainer[_expression_pb2.LogicalExprNode]
     bucket_feature: FeatureReferenceIdV2
     approximate_offline_query: bool
+    aggregate_on_features: _containers.RepeatedCompositeFieldContainer[FeatureReferenceIdV2]
     def __init__(
         self,
         base: _Optional[_Union[_graph_pb2.WindowAggregation, _Mapping]] = ...,
@@ -521,6 +524,7 @@ class MaterializationWindowConfigParsed(_message.Message):
         aggregation_kwarg_values: _Optional[_Iterable[_Union[_expression_pb2.LogicalExprNode, _Mapping]]] = ...,
         bucket_feature: _Optional[_Union[FeatureReferenceIdV2, _Mapping]] = ...,
         approximate_offline_query: bool = ...,
+        aggregate_on_features: _Optional[_Iterable[_Union[FeatureReferenceIdV2, _Mapping]]] = ...,
     ) -> None: ...
 
 class UnderscoreMaterializedStateOperation(_message.Message):

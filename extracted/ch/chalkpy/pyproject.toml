@@ -14,12 +14,13 @@ readme = "README.md"
 classifiers = [
     # Trove classifiers
     # Full list: https://pypi.python.org/pypi?%3Aaction=list_classifiers
+    "Programming Language :: Python",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
-    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.14",
     "Typing :: Typed",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "Topic :: Scientific/Engineering :: Information Analysis",
@@ -30,7 +31,6 @@ classifiers = [
 dynamic = ["version"]
 
 dependencies = [
-    "attrs>=21.3.0", # first version with `import attrs`
     "dataclasses_json>=0.5.7",
     "executing>=1.2.0,<3",
     "googleapis-common-protos>=1.56.0",
@@ -39,7 +39,6 @@ dependencies = [
     "isodate>=0.6.1,<0.8",
     "numpy<3",
     "orjson",
-    "pandas>=1.5.1,<3", # required for client.offline_query
     "protobuf>=4.25,<8",
     "pyarrow>=16.1.0",
     "pydantic>=1.0.0,<3",
@@ -48,8 +47,6 @@ dependencies = [
     "pyyaml>=6.0,<7",
     "requests>=2.31,<2.33.0",
     "rich>=13.3.5",
-    "tenacity",
-    "tqdm",
     "typing_extensions>=4.0.0",
 ]
 
@@ -59,8 +56,8 @@ base = []
 dev = [
     "boto3-stubs[s3]",
     "grpc-stubs",
-    "pendulum",
-    "pre-commit",
+    "pandas>=1.5.1,<3",
+    "prek",
     "pytest-asyncio>=0.24.0",
     "pytest-env",
     "pytest-timeout",

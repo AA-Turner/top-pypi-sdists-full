@@ -22,12 +22,23 @@ class OnlineStoreInsightServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_online__store__insight__pb2.GetOnlineStoreConfigRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_online__store__insight__pb2.GetOnlineStoreConfigResponse.FromString,
         )
+        self.GetOnlineStoreUsageStats = channel.unary_unary(
+            "/chalk.server.v1.OnlineStoreInsightService/GetOnlineStoreUsageStats",
+            request_serializer=chalk_dot_server_dot_v1_dot_online__store__insight__pb2.GetOnlineStoreUsageStatsRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_online__store__insight__pb2.GetOnlineStoreUsageStatsResponse.FromString,
+        )
 
 
 class OnlineStoreInsightServiceServicer(object):
     """Missing associated documentation comment in .proto file."""
 
     def GetOnlineStoreConfig(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetOnlineStoreUsageStats(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
@@ -40,6 +51,11 @@ def add_OnlineStoreInsightServiceServicer_to_server(servicer, server):
             servicer.GetOnlineStoreConfig,
             request_deserializer=chalk_dot_server_dot_v1_dot_online__store__insight__pb2.GetOnlineStoreConfigRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_online__store__insight__pb2.GetOnlineStoreConfigResponse.SerializeToString,
+        ),
+        "GetOnlineStoreUsageStats": grpc.unary_unary_rpc_method_handler(
+            servicer.GetOnlineStoreUsageStats,
+            request_deserializer=chalk_dot_server_dot_v1_dot_online__store__insight__pb2.GetOnlineStoreUsageStatsRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_online__store__insight__pb2.GetOnlineStoreUsageStatsResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -71,6 +87,35 @@ class OnlineStoreInsightService(object):
             "/chalk.server.v1.OnlineStoreInsightService/GetOnlineStoreConfig",
             chalk_dot_server_dot_v1_dot_online__store__insight__pb2.GetOnlineStoreConfigRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_online__store__insight__pb2.GetOnlineStoreConfigResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetOnlineStoreUsageStats(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.OnlineStoreInsightService/GetOnlineStoreUsageStats",
+            chalk_dot_server_dot_v1_dot_online__store__insight__pb2.GetOnlineStoreUsageStatsRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_online__store__insight__pb2.GetOnlineStoreUsageStatsResponse.FromString,
             options,
             channel_credentials,
             insecure,

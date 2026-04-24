@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: striprtf
-Version: 0.0.29
+Version: 0.0.31
 Summary: A simple library to convert rtf to text
 Project-URL: Homepage, https://github.com/joshy/striprtf
 Project-URL: Repository, https://github.com/joshy/striprtf.git
@@ -14,6 +14,7 @@ Requires-Python: >=3.8
 Provides-Extra: dev
 Requires-Dist: build>=1.0.0; extra == 'dev'
 Requires-Dist: pytest>=7.0.0; extra == 'dev'
+Requires-Dist: twine>=6.1.0; extra == 'dev'
 Description-Content-Type: text/markdown
 
 # striprtf

@@ -27,6 +27,7 @@ from typing import Any
 
 from anteroom.cli.repl import (
     _compute_fixed_request_overhead,
+    _estimate_current_request,
     _estimate_full_request_with_pending_user,
     _FixedRequestOverhead,
 )
@@ -190,3 +191,67 @@ class TestFullRequestWithPendingUser:
         assert large.message_tokens > small.message_tokens + 1000
         # Fixed overhead is the same in both.
         assert small.system_prompt_tokens == large.system_prompt_tokens == 500
+
+
+class TestCurrentRequestEstimate:
+    def test_total_includes_messages_cached_overhead_and_extra(self, monkeypatch: Any) -> None:
+        """Current-history estimates must include the same fixed overhead.
+
+        Unlike the pre-send helper, this path must use the existing message
+        list unchanged so the visible CLI context meter reflects the active
+        history rather than a hypothetical pending turn.
+        """
+        captured_msgs: dict[str, Any] = {}
+
+        def fake_count_messages(messages: list[dict[str, Any]]) -> int:
+            captured_msgs["messages"] = list(messages)
+            return 80
+
+        def fake_count_text(text: str) -> int:
+            return len(text)
+
+        monkeypatch.setattr(
+            "anteroom.services.token_estimator.count_message_tokens",
+            fake_count_messages,
+        )
+        monkeypatch.setattr(
+            "anteroom.services.token_estimator.count_text_tokens",
+            fake_count_text,
+        )
+
+        history = [
+            {"role": "user", "content": "hi"},
+            {"role": "assistant", "content": "hello"},
+        ]
+        overhead = _FixedRequestOverhead(system_prompt_tokens=500, tool_schema_tokens=50)
+
+        breakdown = _estimate_current_request(
+            ai_messages=history,
+            extra_system_prompt="EXTRA",
+            fixed_overhead=overhead,
+        )
+
+        assert captured_msgs["messages"] == history
+        assert breakdown.message_tokens == 80
+        assert breakdown.system_prompt_tokens == 509
+        assert breakdown.tool_schema_tokens == 50
+        assert breakdown.total == 639
+
+    def test_does_not_mutate_input(self, monkeypatch: Any) -> None:
+        monkeypatch.setattr(
+            "anteroom.services.token_estimator.count_message_tokens",
+            lambda messages: 0,
+        )
+        monkeypatch.setattr(
+            "anteroom.services.token_estimator.count_text_tokens",
+            lambda text: 0,
+        )
+
+        history = [{"role": "user", "content": "hello"}]
+        overhead = _FixedRequestOverhead(system_prompt_tokens=0, tool_schema_tokens=0)
+        _estimate_current_request(
+            ai_messages=history,
+            extra_system_prompt="",
+            fixed_overhead=overhead,
+        )
+        assert history == [{"role": "user", "content": "hello"}]

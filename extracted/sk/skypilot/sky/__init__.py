@@ -7,7 +7,7 @@ import urllib.request
 from sky.utils import directory_utils
 
 # Replaced with the current commit when building the wheels.
-_SKYPILOT_COMMIT_SHA = '84a86be96212ffd1bc7e510da4e11e324154fba6'
+_SKYPILOT_COMMIT_SHA = 'a51f452063af17827ada3bb6f8278e244af32df1'
 
 
 def _get_git_commit():
@@ -37,7 +37,7 @@ def _get_git_commit():
 
 
 __commit__ = _get_git_commit()
-__version__ = '0.12.0'
+__version__ = '0.12.1'
 __root_dir__ = directory_utils.get_sky_dir()
 
 
@@ -98,7 +98,9 @@ from sky.client.sdk import api_stop
 from sky.client.sdk import autostop
 from sky.client.sdk import cancel
 from sky.client.sdk import cost_report
+from sky.client.sdk import create_debug_dump
 from sky.client.sdk import down
+from sky.client.sdk import download_debug_dump
 from sky.client.sdk import download_logs
 from sky.client.sdk import endpoints
 from sky.client.sdk import exec  # pylint: disable=redefined-builtin
@@ -237,6 +239,9 @@ __all__ = [
     'api_start',
     'api_stop',
     'api_server_logs',
+    # Debug Dump
+    'create_debug_dump',
+    'download_debug_dump',
     # Admin Policy
     'UserRequest',
     'MutatedUserRequest',

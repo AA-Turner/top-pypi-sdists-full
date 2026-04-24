@@ -185,6 +185,76 @@ def _multiline_typeahead_script() -> str:
     """)
 
 
+def _tool_registry_busy_script() -> str:
+    """Drive the real ToolRegistry.call_tool path during prompt_async()."""
+    return textwrap.dedent("""\
+        import asyncio, os, sys, tempfile, time
+        from prompt_toolkit.patch_stdout import patch_stdout
+        from prompt_toolkit import PromptSession
+        from anteroom.tools import ToolRegistry, register_default_tools
+        from anteroom.tools import glob_tool
+
+        _raw_stderr = os.fdopen(os.dup(sys.stderr.fileno()), "w", newline="")
+
+        def raw_print(text):
+            _raw_stderr.write(text + "\\n")
+            _raw_stderr.flush()
+
+        def _bottom_toolbar():
+            return [("class:bottom-toolbar", " busy ")]
+
+        async def main():
+            with tempfile.TemporaryDirectory() as tmpdir:
+                open(os.path.join(tmpdir, "a.txt"), "w").write("hello\\n")
+                open(os.path.join(tmpdir, "b.txt"), "w").write("world\\n")
+
+                original = glob_tool._glob_matches
+
+                def slow_glob(base, pattern):
+                    time.sleep(1.5)
+                    return original(base, pattern)
+
+                glob_tool._glob_matches = slow_glob
+                registry = ToolRegistry()
+                register_default_tools(registry, working_dir=tmpdir)
+
+                with patch_stdout(raw=True):
+                    session = PromptSession(bottom_toolbar=_bottom_toolbar)
+
+                    async def prompt_task():
+                        try:
+                            result = await session.prompt_async("> ")
+                            raw_print(f"PTY_INPUT: {result}")
+                        except KeyboardInterrupt:
+                            raw_print("PTY_INPUT: KEYBOARD_INTERRUPT")
+                        except EOFError:
+                            raw_print("PTY_INPUT: EOF")
+
+                    async def tool_task():
+                        result = await registry.call_tool("glob_files", {"pattern": "**/*"})
+                        raw_print(f"TOOL_DONE: {result.get('count', -1)}")
+
+                    prompt = asyncio.create_task(prompt_task())
+                    await asyncio.sleep(0.2)
+                    tool = asyncio.create_task(tool_task())
+                    raw_print("PTY_READY")
+
+                    try:
+                        await asyncio.wait_for(prompt, timeout=10.0)
+                    except asyncio.TimeoutError:
+                        raw_print("PTY_INPUT: TIMEOUT")
+                        prompt.cancel()
+                        try:
+                            await prompt
+                        except asyncio.CancelledError:
+                            pass
+
+                    await tool
+
+        asyncio.run(main())
+    """)
+
+
 @pytest.mark.integration
 class TestReplBusyPty:
     """PTY tests for input stability under concurrent async invalidation (#1134).
@@ -237,6 +307,43 @@ class TestReplBusyPty:
                 "PTY_INPUT: add API coverage for failed workflow runs too",
                 timeout=10,
             )
+            child.expect(pexpect.EOF, timeout=5)
+        finally:
+            if child.isalive():
+                child.terminate(force=True)
+
+    def test_input_survives_real_tool_registry_call(self) -> None:
+        """Typed input should land before a slow built-in tool call finishes."""
+        child = pexpect.spawn(
+            _PYTHON,
+            ["-c", _tool_registry_busy_script()],
+            timeout=15,
+            encoding="utf-8",
+        )
+        try:
+            child.expect("PTY_READY", timeout=10)
+            child.sendline("queued while glob runs")
+            child.expect("PTY_INPUT: queued while glob runs", timeout=5)
+            child.expect(r"TOOL_DONE: (\d+)", timeout=10)
+            assert int(child.match.group(1)) >= 1
+            child.expect(pexpect.EOF, timeout=5)
+        finally:
+            if child.isalive():
+                child.terminate(force=True)
+
+    def test_ctrl_c_survives_real_tool_registry_call(self) -> None:
+        """Ctrl-C should still reach the prompt while a built-in tool runs."""
+        child = pexpect.spawn(
+            _PYTHON,
+            ["-c", _tool_registry_busy_script()],
+            timeout=15,
+            encoding="utf-8",
+        )
+        try:
+            child.expect("PTY_READY", timeout=10)
+            child.sendcontrol("c")
+            child.expect("PTY_INPUT: KEYBOARD_INTERRUPT", timeout=5)
+            child.expect(r"TOOL_DONE: (\d+)", timeout=10)
             child.expect(pexpect.EOF, timeout=5)
         finally:
             if child.isalive():

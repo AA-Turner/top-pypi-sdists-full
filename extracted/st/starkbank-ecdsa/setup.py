@@ -7,7 +7,7 @@ with open(path.join(path.dirname(__file__), "README.md")) as readme:
 
 
 setup(
-    name="starkbank-ecdsa",
+    name="starkbank_ecdsa",
     packages=find_packages(exclude=["tests"]),
     include_package_data=True,
     description="A lightweight and fast pure python ECDSA library",
@@ -18,17 +18,18 @@ setup(
     author="Stark Bank",
     author_email="developers@starkbank.com",
     keywords=["ecdsa", "elliptic curve", "elliptic", "curve", "stark bank", "starkbank", "cryptograph", "secp256k1", "prime256v1"],
-    version="2.2.0"
+    python_requires=">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*",
+    version="2.3.1"
 )
 
 
-### Create a source distribution:
+### Create a source distribution and a universal wheel:
 
-#Run ```python setup.py sdist``` inside the project directory.
+#Run ```python setup.py sdist bdist_wheel``` inside the project directory.
 
-### Install twine:
+### Install twine and wheel:
 
-#```pip install twine```
+#```pip install twine wheel```
 
 ### Upload package to pypi:
 

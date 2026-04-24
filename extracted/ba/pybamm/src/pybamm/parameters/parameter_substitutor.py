@@ -251,6 +251,7 @@ class ParameterSubstitutor:
             isinstance(symbol, pybamm.Function)
             or isinstance(symbol, pybamm.Concatenation)
             or isinstance(symbol, pybamm.BinaryOperator)
+            or isinstance(symbol, pybamm.Conditional)
         ):
             new_children = [self.process_symbol(child) for child in symbol.children]
             return symbol.create_copy(new_children)
@@ -430,9 +431,7 @@ class ParameterSubstitutor:
 
         # Find all InputParameters in the parameter values
         unpacker = pybamm.SymbolUnpacker(pybamm.InputParameter)
-        model.fixed_input_parameters = unpacker.unpack_list_of_symbols(
-            v for v in self._store.values() if isinstance(v, pybamm.Symbol)
-        )
+        model.fixed_input_parameters = unpacker.unpack_parameter_values(self._store)
 
         new_rhs = {}
         for variable, equation in unprocessed_model.rhs.items():

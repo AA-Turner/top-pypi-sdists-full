@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import datetime
 import json
+import typing
 from typing import TYPE_CHECKING
 from unittest import mock
 
@@ -260,29 +261,35 @@ async def test_stack_create(
 
     # First stack comment is created
     assert len(post_comment1_mock.calls) == 1
-    expected_body = """This pull request is part of a [Mergify stack](https://docs.mergify.com/stacks/):
-
-| # | Pull Request | Link | |
-|--:|---|---|---|
-| 1 | Title commit 1 | [#1](https://github.com/repo/user/pull/1) | 👈 |
-| 2 | Title commit 2 | [#2](https://github.com/repo/user/pull/2) |  |
-"""
-    assert json.loads(post_comment1_mock.calls.last.request.content) == {
-        "body": expected_body,
-    }
+    request_body1 = json.loads(post_comment1_mock.calls.last.request.content)["body"]
+    assert request_body1.startswith(
+        "This pull request is part of a [Mergify stack](https://docs.mergify.com/stacks/):\n",
+    )
+    assert (
+        "| 1 | Title commit 1 | [#1](https://github.com/repo/user/pull/1) | 👈 |"
+        in request_body1
+    )
+    assert (
+        "| 2 | Title commit 2 | [#2](https://github.com/repo/user/pull/2) |  |"
+        in request_body1
+    )
+    assert "<!-- mergify-stack-data: " in request_body1
 
     # Second stack comment is created
     assert len(post_comment2_mock.calls) == 1
-    expected_body = """This pull request is part of a [Mergify stack](https://docs.mergify.com/stacks/):
-
-| # | Pull Request | Link | |
-|--:|---|---|---|
-| 1 | Title commit 1 | [#1](https://github.com/repo/user/pull/1) |  |
-| 2 | Title commit 2 | [#2](https://github.com/repo/user/pull/2) | 👈 |
-"""
-    assert json.loads(post_comment2_mock.calls.last.request.content) == {
-        "body": expected_body,
-    }
+    request_body2 = json.loads(post_comment2_mock.calls.last.request.content)["body"]
+    assert request_body2.startswith(
+        "This pull request is part of a [Mergify stack](https://docs.mergify.com/stacks/):\n",
+    )
+    assert (
+        "| 1 | Title commit 1 | [#1](https://github.com/repo/user/pull/1) |  |"
+        in request_body2
+    )
+    assert (
+        "| 2 | Title commit 2 | [#2](https://github.com/repo/user/pull/2) | 👈 |"
+        in request_body2
+    )
+    assert "<!-- mergify-stack-data: " in request_body2
 
 
 @pytest.mark.respx(base_url="https://api.github.com/")
@@ -502,8 +509,11 @@ async def test_stack_update(
             "merged_at": None,
             "draft": False,
             "node_id": "",
+            "mergeable": True,
+            "mergeable_state": "clean",
         },
     )
+    respx_mock.get("/repos/user/repo/pulls/123/reviews").respond(200, json=[])
     patch_pull_mock = respx_mock.patch("/repos/user/repo/pulls/123").respond(
         200,
         json={},
@@ -596,8 +606,11 @@ async def test_stack_update_keep_title_and_body(
             "draft": False,
             "node_id": "",
             "body": "DONT TOUCH ME\n\nDepends-On: #12345\n",
+            "mergeable": True,
+            "mergeable_state": "clean",
         },
     )
+    respx_mock.get("/repos/user/repo/pulls/123/reviews").respond(200, json=[])
     patch_pull_mock = respx_mock.patch("/repos/user/repo/pulls/123").respond(
         200,
         json={},
@@ -714,6 +727,7 @@ async def test_stack_dry_run_behind_flips_up_to_date_to_update(
         200,
         json={
             "html_url": "",
+            "number": "42",
             "head": {
                 "sha": "commit1_sha",
                 "ref": "current-branch/I29617d37762fd69809c255d7e7073cb11f8fbf50",
@@ -721,8 +735,11 @@ async def test_stack_dry_run_behind_flips_up_to_date_to_update(
             "state": "open",
             "merged_at": None,
             "draft": False,
+            "mergeable": True,
+            "mergeable_state": "clean",
         },
     )
+    respx_mock.get("/repos/user/repo/pulls/42/reviews").respond(200, json=[])
 
     with pytest.raises(SystemExit, match="0"):
         await push.stack_push(
@@ -753,6 +770,7 @@ async def test_stack_dry_run_skip_rebase(
         ),
     )
     git_mock.finalize()
+    git_mock.mock("rev-list", "--count", "HEAD..origin/main", output="0")
 
     respx_mock.get("/user").respond(200, json={"login": "author"})
     respx_mock.get("/search/issues").respond(200, json={"items": []})
@@ -768,8 +786,7 @@ async def test_stack_dry_run_skip_rebase(
             trunk=("origin", "main"),
         )
 
-    # Rebase check is skipped when --skip-rebase is passed.
-    assert not git_mock.has_been_called_with("rev-list", "--count", "HEAD..origin/main")
+    # Dry-run never rebases even when --skip-rebase is passed.
     assert not git_mock.has_been_called_with("pull", "--rebase", "origin", "main")
 
 
@@ -805,6 +822,14 @@ async def test_stack_without_common_commit_raises_an_error(
     respx_mock: respx.MockRouter,
 ) -> None:
     respx_mock.get("/user").respond(200, json={"login": "author"})
+    git_mock.mock_error("rev-parse", "--verify", "refs/notes/mergify/stack")
+    git_mock.mock(
+        "fetch",
+        "origin",
+        "--no-write-fetch-head",
+        "refs/notes/mergify/stack:refs/notes/mergify/stack",
+        output="",
+    )
     git_mock.mock("merge-base", "--fork-point", "origin/main", output="")
 
     with pytest.raises(SystemExit, match=str(ExitCode.STACK_NOT_FOUND)):
@@ -1229,8 +1254,11 @@ async def test_create_revision_comment_on_update(
             "merged_at": None,
             "draft": False,
             "node_id": "",
+            "mergeable": True,
+            "mergeable_state": "clean",
         },
     )
+    respx_mock.get("/repos/user/repo/pulls/123/reviews").respond(200, json=[])
     respx_mock.patch("/repos/user/repo/pulls/123").respond(200, json={})
     # Stack comment (existing)
     respx_mock.get("/repos/user/repo/issues/123/comments").respond(
@@ -1372,8 +1400,11 @@ async def test_no_revision_history_flag_skips_revision_comments(
             "merged_at": None,
             "draft": False,
             "node_id": "",
+            "mergeable": True,
+            "mergeable_state": "clean",
         },
     )
+    respx_mock.get("/repos/user/repo/pulls/123/reviews").respond(200, json=[])
     respx_mock.patch("/repos/user/repo/pulls/123").respond(200, json={})
     respx_mock.get("/repos/user/repo/issues/123/comments").respond(
         200,
@@ -1454,8 +1485,11 @@ async def test_revision_comment_updated_on_second_push(
             "merged_at": None,
             "draft": False,
             "node_id": "",
+            "mergeable": True,
+            "mergeable_state": "clean",
         },
     )
+    respx_mock.get("/repos/user/repo/pulls/123/reviews").respond(200, json=[])
     respx_mock.patch("/repos/user/repo/pulls/123").respond(200, json={})
 
     # Existing comments: stack comment + existing revision comment
@@ -2067,8 +2101,11 @@ async def test_revision_comment_includes_reason_from_local_change(
             "merged_at": None,
             "draft": False,
             "node_id": "",
+            "mergeable": True,
+            "mergeable_state": "clean",
         },
     )
+    respx_mock.get("/repos/user/repo/pulls/123/reviews").respond(200, json=[])
     respx_mock.patch("/repos/user/repo/pulls/123").respond(200, json={})
     respx_mock.get("/repos/user/repo/issues/123/comments").respond(200, json=[])
     post_comment_mock = respx_mock.post(
@@ -2297,3 +2334,324 @@ async def test_push_branches_skips_notes_when_local_ref_absent(
         "commit1_sha:refs/heads/stack/title--29617d37",
         "+refs/notes/mergify/stack:refs/notes/mergify/stack",
     )
+
+
+def _make_local_change(
+    *,
+    change_id: str,
+    pull_number: int,
+    head_sha: str,
+    base_branch: str,
+    dest_branch: str,
+    title: str = "t",
+) -> tuple[changes.LocalChange, github_types.PullRequest]:
+    pull = typing.cast(
+        "github_types.PullRequest",
+        {
+            "number": pull_number,
+            "title": title,
+            "html_url": f"https://github.com/owner/repo/pull/{pull_number}",
+            "head": {"ref": dest_branch, "sha": head_sha},
+            "base": {"ref": base_branch},
+            "draft": False,
+            "merged_at": None,
+            "merge_commit_sha": None,
+            "body": "",
+            "state": "open",
+        },
+    )
+    change = changes.LocalChange(
+        id=changes.ChangeId(change_id),
+        pull=pull,
+        commit_sha=head_sha,
+        title=title,
+        message="",
+        base_branch=base_branch,
+        dest_branch=dest_branch,
+        action="update",
+    )
+    return change, pull
+
+
+def test_stack_comment_body_contains_json_marker() -> None:
+    c1, c1_pull = _make_local_change(
+        change_id="Iaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        pull_number=1,
+        head_sha="1111111111111111111111111111111111111111",
+        base_branch="main",
+        dest_branch="jd/feature/Iaaaaaaa",
+    )
+    c2, _ = _make_local_change(
+        change_id="Ibbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        pull_number=2,
+        head_sha="2222222222222222222222222222222222222222",
+        base_branch="jd/feature/Iaaaaaaa",
+        dest_branch="jd/feature/Ibbbbbbb",
+    )
+    comment = push.StackComment([c1, c2])
+    body = comment.body(c1_pull, stack_id="feature")
+
+    marker_prefix = "<!-- mergify-stack-data: "
+    marker_lines = [
+        line for line in body.splitlines() if line.startswith(marker_prefix)
+    ]
+    assert len(marker_lines) == 1
+    assert marker_lines[0].endswith(" -->")
+
+    payload = json.loads(marker_lines[0][len(marker_prefix) : -len(" -->")])
+    assert payload == {
+        "schema_version": 1,
+        "stack_id": "feature",
+        "pulls": [
+            {
+                "number": 1,
+                "change_id": "Iaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "head_sha": "1111111111111111111111111111111111111111",
+                "base_branch": "main",
+                "dest_branch": "jd/feature/Iaaaaaaa",
+                "is_current": True,
+            },
+            {
+                "number": 2,
+                "change_id": "Ibbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "head_sha": "2222222222222222222222222222222222222222",
+                "base_branch": "jd/feature/Iaaaaaaa",
+                "dest_branch": "jd/feature/Ibbbbbbb",
+                "is_current": False,
+            },
+        ],
+    }
+
+
+def test_stack_comment_is_current_flips_per_pull() -> None:
+    c1, _ = _make_local_change(
+        change_id="Iaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        pull_number=1,
+        head_sha="1111111111111111111111111111111111111111",
+        base_branch="main",
+        dest_branch="jd/feature/Iaaaaaaa",
+    )
+    c2, c2_pull = _make_local_change(
+        change_id="Ibbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        pull_number=2,
+        head_sha="2222222222222222222222222222222222222222",
+        base_branch="jd/feature/Iaaaaaaa",
+        dest_branch="jd/feature/Ibbbbbbb",
+    )
+    comment = push.StackComment([c1, c2])
+
+    body2 = comment.body(c2_pull, stack_id="feature")
+    marker_line = next(
+        line
+        for line in body2.splitlines()
+        if line.startswith("<!-- mergify-stack-data: ")
+    )
+    payload = json.loads(marker_line[len("<!-- mergify-stack-data: ") : -len(" -->")])
+    assert [p["is_current"] for p in payload["pulls"]] == [False, True]
+
+
+def test_stack_comment_body_json_marker_is_single_line_compact() -> None:
+    c1, c1_pull = _make_local_change(
+        change_id="Iaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        pull_number=1,
+        head_sha="1111111111111111111111111111111111111111",
+        base_branch="main",
+        dest_branch="jd/feature/Iaaaaaaa",
+    )
+    comment = push.StackComment([c1])
+    body = comment.body(c1_pull, stack_id="feature")
+    marker_prefix = "<!-- mergify-stack-data: "
+    marker_line = next(
+        line for line in body.splitlines() if line.startswith(marker_prefix)
+    )
+    assert '", ' not in marker_line
+    assert '": ' not in marker_line
+
+
+@pytest.mark.respx(base_url="https://api.github.com/")
+async def test_stack_push_auto_skips_rebase_when_approved(
+    git_mock: test_utils.GitMock,
+    respx_mock: respx.MockRouter,
+) -> None:
+    # One commit, updating an existing PR that is APPROVED.
+    git_mock.commit(
+        test_utils.Commit(
+            sha="commit_sha",
+            title="Title",
+            message="Message",
+            change_id="I29617d37762fd69809c255d7e7073cb11f8fbf50",
+            head_ref="current-branch/I29617d37762fd69809c255d7e7073cb11f8fbf50",
+        ),
+    )
+    git_mock.finalize(
+        remote_shas={
+            "I29617d37762fd69809c255d7e7073cb11f8fbf50": "old_head_sha",
+        },
+    )
+    git_mock.mock("fetch", "origin", "refs/pull/1/head", output="")
+
+    respx_mock.get("/user").respond(200, json={"login": "author"})
+    respx_mock.get("/search/issues").respond(
+        200,
+        json={
+            "items": [
+                {
+                    "pull_request": {
+                        "url": "https://api.github.com/repos/user/repo/pulls/1",
+                    },
+                },
+            ],
+        },
+    )
+    respx_mock.get("/repos/user/repo/pulls/1").respond(
+        200,
+        json={
+            "html_url": "https://github.com/user/repo/pull/1",
+            "number": "1",
+            "title": "Title",
+            "body": "",
+            "base": {"sha": "base_sha", "ref": "main"},
+            "head": {
+                "sha": "old_head_sha",
+                "ref": "current-branch/I29617d37762fd69809c255d7e7073cb11f8fbf50",
+            },
+            "state": "open",
+            "draft": False,
+            "node_id": "node1",
+            "merged_at": None,
+            "merge_commit_sha": None,
+            "mergeable": True,
+            "mergeable_state": "clean",
+        },
+    )
+    # This PR is approved by @alice.
+    respx_mock.get("/repos/user/repo/pulls/1/reviews").respond(
+        200,
+        json=[{"state": "APPROVED", "user": {"login": "alice"}}],
+    )
+    respx_mock.patch("/repos/user/repo/pulls/1").respond(200, json={})
+    respx_mock.get("/repos/user/repo/issues/1/comments").respond(200, json=[])
+    respx_mock.post("/repos/user/repo/issues/1/comments").respond(200, json={})
+
+    from mergify_cli.stack import sync as stack_sync_mod
+
+    with (
+        mock.patch.object(push, "detect_change_type", return_value="content"),
+        mock.patch.object(stack_sync_mod, "smart_rebase") as smart_rebase_mock,
+    ):
+        await push.stack_push(
+            github_server="https://api.github.com/",
+            token="",
+            skip_rebase=False,
+            force_rebase=False,
+            next_only=False,
+            branch_prefix="",
+            dry_run=False,
+            trunk=("origin", "main"),
+        )
+
+    smart_rebase_mock.assert_not_called()
+
+
+@pytest.mark.respx(base_url="https://api.github.com/")
+async def test_stack_push_force_rebase_bypasses_approvals(
+    git_mock: test_utils.GitMock,
+    respx_mock: respx.MockRouter,
+) -> None:
+    git_mock.commit(
+        test_utils.Commit(
+            sha="commit_sha",
+            title="Title",
+            message="Message",
+            change_id="I29617d37762fd69809c255d7e7073cb11f8fbf50",
+        ),
+    )
+    git_mock.finalize()
+
+    respx_mock.get("/user").respond(200, json={"login": "author"})
+    respx_mock.get("/search/issues").respond(200, json={"items": []})
+    respx_mock.post("/repos/user/repo/pulls").respond(
+        200,
+        json={
+            "html_url": "https://github.com/repo/user/pull/1",
+            "number": "1",
+            "title": "Title",
+            "head": {"sha": "commit_sha"},
+            "state": "open",
+            "merged_at": None,
+            "draft": False,
+            "node_id": "",
+        },
+    )
+    respx_mock.get("/repos/user/repo/issues/1/comments").respond(200, json=[])
+
+    from mergify_cli.stack import sync as stack_sync_mod
+
+    mock_sync_status = stack_sync_mod.SyncStatus(
+        branch="current-branch",
+        trunk="origin/main",
+        merged=[],
+        remaining=[],
+    )
+
+    with mock.patch.object(
+        stack_sync_mod,
+        "smart_rebase",
+        return_value=mock_sync_status,
+    ):
+        await push.stack_push(
+            github_server="https://api.github.com/",
+            token="",
+            skip_rebase=False,
+            force_rebase=True,
+            next_only=False,
+            branch_prefix="",
+            dry_run=False,
+            trunk=("origin", "main"),
+        )
+
+    # With --force-rebase, decide_rebase short-circuits before calling
+    # fetch_approved_pull_numbers. Verify no /reviews endpoint was hit:
+    # if it had been called, respx would have raised an unmatched-route error
+    # (no route registered for it). Additionally, confirm via call inspection.
+    reviews_calls = [
+        call for call in respx_mock.calls if "/reviews" in str(call.request.url)
+    ]
+    assert reviews_calls == []
+
+
+def test_push_cli_rejects_skip_and_force_rebase_together(
+    git_mock: test_utils.GitMock,
+) -> None:
+    from click.testing import CliRunner
+
+    from mergify_cli.stack import cli as stack_cli
+
+    # Mock git commands that are called during option processing
+    git_mock.mock("rev-parse", "--abbrev-ref", "HEAD", output="my-branch")
+    # Mock all git config calls that happen during option default processing
+    for config_key in [
+        "mergify-cli.stack-create-as-draft",
+        "mergify-cli.stack-revision-history",
+        "mergify-cli.stack-keep-pr-title-body",
+    ]:
+        git_mock.mock("config", "--get", config_key, output="")
+    git_mock.finalize()
+
+    runner = CliRunner()
+    result = runner.invoke(
+        stack_cli.stack,
+        [
+            "--token",
+            "x",
+            "--github-server",
+            "https://api.github.com/",
+            "push",
+            "--trunk",
+            "origin/main",
+            "--skip-rebase",
+            "--force-rebase",
+        ],
+    )
+    assert result.exit_code != 0
+    assert "mutually exclusive" in result.output.lower()

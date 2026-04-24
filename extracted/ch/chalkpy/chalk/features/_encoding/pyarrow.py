@@ -27,7 +27,6 @@ from typing import (
     is_typeddict,
 )
 
-import attrs
 import google.protobuf.message
 import pyarrow as pa
 
@@ -35,6 +34,7 @@ from chalk.features._encoding.http import HttpResponse, get_http_response_as_pya
 from chalk.features._encoding.primitive import ChalkStructType, TPrimitive
 from chalk.features._encoding.protobuf import convert_proto_message_type_to_pyarrow_type
 from chalk.features.feature_set import Features
+from chalk.utils.attrs_utils import is_attrs_class
 from chalk.utils.cached_type_hints import cached_get_type_hints
 from chalk.utils.collections import is_namedtuple, is_optional, unwrap_optional_and_annotated_if_needed
 from chalk.utils.enum import get_enum_value_type
@@ -229,7 +229,7 @@ def rich_to_pyarrow(
         dataclasses.is_dataclass(python_type)
         or is_namedtuple(python_type)
         or is_typeddict(python_type)
-        or attrs.has(python_type)
+        or is_attrs_class(python_type)
         or is_pydantic_basemodel(python_type)
     ):
         annotations = cached_get_type_hints(python_type)

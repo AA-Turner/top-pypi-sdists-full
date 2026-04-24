@@ -163,7 +163,16 @@ class GetDataPlaneJobQueueResponse(_message.Message):
     def __init__(self, job: _Optional[_Union[JobQueueItem, _Mapping]] = ...) -> None: ...
 
 class ListDataPlaneJobQueueRequest(_message.Message):
-    __slots__ = ("environment_id", "deployment_id", "state", "kind", "limit", "offset", "operation_id")
+    __slots__ = (
+        "environment_id",
+        "deployment_id",
+        "state",
+        "kind",
+        "limit",
+        "offset",
+        "operation_id",
+        "resource_group",
+    )
     ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
     DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
     STATE_FIELD_NUMBER: _ClassVar[int]
@@ -171,6 +180,7 @@ class ListDataPlaneJobQueueRequest(_message.Message):
     LIMIT_FIELD_NUMBER: _ClassVar[int]
     OFFSET_FIELD_NUMBER: _ClassVar[int]
     OPERATION_ID_FIELD_NUMBER: _ClassVar[int]
+    RESOURCE_GROUP_FIELD_NUMBER: _ClassVar[int]
     environment_id: str
     deployment_id: str
     state: JobQueueState
@@ -178,6 +188,7 @@ class ListDataPlaneJobQueueRequest(_message.Message):
     limit: int
     offset: int
     operation_id: str
+    resource_group: str
     def __init__(
         self,
         environment_id: _Optional[str] = ...,
@@ -187,6 +198,7 @@ class ListDataPlaneJobQueueRequest(_message.Message):
         limit: _Optional[int] = ...,
         offset: _Optional[int] = ...,
         operation_id: _Optional[str] = ...,
+        resource_group: _Optional[str] = ...,
     ) -> None: ...
 
 class ListDataPlaneJobQueueResponse(_message.Message):
@@ -496,5 +508,115 @@ class CancelWorkflowExecutionRequest(_message.Message):
     def __init__(self, workflow_execution_id: _Optional[str] = ...) -> None: ...
 
 class CancelWorkflowExecutionResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class JobQueueEnqueueArgs(_message.Message):
+    __slots__ = (
+        "env_payload",
+        "enable_profiling",
+        "max_attempts",
+        "deployment_id",
+        "branch_name",
+        "override_source_uri",
+        "completion_deadline_seconds",
+        "retry_on_completion_deadline",
+        "operation_completion_deadline_seconds",
+        "retry_on_operation_completion_deadline",
+    )
+    class EnvPayloadEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+
+    ENV_PAYLOAD_FIELD_NUMBER: _ClassVar[int]
+    ENABLE_PROFILING_FIELD_NUMBER: _ClassVar[int]
+    MAX_ATTEMPTS_FIELD_NUMBER: _ClassVar[int]
+    DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    BRANCH_NAME_FIELD_NUMBER: _ClassVar[int]
+    OVERRIDE_SOURCE_URI_FIELD_NUMBER: _ClassVar[int]
+    COMPLETION_DEADLINE_SECONDS_FIELD_NUMBER: _ClassVar[int]
+    RETRY_ON_COMPLETION_DEADLINE_FIELD_NUMBER: _ClassVar[int]
+    OPERATION_COMPLETION_DEADLINE_SECONDS_FIELD_NUMBER: _ClassVar[int]
+    RETRY_ON_OPERATION_COMPLETION_DEADLINE_FIELD_NUMBER: _ClassVar[int]
+    env_payload: _containers.ScalarMap[str, str]
+    enable_profiling: bool
+    max_attempts: int
+    deployment_id: str
+    branch_name: str
+    override_source_uri: str
+    completion_deadline_seconds: int
+    retry_on_completion_deadline: bool
+    operation_completion_deadline_seconds: int
+    retry_on_operation_completion_deadline: bool
+    def __init__(
+        self,
+        env_payload: _Optional[_Mapping[str, str]] = ...,
+        enable_profiling: bool = ...,
+        max_attempts: _Optional[int] = ...,
+        deployment_id: _Optional[str] = ...,
+        branch_name: _Optional[str] = ...,
+        override_source_uri: _Optional[str] = ...,
+        completion_deadline_seconds: _Optional[int] = ...,
+        retry_on_completion_deadline: bool = ...,
+        operation_completion_deadline_seconds: _Optional[int] = ...,
+        retry_on_operation_completion_deadline: bool = ...,
+    ) -> None: ...
+
+class EnqueueJobRequest(_message.Message):
+    __slots__ = (
+        "environment_id",
+        "kind",
+        "resource_group",
+        "operation_id",
+        "mainline_deployment_id",
+        "job_name",
+        "job_index",
+        "fetch_priority",
+        "workflow_execution_id",
+        "num_workers",
+        "args",
+    )
+    ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    KIND_FIELD_NUMBER: _ClassVar[int]
+    RESOURCE_GROUP_FIELD_NUMBER: _ClassVar[int]
+    OPERATION_ID_FIELD_NUMBER: _ClassVar[int]
+    MAINLINE_DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    JOB_NAME_FIELD_NUMBER: _ClassVar[int]
+    JOB_INDEX_FIELD_NUMBER: _ClassVar[int]
+    FETCH_PRIORITY_FIELD_NUMBER: _ClassVar[int]
+    WORKFLOW_EXECUTION_ID_FIELD_NUMBER: _ClassVar[int]
+    NUM_WORKERS_FIELD_NUMBER: _ClassVar[int]
+    ARGS_FIELD_NUMBER: _ClassVar[int]
+    environment_id: str
+    kind: JobQueueKind
+    resource_group: str
+    operation_id: str
+    mainline_deployment_id: str
+    job_name: str
+    job_index: int
+    fetch_priority: int
+    workflow_execution_id: str
+    num_workers: int
+    args: JobQueueEnqueueArgs
+    def __init__(
+        self,
+        environment_id: _Optional[str] = ...,
+        kind: _Optional[_Union[JobQueueKind, str]] = ...,
+        resource_group: _Optional[str] = ...,
+        operation_id: _Optional[str] = ...,
+        mainline_deployment_id: _Optional[str] = ...,
+        job_name: _Optional[str] = ...,
+        job_index: _Optional[int] = ...,
+        fetch_priority: _Optional[int] = ...,
+        workflow_execution_id: _Optional[str] = ...,
+        num_workers: _Optional[int] = ...,
+        args: _Optional[_Union[JobQueueEnqueueArgs, _Mapping]] = ...,
+    ) -> None: ...
+
+class EnqueueJobResponse(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...

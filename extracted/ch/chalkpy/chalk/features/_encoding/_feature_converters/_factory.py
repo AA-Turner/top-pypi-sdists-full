@@ -20,6 +20,7 @@ from typing_extensions import get_args, get_origin, is_typeddict
 
 from chalk.features._encoding.pyarrow import pyarrow_to_primitive, rich_to_pyarrow
 from chalk.features.feature_wrapper import UnresolvedFeature, FeatureWrapper
+from chalk.utils.attrs_utils import attrs_fields, is_attrs_class
 from chalk.utils.collections import is_namedtuple, unwrap_annotated_if_needed, unwrap_optional_and_annotated_if_needed
 
 from ._base import FeatureConverter
@@ -131,16 +132,15 @@ def make_field_converters_for_attrs(cls: type) -> "dict[str, FeatureConverter]":
 
     Passes pyarrow_dtype explicitly so field converters use the same dtype as the parent struct.
     """
-    import attrs as _attrs
     import typing as _typing_mod
     from ._attrs_converter import AttrsFeatureConverter
-    field_names = tuple(f.name for f in _attrs.fields(cls))
+    field_names = tuple(f.name for f in attrs_fields(cls))
     hints = _typing_mod.get_type_hints(cls)
     result: dict[str, FeatureConverter] = {}
     for name in field_names:
         typ = hints[name]
         inner = unwrap_optional_and_annotated_if_needed(typ)
-        if isinstance(inner, type) and _attrs.has(inner):
+        if is_attrs_class(inner):
             result[name] = AttrsFeatureConverter.new(inner, ..., is_nullable=True)
         else:
             pa_dtype = rich_to_pyarrow(typ, name, in_struct=True)
@@ -341,8 +341,7 @@ def make_feature_converter(
                 if is_typeddict(_struct_class):
                     field_converters = make_field_converters_for_typed_dict(_struct_class)
                     return TypedDictFeatureConverter.new(_struct_class, specialized_default, is_nullable, field_converters=field_converters)
-                import attrs as _attrs
-                if _attrs.has(_struct_class):
+                if is_attrs_class(_struct_class):
                     from ._attrs_converter import AttrsFeatureConverter
                     field_converters = make_field_converters_for_attrs(_struct_class)
                     return AttrsFeatureConverter.new(_struct_class, specialized_default, is_nullable, name=name or "", field_converters=field_converters)

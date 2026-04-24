@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: pymeshfix
-Version: 0.18.0
+Version: 0.18.1
 Summary: Repair triangular meshes using MeshFix
 Author-Email: PyVista Developers <info@pyvista.org>
 Classifier: License :: OSI Approved :: GNU Affero General Public License v3

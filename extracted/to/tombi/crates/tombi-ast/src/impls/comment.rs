@@ -179,7 +179,13 @@ fn resolve_relative_file_schema_uri(
             .map(tombi_uri::SchemaUri::from)
             .map_err(|_| uri_text.to_string())
     } else {
-        return Err(uri_text.to_string());
+        Err(uri_text.to_string())
+    }
+}
+
+impl AsRef<Comment> for Comment {
+    fn as_ref(&self) -> &Comment {
+        self
     }
 }
 
@@ -253,11 +259,5 @@ mod tests {
     fn schema_uri_fragment_parse_still_works() {
         let uri = SchemaUri::from_str("file://./schema.json#/definitions/TableValue").unwrap();
         assert_eq!(uri.fragment(), Some("/definitions/TableValue"));
-    }
-}
-
-impl AsRef<Comment> for Comment {
-    fn as_ref(&self) -> &Comment {
-        self
     }
 }

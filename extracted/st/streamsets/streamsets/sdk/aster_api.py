@@ -1,4 +1,6 @@
-# Copyright 2021 StreamSets Inc.
+#  IBM Confidential
+#  PID 5900-BAF
+#  Copyright StreamSets Inc., an IBM Company 2024
 """Abstractions to interact with the Aster REST API."""
 
 # fmt: off
@@ -10,7 +12,8 @@ import urllib3
 from requests.adapters import HTTPAdapter
 
 from .exceptions import BadRequestError, InternalServerError, UnprocessableEntityError
-from .utils import create_aster_envelope, get_params, join_url_parts, retry_on_connection_error
+from .retry import http_retry
+from .utils import create_aster_envelope, get_params, join_url_parts
 
 # fmt: off
 
@@ -387,6 +390,27 @@ class ApiClient(object):
         return response
 
     # User Resources
+    def import_user(self, source_sch_version, data, merge=False, dry_run=False):
+        """Import a user.
+
+        Args:
+            source_sch_version (:obj:`str`): Source Control Hub version.
+            data (:obj:`dict`): Data that complies with Swagger definition.
+            dry_run (:obj:`bool`, optional): Default: ``False``
+            merge (:obj:`bool`, optional): Default: ``False``
+
+        Returns:
+            An instance of :py:class:`streamsets.sdk.aster_api.Command`.
+        """
+        params = {'dry-run': dry_run, 'merge': merge}
+        response = self._post(
+            app='security',
+            endpoint='/v{}/importer/{}/user'.format(self._api_version, source_sch_version),
+            params=params,
+            data=data
+        )
+        return Command(self, response)
+
     def get_user(self, user_id):
         """Get the users.
 
@@ -1196,21 +1220,21 @@ class ApiClient(object):
         response = self._get(app='security', endpoint=endpoint)
         return Command(self, response)
 
-    @retry_on_connection_error
+    @http_retry()
     def _delete(self, app, endpoint, params=None):
         url = join_url_parts(self._base_url, '/api/{}'.format(app), endpoint)
         response = self._session.delete(url, params=params or {})
         self._handle_http_error(response)
         return response
 
-    @retry_on_connection_error
+    @http_retry()
     def _get(self, app, endpoint, params=None):
         url = join_url_parts(self._base_url, '/api/{}'.format(app), endpoint)
         response = self._session.get(url, params=params or {})
         self._handle_http_error(response)
         return response
 
-    @retry_on_connection_error
+    @http_retry()
     def _post(self, app, endpoint, params=None, data=None, files=None, headers=None):
         url = join_url_parts(self._base_url, '/api/{}'.format(app), endpoint)
         if data and not isinstance(data, str):
@@ -1220,7 +1244,7 @@ class ApiClient(object):
         self._handle_http_error(response)
         return response
 
-    @retry_on_connection_error
+    @http_retry()
     def _put(self, app, endpoint, params=None, data=None):
         url = join_url_parts(self._base_url, '/api/{}'.format(app), endpoint)
         body = {'data': (data or {})}

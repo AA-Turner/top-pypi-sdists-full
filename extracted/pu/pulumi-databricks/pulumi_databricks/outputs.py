@@ -17,12 +17,53 @@ from . import outputs
 
 __all__ = [
     'AccessControlRuleSetGrantRule',
+    'AccessControlRuleSetProviderConfig',
     'AccountFederationPolicyOidcPolicy',
     'AccountNetworkPolicyEgress',
     'AccountNetworkPolicyEgressNetworkAccess',
     'AccountNetworkPolicyEgressNetworkAccessAllowedInternetDestination',
     'AccountNetworkPolicyEgressNetworkAccessAllowedStorageDestination',
     'AccountNetworkPolicyEgressNetworkAccessPolicyEnforcement',
+    'AccountNetworkPolicyIngress',
+    'AccountNetworkPolicyIngressDryRun',
+    'AccountNetworkPolicyIngressDryRunPublicAccess',
+    'AccountNetworkPolicyIngressDryRunPublicAccessAllowRule',
+    'AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleAuthentication',
+    'AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleAuthenticationIdentity',
+    'AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestination',
+    'AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationWorkspaceApi',
+    'AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationWorkspaceUi',
+    'AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleOrigin',
+    'AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleOriginExcludedIpRanges',
+    'AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleOriginIncludedIpRanges',
+    'AccountNetworkPolicyIngressDryRunPublicAccessDenyRule',
+    'AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleAuthentication',
+    'AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleAuthenticationIdentity',
+    'AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestination',
+    'AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationWorkspaceApi',
+    'AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationWorkspaceUi',
+    'AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleOrigin',
+    'AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleOriginExcludedIpRanges',
+    'AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleOriginIncludedIpRanges',
+    'AccountNetworkPolicyIngressPublicAccess',
+    'AccountNetworkPolicyIngressPublicAccessAllowRule',
+    'AccountNetworkPolicyIngressPublicAccessAllowRuleAuthentication',
+    'AccountNetworkPolicyIngressPublicAccessAllowRuleAuthenticationIdentity',
+    'AccountNetworkPolicyIngressPublicAccessAllowRuleDestination',
+    'AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationWorkspaceApi',
+    'AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationWorkspaceUi',
+    'AccountNetworkPolicyIngressPublicAccessAllowRuleOrigin',
+    'AccountNetworkPolicyIngressPublicAccessAllowRuleOriginExcludedIpRanges',
+    'AccountNetworkPolicyIngressPublicAccessAllowRuleOriginIncludedIpRanges',
+    'AccountNetworkPolicyIngressPublicAccessDenyRule',
+    'AccountNetworkPolicyIngressPublicAccessDenyRuleAuthentication',
+    'AccountNetworkPolicyIngressPublicAccessDenyRuleAuthenticationIdentity',
+    'AccountNetworkPolicyIngressPublicAccessDenyRuleDestination',
+    'AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationWorkspaceApi',
+    'AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationWorkspaceUi',
+    'AccountNetworkPolicyIngressPublicAccessDenyRuleOrigin',
+    'AccountNetworkPolicyIngressPublicAccessDenyRuleOriginExcludedIpRanges',
+    'AccountNetworkPolicyIngressPublicAccessDenyRuleOriginIncludedIpRanges',
     'AccountSettingUserPreferenceV2BooleanVal',
     'AccountSettingUserPreferenceV2EffectiveBooleanVal',
     'AccountSettingUserPreferenceV2EffectiveStringVal',
@@ -139,6 +180,8 @@ __all__ = [
     'BudgetFilterWorkspaceId',
     'BudgetPolicyCustomTag',
     'CatalogEffectivePredictiveOptimizationFlag',
+    'CatalogManagedEncryptionSettings',
+    'CatalogManagedEncryptionSettingsAzureEncryptionSettings',
     'CatalogProviderConfig',
     'CatalogProvisioningInfo',
     'CatalogWorkspaceBindingProviderConfig',
@@ -186,6 +229,7 @@ __all__ = [
     'CredentialAzureManagedIdentity',
     'CredentialAzureServicePrincipal',
     'CredentialDatabricksGcpServiceAccount',
+    'CredentialProviderConfig',
     'CustomAppIntegrationTokenAccessPolicy',
     'DashboardProviderConfig',
     'DataClassificationCatalogConfigAutoTagConfig',
@@ -238,6 +282,13 @@ __all__ = [
     'EntityTagAssignmentProviderConfig',
     'EnvironmentsDefaultWorkspaceBaseEnvironmentProviderConfig',
     'EnvironmentsWorkspaceBaseEnvironmentProviderConfig',
+    'ExternalLocationEffectiveFileEventQueue',
+    'ExternalLocationEffectiveFileEventQueueManagedAqs',
+    'ExternalLocationEffectiveFileEventQueueManagedPubsub',
+    'ExternalLocationEffectiveFileEventQueueManagedSqs',
+    'ExternalLocationEffectiveFileEventQueueProvidedAqs',
+    'ExternalLocationEffectiveFileEventQueueProvidedPubsub',
+    'ExternalLocationEffectiveFileEventQueueProvidedSqs',
     'ExternalLocationEncryptionDetails',
     'ExternalLocationEncryptionDetailsSseEncryptionDetails',
     'ExternalLocationFileEventQueue',
@@ -269,6 +320,7 @@ __all__ = [
     'FeatureEngineeringFeatureFunctionAggregationFunctionTimeWindowTumbling',
     'FeatureEngineeringFeatureFunctionAggregationFunctionVarPop',
     'FeatureEngineeringFeatureFunctionAggregationFunctionVarSamp',
+    'FeatureEngineeringFeatureFunctionColumnSelection',
     'FeatureEngineeringFeatureFunctionExtraParameter',
     'FeatureEngineeringFeatureLineageContext',
     'FeatureEngineeringFeatureLineageContextJobContext',
@@ -278,6 +330,9 @@ __all__ = [
     'FeatureEngineeringFeatureSourceKafkaSource',
     'FeatureEngineeringFeatureSourceKafkaSourceEntityColumnIdentifier',
     'FeatureEngineeringFeatureSourceKafkaSourceTimeseriesColumnIdentifier',
+    'FeatureEngineeringFeatureSourceRequestSource',
+    'FeatureEngineeringFeatureSourceRequestSourceFlatSchema',
+    'FeatureEngineeringFeatureSourceRequestSourceFlatSchemaField',
     'FeatureEngineeringFeatureTimeWindow',
     'FeatureEngineeringFeatureTimeWindowContinuous',
     'FeatureEngineeringFeatureTimeWindowSliding',
@@ -299,6 +354,10 @@ __all__ = [
     'GrantProviderConfig',
     'GrantsGrant',
     'GrantsProviderConfig',
+    'GroupInstanceProfileProviderConfig',
+    'GroupMemberProviderConfig',
+    'GroupProviderConfig',
+    'GroupRoleProviderConfig',
     'InstancePoolAwsAttributes',
     'InstancePoolAzureAttributes',
     'InstancePoolDiskSpec',
@@ -601,12 +660,15 @@ __all__ = [
     'LibraryProviderConfig',
     'LibraryPypi',
     'MaterializedFeaturesFeatureTagProviderConfig',
+    'MetastoreAssignmentProviderConfig',
     'MetastoreDataAccessAwsIamRole',
     'MetastoreDataAccessAzureManagedIdentity',
     'MetastoreDataAccessAzureServicePrincipal',
     'MetastoreDataAccessCloudflareApiToken',
     'MetastoreDataAccessDatabricksGcpServiceAccount',
     'MetastoreDataAccessGcpServiceAccountKey',
+    'MetastoreDataAccessProviderConfig',
+    'MetastoreProviderConfig',
     'MetastoreProviderProviderConfig',
     'MlflowExperimentProviderConfig',
     'MlflowExperimentTag',
@@ -672,6 +734,7 @@ __all__ = [
     'MountWasb',
     'MwsCustomerManagedKeysAwsKeyInfo',
     'MwsCustomerManagedKeysGcpKeyInfo',
+    'MwsNccPrivateEndpointRuleGcpEndpoint',
     'MwsNetworkConnectivityConfigEgressConfig',
     'MwsNetworkConnectivityConfigEgressConfigDefaultRules',
     'MwsNetworkConnectivityConfigEgressConfigDefaultRulesAwsStableIpRule',
@@ -749,12 +812,30 @@ __all__ = [
     'PipelineIngestionDefinitionObjectReportTableConfigurationWorkdayReportParameters',
     'PipelineIngestionDefinitionObjectReportTableConfigurationWorkdayReportParametersReportParameter',
     'PipelineIngestionDefinitionObjectSchema',
+    'PipelineIngestionDefinitionObjectSchemaConnectorOptions',
+    'PipelineIngestionDefinitionObjectSchemaConnectorOptionsGdriveOptions',
+    'PipelineIngestionDefinitionObjectSchemaConnectorOptionsGdriveOptionsFileIngestionOptions',
+    'PipelineIngestionDefinitionObjectSchemaConnectorOptionsGdriveOptionsFileIngestionOptionsFileFilter',
+    'PipelineIngestionDefinitionObjectSchemaConnectorOptionsGoogleAdsOptions',
+    'PipelineIngestionDefinitionObjectSchemaConnectorOptionsSharepointOptions',
+    'PipelineIngestionDefinitionObjectSchemaConnectorOptionsSharepointOptionsFileIngestionOptions',
+    'PipelineIngestionDefinitionObjectSchemaConnectorOptionsSharepointOptionsFileIngestionOptionsFileFilter',
+    'PipelineIngestionDefinitionObjectSchemaConnectorOptionsTiktokAdsOptions',
     'PipelineIngestionDefinitionObjectSchemaTableConfiguration',
     'PipelineIngestionDefinitionObjectSchemaTableConfigurationAutoFullRefreshPolicy',
     'PipelineIngestionDefinitionObjectSchemaTableConfigurationQueryBasedConnectorConfig',
     'PipelineIngestionDefinitionObjectSchemaTableConfigurationWorkdayReportParameters',
     'PipelineIngestionDefinitionObjectSchemaTableConfigurationWorkdayReportParametersReportParameter',
     'PipelineIngestionDefinitionObjectTable',
+    'PipelineIngestionDefinitionObjectTableConnectorOptions',
+    'PipelineIngestionDefinitionObjectTableConnectorOptionsGdriveOptions',
+    'PipelineIngestionDefinitionObjectTableConnectorOptionsGdriveOptionsFileIngestionOptions',
+    'PipelineIngestionDefinitionObjectTableConnectorOptionsGdriveOptionsFileIngestionOptionsFileFilter',
+    'PipelineIngestionDefinitionObjectTableConnectorOptionsGoogleAdsOptions',
+    'PipelineIngestionDefinitionObjectTableConnectorOptionsSharepointOptions',
+    'PipelineIngestionDefinitionObjectTableConnectorOptionsSharepointOptionsFileIngestionOptions',
+    'PipelineIngestionDefinitionObjectTableConnectorOptionsSharepointOptionsFileIngestionOptionsFileFilter',
+    'PipelineIngestionDefinitionObjectTableConnectorOptionsTiktokAdsOptions',
     'PipelineIngestionDefinitionObjectTableTableConfiguration',
     'PipelineIngestionDefinitionObjectTableTableConfigurationAutoFullRefreshPolicy',
     'PipelineIngestionDefinitionObjectTableTableConfigurationQueryBasedConnectorConfig',
@@ -791,6 +872,9 @@ __all__ = [
     'PostgresBranchProviderConfig',
     'PostgresBranchSpec',
     'PostgresBranchStatus',
+    'PostgresCatalogProviderConfig',
+    'PostgresCatalogSpec',
+    'PostgresCatalogStatus',
     'PostgresDatabaseProviderConfig',
     'PostgresDatabaseSpec',
     'PostgresDatabaseStatus',
@@ -816,6 +900,13 @@ __all__ = [
     'PostgresRoleSpecAttributes',
     'PostgresRoleStatus',
     'PostgresRoleStatusAttributes',
+    'PostgresSyncedTableProviderConfig',
+    'PostgresSyncedTableSpec',
+    'PostgresSyncedTableSpecNewPipelineSpec',
+    'PostgresSyncedTableStatus',
+    'PostgresSyncedTableStatusLastSync',
+    'PostgresSyncedTableStatusLastSyncDeltaTableSyncInfo',
+    'PostgresSyncedTableStatusOngoingSyncProgress',
     'QualityMonitorCustomMetric',
     'QualityMonitorDataClassificationConfig',
     'QualityMonitorInferenceLog',
@@ -863,6 +954,8 @@ __all__ = [
     'SecretScopeKeyvaultMetadata',
     'SecretScopeProviderConfig',
     'ServicePrincipalFederationPolicyOidcPolicy',
+    'ServicePrincipalProviderConfig',
+    'ServicePrincipalRoleProviderConfig',
     'ServicePrincipalSecretProviderConfig',
     'ShareObject',
     'ShareObjectPartition',
@@ -880,6 +973,7 @@ __all__ = [
     'SqlEndpointTagsCustomTag',
     'SqlGlobalConfigProviderConfig',
     'SqlPermissionsPrivilegeAssignment',
+    'SqlPermissionsProviderConfig',
     'SqlQueryParameter',
     'SqlQueryParameterDate',
     'SqlQueryParameterDateRange',
@@ -913,12 +1007,16 @@ __all__ = [
     'StorageCredentialCloudflareApiToken',
     'StorageCredentialDatabricksGcpServiceAccount',
     'StorageCredentialGcpServiceAccountKey',
+    'StorageCredentialProviderConfig',
     'SystemSchemaProviderConfig',
     'TableColumn',
     'TableProviderConfig',
     'TagPolicyProviderConfig',
     'TagPolicyValue',
     'TokenProviderConfig',
+    'UserInstanceProfileProviderConfig',
+    'UserProviderConfig',
+    'UserRoleProviderConfig',
     'VectorSearchEndpointEndpointStatus',
     'VectorSearchEndpointProviderConfig',
     'VectorSearchEndpointScalingInfo',
@@ -970,11 +1068,91 @@ __all__ = [
     'GetAccountNetworkPoliciesItemEgressNetworkAccessAllowedInternetDestinationResult',
     'GetAccountNetworkPoliciesItemEgressNetworkAccessAllowedStorageDestinationResult',
     'GetAccountNetworkPoliciesItemEgressNetworkAccessPolicyEnforcementResult',
+    'GetAccountNetworkPoliciesItemIngressResult',
+    'GetAccountNetworkPoliciesItemIngressDryRunResult',
+    'GetAccountNetworkPoliciesItemIngressDryRunPublicAccessResult',
+    'GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleResult',
+    'GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleAuthenticationResult',
+    'GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleAuthenticationIdentityResult',
+    'GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleDestinationResult',
+    'GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleDestinationWorkspaceApiResult',
+    'GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleDestinationWorkspaceUiResult',
+    'GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleOriginResult',
+    'GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleOriginExcludedIpRangesResult',
+    'GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleOriginIncludedIpRangesResult',
+    'GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleResult',
+    'GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleAuthenticationResult',
+    'GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleAuthenticationIdentityResult',
+    'GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleDestinationResult',
+    'GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleDestinationWorkspaceApiResult',
+    'GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleDestinationWorkspaceUiResult',
+    'GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleOriginResult',
+    'GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleOriginExcludedIpRangesResult',
+    'GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleOriginIncludedIpRangesResult',
+    'GetAccountNetworkPoliciesItemIngressPublicAccessResult',
+    'GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleResult',
+    'GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleAuthenticationResult',
+    'GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleAuthenticationIdentityResult',
+    'GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleDestinationResult',
+    'GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleDestinationWorkspaceApiResult',
+    'GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleDestinationWorkspaceUiResult',
+    'GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleOriginResult',
+    'GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleOriginExcludedIpRangesResult',
+    'GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleOriginIncludedIpRangesResult',
+    'GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleResult',
+    'GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleAuthenticationResult',
+    'GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleAuthenticationIdentityResult',
+    'GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleDestinationResult',
+    'GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleDestinationWorkspaceApiResult',
+    'GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleDestinationWorkspaceUiResult',
+    'GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleOriginResult',
+    'GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleOriginExcludedIpRangesResult',
+    'GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleOriginIncludedIpRangesResult',
     'GetAccountNetworkPolicyEgressResult',
     'GetAccountNetworkPolicyEgressNetworkAccessResult',
     'GetAccountNetworkPolicyEgressNetworkAccessAllowedInternetDestinationResult',
     'GetAccountNetworkPolicyEgressNetworkAccessAllowedStorageDestinationResult',
     'GetAccountNetworkPolicyEgressNetworkAccessPolicyEnforcementResult',
+    'GetAccountNetworkPolicyIngressResult',
+    'GetAccountNetworkPolicyIngressDryRunResult',
+    'GetAccountNetworkPolicyIngressDryRunPublicAccessResult',
+    'GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleResult',
+    'GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleAuthenticationResult',
+    'GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleAuthenticationIdentityResult',
+    'GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationResult',
+    'GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationWorkspaceApiResult',
+    'GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationWorkspaceUiResult',
+    'GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleOriginResult',
+    'GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleOriginExcludedIpRangesResult',
+    'GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleOriginIncludedIpRangesResult',
+    'GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleResult',
+    'GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleAuthenticationResult',
+    'GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleAuthenticationIdentityResult',
+    'GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationResult',
+    'GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationWorkspaceApiResult',
+    'GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationWorkspaceUiResult',
+    'GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleOriginResult',
+    'GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleOriginExcludedIpRangesResult',
+    'GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleOriginIncludedIpRangesResult',
+    'GetAccountNetworkPolicyIngressPublicAccessResult',
+    'GetAccountNetworkPolicyIngressPublicAccessAllowRuleResult',
+    'GetAccountNetworkPolicyIngressPublicAccessAllowRuleAuthenticationResult',
+    'GetAccountNetworkPolicyIngressPublicAccessAllowRuleAuthenticationIdentityResult',
+    'GetAccountNetworkPolicyIngressPublicAccessAllowRuleDestinationResult',
+    'GetAccountNetworkPolicyIngressPublicAccessAllowRuleDestinationWorkspaceApiResult',
+    'GetAccountNetworkPolicyIngressPublicAccessAllowRuleDestinationWorkspaceUiResult',
+    'GetAccountNetworkPolicyIngressPublicAccessAllowRuleOriginResult',
+    'GetAccountNetworkPolicyIngressPublicAccessAllowRuleOriginExcludedIpRangesResult',
+    'GetAccountNetworkPolicyIngressPublicAccessAllowRuleOriginIncludedIpRangesResult',
+    'GetAccountNetworkPolicyIngressPublicAccessDenyRuleResult',
+    'GetAccountNetworkPolicyIngressPublicAccessDenyRuleAuthenticationResult',
+    'GetAccountNetworkPolicyIngressPublicAccessDenyRuleAuthenticationIdentityResult',
+    'GetAccountNetworkPolicyIngressPublicAccessDenyRuleDestinationResult',
+    'GetAccountNetworkPolicyIngressPublicAccessDenyRuleDestinationWorkspaceApiResult',
+    'GetAccountNetworkPolicyIngressPublicAccessDenyRuleDestinationWorkspaceUiResult',
+    'GetAccountNetworkPolicyIngressPublicAccessDenyRuleOriginResult',
+    'GetAccountNetworkPolicyIngressPublicAccessDenyRuleOriginExcludedIpRangesResult',
+    'GetAccountNetworkPolicyIngressPublicAccessDenyRuleOriginIncludedIpRangesResult',
     'GetAccountSettingUserPreferenceV2BooleanValResult',
     'GetAccountSettingUserPreferenceV2EffectiveBooleanValResult',
     'GetAccountSettingUserPreferenceV2EffectiveStringValResult',
@@ -1142,6 +1320,8 @@ __all__ = [
     'GetBudgetPolicyCustomTagResult',
     'GetCatalogCatalogInfoResult',
     'GetCatalogCatalogInfoEffectivePredictiveOptimizationFlagResult',
+    'GetCatalogCatalogInfoManagedEncryptionSettingsResult',
+    'GetCatalogCatalogInfoManagedEncryptionSettingsAzureEncryptionSettingsResult',
     'GetCatalogCatalogInfoProvisioningInfoResult',
     'GetCatalogProviderConfigResult',
     'GetCatalogsProviderConfigResult',
@@ -1307,6 +1487,13 @@ __all__ = [
     'GetEnvironmentsWorkspaceBaseEnvironmentsWorkspaceBaseEnvironmentResult',
     'GetEnvironmentsWorkspaceBaseEnvironmentsWorkspaceBaseEnvironmentProviderConfigResult',
     'GetExternalLocationExternalLocationInfoResult',
+    'GetExternalLocationExternalLocationInfoEffectiveFileEventQueueResult',
+    'GetExternalLocationExternalLocationInfoEffectiveFileEventQueueManagedAqsResult',
+    'GetExternalLocationExternalLocationInfoEffectiveFileEventQueueManagedPubsubResult',
+    'GetExternalLocationExternalLocationInfoEffectiveFileEventQueueManagedSqsResult',
+    'GetExternalLocationExternalLocationInfoEffectiveFileEventQueueProvidedAqsResult',
+    'GetExternalLocationExternalLocationInfoEffectiveFileEventQueueProvidedPubsubResult',
+    'GetExternalLocationExternalLocationInfoEffectiveFileEventQueueProvidedSqsResult',
     'GetExternalLocationExternalLocationInfoEncryptionDetailsResult',
     'GetExternalLocationExternalLocationInfoEncryptionDetailsSseEncryptionDetailsResult',
     'GetExternalLocationExternalLocationInfoFileEventQueueResult',
@@ -1342,6 +1529,7 @@ __all__ = [
     'GetFeatureEngineeringFeatureFunctionAggregationFunctionTimeWindowTumblingResult',
     'GetFeatureEngineeringFeatureFunctionAggregationFunctionVarPopResult',
     'GetFeatureEngineeringFeatureFunctionAggregationFunctionVarSampResult',
+    'GetFeatureEngineeringFeatureFunctionColumnSelectionResult',
     'GetFeatureEngineeringFeatureFunctionExtraParameterResult',
     'GetFeatureEngineeringFeatureLineageContextResult',
     'GetFeatureEngineeringFeatureLineageContextJobContextResult',
@@ -1351,6 +1539,9 @@ __all__ = [
     'GetFeatureEngineeringFeatureSourceKafkaSourceResult',
     'GetFeatureEngineeringFeatureSourceKafkaSourceEntityColumnIdentifierResult',
     'GetFeatureEngineeringFeatureSourceKafkaSourceTimeseriesColumnIdentifierResult',
+    'GetFeatureEngineeringFeatureSourceRequestSourceResult',
+    'GetFeatureEngineeringFeatureSourceRequestSourceFlatSchemaResult',
+    'GetFeatureEngineeringFeatureSourceRequestSourceFlatSchemaFieldResult',
     'GetFeatureEngineeringFeatureTimeWindowResult',
     'GetFeatureEngineeringFeatureTimeWindowContinuousResult',
     'GetFeatureEngineeringFeatureTimeWindowSlidingResult',
@@ -1377,6 +1568,7 @@ __all__ = [
     'GetFeatureEngineeringFeaturesFeatureFunctionAggregationFunctionTimeWindowTumblingResult',
     'GetFeatureEngineeringFeaturesFeatureFunctionAggregationFunctionVarPopResult',
     'GetFeatureEngineeringFeaturesFeatureFunctionAggregationFunctionVarSampResult',
+    'GetFeatureEngineeringFeaturesFeatureFunctionColumnSelectionResult',
     'GetFeatureEngineeringFeaturesFeatureFunctionExtraParameterResult',
     'GetFeatureEngineeringFeaturesFeatureLineageContextResult',
     'GetFeatureEngineeringFeaturesFeatureLineageContextJobContextResult',
@@ -1386,6 +1578,9 @@ __all__ = [
     'GetFeatureEngineeringFeaturesFeatureSourceKafkaSourceResult',
     'GetFeatureEngineeringFeaturesFeatureSourceKafkaSourceEntityColumnIdentifierResult',
     'GetFeatureEngineeringFeaturesFeatureSourceKafkaSourceTimeseriesColumnIdentifierResult',
+    'GetFeatureEngineeringFeaturesFeatureSourceRequestSourceResult',
+    'GetFeatureEngineeringFeaturesFeatureSourceRequestSourceFlatSchemaResult',
+    'GetFeatureEngineeringFeaturesFeatureSourceRequestSourceFlatSchemaFieldResult',
     'GetFeatureEngineeringFeaturesFeatureTimeWindowResult',
     'GetFeatureEngineeringFeaturesFeatureTimeWindowContinuousResult',
     'GetFeatureEngineeringFeaturesFeatureTimeWindowSlidingResult',
@@ -1723,6 +1918,9 @@ __all__ = [
     'GetPostgresBranchesBranchSpecResult',
     'GetPostgresBranchesBranchStatusResult',
     'GetPostgresBranchesProviderConfigResult',
+    'GetPostgresCatalogProviderConfigResult',
+    'GetPostgresCatalogSpecResult',
+    'GetPostgresCatalogStatusResult',
     'GetPostgresDatabaseProviderConfigResult',
     'GetPostgresDatabaseSpecResult',
     'GetPostgresDatabaseStatusResult',
@@ -1781,6 +1979,13 @@ __all__ = [
     'GetPostgresRolesRoleSpecAttributesResult',
     'GetPostgresRolesRoleStatusResult',
     'GetPostgresRolesRoleStatusAttributesResult',
+    'GetPostgresSyncedTableProviderConfigResult',
+    'GetPostgresSyncedTableSpecResult',
+    'GetPostgresSyncedTableSpecNewPipelineSpecResult',
+    'GetPostgresSyncedTableStatusResult',
+    'GetPostgresSyncedTableStatusLastSyncResult',
+    'GetPostgresSyncedTableStatusLastSyncDeltaTableSyncInfoResult',
+    'GetPostgresSyncedTableStatusOngoingSyncProgressResult',
     'GetQualityMonitorV2AnomalyDetectionConfigResult',
     'GetQualityMonitorV2ProviderConfigResult',
     'GetQualityMonitorV2ValidityCheckConfigurationResult',
@@ -1904,6 +2109,7 @@ __all__ = [
     'GetTagPolicyProviderConfigResult',
     'GetTagPolicyValueResult',
     'GetUserProviderConfigResult',
+    'GetUsersProviderConfigResult',
     'GetUsersUserResult',
     'GetUsersUserEmailResult',
     'GetUsersUserEntitlementResult',
@@ -2020,6 +2226,35 @@ class AccessControlRuleSetGrantRule(dict):
         * `servicePrincipals/{applicationId}` (also exposed as `acl_principal_id` attribute of `ServicePrincipal` resource).
         """
         return pulumi.get(self, "principals")
+
+
+@pulumi.output_type
+class AccessControlRuleSetProviderConfig(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "workspaceId":
+            suggest = "workspace_id"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccessControlRuleSetProviderConfig. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccessControlRuleSetProviderConfig.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccessControlRuleSetProviderConfig.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 workspace_id: _builtins.str):
+        pulumi.set(__self__, "workspace_id", workspace_id)
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceId")
+    def workspace_id(self) -> _builtins.str:
+        return pulumi.get(self, "workspace_id")
 
 
 @pulumi.output_type
@@ -2221,7 +2456,6 @@ class AccountNetworkPolicyEgressNetworkAccess(dict):
                  allowed_storage_destinations: Optional[Sequence['outputs.AccountNetworkPolicyEgressNetworkAccessAllowedStorageDestination']] = None,
                  policy_enforcement: Optional['outputs.AccountNetworkPolicyEgressNetworkAccessPolicyEnforcement'] = None):
         """
-        :param _builtins.str restriction_mode: The restriction mode that controls how serverless workloads can access the internet. Possible values are: `FULL_ACCESS`, `RESTRICTED_ACCESS`
         :param Sequence['AccountNetworkPolicyEgressNetworkAccessAllowedInternetDestinationArgs'] allowed_internet_destinations: List of internet destinations that serverless workloads are allowed to access when in RESTRICTED_ACCESS mode
         :param Sequence['AccountNetworkPolicyEgressNetworkAccessAllowedStorageDestinationArgs'] allowed_storage_destinations: List of storage destinations that serverless workloads are allowed to access when in RESTRICTED_ACCESS mode
         :param 'AccountNetworkPolicyEgressNetworkAccessPolicyEnforcementArgs' policy_enforcement: Optional. When policy_enforcement is not provided, we default to ENFORCE_MODE_ALL_SERVICES
@@ -2237,9 +2471,6 @@ class AccountNetworkPolicyEgressNetworkAccess(dict):
     @_builtins.property
     @pulumi.getter(name="restrictionMode")
     def restriction_mode(self) -> _builtins.str:
-        """
-        The restriction mode that controls how serverless workloads can access the internet. Possible values are: `FULL_ACCESS`, `RESTRICTED_ACCESS`
-        """
         return pulumi.get(self, "restriction_mode")
 
     @_builtins.property
@@ -2290,7 +2521,6 @@ class AccountNetworkPolicyEgressNetworkAccessAllowedInternetDestination(dict):
                  destination: Optional[_builtins.str] = None,
                  internet_destination_type: Optional[_builtins.str] = None):
         """
-        :param _builtins.str destination: The internet destination to which access will be allowed. Format dependent on the destination type
         :param _builtins.str internet_destination_type: The type of internet destination. Currently only DNS_NAME is supported. Possible values are: `DNS_NAME`
         """
         if destination is not None:
@@ -2301,9 +2531,6 @@ class AccountNetworkPolicyEgressNetworkAccessAllowedInternetDestination(dict):
     @_builtins.property
     @pulumi.getter
     def destination(self) -> Optional[_builtins.str]:
-        """
-        The internet destination to which access will be allowed. Format dependent on the destination type
-        """
         return pulumi.get(self, "destination")
 
     @_builtins.property
@@ -2451,6 +2678,1660 @@ class AccountNetworkPolicyEgressNetworkAccessPolicyEnforcement(dict):
         defaults to ENFORCED. Possible values are: `DRY_RUN`, `ENFORCED`
         """
         return pulumi.get(self, "enforcement_mode")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngress(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "publicAccess":
+            suggest = "public_access"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngress. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngress.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngress.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 public_access: Optional['outputs.AccountNetworkPolicyIngressPublicAccess'] = None):
+        if public_access is not None:
+            pulumi.set(__self__, "public_access", public_access)
+
+    @_builtins.property
+    @pulumi.getter(name="publicAccess")
+    def public_access(self) -> Optional['outputs.AccountNetworkPolicyIngressPublicAccess']:
+        return pulumi.get(self, "public_access")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressDryRun(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "publicAccess":
+            suggest = "public_access"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressDryRun. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressDryRun.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressDryRun.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 public_access: Optional['outputs.AccountNetworkPolicyIngressDryRunPublicAccess'] = None):
+        if public_access is not None:
+            pulumi.set(__self__, "public_access", public_access)
+
+    @_builtins.property
+    @pulumi.getter(name="publicAccess")
+    def public_access(self) -> Optional['outputs.AccountNetworkPolicyIngressDryRunPublicAccess']:
+        return pulumi.get(self, "public_access")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressDryRunPublicAccess(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "restrictionMode":
+            suggest = "restriction_mode"
+        elif key == "allowRules":
+            suggest = "allow_rules"
+        elif key == "denyRules":
+            suggest = "deny_rules"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressDryRunPublicAccess. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressDryRunPublicAccess.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressDryRunPublicAccess.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 restriction_mode: _builtins.str,
+                 allow_rules: Optional[Sequence['outputs.AccountNetworkPolicyIngressDryRunPublicAccessAllowRule']] = None,
+                 deny_rules: Optional[Sequence['outputs.AccountNetworkPolicyIngressDryRunPublicAccessDenyRule']] = None):
+        pulumi.set(__self__, "restriction_mode", restriction_mode)
+        if allow_rules is not None:
+            pulumi.set(__self__, "allow_rules", allow_rules)
+        if deny_rules is not None:
+            pulumi.set(__self__, "deny_rules", deny_rules)
+
+    @_builtins.property
+    @pulumi.getter(name="restrictionMode")
+    def restriction_mode(self) -> _builtins.str:
+        return pulumi.get(self, "restriction_mode")
+
+    @_builtins.property
+    @pulumi.getter(name="allowRules")
+    def allow_rules(self) -> Optional[Sequence['outputs.AccountNetworkPolicyIngressDryRunPublicAccessAllowRule']]:
+        return pulumi.get(self, "allow_rules")
+
+    @_builtins.property
+    @pulumi.getter(name="denyRules")
+    def deny_rules(self) -> Optional[Sequence['outputs.AccountNetworkPolicyIngressDryRunPublicAccessDenyRule']]:
+        return pulumi.get(self, "deny_rules")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressDryRunPublicAccessAllowRule(dict):
+    def __init__(__self__, *,
+                 authentication: Optional['outputs.AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleAuthentication'] = None,
+                 destination: Optional['outputs.AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestination'] = None,
+                 label: Optional[_builtins.str] = None,
+                 origin: Optional['outputs.AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleOrigin'] = None):
+        """
+        :param _builtins.str label: User-provided name for this ingress rule. Helps identify which rule
+               caused a request to be denied or dry-run denied
+        """
+        if authentication is not None:
+            pulumi.set(__self__, "authentication", authentication)
+        if destination is not None:
+            pulumi.set(__self__, "destination", destination)
+        if label is not None:
+            pulumi.set(__self__, "label", label)
+        if origin is not None:
+            pulumi.set(__self__, "origin", origin)
+
+    @_builtins.property
+    @pulumi.getter
+    def authentication(self) -> Optional['outputs.AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleAuthentication']:
+        return pulumi.get(self, "authentication")
+
+    @_builtins.property
+    @pulumi.getter
+    def destination(self) -> Optional['outputs.AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestination']:
+        return pulumi.get(self, "destination")
+
+    @_builtins.property
+    @pulumi.getter
+    def label(self) -> Optional[_builtins.str]:
+        """
+        User-provided name for this ingress rule. Helps identify which rule
+        caused a request to be denied or dry-run denied
+        """
+        return pulumi.get(self, "label")
+
+    @_builtins.property
+    @pulumi.getter
+    def origin(self) -> Optional['outputs.AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleOrigin']:
+        return pulumi.get(self, "origin")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleAuthentication(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "identityType":
+            suggest = "identity_type"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleAuthentication. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleAuthentication.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleAuthentication.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 identities: Optional[Sequence['outputs.AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleAuthenticationIdentity']] = None,
+                 identity_type: Optional[_builtins.str] = None):
+        """
+        :param Sequence['AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleAuthenticationIdentityArgs'] identities: Valid only when IdentityType is IDENTITY_TYPE_SELECTED_IDENTITIES
+        :param _builtins.str identity_type: Possible values are: `IDENTITY_TYPE_ALL_SERVICE_PRINCIPALS`, `IDENTITY_TYPE_ALL_USERS`, `IDENTITY_TYPE_SELECTED_IDENTITIES`
+        """
+        if identities is not None:
+            pulumi.set(__self__, "identities", identities)
+        if identity_type is not None:
+            pulumi.set(__self__, "identity_type", identity_type)
+
+    @_builtins.property
+    @pulumi.getter
+    def identities(self) -> Optional[Sequence['outputs.AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleAuthenticationIdentity']]:
+        """
+        Valid only when IdentityType is IDENTITY_TYPE_SELECTED_IDENTITIES
+        """
+        return pulumi.get(self, "identities")
+
+    @_builtins.property
+    @pulumi.getter(name="identityType")
+    def identity_type(self) -> Optional[_builtins.str]:
+        """
+        Possible values are: `IDENTITY_TYPE_ALL_SERVICE_PRINCIPALS`, `IDENTITY_TYPE_ALL_USERS`, `IDENTITY_TYPE_SELECTED_IDENTITIES`
+        """
+        return pulumi.get(self, "identity_type")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleAuthenticationIdentity(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "principalId":
+            suggest = "principal_id"
+        elif key == "principalType":
+            suggest = "principal_type"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleAuthenticationIdentity. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleAuthenticationIdentity.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleAuthenticationIdentity.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 principal_id: Optional[_builtins.str] = None,
+                 principal_type: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str principal_type: Possible values are: `PRINCIPAL_TYPE_SERVICE_PRINCIPAL`, `PRINCIPAL_TYPE_USER`
+        """
+        if principal_id is not None:
+            pulumi.set(__self__, "principal_id", principal_id)
+        if principal_type is not None:
+            pulumi.set(__self__, "principal_type", principal_type)
+
+    @_builtins.property
+    @pulumi.getter(name="principalId")
+    def principal_id(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "principal_id")
+
+    @_builtins.property
+    @pulumi.getter(name="principalType")
+    def principal_type(self) -> Optional[_builtins.str]:
+        """
+        Possible values are: `PRINCIPAL_TYPE_SERVICE_PRINCIPAL`, `PRINCIPAL_TYPE_USER`
+        """
+        return pulumi.get(self, "principal_type")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestination(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "allDestinations":
+            suggest = "all_destinations"
+        elif key == "workspaceApi":
+            suggest = "workspace_api"
+        elif key == "workspaceUi":
+            suggest = "workspace_ui"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestination. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestination.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestination.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None,
+                 workspace_api: Optional['outputs.AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationWorkspaceApi'] = None,
+                 workspace_ui: Optional['outputs.AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationWorkspaceUi'] = None):
+        """
+        :param 'AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationWorkspaceUiArgs' workspace_ui: Workspace destinations
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+        if workspace_api is not None:
+            pulumi.set(__self__, "workspace_api", workspace_api)
+        if workspace_ui is not None:
+            pulumi.set(__self__, "workspace_ui", workspace_ui)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        return pulumi.get(self, "all_destinations")
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceApi")
+    def workspace_api(self) -> Optional['outputs.AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationWorkspaceApi']:
+        return pulumi.get(self, "workspace_api")
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceUi")
+    def workspace_ui(self) -> Optional['outputs.AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationWorkspaceUi']:
+        """
+        Workspace destinations
+        """
+        return pulumi.get(self, "workspace_ui")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationWorkspaceApi(dict):
+    def __init__(__self__, *,
+                 scopes: Optional[Sequence[_builtins.str]] = None):
+        if scopes is not None:
+            pulumi.set(__self__, "scopes", scopes)
+
+    @_builtins.property
+    @pulumi.getter
+    def scopes(self) -> Optional[Sequence[_builtins.str]]:
+        return pulumi.get(self, "scopes")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationWorkspaceUi(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "allDestinations":
+            suggest = "all_destinations"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationWorkspaceUi. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationWorkspaceUi.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationWorkspaceUi.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleOrigin(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "allIpRanges":
+            suggest = "all_ip_ranges"
+        elif key == "excludedIpRanges":
+            suggest = "excluded_ip_ranges"
+        elif key == "includedIpRanges":
+            suggest = "included_ip_ranges"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleOrigin. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleOrigin.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleOrigin.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 all_ip_ranges: Optional[_builtins.bool] = None,
+                 excluded_ip_ranges: Optional['outputs.AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleOriginExcludedIpRanges'] = None,
+                 included_ip_ranges: Optional['outputs.AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleOriginIncludedIpRanges'] = None):
+        """
+        :param _builtins.bool all_ip_ranges: Matches all IPv4 and IPv6 ranges (both public and private)
+        :param 'AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleOriginExcludedIpRangesArgs' excluded_ip_ranges: Excluded means: all public IP ranges except this one
+        :param 'AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleOriginIncludedIpRangesArgs' included_ip_ranges: Will not allow IP ranges with private IPs
+        """
+        if all_ip_ranges is not None:
+            pulumi.set(__self__, "all_ip_ranges", all_ip_ranges)
+        if excluded_ip_ranges is not None:
+            pulumi.set(__self__, "excluded_ip_ranges", excluded_ip_ranges)
+        if included_ip_ranges is not None:
+            pulumi.set(__self__, "included_ip_ranges", included_ip_ranges)
+
+    @_builtins.property
+    @pulumi.getter(name="allIpRanges")
+    def all_ip_ranges(self) -> Optional[_builtins.bool]:
+        """
+        Matches all IPv4 and IPv6 ranges (both public and private)
+        """
+        return pulumi.get(self, "all_ip_ranges")
+
+    @_builtins.property
+    @pulumi.getter(name="excludedIpRanges")
+    def excluded_ip_ranges(self) -> Optional['outputs.AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleOriginExcludedIpRanges']:
+        """
+        Excluded means: all public IP ranges except this one
+        """
+        return pulumi.get(self, "excluded_ip_ranges")
+
+    @_builtins.property
+    @pulumi.getter(name="includedIpRanges")
+    def included_ip_ranges(self) -> Optional['outputs.AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleOriginIncludedIpRanges']:
+        """
+        Will not allow IP ranges with private IPs
+        """
+        return pulumi.get(self, "included_ip_ranges")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleOriginExcludedIpRanges(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "ipRanges":
+            suggest = "ip_ranges"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleOriginExcludedIpRanges. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleOriginExcludedIpRanges.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleOriginExcludedIpRanges.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 ip_ranges: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param Sequence[_builtins.str] ip_ranges: We only support IPv4 and IPv4 CIDR notation for now
+        """
+        if ip_ranges is not None:
+            pulumi.set(__self__, "ip_ranges", ip_ranges)
+
+    @_builtins.property
+    @pulumi.getter(name="ipRanges")
+    def ip_ranges(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        We only support IPv4 and IPv4 CIDR notation for now
+        """
+        return pulumi.get(self, "ip_ranges")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleOriginIncludedIpRanges(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "ipRanges":
+            suggest = "ip_ranges"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleOriginIncludedIpRanges. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleOriginIncludedIpRanges.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleOriginIncludedIpRanges.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 ip_ranges: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param Sequence[_builtins.str] ip_ranges: We only support IPv4 and IPv4 CIDR notation for now
+        """
+        if ip_ranges is not None:
+            pulumi.set(__self__, "ip_ranges", ip_ranges)
+
+    @_builtins.property
+    @pulumi.getter(name="ipRanges")
+    def ip_ranges(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        We only support IPv4 and IPv4 CIDR notation for now
+        """
+        return pulumi.get(self, "ip_ranges")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressDryRunPublicAccessDenyRule(dict):
+    def __init__(__self__, *,
+                 authentication: Optional['outputs.AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleAuthentication'] = None,
+                 destination: Optional['outputs.AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestination'] = None,
+                 label: Optional[_builtins.str] = None,
+                 origin: Optional['outputs.AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleOrigin'] = None):
+        """
+        :param _builtins.str label: User-provided name for this ingress rule. Helps identify which rule
+               caused a request to be denied or dry-run denied
+        """
+        if authentication is not None:
+            pulumi.set(__self__, "authentication", authentication)
+        if destination is not None:
+            pulumi.set(__self__, "destination", destination)
+        if label is not None:
+            pulumi.set(__self__, "label", label)
+        if origin is not None:
+            pulumi.set(__self__, "origin", origin)
+
+    @_builtins.property
+    @pulumi.getter
+    def authentication(self) -> Optional['outputs.AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleAuthentication']:
+        return pulumi.get(self, "authentication")
+
+    @_builtins.property
+    @pulumi.getter
+    def destination(self) -> Optional['outputs.AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestination']:
+        return pulumi.get(self, "destination")
+
+    @_builtins.property
+    @pulumi.getter
+    def label(self) -> Optional[_builtins.str]:
+        """
+        User-provided name for this ingress rule. Helps identify which rule
+        caused a request to be denied or dry-run denied
+        """
+        return pulumi.get(self, "label")
+
+    @_builtins.property
+    @pulumi.getter
+    def origin(self) -> Optional['outputs.AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleOrigin']:
+        return pulumi.get(self, "origin")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleAuthentication(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "identityType":
+            suggest = "identity_type"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleAuthentication. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleAuthentication.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleAuthentication.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 identities: Optional[Sequence['outputs.AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleAuthenticationIdentity']] = None,
+                 identity_type: Optional[_builtins.str] = None):
+        """
+        :param Sequence['AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleAuthenticationIdentityArgs'] identities: Valid only when IdentityType is IDENTITY_TYPE_SELECTED_IDENTITIES
+        :param _builtins.str identity_type: Possible values are: `IDENTITY_TYPE_ALL_SERVICE_PRINCIPALS`, `IDENTITY_TYPE_ALL_USERS`, `IDENTITY_TYPE_SELECTED_IDENTITIES`
+        """
+        if identities is not None:
+            pulumi.set(__self__, "identities", identities)
+        if identity_type is not None:
+            pulumi.set(__self__, "identity_type", identity_type)
+
+    @_builtins.property
+    @pulumi.getter
+    def identities(self) -> Optional[Sequence['outputs.AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleAuthenticationIdentity']]:
+        """
+        Valid only when IdentityType is IDENTITY_TYPE_SELECTED_IDENTITIES
+        """
+        return pulumi.get(self, "identities")
+
+    @_builtins.property
+    @pulumi.getter(name="identityType")
+    def identity_type(self) -> Optional[_builtins.str]:
+        """
+        Possible values are: `IDENTITY_TYPE_ALL_SERVICE_PRINCIPALS`, `IDENTITY_TYPE_ALL_USERS`, `IDENTITY_TYPE_SELECTED_IDENTITIES`
+        """
+        return pulumi.get(self, "identity_type")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleAuthenticationIdentity(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "principalId":
+            suggest = "principal_id"
+        elif key == "principalType":
+            suggest = "principal_type"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleAuthenticationIdentity. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleAuthenticationIdentity.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleAuthenticationIdentity.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 principal_id: Optional[_builtins.str] = None,
+                 principal_type: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str principal_type: Possible values are: `PRINCIPAL_TYPE_SERVICE_PRINCIPAL`, `PRINCIPAL_TYPE_USER`
+        """
+        if principal_id is not None:
+            pulumi.set(__self__, "principal_id", principal_id)
+        if principal_type is not None:
+            pulumi.set(__self__, "principal_type", principal_type)
+
+    @_builtins.property
+    @pulumi.getter(name="principalId")
+    def principal_id(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "principal_id")
+
+    @_builtins.property
+    @pulumi.getter(name="principalType")
+    def principal_type(self) -> Optional[_builtins.str]:
+        """
+        Possible values are: `PRINCIPAL_TYPE_SERVICE_PRINCIPAL`, `PRINCIPAL_TYPE_USER`
+        """
+        return pulumi.get(self, "principal_type")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestination(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "allDestinations":
+            suggest = "all_destinations"
+        elif key == "workspaceApi":
+            suggest = "workspace_api"
+        elif key == "workspaceUi":
+            suggest = "workspace_ui"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestination. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestination.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestination.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None,
+                 workspace_api: Optional['outputs.AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationWorkspaceApi'] = None,
+                 workspace_ui: Optional['outputs.AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationWorkspaceUi'] = None):
+        """
+        :param 'AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationWorkspaceUiArgs' workspace_ui: Workspace destinations
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+        if workspace_api is not None:
+            pulumi.set(__self__, "workspace_api", workspace_api)
+        if workspace_ui is not None:
+            pulumi.set(__self__, "workspace_ui", workspace_ui)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        return pulumi.get(self, "all_destinations")
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceApi")
+    def workspace_api(self) -> Optional['outputs.AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationWorkspaceApi']:
+        return pulumi.get(self, "workspace_api")
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceUi")
+    def workspace_ui(self) -> Optional['outputs.AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationWorkspaceUi']:
+        """
+        Workspace destinations
+        """
+        return pulumi.get(self, "workspace_ui")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationWorkspaceApi(dict):
+    def __init__(__self__, *,
+                 scopes: Optional[Sequence[_builtins.str]] = None):
+        if scopes is not None:
+            pulumi.set(__self__, "scopes", scopes)
+
+    @_builtins.property
+    @pulumi.getter
+    def scopes(self) -> Optional[Sequence[_builtins.str]]:
+        return pulumi.get(self, "scopes")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationWorkspaceUi(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "allDestinations":
+            suggest = "all_destinations"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationWorkspaceUi. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationWorkspaceUi.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationWorkspaceUi.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleOrigin(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "allIpRanges":
+            suggest = "all_ip_ranges"
+        elif key == "excludedIpRanges":
+            suggest = "excluded_ip_ranges"
+        elif key == "includedIpRanges":
+            suggest = "included_ip_ranges"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleOrigin. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleOrigin.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleOrigin.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 all_ip_ranges: Optional[_builtins.bool] = None,
+                 excluded_ip_ranges: Optional['outputs.AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleOriginExcludedIpRanges'] = None,
+                 included_ip_ranges: Optional['outputs.AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleOriginIncludedIpRanges'] = None):
+        """
+        :param _builtins.bool all_ip_ranges: Matches all IPv4 and IPv6 ranges (both public and private)
+        :param 'AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleOriginExcludedIpRangesArgs' excluded_ip_ranges: Excluded means: all public IP ranges except this one
+        :param 'AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleOriginIncludedIpRangesArgs' included_ip_ranges: Will not allow IP ranges with private IPs
+        """
+        if all_ip_ranges is not None:
+            pulumi.set(__self__, "all_ip_ranges", all_ip_ranges)
+        if excluded_ip_ranges is not None:
+            pulumi.set(__self__, "excluded_ip_ranges", excluded_ip_ranges)
+        if included_ip_ranges is not None:
+            pulumi.set(__self__, "included_ip_ranges", included_ip_ranges)
+
+    @_builtins.property
+    @pulumi.getter(name="allIpRanges")
+    def all_ip_ranges(self) -> Optional[_builtins.bool]:
+        """
+        Matches all IPv4 and IPv6 ranges (both public and private)
+        """
+        return pulumi.get(self, "all_ip_ranges")
+
+    @_builtins.property
+    @pulumi.getter(name="excludedIpRanges")
+    def excluded_ip_ranges(self) -> Optional['outputs.AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleOriginExcludedIpRanges']:
+        """
+        Excluded means: all public IP ranges except this one
+        """
+        return pulumi.get(self, "excluded_ip_ranges")
+
+    @_builtins.property
+    @pulumi.getter(name="includedIpRanges")
+    def included_ip_ranges(self) -> Optional['outputs.AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleOriginIncludedIpRanges']:
+        """
+        Will not allow IP ranges with private IPs
+        """
+        return pulumi.get(self, "included_ip_ranges")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleOriginExcludedIpRanges(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "ipRanges":
+            suggest = "ip_ranges"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleOriginExcludedIpRanges. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleOriginExcludedIpRanges.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleOriginExcludedIpRanges.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 ip_ranges: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param Sequence[_builtins.str] ip_ranges: We only support IPv4 and IPv4 CIDR notation for now
+        """
+        if ip_ranges is not None:
+            pulumi.set(__self__, "ip_ranges", ip_ranges)
+
+    @_builtins.property
+    @pulumi.getter(name="ipRanges")
+    def ip_ranges(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        We only support IPv4 and IPv4 CIDR notation for now
+        """
+        return pulumi.get(self, "ip_ranges")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleOriginIncludedIpRanges(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "ipRanges":
+            suggest = "ip_ranges"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleOriginIncludedIpRanges. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleOriginIncludedIpRanges.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleOriginIncludedIpRanges.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 ip_ranges: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param Sequence[_builtins.str] ip_ranges: We only support IPv4 and IPv4 CIDR notation for now
+        """
+        if ip_ranges is not None:
+            pulumi.set(__self__, "ip_ranges", ip_ranges)
+
+    @_builtins.property
+    @pulumi.getter(name="ipRanges")
+    def ip_ranges(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        We only support IPv4 and IPv4 CIDR notation for now
+        """
+        return pulumi.get(self, "ip_ranges")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressPublicAccess(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "restrictionMode":
+            suggest = "restriction_mode"
+        elif key == "allowRules":
+            suggest = "allow_rules"
+        elif key == "denyRules":
+            suggest = "deny_rules"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressPublicAccess. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressPublicAccess.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressPublicAccess.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 restriction_mode: _builtins.str,
+                 allow_rules: Optional[Sequence['outputs.AccountNetworkPolicyIngressPublicAccessAllowRule']] = None,
+                 deny_rules: Optional[Sequence['outputs.AccountNetworkPolicyIngressPublicAccessDenyRule']] = None):
+        pulumi.set(__self__, "restriction_mode", restriction_mode)
+        if allow_rules is not None:
+            pulumi.set(__self__, "allow_rules", allow_rules)
+        if deny_rules is not None:
+            pulumi.set(__self__, "deny_rules", deny_rules)
+
+    @_builtins.property
+    @pulumi.getter(name="restrictionMode")
+    def restriction_mode(self) -> _builtins.str:
+        return pulumi.get(self, "restriction_mode")
+
+    @_builtins.property
+    @pulumi.getter(name="allowRules")
+    def allow_rules(self) -> Optional[Sequence['outputs.AccountNetworkPolicyIngressPublicAccessAllowRule']]:
+        return pulumi.get(self, "allow_rules")
+
+    @_builtins.property
+    @pulumi.getter(name="denyRules")
+    def deny_rules(self) -> Optional[Sequence['outputs.AccountNetworkPolicyIngressPublicAccessDenyRule']]:
+        return pulumi.get(self, "deny_rules")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressPublicAccessAllowRule(dict):
+    def __init__(__self__, *,
+                 authentication: Optional['outputs.AccountNetworkPolicyIngressPublicAccessAllowRuleAuthentication'] = None,
+                 destination: Optional['outputs.AccountNetworkPolicyIngressPublicAccessAllowRuleDestination'] = None,
+                 label: Optional[_builtins.str] = None,
+                 origin: Optional['outputs.AccountNetworkPolicyIngressPublicAccessAllowRuleOrigin'] = None):
+        """
+        :param _builtins.str label: User-provided name for this ingress rule. Helps identify which rule
+               caused a request to be denied or dry-run denied
+        """
+        if authentication is not None:
+            pulumi.set(__self__, "authentication", authentication)
+        if destination is not None:
+            pulumi.set(__self__, "destination", destination)
+        if label is not None:
+            pulumi.set(__self__, "label", label)
+        if origin is not None:
+            pulumi.set(__self__, "origin", origin)
+
+    @_builtins.property
+    @pulumi.getter
+    def authentication(self) -> Optional['outputs.AccountNetworkPolicyIngressPublicAccessAllowRuleAuthentication']:
+        return pulumi.get(self, "authentication")
+
+    @_builtins.property
+    @pulumi.getter
+    def destination(self) -> Optional['outputs.AccountNetworkPolicyIngressPublicAccessAllowRuleDestination']:
+        return pulumi.get(self, "destination")
+
+    @_builtins.property
+    @pulumi.getter
+    def label(self) -> Optional[_builtins.str]:
+        """
+        User-provided name for this ingress rule. Helps identify which rule
+        caused a request to be denied or dry-run denied
+        """
+        return pulumi.get(self, "label")
+
+    @_builtins.property
+    @pulumi.getter
+    def origin(self) -> Optional['outputs.AccountNetworkPolicyIngressPublicAccessAllowRuleOrigin']:
+        return pulumi.get(self, "origin")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressPublicAccessAllowRuleAuthentication(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "identityType":
+            suggest = "identity_type"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressPublicAccessAllowRuleAuthentication. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressPublicAccessAllowRuleAuthentication.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressPublicAccessAllowRuleAuthentication.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 identities: Optional[Sequence['outputs.AccountNetworkPolicyIngressPublicAccessAllowRuleAuthenticationIdentity']] = None,
+                 identity_type: Optional[_builtins.str] = None):
+        """
+        :param Sequence['AccountNetworkPolicyIngressPublicAccessAllowRuleAuthenticationIdentityArgs'] identities: Valid only when IdentityType is IDENTITY_TYPE_SELECTED_IDENTITIES
+        :param _builtins.str identity_type: Possible values are: `IDENTITY_TYPE_ALL_SERVICE_PRINCIPALS`, `IDENTITY_TYPE_ALL_USERS`, `IDENTITY_TYPE_SELECTED_IDENTITIES`
+        """
+        if identities is not None:
+            pulumi.set(__self__, "identities", identities)
+        if identity_type is not None:
+            pulumi.set(__self__, "identity_type", identity_type)
+
+    @_builtins.property
+    @pulumi.getter
+    def identities(self) -> Optional[Sequence['outputs.AccountNetworkPolicyIngressPublicAccessAllowRuleAuthenticationIdentity']]:
+        """
+        Valid only when IdentityType is IDENTITY_TYPE_SELECTED_IDENTITIES
+        """
+        return pulumi.get(self, "identities")
+
+    @_builtins.property
+    @pulumi.getter(name="identityType")
+    def identity_type(self) -> Optional[_builtins.str]:
+        """
+        Possible values are: `IDENTITY_TYPE_ALL_SERVICE_PRINCIPALS`, `IDENTITY_TYPE_ALL_USERS`, `IDENTITY_TYPE_SELECTED_IDENTITIES`
+        """
+        return pulumi.get(self, "identity_type")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressPublicAccessAllowRuleAuthenticationIdentity(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "principalId":
+            suggest = "principal_id"
+        elif key == "principalType":
+            suggest = "principal_type"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressPublicAccessAllowRuleAuthenticationIdentity. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressPublicAccessAllowRuleAuthenticationIdentity.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressPublicAccessAllowRuleAuthenticationIdentity.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 principal_id: Optional[_builtins.str] = None,
+                 principal_type: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str principal_type: Possible values are: `PRINCIPAL_TYPE_SERVICE_PRINCIPAL`, `PRINCIPAL_TYPE_USER`
+        """
+        if principal_id is not None:
+            pulumi.set(__self__, "principal_id", principal_id)
+        if principal_type is not None:
+            pulumi.set(__self__, "principal_type", principal_type)
+
+    @_builtins.property
+    @pulumi.getter(name="principalId")
+    def principal_id(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "principal_id")
+
+    @_builtins.property
+    @pulumi.getter(name="principalType")
+    def principal_type(self) -> Optional[_builtins.str]:
+        """
+        Possible values are: `PRINCIPAL_TYPE_SERVICE_PRINCIPAL`, `PRINCIPAL_TYPE_USER`
+        """
+        return pulumi.get(self, "principal_type")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressPublicAccessAllowRuleDestination(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "allDestinations":
+            suggest = "all_destinations"
+        elif key == "workspaceApi":
+            suggest = "workspace_api"
+        elif key == "workspaceUi":
+            suggest = "workspace_ui"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressPublicAccessAllowRuleDestination. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressPublicAccessAllowRuleDestination.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressPublicAccessAllowRuleDestination.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None,
+                 workspace_api: Optional['outputs.AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationWorkspaceApi'] = None,
+                 workspace_ui: Optional['outputs.AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationWorkspaceUi'] = None):
+        """
+        :param 'AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationWorkspaceUiArgs' workspace_ui: Workspace destinations
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+        if workspace_api is not None:
+            pulumi.set(__self__, "workspace_api", workspace_api)
+        if workspace_ui is not None:
+            pulumi.set(__self__, "workspace_ui", workspace_ui)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        return pulumi.get(self, "all_destinations")
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceApi")
+    def workspace_api(self) -> Optional['outputs.AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationWorkspaceApi']:
+        return pulumi.get(self, "workspace_api")
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceUi")
+    def workspace_ui(self) -> Optional['outputs.AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationWorkspaceUi']:
+        """
+        Workspace destinations
+        """
+        return pulumi.get(self, "workspace_ui")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationWorkspaceApi(dict):
+    def __init__(__self__, *,
+                 scopes: Optional[Sequence[_builtins.str]] = None):
+        if scopes is not None:
+            pulumi.set(__self__, "scopes", scopes)
+
+    @_builtins.property
+    @pulumi.getter
+    def scopes(self) -> Optional[Sequence[_builtins.str]]:
+        return pulumi.get(self, "scopes")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationWorkspaceUi(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "allDestinations":
+            suggest = "all_destinations"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationWorkspaceUi. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationWorkspaceUi.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationWorkspaceUi.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressPublicAccessAllowRuleOrigin(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "allIpRanges":
+            suggest = "all_ip_ranges"
+        elif key == "excludedIpRanges":
+            suggest = "excluded_ip_ranges"
+        elif key == "includedIpRanges":
+            suggest = "included_ip_ranges"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressPublicAccessAllowRuleOrigin. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressPublicAccessAllowRuleOrigin.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressPublicAccessAllowRuleOrigin.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 all_ip_ranges: Optional[_builtins.bool] = None,
+                 excluded_ip_ranges: Optional['outputs.AccountNetworkPolicyIngressPublicAccessAllowRuleOriginExcludedIpRanges'] = None,
+                 included_ip_ranges: Optional['outputs.AccountNetworkPolicyIngressPublicAccessAllowRuleOriginIncludedIpRanges'] = None):
+        """
+        :param _builtins.bool all_ip_ranges: Matches all IPv4 and IPv6 ranges (both public and private)
+        :param 'AccountNetworkPolicyIngressPublicAccessAllowRuleOriginExcludedIpRangesArgs' excluded_ip_ranges: Excluded means: all public IP ranges except this one
+        :param 'AccountNetworkPolicyIngressPublicAccessAllowRuleOriginIncludedIpRangesArgs' included_ip_ranges: Will not allow IP ranges with private IPs
+        """
+        if all_ip_ranges is not None:
+            pulumi.set(__self__, "all_ip_ranges", all_ip_ranges)
+        if excluded_ip_ranges is not None:
+            pulumi.set(__self__, "excluded_ip_ranges", excluded_ip_ranges)
+        if included_ip_ranges is not None:
+            pulumi.set(__self__, "included_ip_ranges", included_ip_ranges)
+
+    @_builtins.property
+    @pulumi.getter(name="allIpRanges")
+    def all_ip_ranges(self) -> Optional[_builtins.bool]:
+        """
+        Matches all IPv4 and IPv6 ranges (both public and private)
+        """
+        return pulumi.get(self, "all_ip_ranges")
+
+    @_builtins.property
+    @pulumi.getter(name="excludedIpRanges")
+    def excluded_ip_ranges(self) -> Optional['outputs.AccountNetworkPolicyIngressPublicAccessAllowRuleOriginExcludedIpRanges']:
+        """
+        Excluded means: all public IP ranges except this one
+        """
+        return pulumi.get(self, "excluded_ip_ranges")
+
+    @_builtins.property
+    @pulumi.getter(name="includedIpRanges")
+    def included_ip_ranges(self) -> Optional['outputs.AccountNetworkPolicyIngressPublicAccessAllowRuleOriginIncludedIpRanges']:
+        """
+        Will not allow IP ranges with private IPs
+        """
+        return pulumi.get(self, "included_ip_ranges")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressPublicAccessAllowRuleOriginExcludedIpRanges(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "ipRanges":
+            suggest = "ip_ranges"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressPublicAccessAllowRuleOriginExcludedIpRanges. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressPublicAccessAllowRuleOriginExcludedIpRanges.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressPublicAccessAllowRuleOriginExcludedIpRanges.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 ip_ranges: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param Sequence[_builtins.str] ip_ranges: We only support IPv4 and IPv4 CIDR notation for now
+        """
+        if ip_ranges is not None:
+            pulumi.set(__self__, "ip_ranges", ip_ranges)
+
+    @_builtins.property
+    @pulumi.getter(name="ipRanges")
+    def ip_ranges(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        We only support IPv4 and IPv4 CIDR notation for now
+        """
+        return pulumi.get(self, "ip_ranges")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressPublicAccessAllowRuleOriginIncludedIpRanges(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "ipRanges":
+            suggest = "ip_ranges"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressPublicAccessAllowRuleOriginIncludedIpRanges. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressPublicAccessAllowRuleOriginIncludedIpRanges.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressPublicAccessAllowRuleOriginIncludedIpRanges.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 ip_ranges: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param Sequence[_builtins.str] ip_ranges: We only support IPv4 and IPv4 CIDR notation for now
+        """
+        if ip_ranges is not None:
+            pulumi.set(__self__, "ip_ranges", ip_ranges)
+
+    @_builtins.property
+    @pulumi.getter(name="ipRanges")
+    def ip_ranges(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        We only support IPv4 and IPv4 CIDR notation for now
+        """
+        return pulumi.get(self, "ip_ranges")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressPublicAccessDenyRule(dict):
+    def __init__(__self__, *,
+                 authentication: Optional['outputs.AccountNetworkPolicyIngressPublicAccessDenyRuleAuthentication'] = None,
+                 destination: Optional['outputs.AccountNetworkPolicyIngressPublicAccessDenyRuleDestination'] = None,
+                 label: Optional[_builtins.str] = None,
+                 origin: Optional['outputs.AccountNetworkPolicyIngressPublicAccessDenyRuleOrigin'] = None):
+        """
+        :param _builtins.str label: User-provided name for this ingress rule. Helps identify which rule
+               caused a request to be denied or dry-run denied
+        """
+        if authentication is not None:
+            pulumi.set(__self__, "authentication", authentication)
+        if destination is not None:
+            pulumi.set(__self__, "destination", destination)
+        if label is not None:
+            pulumi.set(__self__, "label", label)
+        if origin is not None:
+            pulumi.set(__self__, "origin", origin)
+
+    @_builtins.property
+    @pulumi.getter
+    def authentication(self) -> Optional['outputs.AccountNetworkPolicyIngressPublicAccessDenyRuleAuthentication']:
+        return pulumi.get(self, "authentication")
+
+    @_builtins.property
+    @pulumi.getter
+    def destination(self) -> Optional['outputs.AccountNetworkPolicyIngressPublicAccessDenyRuleDestination']:
+        return pulumi.get(self, "destination")
+
+    @_builtins.property
+    @pulumi.getter
+    def label(self) -> Optional[_builtins.str]:
+        """
+        User-provided name for this ingress rule. Helps identify which rule
+        caused a request to be denied or dry-run denied
+        """
+        return pulumi.get(self, "label")
+
+    @_builtins.property
+    @pulumi.getter
+    def origin(self) -> Optional['outputs.AccountNetworkPolicyIngressPublicAccessDenyRuleOrigin']:
+        return pulumi.get(self, "origin")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressPublicAccessDenyRuleAuthentication(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "identityType":
+            suggest = "identity_type"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressPublicAccessDenyRuleAuthentication. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressPublicAccessDenyRuleAuthentication.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressPublicAccessDenyRuleAuthentication.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 identities: Optional[Sequence['outputs.AccountNetworkPolicyIngressPublicAccessDenyRuleAuthenticationIdentity']] = None,
+                 identity_type: Optional[_builtins.str] = None):
+        """
+        :param Sequence['AccountNetworkPolicyIngressPublicAccessDenyRuleAuthenticationIdentityArgs'] identities: Valid only when IdentityType is IDENTITY_TYPE_SELECTED_IDENTITIES
+        :param _builtins.str identity_type: Possible values are: `IDENTITY_TYPE_ALL_SERVICE_PRINCIPALS`, `IDENTITY_TYPE_ALL_USERS`, `IDENTITY_TYPE_SELECTED_IDENTITIES`
+        """
+        if identities is not None:
+            pulumi.set(__self__, "identities", identities)
+        if identity_type is not None:
+            pulumi.set(__self__, "identity_type", identity_type)
+
+    @_builtins.property
+    @pulumi.getter
+    def identities(self) -> Optional[Sequence['outputs.AccountNetworkPolicyIngressPublicAccessDenyRuleAuthenticationIdentity']]:
+        """
+        Valid only when IdentityType is IDENTITY_TYPE_SELECTED_IDENTITIES
+        """
+        return pulumi.get(self, "identities")
+
+    @_builtins.property
+    @pulumi.getter(name="identityType")
+    def identity_type(self) -> Optional[_builtins.str]:
+        """
+        Possible values are: `IDENTITY_TYPE_ALL_SERVICE_PRINCIPALS`, `IDENTITY_TYPE_ALL_USERS`, `IDENTITY_TYPE_SELECTED_IDENTITIES`
+        """
+        return pulumi.get(self, "identity_type")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressPublicAccessDenyRuleAuthenticationIdentity(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "principalId":
+            suggest = "principal_id"
+        elif key == "principalType":
+            suggest = "principal_type"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressPublicAccessDenyRuleAuthenticationIdentity. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressPublicAccessDenyRuleAuthenticationIdentity.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressPublicAccessDenyRuleAuthenticationIdentity.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 principal_id: Optional[_builtins.str] = None,
+                 principal_type: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str principal_type: Possible values are: `PRINCIPAL_TYPE_SERVICE_PRINCIPAL`, `PRINCIPAL_TYPE_USER`
+        """
+        if principal_id is not None:
+            pulumi.set(__self__, "principal_id", principal_id)
+        if principal_type is not None:
+            pulumi.set(__self__, "principal_type", principal_type)
+
+    @_builtins.property
+    @pulumi.getter(name="principalId")
+    def principal_id(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "principal_id")
+
+    @_builtins.property
+    @pulumi.getter(name="principalType")
+    def principal_type(self) -> Optional[_builtins.str]:
+        """
+        Possible values are: `PRINCIPAL_TYPE_SERVICE_PRINCIPAL`, `PRINCIPAL_TYPE_USER`
+        """
+        return pulumi.get(self, "principal_type")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressPublicAccessDenyRuleDestination(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "allDestinations":
+            suggest = "all_destinations"
+        elif key == "workspaceApi":
+            suggest = "workspace_api"
+        elif key == "workspaceUi":
+            suggest = "workspace_ui"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressPublicAccessDenyRuleDestination. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressPublicAccessDenyRuleDestination.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressPublicAccessDenyRuleDestination.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None,
+                 workspace_api: Optional['outputs.AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationWorkspaceApi'] = None,
+                 workspace_ui: Optional['outputs.AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationWorkspaceUi'] = None):
+        """
+        :param 'AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationWorkspaceUiArgs' workspace_ui: Workspace destinations
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+        if workspace_api is not None:
+            pulumi.set(__self__, "workspace_api", workspace_api)
+        if workspace_ui is not None:
+            pulumi.set(__self__, "workspace_ui", workspace_ui)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        return pulumi.get(self, "all_destinations")
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceApi")
+    def workspace_api(self) -> Optional['outputs.AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationWorkspaceApi']:
+        return pulumi.get(self, "workspace_api")
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceUi")
+    def workspace_ui(self) -> Optional['outputs.AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationWorkspaceUi']:
+        """
+        Workspace destinations
+        """
+        return pulumi.get(self, "workspace_ui")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationWorkspaceApi(dict):
+    def __init__(__self__, *,
+                 scopes: Optional[Sequence[_builtins.str]] = None):
+        if scopes is not None:
+            pulumi.set(__self__, "scopes", scopes)
+
+    @_builtins.property
+    @pulumi.getter
+    def scopes(self) -> Optional[Sequence[_builtins.str]]:
+        return pulumi.get(self, "scopes")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationWorkspaceUi(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "allDestinations":
+            suggest = "all_destinations"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationWorkspaceUi. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationWorkspaceUi.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationWorkspaceUi.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressPublicAccessDenyRuleOrigin(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "allIpRanges":
+            suggest = "all_ip_ranges"
+        elif key == "excludedIpRanges":
+            suggest = "excluded_ip_ranges"
+        elif key == "includedIpRanges":
+            suggest = "included_ip_ranges"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressPublicAccessDenyRuleOrigin. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressPublicAccessDenyRuleOrigin.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressPublicAccessDenyRuleOrigin.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 all_ip_ranges: Optional[_builtins.bool] = None,
+                 excluded_ip_ranges: Optional['outputs.AccountNetworkPolicyIngressPublicAccessDenyRuleOriginExcludedIpRanges'] = None,
+                 included_ip_ranges: Optional['outputs.AccountNetworkPolicyIngressPublicAccessDenyRuleOriginIncludedIpRanges'] = None):
+        """
+        :param _builtins.bool all_ip_ranges: Matches all IPv4 and IPv6 ranges (both public and private)
+        :param 'AccountNetworkPolicyIngressPublicAccessDenyRuleOriginExcludedIpRangesArgs' excluded_ip_ranges: Excluded means: all public IP ranges except this one
+        :param 'AccountNetworkPolicyIngressPublicAccessDenyRuleOriginIncludedIpRangesArgs' included_ip_ranges: Will not allow IP ranges with private IPs
+        """
+        if all_ip_ranges is not None:
+            pulumi.set(__self__, "all_ip_ranges", all_ip_ranges)
+        if excluded_ip_ranges is not None:
+            pulumi.set(__self__, "excluded_ip_ranges", excluded_ip_ranges)
+        if included_ip_ranges is not None:
+            pulumi.set(__self__, "included_ip_ranges", included_ip_ranges)
+
+    @_builtins.property
+    @pulumi.getter(name="allIpRanges")
+    def all_ip_ranges(self) -> Optional[_builtins.bool]:
+        """
+        Matches all IPv4 and IPv6 ranges (both public and private)
+        """
+        return pulumi.get(self, "all_ip_ranges")
+
+    @_builtins.property
+    @pulumi.getter(name="excludedIpRanges")
+    def excluded_ip_ranges(self) -> Optional['outputs.AccountNetworkPolicyIngressPublicAccessDenyRuleOriginExcludedIpRanges']:
+        """
+        Excluded means: all public IP ranges except this one
+        """
+        return pulumi.get(self, "excluded_ip_ranges")
+
+    @_builtins.property
+    @pulumi.getter(name="includedIpRanges")
+    def included_ip_ranges(self) -> Optional['outputs.AccountNetworkPolicyIngressPublicAccessDenyRuleOriginIncludedIpRanges']:
+        """
+        Will not allow IP ranges with private IPs
+        """
+        return pulumi.get(self, "included_ip_ranges")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressPublicAccessDenyRuleOriginExcludedIpRanges(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "ipRanges":
+            suggest = "ip_ranges"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressPublicAccessDenyRuleOriginExcludedIpRanges. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressPublicAccessDenyRuleOriginExcludedIpRanges.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressPublicAccessDenyRuleOriginExcludedIpRanges.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 ip_ranges: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param Sequence[_builtins.str] ip_ranges: We only support IPv4 and IPv4 CIDR notation for now
+        """
+        if ip_ranges is not None:
+            pulumi.set(__self__, "ip_ranges", ip_ranges)
+
+    @_builtins.property
+    @pulumi.getter(name="ipRanges")
+    def ip_ranges(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        We only support IPv4 and IPv4 CIDR notation for now
+        """
+        return pulumi.get(self, "ip_ranges")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressPublicAccessDenyRuleOriginIncludedIpRanges(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "ipRanges":
+            suggest = "ip_ranges"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressPublicAccessDenyRuleOriginIncludedIpRanges. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressPublicAccessDenyRuleOriginIncludedIpRanges.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressPublicAccessDenyRuleOriginIncludedIpRanges.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 ip_ranges: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param Sequence[_builtins.str] ip_ranges: We only support IPv4 and IPv4 CIDR notation for now
+        """
+        if ip_ranges is not None:
+            pulumi.set(__self__, "ip_ranges", ip_ranges)
+
+    @_builtins.property
+    @pulumi.getter(name="ipRanges")
+    def ip_ranges(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        We only support IPv4 and IPv4 CIDR notation for now
+        """
+        return pulumi.get(self, "ip_ranges")
 
 
 @pulumi.output_type
@@ -3171,12 +5052,34 @@ class AccountSettingV2EffectivePersonalCompute(dict):
 
 @pulumi.output_type
 class AccountSettingV2EffectiveRestrictWorkspaceAdmins(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "disableGovTagCreation":
+            suggest = "disable_gov_tag_creation"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountSettingV2EffectiveRestrictWorkspaceAdmins. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountSettingV2EffectiveRestrictWorkspaceAdmins.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountSettingV2EffectiveRestrictWorkspaceAdmins.__key_warning(key)
+        return super().get(key, default)
+
     def __init__(__self__, *,
-                 status: _builtins.str):
+                 status: _builtins.str,
+                 disable_gov_tag_creation: Optional[_builtins.bool] = None):
         """
         :param _builtins.str status: Possible values are: `ALLOW_ALL`, `RESTRICT_TOKENS_AND_JOB_RUN_AS`
+        :param _builtins.bool disable_gov_tag_creation: When true, workspace admins cannot create governance tags.
+               ALLOW_ALL status does not override this; they are independent
         """
         pulumi.set(__self__, "status", status)
+        if disable_gov_tag_creation is not None:
+            pulumi.set(__self__, "disable_gov_tag_creation", disable_gov_tag_creation)
 
     @_builtins.property
     @pulumi.getter
@@ -3185,6 +5088,15 @@ class AccountSettingV2EffectiveRestrictWorkspaceAdmins(dict):
         Possible values are: `ALLOW_ALL`, `RESTRICT_TOKENS_AND_JOB_RUN_AS`
         """
         return pulumi.get(self, "status")
+
+    @_builtins.property
+    @pulumi.getter(name="disableGovTagCreation")
+    def disable_gov_tag_creation(self) -> Optional[_builtins.bool]:
+        """
+        When true, workspace admins cannot create governance tags.
+        ALLOW_ALL status does not override this; they are independent
+        """
+        return pulumi.get(self, "disable_gov_tag_creation")
 
 
 @pulumi.output_type
@@ -3228,12 +5140,34 @@ class AccountSettingV2PersonalCompute(dict):
 
 @pulumi.output_type
 class AccountSettingV2RestrictWorkspaceAdmins(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "disableGovTagCreation":
+            suggest = "disable_gov_tag_creation"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountSettingV2RestrictWorkspaceAdmins. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountSettingV2RestrictWorkspaceAdmins.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountSettingV2RestrictWorkspaceAdmins.__key_warning(key)
+        return super().get(key, default)
+
     def __init__(__self__, *,
-                 status: _builtins.str):
+                 status: _builtins.str,
+                 disable_gov_tag_creation: Optional[_builtins.bool] = None):
         """
         :param _builtins.str status: Possible values are: `ALLOW_ALL`, `RESTRICT_TOKENS_AND_JOB_RUN_AS`
+        :param _builtins.bool disable_gov_tag_creation: When true, workspace admins cannot create governance tags.
+               ALLOW_ALL status does not override this; they are independent
         """
         pulumi.set(__self__, "status", status)
+        if disable_gov_tag_creation is not None:
+            pulumi.set(__self__, "disable_gov_tag_creation", disable_gov_tag_creation)
 
     @_builtins.property
     @pulumi.getter
@@ -3242,6 +5176,15 @@ class AccountSettingV2RestrictWorkspaceAdmins(dict):
         Possible values are: `ALLOW_ALL`, `RESTRICT_TOKENS_AND_JOB_RUN_AS`
         """
         return pulumi.get(self, "status")
+
+    @_builtins.property
+    @pulumi.getter(name="disableGovTagCreation")
+    def disable_gov_tag_creation(self) -> Optional[_builtins.bool]:
+        """
+        When true, workspace admins cannot create governance tags.
+        ALLOW_ALL status does not override this; they are independent
+        """
+        return pulumi.get(self, "disable_gov_tag_creation")
 
 
 @pulumi.output_type
@@ -5022,12 +6965,13 @@ class AppProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
-        pulumi.set(__self__, "workspace_id", workspace_id)
+                 workspace_id: Optional[_builtins.str] = None):
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         return pulumi.get(self, "workspace_id")
 
 
@@ -5198,8 +7142,29 @@ class AppResource(dict):
 
 @pulumi.output_type
 class AppResourceApp(dict):
-    def __init__(__self__):
-        pass
+    def __init__(__self__, *,
+                 name: Optional[_builtins.str] = None,
+                 permission: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str name: The name of the app. The name must contain only lowercase alphanumeric characters and hyphens. It must be unique within the workspace.
+        """
+        if name is not None:
+            pulumi.set(__self__, "name", name)
+        if permission is not None:
+            pulumi.set(__self__, "permission", permission)
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> Optional[_builtins.str]:
+        """
+        The name of the app. The name must contain only lowercase alphanumeric characters and hyphens. It must be unique within the workspace.
+        """
+        return pulumi.get(self, "name")
+
+    @_builtins.property
+    @pulumi.getter
+    def permission(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "permission")
 
 
 @pulumi.output_type
@@ -5753,8 +7718,31 @@ class AppSpaceResource(dict):
 
 @pulumi.output_type
 class AppSpaceResourceApp(dict):
-    def __init__(__self__):
-        pass
+    def __init__(__self__, *,
+                 name: Optional[_builtins.str] = None,
+                 permission: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str name: The name of the app space. The name must contain only lowercase alphanumeric characters and hyphens.
+               It must be unique within the workspace
+        """
+        if name is not None:
+            pulumi.set(__self__, "name", name)
+        if permission is not None:
+            pulumi.set(__self__, "permission", permission)
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> Optional[_builtins.str]:
+        """
+        The name of the app space. The name must contain only lowercase alphanumeric characters and hyphens.
+        It must be unique within the workspace
+        """
+        return pulumi.get(self, "name")
+
+    @_builtins.property
+    @pulumi.getter
+    def permission(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "permission")
 
 
 @pulumi.output_type
@@ -7222,6 +9210,105 @@ class CatalogEffectivePredictiveOptimizationFlag(dict):
     @pulumi.getter(name="inheritedFromType")
     def inherited_from_type(self) -> Optional[_builtins.str]:
         return pulumi.get(self, "inherited_from_type")
+
+
+@pulumi.output_type
+class CatalogManagedEncryptionSettings(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "azureEncryptionSettings":
+            suggest = "azure_encryption_settings"
+        elif key == "azureKeyVaultKeyId":
+            suggest = "azure_key_vault_key_id"
+        elif key == "customerManagedKeyId":
+            suggest = "customer_managed_key_id"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in CatalogManagedEncryptionSettings. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        CatalogManagedEncryptionSettings.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        CatalogManagedEncryptionSettings.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 azure_encryption_settings: Optional['outputs.CatalogManagedEncryptionSettingsAzureEncryptionSettings'] = None,
+                 azure_key_vault_key_id: Optional[_builtins.str] = None,
+                 customer_managed_key_id: Optional[_builtins.str] = None):
+        if azure_encryption_settings is not None:
+            pulumi.set(__self__, "azure_encryption_settings", azure_encryption_settings)
+        if azure_key_vault_key_id is not None:
+            pulumi.set(__self__, "azure_key_vault_key_id", azure_key_vault_key_id)
+        if customer_managed_key_id is not None:
+            pulumi.set(__self__, "customer_managed_key_id", customer_managed_key_id)
+
+    @_builtins.property
+    @pulumi.getter(name="azureEncryptionSettings")
+    def azure_encryption_settings(self) -> Optional['outputs.CatalogManagedEncryptionSettingsAzureEncryptionSettings']:
+        return pulumi.get(self, "azure_encryption_settings")
+
+    @_builtins.property
+    @pulumi.getter(name="azureKeyVaultKeyId")
+    def azure_key_vault_key_id(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "azure_key_vault_key_id")
+
+    @_builtins.property
+    @pulumi.getter(name="customerManagedKeyId")
+    def customer_managed_key_id(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "customer_managed_key_id")
+
+
+@pulumi.output_type
+class CatalogManagedEncryptionSettingsAzureEncryptionSettings(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "azureTenantId":
+            suggest = "azure_tenant_id"
+        elif key == "azureCmkAccessConnectorId":
+            suggest = "azure_cmk_access_connector_id"
+        elif key == "azureCmkManagedIdentityId":
+            suggest = "azure_cmk_managed_identity_id"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in CatalogManagedEncryptionSettingsAzureEncryptionSettings. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        CatalogManagedEncryptionSettingsAzureEncryptionSettings.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        CatalogManagedEncryptionSettingsAzureEncryptionSettings.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 azure_tenant_id: _builtins.str,
+                 azure_cmk_access_connector_id: Optional[_builtins.str] = None,
+                 azure_cmk_managed_identity_id: Optional[_builtins.str] = None):
+        pulumi.set(__self__, "azure_tenant_id", azure_tenant_id)
+        if azure_cmk_access_connector_id is not None:
+            pulumi.set(__self__, "azure_cmk_access_connector_id", azure_cmk_access_connector_id)
+        if azure_cmk_managed_identity_id is not None:
+            pulumi.set(__self__, "azure_cmk_managed_identity_id", azure_cmk_managed_identity_id)
+
+    @_builtins.property
+    @pulumi.getter(name="azureTenantId")
+    def azure_tenant_id(self) -> _builtins.str:
+        return pulumi.get(self, "azure_tenant_id")
+
+    @_builtins.property
+    @pulumi.getter(name="azureCmkAccessConnectorId")
+    def azure_cmk_access_connector_id(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "azure_cmk_access_connector_id")
+
+    @_builtins.property
+    @pulumi.getter(name="azureCmkManagedIdentityId")
+    def azure_cmk_managed_identity_id(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "azure_cmk_managed_identity_id")
 
 
 @pulumi.output_type
@@ -9445,6 +11532,41 @@ class CredentialDatabricksGcpServiceAccount(dict):
     @pulumi.getter(name="privateKeyId")
     def private_key_id(self) -> Optional[_builtins.str]:
         return pulumi.get(self, "private_key_id")
+
+
+@pulumi.output_type
+class CredentialProviderConfig(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "workspaceId":
+            suggest = "workspace_id"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in CredentialProviderConfig. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        CredentialProviderConfig.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        CredentialProviderConfig.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 workspace_id: _builtins.str):
+        """
+        :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
+        """
+        pulumi.set(__self__, "workspace_id", workspace_id)
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceId")
+    def workspace_id(self) -> _builtins.str:
+        """
+        Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
+        """
+        return pulumi.get(self, "workspace_id")
 
 
 @pulumi.output_type
@@ -12333,6 +14455,424 @@ class EnvironmentsWorkspaceBaseEnvironmentProviderConfig(dict):
 
 
 @pulumi.output_type
+class ExternalLocationEffectiveFileEventQueue(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "managedAqs":
+            suggest = "managed_aqs"
+        elif key == "managedPubsub":
+            suggest = "managed_pubsub"
+        elif key == "managedSqs":
+            suggest = "managed_sqs"
+        elif key == "providedAqs":
+            suggest = "provided_aqs"
+        elif key == "providedPubsub":
+            suggest = "provided_pubsub"
+        elif key == "providedSqs":
+            suggest = "provided_sqs"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ExternalLocationEffectiveFileEventQueue. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ExternalLocationEffectiveFileEventQueue.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ExternalLocationEffectiveFileEventQueue.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 managed_aqs: Optional['outputs.ExternalLocationEffectiveFileEventQueueManagedAqs'] = None,
+                 managed_pubsub: Optional['outputs.ExternalLocationEffectiveFileEventQueueManagedPubsub'] = None,
+                 managed_sqs: Optional['outputs.ExternalLocationEffectiveFileEventQueueManagedSqs'] = None,
+                 provided_aqs: Optional['outputs.ExternalLocationEffectiveFileEventQueueProvidedAqs'] = None,
+                 provided_pubsub: Optional['outputs.ExternalLocationEffectiveFileEventQueueProvidedPubsub'] = None,
+                 provided_sqs: Optional['outputs.ExternalLocationEffectiveFileEventQueueProvidedSqs'] = None):
+        """
+        :param 'ExternalLocationEffectiveFileEventQueueManagedAqsArgs' managed_aqs: Configuration for managed Azure Queue Storage queue.
+        :param 'ExternalLocationEffectiveFileEventQueueManagedPubsubArgs' managed_pubsub: Configuration for managed Google Cloud Pub/Sub queue.
+        :param 'ExternalLocationEffectiveFileEventQueueManagedSqsArgs' managed_sqs: Configuration for managed Amazon SQS queue.
+        :param 'ExternalLocationEffectiveFileEventQueueProvidedAqsArgs' provided_aqs: Configuration for provided Azure Storage Queue.
+        :param 'ExternalLocationEffectiveFileEventQueueProvidedPubsubArgs' provided_pubsub: Configuration for provided Google Cloud Pub/Sub queue.
+        :param 'ExternalLocationEffectiveFileEventQueueProvidedSqsArgs' provided_sqs: Configuration for provided Amazon SQS queue.
+        """
+        if managed_aqs is not None:
+            pulumi.set(__self__, "managed_aqs", managed_aqs)
+        if managed_pubsub is not None:
+            pulumi.set(__self__, "managed_pubsub", managed_pubsub)
+        if managed_sqs is not None:
+            pulumi.set(__self__, "managed_sqs", managed_sqs)
+        if provided_aqs is not None:
+            pulumi.set(__self__, "provided_aqs", provided_aqs)
+        if provided_pubsub is not None:
+            pulumi.set(__self__, "provided_pubsub", provided_pubsub)
+        if provided_sqs is not None:
+            pulumi.set(__self__, "provided_sqs", provided_sqs)
+
+    @_builtins.property
+    @pulumi.getter(name="managedAqs")
+    def managed_aqs(self) -> Optional['outputs.ExternalLocationEffectiveFileEventQueueManagedAqs']:
+        """
+        Configuration for managed Azure Queue Storage queue.
+        """
+        return pulumi.get(self, "managed_aqs")
+
+    @_builtins.property
+    @pulumi.getter(name="managedPubsub")
+    def managed_pubsub(self) -> Optional['outputs.ExternalLocationEffectiveFileEventQueueManagedPubsub']:
+        """
+        Configuration for managed Google Cloud Pub/Sub queue.
+        """
+        return pulumi.get(self, "managed_pubsub")
+
+    @_builtins.property
+    @pulumi.getter(name="managedSqs")
+    def managed_sqs(self) -> Optional['outputs.ExternalLocationEffectiveFileEventQueueManagedSqs']:
+        """
+        Configuration for managed Amazon SQS queue.
+        """
+        return pulumi.get(self, "managed_sqs")
+
+    @_builtins.property
+    @pulumi.getter(name="providedAqs")
+    def provided_aqs(self) -> Optional['outputs.ExternalLocationEffectiveFileEventQueueProvidedAqs']:
+        """
+        Configuration for provided Azure Storage Queue.
+        """
+        return pulumi.get(self, "provided_aqs")
+
+    @_builtins.property
+    @pulumi.getter(name="providedPubsub")
+    def provided_pubsub(self) -> Optional['outputs.ExternalLocationEffectiveFileEventQueueProvidedPubsub']:
+        """
+        Configuration for provided Google Cloud Pub/Sub queue.
+        """
+        return pulumi.get(self, "provided_pubsub")
+
+    @_builtins.property
+    @pulumi.getter(name="providedSqs")
+    def provided_sqs(self) -> Optional['outputs.ExternalLocationEffectiveFileEventQueueProvidedSqs']:
+        """
+        Configuration for provided Amazon SQS queue.
+        """
+        return pulumi.get(self, "provided_sqs")
+
+
+@pulumi.output_type
+class ExternalLocationEffectiveFileEventQueueManagedAqs(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "managedResourceId":
+            suggest = "managed_resource_id"
+        elif key == "queueUrl":
+            suggest = "queue_url"
+        elif key == "resourceGroup":
+            suggest = "resource_group"
+        elif key == "subscriptionId":
+            suggest = "subscription_id"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ExternalLocationEffectiveFileEventQueueManagedAqs. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ExternalLocationEffectiveFileEventQueueManagedAqs.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ExternalLocationEffectiveFileEventQueueManagedAqs.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 managed_resource_id: Optional[_builtins.str] = None,
+                 queue_url: Optional[_builtins.str] = None,
+                 resource_group: Optional[_builtins.str] = None,
+                 subscription_id: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str resource_group: The name of the Azure resource group.
+        :param _builtins.str subscription_id: The Azure subscription ID.
+        """
+        if managed_resource_id is not None:
+            pulumi.set(__self__, "managed_resource_id", managed_resource_id)
+        if queue_url is not None:
+            pulumi.set(__self__, "queue_url", queue_url)
+        if resource_group is not None:
+            pulumi.set(__self__, "resource_group", resource_group)
+        if subscription_id is not None:
+            pulumi.set(__self__, "subscription_id", subscription_id)
+
+    @_builtins.property
+    @pulumi.getter(name="managedResourceId")
+    def managed_resource_id(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "managed_resource_id")
+
+    @_builtins.property
+    @pulumi.getter(name="queueUrl")
+    def queue_url(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "queue_url")
+
+    @_builtins.property
+    @pulumi.getter(name="resourceGroup")
+    def resource_group(self) -> Optional[_builtins.str]:
+        """
+        The name of the Azure resource group.
+        """
+        return pulumi.get(self, "resource_group")
+
+    @_builtins.property
+    @pulumi.getter(name="subscriptionId")
+    def subscription_id(self) -> Optional[_builtins.str]:
+        """
+        The Azure subscription ID.
+        """
+        return pulumi.get(self, "subscription_id")
+
+
+@pulumi.output_type
+class ExternalLocationEffectiveFileEventQueueManagedPubsub(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "managedResourceId":
+            suggest = "managed_resource_id"
+        elif key == "subscriptionName":
+            suggest = "subscription_name"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ExternalLocationEffectiveFileEventQueueManagedPubsub. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ExternalLocationEffectiveFileEventQueueManagedPubsub.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ExternalLocationEffectiveFileEventQueueManagedPubsub.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 managed_resource_id: Optional[_builtins.str] = None,
+                 subscription_name: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str subscription_name: The name of the subscription.
+        """
+        if managed_resource_id is not None:
+            pulumi.set(__self__, "managed_resource_id", managed_resource_id)
+        if subscription_name is not None:
+            pulumi.set(__self__, "subscription_name", subscription_name)
+
+    @_builtins.property
+    @pulumi.getter(name="managedResourceId")
+    def managed_resource_id(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "managed_resource_id")
+
+    @_builtins.property
+    @pulumi.getter(name="subscriptionName")
+    def subscription_name(self) -> Optional[_builtins.str]:
+        """
+        The name of the subscription.
+        """
+        return pulumi.get(self, "subscription_name")
+
+
+@pulumi.output_type
+class ExternalLocationEffectiveFileEventQueueManagedSqs(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "managedResourceId":
+            suggest = "managed_resource_id"
+        elif key == "queueUrl":
+            suggest = "queue_url"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ExternalLocationEffectiveFileEventQueueManagedSqs. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ExternalLocationEffectiveFileEventQueueManagedSqs.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ExternalLocationEffectiveFileEventQueueManagedSqs.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 managed_resource_id: Optional[_builtins.str] = None,
+                 queue_url: Optional[_builtins.str] = None):
+        if managed_resource_id is not None:
+            pulumi.set(__self__, "managed_resource_id", managed_resource_id)
+        if queue_url is not None:
+            pulumi.set(__self__, "queue_url", queue_url)
+
+    @_builtins.property
+    @pulumi.getter(name="managedResourceId")
+    def managed_resource_id(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "managed_resource_id")
+
+    @_builtins.property
+    @pulumi.getter(name="queueUrl")
+    def queue_url(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "queue_url")
+
+
+@pulumi.output_type
+class ExternalLocationEffectiveFileEventQueueProvidedAqs(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "managedResourceId":
+            suggest = "managed_resource_id"
+        elif key == "queueUrl":
+            suggest = "queue_url"
+        elif key == "resourceGroup":
+            suggest = "resource_group"
+        elif key == "subscriptionId":
+            suggest = "subscription_id"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ExternalLocationEffectiveFileEventQueueProvidedAqs. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ExternalLocationEffectiveFileEventQueueProvidedAqs.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ExternalLocationEffectiveFileEventQueueProvidedAqs.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 managed_resource_id: Optional[_builtins.str] = None,
+                 queue_url: Optional[_builtins.str] = None,
+                 resource_group: Optional[_builtins.str] = None,
+                 subscription_id: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str resource_group: The name of the Azure resource group.
+        :param _builtins.str subscription_id: The Azure subscription ID.
+        """
+        if managed_resource_id is not None:
+            pulumi.set(__self__, "managed_resource_id", managed_resource_id)
+        if queue_url is not None:
+            pulumi.set(__self__, "queue_url", queue_url)
+        if resource_group is not None:
+            pulumi.set(__self__, "resource_group", resource_group)
+        if subscription_id is not None:
+            pulumi.set(__self__, "subscription_id", subscription_id)
+
+    @_builtins.property
+    @pulumi.getter(name="managedResourceId")
+    def managed_resource_id(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "managed_resource_id")
+
+    @_builtins.property
+    @pulumi.getter(name="queueUrl")
+    def queue_url(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "queue_url")
+
+    @_builtins.property
+    @pulumi.getter(name="resourceGroup")
+    def resource_group(self) -> Optional[_builtins.str]:
+        """
+        The name of the Azure resource group.
+        """
+        return pulumi.get(self, "resource_group")
+
+    @_builtins.property
+    @pulumi.getter(name="subscriptionId")
+    def subscription_id(self) -> Optional[_builtins.str]:
+        """
+        The Azure subscription ID.
+        """
+        return pulumi.get(self, "subscription_id")
+
+
+@pulumi.output_type
+class ExternalLocationEffectiveFileEventQueueProvidedPubsub(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "managedResourceId":
+            suggest = "managed_resource_id"
+        elif key == "subscriptionName":
+            suggest = "subscription_name"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ExternalLocationEffectiveFileEventQueueProvidedPubsub. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ExternalLocationEffectiveFileEventQueueProvidedPubsub.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ExternalLocationEffectiveFileEventQueueProvidedPubsub.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 managed_resource_id: Optional[_builtins.str] = None,
+                 subscription_name: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str subscription_name: The name of the subscription.
+        """
+        if managed_resource_id is not None:
+            pulumi.set(__self__, "managed_resource_id", managed_resource_id)
+        if subscription_name is not None:
+            pulumi.set(__self__, "subscription_name", subscription_name)
+
+    @_builtins.property
+    @pulumi.getter(name="managedResourceId")
+    def managed_resource_id(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "managed_resource_id")
+
+    @_builtins.property
+    @pulumi.getter(name="subscriptionName")
+    def subscription_name(self) -> Optional[_builtins.str]:
+        """
+        The name of the subscription.
+        """
+        return pulumi.get(self, "subscription_name")
+
+
+@pulumi.output_type
+class ExternalLocationEffectiveFileEventQueueProvidedSqs(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "managedResourceId":
+            suggest = "managed_resource_id"
+        elif key == "queueUrl":
+            suggest = "queue_url"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ExternalLocationEffectiveFileEventQueueProvidedSqs. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ExternalLocationEffectiveFileEventQueueProvidedSqs.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ExternalLocationEffectiveFileEventQueueProvidedSqs.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 managed_resource_id: Optional[_builtins.str] = None,
+                 queue_url: Optional[_builtins.str] = None):
+        if managed_resource_id is not None:
+            pulumi.set(__self__, "managed_resource_id", managed_resource_id)
+        if queue_url is not None:
+            pulumi.set(__self__, "queue_url", queue_url)
+
+    @_builtins.property
+    @pulumi.getter(name="managedResourceId")
+    def managed_resource_id(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "managed_resource_id")
+
+    @_builtins.property
+    @pulumi.getter(name="queueUrl")
+    def queue_url(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "queue_url")
+
+
+@pulumi.output_type
 class ExternalLocationEncryptionDetails(dict):
     @staticmethod
     def __key_warning(key: str):
@@ -12942,6 +15482,8 @@ class FeatureEngineeringFeatureFunction(dict):
         suggest = None
         if key == "aggregationFunction":
             suggest = "aggregation_function"
+        elif key == "columnSelection":
+            suggest = "column_selection"
         elif key == "extraParameters":
             suggest = "extra_parameters"
         elif key == "functionType":
@@ -12960,10 +15502,12 @@ class FeatureEngineeringFeatureFunction(dict):
 
     def __init__(__self__, *,
                  aggregation_function: Optional['outputs.FeatureEngineeringFeatureFunctionAggregationFunction'] = None,
+                 column_selection: Optional['outputs.FeatureEngineeringFeatureFunctionColumnSelection'] = None,
                  extra_parameters: Optional[Sequence['outputs.FeatureEngineeringFeatureFunctionExtraParameter']] = None,
                  function_type: Optional[_builtins.str] = None):
         """
         :param 'FeatureEngineeringFeatureFunctionAggregationFunctionArgs' aggregation_function: An aggregation function applied over a time window
+        :param 'FeatureEngineeringFeatureFunctionColumnSelectionArgs' column_selection: Selects the latest value of a single column in a data source
         :param Sequence['FeatureEngineeringFeatureFunctionExtraParameterArgs'] extra_parameters: Deprecated: Use the function oneof with AggregationFunction instead. Kept for backwards compatibility.
                Extra parameters for parameterized functions
         :param _builtins.str function_type: Deprecated: Use the function oneof with AggregationFunction instead. Kept for backwards compatibility.
@@ -12971,6 +15515,8 @@ class FeatureEngineeringFeatureFunction(dict):
         """
         if aggregation_function is not None:
             pulumi.set(__self__, "aggregation_function", aggregation_function)
+        if column_selection is not None:
+            pulumi.set(__self__, "column_selection", column_selection)
         if extra_parameters is not None:
             pulumi.set(__self__, "extra_parameters", extra_parameters)
         if function_type is not None:
@@ -12983,6 +15529,14 @@ class FeatureEngineeringFeatureFunction(dict):
         An aggregation function applied over a time window
         """
         return pulumi.get(self, "aggregation_function")
+
+    @_builtins.property
+    @pulumi.getter(name="columnSelection")
+    def column_selection(self) -> Optional['outputs.FeatureEngineeringFeatureFunctionColumnSelection']:
+        """
+        Selects the latest value of a single column in a data source
+        """
+        return pulumi.get(self, "column_selection")
 
     @_builtins.property
     @pulumi.getter(name="extraParameters")
@@ -13517,6 +16071,24 @@ class FeatureEngineeringFeatureFunctionAggregationFunctionVarSamp(dict):
 
 
 @pulumi.output_type
+class FeatureEngineeringFeatureFunctionColumnSelection(dict):
+    def __init__(__self__, *,
+                 column: _builtins.str):
+        """
+        :param _builtins.str column: Column name from source to select as the feature value
+        """
+        pulumi.set(__self__, "column", column)
+
+    @_builtins.property
+    @pulumi.getter
+    def column(self) -> _builtins.str:
+        """
+        Column name from source to select as the feature value
+        """
+        return pulumi.get(self, "column")
+
+
+@pulumi.output_type
 class FeatureEngineeringFeatureFunctionExtraParameter(dict):
     def __init__(__self__, *,
                  key: _builtins.str,
@@ -13689,6 +16261,8 @@ class FeatureEngineeringFeatureSource(dict):
             suggest = "delta_table_source"
         elif key == "kafkaSource":
             suggest = "kafka_source"
+        elif key == "requestSource":
+            suggest = "request_source"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in FeatureEngineeringFeatureSource. Access the value via the '{suggest}' property getter instead.")
@@ -13703,21 +16277,43 @@ class FeatureEngineeringFeatureSource(dict):
 
     def __init__(__self__, *,
                  delta_table_source: Optional['outputs.FeatureEngineeringFeatureSourceDeltaTableSource'] = None,
-                 kafka_source: Optional['outputs.FeatureEngineeringFeatureSourceKafkaSource'] = None):
+                 kafka_source: Optional['outputs.FeatureEngineeringFeatureSourceKafkaSource'] = None,
+                 request_source: Optional['outputs.FeatureEngineeringFeatureSourceRequestSource'] = None):
+        """
+        :param 'FeatureEngineeringFeatureSourceDeltaTableSourceArgs' delta_table_source: A Delta table data source
+        :param 'FeatureEngineeringFeatureSourceKafkaSourceArgs' kafka_source: A Kafka stream data source
+        :param 'FeatureEngineeringFeatureSourceRequestSourceArgs' request_source: A request-time data source
+        """
         if delta_table_source is not None:
             pulumi.set(__self__, "delta_table_source", delta_table_source)
         if kafka_source is not None:
             pulumi.set(__self__, "kafka_source", kafka_source)
+        if request_source is not None:
+            pulumi.set(__self__, "request_source", request_source)
 
     @_builtins.property
     @pulumi.getter(name="deltaTableSource")
     def delta_table_source(self) -> Optional['outputs.FeatureEngineeringFeatureSourceDeltaTableSource']:
+        """
+        A Delta table data source
+        """
         return pulumi.get(self, "delta_table_source")
 
     @_builtins.property
     @pulumi.getter(name="kafkaSource")
     def kafka_source(self) -> Optional['outputs.FeatureEngineeringFeatureSourceKafkaSource']:
+        """
+        A Kafka stream data source
+        """
         return pulumi.get(self, "kafka_source")
+
+    @_builtins.property
+    @pulumi.getter(name="requestSource")
+    def request_source(self) -> Optional['outputs.FeatureEngineeringFeatureSourceRequestSource']:
+        """
+        A request-time data source
+        """
+        return pulumi.get(self, "request_source")
 
 
 @pulumi.output_type
@@ -13936,8 +16532,8 @@ class FeatureEngineeringFeatureSourceKafkaSourceEntityColumnIdentifier(dict):
     def __init__(__self__, *,
                  variant_expr_path: _builtins.str):
         """
-        :param _builtins.str variant_expr_path: String representation of the column name or variant expression path. For nested fields, the leaf value is what will be present in materialized tables
-               and expected to match at query time. For example, the leaf node of value:trip_details.location_details.pickup_zip is pickup_zip
+        :param _builtins.str variant_expr_path: String representation of the column name using dot-prefixed path notation. For nested fields, the leaf value is what will be present in materialized tables
+               and expected to match at query time. For example, the leaf node of value.trip_details.location_details.pickup_zip is pickup_zip
         """
         pulumi.set(__self__, "variant_expr_path", variant_expr_path)
 
@@ -13945,8 +16541,8 @@ class FeatureEngineeringFeatureSourceKafkaSourceEntityColumnIdentifier(dict):
     @pulumi.getter(name="variantExprPath")
     def variant_expr_path(self) -> _builtins.str:
         """
-        String representation of the column name or variant expression path. For nested fields, the leaf value is what will be present in materialized tables
-        and expected to match at query time. For example, the leaf node of value:trip_details.location_details.pickup_zip is pickup_zip
+        String representation of the column name using dot-prefixed path notation. For nested fields, the leaf value is what will be present in materialized tables
+        and expected to match at query time. For example, the leaf node of value.trip_details.location_details.pickup_zip is pickup_zip
         """
         return pulumi.get(self, "variant_expr_path")
 
@@ -13973,8 +16569,8 @@ class FeatureEngineeringFeatureSourceKafkaSourceTimeseriesColumnIdentifier(dict)
     def __init__(__self__, *,
                  variant_expr_path: _builtins.str):
         """
-        :param _builtins.str variant_expr_path: String representation of the column name or variant expression path. For nested fields, the leaf value is what will be present in materialized tables
-               and expected to match at query time. For example, the leaf node of value:trip_details.location_details.pickup_zip is pickup_zip
+        :param _builtins.str variant_expr_path: String representation of the column name using dot-prefixed path notation. For nested fields, the leaf value is what will be present in materialized tables
+               and expected to match at query time. For example, the leaf node of value.trip_details.location_details.pickup_zip is pickup_zip
         """
         pulumi.set(__self__, "variant_expr_path", variant_expr_path)
 
@@ -13982,10 +16578,106 @@ class FeatureEngineeringFeatureSourceKafkaSourceTimeseriesColumnIdentifier(dict)
     @pulumi.getter(name="variantExprPath")
     def variant_expr_path(self) -> _builtins.str:
         """
-        String representation of the column name or variant expression path. For nested fields, the leaf value is what will be present in materialized tables
-        and expected to match at query time. For example, the leaf node of value:trip_details.location_details.pickup_zip is pickup_zip
+        String representation of the column name using dot-prefixed path notation. For nested fields, the leaf value is what will be present in materialized tables
+        and expected to match at query time. For example, the leaf node of value.trip_details.location_details.pickup_zip is pickup_zip
         """
         return pulumi.get(self, "variant_expr_path")
+
+
+@pulumi.output_type
+class FeatureEngineeringFeatureSourceRequestSource(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "flatSchema":
+            suggest = "flat_schema"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in FeatureEngineeringFeatureSourceRequestSource. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        FeatureEngineeringFeatureSourceRequestSource.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        FeatureEngineeringFeatureSourceRequestSource.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 flat_schema: Optional['outputs.FeatureEngineeringFeatureSourceRequestSourceFlatSchema'] = None):
+        """
+        :param 'FeatureEngineeringFeatureSourceRequestSourceFlatSchemaArgs' flat_schema: A flat schema with scalar-typed fields only
+        """
+        if flat_schema is not None:
+            pulumi.set(__self__, "flat_schema", flat_schema)
+
+    @_builtins.property
+    @pulumi.getter(name="flatSchema")
+    def flat_schema(self) -> Optional['outputs.FeatureEngineeringFeatureSourceRequestSourceFlatSchema']:
+        """
+        A flat schema with scalar-typed fields only
+        """
+        return pulumi.get(self, "flat_schema")
+
+
+@pulumi.output_type
+class FeatureEngineeringFeatureSourceRequestSourceFlatSchema(dict):
+    def __init__(__self__, *,
+                 fields: Sequence['outputs.FeatureEngineeringFeatureSourceRequestSourceFlatSchemaField']):
+        """
+        :param Sequence['FeatureEngineeringFeatureSourceRequestSourceFlatSchemaFieldArgs'] fields: The list of fields in this schema
+        """
+        pulumi.set(__self__, "fields", fields)
+
+    @_builtins.property
+    @pulumi.getter
+    def fields(self) -> Sequence['outputs.FeatureEngineeringFeatureSourceRequestSourceFlatSchemaField']:
+        """
+        The list of fields in this schema
+        """
+        return pulumi.get(self, "fields")
+
+
+@pulumi.output_type
+class FeatureEngineeringFeatureSourceRequestSourceFlatSchemaField(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "dataType":
+            suggest = "data_type"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in FeatureEngineeringFeatureSourceRequestSourceFlatSchemaField. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        FeatureEngineeringFeatureSourceRequestSourceFlatSchemaField.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        FeatureEngineeringFeatureSourceRequestSourceFlatSchemaField.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 data_type: _builtins.str,
+                 name: _builtins.str):
+        """
+        :param _builtins.str data_type: The scalar data type of the field. Possible values are: `BINARY`, `BOOLEAN`, `DATE`, `DECIMAL`, `DOUBLE`, `FLOAT`, `INTEGER`, `LONG`, `SHORT`, `STRING`, `TIMESTAMP`
+        """
+        pulumi.set(__self__, "data_type", data_type)
+        pulumi.set(__self__, "name", name)
+
+    @_builtins.property
+    @pulumi.getter(name="dataType")
+    def data_type(self) -> _builtins.str:
+        """
+        The scalar data type of the field. Possible values are: `BINARY`, `BOOLEAN`, `DATE`, `DECIMAL`, `DOUBLE`, `FLOAT`, `INTEGER`, `LONG`, `SHORT`, `STRING`, `TIMESTAMP`
+        """
+        return pulumi.get(self, "data_type")
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        return pulumi.get(self, "name")
 
 
 @pulumi.output_type
@@ -14819,6 +17511,122 @@ class GrantsProviderConfig(dict):
 
     def get(self, key: str, default = None) -> Any:
         GrantsProviderConfig.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 workspace_id: _builtins.str):
+        pulumi.set(__self__, "workspace_id", workspace_id)
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceId")
+    def workspace_id(self) -> _builtins.str:
+        return pulumi.get(self, "workspace_id")
+
+
+@pulumi.output_type
+class GroupInstanceProfileProviderConfig(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "workspaceId":
+            suggest = "workspace_id"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in GroupInstanceProfileProviderConfig. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        GroupInstanceProfileProviderConfig.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        GroupInstanceProfileProviderConfig.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 workspace_id: _builtins.str):
+        pulumi.set(__self__, "workspace_id", workspace_id)
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceId")
+    def workspace_id(self) -> _builtins.str:
+        return pulumi.get(self, "workspace_id")
+
+
+@pulumi.output_type
+class GroupMemberProviderConfig(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "workspaceId":
+            suggest = "workspace_id"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in GroupMemberProviderConfig. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        GroupMemberProviderConfig.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        GroupMemberProviderConfig.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 workspace_id: _builtins.str):
+        pulumi.set(__self__, "workspace_id", workspace_id)
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceId")
+    def workspace_id(self) -> _builtins.str:
+        return pulumi.get(self, "workspace_id")
+
+
+@pulumi.output_type
+class GroupProviderConfig(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "workspaceId":
+            suggest = "workspace_id"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in GroupProviderConfig. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        GroupProviderConfig.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        GroupProviderConfig.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 workspace_id: _builtins.str):
+        pulumi.set(__self__, "workspace_id", workspace_id)
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceId")
+    def workspace_id(self) -> _builtins.str:
+        return pulumi.get(self, "workspace_id")
+
+
+@pulumi.output_type
+class GroupRoleProviderConfig(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "workspaceId":
+            suggest = "workspace_id"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in GroupRoleProviderConfig. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        GroupRoleProviderConfig.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        GroupRoleProviderConfig.__key_warning(key)
         return super().get(key, default)
 
     def __init__(__self__, *,
@@ -31299,6 +34107,41 @@ class MaterializedFeaturesFeatureTagProviderConfig(dict):
 
 
 @pulumi.output_type
+class MetastoreAssignmentProviderConfig(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "workspaceId":
+            suggest = "workspace_id"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in MetastoreAssignmentProviderConfig. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        MetastoreAssignmentProviderConfig.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        MetastoreAssignmentProviderConfig.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 workspace_id: _builtins.str):
+        """
+        :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
+        """
+        pulumi.set(__self__, "workspace_id", workspace_id)
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceId")
+    def workspace_id(self) -> _builtins.str:
+        """
+        Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
+        """
+        return pulumi.get(self, "workspace_id")
+
+
+@pulumi.output_type
 class MetastoreDataAccessAwsIamRole(dict):
     @staticmethod
     def __key_warning(key: str):
@@ -31571,6 +34414,76 @@ class MetastoreDataAccessGcpServiceAccountKey(dict):
     @pulumi.getter(name="privateKeyId")
     def private_key_id(self) -> _builtins.str:
         return pulumi.get(self, "private_key_id")
+
+
+@pulumi.output_type
+class MetastoreDataAccessProviderConfig(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "workspaceId":
+            suggest = "workspace_id"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in MetastoreDataAccessProviderConfig. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        MetastoreDataAccessProviderConfig.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        MetastoreDataAccessProviderConfig.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 workspace_id: _builtins.str):
+        """
+        :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
+        """
+        pulumi.set(__self__, "workspace_id", workspace_id)
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceId")
+    def workspace_id(self) -> _builtins.str:
+        """
+        Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
+        """
+        return pulumi.get(self, "workspace_id")
+
+
+@pulumi.output_type
+class MetastoreProviderConfig(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "workspaceId":
+            suggest = "workspace_id"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in MetastoreProviderConfig. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        MetastoreProviderConfig.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        MetastoreProviderConfig.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 workspace_id: _builtins.str):
+        """
+        :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
+        """
+        pulumi.set(__self__, "workspace_id", workspace_id)
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceId")
+    def workspace_id(self) -> _builtins.str:
+        """
+        Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
+        """
+        return pulumi.get(self, "workspace_id")
 
 
 @pulumi.output_type
@@ -35460,6 +38373,46 @@ class MwsCustomerManagedKeysGcpKeyInfo(dict):
 
 
 @pulumi.output_type
+class MwsNccPrivateEndpointRuleGcpEndpoint(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "pscEndpointUri":
+            suggest = "psc_endpoint_uri"
+        elif key == "serviceAttachment":
+            suggest = "service_attachment"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in MwsNccPrivateEndpointRuleGcpEndpoint. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        MwsNccPrivateEndpointRuleGcpEndpoint.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        MwsNccPrivateEndpointRuleGcpEndpoint.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 psc_endpoint_uri: Optional[_builtins.str] = None,
+                 service_attachment: Optional[_builtins.str] = None):
+        if psc_endpoint_uri is not None:
+            pulumi.set(__self__, "psc_endpoint_uri", psc_endpoint_uri)
+        if service_attachment is not None:
+            pulumi.set(__self__, "service_attachment", service_attachment)
+
+    @_builtins.property
+    @pulumi.getter(name="pscEndpointUri")
+    def psc_endpoint_uri(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "psc_endpoint_uri")
+
+    @_builtins.property
+    @pulumi.getter(name="serviceAttachment")
+    def service_attachment(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "service_attachment")
+
+
+@pulumi.output_type
 class MwsNetworkConnectivityConfigEgressConfig(dict):
     @staticmethod
     def __key_warning(key: str):
@@ -36154,13 +39107,13 @@ class MwsNetworksGcpNetworkInfo(dict):
 
     @_builtins.property
     @pulumi.getter(name="podIpRangeName")
-    @_utilities.deprecated("""gcp_network_info.pod_ip_range_name is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.112.0/docs/guides/gcp-workspace#creating-a-vpc""")
+    @_utilities.deprecated("""gcp_network_info.pod_ip_range_name is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.113.0/docs/guides/gcp-workspace#creating-a-vpc""")
     def pod_ip_range_name(self) -> Optional[_builtins.str]:
         return pulumi.get(self, "pod_ip_range_name")
 
     @_builtins.property
     @pulumi.getter(name="serviceIpRangeName")
-    @_utilities.deprecated("""gcp_network_info.service_ip_range_name is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.112.0/docs/guides/gcp-workspace#creating-a-vpc""")
+    @_utilities.deprecated("""gcp_network_info.service_ip_range_name is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.113.0/docs/guides/gcp-workspace#creating-a-vpc""")
     def service_ip_range_name(self) -> Optional[_builtins.str]:
         return pulumi.get(self, "service_ip_range_name")
 
@@ -36432,13 +39385,13 @@ class MwsWorkspacesGcpManagedNetworkConfig(dict):
 
     @_builtins.property
     @pulumi.getter(name="gkeClusterPodIpRange")
-    @_utilities.deprecated("""gcp_managed_network_config.gke_cluster_pod_ip_range is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.112.0/docs/guides/gcp-workspace#creating-a-databricks-workspace""")
+    @_utilities.deprecated("""gcp_managed_network_config.gke_cluster_pod_ip_range is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.113.0/docs/guides/gcp-workspace#creating-a-databricks-workspace""")
     def gke_cluster_pod_ip_range(self) -> Optional[_builtins.str]:
         return pulumi.get(self, "gke_cluster_pod_ip_range")
 
     @_builtins.property
     @pulumi.getter(name="gkeClusterServiceIpRange")
-    @_utilities.deprecated("""gcp_managed_network_config.gke_cluster_service_ip_range is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.112.0/docs/guides/gcp-workspace#creating-a-databricks-workspace""")
+    @_utilities.deprecated("""gcp_managed_network_config.gke_cluster_service_ip_range is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.113.0/docs/guides/gcp-workspace#creating-a-databricks-workspace""")
     def gke_cluster_service_ip_range(self) -> Optional[_builtins.str]:
         return pulumi.get(self, "gke_cluster_service_ip_range")
 
@@ -39787,6 +42740,8 @@ class PipelineIngestionDefinitionObjectSchema(dict):
             suggest = "destination_schema"
         elif key == "sourceSchema":
             suggest = "source_schema"
+        elif key == "connectorOptions":
+            suggest = "connector_options"
         elif key == "sourceCatalog":
             suggest = "source_catalog"
         elif key == "tableConfiguration":
@@ -39807,11 +42762,14 @@ class PipelineIngestionDefinitionObjectSchema(dict):
                  destination_catalog: _builtins.str,
                  destination_schema: _builtins.str,
                  source_schema: _builtins.str,
+                 connector_options: Optional['outputs.PipelineIngestionDefinitionObjectSchemaConnectorOptions'] = None,
                  source_catalog: Optional[_builtins.str] = None,
                  table_configuration: Optional['outputs.PipelineIngestionDefinitionObjectSchemaTableConfiguration'] = None):
         pulumi.set(__self__, "destination_catalog", destination_catalog)
         pulumi.set(__self__, "destination_schema", destination_schema)
         pulumi.set(__self__, "source_schema", source_schema)
+        if connector_options is not None:
+            pulumi.set(__self__, "connector_options", connector_options)
         if source_catalog is not None:
             pulumi.set(__self__, "source_catalog", source_catalog)
         if table_configuration is not None:
@@ -39833,6 +42791,11 @@ class PipelineIngestionDefinitionObjectSchema(dict):
         return pulumi.get(self, "source_schema")
 
     @_builtins.property
+    @pulumi.getter(name="connectorOptions")
+    def connector_options(self) -> Optional['outputs.PipelineIngestionDefinitionObjectSchemaConnectorOptions']:
+        return pulumi.get(self, "connector_options")
+
+    @_builtins.property
     @pulumi.getter(name="sourceCatalog")
     def source_catalog(self) -> Optional[_builtins.str]:
         return pulumi.get(self, "source_catalog")
@@ -39841,6 +42804,665 @@ class PipelineIngestionDefinitionObjectSchema(dict):
     @pulumi.getter(name="tableConfiguration")
     def table_configuration(self) -> Optional['outputs.PipelineIngestionDefinitionObjectSchemaTableConfiguration']:
         return pulumi.get(self, "table_configuration")
+
+
+@pulumi.output_type
+class PipelineIngestionDefinitionObjectSchemaConnectorOptions(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "gdriveOptions":
+            suggest = "gdrive_options"
+        elif key == "googleAdsOptions":
+            suggest = "google_ads_options"
+        elif key == "sharepointOptions":
+            suggest = "sharepoint_options"
+        elif key == "tiktokAdsOptions":
+            suggest = "tiktok_ads_options"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in PipelineIngestionDefinitionObjectSchemaConnectorOptions. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        PipelineIngestionDefinitionObjectSchemaConnectorOptions.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        PipelineIngestionDefinitionObjectSchemaConnectorOptions.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 gdrive_options: Optional['outputs.PipelineIngestionDefinitionObjectSchemaConnectorOptionsGdriveOptions'] = None,
+                 google_ads_options: Optional['outputs.PipelineIngestionDefinitionObjectSchemaConnectorOptionsGoogleAdsOptions'] = None,
+                 sharepoint_options: Optional['outputs.PipelineIngestionDefinitionObjectSchemaConnectorOptionsSharepointOptions'] = None,
+                 tiktok_ads_options: Optional['outputs.PipelineIngestionDefinitionObjectSchemaConnectorOptionsTiktokAdsOptions'] = None):
+        if gdrive_options is not None:
+            pulumi.set(__self__, "gdrive_options", gdrive_options)
+        if google_ads_options is not None:
+            pulumi.set(__self__, "google_ads_options", google_ads_options)
+        if sharepoint_options is not None:
+            pulumi.set(__self__, "sharepoint_options", sharepoint_options)
+        if tiktok_ads_options is not None:
+            pulumi.set(__self__, "tiktok_ads_options", tiktok_ads_options)
+
+    @_builtins.property
+    @pulumi.getter(name="gdriveOptions")
+    def gdrive_options(self) -> Optional['outputs.PipelineIngestionDefinitionObjectSchemaConnectorOptionsGdriveOptions']:
+        return pulumi.get(self, "gdrive_options")
+
+    @_builtins.property
+    @pulumi.getter(name="googleAdsOptions")
+    def google_ads_options(self) -> Optional['outputs.PipelineIngestionDefinitionObjectSchemaConnectorOptionsGoogleAdsOptions']:
+        return pulumi.get(self, "google_ads_options")
+
+    @_builtins.property
+    @pulumi.getter(name="sharepointOptions")
+    def sharepoint_options(self) -> Optional['outputs.PipelineIngestionDefinitionObjectSchemaConnectorOptionsSharepointOptions']:
+        return pulumi.get(self, "sharepoint_options")
+
+    @_builtins.property
+    @pulumi.getter(name="tiktokAdsOptions")
+    def tiktok_ads_options(self) -> Optional['outputs.PipelineIngestionDefinitionObjectSchemaConnectorOptionsTiktokAdsOptions']:
+        return pulumi.get(self, "tiktok_ads_options")
+
+
+@pulumi.output_type
+class PipelineIngestionDefinitionObjectSchemaConnectorOptionsGdriveOptions(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "entityType":
+            suggest = "entity_type"
+        elif key == "fileIngestionOptions":
+            suggest = "file_ingestion_options"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in PipelineIngestionDefinitionObjectSchemaConnectorOptionsGdriveOptions. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        PipelineIngestionDefinitionObjectSchemaConnectorOptionsGdriveOptions.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        PipelineIngestionDefinitionObjectSchemaConnectorOptionsGdriveOptions.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 entity_type: Optional[_builtins.str] = None,
+                 file_ingestion_options: Optional['outputs.PipelineIngestionDefinitionObjectSchemaConnectorOptionsGdriveOptionsFileIngestionOptions'] = None,
+                 url: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str url: URL of the Lakeflow Declarative Pipeline on the given workspace.
+        """
+        if entity_type is not None:
+            pulumi.set(__self__, "entity_type", entity_type)
+        if file_ingestion_options is not None:
+            pulumi.set(__self__, "file_ingestion_options", file_ingestion_options)
+        if url is not None:
+            pulumi.set(__self__, "url", url)
+
+    @_builtins.property
+    @pulumi.getter(name="entityType")
+    def entity_type(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "entity_type")
+
+    @_builtins.property
+    @pulumi.getter(name="fileIngestionOptions")
+    def file_ingestion_options(self) -> Optional['outputs.PipelineIngestionDefinitionObjectSchemaConnectorOptionsGdriveOptionsFileIngestionOptions']:
+        return pulumi.get(self, "file_ingestion_options")
+
+    @_builtins.property
+    @pulumi.getter
+    def url(self) -> Optional[_builtins.str]:
+        """
+        URL of the Lakeflow Declarative Pipeline on the given workspace.
+        """
+        return pulumi.get(self, "url")
+
+
+@pulumi.output_type
+class PipelineIngestionDefinitionObjectSchemaConnectorOptionsGdriveOptionsFileIngestionOptions(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "corruptRecordColumn":
+            suggest = "corrupt_record_column"
+        elif key == "fileFilters":
+            suggest = "file_filters"
+        elif key == "formatOptions":
+            suggest = "format_options"
+        elif key == "ignoreCorruptFiles":
+            suggest = "ignore_corrupt_files"
+        elif key == "inferColumnTypes":
+            suggest = "infer_column_types"
+        elif key == "readerCaseSensitive":
+            suggest = "reader_case_sensitive"
+        elif key == "rescuedDataColumn":
+            suggest = "rescued_data_column"
+        elif key == "schemaEvolutionMode":
+            suggest = "schema_evolution_mode"
+        elif key == "schemaHints":
+            suggest = "schema_hints"
+        elif key == "singleVariantColumn":
+            suggest = "single_variant_column"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in PipelineIngestionDefinitionObjectSchemaConnectorOptionsGdriveOptionsFileIngestionOptions. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        PipelineIngestionDefinitionObjectSchemaConnectorOptionsGdriveOptionsFileIngestionOptions.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        PipelineIngestionDefinitionObjectSchemaConnectorOptionsGdriveOptionsFileIngestionOptions.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 corrupt_record_column: Optional[_builtins.str] = None,
+                 file_filters: Optional[Sequence['outputs.PipelineIngestionDefinitionObjectSchemaConnectorOptionsGdriveOptionsFileIngestionOptionsFileFilter']] = None,
+                 format: Optional[_builtins.str] = None,
+                 format_options: Optional[Mapping[str, _builtins.str]] = None,
+                 ignore_corrupt_files: Optional[_builtins.bool] = None,
+                 infer_column_types: Optional[_builtins.bool] = None,
+                 reader_case_sensitive: Optional[_builtins.bool] = None,
+                 rescued_data_column: Optional[_builtins.str] = None,
+                 schema_evolution_mode: Optional[_builtins.str] = None,
+                 schema_hints: Optional[_builtins.str] = None,
+                 single_variant_column: Optional[_builtins.str] = None):
+        if corrupt_record_column is not None:
+            pulumi.set(__self__, "corrupt_record_column", corrupt_record_column)
+        if file_filters is not None:
+            pulumi.set(__self__, "file_filters", file_filters)
+        if format is not None:
+            pulumi.set(__self__, "format", format)
+        if format_options is not None:
+            pulumi.set(__self__, "format_options", format_options)
+        if ignore_corrupt_files is not None:
+            pulumi.set(__self__, "ignore_corrupt_files", ignore_corrupt_files)
+        if infer_column_types is not None:
+            pulumi.set(__self__, "infer_column_types", infer_column_types)
+        if reader_case_sensitive is not None:
+            pulumi.set(__self__, "reader_case_sensitive", reader_case_sensitive)
+        if rescued_data_column is not None:
+            pulumi.set(__self__, "rescued_data_column", rescued_data_column)
+        if schema_evolution_mode is not None:
+            pulumi.set(__self__, "schema_evolution_mode", schema_evolution_mode)
+        if schema_hints is not None:
+            pulumi.set(__self__, "schema_hints", schema_hints)
+        if single_variant_column is not None:
+            pulumi.set(__self__, "single_variant_column", single_variant_column)
+
+    @_builtins.property
+    @pulumi.getter(name="corruptRecordColumn")
+    def corrupt_record_column(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "corrupt_record_column")
+
+    @_builtins.property
+    @pulumi.getter(name="fileFilters")
+    def file_filters(self) -> Optional[Sequence['outputs.PipelineIngestionDefinitionObjectSchemaConnectorOptionsGdriveOptionsFileIngestionOptionsFileFilter']]:
+        return pulumi.get(self, "file_filters")
+
+    @_builtins.property
+    @pulumi.getter
+    def format(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "format")
+
+    @_builtins.property
+    @pulumi.getter(name="formatOptions")
+    def format_options(self) -> Optional[Mapping[str, _builtins.str]]:
+        return pulumi.get(self, "format_options")
+
+    @_builtins.property
+    @pulumi.getter(name="ignoreCorruptFiles")
+    def ignore_corrupt_files(self) -> Optional[_builtins.bool]:
+        return pulumi.get(self, "ignore_corrupt_files")
+
+    @_builtins.property
+    @pulumi.getter(name="inferColumnTypes")
+    def infer_column_types(self) -> Optional[_builtins.bool]:
+        return pulumi.get(self, "infer_column_types")
+
+    @_builtins.property
+    @pulumi.getter(name="readerCaseSensitive")
+    def reader_case_sensitive(self) -> Optional[_builtins.bool]:
+        return pulumi.get(self, "reader_case_sensitive")
+
+    @_builtins.property
+    @pulumi.getter(name="rescuedDataColumn")
+    def rescued_data_column(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "rescued_data_column")
+
+    @_builtins.property
+    @pulumi.getter(name="schemaEvolutionMode")
+    def schema_evolution_mode(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "schema_evolution_mode")
+
+    @_builtins.property
+    @pulumi.getter(name="schemaHints")
+    def schema_hints(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "schema_hints")
+
+    @_builtins.property
+    @pulumi.getter(name="singleVariantColumn")
+    def single_variant_column(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "single_variant_column")
+
+
+@pulumi.output_type
+class PipelineIngestionDefinitionObjectSchemaConnectorOptionsGdriveOptionsFileIngestionOptionsFileFilter(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "modifiedAfter":
+            suggest = "modified_after"
+        elif key == "modifiedBefore":
+            suggest = "modified_before"
+        elif key == "pathFilter":
+            suggest = "path_filter"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in PipelineIngestionDefinitionObjectSchemaConnectorOptionsGdriveOptionsFileIngestionOptionsFileFilter. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        PipelineIngestionDefinitionObjectSchemaConnectorOptionsGdriveOptionsFileIngestionOptionsFileFilter.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        PipelineIngestionDefinitionObjectSchemaConnectorOptionsGdriveOptionsFileIngestionOptionsFileFilter.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 modified_after: Optional[_builtins.str] = None,
+                 modified_before: Optional[_builtins.str] = None,
+                 path_filter: Optional[_builtins.str] = None):
+        if modified_after is not None:
+            pulumi.set(__self__, "modified_after", modified_after)
+        if modified_before is not None:
+            pulumi.set(__self__, "modified_before", modified_before)
+        if path_filter is not None:
+            pulumi.set(__self__, "path_filter", path_filter)
+
+    @_builtins.property
+    @pulumi.getter(name="modifiedAfter")
+    def modified_after(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "modified_after")
+
+    @_builtins.property
+    @pulumi.getter(name="modifiedBefore")
+    def modified_before(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "modified_before")
+
+    @_builtins.property
+    @pulumi.getter(name="pathFilter")
+    def path_filter(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "path_filter")
+
+
+@pulumi.output_type
+class PipelineIngestionDefinitionObjectSchemaConnectorOptionsGoogleAdsOptions(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "managerAccountId":
+            suggest = "manager_account_id"
+        elif key == "lookbackWindowDays":
+            suggest = "lookback_window_days"
+        elif key == "syncStartDate":
+            suggest = "sync_start_date"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in PipelineIngestionDefinitionObjectSchemaConnectorOptionsGoogleAdsOptions. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        PipelineIngestionDefinitionObjectSchemaConnectorOptionsGoogleAdsOptions.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        PipelineIngestionDefinitionObjectSchemaConnectorOptionsGoogleAdsOptions.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 manager_account_id: _builtins.str,
+                 lookback_window_days: Optional[_builtins.int] = None,
+                 sync_start_date: Optional[_builtins.str] = None):
+        pulumi.set(__self__, "manager_account_id", manager_account_id)
+        if lookback_window_days is not None:
+            pulumi.set(__self__, "lookback_window_days", lookback_window_days)
+        if sync_start_date is not None:
+            pulumi.set(__self__, "sync_start_date", sync_start_date)
+
+    @_builtins.property
+    @pulumi.getter(name="managerAccountId")
+    def manager_account_id(self) -> _builtins.str:
+        return pulumi.get(self, "manager_account_id")
+
+    @_builtins.property
+    @pulumi.getter(name="lookbackWindowDays")
+    def lookback_window_days(self) -> Optional[_builtins.int]:
+        return pulumi.get(self, "lookback_window_days")
+
+    @_builtins.property
+    @pulumi.getter(name="syncStartDate")
+    def sync_start_date(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "sync_start_date")
+
+
+@pulumi.output_type
+class PipelineIngestionDefinitionObjectSchemaConnectorOptionsSharepointOptions(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "entityType":
+            suggest = "entity_type"
+        elif key == "fileIngestionOptions":
+            suggest = "file_ingestion_options"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in PipelineIngestionDefinitionObjectSchemaConnectorOptionsSharepointOptions. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        PipelineIngestionDefinitionObjectSchemaConnectorOptionsSharepointOptions.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        PipelineIngestionDefinitionObjectSchemaConnectorOptionsSharepointOptions.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 entity_type: Optional[_builtins.str] = None,
+                 file_ingestion_options: Optional['outputs.PipelineIngestionDefinitionObjectSchemaConnectorOptionsSharepointOptionsFileIngestionOptions'] = None,
+                 url: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str url: URL of the Lakeflow Declarative Pipeline on the given workspace.
+        """
+        if entity_type is not None:
+            pulumi.set(__self__, "entity_type", entity_type)
+        if file_ingestion_options is not None:
+            pulumi.set(__self__, "file_ingestion_options", file_ingestion_options)
+        if url is not None:
+            pulumi.set(__self__, "url", url)
+
+    @_builtins.property
+    @pulumi.getter(name="entityType")
+    def entity_type(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "entity_type")
+
+    @_builtins.property
+    @pulumi.getter(name="fileIngestionOptions")
+    def file_ingestion_options(self) -> Optional['outputs.PipelineIngestionDefinitionObjectSchemaConnectorOptionsSharepointOptionsFileIngestionOptions']:
+        return pulumi.get(self, "file_ingestion_options")
+
+    @_builtins.property
+    @pulumi.getter
+    def url(self) -> Optional[_builtins.str]:
+        """
+        URL of the Lakeflow Declarative Pipeline on the given workspace.
+        """
+        return pulumi.get(self, "url")
+
+
+@pulumi.output_type
+class PipelineIngestionDefinitionObjectSchemaConnectorOptionsSharepointOptionsFileIngestionOptions(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "corruptRecordColumn":
+            suggest = "corrupt_record_column"
+        elif key == "fileFilters":
+            suggest = "file_filters"
+        elif key == "formatOptions":
+            suggest = "format_options"
+        elif key == "ignoreCorruptFiles":
+            suggest = "ignore_corrupt_files"
+        elif key == "inferColumnTypes":
+            suggest = "infer_column_types"
+        elif key == "readerCaseSensitive":
+            suggest = "reader_case_sensitive"
+        elif key == "rescuedDataColumn":
+            suggest = "rescued_data_column"
+        elif key == "schemaEvolutionMode":
+            suggest = "schema_evolution_mode"
+        elif key == "schemaHints":
+            suggest = "schema_hints"
+        elif key == "singleVariantColumn":
+            suggest = "single_variant_column"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in PipelineIngestionDefinitionObjectSchemaConnectorOptionsSharepointOptionsFileIngestionOptions. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        PipelineIngestionDefinitionObjectSchemaConnectorOptionsSharepointOptionsFileIngestionOptions.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        PipelineIngestionDefinitionObjectSchemaConnectorOptionsSharepointOptionsFileIngestionOptions.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 corrupt_record_column: Optional[_builtins.str] = None,
+                 file_filters: Optional[Sequence['outputs.PipelineIngestionDefinitionObjectSchemaConnectorOptionsSharepointOptionsFileIngestionOptionsFileFilter']] = None,
+                 format: Optional[_builtins.str] = None,
+                 format_options: Optional[Mapping[str, _builtins.str]] = None,
+                 ignore_corrupt_files: Optional[_builtins.bool] = None,
+                 infer_column_types: Optional[_builtins.bool] = None,
+                 reader_case_sensitive: Optional[_builtins.bool] = None,
+                 rescued_data_column: Optional[_builtins.str] = None,
+                 schema_evolution_mode: Optional[_builtins.str] = None,
+                 schema_hints: Optional[_builtins.str] = None,
+                 single_variant_column: Optional[_builtins.str] = None):
+        if corrupt_record_column is not None:
+            pulumi.set(__self__, "corrupt_record_column", corrupt_record_column)
+        if file_filters is not None:
+            pulumi.set(__self__, "file_filters", file_filters)
+        if format is not None:
+            pulumi.set(__self__, "format", format)
+        if format_options is not None:
+            pulumi.set(__self__, "format_options", format_options)
+        if ignore_corrupt_files is not None:
+            pulumi.set(__self__, "ignore_corrupt_files", ignore_corrupt_files)
+        if infer_column_types is not None:
+            pulumi.set(__self__, "infer_column_types", infer_column_types)
+        if reader_case_sensitive is not None:
+            pulumi.set(__self__, "reader_case_sensitive", reader_case_sensitive)
+        if rescued_data_column is not None:
+            pulumi.set(__self__, "rescued_data_column", rescued_data_column)
+        if schema_evolution_mode is not None:
+            pulumi.set(__self__, "schema_evolution_mode", schema_evolution_mode)
+        if schema_hints is not None:
+            pulumi.set(__self__, "schema_hints", schema_hints)
+        if single_variant_column is not None:
+            pulumi.set(__self__, "single_variant_column", single_variant_column)
+
+    @_builtins.property
+    @pulumi.getter(name="corruptRecordColumn")
+    def corrupt_record_column(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "corrupt_record_column")
+
+    @_builtins.property
+    @pulumi.getter(name="fileFilters")
+    def file_filters(self) -> Optional[Sequence['outputs.PipelineIngestionDefinitionObjectSchemaConnectorOptionsSharepointOptionsFileIngestionOptionsFileFilter']]:
+        return pulumi.get(self, "file_filters")
+
+    @_builtins.property
+    @pulumi.getter
+    def format(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "format")
+
+    @_builtins.property
+    @pulumi.getter(name="formatOptions")
+    def format_options(self) -> Optional[Mapping[str, _builtins.str]]:
+        return pulumi.get(self, "format_options")
+
+    @_builtins.property
+    @pulumi.getter(name="ignoreCorruptFiles")
+    def ignore_corrupt_files(self) -> Optional[_builtins.bool]:
+        return pulumi.get(self, "ignore_corrupt_files")
+
+    @_builtins.property
+    @pulumi.getter(name="inferColumnTypes")
+    def infer_column_types(self) -> Optional[_builtins.bool]:
+        return pulumi.get(self, "infer_column_types")
+
+    @_builtins.property
+    @pulumi.getter(name="readerCaseSensitive")
+    def reader_case_sensitive(self) -> Optional[_builtins.bool]:
+        return pulumi.get(self, "reader_case_sensitive")
+
+    @_builtins.property
+    @pulumi.getter(name="rescuedDataColumn")
+    def rescued_data_column(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "rescued_data_column")
+
+    @_builtins.property
+    @pulumi.getter(name="schemaEvolutionMode")
+    def schema_evolution_mode(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "schema_evolution_mode")
+
+    @_builtins.property
+    @pulumi.getter(name="schemaHints")
+    def schema_hints(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "schema_hints")
+
+    @_builtins.property
+    @pulumi.getter(name="singleVariantColumn")
+    def single_variant_column(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "single_variant_column")
+
+
+@pulumi.output_type
+class PipelineIngestionDefinitionObjectSchemaConnectorOptionsSharepointOptionsFileIngestionOptionsFileFilter(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "modifiedAfter":
+            suggest = "modified_after"
+        elif key == "modifiedBefore":
+            suggest = "modified_before"
+        elif key == "pathFilter":
+            suggest = "path_filter"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in PipelineIngestionDefinitionObjectSchemaConnectorOptionsSharepointOptionsFileIngestionOptionsFileFilter. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        PipelineIngestionDefinitionObjectSchemaConnectorOptionsSharepointOptionsFileIngestionOptionsFileFilter.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        PipelineIngestionDefinitionObjectSchemaConnectorOptionsSharepointOptionsFileIngestionOptionsFileFilter.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 modified_after: Optional[_builtins.str] = None,
+                 modified_before: Optional[_builtins.str] = None,
+                 path_filter: Optional[_builtins.str] = None):
+        if modified_after is not None:
+            pulumi.set(__self__, "modified_after", modified_after)
+        if modified_before is not None:
+            pulumi.set(__self__, "modified_before", modified_before)
+        if path_filter is not None:
+            pulumi.set(__self__, "path_filter", path_filter)
+
+    @_builtins.property
+    @pulumi.getter(name="modifiedAfter")
+    def modified_after(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "modified_after")
+
+    @_builtins.property
+    @pulumi.getter(name="modifiedBefore")
+    def modified_before(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "modified_before")
+
+    @_builtins.property
+    @pulumi.getter(name="pathFilter")
+    def path_filter(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "path_filter")
+
+
+@pulumi.output_type
+class PipelineIngestionDefinitionObjectSchemaConnectorOptionsTiktokAdsOptions(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "dataLevel":
+            suggest = "data_level"
+        elif key == "lookbackWindowDays":
+            suggest = "lookback_window_days"
+        elif key == "queryLifetime":
+            suggest = "query_lifetime"
+        elif key == "reportType":
+            suggest = "report_type"
+        elif key == "syncStartDate":
+            suggest = "sync_start_date"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in PipelineIngestionDefinitionObjectSchemaConnectorOptionsTiktokAdsOptions. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        PipelineIngestionDefinitionObjectSchemaConnectorOptionsTiktokAdsOptions.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        PipelineIngestionDefinitionObjectSchemaConnectorOptionsTiktokAdsOptions.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 data_level: Optional[_builtins.str] = None,
+                 dimensions: Optional[Sequence[_builtins.str]] = None,
+                 lookback_window_days: Optional[_builtins.int] = None,
+                 metrics: Optional[Sequence[_builtins.str]] = None,
+                 query_lifetime: Optional[_builtins.bool] = None,
+                 report_type: Optional[_builtins.str] = None,
+                 sync_start_date: Optional[_builtins.str] = None):
+        if data_level is not None:
+            pulumi.set(__self__, "data_level", data_level)
+        if dimensions is not None:
+            pulumi.set(__self__, "dimensions", dimensions)
+        if lookback_window_days is not None:
+            pulumi.set(__self__, "lookback_window_days", lookback_window_days)
+        if metrics is not None:
+            pulumi.set(__self__, "metrics", metrics)
+        if query_lifetime is not None:
+            pulumi.set(__self__, "query_lifetime", query_lifetime)
+        if report_type is not None:
+            pulumi.set(__self__, "report_type", report_type)
+        if sync_start_date is not None:
+            pulumi.set(__self__, "sync_start_date", sync_start_date)
+
+    @_builtins.property
+    @pulumi.getter(name="dataLevel")
+    def data_level(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "data_level")
+
+    @_builtins.property
+    @pulumi.getter
+    def dimensions(self) -> Optional[Sequence[_builtins.str]]:
+        return pulumi.get(self, "dimensions")
+
+    @_builtins.property
+    @pulumi.getter(name="lookbackWindowDays")
+    def lookback_window_days(self) -> Optional[_builtins.int]:
+        return pulumi.get(self, "lookback_window_days")
+
+    @_builtins.property
+    @pulumi.getter
+    def metrics(self) -> Optional[Sequence[_builtins.str]]:
+        return pulumi.get(self, "metrics")
+
+    @_builtins.property
+    @pulumi.getter(name="queryLifetime")
+    def query_lifetime(self) -> Optional[_builtins.bool]:
+        return pulumi.get(self, "query_lifetime")
+
+    @_builtins.property
+    @pulumi.getter(name="reportType")
+    def report_type(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "report_type")
+
+    @_builtins.property
+    @pulumi.getter(name="syncStartDate")
+    def sync_start_date(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "sync_start_date")
 
 
 @pulumi.output_type
@@ -40128,6 +43750,8 @@ class PipelineIngestionDefinitionObjectTable(dict):
             suggest = "destination_schema"
         elif key == "sourceTable":
             suggest = "source_table"
+        elif key == "connectorOptions":
+            suggest = "connector_options"
         elif key == "destinationTable":
             suggest = "destination_table"
         elif key == "sourceCatalog":
@@ -40152,6 +43776,7 @@ class PipelineIngestionDefinitionObjectTable(dict):
                  destination_catalog: _builtins.str,
                  destination_schema: _builtins.str,
                  source_table: _builtins.str,
+                 connector_options: Optional['outputs.PipelineIngestionDefinitionObjectTableConnectorOptions'] = None,
                  destination_table: Optional[_builtins.str] = None,
                  source_catalog: Optional[_builtins.str] = None,
                  source_schema: Optional[_builtins.str] = None,
@@ -40159,6 +43784,8 @@ class PipelineIngestionDefinitionObjectTable(dict):
         pulumi.set(__self__, "destination_catalog", destination_catalog)
         pulumi.set(__self__, "destination_schema", destination_schema)
         pulumi.set(__self__, "source_table", source_table)
+        if connector_options is not None:
+            pulumi.set(__self__, "connector_options", connector_options)
         if destination_table is not None:
             pulumi.set(__self__, "destination_table", destination_table)
         if source_catalog is not None:
@@ -40184,6 +43811,11 @@ class PipelineIngestionDefinitionObjectTable(dict):
         return pulumi.get(self, "source_table")
 
     @_builtins.property
+    @pulumi.getter(name="connectorOptions")
+    def connector_options(self) -> Optional['outputs.PipelineIngestionDefinitionObjectTableConnectorOptions']:
+        return pulumi.get(self, "connector_options")
+
+    @_builtins.property
     @pulumi.getter(name="destinationTable")
     def destination_table(self) -> Optional[_builtins.str]:
         return pulumi.get(self, "destination_table")
@@ -40202,6 +43834,665 @@ class PipelineIngestionDefinitionObjectTable(dict):
     @pulumi.getter(name="tableConfiguration")
     def table_configuration(self) -> Optional['outputs.PipelineIngestionDefinitionObjectTableTableConfiguration']:
         return pulumi.get(self, "table_configuration")
+
+
+@pulumi.output_type
+class PipelineIngestionDefinitionObjectTableConnectorOptions(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "gdriveOptions":
+            suggest = "gdrive_options"
+        elif key == "googleAdsOptions":
+            suggest = "google_ads_options"
+        elif key == "sharepointOptions":
+            suggest = "sharepoint_options"
+        elif key == "tiktokAdsOptions":
+            suggest = "tiktok_ads_options"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in PipelineIngestionDefinitionObjectTableConnectorOptions. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        PipelineIngestionDefinitionObjectTableConnectorOptions.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        PipelineIngestionDefinitionObjectTableConnectorOptions.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 gdrive_options: Optional['outputs.PipelineIngestionDefinitionObjectTableConnectorOptionsGdriveOptions'] = None,
+                 google_ads_options: Optional['outputs.PipelineIngestionDefinitionObjectTableConnectorOptionsGoogleAdsOptions'] = None,
+                 sharepoint_options: Optional['outputs.PipelineIngestionDefinitionObjectTableConnectorOptionsSharepointOptions'] = None,
+                 tiktok_ads_options: Optional['outputs.PipelineIngestionDefinitionObjectTableConnectorOptionsTiktokAdsOptions'] = None):
+        if gdrive_options is not None:
+            pulumi.set(__self__, "gdrive_options", gdrive_options)
+        if google_ads_options is not None:
+            pulumi.set(__self__, "google_ads_options", google_ads_options)
+        if sharepoint_options is not None:
+            pulumi.set(__self__, "sharepoint_options", sharepoint_options)
+        if tiktok_ads_options is not None:
+            pulumi.set(__self__, "tiktok_ads_options", tiktok_ads_options)
+
+    @_builtins.property
+    @pulumi.getter(name="gdriveOptions")
+    def gdrive_options(self) -> Optional['outputs.PipelineIngestionDefinitionObjectTableConnectorOptionsGdriveOptions']:
+        return pulumi.get(self, "gdrive_options")
+
+    @_builtins.property
+    @pulumi.getter(name="googleAdsOptions")
+    def google_ads_options(self) -> Optional['outputs.PipelineIngestionDefinitionObjectTableConnectorOptionsGoogleAdsOptions']:
+        return pulumi.get(self, "google_ads_options")
+
+    @_builtins.property
+    @pulumi.getter(name="sharepointOptions")
+    def sharepoint_options(self) -> Optional['outputs.PipelineIngestionDefinitionObjectTableConnectorOptionsSharepointOptions']:
+        return pulumi.get(self, "sharepoint_options")
+
+    @_builtins.property
+    @pulumi.getter(name="tiktokAdsOptions")
+    def tiktok_ads_options(self) -> Optional['outputs.PipelineIngestionDefinitionObjectTableConnectorOptionsTiktokAdsOptions']:
+        return pulumi.get(self, "tiktok_ads_options")
+
+
+@pulumi.output_type
+class PipelineIngestionDefinitionObjectTableConnectorOptionsGdriveOptions(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "entityType":
+            suggest = "entity_type"
+        elif key == "fileIngestionOptions":
+            suggest = "file_ingestion_options"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in PipelineIngestionDefinitionObjectTableConnectorOptionsGdriveOptions. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        PipelineIngestionDefinitionObjectTableConnectorOptionsGdriveOptions.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        PipelineIngestionDefinitionObjectTableConnectorOptionsGdriveOptions.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 entity_type: Optional[_builtins.str] = None,
+                 file_ingestion_options: Optional['outputs.PipelineIngestionDefinitionObjectTableConnectorOptionsGdriveOptionsFileIngestionOptions'] = None,
+                 url: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str url: URL of the Lakeflow Declarative Pipeline on the given workspace.
+        """
+        if entity_type is not None:
+            pulumi.set(__self__, "entity_type", entity_type)
+        if file_ingestion_options is not None:
+            pulumi.set(__self__, "file_ingestion_options", file_ingestion_options)
+        if url is not None:
+            pulumi.set(__self__, "url", url)
+
+    @_builtins.property
+    @pulumi.getter(name="entityType")
+    def entity_type(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "entity_type")
+
+    @_builtins.property
+    @pulumi.getter(name="fileIngestionOptions")
+    def file_ingestion_options(self) -> Optional['outputs.PipelineIngestionDefinitionObjectTableConnectorOptionsGdriveOptionsFileIngestionOptions']:
+        return pulumi.get(self, "file_ingestion_options")
+
+    @_builtins.property
+    @pulumi.getter
+    def url(self) -> Optional[_builtins.str]:
+        """
+        URL of the Lakeflow Declarative Pipeline on the given workspace.
+        """
+        return pulumi.get(self, "url")
+
+
+@pulumi.output_type
+class PipelineIngestionDefinitionObjectTableConnectorOptionsGdriveOptionsFileIngestionOptions(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "corruptRecordColumn":
+            suggest = "corrupt_record_column"
+        elif key == "fileFilters":
+            suggest = "file_filters"
+        elif key == "formatOptions":
+            suggest = "format_options"
+        elif key == "ignoreCorruptFiles":
+            suggest = "ignore_corrupt_files"
+        elif key == "inferColumnTypes":
+            suggest = "infer_column_types"
+        elif key == "readerCaseSensitive":
+            suggest = "reader_case_sensitive"
+        elif key == "rescuedDataColumn":
+            suggest = "rescued_data_column"
+        elif key == "schemaEvolutionMode":
+            suggest = "schema_evolution_mode"
+        elif key == "schemaHints":
+            suggest = "schema_hints"
+        elif key == "singleVariantColumn":
+            suggest = "single_variant_column"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in PipelineIngestionDefinitionObjectTableConnectorOptionsGdriveOptionsFileIngestionOptions. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        PipelineIngestionDefinitionObjectTableConnectorOptionsGdriveOptionsFileIngestionOptions.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        PipelineIngestionDefinitionObjectTableConnectorOptionsGdriveOptionsFileIngestionOptions.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 corrupt_record_column: Optional[_builtins.str] = None,
+                 file_filters: Optional[Sequence['outputs.PipelineIngestionDefinitionObjectTableConnectorOptionsGdriveOptionsFileIngestionOptionsFileFilter']] = None,
+                 format: Optional[_builtins.str] = None,
+                 format_options: Optional[Mapping[str, _builtins.str]] = None,
+                 ignore_corrupt_files: Optional[_builtins.bool] = None,
+                 infer_column_types: Optional[_builtins.bool] = None,
+                 reader_case_sensitive: Optional[_builtins.bool] = None,
+                 rescued_data_column: Optional[_builtins.str] = None,
+                 schema_evolution_mode: Optional[_builtins.str] = None,
+                 schema_hints: Optional[_builtins.str] = None,
+                 single_variant_column: Optional[_builtins.str] = None):
+        if corrupt_record_column is not None:
+            pulumi.set(__self__, "corrupt_record_column", corrupt_record_column)
+        if file_filters is not None:
+            pulumi.set(__self__, "file_filters", file_filters)
+        if format is not None:
+            pulumi.set(__self__, "format", format)
+        if format_options is not None:
+            pulumi.set(__self__, "format_options", format_options)
+        if ignore_corrupt_files is not None:
+            pulumi.set(__self__, "ignore_corrupt_files", ignore_corrupt_files)
+        if infer_column_types is not None:
+            pulumi.set(__self__, "infer_column_types", infer_column_types)
+        if reader_case_sensitive is not None:
+            pulumi.set(__self__, "reader_case_sensitive", reader_case_sensitive)
+        if rescued_data_column is not None:
+            pulumi.set(__self__, "rescued_data_column", rescued_data_column)
+        if schema_evolution_mode is not None:
+            pulumi.set(__self__, "schema_evolution_mode", schema_evolution_mode)
+        if schema_hints is not None:
+            pulumi.set(__self__, "schema_hints", schema_hints)
+        if single_variant_column is not None:
+            pulumi.set(__self__, "single_variant_column", single_variant_column)
+
+    @_builtins.property
+    @pulumi.getter(name="corruptRecordColumn")
+    def corrupt_record_column(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "corrupt_record_column")
+
+    @_builtins.property
+    @pulumi.getter(name="fileFilters")
+    def file_filters(self) -> Optional[Sequence['outputs.PipelineIngestionDefinitionObjectTableConnectorOptionsGdriveOptionsFileIngestionOptionsFileFilter']]:
+        return pulumi.get(self, "file_filters")
+
+    @_builtins.property
+    @pulumi.getter
+    def format(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "format")
+
+    @_builtins.property
+    @pulumi.getter(name="formatOptions")
+    def format_options(self) -> Optional[Mapping[str, _builtins.str]]:
+        return pulumi.get(self, "format_options")
+
+    @_builtins.property
+    @pulumi.getter(name="ignoreCorruptFiles")
+    def ignore_corrupt_files(self) -> Optional[_builtins.bool]:
+        return pulumi.get(self, "ignore_corrupt_files")
+
+    @_builtins.property
+    @pulumi.getter(name="inferColumnTypes")
+    def infer_column_types(self) -> Optional[_builtins.bool]:
+        return pulumi.get(self, "infer_column_types")
+
+    @_builtins.property
+    @pulumi.getter(name="readerCaseSensitive")
+    def reader_case_sensitive(self) -> Optional[_builtins.bool]:
+        return pulumi.get(self, "reader_case_sensitive")
+
+    @_builtins.property
+    @pulumi.getter(name="rescuedDataColumn")
+    def rescued_data_column(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "rescued_data_column")
+
+    @_builtins.property
+    @pulumi.getter(name="schemaEvolutionMode")
+    def schema_evolution_mode(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "schema_evolution_mode")
+
+    @_builtins.property
+    @pulumi.getter(name="schemaHints")
+    def schema_hints(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "schema_hints")
+
+    @_builtins.property
+    @pulumi.getter(name="singleVariantColumn")
+    def single_variant_column(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "single_variant_column")
+
+
+@pulumi.output_type
+class PipelineIngestionDefinitionObjectTableConnectorOptionsGdriveOptionsFileIngestionOptionsFileFilter(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "modifiedAfter":
+            suggest = "modified_after"
+        elif key == "modifiedBefore":
+            suggest = "modified_before"
+        elif key == "pathFilter":
+            suggest = "path_filter"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in PipelineIngestionDefinitionObjectTableConnectorOptionsGdriveOptionsFileIngestionOptionsFileFilter. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        PipelineIngestionDefinitionObjectTableConnectorOptionsGdriveOptionsFileIngestionOptionsFileFilter.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        PipelineIngestionDefinitionObjectTableConnectorOptionsGdriveOptionsFileIngestionOptionsFileFilter.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 modified_after: Optional[_builtins.str] = None,
+                 modified_before: Optional[_builtins.str] = None,
+                 path_filter: Optional[_builtins.str] = None):
+        if modified_after is not None:
+            pulumi.set(__self__, "modified_after", modified_after)
+        if modified_before is not None:
+            pulumi.set(__self__, "modified_before", modified_before)
+        if path_filter is not None:
+            pulumi.set(__self__, "path_filter", path_filter)
+
+    @_builtins.property
+    @pulumi.getter(name="modifiedAfter")
+    def modified_after(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "modified_after")
+
+    @_builtins.property
+    @pulumi.getter(name="modifiedBefore")
+    def modified_before(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "modified_before")
+
+    @_builtins.property
+    @pulumi.getter(name="pathFilter")
+    def path_filter(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "path_filter")
+
+
+@pulumi.output_type
+class PipelineIngestionDefinitionObjectTableConnectorOptionsGoogleAdsOptions(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "managerAccountId":
+            suggest = "manager_account_id"
+        elif key == "lookbackWindowDays":
+            suggest = "lookback_window_days"
+        elif key == "syncStartDate":
+            suggest = "sync_start_date"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in PipelineIngestionDefinitionObjectTableConnectorOptionsGoogleAdsOptions. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        PipelineIngestionDefinitionObjectTableConnectorOptionsGoogleAdsOptions.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        PipelineIngestionDefinitionObjectTableConnectorOptionsGoogleAdsOptions.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 manager_account_id: _builtins.str,
+                 lookback_window_days: Optional[_builtins.int] = None,
+                 sync_start_date: Optional[_builtins.str] = None):
+        pulumi.set(__self__, "manager_account_id", manager_account_id)
+        if lookback_window_days is not None:
+            pulumi.set(__self__, "lookback_window_days", lookback_window_days)
+        if sync_start_date is not None:
+            pulumi.set(__self__, "sync_start_date", sync_start_date)
+
+    @_builtins.property
+    @pulumi.getter(name="managerAccountId")
+    def manager_account_id(self) -> _builtins.str:
+        return pulumi.get(self, "manager_account_id")
+
+    @_builtins.property
+    @pulumi.getter(name="lookbackWindowDays")
+    def lookback_window_days(self) -> Optional[_builtins.int]:
+        return pulumi.get(self, "lookback_window_days")
+
+    @_builtins.property
+    @pulumi.getter(name="syncStartDate")
+    def sync_start_date(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "sync_start_date")
+
+
+@pulumi.output_type
+class PipelineIngestionDefinitionObjectTableConnectorOptionsSharepointOptions(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "entityType":
+            suggest = "entity_type"
+        elif key == "fileIngestionOptions":
+            suggest = "file_ingestion_options"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in PipelineIngestionDefinitionObjectTableConnectorOptionsSharepointOptions. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        PipelineIngestionDefinitionObjectTableConnectorOptionsSharepointOptions.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        PipelineIngestionDefinitionObjectTableConnectorOptionsSharepointOptions.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 entity_type: Optional[_builtins.str] = None,
+                 file_ingestion_options: Optional['outputs.PipelineIngestionDefinitionObjectTableConnectorOptionsSharepointOptionsFileIngestionOptions'] = None,
+                 url: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str url: URL of the Lakeflow Declarative Pipeline on the given workspace.
+        """
+        if entity_type is not None:
+            pulumi.set(__self__, "entity_type", entity_type)
+        if file_ingestion_options is not None:
+            pulumi.set(__self__, "file_ingestion_options", file_ingestion_options)
+        if url is not None:
+            pulumi.set(__self__, "url", url)
+
+    @_builtins.property
+    @pulumi.getter(name="entityType")
+    def entity_type(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "entity_type")
+
+    @_builtins.property
+    @pulumi.getter(name="fileIngestionOptions")
+    def file_ingestion_options(self) -> Optional['outputs.PipelineIngestionDefinitionObjectTableConnectorOptionsSharepointOptionsFileIngestionOptions']:
+        return pulumi.get(self, "file_ingestion_options")
+
+    @_builtins.property
+    @pulumi.getter
+    def url(self) -> Optional[_builtins.str]:
+        """
+        URL of the Lakeflow Declarative Pipeline on the given workspace.
+        """
+        return pulumi.get(self, "url")
+
+
+@pulumi.output_type
+class PipelineIngestionDefinitionObjectTableConnectorOptionsSharepointOptionsFileIngestionOptions(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "corruptRecordColumn":
+            suggest = "corrupt_record_column"
+        elif key == "fileFilters":
+            suggest = "file_filters"
+        elif key == "formatOptions":
+            suggest = "format_options"
+        elif key == "ignoreCorruptFiles":
+            suggest = "ignore_corrupt_files"
+        elif key == "inferColumnTypes":
+            suggest = "infer_column_types"
+        elif key == "readerCaseSensitive":
+            suggest = "reader_case_sensitive"
+        elif key == "rescuedDataColumn":
+            suggest = "rescued_data_column"
+        elif key == "schemaEvolutionMode":
+            suggest = "schema_evolution_mode"
+        elif key == "schemaHints":
+            suggest = "schema_hints"
+        elif key == "singleVariantColumn":
+            suggest = "single_variant_column"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in PipelineIngestionDefinitionObjectTableConnectorOptionsSharepointOptionsFileIngestionOptions. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        PipelineIngestionDefinitionObjectTableConnectorOptionsSharepointOptionsFileIngestionOptions.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        PipelineIngestionDefinitionObjectTableConnectorOptionsSharepointOptionsFileIngestionOptions.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 corrupt_record_column: Optional[_builtins.str] = None,
+                 file_filters: Optional[Sequence['outputs.PipelineIngestionDefinitionObjectTableConnectorOptionsSharepointOptionsFileIngestionOptionsFileFilter']] = None,
+                 format: Optional[_builtins.str] = None,
+                 format_options: Optional[Mapping[str, _builtins.str]] = None,
+                 ignore_corrupt_files: Optional[_builtins.bool] = None,
+                 infer_column_types: Optional[_builtins.bool] = None,
+                 reader_case_sensitive: Optional[_builtins.bool] = None,
+                 rescued_data_column: Optional[_builtins.str] = None,
+                 schema_evolution_mode: Optional[_builtins.str] = None,
+                 schema_hints: Optional[_builtins.str] = None,
+                 single_variant_column: Optional[_builtins.str] = None):
+        if corrupt_record_column is not None:
+            pulumi.set(__self__, "corrupt_record_column", corrupt_record_column)
+        if file_filters is not None:
+            pulumi.set(__self__, "file_filters", file_filters)
+        if format is not None:
+            pulumi.set(__self__, "format", format)
+        if format_options is not None:
+            pulumi.set(__self__, "format_options", format_options)
+        if ignore_corrupt_files is not None:
+            pulumi.set(__self__, "ignore_corrupt_files", ignore_corrupt_files)
+        if infer_column_types is not None:
+            pulumi.set(__self__, "infer_column_types", infer_column_types)
+        if reader_case_sensitive is not None:
+            pulumi.set(__self__, "reader_case_sensitive", reader_case_sensitive)
+        if rescued_data_column is not None:
+            pulumi.set(__self__, "rescued_data_column", rescued_data_column)
+        if schema_evolution_mode is not None:
+            pulumi.set(__self__, "schema_evolution_mode", schema_evolution_mode)
+        if schema_hints is not None:
+            pulumi.set(__self__, "schema_hints", schema_hints)
+        if single_variant_column is not None:
+            pulumi.set(__self__, "single_variant_column", single_variant_column)
+
+    @_builtins.property
+    @pulumi.getter(name="corruptRecordColumn")
+    def corrupt_record_column(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "corrupt_record_column")
+
+    @_builtins.property
+    @pulumi.getter(name="fileFilters")
+    def file_filters(self) -> Optional[Sequence['outputs.PipelineIngestionDefinitionObjectTableConnectorOptionsSharepointOptionsFileIngestionOptionsFileFilter']]:
+        return pulumi.get(self, "file_filters")
+
+    @_builtins.property
+    @pulumi.getter
+    def format(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "format")
+
+    @_builtins.property
+    @pulumi.getter(name="formatOptions")
+    def format_options(self) -> Optional[Mapping[str, _builtins.str]]:
+        return pulumi.get(self, "format_options")
+
+    @_builtins.property
+    @pulumi.getter(name="ignoreCorruptFiles")
+    def ignore_corrupt_files(self) -> Optional[_builtins.bool]:
+        return pulumi.get(self, "ignore_corrupt_files")
+
+    @_builtins.property
+    @pulumi.getter(name="inferColumnTypes")
+    def infer_column_types(self) -> Optional[_builtins.bool]:
+        return pulumi.get(self, "infer_column_types")
+
+    @_builtins.property
+    @pulumi.getter(name="readerCaseSensitive")
+    def reader_case_sensitive(self) -> Optional[_builtins.bool]:
+        return pulumi.get(self, "reader_case_sensitive")
+
+    @_builtins.property
+    @pulumi.getter(name="rescuedDataColumn")
+    def rescued_data_column(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "rescued_data_column")
+
+    @_builtins.property
+    @pulumi.getter(name="schemaEvolutionMode")
+    def schema_evolution_mode(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "schema_evolution_mode")
+
+    @_builtins.property
+    @pulumi.getter(name="schemaHints")
+    def schema_hints(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "schema_hints")
+
+    @_builtins.property
+    @pulumi.getter(name="singleVariantColumn")
+    def single_variant_column(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "single_variant_column")
+
+
+@pulumi.output_type
+class PipelineIngestionDefinitionObjectTableConnectorOptionsSharepointOptionsFileIngestionOptionsFileFilter(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "modifiedAfter":
+            suggest = "modified_after"
+        elif key == "modifiedBefore":
+            suggest = "modified_before"
+        elif key == "pathFilter":
+            suggest = "path_filter"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in PipelineIngestionDefinitionObjectTableConnectorOptionsSharepointOptionsFileIngestionOptionsFileFilter. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        PipelineIngestionDefinitionObjectTableConnectorOptionsSharepointOptionsFileIngestionOptionsFileFilter.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        PipelineIngestionDefinitionObjectTableConnectorOptionsSharepointOptionsFileIngestionOptionsFileFilter.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 modified_after: Optional[_builtins.str] = None,
+                 modified_before: Optional[_builtins.str] = None,
+                 path_filter: Optional[_builtins.str] = None):
+        if modified_after is not None:
+            pulumi.set(__self__, "modified_after", modified_after)
+        if modified_before is not None:
+            pulumi.set(__self__, "modified_before", modified_before)
+        if path_filter is not None:
+            pulumi.set(__self__, "path_filter", path_filter)
+
+    @_builtins.property
+    @pulumi.getter(name="modifiedAfter")
+    def modified_after(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "modified_after")
+
+    @_builtins.property
+    @pulumi.getter(name="modifiedBefore")
+    def modified_before(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "modified_before")
+
+    @_builtins.property
+    @pulumi.getter(name="pathFilter")
+    def path_filter(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "path_filter")
+
+
+@pulumi.output_type
+class PipelineIngestionDefinitionObjectTableConnectorOptionsTiktokAdsOptions(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "dataLevel":
+            suggest = "data_level"
+        elif key == "lookbackWindowDays":
+            suggest = "lookback_window_days"
+        elif key == "queryLifetime":
+            suggest = "query_lifetime"
+        elif key == "reportType":
+            suggest = "report_type"
+        elif key == "syncStartDate":
+            suggest = "sync_start_date"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in PipelineIngestionDefinitionObjectTableConnectorOptionsTiktokAdsOptions. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        PipelineIngestionDefinitionObjectTableConnectorOptionsTiktokAdsOptions.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        PipelineIngestionDefinitionObjectTableConnectorOptionsTiktokAdsOptions.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 data_level: Optional[_builtins.str] = None,
+                 dimensions: Optional[Sequence[_builtins.str]] = None,
+                 lookback_window_days: Optional[_builtins.int] = None,
+                 metrics: Optional[Sequence[_builtins.str]] = None,
+                 query_lifetime: Optional[_builtins.bool] = None,
+                 report_type: Optional[_builtins.str] = None,
+                 sync_start_date: Optional[_builtins.str] = None):
+        if data_level is not None:
+            pulumi.set(__self__, "data_level", data_level)
+        if dimensions is not None:
+            pulumi.set(__self__, "dimensions", dimensions)
+        if lookback_window_days is not None:
+            pulumi.set(__self__, "lookback_window_days", lookback_window_days)
+        if metrics is not None:
+            pulumi.set(__self__, "metrics", metrics)
+        if query_lifetime is not None:
+            pulumi.set(__self__, "query_lifetime", query_lifetime)
+        if report_type is not None:
+            pulumi.set(__self__, "report_type", report_type)
+        if sync_start_date is not None:
+            pulumi.set(__self__, "sync_start_date", sync_start_date)
+
+    @_builtins.property
+    @pulumi.getter(name="dataLevel")
+    def data_level(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "data_level")
+
+    @_builtins.property
+    @pulumi.getter
+    def dimensions(self) -> Optional[Sequence[_builtins.str]]:
+        return pulumi.get(self, "dimensions")
+
+    @_builtins.property
+    @pulumi.getter(name="lookbackWindowDays")
+    def lookback_window_days(self) -> Optional[_builtins.int]:
+        return pulumi.get(self, "lookback_window_days")
+
+    @_builtins.property
+    @pulumi.getter
+    def metrics(self) -> Optional[Sequence[_builtins.str]]:
+        return pulumi.get(self, "metrics")
+
+    @_builtins.property
+    @pulumi.getter(name="queryLifetime")
+    def query_lifetime(self) -> Optional[_builtins.bool]:
+        return pulumi.get(self, "query_lifetime")
+
+    @_builtins.property
+    @pulumi.getter(name="reportType")
+    def report_type(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "report_type")
+
+    @_builtins.property
+    @pulumi.getter(name="syncStartDate")
+    def sync_start_date(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "sync_start_date")
 
 
 @pulumi.output_type
@@ -41867,6 +46158,170 @@ class PostgresBranchStatus(dict):
 
 
 @pulumi.output_type
+class PostgresCatalogProviderConfig(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "workspaceId":
+            suggest = "workspace_id"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in PostgresCatalogProviderConfig. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        PostgresCatalogProviderConfig.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        PostgresCatalogProviderConfig.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 workspace_id: _builtins.str):
+        """
+        :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
+        """
+        pulumi.set(__self__, "workspace_id", workspace_id)
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceId")
+    def workspace_id(self) -> _builtins.str:
+        """
+        Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
+        """
+        return pulumi.get(self, "workspace_id")
+
+
+@pulumi.output_type
+class PostgresCatalogSpec(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "postgresDatabase":
+            suggest = "postgres_database"
+        elif key == "createDatabaseIfMissing":
+            suggest = "create_database_if_missing"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in PostgresCatalogSpec. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        PostgresCatalogSpec.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        PostgresCatalogSpec.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 postgres_database: _builtins.str,
+                 branch: Optional[_builtins.str] = None,
+                 create_database_if_missing: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.str postgres_database: (string) - The name of the Postgres database associated with the catalog
+        :param _builtins.str branch: (string) - The resource path of the branch associated with the catalog.
+        :param _builtins.bool create_database_if_missing: If set to true, the specified postgres_database is created on behalf of the calling user
+               if it does not already exist. In this case, the calling user has a role created for
+               them in Postgres if they do not already have one.
+               
+               Defaults to false, meaning that the request fails if the specified postgres_database does not already exist
+        """
+        pulumi.set(__self__, "postgres_database", postgres_database)
+        if branch is not None:
+            pulumi.set(__self__, "branch", branch)
+        if create_database_if_missing is not None:
+            pulumi.set(__self__, "create_database_if_missing", create_database_if_missing)
+
+    @_builtins.property
+    @pulumi.getter(name="postgresDatabase")
+    def postgres_database(self) -> _builtins.str:
+        """
+        (string) - The name of the Postgres database associated with the catalog
+        """
+        return pulumi.get(self, "postgres_database")
+
+    @_builtins.property
+    @pulumi.getter
+    def branch(self) -> Optional[_builtins.str]:
+        """
+        (string) - The resource path of the branch associated with the catalog.
+        """
+        return pulumi.get(self, "branch")
+
+    @_builtins.property
+    @pulumi.getter(name="createDatabaseIfMissing")
+    def create_database_if_missing(self) -> Optional[_builtins.bool]:
+        """
+        If set to true, the specified postgres_database is created on behalf of the calling user
+        if it does not already exist. In this case, the calling user has a role created for
+        them in Postgres if they do not already have one.
+
+        Defaults to false, meaning that the request fails if the specified postgres_database does not already exist
+        """
+        return pulumi.get(self, "create_database_if_missing")
+
+
+@pulumi.output_type
+class PostgresCatalogStatus(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "postgresDatabase":
+            suggest = "postgres_database"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in PostgresCatalogStatus. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        PostgresCatalogStatus.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        PostgresCatalogStatus.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 branch: Optional[_builtins.str] = None,
+                 postgres_database: Optional[_builtins.str] = None,
+                 project: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str branch: (string) - The resource path of the branch associated with the catalog.
+        :param _builtins.str postgres_database: (string) - The name of the Postgres database associated with the catalog
+        :param _builtins.str project: (string) - The resource path of the project associated with the catalog.
+        """
+        if branch is not None:
+            pulumi.set(__self__, "branch", branch)
+        if postgres_database is not None:
+            pulumi.set(__self__, "postgres_database", postgres_database)
+        if project is not None:
+            pulumi.set(__self__, "project", project)
+
+    @_builtins.property
+    @pulumi.getter
+    def branch(self) -> Optional[_builtins.str]:
+        """
+        (string) - The resource path of the branch associated with the catalog.
+        """
+        return pulumi.get(self, "branch")
+
+    @_builtins.property
+    @pulumi.getter(name="postgresDatabase")
+    def postgres_database(self) -> Optional[_builtins.str]:
+        """
+        (string) - The name of the Postgres database associated with the catalog
+        """
+        return pulumi.get(self, "postgres_database")
+
+    @_builtins.property
+    @pulumi.getter
+    def project(self) -> Optional[_builtins.str]:
+        """
+        (string) - The resource path of the project associated with the catalog.
+        """
+        return pulumi.get(self, "project")
+
+
+@pulumi.output_type
 class PostgresDatabaseProviderConfig(dict):
     @staticmethod
     def __key_warning(key: str):
@@ -42666,6 +47121,8 @@ class PostgresProjectSpec(dict):
             suggest = "budget_policy_id"
         elif key == "customTags":
             suggest = "custom_tags"
+        elif key == "defaultBranch":
+            suggest = "default_branch"
         elif key == "defaultEndpointSettings":
             suggest = "default_endpoint_settings"
         elif key == "displayName":
@@ -42691,6 +47148,7 @@ class PostgresProjectSpec(dict):
     def __init__(__self__, *,
                  budget_policy_id: Optional[_builtins.str] = None,
                  custom_tags: Optional[Sequence['outputs.PostgresProjectSpecCustomTag']] = None,
+                 default_branch: Optional[_builtins.str] = None,
                  default_endpoint_settings: Optional['outputs.PostgresProjectSpecDefaultEndpointSettings'] = None,
                  display_name: Optional[_builtins.str] = None,
                  enable_pg_native_login: Optional[_builtins.bool] = None,
@@ -42699,6 +47157,7 @@ class PostgresProjectSpec(dict):
         """
         :param _builtins.str budget_policy_id: (string) - The budget policy that is applied to the project
         :param Sequence['PostgresProjectSpecCustomTagArgs'] custom_tags: (list of ProjectCustomTag) - The effective custom tags associated with the project
+        :param _builtins.str default_branch: (string) - The full resource path of the default branch of the project
         :param 'PostgresProjectSpecDefaultEndpointSettingsArgs' default_endpoint_settings: (ProjectDefaultEndpointSettings) - The effective default endpoint settings
         :param _builtins.str display_name: (string) - The effective human-readable project name
         :param _builtins.bool enable_pg_native_login: (boolean) - Whether to enable PG native password login on all endpoints in this project
@@ -42709,6 +47168,8 @@ class PostgresProjectSpec(dict):
             pulumi.set(__self__, "budget_policy_id", budget_policy_id)
         if custom_tags is not None:
             pulumi.set(__self__, "custom_tags", custom_tags)
+        if default_branch is not None:
+            pulumi.set(__self__, "default_branch", default_branch)
         if default_endpoint_settings is not None:
             pulumi.set(__self__, "default_endpoint_settings", default_endpoint_settings)
         if display_name is not None:
@@ -42735,6 +47196,14 @@ class PostgresProjectSpec(dict):
         (list of ProjectCustomTag) - The effective custom tags associated with the project
         """
         return pulumi.get(self, "custom_tags")
+
+    @_builtins.property
+    @pulumi.getter(name="defaultBranch")
+    def default_branch(self) -> Optional[_builtins.str]:
+        """
+        (string) - The full resource path of the default branch of the project
+        """
+        return pulumi.get(self, "default_branch")
 
     @_builtins.property
     @pulumi.getter(name="defaultEndpointSettings")
@@ -42915,6 +47384,8 @@ class PostgresProjectStatus(dict):
             suggest = "budget_policy_id"
         elif key == "customTags":
             suggest = "custom_tags"
+        elif key == "defaultBranch":
+            suggest = "default_branch"
         elif key == "defaultEndpointSettings":
             suggest = "default_endpoint_settings"
         elif key == "displayName":
@@ -42943,6 +47414,7 @@ class PostgresProjectStatus(dict):
                  branch_logical_size_limit_bytes: Optional[_builtins.int] = None,
                  budget_policy_id: Optional[_builtins.str] = None,
                  custom_tags: Optional[Sequence['outputs.PostgresProjectStatusCustomTag']] = None,
+                 default_branch: Optional[_builtins.str] = None,
                  default_endpoint_settings: Optional['outputs.PostgresProjectStatusDefaultEndpointSettings'] = None,
                  display_name: Optional[_builtins.str] = None,
                  enable_pg_native_login: Optional[_builtins.bool] = None,
@@ -42954,6 +47426,7 @@ class PostgresProjectStatus(dict):
         :param _builtins.int branch_logical_size_limit_bytes: (integer) - The logical size limit for a branch
         :param _builtins.str budget_policy_id: (string) - The budget policy that is applied to the project
         :param Sequence['PostgresProjectStatusCustomTagArgs'] custom_tags: (list of ProjectCustomTag) - The effective custom tags associated with the project
+        :param _builtins.str default_branch: (string) - The full resource path of the default branch of the project
         :param 'PostgresProjectStatusDefaultEndpointSettingsArgs' default_endpoint_settings: (ProjectDefaultEndpointSettings) - The effective default endpoint settings
         :param _builtins.str display_name: (string) - The effective human-readable project name
         :param _builtins.bool enable_pg_native_login: (boolean) - Whether to enable PG native password login on all endpoints in this project
@@ -42968,6 +47441,8 @@ class PostgresProjectStatus(dict):
             pulumi.set(__self__, "budget_policy_id", budget_policy_id)
         if custom_tags is not None:
             pulumi.set(__self__, "custom_tags", custom_tags)
+        if default_branch is not None:
+            pulumi.set(__self__, "default_branch", default_branch)
         if default_endpoint_settings is not None:
             pulumi.set(__self__, "default_endpoint_settings", default_endpoint_settings)
         if display_name is not None:
@@ -43006,6 +47481,14 @@ class PostgresProjectStatus(dict):
         (list of ProjectCustomTag) - The effective custom tags associated with the project
         """
         return pulumi.get(self, "custom_tags")
+
+    @_builtins.property
+    @pulumi.getter(name="defaultBranch")
+    def default_branch(self) -> Optional[_builtins.str]:
+        """
+        (string) - The full resource path of the default branch of the project
+        """
+        return pulumi.get(self, "default_branch")
 
     @_builtins.property
     @pulumi.getter(name="defaultEndpointSettings")
@@ -43418,6 +47901,665 @@ class PostgresRoleStatusAttributes(dict):
     @pulumi.getter
     def createrole(self) -> Optional[_builtins.bool]:
         return pulumi.get(self, "createrole")
+
+
+@pulumi.output_type
+class PostgresSyncedTableProviderConfig(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "workspaceId":
+            suggest = "workspace_id"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in PostgresSyncedTableProviderConfig. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        PostgresSyncedTableProviderConfig.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        PostgresSyncedTableProviderConfig.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 workspace_id: _builtins.str):
+        """
+        :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
+        """
+        pulumi.set(__self__, "workspace_id", workspace_id)
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceId")
+    def workspace_id(self) -> _builtins.str:
+        """
+        Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
+        """
+        return pulumi.get(self, "workspace_id")
+
+
+@pulumi.output_type
+class PostgresSyncedTableSpec(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "createDatabaseObjectsIfMissing":
+            suggest = "create_database_objects_if_missing"
+        elif key == "existingPipelineId":
+            suggest = "existing_pipeline_id"
+        elif key == "newPipelineSpec":
+            suggest = "new_pipeline_spec"
+        elif key == "postgresDatabase":
+            suggest = "postgres_database"
+        elif key == "primaryKeyColumns":
+            suggest = "primary_key_columns"
+        elif key == "schedulingPolicy":
+            suggest = "scheduling_policy"
+        elif key == "sourceTableFullName":
+            suggest = "source_table_full_name"
+        elif key == "timeseriesKey":
+            suggest = "timeseries_key"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in PostgresSyncedTableSpec. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        PostgresSyncedTableSpec.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        PostgresSyncedTableSpec.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 branch: Optional[_builtins.str] = None,
+                 create_database_objects_if_missing: Optional[_builtins.bool] = None,
+                 existing_pipeline_id: Optional[_builtins.str] = None,
+                 new_pipeline_spec: Optional['outputs.PostgresSyncedTableSpecNewPipelineSpec'] = None,
+                 postgres_database: Optional[_builtins.str] = None,
+                 primary_key_columns: Optional[Sequence[_builtins.str]] = None,
+                 scheduling_policy: Optional[_builtins.str] = None,
+                 source_table_full_name: Optional[_builtins.str] = None,
+                 timeseries_key: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str branch: The full resource name the branch associated with the table.
+               
+               Format: "projects/{project_id}/branches/{branch_id}"
+        :param _builtins.bool create_database_objects_if_missing: If true, the synced table's logical database and schema resources in PG
+               will be created if they do not already exist.
+               The request will fail if this is false and the database/schema do not exist.
+               
+               Defaults to true if omitted
+        :param _builtins.str existing_pipeline_id: ID of an existing pipeline to bin-pack this synced table into.
+               At most one of existing_pipeline_id and new_pipeline_spec should be defined.
+               
+               The pipeline used for the synced table is returned via the top level pipeline_id attribute
+        :param 'PostgresSyncedTableSpecNewPipelineSpecArgs' new_pipeline_spec: Specification for creating a new pipeline.
+               At most one of existing_pipeline_id and new_pipeline_spec should be defined.
+               
+               The pipeline used for the synced table is returned via the top level pipeline_id attribute
+        :param _builtins.str postgres_database: The Postgres database name where the synced table will be created in.
+               
+               If this synced table is created inside a Lakebase Catalog, this attribute can be omitted on creation and is inferred
+               from the postgres_database associated with the Lakebase Catalog. If specified when inside a Lakebase Catalog, the value must match.
+               
+               A value must be specified when creating a synced table inside a Standard Catalog
+        :param Sequence[_builtins.str] primary_key_columns: Primary Key columns to be used for data insert/update in the destination
+        :param _builtins.str scheduling_policy: Scheduling policy of the underlying pipeline. Possible values are: `CONTINUOUS`, `SNAPSHOT`, `TRIGGERED`
+        :param _builtins.str source_table_full_name: Three-part (catalog, schema, table) name of the source Delta table.
+               
+               For the corresponding destination table, use any of the two:
+               
+               * synced_table_id used at the creation of the SyncedTable
+               * "name" consisting of "synced_tables/" prefix and the full name of the destination table
+        :param _builtins.str timeseries_key: Time series key to deduplicate (tie-break) rows with the same primary key
+        """
+        if branch is not None:
+            pulumi.set(__self__, "branch", branch)
+        if create_database_objects_if_missing is not None:
+            pulumi.set(__self__, "create_database_objects_if_missing", create_database_objects_if_missing)
+        if existing_pipeline_id is not None:
+            pulumi.set(__self__, "existing_pipeline_id", existing_pipeline_id)
+        if new_pipeline_spec is not None:
+            pulumi.set(__self__, "new_pipeline_spec", new_pipeline_spec)
+        if postgres_database is not None:
+            pulumi.set(__self__, "postgres_database", postgres_database)
+        if primary_key_columns is not None:
+            pulumi.set(__self__, "primary_key_columns", primary_key_columns)
+        if scheduling_policy is not None:
+            pulumi.set(__self__, "scheduling_policy", scheduling_policy)
+        if source_table_full_name is not None:
+            pulumi.set(__self__, "source_table_full_name", source_table_full_name)
+        if timeseries_key is not None:
+            pulumi.set(__self__, "timeseries_key", timeseries_key)
+
+    @_builtins.property
+    @pulumi.getter
+    def branch(self) -> Optional[_builtins.str]:
+        """
+        The full resource name the branch associated with the table.
+
+        Format: "projects/{project_id}/branches/{branch_id}"
+        """
+        return pulumi.get(self, "branch")
+
+    @_builtins.property
+    @pulumi.getter(name="createDatabaseObjectsIfMissing")
+    def create_database_objects_if_missing(self) -> Optional[_builtins.bool]:
+        """
+        If true, the synced table's logical database and schema resources in PG
+        will be created if they do not already exist.
+        The request will fail if this is false and the database/schema do not exist.
+
+        Defaults to true if omitted
+        """
+        return pulumi.get(self, "create_database_objects_if_missing")
+
+    @_builtins.property
+    @pulumi.getter(name="existingPipelineId")
+    def existing_pipeline_id(self) -> Optional[_builtins.str]:
+        """
+        ID of an existing pipeline to bin-pack this synced table into.
+        At most one of existing_pipeline_id and new_pipeline_spec should be defined.
+
+        The pipeline used for the synced table is returned via the top level pipeline_id attribute
+        """
+        return pulumi.get(self, "existing_pipeline_id")
+
+    @_builtins.property
+    @pulumi.getter(name="newPipelineSpec")
+    def new_pipeline_spec(self) -> Optional['outputs.PostgresSyncedTableSpecNewPipelineSpec']:
+        """
+        Specification for creating a new pipeline.
+        At most one of existing_pipeline_id and new_pipeline_spec should be defined.
+
+        The pipeline used for the synced table is returned via the top level pipeline_id attribute
+        """
+        return pulumi.get(self, "new_pipeline_spec")
+
+    @_builtins.property
+    @pulumi.getter(name="postgresDatabase")
+    def postgres_database(self) -> Optional[_builtins.str]:
+        """
+        The Postgres database name where the synced table will be created in.
+
+        If this synced table is created inside a Lakebase Catalog, this attribute can be omitted on creation and is inferred
+        from the postgres_database associated with the Lakebase Catalog. If specified when inside a Lakebase Catalog, the value must match.
+
+        A value must be specified when creating a synced table inside a Standard Catalog
+        """
+        return pulumi.get(self, "postgres_database")
+
+    @_builtins.property
+    @pulumi.getter(name="primaryKeyColumns")
+    def primary_key_columns(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        Primary Key columns to be used for data insert/update in the destination
+        """
+        return pulumi.get(self, "primary_key_columns")
+
+    @_builtins.property
+    @pulumi.getter(name="schedulingPolicy")
+    def scheduling_policy(self) -> Optional[_builtins.str]:
+        """
+        Scheduling policy of the underlying pipeline. Possible values are: `CONTINUOUS`, `SNAPSHOT`, `TRIGGERED`
+        """
+        return pulumi.get(self, "scheduling_policy")
+
+    @_builtins.property
+    @pulumi.getter(name="sourceTableFullName")
+    def source_table_full_name(self) -> Optional[_builtins.str]:
+        """
+        Three-part (catalog, schema, table) name of the source Delta table.
+
+        For the corresponding destination table, use any of the two:
+
+        * synced_table_id used at the creation of the SyncedTable
+        * "name" consisting of "synced_tables/" prefix and the full name of the destination table
+        """
+        return pulumi.get(self, "source_table_full_name")
+
+    @_builtins.property
+    @pulumi.getter(name="timeseriesKey")
+    def timeseries_key(self) -> Optional[_builtins.str]:
+        """
+        Time series key to deduplicate (tie-break) rows with the same primary key
+        """
+        return pulumi.get(self, "timeseries_key")
+
+
+@pulumi.output_type
+class PostgresSyncedTableSpecNewPipelineSpec(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "budgetPolicyId":
+            suggest = "budget_policy_id"
+        elif key == "storageCatalog":
+            suggest = "storage_catalog"
+        elif key == "storageSchema":
+            suggest = "storage_schema"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in PostgresSyncedTableSpecNewPipelineSpec. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        PostgresSyncedTableSpecNewPipelineSpec.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        PostgresSyncedTableSpecNewPipelineSpec.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 budget_policy_id: Optional[_builtins.str] = None,
+                 storage_catalog: Optional[_builtins.str] = None,
+                 storage_schema: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str budget_policy_id: Budget policy to set on the newly created pipeline
+        :param _builtins.str storage_catalog: UC catalog for the pipeline to store intermediate files (checkpoints, event logs etc).
+               This needs to be a standard catalog where the user has permissions to create Delta tables
+        :param _builtins.str storage_schema: UC schema for the pipeline to store intermediate files (checkpoints, event logs etc).
+               This needs to be in the standard catalog where the user has permissions to create Delta tables
+        """
+        if budget_policy_id is not None:
+            pulumi.set(__self__, "budget_policy_id", budget_policy_id)
+        if storage_catalog is not None:
+            pulumi.set(__self__, "storage_catalog", storage_catalog)
+        if storage_schema is not None:
+            pulumi.set(__self__, "storage_schema", storage_schema)
+
+    @_builtins.property
+    @pulumi.getter(name="budgetPolicyId")
+    def budget_policy_id(self) -> Optional[_builtins.str]:
+        """
+        Budget policy to set on the newly created pipeline
+        """
+        return pulumi.get(self, "budget_policy_id")
+
+    @_builtins.property
+    @pulumi.getter(name="storageCatalog")
+    def storage_catalog(self) -> Optional[_builtins.str]:
+        """
+        UC catalog for the pipeline to store intermediate files (checkpoints, event logs etc).
+        This needs to be a standard catalog where the user has permissions to create Delta tables
+        """
+        return pulumi.get(self, "storage_catalog")
+
+    @_builtins.property
+    @pulumi.getter(name="storageSchema")
+    def storage_schema(self) -> Optional[_builtins.str]:
+        """
+        UC schema for the pipeline to store intermediate files (checkpoints, event logs etc).
+        This needs to be in the standard catalog where the user has permissions to create Delta tables
+        """
+        return pulumi.get(self, "storage_schema")
+
+
+@pulumi.output_type
+class PostgresSyncedTableStatus(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "detailedState":
+            suggest = "detailed_state"
+        elif key == "lastProcessedCommitVersion":
+            suggest = "last_processed_commit_version"
+        elif key == "lastSync":
+            suggest = "last_sync"
+        elif key == "lastSyncTime":
+            suggest = "last_sync_time"
+        elif key == "ongoingSyncProgress":
+            suggest = "ongoing_sync_progress"
+        elif key == "pipelineId":
+            suggest = "pipeline_id"
+        elif key == "provisioningPhase":
+            suggest = "provisioning_phase"
+        elif key == "unityCatalogProvisioningState":
+            suggest = "unity_catalog_provisioning_state"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in PostgresSyncedTableStatus. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        PostgresSyncedTableStatus.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        PostgresSyncedTableStatus.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 detailed_state: Optional[_builtins.str] = None,
+                 last_processed_commit_version: Optional[_builtins.int] = None,
+                 last_sync: Optional['outputs.PostgresSyncedTableStatusLastSync'] = None,
+                 last_sync_time: Optional[_builtins.str] = None,
+                 message: Optional[_builtins.str] = None,
+                 ongoing_sync_progress: Optional['outputs.PostgresSyncedTableStatusOngoingSyncProgress'] = None,
+                 pipeline_id: Optional[_builtins.str] = None,
+                 provisioning_phase: Optional[_builtins.str] = None,
+                 unity_catalog_provisioning_state: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str detailed_state: (string) - The state of the synced table. Possible values are: `SYNCED_TABLE_OFFLINE`, `SYNCED_TABLE_OFFLINE_FAILED`, `SYNCED_TABLE_ONLINE`, `SYNCED_TABLE_ONLINE_CONTINUOUS_UPDATE`, `SYNCED_TABLE_ONLINE_NO_PENDING_UPDATE`, `SYNCED_TABLE_ONLINE_PIPELINE_FAILED`, `SYNCED_TABLE_ONLINE_TRIGGERED_UPDATE`, `SYNCED_TABLE_ONLINE_UPDATING_PIPELINE_RESOURCES`, `SYNCED_TABLE_PROVISIONING`, `SYNCED_TABLE_PROVISIONING_INITIAL_SNAPSHOT`, `SYNCED_TABLE_PROVISIONING_PIPELINE_RESOURCES`
+        :param _builtins.int last_processed_commit_version: (integer) - The last source table Delta version that was successfully synced to the synced table
+        :param 'PostgresSyncedTableStatusLastSyncArgs' last_sync: (SyncedTablePosition) - Summary of the last successful synchronization from source to destination
+        :param _builtins.str last_sync_time: (string) - The end timestamp of the last time any data was synchronized from the source table to the synced
+               table. This is when the data is available in the synced table
+        :param _builtins.str message: (string) - A text description of the current state of the synced table
+        :param 'PostgresSyncedTableStatusOngoingSyncProgressArgs' ongoing_sync_progress: (SyncedTablePipelineProgress)
+        :param _builtins.str pipeline_id: (string) - ID of the associated pipeline
+        :param _builtins.str provisioning_phase: (string) - The current phase of the data synchronization pipeline. Possible values are: `PROVISIONING_PHASE_INDEX_SCAN`, `PROVISIONING_PHASE_INDEX_SORT`, `PROVISIONING_PHASE_MAIN`
+        :param _builtins.str unity_catalog_provisioning_state: (string) - The provisioning state of the synced table entity in Unity Catalog. Possible values are: `ACTIVE`, `DEGRADED`, `DELETING`, `FAILED`, `PROVISIONING`, `UPDATING`
+        """
+        if detailed_state is not None:
+            pulumi.set(__self__, "detailed_state", detailed_state)
+        if last_processed_commit_version is not None:
+            pulumi.set(__self__, "last_processed_commit_version", last_processed_commit_version)
+        if last_sync is not None:
+            pulumi.set(__self__, "last_sync", last_sync)
+        if last_sync_time is not None:
+            pulumi.set(__self__, "last_sync_time", last_sync_time)
+        if message is not None:
+            pulumi.set(__self__, "message", message)
+        if ongoing_sync_progress is not None:
+            pulumi.set(__self__, "ongoing_sync_progress", ongoing_sync_progress)
+        if pipeline_id is not None:
+            pulumi.set(__self__, "pipeline_id", pipeline_id)
+        if provisioning_phase is not None:
+            pulumi.set(__self__, "provisioning_phase", provisioning_phase)
+        if unity_catalog_provisioning_state is not None:
+            pulumi.set(__self__, "unity_catalog_provisioning_state", unity_catalog_provisioning_state)
+
+    @_builtins.property
+    @pulumi.getter(name="detailedState")
+    def detailed_state(self) -> Optional[_builtins.str]:
+        """
+        (string) - The state of the synced table. Possible values are: `SYNCED_TABLE_OFFLINE`, `SYNCED_TABLE_OFFLINE_FAILED`, `SYNCED_TABLE_ONLINE`, `SYNCED_TABLE_ONLINE_CONTINUOUS_UPDATE`, `SYNCED_TABLE_ONLINE_NO_PENDING_UPDATE`, `SYNCED_TABLE_ONLINE_PIPELINE_FAILED`, `SYNCED_TABLE_ONLINE_TRIGGERED_UPDATE`, `SYNCED_TABLE_ONLINE_UPDATING_PIPELINE_RESOURCES`, `SYNCED_TABLE_PROVISIONING`, `SYNCED_TABLE_PROVISIONING_INITIAL_SNAPSHOT`, `SYNCED_TABLE_PROVISIONING_PIPELINE_RESOURCES`
+        """
+        return pulumi.get(self, "detailed_state")
+
+    @_builtins.property
+    @pulumi.getter(name="lastProcessedCommitVersion")
+    def last_processed_commit_version(self) -> Optional[_builtins.int]:
+        """
+        (integer) - The last source table Delta version that was successfully synced to the synced table
+        """
+        return pulumi.get(self, "last_processed_commit_version")
+
+    @_builtins.property
+    @pulumi.getter(name="lastSync")
+    def last_sync(self) -> Optional['outputs.PostgresSyncedTableStatusLastSync']:
+        """
+        (SyncedTablePosition) - Summary of the last successful synchronization from source to destination
+        """
+        return pulumi.get(self, "last_sync")
+
+    @_builtins.property
+    @pulumi.getter(name="lastSyncTime")
+    def last_sync_time(self) -> Optional[_builtins.str]:
+        """
+        (string) - The end timestamp of the last time any data was synchronized from the source table to the synced
+        table. This is when the data is available in the synced table
+        """
+        return pulumi.get(self, "last_sync_time")
+
+    @_builtins.property
+    @pulumi.getter
+    def message(self) -> Optional[_builtins.str]:
+        """
+        (string) - A text description of the current state of the synced table
+        """
+        return pulumi.get(self, "message")
+
+    @_builtins.property
+    @pulumi.getter(name="ongoingSyncProgress")
+    def ongoing_sync_progress(self) -> Optional['outputs.PostgresSyncedTableStatusOngoingSyncProgress']:
+        """
+        (SyncedTablePipelineProgress)
+        """
+        return pulumi.get(self, "ongoing_sync_progress")
+
+    @_builtins.property
+    @pulumi.getter(name="pipelineId")
+    def pipeline_id(self) -> Optional[_builtins.str]:
+        """
+        (string) - ID of the associated pipeline
+        """
+        return pulumi.get(self, "pipeline_id")
+
+    @_builtins.property
+    @pulumi.getter(name="provisioningPhase")
+    def provisioning_phase(self) -> Optional[_builtins.str]:
+        """
+        (string) - The current phase of the data synchronization pipeline. Possible values are: `PROVISIONING_PHASE_INDEX_SCAN`, `PROVISIONING_PHASE_INDEX_SORT`, `PROVISIONING_PHASE_MAIN`
+        """
+        return pulumi.get(self, "provisioning_phase")
+
+    @_builtins.property
+    @pulumi.getter(name="unityCatalogProvisioningState")
+    def unity_catalog_provisioning_state(self) -> Optional[_builtins.str]:
+        """
+        (string) - The provisioning state of the synced table entity in Unity Catalog. Possible values are: `ACTIVE`, `DEGRADED`, `DELETING`, `FAILED`, `PROVISIONING`, `UPDATING`
+        """
+        return pulumi.get(self, "unity_catalog_provisioning_state")
+
+
+@pulumi.output_type
+class PostgresSyncedTableStatusLastSync(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "deltaTableSyncInfo":
+            suggest = "delta_table_sync_info"
+        elif key == "syncEndTime":
+            suggest = "sync_end_time"
+        elif key == "syncStartTime":
+            suggest = "sync_start_time"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in PostgresSyncedTableStatusLastSync. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        PostgresSyncedTableStatusLastSync.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        PostgresSyncedTableStatusLastSync.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 delta_table_sync_info: Optional['outputs.PostgresSyncedTableStatusLastSyncDeltaTableSyncInfo'] = None,
+                 sync_end_time: Optional[_builtins.str] = None,
+                 sync_start_time: Optional[_builtins.str] = None):
+        """
+        :param 'PostgresSyncedTableStatusLastSyncDeltaTableSyncInfoArgs' delta_table_sync_info: (DeltaTableSyncInfo)
+        :param _builtins.str sync_end_time: (string) - The end timestamp of the most recent successful synchronization.
+               This is the time when the data is available in the synced table
+        :param _builtins.str sync_start_time: (string) - The starting timestamp of the most recent successful synchronization from the source table
+               to the destination (synced) table.
+               Note this is the starting timestamp of the sync operation, not the end time.
+               E.g., for a batch, this is the time when the sync operation started
+        """
+        if delta_table_sync_info is not None:
+            pulumi.set(__self__, "delta_table_sync_info", delta_table_sync_info)
+        if sync_end_time is not None:
+            pulumi.set(__self__, "sync_end_time", sync_end_time)
+        if sync_start_time is not None:
+            pulumi.set(__self__, "sync_start_time", sync_start_time)
+
+    @_builtins.property
+    @pulumi.getter(name="deltaTableSyncInfo")
+    def delta_table_sync_info(self) -> Optional['outputs.PostgresSyncedTableStatusLastSyncDeltaTableSyncInfo']:
+        """
+        (DeltaTableSyncInfo)
+        """
+        return pulumi.get(self, "delta_table_sync_info")
+
+    @_builtins.property
+    @pulumi.getter(name="syncEndTime")
+    def sync_end_time(self) -> Optional[_builtins.str]:
+        """
+        (string) - The end timestamp of the most recent successful synchronization.
+        This is the time when the data is available in the synced table
+        """
+        return pulumi.get(self, "sync_end_time")
+
+    @_builtins.property
+    @pulumi.getter(name="syncStartTime")
+    def sync_start_time(self) -> Optional[_builtins.str]:
+        """
+        (string) - The starting timestamp of the most recent successful synchronization from the source table
+        to the destination (synced) table.
+        Note this is the starting timestamp of the sync operation, not the end time.
+        E.g., for a batch, this is the time when the sync operation started
+        """
+        return pulumi.get(self, "sync_start_time")
+
+
+@pulumi.output_type
+class PostgresSyncedTableStatusLastSyncDeltaTableSyncInfo(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "deltaCommitTime":
+            suggest = "delta_commit_time"
+        elif key == "deltaCommitVersion":
+            suggest = "delta_commit_version"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in PostgresSyncedTableStatusLastSyncDeltaTableSyncInfo. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        PostgresSyncedTableStatusLastSyncDeltaTableSyncInfo.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        PostgresSyncedTableStatusLastSyncDeltaTableSyncInfo.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 delta_commit_time: Optional[_builtins.str] = None,
+                 delta_commit_version: Optional[_builtins.int] = None):
+        """
+        :param _builtins.str delta_commit_time: (string) - The timestamp when the above Delta version was committed in the source Delta table.
+               Note: This is the Delta commit time, not the time the data was written to the synced table
+        :param _builtins.int delta_commit_version: (integer) - The Delta Lake commit version that was last successfully synced
+        """
+        if delta_commit_time is not None:
+            pulumi.set(__self__, "delta_commit_time", delta_commit_time)
+        if delta_commit_version is not None:
+            pulumi.set(__self__, "delta_commit_version", delta_commit_version)
+
+    @_builtins.property
+    @pulumi.getter(name="deltaCommitTime")
+    def delta_commit_time(self) -> Optional[_builtins.str]:
+        """
+        (string) - The timestamp when the above Delta version was committed in the source Delta table.
+        Note: This is the Delta commit time, not the time the data was written to the synced table
+        """
+        return pulumi.get(self, "delta_commit_time")
+
+    @_builtins.property
+    @pulumi.getter(name="deltaCommitVersion")
+    def delta_commit_version(self) -> Optional[_builtins.int]:
+        """
+        (integer) - The Delta Lake commit version that was last successfully synced
+        """
+        return pulumi.get(self, "delta_commit_version")
+
+
+@pulumi.output_type
+class PostgresSyncedTableStatusOngoingSyncProgress(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "estimatedCompletionTimeSeconds":
+            suggest = "estimated_completion_time_seconds"
+        elif key == "latestVersionCurrentlyProcessing":
+            suggest = "latest_version_currently_processing"
+        elif key == "syncProgressCompletion":
+            suggest = "sync_progress_completion"
+        elif key == "syncedRowCount":
+            suggest = "synced_row_count"
+        elif key == "totalRowCount":
+            suggest = "total_row_count"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in PostgresSyncedTableStatusOngoingSyncProgress. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        PostgresSyncedTableStatusOngoingSyncProgress.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        PostgresSyncedTableStatusOngoingSyncProgress.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 estimated_completion_time_seconds: Optional[_builtins.float] = None,
+                 latest_version_currently_processing: Optional[_builtins.int] = None,
+                 sync_progress_completion: Optional[_builtins.float] = None,
+                 synced_row_count: Optional[_builtins.int] = None,
+                 total_row_count: Optional[_builtins.int] = None):
+        """
+        :param _builtins.float estimated_completion_time_seconds: (number) - The estimated time remaining to complete this update in seconds
+        :param _builtins.int latest_version_currently_processing: (integer) - The source table Delta version that was last processed by the pipeline. The pipeline may not
+               have completely processed this version yet
+        :param _builtins.float sync_progress_completion: (number) - The completion ratio of this update. This is a number between 0 and 1
+        :param _builtins.int synced_row_count: (integer) - The number of rows that have been synced in this update
+        :param _builtins.int total_row_count: (integer) - The total number of rows that need to be synced in this update. This number may be an estimate
+        """
+        if estimated_completion_time_seconds is not None:
+            pulumi.set(__self__, "estimated_completion_time_seconds", estimated_completion_time_seconds)
+        if latest_version_currently_processing is not None:
+            pulumi.set(__self__, "latest_version_currently_processing", latest_version_currently_processing)
+        if sync_progress_completion is not None:
+            pulumi.set(__self__, "sync_progress_completion", sync_progress_completion)
+        if synced_row_count is not None:
+            pulumi.set(__self__, "synced_row_count", synced_row_count)
+        if total_row_count is not None:
+            pulumi.set(__self__, "total_row_count", total_row_count)
+
+    @_builtins.property
+    @pulumi.getter(name="estimatedCompletionTimeSeconds")
+    def estimated_completion_time_seconds(self) -> Optional[_builtins.float]:
+        """
+        (number) - The estimated time remaining to complete this update in seconds
+        """
+        return pulumi.get(self, "estimated_completion_time_seconds")
+
+    @_builtins.property
+    @pulumi.getter(name="latestVersionCurrentlyProcessing")
+    def latest_version_currently_processing(self) -> Optional[_builtins.int]:
+        """
+        (integer) - The source table Delta version that was last processed by the pipeline. The pipeline may not
+        have completely processed this version yet
+        """
+        return pulumi.get(self, "latest_version_currently_processing")
+
+    @_builtins.property
+    @pulumi.getter(name="syncProgressCompletion")
+    def sync_progress_completion(self) -> Optional[_builtins.float]:
+        """
+        (number) - The completion ratio of this update. This is a number between 0 and 1
+        """
+        return pulumi.get(self, "sync_progress_completion")
+
+    @_builtins.property
+    @pulumi.getter(name="syncedRowCount")
+    def synced_row_count(self) -> Optional[_builtins.int]:
+        """
+        (integer) - The number of rows that have been synced in this update
+        """
+        return pulumi.get(self, "synced_row_count")
+
+    @_builtins.property
+    @pulumi.getter(name="totalRowCount")
+    def total_row_count(self) -> Optional[_builtins.int]:
+        """
+        (integer) - The total number of rows that need to be synced in this update. This number may be an estimate
+        """
+        return pulumi.get(self, "total_row_count")
 
 
 @pulumi.output_type
@@ -45181,12 +50323,32 @@ class RestrictWorkspaceAdminsSettingProviderConfig(dict):
 
 @pulumi.output_type
 class RestrictWorkspaceAdminsSettingRestrictWorkspaceAdmins(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "disableGovTagCreation":
+            suggest = "disable_gov_tag_creation"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in RestrictWorkspaceAdminsSettingRestrictWorkspaceAdmins. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        RestrictWorkspaceAdminsSettingRestrictWorkspaceAdmins.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        RestrictWorkspaceAdminsSettingRestrictWorkspaceAdmins.__key_warning(key)
+        return super().get(key, default)
+
     def __init__(__self__, *,
-                 status: _builtins.str):
+                 status: _builtins.str,
+                 disable_gov_tag_creation: Optional[_builtins.bool] = None):
         """
         :param _builtins.str status: The restrict workspace admins status for the workspace.
         """
         pulumi.set(__self__, "status", status)
+        if disable_gov_tag_creation is not None:
+            pulumi.set(__self__, "disable_gov_tag_creation", disable_gov_tag_creation)
 
     @_builtins.property
     @pulumi.getter
@@ -45195,6 +50357,11 @@ class RestrictWorkspaceAdminsSettingRestrictWorkspaceAdmins(dict):
         The restrict workspace admins status for the workspace.
         """
         return pulumi.get(self, "status")
+
+    @_builtins.property
+    @pulumi.getter(name="disableGovTagCreation")
+    def disable_gov_tag_creation(self) -> Optional[_builtins.bool]:
+        return pulumi.get(self, "disable_gov_tag_creation")
 
 
 @pulumi.output_type
@@ -45746,6 +50913,64 @@ class ServicePrincipalFederationPolicyOidcPolicy(dict):
         is 'sub'
         """
         return pulumi.get(self, "subject_claim")
+
+
+@pulumi.output_type
+class ServicePrincipalProviderConfig(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "workspaceId":
+            suggest = "workspace_id"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ServicePrincipalProviderConfig. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ServicePrincipalProviderConfig.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ServicePrincipalProviderConfig.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 workspace_id: _builtins.str):
+        pulumi.set(__self__, "workspace_id", workspace_id)
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceId")
+    def workspace_id(self) -> _builtins.str:
+        return pulumi.get(self, "workspace_id")
+
+
+@pulumi.output_type
+class ServicePrincipalRoleProviderConfig(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "workspaceId":
+            suggest = "workspace_id"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ServicePrincipalRoleProviderConfig. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ServicePrincipalRoleProviderConfig.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ServicePrincipalRoleProviderConfig.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 workspace_id: _builtins.str):
+        pulumi.set(__self__, "workspace_id", workspace_id)
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceId")
+    def workspace_id(self) -> _builtins.str:
+        return pulumi.get(self, "workspace_id")
 
 
 @pulumi.output_type
@@ -46684,6 +51909,35 @@ class SqlPermissionsPrivilegeAssignment(dict):
         > Even though the value `ALL PRIVILEGES` is mentioned in Table ACL documentation, it's not recommended to use it from Pulumi, as it may result in unnecessary state updates.
         """
         return pulumi.get(self, "privileges")
+
+
+@pulumi.output_type
+class SqlPermissionsProviderConfig(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "workspaceId":
+            suggest = "workspace_id"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in SqlPermissionsProviderConfig. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        SqlPermissionsProviderConfig.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        SqlPermissionsProviderConfig.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 workspace_id: _builtins.str):
+        pulumi.set(__self__, "workspace_id", workspace_id)
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceId")
+    def workspace_id(self) -> _builtins.str:
+        return pulumi.get(self, "workspace_id")
 
 
 @pulumi.output_type
@@ -48116,6 +53370,41 @@ class StorageCredentialGcpServiceAccountKey(dict):
 
 
 @pulumi.output_type
+class StorageCredentialProviderConfig(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "workspaceId":
+            suggest = "workspace_id"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in StorageCredentialProviderConfig. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        StorageCredentialProviderConfig.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        StorageCredentialProviderConfig.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 workspace_id: _builtins.str):
+        """
+        :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
+        """
+        pulumi.set(__self__, "workspace_id", workspace_id)
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceId")
+    def workspace_id(self) -> _builtins.str:
+        """
+        Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
+        """
+        return pulumi.get(self, "workspace_id")
+
+
+@pulumi.output_type
 class SystemSchemaProviderConfig(dict):
     @staticmethod
     def __key_warning(key: str):
@@ -48376,6 +53665,93 @@ class TokenProviderConfig(dict):
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
+        return pulumi.get(self, "workspace_id")
+
+
+@pulumi.output_type
+class UserInstanceProfileProviderConfig(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "workspaceId":
+            suggest = "workspace_id"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in UserInstanceProfileProviderConfig. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        UserInstanceProfileProviderConfig.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        UserInstanceProfileProviderConfig.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 workspace_id: _builtins.str):
+        pulumi.set(__self__, "workspace_id", workspace_id)
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceId")
+    def workspace_id(self) -> _builtins.str:
+        return pulumi.get(self, "workspace_id")
+
+
+@pulumi.output_type
+class UserProviderConfig(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "workspaceId":
+            suggest = "workspace_id"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in UserProviderConfig. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        UserProviderConfig.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        UserProviderConfig.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 workspace_id: _builtins.str):
+        pulumi.set(__self__, "workspace_id", workspace_id)
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceId")
+    def workspace_id(self) -> _builtins.str:
+        return pulumi.get(self, "workspace_id")
+
+
+@pulumi.output_type
+class UserRoleProviderConfig(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "workspaceId":
+            suggest = "workspace_id"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in UserRoleProviderConfig. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        UserRoleProviderConfig.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        UserRoleProviderConfig.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 workspace_id: _builtins.str):
+        pulumi.set(__self__, "workspace_id", workspace_id)
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceId")
+    def workspace_id(self) -> _builtins.str:
         return pulumi.get(self, "workspace_id")
 
 
@@ -49868,12 +55244,34 @@ class WorkspaceSettingV2EffectivePersonalCompute(dict):
 
 @pulumi.output_type
 class WorkspaceSettingV2EffectiveRestrictWorkspaceAdmins(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "disableGovTagCreation":
+            suggest = "disable_gov_tag_creation"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in WorkspaceSettingV2EffectiveRestrictWorkspaceAdmins. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        WorkspaceSettingV2EffectiveRestrictWorkspaceAdmins.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        WorkspaceSettingV2EffectiveRestrictWorkspaceAdmins.__key_warning(key)
+        return super().get(key, default)
+
     def __init__(__self__, *,
-                 status: _builtins.str):
+                 status: _builtins.str,
+                 disable_gov_tag_creation: Optional[_builtins.bool] = None):
         """
         :param _builtins.str status: Possible values are: `ALLOW_ALL`, `RESTRICT_TOKENS_AND_JOB_RUN_AS`
+        :param _builtins.bool disable_gov_tag_creation: When true, workspace admins cannot create governance tags.
+               ALLOW_ALL status does not override this; they are independent
         """
         pulumi.set(__self__, "status", status)
+        if disable_gov_tag_creation is not None:
+            pulumi.set(__self__, "disable_gov_tag_creation", disable_gov_tag_creation)
 
     @_builtins.property
     @pulumi.getter
@@ -49882,6 +55280,15 @@ class WorkspaceSettingV2EffectiveRestrictWorkspaceAdmins(dict):
         Possible values are: `ALLOW_ALL`, `RESTRICT_TOKENS_AND_JOB_RUN_AS`
         """
         return pulumi.get(self, "status")
+
+    @_builtins.property
+    @pulumi.getter(name="disableGovTagCreation")
+    def disable_gov_tag_creation(self) -> Optional[_builtins.bool]:
+        """
+        When true, workspace admins cannot create governance tags.
+        ALLOW_ALL status does not override this; they are independent
+        """
+        return pulumi.get(self, "disable_gov_tag_creation")
 
 
 @pulumi.output_type
@@ -49960,12 +55367,34 @@ class WorkspaceSettingV2ProviderConfig(dict):
 
 @pulumi.output_type
 class WorkspaceSettingV2RestrictWorkspaceAdmins(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "disableGovTagCreation":
+            suggest = "disable_gov_tag_creation"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in WorkspaceSettingV2RestrictWorkspaceAdmins. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        WorkspaceSettingV2RestrictWorkspaceAdmins.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        WorkspaceSettingV2RestrictWorkspaceAdmins.__key_warning(key)
+        return super().get(key, default)
+
     def __init__(__self__, *,
-                 status: _builtins.str):
+                 status: _builtins.str,
+                 disable_gov_tag_creation: Optional[_builtins.bool] = None):
         """
         :param _builtins.str status: Possible values are: `ALLOW_ALL`, `RESTRICT_TOKENS_AND_JOB_RUN_AS`
+        :param _builtins.bool disable_gov_tag_creation: When true, workspace admins cannot create governance tags.
+               ALLOW_ALL status does not override this; they are independent
         """
         pulumi.set(__self__, "status", status)
+        if disable_gov_tag_creation is not None:
+            pulumi.set(__self__, "disable_gov_tag_creation", disable_gov_tag_creation)
 
     @_builtins.property
     @pulumi.getter
@@ -49974,6 +55403,15 @@ class WorkspaceSettingV2RestrictWorkspaceAdmins(dict):
         Possible values are: `ALLOW_ALL`, `RESTRICT_TOKENS_AND_JOB_RUN_AS`
         """
         return pulumi.get(self, "status")
+
+    @_builtins.property
+    @pulumi.getter(name="disableGovTagCreation")
+    def disable_gov_tag_creation(self) -> Optional[_builtins.bool]:
+        """
+        When true, workspace admins cannot create governance tags.
+        ALLOW_ALL status does not override this; they are independent
+        """
+        return pulumi.get(self, "disable_gov_tag_creation")
 
 
 @pulumi.output_type
@@ -50321,14 +55759,22 @@ class GetAccountNetworkPoliciesItemResult(dict):
     def __init__(__self__, *,
                  account_id: _builtins.str,
                  egress: 'outputs.GetAccountNetworkPoliciesItemEgressResult',
+                 ingress: 'outputs.GetAccountNetworkPoliciesItemIngressResult',
+                 ingress_dry_run: 'outputs.GetAccountNetworkPoliciesItemIngressDryRunResult',
                  network_policy_id: _builtins.str):
         """
         :param _builtins.str account_id: (string) - The associated account ID for this Network Policy object
         :param 'GetAccountNetworkPoliciesItemEgressArgs' egress: (NetworkPolicyEgress) - The network policies applying for egress traffic
+        :param 'GetAccountNetworkPoliciesItemIngressArgs' ingress: (CustomerFacingIngressNetworkPolicy) - The network policies applying for ingress traffic
+        :param 'GetAccountNetworkPoliciesItemIngressDryRunArgs' ingress_dry_run: (CustomerFacingIngressNetworkPolicy) - The ingress policy for dry run mode. Dry run will always run even if the request
+               is allowed by the ingress policy. When this field is set, the policy will be evaluated
+               and emit logs only without blocking requests
         :param _builtins.str network_policy_id: (string) - The unique identifier for the network policy
         """
         pulumi.set(__self__, "account_id", account_id)
         pulumi.set(__self__, "egress", egress)
+        pulumi.set(__self__, "ingress", ingress)
+        pulumi.set(__self__, "ingress_dry_run", ingress_dry_run)
         pulumi.set(__self__, "network_policy_id", network_policy_id)
 
     @_builtins.property
@@ -50346,6 +55792,24 @@ class GetAccountNetworkPoliciesItemResult(dict):
         (NetworkPolicyEgress) - The network policies applying for egress traffic
         """
         return pulumi.get(self, "egress")
+
+    @_builtins.property
+    @pulumi.getter
+    def ingress(self) -> 'outputs.GetAccountNetworkPoliciesItemIngressResult':
+        """
+        (CustomerFacingIngressNetworkPolicy) - The network policies applying for ingress traffic
+        """
+        return pulumi.get(self, "ingress")
+
+    @_builtins.property
+    @pulumi.getter(name="ingressDryRun")
+    def ingress_dry_run(self) -> 'outputs.GetAccountNetworkPoliciesItemIngressDryRunResult':
+        """
+        (CustomerFacingIngressNetworkPolicy) - The ingress policy for dry run mode. Dry run will always run even if the request
+        is allowed by the ingress policy. When this field is set, the policy will be evaluated
+        and emit logs only without blocking requests
+        """
+        return pulumi.get(self, "ingress_dry_run")
 
     @_builtins.property
     @pulumi.getter(name="networkPolicyId")
@@ -50565,6 +56029,1252 @@ class GetAccountNetworkPoliciesItemEgressNetworkAccessPolicyEnforcementResult(di
 
 
 @pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressResult(dict):
+    def __init__(__self__, *,
+                 public_access: Optional['outputs.GetAccountNetworkPoliciesItemIngressPublicAccessResult'] = None):
+        """
+        :param 'GetAccountNetworkPoliciesItemIngressPublicAccessArgs' public_access: (CustomerFacingIngressNetworkPolicyPublicAccess)
+        """
+        if public_access is not None:
+            pulumi.set(__self__, "public_access", public_access)
+
+    @_builtins.property
+    @pulumi.getter(name="publicAccess")
+    def public_access(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressPublicAccessResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyPublicAccess)
+        """
+        return pulumi.get(self, "public_access")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressDryRunResult(dict):
+    def __init__(__self__, *,
+                 public_access: Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPublicAccessResult'] = None):
+        """
+        :param 'GetAccountNetworkPoliciesItemIngressDryRunPublicAccessArgs' public_access: (CustomerFacingIngressNetworkPolicyPublicAccess)
+        """
+        if public_access is not None:
+            pulumi.set(__self__, "public_access", public_access)
+
+    @_builtins.property
+    @pulumi.getter(name="publicAccess")
+    def public_access(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPublicAccessResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyPublicAccess)
+        """
+        return pulumi.get(self, "public_access")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressDryRunPublicAccessResult(dict):
+    def __init__(__self__, *,
+                 restriction_mode: _builtins.str,
+                 allow_rules: Optional[Sequence['outputs.GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleResult']] = None,
+                 deny_rules: Optional[Sequence['outputs.GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleResult']] = None):
+        """
+        :param _builtins.str restriction_mode: (string) - The restriction mode that controls how serverless workloads can access the internet. Possible values are: `FULL_ACCESS`, `RESTRICTED_ACCESS`
+        :param Sequence['GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleArgs'] allow_rules: (list of CustomerFacingIngressNetworkPolicyPublicIngressRule)
+        :param Sequence['GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleArgs'] deny_rules: (list of CustomerFacingIngressNetworkPolicyPublicIngressRule)
+        """
+        pulumi.set(__self__, "restriction_mode", restriction_mode)
+        if allow_rules is not None:
+            pulumi.set(__self__, "allow_rules", allow_rules)
+        if deny_rules is not None:
+            pulumi.set(__self__, "deny_rules", deny_rules)
+
+    @_builtins.property
+    @pulumi.getter(name="restrictionMode")
+    def restriction_mode(self) -> _builtins.str:
+        """
+        (string) - The restriction mode that controls how serverless workloads can access the internet. Possible values are: `FULL_ACCESS`, `RESTRICTED_ACCESS`
+        """
+        return pulumi.get(self, "restriction_mode")
+
+    @_builtins.property
+    @pulumi.getter(name="allowRules")
+    def allow_rules(self) -> Optional[Sequence['outputs.GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleResult']]:
+        """
+        (list of CustomerFacingIngressNetworkPolicyPublicIngressRule)
+        """
+        return pulumi.get(self, "allow_rules")
+
+    @_builtins.property
+    @pulumi.getter(name="denyRules")
+    def deny_rules(self) -> Optional[Sequence['outputs.GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleResult']]:
+        """
+        (list of CustomerFacingIngressNetworkPolicyPublicIngressRule)
+        """
+        return pulumi.get(self, "deny_rules")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleResult(dict):
+    def __init__(__self__, *,
+                 authentication: Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleAuthenticationResult'] = None,
+                 destination: Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleDestinationResult'] = None,
+                 label: Optional[_builtins.str] = None,
+                 origin: Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleOriginResult'] = None):
+        """
+        :param 'GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleAuthenticationArgs' authentication: (CustomerFacingIngressNetworkPolicyAuthentication)
+        :param 'GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleDestinationArgs' destination: (string) - The internet destination to which access will be allowed. Format dependent on the destination type
+        :param _builtins.str label: (string) - User-provided name for this ingress rule. Helps identify which rule
+               caused a request to be denied or dry-run denied
+        :param 'GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleOriginArgs' origin: (CustomerFacingIngressNetworkPolicyPublicRequestOrigin)
+        """
+        if authentication is not None:
+            pulumi.set(__self__, "authentication", authentication)
+        if destination is not None:
+            pulumi.set(__self__, "destination", destination)
+        if label is not None:
+            pulumi.set(__self__, "label", label)
+        if origin is not None:
+            pulumi.set(__self__, "origin", origin)
+
+    @_builtins.property
+    @pulumi.getter
+    def authentication(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleAuthenticationResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyAuthentication)
+        """
+        return pulumi.get(self, "authentication")
+
+    @_builtins.property
+    @pulumi.getter
+    def destination(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleDestinationResult']:
+        """
+        (string) - The internet destination to which access will be allowed. Format dependent on the destination type
+        """
+        return pulumi.get(self, "destination")
+
+    @_builtins.property
+    @pulumi.getter
+    def label(self) -> Optional[_builtins.str]:
+        """
+        (string) - User-provided name for this ingress rule. Helps identify which rule
+        caused a request to be denied or dry-run denied
+        """
+        return pulumi.get(self, "label")
+
+    @_builtins.property
+    @pulumi.getter
+    def origin(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleOriginResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyPublicRequestOrigin)
+        """
+        return pulumi.get(self, "origin")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleAuthenticationResult(dict):
+    def __init__(__self__, *,
+                 identities: Optional[Sequence['outputs.GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleAuthenticationIdentityResult']] = None,
+                 identity_type: Optional[_builtins.str] = None):
+        """
+        :param Sequence['GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleAuthenticationIdentityArgs'] identities: (list of CustomerFacingIngressNetworkPolicyAuthenticationIdentity) - Valid only when IdentityType is IDENTITY_TYPE_SELECTED_IDENTITIES
+        :param _builtins.str identity_type: (string) - Possible values are: `IDENTITY_TYPE_ALL_SERVICE_PRINCIPALS`, `IDENTITY_TYPE_ALL_USERS`, `IDENTITY_TYPE_SELECTED_IDENTITIES`
+        """
+        if identities is not None:
+            pulumi.set(__self__, "identities", identities)
+        if identity_type is not None:
+            pulumi.set(__self__, "identity_type", identity_type)
+
+    @_builtins.property
+    @pulumi.getter
+    def identities(self) -> Optional[Sequence['outputs.GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleAuthenticationIdentityResult']]:
+        """
+        (list of CustomerFacingIngressNetworkPolicyAuthenticationIdentity) - Valid only when IdentityType is IDENTITY_TYPE_SELECTED_IDENTITIES
+        """
+        return pulumi.get(self, "identities")
+
+    @_builtins.property
+    @pulumi.getter(name="identityType")
+    def identity_type(self) -> Optional[_builtins.str]:
+        """
+        (string) - Possible values are: `IDENTITY_TYPE_ALL_SERVICE_PRINCIPALS`, `IDENTITY_TYPE_ALL_USERS`, `IDENTITY_TYPE_SELECTED_IDENTITIES`
+        """
+        return pulumi.get(self, "identity_type")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleAuthenticationIdentityResult(dict):
+    def __init__(__self__, *,
+                 principal_id: Optional[_builtins.int] = None,
+                 principal_type: Optional[_builtins.str] = None):
+        """
+        :param _builtins.int principal_id: (integer)
+        :param _builtins.str principal_type: (string) - Possible values are: `PRINCIPAL_TYPE_SERVICE_PRINCIPAL`, `PRINCIPAL_TYPE_USER`
+        """
+        if principal_id is not None:
+            pulumi.set(__self__, "principal_id", principal_id)
+        if principal_type is not None:
+            pulumi.set(__self__, "principal_type", principal_type)
+
+    @_builtins.property
+    @pulumi.getter(name="principalId")
+    def principal_id(self) -> Optional[_builtins.int]:
+        """
+        (integer)
+        """
+        return pulumi.get(self, "principal_id")
+
+    @_builtins.property
+    @pulumi.getter(name="principalType")
+    def principal_type(self) -> Optional[_builtins.str]:
+        """
+        (string) - Possible values are: `PRINCIPAL_TYPE_SERVICE_PRINCIPAL`, `PRINCIPAL_TYPE_USER`
+        """
+        return pulumi.get(self, "principal_type")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleDestinationResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None,
+                 workspace_api: Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleDestinationWorkspaceApiResult'] = None,
+                 workspace_ui: Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleDestinationWorkspaceUiResult'] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        :param 'GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleDestinationWorkspaceApiArgs' workspace_api: (CustomerFacingIngressNetworkPolicyWorkspaceApiDestination)
+        :param 'GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleDestinationWorkspaceUiArgs' workspace_ui: (CustomerFacingIngressNetworkPolicyWorkspaceUiDestination) - Workspace destinations
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+        if workspace_api is not None:
+            pulumi.set(__self__, "workspace_api", workspace_api)
+        if workspace_ui is not None:
+            pulumi.set(__self__, "workspace_ui", workspace_ui)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceApi")
+    def workspace_api(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleDestinationWorkspaceApiResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyWorkspaceApiDestination)
+        """
+        return pulumi.get(self, "workspace_api")
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceUi")
+    def workspace_ui(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleDestinationWorkspaceUiResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyWorkspaceUiDestination) - Workspace destinations
+        """
+        return pulumi.get(self, "workspace_ui")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleDestinationWorkspaceApiResult(dict):
+    def __init__(__self__, *,
+                 scopes: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param Sequence[_builtins.str] scopes: (list of string)
+        """
+        if scopes is not None:
+            pulumi.set(__self__, "scopes", scopes)
+
+    @_builtins.property
+    @pulumi.getter
+    def scopes(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        (list of string)
+        """
+        return pulumi.get(self, "scopes")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleDestinationWorkspaceUiResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleOriginResult(dict):
+    def __init__(__self__, *,
+                 all_ip_ranges: Optional[_builtins.bool] = None,
+                 excluded_ip_ranges: Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleOriginExcludedIpRangesResult'] = None,
+                 included_ip_ranges: Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleOriginIncludedIpRangesResult'] = None):
+        """
+        :param _builtins.bool all_ip_ranges: (boolean) - Matches all IPv4 and IPv6 ranges (both public and private)
+        :param 'GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleOriginExcludedIpRangesArgs' excluded_ip_ranges: (CustomerFacingIngressNetworkPolicyIpRanges) - Excluded means: all public IP ranges except this one
+        :param 'GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleOriginIncludedIpRangesArgs' included_ip_ranges: (CustomerFacingIngressNetworkPolicyIpRanges) - Will not allow IP ranges with private IPs
+        """
+        if all_ip_ranges is not None:
+            pulumi.set(__self__, "all_ip_ranges", all_ip_ranges)
+        if excluded_ip_ranges is not None:
+            pulumi.set(__self__, "excluded_ip_ranges", excluded_ip_ranges)
+        if included_ip_ranges is not None:
+            pulumi.set(__self__, "included_ip_ranges", included_ip_ranges)
+
+    @_builtins.property
+    @pulumi.getter(name="allIpRanges")
+    def all_ip_ranges(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Matches all IPv4 and IPv6 ranges (both public and private)
+        """
+        return pulumi.get(self, "all_ip_ranges")
+
+    @_builtins.property
+    @pulumi.getter(name="excludedIpRanges")
+    def excluded_ip_ranges(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleOriginExcludedIpRangesResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyIpRanges) - Excluded means: all public IP ranges except this one
+        """
+        return pulumi.get(self, "excluded_ip_ranges")
+
+    @_builtins.property
+    @pulumi.getter(name="includedIpRanges")
+    def included_ip_ranges(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleOriginIncludedIpRangesResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyIpRanges) - Will not allow IP ranges with private IPs
+        """
+        return pulumi.get(self, "included_ip_ranges")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleOriginExcludedIpRangesResult(dict):
+    def __init__(__self__, *,
+                 ip_ranges: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param Sequence[_builtins.str] ip_ranges: (list of string) - We only support IPv4 and IPv4 CIDR notation for now
+        """
+        if ip_ranges is not None:
+            pulumi.set(__self__, "ip_ranges", ip_ranges)
+
+    @_builtins.property
+    @pulumi.getter(name="ipRanges")
+    def ip_ranges(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        (list of string) - We only support IPv4 and IPv4 CIDR notation for now
+        """
+        return pulumi.get(self, "ip_ranges")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleOriginIncludedIpRangesResult(dict):
+    def __init__(__self__, *,
+                 ip_ranges: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param Sequence[_builtins.str] ip_ranges: (list of string) - We only support IPv4 and IPv4 CIDR notation for now
+        """
+        if ip_ranges is not None:
+            pulumi.set(__self__, "ip_ranges", ip_ranges)
+
+    @_builtins.property
+    @pulumi.getter(name="ipRanges")
+    def ip_ranges(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        (list of string) - We only support IPv4 and IPv4 CIDR notation for now
+        """
+        return pulumi.get(self, "ip_ranges")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleResult(dict):
+    def __init__(__self__, *,
+                 authentication: Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleAuthenticationResult'] = None,
+                 destination: Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleDestinationResult'] = None,
+                 label: Optional[_builtins.str] = None,
+                 origin: Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleOriginResult'] = None):
+        """
+        :param 'GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleAuthenticationArgs' authentication: (CustomerFacingIngressNetworkPolicyAuthentication)
+        :param 'GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleDestinationArgs' destination: (string) - The internet destination to which access will be allowed. Format dependent on the destination type
+        :param _builtins.str label: (string) - User-provided name for this ingress rule. Helps identify which rule
+               caused a request to be denied or dry-run denied
+        :param 'GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleOriginArgs' origin: (CustomerFacingIngressNetworkPolicyPublicRequestOrigin)
+        """
+        if authentication is not None:
+            pulumi.set(__self__, "authentication", authentication)
+        if destination is not None:
+            pulumi.set(__self__, "destination", destination)
+        if label is not None:
+            pulumi.set(__self__, "label", label)
+        if origin is not None:
+            pulumi.set(__self__, "origin", origin)
+
+    @_builtins.property
+    @pulumi.getter
+    def authentication(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleAuthenticationResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyAuthentication)
+        """
+        return pulumi.get(self, "authentication")
+
+    @_builtins.property
+    @pulumi.getter
+    def destination(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleDestinationResult']:
+        """
+        (string) - The internet destination to which access will be allowed. Format dependent on the destination type
+        """
+        return pulumi.get(self, "destination")
+
+    @_builtins.property
+    @pulumi.getter
+    def label(self) -> Optional[_builtins.str]:
+        """
+        (string) - User-provided name for this ingress rule. Helps identify which rule
+        caused a request to be denied or dry-run denied
+        """
+        return pulumi.get(self, "label")
+
+    @_builtins.property
+    @pulumi.getter
+    def origin(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleOriginResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyPublicRequestOrigin)
+        """
+        return pulumi.get(self, "origin")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleAuthenticationResult(dict):
+    def __init__(__self__, *,
+                 identities: Optional[Sequence['outputs.GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleAuthenticationIdentityResult']] = None,
+                 identity_type: Optional[_builtins.str] = None):
+        """
+        :param Sequence['GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleAuthenticationIdentityArgs'] identities: (list of CustomerFacingIngressNetworkPolicyAuthenticationIdentity) - Valid only when IdentityType is IDENTITY_TYPE_SELECTED_IDENTITIES
+        :param _builtins.str identity_type: (string) - Possible values are: `IDENTITY_TYPE_ALL_SERVICE_PRINCIPALS`, `IDENTITY_TYPE_ALL_USERS`, `IDENTITY_TYPE_SELECTED_IDENTITIES`
+        """
+        if identities is not None:
+            pulumi.set(__self__, "identities", identities)
+        if identity_type is not None:
+            pulumi.set(__self__, "identity_type", identity_type)
+
+    @_builtins.property
+    @pulumi.getter
+    def identities(self) -> Optional[Sequence['outputs.GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleAuthenticationIdentityResult']]:
+        """
+        (list of CustomerFacingIngressNetworkPolicyAuthenticationIdentity) - Valid only when IdentityType is IDENTITY_TYPE_SELECTED_IDENTITIES
+        """
+        return pulumi.get(self, "identities")
+
+    @_builtins.property
+    @pulumi.getter(name="identityType")
+    def identity_type(self) -> Optional[_builtins.str]:
+        """
+        (string) - Possible values are: `IDENTITY_TYPE_ALL_SERVICE_PRINCIPALS`, `IDENTITY_TYPE_ALL_USERS`, `IDENTITY_TYPE_SELECTED_IDENTITIES`
+        """
+        return pulumi.get(self, "identity_type")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleAuthenticationIdentityResult(dict):
+    def __init__(__self__, *,
+                 principal_id: Optional[_builtins.int] = None,
+                 principal_type: Optional[_builtins.str] = None):
+        """
+        :param _builtins.int principal_id: (integer)
+        :param _builtins.str principal_type: (string) - Possible values are: `PRINCIPAL_TYPE_SERVICE_PRINCIPAL`, `PRINCIPAL_TYPE_USER`
+        """
+        if principal_id is not None:
+            pulumi.set(__self__, "principal_id", principal_id)
+        if principal_type is not None:
+            pulumi.set(__self__, "principal_type", principal_type)
+
+    @_builtins.property
+    @pulumi.getter(name="principalId")
+    def principal_id(self) -> Optional[_builtins.int]:
+        """
+        (integer)
+        """
+        return pulumi.get(self, "principal_id")
+
+    @_builtins.property
+    @pulumi.getter(name="principalType")
+    def principal_type(self) -> Optional[_builtins.str]:
+        """
+        (string) - Possible values are: `PRINCIPAL_TYPE_SERVICE_PRINCIPAL`, `PRINCIPAL_TYPE_USER`
+        """
+        return pulumi.get(self, "principal_type")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleDestinationResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None,
+                 workspace_api: Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleDestinationWorkspaceApiResult'] = None,
+                 workspace_ui: Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleDestinationWorkspaceUiResult'] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        :param 'GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleDestinationWorkspaceApiArgs' workspace_api: (CustomerFacingIngressNetworkPolicyWorkspaceApiDestination)
+        :param 'GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleDestinationWorkspaceUiArgs' workspace_ui: (CustomerFacingIngressNetworkPolicyWorkspaceUiDestination) - Workspace destinations
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+        if workspace_api is not None:
+            pulumi.set(__self__, "workspace_api", workspace_api)
+        if workspace_ui is not None:
+            pulumi.set(__self__, "workspace_ui", workspace_ui)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceApi")
+    def workspace_api(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleDestinationWorkspaceApiResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyWorkspaceApiDestination)
+        """
+        return pulumi.get(self, "workspace_api")
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceUi")
+    def workspace_ui(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleDestinationWorkspaceUiResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyWorkspaceUiDestination) - Workspace destinations
+        """
+        return pulumi.get(self, "workspace_ui")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleDestinationWorkspaceApiResult(dict):
+    def __init__(__self__, *,
+                 scopes: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param Sequence[_builtins.str] scopes: (list of string)
+        """
+        if scopes is not None:
+            pulumi.set(__self__, "scopes", scopes)
+
+    @_builtins.property
+    @pulumi.getter
+    def scopes(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        (list of string)
+        """
+        return pulumi.get(self, "scopes")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleDestinationWorkspaceUiResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleOriginResult(dict):
+    def __init__(__self__, *,
+                 all_ip_ranges: Optional[_builtins.bool] = None,
+                 excluded_ip_ranges: Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleOriginExcludedIpRangesResult'] = None,
+                 included_ip_ranges: Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleOriginIncludedIpRangesResult'] = None):
+        """
+        :param _builtins.bool all_ip_ranges: (boolean) - Matches all IPv4 and IPv6 ranges (both public and private)
+        :param 'GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleOriginExcludedIpRangesArgs' excluded_ip_ranges: (CustomerFacingIngressNetworkPolicyIpRanges) - Excluded means: all public IP ranges except this one
+        :param 'GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleOriginIncludedIpRangesArgs' included_ip_ranges: (CustomerFacingIngressNetworkPolicyIpRanges) - Will not allow IP ranges with private IPs
+        """
+        if all_ip_ranges is not None:
+            pulumi.set(__self__, "all_ip_ranges", all_ip_ranges)
+        if excluded_ip_ranges is not None:
+            pulumi.set(__self__, "excluded_ip_ranges", excluded_ip_ranges)
+        if included_ip_ranges is not None:
+            pulumi.set(__self__, "included_ip_ranges", included_ip_ranges)
+
+    @_builtins.property
+    @pulumi.getter(name="allIpRanges")
+    def all_ip_ranges(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Matches all IPv4 and IPv6 ranges (both public and private)
+        """
+        return pulumi.get(self, "all_ip_ranges")
+
+    @_builtins.property
+    @pulumi.getter(name="excludedIpRanges")
+    def excluded_ip_ranges(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleOriginExcludedIpRangesResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyIpRanges) - Excluded means: all public IP ranges except this one
+        """
+        return pulumi.get(self, "excluded_ip_ranges")
+
+    @_builtins.property
+    @pulumi.getter(name="includedIpRanges")
+    def included_ip_ranges(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleOriginIncludedIpRangesResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyIpRanges) - Will not allow IP ranges with private IPs
+        """
+        return pulumi.get(self, "included_ip_ranges")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleOriginExcludedIpRangesResult(dict):
+    def __init__(__self__, *,
+                 ip_ranges: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param Sequence[_builtins.str] ip_ranges: (list of string) - We only support IPv4 and IPv4 CIDR notation for now
+        """
+        if ip_ranges is not None:
+            pulumi.set(__self__, "ip_ranges", ip_ranges)
+
+    @_builtins.property
+    @pulumi.getter(name="ipRanges")
+    def ip_ranges(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        (list of string) - We only support IPv4 and IPv4 CIDR notation for now
+        """
+        return pulumi.get(self, "ip_ranges")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleOriginIncludedIpRangesResult(dict):
+    def __init__(__self__, *,
+                 ip_ranges: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param Sequence[_builtins.str] ip_ranges: (list of string) - We only support IPv4 and IPv4 CIDR notation for now
+        """
+        if ip_ranges is not None:
+            pulumi.set(__self__, "ip_ranges", ip_ranges)
+
+    @_builtins.property
+    @pulumi.getter(name="ipRanges")
+    def ip_ranges(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        (list of string) - We only support IPv4 and IPv4 CIDR notation for now
+        """
+        return pulumi.get(self, "ip_ranges")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressPublicAccessResult(dict):
+    def __init__(__self__, *,
+                 restriction_mode: _builtins.str,
+                 allow_rules: Optional[Sequence['outputs.GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleResult']] = None,
+                 deny_rules: Optional[Sequence['outputs.GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleResult']] = None):
+        """
+        :param _builtins.str restriction_mode: (string) - The restriction mode that controls how serverless workloads can access the internet. Possible values are: `FULL_ACCESS`, `RESTRICTED_ACCESS`
+        :param Sequence['GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleArgs'] allow_rules: (list of CustomerFacingIngressNetworkPolicyPublicIngressRule)
+        :param Sequence['GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleArgs'] deny_rules: (list of CustomerFacingIngressNetworkPolicyPublicIngressRule)
+        """
+        pulumi.set(__self__, "restriction_mode", restriction_mode)
+        if allow_rules is not None:
+            pulumi.set(__self__, "allow_rules", allow_rules)
+        if deny_rules is not None:
+            pulumi.set(__self__, "deny_rules", deny_rules)
+
+    @_builtins.property
+    @pulumi.getter(name="restrictionMode")
+    def restriction_mode(self) -> _builtins.str:
+        """
+        (string) - The restriction mode that controls how serverless workloads can access the internet. Possible values are: `FULL_ACCESS`, `RESTRICTED_ACCESS`
+        """
+        return pulumi.get(self, "restriction_mode")
+
+    @_builtins.property
+    @pulumi.getter(name="allowRules")
+    def allow_rules(self) -> Optional[Sequence['outputs.GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleResult']]:
+        """
+        (list of CustomerFacingIngressNetworkPolicyPublicIngressRule)
+        """
+        return pulumi.get(self, "allow_rules")
+
+    @_builtins.property
+    @pulumi.getter(name="denyRules")
+    def deny_rules(self) -> Optional[Sequence['outputs.GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleResult']]:
+        """
+        (list of CustomerFacingIngressNetworkPolicyPublicIngressRule)
+        """
+        return pulumi.get(self, "deny_rules")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleResult(dict):
+    def __init__(__self__, *,
+                 authentication: Optional['outputs.GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleAuthenticationResult'] = None,
+                 destination: Optional['outputs.GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleDestinationResult'] = None,
+                 label: Optional[_builtins.str] = None,
+                 origin: Optional['outputs.GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleOriginResult'] = None):
+        """
+        :param 'GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleAuthenticationArgs' authentication: (CustomerFacingIngressNetworkPolicyAuthentication)
+        :param 'GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleDestinationArgs' destination: (string) - The internet destination to which access will be allowed. Format dependent on the destination type
+        :param _builtins.str label: (string) - User-provided name for this ingress rule. Helps identify which rule
+               caused a request to be denied or dry-run denied
+        :param 'GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleOriginArgs' origin: (CustomerFacingIngressNetworkPolicyPublicRequestOrigin)
+        """
+        if authentication is not None:
+            pulumi.set(__self__, "authentication", authentication)
+        if destination is not None:
+            pulumi.set(__self__, "destination", destination)
+        if label is not None:
+            pulumi.set(__self__, "label", label)
+        if origin is not None:
+            pulumi.set(__self__, "origin", origin)
+
+    @_builtins.property
+    @pulumi.getter
+    def authentication(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleAuthenticationResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyAuthentication)
+        """
+        return pulumi.get(self, "authentication")
+
+    @_builtins.property
+    @pulumi.getter
+    def destination(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleDestinationResult']:
+        """
+        (string) - The internet destination to which access will be allowed. Format dependent on the destination type
+        """
+        return pulumi.get(self, "destination")
+
+    @_builtins.property
+    @pulumi.getter
+    def label(self) -> Optional[_builtins.str]:
+        """
+        (string) - User-provided name for this ingress rule. Helps identify which rule
+        caused a request to be denied or dry-run denied
+        """
+        return pulumi.get(self, "label")
+
+    @_builtins.property
+    @pulumi.getter
+    def origin(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleOriginResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyPublicRequestOrigin)
+        """
+        return pulumi.get(self, "origin")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleAuthenticationResult(dict):
+    def __init__(__self__, *,
+                 identities: Optional[Sequence['outputs.GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleAuthenticationIdentityResult']] = None,
+                 identity_type: Optional[_builtins.str] = None):
+        """
+        :param Sequence['GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleAuthenticationIdentityArgs'] identities: (list of CustomerFacingIngressNetworkPolicyAuthenticationIdentity) - Valid only when IdentityType is IDENTITY_TYPE_SELECTED_IDENTITIES
+        :param _builtins.str identity_type: (string) - Possible values are: `IDENTITY_TYPE_ALL_SERVICE_PRINCIPALS`, `IDENTITY_TYPE_ALL_USERS`, `IDENTITY_TYPE_SELECTED_IDENTITIES`
+        """
+        if identities is not None:
+            pulumi.set(__self__, "identities", identities)
+        if identity_type is not None:
+            pulumi.set(__self__, "identity_type", identity_type)
+
+    @_builtins.property
+    @pulumi.getter
+    def identities(self) -> Optional[Sequence['outputs.GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleAuthenticationIdentityResult']]:
+        """
+        (list of CustomerFacingIngressNetworkPolicyAuthenticationIdentity) - Valid only when IdentityType is IDENTITY_TYPE_SELECTED_IDENTITIES
+        """
+        return pulumi.get(self, "identities")
+
+    @_builtins.property
+    @pulumi.getter(name="identityType")
+    def identity_type(self) -> Optional[_builtins.str]:
+        """
+        (string) - Possible values are: `IDENTITY_TYPE_ALL_SERVICE_PRINCIPALS`, `IDENTITY_TYPE_ALL_USERS`, `IDENTITY_TYPE_SELECTED_IDENTITIES`
+        """
+        return pulumi.get(self, "identity_type")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleAuthenticationIdentityResult(dict):
+    def __init__(__self__, *,
+                 principal_id: Optional[_builtins.int] = None,
+                 principal_type: Optional[_builtins.str] = None):
+        """
+        :param _builtins.int principal_id: (integer)
+        :param _builtins.str principal_type: (string) - Possible values are: `PRINCIPAL_TYPE_SERVICE_PRINCIPAL`, `PRINCIPAL_TYPE_USER`
+        """
+        if principal_id is not None:
+            pulumi.set(__self__, "principal_id", principal_id)
+        if principal_type is not None:
+            pulumi.set(__self__, "principal_type", principal_type)
+
+    @_builtins.property
+    @pulumi.getter(name="principalId")
+    def principal_id(self) -> Optional[_builtins.int]:
+        """
+        (integer)
+        """
+        return pulumi.get(self, "principal_id")
+
+    @_builtins.property
+    @pulumi.getter(name="principalType")
+    def principal_type(self) -> Optional[_builtins.str]:
+        """
+        (string) - Possible values are: `PRINCIPAL_TYPE_SERVICE_PRINCIPAL`, `PRINCIPAL_TYPE_USER`
+        """
+        return pulumi.get(self, "principal_type")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleDestinationResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None,
+                 workspace_api: Optional['outputs.GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleDestinationWorkspaceApiResult'] = None,
+                 workspace_ui: Optional['outputs.GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleDestinationWorkspaceUiResult'] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        :param 'GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleDestinationWorkspaceApiArgs' workspace_api: (CustomerFacingIngressNetworkPolicyWorkspaceApiDestination)
+        :param 'GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleDestinationWorkspaceUiArgs' workspace_ui: (CustomerFacingIngressNetworkPolicyWorkspaceUiDestination) - Workspace destinations
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+        if workspace_api is not None:
+            pulumi.set(__self__, "workspace_api", workspace_api)
+        if workspace_ui is not None:
+            pulumi.set(__self__, "workspace_ui", workspace_ui)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceApi")
+    def workspace_api(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleDestinationWorkspaceApiResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyWorkspaceApiDestination)
+        """
+        return pulumi.get(self, "workspace_api")
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceUi")
+    def workspace_ui(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleDestinationWorkspaceUiResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyWorkspaceUiDestination) - Workspace destinations
+        """
+        return pulumi.get(self, "workspace_ui")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleDestinationWorkspaceApiResult(dict):
+    def __init__(__self__, *,
+                 scopes: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param Sequence[_builtins.str] scopes: (list of string)
+        """
+        if scopes is not None:
+            pulumi.set(__self__, "scopes", scopes)
+
+    @_builtins.property
+    @pulumi.getter
+    def scopes(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        (list of string)
+        """
+        return pulumi.get(self, "scopes")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleDestinationWorkspaceUiResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleOriginResult(dict):
+    def __init__(__self__, *,
+                 all_ip_ranges: Optional[_builtins.bool] = None,
+                 excluded_ip_ranges: Optional['outputs.GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleOriginExcludedIpRangesResult'] = None,
+                 included_ip_ranges: Optional['outputs.GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleOriginIncludedIpRangesResult'] = None):
+        """
+        :param _builtins.bool all_ip_ranges: (boolean) - Matches all IPv4 and IPv6 ranges (both public and private)
+        :param 'GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleOriginExcludedIpRangesArgs' excluded_ip_ranges: (CustomerFacingIngressNetworkPolicyIpRanges) - Excluded means: all public IP ranges except this one
+        :param 'GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleOriginIncludedIpRangesArgs' included_ip_ranges: (CustomerFacingIngressNetworkPolicyIpRanges) - Will not allow IP ranges with private IPs
+        """
+        if all_ip_ranges is not None:
+            pulumi.set(__self__, "all_ip_ranges", all_ip_ranges)
+        if excluded_ip_ranges is not None:
+            pulumi.set(__self__, "excluded_ip_ranges", excluded_ip_ranges)
+        if included_ip_ranges is not None:
+            pulumi.set(__self__, "included_ip_ranges", included_ip_ranges)
+
+    @_builtins.property
+    @pulumi.getter(name="allIpRanges")
+    def all_ip_ranges(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Matches all IPv4 and IPv6 ranges (both public and private)
+        """
+        return pulumi.get(self, "all_ip_ranges")
+
+    @_builtins.property
+    @pulumi.getter(name="excludedIpRanges")
+    def excluded_ip_ranges(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleOriginExcludedIpRangesResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyIpRanges) - Excluded means: all public IP ranges except this one
+        """
+        return pulumi.get(self, "excluded_ip_ranges")
+
+    @_builtins.property
+    @pulumi.getter(name="includedIpRanges")
+    def included_ip_ranges(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleOriginIncludedIpRangesResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyIpRanges) - Will not allow IP ranges with private IPs
+        """
+        return pulumi.get(self, "included_ip_ranges")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleOriginExcludedIpRangesResult(dict):
+    def __init__(__self__, *,
+                 ip_ranges: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param Sequence[_builtins.str] ip_ranges: (list of string) - We only support IPv4 and IPv4 CIDR notation for now
+        """
+        if ip_ranges is not None:
+            pulumi.set(__self__, "ip_ranges", ip_ranges)
+
+    @_builtins.property
+    @pulumi.getter(name="ipRanges")
+    def ip_ranges(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        (list of string) - We only support IPv4 and IPv4 CIDR notation for now
+        """
+        return pulumi.get(self, "ip_ranges")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleOriginIncludedIpRangesResult(dict):
+    def __init__(__self__, *,
+                 ip_ranges: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param Sequence[_builtins.str] ip_ranges: (list of string) - We only support IPv4 and IPv4 CIDR notation for now
+        """
+        if ip_ranges is not None:
+            pulumi.set(__self__, "ip_ranges", ip_ranges)
+
+    @_builtins.property
+    @pulumi.getter(name="ipRanges")
+    def ip_ranges(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        (list of string) - We only support IPv4 and IPv4 CIDR notation for now
+        """
+        return pulumi.get(self, "ip_ranges")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleResult(dict):
+    def __init__(__self__, *,
+                 authentication: Optional['outputs.GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleAuthenticationResult'] = None,
+                 destination: Optional['outputs.GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleDestinationResult'] = None,
+                 label: Optional[_builtins.str] = None,
+                 origin: Optional['outputs.GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleOriginResult'] = None):
+        """
+        :param 'GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleAuthenticationArgs' authentication: (CustomerFacingIngressNetworkPolicyAuthentication)
+        :param 'GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleDestinationArgs' destination: (string) - The internet destination to which access will be allowed. Format dependent on the destination type
+        :param _builtins.str label: (string) - User-provided name for this ingress rule. Helps identify which rule
+               caused a request to be denied or dry-run denied
+        :param 'GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleOriginArgs' origin: (CustomerFacingIngressNetworkPolicyPublicRequestOrigin)
+        """
+        if authentication is not None:
+            pulumi.set(__self__, "authentication", authentication)
+        if destination is not None:
+            pulumi.set(__self__, "destination", destination)
+        if label is not None:
+            pulumi.set(__self__, "label", label)
+        if origin is not None:
+            pulumi.set(__self__, "origin", origin)
+
+    @_builtins.property
+    @pulumi.getter
+    def authentication(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleAuthenticationResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyAuthentication)
+        """
+        return pulumi.get(self, "authentication")
+
+    @_builtins.property
+    @pulumi.getter
+    def destination(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleDestinationResult']:
+        """
+        (string) - The internet destination to which access will be allowed. Format dependent on the destination type
+        """
+        return pulumi.get(self, "destination")
+
+    @_builtins.property
+    @pulumi.getter
+    def label(self) -> Optional[_builtins.str]:
+        """
+        (string) - User-provided name for this ingress rule. Helps identify which rule
+        caused a request to be denied or dry-run denied
+        """
+        return pulumi.get(self, "label")
+
+    @_builtins.property
+    @pulumi.getter
+    def origin(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleOriginResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyPublicRequestOrigin)
+        """
+        return pulumi.get(self, "origin")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleAuthenticationResult(dict):
+    def __init__(__self__, *,
+                 identities: Optional[Sequence['outputs.GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleAuthenticationIdentityResult']] = None,
+                 identity_type: Optional[_builtins.str] = None):
+        """
+        :param Sequence['GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleAuthenticationIdentityArgs'] identities: (list of CustomerFacingIngressNetworkPolicyAuthenticationIdentity) - Valid only when IdentityType is IDENTITY_TYPE_SELECTED_IDENTITIES
+        :param _builtins.str identity_type: (string) - Possible values are: `IDENTITY_TYPE_ALL_SERVICE_PRINCIPALS`, `IDENTITY_TYPE_ALL_USERS`, `IDENTITY_TYPE_SELECTED_IDENTITIES`
+        """
+        if identities is not None:
+            pulumi.set(__self__, "identities", identities)
+        if identity_type is not None:
+            pulumi.set(__self__, "identity_type", identity_type)
+
+    @_builtins.property
+    @pulumi.getter
+    def identities(self) -> Optional[Sequence['outputs.GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleAuthenticationIdentityResult']]:
+        """
+        (list of CustomerFacingIngressNetworkPolicyAuthenticationIdentity) - Valid only when IdentityType is IDENTITY_TYPE_SELECTED_IDENTITIES
+        """
+        return pulumi.get(self, "identities")
+
+    @_builtins.property
+    @pulumi.getter(name="identityType")
+    def identity_type(self) -> Optional[_builtins.str]:
+        """
+        (string) - Possible values are: `IDENTITY_TYPE_ALL_SERVICE_PRINCIPALS`, `IDENTITY_TYPE_ALL_USERS`, `IDENTITY_TYPE_SELECTED_IDENTITIES`
+        """
+        return pulumi.get(self, "identity_type")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleAuthenticationIdentityResult(dict):
+    def __init__(__self__, *,
+                 principal_id: Optional[_builtins.int] = None,
+                 principal_type: Optional[_builtins.str] = None):
+        """
+        :param _builtins.int principal_id: (integer)
+        :param _builtins.str principal_type: (string) - Possible values are: `PRINCIPAL_TYPE_SERVICE_PRINCIPAL`, `PRINCIPAL_TYPE_USER`
+        """
+        if principal_id is not None:
+            pulumi.set(__self__, "principal_id", principal_id)
+        if principal_type is not None:
+            pulumi.set(__self__, "principal_type", principal_type)
+
+    @_builtins.property
+    @pulumi.getter(name="principalId")
+    def principal_id(self) -> Optional[_builtins.int]:
+        """
+        (integer)
+        """
+        return pulumi.get(self, "principal_id")
+
+    @_builtins.property
+    @pulumi.getter(name="principalType")
+    def principal_type(self) -> Optional[_builtins.str]:
+        """
+        (string) - Possible values are: `PRINCIPAL_TYPE_SERVICE_PRINCIPAL`, `PRINCIPAL_TYPE_USER`
+        """
+        return pulumi.get(self, "principal_type")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleDestinationResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None,
+                 workspace_api: Optional['outputs.GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleDestinationWorkspaceApiResult'] = None,
+                 workspace_ui: Optional['outputs.GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleDestinationWorkspaceUiResult'] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        :param 'GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleDestinationWorkspaceApiArgs' workspace_api: (CustomerFacingIngressNetworkPolicyWorkspaceApiDestination)
+        :param 'GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleDestinationWorkspaceUiArgs' workspace_ui: (CustomerFacingIngressNetworkPolicyWorkspaceUiDestination) - Workspace destinations
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+        if workspace_api is not None:
+            pulumi.set(__self__, "workspace_api", workspace_api)
+        if workspace_ui is not None:
+            pulumi.set(__self__, "workspace_ui", workspace_ui)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceApi")
+    def workspace_api(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleDestinationWorkspaceApiResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyWorkspaceApiDestination)
+        """
+        return pulumi.get(self, "workspace_api")
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceUi")
+    def workspace_ui(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleDestinationWorkspaceUiResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyWorkspaceUiDestination) - Workspace destinations
+        """
+        return pulumi.get(self, "workspace_ui")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleDestinationWorkspaceApiResult(dict):
+    def __init__(__self__, *,
+                 scopes: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param Sequence[_builtins.str] scopes: (list of string)
+        """
+        if scopes is not None:
+            pulumi.set(__self__, "scopes", scopes)
+
+    @_builtins.property
+    @pulumi.getter
+    def scopes(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        (list of string)
+        """
+        return pulumi.get(self, "scopes")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleDestinationWorkspaceUiResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleOriginResult(dict):
+    def __init__(__self__, *,
+                 all_ip_ranges: Optional[_builtins.bool] = None,
+                 excluded_ip_ranges: Optional['outputs.GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleOriginExcludedIpRangesResult'] = None,
+                 included_ip_ranges: Optional['outputs.GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleOriginIncludedIpRangesResult'] = None):
+        """
+        :param _builtins.bool all_ip_ranges: (boolean) - Matches all IPv4 and IPv6 ranges (both public and private)
+        :param 'GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleOriginExcludedIpRangesArgs' excluded_ip_ranges: (CustomerFacingIngressNetworkPolicyIpRanges) - Excluded means: all public IP ranges except this one
+        :param 'GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleOriginIncludedIpRangesArgs' included_ip_ranges: (CustomerFacingIngressNetworkPolicyIpRanges) - Will not allow IP ranges with private IPs
+        """
+        if all_ip_ranges is not None:
+            pulumi.set(__self__, "all_ip_ranges", all_ip_ranges)
+        if excluded_ip_ranges is not None:
+            pulumi.set(__self__, "excluded_ip_ranges", excluded_ip_ranges)
+        if included_ip_ranges is not None:
+            pulumi.set(__self__, "included_ip_ranges", included_ip_ranges)
+
+    @_builtins.property
+    @pulumi.getter(name="allIpRanges")
+    def all_ip_ranges(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Matches all IPv4 and IPv6 ranges (both public and private)
+        """
+        return pulumi.get(self, "all_ip_ranges")
+
+    @_builtins.property
+    @pulumi.getter(name="excludedIpRanges")
+    def excluded_ip_ranges(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleOriginExcludedIpRangesResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyIpRanges) - Excluded means: all public IP ranges except this one
+        """
+        return pulumi.get(self, "excluded_ip_ranges")
+
+    @_builtins.property
+    @pulumi.getter(name="includedIpRanges")
+    def included_ip_ranges(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleOriginIncludedIpRangesResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyIpRanges) - Will not allow IP ranges with private IPs
+        """
+        return pulumi.get(self, "included_ip_ranges")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleOriginExcludedIpRangesResult(dict):
+    def __init__(__self__, *,
+                 ip_ranges: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param Sequence[_builtins.str] ip_ranges: (list of string) - We only support IPv4 and IPv4 CIDR notation for now
+        """
+        if ip_ranges is not None:
+            pulumi.set(__self__, "ip_ranges", ip_ranges)
+
+    @_builtins.property
+    @pulumi.getter(name="ipRanges")
+    def ip_ranges(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        (list of string) - We only support IPv4 and IPv4 CIDR notation for now
+        """
+        return pulumi.get(self, "ip_ranges")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleOriginIncludedIpRangesResult(dict):
+    def __init__(__self__, *,
+                 ip_ranges: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param Sequence[_builtins.str] ip_ranges: (list of string) - We only support IPv4 and IPv4 CIDR notation for now
+        """
+        if ip_ranges is not None:
+            pulumi.set(__self__, "ip_ranges", ip_ranges)
+
+    @_builtins.property
+    @pulumi.getter(name="ipRanges")
+    def ip_ranges(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        (list of string) - We only support IPv4 and IPv4 CIDR notation for now
+        """
+        return pulumi.get(self, "ip_ranges")
+
+
+@pulumi.output_type
 class GetAccountNetworkPolicyEgressResult(dict):
     def __init__(__self__, *,
                  network_access: Optional['outputs.GetAccountNetworkPolicyEgressNetworkAccessResult'] = None):
@@ -50770,6 +57480,1252 @@ class GetAccountNetworkPolicyEgressNetworkAccessPolicyEnforcementResult(dict):
         defaults to ENFORCED. Possible values are: `DRY_RUN`, `ENFORCED`
         """
         return pulumi.get(self, "enforcement_mode")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressResult(dict):
+    def __init__(__self__, *,
+                 public_access: Optional['outputs.GetAccountNetworkPolicyIngressPublicAccessResult'] = None):
+        """
+        :param 'GetAccountNetworkPolicyIngressPublicAccessArgs' public_access: (CustomerFacingIngressNetworkPolicyPublicAccess)
+        """
+        if public_access is not None:
+            pulumi.set(__self__, "public_access", public_access)
+
+    @_builtins.property
+    @pulumi.getter(name="publicAccess")
+    def public_access(self) -> Optional['outputs.GetAccountNetworkPolicyIngressPublicAccessResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyPublicAccess)
+        """
+        return pulumi.get(self, "public_access")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressDryRunResult(dict):
+    def __init__(__self__, *,
+                 public_access: Optional['outputs.GetAccountNetworkPolicyIngressDryRunPublicAccessResult'] = None):
+        """
+        :param 'GetAccountNetworkPolicyIngressDryRunPublicAccessArgs' public_access: (CustomerFacingIngressNetworkPolicyPublicAccess)
+        """
+        if public_access is not None:
+            pulumi.set(__self__, "public_access", public_access)
+
+    @_builtins.property
+    @pulumi.getter(name="publicAccess")
+    def public_access(self) -> Optional['outputs.GetAccountNetworkPolicyIngressDryRunPublicAccessResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyPublicAccess)
+        """
+        return pulumi.get(self, "public_access")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressDryRunPublicAccessResult(dict):
+    def __init__(__self__, *,
+                 restriction_mode: _builtins.str,
+                 allow_rules: Optional[Sequence['outputs.GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleResult']] = None,
+                 deny_rules: Optional[Sequence['outputs.GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleResult']] = None):
+        """
+        :param _builtins.str restriction_mode: (string) - The restriction mode that controls how serverless workloads can access the internet. Possible values are: `FULL_ACCESS`, `RESTRICTED_ACCESS`
+        :param Sequence['GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleArgs'] allow_rules: (list of CustomerFacingIngressNetworkPolicyPublicIngressRule)
+        :param Sequence['GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleArgs'] deny_rules: (list of CustomerFacingIngressNetworkPolicyPublicIngressRule)
+        """
+        pulumi.set(__self__, "restriction_mode", restriction_mode)
+        if allow_rules is not None:
+            pulumi.set(__self__, "allow_rules", allow_rules)
+        if deny_rules is not None:
+            pulumi.set(__self__, "deny_rules", deny_rules)
+
+    @_builtins.property
+    @pulumi.getter(name="restrictionMode")
+    def restriction_mode(self) -> _builtins.str:
+        """
+        (string) - The restriction mode that controls how serverless workloads can access the internet. Possible values are: `FULL_ACCESS`, `RESTRICTED_ACCESS`
+        """
+        return pulumi.get(self, "restriction_mode")
+
+    @_builtins.property
+    @pulumi.getter(name="allowRules")
+    def allow_rules(self) -> Optional[Sequence['outputs.GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleResult']]:
+        """
+        (list of CustomerFacingIngressNetworkPolicyPublicIngressRule)
+        """
+        return pulumi.get(self, "allow_rules")
+
+    @_builtins.property
+    @pulumi.getter(name="denyRules")
+    def deny_rules(self) -> Optional[Sequence['outputs.GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleResult']]:
+        """
+        (list of CustomerFacingIngressNetworkPolicyPublicIngressRule)
+        """
+        return pulumi.get(self, "deny_rules")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleResult(dict):
+    def __init__(__self__, *,
+                 authentication: Optional['outputs.GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleAuthenticationResult'] = None,
+                 destination: Optional['outputs.GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationResult'] = None,
+                 label: Optional[_builtins.str] = None,
+                 origin: Optional['outputs.GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleOriginResult'] = None):
+        """
+        :param 'GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleAuthenticationArgs' authentication: (CustomerFacingIngressNetworkPolicyAuthentication)
+        :param 'GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationArgs' destination: (string) - The internet destination to which access will be allowed. Format dependent on the destination type
+        :param _builtins.str label: (string) - User-provided name for this ingress rule. Helps identify which rule
+               caused a request to be denied or dry-run denied
+        :param 'GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleOriginArgs' origin: (CustomerFacingIngressNetworkPolicyPublicRequestOrigin)
+        """
+        if authentication is not None:
+            pulumi.set(__self__, "authentication", authentication)
+        if destination is not None:
+            pulumi.set(__self__, "destination", destination)
+        if label is not None:
+            pulumi.set(__self__, "label", label)
+        if origin is not None:
+            pulumi.set(__self__, "origin", origin)
+
+    @_builtins.property
+    @pulumi.getter
+    def authentication(self) -> Optional['outputs.GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleAuthenticationResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyAuthentication)
+        """
+        return pulumi.get(self, "authentication")
+
+    @_builtins.property
+    @pulumi.getter
+    def destination(self) -> Optional['outputs.GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationResult']:
+        """
+        (string) - The internet destination to which access will be allowed. Format dependent on the destination type
+        """
+        return pulumi.get(self, "destination")
+
+    @_builtins.property
+    @pulumi.getter
+    def label(self) -> Optional[_builtins.str]:
+        """
+        (string) - User-provided name for this ingress rule. Helps identify which rule
+        caused a request to be denied or dry-run denied
+        """
+        return pulumi.get(self, "label")
+
+    @_builtins.property
+    @pulumi.getter
+    def origin(self) -> Optional['outputs.GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleOriginResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyPublicRequestOrigin)
+        """
+        return pulumi.get(self, "origin")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleAuthenticationResult(dict):
+    def __init__(__self__, *,
+                 identities: Optional[Sequence['outputs.GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleAuthenticationIdentityResult']] = None,
+                 identity_type: Optional[_builtins.str] = None):
+        """
+        :param Sequence['GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleAuthenticationIdentityArgs'] identities: (list of CustomerFacingIngressNetworkPolicyAuthenticationIdentity) - Valid only when IdentityType is IDENTITY_TYPE_SELECTED_IDENTITIES
+        :param _builtins.str identity_type: (string) - Possible values are: `IDENTITY_TYPE_ALL_SERVICE_PRINCIPALS`, `IDENTITY_TYPE_ALL_USERS`, `IDENTITY_TYPE_SELECTED_IDENTITIES`
+        """
+        if identities is not None:
+            pulumi.set(__self__, "identities", identities)
+        if identity_type is not None:
+            pulumi.set(__self__, "identity_type", identity_type)
+
+    @_builtins.property
+    @pulumi.getter
+    def identities(self) -> Optional[Sequence['outputs.GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleAuthenticationIdentityResult']]:
+        """
+        (list of CustomerFacingIngressNetworkPolicyAuthenticationIdentity) - Valid only when IdentityType is IDENTITY_TYPE_SELECTED_IDENTITIES
+        """
+        return pulumi.get(self, "identities")
+
+    @_builtins.property
+    @pulumi.getter(name="identityType")
+    def identity_type(self) -> Optional[_builtins.str]:
+        """
+        (string) - Possible values are: `IDENTITY_TYPE_ALL_SERVICE_PRINCIPALS`, `IDENTITY_TYPE_ALL_USERS`, `IDENTITY_TYPE_SELECTED_IDENTITIES`
+        """
+        return pulumi.get(self, "identity_type")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleAuthenticationIdentityResult(dict):
+    def __init__(__self__, *,
+                 principal_id: Optional[_builtins.int] = None,
+                 principal_type: Optional[_builtins.str] = None):
+        """
+        :param _builtins.int principal_id: (integer)
+        :param _builtins.str principal_type: (string) - Possible values are: `PRINCIPAL_TYPE_SERVICE_PRINCIPAL`, `PRINCIPAL_TYPE_USER`
+        """
+        if principal_id is not None:
+            pulumi.set(__self__, "principal_id", principal_id)
+        if principal_type is not None:
+            pulumi.set(__self__, "principal_type", principal_type)
+
+    @_builtins.property
+    @pulumi.getter(name="principalId")
+    def principal_id(self) -> Optional[_builtins.int]:
+        """
+        (integer)
+        """
+        return pulumi.get(self, "principal_id")
+
+    @_builtins.property
+    @pulumi.getter(name="principalType")
+    def principal_type(self) -> Optional[_builtins.str]:
+        """
+        (string) - Possible values are: `PRINCIPAL_TYPE_SERVICE_PRINCIPAL`, `PRINCIPAL_TYPE_USER`
+        """
+        return pulumi.get(self, "principal_type")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None,
+                 workspace_api: Optional['outputs.GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationWorkspaceApiResult'] = None,
+                 workspace_ui: Optional['outputs.GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationWorkspaceUiResult'] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        :param 'GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationWorkspaceApiArgs' workspace_api: (CustomerFacingIngressNetworkPolicyWorkspaceApiDestination)
+        :param 'GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationWorkspaceUiArgs' workspace_ui: (CustomerFacingIngressNetworkPolicyWorkspaceUiDestination) - Workspace destinations
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+        if workspace_api is not None:
+            pulumi.set(__self__, "workspace_api", workspace_api)
+        if workspace_ui is not None:
+            pulumi.set(__self__, "workspace_ui", workspace_ui)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceApi")
+    def workspace_api(self) -> Optional['outputs.GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationWorkspaceApiResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyWorkspaceApiDestination)
+        """
+        return pulumi.get(self, "workspace_api")
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceUi")
+    def workspace_ui(self) -> Optional['outputs.GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationWorkspaceUiResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyWorkspaceUiDestination) - Workspace destinations
+        """
+        return pulumi.get(self, "workspace_ui")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationWorkspaceApiResult(dict):
+    def __init__(__self__, *,
+                 scopes: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param Sequence[_builtins.str] scopes: (list of string)
+        """
+        if scopes is not None:
+            pulumi.set(__self__, "scopes", scopes)
+
+    @_builtins.property
+    @pulumi.getter
+    def scopes(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        (list of string)
+        """
+        return pulumi.get(self, "scopes")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationWorkspaceUiResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleOriginResult(dict):
+    def __init__(__self__, *,
+                 all_ip_ranges: Optional[_builtins.bool] = None,
+                 excluded_ip_ranges: Optional['outputs.GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleOriginExcludedIpRangesResult'] = None,
+                 included_ip_ranges: Optional['outputs.GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleOriginIncludedIpRangesResult'] = None):
+        """
+        :param _builtins.bool all_ip_ranges: (boolean) - Matches all IPv4 and IPv6 ranges (both public and private)
+        :param 'GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleOriginExcludedIpRangesArgs' excluded_ip_ranges: (CustomerFacingIngressNetworkPolicyIpRanges) - Excluded means: all public IP ranges except this one
+        :param 'GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleOriginIncludedIpRangesArgs' included_ip_ranges: (CustomerFacingIngressNetworkPolicyIpRanges) - Will not allow IP ranges with private IPs
+        """
+        if all_ip_ranges is not None:
+            pulumi.set(__self__, "all_ip_ranges", all_ip_ranges)
+        if excluded_ip_ranges is not None:
+            pulumi.set(__self__, "excluded_ip_ranges", excluded_ip_ranges)
+        if included_ip_ranges is not None:
+            pulumi.set(__self__, "included_ip_ranges", included_ip_ranges)
+
+    @_builtins.property
+    @pulumi.getter(name="allIpRanges")
+    def all_ip_ranges(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Matches all IPv4 and IPv6 ranges (both public and private)
+        """
+        return pulumi.get(self, "all_ip_ranges")
+
+    @_builtins.property
+    @pulumi.getter(name="excludedIpRanges")
+    def excluded_ip_ranges(self) -> Optional['outputs.GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleOriginExcludedIpRangesResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyIpRanges) - Excluded means: all public IP ranges except this one
+        """
+        return pulumi.get(self, "excluded_ip_ranges")
+
+    @_builtins.property
+    @pulumi.getter(name="includedIpRanges")
+    def included_ip_ranges(self) -> Optional['outputs.GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleOriginIncludedIpRangesResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyIpRanges) - Will not allow IP ranges with private IPs
+        """
+        return pulumi.get(self, "included_ip_ranges")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleOriginExcludedIpRangesResult(dict):
+    def __init__(__self__, *,
+                 ip_ranges: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param Sequence[_builtins.str] ip_ranges: (list of string) - We only support IPv4 and IPv4 CIDR notation for now
+        """
+        if ip_ranges is not None:
+            pulumi.set(__self__, "ip_ranges", ip_ranges)
+
+    @_builtins.property
+    @pulumi.getter(name="ipRanges")
+    def ip_ranges(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        (list of string) - We only support IPv4 and IPv4 CIDR notation for now
+        """
+        return pulumi.get(self, "ip_ranges")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleOriginIncludedIpRangesResult(dict):
+    def __init__(__self__, *,
+                 ip_ranges: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param Sequence[_builtins.str] ip_ranges: (list of string) - We only support IPv4 and IPv4 CIDR notation for now
+        """
+        if ip_ranges is not None:
+            pulumi.set(__self__, "ip_ranges", ip_ranges)
+
+    @_builtins.property
+    @pulumi.getter(name="ipRanges")
+    def ip_ranges(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        (list of string) - We only support IPv4 and IPv4 CIDR notation for now
+        """
+        return pulumi.get(self, "ip_ranges")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleResult(dict):
+    def __init__(__self__, *,
+                 authentication: Optional['outputs.GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleAuthenticationResult'] = None,
+                 destination: Optional['outputs.GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationResult'] = None,
+                 label: Optional[_builtins.str] = None,
+                 origin: Optional['outputs.GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleOriginResult'] = None):
+        """
+        :param 'GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleAuthenticationArgs' authentication: (CustomerFacingIngressNetworkPolicyAuthentication)
+        :param 'GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationArgs' destination: (string) - The internet destination to which access will be allowed. Format dependent on the destination type
+        :param _builtins.str label: (string) - User-provided name for this ingress rule. Helps identify which rule
+               caused a request to be denied or dry-run denied
+        :param 'GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleOriginArgs' origin: (CustomerFacingIngressNetworkPolicyPublicRequestOrigin)
+        """
+        if authentication is not None:
+            pulumi.set(__self__, "authentication", authentication)
+        if destination is not None:
+            pulumi.set(__self__, "destination", destination)
+        if label is not None:
+            pulumi.set(__self__, "label", label)
+        if origin is not None:
+            pulumi.set(__self__, "origin", origin)
+
+    @_builtins.property
+    @pulumi.getter
+    def authentication(self) -> Optional['outputs.GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleAuthenticationResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyAuthentication)
+        """
+        return pulumi.get(self, "authentication")
+
+    @_builtins.property
+    @pulumi.getter
+    def destination(self) -> Optional['outputs.GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationResult']:
+        """
+        (string) - The internet destination to which access will be allowed. Format dependent on the destination type
+        """
+        return pulumi.get(self, "destination")
+
+    @_builtins.property
+    @pulumi.getter
+    def label(self) -> Optional[_builtins.str]:
+        """
+        (string) - User-provided name for this ingress rule. Helps identify which rule
+        caused a request to be denied or dry-run denied
+        """
+        return pulumi.get(self, "label")
+
+    @_builtins.property
+    @pulumi.getter
+    def origin(self) -> Optional['outputs.GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleOriginResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyPublicRequestOrigin)
+        """
+        return pulumi.get(self, "origin")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleAuthenticationResult(dict):
+    def __init__(__self__, *,
+                 identities: Optional[Sequence['outputs.GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleAuthenticationIdentityResult']] = None,
+                 identity_type: Optional[_builtins.str] = None):
+        """
+        :param Sequence['GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleAuthenticationIdentityArgs'] identities: (list of CustomerFacingIngressNetworkPolicyAuthenticationIdentity) - Valid only when IdentityType is IDENTITY_TYPE_SELECTED_IDENTITIES
+        :param _builtins.str identity_type: (string) - Possible values are: `IDENTITY_TYPE_ALL_SERVICE_PRINCIPALS`, `IDENTITY_TYPE_ALL_USERS`, `IDENTITY_TYPE_SELECTED_IDENTITIES`
+        """
+        if identities is not None:
+            pulumi.set(__self__, "identities", identities)
+        if identity_type is not None:
+            pulumi.set(__self__, "identity_type", identity_type)
+
+    @_builtins.property
+    @pulumi.getter
+    def identities(self) -> Optional[Sequence['outputs.GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleAuthenticationIdentityResult']]:
+        """
+        (list of CustomerFacingIngressNetworkPolicyAuthenticationIdentity) - Valid only when IdentityType is IDENTITY_TYPE_SELECTED_IDENTITIES
+        """
+        return pulumi.get(self, "identities")
+
+    @_builtins.property
+    @pulumi.getter(name="identityType")
+    def identity_type(self) -> Optional[_builtins.str]:
+        """
+        (string) - Possible values are: `IDENTITY_TYPE_ALL_SERVICE_PRINCIPALS`, `IDENTITY_TYPE_ALL_USERS`, `IDENTITY_TYPE_SELECTED_IDENTITIES`
+        """
+        return pulumi.get(self, "identity_type")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleAuthenticationIdentityResult(dict):
+    def __init__(__self__, *,
+                 principal_id: Optional[_builtins.int] = None,
+                 principal_type: Optional[_builtins.str] = None):
+        """
+        :param _builtins.int principal_id: (integer)
+        :param _builtins.str principal_type: (string) - Possible values are: `PRINCIPAL_TYPE_SERVICE_PRINCIPAL`, `PRINCIPAL_TYPE_USER`
+        """
+        if principal_id is not None:
+            pulumi.set(__self__, "principal_id", principal_id)
+        if principal_type is not None:
+            pulumi.set(__self__, "principal_type", principal_type)
+
+    @_builtins.property
+    @pulumi.getter(name="principalId")
+    def principal_id(self) -> Optional[_builtins.int]:
+        """
+        (integer)
+        """
+        return pulumi.get(self, "principal_id")
+
+    @_builtins.property
+    @pulumi.getter(name="principalType")
+    def principal_type(self) -> Optional[_builtins.str]:
+        """
+        (string) - Possible values are: `PRINCIPAL_TYPE_SERVICE_PRINCIPAL`, `PRINCIPAL_TYPE_USER`
+        """
+        return pulumi.get(self, "principal_type")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None,
+                 workspace_api: Optional['outputs.GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationWorkspaceApiResult'] = None,
+                 workspace_ui: Optional['outputs.GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationWorkspaceUiResult'] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        :param 'GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationWorkspaceApiArgs' workspace_api: (CustomerFacingIngressNetworkPolicyWorkspaceApiDestination)
+        :param 'GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationWorkspaceUiArgs' workspace_ui: (CustomerFacingIngressNetworkPolicyWorkspaceUiDestination) - Workspace destinations
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+        if workspace_api is not None:
+            pulumi.set(__self__, "workspace_api", workspace_api)
+        if workspace_ui is not None:
+            pulumi.set(__self__, "workspace_ui", workspace_ui)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceApi")
+    def workspace_api(self) -> Optional['outputs.GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationWorkspaceApiResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyWorkspaceApiDestination)
+        """
+        return pulumi.get(self, "workspace_api")
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceUi")
+    def workspace_ui(self) -> Optional['outputs.GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationWorkspaceUiResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyWorkspaceUiDestination) - Workspace destinations
+        """
+        return pulumi.get(self, "workspace_ui")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationWorkspaceApiResult(dict):
+    def __init__(__self__, *,
+                 scopes: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param Sequence[_builtins.str] scopes: (list of string)
+        """
+        if scopes is not None:
+            pulumi.set(__self__, "scopes", scopes)
+
+    @_builtins.property
+    @pulumi.getter
+    def scopes(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        (list of string)
+        """
+        return pulumi.get(self, "scopes")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationWorkspaceUiResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleOriginResult(dict):
+    def __init__(__self__, *,
+                 all_ip_ranges: Optional[_builtins.bool] = None,
+                 excluded_ip_ranges: Optional['outputs.GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleOriginExcludedIpRangesResult'] = None,
+                 included_ip_ranges: Optional['outputs.GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleOriginIncludedIpRangesResult'] = None):
+        """
+        :param _builtins.bool all_ip_ranges: (boolean) - Matches all IPv4 and IPv6 ranges (both public and private)
+        :param 'GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleOriginExcludedIpRangesArgs' excluded_ip_ranges: (CustomerFacingIngressNetworkPolicyIpRanges) - Excluded means: all public IP ranges except this one
+        :param 'GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleOriginIncludedIpRangesArgs' included_ip_ranges: (CustomerFacingIngressNetworkPolicyIpRanges) - Will not allow IP ranges with private IPs
+        """
+        if all_ip_ranges is not None:
+            pulumi.set(__self__, "all_ip_ranges", all_ip_ranges)
+        if excluded_ip_ranges is not None:
+            pulumi.set(__self__, "excluded_ip_ranges", excluded_ip_ranges)
+        if included_ip_ranges is not None:
+            pulumi.set(__self__, "included_ip_ranges", included_ip_ranges)
+
+    @_builtins.property
+    @pulumi.getter(name="allIpRanges")
+    def all_ip_ranges(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Matches all IPv4 and IPv6 ranges (both public and private)
+        """
+        return pulumi.get(self, "all_ip_ranges")
+
+    @_builtins.property
+    @pulumi.getter(name="excludedIpRanges")
+    def excluded_ip_ranges(self) -> Optional['outputs.GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleOriginExcludedIpRangesResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyIpRanges) - Excluded means: all public IP ranges except this one
+        """
+        return pulumi.get(self, "excluded_ip_ranges")
+
+    @_builtins.property
+    @pulumi.getter(name="includedIpRanges")
+    def included_ip_ranges(self) -> Optional['outputs.GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleOriginIncludedIpRangesResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyIpRanges) - Will not allow IP ranges with private IPs
+        """
+        return pulumi.get(self, "included_ip_ranges")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleOriginExcludedIpRangesResult(dict):
+    def __init__(__self__, *,
+                 ip_ranges: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param Sequence[_builtins.str] ip_ranges: (list of string) - We only support IPv4 and IPv4 CIDR notation for now
+        """
+        if ip_ranges is not None:
+            pulumi.set(__self__, "ip_ranges", ip_ranges)
+
+    @_builtins.property
+    @pulumi.getter(name="ipRanges")
+    def ip_ranges(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        (list of string) - We only support IPv4 and IPv4 CIDR notation for now
+        """
+        return pulumi.get(self, "ip_ranges")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleOriginIncludedIpRangesResult(dict):
+    def __init__(__self__, *,
+                 ip_ranges: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param Sequence[_builtins.str] ip_ranges: (list of string) - We only support IPv4 and IPv4 CIDR notation for now
+        """
+        if ip_ranges is not None:
+            pulumi.set(__self__, "ip_ranges", ip_ranges)
+
+    @_builtins.property
+    @pulumi.getter(name="ipRanges")
+    def ip_ranges(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        (list of string) - We only support IPv4 and IPv4 CIDR notation for now
+        """
+        return pulumi.get(self, "ip_ranges")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressPublicAccessResult(dict):
+    def __init__(__self__, *,
+                 restriction_mode: _builtins.str,
+                 allow_rules: Optional[Sequence['outputs.GetAccountNetworkPolicyIngressPublicAccessAllowRuleResult']] = None,
+                 deny_rules: Optional[Sequence['outputs.GetAccountNetworkPolicyIngressPublicAccessDenyRuleResult']] = None):
+        """
+        :param _builtins.str restriction_mode: (string) - The restriction mode that controls how serverless workloads can access the internet. Possible values are: `FULL_ACCESS`, `RESTRICTED_ACCESS`
+        :param Sequence['GetAccountNetworkPolicyIngressPublicAccessAllowRuleArgs'] allow_rules: (list of CustomerFacingIngressNetworkPolicyPublicIngressRule)
+        :param Sequence['GetAccountNetworkPolicyIngressPublicAccessDenyRuleArgs'] deny_rules: (list of CustomerFacingIngressNetworkPolicyPublicIngressRule)
+        """
+        pulumi.set(__self__, "restriction_mode", restriction_mode)
+        if allow_rules is not None:
+            pulumi.set(__self__, "allow_rules", allow_rules)
+        if deny_rules is not None:
+            pulumi.set(__self__, "deny_rules", deny_rules)
+
+    @_builtins.property
+    @pulumi.getter(name="restrictionMode")
+    def restriction_mode(self) -> _builtins.str:
+        """
+        (string) - The restriction mode that controls how serverless workloads can access the internet. Possible values are: `FULL_ACCESS`, `RESTRICTED_ACCESS`
+        """
+        return pulumi.get(self, "restriction_mode")
+
+    @_builtins.property
+    @pulumi.getter(name="allowRules")
+    def allow_rules(self) -> Optional[Sequence['outputs.GetAccountNetworkPolicyIngressPublicAccessAllowRuleResult']]:
+        """
+        (list of CustomerFacingIngressNetworkPolicyPublicIngressRule)
+        """
+        return pulumi.get(self, "allow_rules")
+
+    @_builtins.property
+    @pulumi.getter(name="denyRules")
+    def deny_rules(self) -> Optional[Sequence['outputs.GetAccountNetworkPolicyIngressPublicAccessDenyRuleResult']]:
+        """
+        (list of CustomerFacingIngressNetworkPolicyPublicIngressRule)
+        """
+        return pulumi.get(self, "deny_rules")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressPublicAccessAllowRuleResult(dict):
+    def __init__(__self__, *,
+                 authentication: Optional['outputs.GetAccountNetworkPolicyIngressPublicAccessAllowRuleAuthenticationResult'] = None,
+                 destination: Optional['outputs.GetAccountNetworkPolicyIngressPublicAccessAllowRuleDestinationResult'] = None,
+                 label: Optional[_builtins.str] = None,
+                 origin: Optional['outputs.GetAccountNetworkPolicyIngressPublicAccessAllowRuleOriginResult'] = None):
+        """
+        :param 'GetAccountNetworkPolicyIngressPublicAccessAllowRuleAuthenticationArgs' authentication: (CustomerFacingIngressNetworkPolicyAuthentication)
+        :param 'GetAccountNetworkPolicyIngressPublicAccessAllowRuleDestinationArgs' destination: (string) - The internet destination to which access will be allowed. Format dependent on the destination type
+        :param _builtins.str label: (string) - User-provided name for this ingress rule. Helps identify which rule
+               caused a request to be denied or dry-run denied
+        :param 'GetAccountNetworkPolicyIngressPublicAccessAllowRuleOriginArgs' origin: (CustomerFacingIngressNetworkPolicyPublicRequestOrigin)
+        """
+        if authentication is not None:
+            pulumi.set(__self__, "authentication", authentication)
+        if destination is not None:
+            pulumi.set(__self__, "destination", destination)
+        if label is not None:
+            pulumi.set(__self__, "label", label)
+        if origin is not None:
+            pulumi.set(__self__, "origin", origin)
+
+    @_builtins.property
+    @pulumi.getter
+    def authentication(self) -> Optional['outputs.GetAccountNetworkPolicyIngressPublicAccessAllowRuleAuthenticationResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyAuthentication)
+        """
+        return pulumi.get(self, "authentication")
+
+    @_builtins.property
+    @pulumi.getter
+    def destination(self) -> Optional['outputs.GetAccountNetworkPolicyIngressPublicAccessAllowRuleDestinationResult']:
+        """
+        (string) - The internet destination to which access will be allowed. Format dependent on the destination type
+        """
+        return pulumi.get(self, "destination")
+
+    @_builtins.property
+    @pulumi.getter
+    def label(self) -> Optional[_builtins.str]:
+        """
+        (string) - User-provided name for this ingress rule. Helps identify which rule
+        caused a request to be denied or dry-run denied
+        """
+        return pulumi.get(self, "label")
+
+    @_builtins.property
+    @pulumi.getter
+    def origin(self) -> Optional['outputs.GetAccountNetworkPolicyIngressPublicAccessAllowRuleOriginResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyPublicRequestOrigin)
+        """
+        return pulumi.get(self, "origin")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressPublicAccessAllowRuleAuthenticationResult(dict):
+    def __init__(__self__, *,
+                 identities: Optional[Sequence['outputs.GetAccountNetworkPolicyIngressPublicAccessAllowRuleAuthenticationIdentityResult']] = None,
+                 identity_type: Optional[_builtins.str] = None):
+        """
+        :param Sequence['GetAccountNetworkPolicyIngressPublicAccessAllowRuleAuthenticationIdentityArgs'] identities: (list of CustomerFacingIngressNetworkPolicyAuthenticationIdentity) - Valid only when IdentityType is IDENTITY_TYPE_SELECTED_IDENTITIES
+        :param _builtins.str identity_type: (string) - Possible values are: `IDENTITY_TYPE_ALL_SERVICE_PRINCIPALS`, `IDENTITY_TYPE_ALL_USERS`, `IDENTITY_TYPE_SELECTED_IDENTITIES`
+        """
+        if identities is not None:
+            pulumi.set(__self__, "identities", identities)
+        if identity_type is not None:
+            pulumi.set(__self__, "identity_type", identity_type)
+
+    @_builtins.property
+    @pulumi.getter
+    def identities(self) -> Optional[Sequence['outputs.GetAccountNetworkPolicyIngressPublicAccessAllowRuleAuthenticationIdentityResult']]:
+        """
+        (list of CustomerFacingIngressNetworkPolicyAuthenticationIdentity) - Valid only when IdentityType is IDENTITY_TYPE_SELECTED_IDENTITIES
+        """
+        return pulumi.get(self, "identities")
+
+    @_builtins.property
+    @pulumi.getter(name="identityType")
+    def identity_type(self) -> Optional[_builtins.str]:
+        """
+        (string) - Possible values are: `IDENTITY_TYPE_ALL_SERVICE_PRINCIPALS`, `IDENTITY_TYPE_ALL_USERS`, `IDENTITY_TYPE_SELECTED_IDENTITIES`
+        """
+        return pulumi.get(self, "identity_type")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressPublicAccessAllowRuleAuthenticationIdentityResult(dict):
+    def __init__(__self__, *,
+                 principal_id: Optional[_builtins.int] = None,
+                 principal_type: Optional[_builtins.str] = None):
+        """
+        :param _builtins.int principal_id: (integer)
+        :param _builtins.str principal_type: (string) - Possible values are: `PRINCIPAL_TYPE_SERVICE_PRINCIPAL`, `PRINCIPAL_TYPE_USER`
+        """
+        if principal_id is not None:
+            pulumi.set(__self__, "principal_id", principal_id)
+        if principal_type is not None:
+            pulumi.set(__self__, "principal_type", principal_type)
+
+    @_builtins.property
+    @pulumi.getter(name="principalId")
+    def principal_id(self) -> Optional[_builtins.int]:
+        """
+        (integer)
+        """
+        return pulumi.get(self, "principal_id")
+
+    @_builtins.property
+    @pulumi.getter(name="principalType")
+    def principal_type(self) -> Optional[_builtins.str]:
+        """
+        (string) - Possible values are: `PRINCIPAL_TYPE_SERVICE_PRINCIPAL`, `PRINCIPAL_TYPE_USER`
+        """
+        return pulumi.get(self, "principal_type")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressPublicAccessAllowRuleDestinationResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None,
+                 workspace_api: Optional['outputs.GetAccountNetworkPolicyIngressPublicAccessAllowRuleDestinationWorkspaceApiResult'] = None,
+                 workspace_ui: Optional['outputs.GetAccountNetworkPolicyIngressPublicAccessAllowRuleDestinationWorkspaceUiResult'] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        :param 'GetAccountNetworkPolicyIngressPublicAccessAllowRuleDestinationWorkspaceApiArgs' workspace_api: (CustomerFacingIngressNetworkPolicyWorkspaceApiDestination)
+        :param 'GetAccountNetworkPolicyIngressPublicAccessAllowRuleDestinationWorkspaceUiArgs' workspace_ui: (CustomerFacingIngressNetworkPolicyWorkspaceUiDestination) - Workspace destinations
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+        if workspace_api is not None:
+            pulumi.set(__self__, "workspace_api", workspace_api)
+        if workspace_ui is not None:
+            pulumi.set(__self__, "workspace_ui", workspace_ui)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceApi")
+    def workspace_api(self) -> Optional['outputs.GetAccountNetworkPolicyIngressPublicAccessAllowRuleDestinationWorkspaceApiResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyWorkspaceApiDestination)
+        """
+        return pulumi.get(self, "workspace_api")
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceUi")
+    def workspace_ui(self) -> Optional['outputs.GetAccountNetworkPolicyIngressPublicAccessAllowRuleDestinationWorkspaceUiResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyWorkspaceUiDestination) - Workspace destinations
+        """
+        return pulumi.get(self, "workspace_ui")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressPublicAccessAllowRuleDestinationWorkspaceApiResult(dict):
+    def __init__(__self__, *,
+                 scopes: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param Sequence[_builtins.str] scopes: (list of string)
+        """
+        if scopes is not None:
+            pulumi.set(__self__, "scopes", scopes)
+
+    @_builtins.property
+    @pulumi.getter
+    def scopes(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        (list of string)
+        """
+        return pulumi.get(self, "scopes")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressPublicAccessAllowRuleDestinationWorkspaceUiResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressPublicAccessAllowRuleOriginResult(dict):
+    def __init__(__self__, *,
+                 all_ip_ranges: Optional[_builtins.bool] = None,
+                 excluded_ip_ranges: Optional['outputs.GetAccountNetworkPolicyIngressPublicAccessAllowRuleOriginExcludedIpRangesResult'] = None,
+                 included_ip_ranges: Optional['outputs.GetAccountNetworkPolicyIngressPublicAccessAllowRuleOriginIncludedIpRangesResult'] = None):
+        """
+        :param _builtins.bool all_ip_ranges: (boolean) - Matches all IPv4 and IPv6 ranges (both public and private)
+        :param 'GetAccountNetworkPolicyIngressPublicAccessAllowRuleOriginExcludedIpRangesArgs' excluded_ip_ranges: (CustomerFacingIngressNetworkPolicyIpRanges) - Excluded means: all public IP ranges except this one
+        :param 'GetAccountNetworkPolicyIngressPublicAccessAllowRuleOriginIncludedIpRangesArgs' included_ip_ranges: (CustomerFacingIngressNetworkPolicyIpRanges) - Will not allow IP ranges with private IPs
+        """
+        if all_ip_ranges is not None:
+            pulumi.set(__self__, "all_ip_ranges", all_ip_ranges)
+        if excluded_ip_ranges is not None:
+            pulumi.set(__self__, "excluded_ip_ranges", excluded_ip_ranges)
+        if included_ip_ranges is not None:
+            pulumi.set(__self__, "included_ip_ranges", included_ip_ranges)
+
+    @_builtins.property
+    @pulumi.getter(name="allIpRanges")
+    def all_ip_ranges(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Matches all IPv4 and IPv6 ranges (both public and private)
+        """
+        return pulumi.get(self, "all_ip_ranges")
+
+    @_builtins.property
+    @pulumi.getter(name="excludedIpRanges")
+    def excluded_ip_ranges(self) -> Optional['outputs.GetAccountNetworkPolicyIngressPublicAccessAllowRuleOriginExcludedIpRangesResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyIpRanges) - Excluded means: all public IP ranges except this one
+        """
+        return pulumi.get(self, "excluded_ip_ranges")
+
+    @_builtins.property
+    @pulumi.getter(name="includedIpRanges")
+    def included_ip_ranges(self) -> Optional['outputs.GetAccountNetworkPolicyIngressPublicAccessAllowRuleOriginIncludedIpRangesResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyIpRanges) - Will not allow IP ranges with private IPs
+        """
+        return pulumi.get(self, "included_ip_ranges")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressPublicAccessAllowRuleOriginExcludedIpRangesResult(dict):
+    def __init__(__self__, *,
+                 ip_ranges: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param Sequence[_builtins.str] ip_ranges: (list of string) - We only support IPv4 and IPv4 CIDR notation for now
+        """
+        if ip_ranges is not None:
+            pulumi.set(__self__, "ip_ranges", ip_ranges)
+
+    @_builtins.property
+    @pulumi.getter(name="ipRanges")
+    def ip_ranges(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        (list of string) - We only support IPv4 and IPv4 CIDR notation for now
+        """
+        return pulumi.get(self, "ip_ranges")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressPublicAccessAllowRuleOriginIncludedIpRangesResult(dict):
+    def __init__(__self__, *,
+                 ip_ranges: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param Sequence[_builtins.str] ip_ranges: (list of string) - We only support IPv4 and IPv4 CIDR notation for now
+        """
+        if ip_ranges is not None:
+            pulumi.set(__self__, "ip_ranges", ip_ranges)
+
+    @_builtins.property
+    @pulumi.getter(name="ipRanges")
+    def ip_ranges(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        (list of string) - We only support IPv4 and IPv4 CIDR notation for now
+        """
+        return pulumi.get(self, "ip_ranges")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressPublicAccessDenyRuleResult(dict):
+    def __init__(__self__, *,
+                 authentication: Optional['outputs.GetAccountNetworkPolicyIngressPublicAccessDenyRuleAuthenticationResult'] = None,
+                 destination: Optional['outputs.GetAccountNetworkPolicyIngressPublicAccessDenyRuleDestinationResult'] = None,
+                 label: Optional[_builtins.str] = None,
+                 origin: Optional['outputs.GetAccountNetworkPolicyIngressPublicAccessDenyRuleOriginResult'] = None):
+        """
+        :param 'GetAccountNetworkPolicyIngressPublicAccessDenyRuleAuthenticationArgs' authentication: (CustomerFacingIngressNetworkPolicyAuthentication)
+        :param 'GetAccountNetworkPolicyIngressPublicAccessDenyRuleDestinationArgs' destination: (string) - The internet destination to which access will be allowed. Format dependent on the destination type
+        :param _builtins.str label: (string) - User-provided name for this ingress rule. Helps identify which rule
+               caused a request to be denied or dry-run denied
+        :param 'GetAccountNetworkPolicyIngressPublicAccessDenyRuleOriginArgs' origin: (CustomerFacingIngressNetworkPolicyPublicRequestOrigin)
+        """
+        if authentication is not None:
+            pulumi.set(__self__, "authentication", authentication)
+        if destination is not None:
+            pulumi.set(__self__, "destination", destination)
+        if label is not None:
+            pulumi.set(__self__, "label", label)
+        if origin is not None:
+            pulumi.set(__self__, "origin", origin)
+
+    @_builtins.property
+    @pulumi.getter
+    def authentication(self) -> Optional['outputs.GetAccountNetworkPolicyIngressPublicAccessDenyRuleAuthenticationResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyAuthentication)
+        """
+        return pulumi.get(self, "authentication")
+
+    @_builtins.property
+    @pulumi.getter
+    def destination(self) -> Optional['outputs.GetAccountNetworkPolicyIngressPublicAccessDenyRuleDestinationResult']:
+        """
+        (string) - The internet destination to which access will be allowed. Format dependent on the destination type
+        """
+        return pulumi.get(self, "destination")
+
+    @_builtins.property
+    @pulumi.getter
+    def label(self) -> Optional[_builtins.str]:
+        """
+        (string) - User-provided name for this ingress rule. Helps identify which rule
+        caused a request to be denied or dry-run denied
+        """
+        return pulumi.get(self, "label")
+
+    @_builtins.property
+    @pulumi.getter
+    def origin(self) -> Optional['outputs.GetAccountNetworkPolicyIngressPublicAccessDenyRuleOriginResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyPublicRequestOrigin)
+        """
+        return pulumi.get(self, "origin")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressPublicAccessDenyRuleAuthenticationResult(dict):
+    def __init__(__self__, *,
+                 identities: Optional[Sequence['outputs.GetAccountNetworkPolicyIngressPublicAccessDenyRuleAuthenticationIdentityResult']] = None,
+                 identity_type: Optional[_builtins.str] = None):
+        """
+        :param Sequence['GetAccountNetworkPolicyIngressPublicAccessDenyRuleAuthenticationIdentityArgs'] identities: (list of CustomerFacingIngressNetworkPolicyAuthenticationIdentity) - Valid only when IdentityType is IDENTITY_TYPE_SELECTED_IDENTITIES
+        :param _builtins.str identity_type: (string) - Possible values are: `IDENTITY_TYPE_ALL_SERVICE_PRINCIPALS`, `IDENTITY_TYPE_ALL_USERS`, `IDENTITY_TYPE_SELECTED_IDENTITIES`
+        """
+        if identities is not None:
+            pulumi.set(__self__, "identities", identities)
+        if identity_type is not None:
+            pulumi.set(__self__, "identity_type", identity_type)
+
+    @_builtins.property
+    @pulumi.getter
+    def identities(self) -> Optional[Sequence['outputs.GetAccountNetworkPolicyIngressPublicAccessDenyRuleAuthenticationIdentityResult']]:
+        """
+        (list of CustomerFacingIngressNetworkPolicyAuthenticationIdentity) - Valid only when IdentityType is IDENTITY_TYPE_SELECTED_IDENTITIES
+        """
+        return pulumi.get(self, "identities")
+
+    @_builtins.property
+    @pulumi.getter(name="identityType")
+    def identity_type(self) -> Optional[_builtins.str]:
+        """
+        (string) - Possible values are: `IDENTITY_TYPE_ALL_SERVICE_PRINCIPALS`, `IDENTITY_TYPE_ALL_USERS`, `IDENTITY_TYPE_SELECTED_IDENTITIES`
+        """
+        return pulumi.get(self, "identity_type")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressPublicAccessDenyRuleAuthenticationIdentityResult(dict):
+    def __init__(__self__, *,
+                 principal_id: Optional[_builtins.int] = None,
+                 principal_type: Optional[_builtins.str] = None):
+        """
+        :param _builtins.int principal_id: (integer)
+        :param _builtins.str principal_type: (string) - Possible values are: `PRINCIPAL_TYPE_SERVICE_PRINCIPAL`, `PRINCIPAL_TYPE_USER`
+        """
+        if principal_id is not None:
+            pulumi.set(__self__, "principal_id", principal_id)
+        if principal_type is not None:
+            pulumi.set(__self__, "principal_type", principal_type)
+
+    @_builtins.property
+    @pulumi.getter(name="principalId")
+    def principal_id(self) -> Optional[_builtins.int]:
+        """
+        (integer)
+        """
+        return pulumi.get(self, "principal_id")
+
+    @_builtins.property
+    @pulumi.getter(name="principalType")
+    def principal_type(self) -> Optional[_builtins.str]:
+        """
+        (string) - Possible values are: `PRINCIPAL_TYPE_SERVICE_PRINCIPAL`, `PRINCIPAL_TYPE_USER`
+        """
+        return pulumi.get(self, "principal_type")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressPublicAccessDenyRuleDestinationResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None,
+                 workspace_api: Optional['outputs.GetAccountNetworkPolicyIngressPublicAccessDenyRuleDestinationWorkspaceApiResult'] = None,
+                 workspace_ui: Optional['outputs.GetAccountNetworkPolicyIngressPublicAccessDenyRuleDestinationWorkspaceUiResult'] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        :param 'GetAccountNetworkPolicyIngressPublicAccessDenyRuleDestinationWorkspaceApiArgs' workspace_api: (CustomerFacingIngressNetworkPolicyWorkspaceApiDestination)
+        :param 'GetAccountNetworkPolicyIngressPublicAccessDenyRuleDestinationWorkspaceUiArgs' workspace_ui: (CustomerFacingIngressNetworkPolicyWorkspaceUiDestination) - Workspace destinations
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+        if workspace_api is not None:
+            pulumi.set(__self__, "workspace_api", workspace_api)
+        if workspace_ui is not None:
+            pulumi.set(__self__, "workspace_ui", workspace_ui)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceApi")
+    def workspace_api(self) -> Optional['outputs.GetAccountNetworkPolicyIngressPublicAccessDenyRuleDestinationWorkspaceApiResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyWorkspaceApiDestination)
+        """
+        return pulumi.get(self, "workspace_api")
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceUi")
+    def workspace_ui(self) -> Optional['outputs.GetAccountNetworkPolicyIngressPublicAccessDenyRuleDestinationWorkspaceUiResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyWorkspaceUiDestination) - Workspace destinations
+        """
+        return pulumi.get(self, "workspace_ui")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressPublicAccessDenyRuleDestinationWorkspaceApiResult(dict):
+    def __init__(__self__, *,
+                 scopes: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param Sequence[_builtins.str] scopes: (list of string)
+        """
+        if scopes is not None:
+            pulumi.set(__self__, "scopes", scopes)
+
+    @_builtins.property
+    @pulumi.getter
+    def scopes(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        (list of string)
+        """
+        return pulumi.get(self, "scopes")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressPublicAccessDenyRuleDestinationWorkspaceUiResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressPublicAccessDenyRuleOriginResult(dict):
+    def __init__(__self__, *,
+                 all_ip_ranges: Optional[_builtins.bool] = None,
+                 excluded_ip_ranges: Optional['outputs.GetAccountNetworkPolicyIngressPublicAccessDenyRuleOriginExcludedIpRangesResult'] = None,
+                 included_ip_ranges: Optional['outputs.GetAccountNetworkPolicyIngressPublicAccessDenyRuleOriginIncludedIpRangesResult'] = None):
+        """
+        :param _builtins.bool all_ip_ranges: (boolean) - Matches all IPv4 and IPv6 ranges (both public and private)
+        :param 'GetAccountNetworkPolicyIngressPublicAccessDenyRuleOriginExcludedIpRangesArgs' excluded_ip_ranges: (CustomerFacingIngressNetworkPolicyIpRanges) - Excluded means: all public IP ranges except this one
+        :param 'GetAccountNetworkPolicyIngressPublicAccessDenyRuleOriginIncludedIpRangesArgs' included_ip_ranges: (CustomerFacingIngressNetworkPolicyIpRanges) - Will not allow IP ranges with private IPs
+        """
+        if all_ip_ranges is not None:
+            pulumi.set(__self__, "all_ip_ranges", all_ip_ranges)
+        if excluded_ip_ranges is not None:
+            pulumi.set(__self__, "excluded_ip_ranges", excluded_ip_ranges)
+        if included_ip_ranges is not None:
+            pulumi.set(__self__, "included_ip_ranges", included_ip_ranges)
+
+    @_builtins.property
+    @pulumi.getter(name="allIpRanges")
+    def all_ip_ranges(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Matches all IPv4 and IPv6 ranges (both public and private)
+        """
+        return pulumi.get(self, "all_ip_ranges")
+
+    @_builtins.property
+    @pulumi.getter(name="excludedIpRanges")
+    def excluded_ip_ranges(self) -> Optional['outputs.GetAccountNetworkPolicyIngressPublicAccessDenyRuleOriginExcludedIpRangesResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyIpRanges) - Excluded means: all public IP ranges except this one
+        """
+        return pulumi.get(self, "excluded_ip_ranges")
+
+    @_builtins.property
+    @pulumi.getter(name="includedIpRanges")
+    def included_ip_ranges(self) -> Optional['outputs.GetAccountNetworkPolicyIngressPublicAccessDenyRuleOriginIncludedIpRangesResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyIpRanges) - Will not allow IP ranges with private IPs
+        """
+        return pulumi.get(self, "included_ip_ranges")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressPublicAccessDenyRuleOriginExcludedIpRangesResult(dict):
+    def __init__(__self__, *,
+                 ip_ranges: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param Sequence[_builtins.str] ip_ranges: (list of string) - We only support IPv4 and IPv4 CIDR notation for now
+        """
+        if ip_ranges is not None:
+            pulumi.set(__self__, "ip_ranges", ip_ranges)
+
+    @_builtins.property
+    @pulumi.getter(name="ipRanges")
+    def ip_ranges(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        (list of string) - We only support IPv4 and IPv4 CIDR notation for now
+        """
+        return pulumi.get(self, "ip_ranges")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressPublicAccessDenyRuleOriginIncludedIpRangesResult(dict):
+    def __init__(__self__, *,
+                 ip_ranges: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param Sequence[_builtins.str] ip_ranges: (list of string) - We only support IPv4 and IPv4 CIDR notation for now
+        """
+        if ip_ranges is not None:
+            pulumi.set(__self__, "ip_ranges", ip_ranges)
+
+    @_builtins.property
+    @pulumi.getter(name="ipRanges")
+    def ip_ranges(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        (list of string) - We only support IPv4 and IPv4 CIDR notation for now
+        """
+        return pulumi.get(self, "ip_ranges")
 
 
 @pulumi.output_type
@@ -51407,11 +59363,16 @@ class GetAccountSettingV2EffectivePersonalComputeResult(dict):
 @pulumi.output_type
 class GetAccountSettingV2EffectiveRestrictWorkspaceAdminsResult(dict):
     def __init__(__self__, *,
-                 status: _builtins.str):
+                 status: _builtins.str,
+                 disable_gov_tag_creation: Optional[_builtins.bool] = None):
         """
         :param _builtins.str status: (string) - Possible values are: `ALLOW_ALL`, `RESTRICT_TOKENS_AND_JOB_RUN_AS`
+        :param _builtins.bool disable_gov_tag_creation: (boolean) - When true, workspace admins cannot create governance tags.
+               ALLOW_ALL status does not override this; they are independent
         """
         pulumi.set(__self__, "status", status)
+        if disable_gov_tag_creation is not None:
+            pulumi.set(__self__, "disable_gov_tag_creation", disable_gov_tag_creation)
 
     @_builtins.property
     @pulumi.getter
@@ -51420,6 +59381,15 @@ class GetAccountSettingV2EffectiveRestrictWorkspaceAdminsResult(dict):
         (string) - Possible values are: `ALLOW_ALL`, `RESTRICT_TOKENS_AND_JOB_RUN_AS`
         """
         return pulumi.get(self, "status")
+
+    @_builtins.property
+    @pulumi.getter(name="disableGovTagCreation")
+    def disable_gov_tag_creation(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - When true, workspace admins cannot create governance tags.
+        ALLOW_ALL status does not override this; they are independent
+        """
+        return pulumi.get(self, "disable_gov_tag_creation")
 
 
 @pulumi.output_type
@@ -51482,11 +59452,16 @@ class GetAccountSettingV2PersonalComputeResult(dict):
 @pulumi.output_type
 class GetAccountSettingV2RestrictWorkspaceAdminsResult(dict):
     def __init__(__self__, *,
-                 status: _builtins.str):
+                 status: _builtins.str,
+                 disable_gov_tag_creation: Optional[_builtins.bool] = None):
         """
         :param _builtins.str status: (string) - Possible values are: `ALLOW_ALL`, `RESTRICT_TOKENS_AND_JOB_RUN_AS`
+        :param _builtins.bool disable_gov_tag_creation: (boolean) - When true, workspace admins cannot create governance tags.
+               ALLOW_ALL status does not override this; they are independent
         """
         pulumi.set(__self__, "status", status)
+        if disable_gov_tag_creation is not None:
+            pulumi.set(__self__, "disable_gov_tag_creation", disable_gov_tag_creation)
 
     @_builtins.property
     @pulumi.getter
@@ -51495,6 +59470,15 @@ class GetAccountSettingV2RestrictWorkspaceAdminsResult(dict):
         (string) - Possible values are: `ALLOW_ALL`, `RESTRICT_TOKENS_AND_JOB_RUN_AS`
         """
         return pulumi.get(self, "status")
+
+    @_builtins.property
+    @pulumi.getter(name="disableGovTagCreation")
+    def disable_gov_tag_creation(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - When true, workspace admins cannot create governance tags.
+        ALLOW_ALL status does not override this; they are independent
+        """
+        return pulumi.get(self, "disable_gov_tag_creation")
 
 
 @pulumi.output_type
@@ -53712,8 +61696,33 @@ class GetAppAppResourceResult(dict):
 
 @pulumi.output_type
 class GetAppAppResourceAppResult(dict):
-    def __init__(__self__):
-        pass
+    def __init__(__self__, *,
+                 name: Optional[_builtins.str] = None,
+                 permission: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str name: The name of the app.
+        :param _builtins.str permission: Permission to grant on database. Supported permissions are: `CAN_CONNECT_AND_CREATE`.
+        """
+        if name is not None:
+            pulumi.set(__self__, "name", name)
+        if permission is not None:
+            pulumi.set(__self__, "permission", permission)
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> Optional[_builtins.str]:
+        """
+        The name of the app.
+        """
+        return pulumi.get(self, "name")
+
+    @_builtins.property
+    @pulumi.getter
+    def permission(self) -> Optional[_builtins.str]:
+        """
+        Permission to grant on database. Supported permissions are: `CAN_CONNECT_AND_CREATE`.
+        """
+        return pulumi.get(self, "permission")
 
 
 @pulumi.output_type
@@ -54257,8 +62266,35 @@ class GetAppSpaceResourceResult(dict):
 
 @pulumi.output_type
 class GetAppSpaceResourceAppResult(dict):
-    def __init__(__self__):
-        pass
+    def __init__(__self__, *,
+                 name: Optional[_builtins.str] = None,
+                 permission: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str name: The name of the app space. The name must contain only lowercase alphanumeric characters and hyphens.
+               It must be unique within the workspace
+        :param _builtins.str permission: (string) - Possible values are: `EXECUTE`, `MODIFY`, `READ_VOLUME`, `SELECT`, `USE_CONNECTION`, `WRITE_VOLUME`
+        """
+        if name is not None:
+            pulumi.set(__self__, "name", name)
+        if permission is not None:
+            pulumi.set(__self__, "permission", permission)
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> Optional[_builtins.str]:
+        """
+        The name of the app space. The name must contain only lowercase alphanumeric characters and hyphens.
+        It must be unique within the workspace
+        """
+        return pulumi.get(self, "name")
+
+    @_builtins.property
+    @pulumi.getter
+    def permission(self) -> Optional[_builtins.str]:
+        """
+        (string) - Possible values are: `EXECUTE`, `MODIFY`, `READ_VOLUME`, `SELECT`, `USE_CONNECTION`, `WRITE_VOLUME`
+        """
+        return pulumi.get(self, "permission")
 
 
 @pulumi.output_type
@@ -55009,8 +63045,33 @@ class GetAppSpacesSpaceResourceResult(dict):
 
 @pulumi.output_type
 class GetAppSpacesSpaceResourceAppResult(dict):
-    def __init__(__self__):
-        pass
+    def __init__(__self__, *,
+                 name: Optional[_builtins.str] = None,
+                 permission: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str name: (string) - Name of the serving endpoint to grant permission on
+        :param _builtins.str permission: (string) - Possible values are: `EXECUTE`, `MODIFY`, `READ_VOLUME`, `SELECT`, `USE_CONNECTION`, `WRITE_VOLUME`
+        """
+        if name is not None:
+            pulumi.set(__self__, "name", name)
+        if permission is not None:
+            pulumi.set(__self__, "permission", permission)
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> Optional[_builtins.str]:
+        """
+        (string) - Name of the serving endpoint to grant permission on
+        """
+        return pulumi.get(self, "name")
+
+    @_builtins.property
+    @pulumi.getter
+    def permission(self) -> Optional[_builtins.str]:
+        """
+        (string) - Possible values are: `EXECUTE`, `MODIFY`, `READ_VOLUME`, `SELECT`, `USE_CONNECTION`, `WRITE_VOLUME`
+        """
+        return pulumi.get(self, "permission")
 
 
 @pulumi.output_type
@@ -56409,8 +64470,33 @@ class GetAppsAppResourceResult(dict):
 
 @pulumi.output_type
 class GetAppsAppResourceAppResult(dict):
-    def __init__(__self__):
-        pass
+    def __init__(__self__, *,
+                 name: Optional[_builtins.str] = None,
+                 permission: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str name: The name of Genie Space.
+        :param _builtins.str permission: Permission to grant on database. Supported permissions are: `CAN_CONNECT_AND_CREATE`.
+        """
+        if name is not None:
+            pulumi.set(__self__, "name", name)
+        if permission is not None:
+            pulumi.set(__self__, "permission", permission)
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> Optional[_builtins.str]:
+        """
+        The name of Genie Space.
+        """
+        return pulumi.get(self, "name")
+
+    @_builtins.property
+    @pulumi.getter
+    def permission(self) -> Optional[_builtins.str]:
+        """
+        Permission to grant on database. Supported permissions are: `CAN_CONNECT_AND_CREATE`.
+        """
+        return pulumi.get(self, "permission")
 
 
 @pulumi.output_type
@@ -57712,6 +65798,7 @@ class GetCatalogCatalogInfoResult(dict):
                  enable_predictive_optimization: Optional[_builtins.str] = None,
                  full_name: Optional[_builtins.str] = None,
                  isolation_mode: Optional[_builtins.str] = None,
+                 managed_encryption_settings: Optional['outputs.GetCatalogCatalogInfoManagedEncryptionSettingsResult'] = None,
                  metastore_id: Optional[_builtins.str] = None,
                  name: Optional[_builtins.str] = None,
                  options: Optional[Mapping[str, _builtins.str]] = None,
@@ -57768,6 +65855,8 @@ class GetCatalogCatalogInfoResult(dict):
             pulumi.set(__self__, "full_name", full_name)
         if isolation_mode is not None:
             pulumi.set(__self__, "isolation_mode", isolation_mode)
+        if managed_encryption_settings is not None:
+            pulumi.set(__self__, "managed_encryption_settings", managed_encryption_settings)
         if metastore_id is not None:
             pulumi.set(__self__, "metastore_id", metastore_id)
         if name is not None:
@@ -57871,6 +65960,11 @@ class GetCatalogCatalogInfoResult(dict):
         Whether the current securable is accessible from all workspaces or a  specific set of workspaces.
         """
         return pulumi.get(self, "isolation_mode")
+
+    @_builtins.property
+    @pulumi.getter(name="managedEncryptionSettings")
+    def managed_encryption_settings(self) -> Optional['outputs.GetCatalogCatalogInfoManagedEncryptionSettingsResult']:
+        return pulumi.get(self, "managed_encryption_settings")
 
     @_builtins.property
     @pulumi.getter(name="metastoreId")
@@ -58000,6 +66094,63 @@ class GetCatalogCatalogInfoEffectivePredictiveOptimizationFlagResult(dict):
     @pulumi.getter(name="inheritedFromType")
     def inherited_from_type(self) -> Optional[_builtins.str]:
         return pulumi.get(self, "inherited_from_type")
+
+
+@pulumi.output_type
+class GetCatalogCatalogInfoManagedEncryptionSettingsResult(dict):
+    def __init__(__self__, *,
+                 azure_encryption_settings: Optional['outputs.GetCatalogCatalogInfoManagedEncryptionSettingsAzureEncryptionSettingsResult'] = None,
+                 azure_key_vault_key_id: Optional[_builtins.str] = None,
+                 customer_managed_key_id: Optional[_builtins.str] = None):
+        if azure_encryption_settings is not None:
+            pulumi.set(__self__, "azure_encryption_settings", azure_encryption_settings)
+        if azure_key_vault_key_id is not None:
+            pulumi.set(__self__, "azure_key_vault_key_id", azure_key_vault_key_id)
+        if customer_managed_key_id is not None:
+            pulumi.set(__self__, "customer_managed_key_id", customer_managed_key_id)
+
+    @_builtins.property
+    @pulumi.getter(name="azureEncryptionSettings")
+    def azure_encryption_settings(self) -> Optional['outputs.GetCatalogCatalogInfoManagedEncryptionSettingsAzureEncryptionSettingsResult']:
+        return pulumi.get(self, "azure_encryption_settings")
+
+    @_builtins.property
+    @pulumi.getter(name="azureKeyVaultKeyId")
+    def azure_key_vault_key_id(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "azure_key_vault_key_id")
+
+    @_builtins.property
+    @pulumi.getter(name="customerManagedKeyId")
+    def customer_managed_key_id(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "customer_managed_key_id")
+
+
+@pulumi.output_type
+class GetCatalogCatalogInfoManagedEncryptionSettingsAzureEncryptionSettingsResult(dict):
+    def __init__(__self__, *,
+                 azure_tenant_id: _builtins.str,
+                 azure_cmk_access_connector_id: Optional[_builtins.str] = None,
+                 azure_cmk_managed_identity_id: Optional[_builtins.str] = None):
+        pulumi.set(__self__, "azure_tenant_id", azure_tenant_id)
+        if azure_cmk_access_connector_id is not None:
+            pulumi.set(__self__, "azure_cmk_access_connector_id", azure_cmk_access_connector_id)
+        if azure_cmk_managed_identity_id is not None:
+            pulumi.set(__self__, "azure_cmk_managed_identity_id", azure_cmk_managed_identity_id)
+
+    @_builtins.property
+    @pulumi.getter(name="azureTenantId")
+    def azure_tenant_id(self) -> _builtins.str:
+        return pulumi.get(self, "azure_tenant_id")
+
+    @_builtins.property
+    @pulumi.getter(name="azureCmkAccessConnectorId")
+    def azure_cmk_access_connector_id(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "azure_cmk_access_connector_id")
+
+    @_builtins.property
+    @pulumi.getter(name="azureCmkManagedIdentityId")
+    def azure_cmk_managed_identity_id(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "azure_cmk_managed_identity_id")
 
 
 @pulumi.output_type
@@ -65427,7 +73578,7 @@ class GetEntityTagAssignmentsTagAssignmentResult(dict):
                  provider_config: Optional['outputs.GetEntityTagAssignmentsTagAssignmentProviderConfigResult'] = None):
         """
         :param _builtins.str entity_name: The fully qualified name of the entity to which the tag is assigned
-        :param _builtins.str entity_type: The type of the entity to which the tag is assigned. Allowed values are: catalogs, schemas, tables, columns, volumes
+        :param _builtins.str entity_type: The type of the entity to which the tag is assigned
         :param _builtins.str source_type: (string) - The source type of the tag assignment, e.g., user-assigned or system-assigned. Possible values are: `TAG_ASSIGNMENT_SOURCE_TYPE_SYSTEM_DATA_CLASSIFICATION`
         :param _builtins.str tag_key: (string) - The key of the tag
         :param _builtins.str tag_value: (string) - The value of the tag
@@ -65457,7 +73608,7 @@ class GetEntityTagAssignmentsTagAssignmentResult(dict):
     @pulumi.getter(name="entityType")
     def entity_type(self) -> _builtins.str:
         """
-        The type of the entity to which the tag is assigned. Allowed values are: catalogs, schemas, tables, columns, volumes
+        The type of the entity to which the tag is assigned
         """
         return pulumi.get(self, "entity_type")
 
@@ -65759,6 +73910,7 @@ class GetExternalLocationExternalLocationInfoResult(dict):
                  credential_id: Optional[_builtins.str] = None,
                  credential_name: Optional[_builtins.str] = None,
                  effective_enable_file_events: Optional[_builtins.bool] = None,
+                 effective_file_event_queue: Optional['outputs.GetExternalLocationExternalLocationInfoEffectiveFileEventQueueResult'] = None,
                  enable_file_events: Optional[_builtins.bool] = None,
                  encryption_details: Optional['outputs.GetExternalLocationExternalLocationInfoEncryptionDetailsResult'] = None,
                  fallback: Optional[_builtins.bool] = None,
@@ -65800,6 +73952,8 @@ class GetExternalLocationExternalLocationInfoResult(dict):
             pulumi.set(__self__, "credential_name", credential_name)
         if effective_enable_file_events is not None:
             pulumi.set(__self__, "effective_enable_file_events", effective_enable_file_events)
+        if effective_file_event_queue is not None:
+            pulumi.set(__self__, "effective_file_event_queue", effective_file_event_queue)
         if enable_file_events is not None:
             pulumi.set(__self__, "enable_file_events", enable_file_events)
         if encryption_details is not None:
@@ -65874,6 +74028,11 @@ class GetExternalLocationExternalLocationInfoResult(dict):
     @pulumi.getter(name="effectiveEnableFileEvents")
     def effective_enable_file_events(self) -> Optional[_builtins.bool]:
         return pulumi.get(self, "effective_enable_file_events")
+
+    @_builtins.property
+    @pulumi.getter(name="effectiveFileEventQueue")
+    def effective_file_event_queue(self) -> Optional['outputs.GetExternalLocationExternalLocationInfoEffectiveFileEventQueueResult']:
+        return pulumi.get(self, "effective_file_event_queue")
 
     @_builtins.property
     @pulumi.getter(name="enableFileEvents")
@@ -65958,6 +74117,217 @@ class GetExternalLocationExternalLocationInfoResult(dict):
         Path URL in cloud storage, of the form: `s3://[bucket-host]/[bucket-dir]` (AWS), `abfss://[user]@[host]/[path]` (Azure), `gs://[bucket-host]/[bucket-dir]` (GCP).
         """
         return pulumi.get(self, "url")
+
+
+@pulumi.output_type
+class GetExternalLocationExternalLocationInfoEffectiveFileEventQueueResult(dict):
+    def __init__(__self__, *,
+                 managed_aqs: Optional['outputs.GetExternalLocationExternalLocationInfoEffectiveFileEventQueueManagedAqsResult'] = None,
+                 managed_pubsub: Optional['outputs.GetExternalLocationExternalLocationInfoEffectiveFileEventQueueManagedPubsubResult'] = None,
+                 managed_sqs: Optional['outputs.GetExternalLocationExternalLocationInfoEffectiveFileEventQueueManagedSqsResult'] = None,
+                 provided_aqs: Optional['outputs.GetExternalLocationExternalLocationInfoEffectiveFileEventQueueProvidedAqsResult'] = None,
+                 provided_pubsub: Optional['outputs.GetExternalLocationExternalLocationInfoEffectiveFileEventQueueProvidedPubsubResult'] = None,
+                 provided_sqs: Optional['outputs.GetExternalLocationExternalLocationInfoEffectiveFileEventQueueProvidedSqsResult'] = None):
+        if managed_aqs is not None:
+            pulumi.set(__self__, "managed_aqs", managed_aqs)
+        if managed_pubsub is not None:
+            pulumi.set(__self__, "managed_pubsub", managed_pubsub)
+        if managed_sqs is not None:
+            pulumi.set(__self__, "managed_sqs", managed_sqs)
+        if provided_aqs is not None:
+            pulumi.set(__self__, "provided_aqs", provided_aqs)
+        if provided_pubsub is not None:
+            pulumi.set(__self__, "provided_pubsub", provided_pubsub)
+        if provided_sqs is not None:
+            pulumi.set(__self__, "provided_sqs", provided_sqs)
+
+    @_builtins.property
+    @pulumi.getter(name="managedAqs")
+    def managed_aqs(self) -> Optional['outputs.GetExternalLocationExternalLocationInfoEffectiveFileEventQueueManagedAqsResult']:
+        return pulumi.get(self, "managed_aqs")
+
+    @_builtins.property
+    @pulumi.getter(name="managedPubsub")
+    def managed_pubsub(self) -> Optional['outputs.GetExternalLocationExternalLocationInfoEffectiveFileEventQueueManagedPubsubResult']:
+        return pulumi.get(self, "managed_pubsub")
+
+    @_builtins.property
+    @pulumi.getter(name="managedSqs")
+    def managed_sqs(self) -> Optional['outputs.GetExternalLocationExternalLocationInfoEffectiveFileEventQueueManagedSqsResult']:
+        return pulumi.get(self, "managed_sqs")
+
+    @_builtins.property
+    @pulumi.getter(name="providedAqs")
+    def provided_aqs(self) -> Optional['outputs.GetExternalLocationExternalLocationInfoEffectiveFileEventQueueProvidedAqsResult']:
+        return pulumi.get(self, "provided_aqs")
+
+    @_builtins.property
+    @pulumi.getter(name="providedPubsub")
+    def provided_pubsub(self) -> Optional['outputs.GetExternalLocationExternalLocationInfoEffectiveFileEventQueueProvidedPubsubResult']:
+        return pulumi.get(self, "provided_pubsub")
+
+    @_builtins.property
+    @pulumi.getter(name="providedSqs")
+    def provided_sqs(self) -> Optional['outputs.GetExternalLocationExternalLocationInfoEffectiveFileEventQueueProvidedSqsResult']:
+        return pulumi.get(self, "provided_sqs")
+
+
+@pulumi.output_type
+class GetExternalLocationExternalLocationInfoEffectiveFileEventQueueManagedAqsResult(dict):
+    def __init__(__self__, *,
+                 managed_resource_id: Optional[_builtins.str] = None,
+                 queue_url: Optional[_builtins.str] = None,
+                 resource_group: Optional[_builtins.str] = None,
+                 subscription_id: Optional[_builtins.str] = None):
+        if managed_resource_id is not None:
+            pulumi.set(__self__, "managed_resource_id", managed_resource_id)
+        if queue_url is not None:
+            pulumi.set(__self__, "queue_url", queue_url)
+        if resource_group is not None:
+            pulumi.set(__self__, "resource_group", resource_group)
+        if subscription_id is not None:
+            pulumi.set(__self__, "subscription_id", subscription_id)
+
+    @_builtins.property
+    @pulumi.getter(name="managedResourceId")
+    def managed_resource_id(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "managed_resource_id")
+
+    @_builtins.property
+    @pulumi.getter(name="queueUrl")
+    def queue_url(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "queue_url")
+
+    @_builtins.property
+    @pulumi.getter(name="resourceGroup")
+    def resource_group(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "resource_group")
+
+    @_builtins.property
+    @pulumi.getter(name="subscriptionId")
+    def subscription_id(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "subscription_id")
+
+
+@pulumi.output_type
+class GetExternalLocationExternalLocationInfoEffectiveFileEventQueueManagedPubsubResult(dict):
+    def __init__(__self__, *,
+                 managed_resource_id: Optional[_builtins.str] = None,
+                 subscription_name: Optional[_builtins.str] = None):
+        if managed_resource_id is not None:
+            pulumi.set(__self__, "managed_resource_id", managed_resource_id)
+        if subscription_name is not None:
+            pulumi.set(__self__, "subscription_name", subscription_name)
+
+    @_builtins.property
+    @pulumi.getter(name="managedResourceId")
+    def managed_resource_id(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "managed_resource_id")
+
+    @_builtins.property
+    @pulumi.getter(name="subscriptionName")
+    def subscription_name(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "subscription_name")
+
+
+@pulumi.output_type
+class GetExternalLocationExternalLocationInfoEffectiveFileEventQueueManagedSqsResult(dict):
+    def __init__(__self__, *,
+                 managed_resource_id: Optional[_builtins.str] = None,
+                 queue_url: Optional[_builtins.str] = None):
+        if managed_resource_id is not None:
+            pulumi.set(__self__, "managed_resource_id", managed_resource_id)
+        if queue_url is not None:
+            pulumi.set(__self__, "queue_url", queue_url)
+
+    @_builtins.property
+    @pulumi.getter(name="managedResourceId")
+    def managed_resource_id(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "managed_resource_id")
+
+    @_builtins.property
+    @pulumi.getter(name="queueUrl")
+    def queue_url(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "queue_url")
+
+
+@pulumi.output_type
+class GetExternalLocationExternalLocationInfoEffectiveFileEventQueueProvidedAqsResult(dict):
+    def __init__(__self__, *,
+                 managed_resource_id: Optional[_builtins.str] = None,
+                 queue_url: Optional[_builtins.str] = None,
+                 resource_group: Optional[_builtins.str] = None,
+                 subscription_id: Optional[_builtins.str] = None):
+        if managed_resource_id is not None:
+            pulumi.set(__self__, "managed_resource_id", managed_resource_id)
+        if queue_url is not None:
+            pulumi.set(__self__, "queue_url", queue_url)
+        if resource_group is not None:
+            pulumi.set(__self__, "resource_group", resource_group)
+        if subscription_id is not None:
+            pulumi.set(__self__, "subscription_id", subscription_id)
+
+    @_builtins.property
+    @pulumi.getter(name="managedResourceId")
+    def managed_resource_id(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "managed_resource_id")
+
+    @_builtins.property
+    @pulumi.getter(name="queueUrl")
+    def queue_url(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "queue_url")
+
+    @_builtins.property
+    @pulumi.getter(name="resourceGroup")
+    def resource_group(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "resource_group")
+
+    @_builtins.property
+    @pulumi.getter(name="subscriptionId")
+    def subscription_id(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "subscription_id")
+
+
+@pulumi.output_type
+class GetExternalLocationExternalLocationInfoEffectiveFileEventQueueProvidedPubsubResult(dict):
+    def __init__(__self__, *,
+                 managed_resource_id: Optional[_builtins.str] = None,
+                 subscription_name: Optional[_builtins.str] = None):
+        if managed_resource_id is not None:
+            pulumi.set(__self__, "managed_resource_id", managed_resource_id)
+        if subscription_name is not None:
+            pulumi.set(__self__, "subscription_name", subscription_name)
+
+    @_builtins.property
+    @pulumi.getter(name="managedResourceId")
+    def managed_resource_id(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "managed_resource_id")
+
+    @_builtins.property
+    @pulumi.getter(name="subscriptionName")
+    def subscription_name(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "subscription_name")
+
+
+@pulumi.output_type
+class GetExternalLocationExternalLocationInfoEffectiveFileEventQueueProvidedSqsResult(dict):
+    def __init__(__self__, *,
+                 managed_resource_id: Optional[_builtins.str] = None,
+                 queue_url: Optional[_builtins.str] = None):
+        if managed_resource_id is not None:
+            pulumi.set(__self__, "managed_resource_id", managed_resource_id)
+        if queue_url is not None:
+            pulumi.set(__self__, "queue_url", queue_url)
+
+    @_builtins.property
+    @pulumi.getter(name="managedResourceId")
+    def managed_resource_id(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "managed_resource_id")
+
+    @_builtins.property
+    @pulumi.getter(name="queueUrl")
+    def queue_url(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "queue_url")
 
 
 @pulumi.output_type
@@ -66489,7 +74859,12 @@ class GetFeatureEngineeringFeatureEntityResult(dict):
     def __init__(__self__, *,
                  name: _builtins.str):
         """
-        :param _builtins.str name: (string) - The name of the timeseries column
+        :param _builtins.str name: (string) - The name of the timeseries column. For Kafka sources, use dot-prefixed path notation to
+               reference fields within the key or value schema (e.g., "value.event_timestamp"). For nested
+               fields, the leaf node name (e.g., "event_timestamp" from "value.event_details.event_timestamp")
+               is what will be present in materialized tables and expected to match at query time.
+               TODO(FS-939): Colon-prefixed notation (e.g., "value:event_timestamp") is supported for
+               backwards compatibility but is deprecated; migrate to dot notation
         """
         pulumi.set(__self__, "name", name)
 
@@ -66497,7 +74872,12 @@ class GetFeatureEngineeringFeatureEntityResult(dict):
     @pulumi.getter
     def name(self) -> _builtins.str:
         """
-        (string) - The name of the timeseries column
+        (string) - The name of the timeseries column. For Kafka sources, use dot-prefixed path notation to
+        reference fields within the key or value schema (e.g., "value.event_timestamp"). For nested
+        fields, the leaf node name (e.g., "event_timestamp" from "value.event_details.event_timestamp")
+        is what will be present in materialized tables and expected to match at query time.
+        TODO(FS-939): Colon-prefixed notation (e.g., "value:event_timestamp") is supported for
+        backwards compatibility but is deprecated; migrate to dot notation
         """
         return pulumi.get(self, "name")
 
@@ -66506,10 +74886,12 @@ class GetFeatureEngineeringFeatureEntityResult(dict):
 class GetFeatureEngineeringFeatureFunctionResult(dict):
     def __init__(__self__, *,
                  aggregation_function: Optional['outputs.GetFeatureEngineeringFeatureFunctionAggregationFunctionResult'] = None,
+                 column_selection: Optional['outputs.GetFeatureEngineeringFeatureFunctionColumnSelectionResult'] = None,
                  extra_parameters: Optional[Sequence['outputs.GetFeatureEngineeringFeatureFunctionExtraParameterResult']] = None,
                  function_type: Optional[_builtins.str] = None):
         """
         :param 'GetFeatureEngineeringFeatureFunctionAggregationFunctionArgs' aggregation_function: (AggregationFunction) - An aggregation function applied over a time window
+        :param 'GetFeatureEngineeringFeatureFunctionColumnSelectionArgs' column_selection: (ColumnSelection) - Selects the latest value of a single column in a data source
         :param Sequence['GetFeatureEngineeringFeatureFunctionExtraParameterArgs'] extra_parameters: (list of FunctionExtraParameter, deprecated) - Deprecated: Use the function oneof with AggregationFunction instead. Kept for backwards compatibility.
                Extra parameters for parameterized functions
         :param _builtins.str function_type: (string, deprecated) - Deprecated: Use the function oneof with AggregationFunction instead. Kept for backwards compatibility.
@@ -66517,6 +74899,8 @@ class GetFeatureEngineeringFeatureFunctionResult(dict):
         """
         if aggregation_function is not None:
             pulumi.set(__self__, "aggregation_function", aggregation_function)
+        if column_selection is not None:
+            pulumi.set(__self__, "column_selection", column_selection)
         if extra_parameters is not None:
             pulumi.set(__self__, "extra_parameters", extra_parameters)
         if function_type is not None:
@@ -66529,6 +74913,14 @@ class GetFeatureEngineeringFeatureFunctionResult(dict):
         (AggregationFunction) - An aggregation function applied over a time window
         """
         return pulumi.get(self, "aggregation_function")
+
+    @_builtins.property
+    @pulumi.getter(name="columnSelection")
+    def column_selection(self) -> Optional['outputs.GetFeatureEngineeringFeatureFunctionColumnSelectionResult']:
+        """
+        (ColumnSelection) - Selects the latest value of a single column in a data source
+        """
+        return pulumi.get(self, "column_selection")
 
     @_builtins.property
     @pulumi.getter(name="extraParameters")
@@ -67114,6 +75506,24 @@ class GetFeatureEngineeringFeatureFunctionAggregationFunctionVarSampResult(dict)
 
 
 @pulumi.output_type
+class GetFeatureEngineeringFeatureFunctionColumnSelectionResult(dict):
+    def __init__(__self__, *,
+                 column: _builtins.str):
+        """
+        :param _builtins.str column: (string) - Column name from source to select as the feature value
+        """
+        pulumi.set(__self__, "column", column)
+
+    @_builtins.property
+    @pulumi.getter
+    def column(self) -> _builtins.str:
+        """
+        (string) - Column name from source to select as the feature value
+        """
+        return pulumi.get(self, "column")
+
+
+@pulumi.output_type
 class GetFeatureEngineeringFeatureFunctionExtraParameterResult(dict):
     def __init__(__self__, *,
                  key: _builtins.str,
@@ -67226,21 +75636,25 @@ class GetFeatureEngineeringFeatureProviderConfigResult(dict):
 class GetFeatureEngineeringFeatureSourceResult(dict):
     def __init__(__self__, *,
                  delta_table_source: Optional['outputs.GetFeatureEngineeringFeatureSourceDeltaTableSourceResult'] = None,
-                 kafka_source: Optional['outputs.GetFeatureEngineeringFeatureSourceKafkaSourceResult'] = None):
+                 kafka_source: Optional['outputs.GetFeatureEngineeringFeatureSourceKafkaSourceResult'] = None,
+                 request_source: Optional['outputs.GetFeatureEngineeringFeatureSourceRequestSourceResult'] = None):
         """
-        :param 'GetFeatureEngineeringFeatureSourceDeltaTableSourceArgs' delta_table_source: (DeltaTableSource)
-        :param 'GetFeatureEngineeringFeatureSourceKafkaSourceArgs' kafka_source: (KafkaSource)
+        :param 'GetFeatureEngineeringFeatureSourceDeltaTableSourceArgs' delta_table_source: (DeltaTableSource) - A Delta table data source
+        :param 'GetFeatureEngineeringFeatureSourceKafkaSourceArgs' kafka_source: (KafkaSource) - A Kafka stream data source
+        :param 'GetFeatureEngineeringFeatureSourceRequestSourceArgs' request_source: (RequestSource) - A request-time data source
         """
         if delta_table_source is not None:
             pulumi.set(__self__, "delta_table_source", delta_table_source)
         if kafka_source is not None:
             pulumi.set(__self__, "kafka_source", kafka_source)
+        if request_source is not None:
+            pulumi.set(__self__, "request_source", request_source)
 
     @_builtins.property
     @pulumi.getter(name="deltaTableSource")
     def delta_table_source(self) -> Optional['outputs.GetFeatureEngineeringFeatureSourceDeltaTableSourceResult']:
         """
-        (DeltaTableSource)
+        (DeltaTableSource) - A Delta table data source
         """
         return pulumi.get(self, "delta_table_source")
 
@@ -67248,9 +75662,17 @@ class GetFeatureEngineeringFeatureSourceResult(dict):
     @pulumi.getter(name="kafkaSource")
     def kafka_source(self) -> Optional['outputs.GetFeatureEngineeringFeatureSourceKafkaSourceResult']:
         """
-        (KafkaSource)
+        (KafkaSource) - A Kafka stream data source
         """
         return pulumi.get(self, "kafka_source")
+
+    @_builtins.property
+    @pulumi.getter(name="requestSource")
+    def request_source(self) -> Optional['outputs.GetFeatureEngineeringFeatureSourceRequestSourceResult']:
+        """
+        (RequestSource) - A request-time data source
+        """
+        return pulumi.get(self, "request_source")
 
 
 @pulumi.output_type
@@ -67351,7 +75773,12 @@ class GetFeatureEngineeringFeatureSourceKafkaSourceResult(dict):
                  filter_condition: Optional[_builtins.str] = None,
                  timeseries_column_identifier: Optional['outputs.GetFeatureEngineeringFeatureSourceKafkaSourceTimeseriesColumnIdentifierResult'] = None):
         """
-        :param _builtins.str name: (string) - The name of the timeseries column
+        :param _builtins.str name: (string) - The name of the timeseries column. For Kafka sources, use dot-prefixed path notation to
+               reference fields within the key or value schema (e.g., "value.event_timestamp"). For nested
+               fields, the leaf node name (e.g., "event_timestamp" from "value.event_details.event_timestamp")
+               is what will be present in materialized tables and expected to match at query time.
+               TODO(FS-939): Colon-prefixed notation (e.g., "value:event_timestamp") is supported for
+               backwards compatibility but is deprecated; migrate to dot notation
         :param Sequence['GetFeatureEngineeringFeatureSourceKafkaSourceEntityColumnIdentifierArgs'] entity_column_identifiers: (list of ColumnIdentifier, deprecated) - Deprecated: Use Feature.entity instead. Kept for backwards compatibility.
                The entity column identifiers of the Kafka source
         :param _builtins.str filter_condition: (string) - The filter condition applied to the source data before aggregation
@@ -67370,7 +75797,12 @@ class GetFeatureEngineeringFeatureSourceKafkaSourceResult(dict):
     @pulumi.getter
     def name(self) -> _builtins.str:
         """
-        (string) - The name of the timeseries column
+        (string) - The name of the timeseries column. For Kafka sources, use dot-prefixed path notation to
+        reference fields within the key or value schema (e.g., "value.event_timestamp"). For nested
+        fields, the leaf node name (e.g., "event_timestamp" from "value.event_details.event_timestamp")
+        is what will be present in materialized tables and expected to match at query time.
+        TODO(FS-939): Colon-prefixed notation (e.g., "value:event_timestamp") is supported for
+        backwards compatibility but is deprecated; migrate to dot notation
         """
         return pulumi.get(self, "name")
 
@@ -67406,8 +75838,8 @@ class GetFeatureEngineeringFeatureSourceKafkaSourceEntityColumnIdentifierResult(
     def __init__(__self__, *,
                  variant_expr_path: _builtins.str):
         """
-        :param _builtins.str variant_expr_path: (string) - String representation of the column name or variant expression path. For nested fields, the leaf value is what will be present in materialized tables
-               and expected to match at query time. For example, the leaf node of value:trip_details.location_details.pickup_zip is pickup_zip
+        :param _builtins.str variant_expr_path: (string) - String representation of the column name using dot-prefixed path notation. For nested fields, the leaf value is what will be present in materialized tables
+               and expected to match at query time. For example, the leaf node of value.trip_details.location_details.pickup_zip is pickup_zip
         """
         pulumi.set(__self__, "variant_expr_path", variant_expr_path)
 
@@ -67415,8 +75847,8 @@ class GetFeatureEngineeringFeatureSourceKafkaSourceEntityColumnIdentifierResult(
     @pulumi.getter(name="variantExprPath")
     def variant_expr_path(self) -> _builtins.str:
         """
-        (string) - String representation of the column name or variant expression path. For nested fields, the leaf value is what will be present in materialized tables
-        and expected to match at query time. For example, the leaf node of value:trip_details.location_details.pickup_zip is pickup_zip
+        (string) - String representation of the column name using dot-prefixed path notation. For nested fields, the leaf value is what will be present in materialized tables
+        and expected to match at query time. For example, the leaf node of value.trip_details.location_details.pickup_zip is pickup_zip
         """
         return pulumi.get(self, "variant_expr_path")
 
@@ -67426,8 +75858,8 @@ class GetFeatureEngineeringFeatureSourceKafkaSourceTimeseriesColumnIdentifierRes
     def __init__(__self__, *,
                  variant_expr_path: _builtins.str):
         """
-        :param _builtins.str variant_expr_path: (string) - String representation of the column name or variant expression path. For nested fields, the leaf value is what will be present in materialized tables
-               and expected to match at query time. For example, the leaf node of value:trip_details.location_details.pickup_zip is pickup_zip
+        :param _builtins.str variant_expr_path: (string) - String representation of the column name using dot-prefixed path notation. For nested fields, the leaf value is what will be present in materialized tables
+               and expected to match at query time. For example, the leaf node of value.trip_details.location_details.pickup_zip is pickup_zip
         """
         pulumi.set(__self__, "variant_expr_path", variant_expr_path)
 
@@ -67435,10 +75867,86 @@ class GetFeatureEngineeringFeatureSourceKafkaSourceTimeseriesColumnIdentifierRes
     @pulumi.getter(name="variantExprPath")
     def variant_expr_path(self) -> _builtins.str:
         """
-        (string) - String representation of the column name or variant expression path. For nested fields, the leaf value is what will be present in materialized tables
-        and expected to match at query time. For example, the leaf node of value:trip_details.location_details.pickup_zip is pickup_zip
+        (string) - String representation of the column name using dot-prefixed path notation. For nested fields, the leaf value is what will be present in materialized tables
+        and expected to match at query time. For example, the leaf node of value.trip_details.location_details.pickup_zip is pickup_zip
         """
         return pulumi.get(self, "variant_expr_path")
+
+
+@pulumi.output_type
+class GetFeatureEngineeringFeatureSourceRequestSourceResult(dict):
+    def __init__(__self__, *,
+                 flat_schema: Optional['outputs.GetFeatureEngineeringFeatureSourceRequestSourceFlatSchemaResult'] = None):
+        """
+        :param 'GetFeatureEngineeringFeatureSourceRequestSourceFlatSchemaArgs' flat_schema: (FlatSchema) - A flat schema with scalar-typed fields only
+        """
+        if flat_schema is not None:
+            pulumi.set(__self__, "flat_schema", flat_schema)
+
+    @_builtins.property
+    @pulumi.getter(name="flatSchema")
+    def flat_schema(self) -> Optional['outputs.GetFeatureEngineeringFeatureSourceRequestSourceFlatSchemaResult']:
+        """
+        (FlatSchema) - A flat schema with scalar-typed fields only
+        """
+        return pulumi.get(self, "flat_schema")
+
+
+@pulumi.output_type
+class GetFeatureEngineeringFeatureSourceRequestSourceFlatSchemaResult(dict):
+    def __init__(__self__, *,
+                 fields: Sequence['outputs.GetFeatureEngineeringFeatureSourceRequestSourceFlatSchemaFieldResult']):
+        """
+        :param Sequence['GetFeatureEngineeringFeatureSourceRequestSourceFlatSchemaFieldArgs'] fields: (list of FieldDefinition) - The list of fields in this schema
+        """
+        pulumi.set(__self__, "fields", fields)
+
+    @_builtins.property
+    @pulumi.getter
+    def fields(self) -> Sequence['outputs.GetFeatureEngineeringFeatureSourceRequestSourceFlatSchemaFieldResult']:
+        """
+        (list of FieldDefinition) - The list of fields in this schema
+        """
+        return pulumi.get(self, "fields")
+
+
+@pulumi.output_type
+class GetFeatureEngineeringFeatureSourceRequestSourceFlatSchemaFieldResult(dict):
+    def __init__(__self__, *,
+                 data_type: _builtins.str,
+                 name: _builtins.str):
+        """
+        :param _builtins.str data_type: (string) - The scalar data type of the field. Possible values are: `BINARY`, `BOOLEAN`, `DATE`, `DECIMAL`, `DOUBLE`, `FLOAT`, `INTEGER`, `LONG`, `SHORT`, `STRING`, `TIMESTAMP`
+        :param _builtins.str name: (string) - The name of the timeseries column. For Kafka sources, use dot-prefixed path notation to
+               reference fields within the key or value schema (e.g., "value.event_timestamp"). For nested
+               fields, the leaf node name (e.g., "event_timestamp" from "value.event_details.event_timestamp")
+               is what will be present in materialized tables and expected to match at query time.
+               TODO(FS-939): Colon-prefixed notation (e.g., "value:event_timestamp") is supported for
+               backwards compatibility but is deprecated; migrate to dot notation
+        """
+        pulumi.set(__self__, "data_type", data_type)
+        pulumi.set(__self__, "name", name)
+
+    @_builtins.property
+    @pulumi.getter(name="dataType")
+    def data_type(self) -> _builtins.str:
+        """
+        (string) - The scalar data type of the field. Possible values are: `BINARY`, `BOOLEAN`, `DATE`, `DECIMAL`, `DOUBLE`, `FLOAT`, `INTEGER`, `LONG`, `SHORT`, `STRING`, `TIMESTAMP`
+        """
+        return pulumi.get(self, "data_type")
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        """
+        (string) - The name of the timeseries column. For Kafka sources, use dot-prefixed path notation to
+        reference fields within the key or value schema (e.g., "value.event_timestamp"). For nested
+        fields, the leaf node name (e.g., "event_timestamp" from "value.event_details.event_timestamp")
+        is what will be present in materialized tables and expected to match at query time.
+        TODO(FS-939): Colon-prefixed notation (e.g., "value:event_timestamp") is supported for
+        backwards compatibility but is deprecated; migrate to dot notation
+        """
+        return pulumi.get(self, "name")
 
 
 @pulumi.output_type
@@ -67566,7 +76074,12 @@ class GetFeatureEngineeringFeatureTimeseriesColumnResult(dict):
     def __init__(__self__, *,
                  name: _builtins.str):
         """
-        :param _builtins.str name: (string) - The name of the timeseries column
+        :param _builtins.str name: (string) - The name of the timeseries column. For Kafka sources, use dot-prefixed path notation to
+               reference fields within the key or value schema (e.g., "value.event_timestamp"). For nested
+               fields, the leaf node name (e.g., "event_timestamp" from "value.event_details.event_timestamp")
+               is what will be present in materialized tables and expected to match at query time.
+               TODO(FS-939): Colon-prefixed notation (e.g., "value:event_timestamp") is supported for
+               backwards compatibility but is deprecated; migrate to dot notation
         """
         pulumi.set(__self__, "name", name)
 
@@ -67574,7 +76087,12 @@ class GetFeatureEngineeringFeatureTimeseriesColumnResult(dict):
     @pulumi.getter
     def name(self) -> _builtins.str:
         """
-        (string) - The name of the timeseries column
+        (string) - The name of the timeseries column. For Kafka sources, use dot-prefixed path notation to
+        reference fields within the key or value schema (e.g., "value.event_timestamp"). For nested
+        fields, the leaf node name (e.g., "event_timestamp" from "value.event_details.event_timestamp")
+        is what will be present in materialized tables and expected to match at query time.
+        TODO(FS-939): Colon-prefixed notation (e.g., "value:event_timestamp") is supported for
+        backwards compatibility but is deprecated; migrate to dot notation
         """
         return pulumi.get(self, "name")
 
@@ -67725,7 +76243,12 @@ class GetFeatureEngineeringFeaturesFeatureEntityResult(dict):
     def __init__(__self__, *,
                  name: _builtins.str):
         """
-        :param _builtins.str name: (string) - The name of the timeseries column
+        :param _builtins.str name: (string) - The name of the timeseries column. For Kafka sources, use dot-prefixed path notation to
+               reference fields within the key or value schema (e.g., "value.event_timestamp"). For nested
+               fields, the leaf node name (e.g., "event_timestamp" from "value.event_details.event_timestamp")
+               is what will be present in materialized tables and expected to match at query time.
+               TODO(FS-939): Colon-prefixed notation (e.g., "value:event_timestamp") is supported for
+               backwards compatibility but is deprecated; migrate to dot notation
         """
         pulumi.set(__self__, "name", name)
 
@@ -67733,7 +76256,12 @@ class GetFeatureEngineeringFeaturesFeatureEntityResult(dict):
     @pulumi.getter
     def name(self) -> _builtins.str:
         """
-        (string) - The name of the timeseries column
+        (string) - The name of the timeseries column. For Kafka sources, use dot-prefixed path notation to
+        reference fields within the key or value schema (e.g., "value.event_timestamp"). For nested
+        fields, the leaf node name (e.g., "event_timestamp" from "value.event_details.event_timestamp")
+        is what will be present in materialized tables and expected to match at query time.
+        TODO(FS-939): Colon-prefixed notation (e.g., "value:event_timestamp") is supported for
+        backwards compatibility but is deprecated; migrate to dot notation
         """
         return pulumi.get(self, "name")
 
@@ -67742,10 +76270,12 @@ class GetFeatureEngineeringFeaturesFeatureEntityResult(dict):
 class GetFeatureEngineeringFeaturesFeatureFunctionResult(dict):
     def __init__(__self__, *,
                  aggregation_function: Optional['outputs.GetFeatureEngineeringFeaturesFeatureFunctionAggregationFunctionResult'] = None,
+                 column_selection: Optional['outputs.GetFeatureEngineeringFeaturesFeatureFunctionColumnSelectionResult'] = None,
                  extra_parameters: Optional[Sequence['outputs.GetFeatureEngineeringFeaturesFeatureFunctionExtraParameterResult']] = None,
                  function_type: Optional[_builtins.str] = None):
         """
         :param 'GetFeatureEngineeringFeaturesFeatureFunctionAggregationFunctionArgs' aggregation_function: (AggregationFunction) - An aggregation function applied over a time window
+        :param 'GetFeatureEngineeringFeaturesFeatureFunctionColumnSelectionArgs' column_selection: (ColumnSelection) - Selects the latest value of a single column in a data source
         :param Sequence['GetFeatureEngineeringFeaturesFeatureFunctionExtraParameterArgs'] extra_parameters: (list of FunctionExtraParameter, deprecated) - Deprecated: Use the function oneof with AggregationFunction instead. Kept for backwards compatibility.
                Extra parameters for parameterized functions
         :param _builtins.str function_type: (string, deprecated) - Deprecated: Use the function oneof with AggregationFunction instead. Kept for backwards compatibility.
@@ -67753,6 +76283,8 @@ class GetFeatureEngineeringFeaturesFeatureFunctionResult(dict):
         """
         if aggregation_function is not None:
             pulumi.set(__self__, "aggregation_function", aggregation_function)
+        if column_selection is not None:
+            pulumi.set(__self__, "column_selection", column_selection)
         if extra_parameters is not None:
             pulumi.set(__self__, "extra_parameters", extra_parameters)
         if function_type is not None:
@@ -67765,6 +76297,14 @@ class GetFeatureEngineeringFeaturesFeatureFunctionResult(dict):
         (AggregationFunction) - An aggregation function applied over a time window
         """
         return pulumi.get(self, "aggregation_function")
+
+    @_builtins.property
+    @pulumi.getter(name="columnSelection")
+    def column_selection(self) -> Optional['outputs.GetFeatureEngineeringFeaturesFeatureFunctionColumnSelectionResult']:
+        """
+        (ColumnSelection) - Selects the latest value of a single column in a data source
+        """
+        return pulumi.get(self, "column_selection")
 
     @_builtins.property
     @pulumi.getter(name="extraParameters")
@@ -68350,6 +76890,24 @@ class GetFeatureEngineeringFeaturesFeatureFunctionAggregationFunctionVarSampResu
 
 
 @pulumi.output_type
+class GetFeatureEngineeringFeaturesFeatureFunctionColumnSelectionResult(dict):
+    def __init__(__self__, *,
+                 column: _builtins.str):
+        """
+        :param _builtins.str column: (string) - Column name from source to select as the feature value
+        """
+        pulumi.set(__self__, "column", column)
+
+    @_builtins.property
+    @pulumi.getter
+    def column(self) -> _builtins.str:
+        """
+        (string) - Column name from source to select as the feature value
+        """
+        return pulumi.get(self, "column")
+
+
+@pulumi.output_type
 class GetFeatureEngineeringFeaturesFeatureFunctionExtraParameterResult(dict):
     def __init__(__self__, *,
                  key: _builtins.str,
@@ -68462,21 +77020,25 @@ class GetFeatureEngineeringFeaturesFeatureProviderConfigResult(dict):
 class GetFeatureEngineeringFeaturesFeatureSourceResult(dict):
     def __init__(__self__, *,
                  delta_table_source: Optional['outputs.GetFeatureEngineeringFeaturesFeatureSourceDeltaTableSourceResult'] = None,
-                 kafka_source: Optional['outputs.GetFeatureEngineeringFeaturesFeatureSourceKafkaSourceResult'] = None):
+                 kafka_source: Optional['outputs.GetFeatureEngineeringFeaturesFeatureSourceKafkaSourceResult'] = None,
+                 request_source: Optional['outputs.GetFeatureEngineeringFeaturesFeatureSourceRequestSourceResult'] = None):
         """
-        :param 'GetFeatureEngineeringFeaturesFeatureSourceDeltaTableSourceArgs' delta_table_source: (DeltaTableSource)
-        :param 'GetFeatureEngineeringFeaturesFeatureSourceKafkaSourceArgs' kafka_source: (KafkaSource)
+        :param 'GetFeatureEngineeringFeaturesFeatureSourceDeltaTableSourceArgs' delta_table_source: (DeltaTableSource) - A Delta table data source
+        :param 'GetFeatureEngineeringFeaturesFeatureSourceKafkaSourceArgs' kafka_source: (KafkaSource) - A Kafka stream data source
+        :param 'GetFeatureEngineeringFeaturesFeatureSourceRequestSourceArgs' request_source: (RequestSource) - A request-time data source
         """
         if delta_table_source is not None:
             pulumi.set(__self__, "delta_table_source", delta_table_source)
         if kafka_source is not None:
             pulumi.set(__self__, "kafka_source", kafka_source)
+        if request_source is not None:
+            pulumi.set(__self__, "request_source", request_source)
 
     @_builtins.property
     @pulumi.getter(name="deltaTableSource")
     def delta_table_source(self) -> Optional['outputs.GetFeatureEngineeringFeaturesFeatureSourceDeltaTableSourceResult']:
         """
-        (DeltaTableSource)
+        (DeltaTableSource) - A Delta table data source
         """
         return pulumi.get(self, "delta_table_source")
 
@@ -68484,9 +77046,17 @@ class GetFeatureEngineeringFeaturesFeatureSourceResult(dict):
     @pulumi.getter(name="kafkaSource")
     def kafka_source(self) -> Optional['outputs.GetFeatureEngineeringFeaturesFeatureSourceKafkaSourceResult']:
         """
-        (KafkaSource)
+        (KafkaSource) - A Kafka stream data source
         """
         return pulumi.get(self, "kafka_source")
+
+    @_builtins.property
+    @pulumi.getter(name="requestSource")
+    def request_source(self) -> Optional['outputs.GetFeatureEngineeringFeaturesFeatureSourceRequestSourceResult']:
+        """
+        (RequestSource) - A request-time data source
+        """
+        return pulumi.get(self, "request_source")
 
 
 @pulumi.output_type
@@ -68587,7 +77157,12 @@ class GetFeatureEngineeringFeaturesFeatureSourceKafkaSourceResult(dict):
                  filter_condition: Optional[_builtins.str] = None,
                  timeseries_column_identifier: Optional['outputs.GetFeatureEngineeringFeaturesFeatureSourceKafkaSourceTimeseriesColumnIdentifierResult'] = None):
         """
-        :param _builtins.str name: (string) - The name of the timeseries column
+        :param _builtins.str name: (string) - The name of the timeseries column. For Kafka sources, use dot-prefixed path notation to
+               reference fields within the key or value schema (e.g., "value.event_timestamp"). For nested
+               fields, the leaf node name (e.g., "event_timestamp" from "value.event_details.event_timestamp")
+               is what will be present in materialized tables and expected to match at query time.
+               TODO(FS-939): Colon-prefixed notation (e.g., "value:event_timestamp") is supported for
+               backwards compatibility but is deprecated; migrate to dot notation
         :param Sequence['GetFeatureEngineeringFeaturesFeatureSourceKafkaSourceEntityColumnIdentifierArgs'] entity_column_identifiers: (list of ColumnIdentifier, deprecated) - Deprecated: Use Feature.entity instead. Kept for backwards compatibility.
                The entity column identifiers of the Kafka source
         :param _builtins.str filter_condition: (string) - The filter condition applied to the source data before aggregation
@@ -68606,7 +77181,12 @@ class GetFeatureEngineeringFeaturesFeatureSourceKafkaSourceResult(dict):
     @pulumi.getter
     def name(self) -> _builtins.str:
         """
-        (string) - The name of the timeseries column
+        (string) - The name of the timeseries column. For Kafka sources, use dot-prefixed path notation to
+        reference fields within the key or value schema (e.g., "value.event_timestamp"). For nested
+        fields, the leaf node name (e.g., "event_timestamp" from "value.event_details.event_timestamp")
+        is what will be present in materialized tables and expected to match at query time.
+        TODO(FS-939): Colon-prefixed notation (e.g., "value:event_timestamp") is supported for
+        backwards compatibility but is deprecated; migrate to dot notation
         """
         return pulumi.get(self, "name")
 
@@ -68642,8 +77222,8 @@ class GetFeatureEngineeringFeaturesFeatureSourceKafkaSourceEntityColumnIdentifie
     def __init__(__self__, *,
                  variant_expr_path: _builtins.str):
         """
-        :param _builtins.str variant_expr_path: (string) - String representation of the column name or variant expression path. For nested fields, the leaf value is what will be present in materialized tables
-               and expected to match at query time. For example, the leaf node of value:trip_details.location_details.pickup_zip is pickup_zip
+        :param _builtins.str variant_expr_path: (string) - String representation of the column name using dot-prefixed path notation. For nested fields, the leaf value is what will be present in materialized tables
+               and expected to match at query time. For example, the leaf node of value.trip_details.location_details.pickup_zip is pickup_zip
         """
         pulumi.set(__self__, "variant_expr_path", variant_expr_path)
 
@@ -68651,8 +77231,8 @@ class GetFeatureEngineeringFeaturesFeatureSourceKafkaSourceEntityColumnIdentifie
     @pulumi.getter(name="variantExprPath")
     def variant_expr_path(self) -> _builtins.str:
         """
-        (string) - String representation of the column name or variant expression path. For nested fields, the leaf value is what will be present in materialized tables
-        and expected to match at query time. For example, the leaf node of value:trip_details.location_details.pickup_zip is pickup_zip
+        (string) - String representation of the column name using dot-prefixed path notation. For nested fields, the leaf value is what will be present in materialized tables
+        and expected to match at query time. For example, the leaf node of value.trip_details.location_details.pickup_zip is pickup_zip
         """
         return pulumi.get(self, "variant_expr_path")
 
@@ -68662,8 +77242,8 @@ class GetFeatureEngineeringFeaturesFeatureSourceKafkaSourceTimeseriesColumnIdent
     def __init__(__self__, *,
                  variant_expr_path: _builtins.str):
         """
-        :param _builtins.str variant_expr_path: (string) - String representation of the column name or variant expression path. For nested fields, the leaf value is what will be present in materialized tables
-               and expected to match at query time. For example, the leaf node of value:trip_details.location_details.pickup_zip is pickup_zip
+        :param _builtins.str variant_expr_path: (string) - String representation of the column name using dot-prefixed path notation. For nested fields, the leaf value is what will be present in materialized tables
+               and expected to match at query time. For example, the leaf node of value.trip_details.location_details.pickup_zip is pickup_zip
         """
         pulumi.set(__self__, "variant_expr_path", variant_expr_path)
 
@@ -68671,10 +77251,86 @@ class GetFeatureEngineeringFeaturesFeatureSourceKafkaSourceTimeseriesColumnIdent
     @pulumi.getter(name="variantExprPath")
     def variant_expr_path(self) -> _builtins.str:
         """
-        (string) - String representation of the column name or variant expression path. For nested fields, the leaf value is what will be present in materialized tables
-        and expected to match at query time. For example, the leaf node of value:trip_details.location_details.pickup_zip is pickup_zip
+        (string) - String representation of the column name using dot-prefixed path notation. For nested fields, the leaf value is what will be present in materialized tables
+        and expected to match at query time. For example, the leaf node of value.trip_details.location_details.pickup_zip is pickup_zip
         """
         return pulumi.get(self, "variant_expr_path")
+
+
+@pulumi.output_type
+class GetFeatureEngineeringFeaturesFeatureSourceRequestSourceResult(dict):
+    def __init__(__self__, *,
+                 flat_schema: Optional['outputs.GetFeatureEngineeringFeaturesFeatureSourceRequestSourceFlatSchemaResult'] = None):
+        """
+        :param 'GetFeatureEngineeringFeaturesFeatureSourceRequestSourceFlatSchemaArgs' flat_schema: (FlatSchema) - A flat schema with scalar-typed fields only
+        """
+        if flat_schema is not None:
+            pulumi.set(__self__, "flat_schema", flat_schema)
+
+    @_builtins.property
+    @pulumi.getter(name="flatSchema")
+    def flat_schema(self) -> Optional['outputs.GetFeatureEngineeringFeaturesFeatureSourceRequestSourceFlatSchemaResult']:
+        """
+        (FlatSchema) - A flat schema with scalar-typed fields only
+        """
+        return pulumi.get(self, "flat_schema")
+
+
+@pulumi.output_type
+class GetFeatureEngineeringFeaturesFeatureSourceRequestSourceFlatSchemaResult(dict):
+    def __init__(__self__, *,
+                 fields: Sequence['outputs.GetFeatureEngineeringFeaturesFeatureSourceRequestSourceFlatSchemaFieldResult']):
+        """
+        :param Sequence['GetFeatureEngineeringFeaturesFeatureSourceRequestSourceFlatSchemaFieldArgs'] fields: (list of FieldDefinition) - The list of fields in this schema
+        """
+        pulumi.set(__self__, "fields", fields)
+
+    @_builtins.property
+    @pulumi.getter
+    def fields(self) -> Sequence['outputs.GetFeatureEngineeringFeaturesFeatureSourceRequestSourceFlatSchemaFieldResult']:
+        """
+        (list of FieldDefinition) - The list of fields in this schema
+        """
+        return pulumi.get(self, "fields")
+
+
+@pulumi.output_type
+class GetFeatureEngineeringFeaturesFeatureSourceRequestSourceFlatSchemaFieldResult(dict):
+    def __init__(__self__, *,
+                 data_type: _builtins.str,
+                 name: _builtins.str):
+        """
+        :param _builtins.str data_type: (string) - The scalar data type of the field. Possible values are: `BINARY`, `BOOLEAN`, `DATE`, `DECIMAL`, `DOUBLE`, `FLOAT`, `INTEGER`, `LONG`, `SHORT`, `STRING`, `TIMESTAMP`
+        :param _builtins.str name: (string) - The name of the timeseries column. For Kafka sources, use dot-prefixed path notation to
+               reference fields within the key or value schema (e.g., "value.event_timestamp"). For nested
+               fields, the leaf node name (e.g., "event_timestamp" from "value.event_details.event_timestamp")
+               is what will be present in materialized tables and expected to match at query time.
+               TODO(FS-939): Colon-prefixed notation (e.g., "value:event_timestamp") is supported for
+               backwards compatibility but is deprecated; migrate to dot notation
+        """
+        pulumi.set(__self__, "data_type", data_type)
+        pulumi.set(__self__, "name", name)
+
+    @_builtins.property
+    @pulumi.getter(name="dataType")
+    def data_type(self) -> _builtins.str:
+        """
+        (string) - The scalar data type of the field. Possible values are: `BINARY`, `BOOLEAN`, `DATE`, `DECIMAL`, `DOUBLE`, `FLOAT`, `INTEGER`, `LONG`, `SHORT`, `STRING`, `TIMESTAMP`
+        """
+        return pulumi.get(self, "data_type")
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        """
+        (string) - The name of the timeseries column. For Kafka sources, use dot-prefixed path notation to
+        reference fields within the key or value schema (e.g., "value.event_timestamp"). For nested
+        fields, the leaf node name (e.g., "event_timestamp" from "value.event_details.event_timestamp")
+        is what will be present in materialized tables and expected to match at query time.
+        TODO(FS-939): Colon-prefixed notation (e.g., "value:event_timestamp") is supported for
+        backwards compatibility but is deprecated; migrate to dot notation
+        """
+        return pulumi.get(self, "name")
 
 
 @pulumi.output_type
@@ -68802,7 +77458,12 @@ class GetFeatureEngineeringFeaturesFeatureTimeseriesColumnResult(dict):
     def __init__(__self__, *,
                  name: _builtins.str):
         """
-        :param _builtins.str name: (string) - The name of the timeseries column
+        :param _builtins.str name: (string) - The name of the timeseries column. For Kafka sources, use dot-prefixed path notation to
+               reference fields within the key or value schema (e.g., "value.event_timestamp"). For nested
+               fields, the leaf node name (e.g., "event_timestamp" from "value.event_details.event_timestamp")
+               is what will be present in materialized tables and expected to match at query time.
+               TODO(FS-939): Colon-prefixed notation (e.g., "value:event_timestamp") is supported for
+               backwards compatibility but is deprecated; migrate to dot notation
         """
         pulumi.set(__self__, "name", name)
 
@@ -68810,7 +77471,12 @@ class GetFeatureEngineeringFeaturesFeatureTimeseriesColumnResult(dict):
     @pulumi.getter
     def name(self) -> _builtins.str:
         """
-        (string) - The name of the timeseries column
+        (string) - The name of the timeseries column. For Kafka sources, use dot-prefixed path notation to
+        reference fields within the key or value schema (e.g., "value.event_timestamp"). For nested
+        fields, the leaf node name (e.g., "event_timestamp" from "value.event_details.event_timestamp")
+        is what will be present in materialized tables and expected to match at query time.
+        TODO(FS-939): Colon-prefixed notation (e.g., "value:event_timestamp") is supported for
+        backwards compatibility but is deprecated; migrate to dot notation
         """
         return pulumi.get(self, "name")
 
@@ -69552,6 +78218,7 @@ class GetFeatureEngineeringMaterializedFeaturesMaterializedFeatureResult(dict):
     def __init__(__self__, *,
                  cron_schedule: _builtins.str,
                  feature_name: _builtins.str,
+                 is_online: _builtins.bool,
                  last_materialization_time: _builtins.str,
                  materialized_feature_id: _builtins.str,
                  offline_store_config: 'outputs.GetFeatureEngineeringMaterializedFeaturesMaterializedFeatureOfflineStoreConfigResult',
@@ -69562,6 +78229,7 @@ class GetFeatureEngineeringMaterializedFeaturesMaterializedFeatureResult(dict):
         """
         :param _builtins.str cron_schedule: (string) - The quartz cron expression that defines the schedule of the materialization pipeline. The schedule is evaluated in the UTC timezone
         :param _builtins.str feature_name: Filter by feature name. If specified, only materialized features materialized from this feature will be returned
+        :param _builtins.bool is_online: (boolean) - True if this is an online materialized feature. False if it is an offline materialized feature
         :param _builtins.str last_materialization_time: (string) - The timestamp when the pipeline last ran and updated the materialized feature values.
                If the pipeline has not run yet, this field will be null
         :param _builtins.str materialized_feature_id: (string) - Unique identifier for the materialized feature
@@ -69573,6 +78241,7 @@ class GetFeatureEngineeringMaterializedFeaturesMaterializedFeatureResult(dict):
         """
         pulumi.set(__self__, "cron_schedule", cron_schedule)
         pulumi.set(__self__, "feature_name", feature_name)
+        pulumi.set(__self__, "is_online", is_online)
         pulumi.set(__self__, "last_materialization_time", last_materialization_time)
         pulumi.set(__self__, "materialized_feature_id", materialized_feature_id)
         pulumi.set(__self__, "offline_store_config", offline_store_config)
@@ -69597,6 +78266,14 @@ class GetFeatureEngineeringMaterializedFeaturesMaterializedFeatureResult(dict):
         Filter by feature name. If specified, only materialized features materialized from this feature will be returned
         """
         return pulumi.get(self, "feature_name")
+
+    @_builtins.property
+    @pulumi.getter(name="isOnline")
+    def is_online(self) -> _builtins.bool:
+        """
+        (boolean) - True if this is an online materialized feature. False if it is an offline materialized feature
+        """
+        return pulumi.get(self, "is_online")
 
     @_builtins.property
     @pulumi.getter(name="lastMaterializationTime")
@@ -81790,6 +90467,109 @@ class GetPostgresBranchesProviderConfigResult(dict):
 
 
 @pulumi.output_type
+class GetPostgresCatalogProviderConfigResult(dict):
+    def __init__(__self__, *,
+                 workspace_id: _builtins.str):
+        """
+        :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
+        """
+        pulumi.set(__self__, "workspace_id", workspace_id)
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceId")
+    def workspace_id(self) -> _builtins.str:
+        """
+        Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
+        """
+        return pulumi.get(self, "workspace_id")
+
+
+@pulumi.output_type
+class GetPostgresCatalogSpecResult(dict):
+    def __init__(__self__, *,
+                 create_database_if_missing: _builtins.bool,
+                 postgres_database: _builtins.str,
+                 branch: Optional[_builtins.str] = None):
+        """
+        :param _builtins.bool create_database_if_missing: (boolean) - If set to true, the specified postgres_database is created on behalf of the calling user
+               if it does not already exist. In this case, the calling user has a role created for
+               them in Postgres if they do not already have one.
+        :param _builtins.str postgres_database: (string) - The name of the Postgres database associated with the catalog
+        :param _builtins.str branch: (string) - The resource path of the branch associated with the catalog.
+        """
+        pulumi.set(__self__, "create_database_if_missing", create_database_if_missing)
+        pulumi.set(__self__, "postgres_database", postgres_database)
+        if branch is not None:
+            pulumi.set(__self__, "branch", branch)
+
+    @_builtins.property
+    @pulumi.getter(name="createDatabaseIfMissing")
+    def create_database_if_missing(self) -> _builtins.bool:
+        """
+        (boolean) - If set to true, the specified postgres_database is created on behalf of the calling user
+        if it does not already exist. In this case, the calling user has a role created for
+        them in Postgres if they do not already have one.
+        """
+        return pulumi.get(self, "create_database_if_missing")
+
+    @_builtins.property
+    @pulumi.getter(name="postgresDatabase")
+    def postgres_database(self) -> _builtins.str:
+        """
+        (string) - The name of the Postgres database associated with the catalog
+        """
+        return pulumi.get(self, "postgres_database")
+
+    @_builtins.property
+    @pulumi.getter
+    def branch(self) -> Optional[_builtins.str]:
+        """
+        (string) - The resource path of the branch associated with the catalog.
+        """
+        return pulumi.get(self, "branch")
+
+
+@pulumi.output_type
+class GetPostgresCatalogStatusResult(dict):
+    def __init__(__self__, *,
+                 branch: _builtins.str,
+                 postgres_database: _builtins.str,
+                 project: _builtins.str):
+        """
+        :param _builtins.str branch: (string) - The resource path of the branch associated with the catalog.
+        :param _builtins.str postgres_database: (string) - The name of the Postgres database associated with the catalog
+        :param _builtins.str project: (string) - The resource path of the project associated with the catalog.
+        """
+        pulumi.set(__self__, "branch", branch)
+        pulumi.set(__self__, "postgres_database", postgres_database)
+        pulumi.set(__self__, "project", project)
+
+    @_builtins.property
+    @pulumi.getter
+    def branch(self) -> _builtins.str:
+        """
+        (string) - The resource path of the branch associated with the catalog.
+        """
+        return pulumi.get(self, "branch")
+
+    @_builtins.property
+    @pulumi.getter(name="postgresDatabase")
+    def postgres_database(self) -> _builtins.str:
+        """
+        (string) - The name of the Postgres database associated with the catalog
+        """
+        return pulumi.get(self, "postgres_database")
+
+    @_builtins.property
+    @pulumi.getter
+    def project(self) -> _builtins.str:
+        """
+        (string) - The resource path of the project associated with the catalog.
+        """
+        return pulumi.get(self, "project")
+
+
+@pulumi.output_type
 class GetPostgresDatabaseProviderConfigResult(dict):
     def __init__(__self__, *,
                  workspace_id: _builtins.str):
@@ -83115,6 +91895,7 @@ class GetPostgresProjectSpecResult(dict):
     def __init__(__self__, *,
                  budget_policy_id: Optional[_builtins.str] = None,
                  custom_tags: Optional[Sequence['outputs.GetPostgresProjectSpecCustomTagResult']] = None,
+                 default_branch: Optional[_builtins.str] = None,
                  default_endpoint_settings: Optional['outputs.GetPostgresProjectSpecDefaultEndpointSettingsResult'] = None,
                  display_name: Optional[_builtins.str] = None,
                  enable_pg_native_login: Optional[_builtins.bool] = None,
@@ -83123,6 +91904,7 @@ class GetPostgresProjectSpecResult(dict):
         """
         :param _builtins.str budget_policy_id: (string) - The budget policy that is applied to the project
         :param Sequence['GetPostgresProjectSpecCustomTagArgs'] custom_tags: (list of ProjectCustomTag) - The effective custom tags associated with the project
+        :param _builtins.str default_branch: (string) - The full resource path of the default branch of the project
         :param 'GetPostgresProjectSpecDefaultEndpointSettingsArgs' default_endpoint_settings: (ProjectDefaultEndpointSettings) - The effective default endpoint settings
         :param _builtins.str display_name: (string) - The effective human-readable project name
         :param _builtins.bool enable_pg_native_login: (boolean) - Whether to enable PG native password login on all endpoints in this project
@@ -83133,6 +91915,8 @@ class GetPostgresProjectSpecResult(dict):
             pulumi.set(__self__, "budget_policy_id", budget_policy_id)
         if custom_tags is not None:
             pulumi.set(__self__, "custom_tags", custom_tags)
+        if default_branch is not None:
+            pulumi.set(__self__, "default_branch", default_branch)
         if default_endpoint_settings is not None:
             pulumi.set(__self__, "default_endpoint_settings", default_endpoint_settings)
         if display_name is not None:
@@ -83159,6 +91943,14 @@ class GetPostgresProjectSpecResult(dict):
         (list of ProjectCustomTag) - The effective custom tags associated with the project
         """
         return pulumi.get(self, "custom_tags")
+
+    @_builtins.property
+    @pulumi.getter(name="defaultBranch")
+    def default_branch(self) -> Optional[_builtins.str]:
+        """
+        (string) - The full resource path of the default branch of the project
+        """
+        return pulumi.get(self, "default_branch")
 
     @_builtins.property
     @pulumi.getter(name="defaultEndpointSettings")
@@ -83309,6 +92101,7 @@ class GetPostgresProjectStatusResult(dict):
                  branch_logical_size_limit_bytes: _builtins.int,
                  budget_policy_id: _builtins.str,
                  custom_tags: Sequence['outputs.GetPostgresProjectStatusCustomTagResult'],
+                 default_branch: _builtins.str,
                  default_endpoint_settings: 'outputs.GetPostgresProjectStatusDefaultEndpointSettingsResult',
                  display_name: _builtins.str,
                  enable_pg_native_login: _builtins.bool,
@@ -83320,6 +92113,7 @@ class GetPostgresProjectStatusResult(dict):
         :param _builtins.int branch_logical_size_limit_bytes: (integer) - The logical size limit for a branch
         :param _builtins.str budget_policy_id: (string) - The budget policy that is applied to the project
         :param Sequence['GetPostgresProjectStatusCustomTagArgs'] custom_tags: (list of ProjectCustomTag) - The effective custom tags associated with the project
+        :param _builtins.str default_branch: (string) - The full resource path of the default branch of the project
         :param 'GetPostgresProjectStatusDefaultEndpointSettingsArgs' default_endpoint_settings: (ProjectDefaultEndpointSettings) - The effective default endpoint settings
         :param _builtins.str display_name: (string) - The effective human-readable project name
         :param _builtins.bool enable_pg_native_login: (boolean) - Whether to enable PG native password login on all endpoints in this project
@@ -83331,6 +92125,7 @@ class GetPostgresProjectStatusResult(dict):
         pulumi.set(__self__, "branch_logical_size_limit_bytes", branch_logical_size_limit_bytes)
         pulumi.set(__self__, "budget_policy_id", budget_policy_id)
         pulumi.set(__self__, "custom_tags", custom_tags)
+        pulumi.set(__self__, "default_branch", default_branch)
         pulumi.set(__self__, "default_endpoint_settings", default_endpoint_settings)
         pulumi.set(__self__, "display_name", display_name)
         pulumi.set(__self__, "enable_pg_native_login", enable_pg_native_login)
@@ -83362,6 +92157,14 @@ class GetPostgresProjectStatusResult(dict):
         (list of ProjectCustomTag) - The effective custom tags associated with the project
         """
         return pulumi.get(self, "custom_tags")
+
+    @_builtins.property
+    @pulumi.getter(name="defaultBranch")
+    def default_branch(self) -> _builtins.str:
+        """
+        (string) - The full resource path of the default branch of the project
+        """
+        return pulumi.get(self, "default_branch")
 
     @_builtins.property
     @pulumi.getter(name="defaultEndpointSettings")
@@ -83717,6 +92520,7 @@ class GetPostgresProjectsProjectSpecResult(dict):
     def __init__(__self__, *,
                  budget_policy_id: Optional[_builtins.str] = None,
                  custom_tags: Optional[Sequence['outputs.GetPostgresProjectsProjectSpecCustomTagResult']] = None,
+                 default_branch: Optional[_builtins.str] = None,
                  default_endpoint_settings: Optional['outputs.GetPostgresProjectsProjectSpecDefaultEndpointSettingsResult'] = None,
                  display_name: Optional[_builtins.str] = None,
                  enable_pg_native_login: Optional[_builtins.bool] = None,
@@ -83725,6 +92529,7 @@ class GetPostgresProjectsProjectSpecResult(dict):
         """
         :param _builtins.str budget_policy_id: (string) - The budget policy that is applied to the project
         :param Sequence['GetPostgresProjectsProjectSpecCustomTagArgs'] custom_tags: (list of ProjectCustomTag) - The effective custom tags associated with the project
+        :param _builtins.str default_branch: (string) - The full resource path of the default branch of the project
         :param 'GetPostgresProjectsProjectSpecDefaultEndpointSettingsArgs' default_endpoint_settings: (ProjectDefaultEndpointSettings) - The effective default endpoint settings
         :param _builtins.str display_name: (string) - The effective human-readable project name
         :param _builtins.bool enable_pg_native_login: (boolean) - Whether to enable PG native password login on all endpoints in this project
@@ -83735,6 +92540,8 @@ class GetPostgresProjectsProjectSpecResult(dict):
             pulumi.set(__self__, "budget_policy_id", budget_policy_id)
         if custom_tags is not None:
             pulumi.set(__self__, "custom_tags", custom_tags)
+        if default_branch is not None:
+            pulumi.set(__self__, "default_branch", default_branch)
         if default_endpoint_settings is not None:
             pulumi.set(__self__, "default_endpoint_settings", default_endpoint_settings)
         if display_name is not None:
@@ -83761,6 +92568,14 @@ class GetPostgresProjectsProjectSpecResult(dict):
         (list of ProjectCustomTag) - The effective custom tags associated with the project
         """
         return pulumi.get(self, "custom_tags")
+
+    @_builtins.property
+    @pulumi.getter(name="defaultBranch")
+    def default_branch(self) -> Optional[_builtins.str]:
+        """
+        (string) - The full resource path of the default branch of the project
+        """
+        return pulumi.get(self, "default_branch")
 
     @_builtins.property
     @pulumi.getter(name="defaultEndpointSettings")
@@ -83911,6 +92726,7 @@ class GetPostgresProjectsProjectStatusResult(dict):
                  branch_logical_size_limit_bytes: _builtins.int,
                  budget_policy_id: _builtins.str,
                  custom_tags: Sequence['outputs.GetPostgresProjectsProjectStatusCustomTagResult'],
+                 default_branch: _builtins.str,
                  default_endpoint_settings: 'outputs.GetPostgresProjectsProjectStatusDefaultEndpointSettingsResult',
                  display_name: _builtins.str,
                  enable_pg_native_login: _builtins.bool,
@@ -83922,6 +92738,7 @@ class GetPostgresProjectsProjectStatusResult(dict):
         :param _builtins.int branch_logical_size_limit_bytes: (integer) - The logical size limit for a branch
         :param _builtins.str budget_policy_id: (string) - The budget policy that is applied to the project
         :param Sequence['GetPostgresProjectsProjectStatusCustomTagArgs'] custom_tags: (list of ProjectCustomTag) - The effective custom tags associated with the project
+        :param _builtins.str default_branch: (string) - The full resource path of the default branch of the project
         :param 'GetPostgresProjectsProjectStatusDefaultEndpointSettingsArgs' default_endpoint_settings: (ProjectDefaultEndpointSettings) - The effective default endpoint settings
         :param _builtins.str display_name: (string) - The effective human-readable project name
         :param _builtins.bool enable_pg_native_login: (boolean) - Whether to enable PG native password login on all endpoints in this project
@@ -83933,6 +92750,7 @@ class GetPostgresProjectsProjectStatusResult(dict):
         pulumi.set(__self__, "branch_logical_size_limit_bytes", branch_logical_size_limit_bytes)
         pulumi.set(__self__, "budget_policy_id", budget_policy_id)
         pulumi.set(__self__, "custom_tags", custom_tags)
+        pulumi.set(__self__, "default_branch", default_branch)
         pulumi.set(__self__, "default_endpoint_settings", default_endpoint_settings)
         pulumi.set(__self__, "display_name", display_name)
         pulumi.set(__self__, "enable_pg_native_login", enable_pg_native_login)
@@ -83964,6 +92782,14 @@ class GetPostgresProjectsProjectStatusResult(dict):
         (list of ProjectCustomTag) - The effective custom tags associated with the project
         """
         return pulumi.get(self, "custom_tags")
+
+    @_builtins.property
+    @pulumi.getter(name="defaultBranch")
+    def default_branch(self) -> _builtins.str:
+        """
+        (string) - The full resource path of the default branch of the project
+        """
+        return pulumi.get(self, "default_branch")
 
     @_builtins.property
     @pulumi.getter(name="defaultEndpointSettings")
@@ -84723,6 +93549,445 @@ class GetPostgresRolesRoleStatusAttributesResult(dict):
         (boolean)
         """
         return pulumi.get(self, "createrole")
+
+
+@pulumi.output_type
+class GetPostgresSyncedTableProviderConfigResult(dict):
+    def __init__(__self__, *,
+                 workspace_id: _builtins.str):
+        """
+        :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
+        """
+        pulumi.set(__self__, "workspace_id", workspace_id)
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceId")
+    def workspace_id(self) -> _builtins.str:
+        """
+        Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
+        """
+        return pulumi.get(self, "workspace_id")
+
+
+@pulumi.output_type
+class GetPostgresSyncedTableSpecResult(dict):
+    def __init__(__self__, *,
+                 branch: Optional[_builtins.str] = None,
+                 create_database_objects_if_missing: Optional[_builtins.bool] = None,
+                 existing_pipeline_id: Optional[_builtins.str] = None,
+                 new_pipeline_spec: Optional['outputs.GetPostgresSyncedTableSpecNewPipelineSpecResult'] = None,
+                 postgres_database: Optional[_builtins.str] = None,
+                 primary_key_columns: Optional[Sequence[_builtins.str]] = None,
+                 scheduling_policy: Optional[_builtins.str] = None,
+                 source_table_full_name: Optional[_builtins.str] = None,
+                 timeseries_key: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str branch: (string) - The full resource name the branch associated with the table.
+        :param _builtins.bool create_database_objects_if_missing: (boolean) - If true, the synced table's logical database and schema resources in PG
+               will be created if they do not already exist.
+               The request will fail if this is false and the database/schema do not exist.
+        :param _builtins.str existing_pipeline_id: (string) - ID of an existing pipeline to bin-pack this synced table into.
+               At most one of existing_pipeline_id and new_pipeline_spec should be defined.
+        :param 'GetPostgresSyncedTableSpecNewPipelineSpecArgs' new_pipeline_spec: (NewPipelineSpec) - Specification for creating a new pipeline.
+               At most one of existing_pipeline_id and new_pipeline_spec should be defined.
+        :param _builtins.str postgres_database: (string) - The Postgres database name where the synced table will be created in.
+        :param Sequence[_builtins.str] primary_key_columns: (list of string) - Primary Key columns to be used for data insert/update in the destination
+        :param _builtins.str scheduling_policy: (string) - Scheduling policy of the underlying pipeline. Possible values are: `CONTINUOUS`, `SNAPSHOT`, `TRIGGERED`
+        :param _builtins.str source_table_full_name: (string) - Three-part (catalog, schema, table) name of the source Delta table.
+        :param _builtins.str timeseries_key: (string) - Time series key to deduplicate (tie-break) rows with the same primary key
+        """
+        if branch is not None:
+            pulumi.set(__self__, "branch", branch)
+        if create_database_objects_if_missing is not None:
+            pulumi.set(__self__, "create_database_objects_if_missing", create_database_objects_if_missing)
+        if existing_pipeline_id is not None:
+            pulumi.set(__self__, "existing_pipeline_id", existing_pipeline_id)
+        if new_pipeline_spec is not None:
+            pulumi.set(__self__, "new_pipeline_spec", new_pipeline_spec)
+        if postgres_database is not None:
+            pulumi.set(__self__, "postgres_database", postgres_database)
+        if primary_key_columns is not None:
+            pulumi.set(__self__, "primary_key_columns", primary_key_columns)
+        if scheduling_policy is not None:
+            pulumi.set(__self__, "scheduling_policy", scheduling_policy)
+        if source_table_full_name is not None:
+            pulumi.set(__self__, "source_table_full_name", source_table_full_name)
+        if timeseries_key is not None:
+            pulumi.set(__self__, "timeseries_key", timeseries_key)
+
+    @_builtins.property
+    @pulumi.getter
+    def branch(self) -> Optional[_builtins.str]:
+        """
+        (string) - The full resource name the branch associated with the table.
+        """
+        return pulumi.get(self, "branch")
+
+    @_builtins.property
+    @pulumi.getter(name="createDatabaseObjectsIfMissing")
+    def create_database_objects_if_missing(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - If true, the synced table's logical database and schema resources in PG
+        will be created if they do not already exist.
+        The request will fail if this is false and the database/schema do not exist.
+        """
+        return pulumi.get(self, "create_database_objects_if_missing")
+
+    @_builtins.property
+    @pulumi.getter(name="existingPipelineId")
+    def existing_pipeline_id(self) -> Optional[_builtins.str]:
+        """
+        (string) - ID of an existing pipeline to bin-pack this synced table into.
+        At most one of existing_pipeline_id and new_pipeline_spec should be defined.
+        """
+        return pulumi.get(self, "existing_pipeline_id")
+
+    @_builtins.property
+    @pulumi.getter(name="newPipelineSpec")
+    def new_pipeline_spec(self) -> Optional['outputs.GetPostgresSyncedTableSpecNewPipelineSpecResult']:
+        """
+        (NewPipelineSpec) - Specification for creating a new pipeline.
+        At most one of existing_pipeline_id and new_pipeline_spec should be defined.
+        """
+        return pulumi.get(self, "new_pipeline_spec")
+
+    @_builtins.property
+    @pulumi.getter(name="postgresDatabase")
+    def postgres_database(self) -> Optional[_builtins.str]:
+        """
+        (string) - The Postgres database name where the synced table will be created in.
+        """
+        return pulumi.get(self, "postgres_database")
+
+    @_builtins.property
+    @pulumi.getter(name="primaryKeyColumns")
+    def primary_key_columns(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        (list of string) - Primary Key columns to be used for data insert/update in the destination
+        """
+        return pulumi.get(self, "primary_key_columns")
+
+    @_builtins.property
+    @pulumi.getter(name="schedulingPolicy")
+    def scheduling_policy(self) -> Optional[_builtins.str]:
+        """
+        (string) - Scheduling policy of the underlying pipeline. Possible values are: `CONTINUOUS`, `SNAPSHOT`, `TRIGGERED`
+        """
+        return pulumi.get(self, "scheduling_policy")
+
+    @_builtins.property
+    @pulumi.getter(name="sourceTableFullName")
+    def source_table_full_name(self) -> Optional[_builtins.str]:
+        """
+        (string) - Three-part (catalog, schema, table) name of the source Delta table.
+        """
+        return pulumi.get(self, "source_table_full_name")
+
+    @_builtins.property
+    @pulumi.getter(name="timeseriesKey")
+    def timeseries_key(self) -> Optional[_builtins.str]:
+        """
+        (string) - Time series key to deduplicate (tie-break) rows with the same primary key
+        """
+        return pulumi.get(self, "timeseries_key")
+
+
+@pulumi.output_type
+class GetPostgresSyncedTableSpecNewPipelineSpecResult(dict):
+    def __init__(__self__, *,
+                 budget_policy_id: Optional[_builtins.str] = None,
+                 storage_catalog: Optional[_builtins.str] = None,
+                 storage_schema: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str budget_policy_id: (string) - Budget policy to set on the newly created pipeline
+        :param _builtins.str storage_catalog: (string) - UC catalog for the pipeline to store intermediate files (checkpoints, event logs etc).
+               This needs to be a standard catalog where the user has permissions to create Delta tables
+        :param _builtins.str storage_schema: (string) - UC schema for the pipeline to store intermediate files (checkpoints, event logs etc).
+               This needs to be in the standard catalog where the user has permissions to create Delta tables
+        """
+        if budget_policy_id is not None:
+            pulumi.set(__self__, "budget_policy_id", budget_policy_id)
+        if storage_catalog is not None:
+            pulumi.set(__self__, "storage_catalog", storage_catalog)
+        if storage_schema is not None:
+            pulumi.set(__self__, "storage_schema", storage_schema)
+
+    @_builtins.property
+    @pulumi.getter(name="budgetPolicyId")
+    def budget_policy_id(self) -> Optional[_builtins.str]:
+        """
+        (string) - Budget policy to set on the newly created pipeline
+        """
+        return pulumi.get(self, "budget_policy_id")
+
+    @_builtins.property
+    @pulumi.getter(name="storageCatalog")
+    def storage_catalog(self) -> Optional[_builtins.str]:
+        """
+        (string) - UC catalog for the pipeline to store intermediate files (checkpoints, event logs etc).
+        This needs to be a standard catalog where the user has permissions to create Delta tables
+        """
+        return pulumi.get(self, "storage_catalog")
+
+    @_builtins.property
+    @pulumi.getter(name="storageSchema")
+    def storage_schema(self) -> Optional[_builtins.str]:
+        """
+        (string) - UC schema for the pipeline to store intermediate files (checkpoints, event logs etc).
+        This needs to be in the standard catalog where the user has permissions to create Delta tables
+        """
+        return pulumi.get(self, "storage_schema")
+
+
+@pulumi.output_type
+class GetPostgresSyncedTableStatusResult(dict):
+    def __init__(__self__, *,
+                 detailed_state: _builtins.str,
+                 last_processed_commit_version: _builtins.int,
+                 last_sync: 'outputs.GetPostgresSyncedTableStatusLastSyncResult',
+                 last_sync_time: _builtins.str,
+                 message: _builtins.str,
+                 ongoing_sync_progress: 'outputs.GetPostgresSyncedTableStatusOngoingSyncProgressResult',
+                 pipeline_id: _builtins.str,
+                 provisioning_phase: _builtins.str,
+                 unity_catalog_provisioning_state: _builtins.str):
+        """
+        :param _builtins.str detailed_state: (string) - The state of the synced table. Possible values are: `SYNCED_TABLE_OFFLINE`, `SYNCED_TABLE_OFFLINE_FAILED`, `SYNCED_TABLE_ONLINE`, `SYNCED_TABLE_ONLINE_CONTINUOUS_UPDATE`, `SYNCED_TABLE_ONLINE_NO_PENDING_UPDATE`, `SYNCED_TABLE_ONLINE_PIPELINE_FAILED`, `SYNCED_TABLE_ONLINE_TRIGGERED_UPDATE`, `SYNCED_TABLE_ONLINE_UPDATING_PIPELINE_RESOURCES`, `SYNCED_TABLE_PROVISIONING`, `SYNCED_TABLE_PROVISIONING_INITIAL_SNAPSHOT`, `SYNCED_TABLE_PROVISIONING_PIPELINE_RESOURCES`
+        :param _builtins.int last_processed_commit_version: (integer) - The last source table Delta version that was successfully synced to the synced table
+        :param 'GetPostgresSyncedTableStatusLastSyncArgs' last_sync: (SyncedTablePosition) - Summary of the last successful synchronization from source to destination
+        :param _builtins.str last_sync_time: (string) - The end timestamp of the last time any data was synchronized from the source table to the synced
+               table. This is when the data is available in the synced table
+        :param _builtins.str message: (string) - A text description of the current state of the synced table
+        :param 'GetPostgresSyncedTableStatusOngoingSyncProgressArgs' ongoing_sync_progress: (SyncedTablePipelineProgress)
+        :param _builtins.str pipeline_id: (string) - ID of the associated pipeline
+        :param _builtins.str provisioning_phase: (string) - The current phase of the data synchronization pipeline. Possible values are: `PROVISIONING_PHASE_INDEX_SCAN`, `PROVISIONING_PHASE_INDEX_SORT`, `PROVISIONING_PHASE_MAIN`
+        :param _builtins.str unity_catalog_provisioning_state: (string) - The provisioning state of the synced table entity in Unity Catalog. Possible values are: `ACTIVE`, `DEGRADED`, `DELETING`, `FAILED`, `PROVISIONING`, `UPDATING`
+        """
+        pulumi.set(__self__, "detailed_state", detailed_state)
+        pulumi.set(__self__, "last_processed_commit_version", last_processed_commit_version)
+        pulumi.set(__self__, "last_sync", last_sync)
+        pulumi.set(__self__, "last_sync_time", last_sync_time)
+        pulumi.set(__self__, "message", message)
+        pulumi.set(__self__, "ongoing_sync_progress", ongoing_sync_progress)
+        pulumi.set(__self__, "pipeline_id", pipeline_id)
+        pulumi.set(__self__, "provisioning_phase", provisioning_phase)
+        pulumi.set(__self__, "unity_catalog_provisioning_state", unity_catalog_provisioning_state)
+
+    @_builtins.property
+    @pulumi.getter(name="detailedState")
+    def detailed_state(self) -> _builtins.str:
+        """
+        (string) - The state of the synced table. Possible values are: `SYNCED_TABLE_OFFLINE`, `SYNCED_TABLE_OFFLINE_FAILED`, `SYNCED_TABLE_ONLINE`, `SYNCED_TABLE_ONLINE_CONTINUOUS_UPDATE`, `SYNCED_TABLE_ONLINE_NO_PENDING_UPDATE`, `SYNCED_TABLE_ONLINE_PIPELINE_FAILED`, `SYNCED_TABLE_ONLINE_TRIGGERED_UPDATE`, `SYNCED_TABLE_ONLINE_UPDATING_PIPELINE_RESOURCES`, `SYNCED_TABLE_PROVISIONING`, `SYNCED_TABLE_PROVISIONING_INITIAL_SNAPSHOT`, `SYNCED_TABLE_PROVISIONING_PIPELINE_RESOURCES`
+        """
+        return pulumi.get(self, "detailed_state")
+
+    @_builtins.property
+    @pulumi.getter(name="lastProcessedCommitVersion")
+    def last_processed_commit_version(self) -> _builtins.int:
+        """
+        (integer) - The last source table Delta version that was successfully synced to the synced table
+        """
+        return pulumi.get(self, "last_processed_commit_version")
+
+    @_builtins.property
+    @pulumi.getter(name="lastSync")
+    def last_sync(self) -> 'outputs.GetPostgresSyncedTableStatusLastSyncResult':
+        """
+        (SyncedTablePosition) - Summary of the last successful synchronization from source to destination
+        """
+        return pulumi.get(self, "last_sync")
+
+    @_builtins.property
+    @pulumi.getter(name="lastSyncTime")
+    def last_sync_time(self) -> _builtins.str:
+        """
+        (string) - The end timestamp of the last time any data was synchronized from the source table to the synced
+        table. This is when the data is available in the synced table
+        """
+        return pulumi.get(self, "last_sync_time")
+
+    @_builtins.property
+    @pulumi.getter
+    def message(self) -> _builtins.str:
+        """
+        (string) - A text description of the current state of the synced table
+        """
+        return pulumi.get(self, "message")
+
+    @_builtins.property
+    @pulumi.getter(name="ongoingSyncProgress")
+    def ongoing_sync_progress(self) -> 'outputs.GetPostgresSyncedTableStatusOngoingSyncProgressResult':
+        """
+        (SyncedTablePipelineProgress)
+        """
+        return pulumi.get(self, "ongoing_sync_progress")
+
+    @_builtins.property
+    @pulumi.getter(name="pipelineId")
+    def pipeline_id(self) -> _builtins.str:
+        """
+        (string) - ID of the associated pipeline
+        """
+        return pulumi.get(self, "pipeline_id")
+
+    @_builtins.property
+    @pulumi.getter(name="provisioningPhase")
+    def provisioning_phase(self) -> _builtins.str:
+        """
+        (string) - The current phase of the data synchronization pipeline. Possible values are: `PROVISIONING_PHASE_INDEX_SCAN`, `PROVISIONING_PHASE_INDEX_SORT`, `PROVISIONING_PHASE_MAIN`
+        """
+        return pulumi.get(self, "provisioning_phase")
+
+    @_builtins.property
+    @pulumi.getter(name="unityCatalogProvisioningState")
+    def unity_catalog_provisioning_state(self) -> _builtins.str:
+        """
+        (string) - The provisioning state of the synced table entity in Unity Catalog. Possible values are: `ACTIVE`, `DEGRADED`, `DELETING`, `FAILED`, `PROVISIONING`, `UPDATING`
+        """
+        return pulumi.get(self, "unity_catalog_provisioning_state")
+
+
+@pulumi.output_type
+class GetPostgresSyncedTableStatusLastSyncResult(dict):
+    def __init__(__self__, *,
+                 delta_table_sync_info: 'outputs.GetPostgresSyncedTableStatusLastSyncDeltaTableSyncInfoResult',
+                 sync_end_time: _builtins.str,
+                 sync_start_time: _builtins.str):
+        """
+        :param 'GetPostgresSyncedTableStatusLastSyncDeltaTableSyncInfoArgs' delta_table_sync_info: (DeltaTableSyncInfo)
+        :param _builtins.str sync_end_time: (string) - The end timestamp of the most recent successful synchronization.
+               This is the time when the data is available in the synced table
+        :param _builtins.str sync_start_time: (string) - The starting timestamp of the most recent successful synchronization from the source table
+               to the destination (synced) table.
+               Note this is the starting timestamp of the sync operation, not the end time.
+               E.g., for a batch, this is the time when the sync operation started
+        """
+        pulumi.set(__self__, "delta_table_sync_info", delta_table_sync_info)
+        pulumi.set(__self__, "sync_end_time", sync_end_time)
+        pulumi.set(__self__, "sync_start_time", sync_start_time)
+
+    @_builtins.property
+    @pulumi.getter(name="deltaTableSyncInfo")
+    def delta_table_sync_info(self) -> 'outputs.GetPostgresSyncedTableStatusLastSyncDeltaTableSyncInfoResult':
+        """
+        (DeltaTableSyncInfo)
+        """
+        return pulumi.get(self, "delta_table_sync_info")
+
+    @_builtins.property
+    @pulumi.getter(name="syncEndTime")
+    def sync_end_time(self) -> _builtins.str:
+        """
+        (string) - The end timestamp of the most recent successful synchronization.
+        This is the time when the data is available in the synced table
+        """
+        return pulumi.get(self, "sync_end_time")
+
+    @_builtins.property
+    @pulumi.getter(name="syncStartTime")
+    def sync_start_time(self) -> _builtins.str:
+        """
+        (string) - The starting timestamp of the most recent successful synchronization from the source table
+        to the destination (synced) table.
+        Note this is the starting timestamp of the sync operation, not the end time.
+        E.g., for a batch, this is the time when the sync operation started
+        """
+        return pulumi.get(self, "sync_start_time")
+
+
+@pulumi.output_type
+class GetPostgresSyncedTableStatusLastSyncDeltaTableSyncInfoResult(dict):
+    def __init__(__self__, *,
+                 delta_commit_time: _builtins.str,
+                 delta_commit_version: _builtins.int):
+        """
+        :param _builtins.str delta_commit_time: (string) - The timestamp when the above Delta version was committed in the source Delta table.
+               Note: This is the Delta commit time, not the time the data was written to the synced table
+        :param _builtins.int delta_commit_version: (integer) - The Delta Lake commit version that was last successfully synced
+        """
+        pulumi.set(__self__, "delta_commit_time", delta_commit_time)
+        pulumi.set(__self__, "delta_commit_version", delta_commit_version)
+
+    @_builtins.property
+    @pulumi.getter(name="deltaCommitTime")
+    def delta_commit_time(self) -> _builtins.str:
+        """
+        (string) - The timestamp when the above Delta version was committed in the source Delta table.
+        Note: This is the Delta commit time, not the time the data was written to the synced table
+        """
+        return pulumi.get(self, "delta_commit_time")
+
+    @_builtins.property
+    @pulumi.getter(name="deltaCommitVersion")
+    def delta_commit_version(self) -> _builtins.int:
+        """
+        (integer) - The Delta Lake commit version that was last successfully synced
+        """
+        return pulumi.get(self, "delta_commit_version")
+
+
+@pulumi.output_type
+class GetPostgresSyncedTableStatusOngoingSyncProgressResult(dict):
+    def __init__(__self__, *,
+                 estimated_completion_time_seconds: _builtins.float,
+                 latest_version_currently_processing: _builtins.int,
+                 sync_progress_completion: _builtins.float,
+                 synced_row_count: _builtins.int,
+                 total_row_count: _builtins.int):
+        """
+        :param _builtins.float estimated_completion_time_seconds: (number) - The estimated time remaining to complete this update in seconds
+        :param _builtins.int latest_version_currently_processing: (integer) - The source table Delta version that was last processed by the pipeline. The pipeline may not
+               have completely processed this version yet
+        :param _builtins.float sync_progress_completion: (number) - The completion ratio of this update. This is a number between 0 and 1
+        :param _builtins.int synced_row_count: (integer) - The number of rows that have been synced in this update
+        :param _builtins.int total_row_count: (integer) - The total number of rows that need to be synced in this update. This number may be an estimate
+        """
+        pulumi.set(__self__, "estimated_completion_time_seconds", estimated_completion_time_seconds)
+        pulumi.set(__self__, "latest_version_currently_processing", latest_version_currently_processing)
+        pulumi.set(__self__, "sync_progress_completion", sync_progress_completion)
+        pulumi.set(__self__, "synced_row_count", synced_row_count)
+        pulumi.set(__self__, "total_row_count", total_row_count)
+
+    @_builtins.property
+    @pulumi.getter(name="estimatedCompletionTimeSeconds")
+    def estimated_completion_time_seconds(self) -> _builtins.float:
+        """
+        (number) - The estimated time remaining to complete this update in seconds
+        """
+        return pulumi.get(self, "estimated_completion_time_seconds")
+
+    @_builtins.property
+    @pulumi.getter(name="latestVersionCurrentlyProcessing")
+    def latest_version_currently_processing(self) -> _builtins.int:
+        """
+        (integer) - The source table Delta version that was last processed by the pipeline. The pipeline may not
+        have completely processed this version yet
+        """
+        return pulumi.get(self, "latest_version_currently_processing")
+
+    @_builtins.property
+    @pulumi.getter(name="syncProgressCompletion")
+    def sync_progress_completion(self) -> _builtins.float:
+        """
+        (number) - The completion ratio of this update. This is a number between 0 and 1
+        """
+        return pulumi.get(self, "sync_progress_completion")
+
+    @_builtins.property
+    @pulumi.getter(name="syncedRowCount")
+    def synced_row_count(self) -> _builtins.int:
+        """
+        (integer) - The number of rows that have been synced in this update
+        """
+        return pulumi.get(self, "synced_row_count")
+
+    @_builtins.property
+    @pulumi.getter(name="totalRowCount")
+    def total_row_count(self) -> _builtins.int:
+        """
+        (integer) - The total number of rows that need to be synced in this update. This number may be an estimate
+        """
+        return pulumi.get(self, "total_row_count")
 
 
 @pulumi.output_type
@@ -90035,6 +99300,24 @@ class GetUserProviderConfigResult(dict):
 
 
 @pulumi.output_type
+class GetUsersProviderConfigResult(dict):
+    def __init__(__self__, *,
+                 workspace_id: _builtins.str):
+        """
+        :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
+        """
+        pulumi.set(__self__, "workspace_id", workspace_id)
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceId")
+    def workspace_id(self) -> _builtins.str:
+        """
+        Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
+        """
+        return pulumi.get(self, "workspace_id")
+
+
+@pulumi.output_type
 class GetUsersUserResult(dict):
     def __init__(__self__, *,
                  active: Optional[_builtins.bool] = None,
@@ -91466,11 +100749,16 @@ class GetWorkspaceSettingV2EffectivePersonalComputeResult(dict):
 @pulumi.output_type
 class GetWorkspaceSettingV2EffectiveRestrictWorkspaceAdminsResult(dict):
     def __init__(__self__, *,
-                 status: _builtins.str):
+                 status: _builtins.str,
+                 disable_gov_tag_creation: Optional[_builtins.bool] = None):
         """
         :param _builtins.str status: (string) - Possible values are: `ALLOW_ALL`, `RESTRICT_TOKENS_AND_JOB_RUN_AS`
+        :param _builtins.bool disable_gov_tag_creation: (boolean) - When true, workspace admins cannot create governance tags.
+               ALLOW_ALL status does not override this; they are independent
         """
         pulumi.set(__self__, "status", status)
+        if disable_gov_tag_creation is not None:
+            pulumi.set(__self__, "disable_gov_tag_creation", disable_gov_tag_creation)
 
     @_builtins.property
     @pulumi.getter
@@ -91479,6 +100767,15 @@ class GetWorkspaceSettingV2EffectiveRestrictWorkspaceAdminsResult(dict):
         (string) - Possible values are: `ALLOW_ALL`, `RESTRICT_TOKENS_AND_JOB_RUN_AS`
         """
         return pulumi.get(self, "status")
+
+    @_builtins.property
+    @pulumi.getter(name="disableGovTagCreation")
+    def disable_gov_tag_creation(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - When true, workspace admins cannot create governance tags.
+        ALLOW_ALL status does not override this; they are independent
+        """
+        return pulumi.get(self, "disable_gov_tag_creation")
 
 
 @pulumi.output_type
@@ -91559,11 +100856,16 @@ class GetWorkspaceSettingV2ProviderConfigResult(dict):
 @pulumi.output_type
 class GetWorkspaceSettingV2RestrictWorkspaceAdminsResult(dict):
     def __init__(__self__, *,
-                 status: _builtins.str):
+                 status: _builtins.str,
+                 disable_gov_tag_creation: Optional[_builtins.bool] = None):
         """
         :param _builtins.str status: (string) - Possible values are: `ALLOW_ALL`, `RESTRICT_TOKENS_AND_JOB_RUN_AS`
+        :param _builtins.bool disable_gov_tag_creation: (boolean) - When true, workspace admins cannot create governance tags.
+               ALLOW_ALL status does not override this; they are independent
         """
         pulumi.set(__self__, "status", status)
+        if disable_gov_tag_creation is not None:
+            pulumi.set(__self__, "disable_gov_tag_creation", disable_gov_tag_creation)
 
     @_builtins.property
     @pulumi.getter
@@ -91572,6 +100874,15 @@ class GetWorkspaceSettingV2RestrictWorkspaceAdminsResult(dict):
         (string) - Possible values are: `ALLOW_ALL`, `RESTRICT_TOKENS_AND_JOB_RUN_AS`
         """
         return pulumi.get(self, "status")
+
+    @_builtins.property
+    @pulumi.getter(name="disableGovTagCreation")
+    def disable_gov_tag_creation(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - When true, workspace admins cannot create governance tags.
+        ALLOW_ALL status does not override this; they are independent
+        """
+        return pulumi.get(self, "disable_gov_tag_creation")
 
 
 @pulumi.output_type

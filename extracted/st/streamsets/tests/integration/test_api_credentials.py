@@ -1,4 +1,7 @@
-# Copyright Streamsets 2024
+#  IBM Confidential
+#  PID 5900-BAF
+#  Copyright StreamSets Inc., an IBM Company 2024
+
 import copy
 import time
 from datetime import datetime

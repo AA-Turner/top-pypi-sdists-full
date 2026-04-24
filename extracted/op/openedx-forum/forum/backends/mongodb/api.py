@@ -948,6 +948,7 @@ class MongoBackend(AbstractBackend):
             "commentable_ids",
             "group_id",
             "group_ids",
+            "context",
         ]
         if not user_id:
             valid_params.append("user_id")
@@ -992,6 +993,7 @@ class MongoBackend(AbstractBackend):
             int(params.get("per_page", 100)),
             commentable_ids=params.get("commentable_ids", []),
             is_moderator=params.get("is_moderator", False),
+            context=params.get("context", "course"),
         )
         context: dict[str, Any] = {
             "count_flagged": count_flagged,
@@ -1763,3 +1765,31 @@ class MongoBackend(AbstractBackend):
             CommentThread().find({"author_username": username})
         )
         return contents
+
+    @staticmethod
+    def get_user_post_counts(user_id: str, course_id: str) -> dict[str, int]:
+        """Return thread_count and comment_count for user in course."""
+        query = {"author_id": user_id, "course_id": course_id}
+        thread_count = CommentThread().count_documents(
+            {**query, "_type": "CommentThread"}
+        )
+        comment_count = Comment().count_documents({**query, "_type": "Comment"})
+        return {"thread_count": thread_count, "comment_count": comment_count}
+
+    @staticmethod
+    def delete_user_posts(user_id: str, course_id: str) -> dict[str, int]:
+        """Delete all threads and comments by user in course. Returns counts before deletion."""
+        thread_model = CommentThread()
+        comment_model = Comment()
+        query = {"author_id": user_id, "course_id": course_id}
+        thread_count = thread_model.count_documents({**query, "_type": "CommentThread"})
+        comment_count = comment_model.count_documents({**query, "_type": "Comment"})
+        # Collect IDs before deleting to avoid cursor invalidation.
+        # find() uses override_query which adds _type automatically.
+        comment_ids = [str(c["_id"]) for c in comment_model.find(query)]
+        for comment_id in comment_ids:
+            comment_model.delete(comment_id)
+        thread_ids = [str(t["_id"]) for t in thread_model.find(query)]
+        for thread_id in thread_ids:
+            thread_model.delete(thread_id)
+        return {"thread_count": thread_count, "comment_count": comment_count}

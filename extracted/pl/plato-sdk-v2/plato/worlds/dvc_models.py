@@ -61,6 +61,8 @@ class S3Config:
     bucket: str
     prefix: str  # e.g. "workspace-repos/<repo-id>"
     credentials: dict[str, str]
+    credentials_expires_at: int | None = None
+    credential_refresh: dict[str, str | int] | None = None
 
     @property
     def cache_prefix(self) -> str:
@@ -68,11 +70,22 @@ class S3Config:
 
     def to_dict(self) -> dict:
         aws_creds = {k: v for k, v in self.credentials.items() if k.startswith("AWS_")}
-        return {"bucket": self.bucket, "prefix": self.prefix, "credentials": aws_creds}
+        data: dict[str, object] = {"bucket": self.bucket, "prefix": self.prefix, "credentials": aws_creds}
+        if self.credentials_expires_at is not None:
+            data["credentials_expires_at"] = self.credentials_expires_at
+        if self.credential_refresh is not None:
+            data["credential_refresh"] = self.credential_refresh
+        return data
 
     @classmethod
     def from_dict(cls, d: dict) -> S3Config:
-        return cls(bucket=d["bucket"], prefix=d["prefix"], credentials=d["credentials"])
+        return cls(
+            bucket=d["bucket"],
+            prefix=d["prefix"],
+            credentials=d["credentials"],
+            credentials_expires_at=d.get("credentials_expires_at"),
+            credential_refresh=d.get("credential_refresh"),
+        )
 
 
 @dataclass

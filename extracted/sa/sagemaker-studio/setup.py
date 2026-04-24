@@ -93,6 +93,7 @@ setup(
         "aws-embedded-metrics>=3.2.0",
         "deltalake>=1.0.0",
         "sqlglot>=27.28.1",
+        "opensearch-py>=2.5.0"
     ],
     tests_require=["pytest"],
     test_suite="src.sagemaker_studio._test",

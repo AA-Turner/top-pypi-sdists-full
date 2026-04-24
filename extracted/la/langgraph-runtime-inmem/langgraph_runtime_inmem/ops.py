@@ -954,6 +954,7 @@ class Threads(Authenticated):
         thread_id: UUID,
         ctx: Auth.types.BaseAuthContext | None = None,
         include_ttl: bool = False,
+        read_mask_paths: list[str] | None = None,
     ) -> AsyncIterator[Thread]:
         """Get a thread by ID.
 
@@ -962,6 +963,8 @@ class Threads(Authenticated):
             thread_id: Thread ID
             ctx: Auth context
             include_ttl: Not supported in inmem - parameter ignored.
+            read_mask_paths: Column restriction hint for the postgres runtime;
+                ignored for inmem since there's no values-column I/O to skip.
         """
         matching_thread = await Threads._get(conn, thread_id, ctx)
 

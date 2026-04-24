@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -80,3 +82,11 @@ class TestHandle:
         monkeypatch.setattr(Path, "glob", broken_glob)
         result = await handle(pattern="*.py", path=str(tmp_tree))
         assert "error" in result
+
+    @pytest.mark.asyncio
+    async def test_uses_to_thread(self, tmp_tree: Path) -> None:
+        with patch("anteroom.tools.glob_tool.asyncio.to_thread", wraps=asyncio.to_thread) as mock_to_thread:
+            result = await handle(pattern="*.py", path=str(tmp_tree))
+
+        assert "hello.py" in result["files"]
+        mock_to_thread.assert_called_once()

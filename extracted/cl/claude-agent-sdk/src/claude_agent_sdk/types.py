@@ -1274,8 +1274,13 @@ class SessionStore(Protocol):
         Within a single process, persist entries in append-call order; across
         concurrent processes, order is by storage commit time, not call time.
 
-        Exceptions are logged; the subprocess continues unaffected.
-        At-most-once delivery — failed batches are not retried.
+        Most entries carry a stable ``uuid`` that adapters should treat as an
+        idempotency key (upsert / ignore-duplicate). Entries without a
+        ``uuid`` (e.g. titles, tags, mode markers) should be appended without
+        dedup. Exceptions are logged and the subprocess continues unaffected
+        — failed batches are retried (3 attempts total) with short backoff
+        before being dropped and surfaced as a ``MirrorErrorMessage``;
+        timeouts are not retried since the in-flight call may still land.
         """
         ...
 
@@ -1420,13 +1425,20 @@ class SessionMessage:
     parent_tool_use_id: None = None
 
 
+# Controls whether thinking text is returned summarized or omitted. Opus 4.7+
+# defaults to "omitted" (signature-only); pass "summarized" to receive text.
+ThinkingDisplay = Literal["summarized", "omitted"]
+
+
 class ThinkingConfigAdaptive(TypedDict):
     type: Literal["adaptive"]
+    display: NotRequired[ThinkingDisplay]
 
 
 class ThinkingConfigEnabled(TypedDict):
     type: Literal["enabled"]
     budget_tokens: int
+    display: NotRequired[ThinkingDisplay]
 
 
 class ThinkingConfigDisabled(TypedDict):
@@ -1467,7 +1479,7 @@ class ClaudeAgentOptions:
     max_buffer_size: int | None = None  # Max bytes when buffering CLI stdout
     debug_stderr: Any = (
         sys.stderr
-    )  # Deprecated: File-like object for debug output. Use stderr callback instead.
+    )  # Deprecated and no longer read by the transport. Use the stderr callback.
     stderr: Callable[[str], None] | None = None  # Callback for stderr output from CLI
 
     # Tool permission callback

@@ -14,7 +14,12 @@ import httpx
 
 from ..constants import UNIPILE_POLL_INTERVAL_SECONDS, UNIPILE_POLL_TIMEOUT_SECONDS
 from .api_metrics import api_metrics
-from .unipile import UnipileAuthError, UnipileError, _is_newsletter_invitation
+from .unipile import (
+    UnipileAuthError,
+    UnipileError,
+    _is_newsletter_invitation,
+    interpret_account_status,
+)
 from .voyager_health import voyager_health
 
 logger = logging.getLogger(__name__)
@@ -467,12 +472,26 @@ class BackendClient:
                 return False, "Backend JWT expired"
             resp.raise_for_status()
             data = _ensure_dict(resp.json())
-            status = data.get("status") or data.get("state") or data.get("connection_status") or ""
-            if isinstance(status, str) and status.lower() in ("disconnected", "error", "failed", "expired"):
-                return False, f"Account status: {status}"
-            return True, "Connected"
+            return interpret_account_status(data)
         except Exception as e:
             return False, f"Verification error: {e}"
+
+    async def get_reconnect_link(self) -> str:
+        """Fetch a Unipile hosted-auth link so the user can re-sign in to LinkedIn.
+
+        Returns the URL string, or empty string if the backend couldn't mint one.
+        """
+        url = f"{self.base_url}/auth/reconnect-linkedin"
+        try:
+            resp = await self._client.get(url, headers=self._headers())
+            self._check_rate_limit(resp)
+            if resp.status_code != 200:
+                return ""
+            body = _ensure_dict(resp.json())
+            link = body.get("url") or ""
+            return str(link) if link else ""
+        except Exception:
+            return ""
 
     async def bind_account(self, account_id: str) -> None:
         """Bind a Unipile account_id to the authenticated user on the backend."""

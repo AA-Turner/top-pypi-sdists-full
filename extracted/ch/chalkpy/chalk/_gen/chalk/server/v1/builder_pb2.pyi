@@ -143,17 +143,20 @@ class IndexDeploymentRequest(_message.Message):
         "shadow_force_venv_rebuild",
         "shadow_skip_handle_conversion_errors",
         "shadow",
+        "shadow_run_id",
     )
     EXISTING_DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
     DRY_RUN_FIELD_NUMBER: _ClassVar[int]
     SHADOW_FORCE_VENV_REBUILD_FIELD_NUMBER: _ClassVar[int]
     SHADOW_SKIP_HANDLE_CONVERSION_ERRORS_FIELD_NUMBER: _ClassVar[int]
     SHADOW_FIELD_NUMBER: _ClassVar[int]
+    SHADOW_RUN_ID_FIELD_NUMBER: _ClassVar[int]
     existing_deployment_id: str
     dry_run: bool
     shadow_force_venv_rebuild: bool
     shadow_skip_handle_conversion_errors: bool
     shadow: bool
+    shadow_run_id: str
     def __init__(
         self,
         existing_deployment_id: _Optional[str] = ...,
@@ -161,6 +164,7 @@ class IndexDeploymentRequest(_message.Message):
         shadow_force_venv_rebuild: bool = ...,
         shadow_skip_handle_conversion_errors: bool = ...,
         shadow: bool = ...,
+        shadow_run_id: _Optional[str] = ...,
     ) -> None: ...
 
 class IndexDeploymentResponse(_message.Message):
@@ -795,6 +799,7 @@ class ClusterTimescaleSpecs(_message.Message):
         "gateway_id",
         "shared_preload_libraries",
         "require_infrastructure_nodepool",
+        "pgbouncer_parameters",
     )
     class PostgresParametersEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -805,6 +810,14 @@ class ClusterTimescaleSpecs(_message.Message):
         def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
 
     class NodeSelectorEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+
+    class PgbouncerParametersEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
         VALUE_FIELD_NUMBER: _ClassVar[int]
@@ -843,6 +856,7 @@ class ClusterTimescaleSpecs(_message.Message):
     GATEWAY_ID_FIELD_NUMBER: _ClassVar[int]
     SHARED_PRELOAD_LIBRARIES_FIELD_NUMBER: _ClassVar[int]
     REQUIRE_INFRASTRUCTURE_NODEPOOL_FIELD_NUMBER: _ClassVar[int]
+    PGBOUNCER_PARAMETERS_FIELD_NUMBER: _ClassVar[int]
     timescale_image: str
     database_name: str
     database_replicas: int
@@ -874,6 +888,7 @@ class ClusterTimescaleSpecs(_message.Message):
     gateway_id: str
     shared_preload_libraries: _containers.RepeatedScalarFieldContainer[str]
     require_infrastructure_nodepool: bool
+    pgbouncer_parameters: _containers.ScalarMap[str, str]
     def __init__(
         self,
         timescale_image: _Optional[str] = ...,
@@ -907,6 +922,7 @@ class ClusterTimescaleSpecs(_message.Message):
         gateway_id: _Optional[str] = ...,
         shared_preload_libraries: _Optional[_Iterable[str]] = ...,
         require_infrastructure_nodepool: bool = ...,
+        pgbouncer_parameters: _Optional[_Mapping[str, str]] = ...,
     ) -> None: ...
 
 class CreateClusterTimescaleDBResponse(_message.Message):
@@ -1662,21 +1678,38 @@ class OtelCollectorSpec(_message.Message):
     ) -> None: ...
 
 class GpuTelemetrySpec(_message.Message):
-    __slots__ = ("enabled", "request", "limit", "node_selectors")
+    __slots__ = (
+        "enabled",
+        "request",
+        "limit",
+        "node_selectors",
+        "runtime_class_name",
+        "host_nvidia_lib_dir",
+        "image_override",
+    )
     ENABLED_FIELD_NUMBER: _ClassVar[int]
     REQUEST_FIELD_NUMBER: _ClassVar[int]
     LIMIT_FIELD_NUMBER: _ClassVar[int]
     NODE_SELECTORS_FIELD_NUMBER: _ClassVar[int]
+    RUNTIME_CLASS_NAME_FIELD_NUMBER: _ClassVar[int]
+    HOST_NVIDIA_LIB_DIR_FIELD_NUMBER: _ClassVar[int]
+    IMAGE_OVERRIDE_FIELD_NUMBER: _ClassVar[int]
     enabled: bool
     request: KubeResourceConfig
     limit: KubeResourceConfig
     node_selectors: _containers.RepeatedCompositeFieldContainer[KubeNodeSelector]
+    runtime_class_name: str
+    host_nvidia_lib_dir: str
+    image_override: str
     def __init__(
         self,
         enabled: bool = ...,
         request: _Optional[_Union[KubeResourceConfig, _Mapping]] = ...,
         limit: _Optional[_Union[KubeResourceConfig, _Mapping]] = ...,
         node_selectors: _Optional[_Iterable[_Union[KubeNodeSelector, _Mapping]]] = ...,
+        runtime_class_name: _Optional[str] = ...,
+        host_nvidia_lib_dir: _Optional[str] = ...,
+        image_override: _Optional[str] = ...,
     ) -> None: ...
 
 class ClickHouseSpec(_message.Message):

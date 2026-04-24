@@ -107,7 +107,11 @@ from chalk._gen.chalk.server.v1.model_registry_pb2 import (
 from chalk._gen.chalk.server.v1.model_registry_pb2_grpc import ModelRegistryServiceStub
 from chalk._gen.chalk.server.v1.named_query_pb2 import GetNamedQueryByNameRequest
 from chalk._gen.chalk.server.v1.named_query_pb2_grpc import NamedQueryServiceStub
-from chalk._gen.chalk.server.v1.offline_queries_pb2 import CancelAsyncOfflineQueryRequest, GetOfflineQueryRequest
+from chalk._gen.chalk.server.v1.offline_queries_pb2 import (
+    CancelAsyncOfflineQueryRequest,
+    GetBatchReportRequest,
+    GetOfflineQueryRequest,
+)
 from chalk._gen.chalk.server.v1.offline_queries_pb2_grpc import OfflineQueryMetadataServiceStub
 from chalk._gen.chalk.server.v1.scheduled_query_pb2_grpc import ScheduledQueryServiceStub
 from chalk._gen.chalk.server.v1.scheduled_query_run_pb2 import GetScheduledQueryRunsRequest
@@ -148,6 +152,7 @@ from chalk.client.models import (
     ModelUploadUrlResponse,
     NamedQueryMetadata,
     OfflineQueryInfo,
+    OfflineQueryReport,
     OnlineQuery,
     OnlineQueryResponse,
     RedeployResponse,
@@ -1567,8 +1572,8 @@ class ChalkGRPCClient:
                     env_overrides=env_overrides or {},
                     unload_resolvers=[
                         offline_query_pb2.UnloadResolverSpec(
-                            fqn=spec["fqn"],
-                            partition_by=spec.get("partition_by", []),
+                            fqn="all" if "any" in spec else spec["fqn"],
+                            partition_by=[] if "any" in spec else spec.get("partition_by", []),
                         )
                         for spec in (unload_resolvers or [])
                     ],
@@ -1704,6 +1709,66 @@ class ChalkGRPCClient:
         except Exception as e:
             raise RuntimeError(f"Could not list jobs. {e}") from e
         return [JobQueueItem.from_proto(job) for job in proto_resp.jobs]
+
+    def get_offline_query_report(self, offline_query_id: str) -> Optional[OfflineQueryReport]:
+        """
+        Get the batch report associated with the offline query in environment.
+
+        Parameters
+        ----------
+        offline_query_id
+            Offline query's ID.
+
+        environment_id
+            Environment ID of offline query.
+
+        Returns
+        -------
+        Optional[OfflineQueryReport]
+            The OfflineQueryReport object if it exists.
+        """
+        from chalk._reporting.models import BatchOpKind, BatchOpStatus
+
+        _BATCH_OP_KIND_MAP = {
+            0: BatchOpKind.OFFLINE_QUERY,  # UNSPECIFIED -> default
+            1: BatchOpKind.OFFLINE_QUERY,
+            2: BatchOpKind.RECOMPUTE,
+            3: BatchOpKind.CRON,
+            4: BatchOpKind.AGGREGATION_BACKFILL,
+        }
+
+        _BATCH_OP_STATUS_MAP = {
+            0: BatchOpStatus.INIT,  # UNSPECIFIED -> default
+            1: BatchOpStatus.INIT,
+            2: BatchOpStatus.COMPUTE_STARTED,
+            3: BatchOpStatus.COMPUTE_ENDED,
+            4: BatchOpStatus.COMPLETED,
+            5: BatchOpStatus.FAILED,
+        }
+
+        try:
+            batch_report_resp = self._stub_refresher.call_offline_query_stub(
+                lambda x: x.GetBatchReport(GetBatchReportRequest(report_id=offline_query_id))
+            )
+        except Exception:
+            warnings.warn(f"No batch report for offline query {offline_query_id}")
+            return None
+
+        return OfflineQueryReport(
+            operation_kind=_BATCH_OP_KIND_MAP.get(
+                int(batch_report_resp.batch_report.operation_kind), BatchOpKind.OFFLINE_QUERY
+            ),
+            status=_BATCH_OP_STATUS_MAP.get(int(batch_report_resp.batch_report.status), BatchOpStatus.INIT),
+            environment_id=batch_report_resp.batch_report.environment_id,
+            deployment_id=batch_report_resp.batch_report.deployment_id,
+            started_at=batch_report_resp.batch_report.started_at.ToDatetime(),
+            ended_at=(
+                batch_report_resp.batch_report.ended_at.ToDatetime()
+                if batch_report_resp.batch_report.HasField("ended_at")
+                else None
+            ),
+            all_errors=[ChalkError.from_proto(err) for err in batch_report_resp.batch_report.all_errors],
+        )
 
     def _get_active_deployment_id(self) -> str:
         resp = self._stub_refresher.call_deploy_stub(lambda x: x.GetActiveDeployments(GetActiveDeploymentsRequest()))

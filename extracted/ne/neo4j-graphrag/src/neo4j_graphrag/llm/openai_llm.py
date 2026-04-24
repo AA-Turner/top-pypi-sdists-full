@@ -30,7 +30,6 @@ from typing import (
     Type,
     Union,
     cast,
-    overload,
 )
 
 # 3rd party dependencies
@@ -51,10 +50,11 @@ from neo4j_graphrag.utils.rate_limit import (
 )
 
 from ..exceptions import LLMGenerationError
-from .base import LLMInterface, LLMInterfaceV2
+from .base import LLMBase
 from .types import (
     BaseMessage,
     LLMResponse,
+    LLMUsage,
     MessageList,
     SystemMessage,
     ToolCall,
@@ -78,7 +78,7 @@ logger = logging.getLogger(__name__)
 
 
 # pylint: disable=redefined-builtin, arguments-differ, raise-missing-from, no-else-return, import-outside-toplevel, line-too-long
-class BaseOpenAILLM(LLMInterface, LLMInterfaceV2, abc.ABC):
+class BaseOpenAILLM(LLMBase, abc.ABC):
     """Base class for OpenAI LLMs."""
 
     client: OpenAI
@@ -110,7 +110,7 @@ class BaseOpenAILLM(LLMInterface, LLMInterfaceV2, abc.ABC):
             )
         self.openai = openai
 
-        LLMInterfaceV2.__init__(
+        LLMBase.__init__(
             self,
             model_name=model_name,
             model_params=model_params or {},
@@ -118,41 +118,7 @@ class BaseOpenAILLM(LLMInterface, LLMInterfaceV2, abc.ABC):
             **kwargs,
         )
 
-    # overloads for LLMInterface and LLMInterfaceV2 methods
-    @overload  # type: ignore[no-overload-impl]
     def invoke(
-        self,
-        input: str,
-        message_history: Optional[Union[List[LLMMessage], MessageHistory]] = None,
-        system_instruction: Optional[str] = None,
-    ) -> LLMResponse: ...
-
-    @overload
-    def invoke(
-        self,
-        input: List[LLMMessage],
-        response_format: Optional[Union[Type[BaseModel], dict[str, Any]]] = None,
-        **kwargs: Any,
-    ) -> LLMResponse: ...
-
-    @overload  # type: ignore[no-overload-impl]
-    async def ainvoke(
-        self,
-        input: str,
-        message_history: Optional[Union[List[LLMMessage], MessageHistory]] = None,
-        system_instruction: Optional[str] = None,
-    ) -> LLMResponse: ...
-
-    @overload
-    async def ainvoke(
-        self,
-        input: List[LLMMessage],
-        response_format: Optional[Union[Type[BaseModel], dict[str, Any]]] = None,
-        **kwargs: Any,
-    ) -> LLMResponse: ...
-
-    # switching logics to LLMInterface or LLMInterfaceV2
-    def invoke(  # type: ignore[no-redef]
         self,
         input: Union[str, List[LLMMessage]],
         message_history: Optional[Union[List[LLMMessage], MessageHistory]] = None,
@@ -167,7 +133,7 @@ class BaseOpenAILLM(LLMInterface, LLMInterfaceV2, abc.ABC):
         else:
             raise ValueError(f"Invalid input type for invoke method - {type(input)}")
 
-    async def ainvoke(  # type: ignore[no-redef]
+    async def ainvoke(
         self,
         input: Union[str, List[LLMMessage]],
         message_history: Optional[Union[List[LLMMessage], MessageHistory]] = None,
@@ -337,7 +303,14 @@ class BaseOpenAILLM(LLMInterface, LLMInterfaceV2, abc.ABC):
             )
 
             content = response.choices[0].message.content or ""
-            return LLMResponse(content=content)
+            usage = None
+            if response.usage:
+                usage = LLMUsage(
+                    request_tokens=response.usage.prompt_tokens,
+                    response_tokens=response.usage.completion_tokens,
+                    total_tokens=response.usage.total_tokens,
+                )
+            return LLMResponse(content=content, usage=usage)
         except self.openai.OpenAIError as e:
             raise LLMGenerationError(e)
 
@@ -372,7 +345,14 @@ class BaseOpenAILLM(LLMInterface, LLMInterfaceV2, abc.ABC):
                 **self.model_params,
             )
             content = response.choices[0].message.content or ""
-            return LLMResponse(content=content)
+            usage = None
+            if response.usage:
+                usage = LLMUsage(
+                    request_tokens=response.usage.prompt_tokens,
+                    response_tokens=response.usage.completion_tokens,
+                    total_tokens=response.usage.total_tokens,
+                )
+            return LLMResponse(content=content, usage=usage)
         except self.openai.OpenAIError as e:
             raise LLMGenerationError(e)
 
@@ -482,7 +462,14 @@ class BaseOpenAILLM(LLMInterface, LLMInterfaceV2, abc.ABC):
                 **self.model_params,
             )
             content = response.choices[0].message.content or ""
-            return LLMResponse(content=content)
+            usage = None
+            if response.usage:
+                usage = LLMUsage(
+                    request_tokens=response.usage.prompt_tokens,
+                    response_tokens=response.usage.completion_tokens,
+                    total_tokens=response.usage.total_tokens,
+                )
+            return LLMResponse(content=content, usage=usage)
         except self.openai.OpenAIError as e:
             raise LLMGenerationError(e)
 
@@ -548,7 +535,14 @@ class BaseOpenAILLM(LLMInterface, LLMInterfaceV2, abc.ABC):
             )
 
             content = response.choices[0].message.content or ""
-            return LLMResponse(content=content)
+            usage = None
+            if response.usage:
+                usage = LLMUsage(
+                    request_tokens=response.usage.prompt_tokens,
+                    response_tokens=response.usage.completion_tokens,
+                    total_tokens=response.usage.total_tokens,
+                )
+            return LLMResponse(content=content, usage=usage)
         except self.openai.OpenAIError as e:
             raise LLMGenerationError(e)
 

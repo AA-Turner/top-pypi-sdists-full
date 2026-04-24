@@ -36,6 +36,10 @@ from chalk._gen.chalk.server.v1.team_pb2 import (
     DeactivateUserResponse,
     DeleteCustomRoleRequest,
     DeleteCustomRoleResponse,
+    DeleteScimGroupRequest,
+    DeleteScimGroupResponse,
+    DeleteScimGroupUsersRequest,
+    DeleteScimGroupUsersResponse,
     DeleteServiceTokenRequest,
     DeleteServiceTokenResponse,
     DeleteServiceTokenTeamScopedRequest,
@@ -250,6 +254,14 @@ class TeamServiceStub:
         AssignScimGroupEnvironmentRoleResponse,
     ]
     """Assigns an environment-scoped role to a SCIM group."""
+    DeleteScimGroup: UnaryUnaryMultiCallable[
+        DeleteScimGroupRequest,
+        DeleteScimGroupResponse,
+    ]
+    DeleteScimGroupUsers: UnaryUnaryMultiCallable[
+        DeleteScimGroupUsersRequest,
+        DeleteScimGroupUsersResponse,
+    ]
     CreateCustomRole: UnaryUnaryMultiCallable[
         CreateCustomRoleRequest,
         CreateCustomRoleResponse,
@@ -492,6 +504,18 @@ class TeamServiceServicer(metaclass=ABCMeta):
         context: ServicerContext,
     ) -> AssignScimGroupEnvironmentRoleResponse:
         """Assigns an environment-scoped role to a SCIM group."""
+    @abstractmethod
+    def DeleteScimGroup(
+        self,
+        request: DeleteScimGroupRequest,
+        context: ServicerContext,
+    ) -> DeleteScimGroupResponse: ...
+    @abstractmethod
+    def DeleteScimGroupUsers(
+        self,
+        request: DeleteScimGroupUsersRequest,
+        context: ServicerContext,
+    ) -> DeleteScimGroupUsersResponse: ...
     @abstractmethod
     def CreateCustomRole(
         self,

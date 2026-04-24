@@ -1,4 +1,6 @@
-# Copyright 2022 StreamSets Inc.
+#  IBM Confidential
+#  PID 5900-BAF
+#  Copyright StreamSets Inc., an IBM Company 2024
 
 # fmt: off
 import random
@@ -9,7 +11,7 @@ from streamsets.sdk.constants import (
     DEFAULT_MAX_CPU_LOAD_VALUE, DEFAULT_MAX_MEMORY_USED_VALUE, DEFAULT_MAX_PIPELINES_RUNNING_VALUE,
 )
 from streamsets.sdk.sch_models import Deployment, SelfManagedDeployment
-from streamsets.sdk.utils import SeekableList, get_random_string
+from streamsets.sdk.utils import EngineType, SeekableList, get_random_string
 
 # fmt: on
 
@@ -73,6 +75,11 @@ def sample_deployments(args, sch, sample_environment):
         sch.delete_deployment(*sample_deployments)
 
 
+def test_deployment_has_engine_type(sch, sample_deployments):
+    for sample_deployment in sample_deployments:
+        assert sample_deployment.engine_type
+
+
 def test_deployment_in_returns_true(sch, sample_deployments):
     for sample_deployment in sample_deployments:
         assert sample_deployment in sch.deployments
@@ -80,9 +87,9 @@ def test_deployment_in_returns_true(sch, sample_deployments):
 
 def test_deployment_contains(sch, sample_deployments):
     for sample_deployment in sample_deployments:
-        assert sch.deployments.contains(deployment_id=sample_deployment.deployment_id)
+        assert sch.deployments.contains(id=sample_deployment.id)
         assert sch.deployments.contains(deployment_name=sample_deployment.deployment_name)
-        assert not sch.deployments.contains(deployment_id='impossible_to_clash_with_this_^%@@!$!%^!!%#RWQ')
+        assert not sch.deployments.contains(id='impossible_to_clash_with_this_^%@@!$!%^!!%#RWQ')
 
 
 def test_deployments_len_works(sch):
@@ -95,25 +102,23 @@ def test_deployments_get_all_returns_seekable_list(sch):
 
 def test_deployments_get_by_id(sch, sample_deployments):
     for sample_deployment in sample_deployments:
-        sample_deployment_id = sample_deployment.deployment_id
-        deployment = sch.deployments.get(deployment_id=sample_deployment_id)
+        sample_deployment_id = sample_deployment.id
+        deployment = sch.deployments.get(id=sample_deployment_id)
         assert isinstance(deployment, SelfManagedDeployment)
-        assert deployment.deployment_id == sample_deployment_id
+        assert deployment.id == sample_deployment_id
 
 
 def test_deployments_get_by_id_raises_value_error(sch, sample_deployments):
     for sample_deployment in sample_deployments:
-        deployment_id = sample_deployment.deployment_id
+        deployment_id = sample_deployment.id
         fake_deployment_id = '{}zxyf'.format(deployment_id)
         with pytest.raises(ValueError):
-            sch.deployments.get(deployment_id=fake_deployment_id)
+            sch.deployments.get(id=fake_deployment_id)
 
 
 def test_deployments_get_all_works(sch, sample_deployments):
     for sample_deployment in sample_deployments:
-        assert not (
-            {sample_deployment.deployment_id} - {deployment.deployment_id for deployment in sch.deployments.get_all()}
-        )
+        assert not ({sample_deployment.id} - {deployment.id for deployment in sch.deployments.get_all()})
 
 
 def test_deployments_cast_to_list(sch, sample_deployments):
@@ -146,9 +151,9 @@ def test_fetch(sch, sample_deployments):
     assert fetched_by_name_deployment.deployment_name == name
 
     # Fetch by id
-    deployment_id = fetched_by_name_deployment.deployment_id
-    fetched_by_id_deployment = sch.deployments.get(deployment_id=deployment_id)
-    assert fetched_by_id_deployment.deployment_id == deployment_id
+    deployment_id = fetched_by_name_deployment.id
+    fetched_by_id_deployment = sch.deployments.get(id=deployment_id)
+    assert fetched_by_id_deployment.id == deployment_id
 
     # Fetch all the deployments
     all_deployments = sch.deployments
@@ -169,7 +174,7 @@ def test_update(sch, sample_deployments):
 
         # Update stage libraries
         stage_libraries = sample_deployment.engine_configuration.stage_libs
-        if sample_deployment.engine_configuration.engine_type == 'DC':
+        if sample_deployment.engine_configuration.engine_type == EngineType.COLLECTOR:
             additional_stage_libs = ['jython_2_7', 'jdbc']
         else:
             additional_stage_libs = ['jdbc', 'snowflake-with-no-dependency']
@@ -197,7 +202,7 @@ def test_update(sch, sample_deployments):
         sch.update_deployment(sample_deployment)
 
         # Verify
-        fetched_deployment = sch.deployments.get(deployment_id=sample_deployment.deployment_id)
+        fetched_deployment = sch.deployments.get(id=sample_deployment.id)
         assert fetched_deployment.deployment_name == update_name
 
         assert fetched_deployment.install_type == expected_install_type
@@ -216,7 +221,7 @@ def test_update(sch, sample_deployments):
         assert extra_tag in fetched_deployment.deployment_tags
 
         # Can Delete Deployment
-        can_delete_command = sch.api_client.can_delete_deployment(sample_deployment.deployment_id)
+        can_delete_command = sch.api_client.can_delete_deployment(sample_deployment.id)
         assert can_delete_command.response.status_code == 200
 
 
@@ -238,8 +243,8 @@ def test_deployments_with_additional_parameters(args, sch, sample_environment):
         'environment': sample_environment,
         'external_resource_location': 'https::{}.com'.format(get_random_string()),
         'engine_labels': ['engine_label_{}'.format(get_random_string()), 'engine_label_{}'.format(get_random_string())],
-        'max_cpu_load': random.randint(1, DEFAULT_MAX_CPU_LOAD_VALUE),
-        'max_memory_used': random.randint(1, DEFAULT_MAX_MEMORY_USED_VALUE),
+        'max_cpu_load': random.uniform(1, DEFAULT_MAX_CPU_LOAD_VALUE),
+        'max_memory_used': random.uniform(1, DEFAULT_MAX_MEMORY_USED_VALUE),
         'max_pipelines_running': random.randint(1, DEFAULT_MAX_PIPELINES_RUNNING_VALUE),
         'deployment_tags': [
             'deployment_tag_{}'.format(get_random_string()),
@@ -269,7 +274,7 @@ def test_deployments_with_additional_parameters(args, sch, sample_environment):
         # Make sure all passed arguments are respected
         assert deployment._data['name'] == passed_arguments['deployment_name']
         assert deployment._data['type'] == 'SELF'
-        assert deployment._data['environment'] == passed_arguments['environment'].environment_id
+        assert deployment._data['environment'] == passed_arguments['environment'].id
         assert deployment._data['rawDeploymentTags'] == passed_arguments['deployment_tags']
         assert engine_configuration._data['engineVersion'] == passed_arguments['engine_version']
         assert engine_configuration._data['externalResourcesUri'] == passed_arguments['external_resource_location']
@@ -282,6 +287,31 @@ def test_deployments_with_additional_parameters(args, sch, sample_environment):
     except Exception as e:
         raise e
 
+    finally:
+        sch.delete_deployment(deployment)
+
+
+@pytest.mark.xfail(reason='Currently skipping until TLKT-1666 is resolved')
+def test_tx_snowflake_deployment(sch, sample_environment):
+    deployment_name = "Tx Snowflake Deployment"
+    deployment_builder = sch.get_deployment_builder(deployment_type='SELF')
+    deployment = deployment_builder.build(
+        deployment_name=deployment_name,
+        environment=sample_environment,
+        engine_type='SF',
+        engine_version='4.0.0-SNAPSHOT',
+        deployment_tags=['self-managed-tag'],
+    )
+    sch.add_deployment(deployment)
+    deployment.install_type = 'DOCKER'
+    sch.update_deployment(deployment)
+
+    try:
+        sch.start_deployment(deployment)
+        tx_deployment = sch.deployments.get(deployment_name=deployment_name)
+        assert tx_deployment.state == 'ACTIVE'
+    except Exception as e:
+        raise e
     finally:
         sch.delete_deployment(deployment)
 

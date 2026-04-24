@@ -8,6 +8,7 @@
 import base64
 import binascii
 import copy
+import enum
 import json
 import logging
 import os
@@ -21,12 +22,11 @@ from time import sleep, time
 
 import inflection
 from inflection import camelize
-from requests.exceptions import ChunkedEncodingError, ConnectionError, HTTPError
+from requests.exceptions import HTTPError
 
-from streamsets.sdk.constants import SDC_DEPLOYMENT_TYPE, TRANSFORMER_DEPLOYMENT_TYPE
 from streamsets.sdk.exceptions import InvalidVersionError
 
-from .exceptions import InternalServerError
+from .exceptions import InternalServerError, ValidationError
 
 # fmt: on
 
@@ -36,6 +36,7 @@ logger = logging.getLogger(__name__)
 # transformer.
 TRANSFORMER_EXECUTION_MODES = {'BATCH', 'STREAMING'}
 TRANSFORMER_DEFAULT_EXECUTION_MODE = 'BATCH'
+SNOWFLAKE_DEFAULT_EXECUTION_MODE = 'SNOWPARK'
 # pipelineType is NOT THE SAME THING as executionMode, even though the value happens to also be a value for executionMode
 # see patch in SDC-10960 which introduced this parameter name to the backend
 TRANSFORMER_PIPELINE_TYPE = 'STREAMING'
@@ -43,33 +44,7 @@ SDC_DEFAULT_EXECUTION_MODE = 'STANDALONE'
 METERING_METRIC_LOOKUP = {'pipeline_hours': 'pipelineTime', 'clock_hours': 'clockTime', 'total_units': 'units'}
 
 # This is hardcoded in domainserver over here https://git.io/Jecwm
-DEFAULT_PROVISIONING_SPEC = '''apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: datacollector-deployment
-  namespace: streamsets
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: datacollector-deployment
-  template:
-    metadata:
-      labels:
-        app: datacollector-deployment
-    spec:
-      containers:
-      - name: datacollector
-        image: streamsets/datacollector:latest
-        ports:
-        - containerPort: 18630
-        env:
-        - name: HOST
-          valueFrom:
-            fieldRef:
-              fieldPath: status.podIP
-        - name: PORT0
-          value: "18630"'''
+DEFAULT_JDK17_PREFIX = 'JDK17_'
 
 
 def get_decoded_jwt(token):
@@ -128,7 +103,14 @@ def join_url_parts(*parts):
     Join a URL from a list of parts. See http://stackoverflow.com/questions/24814657 for
     examples of why urllib.parse.urljoin is insufficient for what we want to do.
     """
-    return '/'.join([piece.strip('/') for piece in parts if piece is not None])
+    output = []
+    for piece in parts:
+        if piece is None:
+            continue
+        if type(piece) != str:
+            raise TypeError('Joining can only be done for str type url parts')
+        output.append(piece.strip('/'))
+    return '/'.join(output)
 
 
 def get_params(parameters, exclusions=None):
@@ -149,6 +131,48 @@ def get_params(parameters, exclusions=None):
         for arg, value in parameters.items()
         if value is not None and arg not in exclusions
     }
+
+
+class SdkEnumBase(enum.Enum):
+    def __eq__(self, other):
+        if type(other) == str or other is None:
+            return other == self.value
+        return super(SdkEnumBase, self).__eq__(other)
+
+    def __bool__(self):
+        if self.value:
+            return True
+        else:
+            return False
+
+    def __str__(self):
+        if self.value:
+            return self.value
+        else:
+            return ''
+
+    def __hash__(self):
+        return hash(self.value)
+
+
+class EngineType(SdkEnumBase):
+    COLLECTOR = 'COLLECTOR'
+    TRANSFORMER = 'TRANSFORMER'
+    SNOWPARK = 'SNOWPARK'
+    EDGE = 'EDGE'
+    NULL = None
+
+
+class DeploymentEngineType(SdkEnumBase):
+    """Valid EngineTypes for a Deployment.
+    Names must be a subset of the streamsets.sdk.utils.EngineType class,
+    with values corresponding to the ones expected by the API for deployments.
+    """
+
+    COLLECTOR = 'DC'
+    TRANSFORMER = 'TF'
+    SNOWPARK = 'SF'
+    NULL = None
 
 
 class Version:
@@ -182,6 +206,10 @@ class Version:
             # specifier `\w+` May or may not exist e.g. `RC2`
 
             try:
+                # Needed to make sure that JDK17 image versions are compared with JDK8 ones
+                if isinstance(version, str) and version.startswith(DEFAULT_JDK17_PREFIX):
+                    version = version[len(DEFAULT_JDK17_PREFIX) :]
+
                 # note: `version` may be an in or float type, convert to a string before further processing
                 groups = re.search(pattern, str(version)).groups()
                 # Parse the numeric part of versions & add additional 0's to keep a min length of version.
@@ -442,58 +470,6 @@ def wait_for_condition(
         failure(timeout=timeout)
 
 
-def wait_and_retry_on_http_error(func, timeout_sec=300, time_between_calls_sec=2):
-    """
-    Decorator to retry a function on HTTPError for draft runs and snapshots using tunneling
-
-    Retries the decorated function upon encountering an HTTPError, logging a warning and waiting
-    between attempts until the specified timeout is reached.
-
-    Args:
-        func (callable): The function to decorate.
-        timeout_sec (int): Maximum time to keep retrying (default is 300 seconds).
-        time_between_calls_sec (int): Wait time between retry attempts (default is 2 seconds).
-
-    Raises:
-        HTTPError: If the function fails after retrying until the timeout is reached.
-
-    Returns:
-        An instance of :py:class:`streamsets.sdk.sch_api.Command` if the decorated function if successful.
-    """
-
-    def inner(*args, **kwargs):
-        end_time = time() + timeout_sec
-        error = None
-        while time() < end_time:
-            try:
-                return func(*args, **kwargs)
-            except HTTPError as e:
-                error = e
-                logger.warning("HTTPError occurred: {}. Retrying in {} seconds...".format(e, time_between_calls_sec))
-                sleep(time_between_calls_sec)
-        raise error
-
-    return inner
-
-
-def retry_on_connection_error(func):
-    """Decorator to retry a function on ConnectionError.
-
-    Args:
-        func (callable): Function to decorate, that can throw ConnectionError.
-    """
-
-    def inner(*args, **kwargs):
-        try:
-            return func(*args, **kwargs)
-        except (ConnectionError, ChunkedEncodingError) as e:
-            # requests sometimes throws ChunkedEncodingError when the underlying exception is a ConnectionError.
-            logger.warning("ConnectionError occurred: {}. Retrying once.".format(e))
-            return func(*args, **kwargs)
-
-    return inner
-
-
 class SeekableList(list):
     def get(self, **kwargs):
         """Retrieve the first instance that matches the supplied arguments.
@@ -566,11 +542,9 @@ def update_acl_permissions(api_client, resource_type, permission):
         'JOB': api_client.update_job_permissions,
         'PIPELINE': api_client.update_pipeline_permissions,
         'SDC': api_client.update_sdc_permissions,
-        'REPORT_DEFINITION': api_client.update_report_definition_permissions,
         'CONNECTION': api_client.update_connection_permissions,
         'TOPOLOGY': api_client.update_topology_permissions,
         'EVENT_SUBSCRIPTION': api_client.update_subscription_permissions,
-        'DEPLOYMENT': api_client.update_legacy_deployment_permissions,
         'CSP_DEPLOYMENT': api_client.update_deployment_permissions,
         'CSP_ENVIRONMENT': api_client.update_environment_permissions,
         'SCHEDULER_JOB': api_client.update_scheduled_task_permissions,
@@ -592,11 +566,9 @@ def set_acl(api_client, resource_type, resource_id, acl_json):
         'JOB': api_client.set_job_acl,
         'PIPELINE': api_client.set_pipeline_acl,
         'SDC': api_client.set_engine_acl,
-        'REPORT_DEFINITION': api_client.set_report_definition_acl,
         'CONNECTION': api_client.update_connection_acl,
         'TOPOLOGY': api_client.set_topology_acl,
         'EVENT_SUBSCRIPTION': api_client.set_subscription_acl,
-        'DEPLOYMENT': api_client.set_provisioning_agent_acl,
         'CSP_DEPLOYMENT': api_client.update_deployment_acl,
         'CSP_ENVIRONMENT': api_client.set_environment_acl,
         'SCHEDULER_JOB': api_client.set_scheduled_task_acl,
@@ -883,9 +855,9 @@ def create_aster_envelope(data):
 
 
 def get_library_directory_name(lib, engine_type):
-    if engine_type in ['DC', 'COLLECTOR']:
+    if engine_type == EngineType.COLLECTOR:
         return 'streamsets-datacollector-{}-lib'.format(lib)
-    if engine_type in ['TF', 'TRANSFORMER']:
+    if engine_type == EngineType.TRANSFORMER:
         return (
             'streamsets-transformer-{}-lib'.format(lib)
             if 'credentialstore' in lib
@@ -898,7 +870,14 @@ def get_attribute(config_definition):
     config_label = config_definition.get('label')
 
     if config_label:
-        replacements = [(r'[\s-]+', '_'), (r'&', 'and'), (r'/sec', '_per_sec'), (r'_\((.+)\)', r'_in_\1')]
+        replacements = [
+            (r'[\s-]+', '_'),
+            (r'&', 'and'),
+            (r'/', 'or'),
+            (r'/sec', '_per_sec'),
+            (r'_\((.+)\)', r'_in_\1'),
+            (r'\.', ''),
+        ]
         attribute_name = config_label.lower()
         for pattern, replacement in replacements:
             attribute_name = re.sub(pattern, replacement, attribute_name)
@@ -949,14 +928,14 @@ def get_color_icon_from_stage_definition(stage_definition, stage_types):
     return color_icon_name
 
 
-def get_stage_library_display_name_from_library(stage_library_name, deployment_type):
+def get_stage_library_display_name_from_library(stage_library_name, engine_type):
     """Convert internal stage library name to display name.
 
     E.g: 'streamsets-spark-snowflake-with-no-dependency-lib:4.1.0' -> 'snowflake-with-no-dependency'
 
     Args:
         stage_library_name (:py:`str`): Stage library as stored in data for API calls/internally.
-        deployment_type (:py:`str`): Deployment type that the library belongs to. "DC" or "TF".
+        engine_type (:py:`streamsets.sdk.utils.EngineType`): Engine type that the library belongs to.
 
     Returns:
         A :py:`str` with the display name of the stage library
@@ -965,31 +944,29 @@ def get_stage_library_display_name_from_library(stage_library_name, deployment_t
     if not isinstance(stage_library_name, str):
         raise TypeError("`stage_library_name` must be of type `str`")
 
-    if not isinstance(deployment_type, str):
-        raise TypeError("`deployment_type` must be of type `str`")
+    if not isinstance(engine_type, EngineType):
+        raise TypeError("`engine_type` must be of type `EngineType`.")
 
-    accepted_deployment_types = [SDC_DEPLOYMENT_TYPE, TRANSFORMER_DEPLOYMENT_TYPE]
-    if deployment_type not in accepted_deployment_types:
-        raise ValueError("`deployment_type` should be in {}".format(accepted_deployment_types))
+    accepted_deployment_types = [EngineType.COLLECTOR, EngineType.TRANSFORMER, EngineType.SNOWPARK]
+    if engine_type not in accepted_deployment_types:
+        raise ValueError("`engine_type` should be one of {}".format(accepted_deployment_types))
 
     try:
-        if deployment_type == SDC_DEPLOYMENT_TYPE:
+        if engine_type == EngineType.COLLECTOR:
             return re.match(r'streamsets-datacollector-(.+)-lib.*', stage_library_name).group(1)
         else:
-            return re.match(r'streamsets-(spark|transformer)-(.+)-lib.*', stage_library_name).group(2)
+            return re.match(r'streamsets-(spark|transformer|snowpark)-(.+)-lib.*', stage_library_name).group(2)
     except AttributeError:
         # Attribute error is raised when the regex cannot match the library name properly
         # This can occur because the library name is badly formed or because library name and deployment type
         # do not match and we check for an incorrect condition.
         raise ValueError(
             "Invalid `stage_library_name` sent to the function, make sure that it's formatted correctly"
-            " and has the correct `deployment_type`"
+            " and has the correct `engine_type`"
         )
 
 
-def get_stage_library_name_from_display_name(
-    stage_library_display_name, deployment_type, deployment_engine_version=None
-):
+def get_stage_library_name_from_display_name(stage_library_display_name, engine_type, deployment_engine_version=None):
     """Convert a stage's display name to a library name used internally.
 
     E.g: 'aws:2.1.0', 'DC', None -> 'streamsets-datacollector-aws-lib:2.1.0'
@@ -997,7 +974,7 @@ def get_stage_library_name_from_display_name(
 
     Args:
         stage_library_display_name (:py:`str`): Display name of the stage.
-        deployment_type (:py:`str`): Deployment type that the library belongs to. "DC" or "TF".
+        engine_type (:py:`streamsets.sdk.utils.EngineType`): Engine type that the library belongs to.
         deployment_engine_version (:py:`str`, optional): Used for the library version when the version is not part of
                                                         the display name. Default: ``None``.
 
@@ -1008,12 +985,12 @@ def get_stage_library_name_from_display_name(
     if not isinstance(stage_library_display_name, str):
         raise TypeError("`stage_library_name` must be of type `str`")
 
-    if not isinstance(deployment_type, str):
-        raise TypeError("`deployment_type` must be of type `str`")
+    if not isinstance(engine_type, EngineType):
+        raise TypeError("`engine_type` must be of type `EngineType`.")
 
-    accepted_deployment_types = [SDC_DEPLOYMENT_TYPE, TRANSFORMER_DEPLOYMENT_TYPE]
-    if deployment_type not in accepted_deployment_types:
-        raise ValueError("`deployment_type` should be in {}".format(accepted_deployment_types))
+    accepted_deployment_types = [EngineType.COLLECTOR, EngineType.TRANSFORMER, EngineType.SNOWPARK]
+    if engine_type not in accepted_deployment_types:
+        raise ValueError("`engine_type` should be in {}".format(accepted_deployment_types))
 
     parsed_display_name = stage_library_display_name.split(':')
     if len(parsed_display_name) > 1:
@@ -1035,8 +1012,10 @@ def get_stage_library_name_from_display_name(
         lib_name = parsed_display_name[0]
         lib_version = deployment_engine_version
 
-    if deployment_type == SDC_DEPLOYMENT_TYPE:
+    if engine_type == EngineType.COLLECTOR:
         return 'streamsets-datacollector-{}-lib:{}'.format(lib_name, lib_version)
+    elif engine_type == EngineType.SNOWPARK:
+        return 'streamsets-snowpark-{}-lib:{}'.format(lib_name, lib_version)
     else:
         return (
             'streamsets-transformer-{}-lib:{}'.format(lib_name, lib_version)
@@ -1051,7 +1030,7 @@ def validate_pipeline_stages(pipeline):
     except (ValueError, InternalServerError) as e:
         raise ValueError(
             'Editing pipeline {} is not supported when the engine is not accessible,'
-            ' please check if the engine is running and try again.'.format(pipeline.pipeline_id)
+            ' please check if the engine is running and try again.'.format(pipeline.id)
         ) from e
 
     pipeline_builder._update_stages_definition()
@@ -1079,3 +1058,87 @@ def convert_last_modified_on_field_for_saql(maybe_last_modified_on):
     if re.match(r'^create_time[+\-]?$', maybe_last_modified_on.lower()):
         return "created_on"
     return maybe_last_modified_on
+
+
+def validate_job(job):
+    """Simple validation before Job add/update.
+
+    Args:
+        job (:py:obj:`streamsets.sdk.sch_models.Job`): Job instance.
+
+    Raises:
+        :py:obj:`streamsets.sdk.exceptions.ValidationError`: If validation fails.
+    """
+    if not isinstance(job.pipeline_id, str) or not job.pipeline_id:
+        raise ValidationError(
+            f"job.pipeline_id must be non-empty string, got: ({type(job.pipeline_id)}: {repr(job.pipeline_id)})"
+        )
+    if not isinstance(job.commit_id, str) or not job.commit_id:
+        raise ValidationError(
+            f"job.commit_id must be non-empty string, got: ({type(job.commit_id)}: {repr(job.commit_id)})"
+        )
+
+    try:
+        pipeline = job.pipeline
+    except HTTPError as e:
+        raise ValidationError(f'Pipeline.commit_id: ({job.commit_id}) not found.') from e
+    if job.draft_run:
+        # skipping rest of validation due to draft run
+        return
+    if 'draft' in pipeline.version.lower():
+        raise ValidationError(
+            f'Invalid pipeline version: ({pipeline.version}) '
+            f'Job can only be created from published versions of a pipeline.'
+        )
+
+    if job.engine_type != pipeline.engine_type:
+        raise ValidationError(
+            f'Job engine type ({job.engine_type}) is different than Pipeline engine type ({pipeline.engine_type})'
+        )
+
+
+def wrap_results_with_count_offset_len(data, **kwargs):
+    """Wrap collected data with information about totalCount, offset and len.
+       Default values for offset and len parameters are set to match behavior of sch_api.get_all functions.
+
+    Args:
+        data (:py:obj:`streamsets.sdk.utils.SeekableList`): Collected data to be wrapped
+        **kwargs: Filters used to collect data
+
+    Returns:
+        A :py:obj:`dict`
+
+    """
+    return {'totalCount': len(data), 'offset': kwargs.get('offset', 0), 'len': kwargs.get('len', -1), 'data': data}
+
+
+def get_accepted_labels_libraries_and_names(pipeline_builder, field_name):
+    # We need the  field_name library definition in order to get accepted libraries, names & labels.
+    # The accepted labels and associated java_name values are of the form:
+    # {'labels': [label1 (library: Library_name1), label2 (Library: library_name2)],
+    #  'values': [java_name_for_label1, java_name_for_label2]}
+    config_definition = next(
+        (
+            config.get('model')
+            for config in pipeline_builder._definitions['pipeline'][0]['configDefinitions']
+            if config['fieldName'] == field_name
+        ),
+        {},
+    )
+    if not config_definition:
+        raise RuntimeError('Could not pull the {} library definitions'.format(field_name))
+
+    # Create accepted lists
+    accepted_labels = []
+    accepted_libraries = []
+    accepted_java_names = []
+    for idx, field in enumerate(config_definition['labels']):
+        label_name = field.split(' (')[0]
+        accepted_labels.append(label_name)
+
+        library_name = re.search(r'Library:\s*([^)]+)\)', field)
+        accepted_libraries.append(library_name.group(1).strip())
+
+        accepted_java_names.append(config_definition['values'][idx])
+
+    return accepted_labels, accepted_libraries, accepted_java_names

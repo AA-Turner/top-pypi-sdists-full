@@ -1,4 +1,6 @@
-# Copyright 2022 StreamSets Inc.
+#  IBM Confidential
+#  PID 5900-BAF
+#  Copyright StreamSets Inc., an IBM Company 2024
 
 # fmt: off
 import json
@@ -37,7 +39,7 @@ def simple_pipeline(sch, snowflake_config):
     try:
         yield pipeline
     finally:
-        sch.api_client.delete_pipeline(pipeline.pipeline_id)
+        sch.api_client.delete_pipeline(pipeline.id)
 
 
 @pytest.fixture(scope="module")
@@ -96,7 +98,7 @@ def test_job_in_returns_true(sch, sample_jobs):
 @pytest.mark.snowflake
 def test_job_contains(sch, sample_jobs):
     job = sample_jobs[0]
-    assert sch.jobs.contains(id=job.job_id)
+    assert sch.jobs.contains(id=job.id)
     assert sch.jobs.contains(job_name=job.job_name)
     assert not sch.jobs.contains(id='impossible_to_clash_with_this_^%@@!$!%^!!%#RWQ')
 
@@ -110,7 +112,7 @@ def test_jobs_len_works(sch, sample_jobs):
 def test_jobs_getitem_works(sample_jobs):
     job = sample_jobs[0]
     assert isinstance(job, Job)
-    assert job.job_id
+    assert job.id
     # Assuming 5 to be a safe number of attributes to say that the job is populated.
     assert len(job._data) > 5
 
@@ -122,15 +124,15 @@ def test_jobs_get_all_returns_seekable_list(sch):
 
 @pytest.mark.snowflake
 def test_jobs_get_by_id(sch, sample_jobs):
-    sample_job_id = sample_jobs[0].job_id
+    sample_job_id = sample_jobs[0].id
     job = sch.jobs.get(id=sample_job_id)
     assert isinstance(job, Job)
-    assert job.job_id == sample_job_id
+    assert job.id == sample_job_id
 
 
 @pytest.mark.snowflake
 def test_jobs_get_by_id_raises_value_error(sch, sample_jobs):
-    job_id = sample_jobs[0].job_id
+    job_id = sample_jobs[0].id
     fake_job_id = '{}zxyf'.format(job_id)
     with pytest.raises(ValueError):
         sch.jobs.get(id=fake_job_id)
@@ -141,7 +143,7 @@ def test_jobs_cast_to_list(sch, sample_jobs):
     jobs = list(sch.jobs)
     assert isinstance(jobs, list)
     assert isinstance(jobs[0], Job)
-    assert not ({job.job_id for job in sample_jobs} - {job.job_id for job in jobs})
+    assert not ({job.id for job in sample_jobs} - {job.id for job in jobs})
 
 
 @pytest.mark.snowflake
@@ -169,10 +171,10 @@ def test_job_acl_permissions(sch, sample_user):
 
     # Add
     acl.add_permission(permission)
-    assert set(sch.jobs.get(job_id=job.job_id).acl.permissions.get(subject_id=sample_user.id).actions) == set(actions)
+    assert set(sch.jobs.get(id=job.id).acl.permissions.get(subject_id=sample_user.id).actions) == set(actions)
 
     # Get
-    permissions = sch.jobs.get(job_id=job.job_id).acl.permissions
+    permissions = sch.jobs.get(id=job.id).acl.permissions
     assert isinstance(permissions, SeekableList)
     sample_permission = permissions[0]
     assert isinstance(sample_permission, Permission)
@@ -189,7 +191,7 @@ def test_job_acl_permissions(sch, sample_user):
     # Remove
     acl.remove_permission(permission)
     with pytest.raises(ValueError):
-        sch.jobs.get(job_id=job.job_id).acl.permissions.get(subject_id=sample_user.id)
+        sch.jobs.get(id=job.id).acl.permissions.get(subject_id=sample_user.id)
 
 
 @pytest.mark.snowflake
@@ -389,7 +391,7 @@ def test_update_job(sch, simple_pipeline):
         sch.publish_pipeline(simple_pipeline)
 
         sch.upgrade_job(job)
-        job = sch.jobs.get(job_id=job.job_id)
+        job = sch.jobs.get(id=job.id)
 
         assert job.pipeline_commit_label == 'v2'
 
@@ -412,7 +414,7 @@ def test_duplicate_job(sch, simple_pipeline):
         duplicated_jobs = sch.duplicate_job(job)
         assert isinstance(duplicated_jobs, SeekableList)
         assert len(duplicated_jobs) == 1
-        assert sch.jobs.get(job_name='{} copy'.format(job.job_name)).job_id == duplicated_jobs[0].job_id
+        assert sch.jobs.get(job_name='{} copy'.format(job.job_name)).id == duplicated_jobs[0].id
     finally:
         try:
             for duplicated_job in duplicated_jobs:
@@ -432,7 +434,7 @@ def test_duplicate_jobs(sch, simple_pipeline):
         assert isinstance(duplicated_jobs, SeekableList)
         assert len(duplicated_jobs) == 3
         for i in range(3):
-            assert sch.jobs.get(job_name='{}{}'.format(name, i + 1)).job_id == duplicated_jobs[i].job_id
+            assert sch.jobs.get(job_name='{}{}'.format(name, i + 1)).id == duplicated_jobs[i].id
     finally:
         try:
             for duplicated_job in duplicated_jobs:
@@ -468,4 +470,4 @@ def test_run_error(sch, snowflake_config):
         sch.wait_for_job_status(job, 'INACTIVE')
     finally:
         sch.delete_job(job)
-        sch.api_client.delete_pipeline(pipeline.pipeline_id)
+        sch.api_client.delete_pipeline(pipeline.id)

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import collections.abc
+import html
 import inspect
 import itertools
 import json
@@ -42,7 +43,7 @@ from typing import (
 )
 from urllib.parse import urljoin
 
-import pandas as pd
+import pyarrow as pa
 import pyarrow.feather
 import requests
 import requests.structures
@@ -125,6 +126,7 @@ from chalk.client.models import (
     OfflineQueryInputSql,
     OfflineQueryInputUri,
     OfflineQueryParquetUploadURLResponse,
+    OfflineQueryReport,
     OnlineQuery,
     OnlineQueryContext,
     OnlineQueryManyRequest,
@@ -203,14 +205,16 @@ from chalk.utils.environment_parsing import env_var_bool
 from chalk.utils.log_with_context import get_logger
 from chalk.utils.missing_dependency import missing_dependency_exception
 from chalk.utils.notebook import parse_notebook_into_script
+from chalk.utils.pandas_utils import is_pandas_dataframe, require_pandas
+from chalk.utils.retry import retry_call, retry_if_exception_message, wait_exponential_jitter
 from chalk.utils.string import s
 from chalk.utils.tracing import add_trace_headers, safe_trace
 
 if TYPE_CHECKING:
     import ssl
 
+    import pandas as pd
     import polars as pl
-    import pyarrow as pa
     from polars._typing import PolarsDataType
     from pydantic import BaseModel, ValidationError
 
@@ -421,30 +425,40 @@ def _validate_offline_query_inputs(
         return validated_inputs
 
 
+def _pandas_to_arrow_table(dataframe: Any) -> pa.Table:
+    dataframe = dataframe.rename(columns={k: str(k) for k in dataframe.columns})
+    dataframe.columns = dataframe.columns.astype("string")
+    return pa.Table.from_pandas(dataframe, preserve_index=False)
+
+
+def _query_input_to_arrow_table(query_input: QueryInput) -> pa.Table:
+    try:
+        import polars as pl
+    except ImportError:
+        raise missing_dependency_exception("chalkpy[runtime]")
+
+    if isinstance(query_input, DataFrame):
+        return query_input.to_pyarrow()
+    elif isinstance(query_input, pl.DataFrame):
+        return query_input.to_arrow()
+    elif isinstance(query_input, pa.Table):
+        return query_input
+    elif isinstance(query_input, pa.RecordBatch):
+        return pa.Table.from_batches([query_input])
+    elif is_pandas_dataframe(query_input):
+        return _pandas_to_arrow_table(query_input)
+    elif isinstance(query_input, collections.abc.Mapping):  # pyright: ignore[reportUnnecessaryIsInstance]
+        return pl.DataFrame(_validate_offline_query_inputs(query_input)).to_arrow()
+    else:
+        pd = require_pandas()
+        return _pandas_to_arrow_table(pd.DataFrame(cast(Any, query_input)))
+
+
 def _get_column_names(query_input: QueryInput) -> List[str]:
     """
     Get a list of output column names from a QueryInput object
     """
-    try:
-        import polars as pl
-        import pyarrow as pa
-    except ImportError:
-        raise missing_dependency_exception("chalkpy[runtime]")
-
-    input_table: pa.Table | pa.RecordBatch
-    if isinstance(query_input, DataFrame):
-        input_table = query_input.to_pyarrow()
-    elif isinstance(query_input, pl.DataFrame):
-        input_table = query_input.to_arrow()
-    elif isinstance(query_input, pd.DataFrame):
-        input_table = pl.from_pandas(query_input).to_arrow()
-    elif isinstance(query_input, pa.Table):
-        input_table = query_input
-    elif isinstance(query_input, collections.abc.Mapping):  # pyright: ignore[reportUnnecessaryIsInstance]
-        input_table = pl.DataFrame(_validate_offline_query_inputs(query_input)).to_arrow()
-    else:
-        input_table = pl.from_pandas(pd.DataFrame(query_input)).to_arrow()
-    return input_table.column_names
+    return _query_input_to_arrow_table(query_input).column_names
 
 
 def _offline_query_inputs_should_be_uploaded(
@@ -452,7 +466,6 @@ def _offline_query_inputs_should_be_uploaded(
     row_limit: int = 100,
 ) -> bool:
     try:
-        import pandas as pd
         import polars as pl
     except ImportError:
         raise missing_dependency_exception("chalkpy[runtime]")
@@ -466,9 +479,11 @@ def _offline_query_inputs_should_be_uploaded(
     for single_input in inputs_as_list:
         if isinstance(single_input, collections.abc.Mapping):
             num_rows = max(len(v) if hasattr(v, "__len__") else 1 for v in single_input.values())
+        elif isinstance(single_input, DataFrame):
+            num_rows = single_input.shape[0]
         elif isinstance(single_input, pl.DataFrame):
             num_rows = single_input.height
-        elif isinstance(single_input, pd.DataFrame):
+        elif is_pandas_dataframe(single_input):
             num_rows = single_input.shape[0]
         else:
             num_rows = single_input.shape[0]
@@ -486,27 +501,10 @@ def _offline_query_inputs_to_parquet(
     Convert a list of OfflineQueryInput objects to a list of pyarrow Tables in the format
     OfflineQueryGivensVersion.SINGLE_TS_COL_NAME_WITH_URI_PREFIX
     """
-    try:
-        import polars as pl
-        import pyarrow as pa
-    except ImportError:
-        raise missing_dependency_exception("chalkpy[runtime]")
     offset = 0
     tables: List[pa.Table] = []
     for single_input, single_input_times in offline_query_inputs:
-        input_table: pa.Table | pa.RecordBatch
-        if isinstance(single_input, DataFrame):
-            input_table = single_input.to_pyarrow()
-        elif isinstance(single_input, pl.DataFrame):
-            input_table = single_input.to_arrow()
-        elif isinstance(single_input, pd.DataFrame):
-            input_table = pl.from_pandas(single_input).to_arrow()
-        elif isinstance(single_input, pa.Table):
-            input_table = single_input
-        elif isinstance(single_input, collections.abc.Mapping):  # pyright: ignore[reportUnnecessaryIsInstance]
-            input_table = pl.DataFrame(_validate_offline_query_inputs(single_input)).to_arrow()
-        else:
-            input_table = pl.from_pandas(pd.DataFrame(single_input)).to_arrow()
+        input_table = _query_input_to_arrow_table(single_input)
         fields: List[pa.Field] = []
         for i, column_fqn in enumerate(input_table.column_names):
             try:
@@ -564,28 +562,15 @@ def _to_offline_query_input(
     input: QueryInput,
     input_times: QueryInputTime,
 ) -> OfflineQueryInput:
-    try:
-        import polars as pl
-    except ImportError:
-        raise missing_dependency_exception("chalkpy[runtime]")
-    if isinstance(input, (DataFrame, pl.DataFrame)):
-        input = input.to_pandas()
-    if isinstance(input, collections.abc.Mapping):
-        input = _validate_offline_query_inputs(input)
-    pd_dataframe: pd.DataFrame
-    if isinstance(input, pd.DataFrame):
-        pd_dataframe = input
-    else:
-        pd_dataframe = pd.DataFrame(cast(Any, input))
-
-    columns = pd_dataframe.columns
-    matrix: List[List[Any]] = pd_dataframe.T.values.tolist()
+    input_table = _query_input_to_arrow_table(input)
+    columns = input_table.column_names
+    matrix: List[List[Any]] = [input_table.column(i).to_pylist() for i in range(input_table.num_columns)]
 
     columns_fqn = [str(c) for c in (*columns, CHALK_TS_FEATURE)]
     if input_times is None:
         input_times = datetime.now(timezone.utc)
     if isinstance(input_times, datetime):
-        input_times = [input_times for _ in range(len(pd_dataframe))]
+        input_times = [input_times for _ in range(input_table.num_rows)]
     local_tz = datetime.now(timezone.utc).astimezone().tzinfo
 
     matrix.append(
@@ -689,11 +674,16 @@ def encode_unload_resolvers(
     """Encode unload_resolvers into the wire format (list of spec dicts).
 
     Accepts either:
+    - The literal "all" (or the single-element sequence ["all"]) to unload all eligible resolvers.
     - A list of resolver FQNs or Resolver objects (no partitioning).
     - A dict mapping resolver -> tuple of partition-by expressions.
     """
     if unload_resolvers is None:
         return None
+
+    # "all" bare string → [{"any": []}] (dict sentinel; server normalises to the auto-detect mode)
+    if unload_resolvers == "all":
+        return [{"any": []}]
 
     if isinstance(unload_resolvers, Mapping):
         result: list[dict[str, Any]] = []
@@ -703,7 +693,11 @@ def encode_unload_resolvers(
             result.append({"fqn": fqn, "partition_by": partition_by})
         return result
     else:
-        return [{"fqn": resolver.fqn if isinstance(resolver, Resolver) else resolver} for resolver in unload_resolvers]
+        items = list(unload_resolvers)
+        # ["all"] single-element sequence → dict sentinel
+        if items == ["all"]:
+            return [{"any": []}]
+        return [{"fqn": r.fqn if isinstance(r, Resolver) else r} for r in items]
 
 
 def _validate_context_dict(data: Any) -> ContextJsonDict | None:
@@ -757,6 +751,7 @@ class _ChalkHTTPAdapter(HTTPAdapter):
 
 
 window_function_regex = re.compile(r"^(.*)__(\d+)__$")
+HTML_REPR_MAX_CELL_WIDTH = 50
 
 
 def render_fqn(name: str) -> str:
@@ -787,6 +782,78 @@ def render_fqn(name: str) -> str:
         name = f"{base_name}[{time_str}]"
 
     return name
+
+
+def _repr_html_table(headers: Sequence[str], rows: Sequence[Sequence[Any]]) -> str:
+    def format_cell(value: Any) -> str:
+        text = str(value)
+        if len(text) >= HTML_REPR_MAX_CELL_WIDTH:
+            text = text[: HTML_REPR_MAX_CELL_WIDTH - 4] + "..."
+        return html.escape(text, quote=False)
+
+    header_cells = "\n".join(f"      <th>{format_cell(header)}</th>" for header in headers)
+    body_rows = []
+    for row_index, row in enumerate(rows):
+        cells = "\n".join(f"      <td>{format_cell(value)}</td>" for value in row)
+        body_rows.append(
+            "\n".join(
+                [
+                    "    <tr>",
+                    f"      <th>{row_index}</th>",
+                    cells,
+                    "    </tr>",
+                ]
+            )
+        )
+    body_html = "\n".join(body_rows)
+    return f"""<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {{
+        vertical-align: middle;
+    }}
+
+    .dataframe tbody tr th {{
+        vertical-align: top;
+    }}
+
+    .dataframe thead th {{
+        text-align: right;
+    }}
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+{header_cells}
+    </tr>
+  </thead>
+  <tbody>
+{body_html}
+  </tbody>
+</table>
+</div>"""
+
+
+def _repr_text_table(headers: Sequence[str], rows: Sequence[Sequence[Any]]) -> str:
+    if not rows:
+        return f"Empty DataFrame\nColumns: [{', '.join(headers)}]\nIndex: []"
+
+    text_rows = [[str(value).replace("\n", "\\n") for value in row] for row in rows]
+    column_widths = [
+        max(len(header), *(len(row[col_index]) for row in text_rows)) for col_index, header in enumerate(headers)
+    ]
+    index_width = max(len(str(len(text_rows) - 1)), 1)
+
+    lines = [
+        f"{'':>{index_width}}  "
+        + "  ".join(header.rjust(column_widths[col_index]) for col_index, header in enumerate(headers))
+    ]
+    for row_index, row in enumerate(text_rows):
+        lines.append(
+            f"{row_index:>{index_width}}  "
+            + "  ".join(value.ljust(column_widths[col_index]) for col_index, value in enumerate(row))
+        )
+    return "\n".join(lines)
 
 
 class OnlineQueryResponseImpl(OnlineQueryResult):
@@ -845,16 +912,14 @@ class OnlineQueryResponseImpl(OnlineQueryResult):
     def _df_repr(self) -> List[Dict[str, Any]]:
         return [{"Feature": x.field, "Value": repr_utils.get_repr_value(x.value)} for x in self.data]
 
-    def _repr_html_(self):
+    def _repr_rows(self) -> List[Tuple[str, object]]:
         values = self.to_dict(prefix=False)
-        df_html = (
-            pd.DataFrame(
-                {
-                    "Feature": [render_fqn(k) for k in values.keys()],
-                    "Value": [v for v in values.values()],
-                }
-            )._repr_html_()  # pyright: ignore[reportPrivateUsage]
-            or ""
+        return [(render_fqn(feature), repr_utils.get_repr_value(value)) for feature, value in values.items()]
+
+    def _repr_html_(self):
+        df_html = _repr_html_table(
+            ["Feature", "Value"],
+            self._repr_rows(),
         )
 
         errors_html = ""
@@ -863,7 +928,9 @@ class OnlineQueryResponseImpl(OnlineQueryResult):
                 "<br />"
                 + "<h4>Errors</h4>"
                 + "<ul>"
-                + "\n".join([f"<li>{e.code.value}: {e.message}</li>" for e in self.errors])
+                + "\n".join(
+                    [f"<li>{html.escape(str(e.code.value))}: {html.escape(str(e.message))}</li>" for e in self.errors]
+                )
                 + "</ul>"
             )
         return f"{df_html}{errors_html}"
@@ -890,11 +957,7 @@ class OnlineQueryResponseImpl(OnlineQueryResult):
                 lines.append("")
                 lines.append(v)
         errs = "\n".join(lines)
-
-        try:
-            return repr(pd.DataFrame(self._df_repr())) + "\n" + errs
-        except:
-            return f"{json.dumps(self.to_dict(), sort_keys=True, indent=4)}\n{errs}"
+        return _repr_text_table(["Feature", "Value"], self._repr_rows()) + "\n" + errs
 
     def __str__(self):
         lines: List[str] = []
@@ -918,10 +981,7 @@ class OnlineQueryResponseImpl(OnlineQueryResult):
                 lines.append("")
                 lines.append(v)
         errs = "\n".join(lines)
-        try:
-            return str(pd.DataFrame(self._df_repr())) + "\n" + errs
-        except:
-            return f"{json.dumps(self.to_dict(), sort_keys=True, indent=4)}\n{errs}"
+        return _repr_text_table(["Feature", "Value"], self._repr_rows()) + "\n" + errs
 
     def _repr_markdown_(self):
         lines: List[str] = []
@@ -957,14 +1017,7 @@ class OnlineQueryResponseImpl(OnlineQueryResult):
                 split = content.split("\n")
                 main = "\n".join(itertools.chain(split[1:3], split[5:]))
             except:
-                try:
-                    import pandas as pd
-
-                    content = str(pd.DataFrame(self._df_repr()))
-                    split = content.split("\n")
-                    main = "\n".join(itertools.chain(split[1:3], split[5:]))
-                except:
-                    main = json.dumps(self.to_dict(), sort_keys=True, indent=4)
+                main = _repr_text_table(["Feature", "Value"], self._repr_rows())
         lines.append("## Features")
         lines.append("```")
         lines.append(main)
@@ -1438,29 +1491,28 @@ https://docs.chalk.ai/docs/debugging-queries#resolver-replay
                 print(
                     "The branch server is offline. Starting the server is expected to take 2 minutes but could take longer.\n"
                 )
-                from tqdm import tqdm
+                print("Waiting for the branch server to come online...")
 
-                with tqdm(total=0, desc="Starting branch server") as pbar:
-                    for _ in range(90):
-                        r = self.session.request(
-                            method="POST",
-                            headers=status_headers,
-                            url=status_url,
-                            timeout=branch_timeout_value,
-                        )
-                        try:
-                            resp_json = r.json()
-                        except requests.exceptions.ConnectionError:
-                            resp_json = {}
-                        except requests.exceptions.JSONDecodeError as e:
-                            r.raise_for_status()
-                            raise ValueError(f"Unexpected response when starting branch server: {r.text}") from e
-                        if resp_json.get("status") == "ok":
-                            break
-                        else:
-                            time.sleep(4)
-                            pbar.update()
-                print()
+                for attempt in range(90):
+                    r = self.session.request(
+                        method="POST",
+                        headers=status_headers,
+                        url=status_url,
+                        timeout=branch_timeout_value,
+                    )
+                    try:
+                        resp_json = r.json()
+                    except requests.exceptions.ConnectionError:
+                        resp_json = {}
+                    except requests.exceptions.JSONDecodeError as e:
+                        r.raise_for_status()
+                        raise ValueError(f"Unexpected response when starting branch server: {r.text}") from e
+                    if resp_json.get("status") == "ok":
+                        break
+                    if attempt in {14, 29, 44, 59, 74}:
+                        print("Still waiting for the branch server to come online...")
+                    time.sleep(4)
+
                 if resp_json.get("status") != "ok":
                     raise ChalkCustomException("The branch server did not start. Retry your query.")
 
@@ -2863,6 +2915,34 @@ https://docs.chalk.ai/cli/apply
             limit=limit,
             offset=offset,
         )
+
+    def get_offline_query_report(self, offline_query_id: str) -> Optional[OfflineQueryReport]:
+        """
+        Get the batch report associated with the offline query in environment.
+
+        Parameters
+        ----------
+        offline_query_id
+            Offline query's ID.
+
+        environment_id
+            Environment ID of offline query.
+
+        Returns
+        -------
+        Optional[OfflineQueryReport]
+            The OfflineQueryReport object if it exists.
+        """
+        from chalk.client.client_grpc import ChalkGRPCClient
+
+        client_grpc = ChalkGRPCClient(
+            client_id=self._client_id,
+            client_secret=self._client_secret,
+            environment=self._primary_environment,
+            api_server=self._api_server,
+        )
+
+        return client_grpc.get_offline_query_report(offline_query_id)
 
     def redeploy(
         self,
@@ -4522,26 +4602,20 @@ https://docs.chalk.ai/cli/apply
         environment: Optional[EnvironmentId],
         branch: Optional[BranchId],
     ) -> GetOfflineQueryJobResponse:
-        from tenacity import Retrying, retry_if_exception_message, stop_after_attempt
-        from tenacity.wait import wait_exponential_jitter
-
-        for attempt in Retrying(
-            stop=stop_after_attempt(5),
+        return retry_call(
+            lambda: self._request(
+                method="POST",
+                uri="/v4/offline_query/status",
+                response=GetOfflineQueryJobResponse,
+                environment_override=environment,
+                json=request,
+                preview_deployment_id=None,
+                branch=branch,
+            ),
+            attempts=5,
+            retry_if=retry_if_exception_message("504"),
             wait=wait_exponential_jitter(),
-            reraise=True,
-            retry=retry_if_exception_message(match="504"),
-        ):
-            with attempt:
-                return self._request(
-                    method="POST",
-                    uri="/v4/offline_query/status",
-                    response=GetOfflineQueryJobResponse,
-                    environment_override=environment,
-                    json=request,
-                    preview_deployment_id=None,
-                    branch=branch,
-                )
-        raise ValueError("Unreachable code path reached")
+        )
 
     def get_revision_summary(
         self,
@@ -5115,7 +5189,6 @@ https://docs.chalk.ai/cli/apply
             The query result
         """
         try:
-            import pyarrow as pa
             import pyarrow.feather as feather
         except ImportError:
             raise missing_dependency_exception("chalkpy[runtime]")

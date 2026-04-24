@@ -403,14 +403,14 @@ class CloudWatchClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudwatch/client/#get_metric_widget_image)
         """
 
-    def get_o_tel_enrichment(self) -> GetOTelEnrichmentOutputTypeDef:
+    def get_otel_enrichment(self) -> GetOTelEnrichmentOutputTypeDef:
         """
         Returns the current status of vended metric enrichment for the account,
         including whether CloudWatch vended metrics are enriched with resource ARN and
         resource tag labels and queryable using PromQL.
 
-        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatch/client/get_o_tel_enrichment.html)
-        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudwatch/client/#get_o_tel_enrichment)
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatch/client/get_otel_enrichment.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudwatch/client/#get_otel_enrichment)
         """
 
     def list_alarm_mute_rules(
@@ -584,14 +584,14 @@ class CloudWatchClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudwatch/client/#start_metric_streams)
         """
 
-    def start_o_tel_enrichment(self) -> dict[str, Any]:
+    def start_otel_enrichment(self) -> dict[str, Any]:
         """
         Enables enrichment and PromQL access for CloudWatch vended metrics for <a
         href="https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/UsingResourceTagsForTelemetry.html">supported
         AWS resources</a> in the account.
 
-        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatch/client/start_o_tel_enrichment.html)
-        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudwatch/client/#start_o_tel_enrichment)
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatch/client/start_otel_enrichment.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudwatch/client/#start_otel_enrichment)
         """
 
     def stop_metric_streams(
@@ -604,14 +604,14 @@ class CloudWatchClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudwatch/client/#stop_metric_streams)
         """
 
-    def stop_o_tel_enrichment(self) -> dict[str, Any]:
+    def stop_otel_enrichment(self) -> dict[str, Any]:
         """
         Disables enrichment and PromQL access for CloudWatch vended metrics for <a
         href="https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/UsingResourceTagsForTelemetry.html">supported
         AWS resources</a> in the account.
 
-        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatch/client/stop_o_tel_enrichment.html)
-        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudwatch/client/#stop_o_tel_enrichment)
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatch/client/stop_otel_enrichment.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudwatch/client/#stop_otel_enrichment)
         """
 
     def tag_resource(self, **kwargs: Unpack[TagResourceInputTypeDef]) -> dict[str, Any]:

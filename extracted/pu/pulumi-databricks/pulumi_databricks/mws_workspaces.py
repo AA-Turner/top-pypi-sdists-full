@@ -52,6 +52,7 @@ class MwsWorkspacesArgs:
                  workspace_url: Optional[pulumi.Input[_builtins.str]] = None):
         """
         The set of arguments for constructing a MwsWorkspaces resource.
+
         :param pulumi.Input[_builtins.str] account_id: Account Id that could be found in the top right corner of [Accounts Console](https://accounts.cloud.databricks.com/).
         :param pulumi.Input[_builtins.str] workspace_name: name of the workspace, will appear on UI.
         :param pulumi.Input[_builtins.str] aws_region: region of VPC.
@@ -106,8 +107,8 @@ class MwsWorkspacesArgs:
         if gcp_managed_network_config is not None:
             pulumi.set(__self__, "gcp_managed_network_config", gcp_managed_network_config)
         if gke_config is not None:
-            warnings.warn("""gke_config is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.112.0/docs/guides/gcp-workspace#creating-a-databricks-workspace""", DeprecationWarning)
-            pulumi.log.warn("""gke_config is deprecated: gke_config is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.112.0/docs/guides/gcp-workspace#creating-a-databricks-workspace""")
+            warnings.warn("""gke_config is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.113.0/docs/guides/gcp-workspace#creating-a-databricks-workspace""", DeprecationWarning)
+            pulumi.log.warn("""gke_config is deprecated: gke_config is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.113.0/docs/guides/gcp-workspace#creating-a-databricks-workspace""")
         if gke_config is not None:
             pulumi.set(__self__, "gke_config", gke_config)
         if is_no_public_ip_enabled is not None:
@@ -300,7 +301,7 @@ class MwsWorkspacesArgs:
 
     @_builtins.property
     @pulumi.getter(name="gkeConfig")
-    @_utilities.deprecated("""gke_config is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.112.0/docs/guides/gcp-workspace#creating-a-databricks-workspace""")
+    @_utilities.deprecated("""gke_config is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.113.0/docs/guides/gcp-workspace#creating-a-databricks-workspace""")
     def gke_config(self) -> Optional[pulumi.Input['MwsWorkspacesGkeConfigArgs']]:
         return pulumi.get(self, "gke_config")
 
@@ -504,6 +505,7 @@ class _MwsWorkspacesState:
                  workspace_url: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering MwsWorkspaces resources.
+
         :param pulumi.Input[_builtins.str] account_id: Account Id that could be found in the top right corner of [Accounts Console](https://accounts.cloud.databricks.com/).
         :param pulumi.Input[_builtins.str] aws_region: region of VPC.
         :param pulumi.Input['MwsWorkspacesCloudResourceContainerArgs'] cloud_resource_container: A block that specifies GCP workspace configurations, consisting of following blocks:
@@ -564,8 +566,8 @@ class _MwsWorkspacesState:
         if gcp_workspace_sa is not None:
             pulumi.set(__self__, "gcp_workspace_sa", gcp_workspace_sa)
         if gke_config is not None:
-            warnings.warn("""gke_config is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.112.0/docs/guides/gcp-workspace#creating-a-databricks-workspace""", DeprecationWarning)
-            pulumi.log.warn("""gke_config is deprecated: gke_config is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.112.0/docs/guides/gcp-workspace#creating-a-databricks-workspace""")
+            warnings.warn("""gke_config is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.113.0/docs/guides/gcp-workspace#creating-a-databricks-workspace""", DeprecationWarning)
+            pulumi.log.warn("""gke_config is deprecated: gke_config is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.113.0/docs/guides/gcp-workspace#creating-a-databricks-workspace""")
         if gke_config is not None:
             pulumi.set(__self__, "gke_config", gke_config)
         if is_no_public_ip_enabled is not None:
@@ -772,7 +774,7 @@ class _MwsWorkspacesState:
 
     @_builtins.property
     @pulumi.getter(name="gkeConfig")
-    @_utilities.deprecated("""gke_config is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.112.0/docs/guides/gcp-workspace#creating-a-databricks-workspace""")
+    @_utilities.deprecated("""gke_config is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.113.0/docs/guides/gcp-workspace#creating-a-databricks-workspace""")
     def gke_config(self) -> Optional[pulumi.Input['MwsWorkspacesGkeConfigArgs']]:
         return pulumi.get(self, "gke_config")
 
@@ -1089,18 +1091,18 @@ class MwsWorkspaces(pulumi.CustomResource):
         config = pulumi.Config()
         # Account Id that could be found in the top right corner of https://accounts.cloud.databricks.com/
         databricks_account_id = config.require_object("databricksAccountId")
-        naming = random.index.String("naming",
+        naming = random.String("naming",
             special=False,
             upper=False,
             length=6)
         prefix = f"dltp{naming['result']}"
         this = databricks.get_aws_assume_role_policy(external_id=databricks_account_id)
-        cross_account_role = aws.index.IamRole("cross_account_role",
+        cross_account_role = aws.IamRole("cross_account_role",
             name=f{prefix}-crossaccount,
             assume_role_policy=this.json,
             tags=tags)
         this_get_aws_cross_account_policy = databricks.get_aws_cross_account_policy()
-        this_iam_role_policy = aws.index.IamRolePolicy("this",
+        this_iam_role_policy = aws.IamRolePolicy("this",
             name=f{prefix}-policy,
             role=cross_account_role.id,
             policy=this_get_aws_cross_account_policy.json)
@@ -1108,24 +1110,24 @@ class MwsWorkspaces(pulumi.CustomResource):
             account_id=databricks_account_id,
             credentials_name=f"{prefix}-creds",
             role_arn=cross_account_role["arn"])
-        root_storage_bucket = aws.index.S3Bucket("root_storage_bucket",
+        root_storage_bucket = aws.S3Bucket("root_storage_bucket",
             bucket=f{prefix}-rootbucket,
             acl=private,
             force_destroy=True,
             tags=tags)
-        root_versioning = aws.index.S3BucketVersioning("root_versioning",
+        root_versioning = aws.S3BucketVersioning("root_versioning",
             bucket=root_storage_bucket.id,
             versioning_configuration=[{
                 status: Disabled,
             }])
-        root_storage_bucket_s3_bucket_server_side_encryption_configuration = aws.index.S3BucketServerSideEncryptionConfiguration("root_storage_bucket",
+        root_storage_bucket_s3_bucket_server_side_encryption_configuration = aws.S3BucketServerSideEncryptionConfiguration("root_storage_bucket",
             bucket=root_storage_bucket.bucket,
             rule=[{
                 applyServerSideEncryptionByDefault: [{
                     sseAlgorithm: AES256,
                 }],
             }])
-        root_storage_bucket_s3_bucket_public_access_block = aws.index.S3BucketPublicAccessBlock("root_storage_bucket",
+        root_storage_bucket_s3_bucket_public_access_block = aws.S3BucketPublicAccessBlock("root_storage_bucket",
             bucket=root_storage_bucket.id,
             block_public_acls=True,
             block_public_policy=True,
@@ -1133,7 +1135,7 @@ class MwsWorkspaces(pulumi.CustomResource):
             restrict_public_buckets=True,
             opts = pulumi.ResourceOptions(depends_on=[root_storage_bucket]))
         this_get_aws_bucket_policy = databricks.get_aws_bucket_policy(bucket=root_storage_bucket["bucket"])
-        root_bucket_policy = aws.index.S3BucketPolicy("root_bucket_policy",
+        root_bucket_policy = aws.S3BucketPolicy("root_bucket_policy",
             bucket=root_storage_bucket.id,
             policy=this_get_aws_bucket_policy.json,
             opts = pulumi.ResourceOptions(depends_on=[root_storage_bucket_s3_bucket_public_access_block]))
@@ -1210,8 +1212,8 @@ class MwsWorkspaces(pulumi.CustomResource):
         config = pulumi.Config()
         # Account Id that could be found in the top right corner of https://accounts.cloud.databricks.com/
         databricks_account_id = config.require_object("databricksAccountId")
-        me = google.index.client_openid_userinfo()
-        current = google.index.client_config()
+        me = google.client_openid_userinfo()
+        current = google.client_config()
         this = databricks.MwsWorkspaces("this",
             account_id=databricks_account_id,
             workspace_name=prefix,
@@ -1238,6 +1240,7 @@ class MwsWorkspaces(pulumi.CustomResource):
         * MwsNetworks to [configure VPC](https://docs.databricks.com/administration-guide/cloud-configurations/aws/customer-managed-vpc.html) & subnets for new workspaces within AWS.
         * MwsStorageConfigurations to configure root bucket new workspaces within AWS.
         * MwsPrivateAccessSettings to create a [Private Access Setting](https://docs.databricks.com/administration-guide/cloud-configurations/aws/privatelink.html#step-5-create-a-private-access-settings-configuration-using-the-databricks-account-api) that can be used as part of a MwsWorkspaces resource to create a [Databricks Workspace that leverages AWS PrivateLink](https://docs.databricks.com/administration-guide/cloud-configurations/aws/privatelink.html).
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -1372,18 +1375,18 @@ class MwsWorkspaces(pulumi.CustomResource):
         config = pulumi.Config()
         # Account Id that could be found in the top right corner of https://accounts.cloud.databricks.com/
         databricks_account_id = config.require_object("databricksAccountId")
-        naming = random.index.String("naming",
+        naming = random.String("naming",
             special=False,
             upper=False,
             length=6)
         prefix = f"dltp{naming['result']}"
         this = databricks.get_aws_assume_role_policy(external_id=databricks_account_id)
-        cross_account_role = aws.index.IamRole("cross_account_role",
+        cross_account_role = aws.IamRole("cross_account_role",
             name=f{prefix}-crossaccount,
             assume_role_policy=this.json,
             tags=tags)
         this_get_aws_cross_account_policy = databricks.get_aws_cross_account_policy()
-        this_iam_role_policy = aws.index.IamRolePolicy("this",
+        this_iam_role_policy = aws.IamRolePolicy("this",
             name=f{prefix}-policy,
             role=cross_account_role.id,
             policy=this_get_aws_cross_account_policy.json)
@@ -1391,24 +1394,24 @@ class MwsWorkspaces(pulumi.CustomResource):
             account_id=databricks_account_id,
             credentials_name=f"{prefix}-creds",
             role_arn=cross_account_role["arn"])
-        root_storage_bucket = aws.index.S3Bucket("root_storage_bucket",
+        root_storage_bucket = aws.S3Bucket("root_storage_bucket",
             bucket=f{prefix}-rootbucket,
             acl=private,
             force_destroy=True,
             tags=tags)
-        root_versioning = aws.index.S3BucketVersioning("root_versioning",
+        root_versioning = aws.S3BucketVersioning("root_versioning",
             bucket=root_storage_bucket.id,
             versioning_configuration=[{
                 status: Disabled,
             }])
-        root_storage_bucket_s3_bucket_server_side_encryption_configuration = aws.index.S3BucketServerSideEncryptionConfiguration("root_storage_bucket",
+        root_storage_bucket_s3_bucket_server_side_encryption_configuration = aws.S3BucketServerSideEncryptionConfiguration("root_storage_bucket",
             bucket=root_storage_bucket.bucket,
             rule=[{
                 applyServerSideEncryptionByDefault: [{
                     sseAlgorithm: AES256,
                 }],
             }])
-        root_storage_bucket_s3_bucket_public_access_block = aws.index.S3BucketPublicAccessBlock("root_storage_bucket",
+        root_storage_bucket_s3_bucket_public_access_block = aws.S3BucketPublicAccessBlock("root_storage_bucket",
             bucket=root_storage_bucket.id,
             block_public_acls=True,
             block_public_policy=True,
@@ -1416,7 +1419,7 @@ class MwsWorkspaces(pulumi.CustomResource):
             restrict_public_buckets=True,
             opts = pulumi.ResourceOptions(depends_on=[root_storage_bucket]))
         this_get_aws_bucket_policy = databricks.get_aws_bucket_policy(bucket=root_storage_bucket["bucket"])
-        root_bucket_policy = aws.index.S3BucketPolicy("root_bucket_policy",
+        root_bucket_policy = aws.S3BucketPolicy("root_bucket_policy",
             bucket=root_storage_bucket.id,
             policy=this_get_aws_bucket_policy.json,
             opts = pulumi.ResourceOptions(depends_on=[root_storage_bucket_s3_bucket_public_access_block]))
@@ -1493,8 +1496,8 @@ class MwsWorkspaces(pulumi.CustomResource):
         config = pulumi.Config()
         # Account Id that could be found in the top right corner of https://accounts.cloud.databricks.com/
         databricks_account_id = config.require_object("databricksAccountId")
-        me = google.index.client_openid_userinfo()
-        current = google.index.client_config()
+        me = google.client_openid_userinfo()
+        current = google.client_config()
         this = databricks.MwsWorkspaces("this",
             account_id=databricks_account_id,
             workspace_name=prefix,
@@ -1521,6 +1524,7 @@ class MwsWorkspaces(pulumi.CustomResource):
         * MwsNetworks to [configure VPC](https://docs.databricks.com/administration-guide/cloud-configurations/aws/customer-managed-vpc.html) & subnets for new workspaces within AWS.
         * MwsStorageConfigurations to configure root bucket new workspaces within AWS.
         * MwsPrivateAccessSettings to create a [Private Access Setting](https://docs.databricks.com/administration-guide/cloud-configurations/aws/privatelink.html#step-5-create-a-private-access-settings-configuration-using-the-databricks-account-api) that can be used as part of a MwsWorkspaces resource to create a [Databricks Workspace that leverages AWS PrivateLink](https://docs.databricks.com/administration-guide/cloud-configurations/aws/privatelink.html).
+
 
         :param str resource_name: The name of the resource.
         :param MwsWorkspacesArgs args: The arguments to use to populate this resource's properties.
@@ -1836,7 +1840,7 @@ class MwsWorkspaces(pulumi.CustomResource):
 
     @_builtins.property
     @pulumi.getter(name="gkeConfig")
-    @_utilities.deprecated("""gke_config is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.112.0/docs/guides/gcp-workspace#creating-a-databricks-workspace""")
+    @_utilities.deprecated("""gke_config is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.113.0/docs/guides/gcp-workspace#creating-a-databricks-workspace""")
     def gke_config(self) -> pulumi.Output[Optional['outputs.MwsWorkspacesGkeConfig']]:
         return pulumi.get(self, "gke_config")
 

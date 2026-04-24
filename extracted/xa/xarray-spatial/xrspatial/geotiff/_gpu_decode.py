@@ -1336,8 +1336,11 @@ def _apply_predictor_and_assemble(d_decomp, d_decomp_offsets, n_tiles,
         total_rows = n_tiles * tile_height
         tpb = min(256, total_rows)
         bpg = math.ceil(total_rows / tpb)
+        # Kernel uses row_bytes = width * bytes_per_sample, so pass pixel
+        # width and full per-pixel size (itemsize * samples). Matches CPU
+        # call at _reader.py _apply_predictor(..., bytes_per_sample * samples).
         _predictor_decode_kernel[bpg, tpb](
-            d_decomp, tile_width * samples, total_rows, dtype.itemsize * samples)
+            d_decomp, tile_width, total_rows, dtype.itemsize * samples)
         cuda.synchronize()
     elif predictor == 3:
         total_rows = n_tiles * tile_height
@@ -1579,9 +1582,11 @@ def gpu_decode_tiles(
         total_rows = n_tiles * tile_height
         tpb = min(256, total_rows)
         bpg = math.ceil(total_rows / tpb)
-        # Reshape so each tile's rows are contiguous (they already are)
+        # Reshape so each tile's rows are contiguous (they already are).
+        # Kernel uses row_bytes = width * bytes_per_sample, so pass pixel
+        # width and full per-pixel size (itemsize * samples).
         _predictor_decode_kernel[bpg, tpb](
-            d_decomp, tile_width * samples, total_rows, dtype.itemsize * samples)
+            d_decomp, tile_width, total_rows, dtype.itemsize * samples)
         cuda.synchronize()
 
     elif predictor == 3:
@@ -1813,15 +1818,24 @@ def _nvcomp_batch_compress(d_tile_bufs, tile_byte_counts, tile_bytes,
             return None
 
         # For deflate, compute adler32 checksums from uncompressed tiles
-        # before reading compressed data (need the originals)
+        # before reading compressed data (need the originals).
+        # Batch the GPU->CPU transfer so all tiles move in a single DMA
+        # instead of one .get() per tile (which serializes on the default
+        # stream and is the dominant cost on the deflate path).
         adler_checksums = None
         if compression in (8, 32946):
             import zlib
             import struct
-            adler_checksums = []
-            for i in range(n_tiles):
-                uncomp = d_tile_bufs[i].get().tobytes()
-                adler_checksums.append(zlib.adler32(uncomp))
+            adler_checksums = [None] * n_tiles
+            if n_tiles > 0:
+                d_contig = cupy.empty(n_tiles * tile_bytes, dtype=cupy.uint8)
+                for i in range(n_tiles):
+                    d_contig[i * tile_bytes:(i + 1) * tile_bytes] = \
+                        d_tile_bufs[i][:tile_bytes]
+                host_view = memoryview(d_contig.get())
+                for i in range(n_tiles):
+                    adler_checksums[i] = zlib.adler32(
+                        host_view[i * tile_bytes:(i + 1) * tile_bytes])
 
         # Read compressed sizes and data back to CPU
         comp_sizes = d_comp_sizes.get().astype(int)
@@ -2317,3 +2331,80 @@ def gpu_compress_tiles(d_image, tile_width, tile_height,
         result.append(cpu_compress(tile_data, compression))
 
     return result
+
+
+# ---------------------------------------------------------------------------
+# GPU overview (pyramid) generation
+# ---------------------------------------------------------------------------
+
+GPU_OVERVIEW_METHODS = ('mean', 'nearest', 'min', 'max', 'median', 'mode')
+
+
+def _block_reduce_2d_gpu(arr2d, method):
+    """2x block-reduce a single 2D CuPy plane using *method*."""
+    import cupy
+
+    h, w = arr2d.shape
+    h2 = (h // 2) * 2
+    w2 = (w // 2) * 2
+    cropped = arr2d[:h2, :w2]
+    oh, ow = h2 // 2, w2 // 2
+
+    if method == 'nearest':
+        return cropped[::2, ::2].copy()
+
+    if method == 'mode':
+        # Mode is expensive on GPU; fall back to CPU
+        cpu_arr = arr2d.get()
+        from ._writer import _block_reduce_2d
+        cpu_result = _block_reduce_2d(cpu_arr, 'mode')
+        return cupy.asarray(cpu_result)
+
+    # Block reshape for mean/min/max/median
+    if arr2d.dtype.kind == 'f':
+        blocks = cropped.reshape(oh, 2, ow, 2)
+    else:
+        blocks = cropped.astype(cupy.float64).reshape(oh, 2, ow, 2)
+
+    if method == 'mean':
+        result = cupy.nanmean(blocks, axis=(1, 3))
+    elif method == 'min':
+        result = cupy.nanmin(blocks, axis=(1, 3))
+    elif method == 'max':
+        result = cupy.nanmax(blocks, axis=(1, 3))
+    elif method == 'median':
+        flat = blocks.transpose(0, 2, 1, 3).reshape(oh, ow, 4)
+        result = cupy.nanmedian(flat, axis=2)
+    else:
+        raise ValueError(
+            f"Unknown GPU overview resampling method: {method!r}. "
+            f"Use one of: {GPU_OVERVIEW_METHODS}")
+
+    if arr2d.dtype.kind != 'f':
+        return cupy.around(result).astype(arr2d.dtype)
+    return result.astype(arr2d.dtype)
+
+
+def make_overview_gpu(arr, method='mean'):
+    """Generate a 2x decimated overview on GPU.
+
+    Parameters
+    ----------
+    arr : cupy.ndarray
+        2D or 3D (height, width, bands) array on GPU.
+    method : str
+        Resampling method: 'mean', 'nearest', 'min', 'max', 'median',
+        or 'mode'.
+
+    Returns
+    -------
+    cupy.ndarray
+        Half-resolution array on GPU.
+    """
+    import cupy
+
+    if arr.ndim == 3:
+        bands = [_block_reduce_2d_gpu(arr[:, :, b], method)
+                 for b in range(arr.shape[2])]
+        return cupy.stack(bands, axis=2)
+    return _block_reduce_2d_gpu(arr, method)

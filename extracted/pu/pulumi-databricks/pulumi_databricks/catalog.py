@@ -28,6 +28,7 @@ class CatalogArgs:
                  enable_predictive_optimization: Optional[pulumi.Input[_builtins.str]] = None,
                  force_destroy: Optional[pulumi.Input[_builtins.bool]] = None,
                  isolation_mode: Optional[pulumi.Input[_builtins.str]] = None,
+                 managed_encryption_settings: Optional[pulumi.Input['CatalogManagedEncryptionSettingsArgs']] = None,
                  metastore_id: Optional[pulumi.Input[_builtins.str]] = None,
                  name: Optional[pulumi.Input[_builtins.str]] = None,
                  options: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
@@ -40,6 +41,7 @@ class CatalogArgs:
                  storage_root: Optional[pulumi.Input[_builtins.str]] = None):
         """
         The set of arguments for constructing a Catalog resource.
+
         :param pulumi.Input[_builtins.str] comment: User-supplied free-form text.
         :param pulumi.Input[_builtins.str] connection_name: For Foreign Catalogs: the name of the connection to an external data source. Changes forces creation of a new resource.
         :param pulumi.Input[_builtins.str] enable_predictive_optimization: Whether predictive optimization should be enabled for this object and objects under it. Can be `ENABLE`, `DISABLE` or `INHERIT`
@@ -69,6 +71,8 @@ class CatalogArgs:
             pulumi.set(__self__, "force_destroy", force_destroy)
         if isolation_mode is not None:
             pulumi.set(__self__, "isolation_mode", isolation_mode)
+        if managed_encryption_settings is not None:
+            pulumi.set(__self__, "managed_encryption_settings", managed_encryption_settings)
         if metastore_id is not None:
             pulumi.set(__self__, "metastore_id", metastore_id)
         if name is not None:
@@ -167,6 +171,15 @@ class CatalogArgs:
     @isolation_mode.setter
     def isolation_mode(self, value: Optional[pulumi.Input[_builtins.str]]):
         pulumi.set(self, "isolation_mode", value)
+
+    @_builtins.property
+    @pulumi.getter(name="managedEncryptionSettings")
+    def managed_encryption_settings(self) -> Optional[pulumi.Input['CatalogManagedEncryptionSettingsArgs']]:
+        return pulumi.get(self, "managed_encryption_settings")
+
+    @managed_encryption_settings.setter
+    def managed_encryption_settings(self, value: Optional[pulumi.Input['CatalogManagedEncryptionSettingsArgs']]):
+        pulumi.set(self, "managed_encryption_settings", value)
 
     @_builtins.property
     @pulumi.getter(name="metastoreId")
@@ -300,6 +313,7 @@ class _CatalogState:
                  force_destroy: Optional[pulumi.Input[_builtins.bool]] = None,
                  full_name: Optional[pulumi.Input[_builtins.str]] = None,
                  isolation_mode: Optional[pulumi.Input[_builtins.str]] = None,
+                 managed_encryption_settings: Optional[pulumi.Input['CatalogManagedEncryptionSettingsArgs']] = None,
                  metastore_id: Optional[pulumi.Input[_builtins.str]] = None,
                  name: Optional[pulumi.Input[_builtins.str]] = None,
                  options: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
@@ -316,6 +330,7 @@ class _CatalogState:
                  updated_by: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering Catalog resources.
+
         :param pulumi.Input[_builtins.str] catalog_type: the type of the catalog.
         :param pulumi.Input[_builtins.str] comment: User-supplied free-form text.
         :param pulumi.Input[_builtins.str] connection_name: For Foreign Catalogs: the name of the connection to an external data source. Changes forces creation of a new resource.
@@ -360,6 +375,8 @@ class _CatalogState:
             pulumi.set(__self__, "full_name", full_name)
         if isolation_mode is not None:
             pulumi.set(__self__, "isolation_mode", isolation_mode)
+        if managed_encryption_settings is not None:
+            pulumi.set(__self__, "managed_encryption_settings", managed_encryption_settings)
         if metastore_id is not None:
             pulumi.set(__self__, "metastore_id", metastore_id)
         if name is not None:
@@ -511,6 +528,15 @@ class _CatalogState:
     @isolation_mode.setter
     def isolation_mode(self, value: Optional[pulumi.Input[_builtins.str]]):
         pulumi.set(self, "isolation_mode", value)
+
+    @_builtins.property
+    @pulumi.getter(name="managedEncryptionSettings")
+    def managed_encryption_settings(self) -> Optional[pulumi.Input['CatalogManagedEncryptionSettingsArgs']]:
+        return pulumi.get(self, "managed_encryption_settings")
+
+    @managed_encryption_settings.setter
+    def managed_encryption_settings(self, value: Optional[pulumi.Input['CatalogManagedEncryptionSettingsArgs']]):
+        pulumi.set(self, "managed_encryption_settings", value)
 
     @_builtins.property
     @pulumi.getter(name="metastoreId")
@@ -691,6 +717,7 @@ class Catalog(pulumi.CustomResource):
                  enable_predictive_optimization: Optional[pulumi.Input[_builtins.str]] = None,
                  force_destroy: Optional[pulumi.Input[_builtins.bool]] = None,
                  isolation_mode: Optional[pulumi.Input[_builtins.str]] = None,
+                 managed_encryption_settings: Optional[pulumi.Input[Union['CatalogManagedEncryptionSettingsArgs', 'CatalogManagedEncryptionSettingsArgsDict']]] = None,
                  metastore_id: Optional[pulumi.Input[_builtins.str]] = None,
                  name: Optional[pulumi.Input[_builtins.str]] = None,
                  options: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
@@ -730,6 +757,7 @@ class Catalog(pulumi.CustomResource):
         * get_tables data to list tables within Unity Catalog.
         * get_schemas data to list schemas within Unity Catalog.
         * get_catalogs data to list catalogs within Unity Catalog.
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -783,6 +811,7 @@ class Catalog(pulumi.CustomResource):
         * get_schemas data to list schemas within Unity Catalog.
         * get_catalogs data to list catalogs within Unity Catalog.
 
+
         :param str resource_name: The name of the resource.
         :param CatalogArgs args: The arguments to use to populate this resource's properties.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -805,6 +834,7 @@ class Catalog(pulumi.CustomResource):
                  enable_predictive_optimization: Optional[pulumi.Input[_builtins.str]] = None,
                  force_destroy: Optional[pulumi.Input[_builtins.bool]] = None,
                  isolation_mode: Optional[pulumi.Input[_builtins.str]] = None,
+                 managed_encryption_settings: Optional[pulumi.Input[Union['CatalogManagedEncryptionSettingsArgs', 'CatalogManagedEncryptionSettingsArgsDict']]] = None,
                  metastore_id: Optional[pulumi.Input[_builtins.str]] = None,
                  name: Optional[pulumi.Input[_builtins.str]] = None,
                  options: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
@@ -831,6 +861,7 @@ class Catalog(pulumi.CustomResource):
             __props__.__dict__["enable_predictive_optimization"] = enable_predictive_optimization
             __props__.__dict__["force_destroy"] = force_destroy
             __props__.__dict__["isolation_mode"] = isolation_mode
+            __props__.__dict__["managed_encryption_settings"] = managed_encryption_settings
             __props__.__dict__["metastore_id"] = metastore_id
             __props__.__dict__["name"] = name
             __props__.__dict__["options"] = options
@@ -870,6 +901,7 @@ class Catalog(pulumi.CustomResource):
             force_destroy: Optional[pulumi.Input[_builtins.bool]] = None,
             full_name: Optional[pulumi.Input[_builtins.str]] = None,
             isolation_mode: Optional[pulumi.Input[_builtins.str]] = None,
+            managed_encryption_settings: Optional[pulumi.Input[Union['CatalogManagedEncryptionSettingsArgs', 'CatalogManagedEncryptionSettingsArgsDict']]] = None,
             metastore_id: Optional[pulumi.Input[_builtins.str]] = None,
             name: Optional[pulumi.Input[_builtins.str]] = None,
             options: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
@@ -928,6 +960,7 @@ class Catalog(pulumi.CustomResource):
         __props__.__dict__["force_destroy"] = force_destroy
         __props__.__dict__["full_name"] = full_name
         __props__.__dict__["isolation_mode"] = isolation_mode
+        __props__.__dict__["managed_encryption_settings"] = managed_encryption_settings
         __props__.__dict__["metastore_id"] = metastore_id
         __props__.__dict__["name"] = name
         __props__.__dict__["options"] = options
@@ -1022,6 +1055,11 @@ class Catalog(pulumi.CustomResource):
         Whether the catalog is accessible from all workspaces or a specific set of workspaces. Can be `ISOLATED` or `OPEN`. Setting the catalog to `ISOLATED` will automatically allow access from the current workspace.
         """
         return pulumi.get(self, "isolation_mode")
+
+    @_builtins.property
+    @pulumi.getter(name="managedEncryptionSettings")
+    def managed_encryption_settings(self) -> pulumi.Output[Optional['outputs.CatalogManagedEncryptionSettings']]:
+        return pulumi.get(self, "managed_encryption_settings")
 
     @_builtins.property
     @pulumi.getter(name="metastoreId")

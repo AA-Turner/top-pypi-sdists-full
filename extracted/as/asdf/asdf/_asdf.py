@@ -548,6 +548,9 @@ class AsdfFile:
     def __setitem__(self, key, value):
         self.tree[key] = value
 
+    def __delitem__(self, key):
+        del self.tree[key]
+
     def __contains__(self, item):
         return item in self.tree
 
@@ -765,7 +768,7 @@ class AsdfFile:
             padding = util.calculate_padding(fd.tell(), pad_blocks, fd.block_size)
             fd.fast_forward(padding)
 
-    def _serial_write(self, fd, pad_blocks, include_block_index):
+    def _serial_write(self, fd, pad_blocks, include_block_index, write_checksums):
         with self._blocks.write_context(fd):
             # prep a tree for a writing
             tree = copy.copy(self._tree)
@@ -774,7 +777,7 @@ class AsdfFile:
                 tree["history"] = copy.deepcopy(self._tree["history"])
 
             self._write_tree(tree, fd, pad_blocks)
-            self._blocks.write(pad_blocks, include_block_index)
+            self._blocks.write(pad_blocks, include_block_index, write_checksums)
 
     def update(
         self,
@@ -784,6 +787,7 @@ class AsdfFile:
         pad_blocks=False,
         include_block_index=True,
         version=None,
+        write_checksums=True,
     ):
         """
         Update the file on disk in place.
@@ -836,6 +840,9 @@ class AsdfFile:
         version : str, optional
             Update the ASDF core schemas version of this AsdfFile before
             writing.
+
+        write_checksums: bool, optional
+            Compute and write block checksums to the file.
         """
 
         with config_context() as config:
@@ -873,7 +880,12 @@ class AsdfFile:
 
             def rewrite():
                 self._fd.seek(0)
-                self._serial_write(self._fd, pad_blocks, include_block_index)
+                self._serial_write(
+                    self._fd,
+                    pad_blocks,
+                    include_block_index,
+                    write_checksums,
+                )
                 self._fd.truncate()
                 if self._fd.can_memmap():
                     self._fd.close_memmap()
@@ -898,7 +910,7 @@ class AsdfFile:
                 new_tree_size = tree_fd.tell()
 
                 # update blocks
-                self._blocks.update(new_tree_size, pad_blocks, include_block_index)
+                self._blocks.update(new_tree_size, pad_blocks, include_block_index, write_checksums)
                 end_of_file = self._fd.tell()
 
             # now write the tree
@@ -922,6 +934,7 @@ class AsdfFile:
         pad_blocks=False,
         include_block_index=True,
         version=None,
+        write_checksums=True,
     ):
         """
         Write the ASDF file to the given file-like object.
@@ -984,6 +997,9 @@ class AsdfFile:
         version : str, optional
             Update the ASDF core schemas version of this AsdfFile before
             writing.
+
+        write_checksums: bool, optional
+            Compute and write block checksums to the file.
         """
         with config_context() as config:
             if all_array_storage is not NotSet:
@@ -999,7 +1015,7 @@ class AsdfFile:
 
             try:
                 with generic_io.get_file(fd, mode="w") as fd:
-                    self._serial_write(fd, pad_blocks, include_block_index)
+                    self._serial_write(fd, pad_blocks, include_block_index, write_checksums)
             finally:
                 if version is not None:
                     self.version = previous_version
@@ -1079,6 +1095,12 @@ class AsdfFile:
         if software is not None:
             entry["software"] = software
 
+        # validate the history entry
+        schema.validate(
+            yamlutil.custom_tree_to_tagged_tree({"entry": entry}, self),
+            ctx=self,
+        )
+
         if self.version >= versioning.NEW_HISTORY_FORMAT_MIN_VERSION:
             if "history" not in self.tree:
                 self.tree["history"] = {"entries": []}
@@ -1086,23 +1108,11 @@ class AsdfFile:
                 self.tree["history"]["entries"] = []
 
             self.tree["history"]["entries"].append(entry)
-
-            try:
-                self.validate()
-            except Exception:
-                self.tree["history"]["entries"].pop()
-                raise
         else:
             if "history" not in self.tree:
                 self.tree["history"] = []
 
             self.tree["history"].append(entry)
-
-            try:
-                self.validate()
-            except Exception:
-                self.tree["history"].pop()
-                raise
 
     def get_history_entries(self):
         """
@@ -1164,6 +1174,7 @@ class AsdfFile:
         max_rows=display.DEFAULT_MAX_ROWS,
         max_cols=display.DEFAULT_MAX_COLS,
         show_values=display.DEFAULT_SHOW_VALUES,
+        show_blocks=False,
     ):
         """
         Print a rendering of this file's tree to stdout.
@@ -1187,6 +1198,10 @@ class AsdfFile:
         show_values : bool, optional
             Set to False to disable display of primitive values in
             the rendered tree.
+
+        show_blocks: bool, optional
+            Set to True to also print a table of block header fields
+            for each block in the file.
         """
         lines = display.render_tree(
             self.tree,
@@ -1197,6 +1212,25 @@ class AsdfFile:
             extension_manager=self.extension_manager,
         )
         print("\n".join(lines))
+
+        if show_blocks:
+            for i, block in enumerate(self._blocks.blocks):
+                if block.header["compression"] == b"\0\0\0\0":
+                    compression = "None"
+                else:
+                    compression = block.header["compression"].rstrip(b"\0").decode("ascii", errors="backslashreplace")
+                    compression = f'"{compression}"'
+
+                items = [
+                    ("flags", f"{block.header['flags']:#010x}"),
+                    ("compression", compression),
+                    ("allocated_size", str(block.header["allocated_size"])),
+                    ("used_size", str(block.header["used_size"])),
+                    ("data_size", str(block.header["data_size"])),
+                    ("checksum", block.header["checksum"].hex()),
+                ]
+                rows = display.render_table(f"Block #{i}", items)
+                print("\n".join(rows))
 
     def search(self, key=NotSet, type_=NotSet, value=NotSet, filter_=None):
         """

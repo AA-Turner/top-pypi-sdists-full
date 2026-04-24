@@ -702,14 +702,32 @@ def _estimate_full_request_with_pending_user(
     that a single large pasted prompt or @file expansion cannot bypass
     the warning and auto-compaction paths (#1339).
     """
+    pending_messages = ai_messages + [{"role": "user", "content": pending_user_content}]
+    return _estimate_current_request(
+        ai_messages=pending_messages,
+        extra_system_prompt=extra_system_prompt,
+        fixed_overhead=fixed_overhead,
+    )
+
+
+def _estimate_current_request(
+    ai_messages: list[dict[str, Any]],
+    extra_system_prompt: str,
+    fixed_overhead: _FixedRequestOverhead,
+) -> Any:
+    """Full-request token breakdown for the current CLI history.
+
+    Mirrors the REPL's pre-send compaction estimate, but operates on the
+    current history as-is. This keeps the visible toolbar/footer token count
+    aligned with the same request shape used by the warn/auto-compact gate.
+    """
     from ..services.token_estimator import (
         RequestTokenBreakdown,
         count_message_tokens,
         count_text_tokens,
     )
 
-    pending_messages = ai_messages + [{"role": "user", "content": pending_user_content}]
-    message_tokens = count_message_tokens(pending_messages)
+    message_tokens = count_message_tokens(ai_messages)
     extra_system_tokens = count_text_tokens(extra_system_prompt) + 4 if extra_system_prompt else 0
     system_prompt_tokens = fixed_overhead.system_prompt_tokens + extra_system_tokens
     total = message_tokens + system_prompt_tokens + fixed_overhead.tool_schema_tokens
@@ -4744,7 +4762,11 @@ async def _run_repl(
         cn = conv.get("slug") or ""
         _toolbar_cache[:] = renderer.format_status_toolbar(
             model=current_model,
-            current_tokens=_estimate_tokens(ai_messages),
+            current_tokens=_estimate_current_request(
+                ai_messages=ai_messages,
+                extra_system_prompt=extra_system_prompt or "",
+                fixed_overhead=_fixed_request_overhead,
+            ).total,
             max_context=config.cli.model_context_window,
             message_count=len(ai_messages),
             approval_mode=config.safety.approval_mode,
@@ -8498,7 +8520,11 @@ async def _run_repl(
                                                 renderer.render_auto_propose_notice(_ap_payload)
                                     except Exception:
                                         logger.debug("auto_propose: failed at CLI turn end", exc_info=True)
-                                context_tokens = _estimate_tokens(ai_messages)
+                                context_tokens = _estimate_current_request(
+                                    ai_messages=ai_messages,
+                                    extra_system_prompt=extra_system_prompt or "",
+                                    fixed_overhead=_fixed_request_overhead,
+                                ).total
                                 renderer.render_context_footer(
                                     current_tokens=context_tokens,
                                     max_context=config.cli.model_context_window,

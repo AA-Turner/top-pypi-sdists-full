@@ -1,4 +1,6 @@
-# Copyright 2022 StreamSets Inc.
+#  IBM Confidential
+#  PID 5900-BAF
+#  Copyright StreamSets Inc., an IBM Company 2024
 
 
 def test_pipeline_parameters(sch, sch_authoring_sdc_id):
@@ -13,14 +15,14 @@ def test_pipeline_parameters(sch, sch_authoring_sdc_id):
         params = {'abc': '456', 'def': '123'}
         pipeline.parameters = params
         sch.publish_pipeline(pipeline)
-        pipeline_new = sch.pipelines.get(pipeline_id=pipeline.pipeline_id)
+        pipeline_new = sch.pipelines.get(id=pipeline.id)
         assert dict(pipeline_new.parameters) == params
 
         # Update
         params_to_be_updated = {'abc': '123', 'ghi': '123'}
         pipeline_new.parameters.update(params_to_be_updated)
         sch.publish_pipeline(pipeline_new)
-        pipeline_new = sch.pipelines.get(pipeline_id=pipeline_new.pipeline_id)
+        pipeline_new = sch.pipelines.get(id=pipeline_new.id)
         params.update(params_to_be_updated)
         assert dict(pipeline_new.parameters) == params
     finally:

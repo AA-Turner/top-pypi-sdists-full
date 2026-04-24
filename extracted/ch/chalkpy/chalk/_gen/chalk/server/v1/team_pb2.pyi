@@ -1062,6 +1062,28 @@ class AssignScimGroupEnvironmentRoleResponse(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...
 
+class DeleteScimGroupRequest(_message.Message):
+    __slots__ = ("group_id",)
+    GROUP_ID_FIELD_NUMBER: _ClassVar[int]
+    group_id: str
+    def __init__(self, group_id: _Optional[str] = ...) -> None: ...
+
+class DeleteScimGroupResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class DeleteScimGroupUsersRequest(_message.Message):
+    __slots__ = ("group_id",)
+    GROUP_ID_FIELD_NUMBER: _ClassVar[int]
+    group_id: str
+    def __init__(self, group_id: _Optional[str] = ...) -> None: ...
+
+class DeleteScimGroupUsersResponse(_message.Message):
+    __slots__ = ("scim_group",)
+    SCIM_GROUP_FIELD_NUMBER: _ClassVar[int]
+    scim_group: ScimGroup
+    def __init__(self, scim_group: _Optional[_Union[ScimGroup, _Mapping]] = ...) -> None: ...
+
 class CreateVectorDBConfigurationRequest(_message.Message):
     __slots__ = ("environment_id", "vector_db_uri", "vector_db_kind")
     ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]

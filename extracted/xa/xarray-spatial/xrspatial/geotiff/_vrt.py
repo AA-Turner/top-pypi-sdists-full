@@ -64,6 +64,13 @@ class VRTDataset:
     crs_wkt: str | None = None
     geo_transform: tuple | None = None  # (origin_x, res_x, skew_x, origin_y, skew_y, res_y)
     bands: list[_VRTBand] = field(default_factory=list)
+    # GDAL raster registration metadata.  'area' (default) means the
+    # GeoTransform origin is the top-left *corner* of pixel (0, 0) and
+    # pixel-center coords need the usual half-pixel shift.  'point'
+    # means the origin is already at the *center* of pixel (0, 0) and
+    # coords must be emitted without the shift.  Parsed from
+    # ``<Metadata><MDI key="AREA_OR_POINT">Point</MDI></Metadata>``.
+    raster_type: str = 'area'  # 'area' or 'point'
 
 
 def _parse_rect(elem) -> _Rect:
@@ -114,6 +121,19 @@ def parse_vrt(xml_str: str, vrt_dir: str = '.') -> VRTDataset:
         if len(parts) == 6:
             geo_transform = tuple(parts)
 
+    # Registration metadata (AREA_OR_POINT).  GDAL stores this as
+    # ``<Metadata><MDI key="AREA_OR_POINT">Point</MDI></Metadata>``
+    # at the dataset level.  Default is Area.
+    raster_type = 'area'
+    for md_elem in root.findall('Metadata'):
+        if md_elem.get('domain') not in (None, '', 'default'):
+            continue  # skip domain-scoped metadata (IMAGE_STRUCTURE etc.)
+        for mdi in md_elem.findall('MDI'):
+            if mdi.get('key') == 'AREA_OR_POINT':
+                txt = (mdi.text or '').strip().lower()
+                if txt == 'point':
+                    raster_type = 'point'
+
     # Bands
     bands = []
     for band_elem in root.findall('VRTRasterBand'):
@@ -136,6 +156,8 @@ def parse_vrt(xml_str: str, vrt_dir: str = '.') -> VRTDataset:
                            relative.get('relativeToVRT', '0') == '1')
             if is_relative and not os.path.isabs(filename):
                 filename = os.path.join(vrt_dir, filename)
+            # Canonicalize to prevent path traversal (e.g. ../)
+            filename = os.path.realpath(filename)
 
             src_band = int(_text(src_elem, 'SourceBand') or '1')
 
@@ -186,11 +208,13 @@ def parse_vrt(xml_str: str, vrt_dir: str = '.') -> VRTDataset:
         crs_wkt=crs_wkt,
         geo_transform=geo_transform,
         bands=bands,
+        raster_type=raster_type,
     )
 
 
 def read_vrt(vrt_path: str, *, window=None,
-             band: int | None = None) -> tuple[np.ndarray, VRTDataset]:
+             band: int | None = None,
+             max_pixels: int | None = None) -> tuple[np.ndarray, VRTDataset]:
     """Read a VRT file by assembling pixel data from its source files.
 
     Parameters
@@ -225,6 +249,12 @@ def read_vrt(vrt_path: str, *, window=None,
 
     out_h = r1 - r0
     out_w = c1 - c0
+
+    from ._reader import _check_dimensions, MAX_PIXELS_DEFAULT
+    if max_pixels is None:
+        max_pixels = MAX_PIXELS_DEFAULT
+    n_bands = len([vrt.bands[band]] if band is not None else vrt.bands)
+    _check_dimensions(out_w, out_h, n_bands, max_pixels)
 
     # Select bands
     if band is not None:
@@ -285,11 +315,19 @@ def read_vrt(vrt_path: str, *, window=None,
             except Exception:
                 continue  # skip missing/unreadable sources
 
-            # Handle source nodata
+            # Handle source nodata.  Cast the sentinel to the *source*
+            # dtype so the equality test round-trips exactly: a float64
+            # source with a fractional nodata (e.g. -9999.25) would
+            # previously miss the mask because ``np.float32(-9999.25)``
+            # rounds to the nearest float32 and then compares unequal
+            # to the float64 pixel value.  ``src.nodata or nodata`` is
+            # kept for backward compatibility but intentionally treats
+            # ``0.0`` as unset (a long-standing quirk of this reader).
             src_nodata = src.nodata or nodata
             if src_nodata is not None and src_arr.dtype.kind == 'f':
                 src_arr = src_arr.copy()
-                src_arr[src_arr == np.float32(src_nodata)] = np.nan
+                sentinel = src_arr.dtype.type(src_nodata)
+                src_arr[src_arr == sentinel] = np.nan
 
             # Apply ComplexSource scaling
             if src.scale is not None and src.scale != 1.0:

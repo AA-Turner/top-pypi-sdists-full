@@ -1,4 +1,6 @@
-# Copyright 2023 StreamSets Inc.
+#  IBM Confidential
+#  PID 5900-BAF
+#  Copyright StreamSets Inc., an IBM Company 2024
 
 # fmt: off
 import copy
@@ -7,7 +9,7 @@ import pytest
 
 from streamsets.sdk.exceptions import ProjectAccessError
 from streamsets.sdk.sch_models import (
-    BaseModel, CollectionModel, CollectionModelResults, Connection, Connections, MutableKwargs,
+    BaseModel, CollectionModel, CollectionModelResults, Connection, Connections, MutableKwargs, SeekableList,
 )
 
 from .resources.connections_data import CONNECTION_INTERNAL_JSON
@@ -143,3 +145,35 @@ def test_contains_returns_false_with_project_access_error(mocker):
     connection = Connection(connection=copy.deepcopy(CONNECTION_INTERNAL_JSON), control_hub=mocker.Mock())
 
     assert connection not in error_collection_model
+
+
+@pytest.mark.parametrize(
+    'filter_parameters, expected_result',
+    [
+        ({}, {'totalCount': 100, 'offset': 0, 'len': -1}),
+        ({'len': 10}, {'totalCount': 10, 'offset': 0, 'len': 10}),
+        ({'offset': 30}, {'totalCount': 70, 'offset': 30, 'len': -1}),
+        ({'offset': 95, "len": 10}, {'totalCount': 5, 'offset': 95, 'len': 10}),
+    ],
+)
+def test_get_all_method_with_wrapper(mocker, filter_parameters, expected_result):
+    valid_collection_model = ValidCollectionModel(mocker.Mock())
+    wrapped_result = valid_collection_model.get_all(with_wrapper=True, **filter_parameters)
+    data = wrapped_result.pop('data')
+    assert isinstance(data, SeekableList)
+    assert expected_result == wrapped_result
+
+
+@pytest.mark.parametrize(
+    'filter_parameters, expected_result',
+    [
+        ({}, 100),
+        ({'len': 10}, 10),
+        ({'offset': 95, "len": 10}, 5),
+    ],
+)
+def test_get_all_method_without_wrapper(mocker, filter_parameters, expected_result):
+    valid_collection_model = ValidCollectionModel(mocker.Mock())
+    data = valid_collection_model.get_all(**filter_parameters)
+    assert isinstance(data, SeekableList)
+    assert len(data) == expected_result

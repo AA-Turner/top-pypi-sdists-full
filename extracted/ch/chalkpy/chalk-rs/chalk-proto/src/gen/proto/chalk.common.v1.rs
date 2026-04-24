@@ -594,7 +594,6 @@ pub struct ResourceRequests {
     /// CPU requests: Increasing this will make some Chalk operations that are parallel and CPU-bound faster.
     /// Default unit is physical CPU cores, i.e. "8" means 8 CPU cores, "0.5" means half of a CPU core.
     /// An alternative unit is "millicore", which is one-thousandth of a CPU core, i.e. 500m is half of a CPU core.
-    ///
     #[prost(string, optional, tag="1")]
     pub cpu: ::core::option::Option<::prost::alloc::string::String>,
     /// *
@@ -606,7 +605,6 @@ pub struct ResourceRequests {
     pub memory: ::core::option::Option<::prost::alloc::string::String>,
     /// *
     /// Chalk can use this for spilling intermediate state of some large computations, i.e. joins, aggregations, and sorting.
-    ///
     /// Default unit is bytes, i.e. 1000000000 is 1 gigabyte of memory.
     /// You can also specify a suffix such as K, M, or G for kilobytes, megabytes, and gigabytes, respectively.
     /// It's also possible to use the power of two equivalents, such as Ki, Mi, and Gi.

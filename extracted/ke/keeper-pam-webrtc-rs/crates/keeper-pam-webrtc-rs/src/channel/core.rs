@@ -430,6 +430,40 @@ impl Channel {
                                     // Set protocol name for database type (from databaseType or conversationType)
                                     temp_db_params_map
                                         .insert("protocol".to_string(), db_protocol_name.clone());
+
+                                    // Translate nested `config` settings into flat tls_* flags
+                                    // expected by keeperdb-proxy. The top-level filter_map drops
+                                    // JsonValue::Object, so these would otherwise be lost.
+                                    if let Some(JsonValue::Object(config_map)) = map.get("config") {
+                                        let ssl_mode = config_map
+                                            .get("SSL Mode")
+                                            .or_else(|| config_map.get("ssl_mode"))
+                                            .or_else(|| config_map.get("ssl mode"))
+                                            .and_then(|v| v.as_str());
+                                        if let Some(mode) = ssl_mode {
+                                            let (tls_enabled, verify_mode) =
+                                                match mode.to_lowercase().as_str() {
+                                                    "disable" => ("false", ""),
+                                                    "allow" | "prefer" | "require" => {
+                                                        ("true", "none")
+                                                    }
+                                                    "verify-ca" => ("true", "ca"),
+                                                    "verify-full" => ("true", "full"),
+                                                    _ => ("false", ""),
+                                                };
+                                            temp_db_params_map.insert(
+                                                "tls_enabled".to_string(),
+                                                tls_enabled.to_string(),
+                                            );
+                                            if !verify_mode.is_empty() {
+                                                temp_db_params_map.insert(
+                                                    "tls_verify_mode".to_string(),
+                                                    verify_mode.to_string(),
+                                                );
+                                            }
+                                        }
+                                    }
+
                                     debug!("Parsed db_params for DatabaseProxy (channel_id: {}, protocol: {})",
                                         channel_id, db_protocol_name);
                                 }

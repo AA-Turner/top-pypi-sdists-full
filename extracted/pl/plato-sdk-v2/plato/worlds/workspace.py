@@ -11,7 +11,9 @@ import asyncio
 import json
 import logging
 import os
+import random
 import time
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -27,8 +29,21 @@ from plato.transports.rsync import RsyncTransport
 from plato.transports.sshfs import SSHFSTransport
 from plato.utils.audit import read_audit_records
 from plato.utils.subprocess import run_local
+from plato.worlds.dvc_models import S3Config
 
 logger = logging.getLogger(__name__)
+
+_CHRONOS_REQUEST_MAX_ATTEMPTS = 4
+_CHRONOS_REQUEST_CONNECT_TIMEOUT_SECONDS = 10.0
+_CHRONOS_REQUEST_TIMEOUT_SECONDS = 30.0
+_CHRONOS_REQUEST_INITIAL_BACKOFF_SECONDS = 0.5
+_CHRONOS_REQUEST_MAX_BACKOFF_SECONDS = 4.0
+_CHRONOS_TRANSIENT_EXCEPTIONS = (
+    httpx.ConnectError,
+    httpx.ConnectTimeout,
+    httpx.ReadError,
+    httpx.ReadTimeout,
+)
 
 
 class Workspace:
@@ -72,6 +87,7 @@ class Workspace:
         self._transport: Transport | None = None
         self._sts_credentials: dict[str, str] = {}
         self._sts_expires_at: float = 0
+        self._sts_credentials_expires_at: int | None = None
         self._last_ref_step: str = ""
         self._last_changed_ref_step: str = ""
         self._lazy_mounts: dict[str, Any] = {}
@@ -260,16 +276,12 @@ class Workspace:
         if self._lazy_mounts:
             return
 
-        from plato.worlds.dvc_models import DVCManifest, S3Config
+        from plato.worlds.dvc_models import DVCManifest
         from plato.worlds.lazy_dvc import mount_lazy
 
         if self.tracked:
             await self._ensure_credentials()
-            s3_config = S3Config(
-                bucket=self.s3_bucket,
-                prefix=self.s3_prefix,
-                credentials=self._aws_credentials(),
-            )
+            s3_config = self._s3_config()
         else:
             s3_config = S3Config(bucket="", prefix="", credentials={})
 
@@ -389,14 +401,10 @@ class Workspace:
         if not dvc_files or not self.s3_bucket:
             return
 
-        from plato.worlds.dvc_models import DVCManifest, S3Config
+        from plato.worlds.dvc_models import DVCManifest
 
         await self._ensure_credentials()
-        s3_config = S3Config(
-            bucket=self.s3_bucket,
-            prefix=self.s3_prefix,
-            credentials=self._aws_credentials(),
-        )
+        s3_config = self._s3_config()
         for dir_name, dvc_content in dvc_files.items():
             try:
                 await DVCManifest.from_dvc_file(dvc_content, s3_config)
@@ -416,7 +424,7 @@ class Workspace:
         directly, manifest refs are lazy-mounted via FUSE. Returns True when at
         least one tracked directory was restored.
         """
-        from plato.worlds.dvc_models import DVCManifest, S3Config, parse_dvc_format, restore_archive
+        from plato.worlds.dvc_models import DVCManifest, parse_dvc_format, restore_archive
         from plato.worlds.lazy_dvc import mount_lazy
 
         self._require_tracked()
@@ -434,11 +442,7 @@ class Workspace:
             self._last_ref_step = step_name
             return True
 
-        s3_config = S3Config(
-            bucket=self.s3_bucket,
-            prefix=self.s3_prefix,
-            credentials=self._aws_credentials(),
-        )
+        s3_config = self._s3_config()
 
         for dir_name, dvc_content in dvc_files.items():
             fmt = parse_dvc_format(dvc_content)
@@ -475,16 +479,12 @@ class Workspace:
 
     async def _smart_commit(self, step_name: str, message: str = "", *, trigger_span_id: str = "") -> str:
         """Commit with smart diff — only upload changed files."""
-        from plato.worlds.dvc_models import S3Config, smart_commit
+        from plato.worlds.dvc_models import smart_commit
 
         self._require_tracked()
         await self._ensure_credentials()
 
-        s3_config = S3Config(
-            bucket=self.s3_bucket,
-            prefix=self.s3_prefix,
-            credentials=self._aws_credentials(),
-        )
+        s3_config = self._s3_config()
 
         dvcignore_path = self._repo_root / ".dvcignore"
         ignore_patterns: list[str] = []
@@ -514,16 +514,12 @@ class Workspace:
 
     async def _archive_commit(self, step_name: str, message: str = "", *, trigger_span_id: str = "") -> str:
         """Commit workspace as a single tar.gz archive to S3."""
-        from plato.worlds.dvc_models import S3Config, smart_commit_archive
+        from plato.worlds.dvc_models import smart_commit_archive
 
         self._require_tracked()
         await self._ensure_credentials()
 
-        s3_config = S3Config(
-            bucket=self.s3_bucket,
-            prefix=self.s3_prefix,
-            credentials=self._aws_credentials(),
-        )
+        s3_config = self._s3_config()
 
         dvcignore_path = self._repo_root / ".dvcignore"
         ignore_patterns: list[str] = []
@@ -586,15 +582,42 @@ class Workspace:
         path: str,
         **kwargs: Any,
     ) -> httpx.Response:
-        async with httpx.AsyncClient(timeout=30) as client:
-            resp = await client.request(
-                method,
-                f"{self.chronos_url}{path}",
-                headers={"X-API-Key": self.api_key},
-                **kwargs,
-            )
-            resp.raise_for_status()
-            return resp
+        timeout = httpx.Timeout(
+            _CHRONOS_REQUEST_TIMEOUT_SECONDS,
+            connect=_CHRONOS_REQUEST_CONNECT_TIMEOUT_SECONDS,
+        )
+        url = f"{self.chronos_url}{path}"
+        for attempt in range(1, _CHRONOS_REQUEST_MAX_ATTEMPTS + 1):
+            try:
+                async with httpx.AsyncClient(timeout=timeout) as client:
+                    resp = await client.request(
+                        method,
+                        url,
+                        headers={"X-API-Key": self.api_key},
+                        **kwargs,
+                    )
+                    resp.raise_for_status()
+                    return resp
+            except _CHRONOS_TRANSIENT_EXCEPTIONS:
+                if attempt == _CHRONOS_REQUEST_MAX_ATTEMPTS:
+                    raise
+                backoff = min(
+                    _CHRONOS_REQUEST_INITIAL_BACKOFF_SECONDS * (2 ** (attempt - 1)),
+                    _CHRONOS_REQUEST_MAX_BACKOFF_SECONDS,
+                )
+                delay = backoff + random.uniform(0, backoff * 0.25)
+                logger.warning(
+                    "Transient Chronos request failure for %s %s; retrying attempt %s/%s in %.2fs",
+                    method,
+                    path,
+                    attempt + 1,
+                    _CHRONOS_REQUEST_MAX_ATTEMPTS,
+                    delay,
+                    exc_info=True,
+                )
+                await asyncio.sleep(delay)
+
+        raise RuntimeError("unreachable Chronos request retry state")
 
     async def _record_workspace_ref(
         self,
@@ -687,10 +710,9 @@ class Workspace:
             "AWS_SESSION_TOKEN": data["aws_session_token"],
             "AWS_DEFAULT_REGION": data.get("region", "us-east-1"),
         }
-        from datetime import datetime
-
         expires_at = datetime.fromisoformat(data["expires_at"].replace("Z", "+00:00"))
-        self._sts_expires_at = expires_at.timestamp() - 300
+        self._sts_credentials_expires_at = int(expires_at.timestamp())
+        self._sts_expires_at = self._sts_credentials_expires_at - 300
         logger.debug("Refreshed STS credentials for repo '%s'", self.repo_name)
 
     def _aws_credentials(self) -> dict[str, str]:
@@ -698,6 +720,25 @@ class Workspace:
         if self._sts_credentials:
             env.update(self._sts_credentials)
         return {k: v for k, v in env.items() if k.startswith("AWS_")}
+
+    def _credential_refresh_config(self) -> dict[str, str | int] | None:
+        if not (self.chronos_url and self.repo_id and self.api_key):
+            return None
+        return {
+            "chronos_url": self.chronos_url,
+            "repo_id": self.repo_id,
+            "api_key": self.api_key,
+            "refresh_margin_seconds": 300,
+        }
+
+    def _s3_config(self) -> S3Config:
+        return S3Config(
+            bucket=self.s3_bucket,
+            prefix=self.s3_prefix,
+            credentials=self._aws_credentials(),
+            credentials_expires_at=self._sts_credentials_expires_at,
+            credential_refresh=self._credential_refresh_config(),
+        )
 
     async def _ensure_credentials(self) -> None:
         if self.chronos_url and self.repo_id:

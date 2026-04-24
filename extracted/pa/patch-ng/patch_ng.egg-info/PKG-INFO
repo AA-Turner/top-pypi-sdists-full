@@ -1,13 +1,12 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: patch-ng
-Version: 1.19.0
+Version: 1.19.1
 Summary: Library to parse and apply unified diffs.
 Home-page: https://github.com/conan-io/python-patch
 Author: Conan.io
 Author-email: info@conan.io
 License: MIT
 Keywords: patch,parse,diff,strip,diffstat
-Platform: UNKNOWN
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Topic :: Software Development :: Build Tools
@@ -18,6 +17,16 @@ Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Requires-Python: >=3.6
 License-File: LICENSE
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-python
+Dynamic: summary
 
 [![CI Status](https://github.com/conan-io/python-patch-ng/actions/workflows/workflow.yml/badge.svg)](https://github.com/conan-io/python-patch-ng/actions/workflows/workflow.yml)
 [![PyPI](https://img.shields.io/pypi/v/patch-ng)](https://pypi.python.org/pypi/patch-ng)
@@ -85,5 +94,3 @@ specifiers to avoid hitting an API break when version 2 is released:
 * [CHANGES](doc/CHANGES.md)
 * [LICENSE: MIT](LICENSE)
 * [CREDITS](doc/CREDITS)
-
-

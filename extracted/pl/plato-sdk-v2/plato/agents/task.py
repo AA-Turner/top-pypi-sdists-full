@@ -7,7 +7,7 @@ import logging
 import os
 from collections.abc import Awaitable, Callable
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 from opentelemetry import trace
 
@@ -81,6 +81,7 @@ class AgentTask:
         warm_pool: WarmPool | None = None,
         session: Session | None = None,
         world_runtime_info: RuntimeInfo | None = None,
+        review_exhaustion_policy: Literal["fail", "merge", "raise"] = "fail",
     ):
         self._agent = agent
         self._runtime = runtime
@@ -99,6 +100,9 @@ class AgentTask:
         self._exit_condition: Callable[[], Awaitable[bool]] | None = None
         self._max_continuations: int = 2
         self._continuation_instruction: str | Callable[[], str] = "Continue. Complete all remaining work."
+        self._continuation_exhausted_hook: Callable[[], Awaitable[None]] | None = None
+        self._continuation_cap_cost: Callable[[], float] | None = None
+        self.continuation_exhausted: bool = False
         # File trigger settings (set via with_file_triggers_from())
         self._file_trigger_patterns: list[str] | None = None
         self._trigger_server_url: str | None = None
@@ -109,8 +113,11 @@ class AgentTask:
         # Per-task review gate settings (set by BaseWorld.agent())
         self._review_fn: Callable[..., Awaitable[Any]] | None = None
         self._max_review_continuations: int = 2
+        self._review_exhaustion_policy: Literal["fail", "merge", "raise"] = review_exhaustion_policy
         # Set to True by the execution manager after a successful merge to main
         self.merged: bool = False
+        # Set when a review-exhaustion policy force-merges the branch.
+        self.review_exhaustion_force_merged: bool = False
 
     def on_prepare(self, fn: Callable[[RuntimeInfo], Awaitable[None]]) -> AgentTask:
         """Register a hook that runs after the environment is ready but before the agent task.
@@ -135,6 +142,8 @@ class AgentTask:
         exit_condition: Callable[[], Awaitable[bool]],
         max_continuations: int = 2,
         continuation_instruction: str | Callable[[], str] = "Continue. Complete all remaining work.",
+        on_exhausted: Callable[[], Awaitable[None]] | None = None,
+        continuation_cap_cost: Callable[[], float] | None = None,
     ) -> AgentTask:
         """Configure a continuation loop for resilient agent execution.
 
@@ -156,6 +165,8 @@ class AgentTask:
         self._exit_condition = exit_condition
         self._max_continuations = max_continuations
         self._continuation_instruction = continuation_instruction
+        self._continuation_exhausted_hook = on_exhausted
+        self._continuation_cap_cost = continuation_cap_cost
         return self
 
     def with_file_triggers_from(self, ctx: object) -> AgentTask:
@@ -446,7 +457,7 @@ class AgentTask:
             run_agent_config = self._build_run_agent_config(info, mounts)
             workdir = mounts[0].agent_path if mounts else "/workspace"
 
-            total_attempts = 1 + (self._max_continuations if self._exit_condition else 0)
+            self.continuation_exhausted = False
 
             tracer = trace.get_tracer("plato.agents.task")
             task_attrs = {
@@ -457,7 +468,9 @@ class AgentTask:
                 task_attrs["plato.task.display_name"] = current_display_name
 
             with tracer.start_as_current_span("agent.task", attributes=task_attrs) as task_span:
-                for attempt in range(total_attempts):
+                attempt = 0
+                used_continuation_budget = 0.0
+                while True:
                     is_continuation = attempt > 0
                     task_span.set_attribute("plato.agent.attempts", attempt + 1)
                     if is_continuation:
@@ -489,7 +502,7 @@ class AgentTask:
 
                     if is_continuation:
                         logger.info(
-                            "Continuation attempt %d/%d: exit condition not met, resuming agent",
+                            "Continuation attempt %d/%s: exit condition not met, resuming agent",
                             attempt,
                             self._max_continuations,
                         )
@@ -511,12 +524,34 @@ class AgentTask:
                         logger.info("Exit condition met after attempt %d", attempt + 1)
                         break
 
-                    if attempt == total_attempts - 1:
-                        logger.warning(
-                            "Exit condition not met after %d attempt(s) (max_continuations=%d)",
-                            total_attempts,
-                            self._max_continuations,
+                    cap_cost = 1.0
+                    if self._continuation_cap_cost is not None:
+                        cap_cost = float(self._continuation_cap_cost())
+
+                    if cap_cost <= 0:
+                        logger.info(
+                            "Attempt %d did not consume continuation budget (cap_cost=%s); continuing without using review budget",
+                            attempt + 1,
+                            cap_cost,
                         )
+                        attempt += 1
+                        continue
+
+                    if used_continuation_budget + cap_cost > float(self._max_continuations):
+                        self.continuation_exhausted = True
+                        logger.warning(
+                            "Exit condition not met after %d attempt(s) (max_continuations=%d, used_budget=%.2f, next_cap_cost=%.2f)",
+                            attempt + 1,
+                            self._max_continuations,
+                            used_continuation_budget,
+                            cap_cost,
+                        )
+                        if self._continuation_exhausted_hook is not None:
+                            await self._continuation_exhausted_hook()
+                        break
+
+                    used_continuation_budget += cap_cost
+                    attempt += 1
         except Exception as exc:
             run_error = exc
             logger.exception("Agent run failed on VM %s", info.runtime_id)

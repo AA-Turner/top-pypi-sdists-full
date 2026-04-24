@@ -20,7 +20,12 @@ from dstack._internal.core.backends.base.offers import (
     get_offers_disk_modifier,
 )
 from dstack._internal.core.backends.verda.models import VerdaConfig
-from dstack._internal.core.errors import BackendError, NoCapacityError, ProvisioningError
+from dstack._internal.core.errors import (
+    BackendError,
+    NoCapacityError,
+    NotYetTerminated,
+    ProvisioningError,
+)
 from dstack._internal.core.models.backends.base import BackendType
 from dstack._internal.core.models.common import CoreModel
 from dstack._internal.core.models.instances import (
@@ -87,9 +92,7 @@ class VerdaCompute(
         for offer in offers:
             key = (offer.instance.name, offer.region)
             availability = region_availabilities.get(key, InstanceAvailability.NOT_AVAILABLE)
-            availability_offers.append(
-                InstanceOfferWithAvailability(**offer.dict(), availability=availability)
-            )
+            availability_offers.append(offer.with_availability(availability=availability))
 
         return availability_offers
 
@@ -203,6 +206,11 @@ class VerdaCompute(
                 "Can't discontinue a discontinued instance",
             ]:
                 logger.debug("Skipping instance %s termination. Instance not found.", instance_id)
+            elif e.message == "Can't discontinue a provisioning instance":
+                raise NotYetTerminated(
+                    "Waiting for Verda instance to leave provisioning state."
+                    " Verda forbids terminating provisioning instances"
+                ) from e
             else:
                 raise
         _delete_startup_script(self.client, backend_data_parsed.startup_script_id)

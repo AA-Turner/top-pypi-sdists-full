@@ -1,35 +1,10 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
-
 """pydeps - Python module dependency visualization
 """
 # pragma: nocover
-import io
-import sys
-
 import setuptools
-from setuptools.command.test import test as TestCommand
 
-version='3.0.3'
-
-
-class PyTest(TestCommand):
-    user_options = [('pytest-args=', 'a', "Arguments to pass to py.test")]
-
-    def initialize_options(self):
-        TestCommand.initialize_options(self)
-        self.pytest_args = []
-
-    def finalize_options(self):
-        TestCommand.finalize_options(self)
-        self.test_args = []
-        self.test_suite = True
-
-    def run_tests(self):
-        # import here, cause outside the eggs aren't loaded
-        import pytest
-        errno = pytest.main(self.pytest_args)
-        sys.exit(errno)
+version='3.0.6'
 
 
 setuptools.setup(
@@ -40,15 +15,14 @@ setuptools.setup(
     install_requires=[
         'stdlib_list',
     ],
-    long_description=io.open('README.rst', encoding='utf8').read(),
+    long_description=open('README.rst', encoding='utf8').read(),
     entry_points={
         'console_scripts': [
             'pydeps = pydeps.pydeps:pydeps',
         ]
     },
     url='https://github.com/thebjorn/pydeps',
-    cmdclass={'test': PyTest},
-    license='BSD',
+    license='BSD-2-Clause',
     author='bjorn',
     author_email='bp@datakortet.no',
     description='Display module dependencies',
@@ -57,10 +31,14 @@ setuptools.setup(
         'Development Status :: 5 - Production/Stable',
         'Intended Audience :: Developers',
         'Natural Language :: English',
-        'License :: OSI Approved :: BSD License',
         'Operating System :: OS Independent',
         'Programming Language :: Python',
         'Programming Language :: Python :: 3',
+        'Programming Language :: Python :: 3 :: Only',
+        'Programming Language :: Python :: 3.10',
+        'Programming Language :: Python :: 3.11',
+        'Programming Language :: Python :: 3.12',
+        'Programming Language :: Python :: 3.13',
         'Topic :: Software Development :: Libraries :: Python Modules',
     ]
 )

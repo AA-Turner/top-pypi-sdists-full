@@ -1,3 +1,4 @@
+from chalk._gen.chalk.auth.v1 import audit_pb2 as _audit_pb2
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf import descriptor as _descriptor
@@ -117,3 +118,19 @@ class DeleteSignOnProviderConfigurationRequest(_message.Message):
 class DeleteSignOnProviderConfigurationResponse(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...
+
+class GetSamlConfigurationByIssuerRequest(_message.Message):
+    __slots__ = ("issuer",)
+    ISSUER_FIELD_NUMBER: _ClassVar[int]
+    issuer: str
+    def __init__(self, issuer: _Optional[str] = ...) -> None: ...
+
+class GetSamlConfigurationByIssuerResponse(_message.Message):
+    __slots__ = ("configuration", "team_id")
+    CONFIGURATION_FIELD_NUMBER: _ClassVar[int]
+    TEAM_ID_FIELD_NUMBER: _ClassVar[int]
+    configuration: SignOnProviderSamlConfig
+    team_id: str
+    def __init__(
+        self, configuration: _Optional[_Union[SignOnProviderSamlConfig, _Mapping]] = ..., team_id: _Optional[str] = ...
+    ) -> None: ...

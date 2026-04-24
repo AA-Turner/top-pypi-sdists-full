@@ -1,4 +1,6 @@
-# Copyright 2023 StreamSets Inc.
+#  IBM Confidential
+#  PID 5900-BAF
+#  Copyright StreamSets Inc., an IBM Company 2024
 
 # fmt: off
 import datetime
@@ -29,22 +31,22 @@ def simple_pipeline(sch, sch_authoring_sdc_id):
     try:
         yield pipeline
     finally:
-        sch.api_client.delete_pipeline(pipeline.pipeline_id)
+        sch.api_client.delete_pipeline(pipeline.id)
 
 
 @pytest.fixture(scope="module")
-def sample_job(sch, simple_pipeline, sch_executor_sdc_label):
+def sample_job(sch, simple_pipeline, sch_engine_sdc_label):
     """A set of simple jobs based on simple pipeline."""
     job_builder = sch.get_job_builder()
 
     job = job_builder.build('test_simple_job', pipeline=simple_pipeline)
-    job.data_collector_labels = sch_executor_sdc_label
+    job.data_collector_labels = sch_engine_sdc_label
     sch.add_job(job)
 
     try:
         yield job
     finally:
-        if job.status == 'ACTIVE':
+        if job.status in ['ACTIVE', 'ACTIVATING', 'DEACTIVATING']:
             sch.stop_job(job, force=True)
             time.sleep(10)
         sch.delete_job(job)
@@ -85,7 +87,7 @@ def test_scheduler_operations(sample_job, sch):
     current_time = datetime.datetime.utcnow()
     # Assert that the task started running before current_time.
     assert (current_time - task_run_time).total_seconds() > 0
-    sample_job = sch.jobs.get(job_id=sample_job.job_id)
+    sample_job = sch.jobs.get(id=sample_job.id)
     assert sample_job.status == 'ACTIVE' or sample_job.status == 'ACTIVATING'
 
     # Actions
@@ -124,7 +126,7 @@ def test_scheduler_stop_job(sample_job, sch):
     if len(sch.data_collectors) < 1:
         pytest.skip('This test requires at least one data collector')
 
-    sample_job = sch.jobs.get(job_id=sample_job.job_id)
+    sample_job = sch.jobs.get(id=sample_job.id)
     if sample_job.status != 'ACTIVE':
         sch.start_job(sample_job)
 
@@ -145,7 +147,7 @@ def test_scheduler_stop_job(sample_job, sch):
     time.sleep(65)
     runs = task.runs
     assert len(runs) >= 1
-    sample_job = sch.jobs.get(job_id=sample_job.job_id)
+    sample_job = sch.jobs.get(id=sample_job.id)
     assert sample_job.status == 'INACTIVE' or sample_job.status == 'DEACTIVATING'
     sch.kill_scheduled_tasks(task)
     assert task.status == 'KILLED'

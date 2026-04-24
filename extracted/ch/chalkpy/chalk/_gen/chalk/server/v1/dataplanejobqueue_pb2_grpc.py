@@ -393,3 +393,86 @@ class DataPlaneJobQueueService(object):
             timeout,
             metadata,
         )
+
+
+class DataPlaneJobEnqueueServiceStub(object):
+    """Sibling to DataPlaneJobQueueService for writing (enqueuing) into the job queue.
+    Kept separate from DataPlaneJobQueueService so write-permission scopes can be
+    tightened independently of the read-oriented surface.
+    """
+
+    def __init__(self, channel):
+        """Constructor.
+
+        Args:
+            channel: A grpc.Channel.
+        """
+        self.EnqueueJob = channel.unary_unary(
+            "/chalk.server.v1.DataPlaneJobEnqueueService/EnqueueJob",
+            request_serializer=chalk_dot_server_dot_v1_dot_dataplanejobqueue__pb2.EnqueueJobRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_dataplanejobqueue__pb2.EnqueueJobResponse.FromString,
+        )
+
+
+class DataPlaneJobEnqueueServiceServicer(object):
+    """Sibling to DataPlaneJobQueueService for writing (enqueuing) into the job queue.
+    Kept separate from DataPlaneJobQueueService so write-permission scopes can be
+    tightened independently of the read-oriented surface.
+    """
+
+    def EnqueueJob(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+
+def add_DataPlaneJobEnqueueServiceServicer_to_server(servicer, server):
+    rpc_method_handlers = {
+        "EnqueueJob": grpc.unary_unary_rpc_method_handler(
+            servicer.EnqueueJob,
+            request_deserializer=chalk_dot_server_dot_v1_dot_dataplanejobqueue__pb2.EnqueueJobRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_dataplanejobqueue__pb2.EnqueueJobResponse.SerializeToString,
+        ),
+    }
+    generic_handler = grpc.method_handlers_generic_handler(
+        "chalk.server.v1.DataPlaneJobEnqueueService", rpc_method_handlers
+    )
+    server.add_generic_rpc_handlers((generic_handler,))
+
+
+# This class is part of an EXPERIMENTAL API.
+class DataPlaneJobEnqueueService(object):
+    """Sibling to DataPlaneJobQueueService for writing (enqueuing) into the job queue.
+    Kept separate from DataPlaneJobQueueService so write-permission scopes can be
+    tightened independently of the read-oriented surface.
+    """
+
+    @staticmethod
+    def EnqueueJob(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.DataPlaneJobEnqueueService/EnqueueJob",
+            chalk_dot_server_dot_v1_dot_dataplanejobqueue__pb2.EnqueueJobRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_dataplanejobqueue__pb2.EnqueueJobResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )

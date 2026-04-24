@@ -35,6 +35,7 @@ class ModelEncoding(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     MODEL_ENCODING_PROTOBUF: _ClassVar[ModelEncoding]
     MODEL_ENCODING_CBM: _ClassVar[ModelEncoding]
     MODEL_ENCODING_SAFETENSORS: _ClassVar[ModelEncoding]
+    MODEL_ENCODING_BST: _ClassVar[ModelEncoding]
 
 MODEL_TYPE_UNSPECIFIED: ModelType
 MODEL_TYPE_PYTORCH: ModelType
@@ -53,6 +54,7 @@ MODEL_ENCODING_HDF5: ModelEncoding
 MODEL_ENCODING_PROTOBUF: ModelEncoding
 MODEL_ENCODING_CBM: ModelEncoding
 MODEL_ENCODING_SAFETENSORS: ModelEncoding
+MODEL_ENCODING_BST: ModelEncoding
 
 class TensorDimension(_message.Message):
     __slots__ = ("fixed", "named")

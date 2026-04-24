@@ -130,7 +130,7 @@ class BaseDataArray:
             },
         )
 
-    def mcse(self, da, sample_dims=None, method="mean", prob=None):
+    def mcse(self, da, sample_dims=None, method="mean", prob=None, circular=False):
         """Compute mcse on DataArray input."""
         dims, chain_axis, draw_axis = validate_dims_chain_draw_axis(sample_dims)
         return apply_ufunc(
@@ -141,6 +141,7 @@ class BaseDataArray:
             kwargs={
                 "method": method,
                 "prob": prob,
+                "circular": circular,
                 "chain_axis": chain_axis,
                 "draw_axis": draw_axis,
             },
@@ -161,7 +162,7 @@ class BaseDataArray:
         )
 
     # pylint: disable=redefined-builtin
-    def histogram(self, da, dim=None, bins=None, range=None, weights=None, density=None):
+    def histogram(self, da, dim=None, bins=None, range=None, weights=None, density=True):
         """Compute histogram on DataArray input."""
         dims = validate_dims(dim)
         edges_dim = "edges_dim" if da.name is None else f"edges_dim_{da.name}"
@@ -228,7 +229,28 @@ class BaseDataArray:
         return out
 
     def kde(self, da, dim=None, circular=False, grid_len=512, **kwargs):
-        """Compute kde on DataArray input."""
+        """Compute KDE on DataArray input.
+
+        Parameters
+        ----------
+        da : xarray.DataArray
+            Input data.
+        dim : str or sequence of str, optional
+            Dimension(s) over which to compute the KDE.
+        circular : bool, default False
+            Whether the data is circular (e.g., angles).
+        grid_len : int, default 512
+            Number of points on the KDE grid.
+        **kwargs : any, optional
+            Additional keyword arguments forwarded to the array or dataarray interface.
+            See :func:`arviz_stats.base.array_stats.kde` for the full list of supported arguments.
+
+        Returns
+        -------
+        out : xarray.DataArray
+            An xarray DataArray containing the grid and pdf values along the
+            `plot_axis` dimension, with the bandwidth `bw` stored as a coordinate.
+        """
         dims = validate_dims(dim)
         grid, pdf, bw = apply_ufunc(
             self.array_class.kde,
@@ -295,6 +317,25 @@ class BaseDataArray:
         )
         plot_axis = DataArray(["x", "y"], dims="plot_axis")
         return concat((x, y), dim=plot_axis)
+
+    def uniformity_test(self, da, dim=None, method="pot_c", **kwargs):
+        """Pointwise uniformity test on DataArray input."""
+        dims = validate_dims(dim)
+        n_points = 1
+        for d in dims:
+            n_points *= da.sizes[d]
+        p_value, shapley = apply_ufunc(
+            self.array_class.uniformity_test,
+            da,
+            kwargs={
+                "axis": np.arange(-len(dims), 0, 1),
+                "method": method,
+                **kwargs,
+            },
+            input_core_dims=[dims],
+            output_core_dims=[[], ["pit_dim"]],
+        )
+        return p_value, shapley
 
     def thin_factor(self, da, target_ess=None, reduce_func="mean"):
         """Get thinning factor over draw dimension to preserve ESS in samples or target a given ESS.
@@ -670,6 +711,7 @@ class BaseDataArray:
         pareto_k=None,
         sample_dims=None,
         random_state=None,
+        pareto_pit=False,
     ):
         """Compute LOO-PIT values on DataArray input.
 
@@ -717,6 +759,7 @@ class BaseDataArray:
                 "chain_axis": chain_axis,
                 "draw_axis": draw_axis,
                 "random_state": random_state,
+                "pareto_pit": pareto_pit,
             },
         )
         return pit_values, pareto_k
@@ -976,6 +1019,59 @@ class BaseDataArray:
             input_core_dims=[dims],
             output_core_dims=[[]],
             kwargs={"round_to": round_to, "skipna": skipna, "axis": np.arange(-len(dims), 0, 1)},
+        )
+
+    def std(self, da, round_to=None, skipna=False, dim=None):
+        """Compute standard deviation on DataArray input."""
+        dims = validate_dims(dim)
+
+        return apply_ufunc(
+            self.array_class.std,
+            da,
+            input_core_dims=[dims],
+            output_core_dims=[[]],
+            kwargs={"round_to": round_to, "skipna": skipna, "axis": np.arange(-len(dims), 0, 1)},
+        )
+
+    def var(self, da, round_to=None, skipna=False, dim=None):
+        """Compute variance on DataArray input."""
+        dims = validate_dims(dim)
+
+        return apply_ufunc(
+            self.array_class.var,
+            da,
+            input_core_dims=[dims],
+            output_core_dims=[[]],
+            kwargs={"round_to": round_to, "skipna": skipna, "axis": np.arange(-len(dims), 0, 1)},
+        )
+
+    def mad(self, da, round_to=None, skipna=False, dim=None):
+        """Compute median absolute deviation on DataArray input."""
+        dims = validate_dims(dim)
+
+        return apply_ufunc(
+            self.array_class.mad,
+            da,
+            input_core_dims=[dims],
+            output_core_dims=[[]],
+            kwargs={"round_to": round_to, "skipna": skipna, "axis": np.arange(-len(dims), 0, 1)},
+        )
+
+    def iqr(self, da, quantiles=(0.25, 0.75), round_to=None, skipna=False, dim=None):
+        """Compute interquartile range on DataArray input."""
+        dims = validate_dims(dim)
+
+        return apply_ufunc(
+            self.array_class.iqr,
+            da,
+            input_core_dims=[dims],
+            output_core_dims=[[]],
+            kwargs={
+                "quantiles": quantiles,
+                "round_to": round_to,
+                "skipna": skipna,
+                "axis": np.arange(-len(dims), 0, 1),
+            },
         )
 
     def srs_estimator(self, da, n_data_points):

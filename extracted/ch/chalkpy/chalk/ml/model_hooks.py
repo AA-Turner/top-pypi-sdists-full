@@ -587,3 +587,8 @@ MODEL_REGISTRY.register(ModelType.XGBOOST, ModelEncoding.JSON, None, XGBoostRegr
 MODEL_REGISTRY.register(ModelType.XGBOOST, ModelEncoding.JSON, ModelClass.CLASSIFICATION, XGBoostClassifierInference())
 MODEL_REGISTRY.register(ModelType.XGBOOST, ModelEncoding.JSON, ModelClass.REGRESSION, XGBoostRegressorInference())
 MODEL_REGISTRY.register(ModelType.XGBOOST, ModelEncoding.JSON, ModelClass.RANKING, XGBoostRankerInference())
+
+MODEL_REGISTRY.register(ModelType.XGBOOST, ModelEncoding.BST, None, XGBoostRegressorInference())
+MODEL_REGISTRY.register(ModelType.XGBOOST, ModelEncoding.BST, ModelClass.CLASSIFICATION, XGBoostClassifierInference())
+MODEL_REGISTRY.register(ModelType.XGBOOST, ModelEncoding.BST, ModelClass.REGRESSION, XGBoostRegressorInference())
+MODEL_REGISTRY.register(ModelType.XGBOOST, ModelEncoding.BST, ModelClass.RANKING, XGBoostRankerInference())

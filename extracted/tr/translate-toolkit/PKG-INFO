@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: translate-toolkit
-Version: 3.19.5
+Version: 3.19.6
 Summary: Tools and API for translation and localization engineering.
 Author-email: Translate <translate-devel@lists.sourceforge.net>
 License-Expression: GPL-2.0-or-later
@@ -31,7 +31,7 @@ Classifier: Topic :: Software Development :: Localization
 Requires-Python: >=3.11
 Description-Content-Type: text/x-rst
 License-File: COPYING
-Requires-Dist: lxml<6.1,>=5.2.0
+Requires-Dist: lxml<7.0,>=6.1.0
 Requires-Dist: unicode-segmentation-rs<0.3,>=0.2.0
 Provides-Extra: all
 Requires-Dist: translate-toolkit[chardet,fluent,ical,ini,levenshtein,markdown,php,rc,spellcheck,subtitles,toml,yaml]; extra == "all"

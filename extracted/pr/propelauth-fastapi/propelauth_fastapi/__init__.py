@@ -1,8 +1,12 @@
 import httpx
+from datetime import date
 from typing import Any, Dict, List, Optional
 from fastapi import Depends, HTTPException, Header
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+
 from propelauth_py import (
+    SetOidcIdpMetadataRequest,
+    SocialLoginTokenProvider,
     TokenVerificationMetadata,
     configure_logging,
     init_base_auth,
@@ -13,7 +17,21 @@ from propelauth_py import (
 )
 from propelauth_py.errors import ForbiddenException, UnauthorizedException
 from propelauth_py.user import User
-
+from propelauth_py.types.user_insights import (
+    ChartMetric,
+    ChartMetricCadence,
+    ChartData,
+    TopInviterReportInterval,
+    ChampionReportInterval,
+    ChurnReportInterval,
+    ReengagementReportInterval,
+    GrowthReportInterval,
+    AttritionReportInterval,
+    OrgReport,
+    OrgReportType,
+    UserReport,
+    UserReportType,
+)
 from propelauth_py.api import (
     OrgQueryOrderBy,
     UserQueryOrderBy,
@@ -264,10 +282,11 @@ class FastAPIAuth:
         expires_in_hours: Optional[int] = None,
         create_new_user_if_one_doesnt_exist: Optional[bool] = None,
         user_signup_query_parameters: Optional[Dict[str, Any]] = None,
-        expire_after_first_use: Optional[bool] = None
+        expire_after_first_use: Optional[bool] = None,
+        requires_interstitial: Optional[bool] = None,
     ):
         return self.auth.create_magic_link(
-            email, redirect_to_url, expires_in_hours, create_new_user_if_one_doesnt_exist, user_signup_query_parameters, expire_after_first_use
+            email, redirect_to_url, expires_in_hours, create_new_user_if_one_doesnt_exist, user_signup_query_parameters, expire_after_first_use, requires_interstitial
         )
 
     def create_access_token(self, user_id: str, duration_in_minutes: int, active_org_id: Optional[str] = None):
@@ -328,10 +347,13 @@ class FastAPIAuth:
         domain: Optional[str] = None,
         require_2fa_by: Optional[str] = None,
         extra_domains: Optional[List[str]] = None,
+        password_rotation_enabled: Optional[bool] = None,
+        password_rotation_history_size: Optional[int] = None,
+        password_rotation_period: Optional[int] = None,
     ):
         return self.auth.update_org_metadata(
             org_id, name, can_setup_saml, metadata, max_users,
-            can_join_on_email_domain_match, members_must_have_email_domain_match, domain, require_2fa_by, extra_domains
+            can_join_on_email_domain_match, members_must_have_email_domain_match, domain, require_2fa_by, extra_domains, password_rotation_enabled, password_rotation_history_size, password_rotation_period
         )
 
     def subscribe_org_to_role_mapping(self, org_id: str, custom_role_mapping_name: str):
@@ -410,9 +432,10 @@ class FastAPIAuth:
         org_id: Optional[str] = None,
         user_id: Optional[str] = None,
         expires_at_seconds: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: Optional[Dict[str, Any]] = None,
+        display_name: Optional[str] = None,
     ):
-        return self.auth.create_api_key(org_id, user_id, expires_at_seconds, metadata)
+        return self.auth.create_api_key(org_id, user_id, expires_at_seconds, metadata, display_name)
 
     def update_api_key(self, api_key_id: str, expires_at_seconds: Optional[str] = None, metadata: Optional[Dict[str, Any]] = None, set_to_never_expire: Optional[bool] = None):
         return self.auth.update_api_key(api_key_id, expires_at_seconds, metadata, set_to_never_expire)
@@ -434,6 +457,9 @@ class FastAPIAuth:
     
     def set_saml_idp_metadata(self, org_id: str, saml_idp_metadata: SamlIdpMetadata):
         return self.auth.set_saml_idp_metadata(org_id=org_id, saml_idp_metadata=saml_idp_metadata)
+        
+    def set_oidc_idp_metadata(self, request: SetOidcIdpMetadataRequest):
+        return self.auth.set_oidc_idp_metadata(request)
     
     def saml_go_live(self, org_id: str):
         return self.auth.saml_go_live(org_id)
@@ -490,6 +516,7 @@ class FastAPIAuth:
         user_id: Optional[str] = None,
         expires_at_seconds: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
+        display_name: Optional[str] = None,
     ):
         return self.auth.import_api_key(
             api_key_token,
@@ -497,6 +524,7 @@ class FastAPIAuth:
             user_id,
             expires_at_seconds,
             metadata,
+            display_name,
         )
         
     def send_sms_mfa_code(
@@ -527,8 +555,161 @@ class FastAPIAuth:
             code
         )
         
+    # User Insights Reports APIs
+    
+    def fetch_user_top_inviter_report(
+        self,
+        report_interval: Optional[TopInviterReportInterval] = None,
+        page_size: Optional[int] = None,
+        page_number: Optional[int] = None,
+    ) -> UserReport:
+        return self.auth.fetch_user_report(
+            UserReportType.TOP_INVITERS,
+            report_interval,
+            page_size,
+            page_number
+        )
+        
+    def fetch_user_champion_report(
+        self,
+        report_interval: Optional[ChampionReportInterval] = None,
+        page_size: Optional[int] = None,
+        page_number: Optional[int] = None,
+    ) -> UserReport:
+        return self.auth.fetch_user_report(
+            UserReportType.CHAMPION,
+            report_interval,
+            page_size,
+            page_number
+        )
+        
+    def fetch_user_churn_report(
+        self,
+        report_interval: Optional[ChurnReportInterval] = None,
+        page_size: Optional[int] = None,
+        page_number: Optional[int] = None,
+    ) -> UserReport:
+        return self.auth.fetch_user_report(
+            UserReportType.CHURN,
+            report_interval,
+            page_size,
+            page_number
+        )
+        
+        
+    def fetch_user_reengagement_report(
+        self,
+        report_interval: Optional[ReengagementReportInterval] = None,
+        page_size: Optional[int] = None,
+        page_number: Optional[int] = None,
+    ) -> UserReport:
+        return self.auth.fetch_user_report(
+            UserReportType.REENGAGEMENT,
+            report_interval,
+            page_size,
+            page_number
+        )
+        
+        
+    def fetch_org_churn_report(
+        self,
+        report_interval: Optional[ChurnReportInterval] = None,
+        page_size: Optional[int] = None,
+        page_number: Optional[int] = None,
+    ) -> OrgReport:
+        return self.auth.fetch_org_report(
+            OrgReportType.CHURN,
+            report_interval,
+            page_size,
+            page_number
+        )
+        
+    def fetch_org_reengagement_report(
+        self,
+        report_interval: Optional[ReengagementReportInterval] = None,
+        page_size: Optional[int] = None,
+        page_number: Optional[int] = None,
+    ) -> OrgReport:
+        return self.auth.fetch_org_report(
+            OrgReportType.REENGAGEMENT,
+            report_interval,
+            page_size,
+            page_number
+        )
+        
+        
+    def fetch_org_growth_report(
+        self,
+        report_interval: Optional[GrowthReportInterval] = None,
+        page_size: Optional[int] = None,
+        page_number: Optional[int] = None,
+    ) -> OrgReport:
+        return self.auth.fetch_org_report(
+            OrgReportType.GROWTH,
+            report_interval,
+            page_size,
+            page_number
+        )
+        
+        
+    def fetch_org_attrition_report(
+        self,
+        report_interval: Optional[AttritionReportInterval] = None,
+        page_size: Optional[int] = None,
+        page_number: Optional[int] = None,
+    ) -> OrgReport:
+        return self.auth.fetch_org_report(
+            OrgReportType.ATTRITION,
+            report_interval,
+            page_size,
+            page_number
+        )
+    
+    def fetch_chart_metric_data(
+        self,
+        chart_metric: ChartMetric,
+        cadence: Optional[ChartMetricCadence] = None,
+        start_date: Optional[date] = None,
+        end_date: Optional[date] = None,
+    ) -> ChartData:
+        return self.auth.fetch_chart_metric_data(
+            chart_metric,
+            cadence,
+            start_date,
+            end_date
+        )
+        
+
     def fetch_employee_by_id(self, employee_id: str):
         return self.auth.fetch_employee_by_id(employee_id)
+        
+    def fetch_org_scim_groups(self, org_id: str, user_id: Optional[str] = None, page_size: int = 10, page_number: int = 0):
+        return self.auth.fetch_org_scim_groups(
+            org_id,
+            user_id,
+            page_size,
+            page_number
+    )
+    
+    def fetch_scim_group(
+        self, 
+        org_id: str,
+        group_id: str,
+        members_page_size: int = 10,
+        members_page_number: int = 0,
+    ):
+        return self.auth.fetch_scim_group(
+            org_id=org_id,
+            group_id=group_id,
+            members_page_size=members_page_size,
+            members_page_number=members_page_number,
+        )
+        
+    def fetch_user_oauth_tokens(self, user_id: str):
+        return self.auth.fetch_user_oauth_tokens(user_id)
+    
+    def fetch_fresh_token_from_provider(self, user_id: str, provider: SocialLoginTokenProvider):
+        return self.auth.fetch_fresh_token_from_provider(user_id, provider)
     
 class FastAPIAuthAsync():
     def __init__(
@@ -714,10 +895,11 @@ class FastAPIAuthAsync():
         expires_in_hours: Optional[int] = None,
         create_new_user_if_one_doesnt_exist: Optional[bool] = None,
         user_signup_query_parameters: Optional[Dict[str, Any]] = None,
-        expire_after_first_use: Optional[bool] = None
+        expire_after_first_use: Optional[bool] = None,
+        requires_interstitial: Optional[bool] = None,
     ):
         return await self.auth.create_magic_link(
-            email, redirect_to_url, expires_in_hours, create_new_user_if_one_doesnt_exist, user_signup_query_parameters, expire_after_first_use
+            email, redirect_to_url, expires_in_hours, create_new_user_if_one_doesnt_exist, user_signup_query_parameters, expire_after_first_use, requires_interstitial
         )
 
     async def create_access_token(self, user_id: str, duration_in_minutes: int, active_org_id: Optional[str] = None):
@@ -778,10 +960,13 @@ class FastAPIAuthAsync():
         domain: Optional[str] = None,
         require_2fa_by: Optional[str] = None,
         extra_domains: Optional[List[str]] = None,
+        password_rotation_enabled: Optional[bool] = None,
+        password_rotation_history_size: Optional[int] = None,
+        password_rotation_period: Optional[int] = None,
     ):
         return await self.auth.update_org_metadata(
             org_id, name, can_setup_saml, metadata, max_users,
-            can_join_on_email_domain_match, members_must_have_email_domain_match, domain, require_2fa_by, extra_domains
+            can_join_on_email_domain_match, members_must_have_email_domain_match, domain, require_2fa_by, extra_domains, password_rotation_enabled, password_rotation_history_size, password_rotation_period
         )
 
     async def subscribe_org_to_role_mapping(self, org_id: str, custom_role_mapping_name: str):
@@ -860,9 +1045,10 @@ class FastAPIAuthAsync():
         org_id: Optional[str] = None,
         user_id: Optional[str] = None,
         expires_at_seconds: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: Optional[Dict[str, Any]] = None,
+        display_name: Optional[str] = None,
     ):
-        return await self.auth.create_api_key(org_id, user_id, expires_at_seconds, metadata)
+        return await self.auth.create_api_key(org_id, user_id, expires_at_seconds, metadata, display_name)
 
     async def update_api_key(self, api_key_id: str, expires_at_seconds: Optional[str] = None, metadata: Optional[Dict[str, Any]] = None, set_to_never_expire: Optional[bool] = None):
         return await self.auth.update_api_key(api_key_id, expires_at_seconds, metadata, set_to_never_expire)
@@ -884,6 +1070,9 @@ class FastAPIAuthAsync():
     
     async def set_saml_idp_metadata(self, org_id: str, saml_idp_metadata: SamlIdpMetadata):
         return await self.auth.set_saml_idp_metadata(org_id=org_id, saml_idp_metadata=saml_idp_metadata)
+        
+    async def set_oidc_idp_metadata(self, request: SetOidcIdpMetadataRequest):
+        return await self.auth.set_oidc_idp_metadata(request)
     
     async def saml_go_live(self, org_id: str):
         return await self.auth.saml_go_live(org_id)
@@ -932,6 +1121,7 @@ class FastAPIAuthAsync():
         user_id: Optional[str] = None,
         expires_at_seconds: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
+        display_name: Optional[str] = None,
     ):
         return await self.auth.import_api_key(
             api_key_token,
@@ -939,6 +1129,7 @@ class FastAPIAuthAsync():
             user_id,
             expires_at_seconds,
             metadata,
+            display_name
         )
         
     async def invite_user_to_org_by_user_id(
@@ -987,11 +1178,163 @@ class FastAPIAuthAsync():
             user_id,
             code
         )
+
+    # User Insights Reports APIs
+    
+    async def fetch_user_top_inviter_report(
+        self,
+        report_interval: Optional[TopInviterReportInterval] = None,
+        page_size: Optional[int] = None,
+        page_number: Optional[int] = None,
+    ) -> UserReport:
+        return await self.auth.fetch_user_report_async(
+            UserReportType.TOP_INVITERS,
+            report_interval,
+            page_size,
+            page_number
+        )
         
+    async def fetch_user_champion_report(
+        self,
+        report_interval: Optional[ChampionReportInterval] = None,
+        page_size: Optional[int] = None,
+        page_number: Optional[int] = None,
+    ) -> UserReport:
+        return await self.auth.fetch_user_report_async(
+            UserReportType.CHAMPION,
+            report_interval,
+            page_size,
+            page_number
+        )
+        
+    async def fetch_user_churn_report(
+        self,
+        report_interval: Optional[ChurnReportInterval] = None,
+        page_size: Optional[int] = None,
+        page_number: Optional[int] = None,
+    ) -> UserReport:
+        return await self.auth.fetch_user_report_async(
+            UserReportType.CHURN,
+            report_interval,
+            page_size,
+            page_number
+        )
+        
+        
+    async def fetch_user_reengagement_report(
+        self,
+        report_interval: Optional[ReengagementReportInterval] = None,
+        page_size: Optional[int] = None,
+        page_number: Optional[int] = None,
+    ) -> UserReport:
+        return await self.auth.fetch_user_report_async(
+            UserReportType.REENGAGEMENT,
+            report_interval,
+            page_size,
+            page_number
+        )
+        
+        
+    async def fetch_org_churn_report(
+        self,
+        report_interval: Optional[ChurnReportInterval] = None,
+        page_size: Optional[int] = None,
+        page_number: Optional[int] = None,
+    ) -> OrgReport:
+        return await self.auth.fetch_org_report_async(
+            OrgReportType.CHURN,
+            report_interval,
+            page_size,
+            page_number
+        )
+        
+    async def fetch_org_reengagement_report(
+        self,
+        report_interval: Optional[ReengagementReportInterval] = None,
+        page_size: Optional[int] = None,
+        page_number: Optional[int] = None,
+    ) -> OrgReport:
+        return await self.auth.fetch_org_report_async(
+            OrgReportType.REENGAGEMENT,
+            report_interval,
+            page_size,
+            page_number
+        )
+        
+        
+    async def fetch_org_growth_report(
+        self,
+        report_interval: Optional[GrowthReportInterval] = None,
+        page_size: Optional[int] = None,
+        page_number: Optional[int] = None,
+    ) -> OrgReport:
+        return await self.auth.fetch_org_report_async(
+            OrgReportType.GROWTH,
+            report_interval,
+            page_size,
+            page_number
+        )
+        
+        
+    async def fetch_org_attrition_report(
+        self,
+        report_interval: Optional[AttritionReportInterval] = None,
+        page_size: Optional[int] = None,
+        page_number: Optional[int] = None,
+    ) -> OrgReport:
+        return await self.auth.fetch_org_report_async(
+            OrgReportType.ATTRITION,
+            report_interval,
+            page_size,
+            page_number
+        )
+    
+    async def fetch_chart_metric_data(
+        self,
+        chart_metric: ChartMetric,
+        cadence: Optional[ChartMetricCadence] = None,
+        start_date: Optional[date] = None,
+        end_date: Optional[date] = None,
+    ) -> ChartData:
+        return await self.auth.fetch_chart_metric_data_async(
+            chart_metric,
+            cadence,
+            start_date,
+            end_date
+        )
+
     async def fetch_employee_by_id(self, employee_id: str):
         return await self.auth.fetch_employee_by_id(
             employee_id
         )
+        
+    async def fetch_org_scim_groups(self, org_id: str, user_id: Optional[str] = None, page_size: int = 10, page_number: int = 0):
+        return await self.auth.fetch_org_scim_groups(
+            org_id,
+            user_id,
+            page_size,
+            page_number
+    )
+    
+    async def fetch_scim_group(
+        self, 
+        org_id: str,
+        group_id: str,
+        members_page_size: int = 10,
+        members_page_number: int = 0,
+    ):
+        return await self.auth.fetch_scim_group(
+            org_id=org_id,
+            group_id=group_id,
+            members_page_size=members_page_size,
+            members_page_number=members_page_number,
+        )
+        
+    async def fetch_user_oauth_tokens(self, user_id: str):
+        return await self.auth.fetch_user_oauth_tokens(user_id)
+        
+    async def fetch_fresh_token_from_provider(self, user_id: str, provider: SocialLoginTokenProvider):
+        return await self.auth.fetch_fresh_token_from_provider(user_id, provider)
 
 
 def init_auth(
@@ -1018,4 +1361,3 @@ def init_auth_async(
 
     """Fetches metadata required to validate access tokens and returns auth decorators and utilities"""
     return FastAPIAuthAsync(auth_url=auth_url, integration_api_key=api_key, token_verification_metadata=token_verification_metadata, debug_mode=debug_mode, httpx_client=httpx_client)
-    

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import os
 import re
 from pathlib import Path
@@ -86,6 +87,30 @@ def _search_file(
     return matches
 
 
+def _search_directory(
+    base: Path,
+    file_pattern: str,
+    regex: re.Pattern[str],
+    context: int,
+) -> list[dict[str, Any]]:
+    all_matches: list[dict[str, Any]] = []
+    resolved_base = safe_resolve_pathlib(base)
+    for file_path in sorted(base.glob(file_pattern)):
+        if not file_path.is_file():
+            continue
+        try:
+            if not safe_resolve_pathlib(file_path).is_relative_to(resolved_base):
+                continue
+        except (OSError, ValueError):
+            continue
+        file_matches = _search_file(file_path, regex, context)
+        for match in file_matches:
+            all_matches.append({"file": str(file_path.relative_to(base)), **match})
+            if len(all_matches) >= _MAX_MATCHES:
+                return all_matches
+    return all_matches
+
+
 async def handle(
     pattern: str,
     path: str | None = None,
@@ -108,7 +133,7 @@ async def handle(
     base = Path(resolved)
 
     if base.is_file():
-        results = _search_file(base, regex, context)
+        results = await asyncio.to_thread(_search_file, base, regex, context)
         return {
             "matches": [{"file": str(base), **m} for m in results[:_MAX_MATCHES]],
             "total_matches": len(results),
@@ -121,24 +146,8 @@ async def handle(
         return {"error": "Glob pattern contains null bytes"}
 
     file_pattern = glob or "**/*"
-    all_matches: list[dict[str, Any]] = []
-    resolved_base = safe_resolve_pathlib(base)
     try:
-        for file_path in sorted(base.glob(file_pattern)):
-            if not file_path.is_file():
-                continue
-            try:
-                if not safe_resolve_pathlib(file_path).is_relative_to(resolved_base):
-                    continue
-            except (OSError, ValueError):
-                continue
-            file_matches = _search_file(file_path, regex, context)
-            for m in file_matches:
-                all_matches.append({"file": str(file_path.relative_to(base)), **m})
-                if len(all_matches) >= _MAX_MATCHES:
-                    break
-            if len(all_matches) >= _MAX_MATCHES:
-                break
+        all_matches = await asyncio.to_thread(_search_directory, base, file_pattern, regex, context)
     except OSError:
         return {"error": "Search failed: unable to read target path"}
 

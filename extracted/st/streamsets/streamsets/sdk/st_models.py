@@ -1,4 +1,6 @@
-# Copyright 2019 StreamSets Inc.
+#  IBM Confidential
+#  PID 5900-BAF
+#  Copyright StreamSets Inc., an IBM Company 2024
 
 # fmt: off
 import base64
@@ -19,7 +21,8 @@ from .constants import ST_STAGE_ATTRIBUTE_RENAME_ALIASES as STAGE_ATTRIBUTE_RENA
 from .constants import ServiceConfigurationProperty, StageConfigurationProperty
 from .models import Configuration, _StageWithPredicates
 from .utils import (
-    SeekableList, format_log, get_attribute, get_color_icon_from_stage_definition, get_params, pipeline_json_encoder,
+    SeekableList, format_log, get_accepted_labels_libraries_and_names, get_attribute,
+    get_color_icon_from_stage_definition, get_params, pipeline_json_encoder,
 )
 
 # fmt: on
@@ -897,14 +900,30 @@ class PipelineBuilder:
         Returns:
             An instance of :py:class:`streamsets.sdk.st_models.Stage`.
         """
+        accepted_labels, accepted_libraries, accepted_java_names = get_accepted_labels_libraries_and_names(
+            self, 'startEventStage'
+        )
+
+        if label and label not in accepted_labels:
+            raise ValueError('Stage with label {} is not a supported start event stage'.format(label))
+        if name and name not in accepted_java_names:
+            raise ValueError('Stage with name {} is not a supported start event stage'.format(name))
+        if library and library not in accepted_libraries:
+            raise ValueError('Stage with library {} is not a supported start event stage'.format(library))
+
         stage_instance, stage_definition = next(
             (stage.instance, stage.definition)
             for stage in self._get_stage_data(label=label, name=name, library=library)
             if stage.definition.get('pipelineLifecycleStage') is True
         )
-        self._pipeline['pipelineConfig']['startEventStages'] = [stage_instance]
-        self._set_pipeline_configuration('startEventStage', self._stage_to_configuration_name(stage_instance))
 
+        # We need instanceName in the form <instance_name>_StartEventStage and not <instance_name>_01
+        instance_name_split_list = stage_instance['instanceName'].split('_')
+        instance_name_split_list[-1] = 'StartEventStage'
+        stage_instance['instanceName'] = '_'.join(instance_name_split_list)
+
+        self._pipeline[self._config_key]['startEventStages'] = [stage_instance]
+        self._set_pipeline_configuration('startEventStage', self._stage_to_configuration_name(stage_instance))
         return self._all_stages.get(stage_instance['stageName'], Stage)(
             stage=stage_instance,
             output_streams=stage_definition.get('outputStreams', 0),
@@ -928,14 +947,31 @@ class PipelineBuilder:
         Returns:
             An instance of :py:class:`streamsets.sdk.st_models.Stage`.
         """
+        # Create accepted lists
+        accepted_labels, accepted_libraries, accepted_java_names = get_accepted_labels_libraries_and_names(
+            self, 'stopEventStage'
+        )
+
+        if label and label not in accepted_labels:
+            raise ValueError('Stage with label {} is not a supported stop event stage'.format(label))
+        if name and name not in accepted_java_names:
+            raise ValueError('Stage with name {} is not a supported stop event stage'.format(name))
+        if library and library not in accepted_libraries:
+            raise ValueError('Stage with library {} is not a supported stop event stage'.format(library))
+
         stage_instance, stage_definition = next(
             (stage.instance, stage.definition)
             for stage in self._get_stage_data(label=label, name=name, library=library)
             if stage.definition.get('pipelineLifecycleStage') is True
         )
-        self._pipeline['pipelineConfig']['stopEventStages'] = [stage_instance]
-        self._set_pipeline_configuration('stopEventStage', self._stage_to_configuration_name(stage_instance))
 
+        # We need instanceName in the form <instance_name>_StartEventStage and not <instance_name>_01
+        instance_name_split_list = stage_instance['instanceName'].split('_')
+        instance_name_split_list[-1] = 'StopEventStage'
+        stage_instance['instanceName'] = '_'.join(instance_name_split_list)
+
+        self._pipeline[self._config_key]['stopEventStages'] = [stage_instance]
+        self._set_pipeline_configuration('stopEventStage', self._stage_to_configuration_name(stage_instance))
         return self._all_stages.get(stage_instance['stageName'], Stage)(
             stage=stage_instance,
             output_streams=stage_definition.get('outputStreams', 0),

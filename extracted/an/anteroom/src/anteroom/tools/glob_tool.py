@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import os
 from pathlib import Path
 from typing import Any
@@ -38,6 +39,25 @@ def set_working_dir(d: str) -> None:
     _working_dir = d
 
 
+def _glob_matches(base: Path, pattern: str) -> tuple[list[str], bool]:
+    matches = sorted(base.glob(pattern), key=lambda p: p.stat().st_mtime, reverse=True)
+    resolved_base = safe_resolve_pathlib(base)
+    results: list[str] = []
+    for match in matches[:_MAX_RESULTS]:
+        if not match.is_file() and not match.is_dir():
+            continue
+        try:
+            if not safe_resolve_pathlib(match).is_relative_to(resolved_base):
+                continue
+        except (OSError, ValueError):
+            continue
+        rel_path = str(match.relative_to(base))
+        if match.is_dir():
+            rel_path += "/"
+        results.append(rel_path)
+    return results, len(matches) > _MAX_RESULTS
+
+
 async def handle(pattern: str, path: str | None = None, **_: Any) -> dict[str, Any]:
     if "\x00" in pattern:
         return {"error": "Pattern contains null bytes"}
@@ -52,24 +72,8 @@ async def handle(pattern: str, path: str | None = None, **_: Any) -> dict[str, A
         return {"error": "Directory not found"}
 
     try:
-        matches = sorted(base.glob(pattern), key=lambda p: p.stat().st_mtime, reverse=True)
+        results, truncated = await asyncio.to_thread(_glob_matches, base, pattern)
     except OSError:
         return {"error": "Search failed: unable to list directory contents"}
-
-    resolved_base = safe_resolve_pathlib(base)
-    results = []
-    for m in matches[:_MAX_RESULTS]:
-        if not m.is_file() and not m.is_dir():
-            continue
-        try:
-            if not safe_resolve_pathlib(m).is_relative_to(resolved_base):
-                continue
-        except (OSError, ValueError):
-            continue
-        rel_path = str(m.relative_to(base))
-        if m.is_dir():
-            rel_path += "/"
-        results.append(rel_path)
-    truncated = len(matches) > _MAX_RESULTS
 
     return {"files": results, "count": len(results), "truncated": truncated}

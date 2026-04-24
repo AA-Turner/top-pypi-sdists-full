@@ -10,6 +10,8 @@ from abc import (
 from chalk._gen.chalk.server.v1.cloud_components_pb2 import (
     CreateBindingClusterBackgroundPersistenceDeploymentRequest,
     CreateBindingClusterBackgroundPersistenceDeploymentResponse,
+    CreateBindingClusterContainerRegistryRequest,
+    CreateBindingClusterContainerRegistryResponse,
     CreateBindingClusterGatewayRequest,
     CreateBindingClusterGatewayResponse,
     CreateBindingClusterTelemetryDeploymentRequest,
@@ -22,12 +24,16 @@ from chalk._gen.chalk.server.v1.cloud_components_pb2 import (
     CreateBindingPrivateGatewayResponse,
     CreateCloudComponentClusterRequest,
     CreateCloudComponentClusterResponse,
+    CreateCloudComponentContainerRegistryRequest,
+    CreateCloudComponentContainerRegistryResponse,
     CreateCloudComponentStorageRequest,
     CreateCloudComponentStorageResponse,
     CreateCloudComponentVpcRequest,
     CreateCloudComponentVpcResponse,
     DeleteBindingClusterBackgroundPersistenceDeploymentRequest,
     DeleteBindingClusterBackgroundPersistenceDeploymentResponse,
+    DeleteBindingClusterContainerRegistryRequest,
+    DeleteBindingClusterContainerRegistryResponse,
     DeleteBindingClusterGatewayRequest,
     DeleteBindingClusterGatewayResponse,
     DeleteBindingClusterTelemetryDeploymentRequest,
@@ -40,12 +46,16 @@ from chalk._gen.chalk.server.v1.cloud_components_pb2 import (
     DeleteBindingPrivateGatewayResponse,
     DeleteCloudComponentClusterRequest,
     DeleteCloudComponentClusterResponse,
+    DeleteCloudComponentContainerRegistryRequest,
+    DeleteCloudComponentContainerRegistryResponse,
     DeleteCloudComponentStorageRequest,
     DeleteCloudComponentStorageResponse,
     DeleteCloudComponentVpcRequest,
     DeleteCloudComponentVpcResponse,
     GetBindingClusterBackgroundPersistenceDeploymentRequest,
     GetBindingClusterBackgroundPersistenceDeploymentResponse,
+    GetBindingClusterContainerRegistryRequest,
+    GetBindingClusterContainerRegistryResponse,
     GetBindingClusterGatewayRequest,
     GetBindingClusterGatewayResponse,
     GetBindingClusterTelemetryDeploymentRequest,
@@ -58,12 +68,16 @@ from chalk._gen.chalk.server.v1.cloud_components_pb2 import (
     GetBindingPrivateGatewayResponse,
     GetCloudComponentClusterRequest,
     GetCloudComponentClusterResponse,
+    GetCloudComponentContainerRegistryRequest,
+    GetCloudComponentContainerRegistryResponse,
     GetCloudComponentStorageRequest,
     GetCloudComponentStorageResponse,
     GetCloudComponentVpcRequest,
     GetCloudComponentVpcResponse,
     ListCloudComponentClusterRequest,
     ListCloudComponentClusterResponse,
+    ListCloudComponentContainerRegistryRequest,
+    ListCloudComponentContainerRegistryResponse,
     ListCloudComponentStorageRequest,
     ListCloudComponentStorageResponse,
     ListCloudComponentVpcRequest,
@@ -72,6 +86,8 @@ from chalk._gen.chalk.server.v1.cloud_components_pb2 import (
     TestClusterConnectionResponse,
     UpdateCloudComponentClusterRequest,
     UpdateCloudComponentClusterResponse,
+    UpdateCloudComponentContainerRegistryRequest,
+    UpdateCloudComponentContainerRegistryResponse,
 )
 from grpc import (
     Channel,
@@ -137,6 +153,38 @@ class CloudComponentsServiceStub:
     DeleteCloudComponentStorage: UnaryUnaryMultiCallable[
         DeleteCloudComponentStorageRequest,
         DeleteCloudComponentStorageResponse,
+    ]
+    CreateCloudComponentContainerRegistry: UnaryUnaryMultiCallable[
+        CreateCloudComponentContainerRegistryRequest,
+        CreateCloudComponentContainerRegistryResponse,
+    ]
+    UpdateCloudComponentContainerRegistry: UnaryUnaryMultiCallable[
+        UpdateCloudComponentContainerRegistryRequest,
+        UpdateCloudComponentContainerRegistryResponse,
+    ]
+    GetCloudComponentContainerRegistry: UnaryUnaryMultiCallable[
+        GetCloudComponentContainerRegistryRequest,
+        GetCloudComponentContainerRegistryResponse,
+    ]
+    ListCloudComponentContainerRegistry: UnaryUnaryMultiCallable[
+        ListCloudComponentContainerRegistryRequest,
+        ListCloudComponentContainerRegistryResponse,
+    ]
+    DeleteCloudComponentContainerRegistry: UnaryUnaryMultiCallable[
+        DeleteCloudComponentContainerRegistryRequest,
+        DeleteCloudComponentContainerRegistryResponse,
+    ]
+    CreateBindingClusterContainerRegistry: UnaryUnaryMultiCallable[
+        CreateBindingClusterContainerRegistryRequest,
+        CreateBindingClusterContainerRegistryResponse,
+    ]
+    GetBindingClusterContainerRegistry: UnaryUnaryMultiCallable[
+        GetBindingClusterContainerRegistryRequest,
+        GetBindingClusterContainerRegistryResponse,
+    ]
+    DeleteBindingClusterContainerRegistry: UnaryUnaryMultiCallable[
+        DeleteBindingClusterContainerRegistryRequest,
+        DeleteBindingClusterContainerRegistryResponse,
     ]
     CreateBindingClusterGateway: UnaryUnaryMultiCallable[
         CreateBindingClusterGatewayRequest,
@@ -296,6 +344,54 @@ class CloudComponentsServiceServicer(metaclass=ABCMeta):
         request: DeleteCloudComponentStorageRequest,
         context: ServicerContext,
     ) -> DeleteCloudComponentStorageResponse: ...
+    @abstractmethod
+    def CreateCloudComponentContainerRegistry(
+        self,
+        request: CreateCloudComponentContainerRegistryRequest,
+        context: ServicerContext,
+    ) -> CreateCloudComponentContainerRegistryResponse: ...
+    @abstractmethod
+    def UpdateCloudComponentContainerRegistry(
+        self,
+        request: UpdateCloudComponentContainerRegistryRequest,
+        context: ServicerContext,
+    ) -> UpdateCloudComponentContainerRegistryResponse: ...
+    @abstractmethod
+    def GetCloudComponentContainerRegistry(
+        self,
+        request: GetCloudComponentContainerRegistryRequest,
+        context: ServicerContext,
+    ) -> GetCloudComponentContainerRegistryResponse: ...
+    @abstractmethod
+    def ListCloudComponentContainerRegistry(
+        self,
+        request: ListCloudComponentContainerRegistryRequest,
+        context: ServicerContext,
+    ) -> ListCloudComponentContainerRegistryResponse: ...
+    @abstractmethod
+    def DeleteCloudComponentContainerRegistry(
+        self,
+        request: DeleteCloudComponentContainerRegistryRequest,
+        context: ServicerContext,
+    ) -> DeleteCloudComponentContainerRegistryResponse: ...
+    @abstractmethod
+    def CreateBindingClusterContainerRegistry(
+        self,
+        request: CreateBindingClusterContainerRegistryRequest,
+        context: ServicerContext,
+    ) -> CreateBindingClusterContainerRegistryResponse: ...
+    @abstractmethod
+    def GetBindingClusterContainerRegistry(
+        self,
+        request: GetBindingClusterContainerRegistryRequest,
+        context: ServicerContext,
+    ) -> GetBindingClusterContainerRegistryResponse: ...
+    @abstractmethod
+    def DeleteBindingClusterContainerRegistry(
+        self,
+        request: DeleteBindingClusterContainerRegistryRequest,
+        context: ServicerContext,
+    ) -> DeleteBindingClusterContainerRegistryResponse: ...
     @abstractmethod
     def CreateBindingClusterGateway(
         self,

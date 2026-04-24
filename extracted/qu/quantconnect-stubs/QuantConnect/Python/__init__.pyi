@@ -11,7 +11,6 @@ import QuantConnect.Commands
 import QuantConnect.Data
 import QuantConnect.Data.Consolidators
 import QuantConnect.Data.Market
-import QuantConnect.DataSource
 import QuantConnect.Indicators
 import QuantConnect.Interfaces
 import QuantConnect.Orders
@@ -31,14 +30,6 @@ QuantConnect_Python_BasePythonWrapper = typing.Any
 QuantConnect_Python_BasePythonWrapper_TInterface = typing.TypeVar("QuantConnect_Python_BasePythonWrapper_TInterface")
 QuantConnect_Python__EventContainer_Callable = typing.TypeVar("QuantConnect_Python__EventContainer_Callable")
 QuantConnect_Python__EventContainer_ReturnType = typing.TypeVar("QuantConnect_Python__EventContainer_ReturnType")
-
-
-class PythonQuandl(QuantConnect.DataSource.NasdaqDataLink):
-    """Dynamic data class for Python algorithms."""
-
-    def __init__(self) -> None:
-        """Constructor for initialising the PythonQuandl class"""
-        ...
 
 
 class PandasData(System.Object):

@@ -3,16 +3,17 @@ from __future__ import annotations
 from enum import Enum
 from typing import Any, List
 
-import pandas as pd
-
 from chalk.features import DataFrame
+from chalk.utils.pandas_utils import is_pandas_dataframe
 
 MAX_REPR_DEPTH = 2
 
 
 def get_repr_value(raw: Any, depth: int = 0) -> object:
     limit = 10 if depth < MAX_REPR_DEPTH else 0
-    if isinstance(raw, (pd.DataFrame, DataFrame)):
+    if isinstance(raw, DataFrame):
+        return f"DataFrame[shape={raw.shape}]"
+    elif is_pandas_dataframe(raw):
         return f"DataFrame[shape={raw.shape}]"
     elif isinstance(raw, Enum):
         return raw.value

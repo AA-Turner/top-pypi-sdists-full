@@ -1175,25 +1175,26 @@ async def scheduler(
 async def create_post(
     topic: str = "",
     tone: str = "professional",
+    platforms: str = "linkedin",
     mode: str = "autopilot",
 ) -> str:
-    """Generate and publish a voice-matched LinkedIn post.
+    """Generate and publish a voice-matched post to LinkedIn, X/Twitter, or both.
 
-    Creates LinkedIn posts using your voice signature for social selling.
-    Builds authority and drives inbound connections. Supports content
-    creation for thought leadership and prospect engagement.
+    Creates posts using your voice signature for social selling.
+    Builds authority and drives inbound connections across platforms.
 
     Args:
         topic: What to post about (e.g., "share a tip about cold outreach",
             "comment on AI in sales", "share a success story").
         tone: Post tone: "professional", "casual", "thought-leader", "storytelling".
+        platforms: Comma-separated platforms: "linkedin", "x", or "linkedin,x".
         mode: "autopilot" (publishes immediately).
     """
     from .tools.create_post import run_create_post
 
-    logger.info(f"Running create_post: topic={topic}, tone={tone}, mode={mode}")
+    logger.info(f"Running create_post: topic={topic}, tone={tone}, platforms={platforms}, mode={mode}")
     try:
-        return await run_create_post(topic, tone, mode)
+        return await run_create_post(topic, tone, mode, platforms)
     except Exception as e:
         logger.error(f"create_post failed: {e}", exc_info=True)
         return f"Post creation failed: {e}"

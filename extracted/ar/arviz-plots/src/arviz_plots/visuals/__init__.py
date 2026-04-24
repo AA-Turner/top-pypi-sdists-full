@@ -21,11 +21,14 @@ def hist(da, target, **kwargs):
     The input argument `da` is split into l_e, r_e and y using the dimension ``plot_axis``.
     """
     plot_backend = backend_from_object(target)
+    bottom = kwargs.pop("y", 0)
+    y = da.sel(plot_axis="histogram").values
     return plot_backend.hist(
-        da.sel(plot_axis="histogram"),
+        y,
         da.sel(plot_axis="left_edges"),
         da.sel(plot_axis="right_edges"),
         target,
+        bottom=bottom,
         **kwargs,
     )
 
@@ -36,7 +39,7 @@ def step_hist(da, target, **kwargs):
     r_e = da.sel(plot_axis="right_edges").values
     y = da.sel(plot_axis="histogram").values
 
-    bottom = kwargs.pop("bottom", 0)
+    bottom = kwargs.pop("y", 0)
     if np.any(bottom != 0):
         height = y - bottom
     else:
@@ -176,11 +179,13 @@ def point_y(da, target, x=None, **kwargs):
 
 def ci_bound_y(da, target, **kwargs):
     """Plot a line from y_bottom to y_top at given value of x."""
+    y_lower = da.sel(ci_bound="lower")
+    y_upper = da.sel(ci_bound="upper")
     plot_backend = backend_from_object(target)
     return plot_backend.ciliney(
-        np.arange(len(da)),
-        da.sel(ci_bound="lower"),
-        da.sel(ci_bound="upper"),
+        np.arange(len(y_lower)),
+        y_lower,
+        y_upper,
         target,
         **kwargs,
     )
@@ -339,7 +344,13 @@ def annotate_xy(
     horizontal_align=None,
     **kwargs,
 ):
-    """Annotate a point (x, y) in a plot."""
+    """Annotate a point (x, y) in a plot.
+
+    If ``text`` is callable, it will be called with the scalar value of ``da``
+    to produce the annotation string.
+    """
+    if callable(text):
+        text = text(da.item() if hasattr(da, "item") else da)
     if vertical_align is not None:
         kwargs["vertical_align"] = (
             vertical_align.item() if hasattr(vertical_align, "item") else vertical_align
@@ -512,10 +523,16 @@ def set_xticks(da, target, values, labels, **kwargs):
     return plot_backend.xticks(values, labels, target, **kwargs)
 
 
-def set_y_scale(da, target, scale, **kwargs):
+def set_xscale(da, target, scale, **kwargs):
+    """Set scale for x-axis."""
+    plot_backend = backend_from_object(target)
+    return plot_backend.xscale(target, scale, **kwargs)
+
+
+def set_yscale(da, target, scale, **kwargs):
     """Set scale for y-axis."""
     plot_backend = backend_from_object(target)
-    return plot_backend.set_y_scale(target, scale, **kwargs)
+    return plot_backend.yscale(target, scale, **kwargs)
 
 
 def grid(da, target, **kwargs):

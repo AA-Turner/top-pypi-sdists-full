@@ -20,9 +20,9 @@ def get_opened_socket() -> int:
     """GNU/Linux: a way to get the opened sockets count.
     It will be used to check X server connections are well closed.
     """
-    cmd = f"lsof -U | grep {PID}"
-    output = subprocess.check_output(cmd, shell=True)
-    return len(output.splitlines())
+    output = subprocess.check_output(["lsof", "-a", "-U", "-Ff", f"-p{PID}"])
+    # The first line will be "p{PID}".  The remaining lines start with "f", one per open socket.
+    return len([line for line in output.splitlines() if line.startswith(b"f")])
 
 
 def get_handles() -> int:
@@ -41,42 +41,42 @@ def monitor_func() -> Callable[[], int]:
     return get_opened_socket if OS == "linux" else get_handles
 
 
-def bound_instance_without_cm() -> None:
+def bound_instance_without_cm(*, backend: str) -> None:
     # Will always leak
-    sct = mss.mss()
+    sct = mss.MSS(backend=backend)
     sct.shot()
 
 
-def bound_instance_without_cm_but_use_close() -> None:
-    sct = mss.mss()
+def bound_instance_without_cm_but_use_close(*, backend: str) -> None:
+    sct = mss.MSS(backend=backend)
     sct.shot()
     sct.close()
     # Calling .close() twice should be possible
     sct.close()
 
 
-def unbound_instance_without_cm() -> None:
+def unbound_instance_without_cm(*, backend: str) -> None:
     # Will always leak
-    mss.mss().shot()
+    mss.MSS(backend=backend).shot()
 
 
-def with_context_manager() -> None:
-    with mss.mss() as sct:
+def with_context_manager(*, backend: str) -> None:
+    with mss.MSS(backend=backend) as sct:
         sct.shot()
 
 
-def regression_issue_128() -> None:
+def regression_issue_128(*, backend: str) -> None:
     """Regression test for issue #128: areas overlap."""
-    with mss.mss() as sct:
+    with mss.MSS(backend=backend) as sct:
         area1 = {"top": 50, "left": 7, "width": 400, "height": 320, "mon": 1}
         sct.grab(area1)
         area2 = {"top": 200, "left": 200, "width": 320, "height": 320, "mon": 1}
         sct.grab(area2)
 
 
-def regression_issue_135() -> None:
+def regression_issue_135(*, backend: str) -> None:
     """Regression test for issue #135: multiple areas."""
-    with mss.mss() as sct:
+    with mss.MSS(backend=backend) as sct:
         bounding_box_notes = {"top": 0, "left": 0, "width": 100, "height": 100}
         sct.grab(bounding_box_notes)
         bounding_box_test = {"top": 220, "left": 220, "width": 100, "height": 100}
@@ -85,14 +85,14 @@ def regression_issue_135() -> None:
         sct.grab(bounding_box_score)
 
 
-def regression_issue_210() -> None:
+def regression_issue_210(*, backend: str) -> None:
     """Regression test for issue #210: multiple X servers."""
     pyvirtualdisplay = pytest.importorskip("pyvirtualdisplay")
 
-    with pyvirtualdisplay.Display(size=(1920, 1080), color_depth=24), mss.mss():
+    with pyvirtualdisplay.Display(size=(1920, 1080), color_depth=24), mss.MSS(backend=backend):
         pass
 
-    with pyvirtualdisplay.Display(size=(1920, 1080), color_depth=24), mss.mss():
+    with pyvirtualdisplay.Display(size=(1920, 1080), color_depth=24), mss.MSS(backend=backend):
         pass
 
 
@@ -109,16 +109,16 @@ def regression_issue_210() -> None:
         regression_issue_210,
     ],
 )
-def test_resource_leaks(func: Callable[[], None], monitor_func: Callable[[], int]) -> None:
+def test_resource_leaks(func: Callable[..., None], monitor_func: Callable[[], int], backend: str) -> None:
     """Check for resource leaks with different use cases."""
     # Warm-up
-    func()
+    func(backend=backend)
 
     original_resources = monitor_func()
     allocated_resources = 0
 
     for _ in range(5):
-        func()
+        func(backend=backend)
         new_resources = monitor_func()
         allocated_resources = max(allocated_resources, new_resources)
 

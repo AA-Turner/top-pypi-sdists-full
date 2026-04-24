@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: adafruit-circuitpython-busdevice
-Version: 5.2.16
+Version: 5.2.17
 Summary: CircuitPython bus device classes to manage bus sharing.
 Author-email: Adafruit Industries <circuitpython@adafruit.com>
 License-Expression: MIT

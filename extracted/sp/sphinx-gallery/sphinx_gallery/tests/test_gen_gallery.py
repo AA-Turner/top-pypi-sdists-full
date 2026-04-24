@@ -23,7 +23,6 @@ from sphinx_gallery.gen_gallery import (
 from sphinx_gallery.interactive_example import create_jupyterlite_contents
 from sphinx_gallery.utils import (
     _collect_gallery_files,
-    _escape_ansi,
     check_duplicate_filenames,
     check_spaces_in_filenames,
 )
@@ -36,6 +35,43 @@ Description.
 '''
 
 """
+
+# Used for `add_file`
+INDEX_RST = """
+=============
+Own index.rst
+=============
+
+Own index.rst file.
+
+.. toctree::
+
+    plot_1
+    plot_2
+    plot_3
+"""
+
+NESTED_PY = """\"\"\"
+Header
+======
+
+Text.
+\"\"\"
+
+a = 1
+"""
+
+GALLERY_HEADER = """
+Gallery header
+==============
+
+Some text.
+"""
+
+
+def _escape_ansi(s: str) -> str:
+    """Remove ANSI terminal formatting characters from a string."""
+    return re.sub(r"(?:\x1B[@-_]|[\x80-\x9F])[0-?]*[ -/]*[@-~]", "", s)
 
 
 def test_bool_eval():
@@ -226,8 +262,8 @@ def test_config_backreferences(sphinx_app_wrapper):
     sphinx_app = sphinx_app_wrapper.create_sphinx_app()
     cfg = sphinx_app.config
     assert cfg.project == "Sphinx-Gallery <Tests>"
-    assert cfg.sphinx_gallery_conf["backreferences_dir"] == os.path.join(
-        "gen_modules", "backreferences"
+    assert cfg.sphinx_gallery_conf["backreferences_dir"] == str(
+        Path("gen_modules", "backreferences")
     )
     build_warn = sphinx_app._warning.getvalue()
     assert build_warn == ""
@@ -298,10 +334,9 @@ def _check_order(sphinx_app, key, expected_order=None):
     else:
         regex = rf".*:{key}=(\d):.*"
         locator = "sphx-glr-thumbcontainer"
-    with open(index_fname, "r", encoding="utf-8") as fid:
-        for line in fid:
-            if locator in line:
-                order.append(re.match(regex, line).group(1))
+    for line in index_fname.read_text(encoding="utf-8").splitlines():
+        if locator in line:
+            order.append(re.match(regex, line).group(1))
     expected_order = expected_order or list("123456789")
     assert order == expected_order
 
@@ -361,15 +396,15 @@ _subsection_explicit_order_list = pytest.mark.add_conf(
 _both_custom_fqn = pytest.mark.add_conf(
     content=_template_conf.format(
         imports="",
-        subsection_order='"sphinx_gallery.utils._custom_subsection_sorter"',
-        within_subsection_order='"sphinx_gallery.utils._custom_example_sorter"',
+        subsection_order='"sphinx_gallery._testing.custom_subsection_sorter"',
+        within_subsection_order='"sphinx_gallery._testing.custom_example_sorter"',
     )
 )
 _within_subsection_custom_fqn = pytest.mark.add_conf(
     content=_template_conf.format(
         imports="",
         subsection_order="None",  # the default, AKA, sort by foldername
-        within_subsection_order='"sphinx_gallery.utils._custom_example_sorter"',
+        within_subsection_order='"sphinx_gallery._testing.custom_example_sorter"',
     )
 )
 _custom_func = """
@@ -399,7 +434,7 @@ _within_subsection_custom_func = pytest.mark.add_conf(
 _subsection_fqn_within_subsection_custom_func = pytest.mark.add_conf(
     content=_template_conf.format(
         imports=_custom_func,
-        subsection_order='"sphinx_gallery.utils._custom_subsection_sorter"',
+        subsection_order='"sphinx_gallery._testing.custom_subsection_sorter"',
         within_subsection_order="FunctionSortKey(custom_sorter)",
     )
 )
@@ -424,14 +459,14 @@ _subsection_fqn_within_subsection_custom_func = pytest.mark.add_conf(
         ),
         pytest.param(
             None,
-            # ↓ order determined by `utils._CUSTOM_EXAMPLE_ORDER`
+            # ↓ order determined by `_testing.CUSTOM_EXAMPLE_ORDER`
             list("132564879"),
             id="within_subsection_sort_by_custom_FQN",
             marks=_within_subsection_custom_fqn,
         ),
         pytest.param(
             None,
-            # ↓ order set by `utils._CUSTOM_EXAMPLE_ORDER`, with middle (564) and
+            # ↓ order set by `_testing.CUSTOM_EXAMPLE_ORDER`, with middle (564) and
             # ↓ last (879) thirds swapped due to subsection reordering
             list("132879564"),
             id="subsection_and_within_subsection_both_sort_by_custom_FQN",
@@ -461,7 +496,7 @@ def test_example_sorting(sphinx_app_wrapper, sort_key, expected_order):
     _check_order(sphinx_app, sort_key, expected_order=expected_order)
 
 
-def test_collect_gallery_files(tmpdir, gallery_conf):
+def test_collect_gallery_files(tmp_path, gallery_conf):
     """Test that example files are collected properly."""
     rel_filepaths = [
         "examples/file1.py",
@@ -474,34 +509,33 @@ def test_collect_gallery_files(tmpdir, gallery_conf):
         "tutorials/folder2/file1.py",
     ]
 
-    abs_paths = [tmpdir.join(rp) for rp in rel_filepaths]
+    abs_paths = [tmp_path / rp for rp in rel_filepaths]
     for ap in abs_paths:
-        ap.ensure()
+        ap.parent.mkdir(parents=True, exist_ok=True)
+        ap.touch()
 
-    examples_path = tmpdir.join("examples")
-    dirs = [examples_path.strpath]
+    examples_path = tmp_path / "examples"
+    dirs = [str(examples_path)]
     collected_files = set(
         _collect_gallery_files(dirs, gallery_conf, check_filenames=True)
     )
     expected_files = {
-        ap.strpath for ap in abs_paths if re.search(r"examples.*\.py$", ap.strpath)
+        str(ap) for ap in abs_paths if "examples" in ap.parts and ap.suffix == ".py"
     }
 
     assert collected_files == expected_files
 
-    tutorials_path = tmpdir.join("tutorials")
-    dirs = [examples_path.strpath, tutorials_path.strpath]
+    tutorials_path = tmp_path / "tutorials"
+    dirs = [str(examples_path), str(tutorials_path)]
     collected_files = set(
         _collect_gallery_files(dirs, gallery_conf, check_filenames=True)
     )
-    expected_files = {
-        ap.strpath for ap in abs_paths if re.search(r".*\.py$", ap.strpath)
-    }
+    expected_files = {str(ap) for ap in abs_paths if ap.suffix == ".py"}
 
     assert collected_files == expected_files
 
 
-def test_collect_gallery_files_ignore_pattern(tmpdir, gallery_conf):
+def test_collect_gallery_files_ignore_pattern(tmp_path, gallery_conf):
     """Test that ignore pattern example files are not collected."""
     rel_filepaths = [
         "examples/file1.py",
@@ -510,21 +544,18 @@ def test_collect_gallery_files_ignore_pattern(tmpdir, gallery_conf):
         "examples/folder2/fileone.py",
     ]
 
-    abs_paths = [tmpdir.join(rp) for rp in rel_filepaths]
+    abs_paths = [tmp_path / rp for rp in rel_filepaths]
     for ap in abs_paths:
-        ap.ensure()
+        ap.parent.mkdir(parents=True, exist_ok=True)
+        ap.touch()
 
     gallery_conf["ignore_pattern"] = r"one"
-    examples_path = tmpdir.join("examples")
-    dirs = [examples_path.strpath]
+    examples_path = tmp_path / "examples"
+    dirs = [str(examples_path)]
     collected_files = set(
         _collect_gallery_files(dirs, gallery_conf, check_filenames=True)
     )
-    expected_files = {
-        ap.strpath
-        for ap in abs_paths
-        if re.search(r"one", Path(ap.strpath).name) is None
-    }
+    expected_files = {str(ap) for ap in abs_paths if "one" not in ap.name}
 
     assert collected_files == expected_files
 
@@ -537,7 +568,7 @@ sphinx_gallery_conf = {
     'copyfile_regex': r'.*\.rst',
 }"""
 )
-@pytest.mark.add_rst(file="own index.rst")
+@pytest.mark.add_file(file={Path("src") / "index.rst": INDEX_RST})
 def test_own_index_first(sphinx_app_wrapper):
     """Test `generate_gallery_rst` works when own index gallery is first (and only)."""
     # Issue #1382
@@ -563,8 +594,7 @@ def test_binder_copy_files(sphinx_app_wrapper):
     sphinx_app = sphinx_app_wrapper.create_sphinx_app()
     gallery_conf = sphinx_app.config.sphinx_gallery_conf
     # Create requirements file
-    with open(Path(sphinx_app.srcdir, "requirements.txt"), "w"):
-        pass
+    Path(sphinx_app.srcdir, "requirements.txt").touch()
     copy_binder_files(sphinx_app, None)
 
     for i_file in ["plot_1", "plot_2", "plot_3"]:
@@ -600,8 +630,7 @@ Should emit a syntax error in the second code block.
 {bad_line}
 """
     bad_line_no = bad_code.split("\n").index(bad_line) + 1
-    with open(Path(example_dir, "plot_3.py"), "w", encoding="utf-8") as fid:
-        fid.write(bad_code)
+    Path(example_dir, "plot_3.py").write_text(bad_code, encoding="utf-8")
     with pytest.raises(ExtensionError) as excinfo:
         sphinx_app_wrapper.build_sphinx_app()
     tb = str(excinfo.value)
@@ -638,8 +667,9 @@ sphinx_gallery_conf = {
 def test_only_warn_on_example_error(sphinx_app_wrapper):
     """Test behaviour of only_warn_on_example_error flag."""
     example_dir = Path(sphinx_app_wrapper.srcdir) / "src"
-    with open(example_dir / "plot_3.py", "w", encoding="utf-8") as fid:
-        fid.write(f"{MINIMAL_HEADER}raise ValueError")
+    Path(example_dir, "plot_3.py").write_text(
+        f"{MINIMAL_HEADER}raise ValueError", encoding="utf-8"
+    )
     sphinx_app = sphinx_app_wrapper.build_sphinx_app()
 
     build_warn = _escape_ansi(sphinx_app._warning.getvalue())
@@ -662,8 +692,9 @@ def test_only_warn_on_example_error_sphinx_warning(sphinx_app_wrapper):
         if key in inspect.getfullargspec(Sphinx).args:
             sphinx_app_wrapper.kwargs[key] = True
     example_dir = Path(sphinx_app_wrapper.srcdir) / "src"
-    with open(example_dir / "plot_3.py", "w", encoding="utf-8") as fid:
-        fid.write(f"{MINIMAL_HEADER}raise ValueError")
+    Path(example_dir, "plot_3.py").write_text(
+        f"{MINIMAL_HEADER}raise ValueError", encoding="utf-8"
+    )
     with pytest.raises(SphinxWarning) as excinfo:
         sphinx_app_wrapper.build_sphinx_app()
     exc = _escape_ansi(str(excinfo.value))
@@ -773,13 +804,15 @@ sphinx_gallery_conf = {
     'gallery_dirs': 'ex',
 }"""
 )
-@pytest.mark.add_rst(
-    file="""
+@pytest.mark.add_file(
+    file={
+        "minigallery_test.rst": """
 Header
 ======
 
 .. minigallery:: index.rst
 """
+    }
 )
 def test_minigallery_not_in_examples_dirs(sphinx_app_wrapper):
     """Check error when minigallery directive's path input not in `examples_dirs`."""
@@ -795,13 +828,20 @@ sphinx_gallery_conf = {
     'gallery_dirs': ['ex', 'ex/sub_folder/sub_sub_folder'],
 }"""
 )
-@pytest.mark.add_rst(
-    file="""
+@pytest.mark.add_file(
+    file={
+        "minigallery_test.rst": """
 Header
 ======
 
 .. minigallery:: src/sub_folder/sub_sub_folder/plot_nested.py
-"""
+""",
+        Path("src") / "sub_folder" / "sub_sub_folder" / "plot_nested.py": NESTED_PY,
+        Path("src")
+        / "sub_folder"
+        / "sub_sub_folder"
+        / "GALLERY_HEADER.rst": GALLERY_HEADER,
+    }
 )
 def test_minigallery_multi_match(sphinx_app_wrapper):
     """Check minigallery directive's path input resolution in nested `examples_dirs`.
@@ -811,8 +851,7 @@ def test_minigallery_multi_match(sphinx_app_wrapper):
     """
     sphinx_app = sphinx_app_wrapper.build_sphinx_app()
     minigallery_html = Path(sphinx_app.outdir) / "minigallery_test.html"
-    with open(minigallery_html, "r") as fid:
-        mg_html = fid.read()
+    mg_html = minigallery_html.read_text("utf-8")
     # Check thumbnail correct
     assert "_images/sphx_glr_plot_nested_thumb.png" in mg_html
     # Check href correct
@@ -828,17 +867,16 @@ def _get_minigallery_thumbnails(rst_fname):
     locator = "sphx-glr-thumbcontainer"
     regex = r".+sphx-glr-thumbcontainer.+sphx_glr_plot_(\d)_thumb.+"
     example_numbers = list()
-    with open(rst_fname, "r", encoding="utf-8") as fid:
-        for line in fid:
-            if locator in line:
-                example_numbers.append(re.match(regex, line).group(1))
+    for line in rst_fname.read_text(encoding="utf-8").splitlines():
+        if locator in line:
+            example_numbers.append(re.match(regex, line).group(1))
     return example_numbers
 
 
 @pytest.mark.add_conf(
     content="""
 from sphinx_gallery.sorting import FunctionSortKey
-from sphinx_gallery.utils import custom_minigallery_sort_order_sorter
+from sphinx_gallery._testing import custom_minigallery_sort_order_sorter
 
 sphinx_gallery_conf = {
     'examples_dirs': 'src',
@@ -846,13 +884,15 @@ sphinx_gallery_conf = {
     'minigallery_sort_order': FunctionSortKey(custom_minigallery_sort_order_sorter),
 }"""
 )
-@pytest.mark.add_rst(
-    file="""
+@pytest.mark.add_file(
+    file={
+        "minigallery_test.rst": """
 Header
 ======
 
 .. minigallery:: src/plot_1.py src/plot_2.py src/plot_3.py
 """
+    }
 )
 def test_minigallery_sort_order_callable(sphinx_app_wrapper):
     """Check `minigallery_sort_order` works when a callable."""
@@ -870,13 +910,15 @@ sphinx_gallery_conf = {
     'gallery_dirs': 'ex',
 }"""
 )
-@pytest.mark.add_rst(
-    file="""
+@pytest.mark.add_file(
+    file={
+        "minigallery_test.rst": """
 Header
 ======
 
 .. minigallery:: src/plot_1.py src/plot_1.py
 """
+    }
 )
 def test_minigallery_duplicate_path_input(sphinx_app_wrapper):
     """Check minigallery duplicate input paths are de-deuplicated."""
@@ -896,13 +938,15 @@ sphinx_gallery_conf = {
     'doc_module': ('numpy',),
 }"""
 )
-@pytest.mark.add_rst(
-    file="""
+@pytest.mark.add_file(
+    file={
+        "minigallery_test.rst": """
 Header
 ======
 
 .. minigallery:: sphinx_gallery.py_source_parser.Block src/plot_1.py
 """
+    }
 )
 def test_minigallery_duplicate_object_path_input(sphinx_app_wrapper):
     """Check object and path input de-deplication works in minigallery directive.
@@ -1094,8 +1138,7 @@ def test_create_jupyterlite_contents_with_modification(sphinx_app_wrapper):
         )
         assert notebook_filename.exists()
 
-        with open(notebook_filename) as f:
-            notebook_content = json.load(f)
+        notebook_content = json.loads(notebook_filename.read_text())
 
         first_cell = notebook_content["cells"][0]
         assert first_cell["cell_type"] == "markdown"
@@ -1103,3 +1146,105 @@ def test_create_jupyterlite_contents_with_modification(sphinx_app_wrapper):
             f"JupyterLite-specific change for {notebook_filename}"
             in first_cell["source"]
         )
+
+
+@pytest.mark.add_conf(
+    content=r"""
+sphinx_gallery_conf = {
+    'examples_dirs': 'src',
+    'gallery_dirs': 'ex',
+    'nested_sections': False,
+}"""
+)
+@pytest.mark.add_file(file={Path("src") / "index.rst": INDEX_RST})
+def test_nested_sections_false_with_own_index(sphinx_app_wrapper):
+    """Check no error with user provided index.rst and `nested_sections=False`."""
+    sphinx_app_wrapper.build_sphinx_app()
+
+
+@pytest.mark.add_conf(
+    content="""
+sphinx_gallery_conf = {
+    'examples_dirs': 'src',
+    'gallery_dirs': 'ex',
+    'nested_sections': False,
+}"""
+)
+def test_nested_sections_false_sanitize(sphinx_app_wrapper):
+    """Check subsection headers not sanitized when `nested_sections=False`.
+
+    When `nested_sections=True`, we remove tags from subsection header in the
+    root index.rst file (but not in the subsection index.rst files), to prevent
+    tag duplication.
+    When `nested_sections=False`, only one index.rst file is generated, thus we
+    should not remove tags.
+    """
+    sphinx_app = sphinx_app_wrapper.build_sphinx_app()
+    index_fname = Path(sphinx_app.outdir, "..", "ex", "index.rst")
+
+    assert "my_added_first_sub_label" in index_fname.read_text("utf-8")
+
+
+@pytest.mark.parametrize(
+    "tags",
+    (
+        pytest.param(["plot2-tag"], id="simple"),
+        pytest.param(["Hello, World! How are you? 😊"], id="emoji"),
+        pytest.param(["Test & Query? Param=Value#Fragment"], id="url unsafe"),
+        pytest.param(["Café, naïve, façade, hôtel"], id="extended char"),
+        pytest.param(["Привет, мир! Как дела? 🚀"], id="more unicode"),
+        pytest.param(["你好，世界！你好吗？"], id="other symbols"),
+        pytest.param(["こんにちは、世界！元気ですか？"], id="other symbols2"),
+        pytest.param(["مرحبا بالعالم! كيف حالك؟"], id="other symbols3"),
+        pytest.param(["123!#$%^&*()_+{}:<>?[;',./"], id="ascii symbols"),
+        pytest.param(
+            [
+                "A long test with spaces, numbers 123, and Unicode: 你好, こんにちは, Привет 🌈"
+            ],
+            id="long with everything",
+        ),
+        pytest.param(["plot2-tag", "test tag"], id="list"),
+    ),
+)
+@pytest.mark.add_conf(
+    content=r"""
+sphinx_gallery_conf = {
+    'examples_dirs': 'src',
+    'gallery_dirs': 'ex',
+}"""
+)
+def test_tags_in_index_html(sphinx_app_wrapper, tags):
+    """Check tags added correctly to thumbnail div in index.html and example htmls."""
+    tags_str = ", ".join([f'"{tag}"' for tag in tags])
+    with open(
+        sphinx_app_wrapper.srcdir / "src" / "plot_2.py", "a", encoding="utf-8"
+    ) as plot2:
+        # Add tags to end of "plot_2.py" example
+        plot2.write(f"\n# sphinx_gallery_tags = [{tags_str}]")
+    sphinx_app_wrapper.build_sphinx_app()
+    gallery_output_path = sphinx_app_wrapper.outdir / "ex"
+    index_html = gallery_output_path / "index.html"
+    content = index_html.read_text("utf-8")
+    # Check that some examples have tags
+    assert "data-sgtags=" in content
+    # Extract the lines in the file for more helpful errors
+    lines = content.split("\n")
+    # Check that there is a div with the ID where the js will populate the tag list
+    assert "<div id='sg-tag-list' class='sphx-glr-tag-list'></div>" in content
+    tag_lines = [line for line in lines if "data-sgtags=" in line]
+    # Example file `sphinx_gallery/tests/testconfs/src/plot_1.py` already has tag
+    assert "data-sgtags='[\"plot1-tag\"]'" in content, tag_lines
+    assert f"data-sgtags='[{tags_str}]'" in content, tag_lines
+
+    content = (gallery_output_path / "plot_1.html").read_text("utf-8")
+    assert "🏷 Tags: plot1-tag" in content
+
+    content = (gallery_output_path / "plot_2.html").read_text("utf-8")
+    # It seems that some substitutions are made:
+    tag = tags_str.replace("&", "&amp;")
+    tag = tag.replace("<", "&lt;")
+    tag = tag.replace(">", "&gt;")
+    tag = tag.replace("'", "’")
+    tag = tag.replace('"', "")
+    # Also | is wrapped in it's own span, and @ is just silently dropped
+    assert f"🏷 Tags: {tag}" in content

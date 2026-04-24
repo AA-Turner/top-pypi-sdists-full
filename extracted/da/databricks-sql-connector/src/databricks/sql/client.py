@@ -36,6 +36,7 @@ from databricks.sql.utils import (
     ColumnQueue,
     build_client_context,
     get_session_config_value,
+    serialize_query_tags,
 )
 from databricks.sql.parameters.native import (
     DbsqlParameterBase,
@@ -106,6 +107,7 @@ class Connection:
         schema: Optional[str] = None,
         _use_arrow_native_complex_types: Optional[bool] = True,
         ignore_transactions: bool = True,
+        query_tags: Optional[Dict[str, Optional[str]]] = None,
         **kwargs,
     ) -> None:
         """
@@ -281,6 +283,15 @@ class Connection:
                 "spark.sql.thriftserver.metadata.metricview.enabled"
             ] = "true"
 
+        if query_tags is not None:
+            if session_configuration is None:
+                session_configuration = {}
+            serialized = serialize_query_tags(query_tags)
+            if serialized:
+                session_configuration["QUERY_TAGS"] = serialized
+            else:
+                session_configuration.pop("QUERY_TAGS", None)
+
         self.disable_pandas = kwargs.get("_disable_pandas", False)
         self.lz4_compression = kwargs.get("enable_query_result_lz4_compression", True)
         self.use_cloud_fetch = kwargs.get("use_cloud_fetch", True)
@@ -342,6 +353,7 @@ class Connection:
             host_url=self.session.host,
             batch_size=self.telemetry_batch_size,
             client_context=client_context,
+            extra_headers=self.session.get_spog_headers(),
         )
 
         self._telemetry_client = TelemetryClientFactory.get_telemetry_client(
@@ -1263,6 +1275,7 @@ class Cursor:
         parameters: Optional[TParameterCollection] = None,
         enforce_embedded_schema_correctness=False,
         input_stream: Optional[BinaryIO] = None,
+        query_tags: Optional[Dict[str, Optional[str]]] = None,
     ) -> "Cursor":
         """
         Execute a query and wait for execution to complete.
@@ -1292,6 +1305,10 @@ class Cursor:
 
         Both will result in the query equivalent to "SELECT * FROM table WHERE field = 'foo'
         being sent to the server
+
+        :param query_tags: Optional dictionary of query tags to apply for this query only.
+            Tags are key-value pairs that can be used to identify and categorize queries.
+            Example: {"team": "data-eng", "application": "etl"}
 
         :returns self
         """
@@ -1333,6 +1350,7 @@ class Cursor:
             async_op=False,
             enforce_embedded_schema_correctness=enforce_embedded_schema_correctness,
             row_limit=self.row_limit,
+            query_tags=query_tags,
         )
 
         if self.active_result_set and self.active_result_set.is_staging_operation:
@@ -1349,6 +1367,7 @@ class Cursor:
         operation: str,
         parameters: Optional[TParameterCollection] = None,
         enforce_embedded_schema_correctness=False,
+        query_tags: Optional[Dict[str, Optional[str]]] = None,
     ) -> "Cursor":
         """
 
@@ -1356,6 +1375,9 @@ class Cursor:
 
         :param operation:
         :param parameters:
+        :param query_tags: Optional dictionary of query tags to apply for this query only.
+            Tags are key-value pairs that can be used to identify and categorize queries.
+            Example: {"team": "data-eng", "application": "etl"}
         :return:
         """
 
@@ -1392,6 +1414,7 @@ class Cursor:
             async_op=True,
             enforce_embedded_schema_correctness=enforce_embedded_schema_correctness,
             row_limit=self.row_limit,
+            query_tags=query_tags,
         )
 
         return self
@@ -1448,7 +1471,12 @@ class Cursor:
                 session_id_hex=self.connection.get_session_id_hex(),
             )
 
-    def executemany(self, operation, seq_of_parameters):
+    def executemany(
+        self,
+        operation,
+        seq_of_parameters,
+        query_tags: Optional[Dict[str, Optional[str]]] = None,
+    ):
         """
         Execute the operation once for every set of passed in parameters.
 
@@ -1457,10 +1485,14 @@ class Cursor:
 
         Only the final result set is retained.
 
+        :param query_tags: Optional dictionary of query tags to apply for all queries in this batch.
+            Tags are key-value pairs that can be used to identify and categorize queries.
+            Example: {"team": "data-eng", "application": "etl"}
+
         :returns self
         """
         for parameters in seq_of_parameters:
-            self.execute(operation, parameters)
+            self.execute(operation, parameters, query_tags=query_tags)
         return self
 
     @log_latency(StatementType.METADATA)

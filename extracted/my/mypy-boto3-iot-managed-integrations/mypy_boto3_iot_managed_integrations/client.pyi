@@ -351,8 +351,7 @@ class ManagedintegrationsforIoTDeviceManagementClient(BaseClient):
         self, **kwargs: Unpack[CreateProvisioningProfileRequestTypeDef]
     ) -> CreateProvisioningProfileResponseTypeDef:
         """
-        Create a provisioning profile for a device to execute the provisioning flows
-        using a provisioning template.
+        Create a provisioning profile for executing device provisioning flows.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot-managed-integrations/client/create_provisioning_profile.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iot_managed_integrations/client/#create_provisioning_profile)
@@ -668,7 +667,7 @@ class ManagedintegrationsforIoTDeviceManagementClient(BaseClient):
         self, **kwargs: Unpack[GetProvisioningProfileRequestTypeDef]
     ) -> GetProvisioningProfileResponseTypeDef:
         """
-        Get a provisioning profile by template name.
+        Get details of a provisioning profile.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot-managed-integrations/client/get_provisioning_profile.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iot_managed_integrations/client/#get_provisioning_profile)

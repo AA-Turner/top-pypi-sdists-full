@@ -19,15 +19,10 @@ def get_batch_inference_headers(
     headers = client.get_headers(
         content_type=content_type,
         include_user_agent=include_user_agent,
+        include_container_id=True,
     )
 
     # Authorization must happen via API key
     headers["Authorization"] = f"Bearer {client.credentials.api_key}"
-
-    # Headers must include information regarding project / space
-    if client.default_project_id:
-        headers["X-IBM-Project-ID"] = client.default_project_id
-    elif client.default_space_id:
-        headers["X-IBM-Space-ID"] = client.default_space_id
 
     return headers

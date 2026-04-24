@@ -21,6 +21,7 @@ from snowflake.snowpark._internal.analyzer.analyzer_utils import (
     infer_schema_statement,
     quote_name_without_upper_casing,
     single_quote,
+    unquote_if_quoted,
 )
 from snowflake.snowpark._internal.analyzer.expression import Attribute
 from snowflake.snowpark._internal.analyzer.snowflake_plan_node import ReadFileNode
@@ -53,6 +54,7 @@ from snowflake.snowpark._internal.type_utils import (
     convert_sp_to_sf_type,
     most_permissive_type,
     type_string_to_type_object,
+    _parse_structured_type_str,
 )
 from snowflake.snowpark._internal.udf_utils import get_types_from_type_hints
 from snowflake.snowpark._internal.xml_reader import DEFAULT_CHUNK_SIZE
@@ -110,6 +112,9 @@ else:
     from collections.abc import Iterable
 
 logger = getLogger(__name__)
+
+_NOT_NULL_RE = re.compile(r"\s+NOT\s+NULL", re.IGNORECASE)
+
 
 LOCAL_TESTING_SUPPORTED_FILE_FORMAT = ("JSON",)
 
@@ -798,6 +803,9 @@ class DataFrameReader:
         self._file_type = "CSV"
 
         schema_to_cast, transformations = None, None
+        # this parameter determine whether generate schema_to_cast and transformations when user schema exist
+        # schema_to_cast and transformations is needed to apply try_cast to data
+        user_schema_with_try_cast = False
 
         if not self._user_schema:
             if not self._infer_schema:
@@ -834,7 +842,13 @@ class DataFrameReader:
                 transformations = []
         else:
             self._cur_options["INFER_SCHEMA"] = False
-            schema = self._user_schema._to_attributes()
+            try_cast = self._cur_options.get("TRY_CAST", False)
+            (
+                schema,
+                schema_to_cast,
+                transformations,
+            ) = self._get_schema_from_csv_user_input(self._user_schema, try_cast)
+            user_schema_with_try_cast = try_cast
 
         metadata_project, metadata_schema = self._get_metadata_project_and_schema()
 
@@ -860,6 +874,7 @@ class DataFrameReader:
                             transformations=transformations,
                             metadata_project=metadata_project,
                             metadata_schema=metadata_schema,
+                            use_user_schema=user_schema_with_try_cast,
                         ),
                         analyzer=self._session._analyzer,
                     ),
@@ -880,6 +895,7 @@ class DataFrameReader:
                     transformations=transformations,
                     metadata_project=metadata_project,
                     metadata_schema=metadata_schema,
+                    use_user_schema=user_schema_with_try_cast,
                 ),
                 _ast_stmt=stmt,
                 _emit_ast=_emit_ast,
@@ -1329,25 +1345,39 @@ class DataFrameReader:
             schema_to_cast = []
             transformations: List["snowflake.snowpark.column.Column"] = []
             read_file_transformations = None
+            use_structured_type_infer_schema = (
+                self._session._use_structured_type_infer_schema
+            )
             for r in results:
                 # Columns for r [column_name, type, nullable, expression, filenames, order_id]
                 column_name, type, nullable, expression = r[0], r[1], r[2], r[3]
                 name = quote_name_without_upper_casing(column_name)
-                # Parse the type returned by infer_schema command to
-                # pass to determine datatype for schema
-                data_type_parts = type.split("(")
-                parts_length = len(data_type_parts)
-                if parts_length == 1:
-                    data_type = type
-                    precision = 0
-                    scale = 0
+                # Parse the type returned by infer_schema command.
+                if use_structured_type_infer_schema:
+                    # handles both simple types and structured
+                    # types (OBJECT, MAP, ARRAY with inner details).
+                    datatype = _parse_structured_type_str(
+                        type, self._session._conn.max_string_size
+                    )
                 else:
-                    data_type = data_type_parts[0]
-                    precision = int(data_type_parts[1].split(",")[0])
-                    scale = int(data_type_parts[1].split(",")[1][:-1])
-                datatype = convert_sf_to_sp_type(
-                    data_type, precision, scale, 0, self._session._conn.max_string_size
-                )
+                    data_type_parts = type.split("(")
+                    parts_length = len(data_type_parts)
+                    if parts_length == 1:
+                        data_type = type
+                        precision = 0
+                        scale = 0
+                    else:
+                        data_type = data_type_parts[0]
+                        precision = int(data_type_parts[1].split(",")[0])
+                        scale = int(data_type_parts[1].split(",")[1][:-1])
+                    datatype = convert_sf_to_sp_type(
+                        data_type,
+                        precision,
+                        scale,
+                        0,
+                        self._session._conn.max_string_size,
+                    )
+
                 if use_relaxed_types:
                     datatype = most_permissive_type(datatype)
                 new_schema.append(
@@ -1367,6 +1397,26 @@ class DataFrameReader:
                     "GET_IGNORE_CASE"
                 ):
                     identifier = expression
+                elif (
+                    format.lower() in ("parquet", "json")
+                    and use_structured_type_infer_schema
+                ):
+                    if isinstance(datatype, VariantType):
+                        # Bare structured keyword was returned by the backend
+                        # (no inner details).  Skip the cast — $1:{name}
+                        # extracts as variant and lets callers handle
+                        # structured-type discovery.
+                        identifier = f"$1:{name}"
+                    elif use_relaxed_types:
+                        identifier = f"$1:{name}::{convert_sp_to_sf_type(datatype)}"
+                    else:
+                        # INFER_SCHEMA may return NOT NULL annotations in
+                        # structured type strings (e.g.,
+                        # "ARRAY(NUMBER(10,0) NOT NULL)"). Strip them before
+                        # embedding in SQL — nullable info is already captured
+                        # in the parsed DataType objects.
+                        cast_type = _NOT_NULL_RE.sub("", type)
+                        identifier = f"$1:{name}::{cast_type}"
                 else:
                     identifier = f"$1:{name}::{convert_sp_to_sf_type(datatype) if use_relaxed_types else type}"
 
@@ -1387,6 +1437,38 @@ class DataFrameReader:
                 )
 
         return new_schema, schema_to_cast, read_file_transformations, None
+
+    def _get_schema_from_csv_user_input(
+        self, user_schema: StructType, try_cast: bool
+    ) -> Tuple[List, Optional[List], Optional[List]]:
+        """
+        This function accept a user input structtype and return schemas needed for reading CSV file.
+        CSV files are processed differently than semi-structured file so need a different helper function.
+        """
+        schema_to_cast = []
+        transformations = []
+        new_schema = []
+        for index, field in enumerate(user_schema.fields, start=1):
+            new_schema.append(
+                Attribute(
+                    field.column_identifier.quoted_name,
+                    field.datatype,
+                    field.nullable,
+                )
+            )
+            sf_type = convert_sp_to_sf_type(field.datatype)
+            # TODO: SNOW-3324409 Support relaxed schema when read csv in copy mode
+            if try_cast:
+                identifier = f"TRY_CAST(${index} AS {sf_type})"
+                schema_to_cast.append((identifier, unquote_if_quoted(field.name)))
+                transformations.append(sql_expr(identifier))
+
+        read_file_transformations = [t._expression.sql for t in transformations]
+        # schema_to_cast and read_file_transformations should only exist when try_cast is True
+        # this is meant to not break the current behavior
+        if not try_cast:
+            return new_schema, None, None
+        return new_schema, schema_to_cast, read_file_transformations
 
     def _get_schema_from_user_input(
         self, user_schema: StructType
@@ -1463,7 +1545,9 @@ class DataFrameReader:
             _suppress_local_package_warnings=True,
         )
 
-    def _infer_schema_for_xml(self, path: str) -> Optional[StructType]:
+    def _infer_schema_for_xml(
+        self, path: str, string_types_only: bool = False
+    ) -> Optional[StructType]:
         schema_udtf = self._register_xml_udtf(
             XML_SCHEMA_INFERENCE_FILE_PATH,
             "XMLSchemaInference",
@@ -1492,7 +1576,6 @@ class DataFrameReader:
         attribute_prefix = self._cur_options.get("ATTRIBUTEPREFIX", "_")
         exclude_attributes = self._cur_options.get("EXCLUDEATTRIBUTES", False)
         value_tag = self._cur_options.get("VALUETAG", "_VALUE")
-        null_value = self._cur_options.get("NULL_IF", "")
         charset = self._cur_options.get("CHARSET", "utf-8")
         ignore_surrounding_whitespace = self._cur_options.get(
             "IGNORESURROUNDINGWHITESPACE", False
@@ -1512,10 +1595,10 @@ class DataFrameReader:
                 lit(attribute_prefix),
                 lit(exclude_attributes),
                 lit(value_tag),
-                lit(null_value),
                 lit(charset),
                 lit(ignore_surrounding_whitespace),
                 lit(file_size),
+                lit(string_types_only),
             )
         )
 
@@ -1658,12 +1741,18 @@ class DataFrameReader:
 
         xml_inferred_schema = None
         if format == "XML" and XML_ROW_TAG_STRING in self._cur_options:
+            # Internal flag set by SCOS to skip the inference pass when a user schema
+            # is already present, maintaining 1-pass reading when user schema is provided.
+            skip_inference = self._cur_options.get("_XML_SKIP_INFERENCE", False)
             if (
                 context._is_snowpark_connect_compatible_mode
                 and not self._user_schema
-                and self._cur_options.get("INFER_SCHEMA", True)
+                and not skip_inference
             ):
-                xml_inferred_schema = self._infer_schema_for_xml(path)
+                string_types_only = not self._cur_options.get("INFER_SCHEMA", True)
+                xml_inferred_schema = self._infer_schema_for_xml(
+                    path, string_types_only
+                )
                 if xml_inferred_schema is not None:
                     self._xml_inferred_schema = xml_inferred_schema
                     schema = [
@@ -2261,6 +2350,7 @@ class DataFrameReader:
                 fetch_size=fetch_size,
                 imports=udtf_configs.get("imports", None),
                 packages=udtf_configs.get("packages", None),
+                artifact_repository=udtf_configs.get("artifact_repository", None),
                 session_init_statement=session_init_statement,
                 query_timeout=query_timeout,
                 statement_params=statements_params_for_telemetry,

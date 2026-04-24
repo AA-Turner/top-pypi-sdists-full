@@ -1,10 +1,13 @@
-# Copyright 2022 StreamSets Inc.
+#  IBM Confidential
+#  PID 5900-BAF
+#  Copyright StreamSets Inc., an IBM Company 2024
 
 # fmt: off
 import uuid
 
 import pytest
 
+from streamsets.sdk.constants import SNOWFLAKE_STAGE_RENAME_ALIASES
 from streamsets.sdk.sch_models import PipelineLabel
 from streamsets.sdk.utils import SeekableList
 
@@ -97,3 +100,37 @@ def test_remove_labels(sch, snowflake_config):
         assert pipeline_labels[0].label == label2
     finally:
         sch.delete_pipeline(pipeline)
+
+
+@pytest.mark.snowflake
+def test_stage_label_alias_logic(sch, snowflake_config):
+    pipeline_builder = sch.get_pipeline_builder(engine_type='snowflake')
+
+    stage_name = 'Snowflake Table'
+    stage_alias = 'Copo de Nieve'
+
+    # Add a new alias for the stage
+    SNOWFLAKE_STAGE_RENAME_ALIASES.update({stage_alias: stage_name})
+    try:
+        # Creating a stage using the new alias
+        stage = pipeline_builder.add_stage(stage_alias, type='origin')
+        # Assert the stage created corresponds to Snowflake Table stage.
+        assert stage.stage_name == 'com_streamsets_transformer_snowpark_origin_snowflake_table_TableDOrigin'
+
+    finally:
+        # Remove the new alias
+        SNOWFLAKE_STAGE_RENAME_ALIASES.pop(stage_alias)
+
+    # Test that calling the stage without the alias defined fails
+    with pytest.raises(Exception):
+        pipeline_builder.add_stage(stage_alias)
+
+
+@pytest.mark.snowflake
+def test_stage_label_alias(sch, snowflake_config):
+    pipeline_builder = sch.get_pipeline_builder(engine_type='snowflake')
+
+    for alias, name in SNOWFLAKE_STAGE_RENAME_ALIASES.items():
+        alias_stage = pipeline_builder.add_stage(alias)
+        stage = pipeline_builder.add_stage(name)
+        assert stage.stage_name == alias_stage.stage_name

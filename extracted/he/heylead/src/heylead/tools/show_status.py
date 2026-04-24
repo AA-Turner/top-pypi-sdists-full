@@ -146,6 +146,35 @@ async def _show_overview(offline: bool = False) -> str:
     else:
         output = ["📊 **HeyLead Dashboard**\n"]
 
+    # ── Disconnection banner (shown before anything else if LinkedIn session broke) ──
+    try:
+        from ..linkedin import get_account_id, get_linkedin_client
+        from ..linkedin.backend_client import BackendClient
+        _acct = get_account_id()
+        if _acct:
+            _client = get_linkedin_client()
+            try:
+                _ok, _msg = await _client.verify_account(_acct)
+                if not _ok:
+                    _link = ""
+                    if isinstance(_client, BackendClient):
+                        try:
+                            _link = await _client.get_reconnect_link()
+                        except Exception:
+                            _link = ""
+                    output.append("🚨 **LinkedIn disconnected — sync paused.**")
+                    output.append(f"   {_msg}")
+                    if _link:
+                        output.append(f"   🔗 Reconnect: {_link}")
+                    output.append(
+                        "   Until you reconnect, new messages and invites won't send."
+                    )
+                    output.append("")
+            finally:
+                await _client.close()
+    except Exception:
+        pass  # Never let the banner check break the dashboard
+
     # ── Account Health ──
     # Use verified invitation count for display, keep attempted for rate limiting
     _outreach_chg = await db.get_outreach_changes(hours=24)

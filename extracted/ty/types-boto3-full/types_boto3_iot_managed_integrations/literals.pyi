@@ -67,6 +67,7 @@ __all__ = (
     "OtaTypeType",
     "PaginatorName",
     "ProtocolTypeType",
+    "ProvisioningProfileStatusType",
     "ProvisioningStatusType",
     "ProvisioningTypeType",
     "ResourceServiceName",
@@ -171,6 +172,9 @@ OtaTaskExecutionStatusType = Literal[
 ]
 OtaTypeType = Literal["CONTINUOUS", "ONE_TIME"]
 ProtocolTypeType = Literal["CUSTOM", "ZIGBEE", "ZWAVE"]
+ProvisioningProfileStatusType = Literal[
+    "CREATED", "CREATE_FAILED", "CREATE_IN_PROGRESS", "DELETE_FAILED", "DELETE_IN_PROGRESS"
+]
 ProvisioningStatusType = Literal[
     "ACTIVATED",
     "DELETED",

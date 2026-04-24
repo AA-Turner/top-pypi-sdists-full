@@ -1,8 +1,13 @@
 # ruff: noqa: SLF001
+import io
+import tarfile
 import time
 from contextlib import contextmanager
+from unittest.mock import patch
 
 import docker
+import docker.errors
+import docker.models.containers
 import pytest
 from dagster._core.test_utils import instance_for_test
 from dagster_cloud.workspace.docker import (
@@ -83,16 +88,43 @@ def test_override_timeout():
         assert instance.user_code_launcher._server_process_startup_timeout == 1234  # pyright: ignore[reportAttributeAccessIssue]
 
 
+@contextmanager
+def _ensure_local_image(tag: str):
+    """Build a minimal local Docker image to avoid Docker Hub rate limits in CI.
+
+    Yields, then removes the image if it was created by this context manager.
+    """
+    client = docker.client.from_env()
+    created = False
+    try:
+        client.images.get(tag)
+    except docker.errors.ImageNotFound:
+        # Use `docker import` with an empty tar to create a minimal image locally
+        # without pulling from Docker Hub.
+        buf = io.BytesIO()
+        with tarfile.open(fileobj=buf, mode="w"):
+            pass
+        repo, _, image_tag = tag.rpartition(":")
+        client.api.import_image_from_data(buf.getvalue(), repository=repo, tag=image_tag)
+        created = True
+    try:
+        yield
+    finally:
+        if created:
+            client.images.remove(tag, force=True)
+
+
 def test_get_standalone_server_handles_for_location(docker_client):
-    with docker_instance() as instance:
+    image_tag = "dagster/dagster-cloud-examples:1.12.5"
+    with docker_instance() as instance, _ensure_local_image(image_tag):
         assert not instance.user_code_launcher._get_standalone_dagster_server_handles_for_location(  # pyright: ignore[reportAttributeAccessIssue]
             deployment_name="foo",
             location_name="bar",
         )
 
-        docker_client.images.pull("dagster/dagster-cloud-examples:1.12.5")
         docker_client.containers.create(
-            image="dagster/dagster-cloud-examples:1.12.5",
+            image=image_tag,
+            command="unused",  # imported images have no default CMD
             labels={
                 GRPC_SERVER_LABEL: "",
                 deterministic_label_for_location("foo", "bar"): "",
@@ -121,25 +153,28 @@ def test_long_docker_resource_name():
 
 
 def test_container_kwargs_stop_timeout():
-    with docker_instance() as instance:
+    image_tag = "dagster/dagster-cloud-examples:1.9.10"
+    with docker_instance() as instance, _ensure_local_image(image_tag):
         assert not instance.user_code_launcher._get_standalone_dagster_server_handles_for_location(  # pyright: ignore[reportAttributeAccessIssue]
             deployment_name="foo",
             location_name="bar",
         )
 
-        result = instance.user_code_launcher._start_new_server_spinup(  # type: ignore
-            deployment_name="foo",
-            location_name="bar",
-            desired_entry=UserCodeLauncherEntry(
-                code_location_deploy_data=CodeLocationDeployData(
-                    image="dagster/dagster-cloud-examples:1.9.10",
-                    package_name="dagster-cloud-examples",
-                    container_context={"docker": {"container_kwargs": {"stop_timeout": 23}}},
+        # Mock Container.start because the minimal scratch image has no executable
+        with patch.object(docker.models.containers.Container, "start"):
+            result = instance.user_code_launcher._start_new_server_spinup(  # type: ignore
+                deployment_name="foo",
+                location_name="bar",
+                desired_entry=UserCodeLauncherEntry(
+                    code_location_deploy_data=CodeLocationDeployData(
+                        image=image_tag,
+                        package_name="dagster-cloud-examples",
+                        container_context={"docker": {"container_kwargs": {"stop_timeout": 23}}},
+                    ),
+                    update_timestamp=time.time(),
                 ),
-                update_timestamp=time.time(),
-            ),
-        )
-        assert result.server_handle.container.labels[STOP_TIMEOUT_LABEL] == "23"
+            )
+            assert result.server_handle.container.labels[STOP_TIMEOUT_LABEL] == "23"
 
         assert instance.user_code_launcher._get_standalone_dagster_server_handles_for_location(  # pyright: ignore[reportAttributeAccessIssue]
             deployment_name="foo",

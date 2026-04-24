@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lumibot
-Version: 4.5.3
+Version: 4.5.4
 Summary: Python framework for algorithmic trading: backtesting and live deployment for stocks, options, crypto, futures, and forex. Same code for backtest and live trading.
 Home-page: https://github.com/Lumiwealth/lumibot
 Author: Robert Grzesik
@@ -68,6 +68,7 @@ Requires-Dist: psutil
 Requires-Dist: openai
 Requires-Dist: google-adk>=1.19.0
 Requires-Dist: google-genai>=1.68.0
+Requires-Dist: litellm>=1.77.0
 Requires-Dist: anyio>=4.10.0
 Requires-Dist: mcp>=1.26.0
 Requires-Dist: schwab-py>=1.5.0

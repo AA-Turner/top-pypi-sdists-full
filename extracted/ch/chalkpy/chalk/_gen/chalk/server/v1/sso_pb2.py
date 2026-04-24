@@ -13,11 +13,12 @@ from google.protobuf.internal import builder as _builder
 _sym_db = _symbol_database.Default()
 
 
+from chalk._gen.chalk.auth.v1 import audit_pb2 as chalk_dot_auth_dot_v1_dot_audit__pb2
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as chalk_dot_auth_dot_v1_dot_permissions__pb2
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n\x19\x63halk/server/v1/sso.proto\x12\x0f\x63halk.server.v1\x1a\x1f\x63halk/auth/v1/permissions.proto"\x18\n\x16\x43reateScimTokenRequest"/\n\x17\x43reateScimTokenResponse\x12\x14\n\x05token\x18\x01 \x01(\tR\x05token"\x88\x02\n\x18SignOnProviderSamlConfig\x12\x16\n\x06issuer\x18\x01 \x01(\tR\x06issuer\x12"\n\ridp_login_url\x18\x02 \x01(\tR\x0bidpLoginUrl\x12)\n\x0eidp_logout_url\x18\x03 \x01(\tH\x00R\x0cidpLogoutUrl\x88\x01\x01\x12 \n\x0b\x63\x65rtificate\x18\x04 \x01(\tR\x0b\x63\x65rtificate\x12\x36\n\x15is_primary_sso_config\x18\x05 \x01(\x08H\x01R\x12isPrimarySsoConfig\x88\x01\x01\x42\x11\n\x0f_idp_logout_urlB\x18\n\x16_is_primary_sso_config"\\\n\x18SignOnProviderOidcConfig\x12\x1b\n\tclient_id\x18\x01 \x01(\tR\x08\x63lientId\x12#\n\rclient_secret\x18\x02 \x01(\tR\x0c\x63lientSecret"\x8b\x02\n\x1bSignOnProviderConfiguration\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name\x12\x0e\n\x02id\x18\x02 \x01(\tR\x02id\x12\x19\n\x08idp_type\x18\x03 \x01(\tR\x07idpType\x12L\n\x0bsaml_config\x18\x04 \x01(\x0b\x32).chalk.server.v1.SignOnProviderSamlConfigH\x00R\nsamlConfig\x12L\n\x0boidc_config\x18\x05 \x01(\x0b\x32).chalk.server.v1.SignOnProviderOidcConfigH\x00R\noidcConfigB\x11\n\x0fprovider_config")\n\'ListSignOnProviderConfigurationsRequest"\x80\x01\n(ListSignOnProviderConfigurationsResponse\x12T\n\x0e\x63onfigurations\x18\x01 \x03(\x0b\x32,.chalk.server.v1.SignOnProviderConfigurationR\x0e\x63onfigurations"~\n(CreateSignOnProviderConfigurationRequest\x12R\n\rconfiguration\x18\x01 \x01(\x0b\x32,.chalk.server.v1.SignOnProviderConfigurationR\rconfiguration"\x7f\n)CreateSignOnProviderConfigurationResponse\x12R\n\rconfiguration\x18\x01 \x01(\x0b\x32,.chalk.server.v1.SignOnProviderConfigurationR\rconfiguration"~\n(UpdateSignOnProviderConfigurationRequest\x12R\n\rconfiguration\x18\x01 \x01(\x0b\x32,.chalk.server.v1.SignOnProviderConfigurationR\rconfiguration"\x7f\n)UpdateSignOnProviderConfigurationResponse\x12R\n\rconfiguration\x18\x01 \x01(\x0b\x32,.chalk.server.v1.SignOnProviderConfigurationR\rconfiguration":\n(DeleteSignOnProviderConfigurationRequest\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id"+\n)DeleteSignOnProviderConfigurationResponse2\x85\x06\n\nSsoService\x12l\n\x0f\x43reateScimToken\x12\'.chalk.server.v1.CreateScimTokenRequest\x1a(.chalk.server.v1.CreateScimTokenResponse"\x06\x90\x02\x02\x80}\x07\x12\x9f\x01\n ListSignOnProviderConfigurations\x12\x38.chalk.server.v1.ListSignOnProviderConfigurationsRequest\x1a\x39.chalk.server.v1.ListSignOnProviderConfigurationsResponse"\x06\x90\x02\x01\x80}\n\x12\xa2\x01\n!CreateSignOnProviderConfiguration\x12\x39.chalk.server.v1.CreateSignOnProviderConfigurationRequest\x1a:.chalk.server.v1.CreateSignOnProviderConfigurationResponse"\x06\x90\x02\x02\x80}\n\x12\x9f\x01\n!UpdateSignOnProviderConfiguration\x12\x39.chalk.server.v1.UpdateSignOnProviderConfigurationRequest\x1a:.chalk.server.v1.UpdateSignOnProviderConfigurationResponse"\x03\x80}\n\x12\x9f\x01\n!DeleteSignOnProviderConfiguration\x12\x39.chalk.server.v1.DeleteSignOnProviderConfigurationRequest\x1a:.chalk.server.v1.DeleteSignOnProviderConfigurationResponse"\x03\x80}\nB\x91\x01\n\x13\x63om.chalk.server.v1B\x08SsoProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
+    b'\n\x19\x63halk/server/v1/sso.proto\x12\x0f\x63halk.server.v1\x1a\x19\x63halk/auth/v1/audit.proto\x1a\x1f\x63halk/auth/v1/permissions.proto"\x18\n\x16\x43reateScimTokenRequest"/\n\x17\x43reateScimTokenResponse\x12\x14\n\x05token\x18\x01 \x01(\tR\x05token"\x88\x02\n\x18SignOnProviderSamlConfig\x12\x16\n\x06issuer\x18\x01 \x01(\tR\x06issuer\x12"\n\ridp_login_url\x18\x02 \x01(\tR\x0bidpLoginUrl\x12)\n\x0eidp_logout_url\x18\x03 \x01(\tH\x00R\x0cidpLogoutUrl\x88\x01\x01\x12 \n\x0b\x63\x65rtificate\x18\x04 \x01(\tR\x0b\x63\x65rtificate\x12\x36\n\x15is_primary_sso_config\x18\x05 \x01(\x08H\x01R\x12isPrimarySsoConfig\x88\x01\x01\x42\x11\n\x0f_idp_logout_urlB\x18\n\x16_is_primary_sso_config"\\\n\x18SignOnProviderOidcConfig\x12\x1b\n\tclient_id\x18\x01 \x01(\tR\x08\x63lientId\x12#\n\rclient_secret\x18\x02 \x01(\tR\x0c\x63lientSecret"\x8b\x02\n\x1bSignOnProviderConfiguration\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name\x12\x0e\n\x02id\x18\x02 \x01(\tR\x02id\x12\x19\n\x08idp_type\x18\x03 \x01(\tR\x07idpType\x12L\n\x0bsaml_config\x18\x04 \x01(\x0b\x32).chalk.server.v1.SignOnProviderSamlConfigH\x00R\nsamlConfig\x12L\n\x0boidc_config\x18\x05 \x01(\x0b\x32).chalk.server.v1.SignOnProviderOidcConfigH\x00R\noidcConfigB\x11\n\x0fprovider_config")\n\'ListSignOnProviderConfigurationsRequest"\x80\x01\n(ListSignOnProviderConfigurationsResponse\x12T\n\x0e\x63onfigurations\x18\x01 \x03(\x0b\x32,.chalk.server.v1.SignOnProviderConfigurationR\x0e\x63onfigurations"~\n(CreateSignOnProviderConfigurationRequest\x12R\n\rconfiguration\x18\x01 \x01(\x0b\x32,.chalk.server.v1.SignOnProviderConfigurationR\rconfiguration"\x7f\n)CreateSignOnProviderConfigurationResponse\x12R\n\rconfiguration\x18\x01 \x01(\x0b\x32,.chalk.server.v1.SignOnProviderConfigurationR\rconfiguration"~\n(UpdateSignOnProviderConfigurationRequest\x12R\n\rconfiguration\x18\x01 \x01(\x0b\x32,.chalk.server.v1.SignOnProviderConfigurationR\rconfiguration"\x7f\n)UpdateSignOnProviderConfigurationResponse\x12R\n\rconfiguration\x18\x01 \x01(\x0b\x32,.chalk.server.v1.SignOnProviderConfigurationR\rconfiguration":\n(DeleteSignOnProviderConfigurationRequest\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id"+\n)DeleteSignOnProviderConfigurationResponse"=\n#GetSamlConfigurationByIssuerRequest\x12\x16\n\x06issuer\x18\x01 \x01(\tR\x06issuer"\x90\x01\n$GetSamlConfigurationByIssuerResponse\x12O\n\rconfiguration\x18\x01 \x01(\x0b\x32).chalk.server.v1.SignOnProviderSamlConfigR\rconfiguration\x12\x17\n\x07team_id\x18\x02 \x01(\tR\x06teamId2\xba\x08\n\nSsoService\x12l\n\x0f\x43reateScimToken\x12\'.chalk.server.v1.CreateScimTokenRequest\x1a(.chalk.server.v1.CreateScimTokenResponse"\x06\x90\x02\x02\x80}\x07\x12\x9f\x01\n ListSignOnProviderConfigurations\x12\x38.chalk.server.v1.ListSignOnProviderConfigurationsRequest\x1a\x39.chalk.server.v1.ListSignOnProviderConfigurationsResponse"\x06\x90\x02\x01\x80}\n\x12\xd7\x01\n!CreateSignOnProviderConfiguration\x12\x39.chalk.server.v1.CreateSignOnProviderConfigurationRequest\x1a:.chalk.server.v1.CreateSignOnProviderConfigurationResponse";\x90\x02\x02\x80}\n\x8a\xd3\x0e\x31\x08\x02\x12-Created a SAML sign-on provider configuration\x12\xd4\x01\n!UpdateSignOnProviderConfiguration\x12\x39.chalk.server.v1.UpdateSignOnProviderConfigurationRequest\x1a:.chalk.server.v1.UpdateSignOnProviderConfigurationResponse"8\x80}\n\x8a\xd3\x0e\x31\x08\x02\x12-Updated a SAML sign-on provider configuration\x12\xd4\x01\n!DeleteSignOnProviderConfiguration\x12\x39.chalk.server.v1.DeleteSignOnProviderConfigurationRequest\x1a:.chalk.server.v1.DeleteSignOnProviderConfigurationResponse"8\x80}\n\x8a\xd3\x0e\x31\x08\x02\x12-Deleted a SAML sign-on provider configuration\x12\x93\x01\n\x1cGetSamlConfigurationByIssuer\x12\x34.chalk.server.v1.GetSamlConfigurationByIssuerRequest\x1a\x35.chalk.server.v1.GetSamlConfigurationByIssuerResponse"\x06\x90\x02\x01\x80}\x1d\x42\x91\x01\n\x13\x63om.chalk.server.v1B\x08SsoProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
 )
 
 _globals = globals()
@@ -37,37 +38,51 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _globals["_SSOSERVICE"].methods_by_name["CreateSignOnProviderConfiguration"]._options = None
     _globals["_SSOSERVICE"].methods_by_name[
         "CreateSignOnProviderConfiguration"
-    ]._serialized_options = b"\220\002\002\200}\n"
+    ]._serialized_options = (
+        b"\220\002\002\200}\n\212\323\0161\010\002\022-Created a SAML sign-on provider configuration"
+    )
     _globals["_SSOSERVICE"].methods_by_name["UpdateSignOnProviderConfiguration"]._options = None
-    _globals["_SSOSERVICE"].methods_by_name["UpdateSignOnProviderConfiguration"]._serialized_options = b"\200}\n"
+    _globals["_SSOSERVICE"].methods_by_name[
+        "UpdateSignOnProviderConfiguration"
+    ]._serialized_options = b"\200}\n\212\323\0161\010\002\022-Updated a SAML sign-on provider configuration"
     _globals["_SSOSERVICE"].methods_by_name["DeleteSignOnProviderConfiguration"]._options = None
-    _globals["_SSOSERVICE"].methods_by_name["DeleteSignOnProviderConfiguration"]._serialized_options = b"\200}\n"
-    _globals["_CREATESCIMTOKENREQUEST"]._serialized_start = 79
-    _globals["_CREATESCIMTOKENREQUEST"]._serialized_end = 103
-    _globals["_CREATESCIMTOKENRESPONSE"]._serialized_start = 105
-    _globals["_CREATESCIMTOKENRESPONSE"]._serialized_end = 152
-    _globals["_SIGNONPROVIDERSAMLCONFIG"]._serialized_start = 155
-    _globals["_SIGNONPROVIDERSAMLCONFIG"]._serialized_end = 419
-    _globals["_SIGNONPROVIDEROIDCCONFIG"]._serialized_start = 421
-    _globals["_SIGNONPROVIDEROIDCCONFIG"]._serialized_end = 513
-    _globals["_SIGNONPROVIDERCONFIGURATION"]._serialized_start = 516
-    _globals["_SIGNONPROVIDERCONFIGURATION"]._serialized_end = 783
-    _globals["_LISTSIGNONPROVIDERCONFIGURATIONSREQUEST"]._serialized_start = 785
-    _globals["_LISTSIGNONPROVIDERCONFIGURATIONSREQUEST"]._serialized_end = 826
-    _globals["_LISTSIGNONPROVIDERCONFIGURATIONSRESPONSE"]._serialized_start = 829
-    _globals["_LISTSIGNONPROVIDERCONFIGURATIONSRESPONSE"]._serialized_end = 957
-    _globals["_CREATESIGNONPROVIDERCONFIGURATIONREQUEST"]._serialized_start = 959
-    _globals["_CREATESIGNONPROVIDERCONFIGURATIONREQUEST"]._serialized_end = 1085
-    _globals["_CREATESIGNONPROVIDERCONFIGURATIONRESPONSE"]._serialized_start = 1087
-    _globals["_CREATESIGNONPROVIDERCONFIGURATIONRESPONSE"]._serialized_end = 1214
-    _globals["_UPDATESIGNONPROVIDERCONFIGURATIONREQUEST"]._serialized_start = 1216
-    _globals["_UPDATESIGNONPROVIDERCONFIGURATIONREQUEST"]._serialized_end = 1342
-    _globals["_UPDATESIGNONPROVIDERCONFIGURATIONRESPONSE"]._serialized_start = 1344
-    _globals["_UPDATESIGNONPROVIDERCONFIGURATIONRESPONSE"]._serialized_end = 1471
-    _globals["_DELETESIGNONPROVIDERCONFIGURATIONREQUEST"]._serialized_start = 1473
-    _globals["_DELETESIGNONPROVIDERCONFIGURATIONREQUEST"]._serialized_end = 1531
-    _globals["_DELETESIGNONPROVIDERCONFIGURATIONRESPONSE"]._serialized_start = 1533
-    _globals["_DELETESIGNONPROVIDERCONFIGURATIONRESPONSE"]._serialized_end = 1576
-    _globals["_SSOSERVICE"]._serialized_start = 1579
-    _globals["_SSOSERVICE"]._serialized_end = 2352
+    _globals["_SSOSERVICE"].methods_by_name[
+        "DeleteSignOnProviderConfiguration"
+    ]._serialized_options = b"\200}\n\212\323\0161\010\002\022-Deleted a SAML sign-on provider configuration"
+    _globals["_SSOSERVICE"].methods_by_name["GetSamlConfigurationByIssuer"]._options = None
+    _globals["_SSOSERVICE"].methods_by_name[
+        "GetSamlConfigurationByIssuer"
+    ]._serialized_options = b"\220\002\001\200}\035"
+    _globals["_CREATESCIMTOKENREQUEST"]._serialized_start = 106
+    _globals["_CREATESCIMTOKENREQUEST"]._serialized_end = 130
+    _globals["_CREATESCIMTOKENRESPONSE"]._serialized_start = 132
+    _globals["_CREATESCIMTOKENRESPONSE"]._serialized_end = 179
+    _globals["_SIGNONPROVIDERSAMLCONFIG"]._serialized_start = 182
+    _globals["_SIGNONPROVIDERSAMLCONFIG"]._serialized_end = 446
+    _globals["_SIGNONPROVIDEROIDCCONFIG"]._serialized_start = 448
+    _globals["_SIGNONPROVIDEROIDCCONFIG"]._serialized_end = 540
+    _globals["_SIGNONPROVIDERCONFIGURATION"]._serialized_start = 543
+    _globals["_SIGNONPROVIDERCONFIGURATION"]._serialized_end = 810
+    _globals["_LISTSIGNONPROVIDERCONFIGURATIONSREQUEST"]._serialized_start = 812
+    _globals["_LISTSIGNONPROVIDERCONFIGURATIONSREQUEST"]._serialized_end = 853
+    _globals["_LISTSIGNONPROVIDERCONFIGURATIONSRESPONSE"]._serialized_start = 856
+    _globals["_LISTSIGNONPROVIDERCONFIGURATIONSRESPONSE"]._serialized_end = 984
+    _globals["_CREATESIGNONPROVIDERCONFIGURATIONREQUEST"]._serialized_start = 986
+    _globals["_CREATESIGNONPROVIDERCONFIGURATIONREQUEST"]._serialized_end = 1112
+    _globals["_CREATESIGNONPROVIDERCONFIGURATIONRESPONSE"]._serialized_start = 1114
+    _globals["_CREATESIGNONPROVIDERCONFIGURATIONRESPONSE"]._serialized_end = 1241
+    _globals["_UPDATESIGNONPROVIDERCONFIGURATIONREQUEST"]._serialized_start = 1243
+    _globals["_UPDATESIGNONPROVIDERCONFIGURATIONREQUEST"]._serialized_end = 1369
+    _globals["_UPDATESIGNONPROVIDERCONFIGURATIONRESPONSE"]._serialized_start = 1371
+    _globals["_UPDATESIGNONPROVIDERCONFIGURATIONRESPONSE"]._serialized_end = 1498
+    _globals["_DELETESIGNONPROVIDERCONFIGURATIONREQUEST"]._serialized_start = 1500
+    _globals["_DELETESIGNONPROVIDERCONFIGURATIONREQUEST"]._serialized_end = 1558
+    _globals["_DELETESIGNONPROVIDERCONFIGURATIONRESPONSE"]._serialized_start = 1560
+    _globals["_DELETESIGNONPROVIDERCONFIGURATIONRESPONSE"]._serialized_end = 1603
+    _globals["_GETSAMLCONFIGURATIONBYISSUERREQUEST"]._serialized_start = 1605
+    _globals["_GETSAMLCONFIGURATIONBYISSUERREQUEST"]._serialized_end = 1666
+    _globals["_GETSAMLCONFIGURATIONBYISSUERRESPONSE"]._serialized_start = 1669
+    _globals["_GETSAMLCONFIGURATIONBYISSUERRESPONSE"]._serialized_end = 1813
+    _globals["_SSOSERVICE"]._serialized_start = 1816
+    _globals["_SSOSERVICE"]._serialized_end = 2898
 # @@protoc_insertion_point(module_scope)

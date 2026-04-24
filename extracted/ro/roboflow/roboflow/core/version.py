@@ -22,6 +22,7 @@ from roboflow.config import (
     TYPE_KEYPOINT_DETECTION,
     TYPE_OBJECT_DETECTION,
     TYPE_SEMANTIC_SEGMENTATION,
+    TYPE_TEXT_IMAGE_PAIRS,
     UNIVERSE_URL,
 )
 from roboflow.core.dataset import Dataset
@@ -30,9 +31,10 @@ from roboflow.models.instance_segmentation import InstanceSegmentationModel
 from roboflow.models.keypoint_detection import KeypointDetectionModel
 from roboflow.models.object_detection import ObjectDetectionModel
 from roboflow.models.semantic_segmentation import SemanticSegmentationModel
+from roboflow.models.vlm import VLMModel
 from roboflow.util.annotations import amend_data_yaml
 from roboflow.util.general import extract_zip, write_line
-from roboflow.util.model_processor import process
+from roboflow.util.model_processor import process, validate_model_type_for_project
 from roboflow.util.versions import get_model_format, get_wrong_dependencies_versions, normalize_yolo_model_type
 
 if TYPE_CHECKING:
@@ -133,6 +135,16 @@ class Version:
                 self.model = SemanticSegmentationModel(self.__api_key, self.id)
             elif self.type == TYPE_KEYPOINT_DETECTION:
                 self.model = KeypointDetectionModel(self.__api_key, self.id, version=version_without_workspace)
+            elif self.type == TYPE_TEXT_IMAGE_PAIRS:
+                self.model = VLMModel(
+                    self.__api_key,
+                    self.id,
+                    self.name,
+                    version_without_workspace,
+                    local=local,
+                    colors=self.colors,
+                    preprocessing=self.preprocessing,
+                )
             else:
                 self.model = None
 
@@ -486,12 +498,16 @@ class Version:
             filename (str, optional): The name of the weights file. Defaults to "weights/best.pt".
         """
         model_type = normalize_yolo_model_type(model_type)
-        zip_file_name = process(model_type, model_path, filename)
+        zip_file_name, model_type = process(model_type, model_path, filename)
 
         if zip_file_name is None:
             raise RuntimeError("Failed to process model")
 
+        self._validate_against_project_type(model_type)
         self._upload_zip(model_type, model_path, zip_file_name)
+
+    def _validate_against_project_type(self, model_type: str) -> None:
+        validate_model_type_for_project(model_type, self.type, self.project)
 
     def _upload_zip(self, model_type: str, model_path: str, model_file_name: str):
         res = requests.get(

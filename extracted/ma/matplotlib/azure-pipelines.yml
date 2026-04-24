@@ -50,7 +50,7 @@ stages:
         strategy:
           matrix:
             Linux_py310:
-              vmImage: 'ubuntu-20.04'  # keep one job pinned to the oldest image
+              vmImage: 'ubuntu-22.04'  # keep one job pinned to the oldest image
               python.version: '3.10'
             Linux_py311:
               vmImage: 'ubuntu-latest'

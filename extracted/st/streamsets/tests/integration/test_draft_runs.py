@@ -1,5 +1,6 @@
-# Copyright 2022 StreamSets Inc.
-# fmt: off
+#  IBM Confidential
+#  PID 5900-BAF
+#  Copyright StreamSets Inc., an IBM Company 2024
 import pytest
 
 from streamsets.sdk.utils import get_random_string
@@ -24,7 +25,7 @@ def simple_pipeline(sch, sch_authoring_sdc_id):
     try:
         yield pipeline
     finally:
-        sch.api_client.delete_pipeline(pipeline.pipeline_id)
+        sch.api_client.delete_pipeline(pipeline.id)
 
 
 @pytest.fixture(scope="module")

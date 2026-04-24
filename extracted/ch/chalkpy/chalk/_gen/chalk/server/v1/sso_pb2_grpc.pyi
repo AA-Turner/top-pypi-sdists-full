@@ -14,6 +14,8 @@ from chalk._gen.chalk.server.v1.sso_pb2 import (
     CreateSignOnProviderConfigurationResponse,
     DeleteSignOnProviderConfigurationRequest,
     DeleteSignOnProviderConfigurationResponse,
+    GetSamlConfigurationByIssuerRequest,
+    GetSamlConfigurationByIssuerResponse,
     ListSignOnProviderConfigurationsRequest,
     ListSignOnProviderConfigurationsResponse,
     UpdateSignOnProviderConfigurationRequest,
@@ -49,6 +51,10 @@ class SsoServiceStub:
         DeleteSignOnProviderConfigurationRequest,
         DeleteSignOnProviderConfigurationResponse,
     ]
+    GetSamlConfigurationByIssuer: UnaryUnaryMultiCallable[
+        GetSamlConfigurationByIssuerRequest,
+        GetSamlConfigurationByIssuerResponse,
+    ]
 
 class SsoServiceServicer(metaclass=ABCMeta):
     @abstractmethod
@@ -82,5 +88,11 @@ class SsoServiceServicer(metaclass=ABCMeta):
         request: DeleteSignOnProviderConfigurationRequest,
         context: ServicerContext,
     ) -> DeleteSignOnProviderConfigurationResponse: ...
+    @abstractmethod
+    def GetSamlConfigurationByIssuer(
+        self,
+        request: GetSamlConfigurationByIssuerRequest,
+        context: ServicerContext,
+    ) -> GetSamlConfigurationByIssuerResponse: ...
 
 def add_SsoServiceServicer_to_server(servicer: SsoServiceServicer, server: Server) -> None: ...

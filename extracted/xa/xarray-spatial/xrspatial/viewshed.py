@@ -1514,6 +1514,22 @@ def _viewshed_cpu(
 
     height, width = raster.shape
 
+    # Peak-memory guard.  The sweep algorithm allocates an event_list of
+    # 3*H*W rows (168 bytes/pixel), plus the red-black status structure
+    # (status_values + status_struct + idle ~= 104 bytes/pixel),
+    # visibility_grid and raster (~16 bytes/pixel), and a lexsort
+    # temporary that roughly doubles event_list during sort.
+    # Round to ~500 bytes/pixel and refuse if it would eat most of RAM.
+    peak_bytes = 500 * height * width
+    avail = _available_memory_bytes()
+    if peak_bytes > 0.5 * avail:
+        raise MemoryError(
+            f"viewshed CPU sweep would need ~{peak_bytes / 1e9:.1f} GB of "
+            f"working memory for a {height}x{width} raster, which exceeds "
+            f"50% of available RAM ({avail / 1e9:.1f} GB). "
+            f"Pass max_distance= to limit the analysis area."
+        )
+
     y_coords = raster.indexes.get('y').values
     x_coords = raster.indexes.get('x').values
 
@@ -1560,7 +1576,7 @@ def _viewshed_cpu(
     num_events = 3 * (n_rows * n_cols - 1)
     event_list = np.zeros((num_events, 7), dtype=np.float64)
 
-    raster.data = raster.data.astype(np.float64)
+    raster.data = raster.data.astype(np.float64, copy=False)
 
     _init_event_list(event_list=event_list, raster=raster.data,
                      vp_row=viewpoint_row, vp_col=viewpoint_col,
@@ -2167,7 +2183,9 @@ def _viewshed_dask(raster, x, y, observer_elev, target_elev):
     cupy_backed = is_dask_cupy(raster)
 
     # --- Tier B: full grid fits in memory → compute and run exact algo ---
-    r2_bytes = 280 * height * width
+    # Peak memory: event_list sort needs 2x 168*H*W + raster 8*H*W +
+    # visibility_grid 8*H*W ≈ 360 bytes/pixel, plus the computed raster.
+    r2_bytes = 360 * height * width + 8 * height * width  # working + raster
     avail = _available_memory_bytes()
     if r2_bytes < 0.5 * avail:
         raster_mem = raster.copy()

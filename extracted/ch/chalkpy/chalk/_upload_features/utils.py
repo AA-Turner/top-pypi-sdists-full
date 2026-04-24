@@ -2,17 +2,18 @@ import collections.abc
 from dataclasses import is_dataclass
 from typing import TYPE_CHECKING, Any, FrozenSet, List, Mapping, Union
 
-import attrs
-import pandas as pd
 import pyarrow as pa
 
 from chalk import DataFrame
 from chalk.client import ChalkBaseException, ChalkError, ErrorCode
 from chalk.features import Feature
+from chalk.utils.attrs_utils import is_attrs_instance
 from chalk.utils.missing_dependency import missing_dependency_exception
+from chalk.utils.pandas_utils import is_pandas_dataframe
 from chalk.utils.pydanticutil.pydantic_compat import is_pydantic_basemodel_instance
 
 if TYPE_CHECKING:
+    import pandas as pd
     import polars as pl
 
 
@@ -67,7 +68,7 @@ def _is_struct_like_object(obj: Any) -> bool:
         is_dataclass(obj)
         or (isinstance(obj, tuple) and hasattr(obj, "_fields"))
         or is_pydantic_basemodel_instance(obj)
-        or attrs.has(obj.__class__)
+        or is_attrs_instance(obj)
         or isinstance(obj, Mapping)
     )
 
@@ -114,7 +115,7 @@ def to_multi_upload_inputs(
     inputs: Union[
         List[Mapping[Union[str, Feature, Any], Any]],
         Mapping[Union[str, Feature, Any], List[Any]],
-        pd.DataFrame,
+        "pd.DataFrame",
         "pl.DataFrame",
         DataFrame,
     ],
@@ -144,7 +145,7 @@ def to_multi_upload_inputs(
                 for k, v in mapping.items():
                     fqn_to_values[k].append(v)
             tables.append(pa.Table.from_pydict(fqn_to_values))
-    elif isinstance(inputs, pd.DataFrame):
+    elif is_pandas_dataframe(inputs):
         tables.append(pa.Table.from_pandas(inputs))
     else:
         try:
@@ -154,13 +155,7 @@ def to_multi_upload_inputs(
         if isinstance(inputs, (pl.DataFrame, pl.LazyFrame)):  # pyright: ignore[reportUnnecessaryIsInstance]
             tables.append(inputs.to_arrow())
         else:
-            try:
-                df = pd.DataFrame(inputs)
-            except:
-                raise ValueError(
-                    f"Multi upload received an input type that couldn't be interpreted: {str(type(inputs))}."
-                )
-            tables.append(pa.Table.from_pandas(df))
+            raise ValueError(f"Multi upload received an input type that couldn't be interpreted: {str(type(inputs))}.")
 
     if not tables:
         raise ValueError("Multi upload received an empty `inputs` object")

@@ -34,7 +34,7 @@ import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from plato.agents.task import AgentTask
 
@@ -52,6 +52,12 @@ class ReviewGateResult:
             Attached to the OTel span as ``plato.review.result_json``.
         score: Optional numeric score (0.0-1.0).
         verdict: Optional verdict string (e.g. "pass", "fail").
+        failure_kind: Optional machine-readable failure class.
+        exhaustion_policy_override: Optional per-result override for what to do
+            when review continuations are exhausted.
+        continuation_cap_cost: Cost charged against the continuation budget
+            for this review outcome. Use ``0.0`` for failures that should
+            keep looping without consuming the PR-review cap.
     """
 
     passed: bool
@@ -59,6 +65,9 @@ class ReviewGateResult:
     result_data: dict[str, Any] = field(default_factory=dict)
     score: float | None = None
     verdict: str | None = None
+    failure_kind: str = ""
+    exhaustion_policy_override: Literal["fail", "merge", "raise"] | None = None
+    continuation_cap_cost: float = 1.0
 
 
 @dataclass(frozen=True)
@@ -80,6 +89,7 @@ def attach_review_gate(
     max_continuations: int = 2,
     checkpoint_fn: Callable[[str], Awaitable[None]] | None = None,
     result_dir: Path | None = None,
+    exhaustion_policy: Literal["fail", "merge", "raise"] = "fail",
 ) -> AgentTask:
     """Wire up a review gate with standardized OTel span attributes.
 
@@ -100,9 +110,16 @@ def attach_review_gate(
         max_continuations: Max retry attempts after the initial run.
         checkpoint_fn: Optional async function called after successful merge.
         result_dir: Optional directory to persist review results as JSON.
+        exhaustion_policy: Behavior when review continuations are exhausted without
+            a passing review. ``"fail"`` leaves the task unmerged, ``"merge"``
+            force-merges the latest branch state, and ``"raise"`` raises a
+            runtime error instead of returning normally.
     """
     _last_result: dict[str, Any] = {}
     _review_history: list[dict[str, Any]] = []
+    _last_failure_kind = ""
+    _last_exhaustion_policy_override: Literal["fail", "merge", "raise"] | None = None
+    _last_continuation_cap_cost = 1.0
 
     if result_dir is not None:
         _results_path = result_dir / ".pr-review-results" / f"{branch_name}.json"
@@ -110,6 +127,7 @@ def attach_review_gate(
         _results_path = None
 
     async def _review_and_merge_passed() -> bool:
+        nonlocal _last_failure_kind, _last_exhaustion_policy_override, _last_continuation_cap_cost
         from opentelemetry import trace
 
         tracer = trace.get_tracer("plato.agents.review_gate")
@@ -150,6 +168,8 @@ def attach_review_gate(
                             await checkpoint_fn(f"merged.{branch_name.replace('/', '.')}")
                     else:
                         overall_passed = False
+                        gate_result.failure_kind = gate_result.failure_kind or "merge"
+                        gate_result.continuation_cap_cost = 0.0
                         if merge_conflict_files:
                             merge_status = "conflict"
                             feedback = [
@@ -174,6 +194,8 @@ def attach_review_gate(
                     merge_status = "error"
                     overall_passed = False
                     merge_error = str(exc)
+                    gate_result.failure_kind = gate_result.failure_kind or "merge"
+                    gate_result.continuation_cap_cost = 0.0
                     gate_result.feedback = (
                         f"Your code passed review but could not be merged: {exc}\n"
                         "Re-run the task or inspect the git state before making code changes."
@@ -188,6 +210,14 @@ def attach_review_gate(
             _last_result["feedback"] = gate_result.feedback
             _last_result["score"] = gate_result.score
             _last_result["verdict"] = gate_result.verdict
+            _last_failure_kind = gate_result.failure_kind
+            _last_exhaustion_policy_override = gate_result.exhaustion_policy_override
+            _last_continuation_cap_cost = float(gate_result.continuation_cap_cost)
+            if gate_result.failure_kind:
+                _last_result["failure_kind"] = gate_result.failure_kind
+            if gate_result.exhaustion_policy_override is not None:
+                _last_result["exhaustion_policy_override"] = gate_result.exhaustion_policy_override
+            _last_result["continuation_cap_cost"] = _last_continuation_cap_cost
             if reviewed_commit:
                 _last_result["reviewed_commit_sha"] = reviewed_commit
             if merge_conflict_files:
@@ -271,9 +301,55 @@ def attach_review_gate(
         parts.append("\nFix the issues described above and commit your changes.")
         return "\n\n".join(parts)
 
+    async def _handle_review_exhaustion() -> None:
+        selected_exhaustion_policy = _last_exhaustion_policy_override or exhaustion_policy
+        if selected_exhaustion_policy == "fail":
+            return
+
+        if selected_exhaustion_policy == "raise":
+            feedback = str(_last_result.get("feedback", "")).strip()
+            message = f"Review cycles exhausted for branch {branch_name} after {1 + max_continuations} attempt(s)."
+            if _last_failure_kind:
+                message += f" Failure kind: {_last_failure_kind}."
+            if feedback:
+                message += f" Last review feedback:\n\n{feedback}"
+            raise RuntimeError(message)
+
+        if selected_exhaustion_policy == "merge":
+            if merge_fn is None:
+                raise RuntimeError(f"Review cycles exhausted for branch {branch_name}, but no merge_fn is configured.")
+            merge_result = await merge_fn()
+            if isinstance(merge_result, ReviewGateMergeResult):
+                if not merge_result.merged:
+                    if merge_result.conflict_files:
+                        raise RuntimeError(
+                            "Review cycles exhausted and forced merge hit conflicts: "
+                            + ", ".join(merge_result.conflict_files)
+                        )
+                    raise RuntimeError(
+                        "Review cycles exhausted and forced merge failed: "
+                        + (merge_result.error or "unknown merge error")
+                    )
+            elif merge_result is not True:
+                raise RuntimeError(f"Review cycles exhausted and forced merge failed for branch {branch_name}.")
+            runner.merged = True
+            runner.review_exhaustion_force_merged = True
+            _last_result["passed"] = True
+            _last_result["merge_status"] = "forced_merge_after_review_exhaustion"
+            if _last_failure_kind:
+                _last_result["failure_kind"] = _last_failure_kind
+            _last_result["feedback"] = (
+                _last_result.get("feedback", "") or "Review cycles exhausted; branch was force-merged by policy."
+            )
+            return
+
+        raise RuntimeError(f"Unknown review exhaustion policy: {selected_exhaustion_policy}")
+
     runner.with_continuation(
         exit_condition=_review_and_merge_passed,
         max_continuations=max_continuations,
         continuation_instruction=_build_continuation_instruction,
+        on_exhausted=_handle_review_exhaustion,
+        continuation_cap_cost=lambda: _last_continuation_cap_cost,
     )
     return runner

@@ -1,4 +1,6 @@
-# Copyright 2024 StreamSets Inc.
+#  IBM Confidential
+#  PID 5900-BAF
+#  Copyright StreamSets Inc., an IBM Company 2024
 
 # fmt: off
 import datetime
@@ -29,7 +31,7 @@ class MockControlHub:
 
     @property
     def _sequencing_api(self):
-        return {'definitions': {'USequence': deepcopy(JOB_SEQUENCE_BUILDER_JSON)}}
+        return {'components': {'schemas': {'USequence': deepcopy(JOB_SEQUENCE_BUILDER_JSON)}}}
 
 
 def test_get_job_sequence_builder_build():

@@ -369,21 +369,33 @@ class WarmPool:
         commands = _runtime_reset_commands(workspace_paths)
         command = " && ".join(f"({cmd}) || true" for cmd in commands)
         command += " && echo warm-pool-reset-ok"
-        exit_code, stdout, stderr = await pooled_vm.vm_runtime.exec(
-            pooled_vm.runtime_info.runtime_id,
-            command,
-            timeout=self.reset_timeout,
-        )
-        if exit_code != 0 or "warm-pool-reset-ok" not in stdout:
-            logger.warning(
-                "Warm pool reset failed on %s (exit=%d): stdout=%s stderr=%s",
-                pooled_vm.alias,
-                exit_code,
-                stdout.strip()[-200:] if stdout else "",
-                stderr.strip()[-200:] if stderr else "",
+
+        exit_code = 0
+        stdout = ""
+        stderr = ""
+        # Every segment is wrapped in `(...) || true`, so a non-zero exit can
+        # only come from the ssh transport itself (typically 255 when the
+        # session drops mid-command). Retry once with a fresh connection before
+        # giving up — drops here are usually transient.
+        for attempt in range(2):
+            exit_code, stdout, stderr = await pooled_vm.vm_runtime.exec(
+                pooled_vm.runtime_info.runtime_id,
+                command,
+                timeout=self.reset_timeout,
             )
-            return False
-        return True
+            if exit_code == 0 and "warm-pool-reset-ok" in stdout:
+                return True
+            if attempt == 0:
+                await asyncio.sleep(1)
+
+        logger.warning(
+            "Warm pool reset failed on %s (exit=%d): stdout=%s stderr=%s",
+            pooled_vm.alias,
+            exit_code,
+            stdout.strip()[-200:] if stdout else "",
+            stderr.strip()[-200:] if stderr else "",
+        )
+        return False
 
     async def _health_check(self, pooled_vm: PooledVM) -> bool:
         exit_code, stdout, _ = await pooled_vm.vm_runtime.exec(
@@ -404,8 +416,20 @@ def _runtime_reset_commands(workspace_paths: list[str]) -> list[str]:
         # its profile dir. ``user-data-dir=/tmp/plato-ab-`` is unique to our
         # spawn path, so this never false-positives against other chrome
         # instances the image might run.
-        "pkill -9 -f 'user-data-dir=/tmp/plato-ab-' 2>/dev/null; true",
-        "rm -rf /tmp/plato-* /var/tmp/* 2>/dev/null; true",
+        #
+        # The `[u]` bracket trick is load-bearing: pkill -f matches the full
+        # cmdline, which includes the very bash -c invocation we're running
+        # via SSH. Without the bracket, that bash process self-matches and
+        # SIGKILLs itself, dropping the SSH session with exit_code=255. The
+        # bracketed regex still matches chrome's literal `user-data-dir=...`
+        # cmdline but does not match our own `[u]ser-data-dir=...` literal.
+        "pkill -9 -f '[u]ser-data-dir=/tmp/plato-ab-' 2>/dev/null; true",
+        # /var/tmp glob is scoped to plato-* on purpose. Wiping all of /var/tmp
+        # removes systemd's per-service PrivateTmp dirs
+        # (/var/tmp/systemd-private-*-ssh.service-*) that the live SSH session
+        # is currently bind-mounting, which can drop the session mid-command
+        # and surface as ssh exit_code=255.
+        "rm -rf /tmp/plato-* /var/tmp/plato-* 2>/dev/null; true",
         ": > /etc/environment",
         "sed -i '/runtime\\.plato\\.internal/d' /etc/hosts 2>/dev/null; true",
     ]

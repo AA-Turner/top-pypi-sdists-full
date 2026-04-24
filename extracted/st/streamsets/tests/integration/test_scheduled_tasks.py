@@ -1,4 +1,6 @@
-# Copyright 2023 StreamSets Inc.
+#  IBM Confidential
+#  PID 5900-BAF
+#  Copyright StreamSets Inc., an IBM Company 2024
 
 # fmt: off
 import pytest
@@ -10,7 +12,7 @@ from streamsets.sdk.utils import get_random_string
 
 
 @pytest.fixture(scope="module")
-def sample_job(sch, sch_authoring_sdc_id, sch_executor_sdc_label):
+def sample_job(sch, sch_authoring_sdc_id, sch_engine_sdc_label):
     """A trivial job
 
     dev_data_generator >> trash
@@ -34,7 +36,7 @@ def sample_job(sch, sch_authoring_sdc_id, sch_executor_sdc_label):
         yield job
     finally:
         sch.delete_job(job)
-        sch.api_client.delete_pipeline(pipeline.pipeline_id)
+        sch.api_client.delete_pipeline(pipeline.id)
 
 
 @pytest.fixture

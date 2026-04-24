@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: langchain-azure-ai
-Version: 1.2.2
+Version: 1.2.3
 Summary: An integration package to support Azure AI Foundry capabilities in LangChain/LangGraph ecosystem.
 License-Expression: MIT
 License-File: LICENSE
@@ -21,9 +21,10 @@ Requires-Dist: azure-ai-contentsafety (>=1.0.0,<2.0.0)
 Requires-Dist: azure-ai-contentunderstanding (>=1.0.0,<2.0.0)
 Requires-Dist: azure-ai-documentintelligence (>=1.0.2,<2.0.0) ; extra == "tools"
 Requires-Dist: azure-ai-inference (>=1.0.0b9,<2.0) ; extra == "v1"
-Requires-Dist: azure-ai-projects (>=2.0.0,<3.0)
+Requires-Dist: azure-ai-projects (>=2.1.0,<3.0)
 Requires-Dist: azure-ai-textanalytics (>=5.3.0,<6.0.0) ; extra == "tools"
 Requires-Dist: azure-ai-vision-imageanalysis (>=1.0.0,<2.0.0) ; extra == "tools"
+Requires-Dist: azure-cognitiveservices-speech (>=1.41.0,<2.0.0) ; extra == "tools"
 Requires-Dist: azure-core (>=1.32,<2.0)
 Requires-Dist: azure-identity (>=1.15,<2.0)
 Requires-Dist: azure-mgmt-logic (>=10.0.0,<11.0.0) ; extra == "tools"
@@ -68,23 +69,6 @@ For using tracing capabilities with OpenTelemetry, you need to add the extras `o
 ```bash
 pip install -U langchain-azure-ai[opentelemetry]
 ```
-
-## Auto tracing to Azure Application Insights
-
-For a minimal end-to-end example that auto-injects the Azure tracer into
-LangGraph callback managers and exports spans to Application Insights, see
-[`samples/enable_auto_tracing_appinsights.py`](../../samples/enable_auto_tracing_appinsights.py).
-
-The sample shows how to:
-
-* set `APPLICATION_INSIGHTS_CONNECTION_STRING`
-* configure an Azure OpenAI chat model for a LangGraph app
-* call `enable_auto_tracing(..., auto_configure_azure_monitor=True)` for a
-  local script or notebook
-
-If you are running inside a hosted Azure AI Foundry agent, keep
-`auto_configure_azure_monitor=False` because the host already configures the
-`TracerProvider`.
 
 If you are transitioning from Microsoft Foundry classic and you need access to deprecated classes, use `[v1]` extra.
 
@@ -201,7 +185,39 @@ You're not a genius and you don't love programming!
 ```
 
 
+### Auto tracing to Azure Application Insights
+
+To trace your LangChain / LangGraph applications with Azure Application Insights, first install the OpenTelemetry extras:
+
+```bash
+pip install -U langchain-azure-ai[opentelemetry]
+```
+
+Then enable auto tracing in your application. Every `BaseCallbackManager` and LangGraph callback manager created after this call will automatically include the Azure tracer:
+
+```python
+from langchain_azure_ai.callbacks.tracers import enable_auto_tracing
+
+enable_auto_tracing(
+    connection_string="<your-application-insights-connection-string>",
+    auto_configure_azure_monitor=True,
+    enable_content_recording=False,      # set to True to capture message payloads
+    provider_name="azure.ai.openai",
+    trace_all_langgraph_nodes=True,
+)
+```
+
+For a complete end-to-end example, see [`samples/enable_auto_tracing_appinsights.py`](../../samples/enable_auto_tracing_appinsights.py).
+
+
 ## Changelog
+
+- **1.2.3**:
+
+  - **[NEW]** We introduced `AzureAIProjectToolbox` for accessing tools managed in Azure AI Foundry projects, simplifying tool configuration and management. [#525](https://github.com/langchain-ai/langchain-azure/pull/525)
+  - **[NEW]** We migrated speech-to-text tool for Azure AI from the community package, enabling speech integration capabilities. [#499](https://github.com/langchain-ai/langchain-azure/pull/499)
+  - We updated `AzureAIOpenTelemetryTracer` to emit OpenTelemetry spec-compliant spans for GenAI operations. [#509](https://github.com/langchain-ai/langchain-azure/pull/509)
+  - We patched 21 security alerts across dependency packages including `langsmith`, `cryptography`, `langchain-core`, and dev dependencies to improve package security posture. [#496](https://github.com/langchain-ai/langchain-azure/pull/496)
 
 - **1.2.2**:
 

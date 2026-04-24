@@ -77,18 +77,26 @@ def sanitize_redirect(hosts: list[str], redirect_to: str | Any) -> str | None:
     and returns it, else returns None, similar as how's it done
     on django.contrib.auth.views.
     """
-    # Avoid redirect on evil URLs like ///evil.com
+    # Avoid redirect on evil URLs like ///evil.com and URLs containing
+    # backslashes or control characters that browsers may normalize.
     if (
         not redirect_to
         or not isinstance(redirect_to, str)
         or redirect_to.startswith("///")
+        or "\\" in redirect_to
+        or any(unicodedata.category(char)[0] == "C" for char in redirect_to)
     ):
         return None
 
     try:
+        parsed_url = urlparse(redirect_to)
+        if parsed_url.scheme and parsed_url.scheme not in {"http", "https"}:
+            return None
+        if parsed_url.scheme and not parsed_url.netloc:
+            return None
         # Don't redirect to a host that's not in the list
-        netloc = urlparse(redirect_to)[1] or hosts[0]
-    except (TypeError, AttributeError, ValueError):
+        netloc = parsed_url.netloc or hosts[0]
+    except (IndexError, TypeError, AttributeError, ValueError):
         return None
 
     if netloc in hosts:
