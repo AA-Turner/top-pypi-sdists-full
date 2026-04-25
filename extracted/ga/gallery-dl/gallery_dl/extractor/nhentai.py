@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright 2015-2025 Mike Fährmann
+# Copyright 2015-2026 Mike Fährmann
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -21,12 +21,9 @@ class NhentaiGalleryExtractor(GalleryExtractor):
     pattern = r"(?:https?://)?nhentai\.net/g/(\d+)"
     example = "https://nhentai.net/g/12345/"
 
-    def __init__(self, match):
-        url = self.root + "/api/gallery/" + match[1]
-        GalleryExtractor.__init__(self, match, url)
-
-    def metadata(self, page):
-        self.data = data = util.json_loads(page)
+    def metadata(self, _):
+        url = f"{self.root}/api/v2/galleries/{self.groups[0]}"
+        self.data = data = self.request_json(url)
 
         title_en = data["title"].get("english", "")
         title_ja = data["title"].get("japanese", "")
@@ -47,31 +44,26 @@ class NhentaiGalleryExtractor(GalleryExtractor):
             "title_ja"  : title_ja,
             "gallery_id": data["id"],
             "media_id"  : text.parse_int(data["media_id"]),
-            "date"      : data["upload_date"],
-            "scanlator" : data["scanlator"],
+            "date"      : self.parse_timestamp(data["upload_date"]),
+            "scanlator" : info.get("scanlator", ""),
             "artist"    : info["artist"],
             "group"     : info["group"],
             "parody"    : info["parody"],
             "characters": info["character"],
             "tags"      : info["tag"],
-            "type"      : info["category"][0] if info["category"] else "",
+            "type"      : info["category"][0] if "category" in info else "",
             "lang"      : util.language_to_code(language),
             "language"  : language,
         }
 
     def images(self, _):
-        exts = {"j": "jpg", "p": "png", "g": "gif", "w": "webp", "a": "avif"}
-
         data = self.data
-        ufmt = ("https://i{}.nhentai.net/galleries/" +
-                data["media_id"] + "/{}.{}").format
-
         return [
-            (ufmt(random.randint(1, 4), num, exts.get(img["t"], "jpg")), {
-                "width" : img["w"],
-                "height": img["h"],
+            (f"https://i{random.randint(1, 4)}.nhentai.net/{page['path']}", {
+                "width" : page["width"],
+                "height": page["height"],
             })
-            for num, img in enumerate(data["images"]["pages"], 1)
+            for page in data["pages"]
         ]
 
 
@@ -99,7 +91,7 @@ class NhentaiExtractor(Extractor):
         while True:
             page = self.request(url, params=params).text
             yield from text.extract_iter(page, 'href="/g/', '/')
-            if 'class="next"' not in page:
+            if 'class="next' not in page:
                 return
             params["page"] += 1
 

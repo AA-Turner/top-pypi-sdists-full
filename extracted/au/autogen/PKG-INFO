@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: autogen
-Version: 0.12.0
+Version: 0.12.1
 Summary: Alias package for ag2
 Home-page: https://github.com/ag2ai/ag2
 Author: Chi Wang & Qingyun Wu
@@ -30,6 +30,7 @@ Provides-Extra: dashscope
 Provides-Extra: redis
 Provides-Extra: tracing
 Provides-Extra: flaml
+Provides-Extra: docker
 Provides-Extra: jupyter-executor
 Provides-Extra: retrievechat
 Provides-Extra: retrievechat-pgvector
@@ -75,7 +76,9 @@ Provides-Extra: commsagent-discord
 Provides-Extra: commsagent-slack
 Provides-Extra: commsagent-telegram
 Provides-Extra: duckduckgo
+Provides-Extra: ddgs
 Provides-Extra: tavily
+Provides-Extra: exa
 Provides-Extra: nlip
 Provides-Extra: test-core
 Provides-Extra: test

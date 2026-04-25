@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "open-aea"
-version = "2.2.1"
+version = "2.2.2"
 description = "Open AEA Framework"
 authors = ["developer-valory <develope@valory.xyz>"]
 license = "Apache-2.0"
@@ -59,7 +59,6 @@ docspec = "==2.2.1"
 docspec-python = "==2.2.1"
 hexbytes = "==1.3.1"
 ledgerwallet = "==0.1.3"
-construct = "<=2.10.61"
 werkzeug = "*"
 pytest-asyncio = "*"
 multidict = "*"

@@ -20,7 +20,7 @@ from anteroom.app import (
     SecurityHeadersMiddleware,
     session_id_from_token,
 )
-from anteroom.config import RateLimitConfig, SessionConfig
+from anteroom.config import RateLimitConfig, ServerConfig, SessionConfig
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -46,6 +46,7 @@ def _make_config(
     config.proxy.allowed_origins = []
     config.session = SessionConfig()
     config.rate_limit = RateLimitConfig()
+    config.server = ServerConfig()
     config.shared_databases = []
     config.pack_sources = []
     config.safety.dlp = None
@@ -250,6 +251,44 @@ class TestMaxBodySizeMiddleware:
 
     def test_max_request_body_bytes_constant(self) -> None:
         assert MAX_REQUEST_BODY_BYTES == 15 * 1024 * 1024
+
+    def test_server_config_default_max_upload_mb(self) -> None:
+        cfg = ServerConfig()
+        assert cfg.max_upload_mb == 50
+
+    def test_server_config_custom_max_upload_mb(self) -> None:
+        cfg = ServerConfig(max_upload_mb=100)
+        assert cfg.max_upload_mb == 100
+
+    def test_max_body_size_middleware_uses_config_value(self) -> None:
+        """Requests over config.server.max_upload_mb must return 413."""
+        app = FastAPI()
+        limit = 2 * 1024 * 1024  # 2 MB
+        app.add_middleware(MaxBodySizeMiddleware, max_body_size=limit)
+
+        @app.post("/upload")
+        async def _upload():
+            return {"ok": True}
+
+        client = TestClient(app, raise_server_exceptions=False)
+        # exactly at limit passes
+        assert client.post("/upload", headers={"content-length": str(limit)}).status_code != 413
+        # one byte over is rejected
+        assert client.post("/upload", headers={"content-length": str(limit + 1)}).status_code == 413
+
+    def test_create_app_wires_server_config_to_middleware(self) -> None:
+        """create_app must pass config.server.max_upload_mb * 1024 * 1024 to MaxBodySizeMiddleware."""
+        config = _make_config()
+        config.server = ServerConfig(max_upload_mb=75)
+
+        with patch("anteroom.app.lifespan"):
+            from anteroom.app import create_app
+
+            app = create_app(config)
+
+        max_body_size_entries = [m for m in app.user_middleware if m.cls is MaxBodySizeMiddleware]
+        assert max_body_size_entries, "MaxBodySizeMiddleware not registered"
+        assert max_body_size_entries[0].kwargs["max_body_size"] == 75 * 1024 * 1024
 
 
 # ---------------------------------------------------------------------------

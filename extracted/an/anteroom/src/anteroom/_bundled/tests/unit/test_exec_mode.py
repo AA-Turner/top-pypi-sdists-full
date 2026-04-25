@@ -51,7 +51,7 @@ def _make_config(tmp_path: Path) -> MagicMock:
     config.safety.subagent.max_prompt_chars = 32000
     config.mcp_servers = []
     config.cli.max_tool_iterations = 50
-    config.cli.tool_output_max_chars = 2000
+    config.cli.tool_output_max_chars = 10_000
     return config
 
 

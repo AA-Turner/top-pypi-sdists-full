@@ -88,6 +88,28 @@ struct mj_deleteFileVFS {
   }
 };
 
+struct mj_containsBufferVFS {
+  static constexpr char name[] = "mj_containsBufferVFS";
+  static constexpr char doc[] = "Check if buffer exists in VFS; return 1: exists, 0: not found.";
+  using type = int (mjVFS *, const char *);
+  static constexpr auto param_names = std::make_tuple("vfs", "name");
+
+  MUJOCO_ALWAYS_INLINE static type& GetFunc() {
+    return ::mj_containsBufferVFS;
+  }
+};
+
+struct mj_containsFileVFS {
+  static constexpr char name[] = "mj_containsFileVFS";
+  static constexpr char doc[] = "Check if file exists in VFS; return 1: exists, 0: not found.";
+  using type = int (mjVFS *, const char *, const char *);
+  static constexpr auto param_names = std::make_tuple("vfs", "directory", "filename");
+
+  MUJOCO_ALWAYS_INLINE static type& GetFunc() {
+    return ::mj_containsFileVFS;
+  }
+};
+
 struct mj_deleteVFS {
   static constexpr char name[] = "mj_deleteVFS";
   static constexpr char doc[] = "Delete all files from VFS and deallocates VFS internal memory.";
@@ -1207,6 +1229,17 @@ struct mj_rnePostConstraint {
 
   MUJOCO_ALWAYS_INLINE static type& GetFunc() {
     return ::mj_rnePostConstraint;
+  }
+};
+
+struct mj_maxContact {
+  static constexpr char name[] = "mj_maxContact";
+  static constexpr char doc[] = "Return the maximum number of contacts that can be generated between two geoms. If has_margin is -1, then the margin is pulled from the model, otherwise if has_margin > 0 indicates that the geoms have a positive margin.";
+  using type = int (const mjModel *, int, int, int);
+  static constexpr auto param_names = std::make_tuple("m", "g1", "g2", "has_margin");
+
+  MUJOCO_ALWAYS_INLINE static type& GetFunc() {
+    return ::mj_maxContact;
   }
 };
 

@@ -29,6 +29,41 @@ requires_playwright = pytest.mark.skipif(not HAS_PLAYWRIGHT, reason="playwright 
 pytestmark = [pytest.mark.e2e, requires_playwright]
 
 
+def _install_ask_user_fetch_capture(page) -> None:
+    page.evaluate(
+        """() => {
+            window.__capturedRequests = [];
+            const origFetch = window.fetch;
+            window.fetch = async function(url, opts) {
+                if (typeof url === 'string' && url.includes('/approvals/') && url.includes('/respond')) {
+                    window.__capturedRequests.push({ url, body: opts && opts.body });
+                    // Stub a 200 response so the JS success path runs
+                    // (the synthetic prompt has no backend entry to consume).
+                    return new Response(
+                        JSON.stringify({ status: 'ok', approved: true, scope: 'once' }),
+                        { status: 200, headers: { 'Content-Type': 'application/json' } }
+                    );
+                }
+                return origFetch.apply(window, arguments);
+            };
+        }"""
+    )
+
+
+def _captured_answer_for(page, ask_id: str):
+    import json as _json
+
+    page.wait_for_function(
+        """askId => (window.__capturedRequests || []).some(req => (req.url || '').includes(askId))""",
+        ask_id,
+        timeout=5000,
+    )
+    captured = page.evaluate("() => window.__capturedRequests")
+    matches = [req for req in captured if ask_id in req.get("url", "")]
+    assert len(matches) == 1
+    return _json.loads(matches[0]["body"])
+
+
 class TestAskUserEmptyVsCancel:
     """Empty submission and timeout must render distinctly from Cancelled."""
 
@@ -40,26 +75,7 @@ class TestAskUserEmptyVsCancel:
         the ``ask-user-cancelled`` class.
         """
         page = authenticated_page
-
-        page.evaluate(
-            """() => {
-                window.__capturedRequests = [];
-                const origFetch = window.fetch;
-                window.fetch = async function(url, opts) {
-                    if (typeof url === 'string' && url.includes('/approvals/') && url.includes('/respond')) {
-                        window.__capturedRequests.push({ url, body: opts && opts.body });
-                        // Stub a 200 response so the JS success path runs
-                        // (the synthetic prompt has no backend entry to
-                        // consume — the real endpoint would 404).
-                        return new Response(
-                            JSON.stringify({ status: 'ok', approved: true, scope: 'once' }),
-                            { status: 200, headers: { 'Content-Type': 'application/json' } }
-                        );
-                    }
-                    return origFetch.apply(window, arguments);
-                };
-            }"""
-        )
+        _install_ask_user_fetch_capture(page)
 
         page.evaluate(
             """() => {
@@ -73,7 +89,7 @@ class TestAskUserEmptyVsCancel:
         card = page.locator('.ask-user-prompt[data-ask-id="test-empty-1"]')
         assert card.count() == 1
 
-        input_box = card.locator(".ask-user-input")
+        input_box = card.locator("textarea.ask-user-input")
         assert input_box.count() == 1
 
         submit_btn = card.locator(".ask-user-submit")
@@ -94,39 +110,14 @@ class TestAskUserEmptyVsCancel:
         status_text = card.locator(".ask-user-status").text_content() or ""
         assert "empty" in status_text.lower(), f"Expected '(empty answer)' marker, got: {status_text!r}"
 
-        captured = page.evaluate("() => window.__capturedRequests")
-        empty_submissions = [req for req in captured if "test-empty-1" in req.get("url", "")]
-        assert len(empty_submissions) == 1
-        body = empty_submissions[0]["body"]
-        import json as _json
-
-        parsed = _json.loads(body)
+        parsed = _captured_answer_for(page, "test-empty-1")
         assert parsed.get("approved") is True
         assert parsed.get("answer") == "", f"Empty submission must post answer='', got: {parsed}"
 
     def test_cancel_button_posts_approved_false(self, authenticated_page) -> None:
         """Clicking Cancel posts ``approved: false`` and marks the card cancelled."""
         page = authenticated_page
-
-        page.evaluate(
-            """() => {
-                window.__capturedRequests = [];
-                const origFetch = window.fetch;
-                window.fetch = async function(url, opts) {
-                    if (typeof url === 'string' && url.includes('/approvals/') && url.includes('/respond')) {
-                        window.__capturedRequests.push({ url, body: opts && opts.body });
-                        // Stub a 200 response so the JS success path runs
-                        // (the synthetic prompt has no backend entry to
-                        // consume — the real endpoint would 404).
-                        return new Response(
-                            JSON.stringify({ status: 'ok', approved: true, scope: 'once' }),
-                            { status: 200, headers: { 'Content-Type': 'application/json' } }
-                        );
-                    }
-                    return origFetch.apply(window, arguments);
-                };
-            }"""
-        )
+        _install_ask_user_fetch_capture(page)
 
         page.evaluate(
             """() => {
@@ -147,12 +138,7 @@ class TestAskUserEmptyVsCancel:
             timeout=5000,
         )
 
-        captured = page.evaluate("() => window.__capturedRequests")
-        cancel_posts = [req for req in captured if "test-cancel-1" in req.get("url", "")]
-        assert len(cancel_posts) == 1
-        import json as _json
-
-        parsed = _json.loads(cancel_posts[0]["body"])
+        parsed = _captured_answer_for(page, "test-cancel-1")
         assert parsed.get("approved") is False, f"Cancel button must post approved:false, got: {parsed}"
 
     def test_timeout_resolution_shows_expired_marker(self, authenticated_page) -> None:
@@ -189,3 +175,108 @@ class TestAskUserEmptyVsCancel:
         assert status.count() == 1
         status_text = status.text_content() or ""
         assert "Expired" in status_text, f"Timeout must show 'Expired' status, got: {status_text!r}"
+
+
+class TestAskUserMultilineTextarea:
+    """Multiline ask_user answers and option-plus-custom-answer behavior."""
+
+    def test_shift_enter_inserts_newline_and_submit_posts_full_answer(self, authenticated_page) -> None:
+        page = authenticated_page
+        _install_ask_user_fetch_capture(page)
+        page.evaluate(
+            """() => {
+                Chat.showAskUserPrompt({
+                    ask_id: 'test-multiline-1',
+                    question: 'Explain the choice?',
+                });
+            }"""
+        )
+
+        card = page.locator('.ask-user-prompt[data-ask-id="test-multiline-1"]')
+        input_box = card.locator("textarea.ask-user-input")
+        input_box.fill("first line")
+        input_box.press("Shift+Enter")
+        assert page.evaluate("() => window.__capturedRequests.length") == 0
+        input_box.type("second line")
+        card.locator(".ask-user-submit").click()
+
+        parsed = _captured_answer_for(page, "test-multiline-1")
+        assert parsed.get("approved") is True
+        assert parsed.get("answer") == "first line\nsecond line"
+
+    def test_enter_and_ctrl_or_cmd_enter_submit_textarea_answer(self, authenticated_page) -> None:
+        page = authenticated_page
+        _install_ask_user_fetch_capture(page)
+        page.evaluate(
+            """() => {
+                Chat.showAskUserPrompt({ ask_id: 'test-enter-submit', question: 'Enter submit?' });
+                Chat.showAskUserPrompt({ ask_id: 'test-ctrl-submit', question: 'Ctrl submit?' });
+                Chat.showAskUserPrompt({ ask_id: 'test-cmd-submit', question: 'Cmd submit?' });
+            }"""
+        )
+
+        enter_card = page.locator('.ask-user-prompt[data-ask-id="test-enter-submit"]')
+        enter_card.locator("textarea.ask-user-input").fill("plain enter")
+        enter_card.locator("textarea.ask-user-input").press("Enter")
+
+        ctrl_card = page.locator('.ask-user-prompt[data-ask-id="test-ctrl-submit"]')
+        ctrl_card.locator("textarea.ask-user-input").fill("ctrl enter")
+        ctrl_card.locator("textarea.ask-user-input").press("Control+Enter")
+
+        cmd_card = page.locator('.ask-user-prompt[data-ask-id="test-cmd-submit"]')
+        cmd_card.locator("textarea.ask-user-input").fill("cmd enter")
+        cmd_card.locator("textarea.ask-user-input").press("Meta+Enter")
+
+        assert _captured_answer_for(page, "test-enter-submit").get("answer") == "plain enter"
+        assert _captured_answer_for(page, "test-ctrl-submit").get("answer") == "ctrl enter"
+        assert _captured_answer_for(page, "test-cmd-submit").get("answer") == "cmd enter"
+
+    def test_options_prompt_supports_buttons_and_custom_multiline_answer(self, authenticated_page) -> None:
+        page = authenticated_page
+        _install_ask_user_fetch_capture(page)
+        page.evaluate(
+            """() => {
+                Chat.showAskUserPrompt({
+                    ask_id: 'test-options-custom',
+                    question: 'Which option?',
+                    options: ['A. Alpha', 'B. Beta'],
+                });
+            }"""
+        )
+
+        card = page.locator('.ask-user-prompt[data-ask-id="test-options-custom"]')
+        assert card.locator(".ask-user-option").count() == 2
+        assert card.locator("textarea.ask-user-input").count() == 1
+        help_text = card.locator(".ask-user-help").text_content() or ""
+        assert "Choose an option" in help_text
+        assert "Shift+Enter adds a newline" in help_text
+
+        input_box = card.locator("textarea.ask-user-input")
+        input_box.fill("  custom answer")
+        input_box.press("Shift+Enter")
+        input_box.type("with context  ")
+        card.locator(".ask-user-submit").click()
+
+        parsed = _captured_answer_for(page, "test-options-custom")
+        assert parsed.get("approved") is True
+        assert parsed.get("answer") == "custom answer\nwith context"
+
+    def test_option_button_still_submits_original_option_value(self, authenticated_page) -> None:
+        page = authenticated_page
+        _install_ask_user_fetch_capture(page)
+        page.evaluate(
+            """() => {
+                Chat.showAskUserPrompt({
+                    ask_id: 'test-options-button',
+                    question: 'Which option?',
+                    options: ['A. Alpha', 'B. Beta'],
+                });
+            }"""
+        )
+
+        card = page.locator('.ask-user-prompt[data-ask-id="test-options-button"]')
+        card.locator(".ask-user-option").first.click()
+
+        parsed = _captured_answer_for(page, "test-options-button")
+        assert parsed.get("approved") is True
+        assert parsed.get("answer") == "A. Alpha"

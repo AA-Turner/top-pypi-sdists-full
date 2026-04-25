@@ -26,13 +26,10 @@ __authors__ = ["V. Valls"]
 __license__ = "MIT"
 __date__ = "21/09/2017"
 
-import logging
 import numpy
 import unittest
 import tempfile
 import shutil
-
-_logger = logging.getLogger(__name__)
 
 import silx.io
 import silx.io.utils
@@ -183,7 +180,7 @@ class TestCommonFeatures_h5py(_TestCommonFeatures):
 
     @classmethod
     def tearDownClass(cls):
-        super(TestCommonFeatures_h5py, cls).tearDownClass()
+        super().tearDownClass()
         if hasattr(cls, "tmp_dir") and cls.tmp_dir is not None:
             shutil.rmtree(cls.tmp_dir)
 
@@ -268,11 +265,8 @@ class TestSpecificCommonH5(unittest.TestCase):
 
     def test_create_unicode_dataset(self):
         f = commonh5.File(name="Foo", mode="w")
-        try:
-            f.create_dataset("foo", data=numpy.array("aaaa"))
-            self.fail()
-        except TypeError:
-            pass
+        f.create_dataset("foo", data=numpy.array("aaaa"))
+        self.assertEqual(f["foo"][()], "aaaa")
 
     def test_setitem_dataset(self):
         self.h5 = commonh5.File(name="Foo", mode="w")

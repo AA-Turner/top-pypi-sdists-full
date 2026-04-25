@@ -152,8 +152,7 @@ class Geocif:
         #   BorutaPy, Leshy, PowerShap, BorutaShap, Genetic, RFE, multi, gOMP
         self.check_yield_trend = self.parser.getboolean("ML", "check_yield_trend")
         self.detrend_method = self.parser.get("ML", "detrend_method") if self.parser.has_option("ML", "detrend_method") else "gaussian"
-        self.run_latest_time_period = self.parser.getboolean("ML", "run_latest_time_period")
-        self.run_every_time_period = self.parser.get("ML", "run_every_time_period")
+        self.run_time_steps = self.parser.get("ML", "run_time_steps", fallback="latest")
         # When True, force every hindcast forecast_season to use the same
         # stage set as today_year — operationally faithful hindcasts where
         # each year's prediction is what the model would have said at the
@@ -675,21 +674,46 @@ class Geocif:
     def execute(self):
         """
         Main execution pipeline - orchestrates the entire workflow.
+
+        When ``run_time_steps`` is ``"all"`` or an integer N, the pipeline
+        runs at multiple cumulative time steps through the season.  Each
+        step re-filters the raw data to include only CIDs up to that point,
+        producing a separate model and predictions per step.
         """
-        df = self._prepare_ml_dataframe()
-        df = self._add_lat_lon_to_data(df)
+        # Save full stage list; _get_setup_stages builds subsets from it
+        all_simulation_stages = list(self.simulation_stages)
+        stage_subsets = self._get_setup_stages()
 
-        self._run_spatial_autocorrelation_if_enabled()
-        self._run_cluster_analysis(df)
+        df_inputs_orig = self.df_inputs.copy()
 
-        dict_selected_features, dict_best_cid = self._generate_correlation_plots(df)
+        for step_idx, stage_subset in enumerate(stage_subsets):
+            self.simulation_stages = stage_subset
+            self.df_inputs = df_inputs_orig.copy()
+            self._current_step_label = f"[{step_idx + 1}/{len(stage_subsets)}]"
 
-        self._prepare_train_test_split(df)
-        self._compute_detrended_yield()
-        self._add_spatial_neighbor_features()
+            self.logger.info(
+                f"Time step {self._current_step_label}: "
+                f"{len(stage_subset)} stages for {self.country} {self.crop}"
+            )
 
-        if self.run_ml:
-            self._execute_ml_pipeline(dict_selected_features, dict_best_cid)
+            df = self._prepare_ml_dataframe()
+            df = self._add_lat_lon_to_data(df)
+
+            if step_idx == 0:
+                self._run_spatial_autocorrelation_if_enabled()
+                self._run_cluster_analysis(df)
+
+            dict_selected_features, dict_best_cid = self._generate_correlation_plots(df)
+
+            self._prepare_train_test_split(df)
+            self._compute_detrended_yield()
+            self._add_spatial_neighbor_features()
+
+            if self.run_ml:
+                self._execute_ml_pipeline(dict_selected_features, dict_best_cid)
+
+        # Restore full stage list
+        self.simulation_stages = all_simulation_stages
 
     def _filter_low_production_regions(self, df: pd.DataFrame) -> pd.DataFrame:
         """Exclude bottom-5th-pct production regions and regions with ≤3 data points."""
@@ -753,8 +777,12 @@ class Geocif:
             base / self.country / self.crop /
             self.model_name / str(self.forecast_season)
         )
+        if self.run_time_steps != "latest" and hasattr(self, "stage_info"):
+            stage_name = self.stage_info.get("Stage Name", "")
+            if stage_name:
+                dir_output = dir_output / stage_name.replace(" ", "_")
         dir_output.mkdir(parents=True, exist_ok=True)
-        
+
         filename = f"{self.country}_{self.crop}_{self.forecast_season}.csv"
         df.to_csv(dir_output / filename, index=False)
 
@@ -994,9 +1022,15 @@ class Geocif:
         setup_stages = self._get_setup_stages()
         num_regions = len(self.df_train["Region_ID"].unique())
         
+        step_label = getattr(self, "_current_step_label", "")
+        stage_name = getattr(self, "stage_info", {}).get("Stage Name", "")
         pbar = tqdm(setup_stages)
         for stage in pbar:
-            pbar.set_description(f"[{self.experiment_name}] ML {self.country} {self.crop} {self.forecast_season} ({num_regions} regions, {len(setup_stages)} stages) fs={self.feature_selection} detrend={self.check_yield_trend}")
+            pbar.set_description(
+                f"{step_label} {self.country} {self.crop} {self.forecast_season} "
+                f"({num_regions} reg, {len(setup_stages)} stg) "
+                f"{stage_name} {self.model_name}"
+            )
             
             try:
                 self.loop_ml(stage, dict_selected_features, dict_best_cid)
@@ -1004,13 +1038,39 @@ class Geocif:
                 self.logger.error(f"Error in ML loop for stage {stage}: {e}")
 
     def _get_setup_stages(self) -> List:
-        """Determine which stages to use for ML training."""
-        setup_stages = [self.simulation_stages]
-        
-        if self.run_latest_time_period:
-            return [setup_stages[-1]]
-        
-        return setup_stages
+        """Determine which stage subsets to use for ML training.
+
+        Based on ``run_time_steps`` config:
+        - ``"latest"``: single run at the latest (full) stage set
+        - ``"all"``: one run per cumulative time step
+        - ``N`` (integer): one run every Nth step, always including latest
+        """
+        if self.run_time_steps == "latest":
+            return [self.simulation_stages]
+
+        # Build cumulative subsets from the ordered stage list
+        # simulation_stages is a list of numpy arrays (one per stage)
+        n = len(self.simulation_stages)
+        if n <= 1:
+            return [self.simulation_stages]
+
+        step = 1
+        if self.run_time_steps != "all":
+            try:
+                step = int(self.run_time_steps)
+            except ValueError:
+                return [self.simulation_stages]
+
+        # For reverse methods (_r), stages are ordered harvest→planting.
+        # Accumulate from planting forward: take from the end of the list.
+        subsets = []
+        for i in range(step, n + 1, step):
+            subsets.append(self.simulation_stages[-i:])
+        # Always include the full set as the last entry
+        if len(subsets) == 0 or len(subsets[-1]) != n:
+            subsets.append(self.simulation_stages)
+
+        return subsets
 
     # ============================================================================
     # ML DATAFRAME CREATION
@@ -2061,7 +2121,7 @@ class Geocif:
                 self.logger.error(f"Error processing region {region_id}: {e}\n{traceback.format_exc()}")
 
     def _get_output_directory(self) -> Path:
-        """Get output directory for current model/season."""
+        """Get output directory for current model/season/stage."""
         base = self.dir_analysis
         if self.experiment_name != "default":
             base = base / self.experiment_name / "runs"
@@ -2069,6 +2129,11 @@ class Geocif:
             base / self.country / self.crop /
             self.model_name / str(self.forecast_season)
         )
+        # Add stage subdirectory when running multi-step
+        if self.run_time_steps != "latest" and hasattr(self, "stage_info"):
+            stage_name = self.stage_info.get("Stage Name", "")
+            if stage_name:
+                dir_output = dir_output / stage_name.replace(" ", "_")
         dir_output.mkdir(parents=True, exist_ok=True)
         return dir_output
 

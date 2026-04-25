@@ -3,7 +3,6 @@ use std::{
     env,
     fmt::Display,
     fs,
-    ops::Deref,
     sync::{Arc, OnceLock},
 };
 
@@ -83,52 +82,7 @@ pub trait ProviderKind {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
-pub enum ProviderType {
-    Anthropic,
-    Azure,
-    Deepseek,
-    Fireworks,
-    AWSBedrock,
-    GCPVertexAnthropic,
-    GCPVertexGemini,
-    GoogleAIStudioGemini,
-    Groq,
-    Hyperbolic,
-    Mistral,
-    OpenAI,
-    OpenRouter,
-    SGLang,
-    TGI,
-    Together,
-    VLLM,
-    XAI,
-}
-
-impl Display for ProviderType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ProviderType::Anthropic => write!(f, "Anthropic"),
-            ProviderType::Azure => write!(f, "Azure"),
-            ProviderType::Deepseek => write!(f, "Deepseek"),
-            ProviderType::Fireworks => write!(f, "Fireworks"),
-            ProviderType::AWSBedrock => write!(f, "AWSBedrock"),
-            ProviderType::GCPVertexAnthropic => write!(f, "GCPVertexAnthropic"),
-            ProviderType::GCPVertexGemini => write!(f, "GCPVertexGemini"),
-            ProviderType::GoogleAIStudioGemini => write!(f, "GoogleAIStudioGemini"),
-            ProviderType::Groq => write!(f, "Groq"),
-            ProviderType::Hyperbolic => write!(f, "Hyperbolic"),
-            ProviderType::Mistral => write!(f, "Mistral"),
-            ProviderType::OpenAI => write!(f, "OpenAI"),
-            ProviderType::OpenRouter => write!(f, "OpenRouter"),
-            ProviderType::SGLang => write!(f, "SGLang"),
-            ProviderType::TGI => write!(f, "TGI"),
-            ProviderType::Together => write!(f, "Together"),
-            ProviderType::VLLM => write!(f, "VLLM"),
-            ProviderType::XAI => write!(f, "XAI"),
-        }
-    }
-}
+pub use tensorzero_inference_types::credentials::ProviderType;
 
 #[cfg_attr(feature = "ts-bindings", derive(ts_rs::TS))]
 #[derive(Serialize, Debug)]
@@ -165,23 +119,7 @@ pub trait ShorthandModelConfig: Sized {
     ) -> Result<(), Error>;
 }
 
-/// This is `Cow` without the `T: Clone` bound.
-/// Useful when we want a `Cow`, but don't want to (or can't) implement `Clone`
-#[derive(Debug)]
-pub enum CowNoClone<'a, T> {
-    Borrowed(&'a T),
-    Owned(T),
-}
-
-impl<T> Deref for CowNoClone<'_, T> {
-    type Target = T;
-    fn deref(&self) -> &Self::Target {
-        match self {
-            CowNoClone::Borrowed(t) => t,
-            CowNoClone::Owned(t) => t,
-        }
-    }
-}
+pub use tensorzero_http::CowNoClone;
 
 pub struct Shorthand<'a> {
     pub provider_type: &'a str,
@@ -394,73 +332,123 @@ impl ProviderTypeDefaultCredentials {
     pub fn new(provider_types_config: &ProviderTypesConfig) -> Self {
         let anthropic_location = provider_types_config
             .anthropic
-            .defaults
-            .api_key_location
-            .clone();
+            .as_ref()
+            .and_then(|a| a.defaults.as_ref())
+            .cloned()
+            .unwrap_or_default()
+            .api_key_location;
         let azure_location = provider_types_config
             .azure
-            .defaults
-            .api_key_location
-            .clone();
+            .as_ref()
+            .and_then(|a| a.defaults.as_ref())
+            .cloned()
+            .unwrap_or_default()
+            .api_key_location;
         let deepseek_location = provider_types_config
             .deepseek
-            .defaults
-            .api_key_location
-            .clone();
+            .as_ref()
+            .and_then(|a| a.defaults.as_ref())
+            .cloned()
+            .unwrap_or_default()
+            .api_key_location;
         let fireworks_location = provider_types_config
             .fireworks
-            .defaults
-            .api_key_location
-            .clone();
+            .as_ref()
+            .and_then(|a| a.defaults.as_ref())
+            .cloned()
+            .unwrap_or_default()
+            .api_key_location;
         let google_ai_studio_gemini_location = provider_types_config
             .google_ai_studio_gemini
-            .defaults
-            .api_key_location
-            .clone();
+            .as_ref()
+            .and_then(|a| a.defaults.as_ref())
+            .cloned()
+            .unwrap_or_default()
+            .api_key_location;
         let gcp_vertex_anthropic_location = provider_types_config
             .gcp_vertex_anthropic
-            .defaults
-            .credential_location
-            .clone();
+            .as_ref()
+            .and_then(|a| a.defaults.as_ref())
+            .cloned()
+            .unwrap_or_default()
+            .credential_location;
         let gcp_vertex_gemini_location = provider_types_config
             .gcp_vertex_gemini
-            .defaults
-            .credential_location
-            .clone();
-        let groq_location = provider_types_config.groq.defaults.api_key_location.clone();
+            .as_ref()
+            .and_then(|a| a.defaults.as_ref())
+            .cloned()
+            .unwrap_or_default()
+            .credential_location;
+        let groq_location = provider_types_config
+            .groq
+            .as_ref()
+            .and_then(|a| a.defaults.as_ref())
+            .cloned()
+            .unwrap_or_default()
+            .api_key_location;
         let hyperbolic_location = provider_types_config
             .hyperbolic
-            .defaults
-            .api_key_location
-            .clone();
+            .as_ref()
+            .and_then(|a| a.defaults.as_ref())
+            .cloned()
+            .unwrap_or_default()
+            .api_key_location;
         let mistral_location = provider_types_config
             .mistral
-            .defaults
-            .api_key_location
-            .clone();
+            .as_ref()
+            .and_then(|a| a.defaults.as_ref())
+            .cloned()
+            .unwrap_or_default()
+            .api_key_location;
         let openai_location = provider_types_config
             .openai
-            .defaults
-            .api_key_location
-            .clone();
+            .as_ref()
+            .and_then(|a| a.defaults.as_ref())
+            .cloned()
+            .unwrap_or_default()
+            .api_key_location;
         let openrouter_location = provider_types_config
             .openrouter
-            .defaults
-            .api_key_location
-            .clone();
+            .as_ref()
+            .and_then(|a| a.defaults.as_ref())
+            .cloned()
+            .unwrap_or_default()
+            .api_key_location;
         let sglang_location = provider_types_config
             .sglang
-            .defaults
-            .api_key_location
-            .clone();
-        let tgi_location = provider_types_config.tgi.defaults.api_key_location.clone();
+            .as_ref()
+            .and_then(|a| a.defaults.as_ref())
+            .cloned()
+            .unwrap_or_default()
+            .api_key_location;
+        let tgi_location = provider_types_config
+            .tgi
+            .as_ref()
+            .and_then(|a| a.defaults.as_ref())
+            .cloned()
+            .unwrap_or_default()
+            .api_key_location;
         let together_location = provider_types_config
             .together
-            .defaults
-            .api_key_location
-            .clone();
-        let vllm_location = provider_types_config.vllm.defaults.api_key_location.clone();
-        let xai_location = provider_types_config.xai.defaults.api_key_location.clone();
+            .as_ref()
+            .and_then(|a| a.defaults.as_ref())
+            .cloned()
+            .unwrap_or_default()
+            .api_key_location;
+        let vllm_location = provider_types_config
+            .vllm
+            .as_ref()
+            .and_then(|a| a.defaults.as_ref())
+            .cloned()
+            .unwrap_or_default()
+            .api_key_location;
+        let xai_location = provider_types_config
+            .xai
+            .as_ref()
+            .and_then(|a| a.defaults.as_ref())
+            .cloned()
+            .unwrap_or_default()
+            .api_key_location;
 
         ProviderTypeDefaultCredentials {
             anthropic: LazyCredential::new(move || {

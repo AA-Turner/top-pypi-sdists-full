@@ -85,6 +85,8 @@ def _concurrent_invalidation_script() -> str:
                 await asyncio.sleep(0.3)
 
                 invalidator = asyncio.create_task(invalidation_task())
+                while _invalidation_count < 5 and not invalidator.done():
+                    await asyncio.sleep(0.02)
                 raw_print("PTY_READY")
 
                 # Wait for prompt to complete (user submits input)
@@ -255,6 +257,83 @@ def _tool_registry_busy_script() -> str:
     """)
 
 
+def _renderer_tool_ticker_prompt_script() -> str:
+    """Drive the renderer tool ticker while prompt_async is accepting queued input."""
+    return textwrap.dedent("""\
+        import asyncio, os, sys, time
+        from prompt_toolkit.patch_stdout import patch_stdout
+        from prompt_toolkit import PromptSession
+        import anteroom.cli.renderer as renderer
+
+        _raw_stderr = os.fdopen(os.dup(sys.stderr.fileno()), "w", newline="")
+
+        def raw_print(text):
+            _raw_stderr.write(text + "\\n")
+            _raw_stderr.flush()
+
+        def _bottom_toolbar():
+            # Keep toolbar content stable in this PTY test. prompt_toolkit's
+            # CPR-dependent toolbar rendering is covered elsewhere; here any
+            # visible ticker label before PTY_TICKER_READY means raw output
+            # repainted over the prompt.
+            return [("class:bottom-toolbar", " busy ")]
+
+        async def main():
+            with patch_stdout(raw=True):
+                session = PromptSession(bottom_toolbar=_bottom_toolbar)
+                renderer.use_stdout_console()
+
+                def invalidate():
+                    if session.app:
+                        session.app.invalidate()
+
+                renderer._toolbar_invalidator = invalidate
+                renderer._toolbar_is_active = lambda: bool(session.app and session.app.is_running)
+                prompt_active = [False]
+                renderer._prompt_is_active = lambda: prompt_active[0]
+
+                async def prompt_task():
+                    prompt_active[0] = True
+                    try:
+                        result = await session.prompt_async("> ")
+                        raw_print(f"PTY_INPUT: {result}")
+                    except KeyboardInterrupt:
+                        raw_print("PTY_INPUT: KEYBOARD_INTERRUPT")
+                    except EOFError:
+                        raw_print("PTY_INPUT: EOF")
+                    finally:
+                        prompt_active[0] = False
+
+                prompt = asyncio.create_task(prompt_task())
+                await asyncio.sleep(0.3)
+                raw_print("PTY_READY")
+
+                renderer._tool_start = time.monotonic() - 5.0
+                renderer.start_tool_ticker("Finding **/config.yaml")
+                await asyncio.sleep(0.8)
+                raw_print("PTY_TICKER_READY")
+
+                try:
+                    await asyncio.wait_for(prompt, timeout=8.0)
+                except asyncio.TimeoutError:
+                    raw_print("PTY_INPUT: TIMEOUT")
+                    prompt.cancel()
+                    try:
+                        await prompt
+                    except asyncio.CancelledError:
+                        pass
+                finally:
+                    renderer.stop_tool_ticker_sync()
+                    renderer._tool_start = 0
+                    renderer._toolbar_invalidator = None
+                    renderer._toolbar_is_active = None
+                    renderer._prompt_is_active = None
+                    renderer._footer_mode = False
+
+        asyncio.run(main())
+    """)
+
+
 @pytest.mark.integration
 class TestReplBusyPty:
     """PTY tests for input stability under concurrent async invalidation (#1134).
@@ -326,6 +405,25 @@ class TestReplBusyPty:
             child.expect("PTY_INPUT: queued while glob runs", timeout=5)
             child.expect(r"TOOL_DONE: (\d+)", timeout=10)
             assert int(child.match.group(1)) >= 1
+            child.expect(pexpect.EOF, timeout=5)
+        finally:
+            if child.isalive():
+                child.terminate(force=True)
+
+    def test_renderer_tool_ticker_does_not_raw_repaint_active_prompt(self) -> None:
+        """A tool-only ticker should not write its label over the queued-input prompt."""
+        child = pexpect.spawn(
+            _PYTHON,
+            ["-c", _renderer_tool_ticker_prompt_script()],
+            timeout=15,
+            encoding="utf-8",
+        )
+        try:
+            child.expect("PTY_READY", timeout=10)
+            matched = child.expect([r"Finding \*\*/config\.yaml", "PTY_TICKER_READY"], timeout=5)
+            assert matched == 1, "tool ticker label leaked as raw prompt-overwriting output"
+            child.sendline("queued while ticker runs")
+            child.expect("PTY_INPUT: queued while ticker runs", timeout=5)
             child.expect(pexpect.EOF, timeout=5)
         finally:
             if child.isalive():

@@ -7,6 +7,7 @@ from rasterio.errors import RasterioIOError
 import requests
 from server_thread import ServerManager
 
+import localtileserver as lts
 from localtileserver.client import TileClient, get_or_create_tile_client
 from localtileserver.helpers import parse_shapely, polygon_to_geojson
 from localtileserver.tiler import get_cache_dir, get_clean_filename
@@ -16,7 +17,7 @@ from .utilities import get_content
 
 skip_shapely = False
 try:
-    from shapely.geometry import Polygon
+    from shapely.geometry import Point, Polygon
 except ImportError:
     skip_shapely = True
 
@@ -166,6 +167,34 @@ def test_get_or_create_tile_client(bahamas_file):
         _, _ = get_or_create_tile_client(__file__)
 
 
+def test_open(bahamas_file):
+    client = lts.open(bahamas_file)
+    assert isinstance(client, TileClient)
+    assert str(client.filename) == str(get_clean_filename(bahamas_file))
+
+
+def test_open_rasterio_dataset(bahamas_file):
+    with rasterio.open(bahamas_file) as src:
+        client = lts.open(src)
+    assert isinstance(client, TileClient)
+
+
+def test_open_passthrough_tile_client(bahamas_file):
+    original = TileClient(bahamas_file)
+    passed = lts.open(original)
+    assert passed is original
+
+
+def test_open_forwards_kwargs(bahamas_file):
+    client = lts.open(bahamas_file, debug=True, cors_all=True)
+    assert isinstance(client, TileClient)
+
+
+def test_open_invalid_source():
+    with pytest.raises(RasterioIOError):
+        lts.open(__file__)
+
+
 def test_point(bahamas):
     assert bahamas.point(-77.76, 24.56, coord_crs="EPSG:4326")
 
@@ -216,8 +245,6 @@ def test_bounds_geojson(bahamas):
 
 @pytest.mark.skipif(skip_shapely, reason="shapely not installed")
 def test_center_shapely(bahamas):
-    from shapely.geometry import Point
-
     pt = bahamas.center(return_point=True)
     assert isinstance(pt, Point)
     wkt = bahamas.center(return_wkt=True)

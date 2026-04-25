@@ -54,7 +54,7 @@ class Hdf5TreeView(qt.QTreeView):
     Context menu is managed by the :meth:`setContextMenuPolicy` with the value
     Qt.CustomContextMenu. This policy must not be changed, otherwise context
     menus will not work anymore. You can use :meth:`addContextMenuCallback` and
-    :meth:`removeContextMenuCallback` to add your custum actions according
+    :meth:`removeContextMenuCallback` to add your custom actions according
     to the selected objects.
     """
 
@@ -273,7 +273,7 @@ class Hdf5TreeView(qt.QTreeView):
         """Override mousePressEvent to provide a consistante compatible API
         between Qt4 and Qt5
         """
-        super(Hdf5TreeView, self).mousePressEvent(event)
+        super().mousePressEvent(event)
         if event.button() != qt.Qt.LeftButton:
             qindex = self.indexAt(event.pos())
             self.clicked.emit(qindex)

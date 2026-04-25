@@ -21,17 +21,18 @@
 # THE SOFTWARE.
 #
 # ###########################################################################*/
-"""This module provides Arc ROI item for the :class:`~silx.gui.plot.PlotWidget`.
-"""
+"""This module provides Arc ROI item for the :class:`~silx.gui.plot.PlotWidget`."""
 
 __authors__ = ["V. Valls"]
 __license__ = "MIT"
 __date__ = "28/06/2018"
 
 import logging
-import numpy
 import enum
-from typing import Tuple
+from typing import Union
+
+import numpy
+from numpy.typing import ArrayLike
 
 from ... import utils
 from .. import items
@@ -40,7 +41,6 @@ from ....utils.proxy import docstring
 from ._roi_base import HandleBasedROI
 from ._roi_base import InteractionModeMixIn
 from ._roi_base import RoiInteractionMode
-
 
 logger = logging.getLogger(__name__)
 
@@ -352,10 +352,10 @@ class ArcROI(HandleBasedROI, items.LineMixIn, InteractionModeMixIn):
     def _updated(self, event=None, checkVisibility=True):
         if event == items.ItemChangedType.VISIBLE:
             self._updateItemProperty(event, self, self.__shape)
-        super(ArcROI, self)._updated(event, checkVisibility)
+        super()._updated(event, checkVisibility)
 
     def _updatedStyle(self, event, style):
-        super(ArcROI, self)._updatedStyle(event, style)
+        super()._updatedStyle(event, style)
         self.__shape.setColor(style.getColor())
         self.__shape.setLineStyle(style.getLineStyle())
         self.__shape.setLineWidth(style.getLineWidth())
@@ -801,7 +801,7 @@ class ArcROI(HandleBasedROI, items.LineMixIn, InteractionModeMixIn):
             geometry.endAngle,
         )
 
-    def getPosition(self, role: Role = Role.CENTER) -> Tuple[float, float]:
+    def getPosition(self, role: Role = Role.CENTER) -> tuple[float, float]:
         """Returns a position by it's role.
 
         By default returns the center of the circle of the arc ROI.
@@ -912,32 +912,47 @@ class ArcROI(HandleBasedROI, items.LineMixIn, InteractionModeMixIn):
         self._updateHandles()
 
     @docstring(HandleBasedROI)
-    def contains(self, position):
-        # first check distance, fastest
-        center = self.getCenter()
-        distance = numpy.sqrt(
-            (position[1] - center[1]) ** 2 + ((position[0] - center[0])) ** 2
-        )
-        is_in_distance = self.getInnerRadius() <= distance <= self.getOuterRadius()
-        if not is_in_distance:
-            return False
-        rel_pos = position[1] - center[1], position[0] - center[0]
-        angle = numpy.arctan2(*rel_pos)
-        # angle is inside [-pi, pi]
+    def contains(self, position: ArrayLike) -> Union[bool, numpy.ndarray]:
+        positions, is_single = self._normalize_positions_shape(position)
 
-        # Normalize the start angle between [-pi, pi]
-        # with a positive angle range
+        # geometry parameters (center is (x, y))
+        center = numpy.array(self.getCenter())
+        inner_radius = self.getInnerRadius()
+        outer_radius = self.getOuterRadius()
         start_angle = self.getStartAngle()
         end_angle = self.getEndAngle()
+
+        # Relative vectors: (x - cx, y - cy)
+        rel = positions - center  # shape (N, 2), rel[:,0]=dx, rel[:,1]=dy
+
+        # Distances
+        distances = numpy.hypot(rel[:, 0], rel[:, 1])  # sqrt(dx^2 + dy^2)
+
+        # Distance mask
+        in_distance = (distances >= inner_radius) & (distances <= outer_radius)
+        if not numpy.any(in_distance):
+            return numpy.zeros(len(positions), dtype=bool)
+
+        # Compute angles (arctan2(y, x) => arctan2(dy, dx))
+        angles = numpy.arctan2(rel[:, 1], rel[:, 0])  # in range [-pi, pi]
+
+        # Normalize start_angle to [-pi, pi] with positive azimuth range
         azim_range = end_angle - start_angle
         if azim_range < 0:
-            start_angle = end_angle
+            # make azim_range positive and swap start/end conceptually
+            start_angle, end_angle = end_angle, start_angle
             azim_range = -azim_range
+
         start_angle = numpy.mod(start_angle + numpy.pi, 2 * numpy.pi) - numpy.pi
 
-        if angle < start_angle:
-            angle += 2 * numpy.pi
-        return start_angle <= angle <= start_angle + azim_range
+        # Bring angles into the same branch as start_angle: add 2*pi where needed
+        angles[angles < start_angle] += 2 * numpy.pi
+
+        # Angle mask
+        in_angle = (angles >= start_angle) & (angles <= start_angle + azim_range)
+
+        is_inside = in_distance & in_angle
+        return is_inside[0] if is_single else is_inside
 
     def translate(self, x, y):
         self._geometry = self._geometry.translated(x, y)
@@ -994,4 +1009,4 @@ class ArcROI(HandleBasedROI, items.LineMixIn, InteractionModeMixIn):
             params = "center: %f %f; radius: %f %f; angles: %f %f" % params
         except ValueError:
             params = "invalid"
-        return "%s(%s)" % (self.__class__.__name__, params)
+        return f"{self.__class__.__name__}({params})"

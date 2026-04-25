@@ -61,7 +61,7 @@ from .test_image_functions import (
     descriptors_compare,
 )
 from .test_image_setup import orientation_setup, descriptor_setup
-from silx.opencl import ocl, pyopencl, kernel_workgroup_size
+from ... import ocl, pyopencl, kernel_workgroup_size
 from ..utils import get_opencl_code
 
 logger = logging.getLogger(__name__)
@@ -78,7 +78,7 @@ class _TestKeypoints(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        super(_TestKeypoints, cls).setUpClass()
+        super().setUpClass()
         if ocl:
             cls.ctx = ocl.create_context()
             if logger.getEffectiveLevel() <= logging.INFO:
@@ -100,7 +100,7 @@ class _TestKeypoints(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        super(_TestKeypoints, cls).tearDownClass()
+        super().tearDownClass()
         cls.ctx = None
         cls.queue = None
 
@@ -703,7 +703,7 @@ class TestFeature(unittest.TestCase):
                     % (i, l1, k[4], keypoints[idx]),
                 )
 
-        from silx.opencl.sift import SiftPlan
+        from ..sift import SiftPlan
 
         sp = SiftPlan(template=img, profile=True)
         kp = sp(img)

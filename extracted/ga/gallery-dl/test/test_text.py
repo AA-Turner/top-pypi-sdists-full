@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-# Copyright 2015-2025 Mike Fährmann
+# Copyright 2015-2026 Mike Fährmann
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -232,6 +232,51 @@ class TestText(unittest.TestCase):
         fn = "httpswww.example.orgpath-path-path-path-path-path-path-path"
         self.assertEqual(f(fn), {"filename": fn, "extension": ""})
 
+    def test_filename_from_contentdisposition(
+            self, f=text.filename_from_contentdisposition):
+        self.assertEqual(f(""), "")
+        self.assertEqual(f("inline"), "")
+
+        self.assertEqual(f('attachment; filename=example.pdf'),
+                         "example.pdf")
+        self.assertEqual(f('attachment; filename="example.pdf"'),
+                         "example.pdf")
+        self.assertEqual(f('attachment; filename=example.pdf; '),
+                         "example.pdf")
+        self.assertEqual(f('attachment; filename="example.pdf"; '),
+                         "example.pdf")
+        self.assertEqual(f('attachment; filename="foo%20bar.pdf"; '),
+                         "foo%20bar.pdf")
+
+        self.assertEqual(f('''attachment; '''
+                           '''filename="example.pdf"; '''
+                           '''filename*=UTF-8''%E2%82%ACrates.pdf'''),
+                         "€rates.pdf")
+        self.assertEqual(f('''attachment; '''
+                           '''filename="example.pdf"; '''
+                           '''filename*="UTF-8''%E2%82%ACrates.pdf"'''),
+                         "€rates.pdf")
+
+        self.assertEqual(f('attachment; '
+                           'filename=report.csv; '
+                           'creation-date="Wed, 12 Feb 2025 10:00:00 GMT"'),
+                         "report.csv")
+        self.assertEqual(f('attachment; '
+                           'filename="report.csv"; '
+                           'creation-date="Wed, 12 Feb 2025 10:00:00 GMT"'),
+                         "report.csv")
+
+        self.assertEqual(f('attachment; '
+                           'filename=report2.csv; '
+                           '''filename*="UTF-8''re%20port.ext"'''
+                           'creation-date="Wed, 12 Feb 2025 10:00:00 GMT"'),
+                         "re port.ext")
+        self.assertEqual(f('attachment; '
+                           'filename="report2.csv"; '
+                           'creation-date="Wed, 12 Feb 2025 10:00:00 GMT"; '
+                           '''filename*=UTF-8''re%20port.ext'''),
+                         "re port.ext")
+
     def test_extract(self, f=text.extract):
         txt = "<a><b>"
         self.assertEqual(f(txt, "<", ">"), ("a" , 3))
@@ -390,6 +435,34 @@ class TestText(unittest.TestCase):
         self.assertEqual(e("[", "]"), "d")
         self.assertEqual(e("[", "]"), "END")
         self.assertEqual(e("[", "]"), "END")
+
+    def test_extract_urls(self, f=text.extract_urls):
+        txt = ""
+        self.assertEqual(f(txt), [])
+
+        txt = "<p>foo </p> &amp; bar <p> </p>"
+        self.assertEqual(f(txt), [])
+
+        txt = """<p>
+  <a href="http://www.example.com">Lorem ipsum dolor sit amet</a>.
+  Duis aute irure <a href="http://blog.example.org/lorem?foo=bar">
+  http://blog.example.org</a>.
+</p>"""
+        self.assertEqual(f(txt), ["http://www.example.com",
+                                  "http://blog.example.org/lorem?foo=bar",
+                                  "http://blog.example.org"])
+
+    def test_parse_hex_escapes(self, f=text.parse_hex_escapes):
+        self.assertEqual(f(""), "")
+        self.assertEqual(f("foobar"), "foobar")
+        self.assertEqual(f("foo bar"), "foo bar")
+        self.assertEqual(f("foo\\x20bar"), "foo bar")
+        self.assertEqual(f("foo\\x20\\x2f\\x20bar"), "foo / bar")
+        self.assertEqual(f("foo\\x1zar"), "foo\\x1zar")
+        self.assertEqual(
+            f("\\x20foo\\x20\\x2F bar\xff"),
+            " foo / barÿ",
+        )
 
     def test_parse_unicode_escapes(self, f=text.parse_unicode_escapes):
         self.assertEqual(f(""), "")

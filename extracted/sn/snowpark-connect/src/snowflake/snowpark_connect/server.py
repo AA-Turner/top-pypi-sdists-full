@@ -1231,22 +1231,22 @@ def start_jvm():
     # Import both JAR dependency packages
     import snowpark_connect_deps_1
     import snowpark_connect_deps_2
-    from snowflake.snowpark_connect.utils.jvm_classpath import (
-        filter_classpath_jars,
-        log_classpath_filter_summary,
-    )
 
-    # Load jar files from both packages, filtering out jars that are not
-    # reachable from the server-side JVM code paths (Spark streaming,
-    # Kubernetes, Hive, network/shuffle, Kryo, Hadoop, MLlib math, ...).
-    # The stage-side upload path in ``resources_initializer`` looks jars up
-    # by exact name and is unaffected by this filter.
+    # Load jar files from both packages and add every shipped jar to the
+    # JVM classpath. Classpath filtering via ``filter_classpath_jars`` is
+    # intentionally disabled here -- the drop list was producing missing-
+    # class regressions (e.g. Spark sketch / network-common code paths)
+    # that are difficult to enumerate exhaustively, and the startup-time
+    # win is not worth the breakage. The helper is still available in
+    # ``utils/jvm_classpath`` for tests and for re-enabling once the drop
+    # list is proven safe.
     jar_path_list = (
         snowpark_connect_deps_1.list_jars() + snowpark_connect_deps_2.list_jars()
     )
-    kept_jars, dropped_jars = filter_classpath_jars(jar_path_list)
-    log_classpath_filter_summary(kept_jars, dropped_jars)
-    for jar_path in kept_jars:
+    logger.info(
+        "JVM classpath: loading all %d jars (filter disabled).", len(jar_path_list)
+    )
+    for jar_path in jar_path_list:
         jpype.addClassPath(jar_path)
 
     # TODO: Should remove convertStrings, but it breaks the JDBC code.

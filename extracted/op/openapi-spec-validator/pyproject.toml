@@ -1,6 +1,6 @@
 [project]
 name = "openapi-spec-validator"
-version = "0.8.4"
+version = "0.8.5"
 description = "OpenAPI 2.0 (aka Swagger) and OpenAPI 3 spec validator"
 authors = [
     { name = "Artur Maciag", email = "maciag.artur@gmail.com" },
@@ -24,7 +24,7 @@ classifiers = [
     "Typing :: Typed",
 ]
 dependencies = [
-    "jsonschema >=4.24.0,<4.25.0",
+    "jsonschema >=4.24.0,<5.0.0",
     "openapi-schema-validator >=0.7.3,<0.9.0",
     "jsonschema-path >=0.4.3,<0.5.0",
     "lazy-object-proxy >=1.7.1,<2.0",
@@ -61,7 +61,7 @@ pytest-cov = "^7.0.0"
 tox = "*"
 mypy = "^1.19"
 isort = "^8.0.0"
-black = "^26.1.0"
+black = "^26.3.1"
 flynt = "^1.0"
 deptry = "^0.24.0"
 flake8 = "^5.0.4"
@@ -120,7 +120,7 @@ message_template = "Version {new_version}"
 tag_template = "{new_version}"
 
 [tool.tbump.version]
-current = "0.8.4"
+current = "0.8.5"
 regex = '''
   (?P<major>\d+)
   \.

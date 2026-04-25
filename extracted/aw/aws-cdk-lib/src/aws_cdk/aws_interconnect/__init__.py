@@ -115,6 +115,9 @@ class CfnConnection(
             bandwidth="bandwidth",
             description="description",
             environment_id="environmentId",
+            remote_account=interconnect.CfnConnection.RemoteAccountProperty(
+                identifier="identifier"
+            ),
             remote_owner_account="remoteOwnerAccount",
             tags=[CfnTag(
                 key="key",
@@ -133,6 +136,7 @@ class CfnConnection(
         bandwidth: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
         environment_id: typing.Optional[builtins.str] = None,
+        remote_account: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnection.RemoteAccountProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         remote_owner_account: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
@@ -145,7 +149,8 @@ class CfnConnection(
         :param bandwidth: The bandwidth of the connection (e.g., 50Mbps, 1Gbps). Required when creating a connection through AWS.
         :param description: A description of the connection.
         :param environment_id: The ID of the environment for the connection. Required when creating a connection through AWS. Mutually exclusive with ActivationKey.
-        :param remote_owner_account: The account ID of the remote owner. Required when creating a connection through AWS.
+        :param remote_account: The remote account identifier for the connection. Required when creating a connection through AWS. Replaces RemoteOwnerAccount.
+        :param remote_owner_account: Deprecated. Use RemoteAccount instead. The account ID of the remote owner. Required when creating a connection through AWS.
         :param tags: An array of key-value pairs to apply to this resource.
         '''
         if __debug__:
@@ -158,6 +163,7 @@ class CfnConnection(
             bandwidth=bandwidth,
             description=description,
             environment_id=environment_id,
+            remote_account=remote_account,
             remote_owner_account=remote_owner_account,
             tags=tags,
         )
@@ -377,9 +383,27 @@ class CfnConnection(
         jsii.set(self, "environmentId", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="remoteAccount")
+    def remote_account(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnection.RemoteAccountProperty"]]:
+        '''The remote account identifier for the connection.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnection.RemoteAccountProperty"]], jsii.get(self, "remoteAccount"))
+
+    @remote_account.setter
+    def remote_account(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnection.RemoteAccountProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fc119233dd6ab664e727bbaa8b4cfc09635149aad9daf7d35b6f1496b3f7630e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "remoteAccount", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="remoteOwnerAccount")
     def remote_owner_account(self) -> typing.Optional[builtins.str]:
-        '''The account ID of the remote owner.'''
+        '''Deprecated.'''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "remoteOwnerAccount"))
 
     @remote_owner_account.setter
@@ -545,6 +569,60 @@ class CfnConnection(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_interconnect.CfnConnection.RemoteAccountProperty",
+        jsii_struct_bases=[],
+        name_mapping={"identifier": "identifier"},
+    )
+    class RemoteAccountProperty:
+        def __init__(self, *, identifier: builtins.str) -> None:
+            '''The remote account identifier for the connection.
+
+            Required when creating a connection through AWS. Replaces RemoteOwnerAccount.
+
+            :param identifier: The identifier of the remote account.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-interconnect-connection-remoteaccount.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_interconnect as interconnect
+                
+                remote_account_property = interconnect.CfnConnection.RemoteAccountProperty(
+                    identifier="identifier"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__4a6bc77c98392571754d9a62f8f27d8d9a1b87e5cbd17e73dfaf34789cc747f4)
+                check_type(argname="argument identifier", value=identifier, expected_type=type_hints["identifier"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "identifier": identifier,
+            }
+
+        @builtins.property
+        def identifier(self) -> builtins.str:
+            '''The identifier of the remote account.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-interconnect-connection-remoteaccount.html#cfn-interconnect-connection-remoteaccount-identifier
+            '''
+            result = self._values.get("identifier")
+            assert result is not None, "Required property 'identifier' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RemoteAccountProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
 
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_interconnect.CfnConnectionProps",
@@ -555,6 +633,7 @@ class CfnConnection(
         "bandwidth": "bandwidth",
         "description": "description",
         "environment_id": "environmentId",
+        "remote_account": "remoteAccount",
         "remote_owner_account": "remoteOwnerAccount",
         "tags": "tags",
     },
@@ -568,6 +647,7 @@ class CfnConnectionProps:
         bandwidth: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
         environment_id: typing.Optional[builtins.str] = None,
+        remote_account: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnection.RemoteAccountProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         remote_owner_account: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
@@ -578,7 +658,8 @@ class CfnConnectionProps:
         :param bandwidth: The bandwidth of the connection (e.g., 50Mbps, 1Gbps). Required when creating a connection through AWS.
         :param description: A description of the connection.
         :param environment_id: The ID of the environment for the connection. Required when creating a connection through AWS. Mutually exclusive with ActivationKey.
-        :param remote_owner_account: The account ID of the remote owner. Required when creating a connection through AWS.
+        :param remote_account: The remote account identifier for the connection. Required when creating a connection through AWS. Replaces RemoteOwnerAccount.
+        :param remote_owner_account: Deprecated. Use RemoteAccount instead. The account ID of the remote owner. Required when creating a connection through AWS.
         :param tags: An array of key-value pairs to apply to this resource.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-interconnect-connection.html
@@ -602,6 +683,9 @@ class CfnConnectionProps:
                 bandwidth="bandwidth",
                 description="description",
                 environment_id="environmentId",
+                remote_account=interconnect.CfnConnection.RemoteAccountProperty(
+                    identifier="identifier"
+                ),
                 remote_owner_account="remoteOwnerAccount",
                 tags=[CfnTag(
                     key="key",
@@ -616,6 +700,7 @@ class CfnConnectionProps:
             check_type(argname="argument bandwidth", value=bandwidth, expected_type=type_hints["bandwidth"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument environment_id", value=environment_id, expected_type=type_hints["environment_id"])
+            check_type(argname="argument remote_account", value=remote_account, expected_type=type_hints["remote_account"])
             check_type(argname="argument remote_owner_account", value=remote_owner_account, expected_type=type_hints["remote_owner_account"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -629,6 +714,8 @@ class CfnConnectionProps:
             self._values["description"] = description
         if environment_id is not None:
             self._values["environment_id"] = environment_id
+        if remote_account is not None:
+            self._values["remote_account"] = remote_account
         if remote_owner_account is not None:
             self._values["remote_owner_account"] = remote_owner_account
         if tags is not None:
@@ -687,10 +774,23 @@ class CfnConnectionProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def remote_owner_account(self) -> typing.Optional[builtins.str]:
-        '''The account ID of the remote owner.
+    def remote_account(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnection.RemoteAccountProperty"]]:
+        '''The remote account identifier for the connection.
 
-        Required when creating a connection through AWS.
+        Required when creating a connection through AWS. Replaces RemoteOwnerAccount.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-interconnect-connection.html#cfn-interconnect-connection-remoteaccount
+        '''
+        result = self._values.get("remote_account")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnection.RemoteAccountProperty"]], result)
+
+    @builtins.property
+    def remote_owner_account(self) -> typing.Optional[builtins.str]:
+        '''Deprecated.
+
+        Use RemoteAccount instead. The account ID of the remote owner. Required when creating a connection through AWS.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-interconnect-connection.html#cfn-interconnect-connection-remoteowneraccount
         '''
@@ -734,6 +834,7 @@ def _typecheckingstub__5322b288c96cd17f9fbc54392674c0dccc316142d9aef64c4d019d598
     bandwidth: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
     environment_id: typing.Optional[builtins.str] = None,
+    remote_account: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnection.RemoteAccountProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     remote_owner_account: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
@@ -794,6 +895,12 @@ def _typecheckingstub__30654aa478a8acabb61aa09f432905f049778c774ffa31f2c091a08bc
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__fc119233dd6ab664e727bbaa8b4cfc09635149aad9daf7d35b6f1496b3f7630e(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnConnection.RemoteAccountProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__73cac1b1c84365dc4a0fec3786c9b3ed3dc6b6ee937776a548294d2b000bb848(
     value: typing.Optional[builtins.str],
 ) -> None:
@@ -822,6 +929,13 @@ def _typecheckingstub__e79d4c39ca0048c28c9c9e4ba53d1acb9c018bfd06ffdae81292fd94a
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__4a6bc77c98392571754d9a62f8f27d8d9a1b87e5cbd17e73dfaf34789cc747f4(
+    *,
+    identifier: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__3d36102c989a8481b5f4d0aa7d5e93231210a776a41ca90ae2e2a0c1d6ec24e5(
     *,
     attach_point: typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnection.AttachPointProperty, typing.Dict[builtins.str, typing.Any]]],
@@ -829,6 +943,7 @@ def _typecheckingstub__3d36102c989a8481b5f4d0aa7d5e93231210a776a41ca90ae2e2a0c1d
     bandwidth: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
     environment_id: typing.Optional[builtins.str] = None,
+    remote_account: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnection.RemoteAccountProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     remote_owner_account: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:

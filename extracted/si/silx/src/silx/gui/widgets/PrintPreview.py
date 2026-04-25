@@ -28,10 +28,10 @@ items to the page to be printed.
 
 The user can interactively move and resize the items.
 """
+
 import sys
 import logging
 from silx.gui import qt, printer
-
 
 __authors__ = ["V.A. Sole", "P. Knobel"]
 __license__ = "MIT"
@@ -461,7 +461,7 @@ class PrintPreviewDialog(qt.QDialog):
             self._clearAll()
         self.ensurePrinterIsSet()
 
-        return super(PrintPreviewDialog, self).showEvent(event)
+        return super().showEvent(event)
 
     # button callbacks
     def _print(self):
@@ -492,7 +492,7 @@ class PrintPreviewDialog(qt.QDialog):
             self.hide()
             self.accept()
             self._toBeCleared = True
-        except:  # FIXME
+        except Exception:  # FIXME
             painter.end()
             qt.QMessageBox.critical(
                 self, "ERROR", "Printing problem:\n %s" % sys.exc_info()[1]

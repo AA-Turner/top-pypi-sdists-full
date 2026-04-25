@@ -7,8 +7,6 @@
 """Extractors for https://gofile.io/"""
 
 from .common import Extractor, Message
-from .. import exception
-from ..cache import memcache
 import hashlib
 import time
 
@@ -23,12 +21,12 @@ class GofileFolderExtractor(Extractor):
     example = "https://gofile.io/d/ID"
 
     def items(self):
-        recursive = self.config("recursive")
+        recursive = self.config("recursive", True)
         password = self.config("password")
 
         token = self.config("api-token")
         if not token:
-            token = self._create_account()
+            token = self.cache(self._create_account, _key=None)
         self.cookies.set("accountToken", token, domain=".gofile.io")
         self.api_token = token
 
@@ -38,7 +36,7 @@ class GofileFolderExtractor(Extractor):
         try:
             contents = folder.pop("children")
         except KeyError:
-            raise exception.AuthorizationError("Password required")
+            raise self.exc.AuthorizationError("Password required")
 
         num = 0
         for content in contents.values():
@@ -74,15 +72,14 @@ class GofileFolderExtractor(Extractor):
 
         if response["status"] != "ok":
             if response["status"] == "error-notFound":
-                raise exception.NotFoundError("content")
+                raise self.exc.NotFoundError("content")
             if response["status"] == "error-passwordRequired":
-                raise exception.AuthorizationError("Password required")
-            raise exception.AbortExtraction(
+                raise self.exc.AuthorizationError("Password required")
+            raise self.exc.AbortExtraction(
                 f"{endpoint} failed (Status: {response['status']})")
 
         return response["data"]
 
-    @memcache()
     def _create_account(self):
         self.log.debug("Creating temporary account")
         return self.request_api("/accounts", method="POST")["token"]
@@ -93,7 +90,7 @@ class GofileFolderExtractor(Extractor):
                 f"{lang}::"
                 f"{self.api_token}::"
                 f"{int(time.time() / 14400)}::"
-                f"f4s58gs6")
+                f"5d4f7g8sd45fsd")
         return hashlib.sha256(data.encode()).hexdigest()
 
     def _get_content(self, content_id, password=None):

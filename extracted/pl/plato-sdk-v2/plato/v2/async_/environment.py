@@ -260,7 +260,7 @@ class Environment:
         if self.mesh_ip:
             return self.mesh_ip
 
-        logger.warning("mesh_ip not cached for job %s, falling back to API call", self.job_id)
+        logger.debug("mesh_ip not cached for job %s, falling back to API call", self.job_id)
 
         result = await jobs.get_job_info.asyncio(
             client=self._http,

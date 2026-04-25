@@ -31,15 +31,16 @@ Classes
 - :class:`ArrayCalibration`
 
 """
+
 import functools
 import numpy
 
 
-class AbstractCalibration(object):
+class AbstractCalibration:
     """A calibration is a transformation to be applied to an axis (i.e. a 1D array)."""
 
     def __init__(self):
-        super(AbstractCalibration, self).__init__()
+        super().__init__()
 
     def __call__(self, x):
         """Apply calibration to an axis or to a value.
@@ -66,7 +67,7 @@ class NoCalibration(AbstractCalibration):
     """No calibration :math:`x \\mapsto x`"""
 
     def __init__(self):
-        super(NoCalibration, self).__init__()
+        super().__init__()
 
     def __call__(self, x):
         return x
@@ -87,7 +88,7 @@ class LinearCalibration(AbstractCalibration):
     """
 
     def __init__(self, y_intercept, slope):
-        super(LinearCalibration, self).__init__()
+        super().__init__()
         self.constant = y_intercept
         self.slope = slope
 
@@ -113,7 +114,7 @@ class ArrayCalibration(AbstractCalibration):
     :param x1: Calibration array"""
 
     def __init__(self, x1):
-        super(ArrayCalibration, self).__init__()
+        super().__init__()
         if not isinstance(x1, (list, tuple)) and not hasattr(x1, "shape"):
             raise TypeError(
                 "The calibration array must be a sequence (list, dataset, array)"
@@ -139,16 +140,19 @@ class ArrayCalibration(AbstractCalibration):
             "ArrayCalibration must be applied to array of same size " "or to index."
         )
 
-    @functools.lru_cache()
+    @functools.lru_cache
     def is_affine(self):
         """If all values in the calibration array are regularly spaced,
         return True."""
         if self.calibration_array.size < 2:
             return False
-        delta = numpy.diff(self.calibration_array)
-        # use a less strict relative tolerance to account for rounding errors
-        # e.g. when using float64 into float32 (see #1823)
-        return numpy.allclose(delta, delta[0], rtol=1e-4)
+        affine_values = numpy.linspace(
+            self.calibration_array[0],
+            self.calibration_array[-1],
+            len(self.calibration_array),
+            dtype=self.calibration_array.dtype,
+        )
+        return numpy.allclose(self.calibration_array, affine_values)
 
     def get_slope(self):
         """If the calibration array is regularly spaced, return the spacing."""
@@ -165,7 +169,7 @@ class FunctionCalibration(AbstractCalibration):
     :param function: Calibration function"""
 
     def __init__(self, function, is_affine=False):
-        super(FunctionCalibration, self).__init__()
+        super().__init__()
         if not hasattr(function, "__call__"):
             raise TypeError("The calibration function must be a callable")
         self.function = function

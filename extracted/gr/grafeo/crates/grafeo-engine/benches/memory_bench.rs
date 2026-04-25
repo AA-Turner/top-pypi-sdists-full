@@ -5,6 +5,9 @@
 //! `target/criterion/memory_snapshot.json`. The CI comparison script reads
 // Bench indices are small known values
 #![allow(clippy::cast_possible_wrap)]
+// reason: criterion_group! expansion from codspeed-criterion-compat does not
+// carry doc comments on the generated wrapper functions.
+#![allow(missing_docs)]
 //! that file and checks against absolute bounds in `bench-thresholds.toml`.
 //!
 //! Run with: cargo bench --all-features --bench memory_bench

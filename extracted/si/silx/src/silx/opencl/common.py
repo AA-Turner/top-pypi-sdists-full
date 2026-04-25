@@ -29,11 +29,11 @@
 # OTHER DEALINGS IN THE SOFTWARE.
 #
 
-__author__ = "Jerome Kieffer"
+__author__ = "Jérôme Kieffer"
 __contact__ = "Jerome.Kieffer@ESRF.eu"
 __license__ = "MIT"
-__copyright__ = "2012-2017 European Synchrotron Radiation Facility, Grenoble, France"
-__date__ = "20/11/2024"
+__copyright__ = "2012-2026 European Synchrotron Radiation Facility, Grenoble, France"
+__date__ = "13/03/2026"
 __status__ = "stable"
 
 import os
@@ -67,12 +67,14 @@ else:
             pyopencl = None
 
 if pyopencl is not None:
-    import pyopencl.array as array
+    import pyopencl.array as array  # noqa F401
 
     mf = pyopencl.mem_flags
 else:
+    array = None
+
     # Define default mem flags
-    class mf(object):
+    class mf:
         WRITE_ONLY = 1
         READ_ONLY = 1
         READ_WRITE = 1
@@ -110,45 +112,40 @@ NVIDIA_FLOP_PER_CORE = {
 
 AMD_FLOP_PER_CORE = 160  # Measured on a M7820 10 core, 700MHz 1120GFlops
 
-def get_pyopencl_ctx_tuple(pyopencl_ctx_str, cache=None):
+
+def get_pyopencl_ctx_tuple(pyopencl_ctx_str: str, cache: dict = None):
     """
     Converts a PYOPENCL_CTX environment variable into a tuple (platform, device)
 
+    :param pyopencl_ctx_str: PYOPENCL_CTX Sting
     :param cache: dict with the already created contexts
+    :return: (platform_id, device_id)
     """
+    ctx = None
+    split_answers = pyopencl_ctx_str.split(":")
 
-    def _convert_to_int(val, default_val=0):
-        try:
-            ret = int(val)
-        except ValueError:
-            ret = default_val
-        return ret
+    if hasattr(pyopencl, "choose_devices"):
+        # pyopencl >=2024.2: Context created only once
+        devices = pyopencl.choose_devices(interactive=False, answers=split_answers)
+        device = devices[0]
 
-    if pyopencl_ctx_str in ["", ":"]:
-        return (0, 0)
-    if ":" in pyopencl_ctx_str:
-        platform, device = pyopencl_ctx_str.split(":")
-        platform_id = _convert_to_int(platform)
-        device_id = _convert_to_int(device)
-    elif pyopencl_ctx_str.isdigit():
-        platform_id = _convert_to_int(pyopencl_ctx_str)
-        device_id = 0
     else:
-        if "choose_devices" in dir(pyopencl):
-            device = pyopencl.choose_devices(interactive=False)
-            device_id = device_instance.platform.get_devices().index(device_instance)
-            platform_id = pyopencl.get_platforms().index(device.platform)
-        else:  #Fallback for elder PyOpenCL
-            ctx = pyopencl.create_some_context(interactive=False)
-            device = device_instance = ctx.devices[0]
-            device_id = device_instance.platform.get_devices().index(device_instance)
-            platform_id = pyopencl.get_platforms().index(device.platform)
-            if cache is not None:
-                cache[(platform_id, device_id)] = ctx
+        # pyopencl <=2024.1: one needs to create a context anyway
+        ctx = pyopencl.create_some_context(interactive=False, answers=split_answers)
+        device = ctx.devices[0]
+    platform = device.platform
+    device_id = platform.get_devices().index(device)
+    platform_id = pyopencl.get_platforms().index(platform)
+
+    if cache is not None and (platform_id, device_id) not in cache:
+        if ctx is None:
+            ctx = pyopencl.Context([device])
+        cache[(platform_id, device_id)] = ctx
+
     return (platform_id, device_id)
 
 
-class Device(object):
+class Device:
     """
     Simple class that contains the structure of an OpenCL device
     """
@@ -254,7 +251,7 @@ class Device(object):
         return self._atomic64
 
 
-class Platform(object):
+class Platform:
     """
     Simple class that contains the structure of an OpenCL platform
     """
@@ -344,10 +341,8 @@ def _measure_workgroup_size(device_or_context, fast=False):
         )
         device = ctx.devices[0]
     else:
-        raise RuntimeError(
-            """given parameter device_or_context is not an
-            instanciation of a device or a context"""
-        )
+        raise RuntimeError("""given parameter device_or_context is not an
+            instanciation of a device or a context""")
     shape = device.max_work_group_size
     # get the context
 
@@ -361,12 +356,15 @@ def _measure_workgroup_size(device_or_context, fast=False):
     try:
         d_data_1.fill(numpy.float32(1.0))
     except Exception as err:
-        logger.error("Unable to execute any element-wise kernel! %s: %s", type(err), err)
+        logger.error(
+            "Unable to execute any element-wise kernel! %s: %s", type(err), err
+        )
         return max_valid_wg
 
     program = pyopencl.Program(ctx, get_opencl_code("addition")).build()
+    addition = program.addition
     if fast:
-        max_valid_wg = program.addition.get_work_group_info(
+        max_valid_wg = addition.get_work_group_info(
             pyopencl.kernel_work_group_info.WORK_GROUP_SIZE, device
         )
     else:
@@ -375,7 +373,7 @@ def _measure_workgroup_size(device_or_context, fast=False):
             d_res = pyopencl.array.empty_like(d_data)
             wg = 1 << i
             try:
-                evt = program.addition(
+                evt = addition(
                     queue,
                     (shape,),
                     (wg,),
@@ -409,7 +407,7 @@ def _is_nvidia_gpu(vendor, devtype):
     return (vendor == "NVIDIA Corporation") and (devtype == "GPU")
 
 
-class OpenCL(object):
+class OpenCL:
     """
     Simple class that wraps the structure ocl_tools_extended.h
 
@@ -640,8 +638,9 @@ class OpenCL(object):
             platformid = int(platformid)
             deviceid = int(deviceid)
         elif "PYOPENCL_CTX" in os.environ:
-            platformid, deviceid = get_pyopencl_ctx_tuple(os.environ["PYOPENCL_CTX"],
-                                                          cache=self.context_cache if cached else None)
+            platformid, deviceid = get_pyopencl_ctx_tuple(
+                os.environ["PYOPENCL_CTX"], cache=self.context_cache if cached else None
+            )
         else:
             ids = self.select_device(type=devicetype, extensions=extensions)
             if ids:
@@ -652,11 +651,15 @@ class OpenCL(object):
                 ctx = self.context_cache[(platformid, deviceid)]
             else:
                 try:
-                    device = pyopencl.get_platforms()[platformid].get_devices()[deviceid]
+                    device = pyopencl.get_platforms()[platformid].get_devices()[
+                        deviceid
+                    ]
                     ctx = pyopencl.Context(devices=[device])
                 except pyopencl._cl.LogicError as error:
                     self.platforms[platformid].devices[deviceid].set_unavailable()
-                    logger.warning(f"Unable to create context for ({platformid}:{deviceid}): {error}")
+                    logger.warning(
+                        f"Unable to create context for ({platformid}:{deviceid}): {error}"
+                    )
                     ctx = None
                 else:
                     if cached:
@@ -793,6 +796,7 @@ def allocate_texture(ctx, shape, hostbuf=None, support_1D=False):
         hostbuf=hostbuf,
     )
 
+
 def check_textures_availability(ctx):
     """
     Check whether textures are supported on the current OpenCL context.
@@ -826,16 +830,17 @@ def measure_workgroup_size(device):
 
     if device is "all", returns a dict with all devices with their ids as keys.
     """
-    if (ocl is None) or (device is None):
+    lazy_ocl = ocl  # noqa F821 Lazy module attribute
+    if (lazy_ocl is None) or (device is None):
         return None
 
     if isinstance(device, tuple) and (len(device) == 2):
         # this is probably a tuple (platformid, deviceid)
-        device = ocl.create_context(platformid=device[0], deviceid=device[1])
+        device = lazy_ocl.create_context(platformid=device[0], deviceid=device[1])
 
     if device == "all":
         res = {}
-        for pid, platform in enumerate(ocl.platforms):
+        for pid, platform in enumerate(lazy_ocl.platforms):
             for did, _devices in enumerate(platform.devices):
                 tup = (pid, did)
                 res[tup] = measure_workgroup_size(tup)
@@ -870,7 +875,7 @@ def query_kernel_info(program, kernel, what="WORK_GROUP_SIZE"):
         assert kernel in (
             k.function_name for k in program.all_kernels()
         ), "the kernel exists"
-        kernel = program.__getattr__(kernel_name)
+        kernel = pyopencl.Kernel(program, kernel_name)
 
     device = program.devices[0]
     query_wg = getattr(pyopencl.kernel_work_group_info, what)

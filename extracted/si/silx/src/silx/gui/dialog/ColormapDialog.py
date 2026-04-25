@@ -75,6 +75,7 @@ from ..colors import Colormap, cursorColorForColormap
 from ..plot import PlotWidget
 from ..plot.items.axis import Axis
 from ..plot.items import BoundingRect
+from ._ColormapPercentileWidget import ColormapPercentilesWidget
 from silx.gui.widgets.FloatEdit import FloatEdit
 import weakref
 from silx.math.combo import min_max
@@ -86,7 +87,6 @@ from silx.gui.widgets.FormGridLayout import FormGridLayout
 from silx.math.histogram import Histogramnd
 from silx.gui.plot.items.roi import RectangleROI
 from silx.gui.plot.tools.roi import RegionOfInterestManager
-from silx.utils.deprecation import deprecated
 from silx.utils.enum import Enum as _Enum
 
 _logger = logging.getLogger(__name__)
@@ -234,11 +234,14 @@ class _AutoscaleModeComboBox(qt.QComboBox):
     DATA = {
         Colormap.MINMAX: ("Min/max", "Use the data min/max"),
         Colormap.STDDEV3: ("Mean±3std", "Use the data mean ± 3 × standard deviation"),
-        Colormap.PERCENTILE_1_99: ("Percentile 1-99", "Use 1st to 99th percentile of data"),
+        Colormap.PERCENTILE: (
+            "Percentile",
+            "Use n'st to (100-n)'th percentile of data",
+        ),
     }
 
     def __init__(self, parent: qt.QWidget):
-        super(_AutoscaleModeComboBox, self).__init__(parent=parent)
+        super().__init__(parent=parent)
         self.currentIndexChanged.connect(self.__updateTooltip)
         self._init()
 
@@ -251,7 +254,7 @@ class _AutoscaleModeComboBox(qt.QComboBox):
 
     def setCurrentIndex(self, index):
         self.__updateTooltip(index)
-        super(_AutoscaleModeComboBox, self).setCurrentIndex(index)
+        super().setCurrentIndex(index)
 
     def __updateTooltip(self, index):
         if index > -1:
@@ -357,7 +360,7 @@ class _ColormapHistogram(qt.QWidget):
             self._updateDisplayMode()
             self._invalidated = False
         self._updateMarkerPosition()
-        return super(_ColormapHistogram, self).paintEvent(event)
+        return super().paintEvent(event)
 
     def getFiniteRange(self):
         """Returns the colormap range as displayed in the plot."""
@@ -783,10 +786,6 @@ class _ColormapHistogram(qt.QWidget):
     def getDisplayMode(self) -> DisplayMode:
         return self._displayMode
 
-    @deprecated(since_version="2.1.0", replacement="getDisplayMode")
-    def getDsiplayMode(self):
-        return self.getDisplayMode()
-
     def _displayModeChanged(self, action):
         mode = action.data()
         self._setDisplayMode(mode)
@@ -938,7 +937,7 @@ class ColormapDialog(qt.QDialog):
         for name, userData in normalizations:
             try:
                 icon = icons.getQIcon("colormap-norm-%s" % userData)
-            except:
+            except Exception:
                 icon = qt.QIcon()
             self._comboBoxNormalization.addItem(icon, name, userData)
         self._comboBoxNormalization.currentIndexChanged[int].connect(
@@ -960,7 +959,9 @@ class ColormapDialog(qt.QDialog):
         autoScaleCombo = _AutoscaleModeComboBox(self)
         autoScaleCombo.currentIndexChanged.connect(self._autoscaleModeUpdated)
         self._autoScaleCombo = autoScaleCombo
-
+        self._autoScaleCombo.currentTextChanged.connect(
+            self._updatePercentilesWidgetEnabled
+        )
         # Min row
         self._minValue = _BoundaryWidget(parent=self, value=1.0)
         self._minValue.sigAutoScaleChanged.connect(self._minAutoscaleUpdated)
@@ -975,6 +976,10 @@ class ColormapDialog(qt.QDialog):
 
         self._autoButtons = _AutoScaleButton(self)
         self._autoButtons.autoRangeChanged.connect(self._autoRangeButtonsUpdated)
+
+        # used percentile
+        self._percentilesWidget = ColormapPercentilesWidget(self)
+        self._percentilesWidget.percentilesChanged.connect(self._percentilesChanged)
 
         rangeLayout = qt.QGridLayout()
         miniFont = qt.QFont(self.font())
@@ -1059,11 +1064,15 @@ class ColormapDialog(qt.QDialog):
         self._scaleToAreaGroup.setLayout(layout)
         self._scaleToAreaGroup.setVisible(False)
 
-        layoutScale = qt.QHBoxLayout()
+        layoutScale = qt.QGridLayout()
         layoutScale.setContentsMargins(0, 0, 0, 0)
-        layoutScale.addWidget(self._autoButtons)
-        layoutScale.addWidget(self._autoScaleCombo)
-        layoutScale.addStretch()
+        layoutScale.addWidget(self._autoButtons, 0, 0, 1, 1)
+        layoutScale.addWidget(self._autoScaleCombo, 0, 1, 1, 1)
+        layoutScale.addItem(
+            qt.QSpacerItem(0, 0, qt.QSizePolicy.Fixed, qt.QSizePolicy.Fixed), 0, 2, 1, 1
+        )
+
+        layoutScale.addWidget(self._percentilesWidget, 1, 1, 1, 1)
 
         formLayout = FormGridLayout(self)
         formLayout.setContentsMargins(10, 10, 10, 10)
@@ -1081,7 +1090,9 @@ class ColormapDialog(qt.QDialog):
         formLayout.addItem(
             qt.QSpacerItem(1, 1, qt.QSizePolicy.Fixed, qt.QSizePolicy.Fixed)
         )
-        formLayout.addRow("Scale:", layoutScale)
+        scaleLabel = qt.QLabel("Scale:")
+        scaleLabel.setAlignment(qt.Qt.AlignTop)
+        formLayout.addRow(scaleLabel, layoutScale)
         formLayout.addRow("Fixed scale on:", self._scaleToAreaGroup)
         formLayout.addRow(self._buttonsModal)
         formLayout.addRow(self._buttonsNonModal)
@@ -1098,6 +1109,7 @@ class ColormapDialog(qt.QDialog):
         self.setTabOrder(self._selectedAreaButton, self._buttonsModal)
         self.setTabOrder(self._buttonsModal, self._buttonsNonModal)
 
+        self._updatePercentilesWidgetEnabled()
         self._applyColormap()
 
     def getHistogramWidget(self):
@@ -1128,20 +1140,20 @@ class ColormapDialog(qt.QDialog):
 
     def showEvent(self, event):
         self.visibleChanged.emit(True)
-        super(ColormapDialog, self).showEvent(event)
+        super().showEvent(event)
         if self.isVisible():
             self._validate()
 
     def closeEvent(self, event):
         if not self.isModal():
             self.accept()
-        super(ColormapDialog, self).closeEvent(event)
+        super().closeEvent(event)
 
     def hideEvent(self, event):
         if self._selectedAreaButton.isChecked():
             self._selectedAreaButton.setChecked(False)
         self.visibleChanged.emit(False)
-        super(ColormapDialog, self).hideEvent(event)
+        super().hideEvent(event)
 
     def close(self):
         if self._selectedAreaButton.isChecked():
@@ -1158,12 +1170,12 @@ class ColormapDialog(qt.QDialog):
     def event(self, event):
         if event.type() == qt.QEvent.DeferredDelete:
             self.__aboutToDelete = True
-        return super(ColormapDialog, self).event(event)
+        return super().event(event)
 
     def exec(self):
         wasModal = self.isModal()
         self.setModal(True)
-        result = super(ColormapDialog, self).exec()
+        result = super().exec()
         if not self.__aboutToDelete:
             self.setModal(wasModal)
         return result
@@ -1232,8 +1244,7 @@ class ColormapDialog(qt.QDialog):
 
         if data.ndim == 3:  # RGB(A) images
             _logger.info(
-                "Converting current image from RGB(A) to grayscale\
-                in order to compute the intensity distribution"
+                "Converting current image from RGB(A) to grayscale in order to compute the intensity distribution"
             )
             data = data[:, :, 0] * 0.299 + data[:, :, 1] * 0.587 + data[:, :, 2] * 0.114
 
@@ -1321,7 +1332,8 @@ class ColormapDialog(qt.QDialog):
                     self._item = None
                     raise ValueError("Item %s is not supported" % item)
                 item.sigItemChanged.connect(self.__itemChanged)
-                self._item = weakref.ref(item, self._itemAboutToFinalize)
+                item.destroyed.connect(self._itemDestroyed)
+                self._item = weakref.ref(item)
         finally:
             self._syncScaleToButtonsEnabled()
             self._dataRange = None
@@ -1335,8 +1347,9 @@ class ColormapDialog(qt.QDialog):
         if self._item is not None:
             item = self._item()
             self._item = None
-            if item is not None:
+            if item is not None and qtinspect.isValid(item):
                 item.sigItemChanged.disconnect(self.__itemChanged)
+                item.destroyed.disconnect(self._itemDestroyed)
 
     def __itemChanged(self, event):
         if event == items.ItemChangedType.DATA:
@@ -1383,20 +1396,16 @@ class ColormapDialog(qt.QDialog):
             return colormapped
         return None
 
-    def _colormapAboutToFinalize(self, weakrefColormap):
-        """Callback when the data weakref is about to be finalized."""
-        if self._colormap is weakrefColormap and qtinspect.isValid(self):
-            self.setColormap(None)
+    def _colormapDestroyed(self):
+        self.setColormap(None)
 
     def _dataAboutToFinalize(self, weakrefData):
         """Callback when the data weakref is about to be finalized."""
         if self._data is weakrefData and qtinspect.isValid(self):
             self.setData(None)
 
-    def _itemAboutToFinalize(self, weakref):
-        """Callback when the data weakref is about to be finalized."""
-        if self._item is weakref and qtinspect.isValid(self):
-            self.setItem(None)
+    def _itemDestroyed(self):
+        self.setItem(None)
 
     def _getHistogram(self):
         """Returns the histogram defined by the dialog as metadata
@@ -1574,12 +1583,14 @@ class ColormapDialog(qt.QDialog):
         oldColormap = self.getColormap()
         if oldColormap is colormap:
             return
-        if oldColormap is not None:
+        if oldColormap is not None and qtinspect.isValid(oldColormap):
             oldColormap.sigChanged.disconnect(self._applyColormap)
+            oldColormap.destroyed.disconnect(self._colormapDestroyed)
 
         if colormap is not None:
             colormap.sigChanged.connect(self._applyColormap)
-            colormap = weakref.ref(colormap, self._colormapAboutToFinalize)
+            colormap.destroyed.connect(self._colormapDestroyed)
+            colormap = weakref.ref(colormap)
 
         self._colormap = colormap
         self.storeCurrentState()
@@ -1640,6 +1651,10 @@ class ColormapDialog(qt.QDialog):
             with utils.blockSignals(self._autoButtons):
                 self._autoButtons.setEnabled(colormap.isEditable())
                 self._autoButtons.setAutoRangeFromColormap(colormap)
+            with utils.blockSignals(self._percentilesWidget):
+                self._percentilesWidget.setPercentilesRange(
+                    colormap.getAutoscalePercentiles()
+                )
 
             vmin, vmax = colormap.getVRange()
             if vmin is None or vmax is None:
@@ -1704,7 +1719,6 @@ class ColormapDialog(qt.QDialog):
         if colormap is not None:
             normalization = self._comboBoxNormalization.itemData(index)
             self._gammaSpinBox.setEnabled(normalization == "gamma")
-
             with self._colormapChange:
                 colormap.setNormalization(normalization)
                 self._histoWidget.updateNormalization()
@@ -1728,6 +1742,21 @@ class ColormapDialog(qt.QDialog):
             with self._colormapChange:
                 colormap.setAutoscaleMode(mode)
 
+        self._updateWidgetRange()
+
+    def _updatePercentilesWidgetEnabled(self):
+        enableWidget = (
+            self._autoScaleCombo.currentText()
+            == _AutoscaleModeComboBox.DATA[Colormap.PERCENTILE][0]
+        )
+        self._percentilesWidget.setEnabled(enableWidget)
+
+    def _percentilesChanged(self, percentiles):
+        """Callback executed when the saturation level has been changed (will impact the 'PERCENTILE' mode)"""
+        colormap = self.getColormap()
+        if colormap is not None:
+            with self._colormapChange:
+                colormap.setAutoscalePercentiles(percentiles)
         self._updateWidgetRange()
 
     def _minAutoscaleUpdated(self, autoEnabled):
@@ -1921,4 +1950,4 @@ class ColormapDialog(qt.QDialog):
             if nextFocus is not None:
                 nextFocus.setFocus(qt.Qt.OtherFocusReason)
         else:
-            super(ColormapDialog, self).keyPressEvent(event)
+            super().keyPressEvent(event)

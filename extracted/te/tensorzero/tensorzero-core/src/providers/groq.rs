@@ -13,13 +13,11 @@ use tensorzero_types_providers::groq::{
 };
 use tokio::time::Instant;
 
-use crate::cache::ModelProviderRequest;
 use crate::endpoints::inference::InferenceCredentials;
 use crate::error::{
     DelayedError, DisplayOrDebugGateway, Error, ErrorDetails, warn_discarded_thought_block,
 };
 use crate::http::TensorzeroHttpClient;
-use crate::inference::types::ProviderInferenceResponseArgs;
 use crate::inference::types::batch::{BatchRequestRow, PollBatchInferenceResponse};
 use crate::inference::types::chat_completion_inference_params::{
     ChatCompletionInferenceParamsV2, ServiceTier, warn_inference_parameter_not_supported,
@@ -29,14 +27,16 @@ use crate::inference::types::{ApiType, FinishReason, ProviderInferenceResponseSt
 use crate::inference::types::{
     ContentBlock, ContentBlockChunk, ContentBlockOutput, Latency, ModelInferenceRequest,
     ModelInferenceRequestJsonMode, ObjectStorageFile, PeekableProviderInferenceResponseStream,
-    ProviderInferenceResponse, ProviderInferenceResponseChunk, RequestMessage, Role, Text,
-    TextChunk, Thought, ThoughtChunk, Unknown, Usage,
+    ProviderInferenceResponse, ProviderInferenceResponseArgs, ProviderInferenceResponseChunk,
+    RequestMessage, Role, Text, TextChunk, Thought, ThoughtChunk, Unknown, Usage,
     batch::StartBatchProviderInferenceResponse,
     resolved_input::{FileUrl, LazyFile, LazyFileExt},
 };
 use crate::inference::{InferenceProvider, TensorZeroEventError};
-use crate::model::{Credential, ModelProvider};
-use crate::tool::{FunctionToolConfig, ToolCall, ToolCallChunk, ToolChoice};
+use crate::model::Credential;
+use crate::model::{ModelProviderRequestInfo, ProviderInferenceRequest};
+use crate::tool::{ToolCall, ToolCallChunk, ToolChoice};
+use tensorzero_inference_types::FunctionToolDef;
 use uuid::Uuid;
 
 use crate::providers::chat_completions::prepare_chat_completion_tools;
@@ -161,10 +161,10 @@ impl GroqCredentials {
 impl InferenceProvider for GroqProvider {
     async fn infer<'a>(
         &'a self,
-        request: ModelProviderRequest<'a>,
+        request: ProviderInferenceRequest<'a>,
         http_client: &'a TensorzeroHttpClient,
         dynamic_api_keys: &'a InferenceCredentials,
-        model_provider: &'a ModelProvider,
+        model_provider: &'a ModelProviderRequestInfo,
     ) -> Result<ProviderInferenceResponse, Error> {
         let request_url = "https://api.groq.com/openai/v1/chat/completions".to_string();
         let api_key = self
@@ -270,16 +270,15 @@ impl InferenceProvider for GroqProvider {
 
     async fn infer_stream<'a>(
         &'a self,
-        ModelProviderRequest {
+        ProviderInferenceRequest {
             request,
             provider_name: _,
             model_name,
-            otlp_config: _,
             model_inference_id,
-        }: ModelProviderRequest<'a>,
+        }: ProviderInferenceRequest<'a>,
         http_client: &'a TensorzeroHttpClient,
         dynamic_api_keys: &'a InferenceCredentials,
-        model_provider: &'a ModelProvider,
+        model_provider: &'a ModelProviderRequestInfo,
     ) -> Result<(PeekableProviderInferenceResponseStream, String), Error> {
         let request_body = serde_json::to_value(
             GroqRequest::new(&self.model_name, request, self.reasoning_format.as_deref()).await?,
@@ -967,16 +966,16 @@ pub(super) struct GroqTool<'a> {
     pub(super) strict: bool,
 }
 
-impl<'a> From<&'a FunctionToolConfig> for GroqTool<'a> {
-    fn from(tool: &'a FunctionToolConfig) -> Self {
+impl<'a> From<&'a FunctionToolDef> for GroqTool<'a> {
+    fn from(tool: &'a FunctionToolDef) -> Self {
         GroqTool {
             r#type: GroqToolType::Function,
             function: GroqFunction {
-                name: tool.name(),
-                description: Some(tool.description()),
-                parameters: tool.parameters(),
+                name: &tool.name,
+                description: Some(&tool.description),
+                parameters: &tool.parameters,
             },
-            strict: tool.strict(),
+            strict: tool.strict,
         }
     }
 }
@@ -1485,10 +1484,11 @@ mod tests {
         PendingObjectStoreFile, RequestMessage,
     };
     use crate::providers::test_helpers::{
-        MULTI_TOOL_CONFIG, QUERY_TOOL, WEATHER_TOOL, WEATHER_TOOL_CONFIG,
+        MULTI_PROVIDER_TOOL_CONFIG, QUERY_TOOL, WEATHER_PROVIDER_TOOL_CONFIG, WEATHER_TOOL,
     };
     use crate::tool::ToolCallConfig;
     use crate::utils::testing::capture_logs;
+    use tensorzero_inference_types::ProviderToolCallConfig;
     use tensorzero_types_providers::groq::{
         GroqChatChunkChoice, GroqDelta, GroqFunctionCallChunk, GroqResponseFunctionCall,
         GroqResponseMessage, GroqToolCallChunk,
@@ -1669,7 +1669,7 @@ mod tests {
             seed: None,
             stream: false,
             json_mode: ModelInferenceRequestJsonMode::On,
-            tool_config: Some(Cow::Borrowed(&WEATHER_TOOL_CONFIG)),
+            tool_config: Some(Cow::Borrowed(&*WEATHER_PROVIDER_TOOL_CONFIG)),
             function_type: FunctionType::Chat,
             output_schema: None,
             extra_body: Default::default(),
@@ -2155,7 +2155,7 @@ mod tests {
             seed: None,
             stream: false,
             json_mode: ModelInferenceRequestJsonMode::On,
-            tool_config: Some(Cow::Borrowed(&MULTI_TOOL_CONFIG)),
+            tool_config: Some(Cow::Borrowed(&*MULTI_PROVIDER_TOOL_CONFIG)),
             function_type: FunctionType::Chat,
             output_schema: None,
             extra_body: Default::default(),
@@ -2181,6 +2181,7 @@ mod tests {
             parallel_tool_calls: Some(true),
             ..Default::default()
         };
+        let provider_tool_config = ProviderToolCallConfig::from(&tool_config);
 
         // Test no tools but a tool choice and make sure tool choice output is None
         let request_without_tools = ModelInferenceRequest {
@@ -2198,7 +2199,7 @@ mod tests {
             seed: None,
             stream: false,
             json_mode: ModelInferenceRequestJsonMode::On,
-            tool_config: Some(Cow::Borrowed(&tool_config)),
+            tool_config: Some(Cow::Borrowed(&provider_tool_config)),
             function_type: FunctionType::Chat,
             output_schema: None,
             extra_body: Default::default(),
@@ -2229,6 +2230,7 @@ mod tests {
             },
         };
 
+        let provider_tool_config = ProviderToolCallConfig::from(&tool_config);
         let request = ModelInferenceRequest {
             inference_id: uuid::Uuid::now_v7(),
             messages: vec![RequestMessage {
@@ -2244,7 +2246,7 @@ mod tests {
             seed: None,
             stream: false,
             json_mode: ModelInferenceRequestJsonMode::On,
-            tool_config: Some(Cow::Borrowed(&tool_config)),
+            tool_config: Some(Cow::Borrowed(&provider_tool_config)),
             function_type: FunctionType::Chat,
             output_schema: None,
             extra_body: Default::default(),

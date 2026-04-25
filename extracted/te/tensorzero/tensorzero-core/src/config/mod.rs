@@ -25,16 +25,22 @@ use pyo3::prelude::*;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use snapshot::SnapshotHash;
+use sqlx::PgPool;
 use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tensorzero_derive::TensorZeroDeserialize;
+use tensorzero_stored_config::{
+    StoredFileRef, StoredMetricConfig, StoredMetricLevel, StoredMetricOptimize, StoredMetricType,
+    StoredNonStreamingTimeouts, StoredStreamingTimeouts, StoredTimeoutsConfig, StoredToolConfig,
+};
 use tracing::Span;
 use tracing::instrument;
 use tracing_opentelemetry::OpenTelemetrySpanExt;
 use unwritten::UnwrittenConfig;
 use url::Url;
+use uuid::Uuid;
 
 use crate::config::gateway::{GatewayConfig, UninitializedGatewayConfig};
 use crate::config::path::{ResolvedTomlPathData, ResolvedTomlPathDirectory};
@@ -57,7 +63,9 @@ use crate::model::{
     CredentialLocationWithFallback, ModelConfig, ModelTable, UninitializedModelConfig,
 };
 use crate::model_table::{CowNoClone, ProviderTypeDefaultCredentials, ShorthandModelConfig};
-use crate::optimization::{OptimizerInfo, UninitializedOptimizerInfo};
+use crate::optimization::{
+    OptimizerInfo, UninitializedOptimizerConfig, UninitializedOptimizerInfo,
+};
 use crate::tool::{StaticToolConfig, ToolChoice, create_json_mode_tool_call_config};
 use crate::variant::best_of_n_sampling::UninitializedBestOfNSamplingConfig;
 use crate::variant::chain_of_thought::UninitializedChainOfThoughtConfig;
@@ -68,11 +76,13 @@ use crate::variant::{Variant, VariantConfig, VariantInfo};
 use std::error::Error as StdError;
 
 pub mod built_in;
+pub mod editable;
 pub mod gateway;
 pub mod namespace;
 pub mod path;
 pub mod provider_types;
 pub mod rate_limiting;
+pub mod rehydrate;
 pub mod snapshot;
 mod span_map;
 #[cfg(test)]
@@ -81,29 +91,9 @@ pub mod unwritten;
 
 pub use namespace::Namespace;
 
-tokio::task_local! {
-    /// When set, we skip performing credential validation in model providers
-    /// This is used when running in e2e test mode, and by the 'evaluations' binary
-    /// We need to access this from async code (e.g. when looking up GCP SDK credentials),
-    /// so this needs to be a tokio task-local (as a task may be moved between threads)
-    ///
-    /// Since this needs to be accessed from a `Deserialize` impl, it needs to
-    /// be stored in a `static`, since we cannot pass in extra parameters when calling `Deserialize::deserialize`
-    static SKIP_CREDENTIAL_VALIDATION: ();
-}
-
-pub fn skip_credential_validation() -> bool {
-    // tokio::task_local doesn't have an 'is_set' method, so we call 'try_with'
-    // (which returns an `Err` if the task-local is not set)
-    SKIP_CREDENTIAL_VALIDATION.try_with(|()| ()).is_ok()
-}
-
-/// Runs the provider future with credential validation disabled
-/// This is safe to repeatedly nest (e.g. `with_skip_credential_validation(async move { with_skip_credential_validation(f).await })`),
-/// the original credential validation behavior will be restored after the outermost future completes
-pub async fn with_skip_credential_validation<T>(f: impl Future<Output = T>) -> T {
-    SKIP_CREDENTIAL_VALIDATION.scope((), f).await
-}
+pub use tensorzero_inference_types::credential_validation::{
+    skip_credential_validation, with_skip_credential_validation,
+};
 
 /// Configuration for the autopilot system.
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
@@ -113,6 +103,22 @@ pub struct AutopilotConfig {
     /// If unset, defaults to all nondestructive tools.
     /// If set, replaces the default list entirely.
     pub tool_whitelist: Option<Vec<String>>,
+}
+
+impl From<tensorzero_stored_config::StoredAutopilotConfig> for AutopilotConfig {
+    fn from(stored: tensorzero_stored_config::StoredAutopilotConfig) -> Self {
+        AutopilotConfig {
+            tool_whitelist: stored.tool_whitelist,
+        }
+    }
+}
+
+impl From<&AutopilotConfig> for tensorzero_stored_config::StoredAutopilotConfig {
+    fn from(config: &AutopilotConfig) -> Self {
+        tensorzero_stored_config::StoredAutopilotConfig {
+            tool_whitelist: config.tool_whitelist.clone(),
+        }
+    }
 }
 
 // Note - the `Default` impl only exists for convenience in tests
@@ -140,57 +146,67 @@ pub struct Config {
     pub hash: SnapshotHash,
 }
 
+#[serde_with::skip_serializing_none]
 #[cfg_attr(feature = "ts-bindings", derive(ts_rs::TS))]
 #[derive(Clone, Debug, Default, Deserialize, JsonSchema, PartialEq, Serialize)]
-#[cfg_attr(feature = "ts-bindings", ts(export))]
+#[cfg_attr(feature = "ts-bindings", ts(export, optional_fields))]
 #[serde(deny_unknown_fields)]
 pub struct NonStreamingTimeouts {
-    #[serde(default)]
     /// The total time allowed for the non-streaming request to complete.
     pub total_ms: Option<u64>,
 }
 
+#[serde_with::skip_serializing_none]
 #[cfg_attr(feature = "ts-bindings", derive(ts_rs::TS))]
 #[derive(Clone, Debug, Default, Deserialize, JsonSchema, PartialEq, Serialize)]
-#[cfg_attr(feature = "ts-bindings", ts(export))]
+#[cfg_attr(feature = "ts-bindings", ts(export, optional_fields))]
 #[serde(deny_unknown_fields)]
 pub struct StreamingTimeouts {
-    #[serde(default)]
     /// The time allowed for the first token to be produced.
     pub ttft_ms: Option<u64>,
-    #[serde(default)]
     /// The total time allowed for the entire streaming request to complete.
     pub total_ms: Option<u64>,
 }
 
 /// Configures the timeouts for both streaming and non-streaming requests.
 /// This can be attached to various other configs (e.g. variants, models, model providers)
+#[serde_with::skip_serializing_none]
 #[cfg_attr(feature = "ts-bindings", derive(ts_rs::TS))]
 #[derive(Clone, Debug, Default, Deserialize, JsonSchema, PartialEq, Serialize)]
-#[cfg_attr(feature = "ts-bindings", ts(export))]
+#[cfg_attr(feature = "ts-bindings", ts(export, optional_fields))]
 #[serde(deny_unknown_fields)]
 pub struct TimeoutsConfig {
-    #[serde(default)]
-    pub non_streaming: NonStreamingTimeouts,
-    #[serde(default)]
-    pub streaming: StreamingTimeouts,
+    pub non_streaming: Option<NonStreamingTimeouts>,
+    pub streaming: Option<StreamingTimeouts>,
+}
+
+impl From<&TimeoutsConfig> for StoredTimeoutsConfig {
+    fn from(config: &TimeoutsConfig) -> Self {
+        StoredTimeoutsConfig {
+            non_streaming: config
+                .non_streaming
+                .as_ref()
+                .map(|ns| StoredNonStreamingTimeouts {
+                    total_ms: ns.total_ms,
+                }),
+            streaming: config.streaming.as_ref().map(|s| StoredStreamingTimeouts {
+                ttft_ms: s.ttft_ms,
+                total_ms: s.total_ms,
+            }),
+        }
+    }
 }
 
 impl TimeoutsConfig {
     pub fn validate(&self, global_outbound_http_timeout: &Duration) -> Result<(), Error> {
-        let TimeoutsConfig {
-            non_streaming: NonStreamingTimeouts { total_ms },
-            streaming:
-                StreamingTimeouts {
-                    ttft_ms,
-                    total_ms: streaming_total_ms,
-                },
-        } = self;
+        let total_ms = self.non_streaming.as_ref().and_then(|ns| ns.total_ms);
+        let ttft_ms = self.streaming.as_ref().and_then(|s| s.ttft_ms);
+        let streaming_total_ms = self.streaming.as_ref().and_then(|s| s.total_ms);
 
         let global_ms = global_outbound_http_timeout.num_milliseconds();
 
         if let Some(total_ms) = total_ms
-            && Duration::milliseconds(*total_ms as i64) > *global_outbound_http_timeout
+            && Duration::milliseconds(total_ms as i64) > *global_outbound_http_timeout
         {
             return Err(Error::new(ErrorDetails::Config {
                 message: format!(
@@ -199,7 +215,7 @@ impl TimeoutsConfig {
             }));
         }
         if let Some(ttft_ms) = ttft_ms
-            && Duration::milliseconds(*ttft_ms as i64) > *global_outbound_http_timeout
+            && Duration::milliseconds(ttft_ms as i64) > *global_outbound_http_timeout
         {
             return Err(Error::new(ErrorDetails::Config {
                 message: format!(
@@ -208,7 +224,7 @@ impl TimeoutsConfig {
             }));
         }
         if let Some(streaming_total_ms) = streaming_total_ms
-            && Duration::milliseconds(*streaming_total_ms as i64) > *global_outbound_http_timeout
+            && Duration::milliseconds(streaming_total_ms as i64) > *global_outbound_http_timeout
         {
             return Err(Error::new(ErrorDetails::Config {
                 message: format!(
@@ -229,14 +245,35 @@ impl TimeoutsConfig {
     }
 }
 
+impl From<StoredTimeoutsConfig> for TimeoutsConfig {
+    fn from(stored: StoredTimeoutsConfig) -> Self {
+        TimeoutsConfig {
+            non_streaming: stored.non_streaming.map(|ns| NonStreamingTimeouts {
+                total_ms: ns.total_ms,
+            }),
+            streaming: stored.streaming.map(|s| StreamingTimeouts {
+                ttft_ms: s.ttft_ms,
+                total_ms: s.total_ms,
+            }),
+        }
+    }
+}
+
+#[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct TemplateFilesystemAccess {
     /// If `true`, allow minijinja to read from the filesystem (within the tree of the config file) for `{% include %}`
     /// Defaults to `false`
-    #[serde(default)]
-    enabled: bool,
+    enabled: Option<bool>,
     base_path: Option<ResolvedTomlPathDirectory>,
+}
+
+impl TemplateFilesystemAccess {
+    /// Returns `true` if filesystem access is explicitly enabled or a base path is configured.
+    pub fn is_active(&self) -> bool {
+        self.enabled == Some(true) || self.base_path.is_some()
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -432,15 +469,15 @@ fn resolve_object_storage_endpoint(endpoint: &str) -> Result<String, Error> {
 /// - `Auto` (default): prefers ClickHouse if available, falls back to Postgres.
 /// - `ClickHouse`: explicitly use ClickHouse.
 /// - `Postgres`: explicitly use Postgres.
-#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum ObservabilityBackend {
-    #[default]
     Auto,
     ClickHouse,
     Postgres,
 }
 
+#[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct ObservabilityConfig {
@@ -451,26 +488,38 @@ pub struct ObservabilityConfig {
     /// - `Some(false)`: observability is disabled — no data is written regardless of backend availability.
     pub enabled: Option<bool>,
     /// Selects the observability backend (and primary datastore).
-    #[serde(default)]
-    pub backend: ObservabilityBackend,
-    #[serde(default)]
-    pub async_writes: bool,
-    #[serde(default)]
-    pub batch_writes: BatchWritesConfig,
+    pub backend: Option<ObservabilityBackend>,
+    pub async_writes: Option<bool>,
+    pub batch_writes: Option<BatchWritesConfig>,
     #[deprecated(
         since = "2026.2.1",
         note = "Use `clickhouse.disable_automatic_migrations` instead"
     )]
-    #[serde(default)]
-    pub disable_automatic_migrations: bool,
+    pub disable_automatic_migrations: Option<bool>,
 }
 
+#[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct ClickHouseConfig {
     /// When `true`, the gateway will not run ClickHouse schema migrations on startup.
-    #[serde(default)]
-    pub disable_automatic_migrations: bool,
+    pub disable_automatic_migrations: Option<bool>,
+}
+
+impl From<tensorzero_stored_config::StoredClickHouseConfig> for ClickHouseConfig {
+    fn from(stored: tensorzero_stored_config::StoredClickHouseConfig) -> Self {
+        ClickHouseConfig {
+            disable_automatic_migrations: stored.disable_automatic_migrations,
+        }
+    }
+}
+
+impl From<&ClickHouseConfig> for tensorzero_stored_config::StoredClickHouseConfig {
+    fn from(config: &ClickHouseConfig) -> Self {
+        tensorzero_stored_config::StoredClickHouseConfig {
+            disable_automatic_migrations: config.disable_automatic_migrations,
+        }
+    }
 }
 
 impl ObservabilityConfig {
@@ -479,38 +528,39 @@ impl ObservabilityConfig {
     pub fn writes_enabled(&self) -> bool {
         self.enabled.unwrap_or(true)
     }
+
+    /// Returns whether async writes are enabled.
+    /// Defaults to `true` in production, `false` in e2e tests (where tests
+    /// write data and immediately query for it).
+    pub fn async_writes(&self) -> bool {
+        self.async_writes.unwrap_or(!cfg!(feature = "e2e_tests"))
+    }
 }
 
-pub(crate) fn default_flush_interval_ms() -> u64 {
+pub fn default_flush_interval_ms() -> u64 {
     100
 }
 
-pub(crate) fn default_max_rows() -> usize {
+pub fn default_max_rows() -> usize {
     1000
 }
 
+#[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct BatchWritesConfig {
     pub enabled: bool,
     // An internal flag to allow us to test batch writes in embedded gateway mode.
     // This can currently cause deadlocks, so we don't want normal embedded clients to use it.
-    #[serde(default)]
-    pub __force_allow_embedded_batch_writes: bool,
-    #[serde(default = "default_flush_interval_ms")]
-    pub flush_interval_ms: u64,
-    #[serde(default = "default_max_rows")]
-    pub max_rows: usize,
+    pub __force_allow_embedded_batch_writes: Option<bool>,
+    pub flush_interval_ms: Option<u64>,
+    pub max_rows: Option<usize>,
     /// Optional override for Postgres batch size. Defaults to `max_rows` when unset.
-    #[serde(default)]
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub max_rows_postgres: Option<usize>,
     /// Optional capacity for bounded batch writer channels per table type.
     /// When set, channels are bounded: if full, new rows are dropped and logged
     /// to protect against out-of-memory crashes.
     /// When unset (`None`), channels are unbounded (legacy behavior).
-    #[serde(default)]
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub write_queue_capacity: Option<usize>,
 }
 
@@ -518,47 +568,40 @@ impl Default for BatchWritesConfig {
     fn default() -> Self {
         Self {
             enabled: false,
-            __force_allow_embedded_batch_writes: false,
-            flush_interval_ms: default_flush_interval_ms(),
-            max_rows: default_max_rows(),
+            __force_allow_embedded_batch_writes: Some(false),
+            flush_interval_ms: Some(default_flush_interval_ms()),
+            max_rows: Some(default_max_rows()),
             max_rows_postgres: None,
             write_queue_capacity: None,
         }
     }
 }
 
+#[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct ExportConfig {
-    #[serde(default)]
-    pub otlp: OtlpConfig,
+    pub otlp: Option<OtlpConfig>,
 }
 
+#[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct OtlpConfig {
-    #[serde(default)]
-    pub traces: OtlpTracesConfig,
+    pub traces: Option<OtlpTracesConfig>,
 }
 
 impl OtlpConfig {
     /// Attaches usage inference to the model provider span (if traces are enabled).
     /// This is used for both streaming and non-streaming requests.
     pub fn apply_usage_to_model_provider_span(&self, span: &Span, usage: &Usage) {
-        if self.traces.enabled {
-            match self.traces.format {
-                OtlpTracesFormat::OpenTelemetry => {
-                    if let Some(input_tokens) = usage.input_tokens {
-                        span.set_attribute("gen_ai.usage.input_tokens", input_tokens as i64);
-                    }
-                    if let Some(output_tokens) = usage.output_tokens {
-                        span.set_attribute("gen_ai.usage.output_tokens", output_tokens as i64);
-                    }
-                    if let Some(total_tokens) = usage.total_tokens() {
-                        span.set_attribute("gen_ai.usage.total_tokens", total_tokens as i64);
-                    }
-                }
-                OtlpTracesFormat::OpenInference => {
+        let traces = match &self.traces {
+            Some(t) => t,
+            None => return,
+        };
+        if traces.enabled.unwrap_or(false) {
+            match traces.format {
+                Some(OtlpTracesFormat::OpenInference) => {
                     if let Some(input_tokens) = usage.input_tokens {
                         span.set_attribute("llm.token_count.prompt", input_tokens as i64);
                     }
@@ -569,50 +612,89 @@ impl OtlpConfig {
                         span.set_attribute("llm.token_count.total", total_tokens as i64);
                     }
                 }
+                None | Some(OtlpTracesFormat::OpenTelemetry) => {
+                    if let Some(input_tokens) = usage.input_tokens {
+                        span.set_attribute("gen_ai.usage.input_tokens", input_tokens as i64);
+                    }
+                    if let Some(output_tokens) = usage.output_tokens {
+                        span.set_attribute("gen_ai.usage.output_tokens", output_tokens as i64);
+                    }
+                    if let Some(total_tokens) = usage.total_tokens() {
+                        span.set_attribute("gen_ai.usage.total_tokens", total_tokens as i64);
+                    }
+                }
+            }
+            // Emit computed cost only when the provider has a `cost` rate configured.
+            if let Some(cost) = usage.cost {
+                span.set_attribute("tensorzero.cost_usd", cost.to_string());
             }
         }
+    }
+
+    /// Whether GenAI content-capture attributes (`gen_ai.input.messages`,
+    /// `gen_ai.output.messages`, `gen_ai.system_instructions`,
+    /// `gen_ai.tool.definitions`) should be emitted: OTLP traces enabled,
+    /// `include_content = true`, and `format = OpenTelemetry` (the default).
+    pub fn genai_content_capture_enabled(&self) -> bool {
+        let Some(traces) = &self.traces else {
+            return false;
+        };
+        if !traces.enabled.unwrap_or(false) {
+            return false;
+        }
+        if !traces.include_content.unwrap_or(false) {
+            return false;
+        }
+        matches!(traces.format, None | Some(OtlpTracesFormat::OpenTelemetry))
     }
 
     /// Marks a span as being an OpenInference 'CHAIN' span.
     /// We use this for function/variant/model spans (but not model provider spans).
     /// At the moment, there doesn't seem to be a similar concept in the OpenTelemetry GenAI semantic conventions.
     pub fn mark_openinference_chain_span(&self, span: &Span) {
-        if self.traces.enabled {
-            match self.traces.format {
-                OtlpTracesFormat::OpenInference => {
+        let traces = match &self.traces {
+            Some(t) => t,
+            None => return,
+        };
+        if traces.enabled.unwrap_or(false) {
+            match traces.format {
+                Some(OtlpTracesFormat::OpenInference) => {
                     span.set_attribute("openinference.span.kind", "CHAIN");
                 }
-                OtlpTracesFormat::OpenTelemetry => {}
+                None | Some(OtlpTracesFormat::OpenTelemetry) => {}
             }
         }
     }
 }
 
+#[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct OtlpTracesConfig {
     /// Enable OpenTelemetry traces export to the configured OTLP endpoint (configured via OTLP environment variables)
-    #[serde(default)]
-    pub enabled: bool,
-    #[serde(default)]
-    pub format: OtlpTracesFormat,
+    pub enabled: Option<bool>,
+    pub format: Option<OtlpTracesFormat>,
     /// Extra headers to include in OTLP export requests (can be overridden by dynamic headers at request time)
-    #[serde(default)]
-    pub extra_headers: HashMap<String, String>,
+    pub extra_headers: Option<HashMap<String, String>>,
+    /// When `format = "opentelemetry"`, emit the content-carrying GenAI semantic-convention attributes
+    /// (`gen_ai.input.messages`, `gen_ai.output.messages`, `gen_ai.system_instructions`,
+    /// `gen_ai.tool.definitions`) on the `model_provider_inference` span. These contain full
+    /// prompt/response content and are opt-in even when traces are enabled. Defaults to `false`.
+    pub include_content: Option<bool>,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(deny_unknown_fields, rename_all = "lowercase")]
 pub enum OtlpTracesFormat {
     /// Sets 'gen_ai' attributes based on the OpenTelemetry GenAI semantic conventions:
     /// https://github.com/open-telemetry/semantic-conventions/tree/main/docs/gen-ai
-    #[default]
     OpenTelemetry,
     // Sets attributes based on the OpenInference semantic conventions:
     // https://github.com/Arize-ai/openinference/blob/main/spec/llm_spans.md
     OpenInference,
 }
 
+#[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "ts-bindings", derive(ts_rs::TS))]
@@ -621,8 +703,6 @@ pub struct MetricConfig {
     pub r#type: MetricConfigType,
     pub optimize: MetricConfigOptimize,
     pub level: MetricConfigLevel,
-    #[serde(default)]
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
 }
 
@@ -634,6 +714,15 @@ pub struct MetricConfig {
 pub enum MetricConfigType {
     Boolean,
     Float,
+}
+
+impl From<MetricConfigType> for StoredMetricType {
+    fn from(value: MetricConfigType) -> Self {
+        match value {
+            MetricConfigType::Boolean => Self::Boolean,
+            MetricConfigType::Float => Self::Float,
+        }
+    }
 }
 
 impl MetricConfigType {
@@ -663,6 +752,15 @@ pub enum MetricConfigOptimize {
     Max,
 }
 
+impl From<MetricConfigOptimize> for StoredMetricOptimize {
+    fn from(value: MetricConfigOptimize) -> Self {
+        match value {
+            MetricConfigOptimize::Min => Self::Min,
+            MetricConfigOptimize::Max => Self::Max,
+        }
+    }
+}
+
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
@@ -681,11 +779,71 @@ impl std::fmt::Display for MetricConfigLevel {
     }
 }
 
+impl From<&MetricConfigLevel> for StoredMetricLevel {
+    fn from(value: &MetricConfigLevel) -> Self {
+        match value {
+            MetricConfigLevel::Inference => Self::Inference,
+            MetricConfigLevel::Episode => Self::Episode,
+        }
+    }
+}
+
+impl From<&MetricConfig> for StoredMetricConfig {
+    fn from(config: &MetricConfig) -> Self {
+        StoredMetricConfig {
+            r#type: config.r#type.into(),
+            optimize: config.optimize.into(),
+            level: StoredMetricLevel::from(&config.level),
+            description: config.description.clone(),
+        }
+    }
+}
+
 impl MetricConfigLevel {
     pub fn inference_column_name(&self) -> &'static str {
         match self {
             MetricConfigLevel::Inference => "id",
             MetricConfigLevel::Episode => "episode_id",
+        }
+    }
+}
+
+// ─── Stored → Uninitialized conversions for metric config ────────────────────
+
+impl From<tensorzero_stored_config::StoredMetricType> for MetricConfigType {
+    fn from(stored: tensorzero_stored_config::StoredMetricType) -> Self {
+        match stored {
+            tensorzero_stored_config::StoredMetricType::Boolean => MetricConfigType::Boolean,
+            tensorzero_stored_config::StoredMetricType::Float => MetricConfigType::Float,
+        }
+    }
+}
+
+impl From<tensorzero_stored_config::StoredMetricOptimize> for MetricConfigOptimize {
+    fn from(stored: tensorzero_stored_config::StoredMetricOptimize) -> Self {
+        match stored {
+            tensorzero_stored_config::StoredMetricOptimize::Min => MetricConfigOptimize::Min,
+            tensorzero_stored_config::StoredMetricOptimize::Max => MetricConfigOptimize::Max,
+        }
+    }
+}
+
+impl From<tensorzero_stored_config::StoredMetricLevel> for MetricConfigLevel {
+    fn from(stored: tensorzero_stored_config::StoredMetricLevel) -> Self {
+        match stored {
+            tensorzero_stored_config::StoredMetricLevel::Inference => MetricConfigLevel::Inference,
+            tensorzero_stored_config::StoredMetricLevel::Episode => MetricConfigLevel::Episode,
+        }
+    }
+}
+
+impl From<tensorzero_stored_config::StoredMetricConfig> for MetricConfig {
+    fn from(stored: tensorzero_stored_config::StoredMetricConfig) -> Self {
+        MetricConfig {
+            r#type: stored.r#type.into(),
+            optimize: stored.optimize.into(),
+            level: stored.level.into(),
+            description: stored.description,
         }
     }
 }
@@ -900,64 +1058,32 @@ fn find_matching_files(base_path: &Path, matcher: &globset::GlobMatcher) -> Vec<
 /// When loading a config from a historical snapshot, infrastructure settings should
 /// come from the current runtime environment, not the snapshot. This struct captures
 /// those runtime values that need to be overlaid.
+#[derive(Clone, Debug, Default)]
 pub struct RuntimeOverlay {
-    pub gateway: UninitializedGatewayConfig,
-    pub clickhouse: ClickHouseConfig,
-    pub postgres: PostgresConfig,
-    pub rate_limiting: UninitializedRateLimitingConfig,
+    pub gateway: Option<UninitializedGatewayConfig>,
+    pub clickhouse: Option<ClickHouseConfig>,
+    pub postgres: Option<PostgresConfig>,
+    pub rate_limiting: Option<UninitializedRateLimitingConfig>,
     pub object_store_info: Option<ObjectStoreInfo>,
 }
 
 impl RuntimeOverlay {
-    /// Create a RuntimeOverlay from a live Config.
-    /// Uses destructuring to ensure compile-time errors if fields are added/removed.
-    pub fn from_config(config: &Config) -> Self {
-        // Destructure GatewayConfig to ensure all fields are handled
-        let GatewayConfig {
-            bind_address,
-            observability,
-            debug,
-            template_filesystem_access,
-            export,
-            base_path,
-            unstable_error_json,
-            unstable_disable_feedback_target_validation,
-            disable_pseudonymous_usage_analytics,
-            fetch_and_encode_input_files_before_inference,
-            auth,
-            global_outbound_http_timeout,
-            relay,
-            metrics,
-            cache,
-        } = &config.gateway;
-
+    /// Create a RuntimeOverlay by extracting runtime fields from an `UninitializedConfig`.
+    ///
+    /// This preserves `Option<T>` values exactly as parsed from the original config
+    /// (None for omitted fields, Some for explicit values), avoiding the lossy
+    /// `Config → UninitializedConfig` round-trip that would turn default values
+    /// into explicit `Some(default)` and break snapshot hash stability.
+    pub fn from_uninitialized_config(
+        config: &UninitializedConfig,
+        object_store_info: Option<ObjectStoreInfo>,
+    ) -> Self {
         Self {
-            gateway: UninitializedGatewayConfig {
-                bind_address: *bind_address,
-                observability: observability.clone(),
-                debug: *debug,
-                template_filesystem_access: Some(template_filesystem_access.clone()),
-                export: export.clone(),
-                base_path: base_path.clone(),
-                unstable_disable_feedback_target_validation:
-                    *unstable_disable_feedback_target_validation,
-                unstable_error_json: *unstable_error_json,
-                disable_pseudonymous_usage_analytics: *disable_pseudonymous_usage_analytics,
-                fetch_and_encode_input_files_before_inference: Some(
-                    *fetch_and_encode_input_files_before_inference,
-                ),
-                auth: auth.clone(),
-                global_outbound_http_timeout_ms: Some(
-                    global_outbound_http_timeout.num_milliseconds() as u64,
-                ),
-                relay: relay.as_ref().map(|relay| relay.original_config.clone()),
-                metrics: metrics.clone(),
-                cache: cache.clone(),
-            },
+            gateway: config.gateway.clone(),
             clickhouse: config.clickhouse.clone(),
             postgres: config.postgres.clone(),
-            rate_limiting: UninitializedRateLimitingConfig::from(&config.rate_limiting),
-            object_store_info: config.object_store_info.clone(),
+            rate_limiting: config.rate_limiting.clone(),
+            object_store_info,
         }
     }
 }
@@ -978,16 +1104,37 @@ struct ProcessedConfigInput {
     postgres: PostgresConfig,
     rate_limiting: UninitializedRateLimitingConfig,
     autopilot: AutopilotConfig,
-
     snapshot: ConfigSnapshot,
+
     /// All functions (user-defined + built-in), loaded but with evaluator artifacts not yet extracted
     loaded_functions: HashMap<String, LoadedFunctionConfig>,
     gateway_config: GatewayConfig,
     object_store_info: Option<ObjectStoreInfo>,
+
+    /// The original UninitializedConfig (with built-in functions injected), preserved for
+    /// validation during config-in-db writes.
+    uninitialized_config: UninitializedConfig,
+
+    /// Runtime overlay captured from the UninitializedConfig before defaults are resolved.
+    runtime_overlay: RuntimeOverlay,
+}
+
+pub(crate) fn validate_user_config_names(config: &UninitializedConfig) -> Result<(), Error> {
+    for name in config.functions.as_ref().into_iter().flat_map(|m| m.keys()) {
+        if name.starts_with("tensorzero::") {
+            return Err(Error::new(ErrorDetails::Config {
+                message: format!(
+                    "User-defined function name cannot start with `tensorzero::`: {name}"
+                ),
+            }));
+        }
+    }
+
+    Ok(())
 }
 
 /// Processes the config input (fresh TOML or snapshot) and returns all the fields
-/// needed by load_from_toml, avoiding partial moves of UninitializedConfig.
+/// needed by load_unwritten_config, avoiding partial moves of UninitializedConfig.
 async fn process_config_input(
     input: ConfigInput,
     templates: &mut TemplateConfig<'_>,
@@ -1000,95 +1147,14 @@ async fn process_config_input(
                 );
             }
 
-            // Deserialize the TOML table into UninitializedConfig
-            let mut config = UninitializedConfig::try_from(table)?;
-
-            // Validate that user functions don't use tensorzero:: prefix
-            for name in config.functions.keys() {
-                if name.starts_with("tensorzero::") {
-                    return Err(Error::new(ErrorDetails::Config {
-                        message: format!(
-                            "User-defined function name cannot start with 'tensorzero::': {name}"
-                        ),
-                    }));
-                }
-            }
-
-            // Inject built-in functions into the config (SINGLE INJECTION POINT)
-            let built_in_functions = built_in::get_all_built_in_functions()?;
-            config.functions.extend(built_in_functions);
-
-            // Destructure the config now that we've added built-in functions
-            let UninitializedConfig {
-                gateway,
-                clickhouse,
-                postgres,
-                rate_limiting,
-                object_storage,
-                models,
-                embedding_models,
-                functions,
-                metrics,
-                tools,
-                evaluations,
-                provider_types,
-                optimizers,
-                autopilot,
-            } = config.clone();
-
-            // Load ALL functions (user + built-in), including their evaluators
-            let mut loaded_functions = HashMap::new();
-            for (name, func_config) in functions {
-                let loaded = func_config.load(&name, &metrics)?;
-                loaded_functions.insert(name, loaded);
-            }
-
-            let object_store_info = ObjectStoreInfo::new(object_storage)?;
-            let gateway_config = gateway.load(object_store_info.as_ref())?;
-
-            // Initialize templates from ALL functions (including built-in)
-            // Build a temporary map of just the function configs for template extraction
-            let all_template_paths = Config::get_templates_from_loaded(&loaded_functions)?;
-            if gateway_config.template_filesystem_access.enabled {
-                deprecation_warning(
-                    "The `gateway.template_filesystem_access.enabled` flag is deprecated. We now enable filesystem access if and only if `gateway.template_file_system_access.base_path` is set. We will stop allowing this flag in the future.",
-                );
-            }
-            let template_fs_path = gateway_config
-                .template_filesystem_access
-                .base_path
-                .as_ref()
-                .map(|x| x.get_real_path());
-            let extra_templates = templates
-                .initialize(all_template_paths, template_fs_path)
-                .await?;
-
-            // Create snapshot from the config (which now includes built-in functions)
-            let snapshot = ConfigSnapshot::new(config, extra_templates.clone())?;
-
-            Ok(ProcessedConfigInput {
-                tools,
-                models,
-                embedding_models,
-                metrics,
-                evaluations,
-                provider_types,
-                optimizers,
-                clickhouse,
-                postgres,
-                rate_limiting,
-                autopilot,
-                snapshot,
-                loaded_functions,
-                gateway_config,
-                object_store_info,
-            })
+            process_uninitialized_config(UninitializedConfig::try_from(table)?, templates).await
         }
         ConfigInput::Snapshot {
             snapshot,
             runtime_overlay,
         } => {
             let original_snapshot = *snapshot;
+            let captured_runtime_overlay = (*runtime_overlay).clone();
 
             // Destructure overlay to ensure all fields are handled (compile error if field added/removed)
             let RuntimeOverlay {
@@ -1125,6 +1191,17 @@ async fn process_config_input(
                     })
                 })?;
 
+            // Resolve Options with defaults
+            let models = models.unwrap_or_default();
+            let embedding_models = embedding_models.unwrap_or_default();
+            let functions = functions.unwrap_or_default();
+            let metrics = metrics.unwrap_or_default();
+            let tools = tools.unwrap_or_default();
+            let evaluations = evaluations.unwrap_or_default();
+            let provider_types = provider_types.unwrap_or_default();
+            let optimizers = optimizers.unwrap_or_default();
+            let autopilot = autopilot.unwrap_or_default();
+
             // Reconstruct with overlaid values for snapshot hash computation
             let overlaid_config = UninitializedConfig {
                 gateway: overlay_gateway.clone(),
@@ -1134,18 +1211,19 @@ async fn process_config_input(
                 object_storage: overlay_object_store_info
                     .as_ref()
                     .map(|info| info.kind.clone()),
-                models: models.clone(),
-                embedding_models: embedding_models.clone(),
-                functions: functions.clone(),
-                metrics: metrics.clone(),
-                tools: tools.clone(),
-                evaluations: evaluations.clone(),
-                provider_types: provider_types.clone(),
-                optimizers: optimizers.clone(),
-                autopilot: autopilot.clone(),
+                models: Some(models.clone()),
+                embedding_models: Some(embedding_models.clone()),
+                functions: Some(functions.clone()),
+                metrics: Some(metrics.clone()),
+                tools: Some(tools.clone()),
+                evaluations: Some(evaluations.clone()),
+                provider_types: Some(provider_types.clone()),
+                optimizers: Some(optimizers.clone()),
+                autopilot: Some(autopilot.clone()),
             };
 
             let extra_templates = original_snapshot.extra_templates.clone();
+            let uninitialized_config = overlaid_config.clone();
             let snapshot = ConfigSnapshot::new(overlaid_config, extra_templates.clone())?;
 
             // Load all functions from the snapshot (built-in functions are already included)
@@ -1156,7 +1234,10 @@ async fn process_config_input(
             }
 
             // Use the overlay object store info directly instead of creating a new one
-            let gateway_config = overlay_gateway.load(overlay_object_store_info.as_ref())?;
+            let gateway_config = overlay_gateway
+                .clone()
+                .unwrap_or_default()
+                .load(overlay_object_store_info.as_ref())?;
             // Initialize templates from ALL functions (including built-in)
             let all_template_paths = Config::get_templates_from_loaded(&loaded_functions)?;
             // We don't use these since the extra templates come directly from the snapshot
@@ -1173,28 +1254,127 @@ async fn process_config_input(
                 evaluations,
                 provider_types,
                 optimizers,
-                clickhouse: overlay_clickhouse,
-                postgres: overlay_postgres,
-                rate_limiting: overlay_rate_limiting,
+                clickhouse: overlay_clickhouse.unwrap_or_default(),
+                postgres: overlay_postgres.unwrap_or_default(),
+                rate_limiting: overlay_rate_limiting.unwrap_or_default(),
                 autopilot,
                 // unused
                 snapshot,
+                uninitialized_config,
                 loaded_functions,
                 gateway_config,
                 object_store_info: overlay_object_store_info,
+                runtime_overlay: captured_runtime_overlay,
             })
         }
+        ConfigInput::Database(config) => process_uninitialized_config(*config, templates).await,
     }
 }
 
-/// In e2e test mode, we skip credential validation by default.
-/// This can be overridden by setting the `TENSORZERO_E2E_CREDENTIAL_VALIDATION` environment variable to `1`.
-/// Outside of e2e test mode, we leave the behavior unchanged (other parts of the codebase might still
-/// skip credential validation, e.g. when running in relay mode).
-pub fn e2e_skip_credential_validation() -> bool {
-    cfg!(any(test, feature = "e2e_tests"))
-        && !std::env::var("TENSORZERO_E2E_CREDENTIAL_VALIDATION").is_ok_and(|x| x == "1")
+async fn process_uninitialized_config(
+    mut config: UninitializedConfig,
+    templates: &mut TemplateConfig<'_>,
+) -> Result<ProcessedConfigInput, Error> {
+    validate_user_config_names(&config)?;
+
+    // Inject built-in functions into the config (SINGLE INJECTION POINT)
+    let built_in_functions = built_in::get_all_built_in_functions()?;
+    let mut functions = config.functions.unwrap_or_default();
+    functions.extend(built_in_functions);
+    config.functions = Some(functions);
+
+    // Destructure the config now that we've added built-in functions
+    let UninitializedConfig {
+        gateway,
+        clickhouse,
+        postgres,
+        rate_limiting,
+        object_storage,
+        models,
+        embedding_models,
+        functions,
+        metrics,
+        tools,
+        evaluations,
+        provider_types,
+        optimizers,
+        autopilot,
+    } = config.clone();
+
+    // Resolve Options with defaults
+    let gateway = gateway.unwrap_or_default();
+    let clickhouse = clickhouse.unwrap_or_default();
+    let postgres = postgres.unwrap_or_default();
+    let rate_limiting = rate_limiting.unwrap_or_default();
+    let models = models.unwrap_or_default();
+    let embedding_models = embedding_models.unwrap_or_default();
+    let functions = functions.unwrap_or_default();
+    let metrics = metrics.unwrap_or_default();
+    let tools = tools.unwrap_or_default();
+    let evaluations = evaluations.unwrap_or_default();
+    let provider_types = provider_types.unwrap_or_default();
+    let optimizers = optimizers.unwrap_or_default();
+    let autopilot = autopilot.unwrap_or_default();
+
+    // Load ALL functions (user + built-in), including their evaluators
+    let mut loaded_functions = HashMap::new();
+    for (name, func_config) in functions {
+        let loaded = func_config.load(&name, &metrics)?;
+        loaded_functions.insert(name, loaded);
+    }
+
+    let object_store_info = ObjectStoreInfo::new(object_storage)?;
+    let gateway_config = gateway.load(object_store_info.as_ref())?;
+
+    // Initialize templates from ALL functions (including built-in)
+    // Build a temporary map of just the function configs for template extraction
+    let all_template_paths = Config::get_templates_from_loaded(&loaded_functions)?;
+    if gateway_config
+        .template_filesystem_access
+        .enabled
+        .unwrap_or(false)
+    {
+        deprecation_warning(
+            "The `gateway.template_filesystem_access.enabled` flag is deprecated. We now enable filesystem access if and only if `gateway.template_file_system_access.base_path` is set. We will stop allowing this flag in the future.",
+        );
+    }
+    let template_fs_path = gateway_config
+        .template_filesystem_access
+        .base_path
+        .as_ref()
+        .map(|x| x.get_real_path());
+    let extra_templates = templates
+        .initialize(all_template_paths, template_fs_path)
+        .await?;
+
+    // Create snapshot from the config (which now includes built-in functions)
+    let runtime_overlay =
+        RuntimeOverlay::from_uninitialized_config(&config, object_store_info.clone());
+    let uninitialized_config = config.clone();
+    let snapshot = ConfigSnapshot::new(config, extra_templates.clone())?;
+
+    Ok(ProcessedConfigInput {
+        tools,
+        models,
+        embedding_models,
+        metrics,
+        evaluations,
+        provider_types,
+        optimizers,
+        clickhouse,
+        postgres,
+        rate_limiting,
+        autopilot,
+        snapshot,
+        loaded_functions,
+        gateway_config,
+        object_store_info,
+        uninitialized_config,
+        runtime_overlay,
+    })
 }
+
+pub use tensorzero_inference_types::credential_validation::e2e_skip_credential_validation;
 
 impl Config {
     /// Constructs a new `Config`, as if from an empty config file.
@@ -1249,13 +1429,15 @@ impl Config {
         validate_credentials: bool,
     ) -> Result<UnwrittenConfig, Error> {
         let unwritten_config = if e2e_skip_credential_validation() || !validate_credentials {
-            with_skip_credential_validation(Box::pin(Self::load_from_toml(ConfigInput::Snapshot {
-                snapshot: Box::new(snapshot),
-                runtime_overlay: Box::new(runtime_overlay),
-            })))
+            with_skip_credential_validation(Box::pin(Self::load_unwritten_config(
+                ConfigInput::Snapshot {
+                    snapshot: Box::new(snapshot),
+                    runtime_overlay: Box::new(runtime_overlay),
+                },
+            )))
             .await?
         } else {
-            Box::pin(Self::load_from_toml(ConfigInput::Snapshot {
+            Box::pin(Self::load_unwritten_config(ConfigInput::Snapshot {
                 snapshot: Box::new(snapshot),
                 runtime_overlay: Box::new(runtime_overlay),
             }))
@@ -1276,12 +1458,12 @@ impl Config {
     ) -> Result<UnwrittenConfig, Error> {
         let globbed_config = UninitializedConfig::read_toml_config(config_glob, allow_empty_glob)?;
         let unwritten_config = if e2e_skip_credential_validation() || !validate_credentials {
-            with_skip_credential_validation(Box::pin(Self::load_from_toml(ConfigInput::Fresh(
-                globbed_config.table,
-            ))))
+            with_skip_credential_validation(Box::pin(Self::load_unwritten_config(
+                ConfigInput::Fresh(globbed_config.table),
+            )))
             .await?
         } else {
-            Box::pin(Self::load_from_toml(ConfigInput::Fresh(
+            Box::pin(Self::load_unwritten_config(ConfigInput::Fresh(
                 globbed_config.table,
             )))
             .await?
@@ -1294,16 +1476,63 @@ impl Config {
         Ok(unwritten_config)
     }
 
-    /// Loads and initializes a config from a parsed TOML table.
+    pub async fn load_from_db(
+        pool: &PgPool,
+        validate_credentials: bool,
+    ) -> Result<UnwrittenConfig, Vec<Error>> {
+        let config = crate::db::postgres::stored_config_queries::load_config_from_db(pool).await?;
+        let config = Box::new(config);
+        let unwritten_config = if e2e_skip_credential_validation() || !validate_credentials {
+            with_skip_credential_validation(Box::pin(Self::load_unwritten_config(
+                ConfigInput::Database(config),
+            )))
+            .await
+            .map_err(|error| vec![error])?
+        } else {
+            Box::pin(Self::load_unwritten_config(ConfigInput::Database(config)))
+                .await
+                .map_err(|error| vec![error])?
+        };
+
+        if validate_credentials && let Some(object_store) = &unwritten_config.object_store_info {
+            object_store.verify().await.map_err(|error| vec![error])?;
+        }
+
+        Ok(unwritten_config)
+    }
+
+    pub async fn load_from_uninitialized(
+        config: UninitializedConfig,
+        validate_credentials: bool,
+    ) -> Result<UnwrittenConfig, Error> {
+        let config = Box::new(config);
+        let unwritten_config = if e2e_skip_credential_validation() || !validate_credentials {
+            with_skip_credential_validation(Box::pin(Self::load_unwritten_config(
+                ConfigInput::Database(config),
+            )))
+            .await?
+        } else {
+            Box::pin(Self::load_unwritten_config(ConfigInput::Database(config))).await?
+        };
+
+        if validate_credentials && let Some(object_store) = &unwritten_config.object_store_info {
+            object_store.verify().await?;
+        }
+
+        Ok(unwritten_config)
+    }
+
+    /// Loads and initializes an unwritten config.
     ///
-    /// This is the core config loading function that transforms a merged TOML table into
-    /// a fully validated and initialized `Config`, paired with a `ConfigSnapshot` for database storage.
+    /// This is the core config loading function that transforms raw config (TOML table, Config
+    /// snapshot, or stoored config in database) into a fully validated and initialized `Config`,
+    /// paired with a `ConfigSnapshot` for database storage.
     ///
     /// # Config Loading Flow
     ///
     /// This function performs the following steps:
     ///
-    /// 1. **Parse to UninitializedConfig**: Deserialize the TOML table into an `UninitializedConfig`,
+    /// 1. **Parse to UninitializedConfig**: Convert the raw config into an `UninitializedConfig`,
     ///    which holds the raw config data before filesystem resources (schemas, templates) are loaded.
     ///
     /// 2. **Initialize Components**: Load and initialize all config components:
@@ -1343,14 +1572,14 @@ impl Config {
     ///
     /// The caller pattern is:
     /// ```ignore
-    /// let unwritten_config = Config::load_from_toml(table).await?;
+    /// let unwritten_config = Config::load_unwritten_config(table).await?;
     /// let clickhouse = setup_clickhouse(&unwritten_config).await?;
     /// let config = unwritten_config.into_config(&clickhouse).await?;
     /// ```
-    async fn load_from_toml(input: ConfigInput) -> Result<UnwrittenConfig, Error> {
+    async fn load_unwritten_config(input: ConfigInput) -> Result<UnwrittenConfig, Error> {
         let is_config_snapshot = match &input {
             ConfigInput::Snapshot { .. } => true,
-            ConfigInput::Fresh(_) => false,
+            ConfigInput::Fresh(_) | ConfigInput::Database(_) => false,
         };
         let mut templates = TemplateConfig::new();
         let ProcessedConfigInput {
@@ -1366,9 +1595,11 @@ impl Config {
             rate_limiting,
             autopilot,
             snapshot,
+            uninitialized_config,
             loaded_functions,
             gateway_config,
             object_store_info,
+            runtime_overlay,
         } = process_config_input(input, &mut templates).await?;
 
         let http_client = TensorzeroHttpClient::new(gateway_config.global_outbound_http_timeout)?;
@@ -1586,41 +1817,53 @@ impl Config {
         }
         config.evaluations = evaluations;
 
-        Ok(UnwrittenConfig::new(config, snapshot))
+        Ok(UnwrittenConfig::new(
+            config,
+            uninitialized_config,
+            snapshot,
+            runtime_overlay,
+        ))
     }
 
     /// Validate the config
     #[instrument(skip_all)]
     async fn validate(&mut self) -> Result<(), Error> {
-        if self.gateway.observability.batch_writes.enabled
-            && self.gateway.observability.async_writes
-        {
+        let batch_writes = self
+            .gateway
+            .observability
+            .batch_writes
+            .as_ref()
+            .cloned()
+            .unwrap_or_default();
+        if batch_writes.enabled && self.gateway.observability.async_writes() {
             return Err(ErrorDetails::Config {
-                message: "Batch writes and async writes cannot be enabled at the same time"
+                message: "Batch writes and async writes cannot be enabled at the same time. \
+                    Async writes are enabled by default; to use batch writes, set \
+                    `gateway.observability.async_writes = false`."
                     .to_string(),
             }
             .into());
         }
-        if self.gateway.observability.batch_writes.write_queue_capacity == Some(0) {
+        if batch_writes.write_queue_capacity == Some(0) {
             return Err(ErrorDetails::Config {
                 message: "Batch writes `write_queue_capacity` must be greater than 0 when set"
                     .to_string(),
             }
             .into());
         }
-        if self.gateway.observability.batch_writes.flush_interval_ms == 0 {
+        if batch_writes.flush_interval_ms == Some(0) {
             return Err(ErrorDetails::Config {
                 message: "Batch writes flush interval must be greater than 0".to_string(),
             }
             .into());
         }
-        if self.gateway.observability.batch_writes.max_rows == 0 {
+        if batch_writes.max_rows == Some(0) {
             return Err(ErrorDetails::Config {
                 message: "Batch writes max rows must be greater than 0".to_string(),
             }
             .into());
         }
-        if let Some(max_rows_postgres) = self.gateway.observability.batch_writes.max_rows_postgres
+        if let Some(max_rows_postgres) = batch_writes.max_rows_postgres
             && max_rows_postgres == 0
         {
             return Err(ErrorDetails::Config {
@@ -1821,6 +2064,7 @@ impl Config {
 
 pub enum ConfigInput {
     Fresh(toml::Table),
+    Database(Box<UninitializedConfig>),
     Snapshot {
         snapshot: Box<ConfigSnapshot>,
         runtime_overlay: Box<RuntimeOverlay>,
@@ -1896,36 +2140,24 @@ pub trait LoadableConfig<T> {
 ///
 /// This allows us to avoid using Option types to represent variables that are initialized after the
 /// config is initially parsed.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde_with::skip_serializing_none]
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct UninitializedConfig {
-    #[serde(default)]
-    pub gateway: UninitializedGatewayConfig,
-    #[serde(default)]
-    pub clickhouse: ClickHouseConfig,
-    #[serde(default)]
-    pub postgres: PostgresConfig,
-    #[serde(default)]
-    pub rate_limiting: UninitializedRateLimitingConfig,
+    pub gateway: Option<UninitializedGatewayConfig>,
+    pub clickhouse: Option<ClickHouseConfig>,
+    pub postgres: Option<PostgresConfig>,
+    pub rate_limiting: Option<UninitializedRateLimitingConfig>,
     pub object_storage: Option<StorageKind>,
-    #[serde(default)]
-    pub models: HashMap<Arc<str>, UninitializedModelConfig>, // model name => model config
-    #[serde(default)]
-    pub embedding_models: HashMap<Arc<str>, UninitializedEmbeddingModelConfig>, // embedding model name => embedding model config
-    #[serde(default)]
-    pub functions: HashMap<String, UninitializedFunctionConfig>, // function name => function config
-    #[serde(default)]
-    pub metrics: HashMap<String, MetricConfig>, // metric name => metric config
-    #[serde(default)]
-    pub tools: HashMap<String, UninitializedToolConfig>, // tool name => tool config
-    #[serde(default)]
-    pub evaluations: HashMap<String, UninitializedEvaluationConfig>, // evaluation name => evaluation
-    #[serde(default)]
-    pub provider_types: ProviderTypesConfig, // global configuration for all model providers of a particular type
-    #[serde(default)]
-    pub optimizers: HashMap<String, UninitializedOptimizerInfo>, // optimizer name => optimizer config
-    #[serde(default)]
-    pub autopilot: AutopilotConfig,
+    pub models: Option<HashMap<Arc<str>, UninitializedModelConfig>>, // model name => model config
+    pub embedding_models: Option<HashMap<Arc<str>, UninitializedEmbeddingModelConfig>>, // embedding model name => embedding model config
+    pub functions: Option<HashMap<String, UninitializedFunctionConfig>>, // function name => function config
+    pub metrics: Option<HashMap<String, MetricConfig>>, // metric name => metric config
+    pub tools: Option<HashMap<String, UninitializedToolConfig>>, // tool name => tool config
+    pub evaluations: Option<HashMap<String, UninitializedEvaluationConfig>>, // evaluation name => evaluation
+    pub provider_types: Option<ProviderTypesConfig>, // global configuration for all model providers of a particular type
+    pub optimizers: Option<HashMap<String, UninitializedOptimizerInfo>>, // optimizer name => optimizer config
+    pub autopilot: Option<AutopilotConfig>,
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
@@ -1941,8 +2173,8 @@ pub struct UninitializedRelayConfig {
 
 /// The result of parsing all of the globbed config files,
 /// and merging them into a single `toml::Table`
-struct UninitializedGlobbedConfig {
-    table: toml::Table,
+pub struct UninitializedGlobbedConfig {
+    pub table: toml::Table,
 }
 
 impl UninitializedConfig {
@@ -1956,20 +2188,28 @@ impl UninitializedConfig {
         self.resolve_clickhouse_config_deprecation()?;
         self.warn_variant_weight_deprecation();
         self.warn_evaluation_evaluators_deprecation();
+        self.warn_gepa_evaluation_name_deprecation()?;
         Ok(())
     }
 
     #[expect(deprecated)]
     fn resolve_clickhouse_config_deprecation(&mut self) -> Result<(), Error> {
-        let old = self.gateway.observability.disable_automatic_migrations;
-        let new = self.clickhouse.disable_automatic_migrations;
+        let old = self
+            .gateway
+            .as_ref()
+            .and_then(|g| g.observability.as_ref())
+            .and_then(|o| o.disable_automatic_migrations);
+        let new = self
+            .clickhouse
+            .as_ref()
+            .and_then(|c| c.disable_automatic_migrations);
 
-        if old && new {
+        if old == Some(true) && new == Some(true) {
             return Err(Error::new(ErrorDetails::Config {
                 message: "`disable_automatic_migrations` is set in both `[clickhouse]` and `[gateway.observability]`. Remove it from `[gateway.observability]`.".to_string(),
             }));
         }
-        if old {
+        if old == Some(true) {
             deprecation_warning(
                 "`gateway.observability.disable_automatic_migrations` is deprecated. Use `clickhouse.disable_automatic_migrations` instead.",
             );
@@ -1978,8 +2218,9 @@ impl UninitializedConfig {
     }
 
     fn warn_variant_weight_deprecation(&self) {
-        let functions_with_weight: Vec<&str> = self
-            .functions
+        let empty = HashMap::new();
+        let functions = self.functions.as_ref().unwrap_or(&empty);
+        let functions_with_weight: Vec<&str> = functions
             .iter()
             .filter(|(_, func)| {
                 let variants = match func {
@@ -2003,7 +2244,7 @@ impl UninitializedConfig {
     }
 
     fn warn_evaluation_evaluators_deprecation(&self) {
-        if self.evaluations.is_empty() {
+        if self.evaluations.as_ref().is_none_or(|e| e.is_empty()) {
             return;
         }
         deprecation_warning(
@@ -2012,8 +2253,56 @@ impl UninitializedConfig {
         );
     }
 
+    fn warn_gepa_evaluation_name_deprecation(&self) -> Result<(), Error> {
+        let mut legacy_gepa_optimizers = Vec::new();
+
+        for (optimizer_name, optimizer) in self.optimizers.iter().flat_map(|m| m.iter()) {
+            let UninitializedOptimizerConfig::GEPA(gepa_config) = &optimizer.inner else {
+                continue;
+            };
+
+            match (
+                gepa_config.evaluation_name.as_ref(),
+                gepa_config.evaluator_names.as_ref(),
+            ) {
+                (Some(_), Some(_)) => {
+                    return Err(Error::new(ErrorDetails::Config {
+                        message: format!(
+                            "GEPA optimizer `{optimizer_name}` cannot specify both `evaluation_name` and `evaluator_names`"
+                        ),
+                    }));
+                }
+                (None, None) => {
+                    return Err(Error::new(ErrorDetails::Config {
+                        message: format!(
+                            "GEPA optimizer `{optimizer_name}` must specify exactly one of `evaluation_name` or `evaluator_names`"
+                        ),
+                    }));
+                }
+                (None, Some(evaluator_names)) if evaluator_names.is_empty() => {
+                    return Err(Error::new(ErrorDetails::Config {
+                        message: format!(
+                            "GEPA optimizer `{optimizer_name}` must specify at least one evaluator name"
+                        ),
+                    }));
+                }
+                (Some(_), None) => legacy_gepa_optimizers.push(optimizer_name.as_str()),
+                (None, Some(_)) => {}
+            }
+        }
+
+        if !legacy_gepa_optimizers.is_empty() {
+            deprecation_warning(&format!(
+                "The `evaluation_name` field on GEPA optimizers is deprecated. Use `evaluator_names` instead. Affected optimizers: {}",
+                legacy_gepa_optimizers.join(", ")
+            ));
+        }
+
+        Ok(())
+    }
+
     /// Read all of the globbed config files from disk, and merge them into a single `UninitializedGlobbedConfig`
-    fn read_toml_config(
+    pub fn read_toml_config(
         glob: &ConfigFileGlob,
         allow_empty_glob: bool,
     ) -> Result<UninitializedGlobbedConfig, Error> {
@@ -2064,20 +2353,20 @@ impl TryFrom<TomlUninitializedConfig> for UninitializedConfig {
             .try_into()
             .map_err(|e: String| Error::new(ErrorDetails::Config { message: e }))?;
         Ok(Self {
-            gateway: toml_config.gateway,
-            clickhouse: toml_config.clickhouse,
-            postgres: toml_config.postgres,
-            rate_limiting,
+            gateway: Some(toml_config.gateway),
+            clickhouse: Some(toml_config.clickhouse),
+            postgres: Some(toml_config.postgres),
+            rate_limiting: Some(rate_limiting),
             object_storage: toml_config.object_storage,
-            models: toml_config.models,
-            embedding_models: toml_config.embedding_models,
-            functions: toml_config.functions,
-            metrics: toml_config.metrics,
-            tools: toml_config.tools,
-            evaluations: toml_config.evaluations,
-            provider_types: toml_config.provider_types,
-            optimizers: toml_config.optimizers,
-            autopilot: toml_config.autopilot,
+            models: Some(toml_config.models),
+            embedding_models: Some(toml_config.embedding_models),
+            functions: Some(toml_config.functions),
+            metrics: Some(toml_config.metrics),
+            tools: Some(toml_config.tools),
+            evaluations: Some(toml_config.evaluations),
+            provider_types: Some(toml_config.provider_types),
+            optimizers: Some(toml_config.optimizers),
+            autopilot: Some(toml_config.autopilot),
         })
     }
 }
@@ -2135,8 +2424,17 @@ impl UninitializedSchemas {
                 .collect(),
         }
     }
+
+    pub fn iter(&self) -> impl Iterator<Item = (&String, &ResolvedTomlPathData)> {
+        self.inner.iter().map(|(name, schema)| (name, &schema.path))
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.inner.is_empty()
+    }
 }
 
+#[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct UninitializedFunctionConfigChat {
@@ -2150,15 +2448,14 @@ pub struct UninitializedFunctionConfigChat {
     pub tools: Vec<String>, // tool names
     #[serde(default)]
     pub tool_choice: ToolChoice,
-    #[serde(default)]
     pub parallel_tool_calls: Option<bool>,
-    #[serde(default)]
     pub description: Option<String>,
     pub experimentation: Option<UninitializedExperimentationConfigWithNamespaces>,
     #[serde(default)]
     pub evaluators: HashMap<String, UninitializedEvaluatorConfig>,
 }
 
+#[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct UninitializedFunctionConfigJson {
@@ -2169,7 +2466,6 @@ pub struct UninitializedFunctionConfigJson {
     #[serde(default)]
     pub schemas: UninitializedSchemas,
     pub output_schema: Option<ResolvedTomlPathData>, // schema will default to {} if not specified
-    #[serde(default)]
     pub description: Option<String>,
     pub experimentation: Option<UninitializedExperimentationConfigWithNamespaces>,
     #[serde(default)]
@@ -2180,7 +2476,7 @@ pub struct UninitializedFunctionConfigJson {
 /// These are used by variants to construct a `TemplateWithSchema`
 #[cfg_attr(feature = "ts-bindings", derive(ts_rs::TS))]
 #[derive(Debug, Default, Serialize)]
-#[cfg_attr(feature = "ts-bindings", ts(export))]
+#[cfg_attr(feature = "ts-bindings", ts(export, optional_fields))]
 pub struct SchemaData {
     #[serde(flatten)]
     pub inner: HashMap<String, SchemaWithMetadata>,
@@ -2307,13 +2603,13 @@ fn propagate_timeout_s_to_candidates(
 
         let timeout_ms = (timeout_s * 1000.0) as u64;
         let timeouts_config = TimeoutsConfig {
-            non_streaming: NonStreamingTimeouts {
+            non_streaming: Some(NonStreamingTimeouts {
                 total_ms: Some(timeout_ms),
-            },
-            streaming: StreamingTimeouts {
+            }),
+            streaming: Some(StreamingTimeouts {
                 ttft_ms: Some(timeout_ms),
                 total_ms: None,
-            },
+            }),
         };
 
         for candidate_name in candidates {
@@ -2581,18 +2877,17 @@ impl UninitializedFunctionConfig {
     }
 }
 
+#[serde_with::skip_serializing_none]
 #[cfg_attr(feature = "ts-bindings", derive(ts_rs::TS))]
 #[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
-#[cfg_attr(feature = "ts-bindings", ts(export))]
+#[cfg_attr(feature = "ts-bindings", ts(export, optional_fields))]
 #[serde(rename_all = "snake_case")]
 // We don't use `#[serde(deny_unknown_fields)]` here - it needs to go on 'UninitializedVariantConfig',
 // since we use `#[serde(flatten)]` on the `inner` field.
 pub struct UninitializedVariantInfo {
     #[serde(flatten)]
     pub inner: UninitializedVariantConfig,
-    #[serde(default)]
     pub timeouts: Option<TimeoutsConfig>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "ts-bindings", ts(optional))]
     pub namespace: Option<Namespace>,
 }
@@ -2688,6 +2983,27 @@ pub struct UninitializedToolConfig {
 }
 
 impl UninitializedToolConfig {
+    pub(crate) fn convert_for_db(
+        &self,
+        file_version_ids: &HashMap<String, Uuid>,
+    ) -> Result<StoredToolConfig, Error> {
+        let file_path = self.parameters.get_template_key();
+        let Some(file_version_id) = file_version_ids.get(&file_path) else {
+            return Err(Error::new(ErrorDetails::Config {
+                message: format!("Missing stored file version ID for file path `{file_path}`."),
+            }));
+        };
+        Ok(StoredToolConfig {
+            description: self.description.clone(),
+            parameters: StoredFileRef {
+                file_version_id: *file_version_id,
+                file_path,
+            },
+            name: self.name.clone(),
+            strict: self.strict,
+        })
+    }
+
     pub fn load(self, key: String) -> Result<StaticToolConfig, Error> {
         let parameters = JSONSchema::from_path(self.parameters)?;
         Ok(StaticToolConfig {
@@ -2702,7 +3018,7 @@ impl UninitializedToolConfig {
 
 #[cfg_attr(feature = "ts-bindings", derive(ts_rs::TS))]
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts-bindings", ts(export))]
+#[cfg_attr(feature = "ts-bindings", ts(export, optional_fields))]
 pub struct PathWithContents {
     #[cfg_attr(feature = "ts-bindings", ts(type = "string"))]
     pub path: ResolvedTomlPathData,
@@ -2716,8 +3032,10 @@ impl PathWithContents {
     }
 }
 
+pub(crate) const DEFAULT_POSTGRES_CONNECTION_POOL_SIZE: u32 = 20;
+
+#[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
-#[serde(default)]
 pub struct PostgresConfig {
     /// DEPRECATED (2026.3+): Postgres connectivity is now determined by the
     /// `TENSORZERO_POSTGRES_URL` environment variable. This field is accepted
@@ -2725,10 +3043,9 @@ pub struct PostgresConfig {
     #[deprecated(
         note = "Postgres connectivity is now determined by the `TENSORZERO_POSTGRES_URL` environment variable. Remove `postgres.enabled` from your config."
     )]
-    #[serde(default, skip_serializing)]
+    #[serde(skip_serializing)]
     pub enabled: Option<bool>,
-    #[serde(default = "default_connection_pool_size")]
-    pub connection_pool_size: u32,
+    pub connection_pool_size: Option<u32>,
     /// Retention period in days for inference metadata tables
     /// (chat_inferences, json_inferences, model_inferences — monthly partitions).
     /// If set, old partitions beyond this age will be dropped by pg_cron.
@@ -2747,18 +3064,174 @@ pub struct PostgresConfig {
     pub inference_data_retention_days: Option<u32>,
 }
 
-fn default_connection_pool_size() -> u32 {
-    20
-}
-
 impl Default for PostgresConfig {
     fn default() -> Self {
         #[expect(deprecated)]
         Self {
             enabled: None,
-            connection_pool_size: 20,
+            connection_pool_size: Some(20),
             inference_metadata_retention_days: None,
             inference_data_retention_days: None,
         }
+    }
+}
+
+impl From<tensorzero_stored_config::StoredPostgresConfig> for PostgresConfig {
+    fn from(stored: tensorzero_stored_config::StoredPostgresConfig) -> Self {
+        #[expect(deprecated)]
+        PostgresConfig {
+            enabled: None,
+            connection_pool_size: stored.connection_pool_size,
+            inference_metadata_retention_days: stored.inference_metadata_retention_days,
+            inference_data_retention_days: stored.inference_data_retention_days,
+        }
+    }
+}
+
+impl From<&PostgresConfig> for tensorzero_stored_config::StoredPostgresConfig {
+    fn from(config: &PostgresConfig) -> Self {
+        tensorzero_stored_config::StoredPostgresConfig {
+            connection_pool_size: config.connection_pool_size,
+            inference_metadata_retention_days: config.inference_metadata_retention_days,
+            inference_data_retention_days: config.inference_data_retention_days,
+        }
+    }
+}
+
+#[cfg(test)]
+mod round_trip_tests {
+    use std::path::PathBuf;
+
+    use googletest::prelude::*;
+
+    use super::*;
+    use crate::config::path::ResolvedTomlPathData;
+
+    // ── TimeoutsConfig ─────────────────────────────────────────────────
+
+    #[gtest]
+    fn test_timeouts_config_round_trip_full() {
+        let original = TimeoutsConfig {
+            non_streaming: Some(NonStreamingTimeouts {
+                total_ms: Some(5000),
+            }),
+            streaming: Some(StreamingTimeouts {
+                ttft_ms: Some(1000),
+                total_ms: Some(30000),
+            }),
+        };
+        let stored = StoredTimeoutsConfig::from(&original);
+        let restored: TimeoutsConfig = stored.into();
+        expect_that!(restored, eq(&original));
+    }
+
+    #[gtest]
+    fn test_timeouts_config_round_trip_empty() {
+        let original = TimeoutsConfig::default();
+        let stored = StoredTimeoutsConfig::from(&original);
+        let restored: TimeoutsConfig = stored.into();
+        expect_that!(restored, eq(&original));
+    }
+
+    // ── MetricConfig ───────────────────────────────────────────────────
+
+    #[gtest]
+    fn test_metric_config_type_round_trip() {
+        for variant in [MetricConfigType::Boolean, MetricConfigType::Float] {
+            let stored: StoredMetricType = variant.into();
+            let restored: MetricConfigType = stored.into();
+            expect_that!(restored, eq(variant));
+        }
+    }
+
+    #[gtest]
+    fn test_metric_config_optimize_round_trip() {
+        for variant in [MetricConfigOptimize::Min, MetricConfigOptimize::Max] {
+            let stored: StoredMetricOptimize = variant.into();
+            let restored: MetricConfigOptimize = stored.into();
+            expect_that!(restored, eq(variant));
+        }
+    }
+
+    #[gtest]
+    fn test_metric_config_level_round_trip() {
+        for variant in &[MetricConfigLevel::Inference, MetricConfigLevel::Episode] {
+            let stored = StoredMetricLevel::from(variant);
+            let restored: MetricConfigLevel = stored.into();
+            expect_that!(restored, eq(variant));
+        }
+    }
+
+    #[gtest]
+    fn test_metric_config_round_trip() {
+        let original = MetricConfig {
+            r#type: MetricConfigType::Float,
+            optimize: MetricConfigOptimize::Max,
+            level: MetricConfigLevel::Inference,
+            description: Some("test metric".to_string()),
+        };
+        let stored = tensorzero_stored_config::StoredMetricConfig {
+            r#type: original.r#type.into(),
+            optimize: original.optimize.into(),
+            level: (&original.level).into(),
+            description: original.description.clone(),
+        };
+        let restored: MetricConfig = stored.into();
+        expect_that!(restored, eq(&original));
+    }
+
+    // ── UninitializedToolConfig ────────────────────────────────────────
+    //
+    // `UninitializedToolConfig` only has a forward conversion to
+    // `StoredToolConfig` (the reverse requires looking up a stored file
+    // by ID), so this verifies the forward conversion preserves all fields
+    // and resolves the stored file version ID correctly.
+
+    #[gtest]
+    fn test_uninitialized_tool_config_convert_for_db() {
+        let parameters_json = r#"{"type":"object","properties":{}}"#.to_string();
+        let parameters = ResolvedTomlPathData::new_for_tests(
+            PathBuf::from("tools/my_tool.json"),
+            Some(parameters_json),
+        );
+        let file_path = parameters.get_template_key();
+
+        let original = UninitializedToolConfig {
+            description: "Tool description".to_string(),
+            parameters,
+            name: Some("my_tool".to_string()),
+            strict: true,
+        };
+
+        let template_id = Uuid::now_v7();
+        let mut file_version_ids = HashMap::new();
+        file_version_ids.insert(file_path.clone(), template_id);
+
+        let stored = original
+            .convert_for_db(&file_version_ids)
+            .expect("conversion should succeed when template id is present");
+
+        expect_that!(stored.description, eq(&original.description));
+        expect_that!(stored.name.as_deref(), some(eq("my_tool")));
+        expect_that!(stored.strict, eq(true));
+        expect_that!(stored.parameters.file_path, eq(&file_path));
+        expect_that!(stored.parameters.file_version_id, eq(template_id));
+    }
+
+    #[gtest]
+    fn test_uninitialized_tool_config_convert_for_db_missing_template() {
+        let parameters = ResolvedTomlPathData::new_for_tests(
+            PathBuf::from("tools/missing.json"),
+            Some(r#"{"type":"object"}"#.to_string()),
+        );
+        let original = UninitializedToolConfig {
+            description: "x".to_string(),
+            parameters,
+            name: None,
+            strict: false,
+        };
+
+        let result = original.convert_for_db(&HashMap::new());
+        expect_that!(result.is_err(), eq(true));
     }
 }

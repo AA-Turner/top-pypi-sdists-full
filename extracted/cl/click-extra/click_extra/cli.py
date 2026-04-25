@@ -18,14 +18,17 @@
 from __future__ import annotations
 
 import colorsys
+import importlib
 from pathlib import Path
 
 import click
+import cloup
 
 from . import (
-    Choice,
     ClickException,
     Color,
+    EnumChoice,
+    Style,
     argument,
     echo,
     group,
@@ -34,7 +37,8 @@ from . import (
     style,
 )
 from .colorize import _nearest_256
-from .table import print_table
+from .parameters import format_param_row
+from .table import DEFAULT_FORMAT, SERIALIZATION_FORMATS, TableFormat, print_table
 from .version import (
     GIT_FIELDS,
     _find_dunder_str,
@@ -43,6 +47,7 @@ from .version import (
     prebake_version,
     run_git,
 )
+from .wrap import WrapperGroup, resolve_target, wrap as wrap_cmd
 
 
 def _resolve_paths(module: Path | None) -> list[Path]:
@@ -76,9 +81,173 @@ _module_option = option(
 )
 
 
-@group(name="click-extra", version_fields={"prog_name": "Click Extra"})
+_demo_section = cloup.Section(
+    "Demo",
+    is_sorted=True,
+)
+"""Section grouping terminal capability demo subcommands."""
+
+
+@group(
+    name="click-extra",
+    cls=WrapperGroup,
+    version_fields={"prog_name": "Click Extra"},
+)
 def demo():
     """Click Extra CLI."""
+
+
+demo.add_command(wrap_cmd)
+
+
+_INTROSPECT_HEADERS = (
+    "ID",
+    "Spec.",
+    "Class",
+    "Param type",
+    "Python type",
+    "Hidden",
+    "Env. vars.",
+    "Default",
+)
+"""Table headers for foreign CLI parameter introspection."""
+
+
+def _walk_cmd_params(cmd, ctx, parent_keys=()):
+    """Walk parameters of a Click command tree.
+
+    Yields ``(path_tuple, param, owning_ctx)`` for every parameter found on
+    *cmd* and its subcommands.
+    """
+    for p in cmd.get_params(ctx):
+        if p.name is not None:
+            yield (*parent_keys, p.name), p, ctx
+
+    if isinstance(cmd, click.Group):
+        for subcmd_name in sorted(cmd.list_commands(ctx)):
+            subcmd = cmd.get_command(ctx, subcmd_name)
+            if subcmd is None:
+                continue
+            subcmd_ctx = click.Context(subcmd, parent=ctx, info_name=subcmd_name)
+            yield from _walk_cmd_params(subcmd, subcmd_ctx, (*parent_keys, subcmd_name))
+
+
+@demo.command(
+    name="show-params",
+    context_settings={"allow_interspersed_args": False},
+)
+@click.argument(
+    "script_and_args",
+    nargs=-1,
+    type=click.UNPROCESSED,
+    metavar="SCRIPT [SUBCOMMAND]...",
+)
+@click.option(
+    "--table-format",
+    "table_format",
+    type=EnumChoice(TableFormat),
+    default=DEFAULT_FORMAT,
+    help="Rendering style of tables.",
+)
+@click.pass_context
+def show_params_cmd(
+    ctx: click.Context,
+    script_and_args: tuple[str, ...],
+    table_format: TableFormat,
+) -> None:
+    """Show parameters of an external Click CLI.
+
+    Resolves SCRIPT as a console_scripts entry point, module:function
+    notation, .py file path, or Python module name. Loads the Click
+    command and prints its parameter table.
+
+    Extra arguments after SCRIPT navigate into nested command groups.
+    """
+    if not script_and_args:
+        echo(ctx.get_help(), color=ctx.color)
+        ctx.exit(0)
+
+    script = script_and_args[0]
+    subcommands = script_and_args[1:]
+
+    module_path, function_name = resolve_target(script)
+    mod = importlib.import_module(module_path)
+    cli_obj = getattr(mod, function_name) if function_name else None
+
+    if not isinstance(cli_obj, click.Command):
+        # The entry point might be a wrapper function. Scan the module
+        # for Click command instances, preferring groups.
+        groups = {}
+        commands = {}
+        for attr_name in dir(mod):
+            obj = getattr(mod, attr_name, None)
+            if isinstance(obj, click.Group):
+                groups[attr_name] = obj
+            elif isinstance(obj, click.Command):
+                commands[attr_name] = obj
+
+        if len(groups) == 1:
+            cli_obj = next(iter(groups.values()))
+        elif groups:
+            names = ", ".join(sorted(groups))
+            raise ClickException(
+                f"Multiple command groups in {module_path}: {names}. "
+                f"Specify the correct one with module:name notation."
+            )
+        elif len(commands) == 1:
+            cli_obj = next(iter(commands.values()))
+        elif commands:
+            names = ", ".join(sorted(commands))
+            raise ClickException(
+                f"Multiple commands in {module_path}: {names}. "
+                f"Specify the correct one with module:name notation."
+            )
+        else:
+            raise ClickException(f"No Click commands found in {module_path}.")
+
+    # Navigate to subcommand if specified.
+    assert isinstance(cli_obj, click.Command)
+    cmd: click.Command = cli_obj
+    cmd_ctx = click.Context(cmd, info_name=cmd.name or script)
+    for sub in subcommands:
+        if not isinstance(cmd, click.Group):
+            raise ClickException(
+                f"{cmd.name!r} is not a group; cannot navigate to {sub!r}."
+            )
+        child = cmd.get_command(cmd_ctx, sub)
+        if child is None:
+            raise ClickException(f"No subcommand {sub!r} in {cmd.name!r}.")
+        cmd_ctx = click.Context(child, parent=cmd_ctx, info_name=sub)
+        cmd = child
+
+    # Build parameter path prefix.
+    prefix = (cmd.name or script,)
+    sep = "."
+    is_structured = table_format in SERIALIZATION_FORMATS
+
+    table: list[tuple] = []
+    for keys, param, param_ctx in _walk_cmd_params(cmd, cmd_ctx, prefix):
+        path = sep.join(keys)
+        table.append(format_param_row(param, param_ctx, path, is_structured))
+
+    def sort_key(row):
+        """Sort by depth first, then path."""
+        row_path = row[0]
+        parts = row_path.split(sep)
+        return len(parts), row_path
+
+    header_labels: tuple
+    if is_structured:
+        header_labels = _INTROSPECT_HEADERS
+    else:
+        header_style = Style(bold=True)
+        header_labels = tuple(map(header_style, _INTROSPECT_HEADERS))
+
+    print_table(
+        sorted(table, key=sort_key),
+        headers=header_labels,
+        table_format=table_format,
+    )
 
 
 _ALL_STYLES = (
@@ -207,65 +376,66 @@ def _render_gradient() -> str:
     return "\n".join(lines)
 
 
-_MATRIX_CHOICES = ("colors", "styles", "palette", "8color", "gradient")
-"""Valid choices for the ``render-matrix`` argument."""
+def _find_print_table(ctx: click.Context):
+    """Walk up the context chain to find the table printer.
 
-
-@demo.command(name="render-matrix")
-@argument("matrix", type=Choice(_MATRIX_CHOICES))
-@pass_context
-def render_matrix(ctx: click.Context, matrix: str) -> None:
-    """Render a color or style matrix for terminal capability testing.
-
-    MATRIX is one of: colors, styles, palette, 8color, gradient.
-
-    colors: every foreground color against every background color.
-    styles: every color with each text style (bold, dim, italic, etc.).
-    palette: compact 256-color indexed swatch.
-    8color: all standard foreground/background combinations.
-    gradient: 24-bit RGB gradients vs. their 256-color quantized equivalents.
+    Falls back to the bare ``print_table`` for standalone invocation (like in
+    docs).
     """
-    # Compact renderings that bypass the table formatter.
-    if matrix == "palette":
-        echo(_render_palette())
-        return
-    if matrix == "8color":
-        echo(_render_8color_table())
-        return
-    if matrix == "gradient":
-        echo(_render_gradient())
-        return
-
-    table: list[list[str]] = []
-
-    if matrix == "colors":
-        styled_headers = [style(c, bg=c) for c in _ALL_COLORS]
-        headers = ["Foreground \u21b4 \\ Background \u2192"] + styled_headers
-        for fg in _ALL_COLORS:
-            row = [style(fg, fg=fg)]
-            row.extend(style(fg, fg=fg, bg=bg) for bg in _ALL_COLORS)
-            table.append(row)
-
-    elif matrix == "styles":
-        styled_headers = [style(s, **{s: True}) for s in _ALL_STYLES]
-        headers = ["Color \u21b4 \\ Style \u2192"] + styled_headers
-        for color_name in _ALL_COLORS:
-            row = [style(color_name, fg=color_name)]
-            for prop in _ALL_STYLES:
-                row.append(style(color_name, fg=color_name, **{prop: True}))
-            table.append(row)
-
-    # Walk up the context chain to find ctx.print_table (set by
-    # --table-format on the parent group). Fall back to the bare
-    # print_table for standalone invocation (e.g. in docs).
-    print_func = print_table
     ancestor: click.Context | None = ctx
     while ancestor:
         if hasattr(ancestor, "print_table"):
-            print_func = ancestor.print_table
-            break
+            return ancestor.print_table
         ancestor = ancestor.parent
-    print_func(table, headers=headers)
+    return print_table
+
+
+@demo.command(name="colors", section=_demo_section)
+@pass_context
+def demo_colors(ctx: click.Context) -> None:
+    """Render every foreground color against every background color."""
+    styled_headers = [style(c, bg=c) for c in _ALL_COLORS]
+    headers = ["Foreground \u21b4 \\ Background \u2192"] + styled_headers
+    table: list[list[str]] = []
+    for fg in _ALL_COLORS:
+        row = [style(fg, fg=fg)]
+        row.extend(style(fg, fg=fg, bg=bg) for bg in _ALL_COLORS)
+        table.append(row)
+    _find_print_table(ctx)(table, headers=headers)
+
+
+@demo.command(name="styles", section=_demo_section)
+@pass_context
+def demo_styles(ctx: click.Context) -> None:
+    """Render every color with each text style (bold, dim, italic, etc.)."""
+    styled_headers = [style(s, **{s: True}) for s in _ALL_STYLES]
+    headers = ["Color \u21b4 \\ Style \u2192"] + styled_headers
+    table: list[list[str]] = []
+    for color_name in _ALL_COLORS:
+        row = [style(color_name, fg=color_name)]
+        row.extend(
+            style(color_name, fg=color_name, **{prop: True}) for prop in _ALL_STYLES
+        )
+        table.append(row)
+    _find_print_table(ctx)(table, headers=headers)
+
+
+@demo.command(name="palette", section=_demo_section)
+def demo_palette() -> None:
+    """Render a compact 256-color indexed swatch."""
+    echo(_render_palette())
+
+
+@demo.command(name="8color", section=_demo_section)
+def demo_8color() -> None:
+    """Render all standard 8-color foreground/background combinations."""
+    echo(_render_8color_table())
+
+
+@demo.command(name="gradient", section=_demo_section)
+def demo_gradient() -> None:
+    """Render 24-bit RGB gradients vs. their 256-color quantized equivalents."""
+    echo(_render_gradient())
 
 
 @demo.group()

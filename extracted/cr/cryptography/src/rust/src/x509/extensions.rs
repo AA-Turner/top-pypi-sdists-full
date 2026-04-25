@@ -399,14 +399,14 @@ fn encode_tls_features(
 fn encode_scts(ext: &pyo3::Bound<'_, pyo3::PyAny>) -> CryptographyResult<Vec<u8>> {
     let mut length = 0;
     for sct in ext.try_iter()? {
-        let sct = sct?.downcast::<sct::Sct>()?.clone();
+        let sct = sct?.cast::<sct::Sct>()?.clone();
         length += sct.get().sct_data.len() + 2;
     }
 
     let mut result = vec![];
     result.extend_from_slice(&(length as u16).to_be_bytes());
     for sct in ext.try_iter()? {
-        let sct = sct?.downcast::<sct::Sct>()?.clone();
+        let sct = sct?.cast::<sct::Sct>()?.clone();
         result.extend_from_slice(&(sct.get().sct_data.len() as u16).to_be_bytes());
         result.extend_from_slice(&sct.get().sct_data);
     }
@@ -620,7 +620,7 @@ pub(crate) fn encode_extension(
         &oid::INHIBIT_ANY_POLICY_OID => {
             let intval = ext
                 .getattr(pyo3::intern!(py, "skip_certs"))?
-                .downcast::<pyo3::types::PyInt>()?
+                .cast::<pyo3::types::PyInt>()?
                 .clone();
             let bytes = py_uint_to_big_endian_bytes(ext.py(), intval)?;
             Ok(Some(asn1::write_single(
@@ -666,7 +666,9 @@ pub(crate) fn encode_extension(
             Ok(Some(asn1::write_single(&asn1::SequenceOfWriter::new(gns))?))
         }
         &oid::INVALIDITY_DATE_OID => {
-            let py_dt = ext.getattr(pyo3::intern!(py, "invalidity_date_utc"))?;
+            let py_dt = ext
+                .getattr(pyo3::intern!(py, "invalidity_date_utc"))?
+                .extract()?;
             let dt = x509::py_to_datetime(py, py_dt)?;
             Ok(Some(asn1::write_single(&asn1::X509GeneralizedTime::new(
                 dt,
@@ -675,7 +677,7 @@ pub(crate) fn encode_extension(
         &oid::CRL_NUMBER_OID | &oid::DELTA_CRL_INDICATOR_OID => {
             let intval = ext
                 .getattr(pyo3::intern!(py, "crl_number"))?
-                .downcast::<pyo3::types::PyInt>()?
+                .cast::<pyo3::types::PyInt>()?
                 .clone();
             let bytes = py_uint_to_big_endian_bytes(ext.py(), intval)?;
             Ok(Some(asn1::write_single(
@@ -741,17 +743,17 @@ pub(crate) fn encode_private_key_usage_period(
     py: pyo3::Python<'_>,
     ext: &pyo3::Bound<'_, pyo3::PyAny>,
 ) -> CryptographyResult<Vec<u8>> {
-    let not_before = ext.getattr(pyo3::intern!(py, "not_before"))?;
-    let not_after = ext.getattr(pyo3::intern!(py, "not_after"))?;
+    let not_before = ext.getattr(pyo3::intern!(py, "not_before"))?.extract()?;
+    let not_after = ext.getattr(pyo3::intern!(py, "not_after"))?.extract()?;
 
-    let not_before_value = if !not_before.is_none() {
+    let not_before_value = if let Some(not_before) = not_before {
         let dt = x509::py_to_datetime(py, not_before)?;
         Some(asn1::X509GeneralizedTime::new(dt)?)
     } else {
         None
     };
 
-    let not_after_value = if !not_after.is_none() {
+    let not_after_value = if let Some(not_after) = not_after {
         let dt = x509::py_to_datetime(py, not_after)?;
         Some(asn1::X509GeneralizedTime::new(dt)?)
     } else {

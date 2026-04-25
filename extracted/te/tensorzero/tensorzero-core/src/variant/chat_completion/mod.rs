@@ -212,9 +212,9 @@ impl ChatCompletionConfig {
 #[cfg_attr(feature = "ts-bindings", ts(export))]
 #[serde(deny_unknown_fields)]
 pub struct UninitializedInputWrappers {
-    user: Option<ResolvedTomlPathData>,
-    assistant: Option<ResolvedTomlPathData>,
-    system: Option<ResolvedTomlPathData>,
+    pub user: Option<ResolvedTomlPathData>,
+    pub assistant: Option<ResolvedTomlPathData>,
+    pub system: Option<ResolvedTomlPathData>,
 }
 
 #[cfg_attr(feature = "ts-bindings", derive(ts_rs::TS))]
@@ -235,12 +235,12 @@ pub struct UninitializedChatTemplates {
     pub inner: HashMap<String, UninitializedChatTemplate>,
 }
 
+#[serde_with::skip_serializing_none]
 #[cfg_attr(feature = "ts-bindings", derive(ts_rs::TS))]
 #[derive(Clone, Debug, Default, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[cfg_attr(feature = "ts-bindings", ts(export))]
 #[serde(deny_unknown_fields)]
 pub struct UninitializedChatCompletionConfig {
-    #[serde(default)]
     pub weight: Option<f64>,
     pub model: Arc<str>,
     pub system_template: Option<ResolvedTomlPathData>,
@@ -268,14 +268,11 @@ pub struct UninitializedChatCompletionConfig {
     #[cfg_attr(feature = "ts-bindings", ts(optional))]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub verbosity: Option<String>,
-    #[serde(default)]
     pub json_mode: Option<JsonMode>, // Only for JSON functions, not for chat functions
     #[serde(default)]
     pub retries: RetryConfig,
-    #[serde(default)]
     #[cfg_attr(feature = "ts-bindings", ts(skip))]
     pub extra_body: Option<ExtraBodyConfig>,
-    #[serde(default)]
     #[cfg_attr(feature = "ts-bindings", ts(skip))]
     pub extra_headers: Option<ExtraHeadersConfig>,
 }
@@ -645,6 +642,7 @@ impl Variant for ChatCompletionConfig {
             clients,
             inference_params,
             self.retries,
+            Some(&inference_config.function_name),
         )
         .await
     }

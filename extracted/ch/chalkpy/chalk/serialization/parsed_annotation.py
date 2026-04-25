@@ -216,13 +216,12 @@ class ParsedAnnotation:
                                     match = name_error_pattern.search(str(error))
                                     if match is not None:
                                         missing_import_string = match.group(1)
-                                        (
-                                            regular_from_imports,
-                                            type_checking_imports,
-                                            local_classes,
-                                        ) = gather_all_imports_and_local_classes(tree)
-                                        if missing_import_string not in regular_from_imports + type_checking_imports:
-                                            if missing_import_string in local_classes:
+                                        gathered = gather_all_imports_and_local_classes(tree)
+                                        if (
+                                            missing_import_string
+                                            not in gathered.regular_from_imports + gathered.type_checking_imports
+                                        ):
+                                            if missing_import_string in gathered.local_classes:
                                                 # Feature class is defined somewhere else in the same file, so let's skip
                                                 continue
                                             builder = self._features_cls and self._features_cls.__chalk_error_builder__

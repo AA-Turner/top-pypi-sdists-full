@@ -132,7 +132,7 @@ class _TestHistogramndLut_nominal(unittest.TestCase):
         for i_edges, edges in enumerate(expected_edges):
             self.assertTrue(
                 np.array_equal(bin_edges[i_edges], expected_edges[i_edges]),
-                msg="Testing bin_edges for dim {0}" "".format(i_edges + 1),
+                msg=f"Testing bin_edges for dim {i_edges + 1}",
             )
 
     def test_nominal_histo_range(self):
@@ -498,9 +498,9 @@ class _TestHistogramndLut_nominal(unittest.TestCase):
         type = self.sample.dtype.newbyteorder("L")
         sampleL = self.sample.astype(type)
 
-        histo_inst = HistogramndLut(sampleB, self.histo_range, self.n_bins)
+        HistogramndLut(sampleB, self.histo_range, self.n_bins)
 
-        histo_inst = HistogramndLut(sampleL, self.histo_range, self.n_bins)
+        HistogramndLut(sampleL, self.histo_range, self.n_bins)
 
 
 class TestHistogramndLut_nominal_1d(_TestHistogramndLut_nominal):

@@ -37,6 +37,12 @@ _VALUE_COUNTS_MAX_CARDINALITY = 200
 # Extending this set requires a parity-test addition.
 _SPARK_SUPPORTED_AGG_FUNCS = frozenset({"sum", "mean", "max", "min", "count", "value_counts"})
 
+# Catalyst's analyzer allocates per-expression and trips over an O(N^2) plan
+# step at very wide aggregations. The empirically-safe ceiling is ~200 agg
+# exprs per `.agg()` call; we chunk in groups of this size and `outer`-join
+# the per-entity chunk results together. See `coding_practice_batched_agg`.
+_SPARK_AGG_CHUNK_SIZE = 150
+
 
 class AggregationType(str, Enum):
     SUM = "sum"
@@ -103,7 +109,27 @@ class TimeWindowAggregator:
         reference_date: Optional[Timestamp] = None, include_event_count: bool = False,
         include_recency: bool = False, include_tenure: bool = False,
         exclude_columns: Optional[List[str]] = None,
+        value_counts_columns: Optional[List[str]] = None,
     ) -> DataFrame:
+        # `value_counts_columns` scopes the `value_counts` aggregation to an
+        # EXPLICIT list of categorical columns — independent of the numeric
+        # `value_columns × agg_funcs` fan-out. Callers that wire per-value-type
+        # counts via `registry.add_bronze_value_counts(...)` pass the registry
+        # list here; the aggregator will NOT apply `value_counts` to every
+        # entry of `value_columns`, which previously caused continuous numeric
+        # columns (e.g. `*_delta_hours`) to be fanned out into thousands of
+        # feature columns and fail-fast under the cardinality cap.
+        #
+        # Back-compat: if `value_counts_columns` is None/empty AND `"value_counts"`
+        # appears in `agg_funcs`, the legacy behavior (value_counts applied to
+        # every `value_columns` entry) is preserved.
+        _vc_cols_effective = list(value_counts_columns or [])
+        _vc_in_funcs = "value_counts" in (agg_funcs or [])
+        if _vc_cols_effective and not _vc_in_funcs:
+            # Normalize: if caller passed the explicit list, we still need
+            # "value_counts" in the dispatch key so the Spark path knows to
+            # emit the per-value count columns.
+            agg_funcs = list(agg_funcs or []) + ["value_counts"]
         # Dispatch: keep distributed end-to-end when input is Spark/pyspark.pandas
         # AND every requested agg func has a native-Spark implementation. Otherwise
         # fall through to the legacy pandas path (covers mode/entropy/mode_ratio/
@@ -121,6 +147,7 @@ class TimeWindowAggregator:
                     include_event_count=include_event_count,
                     include_recency=include_recency, include_tenure=include_tenure,
                     exclude_columns=exclude_columns,
+                    value_counts_columns=_vc_cols_effective or None,
                 )
             warnings.warn(
                 f"TimeWindowAggregator: agg_funcs={funcs_for_dispatch!r} contain "
@@ -156,7 +183,9 @@ class TimeWindowAggregator:
 
         if value_columns and agg_funcs:
             self._add_value_aggregations(
-                result_data, df, entities, parsed_windows, value_columns, agg_funcs, reference_date)
+                result_data, df, entities, parsed_windows, value_columns, agg_funcs, reference_date,
+                value_counts_columns=_vc_cols_effective or None,
+            )
 
         if include_recency:
             result_data["days_since_last_event"] = self._compute_recency(df, entities, reference_date)
@@ -175,6 +204,7 @@ class TimeWindowAggregator:
         reference_date: Optional[Timestamp], include_event_count: bool,
         include_recency: bool, include_tenure: bool,
         exclude_columns: Optional[List[str]],
+        value_counts_columns: Optional[List[str]] = None,
     ) -> Any:
         # Native-Spark, distributed entity-level aggregation. Mirrors the
         # pandas path's column contract: result columns are
@@ -196,14 +226,20 @@ class TimeWindowAggregator:
         )
 
         spark_df = as_spark_df(df) if not isinstance(df, NativeSparkDF) else df
-        if spark_df.rdd.isEmpty():
+
+        # Empty-frame short-circuit via pure Spark SQL. The RDD-layer
+        # equivalent (`isEmpty()` on the underlying RDD) is forbidden on
+        # Databricks shared clusters under Unity Catalog (NOT_IMPLEMENTED).
+        # `.limit(1).count()` works on every cluster mode.
+        if spark_df.limit(1).count() == 0:
             spark = spark_df.sparkSession
             return spark.createDataFrame([], schema=f"{self.entity_column} string")
 
         # Cast time column once, reuse for every window / aggregation. We do NOT
         # mutate the input frame's user-facing schema.
-        time_col_cast = F.col(self.time_column).cast("timestamp")
-        spark_df = spark_df.withColumn(self.time_column, time_col_cast)
+        spark_df = spark_df.withColumn(
+            self.time_column, F.col(self.time_column).cast("timestamp")
+        )
 
         ref_dt = self._resolve_reference_date_spark(spark_df, reference_date)
         ref_lit = F.lit(ref_dt).cast("timestamp")
@@ -214,8 +250,8 @@ class TimeWindowAggregator:
         if value_columns:
             value_columns = [c for c in value_columns if c not in exclude_set]
 
-        # Numeric column detection from the Spark schema. Avoids any pandas
-        # dtype inference and keeps the check distributed-safe.
+        # Numeric column detection from the Spark schema. Distributed-safe;
+        # no pandas dtype inference, no driver collect.
         numeric_spark_types = (
             IntegerType, LongType, DoubleType, FloatType, ShortType, ByteType, DecimalType,
         )
@@ -225,135 +261,189 @@ class TimeWindowAggregator:
             field = schema_field_by_name.get(col)
             return field is not None and isinstance(field.dataType, numeric_spark_types)
 
-        # Base entity frame — every distinct entity becomes one row in the
-        # output. Use distinct() not dropDuplicates() for clarity.
+        # Base entity frame — every distinct entity becomes one row in the output.
         entity_base = (
             spark_df.select(F.col(self.entity_column))
             .where(F.col(self.entity_column).isNotNull())
             .distinct()
         )
 
-        result = entity_base
         scalar_funcs = [f for f in agg_funcs if f in {"sum", "mean", "max", "min", "count"}]
         wants_value_counts = "value_counts" in agg_funcs
 
-        # Resolve distinct values per value_counts column ONCE (outside the
-        # per-window loop). Bounded collect via head_as_list — same cap the
-        # pandas path uses (raises if cardinality exceeds the cap).
-        value_counts_categories: Dict[str, List[Any]] = {}
-        if wants_value_counts and value_columns:
-            for col in value_columns:
-                distinct_pdf = (
-                    spark_df.select(F.col(col)).where(F.col(col).isNotNull())
-                    .distinct().limit(_VALUE_COUNTS_MAX_CARDINALITY + 1)
-                    .toPandas()
+        # Resolve the EFFECTIVE set of columns to fan out via value_counts.
+        # Precedence:
+        #   1. Explicit `value_counts_columns` kwarg (new path) — scoped to
+        #      a named list of categorical columns, independent of
+        #      `value_columns`. Back-compat-safe.
+        #   2. Legacy: when `"value_counts" in agg_funcs` and no kwarg,
+        #      every `value_columns` entry gets value_counts. This is the
+        #      historical behavior; retained so existing callers keep working.
+        if value_counts_columns:
+            _vc_target_cols = [c for c in value_counts_columns if c not in exclude_set]
+        elif wants_value_counts and value_columns:
+            _vc_target_cols = list(value_columns)
+        else:
+            _vc_target_cols = []
+
+        # Resolve distinct values per target column. Bounded collect
+        # (_VALUE_COUNTS_MAX_CARDINALITY cap; raises if exceeded so a
+        # continuous numeric column isn't silently fanned out into thousands
+        # of feature columns).
+        value_counts_categories: Dict[str, List[str]] = {}
+        for col in _vc_target_cols:
+            distinct_rows = (
+                spark_df.select(F.col(col).cast("string").alias(col))
+                .where(F.col(col).isNotNull())
+                .distinct()
+                .limit(_VALUE_COUNTS_MAX_CARDINALITY + 1)
+                .collect()
+            )
+            if len(distinct_rows) > _VALUE_COUNTS_MAX_CARDINALITY:
+                raise ValueError(
+                    f"value_counts on column {col!r} has > "
+                    f"{_VALUE_COUNTS_MAX_CARDINALITY} distinct values; "
+                    "refusing to fan out into thousands of feature columns. "
+                    "Either narrow the column upstream or pass a scoped "
+                    "`value_counts_columns=[...]` that excludes it "
+                    "(continuous numeric columns don't belong here)."
                 )
-                if len(distinct_pdf) > _VALUE_COUNTS_MAX_CARDINALITY:
-                    raise ValueError(
-                        f"value_counts on column {col!r} has > "
-                        f"{_VALUE_COUNTS_MAX_CARDINALITY} distinct values; "
-                        "refusing to fan out into thousands of feature columns. "
-                        "Either narrow the column upstream or remove it from "
-                        "value_counts_columns."
-                    )
-                value_counts_categories[col] = [v for v in distinct_pdf[col].tolist()]
+            value_counts_categories[col] = [
+                r[col] for r in distinct_rows if r[col] is not None
+            ]
 
-        # Per-window: filter, then a single batched .agg(...) for all numeric
-        # (column × func) pairs that window needs (Catalyst handles them in
-        # one shuffle), plus optional value_counts pivots. One Spark job per
-        # window for the numerics; one extra per value_counts column.
+        # Build ALL aggregation expressions for ALL windows in ONE pass via
+        # conditional aggregation. Each expression is `F.sum/mean/max/min(
+        # F.when(in_window_for_W, expr).otherwise(...))`. Catalyst evaluates
+        # the whole agg with a single shuffle (chunked at
+        # _SPARK_AGG_CHUNK_SIZE to avoid the analyzer's O(N²) plan blowup —
+        # see `coding_practice_batched_agg`).
+        #
+        # This collapses what was previously N_windows × N_value_cols
+        # separate Spark jobs into ceil(total_exprs / chunk_size) jobs.
+        all_exprs: List[Any] = []
+        zero_fill_cols: List[str] = []
+
         for window in parsed_windows:
-            filtered = self._filter_by_window_spark(spark_df, window, ref_lit, F)
-
-            agg_exprs = []
-            zero_fill_cols: List[str] = []  # tracked explicitly — no Java introspection
+            in_window = self._in_window_expr(window, ref_lit, F)
 
             if include_event_count:
                 ec_name = f"event_count_{window.name}"
-                agg_exprs.append(F.count(F.lit(1)).alias(ec_name))
+                all_exprs.append(
+                    F.sum(F.when(in_window, 1).otherwise(0)).alias(ec_name)
+                )
                 zero_fill_cols.append(ec_name)
 
             if scalar_funcs and value_columns:
                 for col in value_columns:
                     if not _is_numeric_spark(col):
-                        # Skip non-numeric for numeric funcs — output column
-                        # is intentionally absent (matches pandas path which
-                        # would store NaN; downstream callers tolerate both).
                         continue
+                    col_ref = F.col(col)
+                    in_window_col = F.when(in_window, col_ref)
                     for func in scalar_funcs:
                         out_name = f"{col}_{func}_{window.name}"
                         if func == "sum":
-                            agg_exprs.append(F.sum(F.col(col)).alias(out_name))
+                            all_exprs.append(F.sum(in_window_col).alias(out_name))
                             zero_fill_cols.append(out_name)
                         elif func == "mean":
-                            agg_exprs.append(F.mean(F.col(col)).alias(out_name))
+                            all_exprs.append(F.mean(in_window_col).alias(out_name))
                         elif func == "max":
-                            agg_exprs.append(F.max(F.col(col)).alias(out_name))
+                            all_exprs.append(F.max(in_window_col).alias(out_name))
                         elif func == "min":
-                            agg_exprs.append(F.min(F.col(col)).alias(out_name))
+                            all_exprs.append(F.min(in_window_col).alias(out_name))
                         elif func == "count":
-                            # Per-column count = non-null count, matches pandas.
-                            agg_exprs.append(F.count(F.col(col)).alias(out_name))
+                            # Non-null count of in-window rows for this column.
+                            all_exprs.append(
+                                F.sum(F.when(in_window & col_ref.isNotNull(), 1).otherwise(0))
+                                .alias(out_name)
+                            )
                             zero_fill_cols.append(out_name)
 
-            if agg_exprs:
-                per_entity = filtered.groupBy(self.entity_column).agg(*agg_exprs)
-                result = result.join(per_entity, on=self.entity_column, how="left")
-                if zero_fill_cols:
-                    # Zero-fill count/sum/event_count to match pandas semantics
-                    # (no events in window → 0, not null).
-                    result = result.fillna(0, subset=zero_fill_cols)
-
-            if wants_value_counts and value_columns:
-                for col in value_columns:
-                    distinct_vals = value_counts_categories.get(col) or []
-                    if not distinct_vals:
-                        continue
-                    pivot_name = f"__pv_{col}"
-                    # Cast the pivot column to string so pivot value matching is
-                    # deterministic (Spark pivot key matching is exact-string).
-                    pivot_input = filtered.withColumn(pivot_name, F.col(col).cast("string"))
-                    distinct_vals_str = [None if v is None else str(v) for v in distinct_vals]
-                    distinct_vals_str = [v for v in distinct_vals_str if v is not None]
-                    if not distinct_vals_str:
-                        continue
-                    pivoted = (
-                        pivot_input.groupBy(self.entity_column)
-                        .pivot(pivot_name, distinct_vals_str)
-                        .agg(F.count(F.lit(1)))
+            # value_counts fan-out is scoped to _vc_target_cols (explicit
+            # `value_counts_columns` kwarg, or legacy = value_columns when
+            # only `"value_counts" in agg_funcs`). Continuous numeric columns
+            # in `value_columns` are NO LONGER iterated here.
+            for col in _vc_target_cols:
+                distinct_vals = value_counts_categories.get(col) or []
+                for val in distinct_vals:
+                    out_name = f"{col}_{val}_count_{window.name}"
+                    all_exprs.append(
+                        F.sum(
+                            F.when(
+                                in_window & (F.col(col).cast("string") == F.lit(val)),
+                                1,
+                            ).otherwise(0)
+                        ).alias(out_name)
                     )
-                    rename_map = {
-                        v: f"{col}_{v}_count_{window.name}" for v in distinct_vals_str
-                    }
-                    for old, new in rename_map.items():
-                        if old in pivoted.columns:
-                            pivoted = pivoted.withColumnRenamed(old, new)
-                    result = result.join(pivoted, on=self.entity_column, how="left")
-                    result = result.fillna(0, subset=list(rename_map.values()))
+                    zero_fill_cols.append(out_name)
 
-        # Recency / tenure on the full (unfiltered) frame, mirroring pandas
-        # path which uses df where time <= reference_date.
-        if include_recency or include_tenure:
-            tenure_filter = spark_df.where(F.col(self.time_column) <= ref_lit)
-            tenure_aggs = []
-            if include_recency:
-                tenure_aggs.append(F.max(F.col(self.time_column)).alias("_last_event"))
-            if include_tenure:
-                tenure_aggs.append(F.min(F.col(self.time_column)).alias("_first_event"))
-            tenure_per_entity = tenure_filter.groupBy(self.entity_column).agg(*tenure_aggs)
-            result = result.join(tenure_per_entity, on=self.entity_column, how="left")
-            if include_recency:
-                result = result.withColumn(
-                    "days_since_last_event",
-                    F.datediff(ref_lit.cast("date"), F.col("_last_event").cast("date")).cast("double"),
-                ).drop("_last_event")
-            if include_tenure:
-                result = result.withColumn(
-                    "days_since_first_event",
-                    F.datediff(ref_lit.cast("date"), F.col("_first_event").cast("date")).cast("double"),
-                ).drop("_first_event")
+        # Recency / tenure also folded into the same single-pass agg.
+        if include_recency:
+            all_exprs.append(
+                F.max(
+                    F.when(F.col(self.time_column) <= ref_lit, F.col(self.time_column))
+                ).alias("_last_event")
+            )
+        if include_tenure:
+            all_exprs.append(
+                F.min(
+                    F.when(F.col(self.time_column) <= ref_lit, F.col(self.time_column))
+                ).alias("_first_event")
+            )
+
+        # ONE chunked groupBy(entity).agg() — Catalyst parallelises across
+        # all executor cores; chunks merge back via outer join on entity.
+        per_entity = self._chunked_groupby_agg(
+            spark_df, [self.entity_column], all_exprs, _SPARK_AGG_CHUNK_SIZE
+        )
+
+        result = entity_base.join(per_entity, on=self.entity_column, how="left")
+
+        if zero_fill_cols:
+            # Pandas-path parity: no events in window → 0, not null. Applies
+            # to event_count_*, *_count_*, and *_sum_* (matches pandas
+            # `fillna(0)` semantics for count/sum on empty groups).
+            result = result.fillna(0, subset=zero_fill_cols)
+
+        if include_recency:
+            result = result.withColumn(
+                "days_since_last_event",
+                F.datediff(ref_lit.cast("date"), F.col("_last_event").cast("date")).cast("double"),
+            ).drop("_last_event")
+        if include_tenure:
+            result = result.withColumn(
+                "days_since_first_event",
+                F.datediff(ref_lit.cast("date"), F.col("_first_event").cast("date")).cast("double"),
+            ).drop("_first_event")
 
         return result
+
+    def _in_window_expr(self, window: "TimeWindow", ref_lit: Any, F: Any) -> Any:
+        time_col = F.col(self.time_column)
+        if window.days is None:
+            # all_time: include every row whose time is <= reference_date.
+            return time_col <= ref_lit
+        cutoff = ref_lit - F.expr(f"INTERVAL {int(window.days)} DAYS")
+        return (time_col >= cutoff) & (time_col <= ref_lit)
+
+    @staticmethod
+    def _chunked_groupby_agg(spark_df: Any, group_cols: List[str], exprs: List[Any],
+                              chunk_size: int) -> Any:
+        if not exprs:
+            return spark_df.select(*group_cols).distinct()
+        if len(exprs) <= chunk_size:
+            return spark_df.groupBy(*group_cols).agg(*exprs)
+        # Split into chunks; each chunk is its own groupBy().agg() shuffle.
+        # Outer-join the chunk results back together on the group keys so we
+        # don't lose entities that appear only in some chunks (won't happen
+        # because all chunks group on the same key, but `outer` is the safe
+        # default to mirror what a single big agg would yield).
+        chunks = [exprs[i:i + chunk_size] for i in range(0, len(exprs), chunk_size)]
+        chunk_results = [spark_df.groupBy(*group_cols).agg(*chunk) for chunk in chunks]
+        merged = chunk_results[0]
+        for cr in chunk_results[1:]:
+            merged = merged.join(cr, on=group_cols, how="outer")
+        return merged
 
     def _resolve_reference_date_spark(self, spark_df: Any, reference_date: Optional[Timestamp]) -> Timestamp:
         if reference_date is not None:
@@ -368,41 +458,48 @@ class TimeWindowAggregator:
             )
         return native_pd.Timestamp(row[0])
 
-    def _filter_by_window_spark(self, spark_df: Any, window: TimeWindow, ref_lit: Any, F: Any) -> Any:
-        if window.days is None:
-            return spark_df.where(F.col(self.time_column) <= ref_lit)
-        # Cutoff arithmetic stays inside Spark — no driver-side date math.
-        # `ref_lit - INTERVAL N DAYS` evaluates as timestamp - interval → timestamp.
-        cutoff = ref_lit - F.expr(f"INTERVAL {int(window.days)} DAYS")
-        return spark_df.where(
-            (F.col(self.time_column) >= cutoff) & (F.col(self.time_column) <= ref_lit)
-        )
-
     def _add_value_aggregations(
         self, result_data: Dict, df: DataFrame, entities: np.ndarray,
         windows: List[TimeWindow], value_columns: List[str], agg_funcs: List[str],
         reference_date: Timestamp,
+        value_counts_columns: Optional[List[str]] = None,
     ) -> None:
+        # Scoping rule matches `_aggregate_spark`: an explicit
+        # `value_counts_columns` list restricts where `value_counts` fans out.
+        # Absent the kwarg we fall back to the legacy behavior (every
+        # `value_columns` entry gets value_counts).
+        _vc_target_cols = list(value_counts_columns) if value_counts_columns else list(value_columns)
+        _scalar_funcs = [f for f in agg_funcs if f != "value_counts"]
+        _wants_vc = "value_counts" in agg_funcs or bool(value_counts_columns)
         for window in windows:
             for col in value_columns:
-                for func in agg_funcs:
-                    if func == "value_counts":
-                        result_data.update(self._compute_value_counts(df, entities, col, window, reference_date))
-                    else:
-                        result_data[f"{col}_{func}_{window.name}"] = self._compute_aggregation(
-                            df, entities, col, func, window, reference_date)
+                for func in _scalar_funcs:
+                    result_data[f"{col}_{func}_{window.name}"] = self._compute_aggregation(
+                        df, entities, col, func, window, reference_date)
+            if _wants_vc:
+                for col in _vc_target_cols:
+                    result_data.update(
+                        self._compute_value_counts(df, entities, col, window, reference_date)
+                    )
 
     def generate_plan(
         self, df: DataFrame, windows: List[str], value_columns: List[str], agg_funcs: List[str],
         include_event_count: bool = True, include_recency: bool = False, include_tenure: bool = False,
         exclude_columns: Optional[List[str]] = None,
+        value_counts_columns: Optional[List[str]] = None,
     ) -> AggregationPlan:
         parsed_windows = [TimeWindow.from_string(w) for w in windows]
         exclude_set = set(exclude_columns) if exclude_columns else set()
         value_columns = [c for c in value_columns if c not in exclude_set]
+        _vc_cols = (
+            [c for c in value_counts_columns if c not in exclude_set]
+            if value_counts_columns else None
+        )
 
         feature_columns, value_counts_categories = self._build_feature_column_list(
-            df, parsed_windows, value_columns, agg_funcs, include_event_count, include_recency, include_tenure)
+            df, parsed_windows, value_columns, agg_funcs, include_event_count, include_recency,
+            include_tenure, value_counts_columns=_vc_cols,
+        )
 
         return AggregationPlan(
             entity_column=self.entity_column, time_column=self.time_column, windows=parsed_windows,
@@ -413,6 +510,7 @@ class TimeWindowAggregator:
     def _build_feature_column_list(
         self, df: DataFrame, windows: List[TimeWindow], value_columns: List[str],
         agg_funcs: List[str], include_event_count: bool, include_recency: bool, include_tenure: bool,
+        value_counts_columns: Optional[List[str]] = None,
     ) -> tuple:
         feature_columns = []
         value_counts_categories: Dict[str, List[str]] = {}
@@ -420,28 +518,37 @@ class TimeWindowAggregator:
         if include_event_count:
             feature_columns.extend(f"event_count_{w.name}" for w in windows)
 
-        # Resolve the unique-value set for each value_counts column ONCE,
-        # outside the per-window loop. `df[col].dropna().unique()` returns
-        # a pyspark.pandas Series whose `__iter__` is unimplemented; iterate
-        # via `head_as_list(...)` (compat helper that bounds the collect)
-        # so we never materialize an unbounded series on the driver.
+        # Scoping (same rule as `_aggregate_spark` / `_add_value_aggregations`):
+        # `value_counts_columns` kwarg scopes the fan-out to a named list;
+        # legacy behavior (empty kwarg + `"value_counts"` in `agg_funcs`)
+        # falls back to every `value_columns` entry.
+        _vc_target_cols = (
+            list(value_counts_columns) if value_counts_columns
+            else (list(value_columns) if "value_counts" in agg_funcs else [])
+        )
+        _wants_vc = bool(_vc_target_cols)
+
+        # Resolve the unique-value set for each value_counts target column
+        # ONCE, outside the per-window loop. Bounded via head_as_list (caps
+        # at _VALUE_COUNTS_MAX_CARDINALITY) so a continuous numeric column
+        # can't materialise thousands of feature names.
         unique_vals_by_col: Dict[str, List[Any]] = {}
-        if "value_counts" in agg_funcs:
-            for col in value_columns:
-                if col not in unique_vals_by_col:
-                    unique_vals_by_col[col] = head_as_list(
-                        df[col].dropna().unique(), _VALUE_COUNTS_MAX_CARDINALITY
-                    )
+        for col in _vc_target_cols:
+            unique_vals_by_col[col] = head_as_list(
+                df[col].dropna().unique(), _VALUE_COUNTS_MAX_CARDINALITY
+            )
+
+        _scalar_funcs = [f for f in agg_funcs if f != "value_counts"]
 
         for window in windows:
             for col in value_columns:
-                for func in agg_funcs:
-                    if func == "value_counts":
-                        unique_vals = unique_vals_by_col[col]
-                        value_counts_categories[col] = unique_vals
-                        feature_columns.extend(f"{col}_{val}_count_{window.name}" for val in unique_vals)
-                    else:
-                        feature_columns.append(f"{col}_{func}_{window.name}")
+                for func in _scalar_funcs:
+                    feature_columns.append(f"{col}_{func}_{window.name}")
+            if _wants_vc:
+                for col in _vc_target_cols:
+                    unique_vals = unique_vals_by_col[col]
+                    value_counts_categories[col] = unique_vals
+                    feature_columns.extend(f"{col}_{val}_count_{window.name}" for val in unique_vals)
 
         if include_recency:
             feature_columns.append("days_since_last_event")

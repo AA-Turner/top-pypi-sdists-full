@@ -37,7 +37,6 @@ thus importing `numpy <http://www.numpy.org/>`_ and
 `matplotlib <https://matplotlib.org/>`_.
 """
 
-
 __authors__ = ["T. Vincent"]
 __license__ = "MIT"
 __date__ = "16/01/2017"
@@ -46,7 +45,6 @@ __date__ = "16/01/2017"
 import logging as _logging
 import sys as _sys
 import os as _os
-
 
 _logger = _logging.getLogger(__name__)
 
@@ -119,7 +117,7 @@ def enable_gui():
     from ._plot import plot, imshow, scatter, ginput  # noqa
 
     try:
-        import OpenGL
+        import OpenGL  # noqa: F401
     except ImportError:
         _logger.warning(
             "Not loading silx.gui.plot3d features: PyOpenGL is not installed"

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: unitycatalog-ai
-Version: 0.3.2
+Version: 0.4.0
 Summary: Official Python library for Unity Catalog AI support
 Project-URL: homepage, https://www.unitycatalog.io/
 Project-URL: issues, https://github.com/unitycatalog/unitycatalog/issues
@@ -19,7 +19,6 @@ Classifier: Intended Audience :: Science/Research
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -29,30 +28,29 @@ Classifier: Topic :: Software Development
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Software Development :: User Interfaces
-Requires-Python: >=3.9
-Requires-Dist: cloudpickle
-Requires-Dist: nest-asyncio
-Requires-Dist: pydantic
-Requires-Dist: typing-extensions
-Requires-Dist: unitycatalog-client
+Requires-Python: >=3.10
+Requires-Dist: cloudpickle<=3.1.2,>=2.0.0
+Requires-Dist: nest-asyncio<=1.6.0,>=1.5.0
+Requires-Dist: pydantic<3,>=2.0.0
+Requires-Dist: typing-extensions<=4.15.0,>=4.0.0
+Requires-Dist: unitycatalog-client<0.5.0,>=0.4.0
 Provides-Extra: databricks
 Requires-Dist: databricks-connect<17.1,>=15.1.0; extra == 'databricks'
-Requires-Dist: databricks-sdk>=0.32.0; extra == 'databricks'
-Requires-Dist: pandas; extra == 'databricks'
+Requires-Dist: databricks-sdk<=0.94.0,>=0.32.0; extra == 'databricks'
+Requires-Dist: pandas<=3.0.1,>=1.0.0; extra == 'databricks'
 Provides-Extra: databricks-dev
 Requires-Dist: databricks-connect<17.1,>=15.1.0; extra == 'databricks-dev'
-Requires-Dist: databricks-sdk>=0.32.0; extra == 'databricks-dev'
-Requires-Dist: hatch; extra == 'databricks-dev'
-Requires-Dist: pandas; extra == 'databricks-dev'
-Requires-Dist: pytest; extra == 'databricks-dev'
+Requires-Dist: databricks-sdk<=0.94.0,>=0.32.0; extra == 'databricks-dev'
+Requires-Dist: hatch<=1.16.5,>=1.0.0; extra == 'databricks-dev'
+Requires-Dist: pandas<=3.0.1,>=1.0.0; extra == 'databricks-dev'
+Requires-Dist: pytest<=9.0.2,>=7.0.0; extra == 'databricks-dev'
 Requires-Dist: ruff==0.9.3; extra == 'databricks-dev'
 Provides-Extra: dev
-Requires-Dist: databricks-connect<17.1; extra == 'dev'
-Requires-Dist: databricks-sdk>=0.32.0; extra == 'dev'
-Requires-Dist: hatch; extra == 'dev'
-Requires-Dist: pandas; extra == 'dev'
-Requires-Dist: pytest; extra == 'dev'
-Requires-Dist: pytest-asyncio; extra == 'dev'
+Requires-Dist: databricks-sdk<=0.94.0,>=0.32.0; extra == 'dev'
+Requires-Dist: hatch<=1.16.5,>=1.0.0; extra == 'dev'
+Requires-Dist: pandas<=3.0.1,>=1.0.0; extra == 'dev'
+Requires-Dist: pytest-asyncio<=1.3.0,>=0.21.0; extra == 'dev'
+Requires-Dist: pytest<=9.0.2,>=7.0.0; extra == 'dev'
 Requires-Dist: ruff==0.9.3; extra == 'dev'
 Description-Content-Type: text/markdown
 

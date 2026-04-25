@@ -69,6 +69,40 @@ class GRPCException(Exception):
         return f"{self.code.name}: {self.message}"
 
 
+def _get_callable_kind(message: Any) -> str | None:
+    """Return the active callable field across recent proto variants."""
+    try:
+        return message.WhichOneof("callable")
+    except ValueError:
+        has_function = _has_field(message, "function")
+        has_entrypoint = _has_field(message, "entrypoint")
+        if has_function:
+            return "function"
+        if has_entrypoint:
+            return "entrypoint"
+        return None
+
+
+def _has_field(message: Any, field_name: str) -> bool:
+    try:
+        return message.HasField(field_name)
+    except ValueError:
+        return False
+
+
+def _get_optional_bool_field(message: Any, field_name: str) -> bool | None:
+    """Read an optional bool field across proto variants.
+
+    Older generated protobuf modules may expose the field without presence
+    tracking. In that case, only ``True`` can be observed distinctly; ``False``
+    is treated like "unset" so legacy fallback behavior is preserved.
+    """
+    try:
+        return getattr(message, field_name) if message.HasField(field_name) else None
+    except ValueError:
+        return True if getattr(message, field_name, False) else None
+
+
 @dataclass
 class RunnerAgent:
     stub: definitions.AgentStub
@@ -250,7 +284,7 @@ class IsolateServicer(definitions.IsolateServicer):
 
         # The `callable` oneof enforces at-most-one on the wire; here we
         # only need to reject the "neither set" case.
-        callable_kind = task.request.WhichOneof("callable")
+        callable_kind = _get_callable_kind(task.request)
         if callable_kind is None:
             raise GRPCException(
                 "One of 'function' or 'entrypoint' must be set.",
@@ -330,16 +364,19 @@ class IsolateServicer(definitions.IsolateServicer):
                 if has_entrypoint:
                     function_call = definitions.FunctionCall(
                         entrypoint=task.request.entrypoint,
-                        run_on_main_thread=task.request.run_on_main_thread,
                     )
                 else:
                     function_call = definitions.FunctionCall(
                         function=task.request.function,
                         setup_func=task.request.setup_func,
-                        run_on_main_thread=task.request.run_on_main_thread,
                     )
                     if not task.request.HasField("setup_func"):
                         function_call.ClearField("setup_func")
+                run_on_main_thread = _get_optional_bool_field(
+                    task.request, "run_on_main_thread"
+                )
+                if run_on_main_thread is not None:
+                    function_call.run_on_main_thread = run_on_main_thread
 
                 future = local_pool.submit(
                     _proxy_to_queue,

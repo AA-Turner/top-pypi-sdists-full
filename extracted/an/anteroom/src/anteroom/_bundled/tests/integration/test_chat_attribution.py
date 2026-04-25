@@ -29,7 +29,7 @@ from anteroom.routers.chat import _stream_chat_events
 
 class _FakeCliConfig:
     max_tool_iterations = 50
-    tool_output_max_chars = 2000
+    tool_output_max_chars = 10_000
     max_consecutive_text_only = 3
     max_line_repeats = 5
 
@@ -186,6 +186,63 @@ class TestChatAttributionTurnToolCount:
         assert len(attribution_events) == 1
         snapshot = json.loads(attribution_events[0]["data"])["snapshot"]
         assert snapshot["tools"] == []
+
+    @pytest.mark.asyncio
+    async def test_recalled_memory_in_prompt_meta_surfaces_in_sse_and_persisted_snapshot(self) -> None:
+        """Chat attribution must surface recalled memories from prompt metadata.
+
+        This covers the shared web chat path used after memory recall succeeds,
+        including degraded fallback cases where ``memory_recall_items`` is
+        populated without a semantic hit.
+        """
+        ctx = _make_stream_context()
+        ctx.prompt_meta["memory_recall_items"] = [
+            {
+                "fqn": "@user/memory/company-id",
+                "scope": "user",
+                "category": "project_fact",
+                "distance": 0.04,
+            }
+        ]
+        assistant_msg = {"id": "amsg-memory", "position": 1, "content": "Your company ID is 12345."}
+        events = [
+            _event("assistant_message", {"content": "Your company ID is 12345."}),
+            _event("done", {}),
+        ]
+
+        async def fake_agent(*args: Any, **kwargs: Any) -> Any:
+            for ev in events:
+                yield ev
+
+        with (
+            patch("anteroom.routers.chat.run_agent_loop", side_effect=fake_agent),
+            patch("anteroom.routers.chat.storage") as mock_storage,
+            patch("anteroom.services.packs.list_packs", return_value=[]),
+        ):
+            mock_storage.get_conversation_token_total.return_value = 0
+            mock_storage.get_daily_token_total.return_value = 0
+            mock_storage.create_message.return_value = assistant_msg
+            mock_storage.list_tool_calls.return_value = []
+            mock_storage.update_conversation_title = MagicMock()
+            mock_storage.merge_message_metadata = MagicMock()
+            result = await _collect(_stream_chat_events(ctx))
+
+        attribution_events = [e for e in result if isinstance(e, dict) and e.get("event") == "attribution"]
+        assert len(attribution_events) == 1
+        snapshot = json.loads(attribution_events[0]["data"])["snapshot"]
+        assert snapshot["memory_count"] == 1
+        assert snapshot["memory"] == [
+            {
+                "fqn": "@user/memory/company-id",
+                "scope": "user",
+                "category": "project_fact",
+                "distance": 0.04,
+            }
+        ]
+
+        persisted_meta = mock_storage.merge_message_metadata.call_args[0][2]
+        assert persisted_meta["attribution"]["memory_count"] == 1
+        assert persisted_meta["attribution"]["memory"][0]["fqn"] == "@user/memory/company-id"
 
     @pytest.mark.asyncio
     async def test_sse_attribution_carries_tools_count_30_when_30_tools_ran(self) -> None:

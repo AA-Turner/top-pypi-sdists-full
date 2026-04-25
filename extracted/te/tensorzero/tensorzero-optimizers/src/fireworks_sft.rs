@@ -47,7 +47,7 @@ use tensorzero_core::{
             tensorzero_to_fireworks_assistant_message,
         },
         helpers::UrlParseErrExt,
-        openai::{OpenAIMessagesConfig, OpenAIRequestMessage},
+        openai::{OpenAIMessagesConfig, OpenAIRequestMessage, ReasoningFieldName},
     },
     stored_inference::{LazyRenderedSample, RenderedSample},
     utils::mock::get_mock_provider_api_base,
@@ -58,13 +58,17 @@ use crate::{JobHandle, Optimizer};
 fn get_sft_config(
     provider_types: &ProviderTypesConfig,
 ) -> Result<&FireworksProviderSFTConfig, Error> {
-    provider_types.fireworks.sft.as_ref().ok_or_else(|| {
-        Error::new(ErrorDetails::InvalidRequest {
-            message:
-                "Fireworks SFT requires `[provider_types.fireworks.sft]` configuration section"
-                    .to_string(),
+    provider_types
+        .fireworks
+        .as_ref()
+        .and_then(|f| f.sft.as_ref())
+        .ok_or_else(|| {
+            Error::new(ErrorDetails::InvalidRequest {
+                message:
+                    "Fireworks SFT requires `[provider_types.fireworks.sft]` configuration section"
+                        .to_string(),
+            })
         })
-    })
 }
 
 impl Optimizer for FireworksSFTConfig {
@@ -394,8 +398,8 @@ impl<'a> FireworksSupervisedRow<'a> {
                 tools
                     .iter()
                     .filter_map(|dt| match &dt {
-                        tensorzero_core::tool::Tool::Function(func) => Some(func.into()),
-                        tensorzero_core::tool::Tool::OpenAICustom(_) => None, // Skip custom tools for SFT
+                        tensorzero_inference_types::tool::Tool::Function(func) => Some(func.into()),
+                        tensorzero_inference_types::tool::Tool::OpenAICustom(_) => None, // Skip custom tools for SFT
                     })
                     .collect()
             })
@@ -409,6 +413,7 @@ impl<'a> FireworksSupervisedRow<'a> {
                 // For now, this isn't configurable in SFT (we should never need to resolve a file URL here)
                 fetch_and_encode_input_files_before_inference: true,
                 content_type_overrides: None,
+                reasoning_field_name: ReasoningFieldName::ReasoningContent,
             },
         )
         .await?;
@@ -433,6 +438,7 @@ impl<'a> FireworksSupervisedRow<'a> {
                 // For now, this isn't configurable in SFT (we should never need to resolve a file URL here)
                 fetch_and_encode_input_files_before_inference: true,
                 content_type_overrides: None,
+                reasoning_field_name: ReasoningFieldName::ReasoningContent,
             },
         )
         .await?;

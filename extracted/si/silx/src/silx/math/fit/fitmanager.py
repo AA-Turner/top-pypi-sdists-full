@@ -39,6 +39,7 @@ This module deals with:
     - providing different background models
 
 """
+
 import logging
 import numpy
 from numpy.linalg import LinAlgError
@@ -50,7 +51,6 @@ from .leastsq import leastsq
 from .fittheory import FitTheory
 from . import bgtheories
 
-
 __authors__ = ["V.A. Sole", "P. Knobel"]
 __license__ = "MIT"
 __date__ = "16/01/2017"
@@ -58,7 +58,7 @@ __date__ = "16/01/2017"
 _logger = logging.getLogger(__name__)
 
 
-class FitManager(object):
+class FitManager:
     """
     Fit functions manager
 

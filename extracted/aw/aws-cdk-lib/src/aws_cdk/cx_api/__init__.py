@@ -856,6 +856,7 @@ from ..cloud_assembly_schema import (
     MissingContext as _MissingContext_0ff9e334,
     NestedCloudAssemblyProperties as _NestedCloudAssemblyProperties_c2fa342d,
     PluginContextQuery as _PluginContextQuery_31a9d073,
+    PropertyMutationMetadataEntry as _PropertyMutationMetadataEntry_4c840639,
     RuntimeInfo as _RuntimeInfo_3e9d9574,
     SSMParameterContextQuery as _SSMParameterContextQuery_675de122,
     SecurityGroupContextQuery as _SecurityGroupContextQuery_e772f3e6,
@@ -2849,7 +2850,7 @@ class MetadataEntryResult(_MetadataEntry_13e1bf79):
         self,
         *,
         type: builtins.str,
-        data: typing.Optional[typing.Union[builtins.str, jsii.Number, builtins.bool, typing.Union["_FileAssetMetadataEntry_50173f8f", typing.Dict[builtins.str, typing.Any]], typing.Union["_ContainerImageAssetMetadataEntry_0a212d1d", typing.Dict[builtins.str, typing.Any]], typing.Sequence[typing.Union["_Tag_554dd7f9", typing.Dict[builtins.str, typing.Any]]]]] = None,
+        data: typing.Optional[typing.Union[builtins.str, jsii.Number, builtins.bool, typing.Union["_FileAssetMetadataEntry_50173f8f", typing.Dict[builtins.str, typing.Any]], typing.Union["_ContainerImageAssetMetadataEntry_0a212d1d", typing.Dict[builtins.str, typing.Any]], typing.Union["_PropertyMutationMetadataEntry_4c840639", typing.Dict[builtins.str, typing.Any]], typing.Sequence[typing.Union[builtins.str, typing.Union["_Tag_554dd7f9", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         trace: typing.Optional[typing.Sequence[builtins.str]] = None,
         path: builtins.str,
     ) -> None:
@@ -2904,13 +2905,13 @@ class MetadataEntryResult(_MetadataEntry_13e1bf79):
     @builtins.property
     def data(
         self,
-    ) -> typing.Optional[typing.Union[builtins.str, jsii.Number, builtins.bool, "_FileAssetMetadataEntry_50173f8f", "_ContainerImageAssetMetadataEntry_0a212d1d", typing.List["_Tag_554dd7f9"]]]:
+    ) -> typing.Optional[typing.Union[builtins.str, jsii.Number, builtins.bool, "_FileAssetMetadataEntry_50173f8f", "_ContainerImageAssetMetadataEntry_0a212d1d", "_PropertyMutationMetadataEntry_4c840639", typing.List[typing.Union[builtins.str, "_Tag_554dd7f9"]]]]:
         '''The data.
 
         :default: - no data.
         '''
         result = self._values.get("data")
-        return typing.cast(typing.Optional[typing.Union[builtins.str, jsii.Number, builtins.bool, "_FileAssetMetadataEntry_50173f8f", "_ContainerImageAssetMetadataEntry_0a212d1d", typing.List["_Tag_554dd7f9"]]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.str, jsii.Number, builtins.bool, "_FileAssetMetadataEntry_50173f8f", "_ContainerImageAssetMetadataEntry_0a212d1d", "_PropertyMutationMetadataEntry_4c840639", typing.List[typing.Union[builtins.str, "_Tag_554dd7f9"]]]], result)
 
     @builtins.property
     def trace(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -4495,7 +4496,7 @@ def _typecheckingstub__8a91c0cb0c6c1935935039ee08853827eb62ce0b9747a7e1792fe0e44
 def _typecheckingstub__acb7cda500898c592440fb240140921316008dc94a4ac6385c5fe171bac93252(
     *,
     type: builtins.str,
-    data: typing.Optional[typing.Union[builtins.str, jsii.Number, builtins.bool, typing.Union[_FileAssetMetadataEntry_50173f8f, typing.Dict[builtins.str, typing.Any]], typing.Union[_ContainerImageAssetMetadataEntry_0a212d1d, typing.Dict[builtins.str, typing.Any]], typing.Sequence[typing.Union[_Tag_554dd7f9, typing.Dict[builtins.str, typing.Any]]]]] = None,
+    data: typing.Optional[typing.Union[builtins.str, jsii.Number, builtins.bool, typing.Union[_FileAssetMetadataEntry_50173f8f, typing.Dict[builtins.str, typing.Any]], typing.Union[_ContainerImageAssetMetadataEntry_0a212d1d, typing.Dict[builtins.str, typing.Any]], typing.Union[_PropertyMutationMetadataEntry_4c840639, typing.Dict[builtins.str, typing.Any]], typing.Sequence[typing.Union[builtins.str, typing.Union[_Tag_554dd7f9, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     trace: typing.Optional[typing.Sequence[builtins.str]] = None,
     path: builtins.str,
 ) -> None:

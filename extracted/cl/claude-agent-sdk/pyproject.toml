@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "claude-agent-sdk"
-version = "0.1.66"
+version = "0.1.68"
 description = "Python SDK for Claude Code"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -26,6 +26,7 @@ classifiers = [
 keywords = ["claude", "ai", "sdk", "anthropic"]
 dependencies = [
     "anyio>=4.0.0",
+    "sniffio>=1.0.0",
     "typing_extensions>=4.0.0; python_version<'3.11'",
     "mcp>=0.1.0",
 ]

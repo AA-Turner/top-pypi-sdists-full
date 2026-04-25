@@ -31,6 +31,7 @@ classifiers = [
 requires-python = ">=3.14"
 dependencies = [
     "aiohomematic>=2026.4.16",
+    "openccu-data>=2026.4.1",
     "pydantic>=2.10.0",
 ]
 
@@ -51,7 +52,7 @@ include = ["aiohomematic_config", "aiohomematic_config.*"]
 exclude = ["tests", "tests.*", "dist", "build"]
 
 [tool.setuptools.package-data]
-aiohomematic_config = ["py.typed", "profiles/*.json"]
+aiohomematic_config = ["py.typed"]
 
 # ---------------------------------------------------------------------------
 # pylint

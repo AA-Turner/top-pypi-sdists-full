@@ -86,9 +86,18 @@ class ChatInput(BaseModel):
     environment_variable_response: Optional["EnvironmentVariableResponseInput"] = Field(
         alias="environmentVariableResponse", default=None
     )
+    request_secrets_response: Optional["RequestSecretsResponseInput"] = Field(
+        alias="requestSecretsResponse", default=None
+    )
+    exit_create_skill_response: Optional["ExitCreateSkillResponseInput"] = Field(
+        alias="exitCreateSkillResponse", default=None
+    )
     ask_user_question: Optional["AskUserQuestionInput"] = Field(
         alias="askUserQuestion", default=None
     )
+    request_indent_configuration_response: Optional[
+        "RequestIndentConfigurationResponseInput"
+    ] = Field(alias="requestIndentConfigurationResponse", default=None)
     timezone: Optional[str] = None
     mcp_server_configs: Optional["McpServerConfigsInput"] = Field(
         alias="mcpServerConfigs", default=None
@@ -99,13 +108,9 @@ class ChatInput(BaseModel):
     repository_resource_configs: Optional[list["RepositoryResourceConfigInput"]] = (
         Field(alias="repositoryResourceConfigs", default=None)
     )
-    include_datadog_tools: Optional[bool] = Field(
-        alias="includeDatadogTools", default=None
+    add_integration_connection_uuids: Optional[list[UUID]] = Field(
+        alias="addIntegrationConnectionUuids", default=None
     )
-    include_sentry_tools: Optional[bool] = Field(
-        alias="includeSentryTools", default=None
-    )
-    include_aws_tools: Optional[bool] = Field(alias="includeAwsTools", default=None)
     enabled_skill_ids: Optional[list[str]] = Field(
         alias="enabledSkillIds", default=None
     )
@@ -120,6 +125,9 @@ class ChatResourceConfigInput(BaseModel):
         alias="additionalRepositories", default=None
     )
     database: Optional["DatabaseResourceConfigInput"] = None
+    integration_connection_uuids: Optional[list[UUID]] = Field(
+        alias="integrationConnectionUuids", default=None
+    )
     mcp_server_configs: Optional["McpServerConfigsInput"] = Field(
         alias="mcpServerConfigs", default=None
     )
@@ -147,6 +155,12 @@ class EnvironmentVariableResponseInput(BaseModel):
     variables: list["EnvironmentVariableResponseEntry"]
     tool_use_id: str = Field(alias="toolUseId")
     skipped_keys: list[str] = Field(alias="skippedKeys", default_factory=lambda: [])
+
+
+class ExitCreateSkillResponseInput(BaseModel):
+    tool_use_id: str = Field(alias="toolUseId")
+    approved: bool
+    feedback: Optional[str] = None
 
 
 class FileAttachmentInput(BaseModel):
@@ -190,6 +204,26 @@ class RepositoryResourceConfigInput(BaseModel):
     repository_uuid: UUID = Field(alias="repositoryUuid")
 
 
+class RequestIndentConfigurationResponseInput(BaseModel):
+    tool_use_id: str = Field(alias="toolUseId")
+    database_config_uuid: Optional[UUID] = Field(
+        alias="databaseConfigUuid", default=None
+    )
+    mcp_server_name: Optional[str] = Field(alias="mcpServerName", default=None)
+    rejected: bool = False
+
+
+class RequestSecretsResponseEntry(BaseModel):
+    key: str
+    value: str
+
+
+class RequestSecretsResponseInput(BaseModel):
+    items: list["RequestSecretsResponseEntry"] = Field(default_factory=lambda: [])
+    tool_use_id: str = Field(alias="toolUseId")
+    cancelled: bool = False
+
+
 class SQLAttachmentInput(BaseModel):
     query_content: str = Field(alias="queryContent")
 
@@ -224,4 +258,5 @@ EnvironmentVariableResponseInput.model_rebuild()
 FileAttachmentInput.model_rebuild()
 McpServerConfigsInput.model_rebuild()
 PromptInput.model_rebuild()
+RequestSecretsResponseInput.model_rebuild()
 SkillConfigsInput.model_rebuild()

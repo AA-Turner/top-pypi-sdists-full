@@ -68,7 +68,7 @@ EnvironmentStateType = Literal["CREATED", "CREATE_FAILED", "CREATING", "DELETED"
 HostStateType = Literal[
     "CREATED", "CREATE_FAILED", "CREATING", "DELETED", "DELETING", "UPDATE_FAILED", "UPDATING"
 ]
-InstanceTypeType = Literal["i4i.metal"]
+InstanceTypeType = Literal["i4i.metal", "i7i.metal-24xl"]
 ListEnvironmentConnectorsPaginatorName = Literal["list_environment_connectors"]
 ListEnvironmentHostsPaginatorName = Literal["list_environment_hosts"]
 ListEnvironmentVlansPaginatorName = Literal["list_environment_vlans"]

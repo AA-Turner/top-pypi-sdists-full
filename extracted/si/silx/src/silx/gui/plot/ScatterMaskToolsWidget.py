@@ -49,7 +49,6 @@ from .items import ItemChangedType, Scatter
 from ._BaseMaskToolsWidget import BaseMask, BaseMaskToolsWidget, BaseMaskToolsDockWidget
 from ..colors import cursorColorForColormap, rgba
 
-
 _logger = logging.getLogger(__name__)
 
 
@@ -79,12 +78,12 @@ class ScatterMask(BaseMask):
         if kind == "npy":
             try:
                 numpy.save(filename, self.getMask(copy=False))
-            except IOError:
+            except OSError:
                 raise RuntimeError("Mask file can't be written")
         elif kind in ["csv", "txt"]:
             try:
                 numpy.savetxt(filename, self.getMask(copy=False))
-            except IOError:
+            except OSError:
                 raise RuntimeError("Mask file can't be written")
 
     def updatePoints(self, level, indices, mask=True):
@@ -200,7 +199,7 @@ class ScatterMaskToolsWidget(BaseMaskToolsWidget):
     :class:`PlotWidget`."""
 
     def __init__(self, parent=None, plot=None):
-        super(ScatterMaskToolsWidget, self).__init__(parent, plot, mask=ScatterMask())
+        super().__init__(parent, plot, mask=ScatterMask())
         self._z = 2  # Mask layer in plot
         self._data_scatter = None
         """plot Scatter item for data"""
@@ -411,14 +410,14 @@ class ScatterMaskToolsWidget(BaseMaskToolsWidget):
         if extension == "npy":
             try:
                 mask = numpy.load(filename)
-            except IOError:
+            except OSError:
                 _logger.error("Can't load filename '%s'", filename)
                 _logger.debug("Backtrace", exc_info=True)
                 raise RuntimeError('File "%s" is not a numpy file.', filename)
         elif extension in ["txt", "csv"]:
             try:
                 mask = numpy.loadtxt(filename)
-            except IOError:
+            except OSError:
                 _logger.error("Can't load filename '%s'", filename)
                 _logger.debug("Backtrace", exc_info=True)
                 raise RuntimeError('File "%s" is not a numpy txt file.', filename)
@@ -493,7 +492,7 @@ class ScatterMaskToolsWidget(BaseMaskToolsWidget):
         if os.path.exists(filename):
             try:
                 os.remove(filename)
-            except IOError as e:
+            except OSError as e:
                 msg = qt.QMessageBox(self)
                 msg.setWindowTitle("Removing existing file")
                 msg.setIcon(qt.QMessageBox.Critical)
@@ -520,7 +519,7 @@ class ScatterMaskToolsWidget(BaseMaskToolsWidget):
                 strerror = e.strerror
             else:
                 strerror = sys.exc_info()[1]
-            msg.setText("Cannot save file %s\n%s" % (filename, strerror))
+            msg.setText(f"Cannot save file {filename}\n{strerror}")
             msg.exec()
 
     def resetSelectionMask(self):
@@ -533,7 +532,7 @@ class ScatterMaskToolsWidget(BaseMaskToolsWidget):
 
         :rtype: float
         """
-        width = super(ScatterMaskToolsWidget, self)._getPencilWidth()
+        width = super()._getPencilWidth()
         if self._data_extent is not None:
             width *= 0.01 * self._data_extent
         return width
@@ -640,4 +639,4 @@ class ScatterMaskToolsDockWidget(BaseMaskToolsDockWidget):
 
     def __init__(self, parent=None, plot=None, name="Mask"):
         widget = ScatterMaskToolsWidget(plot=plot)
-        super(ScatterMaskToolsDockWidget, self).__init__(parent, name, widget)
+        super().__init__(parent, name, widget)

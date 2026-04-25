@@ -34,7 +34,7 @@ __authors__ = ["Jérôme Kieffer", "Pierre Paleo"]
 __contact__ = "jerome.kieffer@esrf.eu"
 __license__ = "MIT"
 __copyright__ = "2013 European Synchrotron Radiation Facility, Grenoble, France"
-__date__ = "05/07/2018"
+__date__ = "13/03/2026"
 
 import os
 import time
@@ -50,7 +50,7 @@ else:
     from scipy.datasets import ascent
 
 import unittest
-from silx.opencl import ocl
+from ... import ocl
 
 if ocl:
     import pyopencl.array
@@ -72,7 +72,7 @@ def my_blur(img, kernel):
 class TestConvol(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        super(TestConvol, cls).setUpClass()
+        super().setUpClass()
         if ocl:
             cls.ctx = ocl.create_context()
             if logger.getEffectiveLevel() <= logging.INFO:
@@ -95,7 +95,7 @@ class TestConvol(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        super(TestConvol, cls).tearDownClass()
+        super().tearDownClass()
         cls.ctx = None
         cls.queue = None
 
@@ -143,7 +143,7 @@ class TestConvol(unittest.TestCase):
             gaussian /= gaussian.sum(dtype=numpy.float32)
             gpu_filter = pyopencl.array.to_device(self.queue, gaussian)
             t0 = time.time()
-            k1 = self.program.horizontal_convolution(
+            k1 = pyopencl.Kernel(self.program, "horizontal_convolution")(
                 self.queue,
                 self.shape,
                 self.wg,
@@ -162,10 +162,10 @@ class TestConvol(unittest.TestCase):
             t2 = time.time()
             delta = abs(ref - res).max()
             if ksize % 2 == 0:  # we have a problem with even kernels !!!
-                self.assertLess(delta, 50, "sigma= %s delta=%s" % (sigma, delta))
+                self.assertLess(delta, 50, f"sigma= {sigma} delta={delta}")
             else:
-                self.assertLess(delta, 1e-4, "sigma= %s delta=%s" % (sigma, delta))
-            logger.info("sigma= %s delta=%s" % (sigma, delta))
+                self.assertLess(delta, 1e-4, f"sigma= {sigma} delta={delta}")
+            logger.info(f"sigma= {sigma} delta={delta}")
             if self.PROFILE:
                 logger.info(
                     "Global execution time: CPU %.3fms, GPU: %.3fms."
@@ -188,7 +188,7 @@ class TestConvol(unittest.TestCase):
             gaussian /= gaussian.sum(dtype=numpy.float32)
             gpu_filter = pyopencl.array.to_device(self.queue, gaussian)
             t0 = time.time()
-            k1 = self.program.vertical_convolution(
+            k1 = pyopencl.Kernel(self.program, "vertical_convolution")(
                 self.queue,
                 self.shape,
                 self.wg,
@@ -205,10 +205,10 @@ class TestConvol(unittest.TestCase):
             t2 = time.time()
             delta = abs(ref - res).max()
             if ksize % 2 == 0:  # we have a problem with even kernels !!!
-                self.assertLess(delta, 50, "sigma= %s delta=%s" % (sigma, delta))
+                self.assertLess(delta, 50, f"sigma= {sigma} delta={delta}")
             else:
-                self.assertLess(delta, 1e-4, "sigma= %s delta=%s" % (sigma, delta))
-            logger.info("sigma= %s delta=%s" % (sigma, delta))
+                self.assertLess(delta, 1e-4, f"sigma= {sigma} delta={delta}")
+            logger.info(f"sigma= {sigma} delta={delta}")
             if self.PROFILE:
                 logger.info(
                     "Global execution time: CPU %.3fms, GPU: %.3fms."
@@ -230,7 +230,7 @@ class TestConvol(unittest.TestCase):
             gaussian /= gaussian.sum(dtype=numpy.float32)
             gpu_filter = pyopencl.array.to_device(self.queue, gaussian)
             t0 = time.time()
-            k1 = self.program.horizontal_convolution(
+            k1 = pyopencl.Kernel(self.program, "horizontal_convolution")(
                 self.queue,
                 self.shape,
                 self.wg,
@@ -241,7 +241,7 @@ class TestConvol(unittest.TestCase):
                 self.IMAGE_W,
                 self.IMAGE_H,
             )
-            k2 = self.program.vertical_convolution(
+            k2 = pyopencl.Kernel(self.program, "vertical_convolution")(
                 self.queue,
                 self.shape,
                 self.wg,
@@ -260,10 +260,10 @@ class TestConvol(unittest.TestCase):
             t2 = time.time()
             delta = abs(ref - res).max()
             if ksize % 2 == 0:  # we have a problem with even kernels !!!
-                self.assertLess(delta, 50, "sigma= %s delta=%s" % (sigma, delta))
+                self.assertLess(delta, 50, f"sigma= {sigma} delta={delta}")
             else:
-                self.assertLess(delta, 1e-4, "sigma= %s delta=%s" % (sigma, delta))
-            logger.info("sigma= %s delta=%s" % (sigma, delta))
+                self.assertLess(delta, 1e-4, f"sigma= {sigma} delta={delta}")
+            logger.info(f"sigma= {sigma} delta={delta}")
             if self.PROFILE:
                 logger.info(
                     "Global execution time: CPU %.3fms, GPU: %.3fms."

@@ -25,6 +25,7 @@
 This module defines a data model for displaying and editing arrays of any
 number of dimensions in a table view.
 """
+
 import numpy
 import logging
 from silx.gui import qt
@@ -381,7 +382,7 @@ class ArrayTableModel(qt.QAbstractTableModel):
 
         self.setEditable(editable)
 
-        self._index = [0 for _i in range((len(self._array.shape) - 2))]
+        self._index = [0 for _i in range(len(self._array.shape) - 2)]
         self._perspective = (
             tuple(perspective)
             if perspective is not None

@@ -15,7 +15,6 @@ use std::time::Duration;
 use tokio::time::Instant;
 use url::Url;
 
-use crate::cache::ModelProviderRequest;
 use crate::embeddings::EmbeddingEncodingFormat;
 use crate::embeddings::{
     Embedding, EmbeddingInput, EmbeddingProvider, EmbeddingProviderRequestInfo,
@@ -27,7 +26,6 @@ use crate::error::{
 };
 use crate::inference::InferenceProvider;
 use crate::inference::types::ObjectStorageFile;
-use crate::inference::types::ProviderInferenceResponseArgs;
 use crate::inference::types::batch::StartBatchProviderInferenceResponse;
 use crate::inference::types::batch::{BatchRequestRow, PollBatchInferenceResponse};
 use crate::inference::types::chat_completion_inference_params::{
@@ -39,12 +37,14 @@ use crate::inference::types::{ApiType, FinishReason, ProviderInferenceResponseSt
 use crate::inference::types::{
     ContentBlock, ContentBlockChunk, ContentBlockOutput, Latency, ModelInferenceRequest,
     ModelInferenceRequestJsonMode, PeekableProviderInferenceResponseStream,
-    ProviderInferenceResponse, ProviderInferenceResponseChunk, RequestMessage, Role, Text,
-    TextChunk, ThoughtChunk, Unknown, Usage,
+    ProviderInferenceResponse, ProviderInferenceResponseArgs, ProviderInferenceResponseChunk,
+    RequestMessage, Role, Text, TextChunk, ThoughtChunk, Unknown, Usage,
     resolved_input::{FileUrl, LazyFile, LazyFileExt},
 };
-use crate::model::{Credential, ModelProvider};
-use crate::tool::{FunctionToolConfig, ToolCall, ToolCallChunk, ToolChoice};
+use crate::model::Credential;
+use crate::model::{ModelProviderRequestInfo, ProviderInferenceRequest};
+use crate::tool::{ToolCall, ToolCallChunk, ToolChoice};
+use tensorzero_inference_types::FunctionToolDef;
 use tensorzero_types::content::{Thought, ThoughtSummaryBlock};
 use tensorzero_types_providers::openrouter::{
     ReasoningConfig as OpenRouterReasoningConfig, ReasoningDetail as OpenRouterReasoningDetail,
@@ -182,10 +182,10 @@ impl OpenRouterCredentials {
 impl InferenceProvider for OpenRouterProvider {
     async fn infer<'a>(
         &'a self,
-        request: ModelProviderRequest<'a>,
+        request: ProviderInferenceRequest<'a>,
         http_client: &'a TensorzeroHttpClient,
         dynamic_api_keys: &'a InferenceCredentials,
-        model_provider: &'a ModelProvider,
+        model_provider: &'a ModelProviderRequestInfo,
     ) -> Result<ProviderInferenceResponse, Error> {
         let request_url = get_chat_url(&OPENROUTER_DEFAULT_BASE_URL)?;
         let api_key = self
@@ -286,16 +286,15 @@ impl InferenceProvider for OpenRouterProvider {
 
     async fn infer_stream<'a>(
         &'a self,
-        ModelProviderRequest {
+        ProviderInferenceRequest {
             request,
             provider_name: _,
             model_name,
-            otlp_config: _,
             model_inference_id,
-        }: ModelProviderRequest<'a>,
+        }: ProviderInferenceRequest<'a>,
         http_client: &'a TensorzeroHttpClient,
         dynamic_api_keys: &'a InferenceCredentials,
-        model_provider: &'a ModelProvider,
+        model_provider: &'a ModelProviderRequestInfo,
     ) -> Result<(PeekableProviderInferenceResponseStream, String), Error> {
         let request_body =
             serde_json::to_value(OpenRouterRequest::new(&self.model_name, request).await?)
@@ -1313,16 +1312,16 @@ pub(super) struct OpenRouterTool<'a> {
     pub(super) strict: bool,
 }
 
-impl<'a> From<&'a FunctionToolConfig> for OpenRouterTool<'a> {
-    fn from(tool: &'a FunctionToolConfig) -> Self {
+impl<'a> From<&'a FunctionToolDef> for OpenRouterTool<'a> {
+    fn from(tool: &'a FunctionToolDef) -> Self {
         OpenRouterTool {
             r#type: OpenRouterToolType::Function,
             function: OpenRouterFunction {
-                name: tool.name(),
-                description: Some(tool.description()),
-                parameters: tool.parameters(),
+                name: &tool.name,
+                description: Some(&tool.description),
+                parameters: &tool.parameters,
             },
-            strict: tool.strict(),
+            strict: tool.strict,
         }
     }
 }
@@ -2072,12 +2071,13 @@ mod tests {
     use crate::{
         inference::types::{FunctionType, RequestMessage},
         providers::test_helpers::{
-            MULTI_TOOL_CONFIG, QUERY_TOOL, WEATHER_TOOL, WEATHER_TOOL_CONFIG,
+            MULTI_PROVIDER_TOOL_CONFIG, QUERY_TOOL, WEATHER_PROVIDER_TOOL_CONFIG, WEATHER_TOOL,
         },
         tool::ToolCallConfig,
     };
     use serde_json::json;
     use std::borrow::Cow;
+    use tensorzero_inference_types::ProviderToolCallConfig;
 
     #[test]
     fn test_get_chat_url() {
@@ -2277,7 +2277,7 @@ mod tests {
             seed: None,
             stream: false,
             json_mode: ModelInferenceRequestJsonMode::On,
-            tool_config: Some(Cow::Borrowed(&WEATHER_TOOL_CONFIG)),
+            tool_config: Some(Cow::Borrowed(&*WEATHER_PROVIDER_TOOL_CONFIG)),
             function_type: FunctionType::Chat,
             output_schema: None,
             extra_body: Default::default(),
@@ -2826,7 +2826,7 @@ mod tests {
             seed: None,
             stream: false,
             json_mode: ModelInferenceRequestJsonMode::On,
-            tool_config: Some(Cow::Borrowed(&MULTI_TOOL_CONFIG)),
+            tool_config: Some(Cow::Borrowed(&*MULTI_PROVIDER_TOOL_CONFIG)),
             function_type: FunctionType::Chat,
             output_schema: None,
             extra_body: Default::default(),
@@ -2852,6 +2852,7 @@ mod tests {
             parallel_tool_calls: Some(true),
             ..Default::default()
         };
+        let provider_tool_config = ProviderToolCallConfig::from(&tool_config);
 
         // Test no tools but a tool choice and make sure tool choice output is None
         let request_without_tools = ModelInferenceRequest {
@@ -2869,7 +2870,7 @@ mod tests {
             seed: None,
             stream: false,
             json_mode: ModelInferenceRequestJsonMode::On,
-            tool_config: Some(Cow::Borrowed(&tool_config)),
+            tool_config: Some(Cow::Borrowed(&provider_tool_config)),
             function_type: FunctionType::Chat,
             output_schema: None,
             extra_body: Default::default(),

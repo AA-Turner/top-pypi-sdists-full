@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright 2018-2025 Mike Fährmann
+# Copyright 2018-2026 Mike Fährmann
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -9,8 +9,7 @@
 """Extractors for https://www.newgrounds.com/"""
 
 from .common import Extractor, Message, Dispatch
-from .. import text, util, dt, exception
-from ..cache import cache
+from .. import text, util, dt
 import itertools
 
 BASE_PATTERN = r"(?:https?://)?(?:www\.)?newgrounds\.com"
@@ -25,7 +24,7 @@ class NewgroundsExtractor(Extractor):
     archive_fmt = "{_type}{_index}"
     root = "https://www.newgrounds.com"
     cookies_domain = ".newgrounds.com"
-    cookies_names = ("NG_GG_username", "vmk1du5I8m")
+    cookies_names = ("ng_session",)
     request_interval = (0.5, 1.5)
 
     def __init__(self, match):
@@ -105,13 +104,14 @@ class NewgroundsExtractor(Extractor):
 
         username, password = self._get_auth_info()
         if username:
-            self.cookies_update(self._login_impl(username, password))
+            return self.cookies_update(self.cache(
+                self._login_impl, username, password,
+                _exp=365*86400, _mem=False))
 
-    @cache(maxage=365*86400, keyarg=1)
     def _login_impl(self, username, password):
         self.log.info("Logging in as %s", username)
 
-        url = self.root + "/passport"
+        url = self.root + "/login"
         response = self.request(url)
         if response.history and response.url.endswith("/social"):
             return self.cookies
@@ -124,38 +124,18 @@ class NewgroundsExtractor(Extractor):
             "Origin": self.root,
             "Referer": url,
         }
-        url = text.urljoin(self.root, text.extr(page, 'action="', '"'))
         data = {
-            "auth"    : text.extr(page, 'name="auth" value="', '"'),
+            "_token"  : text.extr(page, 'name="_token" value="', '"'),
             "remember": "1",
-            "username": username,
+            "identity": username,
             "password": str(password),
-            "code"    : "",
-            "codehint": "------",
-            "mfaCheck": "1",
         }
 
-        while True:
+        try:
             response = self.request(
                 url, method="POST", headers=headers, data=data)
-            result = response.json()
-
-            if result.get("success"):
-                break
-            if "errors" in result:
-                raise exception.AuthenticationError(
-                    '"' + '", "'.join(result["errors"]) + '"')
-
-            if result.get("requiresMfa"):
-                data["code"] = self.input("Verification Code: ")
-                data["codehint"] = "      "
-            elif result.get("requiresEmailMfa"):
-                email = result.get("obfuscatedEmail")
-                prompt = f"Email Verification Code ({email}): "
-                data["code"] = self.input(prompt)
-                data["codehint"] = "      "
-
-            data.pop("mfaCheck", None)
+        except Exception:
+            raise self.exc.AuthenticationError()
 
         return {
             cookie.name: cookie.value
@@ -370,7 +350,7 @@ class NewgroundsExtractor(Extractor):
                     return
                 if "errors" in data:
                     msg = ", ".join(text.unescape(e) for e in data["errors"])
-                    raise exception.AbortExtraction(msg)
+                    raise self.exc.AbortExtraction(msg)
 
             items = data.get("items")
             if not items:

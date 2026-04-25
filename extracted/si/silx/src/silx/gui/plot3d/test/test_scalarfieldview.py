@@ -39,7 +39,6 @@ from silx.gui import qt
 from silx.gui.plot3d.ScalarFieldView import ScalarFieldView
 from silx.gui.plot3d.SFViewParamTree import TreeView
 
-
 _logger = logging.getLogger(__name__)
 
 
@@ -48,7 +47,7 @@ class TestScalarFieldView(TestCaseQt, ParametricTestCase):
     """Tests of ScalarFieldView widget."""
 
     def setUp(self):
-        super(TestScalarFieldView, self).setUp()
+        super().setUp()
         self.widget = ScalarFieldView()
         self.widget.show()
 
@@ -67,7 +66,7 @@ class TestScalarFieldView(TestCaseQt, ParametricTestCase):
         self.widget.setAttribute(qt.Qt.WA_DeleteOnClose)
         self.widget.close()
         del self.widget
-        super(TestScalarFieldView, self).tearDown()
+        super().tearDown()
 
     @staticmethod
     def _buildData(size):

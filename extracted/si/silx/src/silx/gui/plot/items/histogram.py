@@ -21,15 +21,13 @@
 # THE SOFTWARE.
 #
 # ###########################################################################*/
-"""This module provides the :class:`Histogram` item of the :class:`Plot`.
-"""
+"""This module provides the :class:`Histogram` item of the :class:`Plot`."""
 
 __authors__ = ["H. Payno", "T. Vincent"]
 __license__ = "MIT"
 __date__ = "28/08/2018"
 
 import logging
-import typing
 
 import numpy
 from collections import abc
@@ -48,7 +46,6 @@ from .core import (
 )
 from ._pick import PickingResult
 from silx._utils import NP_OPTIONAL_COPY
-
 
 _logger = logging.getLogger(__name__)
 
@@ -145,6 +142,7 @@ class Histogram(
         LineGapColorMixIn.__init__(self)
         YAxisMixIn.__init__(self)
 
+        self._alignement = "center"
         self._histogram = ()
         self._edges = ()
         self._setBaseline(Histogram._DEFAULT_BASELINE)
@@ -244,9 +242,7 @@ class Histogram(
                 max(0, numpy.nanmax(values)),
             )
 
-    def __pickFilledHistogram(
-        self, x: float, y: float
-    ) -> typing.Optional[PickingResult]:
+    def __pickFilledHistogram(self, x: float, y: float) -> PickingResult | None:
         """Picking implementation for filled histogram
 
         :param x: X position in pixels
@@ -408,8 +404,5 @@ class Histogram(
         if histogramType == "center":
             edges = (edges[1:] + edges[:-1]) / 2.0
         if histogramType == "right":
-            width = 1
-            if len(x) > 1:
-                width = x[-1] + x[-2]
             edges = edges[:-1]
         return edges

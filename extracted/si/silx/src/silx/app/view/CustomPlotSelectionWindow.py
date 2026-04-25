@@ -22,6 +22,7 @@
 # ###########################################################################*/
 
 """Custom plot selection window for selecting 1D datasets to plot."""
+
 from __future__ import annotations
 
 from silx.gui import qt, plot, icons
@@ -37,7 +38,6 @@ import silx.io.utils
 from silx.gui.hdf5 import _utils
 import weakref
 
-
 # Custom role for highlighting the drop zones
 _DROP_HIGHLIGHT_ROLE = qt.Qt.UserRole + 1
 
@@ -46,7 +46,7 @@ class _HashDropZones(qt.QStyledItemDelegate):
     """Delegate item displaying a drop zone when the item does not contain a dataset."""
 
     def __init__(self, parent: qt.QWidget | None = None):
-        super(_HashDropZones, self).__init__(parent)
+        super().__init__(parent)
         self.__dropPen = qt.QPen(qt.QColor("#D0D0D0"), 2, qt.Qt.DotLine)
         self.__highlightDropPen = qt.QPen(qt.QColor("#000000"), 2, qt.Qt.SolidLine)
         self.__dropTargetIndex = None
@@ -307,7 +307,7 @@ class _FileListModel(qt.QStandardItemModel):
 class _DropTreeView(qt.QTreeView):
     """TreeView widget for displaying dropped file names"""
 
-    (_DESCRIPTION_COLUMN, _FILE_COLUMN, _REMOVE_COLUMN) = range(3)
+    _DESCRIPTION_COLUMN, _FILE_COLUMN, _REMOVE_COLUMN = range(3)
 
     def __init__(self, model, parent=None):
         super().__init__(parent)

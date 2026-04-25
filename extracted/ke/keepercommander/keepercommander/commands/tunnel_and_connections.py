@@ -33,6 +33,7 @@ from ..error import CommandError
 from ..params import LAST_RECORD_UID
 from ..subfolder import find_folders
 from ..utils import value_to_boolean
+from ..constants import get_keeper_server_hostname
 
 # Group Commands
 class PAMTunnelCommand(GroupCommand):
@@ -418,6 +419,11 @@ class PAMTunnelEditCommand(Command):
                 if _remove_tunneling_override_port and pam_settings.value[0]['portForward'].get('port'):
                     pam_settings.value[0]['portForward'].pop('port')
                     dirty = True
+            # Persist the record changes (new pamSettings field or port modifications)
+            if dirty:
+                record_management.update_record(params, record)
+                api.sync_down(params)
+                dirty = False
             if not tmp_dag.is_tunneling_config_set_up(record_uid):
                 print(f"{bcolors.FAIL}No PAM Configuration UID set. This must be set for tunneling to work. "
                       f"This can be done by running "
@@ -545,6 +551,16 @@ class PAMTunnelStartCommand(Command):
             print(f"{bcolors.FAIL}Record {record_uid} not found.{bcolors.ENDC}")
             return
 
+        # Workflow access check and 2FA prompt
+        two_factor_value = None
+        try:
+            from .workflow import check_workflow_and_prompt_2fa
+            should_proceed, two_factor_value = check_workflow_and_prompt_2fa(params, record_uid)
+            if not should_proceed:
+                return
+        except ImportError:
+            pass
+
         # Validate PAM settings
         pam_settings = record.get_typed_field('pamSettings')
         if not pam_settings:
@@ -640,7 +656,7 @@ class PAMTunnelStartCommand(Command):
 
         # Use Rust WebRTC implementation with configurable trickle ICE
         trickle_ice = not no_trickle_ice
-        result = start_rust_tunnel(params, record_uid, gateway_uid, host, port, seed, target_host, target_port, socks, trickle_ice, record.title, allow_supply_host=allow_supply_host)
+        result = start_rust_tunnel(params, record_uid, gateway_uid, host, port, seed, target_host, target_port, socks, trickle_ice, record.title, allow_supply_host=allow_supply_host, two_factor_value=two_factor_value)
         
         if result and result.get("success"):
             # The helper will show endpoint table when local socket is actually listening
@@ -936,15 +952,16 @@ class PAMTunnelDiagnoseCommand(Command):
         output_format = kwargs.get('format', 'table')
         test_filter = kwargs.get('test_filter')
 
-        server = params.server  # e.g. "keepersecurity.com"
-        krelay_server = os.environ.get('KRELAY_URL') or f'krelay.{server}'
-        connect_host = f'connect.{server}'
+        server = params.server  # e.g. "keepersecurity.com" or "https://qa.keepersecurity.com"
+        server_host = get_keeper_server_hostname(server)
+        krelay_server = os.environ.get('KRELAY_URL') or f'krelay.{server_host}'
+        connect_host = f'connect.{server_host}'
 
         # ── header ────────────────────────────────────────────────────────────
         self._print_header()
         print()
         now = datetime.datetime.utcnow()
-        region_label = 'US' if server == 'keepersecurity.com' else server.split('.')[0].upper()
+        region_label = 'US' if server_host == 'keepersecurity.com' else server_host.split('.')[0].upper()
         print(self._green(f'  Region  {region_label}  \u00b7  {server}'))
         print(self._green(f'  Date    {now.strftime("%Y-%m-%d  %H:%M")} UTC'))
         if record_name:
@@ -969,16 +986,16 @@ class PAMTunnelDiagnoseCommand(Command):
         # DNS
         t0 = time.monotonic()
         try:
-            infos = socket.getaddrinfo(server, None, socket.AF_INET)
+            infos = socket.getaddrinfo(server_host, None, socket.AF_INET)
             ips = list(dict.fromkeys(a[4][0] for a in infos))
             ms = int((time.monotonic() - t0) * 1000)
             extra = f'(+{len(ips) - 1} addr)' if len(ips) > 1 else ''
-            _record(f'DNS  {server}', True, f'\u2192  {ips[0]}  {extra}'.strip(), ms)
+            _record(f'DNS  {server_host}', True, f'\u2192  {ips[0]}  {extra}'.strip(), ms)
         except Exception as exc:
-            _record(f'DNS  {server}', False, str(exc)[:60], int((time.monotonic() - t0) * 1000))
+            _record(f'DNS  {server_host}', False, str(exc)[:60], int((time.monotonic() - t0) * 1000))
 
-        passed, detail, ms = self._test_https(server)
-        _record(f'HTTPS  {server}:443', passed, detail, ms)
+        passed, detail, ms = self._test_https(server_host)
+        _record(f'HTTPS  {server_host}:443', passed, detail, ms)
 
         passed, detail, ms = self._test_websocket(connect_host)
         _record(f'WebSocket  {connect_host}:443', passed, detail, ms)

@@ -26,7 +26,6 @@
 from silx.gui import qt
 from silx.gui.fit.Parameters import Parameters
 
-
 __authors__ = ["V.A. Sole", "P. Knobel"]
 __license__ = "MIT"
 __date__ = "13/10/2016"
@@ -401,16 +400,16 @@ class ParametersTab(qt.QTabWidget):
         if name is None:
             name = self.latest_view
         table = self.tables[name]
-        lemon = ("#%x%x%x" % (255, 250, 205)).upper()
-        hcolor = ("#%x%x%x" % (230, 240, 249)).upper()
+        lemon = (f"#{255:x}{250:x}{205:x}").upper()
+        hcolor = (f"#{230:x}{240:x}{249:x}").upper()
         text = ""
         text += "<nobr>"
         text += "<table>"
         text += "<tr>"
         ncols = table.columnCount()
-        for l in range(ncols):
+        for col in range(ncols):
             text += '<td align="left" bgcolor="%s"><b>' % hcolor
-            text += str(table.horizontalHeaderItem(l).text())
+            text += str(table.horizontalHeaderItem(col).text())
             text += "</b></td>"
         text += "</tr>"
         nrows = table.rowCount()
@@ -429,9 +428,9 @@ class ParametersTab(qt.QTabWidget):
             try:
                 # MyQTable item has color defined
                 cc = table.item(r, 0).color
-                cc = ("#%x%x%x" % (cc.red(), cc.green(), cc.blue())).upper()
+                cc = (f"#{cc.red():x}{cc.green():x}{cc.blue():x}").upper()
                 color = cc
-            except:
+            except Exception:
                 pass
             for c in range(ncols):
                 item = table.item(r, c)
@@ -443,9 +442,9 @@ class ParametersTab(qt.QTabWidget):
                 else:
                     finalcolor = "white"
                 if c < 2:
-                    text += '<td align="left" bgcolor="%s">%s' % (finalcolor, b)
+                    text += f'<td align="left" bgcolor="{finalcolor}">{b}'
                 else:
-                    text += '<td align="right" bgcolor="%s">%s' % (finalcolor, b)
+                    text += f'<td align="right" bgcolor="{finalcolor}">{b}'
                 text += newtext
                 if len(b):
                     text += "</td>"
@@ -473,8 +472,8 @@ class ParametersTab(qt.QTabWidget):
         table = self.tables[name]
         text = ""
         ncols = table.columnCount()
-        for l in range(ncols):
-            text += (str(table.horizontalHeaderItem(l).text())) + "\t"
+        for col in range(ncols):
+            text += (str(table.horizontalHeaderItem(col).text())) + "\t"
         text += "\n"
         nrows = table.rowCount()
         for r in range(nrows):

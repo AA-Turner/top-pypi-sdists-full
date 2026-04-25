@@ -31,7 +31,7 @@ This module provides tool to set HDF5 file for fasttomo input.
 Here is an example of a simple read and write :
 
 .. code-block:: python
-    :emphasize-lines: 3,5    
+    :emphasize-lines: 3,5
 
     # writing a structure
     myStruct = {'MKEEP_MASK': 0.0, 'UNSHARP_SIGMA': 0.80000000000000004 }
@@ -42,14 +42,13 @@ Here is an example of a simple read and write :
     reader = Octaveh5().open("my_h5file")
     strucDict = reader.get('mt_struct_name')
 
-.. note:: These functions depend on the `h5py <http://www.h5py.org/>`_ 
+.. note:: These functions depend on the `h5py <http://www.h5py.org/>`_
     library, which is a mandatory dependency for `silx`.
 
 """
 
 import logging
 
-logger = logging.getLogger(__name__)
 import numpy as np
 import h5py
 
@@ -57,8 +56,10 @@ __authors__ = ["C. Nemoz", "H. Payno"]
 __license__ = "MIT"
 __date__ = "05/10/2016"
 
+logger = logging.getLogger(__name__)
 
-class Octaveh5(object):
+
+class Octaveh5:
     """This class allows communication between octave and python using hdf5 format."""
 
     def __init__(self, octave_targetted_version=3.8):
@@ -80,7 +81,7 @@ class Octaveh5(object):
         try:
             self.file = h5py.File(h5file, mode)
             return self
-        except IOError as e:
+        except OSError as e:
             if mode == "a":
                 reason = "\n %s: Can t find or create " % h5file
             else:
@@ -150,7 +151,7 @@ class Octaveh5(object):
         for ftparams in data_dict:
             group_l3 = group_l2.create_group(ftparams)
             group_l3.attrs["OCTAVE_NEW_FORMAT"] = np.uint8(1)
-            if type(data_dict[ftparams]) == str:
+            if type(data_dict[ftparams]) is str:
                 group_l3.create_dataset(
                     "type", (), data=np.bytes_("sq_string"), dtype="|S10"
                 )

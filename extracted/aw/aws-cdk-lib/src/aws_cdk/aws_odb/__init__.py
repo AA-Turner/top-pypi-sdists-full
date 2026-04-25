@@ -4219,6 +4219,15 @@ class CfnOdbNetwork(
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
 
     @builtins.property
+    @jsii.member(jsii_name="attrEc2PlacementGroupIds")
+    def attr_ec2_placement_group_ids(self) -> typing.List[builtins.str]:
+        '''The list of EC2 placement group IDs associated with your ODB network.
+
+        :cloudformationAttribute: Ec2PlacementGroupIds
+        '''
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "attrEc2PlacementGroupIds"))
+
+    @builtins.property
     @jsii.member(jsii_name="attrManagedServices")
     def attr_managed_services(self) -> "_IResolvable_da3f097b":
         '''The managed services configuration for the ODB network.

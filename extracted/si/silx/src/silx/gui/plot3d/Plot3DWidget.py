@@ -30,6 +30,7 @@ __date__ = "24/04/2018"
 
 import enum
 import logging
+from typing import Literal
 
 from silx.gui import qt
 from silx.gui.colors import rgba
@@ -44,7 +45,6 @@ from . import scene
 
 import numpy
 
-
 _logger = logging.getLogger(__name__)
 
 
@@ -58,7 +58,7 @@ class _OverviewViewport(scene.Viewport):
     """Size in pixels of the overview square"""
 
     def __init__(self, camera=None):
-        super(_OverviewViewport, self).__init__()
+        super().__init__()
         self.size = self._SIZE, self._SIZE
         self.background = None  # Disable clear
 
@@ -93,6 +93,9 @@ class _OverviewViewport(scene.Viewport):
         )
 
 
+LightMode = Literal["directional"] | None
+
+
 class Plot3DWidget(glu.OpenGLWidget):
     """OpenGL widget with a 3D viewport and an overview."""
 
@@ -125,7 +128,7 @@ class Plot3DWidget(glu.OpenGLWidget):
     def __init__(self, parent=None, f=qt.Qt.Widget):
         self._firstRender = True
 
-        super(Plot3DWidget, self).__init__(
+        super().__init__(
             parent,
             alphaBufferSize=8,
             depthBufferSize=0,
@@ -295,6 +298,23 @@ class Plot3DWidget(glu.OpenGLWidget):
         else:
             return self.FogMode.NONE
 
+    def setLightMode(self, mode: LightMode):
+        """Set the type of lighting"""
+        if mode == self.getLightMode():
+            return
+
+        if mode is None:
+            self.viewport.light.isOn = False
+        elif mode == "directional":
+            self.viewport.light.isOn = True
+        else:
+            raise ValueError(f"Unsupported light mode: {mode}")
+        self.sigStyleChanged.emit("lightMode")
+
+    def getLightMode(self) -> LightMode:
+        """Returns the current type of lighting"""
+        return "directional" if self.viewport.light.isOn else None
+
     def isOrientationIndicatorVisible(self):
         """Returns True if the orientation indicator is displayed.
 
@@ -423,7 +443,7 @@ class Plot3DWidget(glu.OpenGLWidget):
                 self.eventHandler.handleEvent("keyPress", keyCode)
 
             # Key not handled, call base class implementation
-            super(Plot3DWidget, self).keyPressEvent(event)
+            super().keyPressEvent(event)
 
     def keyReleaseEvent(self, event):
         """Catch Ctrl key release"""
@@ -434,7 +454,7 @@ class Plot3DWidget(glu.OpenGLWidget):
             and self.isValid()
         ):
             self.eventHandler.handleEvent("keyRelease", keyCode)
-        super(Plot3DWidget, self).keyReleaseEvent(event)
+        super().keyReleaseEvent(event)
 
     # Mouse events #
     _MOUSE_BTNS = {

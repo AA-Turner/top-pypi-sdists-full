@@ -3,7 +3,7 @@ from __future__ import annotations
 import copy
 import json
 from dataclasses import dataclass
-from typing import Any, ClassVar, List
+from typing import Any, ClassVar, List, Optional
 
 import grpc
 
@@ -120,15 +120,16 @@ class IsolateServerConnection(EnvironmentConnection):
         self,
         entrypoint: str,
         *,
-        run_on_main_thread: bool = False,
+        run_on_main_thread: Optional[bool] = None,
     ) -> CallResultType:  # type: ignore[type-var]
         validate_entrypoint(entrypoint)
         request = BoundFunction(
             entrypoint=entrypoint,
             environments=self.definitions,
             stream_logs=True,
-            run_on_main_thread=run_on_main_thread,
         )
+        if run_on_main_thread is not None:
+            request.run_on_main_thread = run_on_main_thread
         return self._run_request(request)
 
     def _run_request(self, request: BoundFunction) -> CallResultType:  # type: ignore[type-var]

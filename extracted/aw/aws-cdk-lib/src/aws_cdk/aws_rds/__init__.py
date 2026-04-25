@@ -3020,6 +3020,12 @@ class AuroraMysqlEngineVersion(
         return typing.cast("AuroraMysqlEngineVersion", jsii.sget(cls, "VER_2_12_5"))
 
     @jsii.python.classproperty
+    @jsii.member(jsii_name="VER_2_12_6")
+    def VER_2_12_6(cls) -> "AuroraMysqlEngineVersion":
+        '''Version "5.7.mysql_aurora.2.12.6".'''
+        return typing.cast("AuroraMysqlEngineVersion", jsii.sget(cls, "VER_2_12_6"))
+
+    @jsii.python.classproperty
     @jsii.member(jsii_name="VER_3_01_0")
     def VER_3_01_0(cls) -> "AuroraMysqlEngineVersion":
         '''(deprecated) Version "8.0.mysql_aurora.3.01.0".
@@ -3289,6 +3295,12 @@ class AuroraMysqlEngineVersion(
     def VER_3_10_3(cls) -> "AuroraMysqlEngineVersion":
         '''Version "8.0.mysql_aurora.3.10.3".'''
         return typing.cast("AuroraMysqlEngineVersion", jsii.sget(cls, "VER_3_10_3"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="VER_3_10_4")
+    def VER_3_10_4(cls) -> "AuroraMysqlEngineVersion":
+        '''Version "8.0.mysql_aurora.3.10.4".'''
+        return typing.cast("AuroraMysqlEngineVersion", jsii.sget(cls, "VER_3_10_4"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_3_11_0")
@@ -4323,6 +4335,12 @@ class AuroraPostgresEngineVersion(
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_14_20"))
 
     @jsii.python.classproperty
+    @jsii.member(jsii_name="VER_14_22")
+    def VER_14_22(cls) -> "AuroraPostgresEngineVersion":
+        '''Version "14.22".'''
+        return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_14_22"))
+
+    @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_3")
     def VER_14_3(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "14.3".
@@ -4423,6 +4441,12 @@ class AuroraPostgresEngineVersion(
     def VER_15_15(cls) -> "AuroraPostgresEngineVersion":
         '''Version "15.15".'''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_15_15"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="VER_15_17")
+    def VER_15_17(cls) -> "AuroraPostgresEngineVersion":
+        '''Version "15.17".'''
+        return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_15_17"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15_2")
@@ -4685,6 +4709,12 @@ class AuroraPostgresEngineVersion(
     def VER_17_7(cls) -> "AuroraPostgresEngineVersion":
         '''Version "17.7".'''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_17_7"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="VER_17_9")
+    def VER_17_9(cls) -> "AuroraPostgresEngineVersion":
+        '''Version "17.9".'''
+        return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_17_9"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_9_6_11")
@@ -39779,6 +39809,12 @@ class PostgresEngineVersion(
     def VER_16_12(cls) -> "PostgresEngineVersion":
         '''Version "16.12".'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_16_12"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="VER_16_13")
+    def VER_16_13(cls) -> "PostgresEngineVersion":
+        '''Version "16.13".'''
+        return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_16_13"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_2")

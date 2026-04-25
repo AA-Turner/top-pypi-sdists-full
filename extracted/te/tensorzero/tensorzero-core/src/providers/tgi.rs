@@ -29,14 +29,12 @@ use super::openai::{
     OpenAIRequestMessage, OpenAIToolType, StreamOptions, SystemOrDeveloper, get_chat_url,
     prepare_openai_messages,
 };
-use crate::cache::ModelProviderRequest;
 use crate::endpoints::inference::InferenceCredentials;
 use crate::error::DisplayOrDebugGateway;
 use crate::error::{DelayedError, Error, ErrorDetails};
 use crate::inference::InferenceProvider;
 use crate::inference::TensorZeroEventError;
 use crate::inference::WrappedProvider;
-use crate::inference::types::ProviderInferenceResponseArgs;
 use crate::inference::types::batch::{
     BatchRequestRow, PollBatchInferenceResponse, StartBatchProviderInferenceResponse,
 };
@@ -47,16 +45,17 @@ use crate::inference::types::usage::raw_usage_entries_from_value;
 use crate::inference::types::{
     ApiType, ContentBlockChunk, ContentBlockOutput, FinishReason, Latency, ModelInferenceRequest,
     ModelInferenceRequestJsonMode, PeekableProviderInferenceResponseStream,
-    ProviderInferenceResponse, ProviderInferenceResponseChunk,
+    ProviderInferenceResponse, ProviderInferenceResponseArgs, ProviderInferenceResponseChunk,
     ProviderInferenceResponseStreamInner, TextChunk, Usage,
 };
-use crate::model::{Credential, ModelProvider};
+use crate::model::Credential;
+use crate::model::{ModelProviderRequestInfo, ProviderInferenceRequest};
 use crate::providers::chat_completions::prepare_chat_completion_tools;
 use crate::providers::chat_completions::{ChatCompletionTool, ChatCompletionToolChoice};
 use crate::providers::helpers::{
     inject_extra_request_data_and_send, inject_extra_request_data_and_send_eventsource,
 };
-use crate::providers::openai::{OpenAIMessagesConfig, check_api_base_suffix};
+use crate::providers::openai::{OpenAIMessagesConfig, ReasoningFieldName, check_api_base_suffix};
 use crate::tool::ToolCall;
 use uuid::Uuid;
 
@@ -157,13 +156,12 @@ impl WrappedProvider for TGIProvider {
 
     async fn make_body<'a>(
         &'a self,
-        ModelProviderRequest {
+        ProviderInferenceRequest {
             request,
             provider_name: _,
             model_name: _,
-            otlp_config: _,
             model_inference_id: _,
-        }: ModelProviderRequest<'a>,
+        }: ProviderInferenceRequest<'a>,
     ) -> Result<serde_json::Value, Error> {
         // TGI doesn't care about the `model_name` field, so we can hardcode it to "tgi"
 
@@ -227,10 +225,10 @@ impl WrappedProvider for TGIProvider {
 impl InferenceProvider for TGIProvider {
     async fn infer<'a>(
         &'a self,
-        model_provider_request: ModelProviderRequest<'a>,
+        model_provider_request: ProviderInferenceRequest<'a>,
         http_client: &'a TensorzeroHttpClient,
         dynamic_api_keys: &'a InferenceCredentials,
-        model_provider: &'a ModelProvider,
+        model_provider: &'a ModelProviderRequestInfo,
     ) -> Result<ProviderInferenceResponse, Error> {
         let request_body = self.make_body(model_provider_request).await?;
         let request_url = get_chat_url(&self.api_base)?;
@@ -306,16 +304,15 @@ impl InferenceProvider for TGIProvider {
 
     async fn infer_stream<'a>(
         &'a self,
-        ModelProviderRequest {
+        ProviderInferenceRequest {
             request,
             provider_name: _,
             model_name,
-            otlp_config: _,
             model_inference_id,
-        }: ModelProviderRequest<'a>,
+        }: ProviderInferenceRequest<'a>,
         http_client: &'a TensorzeroHttpClient,
         dynamic_api_keys: &'a InferenceCredentials,
-        model_provider: &'a ModelProvider,
+        model_provider: &'a ModelProviderRequestInfo,
     ) -> Result<(PeekableProviderInferenceResponseStream, String), Error> {
         let request_body = serde_json::to_value(TGIRequest::new(PROVIDER_NAME, request).await?)
             .map_err(|e| {
@@ -540,6 +537,7 @@ impl<'a> TGIRequest<'a> {
                 fetch_and_encode_input_files_before_inference: request
                     .fetch_and_encode_input_files_before_inference,
                 content_type_overrides: None,
+                reasoning_field_name: ReasoningFieldName::ReasoningContent,
             },
         )
         .await?;
@@ -900,7 +898,7 @@ mod tests {
                 ChatCompletionSpecificToolChoice, ChatCompletionSpecificToolFunction,
                 ChatCompletionToolChoice, ChatCompletionToolType,
             },
-            test_helpers::{WEATHER_TOOL, WEATHER_TOOL_CONFIG},
+            test_helpers::{WEATHER_PROVIDER_TOOL_CONFIG, WEATHER_TOOL},
         },
     };
 
@@ -967,7 +965,7 @@ mod tests {
             seed: None,
             stream: false,
             json_mode: ModelInferenceRequestJsonMode::On,
-            tool_config: Some(Cow::Borrowed(&WEATHER_TOOL_CONFIG)),
+            tool_config: Some(Cow::Borrowed(&*WEATHER_PROVIDER_TOOL_CONFIG)),
             function_type: FunctionType::Chat,
             output_schema: None,
             extra_body: Default::default(),

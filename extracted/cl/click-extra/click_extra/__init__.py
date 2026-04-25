@@ -94,6 +94,8 @@ from .parameters import (
     Option,
     ParamStructure,
     ShowParamsOption,
+    format_param_row,
+    get_param_spec,
     search_params,
 )
 from .table import (
@@ -210,9 +212,11 @@ __all__ = [
     "file_path",
     "flatten_config_keys",
     "format_filename",
+    "format_param_row",
     "get_app_dir",
     "get_binary_stream",
     "get_current_context",
+    "get_param_spec",
     "get_text_stream",
     "get_tool_config",
     "getchar",
@@ -263,13 +267,13 @@ __all__ = [
 """
 
 
-__version__ = "7.13.0"
+__version__ = "7.14.0"
 __git_branch__ = ""
 __git_date__ = ""
 __git_long_hash__ = ""
 __git_short_hash__ = ""
 __git_tag__ = ""
-__git_tag_sha__ = "1ecd87a4f9d9d2ac68270c4eedc4c41de371f3fd"
+__git_tag_sha__ = "4cd38bebf68bb1c1e9b677081b8f17ea5a929953"
 
 
 def __getattr__(name: str) -> object:

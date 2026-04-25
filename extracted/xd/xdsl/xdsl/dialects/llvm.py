@@ -80,6 +80,8 @@ from xdsl.traits import (
     Pure,
     SameOperandsAndResultType,
     SymbolOpInterface,
+    SymbolTable,
+    SymbolUserOpInterface,
 )
 from xdsl.utils.exceptions import VerifyException
 from xdsl.utils.hints import isa
@@ -944,6 +946,7 @@ class ICmpOp(IRDLOperation):
                 )
 
 
+# TODO: custom assembly format https://github.com/xdslproject/xdsl/issues/5897
 @irdl_op_definition
 class GEPOp(IRDLOperation):
     """
@@ -1165,6 +1168,7 @@ class GEPOp(IRDLOperation):
         )
 
 
+# TODO: custom assembly format https://github.com/xdslproject/xdsl/issues/5897
 @irdl_op_definition
 class AllocaOp(IRDLOperation):
     name = "llvm.alloca"
@@ -1192,6 +1196,8 @@ class AllocaOp(IRDLOperation):
 @irdl_op_definition
 class IntToPtrOp(IRDLOperation):
     name = "llvm.inttoptr"
+
+    assembly_format = "$input attr-dict `:` type($input) `to` type($output)"
 
     input = operand_def(IntegerType)
 
@@ -1225,6 +1231,7 @@ class TailCallKindAttr(EnumAttribute[TailCallKind]):
             super().print_parameter(printer)
 
 
+# TODO: custom assembly format https://github.com/xdslproject/xdsl/issues/5897
 @irdl_op_definition
 class InlineAsmOp(IRDLOperation):
     """
@@ -1290,6 +1297,8 @@ class InlineAsmOp(IRDLOperation):
 class PtrToIntOp(IRDLOperation):
     name = "llvm.ptrtoint"
 
+    assembly_format = "$input attr-dict `:` type($input) `to` type($output)"
+
     input = operand_def(LLVMPointerType)
 
     output = result_def(IntegerType)
@@ -1300,6 +1309,7 @@ class PtrToIntOp(IRDLOperation):
         super().__init__(operands=[arg], result_types=[int_type])
 
 
+# TODO: custom assembly format https://github.com/xdslproject/xdsl/issues/5897
 @irdl_op_definition
 class LoadOp(IRDLOperation):
     name = "llvm.load"
@@ -1328,6 +1338,7 @@ class LoadOp(IRDLOperation):
         super().__init__(operands=[ptr], result_types=[result_type], properties=props)
 
 
+# TODO: custom assembly format https://github.com/xdslproject/xdsl/issues/5897
 @irdl_op_definition
 class StoreOp(IRDLOperation):
     name = "llvm.store"
@@ -1367,21 +1378,7 @@ class StoreOp(IRDLOperation):
         )
 
 
-@irdl_op_definition
-class NullOp(IRDLOperation):
-    name = "llvm.mlir.null"
-
-    nullptr = result_def(LLVMPointerType)
-
-    traits = traits_def(NoMemoryEffect())
-
-    def __init__(self, ptr_type: LLVMPointerType | None = None):
-        if ptr_type is None:
-            ptr_type = LLVMPointerType()
-
-        super().__init__(result_types=[ptr_type])
-
-
+# TODO: custom assembly format https://github.com/xdslproject/xdsl/issues/5897
 @irdl_op_definition
 class ExtractValueOp(IRDLOperation):
     """
@@ -1412,6 +1409,7 @@ class ExtractValueOp(IRDLOperation):
         )
 
 
+# TODO: custom assembly format https://github.com/xdslproject/xdsl/issues/5897
 @irdl_op_definition
 class InsertValueOp(IRDLOperation):
     """
@@ -1451,6 +1449,8 @@ class UndefOp(IRDLOperation):
 
     name = "llvm.mlir.undef"
 
+    assembly_format = "attr-dict `:` type($res)"
+
     res = result_def(Attribute)
 
     traits = traits_def(NoMemoryEffect())
@@ -1459,6 +1459,7 @@ class UndefOp(IRDLOperation):
         super().__init__(result_types=[result_type])
 
 
+# TODO: custom assembly format https://github.com/xdslproject/xdsl/issues/5897
 @irdl_op_definition
 class GlobalOp(IRDLOperation):
     name = "llvm.mlir.global"
@@ -1541,6 +1542,8 @@ class GlobalOp(IRDLOperation):
 @irdl_op_definition
 class AddressOfOp(IRDLOperation):
     name = "llvm.mlir.addressof"
+
+    assembly_format = "$global_name attr-dict `:` type($result)"
 
     global_name = prop_def(SymbolRefAttr)
     result = result_def(LLVMPointerType)
@@ -1702,6 +1705,8 @@ class FuncOp(IRDLOperation):
     target_features = opt_prop_def(TargetFeaturesAttr)
     tune_cpu = opt_prop_def(StringAttr)
     unnamed_addr = opt_prop_def(IntegerAttr)
+
+    traits = traits_def(SymbolOpInterface())
 
     def __init__(
         self,
@@ -1955,6 +1960,7 @@ class FastMathAttr(FastMathAttrBase):
     name = "llvm.fastmath"
 
 
+# TODO: custom assembly format https://github.com/xdslproject/xdsl/issues/5897
 @irdl_op_definition
 class CallIntrinsicOp(IRDLOperation):
     """
@@ -1993,6 +1999,33 @@ class CallIntrinsicOp(IRDLOperation):
         )
 
 
+class CallOpSymbolUserOpInterface(SymbolUserOpInterface):
+    """
+    Verifies that a direct `llvm.call` resolves to an `llvm.func` in the enclosing
+    symbol table. Indirect calls (no `callee` symbol) are skipped.
+
+    Mirrors MLIR's `LLVM::CallOp::verifySymbolUses`:
+    https://github.com/llvm/llvm-project/blob/main/mlir/lib/Dialect/LLVMIR/IR/LLVMDialect.cpp
+    """
+
+    def verify(self, op: Operation) -> None:
+        assert isinstance(op, CallOp)
+
+        if op.callee is None:
+            return
+
+        found_callee = SymbolTable.lookup_symbol(op, op.callee)
+        if not found_callee:
+            raise VerifyException(f"'{op.callee}' could not be found in symbol table")
+
+        if not isinstance(found_callee, FuncOp):
+            raise VerifyException(
+                f"'{op.callee}' must reference an 'llvm.func', "
+                f"but found '{found_callee.name}'"
+            )
+
+
+# TODO: custom assembly format https://github.com/xdslproject/xdsl/issues/5897
 @irdl_op_definition
 class CallOp(IRDLOperation):
     name = "llvm.call"
@@ -2012,6 +2045,8 @@ class CallOp(IRDLOperation):
         TailCallKindAttr, default_value=TailCallKindAttr(TailCallKind.NONE)
     )
     returned = opt_result_def()
+
+    traits = traits_def(CallOpSymbolUserOpInterface())
 
     irdl_options = (AttrSizedOperandSegments(as_property=True),)
 
@@ -2584,7 +2619,6 @@ LLVM = Dialect(
         LoadOp,
         MaskedStoreOp,
         MulOp,
-        NullOp,
         OrOp,
         PtrToIntOp,
         ReturnOp,

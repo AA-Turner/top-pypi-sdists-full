@@ -24,6 +24,7 @@ from . import (
     path,
     text,
     util,
+    dt,
     version,
 )
 from .extractor.message import Message
@@ -69,12 +70,16 @@ class Job():
         extr.log = self._wrap_logger(extr.log)
         extr.log.debug("Using %s for '%s'", extr.__class__.__name__, extr.url)
 
-        self.metadata_url = extr.config2("metadata-url", "url-metadata")
-        self.metadata_http = extr.config2("metadata-http", "http-metadata")
-        metadata_path = extr.config2("metadata-path", "path-metadata")
-        metadata_version = extr.config2("metadata-version", "version-metadata")
+        self.metadata_url = extr.config2(
+            "metadata-url", "url-metadata", "_url")
+        self.metadata_http = extr.config2(
+            "metadata-http", "http-metadata")
+        metadata_path = extr.config2(
+            "metadata-path", "path-metadata", "_path")
+        metadata_version = extr.config2(
+            "metadata-version", "version-metadata")
         metadata_extractor = extr.config2(
-            "metadata-extractor", "extractor-metadata")
+            "metadata-extractor", "extractor-metadata", "_extr")
 
         if metadata_path:
             self.kwdict[metadata_path] = path_proxy
@@ -108,7 +113,9 @@ class Job():
         extr = self.extractor
         cfgpath = []
 
-        if parent:
+        if parent is None:
+            self.parents = ()
+        else:
             pextr = parent.extractor
             if extr.category == pextr.category or \
                     extr.category in parent.parents:
@@ -129,8 +136,6 @@ class Job():
                     cfgpath.append((cat, sub))
                     cfgpath.append((category + ">*", sub))
                 cfgpath.append((extr.category, sub))
-        else:
-            self.parents = ()
 
         if extr.basecategory:
             if not cfgpath:
@@ -194,25 +199,45 @@ class Job():
             if msg is None:
                 log.info("No results for %s", extractor.url)
         finally:
+            if extractor.status:
+                self.status |= extractor.status
             self.handle_finalize()
-            extractor.finalize()
+            if extractor.finalize is not None:
+                extractor.finalize(self.status)
 
-        if s := extractor.status:
-            self.status |= s
         return self.status
 
     def dispatch(self, messages):
         """Call the appropriate message handler"""
         msg = None
         process = True
+        metadata_url = self.metadata_url
+
+        if follow := self.extractor.config("follow"):
+            follow = formatter.parse(follow, None, util.identity).format_map
+            follow_urls = follow_kwdict = None
+        else:
+            follow = follow_urls = None
 
         for msg, url, kwdict in messages:
 
             if msg == Message.Directory:
+                if follow_urls is not None:
+                    for furl in follow_urls:
+                        if metadata_url is not None:
+                            follow_kwdict[metadata_url] = furl
+                        if self.pred_queue(furl, follow_kwdict):
+                            self.handle_queue(furl, follow_kwdict)
+                    follow_urls = None
+
                 self.update_kwdict(kwdict)
                 if self.pred_post(url, kwdict):
                     process = True
                     self.handle_directory(kwdict)
+                    if follow is not None:
+                        follow_urls = self._collect_urls(follow(kwdict))
+                        if follow_urls is not None:
+                            follow_kwdict = kwdict.copy()
                 else:
                     process = None
                 if FLAGS.POST is not None:
@@ -220,24 +245,40 @@ class Job():
 
             elif process is None:
                 continue
+            elif FLAGS.POST is False:
+                FLAGS.POST = process = None
+                continue
 
             elif msg == Message.Url:
-                if self.metadata_url:
-                    kwdict[self.metadata_url] = url
+                if metadata_url is not None:
+                    kwdict[metadata_url] = url
                 self.update_kwdict(kwdict)
                 if self.pred_url(url, kwdict):
+                    if FLAGS.FILE is False:
+                        FLAGS.FILE = None
+                        continue
                     self.handle_url(url, kwdict)
                 if FLAGS.FILE is not None:
                     FLAGS.process("FILE")
 
             elif msg == Message.Queue:
                 self.update_kwdict(kwdict)
-                if self.metadata_url:
-                    kwdict[self.metadata_url] = url
+                if metadata_url is not None:
+                    kwdict[metadata_url] = url
                 if self.pred_queue(url, kwdict):
+                    if FLAGS.CHILD is False:
+                        FLAGS.CHILD = None
+                        continue
                     self.handle_queue(url, kwdict)
                 if FLAGS.CHILD is not None:
                     FLAGS.process("CHILD")
+
+        if follow_urls is not None:
+            for furl in follow_urls:
+                if metadata_url is not None:
+                    follow_kwdict[metadata_url] = furl
+                if self.pred_queue(furl, follow_kwdict):
+                    self.handle_queue(furl, follow_kwdict)
 
         return msg
 
@@ -268,32 +309,82 @@ class Job():
             for key, valuegen in self.kwdict_eval:
                 kwdict[key] = valuegen(kwdict)
 
-    def _init(self):
-        self.extractor.initialize()
-        self.pred_url = self._prepare_predicates("image", True)
-        self.pred_post = self._prepare_predicates("post", False)
-        self.pred_queue = self._prepare_predicates("chapter", False)
+    def initialize(self):
+        pass
 
-    def _prepare_predicates(self, target, skip):
+    def _init(self):
+        extr = self.extractor
+
+        extr.initialize()
+        self.pred_url = self._prepare_predicates(
+            "file", "image", extr.skip_files)
+        self.pred_post = self._prepare_predicates(
+            "post", None, extr.skip_posts)
+        self.pred_queue = self._prepare_predicates(
+            "child", "chapter", extr.skip_children)
+
+        init = extr.config("init", False)
+        if init and init != "lazy":
+            self.initialize()
+
+    def _collect_urls(self, source):
+        if not source:
+            return None
+        if isinstance(source, list):
+            return source
+        if isinstance(source, str):
+            if urls := text.extract_urls(source):
+                return urls
+
+    def _prepare_predicates(self, target, alt=None, skip=None):
         predicates = []
         extr = self.extractor
 
-        if extr.config(target + "-unique"):
+        if extr.config(target + "-unique") or \
+                alt is not None and extr.config(alt + "-unique"):
             predicates.append(util.predicate_unique())
 
-        if pfilter := extr.config(target + "-filter"):
+        if target == "post":
+            if dta := extr.config("date-after"):
+                dta = dt.convert(dta)
+            if dtb := extr.config("date-before"):
+                dtb = dt.convert(dtb)
+            if dta or dtb:
+                predicates.append(util.predicate_date(
+                    dtb or None, dta or None, extr.skip_date))
+
+            if ((wl := extr.config2("whitelist-tags", "tags-whitelist")) or
+                    (bl := extr.config2("blacklist-tags", "tags-blacklist"))):
+                tl = wl or bl
+                if tl == "/import":
+                    if extr.import_blacklist is None:
+                        extr.log.warning("Blacklist import unsupported")
+                    else:
+                        extr.log.info("Importing account blacklist")
+                        try:
+                            tl = extr.import_blacklist()
+                        except Exception as exc:
+                            extr.log.error(
+                                "%s: %s", exc.__class__.__name__, exc)
+                            tl = ()
+                predicates.append(util.predicate_tags(tl, bool(wl)))
+
+        if (pfilter := extr.config(target + "-filter")) or \
+                alt is not None and (pfilter := extr.config(alt + "-filter")):
             try:
                 predicates.append(util.predicate_filter(pfilter, target))
             except (SyntaxError, ValueError, TypeError) as exc:
                 extr.log.warning(exc)
 
-        if prange := extr.config(target + "-range"):
+        if (prange := extr.config(target + "-range")) or \
+                alt is not None and (prange := extr.config(alt + "-range")):
             try:
-                skip = extr.skip if skip and not pfilter else None
-                predicates.append(util.predicate_range(prange, skip))
+                if pfilter:
+                    skip = None
+                flag = target if alt is not None else None
+                predicates.append(util.predicate_range(prange, skip, flag))
             except ValueError as exc:
-                extr.log.warning(
-                    "invalid %s range: %s", target, exc)
+                extr.log.warning("invalid %s range: %s", target, exc)
 
         return util.predicate_build(predicates)
 
@@ -320,7 +411,7 @@ class DownloadJob(Job):
         self.hooks = ()
         self.downloaders = {}
         self.out = output.select()
-        self.visited = parent.visited if parent else set()
+        self.visited = set() if parent is None else parent.visited
         self._extractor_filter = None
         self._skipcnt = 0
 
@@ -365,24 +456,28 @@ class DownloadJob(Job):
             self.extractor.sleep(self.sleep(), "download")
 
         # download from URL
-        if not self.download(url):
+        failed = False
+        try:
+            if not self.download(url):
+                # use fallback URLs if available/enabled
+                fallback = kwdict.get("_fallback", ()) if self.fallback else ()
+                for num, url in enumerate(fallback, 1):
+                    util.remove_file(pathfmt.temppath)
+                    self.log.info("Trying fallback URL #%d", num)
+                    if self.download(url):
+                        break
+                else:
+                    failed = True
+        except exception.StopDownload:
+            failed = True
 
-            # use fallback URLs if available/enabled
-            fallback = kwdict.get("_fallback", ()) if self.fallback else ()
-            for num, url in enumerate(fallback, 1):
-                util.remove_file(pathfmt.temppath)
-                self.log.info("Trying fallback URL #%d", num)
-                if self.download(url):
-                    break
-            else:
-                # download failed
-                self.status |= 4
-                self.log.error("Failed to download %s",
-                               pathfmt.filename or url)
-                if "error" in hooks:
-                    for callback in hooks["error"]:
-                        callback(pathfmt)
-                return
+        if failed:
+            self.status |= 4
+            self.log.error("Failed to download %s", pathfmt.filename or url)
+            if "error" in hooks:
+                for callback in hooks["error"]:
+                    callback(pathfmt)
+            return
 
         if not pathfmt.temppath:
             if archive is not None and self._archive_write_skip:
@@ -390,10 +485,20 @@ class DownloadJob(Job):
             self.handle_skip()
             return
 
-        # run post processors
+        # run postprocessors
         if "file" in hooks:
             for callback in hooks["file"]:
                 callback(pathfmt)
+
+        # process download flag
+        if FLAGS.DOWNLOAD is not None:
+            FLAGS.DOWNLOAD = None
+            self.status |= 4
+            self.log.error("Failed to download %s", pathfmt.filename or url)
+            if "error" in hooks:
+                for callback in hooks["error"]:
+                    callback(pathfmt)
+            return
 
         # download succeeded
         pathfmt.finalize()
@@ -427,6 +532,12 @@ class DownloadJob(Job):
             return
         self.visited.add(url)
 
+        if "child" in self.hooks:
+            pathfmt = self.pathfmt
+            pathfmt.kwdict = kwdict
+            for callback in self.hooks["child"]:
+                callback(pathfmt)
+
         if cls := kwdict.get("_extractor"):
             extr = cls.from_url(url)
         else:
@@ -448,7 +559,7 @@ class DownloadJob(Job):
                 extr._parentdir = pextr._parentdir
 
             if pmeta := pextr.config2(
-                    "parent-metadata", "metadata-parent", parent):
+                    "parent-metadata", "metadata-parent", parent or "_parent"):
                 if isinstance(pmeta, str):
                     data = self.kwdict.copy()
                     if kwdict:
@@ -500,8 +611,14 @@ class DownloadJob(Job):
         else:
             self._write_unsupported(url)
 
+        if "child-after" in self.hooks:
+            pathfmt = self.pathfmt
+            pathfmt.kwdict = kwdict
+            for callback in self.hooks["child-after"]:
+                callback(pathfmt)
+
     def handle_finalize(self):
-        if self.archive:
+        if self.archive is not None:
             if not self.status:
                 self.archive.finalize()
             self.archive.close()
@@ -576,7 +693,7 @@ class DownloadJob(Job):
         return instance
 
     def initialize(self, kwdict=None):
-        """Delayed initialization of PathFormat, etc."""
+        """initialize PathFormat, postprocessors, archive, options, etc"""
         extr = self.extractor
         cfg = extr.config
 
@@ -609,7 +726,7 @@ class DownloadJob(Job):
                     archive_table,
                     cfg("archive-mode"),
                     cfg("archive-pragma"),
-                    kwdict,
+                    pathfmt,
                 )
             except Exception as exc:
                 extr.log.warning(
@@ -672,14 +789,11 @@ class DownloadJob(Job):
                 elif "type" in pp_dict:
                     pp_type = pp_dict["type"]
                     if pp_type in pp_conf:
-                        pp = pp_conf[pp_type].copy()
-                        pp.update(pp_dict)
-                        pp_dict = pp
+                        pp_dict = {**pp_conf[pp_type], **pp_dict}
                     if "name" not in pp_dict:
                         pp_dict["name"] = pp_type
                 if pp_opts:
-                    pp_dict = pp_dict.copy()
-                    pp_dict.update(pp_opts)
+                    pp_dict = {**pp_dict, **pp_opts}
 
                 clist = pp_dict.get("whitelist")
                 if clist is not None:
@@ -820,8 +934,8 @@ class KeywordJob(Job):
                 self.extractor.log.info(
                     "Try 'gallery-dl -K \"%s\"' instead.", url)
         else:
-            stdout_write("Keywords for --chapter-filter:\n"
-                         "------------------------------\n")
+            stdout_write("Keywords for --child-filter:\n"
+                         "----------------------------\n")
             self.print_kwdict(kwdict)
             if extr or self.extractor.categorytransfer:
                 stdout_write("\n")

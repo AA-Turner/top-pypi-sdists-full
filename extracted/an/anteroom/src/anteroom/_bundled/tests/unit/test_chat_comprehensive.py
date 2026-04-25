@@ -38,7 +38,7 @@ from anteroom.routers.chat import (
 
 class _FakeCliConfig:
     max_tool_iterations = 50
-    tool_output_max_chars = 2000
+    tool_output_max_chars = 10_000
     max_consecutive_text_only = 3
     max_line_repeats = 5
 

@@ -44,6 +44,7 @@ from .._impl import (
     scout_integrations_api_UpdateSecureWebhookIntegrationDetails as UpdateSecureWebhookIntegrationDetails,
     scout_integrations_api_UpdateSimpleWebhookDetails as UpdateSimpleWebhookDetails,
     scout_integrations_api_UpdateTeamsWebhookIntegrationDetails as UpdateTeamsWebhookIntegrationDetails,
+    scout_integrations_api_WebhookContentType as WebhookContentType,
     scout_integrations_api_WebhookDeliveryConfig as WebhookDeliveryConfig,
 )
 
@@ -91,6 +92,7 @@ __all__ = [
     'UpdateSecureWebhookIntegrationDetails',
     'UpdateSimpleWebhookDetails',
     'UpdateTeamsWebhookIntegrationDetails',
+    'WebhookContentType',
     'WebhookDeliveryConfig',
     'IntegrationsService',
 ]

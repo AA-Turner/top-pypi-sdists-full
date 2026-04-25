@@ -1209,6 +1209,7 @@ def dc_contracts_get():
 
     current_dc_contracts = g.sess.scalars(
         select(Contract)
+        .join(Party)
         .join(MarketRole)
         .join(
             RateScriptAliasFinish,
@@ -1222,6 +1223,7 @@ def dc_contracts_get():
     ).all()
     ended_dc_contracts = g.sess.scalars(
         select(Contract)
+        .join(Party)
         .join(MarketRole)
         .join(
             RateScriptAliasFinish,
@@ -2130,18 +2132,21 @@ def era_edit_get(era_id):
     dtc_meter_types = g.sess.scalars(select(DtcMeterType).order_by(DtcMeterType.code))
     mop_contracts = g.sess.scalars(
         select(Contract)
+        .join(Party)
         .join(MarketRole)
         .where(MarketRole.code.in_(MOP_MARKET_ROLE_CODES))
         .order_by(Contract.name)
     )
     dc_contracts = g.sess.scalars(
         select(Contract)
+        .join(Party)
         .join(MarketRole)
         .where(MarketRole.code.in_(DC_MARKET_ROLE_CODES))
         .order_by(Contract.name)
     )
     supplier_contracts = (
         g.sess.query(Contract)
+        .join(Party)
         .join(MarketRole)
         .filter(MarketRole.code == "X")
         .order_by(Contract.name)
@@ -2202,6 +2207,7 @@ def era_edit_form_get(era_id):
         RateScriptAliasFinish = aliased(RateScript)
         mop_contracts_q = (
             select(Contract)
+            .join(Party)
             .join(MarketRole)
             .join(
                 RateScriptAliasStart,
@@ -2231,6 +2237,7 @@ def era_edit_form_get(era_id):
         mop_contracts = g.sess.scalars(mop_contracts_q)
         dc_contracts_q = (
             select(Contract)
+            .join(Party)
             .join(MarketRole)
             .join(
                 RateScriptAliasStart,
@@ -2260,6 +2267,7 @@ def era_edit_form_get(era_id):
         dc_contracts = g.sess.scalars(dc_contracts_q)
         supplier_contracts_q = (
             select(Contract)
+            .join(Party)
             .join(MarketRole)
             .join(
                 RateScriptAliasStart,
@@ -2699,20 +2707,23 @@ def era_edit_post(era_id):
         gsp_groups = g.sess.query(GspGroup).order_by(GspGroup.code)
         mop_contracts = g.sess.scalars(
             select(Contract)
+            .join(Party)
             .join(MarketRole)
             .filter(MarketRole.code.in_(MOP_MARKET_ROLE_CODES))
             .order_by(Contract.name)
         )
         dc_contracts = g.sess.scalars(
             select(Contract)
+            .join(Party)
             .join(MarketRole)
             .where(MarketRole.code.in_(DC_MARKET_ROLE_CODES))
             .order_by(Contract.name)
         )
-        supplier_contracts = (
-            g.sess.query(Contract)
+        supplier_contracts = g.sess.scalars(
+            select(Contract)
+            .join(Party)
             .join(MarketRole)
-            .filter(MarketRole.code == "X")
+            .where(MarketRole.code == "X")
             .order_by(Contract.name)
         )
         site_eras = (
@@ -4002,6 +4013,7 @@ def mop_contracts_get():
 
     current_mop_contracts = g.sess.scalars(
         select(Contract)
+        .join(Party)
         .join(MarketRole)
         .join(
             RateScriptAliasFinish,
@@ -4015,6 +4027,7 @@ def mop_contracts_get():
     ).all()
     ended_mop_contracts = g.sess.scalars(
         select(Contract)
+        .join(Party)
         .join(MarketRole)
         .join(
             RateScriptAliasFinish,
@@ -5109,6 +5122,7 @@ def site_add_e_supply_form_get(site_id):
 
         mop_contracts = g.sess.scalars(
             select(Contract)
+            .join(Party)
             .join(MarketRole)
             .join(
                 RateScriptAliasStart,
@@ -5127,6 +5141,7 @@ def site_add_e_supply_form_get(site_id):
         )
         dc_contracts = g.sess.scalars(
             select(Contract)
+            .join(Party)
             .join(MarketRole)
             .join(
                 RateScriptAliasStart,
@@ -5145,6 +5160,7 @@ def site_add_e_supply_form_get(site_id):
         )
         supplier_contracts = g.sess.scalars(
             select(Contract)
+            .join(Party)
             .join(MarketRole)
             .join(
                 RateScriptAliasStart,
@@ -5535,20 +5551,23 @@ def site_add_e_supply_post(site_id):
         )
         mop_contracts = g.sess.scalars(
             select(Contract)
+            .join(Party)
             .join(MarketRole)
             .where(MarketRole.code.in_(MOP_MARKET_ROLE_CODES))
             .order_by(Contract.name)
         )
         dc_contracts = g.sess.scalars(
             select(Contract)
+            .join(Party)
             .join(MarketRole)
             .where(MarketRole.code.in_(DC_MARKET_ROLE_CODES))
             .order_by(Contract.name)
         )
-        supplier_contracts = (
-            g.sess.query(Contract)
+        supplier_contracts = g.sess.scalars(
+            select(Contract)
+            .join(Party)
             .join(MarketRole)
-            .filter(MarketRole.code == "X")
+            .where(MarketRole.code == "X")
             .order_by(Contract.name)
         )
         pcs = g.sess.query(Pc).order_by(Pc.code)
@@ -6812,15 +6831,20 @@ def supplier_rate_script_edit_post(rate_script_id):
 
 @e.route("/supplier_contracts")
 def supplier_contracts_get():
-    contracts = (
-        g.sess.query(Contract)
+    contracts_q = (
+        select(Contract)
+        .join(Party)
         .join(MarketRole)
         .join(Contract.finish_rate_script)
-        .filter(MarketRole.code == "X")
+        .where(MarketRole.code == "X")
         .order_by(Contract.name)
     )
-    ongoing_contracts = contracts.filter(RateScript.finish_date == null())
-    ended_contracts = contracts.filter(RateScript.finish_date != null())
+    ongoing_contracts = g.sess.scalars(
+        contracts_q.where(RateScript.finish_date == null())
+    )
+    ended_contracts = g.sess.scalars(
+        contracts_q.where(RateScript.finish_date != null())
+    )
     return render_template(
         "supplier_contracts.html",
         ongoing_supplier_contracts=ongoing_contracts,
@@ -7606,6 +7630,7 @@ def supply_issues_get(supply_id):
     mop_contracts = g.sess.scalars(
         select(Contract)
         .join(Issue)
+        .join(Party)
         .join(MarketRole)
         .where(MarketRole.code.in_(MOP_MARKET_ROLE_CODES))
         .distinct()
@@ -7614,6 +7639,7 @@ def supply_issues_get(supply_id):
     dc_contracts = g.sess.scalars(
         select(Contract)
         .join(Issue)
+        .join(Party)
         .join(MarketRole)
         .where(MarketRole.code.in_(DC_MARKET_ROLE_CODES))
         .distinct()
@@ -7622,6 +7648,7 @@ def supply_issues_get(supply_id):
     supplier_contracts = g.sess.scalars(
         select(Contract)
         .join(Issue)
+        .join(Party)
         .join(MarketRole)
         .where(MarketRole.code == "X")
         .distinct()

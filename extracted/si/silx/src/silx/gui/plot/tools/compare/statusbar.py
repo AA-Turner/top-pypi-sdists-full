@@ -21,8 +21,7 @@
 # THE SOFTWARE.
 #
 # ###########################################################################*/
-"""This module provides tool bar helper.
-"""
+"""This module provides tool bar helper."""
 
 __authors__ = ["V. Valls"]
 __license__ = "MIT"
@@ -34,7 +33,6 @@ import weakref
 import numpy
 
 from silx.gui import qt
-
 
 _logger = logging.getLogger(__name__)
 

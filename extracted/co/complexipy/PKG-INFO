@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: complexipy
-Version: 5.3.0
+Version: 5.4.0
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
@@ -18,12 +18,9 @@ Classifier: Topic :: Software Development :: Testing
 Classifier: Topic :: Software Development :: Libraries
 Requires-Dist: tomli>=2.2.1
 Requires-Dist: typer>=0.12.5
-Requires-Dist: ruff>=0.9.0 ; extra == 'dev'
-Requires-Dist: ty>=0.0.1a1 ; extra == 'dev'
-Provides-Extra: dev
 License-File: LICENSE
 Summary: An extremely fast Python library to calculate the cognitive complexity of Python files, written in Rust.
-Keywords: cognitive,complexity,cognitive complexity,quality,quality assurance,testing,libraries,performance
+Keywords: maintainability,usability,DevEx tools,cognitive,complexity,cognitive complexity,quality,quality assurance,libraries,performance,static analysis,code quality,technical debt,refactoring,CI/CD,fast
 Home-Page: https://github.com/rohaquinlop/complexipy
 Author-email: Robin Quintero <rohaquinlop301@gmail.com>
 License: MIT
@@ -50,7 +47,8 @@ Project-URL: Repository, https://github.com/rohaquinlop/complexipy
     <a href="#installation">Installation</a> •
     <a href="#quick-start">Quick Start</a> •
     <a href="#integrations">Integrations</a> •
-    <a href="https://rohaquinlop.github.io/complexipy/">Documentation</a>
+    <a href="https://rohaquinlop.github.io/complexipy/">Documentation</a> •
+    <a href="https://www.complexipy-teams.com/">Complexipy Teams</a>
   </p>
 </div>
 

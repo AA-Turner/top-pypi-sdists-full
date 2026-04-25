@@ -14,23 +14,27 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nBsentry_protos/billing/v1/services/contract/v1/billing_config.proto\x12-sentry_protos.billing.v1.services.contract.v1\"0\n\x04\x44\x61te\x12\x0c\n\x04year\x18\x01 \x01(\r\x12\r\n\x05month\x18\x02 \x01(\r\x12\x0b\n\x03\x64\x61y\x18\x03 \x01(\r\"\x9a\x01\n\x07\x41\x64\x64ress\x12\x0c\n\x04\x63ity\x18\x01 \x01(\t\x12\x0e\n\x06region\x18\x02 \x01(\t\x12\x14\n\x0c\x63ountry_code\x18\x03 \x01(\t\x12\x13\n\x0bpostal_code\x18\x04 \x01(\t\x12\x16\n\x0e\x61\x64\x64ress_line_1\x18\x05 \x01(\t\x12\x16\n\x0e\x61\x64\x64ress_line_2\x18\x06 \x01(\t\x12\x16\n\x0e\x61\x64\x64ress_line_3\x18\x07 \x01(\t\"\x87\x04\n\rBillingConfig\x12P\n\x0c\x62illing_type\x18\x01 \x01(\x0e\x32:.sentry_protos.billing.v1.services.contract.v1.BillingType\x12N\n\x07\x63hannel\x18\x02 \x01(\x0e\x32=.sentry_protos.billing.v1.services.contract.v1.BillingChannel\x12i\n\x19\x65xternal_billing_provider\x18\x03 \x01(\x0e\x32\x46.sentry_protos.billing.v1.services.contract.v1.ExternalBillingProvider\x12G\n\x07\x61\x64\x64ress\x18\x04 \x01(\x0b\x32\x36.sentry_protos.billing.v1.services.contract.v1.Address\x12P\n\x13\x63ontract_start_date\x18\x05 \x01(\x0b\x32\x33.sentry_protos.billing.v1.services.contract.v1.Date\x12N\n\x11\x63ontract_end_date\x18\x06 \x01(\x0b\x32\x33.sentry_protos.billing.v1.services.contract.v1.Date*~\n\x0b\x42illingType\x12\x1c\n\x18\x42ILLING_TYPE_UNSPECIFIED\x10\x00\x12\x19\n\x15\x42ILLING_TYPE_INVOICED\x10\x01\x12\x1c\n\x18\x42ILLING_TYPE_CREDIT_CARD\x10\x02\x12\x18\n\x14\x42ILLING_TYPE_PARTNER\x10\x03*\x89\x01\n\x0e\x42illingChannel\x12\x1f\n\x1b\x42ILLING_CHANNEL_UNSPECIFIED\x10\x00\x12\x1e\n\x1a\x42ILLING_CHANNEL_SELF_SERVE\x10\x01\x12\x19\n\x15\x42ILLING_CHANNEL_SALES\x10\x02\x12\x1b\n\x17\x42ILLING_CHANNEL_PARTNER\x10\x03*\x90\x01\n\x17\x45xternalBillingProvider\x12)\n%EXTERNAL_BILLING_PROVIDER_UNSPECIFIED\x10\x00\x12$\n EXTERNAL_BILLING_PROVIDER_STRIPE\x10\x01\x12$\n EXTERNAL_BILLING_PROVIDER_VERCEL\x10\x02\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nBsentry_protos/billing/v1/services/contract/v1/billing_config.proto\x12-sentry_protos.billing.v1.services.contract.v1\"0\n\x04\x44\x61te\x12\x0c\n\x04year\x18\x01 \x01(\r\x12\r\n\x05month\x18\x02 \x01(\r\x12\x0b\n\x03\x64\x61y\x18\x03 \x01(\r\"\x9e\x01\n\x07\x41\x64\x64ress\x12\x0c\n\x04\x63ity\x18\x01 \x01(\t\x12\x0e\n\x06region\x18\x02 \x01(\t\x12\x14\n\x0c\x63ountry_code\x18\x03 \x01(\t\x12\x13\n\x0bpostal_code\x18\x04 \x01(\t\x12\x16\n\x0e\x61\x64\x64ress_line_1\x18\x05 \x01(\t\x12\x16\n\x0e\x61\x64\x64ress_line_2\x18\x06 \x01(\t\x12\x16\n\x0e\x61\x64\x64ress_line_3\x18\x07 \x01(\t:\x02\x18\x01\"\x8b\x04\n\rBillingConfig\x12P\n\x0c\x62illing_type\x18\x01 \x01(\x0e\x32:.sentry_protos.billing.v1.services.contract.v1.BillingType\x12N\n\x07\x63hannel\x18\x02 \x01(\x0e\x32=.sentry_protos.billing.v1.services.contract.v1.BillingChannel\x12i\n\x19\x65xternal_billing_provider\x18\x03 \x01(\x0e\x32\x46.sentry_protos.billing.v1.services.contract.v1.ExternalBillingProvider\x12K\n\x07\x61\x64\x64ress\x18\x04 \x01(\x0b\x32\x36.sentry_protos.billing.v1.services.contract.v1.AddressB\x02\x18\x01\x12P\n\x13\x63ontract_start_date\x18\x05 \x01(\x0b\x32\x33.sentry_protos.billing.v1.services.contract.v1.Date\x12N\n\x11\x63ontract_end_date\x18\x06 \x01(\x0b\x32\x33.sentry_protos.billing.v1.services.contract.v1.Date*~\n\x0b\x42illingType\x12\x1c\n\x18\x42ILLING_TYPE_UNSPECIFIED\x10\x00\x12\x19\n\x15\x42ILLING_TYPE_INVOICED\x10\x01\x12\x1c\n\x18\x42ILLING_TYPE_CREDIT_CARD\x10\x02\x12\x18\n\x14\x42ILLING_TYPE_PARTNER\x10\x03*\x89\x01\n\x0e\x42illingChannel\x12\x1f\n\x1b\x42ILLING_CHANNEL_UNSPECIFIED\x10\x00\x12\x1e\n\x1a\x42ILLING_CHANNEL_SELF_SERVE\x10\x01\x12\x19\n\x15\x42ILLING_CHANNEL_SALES\x10\x02\x12\x1b\n\x17\x42ILLING_CHANNEL_PARTNER\x10\x03*\x90\x01\n\x17\x45xternalBillingProvider\x12)\n%EXTERNAL_BILLING_PROVIDER_UNSPECIFIED\x10\x00\x12$\n EXTERNAL_BILLING_PROVIDER_STRIPE\x10\x01\x12$\n EXTERNAL_BILLING_PROVIDER_VERCEL\x10\x02\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'sentry_protos.billing.v1.services.contract.v1.billing_config_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
-  _globals['_BILLINGTYPE']._serialized_start=846
-  _globals['_BILLINGTYPE']._serialized_end=972
-  _globals['_BILLINGCHANNEL']._serialized_start=975
-  _globals['_BILLINGCHANNEL']._serialized_end=1112
-  _globals['_EXTERNALBILLINGPROVIDER']._serialized_start=1115
-  _globals['_EXTERNALBILLINGPROVIDER']._serialized_end=1259
+  _globals['_ADDRESS']._loaded_options = None
+  _globals['_ADDRESS']._serialized_options = b'\030\001'
+  _globals['_BILLINGCONFIG'].fields_by_name['address']._loaded_options = None
+  _globals['_BILLINGCONFIG'].fields_by_name['address']._serialized_options = b'\030\001'
+  _globals['_BILLINGTYPE']._serialized_start=854
+  _globals['_BILLINGTYPE']._serialized_end=980
+  _globals['_BILLINGCHANNEL']._serialized_start=983
+  _globals['_BILLINGCHANNEL']._serialized_end=1120
+  _globals['_EXTERNALBILLINGPROVIDER']._serialized_start=1123
+  _globals['_EXTERNALBILLINGPROVIDER']._serialized_end=1267
   _globals['_DATE']._serialized_start=117
   _globals['_DATE']._serialized_end=165
   _globals['_ADDRESS']._serialized_start=168
-  _globals['_ADDRESS']._serialized_end=322
-  _globals['_BILLINGCONFIG']._serialized_start=325
-  _globals['_BILLINGCONFIG']._serialized_end=844
+  _globals['_ADDRESS']._serialized_end=326
+  _globals['_BILLINGCONFIG']._serialized_start=329
+  _globals['_BILLINGCONFIG']._serialized_end=852
 # @@protoc_insertion_point(module_scope)

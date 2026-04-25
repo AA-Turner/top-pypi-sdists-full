@@ -33,7 +33,7 @@ __authors__ = ["Jérôme Kieffer", "Pierre Paleo"]
 __contact__ = "jerome.kieffer@esrf.eu"
 __license__ = "MIT"
 __copyright__ = "2013 European Synchrotron Radiation Facility, Grenoble, France"
-__date__ = "01/08/2019"
+__date__ = "13/03/2026"
 
 import os
 import unittest
@@ -48,9 +48,10 @@ try:
 except ImportError:
     scipy = None
 
-from silx.opencl import ocl
+from ... import ocl
 
 if ocl:
+    import pyopencl
     import pyopencl.array
 
 from ..utils import get_opencl_code
@@ -62,7 +63,7 @@ logger = logging.getLogger(__name__)
 class TestReduction(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        super(TestReduction, cls).setUpClass()
+        super().setUpClass()
         if ocl:
             cls.ctx = ocl.create_context()
             if logger.getEffectiveLevel() <= logging.INFO:
@@ -86,7 +87,7 @@ class TestReduction(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        super(TestReduction, cls).tearDownClass()
+        super().tearDownClass()
         cls.program = None
         cls.ctx = None
         cls.queue = None
@@ -104,7 +105,7 @@ class TestReduction(unittest.TestCase):
         """
 
         if data is None:
-            logger.debug("values: %s -> %s" % (val_min, val_max))
+            logger.debug(f"values: {val_min} -> {val_max}")
             data = ((val_max - val_min) * numpy.random.random(shape) + val_min).astype(
                 numpy.float32
             )
@@ -125,12 +126,12 @@ class TestReduction(unittest.TestCase):
         #        max_min_gpu = pyopencl.array.empty(self.queue, (wg, 2), dtype=numpy.float32, order="C")
         max_gpu = pyopencl.array.empty(self.queue, (1,), dtype=numpy.float32, order="C")
         min_gpu = pyopencl.array.empty(self.queue, (1,), dtype=numpy.float32, order="C")
-        logger.debug("workgroup: %s, size: %s" % (wg, size))
+        logger.debug(f"workgroup: {wg}, size: {size}")
         t = time.time()
         nmin = data.min()
         nmax = data.max()
         t0 = time.time()
-        k1 = self.program.max_min_global_stage1(
+        k1 = pyopencl.Kernel(self.program, "max_min_global_stage1")(
             self.queue,
             (size,),
             (wg,),
@@ -139,7 +140,7 @@ class TestReduction(unittest.TestCase):
             numpy.uint32(data.size),
             pyopencl.LocalMemory(8 * wg),
         )
-        k2 = self.program.max_min_global_stage2(
+        k2 = pyopencl.Kernel(self.program, "max_min_global_stage2")(
             self.queue,
             (wg,),
             (wg,),
@@ -190,7 +191,7 @@ class TestReduction(unittest.TestCase):
         """
 
         if data is None:
-            logger.debug("values: %s -> %s" % (val_min, val_max))
+            logger.debug(f"values: {val_min} -> {val_max}")
             data = ((val_max - val_min) * numpy.random.random(shape) + val_min).astype(
                 numpy.float32
             )
@@ -202,7 +203,7 @@ class TestReduction(unittest.TestCase):
         nmin = data.min()
         nmax = data.max()
         t0 = time.time()
-        k1 = self.program.max_min_serial(
+        k1 = pyopencl.Kernel(self.program, "max_min_serial")(
             self.queue,
             (1,),
             (1,),
@@ -248,7 +249,7 @@ class TestReduction(unittest.TestCase):
         """
 
         if data is None:
-            logger.debug("values: %s -> %s" % (val_min, val_max))
+            logger.debug(f"values: {val_min} -> {val_max}")
             data = ((val_max - val_min) * numpy.random.random(shape) + val_min).astype(
                 numpy.float32
             )
@@ -260,7 +261,7 @@ class TestReduction(unittest.TestCase):
         nmin = data.min()
         nmax = data.max()
         t0 = time.time()
-        k1 = self.program.max_min_vec16(
+        k1 = pyopencl.Kernel(self.program, "max_min_vec16")(
             self.queue,
             (1,),
             (1,),

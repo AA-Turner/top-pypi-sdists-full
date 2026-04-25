@@ -21,8 +21,7 @@
 # THE SOFTWARE.
 #
 # ###########################################################################*/
-"""Association of a texture and a framebuffer object for off-screen rendering.
-"""
+"""Association of a texture and a framebuffer object for off-screen rendering."""
 
 __authors__ = ["T. Vincent"]
 __license__ = "MIT"
@@ -34,11 +33,10 @@ import logging
 from . import gl
 from .Texture import Texture
 
-
 _logger = logging.getLogger(__name__)
 
 
-class FramebufferTexture(object):
+class FramebufferTexture:
     """Framebuffer with a texture.
 
     Aimed at off-screen rendering to texture.
@@ -139,8 +137,7 @@ class FramebufferTexture(object):
             return self._name
         else:
             raise RuntimeError(
-                "No OpenGL framebuffer resource, \
-                               discard has already been called"
+                "No OpenGL framebuffer resource, discard has already been called"
             )
 
     def bind(self):

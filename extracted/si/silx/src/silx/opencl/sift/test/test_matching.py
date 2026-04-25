@@ -26,14 +26,13 @@
 # FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 # OTHER DEALINGS IN THE SOFTWARE.
 
-"""Test suite for keypoint matching kernels
-"""
+"""Test suite for keypoint matching kernels"""
 
 __authors__ = ["Jérôme Kieffer", "Pierre Paleo"]
 __contact__ = "jerome.kieffer@esrf.eu"
 __license__ = "MIT"
 __copyright__ = "2013-2017 European Synchrotron Radiation Facility, Grenoble, France"
-__date__ = "01/08/2019"
+__date__ = "13/03/2026"
 
 import os
 import unittest
@@ -55,7 +54,7 @@ else:
 from ..utils import get_opencl_code
 from ..plan import SiftPlan
 from ..match import match_py
-from silx.opencl import ocl
+from ... import ocl
 
 if ocl:
     import pyopencl.array
@@ -75,7 +74,7 @@ except ImportError:
 class TestMatching(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        super(TestMatching, cls).setUpClass()
+        super().setUpClass()
         if ocl:
             cls.ctx = ocl.create_context()
             if logger.getEffectiveLevel() <= logging.INFO:
@@ -90,7 +89,7 @@ class TestMatching(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        super(TestMatching, cls).tearDownClass()
+        super().tearDownClass()
         cls.ctx = None
         cls.queue = None
 
@@ -102,7 +101,7 @@ class TestMatching(unittest.TestCase):
             self.use_cpu = False
         kernel = "matching_gpu.cl" if not (self.use_cpu) else "matching_cpu.cl"
         kernel_src = os.linesep.join(
-            (get_opencl_code(os.path.join("sift", i)) for i in ("sift", kernel))
+            get_opencl_code(os.path.join("sift", i)) for i in ("sift", kernel)
         )
         self.program = pyopencl.Program(
             self.ctx, kernel_src
@@ -160,7 +159,7 @@ class TestMatching(unittest.TestCase):
         counter.fill(0)
 
         t0 = time.time()
-        k1 = self.program.matching(
+        k1 = pyopencl.Kernel(self.program, "matching")(
             self.queue,
             shape,
             wg,

@@ -90,6 +90,10 @@ class SubProcessTaskUtil:
     def _resolve_secrets(secret_names: list[str], ctx: ExecutorContext) -> dict:
         # Attempt to resolve secret using by checking each configured secret store.
         secret_stores = ctx.get_secret_stores()
+        store_ids = [s.get_id() for s in secret_stores]
+        logger.info(
+            f"Resolving {len(secret_names)} secret(s) across {len(secret_stores)} store(s): {store_ids}"
+        )
         final_secret_values = dict({})
 
         for secret_store in secret_stores:
@@ -97,13 +101,22 @@ class SubProcessTaskUtil:
                 # Retrieve secret values from the store.
                 secret_values_dict = secret_store.get_secret_values(secret_names)
                 # Overlay secret values from each store, if not None.
+                resolved_count = 0
                 for secret_name, secret_value in secret_values_dict.items():
                     if secret_value is not None:
                         final_secret_values[secret_name] = secret_value
+                        resolved_count += 1
+                if resolved_count > 0:
+                    logger.info(
+                        f"Store '{secret_store.get_id()}' resolved {resolved_count}/{len(secret_names)} secret(s)"
+                    )
             except Exception:
                 logger.exception(
                     f"Failed to fetch secret values from secret store with id {secret_store.get_id()}"
                 )
+        logger.info(
+            f"Secret resolution complete: {len(final_secret_values)}/{len(secret_names)} resolved from stores"
+        )
         return final_secret_values
 
     @staticmethod
@@ -137,6 +150,8 @@ class SubProcessTaskUtil:
         if secret_matches:
             for match in secret_matches:
                 secrets_to_resolve.append(match)
+
+        logger.info(f"Found {len(secrets_to_resolve)} secret variable(s) in recipe")
 
         # 2. Resolve secret values
         secret_values_dict = SubProcessTaskUtil._resolve_secrets(

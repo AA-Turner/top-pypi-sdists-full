@@ -43,7 +43,7 @@ class FleetReference:
     def __init__(self, *, fleet_arn: builtins.str) -> None:
         '''A reference to a Fleet resource.
 
-        :param fleet_arn: The ARN of the Fleet resource.
+        :param fleet_arn: The Arn of the Fleet resource.
 
         :exampleMetadata: fixture=_generated
 
@@ -66,7 +66,7 @@ class FleetReference:
 
     @builtins.property
     def fleet_arn(self) -> builtins.str:
-        '''The ARN of the Fleet resource.'''
+        '''The Arn of the Fleet resource.'''
         result = self._values.get("fleet_arn")
         assert result is not None, "Required property 'fleet_arn' is missing"
         return typing.cast(builtins.str, result)
@@ -372,7 +372,7 @@ class RobotApplicationReference:
     def __init__(self, *, robot_application_arn: builtins.str) -> None:
         '''A reference to a RobotApplication resource.
 
-        :param robot_application_arn: The ARN of the RobotApplication resource.
+        :param robot_application_arn: The Arn of the RobotApplication resource.
 
         :exampleMetadata: fixture=_generated
 
@@ -395,7 +395,7 @@ class RobotApplicationReference:
 
     @builtins.property
     def robot_application_arn(self) -> builtins.str:
-        '''The ARN of the RobotApplication resource.'''
+        '''The Arn of the RobotApplication resource.'''
         result = self._values.get("robot_application_arn")
         assert result is not None, "Required property 'robot_application_arn' is missing"
         return typing.cast(builtins.str, result)
@@ -421,7 +421,7 @@ class RobotApplicationVersionReference:
     def __init__(self, *, robot_application_version_arn: builtins.str) -> None:
         '''A reference to a RobotApplicationVersion resource.
 
-        :param robot_application_version_arn: The ARN of the RobotApplicationVersion resource.
+        :param robot_application_version_arn: The Arn of the RobotApplicationVersion resource.
 
         :exampleMetadata: fixture=_generated
 
@@ -444,7 +444,7 @@ class RobotApplicationVersionReference:
 
     @builtins.property
     def robot_application_version_arn(self) -> builtins.str:
-        '''The ARN of the RobotApplicationVersion resource.'''
+        '''The Arn of the RobotApplicationVersion resource.'''
         result = self._values.get("robot_application_version_arn")
         assert result is not None, "Required property 'robot_application_version_arn' is missing"
         return typing.cast(builtins.str, result)
@@ -470,7 +470,7 @@ class RobotReference:
     def __init__(self, *, robot_arn: builtins.str) -> None:
         '''A reference to a Robot resource.
 
-        :param robot_arn: The ARN of the Robot resource.
+        :param robot_arn: The Arn of the Robot resource.
 
         :exampleMetadata: fixture=_generated
 
@@ -493,7 +493,7 @@ class RobotReference:
 
     @builtins.property
     def robot_arn(self) -> builtins.str:
-        '''The ARN of the Robot resource.'''
+        '''The Arn of the Robot resource.'''
         result = self._values.get("robot_arn")
         assert result is not None, "Required property 'robot_arn' is missing"
         return typing.cast(builtins.str, result)
@@ -519,7 +519,7 @@ class SimulationApplicationReference:
     def __init__(self, *, simulation_application_arn: builtins.str) -> None:
         '''A reference to a SimulationApplication resource.
 
-        :param simulation_application_arn: The ARN of the SimulationApplication resource.
+        :param simulation_application_arn: The Arn of the SimulationApplication resource.
 
         :exampleMetadata: fixture=_generated
 
@@ -542,7 +542,7 @@ class SimulationApplicationReference:
 
     @builtins.property
     def simulation_application_arn(self) -> builtins.str:
-        '''The ARN of the SimulationApplication resource.'''
+        '''The Arn of the SimulationApplication resource.'''
         result = self._values.get("simulation_application_arn")
         assert result is not None, "Required property 'simulation_application_arn' is missing"
         return typing.cast(builtins.str, result)
@@ -570,7 +570,7 @@ class SimulationApplicationVersionReference:
     def __init__(self, *, simulation_application_version_arn: builtins.str) -> None:
         '''A reference to a SimulationApplicationVersion resource.
 
-        :param simulation_application_version_arn: The ARN of the SimulationApplicationVersion resource.
+        :param simulation_application_version_arn: The Arn of the SimulationApplicationVersion resource.
 
         :exampleMetadata: fixture=_generated
 
@@ -593,7 +593,7 @@ class SimulationApplicationVersionReference:
 
     @builtins.property
     def simulation_application_version_arn(self) -> builtins.str:
-        '''The ARN of the SimulationApplicationVersion resource.'''
+        '''The Arn of the SimulationApplicationVersion resource.'''
         result = self._values.get("simulation_application_version_arn")
         assert result is not None, "Required property 'simulation_application_version_arn' is missing"
         return typing.cast(builtins.str, result)

@@ -11,27 +11,26 @@ mod call;
 pub mod config;
 pub mod params;
 pub mod storage;
-pub mod types;
 pub mod wire;
 
 // Re-export core types for convenience
 pub use call::{InferenceResponseToolCallExt, ToolCallChunk};
 // Re-export InferenceResponseToolCall from tensorzero-types
 pub use config::{
-    AllowedTools, AllowedToolsChoice, DynamicImplicitToolConfig, DynamicToolConfig,
-    FunctionToolConfig, ImplicitToolConfig, StaticToolConfig, ToolCallConfig,
-    ToolCallConfigConstructorArgs, ToolConfig, ToolConfigRef,
+    DynamicImplicitToolConfig, DynamicToolConfig, FunctionToolConfig, ImplicitToolConfig,
+    StaticToolConfig, ToolCallConfig, ToolCallConfigConstructorArgs, ToolConfig,
 };
-pub use params::{BatchDynamicToolParams, BatchDynamicToolParamsWithSize, DynamicToolParams};
+pub use params::{BatchDynamicToolParams, BatchDynamicToolParamsWithSize};
 pub use storage::{
     LegacyToolCallConfigDatabaseInsert, ToolCallConfigDatabaseInsert,
     apply_dynamic_tool_params_update_to_tool_call_config, deserialize_optional_tool_info,
 };
-pub use tensorzero_types::InferenceResponseToolCall;
-pub use types::{
-    FunctionTool, OpenAICustomTool, OpenAICustomToolFormat, OpenAIGrammarDefinition,
-    OpenAIGrammarSyntax, ProviderTool, ProviderToolScope, ProviderToolScopeModelProvider, Tool,
+pub use tensorzero_inference_types::{
+    AllowedTools, AllowedToolsChoice, FunctionToolDef, OpenAICustomTool, OpenAICustomToolFormat,
+    OpenAIGrammarDefinition, OpenAIGrammarSyntax, ProviderTool, ProviderToolCallConfig,
+    ProviderToolScope, ProviderToolScopeModelProvider, ToolConfigRef,
 };
+pub use tensorzero_types::InferenceResponseToolCall;
 // Re-export tool wire types from tensorzero-types
 pub use tensorzero_types::{ToolCall, ToolCallWrapper, ToolChoice, ToolResult};
 
@@ -134,6 +133,7 @@ mod tests {
     use serde_json::json;
     use std::collections::HashMap;
     use std::sync::Arc;
+    use tensorzero_inference_types::tool::{DynamicToolParams, FunctionTool, Tool};
 
     lazy_static! {
         static ref TOOLS: HashMap<String, Arc<StaticToolConfig>> = {
@@ -1558,7 +1558,8 @@ mod tests {
         .unwrap();
 
         // Should have 3 tools total (2 function + 1 custom)
-        let tools: Vec<_> = tool_call_config
+        let provider_tool_call_config = ProviderToolCallConfig::from(&tool_call_config);
+        let tools: Vec<_> = provider_tool_call_config
             .tools_available_with_openai_custom()
             .collect();
         assert_eq!(tools.len(), 3);

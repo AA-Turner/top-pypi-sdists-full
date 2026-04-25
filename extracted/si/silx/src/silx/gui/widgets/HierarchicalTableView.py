@@ -37,6 +37,7 @@ changes of this information.
 
 A default item delegate is used to redefine the paint of the cells.
 """
+
 __authors__ = ["V. Valls"]
 __license__ = "MIT"
 __date__ = "07/04/2017"
@@ -64,6 +65,9 @@ class HierarchicalTableModel(qt.QAbstractTableModel):
 
     UserRole = qt.Qt.UserRole + 2
     """First index of user defined roles"""
+
+    IsCopyableRole = qt.Qt.UserRole + 3
+    """Role returning True if the content of the cell can be copied to clipboard by the user"""
 
     def headerData(self, section, orientation, role=qt.Qt.DisplayRole):
         """Returns the 0-based row or column index, for display in the
@@ -143,7 +147,7 @@ class HierarchicalTableView(qt.QTableView):
 
         :param qt.QWidget parent: Parent of the widget
         """
-        super(HierarchicalTableView, self).__init__(parent)
+        super().__init__(parent)
         self.setItemDelegate(HierarchicalItemDelegate(self))
         self.verticalHeader().setVisible(False)
         self.horizontalHeader().setVisible(False)
@@ -153,7 +157,7 @@ class HierarchicalTableView(qt.QTableView):
         function"""
         if self.model() is not None:
             model.modelReset.disconnect(self.__modelReset)
-        super(HierarchicalTableView, self).setModel(model)
+        super().setModel(model)
         if self.model() is not None:
             model.modelReset.connect(self.__modelReset)
             self.__modelReset()

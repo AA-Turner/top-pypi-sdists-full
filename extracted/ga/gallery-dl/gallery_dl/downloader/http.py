@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright 2014-2025 Mike Fährmann
+# Copyright 2014-2026 Mike Fährmann
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -89,7 +89,12 @@ class HttpDownloader(DownloaderBase):
         if interval_429 is None:
             self.interval_429 = extractor._interval_429
         else:
-            self.interval_429 = util.build_duration_func(interval_429)
+            try:
+                self.interval_429 = util.build_duration_func_ex(interval_429)
+            except Exception as exc:
+                self.log.error("Invalid 'sleep-429' value '%s' (%s: %s)",
+                               interval_429, exc.__class__.__name__, exc)
+                self.interval_429 = extractor._interval_429
 
     def download(self, url, pathfmt):
         try:
@@ -120,6 +125,9 @@ class HttpDownloader(DownloaderBase):
             pathfmt.part_enable(self.partdir)
 
         while True:
+            if FLAGS.DOWNLOAD is not None:
+                return FLAGS.process("DOWNLOAD")
+
             if tries:
                 if response:
                     self.release_conn(response)
@@ -130,7 +138,7 @@ class HttpDownloader(DownloaderBase):
                     return False
 
                 if code == 429 and self.interval_429:
-                    s = self.interval_429()
+                    s = self.interval_429(tries)
                     time.sleep(s if s > tries else tries)
                 else:
                     time.sleep(tries)
@@ -388,10 +396,9 @@ class HttpDownloader(DownloaderBase):
     def receive(self, fp, content, bytes_total, bytes_start):
         write = fp.write
         for data in content:
-            write(data)
-
             if FLAGS.DOWNLOAD is not None:
-                FLAGS.process("DOWNLOAD")
+                return FLAGS.process("DOWNLOAD")
+            write(data)
 
     def _receive_rate(self, fp, content, bytes_total, bytes_start):
         rate = self.rate() if self.rate else None
@@ -402,13 +409,12 @@ class HttpDownloader(DownloaderBase):
         time_start = time.monotonic()
 
         for data in content:
+            if FLAGS.DOWNLOAD is not None:
+                return FLAGS.process("DOWNLOAD")
             time_elapsed = time.monotonic() - time_start
             bytes_downloaded += len(data)
 
             write(data)
-
-            if FLAGS.DOWNLOAD is not None:
-                FLAGS.process("DOWNLOAD")
 
             if progress is not None:
                 if time_elapsed > progress:

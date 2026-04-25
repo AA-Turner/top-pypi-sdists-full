@@ -30,7 +30,6 @@ This API is a simplified version of PyMca PlotBackend API.
 
 from __future__ import annotations
 
-
 __authors__ = ["V.A. Sole", "T. Vincent"]
 __license__ = "MIT"
 __date__ = "21/12/2018"
@@ -41,7 +40,6 @@ from silx.gui.colors import RGBAColorType
 
 from ... import qt
 
-
 # Names for setCursor
 CURSOR_DEFAULT = "default"
 CURSOR_POINTING = "pointing"
@@ -50,7 +48,7 @@ CURSOR_SIZE_VER = "size vertical"
 CURSOR_SIZE_ALL = "size all"
 
 
-class BackendBase(object):
+class BackendBase:
     """Class defining the API a backend of the Plot should provide."""
 
     def __init__(self, plot, parent=None):
@@ -61,6 +59,7 @@ class BackendBase(object):
         """
         self.__xLimits = 1.0, 100.0
         self.__yLimits = {"left": (1.0, 100.0), "right": (1.0, 100.0)}
+        self.__xAxisInverted = True
         self.__yAxisInverted = False
         self.__keepDataAspectRatio = False
         self.__xAxisTimeSeries = False
@@ -502,6 +501,17 @@ class BackendBase(object):
         :param bool flag: If True, the left axis will use a log scale
         """
         pass
+
+    def setXAxisInverted(self, flag: bool):
+        """Invert the X axis.
+
+        :param flag: If True, put the horizontal axis origin on the right
+        """
+        self.__xAxisInverted = bool(flag)
+
+    def isXAxisInverted(self) -> bool:
+        """Return True if X axis is inverted, False otherwise."""
+        return self.__xAxisInverted
 
     def setYAxisInverted(self, flag):
         """Invert the Y axis.

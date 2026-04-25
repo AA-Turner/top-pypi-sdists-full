@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: crewai
-Version: 1.14.2
+Version: 1.14.3
 Summary: Cutting-edge framework for orchestrating role-playing, autonomous AI agents. By fostering collaborative intelligence, CrewAI empowers agents to work together seamlessly, tackling complex tasks.
 Project-URL: Homepage, https://crewai.com
 Project-URL: Documentation, https://docs.crewai.com
@@ -29,7 +29,7 @@ Requires-Dist: portalocker~=2.7.0
 Requires-Dist: pydantic-settings~=2.10.1
 Requires-Dist: pydantic~=2.11.9
 Requires-Dist: pyjwt<3,>=2.9.0
-Requires-Dist: python-dotenv~=1.1.1
+Requires-Dist: python-dotenv<2,>=1.2.2
 Requires-Dist: pyyaml~=6.0
 Requires-Dist: regex~=2026.1.15
 Requires-Dist: textual>=7.5.0
@@ -49,6 +49,7 @@ Requires-Dist: aiobotocore~=3.4.0; extra == 'aws'
 Requires-Dist: boto3~=1.42.79; extra == 'aws'
 Provides-Extra: azure-ai-inference
 Requires-Dist: azure-ai-inference~=1.0.0b9; extra == 'azure-ai-inference'
+Requires-Dist: azure-identity<2,>=1.17.0; extra == 'azure-ai-inference'
 Provides-Extra: bedrock
 Requires-Dist: boto3~=1.42.79; extra == 'bedrock'
 Provides-Extra: docling
@@ -72,7 +73,7 @@ Requires-Dist: qdrant-client[fastembed]~=1.14.3; extra == 'qdrant'
 Provides-Extra: qdrant-edge
 Requires-Dist: qdrant-edge-py>=0.6.0; extra == 'qdrant-edge'
 Provides-Extra: tools
-Requires-Dist: crewai-tools==1.14.2; extra == 'tools'
+Requires-Dist: crewai-tools==1.14.3; extra == 'tools'
 Provides-Extra: voyageai
 Requires-Dist: voyageai~=0.3.5; extra == 'voyageai'
 Provides-Extra: watson

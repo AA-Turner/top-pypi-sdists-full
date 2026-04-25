@@ -2577,6 +2577,12 @@ def pad(x, pad_width, mode="constant", constant_values=None):
     return tf.pad(x, pad_width, mode.upper(), **kwargs)
 
 
+def percentile(x, q, axis=None, method="linear", keepdims=False):
+    x = convert_to_tensor(x)
+    q = convert_to_tensor(q, dtype=config.floatx()) / 100.0
+    return quantile(x, q, axis=axis, method=method, keepdims=keepdims)
+
+
 def prod(x, axis=None, keepdims=False, dtype=None):
     x = convert_to_tensor(x)
     if dtype is None:
@@ -3484,6 +3490,8 @@ def transpose(x, axes=None):
         output = tf.sparse.transpose(x, perm=axes)
         output.set_shape(compute_transpose_output_shape(x.shape, axes))
         return output
+    if axes:
+        axes = tuple(canonicalize_axis(axis, len(x.shape)) for axis in axes)
     return tf.transpose(x, perm=axes)
 
 

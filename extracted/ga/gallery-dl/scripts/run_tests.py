@@ -22,6 +22,9 @@ if len(sys.argv) <= 1:
         for file in os.listdir(TEST_DIRECTORY)
         if file.startswith("test_") and file != "test_results.py"
     ]
+
+    import random
+    random.shuffle(TESTS)
 else:
     TESTS = [
         name if name.startswith("test_") else "test_" + name

@@ -257,6 +257,8 @@ def log( text='', caller=1):
         line = frame_record.lineno
         function = frame_record.function
         text = f'{filename}:{line}:{function}(): {text}'
+        del stack
+        # Leaving <stack> to be garbage collected, appears to change behaviour.
     if _g_log_items_active:
         _g_log_items.append(text)
     if _g_out_log:
@@ -1223,9 +1225,9 @@ class Annot:
         obj = mupdf.pdf_dict_get( annot_obj, PDF_NAME('Popup'))
         if obj.m_internal:
             rect = mupdf.pdf_dict_get_rect(obj, PDF_NAME('Rect'))
-            #log( '{rect=}')
+            #log(f'{rect=}')
         val = JM_py_from_rect(rect)
-        #log( '{val=}')
+        #log(f'{val=}')
         
         val = Rect(val) * self.get_parent().transformation_matrix
         val *= self.get_parent().derotation_matrix
@@ -3234,20 +3236,32 @@ class Document:
         for i in range(len(xref_src)):
             page_src = doc2[pno_src[i]]  # load source page
             links = page_src.get_links()  # get all its links
-            #log( '{pno_src=}')
-            #log( '{type(page_src)=}')
-            #log( '{page_src=}')
-            #log( '{=i len(links)}')
+            #log(f'{pno_src=}')
+            #log(f'{type(page_src)=}')
+            #log(f'{page_src=}')
+            #log(f'{=i len(links)}')
             if len(links) == 0:  # no links there
                 page_src = None
                 continue
-            ctm = ~page_src.transformation_matrix  # calc page transformation matrix
             page_dst = doc1[pno_dst[i]]  # load destination page
+            
+            # In our call above to page_src.get_links(), we end up in
+            # fz_load_links(). This extracts the raw rects (encoded as strings
+            # such as `/Rect[10 782 40 822]`) and multiplies them by page_ctm
+            # from pdf_page_transform().
+            #
+            # We want to recreate the original raw rects, so we need to
+            # multiply by inverse of page_ctm. This fixes #4958.
+            ctm = mupdf.FzMatrix()
+            page_src_pdf_document = _as_pdf_page(page_src)
+            mupdf.pdf_page_transform(page_src_pdf_document, mupdf.FzRect(0), ctm)
+            ictm = Matrix(mupdf.fz_invert_matrix(ctm))
+
             link_tab = []  # store all link definitions here
             for l in links:
                 if l["kind"] == LINK_GOTO and (l["page"] not in pno_src):
                     continue  # GOTO link target not in copied pages
-                annot_text = cre_annot(l, xref_dst, pno_src, ctm)
+                annot_text = cre_annot(l, xref_dst, pno_src, ictm)
                 if annot_text:
                     link_tab.append(annot_text)
             if link_tab != []:
@@ -4555,7 +4569,7 @@ class Document:
         '''
         Get a font by xref. Returns a tuple or dictionary.
         '''
-        #log( '{=xref info_only}')
+        #log(f'{=xref info_only}')
         pdf = _as_pdf_document(self)
         obj = mupdf.pdf_load_object(pdf, xref)
         type_ = mupdf.pdf_dict_get(obj, PDF_NAME('Type'))
@@ -8278,7 +8292,7 @@ class Font:
         if not f:
             return
         assert isinstance( f, mupdf.fz_font_flags_t)
-        #log( '{=f}')
+        #log(f'{f=}')
         if mupdf_cppyy:
             # cppyy includes remaining higher bits.
             v = [f.is_mono]
@@ -8396,7 +8410,7 @@ class Font:
     @property
     def name(self):
         ret = mupdf.fz_font_name(self.this)
-        #log( '{ret=}')
+        #log(f'{ret=}')
         return ret
 
     def text_length(self, text, fontsize=11, language=None, script=0, wmode=0, small_caps=0):
@@ -9952,7 +9966,7 @@ class Page:
             i += 1
             mc = f"MC{i:d}"
         self._set_resource_property(mc, oc)
-        #log( 'returning {mc=}')
+        #log(f'returning {mc=}')
         return mc
 
     def _get_resource_properties(self):
@@ -10656,8 +10670,10 @@ class Page:
             annot_xrefs = [a[0] for a in self.annot_xrefs() if a[1] in types and a[1] not in skip_types]
         for xref in annot_xrefs:
             annot = self.load_annot(xref)
-            annot._yielded=True
-            yield annot
+            # In #4928, annot can be None, which we need to ignore.
+            if annot:
+                annot._yielded=True
+                yield annot
 
     def apply_redactions(
             page: 'Page',
@@ -10792,6 +10808,7 @@ class Page:
         pdfpage = _as_pdf_page(self)
         pclip = JM_rect_from_py(clip)
         mupdf.pdf_clip_page(pdfpage, pclip)
+        JM_refresh_links(pdfpage)
 
     def get_layout(self):
         """Try to access layout information."""
@@ -12772,7 +12789,7 @@ class Page:
 
         page = _as_pdf_page(self.this)
         annot = JM_get_widget_by_xref( page, xref)
-        #log( '{=type(annot)}')
+        #log(f'{type(annot)=}')
         val = annot
         if not val:
             return val
@@ -13158,7 +13175,7 @@ class Page:
                     will only yield text fields.
         """
         #for a in self.annot_xrefs():
-        #    log( '{a=}')
+        #    log(f'{a=}')
         widget_xrefs = [a[0] for a in self.annot_xrefs() if a[1] == mupdf.PDF_ANNOT_WIDGET]
         #log(f'widgets(): {widget_xrefs=}')
         for xref in widget_xrefs:
@@ -13400,7 +13417,7 @@ class Pixmap:
                     pm_alpha = pm.alpha()
                     src_stride = src_pix.stride()
                     src_n = src_pix.n()
-                    #log( '{=pm_stride pm_n src_stride src_n}')
+                    #log(f'{pm_stride pm_n src_stride src_n=}')
                     for y in range( h):
                         for x in range( w):
                             pm_i = pm_stride * y + pm_n * x
@@ -15760,7 +15777,7 @@ class Shape:
         if lineCap != 0:
             self.draw_cont = f"{lineCap} J\n" + self.draw_cont
         if lineJoin != 0:
-            self.draw_cont = "{lineJoin} j\n" + self.draw_cont
+            self.draw_cont = f"{lineJoin} j\n" + self.draw_cont
 
         if dashes not in (None, "", "[] 0"):
             self.draw_cont = f"{dashes} d\n" + self.draw_cont
@@ -16754,20 +16771,20 @@ class TextWriter:
     def append(self, pos, text, font=None, fontsize=11, language=None, right_to_left=0, small_caps=0):
         """Store 'text' at point 'pos' using 'font' and 'fontsize'."""
         pos = Point(pos) * self.ictm
-        #log( '{font=}')
+        #log(f'{font=}')
         if font is None:
             font = Font("helv")
         if not font.is_writable:
             if 0:
-                log( '{font.this.m_internal.name=}')
-                log( '{font.this.m_internal.t3matrix=}')
-                log( '{font.this.m_internal.bbox=}')
-                log( '{font.this.m_internal.glyph_count=}')
-                log( '{font.this.m_internal.use_glyph_bbox=}')
-                log( '{font.this.m_internal.width_count=}')
-                log( '{font.this.m_internal.width_default=}')
-                log( '{font.this.m_internal.has_digest=}')
-                log( 'Unsupported font {font.name=}')
+                log(f'{font.this.m_internal.name=}')
+                log(f'{font.this.m_internal.t3matrix=}')
+                log(f'{font.this.m_internal.bbox=}')
+                log(f'{font.this.m_internal.glyph_count=}')
+                log(f'{font.this.m_internal.use_glyph_bbox=}')
+                log(f'{font.this.m_internal.width_count=}')
+                log(f'{font.this.m_internal.width_default=}')
+                log(f'{font.this.m_internal.has_digest=}')
+                log(f'Unsupported font {font.name=}')
                 if mupdf_cppyy:
                     import cppyy
                     log( f'Unsupported font {cppyy.gbl.mupdf_font_name(font.this.m_internal)=}')
@@ -17122,7 +17139,7 @@ class TextWriter:
             resources = mupdf.pdf_new_dict(pdfpage.doc(), 5)
             contents = mupdf.fz_new_buffer(1024)
             dev = mupdf.pdf_new_pdf_device( pdfpage.doc(), mupdf.FzMatrix(), resources, contents)
-            #log( '=== {dev_color!r=}')
+            #log(f'=== {dev_color!r=}')
             mupdf.fz_fill_text(
                     dev,
                     self.this,
@@ -19050,7 +19067,7 @@ def JM_compress_buffer(inbuffer):
             inbuffer,
             mupdf.FZ_DEFLATE_BEST,
             )
-    #log( '{=data compressed_length}')
+    #log(f'{data compressed_length=}')
     if not data or compressed_length == 0:
         return None
     buf = mupdf.FzBuffer(mupdf.fz_new_buffer_from_data(data, compressed_length))
@@ -19815,7 +19832,7 @@ def JM_get_fontbuffer(doc, xref):
         elif mupdf.pdf_name_eq(obj, PDF_NAME('OpenType')):
             pass    # Prev code did: ext = "otf", but this has no effect. */
         else:
-            message('warning: unhandled font type {pdf_to_name(ctx, obj)!r}')
+            message(f'warning: unhandled font type {mupdf.pdf_to_name(obj)!r}')
 
     if not stream:
         message('warning: unhandled font type')
@@ -19868,7 +19885,7 @@ def JM_get_widget_properties(annot, Widget):
     Populate a Python Widget object with the values from a PDF form field.
     Called by "Page.first_widget" and "Widget.next".
     '''
-    #log( '{type(annot)=}')
+    #log(f'{type(annot)=}')
     annot_obj = mupdf.pdf_annot_obj(annot.this)
     #log( 'Have called mupdf.pdf_annot_obj()')
     page = _pdf_annot_page(annot.this)
@@ -20218,7 +20235,7 @@ def JM_image_profile( imagedata, keep_image):
         message( "bad image data")
         return None
     c = imagedata
-    #log( 'calling mfz_recognize_image_format with {c!r=}')
+    #log(f'calling mfz_recognize_image_format with {c!r=}')
     type_ = mupdf.fz_recognize_image_format( c)
     if type_ == mupdf.FZ_IMAGE_UNKNOWN:
         return None
@@ -20737,7 +20754,7 @@ def JM_make_textpage_dict(tp, page_dict, raw):
     block_list = []
     tp_rect = mupdf.FzRect(tp.m_internal.mediabox)
     block_n = -1
-    #log( 'JM_make_textpage_dict {=tp}')
+    #log(f'JM_make_textpage_dict {=tp}')
     for block in tp:
         block_n += 1
         if (not mupdf.fz_contains_rect(tp_rect, mupdf.FzRect(block.m_internal.bbox))
@@ -21172,7 +21189,7 @@ def JM_print_stext_page_as_text(res, page):
                             ):
                         #raw += chr(ch.m_internal.c)
                         last_char = ch.m_internal.c
-                        #log( '{=last_char!r utf!r}')
+                        #log(f'{=last_char!r utf!r}')
                         JM_append_rune(res, last_char)
                 if last_char != 10 and last_char > 0:
                     mupdf.fz_append_string(res, "\n")
@@ -21364,20 +21381,20 @@ def JM_rotate_page_matrix(page):
     if not page.m_internal:
         return mupdf.FzMatrix()  # no valid pdf page given
     rotation = JM_page_rotation(page)
-    #log( '{rotation=}')
+    #log(f'{rotation=}')
     if rotation == 0:
         return mupdf.FzMatrix()  # no rotation
     cb_size = JM_cropbox_size(page.obj())
     w = cb_size.x
     h = cb_size.y
-    #log( '{=h w}')
+    #log(f'{=h w}')
     if rotation == 90:
         m = mupdf.fz_make_matrix(0, 1, -1, 0, h, 0)
     elif rotation == 180:
         m = mupdf.fz_make_matrix(-1, 0, 0, -1, w, h)
     else:
         m = mupdf.fz_make_matrix(0, -1, 1, 0, 0, w)
-    #log( 'returning {m=}')
+    #log(f'returning {m=}')
     return m
 
 
@@ -22400,7 +22417,7 @@ def get_tessdata(tessdata=None):
         if os.path.exists(tessdata):  # all ok?
             return tessdata
         else:  # should not happen!
-            raise RuntimeError("No tessdata specified and Tesseract installation has no {tessdata} folder")
+            raise RuntimeError(f"No tessdata specified and Tesseract installation has no {tessdata} folder")
 
     # Unix-like systems:
     attempts = list()
@@ -22592,7 +22609,7 @@ def jm_append_merge(dev):
         dev.pathdict.clear()
     assert isinstance(dev.out, list)
     len_ = len(dev.out) # len of output list so far
-    #log('{len_=}')
+    #log(f'{len_=}')
     if len_ == 0:   # always append first path
         return append()
     #log(f'{getattr(dev, "pathdict", None)=}')
@@ -23128,12 +23145,12 @@ class Walker(mupdf.FzPathWalker2):
         if 0 and isinstance(self.dev.pathdict, dict):
             log(f'self.dev.pathdict:')
             for n, v in self.dev.pathdict.items():
-                log( '    {type(n)=} {len(n)=} {n!r} {n}: {v!r}: {v}')
+                log(f'    {type(n)=} {len(n)=} {n!r} {n}: {v!r}: {v}')
 
         #log(f'Walker(): {type(self.dev.pathdict)=} {self.dev.pathdict=}')
 
         try:
-            #log( '{=dev.ctm type(dev.ctm)}')
+            #log(f'{dev.ctm type(dev.ctm)=}')
             self.dev.lastpoint = mupdf.fz_transform_point(
                     mupdf.fz_make_point(x, y),
                     self.dev.ctm,
@@ -23193,11 +23210,7 @@ def jm_lineart_stroke_path( dev, ctx, path, stroke, ctm, colorspace, color, alph
     #log(f'{dev.pathdict=} {dev.clips=}')
     try:
         assert isinstance( ctm, mupdf.fz_matrix)
-        dev.pathfactor = 1
-        if ctm.a != 0 and abs(ctm.a) == abs(ctm.d):
-            dev.pathfactor = abs(ctm.a)
-        elif ctm.b != 0 and abs(ctm.b) == abs(ctm.c):
-            dev.pathfactor = abs(ctm.b)
+        dev.pathfactor = math.sqrt(abs(ctm.a * ctm.d - ctm.b * ctm.c))
         dev.ctm = mupdf.FzMatrix( ctm)  # fz_concat(ctm, dev_ptm);
         dev.path_type = trace_device_STROKE_PATH
 
@@ -23213,7 +23226,7 @@ def jm_lineart_stroke_path( dev, ctx, path, stroke, ctm, colorspace, color, alph
                 stroke.dash_cap,
                 stroke.end_cap,
                 )
-        dev.pathdict[ 'lineJoin'] = dev.pathfactor * stroke.linejoin
+        dev.pathdict[ 'lineJoin'] = float(stroke.linejoin)
         if 'closePath' not in dev.pathdict:
             #log('setting dev.pathdict["closePath"] to false')
             dev.pathdict['closePath'] = False
@@ -24313,7 +24326,7 @@ def page_merge(doc_des, doc_src, page_from, page_to, rotate, links, copy_annots,
     for i in range( len(known_page_objs)):
         obj = mupdf.pdf_dict_get_inheritable( page_ref, known_page_objs[i])
         if obj.m_internal:
-            #log( '{=type(graft_map) type(graft_map.this)}')
+            #log(f'{type(graft_map) type(graft_map.this)=}')
             mupdf.pdf_dict_put( page_dict, known_page_objs[i], mupdf.pdf_graft_mapped_object(graft_map.this, obj))
 
     # Copy annotations, but skip Link, Popup, IRT, Widget types

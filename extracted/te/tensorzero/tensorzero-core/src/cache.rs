@@ -4,7 +4,9 @@ use std::sync::Arc;
 use async_trait::async_trait;
 
 use crate::config::OtlpConfig;
-use crate::config::gateway::{InferenceCacheBackend, ModelInferenceCacheConfig};
+use crate::config::gateway::{
+    InferenceCacheBackend, ModelInferenceCacheConfig, ValkeyModelInferenceCacheConfig,
+};
 use crate::db::cache::CacheQueries;
 use crate::db::clickhouse::ClickHouseConnectionInfo;
 use crate::db::clickhouse::clickhouse_client::ClickHouseClientType;
@@ -12,14 +14,16 @@ use crate::db::delegating_connection::PrimaryDatastore;
 use crate::db::valkey::ValkeyConnectionInfo;
 use crate::db::valkey::cache::ValkeyCacheClient;
 use crate::embeddings::{Embedding, EmbeddingModelResponse, EmbeddingRequest};
-use crate::error::{Error, ErrorDetails, warn_discarded_cache_write};
+use crate::error::{DelayedError, Error, ErrorDetails, warn_discarded_cache_write};
 use crate::inference::types::{
     ContentBlockChunk, ContentBlockOutput, FinishReason, ModelInferenceRequest,
     ModelInferenceResponse, ProviderInferenceResponseChunk, Usage,
 };
 use crate::model::StreamResponse;
 use crate::serde_util::{deserialize_json_string, serialize_json_string};
-use crate::tool::{InferenceResponseToolCall, InferenceResponseToolCallExt, ToolCallConfig};
+use tensorzero_inference_types::ProviderToolCallConfig;
+
+use crate::tool::{InferenceResponseToolCall, InferenceResponseToolCallExt};
 use crate::utils::spawn_ignoring_shutdown;
 use blake3::Hash;
 use clap::ValueEnum;
@@ -56,7 +60,7 @@ impl CacheManager {
         clickhouse_connection_info: &ClickHouseConnectionInfo,
         cache_config: &ModelInferenceCacheConfig,
         primary_datastore: PrimaryDatastore,
-    ) -> Result<Self, Error> {
+    ) -> Result<Self, DelayedError> {
         if cache_config.enabled == Some(false) {
             return Ok(Self::disabled());
         }
@@ -67,60 +71,56 @@ impl CacheManager {
             matches!(valkey_connection_info, ValkeyConnectionInfo::Enabled { .. });
 
         match cache_config.backend {
-            InferenceCacheBackend::Auto => {
+            None | Some(InferenceCacheBackend::Auto) => {
                 let explicitly_enabled = cache_config.enabled == Some(true);
                 if primary_datastore == PrimaryDatastore::ClickHouse {
                     if !clickhouse_available && explicitly_enabled {
-                        return Err(ErrorDetails::AppState {
+                        return Err(DelayedError::new(ErrorDetails::AppState {
                             message: format!(
                                 "`cache.enabled` is `true` but the cache backend (`{:?}`) is not available. \
                                  Ensure the required connection URL is set, or set `cache.enabled` to `false`.",
                                 cache_config.backend,
                             ),
-                        }
-                        .into());
+                        }));
                     }
                     return Ok(Self::new(Arc::new(clickhouse_connection_info.clone())));
                 }
                 // Postgres primary: check if any backend is available
                 if explicitly_enabled && !valkey_available && !clickhouse_available {
-                    return Err(ErrorDetails::AppState {
+                    return Err(DelayedError::new(ErrorDetails::AppState {
                         message: format!(
                             "`cache.enabled` is `true` but the cache backend (`{:?}`) is not available. \
                              Ensure the required connection URL is set, or set `cache.enabled` to `false`.",
                             cache_config.backend,
                         ),
-                    }
-                    .into());
+                    }));
                 }
                 match valkey_connection_info {
                     ValkeyConnectionInfo::Enabled { connection } => Ok(Self::new(Arc::new(
-                        ValkeyCacheClient::new(connection.clone(), cache_config.valkey.ttl_s),
+                        ValkeyCacheClient::new(connection.clone(), cache_config.valkey.as_ref().map(|v| v.ttl_s).unwrap_or_else(|| ValkeyModelInferenceCacheConfig::default().ttl_s)),
                     ))),
                     ValkeyConnectionInfo::Disabled => Ok(Self::disabled()),
                 }
             }
-            InferenceCacheBackend::ClickHouse => {
+            Some(InferenceCacheBackend::ClickHouse) => {
                 if !clickhouse_available {
-                    return Err(ErrorDetails::AppState {
+                    return Err(DelayedError::new(ErrorDetails::AppState {
                         message: "`cache.backend` is set to `clickhouse` but ClickHouse is not available. \
                                   Ensure the required connection URL is set, or remove the `cache.backend` setting."
                             .to_string(),
-                    }
-                    .into());
+                    }));
                 }
                 Ok(Self::new(Arc::new(clickhouse_connection_info.clone())))
             }
-            InferenceCacheBackend::Valkey => match valkey_connection_info {
+            Some(InferenceCacheBackend::Valkey) => match valkey_connection_info {
                 ValkeyConnectionInfo::Enabled { connection } => Ok(Self::new(Arc::new(
-                    ValkeyCacheClient::new(connection.clone(), cache_config.valkey.ttl_s),
+                    ValkeyCacheClient::new(connection.clone(), cache_config.valkey.as_ref().map(|v| v.ttl_s).unwrap_or_else(|| ValkeyModelInferenceCacheConfig::default().ttl_s)),
                 ))),
-                ValkeyConnectionInfo::Disabled => Err(ErrorDetails::AppState {
+                ValkeyConnectionInfo::Disabled => Err(DelayedError::new(ErrorDetails::AppState {
                     message: "`cache.backend` is set to `valkey` but Valkey is not available. \
                               Ensure the required connection URL is set, or remove the `cache.backend` setting."
                         .to_string(),
-                }
-                .into()),
+                })),
             },
         }
     }
@@ -238,6 +238,7 @@ pub struct BaseModelProviderRequest<'request, T> {
     pub provider_name: &'request str,
     pub otlp_config: &'request OtlpConfig,
     pub model_inference_id: Uuid,
+    pub function_name: Option<&'request str>,
 }
 
 // We need a manual impl to avoid adding a 'T: Copy' bound
@@ -287,6 +288,8 @@ impl EmbeddingModelProviderRequest<'_> {
             // since it's only used to construct the OTEL span.
             otlp_config: _,
             model_inference_id: _,
+            // Not part of cache key — purely span metadata.
+            function_name: _,
         } = self;
         let mut hasher = blake3::Hasher::new();
         hasher.update(model_name.as_bytes());
@@ -317,6 +320,8 @@ impl ModelProviderRequest<'_> {
             // since it's only used to construct the OTEL span.
             otlp_config: _,
             model_inference_id: _,
+            // Not part of cache key — purely span metadata.
+            function_name: _,
         } = self;
         let mut hasher = blake3::Hasher::new();
         hasher.update(model_name.as_bytes());
@@ -392,8 +397,8 @@ impl CacheOutput for NonStreamingCacheData {
         for block in &self.blocks {
             if let ContentBlockOutput::ToolCall(tool_call) = block {
                 if cache_validation_info.tool_config.is_some() {
-                    // If we have a tool config, validate against the schema
-                    let output = InferenceResponseToolCall::new_from_tool_call(
+                    // If we have a tool config, validate that the tool name is known and arguments are valid JSON
+                    let output = InferenceResponseToolCall::new_from_provider_tool_call(
                         tool_call.clone(),
                         cache_validation_info.tool_config.as_ref(),
                     )
@@ -494,10 +499,10 @@ fn spawn_maybe_cache_write<
 /// In the future, we may perform additional checks
 /// (e.g. validating against the `output_schema`).
 pub struct CacheValidationInfo {
-    // The `ToolCallConfig` for the top-level inference request, if present
+    // The `ProviderToolCallConfig` for the top-level inference request, if present
     // This is deliberately not part of the cache key - we only use it to
     // skip writing certain cache entries.
-    pub tool_config: Option<ToolCallConfig>,
+    pub tool_config: Option<ProviderToolCallConfig>,
 }
 
 // This doesn't block
@@ -532,7 +537,7 @@ pub fn start_cache_write_streaming<C: CacheQueries + Clone + 'static>(
     chunks: Vec<ProviderInferenceResponseChunk>,
     raw_request: &str,
     usage: &Usage,
-    tool_config: Option<ToolCallConfig>,
+    tool_config: Option<ProviderToolCallConfig>,
 ) -> Result<(), Error> {
     let input_tokens = usage.input_tokens;
     let output_tokens = usage.output_tokens;
@@ -665,7 +670,7 @@ mod tests {
     use crate::inference::types::{
         ContentBlock, FunctionType, ModelInferenceRequestJsonMode, RequestMessage,
     };
-    use crate::tool::ToolCallConfig;
+    use tensorzero_inference_types::ProviderToolCallConfig;
     use tensorzero_types::Role;
 
     use super::*;
@@ -765,6 +770,7 @@ mod tests {
             provider_name,
             otlp_config: &otlp_config,
             model_inference_id: Uuid::now_v7(),
+            function_name: None,
         }
         .get_cache_key()
         .expect("get_cache_key should not fail for a valid request")
@@ -860,7 +866,7 @@ mod tests {
     #[gtest]
     fn test_cache_key_changes_with_tool_config(fixture: &CacheKeyFixture) {
         let mut req = fixture.request.clone();
-        req.tool_config = Some(Cow::Owned(ToolCallConfig::default()));
+        req.tool_config = Some(Cow::Owned(ProviderToolCallConfig::default()));
         expect_that!(
             cache_key_for(&req, "model", "provider"),
             not(eq(fixture.key))
@@ -1097,6 +1103,7 @@ mod tests {
             provider_name,
             otlp_config: &otlp_config,
             model_inference_id: Uuid::now_v7(),
+            function_name: None,
         }
         .get_cache_key()
         .expect("get_cache_key should not fail for a valid embedding request")

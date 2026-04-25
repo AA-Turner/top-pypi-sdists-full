@@ -29,6 +29,28 @@ api_post() {
         -d "${body}"
 }
 
+create_user() {
+    local username="$1"
+    local password="$2"
+    local result
+    result=$(api_post "/principal" "{
+        \"type\": \"individual\",
+        \"name\": \"${username}\",
+        \"secrets\": [\"${password}\"],
+        \"emails\": [\"${username}@${DOMAIN}\"],
+        \"roles\": [\"user\"]
+    }")
+    if echo "$result" | grep -q '"error"'; then
+        if echo "$result" | grep -q '"fieldAlreadyExists"'; then
+            echo "User '${username}' already exists (OK)"
+        else
+            echo "Warning: user '${username}' creation returned: $result"
+        fi
+    else
+        echo "User '${username}' created"
+    fi
+}
+
 echo "Waiting for Stalwart HTTP endpoint to be ready..."
 max_attempts=60
 for i in $(seq 1 $max_attempts); do
@@ -75,6 +97,11 @@ else
     echo "User created: $RESULT"
 fi
 
+# Additional users for RFC6638 scheduling tests
+create_user "user1" "testpass1"
+create_user "user2" "testpass2"
+create_user "user3" "testpass3"
+
 echo ""
 echo "Verifying CalDAV access..."
 max_caldav_attempts=15
@@ -96,6 +123,24 @@ for i in $(seq 1 $max_caldav_attempts); do
     echo -n "."
     sleep 2
 done
+
+echo ""
+echo "Disabling rate limiting for test environment..."
+# Stalwart applies HTTP and authentication rate limits by default, which causes
+# 429 responses during rapid test runs. Append generous limits to config inside
+# the container, then reload.
+docker exec "$CONTAINER_NAME" sh -c 'cat >> /opt/stalwart/etc/config.toml << '"'"'EOF'"'"'
+
+[http]
+rate-limit-anonymous = { count = 999999999, period = "1m" }
+rate-limit-authenticated = { count = 999999999, period = "1m" }
+EOF'
+RELOAD_RESULT=$(curl -s -u "${ADMIN_USER}:${ADMIN_PASSWORD}" "${API_BASE}/reload")
+if echo "$RELOAD_RESULT" | grep -q '"errors":{}'; then
+    echo "Rate limiting disabled (config reloaded)"
+else
+    echo "Warning: config reload result: $RELOAD_RESULT"
+fi
 
 echo ""
 echo "Stalwart setup complete!"

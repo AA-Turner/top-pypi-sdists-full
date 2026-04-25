@@ -38,7 +38,11 @@ def _callback_driver_script(*, question: str, options: list[str] | None) -> str:
         import asyncio, sys, os
         from prompt_toolkit.patch_stdout import patch_stdout
         from prompt_toolkit import PromptSession
-        from anteroom.cli.repl import _make_ask_user_callback
+        from anteroom.cli.repl import (
+            _make_ask_user_callback,
+            _make_sub_prompt_key_bindings,
+            _register_shift_enter_csi_u,
+        )
 
         _raw_stderr = os.fdopen(os.dup(sys.stderr.fileno()), "w", newline="")
 
@@ -50,7 +54,11 @@ def _callback_driver_script(*, question: str, options: list[str] | None) -> str:
             raw_print(f"PTY_PROMPT: {{prompt_text.strip()}}")
             raw_print("PTY_READY")
             try:
-                _sub = PromptSession()
+                _register_shift_enter_csi_u()
+                _sub = PromptSession(
+                    key_bindings=_make_sub_prompt_key_bindings(),
+                    prompt_continuation="  ",
+                )
                 answer = await _sub.prompt_async(prompt_text)
                 return answer.strip() if answer is not None else None
             except (EOFError, KeyboardInterrupt):
@@ -107,11 +115,15 @@ def _callback_driver_script(*, question: str, options: list[str] | None) -> str:
 class TestAskUserCallbackPTY:
     """Drive the real ``_make_ask_user_callback`` through a PTY."""
 
+    def _assert_no_result_yet(self, child: pexpect.spawn) -> None:
+        with pytest.raises(pexpect.TIMEOUT):
+            child.expect("PTY_RESULT:", timeout=0.5)
+
     def test_typed_x_cancels(self) -> None:
         script = _callback_driver_script(question="Pick one:", options=["Alpha", "Beta"])
         child = pexpect.spawn(_PYTHON, ["-c", script], timeout=15, encoding="utf-8")
         child.expect("PTY_READY", timeout=10)
-        child.sendline("x")
+        child.send("x\r")
         child.expect("PTY_CANCEL_SET: True", timeout=5)
         child.expect("PTY_RESULT: None", timeout=5)
         child.expect(pexpect.EOF, timeout=5)
@@ -147,7 +159,7 @@ class TestAskUserCallbackPTY:
         # never as "1. A. Alpha" (which would be the double-numbering bug).
         output_so_far = child.before or ""
         assert "1. A. Alpha" not in output_so_far, f"Double-numbering detected in PTY output:\n{output_so_far}"
-        child.sendline("1")
+        child.send("1\r")
         # Return value is the ORIGINAL "A. Alpha" — prefix preserved for
         # CLI/web parity (web button click posts the original string).
         child.expect(r"PTY_RESULT: repr='A\. Alpha'", timeout=5)
@@ -158,7 +170,7 @@ class TestAskUserCallbackPTY:
         script = _callback_driver_script(question="Anything to add?", options=None)
         child = pexpect.spawn(_PYTHON, ["-c", script], timeout=15, encoding="utf-8")
         child.expect("PTY_READY", timeout=10)
-        child.sendline("")
+        child.send("\r")
         child.expect("PTY_CANCEL_SET: False", timeout=5)
         child.expect(r"PTY_RESULT: repr=''", timeout=5)
         child.expect(pexpect.EOF, timeout=5)
@@ -167,7 +179,7 @@ class TestAskUserCallbackPTY:
         script = _callback_driver_script(question="Pick:", options=["Alpha", "Beta"])
         child = pexpect.spawn(_PYTHON, ["-c", script], timeout=15, encoding="utf-8")
         child.expect("PTY_READY", timeout=10)
-        child.sendline("2")
+        child.send("2\r")
         child.expect(r"PTY_RESULT: repr='Beta'", timeout=5)
         child.expect(pexpect.EOF, timeout=5)
 
@@ -181,6 +193,40 @@ class TestAskUserCallbackPTY:
         script = _callback_driver_script(question="Pick:", options=["A. Alpha", "B. Beta"])
         child = pexpect.spawn(_PYTHON, ["-c", script], timeout=15, encoding="utf-8")
         child.expect("PTY_READY", timeout=10)
-        child.sendline("Alpha")
+        child.send("Alpha\r")
         child.expect(r"PTY_RESULT: repr='A\. Alpha'", timeout=5)
+        child.expect(pexpect.EOF, timeout=5)
+
+    def test_ctrl_j_inserts_newline_without_submitting(self) -> None:
+        script = _callback_driver_script(question="Explain:", options=None)
+        child = pexpect.spawn(_PYTHON, ["-c", script], timeout=15, encoding="utf-8")
+        child.expect("PTY_READY", timeout=10)
+        child.send("first")
+        child.sendcontrol("j")
+        self._assert_no_result_yet(child)
+        child.send("second\r")
+        child.expect(r"PTY_CANCEL_SET: False", timeout=5)
+        child.expect(r"PTY_RESULT: repr='first\\nsecond'", timeout=5)
+        child.expect(pexpect.EOF, timeout=5)
+
+    def test_escape_enter_inserts_newline_without_submitting(self) -> None:
+        script = _callback_driver_script(question="Explain:", options=None)
+        child = pexpect.spawn(_PYTHON, ["-c", script], timeout=15, encoding="utf-8")
+        child.expect("PTY_READY", timeout=10)
+        child.send("first")
+        child.send("\x1b\r")
+        self._assert_no_result_yet(child)
+        child.send("second\r")
+        child.expect(r"PTY_RESULT: repr='first\\nsecond'", timeout=5)
+        child.expect(pexpect.EOF, timeout=5)
+
+    def test_shift_enter_csi_u_inserts_newline_without_submitting(self) -> None:
+        script = _callback_driver_script(question="Explain:", options=None)
+        child = pexpect.spawn(_PYTHON, ["-c", script], timeout=15, encoding="utf-8")
+        child.expect("PTY_READY", timeout=10)
+        child.send("first")
+        child.send("\x1b[13;2u")
+        self._assert_no_result_yet(child)
+        child.send("second\r")
+        child.expect(r"PTY_RESULT: repr='first\\nsecond'", timeout=5)
         child.expect(pexpect.EOF, timeout=5)

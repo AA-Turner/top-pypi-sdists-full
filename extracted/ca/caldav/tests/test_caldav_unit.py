@@ -159,6 +159,47 @@ PRIORITY:1
 END:VTODO
 END:VCALENDAR"""
 
+## Mock response with 2 pending and 2 completed todos, for testing include_completed behavior
+## https://github.com/python-caldav/caldav/issues/650
+mixed_todos_response = """<d:multistatus xmlns:d="DAV:" xmlns:cal="urn:ietf:params:xml:ns:caldav">
+  <d:response>
+    <d:href>/calendar/pending1.ics</d:href>
+    <d:propstat>
+      <d:prop>
+        <cal:calendar-data>BEGIN:VCALENDAR\r\nVERSION:2.0\r\nBEGIN:VTODO\r\nUID:pending1\r\nSUMMARY:Pending 1\r\nSTATUS:NEEDS-ACTION\r\nDTSTAMP:20250101T000000Z\r\nEND:VTODO\r\nEND:VCALENDAR\r\n</cal:calendar-data>
+      </d:prop>
+      <d:status>HTTP/1.1 200 OK</d:status>
+    </d:propstat>
+  </d:response>
+  <d:response>
+    <d:href>/calendar/pending2.ics</d:href>
+    <d:propstat>
+      <d:prop>
+        <cal:calendar-data>BEGIN:VCALENDAR\r\nVERSION:2.0\r\nBEGIN:VTODO\r\nUID:pending2\r\nSUMMARY:Pending 2\r\nDTSTAMP:20250101T000000Z\r\nEND:VTODO\r\nEND:VCALENDAR\r\n</cal:calendar-data>
+      </d:prop>
+      <d:status>HTTP/1.1 200 OK</d:status>
+    </d:propstat>
+  </d:response>
+  <d:response>
+    <d:href>/calendar/completed1.ics</d:href>
+    <d:propstat>
+      <d:prop>
+        <cal:calendar-data>BEGIN:VCALENDAR\r\nVERSION:2.0\r\nBEGIN:VTODO\r\nUID:completed1\r\nSUMMARY:Completed 1\r\nSTATUS:COMPLETED\r\nDTSTAMP:20250101T000000Z\r\nCOMPLETED:20250101T120000Z\r\nEND:VTODO\r\nEND:VCALENDAR\r\n</cal:calendar-data>
+      </d:prop>
+      <d:status>HTTP/1.1 200 OK</d:status>
+    </d:propstat>
+  </d:response>
+  <d:response>
+    <d:href>/calendar/completed2.ics</d:href>
+    <d:propstat>
+      <d:prop>
+        <cal:calendar-data>BEGIN:VCALENDAR\r\nVERSION:2.0\r\nBEGIN:VTODO\r\nUID:completed2\r\nSUMMARY:Completed 2\r\nSTATUS:COMPLETED\r\nDTSTAMP:20250101T000000Z\r\nCOMPLETED:20250101T120000Z\r\nEND:VTODO\r\nEND:VCALENDAR\r\n</cal:calendar-data>
+      </d:prop>
+      <d:status>HTTP/1.1 200 OK</d:status>
+    </d:propstat>
+  </d:response>
+</d:multistatus>"""
+
 ## from https://github.com/python-caldav/caldav/issues/495
 recurring_task_response = """<d:multistatus xmlns:d="DAV:" xmlns:s="http://sabredav.org/ns" xmlns:cal="urn:ietf:params:xml:ns:caldav" xmlns:cs="http://calendarserver.org/ns/" xmlns:oc="http://owncloud.org/ns" xmlns:nc="http://nextcloud.org/ns">
   <d:response>
@@ -342,10 +383,53 @@ class TestCalDAV:
             expand=True,
             start=datetime(2025, 1, 1),
             end=datetime(2025, 6, 5),
-            ## TODO - TEMP workaround for compatibility issues!  post_filter should not be needed!
-            post_filter=True,
         )
         assert len(mytasks) == 9
+
+    def testSearcherReuseConsistency_Issue650(self):
+        """
+        Regression test for https://github.com/python-caldav/caldav/issues/650
+
+        A CalDAVSearcher with todo=True and default include_completed (None) should
+        return consistent results across multiple search() calls.  Previously, the
+        icalendar_searcher library would mutate include_completed from None to False
+        during the first search(), changing which code path subsequent calls took.
+        """
+        client = MockedDAVClient(mixed_todos_response)
+        calendar = Calendar(client, url="/calendar/issue650/")
+
+        ## Test 1: searcher with include_completed=None (default) should give consistent results
+        searcher = calendar.searcher(todo=True)
+        assert searcher.include_completed is None, "include_completed should start as None"
+
+        first_result = searcher.search()
+        assert len(first_result) == 2, f"Expected 2 pending todos, got {len(first_result)}"
+
+        ## After calling search(), include_completed must not have been mutated
+        assert searcher.include_completed is None, (
+            "include_completed was mutated from None during search() - "
+            "this breaks reuse of the searcher object (issue #650)"
+        )
+
+        second_result = searcher.search()
+        assert len(second_result) == 2, (
+            f"Second search() call returned {len(second_result)} results, "
+            f"expected 2 - inconsistent behavior after searcher reuse (issue #650)"
+        )
+
+        ## Test 2: explicit include_completed=False should also give correct results
+        searcher_false = calendar.searcher(todo=True, include_completed=False)
+        result_false = searcher_false.search()
+        assert len(result_false) == 2, (
+            f"include_completed=False returned {len(result_false)} results, expected 2"
+        )
+
+        ## Test 3: include_completed=True should return all todos
+        searcher_true = calendar.searcher(todo=True, include_completed=True)
+        result_true = searcher_true.search()
+        assert len(result_true) == 4, (
+            f"include_completed=True returned {len(result_true)} results, expected 4"
+        )
 
     def testLoadByMultiGet404(self):
         xml = """
@@ -467,6 +551,76 @@ class TestCalDAV:
         assert client.calendar(
             url="https://somwhere.in.the.universe.example/some/caldav/root/133bahgr6ohlo9ungq0it45vf8%40group.calendar.google.com/events/"
         ).get_supported_components() == ["VEVENT"]
+
+    def test_get_supported_components_present(self):
+        """Test get_supported_components when the property is present in the server response."""
+        xml = b"""<multistatus xmlns="DAV:">
+  <response xmlns="DAV:">
+    <href>/some/caldav/root/testcal/</href>
+    <propstat>
+      <prop>
+        <supported-calendar-component-set xmlns="urn:ietf:params:xml:ns:caldav">
+          <comp xmlns="urn:ietf:params:xml:ns:caldav" name="VEVENT"/>
+        </supported-calendar-component-set>
+      </prop>
+      <status>HTTP/1.1 200 OK</status>
+    </propstat>
+  </response>
+</multistatus>"""
+        client = MockedDAVClient(xml)
+        assert client.calendar(
+            url="https://somwhere.in.the.universe.example/some/caldav/root/testcal/"
+        ).get_supported_components() == ["VEVENT"]
+
+    def test_get_supported_components_absent(self):
+        """RFC 4791 says supported-calendar-component-set is optional.
+        When absent, the server MUST accept all component types, and the
+        client MUST assume that all component types are accepted.
+        Regression for https://github.com/python-caldav/caldav/issues/653"""
+        xml = b"""<D:multistatus xmlns:D="DAV:">
+  <D:response>
+    <D:href>/some/caldav/root/testcal/</D:href>
+    <D:propstat>
+      <D:status>HTTP/1.1 200 OK</D:status>
+      <D:prop/>
+    </D:propstat>
+  </D:response>
+</D:multistatus>"""
+        client = MockedDAVClient(xml)
+        components = client.calendar(
+            url="https://somwhere.in.the.universe.example/some/caldav/root/testcal/"
+        ).get_supported_components()
+        assert "VEVENT" in components
+        assert "VTODO" in components
+        assert "VJOURNAL" in components
+
+    def test_get_supported_components_absent_hints(self):
+        """When supported-calendar-component-set is absent, the RFC default is filtered
+        by compatibility hints: if the server is known not to support VTODO or VJOURNAL,
+        those should be excluded from the returned list.
+        See https://github.com/python-caldav/caldav/issues/653"""
+        from caldav.compatibility_hints import FeatureSet
+
+        xml = b"""<D:multistatus xmlns:D="DAV:">
+  <D:response>
+    <D:href>/some/caldav/root/testcal/</D:href>
+    <D:propstat>
+      <D:status>HTTP/1.1 200 OK</D:status>
+      <D:prop/>
+    </D:propstat>
+  </D:response>
+</D:multistatus>"""
+        client = MockedDAVClient(xml)
+        client.features = FeatureSet(
+            {
+                "save-load.todo": {"support": "unsupported"},
+                "save-load.journal": {"support": "unsupported"},
+            }
+        )
+        components = client.calendar(
+            url="https://somwhere.in.the.universe.example/some/caldav/root/testcal/"
+        ).get_supported_components()
+        assert components == ["VEVENT"]
 
     def testAbsoluteURL(self):
         """Version 0.7.0 does not handle responses with absolute URLs very well, ref https://github.com/python-caldav/caldav/pull/103"""
@@ -694,27 +848,6 @@ class TestCalDAV:
         client = MockedDAVClient(xml)
         calendar_home_set = CalendarSet(client, url="/dav/tobias%40redpill-linpro.com/")
         assert len(calendar_home_set.get_calendars()) == 1
-
-        def test_supported_components(self):
-            xml = """
-<multistatus xmlns="DAV:">
-  <response xmlns="DAV:">
-    <href>/17149682/calendars/testcalendar-0da571c7-139c-479a-9407-8ce9ed20146d/</href>
-    <propstat>
-      <prop>
-        <supported-calendar-component-set xmlns="urn:ietf:params:xml:ns:caldav">
-          <comp xmlns="urn:ietf:params:xml:ns:caldav" name="VEVENT"/>
-        </supported-calendar-component-set>
-      </prop>
-      <status>HTTP/1.1 200 OK</status>
-    </propstat>
-  </response>
-</multistatus>"""
-            client = MockedDAVClient(xml)
-            assert Calendar(
-                client=client,
-                url="/17149682/calendars/testcalendar-0da571c7-139c-479a-9407-8ce9ed20146d/",
-            ).get_supported_components() == ["VEVENT"]
 
     def test_xml_parsing(self):
         """
@@ -1862,10 +1995,7 @@ class TestAsyncGetObjectByUid:
 
         xml_response = self._make_multistatus(ev1)
         client = MockedDAVClient(xml_response)
-        # Pretend the client is async by patching the type name
-        client.__class__ = type(
-            "AsyncDAVClient", (MockedDAVClient,), {"__module__": AsyncDAVClient.__module__}
-        )
+        client.__class__ = type("MockedAsyncDAVClient", (MockedDAVClient, AsyncDAVClient), {})
         calendar = Calendar(client, url="/calendar/")
         assert calendar.is_async_client
         uid = "20010712T182145Z-123401@example.com"
@@ -1883,9 +2013,7 @@ class TestAsyncGetObjectByUid:
         from caldav.async_davclient import AsyncDAVClient
 
         client = MockedDAVClient("")
-        client.__class__ = type(
-            "AsyncDAVClient", (MockedDAVClient,), {"__module__": AsyncDAVClient.__module__}
-        )
+        client.__class__ = type("MockedAsyncDAVClient", (MockedDAVClient, AsyncDAVClient), {})
         calendar = Calendar(client, url="/calendar/")
         uid = "20010712T182145Z-123401@example.com"
 
@@ -1939,9 +2067,7 @@ END:VCALENDAR"""
         from caldav.async_davclient import AsyncDAVClient
 
         client = MockedDAVClient("")
-        client.__class__ = type(
-            "AsyncDAVClient", (MockedDAVClient,), {"__module__": AsyncDAVClient.__module__}
-        )
+        client.__class__ = type("MockedAsyncDAVClient", (MockedDAVClient, AsyncDAVClient), {})
         calendar = Calendar(client, url="/calendar/")
         return client, calendar
 
@@ -2056,12 +2182,251 @@ END:VCALENDAR"""
         )
         result.close()
 
-    def test_accept_invite_raises_not_implemented_for_async_client(self):
-        """accept_invite() must raise NotImplementedError for async clients (not silently fail)."""
+    def test_accept_invite_returns_coroutine_for_async_client(self):
+        """accept_invite() must return a coroutine for async clients."""
+        import asyncio
+
         client, calendar = self._make_async_client_and_calendar()
         event = Event(client=client, url="/calendar/ev1.ics", data=ev1, parent=calendar)
-        with pytest.raises(NotImplementedError):
-            event.accept_invite()
+        result = event.accept_invite()
+        assert asyncio.iscoroutine(result), (
+            f"expected coroutine from accept_invite(), got {type(result)}"
+        )
+        result.close()
+
+    def test_add_organizer_explicit_arg_is_sync_safe_for_async_client(self):
+        """add_organizer(explicit_arg) is pure in-memory: no network call, no await needed.
+        It must work correctly even when the client is an async client."""
+        from icalendar import vCalAddress
+
+        client, calendar = self._make_async_client_and_calendar()
+        event = Event(client=client, url="/calendar/ev1.ics", data=ev1, parent=calendar)
+        event.add_organizer("organizer@example.com")
+        organizer = event.icalendar_component.get("organizer")
+        assert "organizer@example.com" in str(organizer)
+
+    def test_add_organizer_no_arg_returns_coroutine_for_async_client(self):
+        """add_organizer() without args must return a coroutine for async clients.
+
+        Bug: today the code calls self.client.principal().get_vcal_address() without
+        checking is_async_client first.  On an AsyncDAVClient, principal() is a
+        coroutine function, so principal() returns a coroutine object.  Calling
+        .get_vcal_address() on that coroutine raises AttributeError instead of
+        returning a usable coroutine to the caller.
+        """
+        import asyncio
+
+        from icalendar import vCalAddress
+
+        client, calendar = self._make_async_client_and_calendar()
+        event = Event(client=client, url="/calendar/ev1.ics", data=ev1, parent=calendar)
+
+        async def async_principal():
+            p = mock.MagicMock()
+            p.get_vcal_address = mock.AsyncMock(return_value=vCalAddress("mailto:me@example.com"))
+            return p
+
+        client.principal = async_principal
+
+        result = event.add_organizer()
+        assert asyncio.iscoroutine(result), (
+            f"expected a coroutine from add_organizer() on async client, got {type(result)}"
+        )
+        result.close()
+
+    def test_add_organizer_no_arg_async_awaited_sets_organizer(self):
+        """Awaiting add_organizer() without args on async client must set ORGANIZER correctly."""
+        import asyncio
+
+        from icalendar import vCalAddress
+
+        client, calendar = self._make_async_client_and_calendar()
+        event = Event(client=client, url="/calendar/ev1.ics", data=ev1, parent=calendar)
+
+        async def async_principal():
+            p = mock.MagicMock()
+            p.get_vcal_address = mock.AsyncMock(return_value=vCalAddress("mailto:me@example.com"))
+            return p
+
+        client.principal = async_principal
+
+        asyncio.run(event.add_organizer())
+        organizer = event.icalendar_component.get("organizer")
+        assert str(organizer) == "mailto:me@example.com"
+
+    def test_save_with_invites_returns_coroutine_for_async_client(self):
+        """save_with_invites() must return a coroutine for async clients (not silently drop save/organizer)."""
+        import asyncio
+
+        from icalendar import vCalAddress
+
+        client, calendar = self._make_async_client_and_calendar()
+
+        async def async_principal():
+            p = mock.MagicMock()
+            p.get_vcal_address = mock.AsyncMock(return_value=vCalAddress("mailto:me@example.com"))
+            return p
+
+        client.principal = async_principal
+
+        result = calendar.save_with_invites(ev1, [])
+        assert asyncio.iscoroutine(result), (
+            f"expected coroutine from save_with_invites() on async client, got {type(result)}"
+        )
+        result.close()
+
+    def test_save_with_invites_async_awaited_sets_organizer_and_saves(self):
+        """Awaiting save_with_invites() on async client must set ORGANIZER and call put."""
+        import asyncio
+
+        from icalendar import vCalAddress
+
+        client, calendar = self._make_async_client_and_calendar()
+
+        async def async_principal():
+            p = mock.MagicMock()
+            p.get_vcal_address = mock.AsyncMock(return_value=vCalAddress("mailto:me@example.com"))
+            return p
+
+        client.principal = async_principal
+        saved = False
+
+        async def fake_async_put(*args, **kwargs):
+            nonlocal saved
+            saved = True
+            r = mock.MagicMock()
+            r.status = 201
+            r.headers = []
+            return r
+
+        client.put = fake_async_put
+
+        obj = asyncio.run(calendar.save_with_invites(ev1, []))
+        assert saved, "save_with_invites() did not call put for async client"
+        org = obj.icalendar_component.get("organizer")
+        assert org is not None, "ORGANIZER must be set after awaiting save_with_invites()"
+        assert "me@example.com" in str(org)
+
+    def test_principal_freebusy_request_returns_coroutine_for_async_client(self):
+        """Principal.freebusy_request() must return a coroutine for async clients."""
+        import asyncio
+        from datetime import datetime
+
+        client, calendar = self._make_async_client_and_calendar()
+        principal = Principal(client=client, url="/principals/me/")
+
+        result = principal.freebusy_request(
+            datetime(2024, 1, 1, 10, 0, 0),
+            datetime(2024, 1, 1, 12, 0, 0),
+            [],
+        )
+        assert asyncio.iscoroutine(result), (
+            f"expected coroutine from Principal.freebusy_request() on async client, got {type(result)}"
+        )
+        result.close()
+
+
+class TestFreeBusyScheduleResponse:
+    """Unit tests for parsing RFC6638 schedule-response to a freebusy request.
+
+    The XML fixture is taken directly from RFC 6638 Appendix B.5.
+    Three attendees are requested; two succeed (with VFREEBUSY calendar-data),
+    one fails with "3.7;Invalid calendar user".
+    """
+
+    # RFC 6638 §B.5 server response (slightly compacted for readability)
+    RFC6638_B5_XML = b"""\
+<?xml version="1.0" encoding="utf-8" ?>
+<C:schedule-response xmlns:D="DAV:"
+       xmlns:C="urn:ietf:params:xml:ns:caldav">
+<C:response>
+<C:recipient>
+<D:href>mailto:wilfredo@example.com</D:href>
+</C:recipient>
+<C:request-status>2.0;Success</C:request-status>
+<C:calendar-data>BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Example Corp.//CalDAV Server//EN
+METHOD:REPLY
+BEGIN:VFREEBUSY
+UID:4FD3AD926350
+DTSTAMP:20090602T200733Z
+DTSTART:20090602T000000Z
+DTEND:20090604T000000Z
+ORGANIZER;CN="Cyrus Daboo":mailto:cyrus@example.com
+ATTENDEE;CN="Wilfredo Sanchez Vega":mailto:wilfredo@example.com
+FREEBUSY;FBTYPE=BUSY:20090602T110000Z/20090602T120000Z
+FREEBUSY;FBTYPE=BUSY:20090603T170000Z/20090603T180000Z
+END:VFREEBUSY
+END:VCALENDAR
+</C:calendar-data>
+</C:response>
+<C:response>
+<C:recipient>
+<D:href>mailto:bernard@example.net</D:href>
+</C:recipient>
+<C:request-status>2.0;Success</C:request-status>
+<C:calendar-data>BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Example Corp.//CalDAV Server//EN
+METHOD:REPLY
+BEGIN:VFREEBUSY
+UID:4FD3AD926350
+DTSTAMP:20090602T200733Z
+DTSTART:20090602T000000Z
+DTEND:20090604T000000Z
+ORGANIZER;CN="Cyrus Daboo":mailto:cyrus@example.com
+ATTENDEE;CN="Bernard Desruisseaux":mailto:bernard@example.net
+FREEBUSY;FBTYPE=BUSY:20090602T150000Z/20090602T160000Z
+FREEBUSY;FBTYPE=BUSY:20090603T090000Z/20090603T100000Z
+FREEBUSY;FBTYPE=BUSY:20090603T180000Z/20090603T190000Z
+END:VFREEBUSY
+END:VCALENDAR
+</C:calendar-data>
+</C:response>
+<C:response>
+<C:recipient>
+<D:href>mailto:mike@example.org</D:href>
+</C:recipient>
+<C:request-status>3.7;Invalid calendar user</C:request-status>
+</C:response>
+</C:schedule-response>"""
+
+    def _make_schedule_response(self):
+        """Return a DAVResponse wrapping the RFC 6638 §B.5 XML."""
+        from caldav.davclient import DAVResponse
+
+        resp = mock.MagicMock()
+        resp.status_code = 200
+        resp.reason = "OK"
+        resp.headers = {"Content-Type": "application/xml; charset=utf-8"}
+        resp.content = self.RFC6638_B5_XML
+        return DAVResponse(resp)
+
+    def test_schedule_response_returns_three_recipients(self):
+        """Parsing the B.5 response must yield one entry per recipient."""
+        response = self._make_schedule_response()
+        result = response._parse_scheduling_response_objects(parent=mock.MagicMock())
+        assert len(result) == 3
+
+    def test_schedule_response_successful_recipients_have_calendar_data(self):
+        """Recipients with 2.0;Success must have calendar-data containing VFREEBUSY."""
+        response = self._make_schedule_response()
+        result = response._parse_scheduling_response_objects(parent=mock.MagicMock())
+        wilfredo = result["mailto:wilfredo@example.com"]
+        bernard = result["mailto:bernard@example.net"]
+        assert "VFREEBUSY" in wilfredo.data
+        assert "VFREEBUSY" in bernard.data
+        # Wilfredo has 2 busy slots; Bernard has 3
+        assert wilfredo.data.count("\nFREEBUSY") == 2
+        assert bernard.data.count("\nFREEBUSY") == 3
+
+    def test_schedule_response_failed_recipient_has_no_calendar_data(self):
+        """Recipients with a non-2.x status must have no calendar data"""
+        response = self._make_schedule_response()
+        result = response._parse_scheduling_response_objects(parent=mock.MagicMock())
+        assert result["errors"]["mailto:mike@example.org"] == "3.7;Invalid calendar user"
+        assert not result.get("mailto:mike@example.org")
 
 
 class TestRateLimitHelpers:
@@ -2629,3 +2994,176 @@ class TestGetAllFileConnectionParams:
             "https://work.example.com/dav/",
             "https://personal.example.com/dav/",
         }
+
+
+class TestResolveProperties:
+    """Tests for _resolve_properties unbound variable bug (issue #647 / calendar-cli #114)."""
+
+    def _make_calendar(self, path="/calendar/"):
+        client = DAVClient(url="https://example.com")
+        return Calendar(client=client, url=f"https://example.com{path}")
+
+    def test_resolve_properties_empty_dict_production_mode(self):
+        """In PRODUCTION mode, error.assert_ only logs; _resolve_properties must
+        not crash with UnboundLocalError when properties dict is empty."""
+        cal = self._make_calendar()
+        with mock.patch.object(error, "debugmode", "PRODUCTION"):
+            result = cal._resolve_properties({})
+        assert result == {}
+
+    def test_resolve_properties_unmatched_paths_production_mode(self):
+        """Same but with a non-empty properties dict where path does not match."""
+        cal = self._make_calendar("/calendar/")
+        with mock.patch.object(error, "debugmode", "PRODUCTION"):
+            result = cal._resolve_properties(
+                {"/other/path/": {"foo": "bar"}, "/yet/another/": {"baz": "qux"}}
+            )
+        assert result == {}
+
+
+class TestAddOrganizer:
+    """Unit tests for CalendarObjectResource.add_organizer() (issue #524)."""
+
+    _ev = """\
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Test//Test//EN
+BEGIN:VEVENT
+UID:test-add-organizer@example.com
+DTSTAMP:20240101T000000Z
+DTSTART:20240601T100000Z
+DTEND:20240601T110000Z
+SUMMARY:Test event
+END:VEVENT
+END:VCALENDAR
+"""
+
+    def _make_event(self):
+        return Event(data=self._ev)
+
+    def test_add_organizer_email_string(self):
+        """Passing a plain email string sets the ORGANIZER field."""
+        ev = self._make_event()
+        ev.add_organizer("organizer@example.com")
+        organizer = ev.icalendar_component.get("organizer")
+        assert organizer is not None
+        assert "organizer@example.com" in str(organizer)
+
+    def test_add_organizer_mailto_string(self):
+        """Passing a mailto: URI sets the ORGANIZER field."""
+        ev = self._make_event()
+        ev.add_organizer("mailto:organizer@example.com")
+        organizer = ev.icalendar_component.get("organizer")
+        assert str(organizer) == "mailto:organizer@example.com"
+
+    def test_add_organizer_vcal_address(self):
+        """Passing a vCalAddress directly sets the ORGANIZER field."""
+        from icalendar import vCalAddress
+
+        ev = self._make_event()
+        addr = vCalAddress("mailto:organizer@example.com")
+        ev.add_organizer(addr)
+        organizer = ev.icalendar_component.get("organizer")
+        assert str(organizer) == "mailto:organizer@example.com"
+
+    def test_add_organizer_replaces_existing(self):
+        """Calling add_organizer twice replaces the first value, no duplicate."""
+        ev = self._make_event()
+        ev.add_organizer("first@example.com")
+        ev.add_organizer("second@example.com")
+        comp = ev.icalendar_component
+        ## icalendar stores repeated properties as a list; ORGANIZER should be
+        ## a single value, not a list.
+        organizer = comp.get("organizer")
+        assert not isinstance(organizer, list), "ORGANIZER should not be duplicated"
+        assert "second@example.com" in str(organizer)
+
+    def test_add_organizer_no_arg_uses_principal(self):
+        """Calling add_organizer() without arguments uses the current principal."""
+        from icalendar import vCalAddress
+
+        ev = self._make_event()
+        mock_client = mock.MagicMock()
+        mock_principal = mock.MagicMock()
+        mock_principal.get_vcal_address.return_value = vCalAddress("mailto:me@example.com")
+        mock_client.principal.return_value = mock_principal
+        ev.client = mock_client
+        ev.add_organizer()
+        organizer = ev.icalendar_component.get("organizer")
+        assert str(organizer) == "mailto:me@example.com"
+
+    def test_add_organizer_no_arg_no_client_raises(self):
+        """Calling add_organizer() without arguments and no client raises ValueError."""
+        ev = self._make_event()
+        ev.client = None
+        with pytest.raises(ValueError):
+            ev.add_organizer()
+
+    def test_add_organizer_principal_object(self):
+        """Passing a Principal object directly calls get_vcal_address() on it."""
+        from icalendar import vCalAddress
+
+        ev = self._make_event()
+        mock_principal = mock.MagicMock(spec=Principal)
+        mock_principal.get_vcal_address.return_value = vCalAddress("mailto:organizer@example.com")
+        ev.add_organizer(mock_principal)
+        organizer = ev.icalendar_component.get("organizer")
+        assert str(organizer) == "mailto:organizer@example.com"
+        mock_principal.get_vcal_address.assert_called_once()
+
+
+class TestChangeAttendeeStatusFallback:
+    """Unit tests for change_attendee_status() fallback when calendar_user_address_set() is unavailable.
+
+    Covers issue https://github.com/python-caldav/caldav/issues/399: accept_invite() fails on servers
+    that do not expose the calendar-user-address-set property (RFC6638 §2.4.1).
+    """
+
+    _invite = """\
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Test//Test//EN
+METHOD:REQUEST
+BEGIN:VEVENT
+UID:test-invite-399@example.com
+DTSTAMP:20240101T000000Z
+DTSTART:20240601T100000Z
+DTEND:20240601T110000Z
+SUMMARY:Test invite
+ORGANIZER:mailto:organizer@example.com
+ATTENDEE;PARTSTAT=NEEDS-ACTION:mailto:attendee@example.com
+END:VEVENT
+END:VCALENDAR
+"""
+
+    def _make_event_with_mock_client(self, username):
+        from caldav.collection import Principal
+        from caldav.lib import error as caldav_error
+
+        ev = Event(data=self._invite)
+        mock_client = mock.MagicMock()
+        mock_client.username = username
+        mock_principal = mock.MagicMock(spec=Principal)
+        mock_principal.calendar_user_address_set.side_effect = caldav_error.NotFoundError(
+            "calendar-user-address-set not supported"
+        )
+        mock_client.principal.return_value = mock_principal
+        ev.client = mock_client
+        return ev
+
+    def test_change_attendee_status_falls_back_to_email_username(self):
+        """When calendar_user_address_set() raises NotFoundError and username is an email,
+        change_attendee_status() should use the username as the attendee address."""
+        ev = self._make_event_with_mock_client("attendee@example.com")
+        ev.change_attendee_status(partstat="ACCEPTED")
+        attendee = ev.icalendar_component["attendee"]
+        assert attendee.params.get("PARTSTAT") == "ACCEPTED"
+
+    def test_change_attendee_status_raises_when_username_not_email(self):
+        """When calendar_user_address_set() raises NotFoundError and username is not an email,
+        change_attendee_status() should re-raise NotFoundError with a descriptive message."""
+        from caldav.lib import error as caldav_error
+
+        ev = self._make_event_with_mock_client("just_a_username")
+        with pytest.raises(caldav_error.NotFoundError):
+            ev.change_attendee_status(partstat="ACCEPTED")

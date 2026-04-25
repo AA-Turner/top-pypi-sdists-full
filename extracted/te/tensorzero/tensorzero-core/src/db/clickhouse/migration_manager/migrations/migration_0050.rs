@@ -1,7 +1,9 @@
+use std::collections::HashMap;
+
 use super::check_table_exists;
 use crate::db::clickhouse::ClickHouseConnectionInfo;
 use crate::db::clickhouse::migration_manager::migration_trait::Migration;
-use crate::error::{Error, ErrorDetails};
+use crate::error::{ErrorDetails, delayed_error::DelayedError};
 use async_trait::async_trait;
 
 /// Fixes `function_type` in `InferenceEvaluationRuns` that was incorrectly backfilled by
@@ -20,7 +22,7 @@ const MIGRATION_ID: &str = "0050";
 
 #[async_trait]
 impl Migration for Migration0050<'_> {
-    async fn can_apply(&self) -> Result<(), Error> {
+    async fn can_apply(&self) -> Result<(), DelayedError> {
         let tables_to_check = [
             "InferenceEvaluationRuns",
             "TagInference",
@@ -31,7 +33,7 @@ impl Migration for Migration0050<'_> {
 
         for table_name in tables_to_check {
             if !check_table_exists(self.clickhouse, table_name, MIGRATION_ID).await? {
-                return Err(Error::new(ErrorDetails::ClickHouseMigration {
+                return Err(DelayedError::new(ErrorDetails::ClickHouseMigration {
                     id: MIGRATION_ID.to_string(),
                     message: format!("{table_name} table does not exist"),
                 }));
@@ -40,21 +42,21 @@ impl Migration for Migration0050<'_> {
         Ok(())
     }
 
-    async fn should_apply(&self) -> Result<bool, Error> {
+    async fn should_apply(&self) -> Result<bool, DelayedError> {
         // Check if the migration manager has already recorded this migration as successful.
         // If so, skip it. Otherwise, run it once so the manager writes the row.
         let query = format!(
-            "SELECT 1 FROM {}.TensorZeroMigration WHERE migration_id = {MIGRATION_ID} LIMIT 1",
-            self.clickhouse.database()
+            "SELECT 1 FROM {{db_name:Identifier}}.TensorZeroMigration WHERE migration_id = {MIGRATION_ID} LIMIT 1"
         );
+        let params = HashMap::from([("db_name", self.clickhouse.database())]);
         let response = self
             .clickhouse
-            .run_query_synchronous_no_params(query)
+            .run_query_synchronous_delayed_err(query, &params)
             .await?;
         Ok(response.response.trim() != "1")
     }
 
-    async fn apply(&self, clean_start: bool) -> Result<(), Error> {
+    async fn apply(&self, clean_start: bool) -> Result<(), DelayedError> {
         if clean_start {
             // On a clean start, migration 0049 ran with clean_start too (no backfill),
             // so there is nothing to fix.
@@ -72,7 +74,7 @@ impl Migration for Migration0050<'_> {
         // were already written correctly (e.g. by normal evaluation writes between migrations
         // 0049 and 0050). Only fall back to backfill-derived values for rows that don't exist.
         self.clickhouse
-            .run_query_synchronous_no_params(
+            .run_query_synchronous_no_params_delayed_err(
                 r#"
                 INSERT INTO InferenceEvaluationRuns
                 (
@@ -201,7 +203,7 @@ impl Migration for Migration0050<'_> {
         "SELECT 1;".to_string()
     }
 
-    async fn has_succeeded(&self) -> Result<bool, Error> {
+    async fn has_succeeded(&self) -> Result<bool, DelayedError> {
         // The table already existed; we just inserted corrected rows.
         check_table_exists(self.clickhouse, "InferenceEvaluationRuns", MIGRATION_ID).await
     }

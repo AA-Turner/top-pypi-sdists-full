@@ -44,7 +44,6 @@ import silx.io
 from .utils import is_dataset, is_group, is_softlink, visitall
 from . import fabioh5
 
-
 _logger = logging.getLogger(__name__)
 
 
@@ -94,7 +93,7 @@ def _attr_utf8(attr_value):
     return out_attr_value
 
 
-class Hdf5Writer(object):
+class Hdf5Writer:
     """Converter class to write the content of a data file to a HDF5 file."""
 
     def __init__(
@@ -320,7 +319,7 @@ def convert(infile, h5file, mode="w-", create_dataset_args=None):
         compression parameters. Don't specify ``name`` and ``data``.
     """
     if mode not in ["w", "w-"]:
-        raise IOError(
+        raise OSError(
             "File mode must be 'w' or 'w-'. Use write_to_h5"
             + " to append data to an existing HDF5 file."
         )

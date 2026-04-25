@@ -21,8 +21,7 @@
 # THE SOFTWARE.
 #
 # ###########################################################################*/
-"""This module provides the :class:`ImageComplexData` of the :class:`Plot`.
-"""
+"""This module provides the :class:`ImageComplexData` of the :class:`Plot`."""
 
 __authors__ = ["Vincent Favre-Nicolin", "T. Vincent"]
 __license__ = "MIT"
@@ -38,7 +37,6 @@ from ....utils.proxy import docstring
 from ...colors import Colormap
 from .core import ColormapMixIn, ComplexMixIn, ItemChangedType
 from .image import ImageBase
-
 
 _logger = logging.getLogger(__name__)
 
@@ -130,7 +128,7 @@ class ImageComplexData(ImageBase, ColormapMixIn, ComplexMixIn):
         self._amplitudeRangeInfo = None, 2
 
         # Use default from ColormapMixIn
-        colormap = super(ImageComplexData, self).getColormap()
+        colormap = super().getColormap()
 
         phaseColormap = Colormap(name="hsv", vmin=-numpy.pi, vmax=numpy.pi)
 
@@ -182,7 +180,7 @@ class ImageComplexData(ImageBase, ColormapMixIn, ComplexMixIn):
 
     @docstring(ComplexMixIn)
     def setComplexMode(self, mode):
-        changed = super(ImageComplexData, self).setComplexMode(mode)
+        changed = super().setComplexMode(mode)
         if changed:
             self._valueDataChanged()
 
@@ -191,8 +189,8 @@ class ImageComplexData(ImageBase, ColormapMixIn, ComplexMixIn):
 
             # Update ColormapMixIn colormap
             colormap = self._colormaps[self.getComplexMode()]
-            if colormap is not super(ImageComplexData, self).getColormap():
-                super(ImageComplexData, self).setColormap(colormap)
+            if colormap is not super().getColormap():
+                super().setColormap(colormap)
 
             # Send data updated as value returned by getData has changed
             self._updated(ItemChangedType.DATA)
@@ -230,7 +228,7 @@ class ImageComplexData(ImageBase, ColormapMixIn, ComplexMixIn):
 
         self._colormaps[mode] = colormap
         if mode is self.getComplexMode():
-            super(ImageComplexData, self).setColormap(colormap)
+            super().setColormap(colormap)
         else:
             self._updated(ItemChangedType.COLORMAP)
 

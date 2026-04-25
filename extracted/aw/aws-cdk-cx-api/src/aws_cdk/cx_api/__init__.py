@@ -2881,7 +2881,7 @@ class MetadataEntry(_aws_cdk_cloud_assembly_schema_cae1d136.MetadataEntry):
         self,
         *,
         type: builtins.str,
-        data: typing.Optional[typing.Union[builtins.str, jsii.Number, builtins.bool, typing.Union["_aws_cdk_cloud_assembly_schema_cae1d136.FileAssetMetadataEntry", typing.Dict[builtins.str, typing.Any]], typing.Union["_aws_cdk_cloud_assembly_schema_cae1d136.ContainerImageAssetMetadataEntry", typing.Dict[builtins.str, typing.Any]], typing.Sequence[typing.Union["_aws_cdk_cloud_assembly_schema_cae1d136.Tag", typing.Dict[builtins.str, typing.Any]]]]] = None,
+        data: typing.Optional[typing.Union[builtins.str, jsii.Number, builtins.bool, typing.Union["_aws_cdk_cloud_assembly_schema_cae1d136.FileAssetMetadataEntry", typing.Dict[builtins.str, typing.Any]], typing.Union["_aws_cdk_cloud_assembly_schema_cae1d136.ContainerImageAssetMetadataEntry", typing.Dict[builtins.str, typing.Any]], typing.Union["_aws_cdk_cloud_assembly_schema_cae1d136.PropertyMutationMetadataEntry", typing.Dict[builtins.str, typing.Any]], typing.Sequence[typing.Union[builtins.str, typing.Union["_aws_cdk_cloud_assembly_schema_cae1d136.Tag", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         trace: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''(deprecated) Backwards compatibility for when ``MetadataEntry`` was defined here.
@@ -2936,13 +2936,13 @@ class MetadataEntry(_aws_cdk_cloud_assembly_schema_cae1d136.MetadataEntry):
     @builtins.property
     def data(
         self,
-    ) -> typing.Optional[typing.Union[builtins.str, jsii.Number, builtins.bool, "_aws_cdk_cloud_assembly_schema_cae1d136.FileAssetMetadataEntry", "_aws_cdk_cloud_assembly_schema_cae1d136.ContainerImageAssetMetadataEntry", typing.List["_aws_cdk_cloud_assembly_schema_cae1d136.Tag"]]]:
+    ) -> typing.Optional[typing.Union[builtins.str, jsii.Number, builtins.bool, "_aws_cdk_cloud_assembly_schema_cae1d136.FileAssetMetadataEntry", "_aws_cdk_cloud_assembly_schema_cae1d136.ContainerImageAssetMetadataEntry", "_aws_cdk_cloud_assembly_schema_cae1d136.PropertyMutationMetadataEntry", typing.List[typing.Union[builtins.str, "_aws_cdk_cloud_assembly_schema_cae1d136.Tag"]]]]:
         '''The data.
 
         :default: - no data.
         '''
         result = self._values.get("data")
-        return typing.cast(typing.Optional[typing.Union[builtins.str, jsii.Number, builtins.bool, "_aws_cdk_cloud_assembly_schema_cae1d136.FileAssetMetadataEntry", "_aws_cdk_cloud_assembly_schema_cae1d136.ContainerImageAssetMetadataEntry", typing.List["_aws_cdk_cloud_assembly_schema_cae1d136.Tag"]]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.str, jsii.Number, builtins.bool, "_aws_cdk_cloud_assembly_schema_cae1d136.FileAssetMetadataEntry", "_aws_cdk_cloud_assembly_schema_cae1d136.ContainerImageAssetMetadataEntry", "_aws_cdk_cloud_assembly_schema_cae1d136.PropertyMutationMetadataEntry", typing.List[typing.Union[builtins.str, "_aws_cdk_cloud_assembly_schema_cae1d136.Tag"]]]], result)
 
     @builtins.property
     def trace(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -2975,7 +2975,7 @@ class MetadataEntryResult(_aws_cdk_cloud_assembly_schema_cae1d136.MetadataEntry)
         self,
         *,
         type: builtins.str,
-        data: typing.Optional[typing.Union[builtins.str, jsii.Number, builtins.bool, typing.Union["_aws_cdk_cloud_assembly_schema_cae1d136.FileAssetMetadataEntry", typing.Dict[builtins.str, typing.Any]], typing.Union["_aws_cdk_cloud_assembly_schema_cae1d136.ContainerImageAssetMetadataEntry", typing.Dict[builtins.str, typing.Any]], typing.Sequence[typing.Union["_aws_cdk_cloud_assembly_schema_cae1d136.Tag", typing.Dict[builtins.str, typing.Any]]]]] = None,
+        data: typing.Optional[typing.Union[builtins.str, jsii.Number, builtins.bool, typing.Union["_aws_cdk_cloud_assembly_schema_cae1d136.FileAssetMetadataEntry", typing.Dict[builtins.str, typing.Any]], typing.Union["_aws_cdk_cloud_assembly_schema_cae1d136.ContainerImageAssetMetadataEntry", typing.Dict[builtins.str, typing.Any]], typing.Union["_aws_cdk_cloud_assembly_schema_cae1d136.PropertyMutationMetadataEntry", typing.Dict[builtins.str, typing.Any]], typing.Sequence[typing.Union[builtins.str, typing.Union["_aws_cdk_cloud_assembly_schema_cae1d136.Tag", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         trace: typing.Optional[typing.Sequence[builtins.str]] = None,
         path: builtins.str,
     ) -> None:
@@ -3030,13 +3030,13 @@ class MetadataEntryResult(_aws_cdk_cloud_assembly_schema_cae1d136.MetadataEntry)
     @builtins.property
     def data(
         self,
-    ) -> typing.Optional[typing.Union[builtins.str, jsii.Number, builtins.bool, "_aws_cdk_cloud_assembly_schema_cae1d136.FileAssetMetadataEntry", "_aws_cdk_cloud_assembly_schema_cae1d136.ContainerImageAssetMetadataEntry", typing.List["_aws_cdk_cloud_assembly_schema_cae1d136.Tag"]]]:
+    ) -> typing.Optional[typing.Union[builtins.str, jsii.Number, builtins.bool, "_aws_cdk_cloud_assembly_schema_cae1d136.FileAssetMetadataEntry", "_aws_cdk_cloud_assembly_schema_cae1d136.ContainerImageAssetMetadataEntry", "_aws_cdk_cloud_assembly_schema_cae1d136.PropertyMutationMetadataEntry", typing.List[typing.Union[builtins.str, "_aws_cdk_cloud_assembly_schema_cae1d136.Tag"]]]]:
         '''The data.
 
         :default: - no data.
         '''
         result = self._values.get("data")
-        return typing.cast(typing.Optional[typing.Union[builtins.str, jsii.Number, builtins.bool, "_aws_cdk_cloud_assembly_schema_cae1d136.FileAssetMetadataEntry", "_aws_cdk_cloud_assembly_schema_cae1d136.ContainerImageAssetMetadataEntry", typing.List["_aws_cdk_cloud_assembly_schema_cae1d136.Tag"]]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.str, jsii.Number, builtins.bool, "_aws_cdk_cloud_assembly_schema_cae1d136.FileAssetMetadataEntry", "_aws_cdk_cloud_assembly_schema_cae1d136.ContainerImageAssetMetadataEntry", "_aws_cdk_cloud_assembly_schema_cae1d136.PropertyMutationMetadataEntry", typing.List[typing.Union[builtins.str, "_aws_cdk_cloud_assembly_schema_cae1d136.Tag"]]]], result)
 
     @builtins.property
     def trace(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -4795,7 +4795,7 @@ def _typecheckingstub__b54b307c2b08922d6c877b21587304c7faf7770ba07126997e90cdeb3
 def _typecheckingstub__555559c755818fb0c68e54d294338ddd2443772e16a9484abbd3cdbd79b25a32(
     *,
     type: builtins.str,
-    data: typing.Optional[typing.Union[builtins.str, jsii.Number, builtins.bool, typing.Union[_aws_cdk_cloud_assembly_schema_cae1d136.FileAssetMetadataEntry, typing.Dict[builtins.str, typing.Any]], typing.Union[_aws_cdk_cloud_assembly_schema_cae1d136.ContainerImageAssetMetadataEntry, typing.Dict[builtins.str, typing.Any]], typing.Sequence[typing.Union[_aws_cdk_cloud_assembly_schema_cae1d136.Tag, typing.Dict[builtins.str, typing.Any]]]]] = None,
+    data: typing.Optional[typing.Union[builtins.str, jsii.Number, builtins.bool, typing.Union[_aws_cdk_cloud_assembly_schema_cae1d136.FileAssetMetadataEntry, typing.Dict[builtins.str, typing.Any]], typing.Union[_aws_cdk_cloud_assembly_schema_cae1d136.ContainerImageAssetMetadataEntry, typing.Dict[builtins.str, typing.Any]], typing.Union[_aws_cdk_cloud_assembly_schema_cae1d136.PropertyMutationMetadataEntry, typing.Dict[builtins.str, typing.Any]], typing.Sequence[typing.Union[builtins.str, typing.Union[_aws_cdk_cloud_assembly_schema_cae1d136.Tag, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     trace: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -4804,7 +4804,7 @@ def _typecheckingstub__555559c755818fb0c68e54d294338ddd2443772e16a9484abbd3cdbd7
 def _typecheckingstub__de77435a8388b388a3788abe2a0f532fff7b7f8c48d501d071411098e021c1e2(
     *,
     type: builtins.str,
-    data: typing.Optional[typing.Union[builtins.str, jsii.Number, builtins.bool, typing.Union[_aws_cdk_cloud_assembly_schema_cae1d136.FileAssetMetadataEntry, typing.Dict[builtins.str, typing.Any]], typing.Union[_aws_cdk_cloud_assembly_schema_cae1d136.ContainerImageAssetMetadataEntry, typing.Dict[builtins.str, typing.Any]], typing.Sequence[typing.Union[_aws_cdk_cloud_assembly_schema_cae1d136.Tag, typing.Dict[builtins.str, typing.Any]]]]] = None,
+    data: typing.Optional[typing.Union[builtins.str, jsii.Number, builtins.bool, typing.Union[_aws_cdk_cloud_assembly_schema_cae1d136.FileAssetMetadataEntry, typing.Dict[builtins.str, typing.Any]], typing.Union[_aws_cdk_cloud_assembly_schema_cae1d136.ContainerImageAssetMetadataEntry, typing.Dict[builtins.str, typing.Any]], typing.Union[_aws_cdk_cloud_assembly_schema_cae1d136.PropertyMutationMetadataEntry, typing.Dict[builtins.str, typing.Any]], typing.Sequence[typing.Union[builtins.str, typing.Union[_aws_cdk_cloud_assembly_schema_cae1d136.Tag, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     trace: typing.Optional[typing.Sequence[builtins.str]] = None,
     path: builtins.str,
 ) -> None:

@@ -32,6 +32,7 @@ __license__ = "MIT"
 __date__ = "22/11/2019"
 
 
+import functools
 import logging
 import sys
 
@@ -39,8 +40,12 @@ from .. import qt
 from ..utils.glutils import isOpenGLAvailable
 from .._glutils import gl
 
-
 _logger = logging.getLogger(__name__)
+
+
+@functools.cache
+def _logErrorOnce(message: str) -> None:
+    _logger.error(message)
 
 
 if not hasattr(qt, "QOpenGLWidget") and not hasattr(qt, "QGLWidget"):
@@ -91,10 +96,10 @@ else:
                 format_.setVersion(*self.__requestedOpenGLVersion)
                 format_.setDoubleBuffer(True)
 
-                super(_OpenGLWidget, self).__init__(format_, parent, None, f)
+                super().__init__(format_, parent, None, f)
 
             else:  # QOpenGLWidget
-                super(_OpenGLWidget, self).__init__(parent, f)
+                super().__init__(parent, f)
 
                 format_ = qt.QSurfaceFormat()
                 format_.setAlphaBufferSize(alphaBufferSize)
@@ -168,7 +173,7 @@ else:
 
             :rtype: bool
             """
-            return self.__isValid and super(_OpenGLWidget, self).isValid()
+            return self.__isValid and super().isValid()
 
         def defaultFramebufferObject(self):
             """Returns the framebuffer object handle.
@@ -178,7 +183,7 @@ else:
             if self.__legacy:  # QGLWidget
                 return 0
             else:  # QOpenGLWidget
-                return super(_OpenGLWidget, self).defaultFramebufferObject()
+                return super().defaultFramebufferObject()
 
         # *GL overridden methods
 
@@ -193,7 +198,7 @@ else:
                 try:
                     gl.glGetError()  # clear any previous error (if any)
                     version = gl.glGetString(gl.GL_VERSION)
-                except:
+                except Exception:
                     version = None
 
                 if version:
@@ -280,7 +285,7 @@ class OpenGLWidget(qt.QWidget):
         version=(2, 0),
         f=qt.Qt.Widget,
     ):
-        super(OpenGLWidget, self).__init__(parent, f)
+        super().__init__(parent, f)
 
         layout = qt.QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -357,12 +362,19 @@ class OpenGLWidget(qt.QWidget):
             return 96.0 * self.getDevicePixelRatio()
 
         physicalDPI = screen.physicalDotsPerInch()
-        if physicalDPI > 1000.0:
-            _logger.error(
-                "Reported screen DPI too high: %f, using default value instead",
-                physicalDPI,
+        if physicalDPI < 55.0:
+            defaultDPI = 72.0
+            _logErrorOnce(
+                f"Reported screen DPI too low: {int(physicalDPI)}, using {defaultDPI} instead"
             )
-            physicalDPI = 96.0
+            physicalDPI = defaultDPI
+        elif physicalDPI > 1000.0:
+            defaultDPI = 96.0
+            _logErrorOnce(
+                f"Reported screen DPI too high: {int(physicalDPI)}, using {defaultDPI} instead"
+            )
+            physicalDPI = defaultDPI
+
         return physicalDPI * self.getDevicePixelRatio()
 
     def getOpenGLVersion(self):

@@ -42,13 +42,12 @@ import gc
 from threading import Semaphore
 import numpy
 
-from ..common import ocl, pyopencl, kernel_workgroup_size
+from ..common import ocl  # noqa F401 Initialize OpenCL
+from ..common import pyopencl, kernel_workgroup_size  # noqa F401
 from ..processing import OpenclProcessing
-from ..utils import calc_size, get_opencl_code
+from ..utils import calc_size, get_opencl_code  # noqa F401
 from .utils import matching_correction
 import logging
-
-logger = logging.getLogger(__name__)
 
 from .match import MatchPlan
 from .plan import SiftPlan
@@ -57,6 +56,8 @@ try:
     import feature
 except ImportError:
     feature = None
+
+logger = logging.getLogger(__name__)
 
 
 def arrow_start(kplist):
@@ -213,7 +214,7 @@ class LinearAlign(OpenclProcessing):
         for buffer_name in list(self.cl_mem.keys()):
             if self.cl_mem[buffer_name] is not None:
                 try:
-                    buffer = self.cl_mem.pop(buffer_name)
+                    buffer = self.cl_mem.pop(buffer_name)  # noqa F841
                     del buffer
                 except pyopencl.LogicError:
                     logger.error("Error while freeing buffer %s" % buffer_name)
@@ -324,12 +325,18 @@ class LinearAlign(OpenclProcessing):
                     [transform_matrix[5], transform_matrix[2]], dtype=numpy.float32
                 )
                 matrix = numpy.empty((2, 2), dtype=numpy.float32)
-                matrix[0, 0], matrix[0, 1] = transform_matrix[4, 0], transform_matrix[3, 0]
-                matrix[1, 0], matrix[1, 1] = transform_matrix[1, 0], transform_matrix[0, 0]
+                matrix[0, 0], matrix[0, 1] = (
+                    transform_matrix[4, 0],
+                    transform_matrix[3, 0],
+                )
+                matrix[1, 0], matrix[1, 1] = (
+                    transform_matrix[1, 0],
+                    transform_matrix[0, 0],
+                )
             if double_check and (
                 len_match >= 3 * 6
             ):  # and abs(matrix - numpy.identity(2)).max() > 0.1:
-                logger.warning("Validating keypoints, %s,%s" % (matrix, offset))
+                logger.warning(f"Validating keypoints, {matrix},{offset}")
                 dx = matching[:, 1].x - matching[:, 0].x
                 dy = matching[:, 1].y - matching[:, 0].y
                 dangle = matching[:, 1].angle - matching[:, 0].angle

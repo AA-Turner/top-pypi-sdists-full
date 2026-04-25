@@ -4771,7 +4771,7 @@ https://docs.chalk.ai/cli/apply
         environment_id: EnvironmentId,
         show_progress: bool,
         caller_method: Optional[str],
-        num_computers: int,
+        num_shards: int,
         timeout: float | timedelta | ellipsis | None,
         raise_on_dataset_failure: bool,
     ):
@@ -4783,7 +4783,7 @@ https://docs.chalk.ai/cli/apply
             client=self,
             caller_method=caller_method,
             environment_id=environment_id,
-            num_computers=num_computers,
+            num_shards=num_shards,
             show_progress=show_progress,
         ).await_operation(
             must_fail_on_resolver_error=raise_on_dataset_failure,

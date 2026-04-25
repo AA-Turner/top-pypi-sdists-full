@@ -32,14 +32,7 @@ __date__ = "21/12/2018"
 
 import logging
 import datetime as dt
-from typing import Tuple, Union
 import numpy
-
-from packaging.version import Version
-
-
-_logger = logging.getLogger(__name__)
-
 
 from ... import qt
 
@@ -49,7 +42,6 @@ from ...utils.matplotlib import (
     FigureCanvasQTAgg,
     qFontToFontProperties,
 )
-import matplotlib
 from matplotlib.container import Container
 from matplotlib.figure import Figure
 from matplotlib.patches import Rectangle, Polygon
@@ -74,6 +66,9 @@ from .._utils.dtime_ticklayout import (
 from ...qt import inspect as qt_inspect
 from .... import config
 from silx.gui.colors import RGBAColorType
+
+_logger = logging.getLogger(__name__)
+
 
 _PATCH_LINESTYLE = {
     "-": "solid",
@@ -169,7 +164,7 @@ class NiceDateLocator(Locator):
         :param numTicks: target number of ticks
         :param datetime.tzinfo tz: optional time zone. None is local time.
         """
-        super(NiceDateLocator, self).__init__()
+        super().__init__()
         self.numTicks = numTicks
 
         self._spacing = None
@@ -222,7 +217,7 @@ class NiceAutoDateFormatter(Formatter):
         :param niceDateLocator: a NiceDateLocator object
         :param datetime.tzinfo tz: optional time zone. None is local time.
         """
-        super(NiceAutoDateFormatter, self).__init__()
+        super().__init__()
         self.locator = locator
         self.tz = tz
 
@@ -327,8 +322,8 @@ class _TextWithOffset(Text):
             yoffset = 0
 
         trans = self.get_transform()
-        x = super(_TextWithOffset, self).convert_xunits(self._x)
-        y = super(_TextWithOffset, self).convert_xunits(self._y)
+        x = super().convert_xunits(self._x)
+        y = super().convert_xunits(self._y)
         pos = x, y
 
         try:
@@ -380,7 +375,14 @@ class _MarkerContainer(_PickableContainer):
         if self.text is not None:
             self.text.draw(*args, **kwargs)
 
-    def updateMarkerText(self, xmin, xmax, ymin, ymax, yinverted):
+    def updateMarkerText(
+        self,
+        xmin: float,
+        xmax: float,
+        ymin: float,
+        ymax: float,
+        yinverted: bool,
+    ):
         """Update marker text position and visibility according to plot limits
 
         :param xmin: X axis lower limit
@@ -399,10 +401,7 @@ class _MarkerContainer(_PickableContainer):
                 if self.symbol is None:
                     valign = "baseline"
                 else:
-                    if yinverted:
-                        valign = "bottom"
-                    else:
-                        valign = "top"
+                    valign = "bottom" if yinverted else "top"
                 self.text.set_verticalalignment(valign)
 
             elif self.y is None:  # vertical line
@@ -502,10 +501,10 @@ class Image(AxesImage):
         """Overridden to add a fast path for RGBA unit8 images"""
         A = numpy.asarray(A)
         if A.ndim != 3 or A.shape[2] != 4 or A.dtype != numpy.uint8:
-            super(Image, self).set_data(A)
+            super().set_data(A)
         else:
             # Call AxesImage.set_data with small data to set attributes
-            super(Image, self).set_data(numpy.zeros((2, 2, 4), dtype=A.dtype))
+            super().set_data(numpy.zeros((2, 2, 4), dtype=A.dtype))
             self._A = A  # Override stored data
 
 
@@ -518,7 +517,7 @@ class BackendMatplotlib(BackendBase.BackendBase):
     """
 
     def __init__(self, plot, parent=None):
-        super(BackendMatplotlib, self).__init__(plot, parent)
+        super().__init__(plot, parent)
 
         # matplotlib is handling keep aspect ratio at draw time
         # When keep aspect ratio is on, and one changes the limits and
@@ -528,7 +527,6 @@ class BackendMatplotlib(BackendBase.BackendBase):
         # when getting the limits at the expense of a replot
         self._dirtyLimits = True
         self._axesDisplayed = True
-        self._matplotlibVersion = Version(matplotlib.__version__)
 
         self.fig = Figure(
             tight_layout=config._MPL_TIGHT_LAYOUT,
@@ -541,6 +539,23 @@ class BackendMatplotlib(BackendBase.BackendBase):
             self.ax = self.fig.add_axes([0.15, 0.15, 0.75, 0.75], label="left")
         self.ax2 = self.ax.twinx()
         self.ax2.set_label("right")
+
+        xOffsetText = self.ax.xaxis.get_offset_text()
+        xOffsetText.set_weight("heavy")
+        xOffsetText.set_fontsize(1.1 * xOffsetText.get_fontsize())
+
+        self.ax.yaxis.OFFSETTEXTPAD = 10
+        yOffsetText = self.ax.yaxis.get_offset_text()
+        yOffsetText.set_weight("heavy")
+        yOffsetText.set_fontsize(1.1 * yOffsetText.get_fontsize())
+        yOffsetText.set_ha("right")
+
+        self.ax2.yaxis.OFFSETTEXTPAD = 10
+        y2OffsetText = self.ax2.yaxis.get_offset_text()
+        y2OffsetText.set_weight("heavy")
+        y2OffsetText.set_fontsize(1.1 * y2OffsetText.get_fontsize())
+        y2OffsetText.set_ha("left")
+
         # Make sure background of Axes is displayed
         self.ax2.patch.set_visible(False)
         self.ax.patch.set_visible(True)
@@ -556,10 +571,7 @@ class BackendMatplotlib(BackendBase.BackendBase):
         self.ax2.set_autoscaley_on(False)
 
         # this works but the figure color is left
-        if self._matplotlibVersion < Version("2"):
-            self.ax.set_axis_bgcolor("none")
-        else:
-            self.ax.set_facecolor("none")
+        self.ax.set_facecolor("none")
         self.fig.sca(self.ax)
 
         self._background = None
@@ -660,7 +672,7 @@ class BackendMatplotlib(BackendBase.BackendBase):
             assert parameter is not None
         assert yaxis in ("left", "right")
 
-        if len(color) == 4 and type(color[3]) in [type(1), numpy.uint8, numpy.int8]:
+        if len(color) == 4 and type(color[3]) in [int, numpy.uint8, numpy.int8]:
             color = numpy.array(color, dtype=numpy.float64) / 255.0
 
         if yaxis == "right":
@@ -680,7 +692,7 @@ class BackendMatplotlib(BackendBase.BackendBase):
             else:
                 errorbarColor = color
 
-            # Nx1 error array deprecated in matplotlib >=3.1 (removed in 3.3)
+            # Convert error from Nx1 array to 1D array
             if (
                 isinstance(xerror, numpy.ndarray)
                 and xerror.ndim == 2
@@ -757,7 +769,7 @@ class BackendMatplotlib(BackendBase.BackendBase):
                 markersize=symbolsize,
             )
 
-            if gapcolor is not None and self._matplotlibVersion >= Version("3.6.0"):
+            if gapcolor is not None:
                 for line2d in curveList:
                     line2d.set_gapcolor(gapcolor)
             artists += list(curveList)
@@ -1188,10 +1200,19 @@ class BackendMatplotlib(BackendBase.BackendBase):
 
     # Graph limits
 
+    def _setXLimits(self, xmin: float, xmax: float):
+        xmin = min(xmin, xmax)
+        xmax = max(xmin, xmax)
+        if self.isXAxisInverted():
+            left, right = xmax, xmin
+        else:
+            left, right = xmin, xmax
+        self.ax.set_xlim(left, right)
+
     def setLimits(self, xmin, xmax, ymin, ymax, y2min=None, y2max=None):
         # Let matplotlib taking care of keep aspect ratio if any
         self._dirtyLimits = True
-        self.ax.set_xlim(min(xmin, xmax), max(xmin, xmax))
+        self._setXLimits(xmin, xmax)
 
         if y2min is not None and y2max is not None:
             self.ax2.set_ybound(min(y2min, y2max), max(y2min, y2max))
@@ -1209,7 +1230,7 @@ class BackendMatplotlib(BackendBase.BackendBase):
 
     def setGraphXLimits(self, xmin, xmax):
         self._dirtyLimits = True
-        self.ax.set_xlim(min(xmin, xmax), max(xmin, xmax))
+        self._setXLimits(xmin, xmax)
         self._updateMarkers()
 
     def getGraphYLimits(self, axis):
@@ -1243,7 +1264,7 @@ class BackendMatplotlib(BackendBase.BackendBase):
 
             newXRange = (xmax - xmin) * (ymax - ymin) / (curYMax - curYMin)
             xcenter = 0.5 * (xmin + xmax)
-            ax.set_xlim(xcenter - 0.5 * newXRange, xcenter + 0.5 * newXRange)
+            self._setXLimits(xcenter - 0.5 * newXRange, xcenter + 0.5 * newXRange)
 
         ax.set_ybound(ymin, ymax)
 
@@ -1269,7 +1290,7 @@ class BackendMatplotlib(BackendBase.BackendBase):
         )
 
     def setXAxisTimeZone(self, tz):
-        super(BackendMatplotlib, self).setXAxisTimeZone(tz)
+        super().setXAxisTimeZone(tz)
 
         # Make new formatter and locator with the time zone.
         self.setXAxisTimeSeries(self.isXAxisTimeSeries())
@@ -1285,10 +1306,10 @@ class BackendMatplotlib(BackendBase.BackendBase):
         # Workaround for matplotlib 2.1.0 when one tries to set an axis
         # to log scale with both limits <= 0
         # In this case a draw with positive limits is needed first
-        if flag and self._matplotlibVersion >= Version("2.1.0"):
-            xlim = self.ax.get_xlim()
+        if flag:
+            xlim = self.ax.get_xbound()
             if xlim[0] <= 0 and xlim[1] <= 0:
-                self.ax.set_xlim(1, 10)
+                self._setXLimits(1, 10)
                 self.draw()
 
         xscale = "log" if flag else "linear"
@@ -1299,7 +1320,7 @@ class BackendMatplotlib(BackendBase.BackendBase):
     def setYAxisLogarithmic(self, flag):
         # Workaround for matplotlib 2.0 issue with negative bounds
         # before switching to log scale
-        if flag and self._matplotlibVersion >= Version("2.0.0"):
+        if flag:
             redraw = False
             for axis, dataRangeIndex in ((self.ax, 1), (self.ax2, 2)):
                 ylim = axis.get_ylim()
@@ -1312,7 +1333,6 @@ class BackendMatplotlib(BackendBase.BackendBase):
             if redraw:
                 self.draw()
 
-        if flag:
             self.ax2.set_yscale("log")
             self.ax.set_yscale("log")
             return
@@ -1322,13 +1342,21 @@ class BackendMatplotlib(BackendBase.BackendBase):
         self.ax.set_yscale("linear")
         self.ax.yaxis.set_major_formatter(DefaultTickFormatter())
 
-    def setYAxisInverted(self, flag):
+    def setYAxisInverted(self, flag: bool):
         if self.ax.yaxis_inverted() != bool(flag):
             self.ax.invert_yaxis()
             self._updateMarkers()
 
-    def isYAxisInverted(self):
+    def isYAxisInverted(self) -> bool:
         return self.ax.yaxis_inverted()
+
+    def setXAxisInverted(self, flag: bool):
+        if self.ax.xaxis_inverted() != bool(flag):
+            self.ax.invert_xaxis()
+            self._updateMarkers()
+
+    def isXAxisInverted(self) -> bool:
+        return self.ax.xaxis_inverted()
 
     def isYRightAxisVisible(self):
         return self.ax2.yaxis.get_visible()
@@ -1352,15 +1380,15 @@ class BackendMatplotlib(BackendBase.BackendBase):
         return 1.0
 
     def _mplToQtPosition(
-        self, x: Union[float, numpy.ndarray], y: Union[float, numpy.ndarray]
-    ) -> Tuple[Union[float, numpy.ndarray], Union[float, numpy.ndarray]]:
+        self, x: float | numpy.ndarray, y: float | numpy.ndarray
+    ) -> tuple[float | numpy.ndarray, float | numpy.ndarray]:
         """Convert matplotlib "display" space coord to Qt widget logical pixel"""
         ratio = self._getDevicePixelRatio()
         # Convert from matplotlib origin (bottom) to Qt origin (top)
         # and apply device pixel ratio
         return x / ratio, (self.fig.get_window_extent().height - y) / ratio
 
-    def _qtToMplPosition(self, x: float, y: float) -> Tuple[float, float]:
+    def _qtToMplPosition(self, x: float, y: float) -> tuple[float, float]:
         """Convert Qt widget logical pixel to matplotlib "display" space coord"""
         ratio = self._getDevicePixelRatio()
         # Apply device pixel ration and
@@ -1402,10 +1430,7 @@ class BackendMatplotlib(BackendBase.BackendBase):
             0,
             0,
         )
-        if self._matplotlibVersion >= Version("3.6"):
-            self.fig.set_layout_engine("tight" if istight else None)
-        else:
-            self.fig.set_tight_layout(True if istight else None)
+        self.fig.set_layout_engine("tight" if istight else None)
 
         # Toggle display of axes and viewbox rect
         isFrameOn = position != (0.0, 0.0, 1.0, 1.0)
@@ -1430,10 +1455,7 @@ class BackendMatplotlib(BackendBase.BackendBase):
 
         if self.ax.get_frame_on():
             self.fig.patch.set_facecolor(backgroundColor)
-            if self._matplotlibVersion < Version("2"):
-                self.ax.set_axis_bgcolor(dataBackgroundColor)
-            else:
-                self.ax.set_facecolor(dataBackgroundColor)
+            self.ax.set_facecolor(dataBackgroundColor)
         else:
             self.fig.patch.set_facecolor(dataBackgroundColor)
 
@@ -1640,16 +1662,13 @@ class BackendMatplotlibQt(BackendMatplotlib, FigureCanvasQTAgg):
 
         # Starting with mpl 2.1.0, toggling autoscale raises a ValueError
         # in some situations. See #1081, #1136, #1163,
-        if self._matplotlibVersion >= Version("2.0.0"):
-            try:
-                FigureCanvasQTAgg.draw(self)
-            except ValueError as err:
-                _logger.debug(
-                    "ValueError caught while calling FigureCanvasQTAgg.draw: " "'%s'",
-                    err,
-                )
-        else:
+        try:
             FigureCanvasQTAgg.draw(self)
+        except ValueError as err:
+            _logger.debug(
+                "ValueError caught while calling FigureCanvasQTAgg.draw: " "'%s'",
+                err,
+            )
 
         if self._hasOverlays():
             # Save background
@@ -1697,14 +1716,6 @@ class BackendMatplotlibQt(BackendMatplotlib, FigureCanvasQTAgg):
 
             elif dirtyFlag:  # Need full redraw
                 self.draw()
-
-            # Workaround issue of rendering overlays with some matplotlib versions
-            if Version("1.5") <= self._matplotlibVersion < Version(
-                "2.1"
-            ) and not hasattr(self, "_firstReplot"):
-                self._firstReplot = False
-                if self._hasOverlays():
-                    qt.QTimer.singleShot(0, self.draw)  # Request async draw
 
     # cursor
 

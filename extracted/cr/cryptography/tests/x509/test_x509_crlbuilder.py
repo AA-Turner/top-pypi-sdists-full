@@ -474,36 +474,18 @@ class TestCertificateRevocationListBuilder:
     def test_add_unsupported_entry_extension(
         self, rsa_key_2048: rsa.RSAPrivateKey, backend
     ):
-        private_key = rsa_key_2048
-        last_update = datetime.datetime(2002, 1, 1, 12, 1)
-        next_update = datetime.datetime(2030, 1, 1, 12, 1)
         builder = (
-            x509.CertificateRevocationListBuilder()
-            .issuer_name(
-                x509.Name(
-                    [
-                        x509.NameAttribute(
-                            NameOID.COMMON_NAME, "cryptography.io CA"
-                        )
-                    ]
+            x509.RevokedCertificateBuilder()
+            .serial_number(1234)
+            .revocation_date(
+                datetime.datetime.now(datetime.timezone.utc).replace(
+                    tzinfo=None
                 )
             )
-            .last_update(last_update)
-            .next_update(next_update)
-            .add_revoked_certificate(
-                x509.RevokedCertificateBuilder()
-                .serial_number(1234)
-                .revocation_date(
-                    datetime.datetime.now(datetime.timezone.utc).replace(
-                        tzinfo=None
-                    )
-                )
-                .add_extension(DummyExtension(), critical=False)
-                .build()
-            )
+            .add_extension(DummyExtension(), critical=False)
         )
         with pytest.raises(NotImplementedError):
-            builder.sign(private_key, hashes.SHA256(), backend)
+            builder.build()
 
     def test_sign_rsa_key_too_small(
         self, rsa_key_512: rsa.RSAPrivateKey, backend
@@ -557,10 +539,6 @@ class TestCertificateRevocationListBuilder:
                 backend,
             )
 
-    @pytest.mark.supported(
-        only_if=lambda backend: backend.ed25519_supported(),
-        skip_message="Requires OpenSSL with Ed25519 support",
-    )
     def test_sign_with_invalid_hash_ed25519(self, backend):
         private_key = ed25519.Ed25519PrivateKey.generate()
         last_update = datetime.datetime(2002, 1, 1, 12, 1)
@@ -726,10 +704,6 @@ class TestCertificateRevocationListBuilder:
         assert ext.critical is False
         assert ext.value == invalidity_date
 
-    @pytest.mark.supported(
-        only_if=lambda backend: backend.ed25519_supported(),
-        skip_message="Requires OpenSSL with Ed25519 support",
-    )
     def test_sign_ed25519_key(self, backend):
         private_key = ed25519.Ed25519PrivateKey.generate()
         invalidity_date = x509.InvalidityDate(

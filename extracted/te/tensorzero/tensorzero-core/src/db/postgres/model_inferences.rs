@@ -15,7 +15,10 @@ use rust_decimal::Decimal;
 use crate::config::snapshot::SnapshotHash;
 use crate::db::model_inferences::ModelInferenceQueries;
 use crate::db::query_helpers::uuid_to_datetime;
-use crate::db::{CacheStatisticsTimePoint, ModelLatencyDatapoint, ModelUsageTimePoint, TimeWindow};
+use crate::db::{
+    CacheStatisticsTimePoint, ModelLatencyDatapoint, ModelUsageTimePoint, TimeWindow,
+    VariantUsageTimePoint,
+};
 use crate::error::{Error, ErrorDetails, IMPOSSIBLE_ERROR_MESSAGE};
 use crate::inference::types::{
     ContentBlockOutput, FinishReason, StoredModelInference, StoredRequestMessage,
@@ -76,7 +79,7 @@ impl ModelInferenceQueries for PostgresConnectionInfo {
         &self,
         inference_id: Uuid,
     ) -> Result<Vec<StoredModelInference>, Error> {
-        let pool = self.get_pool_result()?;
+        let pool = self.get_pool_result().map_err(|e| e.log())?;
 
         let mut qb = build_get_model_inferences_query(inference_id);
         let rows: Vec<StoredModelInference> = qb.build_query_as().fetch_all(pool).await?;
@@ -94,7 +97,7 @@ impl ModelInferenceQueries for PostgresConnectionInfo {
             return Ok(());
         }
 
-        let pool = self.get_pool_result()?;
+        let pool = self.get_pool_result().map_err(|e| e.log())?;
         let mut metadata_qb = build_insert_model_inferences_query(rows)?;
         metadata_qb.build().execute(pool).await?;
         let mut io_qb = build_insert_model_inference_data_query(rows)?;
@@ -103,7 +106,7 @@ impl ModelInferenceQueries for PostgresConnectionInfo {
     }
 
     async fn count_distinct_models_used(&self) -> Result<u32, Error> {
-        let pool = self.get_pool_result()?;
+        let pool = self.get_pool_result().map_err(|e| e.log())?;
         count_distinct_models_used_impl(pool).await
     }
 
@@ -112,7 +115,7 @@ impl ModelInferenceQueries for PostgresConnectionInfo {
         time_window: TimeWindow,
         max_periods: u32,
     ) -> Result<Vec<ModelUsageTimePoint>, Error> {
-        let pool = self.get_pool_result()?;
+        let pool = self.get_pool_result().map_err(|e| e.log())?;
         get_model_usage_timeseries_impl(pool, time_window, max_periods).await
     }
 
@@ -120,7 +123,7 @@ impl ModelInferenceQueries for PostgresConnectionInfo {
         &self,
         time_window: TimeWindow,
     ) -> Result<Vec<ModelLatencyDatapoint>, Error> {
-        let pool = self.get_pool_result()?;
+        let pool = self.get_pool_result().map_err(|e| e.log())?;
 
         if time_window == TimeWindow::Minute {
             let mut query_builder = build_model_latency_quantiles_raw_query(&time_window);
@@ -184,7 +187,7 @@ impl ModelInferenceQueries for PostgresConnectionInfo {
         model_name: Option<&str>,
         model_provider_name: Option<&str>,
     ) -> Result<Vec<CacheStatisticsTimePoint>, Error> {
-        let pool = self.get_pool_result()?;
+        let pool = self.get_pool_result().map_err(|e| e.log())?;
         get_cache_statistics_timeseries_impl(
             pool,
             time_window,
@@ -193,6 +196,16 @@ impl ModelInferenceQueries for PostgresConnectionInfo {
             model_provider_name,
         )
         .await
+    }
+
+    async fn get_variant_usage_timeseries(
+        &self,
+        function_name: &str,
+        time_window: TimeWindow,
+        max_periods: u32,
+    ) -> Result<Vec<VariantUsageTimePoint>, Error> {
+        let pool = self.get_pool_result().map_err(|e| e.log())?;
+        get_variant_usage_timeseries_impl(pool, function_name, time_window, max_periods).await
     }
 }
 
@@ -207,6 +220,8 @@ fn build_get_model_inferences_query(inference_id: Uuid) -> QueryBuilder<sqlx::Po
         SELECT
             i.id,
             i.inference_id,
+            i.function_name,
+            i.variant_name,
             io.raw_request,
             io.raw_response,
             io.system,
@@ -247,7 +262,7 @@ pub(super) fn build_insert_model_inferences_query(
     let mut qb: QueryBuilder<sqlx::Postgres> = QueryBuilder::new(
         r"
         INSERT INTO tensorzero.model_inferences (
-            id, inference_id, input_tokens, output_tokens,
+            id, inference_id, function_name, variant_name, input_tokens, output_tokens,
             provider_cache_read_input_tokens, provider_cache_write_input_tokens,
             response_time_ms, model_name, model_provider_name,
             ttft_ms, cached, finish_reason, snapshot_hash, cost, created_at
@@ -257,6 +272,8 @@ pub(super) fn build_insert_model_inferences_query(
     qb.push_values(rows.iter().zip(&timestamps), |mut b, (row, created_at)| {
         b.push_bind(row.id)
             .push_bind(row.inference_id)
+            .push_bind(&row.function_name)
+            .push_bind(&row.variant_name)
             .push_bind(row.input_tokens.map(|v| v as i32))
             .push_bind(row.output_tokens.map(|v| v as i32))
             .push_bind(row.provider_cache_read_input_tokens.map(|v| v as i32))
@@ -400,6 +417,90 @@ async fn get_model_usage_cumulative(pool: &PgPool) -> Result<Vec<ModelUsageTimeP
         ORDER BY model_name
         ",
     )
+    .fetch_all(pool)
+    .await?;
+
+    Ok(rows)
+}
+
+async fn get_variant_usage_timeseries_impl(
+    pool: &PgPool,
+    function_name: &str,
+    time_window: TimeWindow,
+    max_periods: u32,
+) -> Result<Vec<VariantUsageTimePoint>, Error> {
+    if time_window == TimeWindow::Cumulative {
+        return get_variant_usage_cumulative(pool, function_name).await;
+    }
+
+    let mut qb = build_variant_usage_timeseries_query(function_name, &time_window, max_periods);
+    let rows: Vec<VariantUsageTimePoint> = qb.build_query_as().fetch_all(pool).await?;
+    Ok(rows)
+}
+
+fn build_variant_usage_timeseries_query(
+    function_name: &str,
+    time_window: &TimeWindow,
+    max_periods: u32,
+) -> QueryBuilder<sqlx::Postgres> {
+    let time_unit = time_window.to_postgres_time_unit();
+
+    let mut qb: QueryBuilder<sqlx::Postgres> = QueryBuilder::new("SELECT date_trunc('");
+    qb.push(time_unit);
+    qb.push(
+        "', minute) as period_start,
+            variant_name,
+            SUM(total_input_tokens)::BIGINT as input_tokens,
+            SUM(total_output_tokens)::BIGINT as output_tokens,
+            SUM(inference_count)::BIGINT as count,
+            SUM(total_cost)::NUMERIC as cost,
+            SUM(count_with_cost)::BIGINT as count_with_cost
+        FROM tensorzero.variant_statistics
+        WHERE function_name = ",
+    );
+    qb.push_bind(function_name.to_string());
+    qb.push(" AND minute >= (SELECT COALESCE(MAX(date_trunc('");
+    qb.push(time_unit);
+    qb.push(
+        "', minute)), '1970-01-01'::TIMESTAMPTZ)
+            FROM tensorzero.variant_statistics
+            WHERE function_name = ",
+    );
+    qb.push_bind(function_name.to_string());
+    qb.push(") - INTERVAL '");
+    qb.push(max_periods.to_string());
+    qb.push(" ");
+    qb.push(time_unit);
+    qb.push(
+        "s'
+        GROUP BY period_start, variant_name
+        ORDER BY period_start DESC, variant_name",
+    );
+
+    qb
+}
+
+async fn get_variant_usage_cumulative(
+    pool: &PgPool,
+    function_name: &str,
+) -> Result<Vec<VariantUsageTimePoint>, Error> {
+    let rows: Vec<VariantUsageTimePoint> = sqlx::query_as(
+        r"
+        SELECT
+            '1970-01-01'::TIMESTAMPTZ as period_start,
+            variant_name,
+            SUM(total_input_tokens)::BIGINT as input_tokens,
+            SUM(total_output_tokens)::BIGINT as output_tokens,
+            SUM(inference_count)::BIGINT as count,
+            SUM(total_cost)::NUMERIC as cost,
+            SUM(count_with_cost)::BIGINT as count_with_cost
+        FROM tensorzero.variant_statistics
+        WHERE function_name = $1
+        GROUP BY variant_name
+        ORDER BY variant_name
+        ",
+    )
+    .bind(function_name)
     .fetch_all(pool)
     .await?;
 
@@ -849,12 +950,38 @@ impl sqlx::FromRow<'_, sqlx::postgres::PgRow> for ModelUsageTimePoint {
     }
 }
 
+impl sqlx::FromRow<'_, sqlx::postgres::PgRow> for VariantUsageTimePoint {
+    fn from_row(row: &sqlx::postgres::PgRow) -> Result<Self, sqlx::Error> {
+        let period_start: DateTime<Utc> = row.try_get("period_start")?;
+        let input_tokens: Option<i64> = row.try_get("input_tokens")?;
+        let output_tokens: Option<i64> = row.try_get("output_tokens")?;
+        let count: Option<i64> = row.try_get("count")?;
+        let cost: Option<Decimal> = row.try_get("cost")?;
+        let count_with_cost: Option<i64> = row.try_get("count_with_cost")?;
+
+        Ok(VariantUsageTimePoint {
+            period_start,
+            variant_name: row.try_get("variant_name")?,
+            input_tokens: input_tokens.map(|v| v as u64),
+            output_tokens: output_tokens.map(|v| v as u64),
+            count: count.map(|v| v as u64),
+            cost,
+            count_with_cost: count_with_cost.map(|v| v as u64),
+            // Latency quantiles are not available from Postgres rollup tables
+            processing_time_ms_quantiles: None,
+            ttft_ms_quantiles: None,
+        })
+    }
+}
+
 /// Manual implementation of FromRow for StoredModelInference.
 /// This allows direct deserialization from Postgres rows.
 impl<'r> sqlx::FromRow<'r, sqlx::postgres::PgRow> for StoredModelInference {
     fn from_row(row: &'r sqlx::postgres::PgRow) -> Result<Self, sqlx::Error> {
         let id: Uuid = row.try_get("id")?;
         let inference_id: Uuid = row.try_get("inference_id")?;
+        let function_name: String = row.try_get("function_name")?;
+        let variant_name: String = row.try_get("variant_name")?;
         let raw_request: Option<String> = row.try_get("raw_request")?;
         let raw_response: Option<String> = row.try_get("raw_response")?;
         let system: Option<String> = row.try_get("system")?;
@@ -880,6 +1007,8 @@ impl<'r> sqlx::FromRow<'r, sqlx::postgres::PgRow> for StoredModelInference {
         Ok(StoredModelInference {
             id,
             inference_id,
+            function_name,
+            variant_name,
             raw_request,
             raw_response,
             system,
@@ -1431,6 +1560,8 @@ mod tests {
             SELECT
                 i.id,
                 i.inference_id,
+                i.function_name,
+                i.variant_name,
                 io.raw_request,
                 io.raw_response,
                 io.system,
@@ -1461,6 +1592,8 @@ mod tests {
         let rows = vec![StoredModelInference {
             id: Uuid::now_v7(),
             inference_id: Uuid::now_v7(),
+            function_name: "test_function".to_string(),
+            variant_name: "test_variant".to_string(),
             raw_request: Some("request".to_string()),
             raw_response: Some("response".to_string()),
             system: Some("system".to_string()),
@@ -1486,11 +1619,11 @@ mod tests {
             qb.sql().as_str(),
             r"
             INSERT INTO tensorzero.model_inferences (
-                id, inference_id, input_tokens, output_tokens,
+                id, inference_id, function_name, variant_name, input_tokens, output_tokens,
                 provider_cache_read_input_tokens, provider_cache_write_input_tokens,
                 response_time_ms, model_name, model_provider_name,
                 ttft_ms, cached, finish_reason, snapshot_hash, cost, created_at
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
             ",
         );
 
@@ -1512,6 +1645,8 @@ mod tests {
             StoredModelInference {
                 id: Uuid::now_v7(),
                 inference_id: Uuid::now_v7(),
+                function_name: "test_function".to_string(),
+                variant_name: "test_variant".to_string(),
                 raw_request: Some("request1".to_string()),
                 raw_response: Some("response1".to_string()),
                 system: None,
@@ -1534,6 +1669,8 @@ mod tests {
             StoredModelInference {
                 id: Uuid::now_v7(),
                 inference_id: Uuid::now_v7(),
+                function_name: "test_function".to_string(),
+                variant_name: "test_variant".to_string(),
                 raw_request: Some("request2".to_string()),
                 raw_response: Some("response2".to_string()),
                 system: Some("system2".to_string()),
@@ -1560,12 +1697,12 @@ mod tests {
             qb.sql().as_str(),
             r"
             INSERT INTO tensorzero.model_inferences (
-                id, inference_id, input_tokens, output_tokens,
+                id, inference_id, function_name, variant_name, input_tokens, output_tokens,
                 provider_cache_read_input_tokens, provider_cache_write_input_tokens,
                 response_time_ms, model_name, model_provider_name,
                 ttft_ms, cached, finish_reason, snapshot_hash, cost, created_at
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15),
-            ($16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30)
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17),
+            ($18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34)
             ",
         );
 

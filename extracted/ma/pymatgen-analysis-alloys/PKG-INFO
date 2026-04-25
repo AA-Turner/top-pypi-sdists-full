@@ -1,40 +1,44 @@
 Metadata-Version: 2.4
 Name: pymatgen-analysis-alloys
-Version: 0.0.8
-Summary: A pymatgen add-on library with classes useful for describing alloy (disordered) systems.
-Home-page: https://github.com/materialsproject/pymatgen-analysis-alloys
-Author: Rachel Woods-Robinson, Matthew Horton
-Author-email: rwoodsrobinson@lbl.gov
-Maintainer: Rachel Woods-Robinson, Matthew Horton
-Keywords: pymatgen
+Version: 0.0.9
+Summary: Pymatgen add-on package for alloy systems
+Author-email: The Materials Project <feedback@materialsproject.org>
+License: modified BSD
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Science/Research
-Classifier: License :: OSI Approved :: BSD License
+Classifier: Intended Audience :: Information Technology
 Classifier: Operating System :: OS Independent
-Classifier: Topic :: Scientific/Engineering :: Information Analysis
-Classifier: Topic :: Scientific/Engineering :: Physics
-Classifier: Topic :: Scientific/Engineering :: Chemistry
-Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: Scientific/Engineering
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
+License-File: LICENSE
 Requires-Dist: pymatgen>=2023.7.17
 Requires-Dist: shapely>=1.8.2
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: maintainer
-Dynamic: requires-dist
-Dynamic: summary
+Provides-Extra: test
+Requires-Dist: pre-commit; extra == "test"
+Requires-Dist: pytest; extra == "test"
+Requires-Dist: pytest-asyncio; extra == "test"
+Requires-Dist: pytest-cov; extra == "test"
+Requires-Dist: pytest-mock; extra == "test"
+Requires-Dist: pytest-xdist; extra == "test"
+Requires-Dist: flake8; extra == "test"
+Requires-Dist: black; extra == "test"
+Requires-Dist: pycodestyle; extra == "test"
+Requires-Dist: pydocstyle; extra == "test"
+Requires-Dist: mypy; extra == "test"
+Requires-Dist: mypy-extensions; extra == "test"
+Requires-Dist: typing-extensions; extra == "test"
+Requires-Dist: types-setuptools; extra == "test"
+Requires-Dist: types-requests; extra == "test"
+Provides-Extra: docs
+Requires-Dist: sphinx; extra == "docs"
+Dynamic: license-file
 
 pymatgen-analysis-alloys
 ========================
 
-`pymatgen-analysis-alloys` is an add-on package for [pymatgen](https://pymatgen.org) intended to contain useful classes
-for describing alloy systems and analyzing data relevant to these systems. It currently contains the base classes and
-plotting functionality described in [this paper](https://arxiv.org/abs/2206.10715).
+`pymatgen-analysis-alloys` is an add-on package for [pymatgen](https://pymatgen.org)
+intended to contain useful classes for describing alloy systems
+and analyzing data relevant to these systems. It currently contains
+the base classes and plotting functionality described in [this paper](https://arxiv.org/abs/2206.10715).

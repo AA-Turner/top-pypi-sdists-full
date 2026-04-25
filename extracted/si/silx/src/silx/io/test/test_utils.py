@@ -22,7 +22,6 @@
 # ############################################################################*/
 """Tests for utils module"""
 
-import io
 import numpy
 import os
 import re
@@ -57,9 +56,7 @@ expected_spec1 = r"""#F .*
 3  6\.00
 """
 
-expected_spec2 = (
-    expected_spec1
-    + r"""
+expected_spec2 = expected_spec1 + r"""
 #S 2 Ordinate2
 #D .*
 #N 2
@@ -68,7 +65,6 @@ expected_spec2 = (
 2  8\.00
 3  9\.00
 """
-)
 
 expected_spec2reg = r"""#F .*
 #D .*
@@ -82,9 +78,7 @@ expected_spec2reg = r"""#F .*
 3  6\.00  9\.00
 """
 
-expected_spec2irr = (
-    expected_spec1
-    + r"""
+expected_spec2irr = expected_spec1 + r"""
 #S 2 Ordinate2
 #D .*
 #N 2
@@ -92,7 +86,6 @@ expected_spec2irr = (
 1  7\.00
 2  8\.00
 """
-)
 
 expected_csv = r"""Abscissa;Ordinate1;Ordinate2
 1;4\.00;7\.00e\+00
@@ -336,9 +329,15 @@ class TestH5Ls(unittest.TestCase):
         xlab = "Abscissa"
         y = [[4, 5, 6], [7, 8, 9]]
         ylabs = ["Ordinate1", "Ordinate2"]
-        utils.save1D(spec_fname, x, y, xlabel=xlab,
-                     ylabels=ylabs, filetype="spec",
-                     fmt=["%d", "%.2f"])
+        utils.save1D(
+            spec_fname,
+            x,
+            y,
+            xlabel=xlab,
+            ylabels=ylabs,
+            filetype="spec",
+            fmt=["%d", "%.2f"],
+        )
 
         rep = h5ls(spec_fname)
         lines = rep.split("\n")
@@ -346,11 +345,11 @@ class TestH5Ls(unittest.TestCase):
         self.assertIn("\t+instrument", lines)
 
         self.assertMatchAnyStringInList(
-                r'\t\t\t<HDF5-like dataset "file_header": shape \(2,\), type "|O">',
-                lines)
+            r'\t\t\t<HDF5-like dataset "file_header": shape \(2,\), type "|O">', lines
+        )
         self.assertMatchAnyStringInList(
-                r'\t\t<HDF5-like dataset "Ordinate1": shape \(3,\), type "<f4">',
-                lines)
+            r'\t\t<HDF5-like dataset "Ordinate1": shape \(3,\), type "<f4">', lines
+        )
 
         os.unlink(spec_fname)
         shutil.rmtree(tempdir)
@@ -391,7 +390,7 @@ class TestOpen(unittest.TestCase):
         fabiofile.write(cls.edf_filename)
 
         cls.txt_filename = os.path.join(directory, "test.txt")
-        f = io.open(cls.txt_filename, "w+t")
+        f = open(cls.txt_filename, "w+t")
         f.write("Kikoo")
         f.close()
 
@@ -500,7 +499,7 @@ class TestNodes(unittest.TestCase):
             os.unlink(name)
 
     def test_h5py_like_file(self):
-        class Foo(object):
+        class Foo:
             def __init__(self):
                 self.h5_class = utils.H5Type.FILE
 
@@ -510,7 +509,7 @@ class TestNodes(unittest.TestCase):
         self.assertFalse(utils.is_dataset(obj))
 
     def test_h5py_like_group(self):
-        class Foo(object):
+        class Foo:
             def __init__(self):
                 self.h5_class = utils.H5Type.GROUP
 
@@ -520,7 +519,7 @@ class TestNodes(unittest.TestCase):
         self.assertFalse(utils.is_dataset(obj))
 
     def test_h5py_like_dataset(self):
-        class Foo(object):
+        class Foo:
             def __init__(self):
                 self.h5_class = utils.H5Type.DATASET
 
@@ -530,7 +529,7 @@ class TestNodes(unittest.TestCase):
         self.assertTrue(utils.is_dataset(obj))
 
     def test_bad(self):
-        class Foo(object):
+        class Foo:
             def __init__(self):
                 pass
 
@@ -540,7 +539,7 @@ class TestNodes(unittest.TestCase):
         self.assertFalse(utils.is_dataset(obj))
 
     def test_bad_api(self):
-        class Foo(object):
+        class Foo:
             def __init__(self):
                 self.h5_class = int
 
@@ -590,7 +589,7 @@ class TestGetData(unittest.TestCase):
         fabiofile.write(cls.edf_multiframe_filename)
 
         cls.txt_filename = os.path.join(directory, "test.txt")
-        f = io.open(cls.txt_filename, "w+t")
+        f = open(cls.txt_filename, "w+t")
         f.write("Kikoo")
         f.close()
 
@@ -665,8 +664,8 @@ class TestGetData(unittest.TestCase):
 
 
 def _h5_py_version_older_than(version):
-    v_majeur, v_mineur, v_micro = [int(i) for i in h5py.version.version.split(".")[:3]]
-    r_majeur, r_mineur, r_micro = [int(i) for i in version.split(".")]
+    v_majeur, v_mineur, v_micro = (int(i) for i in h5py.version.version.split(".")[:3])
+    r_majeur, r_mineur, r_micro = (int(i) for i in version.split("."))
     return calc_hexversion(v_majeur, v_mineur, v_micro) >= calc_hexversion(
         r_majeur, r_mineur, r_micro
     )
@@ -1134,3 +1133,32 @@ def test_recursive_match_commonh5():
 
         result = list(utils.match(fobj, "**/data"))
         assert result == ["entry_0000/bar/data", "entry_0001/foo/data"]
+
+
+def test_open_h5pyd(httpserver):
+    httpserver.check_assertions()
+    httpserver.expect_request("/", query_string=None).respond_with_json(
+        {
+            "created": 1771620465.190004,
+            "lastModified": 1771620465.1900046,
+            "root": "g-h5dict-2F",
+            "owner": "admin",
+            "class": "domain",
+        }
+    )
+
+    httpserver.expect_request(
+        "/groups/g-h5dict-2F", query_string=None
+    ).respond_with_json(
+        {
+            "created": 1771621135.0002592,
+            "lastModified": 1771621135.0002594,
+            "root": "g-h5dict-2F",
+            "id": "g-h5dict-2F",
+            "linkCount": 0,
+            "attributeCount": 0,
+        }
+    )
+
+    f = utils._open_url_with_h5pyd(httpserver.url_for("/"))
+    assert str(f) == '<HDF5 file "" (mode r)>'

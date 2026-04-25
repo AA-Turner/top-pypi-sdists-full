@@ -12,14 +12,12 @@ use tensorzero_types_providers::xai::{
 use tokio::time::Instant;
 use url::Url;
 
-use crate::cache::ModelProviderRequest;
 use crate::endpoints::inference::InferenceCredentials;
 use crate::error::{
     DelayedError, DisplayOrDebugGateway, Error, ErrorDetails, warn_discarded_thought_block,
 };
 use crate::http::TensorzeroHttpClient;
 use crate::inference::InferenceProvider;
-use crate::inference::types::ProviderInferenceResponseArgs;
 use crate::inference::types::batch::{BatchRequestRow, PollBatchInferenceResponse};
 use crate::inference::types::chat_completion_inference_params::{
     ChatCompletionInferenceParamsV2, warn_inference_parameter_not_supported,
@@ -28,17 +26,19 @@ use crate::inference::types::usage::raw_usage_entries_from_value;
 use crate::inference::types::{
     ApiType, ContentBlock, ContentBlockOutput, Latency, ModelInferenceRequest,
     ModelInferenceRequestJsonMode, PeekableProviderInferenceResponseStream,
-    ProviderInferenceResponse, ProviderInferenceResponseChunk,
+    ProviderInferenceResponse, ProviderInferenceResponseArgs, ProviderInferenceResponseChunk,
     ProviderInferenceResponseStreamInner, RequestMessage, Role, Text, Thought, Unknown,
     batch::StartBatchProviderInferenceResponse,
 };
-use crate::model::{Credential, ModelProvider};
+use crate::model::Credential;
+use crate::model::{ModelProviderRequestInfo, ProviderInferenceRequest};
 use crate::providers::helpers::{
     inject_extra_request_data_and_send, inject_extra_request_data_and_send_eventsource,
 };
 use crate::providers::openai::{
-    OpenAIMessagesConfig, OpenAIResponseChoice, StreamOptions, get_chat_url, handle_openai_error,
-    openai_response_tool_call_to_tensorzero_tool_call, prepare_file_message, stream_openai,
+    OpenAIMessagesConfig, OpenAIResponseChoice, ReasoningFieldName, StreamOptions, get_chat_url,
+    handle_openai_error, openai_response_tool_call_to_tensorzero_tool_call, prepare_file_message,
+    stream_openai,
 };
 use uuid::Uuid;
 
@@ -148,16 +148,15 @@ impl XAICredentials {
 impl InferenceProvider for XAIProvider {
     async fn infer<'a>(
         &'a self,
-        ModelProviderRequest {
+        ProviderInferenceRequest {
             request,
             provider_name: _,
             model_name,
-            otlp_config: _,
             model_inference_id,
-        }: ModelProviderRequest<'a>,
+        }: ProviderInferenceRequest<'a>,
         http_client: &'a TensorzeroHttpClient,
         dynamic_api_keys: &'a InferenceCredentials,
-        model_provider: &'a ModelProvider,
+        model_provider: &'a ModelProviderRequestInfo,
     ) -> Result<ProviderInferenceResponse, Error> {
         let request_body = serde_json::to_value(XAIRequest::new(&self.model_name, request).await?)
             .map_err(|e| {
@@ -257,16 +256,15 @@ impl InferenceProvider for XAIProvider {
 
     async fn infer_stream<'a>(
         &'a self,
-        ModelProviderRequest {
+        ProviderInferenceRequest {
             request,
             provider_name: _,
             model_name,
-            otlp_config: _,
             model_inference_id,
-        }: ModelProviderRequest<'a>,
+        }: ProviderInferenceRequest<'a>,
         http_client: &'a TensorzeroHttpClient,
         dynamic_api_keys: &'a InferenceCredentials,
-        model_provider: &'a ModelProvider,
+        model_provider: &'a ModelProviderRequestInfo,
     ) -> Result<(PeekableProviderInferenceResponseStream, String), Error> {
         let request_body = serde_json::to_value(XAIRequest::new(&self.model_name, request).await?)
             .map_err(|e| {
@@ -685,6 +683,7 @@ impl<'a> XAIRequest<'a> {
                 fetch_and_encode_input_files_before_inference: request
                     .fetch_and_encode_input_files_before_inference,
                 content_type_overrides: None,
+                reasoning_field_name: ReasoningFieldName::ReasoningContent,
             },
         )
         .await?;
@@ -908,7 +907,7 @@ mod tests {
     use crate::providers::openai::{
         OpenAIFinishReason, OpenAIResponseChoice, OpenAIResponseMessage,
     };
-    use crate::providers::test_helpers::{WEATHER_TOOL, WEATHER_TOOL_CONFIG};
+    use crate::providers::test_helpers::{WEATHER_PROVIDER_TOOL_CONFIG, WEATHER_TOOL};
     use tensorzero_types_providers::xai::XAIUsage;
 
     #[tokio::test]
@@ -928,7 +927,7 @@ mod tests {
             stream: false,
             seed: Some(69),
             json_mode: ModelInferenceRequestJsonMode::Off,
-            tool_config: Some(Cow::Borrowed(&WEATHER_TOOL_CONFIG)),
+            tool_config: Some(Cow::Borrowed(&*WEATHER_PROVIDER_TOOL_CONFIG)),
             function_type: FunctionType::Chat,
             output_schema: None,
             extra_body: Default::default(),
@@ -978,7 +977,7 @@ mod tests {
             stream: false,
             seed: Some(69),
             json_mode: ModelInferenceRequestJsonMode::On,
-            tool_config: Some(Cow::Borrowed(&WEATHER_TOOL_CONFIG)),
+            tool_config: Some(Cow::Borrowed(&*WEATHER_PROVIDER_TOOL_CONFIG)),
             function_type: FunctionType::Json,
             output_schema: None,
             extra_body: Default::default(),
@@ -1172,6 +1171,7 @@ mod tests {
             provider_type: PROVIDER_TYPE,
             fetch_and_encode_input_files_before_inference: false,
             content_type_overrides: None,
+            reasoning_field_name: ReasoningFieldName::ReasoningContent,
         };
 
         let result = tensorzero_to_xai_assistant_message(&content_blocks, messages_config)
@@ -1210,6 +1210,7 @@ mod tests {
             provider_type: PROVIDER_TYPE,
             fetch_and_encode_input_files_before_inference: false,
             content_type_overrides: None,
+            reasoning_field_name: ReasoningFieldName::ReasoningContent,
         };
 
         let result = tensorzero_to_xai_assistant_message(&content_blocks, messages_config)
@@ -1249,6 +1250,7 @@ mod tests {
             provider_type: PROVIDER_TYPE,
             fetch_and_encode_input_files_before_inference: false,
             content_type_overrides: None,
+            reasoning_field_name: ReasoningFieldName::ReasoningContent,
         };
 
         let result = tensorzero_to_xai_assistant_message(&content_blocks, messages_config)
@@ -1287,6 +1289,7 @@ mod tests {
             provider_type: PROVIDER_TYPE,
             fetch_and_encode_input_files_before_inference: false,
             content_type_overrides: None,
+            reasoning_field_name: ReasoningFieldName::ReasoningContent,
         };
 
         let result = tensorzero_to_xai_assistant_message(&content_blocks, messages_config)
@@ -1378,6 +1381,7 @@ mod tests {
             provider_type: PROVIDER_TYPE,
             fetch_and_encode_input_files_before_inference: false,
             content_type_overrides: None,
+            reasoning_field_name: ReasoningFieldName::ReasoningContent,
         };
 
         let result = prepare_xai_messages(system, &messages, messages_config)
@@ -1421,6 +1425,7 @@ mod tests {
             provider_type: PROVIDER_TYPE,
             fetch_and_encode_input_files_before_inference: false,
             content_type_overrides: None,
+            reasoning_field_name: ReasoningFieldName::ReasoningContent,
         };
 
         let result = prepare_xai_messages(system, &messages, messages_config)

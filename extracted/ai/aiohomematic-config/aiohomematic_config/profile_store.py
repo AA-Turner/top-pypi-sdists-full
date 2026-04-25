@@ -1,6 +1,7 @@
 """Load and query easymode profile definitions."""
 
 import asyncio
+import gzip
 import html
 from importlib.resources import files
 import json
@@ -13,9 +14,9 @@ from aiohomematic_config.profile_data import ChannelProfileSet, ProfileDef, Prof
 
 
 def _load_receiver_type_aliases() -> dict[str, str]:
-    """Load receiver type aliases from extracted JSON data."""
+    """Load receiver type aliases from the openccu-data package."""
     try:
-        data_file = files("aiohomematic_config.profiles").joinpath("_receiver_type_aliases.json")
+        data_file = files("openccu_data.data.profiles").joinpath("_receiver_type_aliases.json")
         result: dict[str, str] = json.loads(data_file.read_text(encoding="utf-8"))
     except FileNotFoundError, ModuleNotFoundError, json.JSONDecodeError:
         return {}
@@ -107,10 +108,10 @@ def _load_receiver_profiles(
     *,
     receiver_channel_type: str,
 ) -> dict[str, ChannelProfileSet]:
-    """Load all sender profiles for a receiver type from JSON resource."""
+    """Load all sender profiles for a receiver type from the openccu-data package."""
     try:
-        data_file = files("aiohomematic_config.profiles").joinpath(f"{receiver_channel_type}.json")
-        raw = json.loads(data_file.read_text(encoding="utf-8"))
+        data_file = files("openccu_data.data.profiles").joinpath(f"{receiver_channel_type}.json.gz")
+        raw = json.loads(gzip.decompress(data_file.read_bytes()).decode("utf-8"))
     except FileNotFoundError, ModuleNotFoundError:
         return {}
 

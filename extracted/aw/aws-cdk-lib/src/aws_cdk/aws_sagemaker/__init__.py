@@ -1782,10 +1782,6 @@ class CfnCluster(
                 instance_count=123,
                 instance_group_name="instanceGroupName",
                 instance_type="instanceType",
-                life_cycle_config=sagemaker.CfnCluster.ClusterLifeCycleConfigProperty(
-                    on_create="onCreate",
-                    source_s3_uri="sourceS3Uri"
-                ),
         
                 # the properties below are optional
                 capacity_requirements=sagemaker.CfnCluster.ClusterCapacityRequirementsProperty(
@@ -1825,6 +1821,11 @@ class CfnCluster(
                         # the properties below are optional
                         value="value"
                     )]
+                ),
+                life_cycle_config=sagemaker.CfnCluster.ClusterLifeCycleConfigProperty(
+                    on_create="onCreate",
+                    on_init_complete="onInitComplete",
+                    source_s3_uri="sourceS3Uri"
                 ),
                 min_instance_count=123,
                 on_start_deep_health_checks=["onStartDeepHealthChecks"],
@@ -2817,12 +2818,12 @@ class CfnCluster(
             "instance_count": "instanceCount",
             "instance_group_name": "instanceGroupName",
             "instance_type": "instanceType",
-            "life_cycle_config": "lifeCycleConfig",
             "capacity_requirements": "capacityRequirements",
             "current_count": "currentCount",
             "image_id": "imageId",
             "instance_storage_configs": "instanceStorageConfigs",
             "kubernetes_config": "kubernetesConfig",
+            "life_cycle_config": "lifeCycleConfig",
             "min_instance_count": "minInstanceCount",
             "on_start_deep_health_checks": "onStartDeepHealthChecks",
             "override_vpc_config": "overrideVpcConfig",
@@ -2840,12 +2841,12 @@ class CfnCluster(
             instance_count: jsii.Number,
             instance_group_name: builtins.str,
             instance_type: builtins.str,
-            life_cycle_config: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.ClusterLifeCycleConfigProperty", typing.Dict[builtins.str, typing.Any]]],
             capacity_requirements: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.ClusterCapacityRequirementsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             current_count: typing.Optional[jsii.Number] = None,
             image_id: typing.Optional[builtins.str] = None,
             instance_storage_configs: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.ClusterInstanceStorageConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             kubernetes_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.ClusterKubernetesConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            life_cycle_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.ClusterLifeCycleConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             min_instance_count: typing.Optional[jsii.Number] = None,
             on_start_deep_health_checks: typing.Optional[typing.Sequence[builtins.str]] = None,
             override_vpc_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.VpcConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -2860,12 +2861,12 @@ class CfnCluster(
             :param instance_count: The number of instances in an instance group of the SageMaker HyperPod cluster.
             :param instance_group_name: The name of the instance group of a SageMaker HyperPod cluster.
             :param instance_type: The instance type of the instance group of a SageMaker HyperPod cluster.
-            :param life_cycle_config: The lifecycle configuration for a SageMaker HyperPod cluster.
             :param capacity_requirements: Specifies the capacity requirements configuration for an instance group.
             :param current_count: The number of instances that are currently in the instance group of a SageMaker HyperPod cluster.
             :param image_id: AMI Id to be used for launching EC2 instances - HyperPodPublicAmiId or CustomAmiId.
             :param instance_storage_configs: The configurations of additional storage specified to the instance group where the instance (node) is launched.
             :param kubernetes_config: Kubernetes configuration for cluster nodes including labels and taints.
+            :param life_cycle_config: The lifecycle configuration for a SageMaker HyperPod cluster.
             :param min_instance_count: The minimum number of instances required for the instance group to be InService. MinInstanceCount must be less than or equal to InstanceCount.
             :param on_start_deep_health_checks: A flag indicating whether deep health checks should be performed when the HyperPod cluster instance group is created or updated. Deep health checks are comprehensive, invasive tests that validate the health of the underlying hardware and infrastructure components.
             :param override_vpc_config: The customized Amazon VPC configuration at the instance group level that overrides the default Amazon VPC configuration of the SageMaker HyperPod cluster.
@@ -2891,10 +2892,6 @@ class CfnCluster(
                     instance_count=123,
                     instance_group_name="instanceGroupName",
                     instance_type="instanceType",
-                    life_cycle_config=sagemaker.CfnCluster.ClusterLifeCycleConfigProperty(
-                        on_create="onCreate",
-                        source_s3_uri="sourceS3Uri"
-                    ),
                 
                     # the properties below are optional
                     capacity_requirements=sagemaker.CfnCluster.ClusterCapacityRequirementsProperty(
@@ -2934,6 +2931,11 @@ class CfnCluster(
                             # the properties below are optional
                             value="value"
                         )]
+                    ),
+                    life_cycle_config=sagemaker.CfnCluster.ClusterLifeCycleConfigProperty(
+                        on_create="onCreate",
+                        on_init_complete="onInitComplete",
+                        source_s3_uri="sourceS3Uri"
                     ),
                     min_instance_count=123,
                     on_start_deep_health_checks=["onStartDeepHealthChecks"],
@@ -2980,12 +2982,12 @@ class CfnCluster(
                 check_type(argname="argument instance_count", value=instance_count, expected_type=type_hints["instance_count"])
                 check_type(argname="argument instance_group_name", value=instance_group_name, expected_type=type_hints["instance_group_name"])
                 check_type(argname="argument instance_type", value=instance_type, expected_type=type_hints["instance_type"])
-                check_type(argname="argument life_cycle_config", value=life_cycle_config, expected_type=type_hints["life_cycle_config"])
                 check_type(argname="argument capacity_requirements", value=capacity_requirements, expected_type=type_hints["capacity_requirements"])
                 check_type(argname="argument current_count", value=current_count, expected_type=type_hints["current_count"])
                 check_type(argname="argument image_id", value=image_id, expected_type=type_hints["image_id"])
                 check_type(argname="argument instance_storage_configs", value=instance_storage_configs, expected_type=type_hints["instance_storage_configs"])
                 check_type(argname="argument kubernetes_config", value=kubernetes_config, expected_type=type_hints["kubernetes_config"])
+                check_type(argname="argument life_cycle_config", value=life_cycle_config, expected_type=type_hints["life_cycle_config"])
                 check_type(argname="argument min_instance_count", value=min_instance_count, expected_type=type_hints["min_instance_count"])
                 check_type(argname="argument on_start_deep_health_checks", value=on_start_deep_health_checks, expected_type=type_hints["on_start_deep_health_checks"])
                 check_type(argname="argument override_vpc_config", value=override_vpc_config, expected_type=type_hints["override_vpc_config"])
@@ -2998,7 +3000,6 @@ class CfnCluster(
                 "instance_count": instance_count,
                 "instance_group_name": instance_group_name,
                 "instance_type": instance_type,
-                "life_cycle_config": life_cycle_config,
             }
             if capacity_requirements is not None:
                 self._values["capacity_requirements"] = capacity_requirements
@@ -3010,6 +3011,8 @@ class CfnCluster(
                 self._values["instance_storage_configs"] = instance_storage_configs
             if kubernetes_config is not None:
                 self._values["kubernetes_config"] = kubernetes_config
+            if life_cycle_config is not None:
+                self._values["life_cycle_config"] = life_cycle_config
             if min_instance_count is not None:
                 self._values["min_instance_count"] = min_instance_count
             if on_start_deep_health_checks is not None:
@@ -3066,18 +3069,6 @@ class CfnCluster(
             return typing.cast(builtins.str, result)
 
         @builtins.property
-        def life_cycle_config(
-            self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnCluster.ClusterLifeCycleConfigProperty"]:
-            '''The lifecycle configuration for a SageMaker HyperPod cluster.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-clusterinstancegroup.html#cfn-sagemaker-cluster-clusterinstancegroup-lifecycleconfig
-            '''
-            result = self._values.get("life_cycle_config")
-            assert result is not None, "Required property 'life_cycle_config' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCluster.ClusterLifeCycleConfigProperty"], result)
-
-        @builtins.property
         def capacity_requirements(
             self,
         ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.ClusterCapacityRequirementsProperty"]]:
@@ -3127,6 +3118,17 @@ class CfnCluster(
             '''
             result = self._values.get("kubernetes_config")
             return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.ClusterKubernetesConfigProperty"]], result)
+
+        @builtins.property
+        def life_cycle_config(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.ClusterLifeCycleConfigProperty"]]:
+            '''The lifecycle configuration for a SageMaker HyperPod cluster.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-clusterinstancegroup.html#cfn-sagemaker-cluster-clusterinstancegroup-lifecycleconfig
+            '''
+            result = self._values.get("life_cycle_config")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.ClusterLifeCycleConfigProperty"]], result)
 
         @builtins.property
         def min_instance_count(self) -> typing.Optional[jsii.Number]:
@@ -3505,18 +3507,24 @@ class CfnCluster(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_sagemaker.CfnCluster.ClusterLifeCycleConfigProperty",
         jsii_struct_bases=[],
-        name_mapping={"on_create": "onCreate", "source_s3_uri": "sourceS3Uri"},
+        name_mapping={
+            "on_create": "onCreate",
+            "on_init_complete": "onInitComplete",
+            "source_s3_uri": "sourceS3Uri",
+        },
     )
     class ClusterLifeCycleConfigProperty:
         def __init__(
             self,
             *,
-            on_create: builtins.str,
-            source_s3_uri: builtins.str,
+            on_create: typing.Optional[builtins.str] = None,
+            on_init_complete: typing.Optional[builtins.str] = None,
+            source_s3_uri: typing.Optional[builtins.str] = None,
         ) -> None:
             '''The lifecycle configuration for a SageMaker HyperPod cluster.
 
             :param on_create: The file name of the entrypoint script of lifecycle scripts under ``SourceS3Uri`` . This entrypoint script runs during cluster creation.
+            :param on_init_complete: The file name of the extension script under SourceS3Uri. This script runs after HyperPod configures the default software on the instance. Mutually exclusive with OnCreate.
             :param source_s3_uri: An Amazon S3 bucket path where your lifecycle scripts are stored. .. epigraph:: Make sure that the S3 bucket path starts with ``s3://sagemaker-`` . The `IAM role for SageMaker HyperPod <https://docs.aws.amazon.com/sagemaker/latest/dg/sagemaker-hyperpod-prerequisites.html#sagemaker-hyperpod-prerequisites-iam-role-for-hyperpod>`_ has the managed ```AmazonSageMakerClusterInstanceRolePolicy`` <https://docs.aws.amazon.com/sagemaker/latest/dg/security-iam-awsmanpol-cluster.html>`_ attached, which allows access to S3 buckets with the specific prefix ``sagemaker-`` .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-clusterlifecycleconfig.html
@@ -3530,20 +3538,25 @@ class CfnCluster(
                 
                 cluster_life_cycle_config_property = sagemaker.CfnCluster.ClusterLifeCycleConfigProperty(
                     on_create="onCreate",
+                    on_init_complete="onInitComplete",
                     source_s3_uri="sourceS3Uri"
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__9feca01a5855cd661f26c8dbf78069a1fe8e659c3851cf6144113cdfc3cdc58b)
                 check_type(argname="argument on_create", value=on_create, expected_type=type_hints["on_create"])
+                check_type(argname="argument on_init_complete", value=on_init_complete, expected_type=type_hints["on_init_complete"])
                 check_type(argname="argument source_s3_uri", value=source_s3_uri, expected_type=type_hints["source_s3_uri"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "on_create": on_create,
-                "source_s3_uri": source_s3_uri,
-            }
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if on_create is not None:
+                self._values["on_create"] = on_create
+            if on_init_complete is not None:
+                self._values["on_init_complete"] = on_init_complete
+            if source_s3_uri is not None:
+                self._values["source_s3_uri"] = source_s3_uri
 
         @builtins.property
-        def on_create(self) -> builtins.str:
+        def on_create(self) -> typing.Optional[builtins.str]:
             '''The file name of the entrypoint script of lifecycle scripts under ``SourceS3Uri`` .
 
             This entrypoint script runs during cluster creation.
@@ -3551,11 +3564,21 @@ class CfnCluster(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-clusterlifecycleconfig.html#cfn-sagemaker-cluster-clusterlifecycleconfig-oncreate
             '''
             result = self._values.get("on_create")
-            assert result is not None, "Required property 'on_create' is missing"
-            return typing.cast(builtins.str, result)
+            return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
-        def source_s3_uri(self) -> builtins.str:
+        def on_init_complete(self) -> typing.Optional[builtins.str]:
+            '''The file name of the extension script under SourceS3Uri.
+
+            This script runs after HyperPod configures the default software on the instance. Mutually exclusive with OnCreate.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-clusterlifecycleconfig.html#cfn-sagemaker-cluster-clusterlifecycleconfig-oninitcomplete
+            '''
+            result = self._values.get("on_init_complete")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def source_s3_uri(self) -> typing.Optional[builtins.str]:
             '''An Amazon S3 bucket path where your lifecycle scripts are stored.
 
             .. epigraph::
@@ -3565,8 +3588,7 @@ class CfnCluster(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-clusterlifecycleconfig.html#cfn-sagemaker-cluster-clusterlifecycleconfig-sources3uri
             '''
             result = self._values.get("source_s3_uri")
-            assert result is not None, "Required property 'source_s3_uri' is missing"
-            return typing.cast(builtins.str, result)
+            return typing.cast(typing.Optional[builtins.str], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4755,10 +4777,6 @@ class CfnClusterProps:
                     instance_count=123,
                     instance_group_name="instanceGroupName",
                     instance_type="instanceType",
-                    life_cycle_config=sagemaker.CfnCluster.ClusterLifeCycleConfigProperty(
-                        on_create="onCreate",
-                        source_s3_uri="sourceS3Uri"
-                    ),
             
                     # the properties below are optional
                     capacity_requirements=sagemaker.CfnCluster.ClusterCapacityRequirementsProperty(
@@ -4798,6 +4816,11 @@ class CfnClusterProps:
                             # the properties below are optional
                             value="value"
                         )]
+                    ),
+                    life_cycle_config=sagemaker.CfnCluster.ClusterLifeCycleConfigProperty(
+                        on_create="onCreate",
+                        on_init_complete="onInitComplete",
+                        source_s3_uri="sourceS3Uri"
                     ),
                     min_instance_count=123,
                     on_start_deep_health_checks=["onStartDeepHealthChecks"],
@@ -58050,12 +58073,12 @@ def _typecheckingstub__3a19719ba9f3f785eebfbcc6ee996f6178944dfe9cbd5d5cdf73341bd
     instance_count: jsii.Number,
     instance_group_name: builtins.str,
     instance_type: builtins.str,
-    life_cycle_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ClusterLifeCycleConfigProperty, typing.Dict[builtins.str, typing.Any]]],
     capacity_requirements: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ClusterCapacityRequirementsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     current_count: typing.Optional[jsii.Number] = None,
     image_id: typing.Optional[builtins.str] = None,
     instance_storage_configs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ClusterInstanceStorageConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     kubernetes_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ClusterKubernetesConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    life_cycle_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ClusterLifeCycleConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     min_instance_count: typing.Optional[jsii.Number] = None,
     on_start_deep_health_checks: typing.Optional[typing.Sequence[builtins.str]] = None,
     override_vpc_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.VpcConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -58095,8 +58118,9 @@ def _typecheckingstub__1d0383cb8099439eaf261aa1516edd0bee7f57743dd02fc3f1d8db1b4
 
 def _typecheckingstub__9feca01a5855cd661f26c8dbf78069a1fe8e659c3851cf6144113cdfc3cdc58b(
     *,
-    on_create: builtins.str,
-    source_s3_uri: builtins.str,
+    on_create: typing.Optional[builtins.str] = None,
+    on_init_complete: typing.Optional[builtins.str] = None,
+    source_s3_uri: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -22,14 +22,15 @@ use autopilot_client::{
     CreateEventRequest, CreateEventResponse, EventPayloadMessageContent,
     EventPayloadMessageMetadata, GatewayListConfigWritesResponse, GatewayListEventsResponse,
     GatewayStreamUpdate, ListConfigWritesParams, ListEventsParams, ListSessionsParams,
-    ListSessionsResponse, S3UploadRequest, S3UploadResponse, StreamEventsParams,
+    ListSessionsResponse, S3UploadRequest, S3UploadResponse, SessionStatusDetail,
+    StreamEventsParams,
 };
 use tensorzero_types::ResolveUuidResponse;
 
 use crate::db::resolve_uuid::ResolveUuidQueries;
 use crate::endpoints::status::TENSORZERO_VERSION;
 use crate::error::{DisplayOrDebugGateway, Error, ErrorDetails};
-use crate::utils::gateway::{AppState, AppStateData, StructuredJson};
+use crate::utils::gateway::{AppState, ResolvedAppStateData, StructuredJson};
 
 // UUID regex: 8-4-4-4-12 hex pattern
 static UUID_REGEX: LazyLock<Regex> = LazyLock::new(|| {
@@ -92,7 +93,7 @@ pub struct AutopilotStatusResponse {
 // embedded client without going through HTTP.
 
 /// Helper to get the autopilot client or return an error.
-fn get_autopilot_client(app_state: &AppStateData) -> Result<Arc<AutopilotClient>, Error> {
+fn get_autopilot_client(app_state: &ResolvedAppStateData) -> Result<Arc<AutopilotClient>, Error> {
     app_state
         .autopilot_client
         .clone()
@@ -145,7 +146,7 @@ async fn resolve_uuids(
 /// for individual UUIDs are logged and skipped (best-effort).
 async fn resolve_uuids_in_message(
     content: &[EventPayloadMessageContent],
-    app_state: &AppStateData,
+    app_state: &ResolvedAppStateData,
 ) -> Vec<ResolveUuidResponse> {
     let uuids = extract_uuids_from_content(content);
 
@@ -277,6 +278,19 @@ pub async fn s3_initiate_upload(
         .map_err(Error::from)
 }
 
+/// Fetch detailed status information for a session from the Autopilot API.
+///
+/// This is the core function called by both the HTTP handler and embedded client.
+pub async fn get_status_detail(
+    autopilot_client: &AutopilotClient,
+    session_id: Uuid,
+) -> Result<SessionStatusDetail, Error> {
+    autopilot_client
+        .get_status_detail(session_id)
+        .await
+        .map_err(Error::from)
+}
+
 // =============================================================================
 // HTTP Handlers
 // =============================================================================
@@ -284,7 +298,6 @@ pub async fn s3_initiate_upload(
 /// Handler for `GET /internal/autopilot/v1/sessions`
 ///
 /// Lists sessions from the Autopilot API.
-#[axum::debug_handler(state = AppStateData)]
 #[instrument(name = "autopilot.list_sessions", skip_all)]
 pub async fn list_sessions_handler(
     State(app_state): AppState,
@@ -298,7 +311,6 @@ pub async fn list_sessions_handler(
 /// Handler for `GET /internal/autopilot/v1/sessions/{session_id}/events`
 ///
 /// Lists events for a session from the Autopilot API.
-#[axum::debug_handler(state = AppStateData)]
 #[instrument(name = "autopilot.list_events", skip_all, fields(session_id = %session_id))]
 pub async fn list_events_handler(
     State(app_state): AppState,
@@ -315,7 +327,6 @@ pub async fn list_events_handler(
 /// Creates an event in a session via the Autopilot API.
 /// The deployment_id is injected from the gateway's app state.
 /// Any headers with a `tensorzero-` prefix are forwarded to the remote server.
-#[axum::debug_handler(state = AppStateData)]
 #[instrument(name = "autopilot.create_event", skip_all, fields(session_id = %session_id))]
 pub async fn create_event_handler(
     State(app_state): AppState,
@@ -377,7 +388,6 @@ pub async fn create_event_handler(
 ///
 /// Approves all pending tool calls for a session via the Autopilot API.
 /// The deployment_id and tensorzero_version are injected from the gateway's app state.
-#[axum::debug_handler(state = AppStateData)]
 #[instrument(name = "autopilot.approve_all_tool_calls", skip_all, fields(session_id = %session_id))]
 pub async fn approve_all_tool_calls_handler(
     State(app_state): AppState,
@@ -404,7 +414,6 @@ pub async fn approve_all_tool_calls_handler(
 /// Handler for `POST /internal/autopilot/v1/sessions/{session_id}/actions/interrupt`
 ///
 /// Interrupts an autopilot session via the Autopilot API.
-#[axum::debug_handler(state = AppStateData)]
 #[instrument(name = "autopilot.interrupt_session", skip_all, fields(session_id = %session_id))]
 pub async fn interrupt_session_handler(
     State(app_state): AppState,
@@ -414,10 +423,23 @@ pub async fn interrupt_session_handler(
     interrupt_session(&client, session_id).await
 }
 
+/// Handler for `GET /internal/autopilot/v1/sessions/{session_id}/status_detail`
+///
+/// Returns detailed status information for a session (e.g. whether the
+/// underlying durable task is in a terminal state).
+#[instrument(name = "autopilot.status_detail", skip_all, fields(session_id = %session_id))]
+pub async fn status_detail_handler(
+    State(app_state): AppState,
+    Path(session_id): Path<Uuid>,
+) -> Result<Json<SessionStatusDetail>, Error> {
+    let client = get_autopilot_client(&app_state)?;
+    let response = get_status_detail(&client, session_id).await?;
+    Ok(Json(response))
+}
+
 /// Handler for `GET /internal/autopilot/v1/sessions/{session_id}/config-writes`
 ///
 /// Lists config writes (write_config tool calls) for a session from the Autopilot API.
-#[axum::debug_handler(state = AppStateData)]
 #[instrument(name = "autopilot.list_config_writes", skip_all, fields(session_id = %session_id))]
 pub async fn list_config_writes_handler(
     State(app_state): AppState,
@@ -432,7 +454,6 @@ pub async fn list_config_writes_handler(
 /// Handler for `POST /internal/autopilot/v1/sessions/{session_id}/aws/s3_initiate_upload`
 ///
 /// Initiates an S3 upload via the Autopilot API.
-#[axum::debug_handler(state = AppStateData)]
 #[instrument(name = "autopilot.s3_initiate_upload", skip_all)]
 pub async fn s3_initiate_upload_handler(
     State(app_state): AppState,
@@ -462,7 +483,6 @@ pub async fn autopilot_status_handler(State(app_state): AppState) -> Json<Autopi
 ///
 /// Streams events for a session via SSE from the Autopilot API.
 /// Note: The #[instrument] macro is not used here due to lifetime issues with the SSE stream.
-#[axum::debug_handler(state = AppStateData)]
 pub async fn stream_events_handler(
     State(app_state): AppState,
     Path(session_id): Path<Uuid>,
@@ -516,11 +536,12 @@ mod tests {
     use crate::db::valkey::ValkeyConnectionInfo;
     use crate::http::TensorzeroHttpClient;
     use crate::inference::types::FunctionType;
+    use crate::utils::gateway::AppStateData;
     use async_trait::async_trait;
     use tokio_util::sync::CancellationToken;
     use tokio_util::task::TaskTracker;
 
-    fn make_test_app_state_without_autopilot() -> AppStateData {
+    fn make_test_app_state_without_autopilot() -> ResolvedAppStateData {
         let config = std::sync::Arc::new(Config::default());
         let http_client = TensorzeroHttpClient::new_testing().unwrap();
         let clickhouse_connection_info = ClickHouseConnectionInfo::new_disabled();
@@ -528,6 +549,7 @@ mod tests {
 
         AppStateData::new_for_snapshot(
             config,
+            std::sync::Arc::new(crate::config::RuntimeOverlay::default()),
             http_client,
             clickhouse_connection_info,
             postgres_connection_info,

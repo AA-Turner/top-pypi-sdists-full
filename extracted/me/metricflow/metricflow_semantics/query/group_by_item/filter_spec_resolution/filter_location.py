@@ -4,8 +4,10 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Sequence, Tuple
 
-from dbt_semantic_interfaces.references import MetricReference
 from more_itertools import is_sorted
+
+from metricflow_semantic_interfaces.dataclass_serialization import SerializableDataclass
+from metricflow_semantic_interfaces.references import MetricReference
 
 
 class WhereFilterLocationType(Enum):
@@ -17,7 +19,7 @@ class WhereFilterLocationType(Enum):
 
 
 @dataclass(frozen=True)
-class WhereFilterLocation:
+class WhereFilterLocation(SerializableDataclass):
     """Describe the location of a where filter.
 
     When describing a query, the metric references are the metrics in the query.

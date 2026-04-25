@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: docling-jobkit
-Version: 1.17.1
+Version: 1.18.0
 Summary: Running a distributed job processing documents with Docling.
 Project-URL: Homepage, https://github.com/docling-project/docling-jobkit
 Project-URL: Documentation, https://docling-project.github.io/docling/usage/jobkit/

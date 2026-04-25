@@ -6,6 +6,7 @@ use pyo3::types::{PyAnyMethods, PyBytesMethods};
 
 use crate::backend::hashes::Hash;
 use crate::error::{CryptographyError, CryptographyResult};
+use crate::serialization::{Encoding, PrivateFormat, PublicFormat};
 use crate::types;
 
 pub(crate) fn py_int_to_bn(
@@ -37,35 +38,17 @@ pub(crate) fn bn_to_py_int<'p>(
     )?)
 }
 
-pub(crate) fn bn_to_big_endian_bytes(b: &openssl::bn::BigNumRef) -> CryptographyResult<Vec<u8>> {
-    Ok(b.to_vec_padded(b.num_bits() / 8 + 1)?)
-}
-
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn pkey_private_bytes<'p>(
     py: pyo3::Python<'p>,
     key_obj: &pyo3::Bound<'p, pyo3::PyAny>,
     pkey: &openssl::pkey::PKey<openssl::pkey::Private>,
-    encoding: &pyo3::Bound<'p, pyo3::PyAny>,
-    format: &pyo3::Bound<'p, pyo3::PyAny>,
+    encoding: Encoding,
+    format: PrivateFormat,
     encryption_algorithm: &pyo3::Bound<'p, pyo3::PyAny>,
     openssh_allowed: bool,
     raw_allowed: bool,
 ) -> CryptographyResult<pyo3::Bound<'p, pyo3::types::PyBytes>> {
-    if !encoding.is_instance(&types::ENCODING.get(py)?)? {
-        return Err(CryptographyError::from(
-            pyo3::exceptions::PyTypeError::new_err(
-                "encoding must be an item from the Encoding enum",
-            ),
-        ));
-    }
-    if !format.is_instance(&types::PRIVATE_FORMAT.get(py)?)? {
-        return Err(CryptographyError::from(
-            pyo3::exceptions::PyTypeError::new_err(
-                "format must be an item from the PrivateFormat enum",
-            ),
-        ));
-    }
     if !encryption_algorithm.is_instance(&types::KEY_SERIALIZATION_ENCRYPTION.get(py)?)? {
         return Err(CryptographyError::from(
             pyo3::exceptions::PyTypeError::new_err(
@@ -74,12 +57,9 @@ pub(crate) fn pkey_private_bytes<'p>(
         ));
     }
 
-    if raw_allowed
-        && (encoding.is(&types::ENCODING_RAW.get(py)?)
-            || format.is(&types::PRIVATE_FORMAT_RAW.get(py)?))
-    {
-        if !encoding.is(&types::ENCODING_RAW.get(py)?)
-            || !format.is(&types::PRIVATE_FORMAT_RAW.get(py)?)
+    if raw_allowed && (encoding == Encoding::Raw || format == PrivateFormat::Raw) {
+        if encoding != Encoding::Raw
+            || format != PrivateFormat::Raw
             || !encryption_algorithm.is_instance(&types::NO_ENCRYPTION.get(py)?)?
         {
             return Err(CryptographyError::from(pyo3::exceptions::PyValueError::new_err(
@@ -97,7 +77,8 @@ pub(crate) fn pkey_private_bytes<'p>(
         || (encryption_algorithm.is_instance(&types::ENCRYPTION_BUILDER.get(py)?)?
             && encryption_algorithm
                 .getattr(pyo3::intern!(py, "_format"))?
-                .is(format))
+                .extract::<PrivateFormat>()?
+                == format)
     {
         py_password = encryption_algorithm
             .getattr(pyo3::intern!(py, "password"))?
@@ -117,34 +98,26 @@ pub(crate) fn pkey_private_bytes<'p>(
         ));
     }
 
-    if format.is(&types::PRIVATE_FORMAT_PKCS8.get(py)?) {
-        if encoding.is(&types::ENCODING_PEM.get(py)?) {
-            let pem_bytes = if password.is_empty() {
-                pkey.private_key_to_pem_pkcs8()?
-            } else {
-                pkey.private_key_to_pem_pkcs8_passphrase(
-                    openssl::symm::Cipher::aes_256_cbc(),
-                    password,
-                )?
-            };
-            return Ok(pyo3::types::PyBytes::new(py, &pem_bytes));
-        } else if encoding.is(&types::ENCODING_DER.get(py)?) {
-            let der_bytes = if password.is_empty() {
-                pkey.private_key_to_pkcs8()?
-            } else {
-                pkey.private_key_to_pkcs8_passphrase(
-                    openssl::symm::Cipher::aes_256_cbc(),
-                    password,
-                )?
-            };
-            return Ok(pyo3::types::PyBytes::new(py, &der_bytes));
-        }
-        return Err(CryptographyError::from(
-            pyo3::exceptions::PyValueError::new_err("Unsupported encoding for PKCS8"),
-        ));
+    if format == PrivateFormat::PKCS8 {
+        let parsed = cryptography_key_parsing::ParsedPrivateKey::Pkey(pkey.to_owned());
+        let (tag, der_bytes) = if password.is_empty() {
+            (
+                "PRIVATE KEY",
+                cryptography_key_parsing::pkcs8::serialize_private_key(&parsed)?,
+            )
+        } else {
+            (
+                "ENCRYPTED PRIVATE KEY",
+                cryptography_key_parsing::pkcs8::serialize_encrypted_private_key(
+                    &parsed, password,
+                )?,
+            )
+        };
+
+        return crate::asn1::encode_der_data(py, tag.to_string(), der_bytes, encoding);
     }
 
-    if format.is(&types::PRIVATE_FORMAT_TRADITIONAL_OPENSSL.get(py)?) {
+    if format == PrivateFormat::TraditionalOpenSSL {
         if cryptography_openssl::fips::is_enabled() && !password.is_empty() {
             return Err(CryptographyError::from(
                 pyo3::exceptions::PyValueError::new_err(
@@ -153,17 +126,15 @@ pub(crate) fn pkey_private_bytes<'p>(
             ));
         }
         if let Ok(rsa) = pkey.rsa() {
-            if encoding.is(&types::ENCODING_PEM.get(py)?) {
-                let pem_bytes = if password.is_empty() {
-                    rsa.private_key_to_pem()?
-                } else {
-                    rsa.private_key_to_pem_passphrase(
-                        openssl::symm::Cipher::aes_256_cbc(),
-                        password,
-                    )?
-                };
+            let der_bytes = cryptography_key_parsing::rsa::serialize_pkcs1_private_key(&rsa)?;
+            if encoding == Encoding::PEM {
+                let pem_bytes = cryptography_key_parsing::pem::encrypt_pem(
+                    "RSA PRIVATE KEY",
+                    &der_bytes,
+                    password,
+                )?;
                 return Ok(pyo3::types::PyBytes::new(py, &pem_bytes));
-            } else if encoding.is(&types::ENCODING_DER.get(py)?) {
+            } else if encoding == Encoding::DER {
                 if !password.is_empty() {
                     return Err(CryptographyError::from(
                         pyo3::exceptions::PyValueError::new_err(
@@ -172,21 +143,18 @@ pub(crate) fn pkey_private_bytes<'p>(
                     ));
                 }
 
-                let der_bytes = rsa.private_key_to_der()?;
                 return Ok(pyo3::types::PyBytes::new(py, &der_bytes));
             }
         } else if let Ok(dsa) = pkey.dsa() {
-            if encoding.is(&types::ENCODING_PEM.get(py)?) {
-                let pem_bytes = if password.is_empty() {
-                    dsa.private_key_to_pem()?
-                } else {
-                    dsa.private_key_to_pem_passphrase(
-                        openssl::symm::Cipher::aes_256_cbc(),
-                        password,
-                    )?
-                };
+            let der_bytes = cryptography_key_parsing::dsa::serialize_pkcs1_private_key(&dsa)?;
+            if encoding == Encoding::PEM {
+                let pem_bytes = cryptography_key_parsing::pem::encrypt_pem(
+                    "DSA PRIVATE KEY",
+                    &der_bytes,
+                    password,
+                )?;
                 return Ok(pyo3::types::PyBytes::new(py, &pem_bytes));
-            } else if encoding.is(&types::ENCODING_DER.get(py)?) {
+            } else if encoding == Encoding::DER {
                 if !password.is_empty() {
                     return Err(CryptographyError::from(
                         pyo3::exceptions::PyValueError::new_err(
@@ -195,21 +163,18 @@ pub(crate) fn pkey_private_bytes<'p>(
                     ));
                 }
 
-                let der_bytes = dsa.private_key_to_der()?;
                 return Ok(pyo3::types::PyBytes::new(py, &der_bytes));
             }
         } else if let Ok(ec) = pkey.ec_key() {
-            if encoding.is(&types::ENCODING_PEM.get(py)?) {
-                let pem_bytes = if password.is_empty() {
-                    ec.private_key_to_pem()?
-                } else {
-                    ec.private_key_to_pem_passphrase(
-                        openssl::symm::Cipher::aes_256_cbc(),
-                        password,
-                    )?
-                };
+            let der_bytes = cryptography_key_parsing::ec::serialize_pkcs1_private_key(&ec, true)?;
+            if encoding == Encoding::PEM {
+                let pem_bytes = cryptography_key_parsing::pem::encrypt_pem(
+                    "EC PRIVATE KEY",
+                    &der_bytes,
+                    password,
+                )?;
                 return Ok(pyo3::types::PyBytes::new(py, &pem_bytes));
-            } else if encoding.is(&types::ENCODING_DER.get(py)?) {
+            } else if encoding == Encoding::DER {
                 if !password.is_empty() {
                     return Err(CryptographyError::from(
                         pyo3::exceptions::PyValueError::new_err(
@@ -218,15 +183,14 @@ pub(crate) fn pkey_private_bytes<'p>(
                     ));
                 }
 
-                let der_bytes = ec.private_key_to_der()?;
                 return Ok(pyo3::types::PyBytes::new(py, &der_bytes));
             }
         }
     }
 
     // OpenSSH + PEM
-    if openssh_allowed && format.is(&types::PRIVATE_FORMAT_OPENSSH.get(py)?) {
-        if encoding.is(&types::ENCODING_PEM.get(py)?) {
+    if openssh_allowed && format == PrivateFormat::OpenSSH {
+        if encoding == Encoding::PEM {
             return Ok(types::SERIALIZE_SSH_PRIVATE_KEY
                 .get(py)?
                 .call1((key_obj, password, encryption_algorithm))?
@@ -249,33 +213,13 @@ pub(crate) fn pkey_public_bytes<'p>(
     py: pyo3::Python<'p>,
     key_obj: &pyo3::Bound<'p, pyo3::PyAny>,
     pkey: &openssl::pkey::PKey<openssl::pkey::Public>,
-    encoding: &pyo3::Bound<'p, pyo3::PyAny>,
-    format: &pyo3::Bound<'p, pyo3::PyAny>,
+    encoding: Encoding,
+    format: PublicFormat,
     openssh_allowed: bool,
     raw_allowed: bool,
 ) -> CryptographyResult<pyo3::Bound<'p, pyo3::types::PyBytes>> {
-    if !encoding.is_instance(&types::ENCODING.get(py)?)? {
-        return Err(CryptographyError::from(
-            pyo3::exceptions::PyTypeError::new_err(
-                "encoding must be an item from the Encoding enum",
-            ),
-        ));
-    }
-    if !format.is_instance(&types::PUBLIC_FORMAT.get(py)?)? {
-        return Err(CryptographyError::from(
-            pyo3::exceptions::PyTypeError::new_err(
-                "format must be an item from the PublicFormat enum",
-            ),
-        ));
-    }
-
-    if raw_allowed
-        && (encoding.is(&types::ENCODING_RAW.get(py)?)
-            || format.is(&types::PUBLIC_FORMAT_RAW.get(py)?))
-    {
-        if !encoding.is(&types::ENCODING_RAW.get(py)?)
-            || !format.is(&types::PUBLIC_FORMAT_RAW.get(py)?)
-        {
+    if raw_allowed && (encoding == Encoding::Raw || format == PublicFormat::Raw) {
+        if encoding != Encoding::Raw || format != PublicFormat::Raw {
             return Err(CryptographyError::from(
                 pyo3::exceptions::PyValueError::new_err(
                     "When using Raw both encoding and format must be Raw",
@@ -287,33 +231,24 @@ pub(crate) fn pkey_public_bytes<'p>(
     }
 
     // SubjectPublicKeyInfo + PEM/DER
-    if format.is(&types::PUBLIC_FORMAT_SUBJECT_PUBLIC_KEY_INFO.get(py)?) {
-        if encoding.is(&types::ENCODING_PEM.get(py)?) {
-            let pem_bytes = pkey.public_key_to_pem()?;
-            return Ok(pyo3::types::PyBytes::new(py, &pem_bytes));
-        } else if encoding.is(&types::ENCODING_DER.get(py)?) {
-            let der_bytes = pkey.public_key_to_der()?;
-            return Ok(pyo3::types::PyBytes::new(py, &der_bytes));
-        }
-        return Err(CryptographyError::from(
-            pyo3::exceptions::PyValueError::new_err(
-                "SubjectPublicKeyInfo works only with PEM or DER encoding",
-            ),
-        ));
+    if format == PublicFormat::SubjectPublicKeyInfo {
+        let der_bytes = cryptography_key_parsing::spki::serialize_public_key(pkey)?;
+
+        return crate::asn1::encode_der_data(py, "PUBLIC KEY".to_string(), der_bytes, encoding);
     }
 
     if let Ok(ec) = pkey.ec_key() {
-        if encoding.is(&types::ENCODING_X962.get(py)?) {
-            let point_form = if format.is(&types::PUBLIC_FORMAT_UNCOMPRESSED_POINT.get(py)?) {
-                openssl::ec::PointConversionForm::UNCOMPRESSED
-            } else if format.is(&types::PUBLIC_FORMAT_COMPRESSED_POINT.get(py)?) {
-                openssl::ec::PointConversionForm::COMPRESSED
-            } else {
-                return Err(CryptographyError::from(
-                    pyo3::exceptions::PyValueError::new_err(
-                        "X962 encoding must be used with CompressedPoint or UncompressedPoint format"
-                    )
-                ));
+        if encoding == Encoding::X962 {
+            let point_form = match format {
+                PublicFormat::UncompressedPoint => openssl::ec::PointConversionForm::UNCOMPRESSED,
+                PublicFormat::CompressedPoint => openssl::ec::PointConversionForm::COMPRESSED,
+                _ => {
+                    return Err(CryptographyError::from(
+                        pyo3::exceptions::PyValueError::new_err(
+                            "X962 encoding must be used with CompressedPoint or UncompressedPoint format"
+                        )
+                    ));
+                }
             };
             let mut bn_ctx = openssl::bn::BigNumContext::new()?;
             let data = ec
@@ -324,25 +259,21 @@ pub(crate) fn pkey_public_bytes<'p>(
     }
 
     if let Ok(rsa) = pkey.rsa() {
-        if format.is(&types::PUBLIC_FORMAT_PKCS1.get(py)?) {
-            if encoding.is(&types::ENCODING_PEM.get(py)?) {
-                let pem_bytes = rsa.public_key_to_pem_pkcs1()?;
-                return Ok(pyo3::types::PyBytes::new(py, &pem_bytes));
-            } else if encoding.is(&types::ENCODING_DER.get(py)?) {
-                let der_bytes = rsa.public_key_to_der_pkcs1()?;
-                return Ok(pyo3::types::PyBytes::new(py, &der_bytes));
-            }
-            return Err(CryptographyError::from(
-                pyo3::exceptions::PyValueError::new_err(
-                    "PKCS1 works only with PEM or DER encoding",
-                ),
-            ));
+        if format == PublicFormat::PKCS1 {
+            let der_bytes = cryptography_key_parsing::rsa::serialize_pkcs1_public_key(&rsa)?;
+
+            return crate::asn1::encode_der_data(
+                py,
+                "RSA PUBLIC KEY".to_string(),
+                der_bytes,
+                encoding,
+            );
         }
     }
 
     // OpenSSH + OpenSSH
-    if openssh_allowed && format.is(&types::PUBLIC_FORMAT_OPENSSH.get(py)?) {
-        if encoding.is(&types::ENCODING_OPENSSH.get(py)?) {
+    if openssh_allowed && format == PublicFormat::OpenSSH {
+        if encoding == Encoding::OpenSSH {
             return Ok(types::SERIALIZE_SSH_PUBLIC_KEY
                 .get(py)?
                 .call1((key_obj,))?

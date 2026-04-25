@@ -12,7 +12,6 @@ from .current_user import CurrentUser
 from .github_repositories import GithubRepositories
 from .halt_chat_stream import HaltChatStream
 from .input_types import ChatConfigInput, ChatInput, ChatResourceConfigInput
-from .refresh_api_key import RefreshApiKey
 from .set_login_complete import SetLoginComplete
 from .start_chat_turn import StartChatTurn
 
@@ -141,24 +140,6 @@ class IndentGraphQLClient(AsyncBaseClient):
         )
         data = self.get_data(response)
         return HaltChatStream.model_validate(data)
-
-    async def refresh_api_key(self, **kwargs: Any) -> RefreshApiKey:
-        query = gql("""
-            mutation RefreshApiKey {
-              refreshApiKey(input: {}) {
-                __typename
-                ... on User {
-                  userApiKey
-                }
-              }
-            }
-            """)
-        variables: dict[str, object] = {}
-        response = await self.execute(
-            query=query, operation_name="RefreshApiKey", variables=variables, **kwargs
-        )
-        data = self.get_data(response)
-        return RefreshApiKey.model_validate(data)
 
     async def set_login_complete(self, **kwargs: Any) -> SetLoginComplete:
         query = gql("""

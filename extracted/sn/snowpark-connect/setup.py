@@ -49,7 +49,7 @@ setup(
         "protobuf>=4.25.3,<6.34",
         "s3fs>=2025.3.0",  # prod-297255-inc0132291
         "snowflake.core>=1.0.5,<2",
-        "snowflake-snowpark-python[pandas]>=1.49.0,<1.50.0",
+        "snowflake-snowpark-python[pandas]>=1.50.0,<1.51.0",
         "snowflake-connector-python>=3.18.0,<4.2.0",
         "sqlglot>=26.3.8",
         "aiobotocore>=2.23.0,<=2.26.0",

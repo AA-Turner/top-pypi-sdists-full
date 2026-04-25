@@ -1,18 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional, Sequence, Tuple
+from typing import Iterable, Optional, Sequence, Tuple
 
-from dbt_semantic_interfaces.call_parameter_sets import (
-    DimensionCallParameterSet,
-    EntityCallParameterSet,
-    MetricCallParameterSet,
-    TimeDimensionCallParameterSet,
-)
-from dbt_semantic_interfaces.references import EntityReference
-from dbt_semantic_interfaces.type_enums.date_part import DatePart
-from typing_extensions import override
-
+from metricflow_semantics.errors.error_classes import UnableToSatisfyQueryError
 from metricflow_semantics.model.linkable_element_property import GroupByItemProperty
 from metricflow_semantics.model.semantics.element_filter import GroupByItemSetFilter
 from metricflow_semantics.naming.linkable_spec_name import StructuredLinkableSpecName
@@ -23,6 +14,16 @@ from metricflow_semantics.specs.patterns.entity_link_pattern import (
     SpecPatternParameterSet,
 )
 from metricflow_semantics.specs.spec_set import group_specs_by_type
+from typing_extensions import override
+
+from metricflow_semantic_interfaces.call_parameter_sets import (
+    DimensionCallParameterSet,
+    EntityCallParameterSet,
+    MetricCallParameterSet,
+    TimeDimensionCallParameterSet,
+)
+from metricflow_semantic_interfaces.references import EntityReference
+from metricflow_semantic_interfaces.type_enums.date_part import DatePart
 
 
 @dataclass(frozen=True)
@@ -35,7 +36,7 @@ class DimensionPattern(EntityLinkPattern):
     include_time_dimensions: bool = True
 
     @override
-    def match(self, candidate_specs: Sequence[InstanceSpec]) -> Sequence[LinkableInstanceSpec]:
+    def match(self, candidate_specs: Iterable[InstanceSpec]) -> Sequence[LinkableInstanceSpec]:
         spec_set = group_specs_by_type(candidate_specs)
         filtered_specs: Tuple[LinkableInstanceSpec, ...] = spec_set.dimension_specs
         if self.include_time_dimensions:
@@ -77,7 +78,7 @@ class TimeDimensionPattern(EntityLinkPattern):
     """
 
     @override
-    def match(self, candidate_specs: Sequence[InstanceSpec]) -> Sequence[LinkableInstanceSpec]:
+    def match(self, candidate_specs: Iterable[InstanceSpec]) -> Sequence[LinkableInstanceSpec]:
         spec_set = group_specs_by_type(candidate_specs)
         return super().match(spec_set.time_dimension_specs)
 
@@ -138,7 +139,7 @@ class EntityPattern(EntityLinkPattern):
     """
 
     @override
-    def match(self, candidate_specs: Sequence[InstanceSpec]) -> Sequence[LinkableInstanceSpec]:
+    def match(self, candidate_specs: Iterable[InstanceSpec]) -> Sequence[LinkableInstanceSpec]:
         spec_set = group_specs_by_type(candidate_specs)
         return super().match(spec_set.entity_specs)
 
@@ -167,7 +168,7 @@ class GroupByMetricPattern(EntityLinkPattern):
     """A pattern that matches metrics using the group by specifications."""
 
     @override
-    def match(self, candidate_specs: Sequence[InstanceSpec]) -> Sequence[LinkableInstanceSpec]:
+    def match(self, candidate_specs: Iterable[InstanceSpec]) -> Sequence[LinkableInstanceSpec]:
         spec_set = group_specs_by_type(candidate_specs)
         return super().match(spec_set.group_by_metric_specs)
 
@@ -178,10 +179,7 @@ class GroupByMetricPattern(EntityLinkPattern):
         # This looks hacky because the typing for the interface does not match the implementation, but that's temporary!
         # This will get a lot less hacky once we enable multiple entities and dimensions in the group by.
         if len(metric_call_parameter_set.group_by) != 1:
-            raise RuntimeError(
-                "Currently only one group by item is allowed for Metric filters. "
-                "This should have been caught by validations."
-            )
+            raise UnableToSatisfyQueryError("Currently only one group by item is allowed for Metric filters.")
         group_by = metric_call_parameter_set.group_by[0]
         # custom_granularity_names is empty because we are not parsing any dimensions here with grain
         structured_name = StructuredLinkableSpecName.from_name(

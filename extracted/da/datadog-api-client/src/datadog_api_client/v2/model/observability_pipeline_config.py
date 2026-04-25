@@ -26,6 +26,9 @@ if TYPE_CHECKING:
     from datadog_api_client.v2.model.observability_pipeline_config_source_item import (
         ObservabilityPipelineConfigSourceItem,
     )
+    from datadog_api_client.v2.model.observability_pipeline_elasticsearch_destination import (
+        ObservabilityPipelineElasticsearchDestination,
+    )
     from datadog_api_client.v2.model.observability_pipeline_http_client_destination import (
         ObservabilityPipelineHttpClientDestination,
     )
@@ -50,9 +53,6 @@ if TYPE_CHECKING:
     )
     from datadog_api_client.v2.model.observability_pipeline_datadog_logs_destination import (
         ObservabilityPipelineDatadogLogsDestination,
-    )
-    from datadog_api_client.v2.model.observability_pipeline_elasticsearch_destination import (
-        ObservabilityPipelineElasticsearchDestination,
     )
     from datadog_api_client.v2.model.observability_pipeline_google_chronicle_destination import (
         ObservabilityPipelineGoogleChronicleDestination,
@@ -172,6 +172,7 @@ class ObservabilityPipelineConfig(ModelNormal):
         destinations: List[
             Union[
                 ObservabilityPipelineConfigDestinationItem,
+                ObservabilityPipelineElasticsearchDestination,
                 ObservabilityPipelineHttpClientDestination,
                 ObservabilityPipelineAmazonOpenSearchDestination,
                 ObservabilityPipelineAmazonS3Destination,
@@ -181,7 +182,6 @@ class ObservabilityPipelineConfig(ModelNormal):
                 ObservabilityPipelineCloudPremDestination,
                 ObservabilityPipelineCrowdStrikeNextGenSiemDestination,
                 ObservabilityPipelineDatadogLogsDestination,
-                ObservabilityPipelineElasticsearchDestination,
                 ObservabilityPipelineGoogleChronicleDestination,
                 ObservabilityPipelineGoogleCloudStorageDestination,
                 ObservabilityPipelineGooglePubSubDestination,
@@ -249,6 +249,7 @@ class ObservabilityPipelineConfig(ModelNormal):
         :param use_legacy_search_syntax: Set to ``true`` to continue using the legacy search syntax while migrating filter queries. After migrating all queries to the new syntax, set to ``false``.
             The legacy syntax is deprecated and will eventually be removed.
             Requires Observability Pipelines Worker 2.11 or later.
+            Only applies to ``logs`` pipelines. This field is ignored for ``metrics`` pipelines.
             See `Upgrade Your Filter Queries to the New Search Syntax <https://docs.datadoghq.com/observability_pipelines/guide/upgrade_your_filter_queries_to_the_new_search_syntax/>`_ for more information.
         :type use_legacy_search_syntax: bool, optional
         """

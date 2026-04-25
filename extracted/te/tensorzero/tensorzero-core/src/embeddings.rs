@@ -1,9 +1,6 @@
-use std::collections::HashMap;
-use std::future::Future;
+use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
 use std::time::Duration;
-
-use indexmap::IndexMap;
 
 use crate::cache::{
     CacheData, CacheValidationInfo, EmbeddingCacheData, EmbeddingModelProviderRequest,
@@ -17,7 +14,7 @@ use crate::inference::types::RequestMessagesOrBatch;
 use crate::inference::types::extra_body::ExtraBodyConfig;
 use crate::inference::types::extra_headers::ExtraHeadersConfig;
 use crate::inference::types::{ContentBlock, Text};
-use crate::model::{ModelProviderRequestInfo, UninitializedProviderConfig};
+use crate::model::UninitializedProviderConfig;
 use crate::model_table::{BaseModelTable, ProviderKind, ProviderTypeDefaultCredentials};
 use crate::model_table::{OpenAIKind, OpenRouterKind, ShorthandModelConfig};
 use crate::providers::azure::AzureProvider;
@@ -38,7 +35,13 @@ use crate::{
     providers::openai::{OpenAIAPIType, OpenAIProvider},
 };
 use futures::future::try_join_all;
+use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
+use tensorzero_stored_config::{
+    StoredEmbeddingModelConfig, StoredEmbeddingProviderConfig, StoredProviderConfig,
+    StoredUnifiedCostConfig,
+};
+use tensorzero_stored_config::{StoredExtraBodyConfig, StoredExtraHeadersConfig};
 use tensorzero_types::UninitializedUnifiedCostConfig;
 use tokio::time::error::Elapsed;
 use tracing::{Span, instrument};
@@ -161,6 +164,83 @@ impl UninitializedEmbeddingModelConfig {
     }
 }
 
+impl TryFrom<StoredEmbeddingModelConfig> for UninitializedEmbeddingModelConfig {
+    type Error = Error;
+
+    fn try_from(stored: StoredEmbeddingModelConfig) -> Result<Self, Error> {
+        let providers = stored
+            .providers
+            .into_iter()
+            .map(|(name, provider)| {
+                let provider: UninitializedEmbeddingProviderConfig = provider.try_into()?;
+                Ok((Arc::<str>::from(name), provider))
+            })
+            .collect::<Result<HashMap<_, _>, Error>>()?;
+        Ok(UninitializedEmbeddingModelConfig {
+            routing: stored.routing.into_iter().map(Arc::<str>::from).collect(),
+            providers,
+            timeout_ms: stored.timeout_ms,
+        })
+    }
+}
+
+impl TryFrom<StoredEmbeddingProviderConfig> for UninitializedEmbeddingProviderConfig {
+    type Error = Error;
+
+    fn try_from(stored: StoredEmbeddingProviderConfig) -> Result<Self, Error> {
+        let config: UninitializedProviderConfig = stored.provider.try_into()?;
+        let cost: Option<UninitializedUnifiedCostConfig> = stored.cost.map(Into::into);
+        Ok(UninitializedEmbeddingProviderConfig {
+            config,
+            timeout_ms: stored.timeout_ms,
+            extra_body: stored.extra_body.map(ExtraBodyConfig::from),
+            extra_headers: stored.extra_headers.map(ExtraHeadersConfig::from),
+            cost,
+        })
+    }
+}
+
+impl TryFrom<&UninitializedEmbeddingModelConfig> for StoredEmbeddingModelConfig {
+    type Error = Error;
+
+    fn try_from(config: &UninitializedEmbeddingModelConfig) -> Result<Self, Error> {
+        let providers = config
+            .providers
+            .iter()
+            .map(|(provider_name, provider)| {
+                Ok::<_, Error>((
+                    provider_name.to_string(),
+                    StoredEmbeddingProviderConfig::from(provider),
+                ))
+            })
+            .collect::<Result<BTreeMap<_, _>, _>>()?;
+
+        Ok(StoredEmbeddingModelConfig {
+            routing: config.routing.iter().map(ToString::to_string).collect(),
+            providers,
+            timeout_ms: config.timeout_ms,
+        })
+    }
+}
+
+impl From<&UninitializedEmbeddingProviderConfig> for StoredEmbeddingProviderConfig {
+    fn from(provider: &UninitializedEmbeddingProviderConfig) -> Self {
+        StoredEmbeddingProviderConfig {
+            provider: StoredProviderConfig::from(&provider.config),
+            timeout_ms: provider.timeout_ms,
+            extra_body: provider
+                .extra_body
+                .as_ref()
+                .map(StoredExtraBodyConfig::from),
+            extra_headers: provider
+                .extra_headers
+                .as_ref()
+                .map(StoredExtraHeadersConfig::from),
+            cost: provider.cost.as_ref().map(StoredUnifiedCostConfig::from),
+        }
+    }
+}
+
 #[cfg_attr(feature = "ts-bindings", derive(ts_rs::TS))]
 #[derive(Debug, Serialize)]
 #[cfg_attr(feature = "ts-bindings", ts(export))]
@@ -192,6 +272,7 @@ impl EmbeddingModelConfig {
                     provider_name,
                     otlp_config: &clients.otlp_config,
                     model_inference_id: Uuid::now_v7(),
+                    function_name: None,
                 };
                 let provider_type: Arc<str> = Arc::from(provider_config.inner.provider_type());
                 // TODO: think about how to best handle errors here
@@ -300,34 +381,7 @@ impl EmbeddingModelConfig {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(untagged)]
-pub enum EmbeddingInput {
-    Single(String),
-    Batch(Vec<String>),
-    SingleTokens(Vec<u32>),
-    BatchTokens(Vec<Vec<u32>>),
-}
-
-impl EmbeddingInput {
-    pub fn num_inputs(&self) -> usize {
-        match self {
-            EmbeddingInput::Single(_) => 1,
-            EmbeddingInput::Batch(texts) => texts.len(),
-            EmbeddingInput::SingleTokens(_) => 1,
-            EmbeddingInput::BatchTokens(tokens) => tokens.len(),
-        }
-    }
-
-    pub fn first(&self) -> Option<&String> {
-        match self {
-            EmbeddingInput::Single(text) => Some(text),
-            EmbeddingInput::Batch(texts) => texts.first(),
-            EmbeddingInput::SingleTokens(_) => None,
-            EmbeddingInput::BatchTokens(_) => None,
-        }
-    }
-}
+pub use tensorzero_inference_types::embeddings::EmbeddingInput;
 
 impl RateLimitedInputContent for EmbeddingInput {
     fn estimated_input_token_usage(&self) -> u64 {
@@ -345,19 +399,6 @@ impl RateLimitedInputContent for EmbeddingInput {
                 .sum::<u64>(),
         }
     }
-}
-
-impl From<String> for EmbeddingInput {
-    fn from(text: String) -> Self {
-        EmbeddingInput::Single(text)
-    }
-}
-
-#[derive(Debug, PartialEq, Serialize)]
-pub struct EmbeddingRequest {
-    pub input: EmbeddingInput,
-    pub dimensions: Option<u32>,
-    pub encoding_format: EmbeddingEncodingFormat,
 }
 
 impl RateLimitedRequest for EmbeddingRequest {
@@ -398,33 +439,11 @@ impl RateLimitedRequest for EmbeddingRequest {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
-pub struct EmbeddingProviderRequest<'request> {
-    pub request: &'request EmbeddingRequest,
-    pub model_name: &'request str,
-    pub provider_name: &'request str,
-}
-
-#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, PartialEq)]
-#[serde(rename_all = "lowercase")]
-pub enum EmbeddingEncodingFormat {
-    #[default]
-    Float,
-    Base64,
-}
-
-#[derive(Debug, PartialEq)]
-pub struct EmbeddingProviderResponse {
-    pub id: Uuid,
-    pub input: EmbeddingInput,
-    pub embeddings: Vec<Embedding>,
-    pub created: u64,
-    pub raw_request: String,
-    pub raw_response: String,
-    pub usage: Usage,
-    pub latency: Latency,
-    pub raw_usage: Option<Vec<RawUsageEntry>>,
-}
+pub use tensorzero_inference_types::EmbeddingEncodingFormat;
+pub use tensorzero_inference_types::embeddings::{
+    Embedding, EmbeddingProvider, EmbeddingProviderRequest, EmbeddingProviderRequestInfo,
+    EmbeddingProviderResponse, EmbeddingRequest,
+};
 
 impl RateLimitedResponse for EmbeddingProviderResponse {
     fn resource_usage(&self) -> RateLimitResourceUsage {
@@ -603,15 +622,6 @@ impl TryFrom<EmbeddingResponseWithMetadata> for ModelInferenceResponseWithMetada
         })
     }
 }
-pub trait EmbeddingProvider {
-    fn embed(
-        &self,
-        request: &EmbeddingRequest,
-        client: &TensorzeroHttpClient,
-        dynamic_api_keys: &InferenceCredentials,
-        model_provider_data: &EmbeddingProviderRequestInfo,
-    ) -> impl Future<Output = Result<EmbeddingProviderResponse, Error>> + Send;
-}
 
 #[cfg_attr(feature = "ts-bindings", derive(ts_rs::TS))]
 #[derive(Debug, Serialize)]
@@ -651,29 +661,12 @@ pub struct EmbeddingProviderInfo {
     pub cost: Option<CostConfig>,
 }
 
-#[derive(Clone, Debug)]
-pub struct EmbeddingProviderRequestInfo {
-    pub provider_name: Arc<str>,
-    pub extra_body: Option<ExtraBodyConfig>,
-    pub extra_headers: Option<ExtraHeadersConfig>,
-}
-
 impl From<&EmbeddingProviderInfo> for EmbeddingProviderRequestInfo {
     fn from(val: &EmbeddingProviderInfo) -> Self {
         EmbeddingProviderRequestInfo {
             provider_name: val.provider_name.clone(),
             extra_body: val.extra_body.clone(),
             extra_headers: val.extra_headers.clone(),
-        }
-    }
-}
-
-impl From<&EmbeddingProviderRequestInfo> for ModelProviderRequestInfo {
-    fn from(val: &EmbeddingProviderRequestInfo) -> Self {
-        crate::model::ModelProviderRequestInfo {
-            provider_name: val.provider_name.clone(),
-            extra_headers: val.extra_headers.clone(),
-            extra_body: val.extra_body.clone(),
         }
     }
 }
@@ -847,63 +840,18 @@ impl EmbeddingProvider for EmbeddingProviderConfig {
     }
 }
 
-impl EmbeddingProviderResponse {
-    pub fn new(
-        embeddings: Vec<Embedding>,
-        input: EmbeddingInput,
-        raw_request: String,
-        raw_response: String,
-        usage: Usage,
-        latency: Latency,
-        raw_usage: Option<Vec<RawUsageEntry>>,
-    ) -> Self {
-        Self {
-            id: Uuid::now_v7(),
-            input,
-            embeddings,
-            created: current_timestamp(),
-            raw_request,
-            raw_response,
-            usage,
-            latency,
-            raw_usage,
-        }
-    }
-}
-
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
-#[serde(untagged)]
-pub enum Embedding {
-    Float(Vec<f32>),
-    Base64(String),
-}
-
-impl<'a> Embedding {
-    pub fn as_float(&'a self) -> Option<&'a Vec<f32>> {
-        match self {
-            Embedding::Float(vec) => Some(vec),
-            Embedding::Base64(_) => None,
-        }
-    }
-
-    pub fn ndims(&self) -> usize {
-        match self {
-            Embedding::Float(vec) => vec.len(),
-            Embedding::Base64(encoded) => encoded.len() * 3 / 16,
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
+    use googletest::{expect_that, matchers::eq};
+
+    use super::*;
     use crate::{
         cache::{CacheEnabledMode, CacheManager, CacheOptions},
         db::{clickhouse::ClickHouseConnectionInfo, postgres::PostgresConnectionInfo},
+        model::{CredentialLocation, CredentialLocationWithFallback},
         model_table::ProviderTypeDefaultCredentials,
         rate_limiting::{RateLimitingManager, ScopeInfo},
     };
-
-    use super::*;
     #[tokio::test]
     async fn test_embedding_fallbacks() {
         let logs_contain = crate::utils::testing::capture_logs();
@@ -1075,5 +1023,37 @@ mod tests {
         let loaded_extra_headers = provider_info.extra_headers.unwrap();
         assert_eq!(loaded_extra_headers.data.len(), 1);
         assert_eq!(loaded_extra_headers.data[0], replacement);
+    }
+
+    #[googletest::gtest]
+    fn test_embedding_model_config_round_trip() {
+        let original = UninitializedEmbeddingModelConfig {
+            routing: vec![Arc::from("emb_provider")],
+            providers: HashMap::from([(
+                Arc::from("emb_provider"),
+                UninitializedEmbeddingProviderConfig {
+                    config: UninitializedProviderConfig::OpenAI {
+                        model_name: "text-embedding-3-small".to_string(),
+                        api_base: None,
+                        api_key_location: Some(CredentialLocationWithFallback::Single(
+                            CredentialLocation::Env("OPENAI_API_KEY".to_string()),
+                        )),
+                        api_type: OpenAIAPIType::ChatCompletions,
+                        include_encrypted_reasoning: false,
+                        provider_tools: vec![],
+                        content_type_overrides: HashMap::new(),
+                    },
+                    extra_body: None,
+                    extra_headers: None,
+                    timeout_ms: None,
+                    cost: None,
+                },
+            )]),
+            timeout_ms: Some(5000),
+        };
+        let stored = StoredEmbeddingModelConfig::try_from(&original).expect("should serialize");
+        let restored: UninitializedEmbeddingModelConfig =
+            stored.try_into().expect("should convert back");
+        expect_that!(restored, eq(&original));
     }
 }

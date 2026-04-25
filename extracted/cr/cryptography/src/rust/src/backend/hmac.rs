@@ -3,7 +3,6 @@
 // for complete details.
 
 use cryptography_crypto::constant_time;
-use pyo3::types::PyBytesMethods;
 
 use crate::backend::hashes::message_digest_from_algorithm;
 use crate::buf::CffiBuf;
@@ -45,6 +44,14 @@ impl Hmac {
         Ok(())
     }
 
+    pub(crate) fn finalize_bytes(
+        &mut self,
+    ) -> CryptographyResult<cryptography_openssl::hmac::DigestBytes> {
+        let data = self.get_mut_ctx()?.finish()?;
+        self.ctx = None;
+        Ok(data)
+    }
+
     fn get_ctx(&self) -> CryptographyResult<&cryptography_openssl::hmac::Hmac> {
         if let Some(ctx) = self.ctx.as_ref() {
             return Ok(ctx);
@@ -83,15 +90,13 @@ impl Hmac {
         &mut self,
         py: pyo3::Python<'p>,
     ) -> CryptographyResult<pyo3::Bound<'p, pyo3::types::PyBytes>> {
-        let data = self.get_mut_ctx()?.finish()?;
-        self.ctx = None;
+        let data = self.finalize_bytes()?;
         Ok(pyo3::types::PyBytes::new(py, &data))
     }
 
-    fn verify(&mut self, py: pyo3::Python<'_>, signature: &[u8]) -> CryptographyResult<()> {
-        let actual_bound = self.finalize(py)?;
-        let actual = actual_bound.as_bytes();
-        if !constant_time::bytes_eq(actual, signature) {
+    fn verify(&mut self, signature: &[u8]) -> CryptographyResult<()> {
+        let actual = self.finalize_bytes()?;
+        if !constant_time::bytes_eq(&actual, signature) {
             return Err(CryptographyError::from(
                 exceptions::InvalidSignature::new_err("Signature did not match digest."),
             ));

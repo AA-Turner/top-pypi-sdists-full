@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright 2020-2025 Mike Fährmann
+# Copyright 2020-2026 Mike Fährmann
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -10,7 +10,6 @@
 
 from .common import Extractor, Message
 from .. import text
-from ..cache import memcache
 
 
 class RedgifsExtractor(Extractor):
@@ -20,6 +19,8 @@ class RedgifsExtractor(Extractor):
         "{category}_{gallery:?//[:11]}{num:?_/_/>02}{id}.{extension}"
     archive_fmt = "{id}"
     root = "https://www.redgifs.com"
+    page_start = 1
+    per_page = 100
 
     def __init__(self, match):
         Extractor.__init__(self, match)
@@ -75,6 +76,11 @@ class RedgifsExtractor(Extractor):
                 text.nameext_from_url(url, gif)
                 yield url
 
+    def skip_posts(self, num):
+        pages = num // self.per_page
+        self.page_start += pages
+        return pages * self.per_page
+
     def metadata(self):
         return {}
 
@@ -90,16 +96,18 @@ class RedgifsUserExtractor(RedgifsExtractor):
                r"(?:\?([^#]+))?$")
     example = "https://www.redgifs.com/users/USER"
 
-    def __init__(self, match):
-        RedgifsExtractor.__init__(self, match)
-        self.query = match[2]
-
     def metadata(self):
         return {"userName": self.key}
 
     def gifs(self):
-        order = text.parse_query(self.query).get("order")
-        return self.api.user(self.key, order or "new")
+        params = text.parse_query(self.groups[1])
+        if pnum := params.get("page"):
+            params["page"] = text.parse_int(pnum)
+        if type := params.get("type"):
+            params["type"] = type[0].lower()
+        if "order" not in params:
+            params["order"] = "new"
+        return self.api.user(self.key, params)
 
 
 class RedgifsCollectionExtractor(RedgifsExtractor):
@@ -220,9 +228,8 @@ class RedgifsAPI():
         endpoint = "/v2/gallery/" + gallery_id
         return self._call(endpoint)
 
-    def user(self, user, order="new"):
+    def user(self, user, params):
         endpoint = f"/v2/users/{user.lower()}/search"
-        params = {"order": order}
         return self._pagination(endpoint, params)
 
     def collection(self, user, collection_id):
@@ -253,14 +260,26 @@ class RedgifsAPI():
 
     def _call(self, endpoint, params=None):
         url = self.API_ROOT + endpoint
-        self.headers["Authorization"] = self._auth()
-        return self.extractor.request_json(
-            url, params=params, headers=self.headers)
+        self.headers["Authorization"] = self.extractor.cache(
+            self._auth, _key=None, _exp=600)
+        try:
+            return self.extractor.request_json(
+                url, params=params, headers=self.headers)
+        except self.extractor.exc.HttpError as exc:
+            self.extractor.log.debug(err := exc.response.text)
+
+            msg = "API request failed"
+            if err := (text.extr(err, '"message":"', '"') or
+                       text.extr(err, '"description":"', '"')):
+                msg = f'''{msg} ("{err}")'''
+            raise self.extractor.exc.AbortExtraction(msg)
 
     def _pagination(self, endpoint, params=None, key="gifs"):
         if params is None:
             params = {}
-        params["page"] = 1
+        if "page" not in params:
+            params["page"] = self.extractor.page_start
+        params["count"] = self.extractor.per_page
 
         while True:
             data = self._call(endpoint, params)
@@ -270,7 +289,6 @@ class RedgifsAPI():
                 return
             params["page"] += 1
 
-    @memcache(maxage=600)
     def _auth(self):
         # https://github.com/Redgifs/api/wiki/Temporary-tokens
         url = self.API_ROOT + "/v2/auth/temporary"

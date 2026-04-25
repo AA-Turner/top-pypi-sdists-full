@@ -1772,9 +1772,11 @@ class ChalkGRPCClient:
 
     def _get_active_deployment_id(self) -> str:
         resp = self._stub_refresher.call_deploy_stub(lambda x: x.GetActiveDeployments(GetActiveDeploymentsRequest()))
-        if not resp.deployments:
+        env_id = self._stub_refresher.environment_id
+        matching = [d for d in resp.deployments if d.environment_id == env_id]
+        if not matching:
             raise RuntimeError("No active deployment found for this environment.")
-        return resp.deployments[0].id
+        return matching[0].id
 
     def redeploy(
         self,

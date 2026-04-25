@@ -4335,6 +4335,22 @@ class CfnReplicator(
                 amazon_msk_cluster=msk.CfnReplicator.AmazonMskClusterProperty(
                     msk_cluster_arn="mskClusterArn"
                 ),
+                apache_kafka_cluster=msk.CfnReplicator.ApacheKafkaClusterProperty(
+                    apache_kafka_cluster_id="apacheKafkaClusterId",
+                    bootstrap_broker_string="bootstrapBrokerString"
+                ),
+                client_authentication=msk.CfnReplicator.KafkaClusterClientAuthenticationProperty(
+                    sasl_scram=msk.CfnReplicator.KafkaClusterSaslScramAuthenticationProperty(
+                        mechanism="mechanism",
+                        secret_arn="secretArn"
+                    )
+                ),
+                encryption_in_transit=msk.CfnReplicator.KafkaClusterEncryptionInTransitProperty(
+                    encryption_type="encryptionType",
+        
+                    # the properties below are optional
+                    root_ca_certificate="rootCaCertificate"
+                ),
                 vpc_config=msk.CfnReplicator.KafkaClusterClientVpcConfigProperty(
                     subnet_ids=["subnetIds"],
         
@@ -4347,13 +4363,12 @@ class CfnReplicator(
                     consumer_groups_to_replicate=["consumerGroupsToReplicate"],
         
                     # the properties below are optional
+                    consumer_group_offset_sync_mode="consumerGroupOffsetSyncMode",
                     consumer_groups_to_exclude=["consumerGroupsToExclude"],
                     detect_and_copy_new_consumer_groups=False,
                     synchronise_consumer_group_offsets=False
                 ),
-                source_kafka_cluster_arn="sourceKafkaClusterArn",
                 target_compression_type="targetCompressionType",
-                target_kafka_cluster_arn="targetKafkaClusterArn",
                 topic_replication=msk.CfnReplicator.TopicReplicationProperty(
                     topics_to_replicate=["topicsToReplicate"],
         
@@ -4368,13 +4383,42 @@ class CfnReplicator(
                         type="type"
                     ),
                     topics_to_exclude=["topicsToExclude"]
-                )
+                ),
+        
+                # the properties below are optional
+                source_kafka_cluster_arn="sourceKafkaClusterArn",
+                source_kafka_cluster_id="sourceKafkaClusterId",
+                target_kafka_cluster_arn="targetKafkaClusterArn",
+                target_kafka_cluster_id="targetKafkaClusterId"
             )],
             replicator_name="replicatorName",
             service_execution_role_arn="serviceExecutionRoleArn",
         
             # the properties below are optional
             description="description",
+            log_delivery=msk.CfnReplicator.LogDeliveryProperty(
+                replicator_log_delivery=msk.CfnReplicator.ReplicatorLogDeliveryProperty(
+                    cloud_watch_logs=msk.CfnReplicator.CloudWatchLogsProperty(
+                        enabled=False,
+        
+                        # the properties below are optional
+                        log_group="logGroup"
+                    ),
+                    firehose=msk.CfnReplicator.FirehoseProperty(
+                        enabled=False,
+        
+                        # the properties below are optional
+                        delivery_stream="deliveryStream"
+                    ),
+                    s3=msk.CfnReplicator.S3Property(
+                        enabled=False,
+        
+                        # the properties below are optional
+                        bucket="bucket",
+                        prefix="prefix"
+                    )
+                )
+            ),
             tags=[CfnTag(
                 key="key",
                 value="value"
@@ -4392,6 +4436,7 @@ class CfnReplicator(
         replicator_name: builtins.str,
         service_execution_role_arn: builtins.str,
         description: typing.Optional[builtins.str] = None,
+        log_delivery: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnReplicator.LogDeliveryProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::MSK::Replicator``.
@@ -4403,6 +4448,7 @@ class CfnReplicator(
         :param replicator_name: The name of the replicator. Alpha-numeric characters with '-' are allowed.
         :param service_execution_role_arn: The ARN of the IAM role used by the replicator to access resources in the customer's account (e.g source and target clusters).
         :param description: A summary description of the replicator.
+        :param log_delivery: Configuration for log delivery for the replicator.
         :param tags: List of tags to attach to created Replicator.
         '''
         if __debug__:
@@ -4415,6 +4461,7 @@ class CfnReplicator(
             replicator_name=replicator_name,
             service_execution_role_arn=service_execution_role_arn,
             description=description,
+            log_delivery=log_delivery,
             tags=tags,
         )
 
@@ -4584,6 +4631,24 @@ class CfnReplicator(
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="logDelivery")
+    def log_delivery(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnReplicator.LogDeliveryProperty"]]:
+        '''Configuration for log delivery for the replicator.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnReplicator.LogDeliveryProperty"]], jsii.get(self, "logDelivery"))
+
+    @log_delivery.setter
+    def log_delivery(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnReplicator.LogDeliveryProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8fb205dc879f12fc8edb332700a70c2ee3c0701980503cb78bdd2181398fcdde)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "logDelivery", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''List of tags to attach to created Replicator.'''
@@ -4649,10 +4714,158 @@ class CfnReplicator(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_msk.CfnReplicator.ApacheKafkaClusterProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "apache_kafka_cluster_id": "apacheKafkaClusterId",
+            "bootstrap_broker_string": "bootstrapBrokerString",
+        },
+    )
+    class ApacheKafkaClusterProperty:
+        def __init__(
+            self,
+            *,
+            apache_kafka_cluster_id: builtins.str,
+            bootstrap_broker_string: builtins.str,
+        ) -> None:
+            '''Details of an Apache Kafka cluster.
+
+            :param apache_kafka_cluster_id: The ID of the Apache Kafka cluster.
+            :param bootstrap_broker_string: The bootstrap broker string of the Apache Kafka cluster.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-replicator-apachekafkacluster.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_msk as msk
+                
+                apache_kafka_cluster_property = msk.CfnReplicator.ApacheKafkaClusterProperty(
+                    apache_kafka_cluster_id="apacheKafkaClusterId",
+                    bootstrap_broker_string="bootstrapBrokerString"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__b009b9d5e6905d82699a079adb25df15808b9151f52eb78de8b482ac824ecb40)
+                check_type(argname="argument apache_kafka_cluster_id", value=apache_kafka_cluster_id, expected_type=type_hints["apache_kafka_cluster_id"])
+                check_type(argname="argument bootstrap_broker_string", value=bootstrap_broker_string, expected_type=type_hints["bootstrap_broker_string"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "apache_kafka_cluster_id": apache_kafka_cluster_id,
+                "bootstrap_broker_string": bootstrap_broker_string,
+            }
+
+        @builtins.property
+        def apache_kafka_cluster_id(self) -> builtins.str:
+            '''The ID of the Apache Kafka cluster.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-replicator-apachekafkacluster.html#cfn-msk-replicator-apachekafkacluster-apachekafkaclusterid
+            '''
+            result = self._values.get("apache_kafka_cluster_id")
+            assert result is not None, "Required property 'apache_kafka_cluster_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def bootstrap_broker_string(self) -> builtins.str:
+            '''The bootstrap broker string of the Apache Kafka cluster.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-replicator-apachekafkacluster.html#cfn-msk-replicator-apachekafkacluster-bootstrapbrokerstring
+            '''
+            result = self._values.get("bootstrap_broker_string")
+            assert result is not None, "Required property 'bootstrap_broker_string' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ApacheKafkaClusterProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_msk.CfnReplicator.CloudWatchLogsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"enabled": "enabled", "log_group": "logGroup"},
+    )
+    class CloudWatchLogsProperty:
+        def __init__(
+            self,
+            *,
+            enabled: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
+            log_group: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Details about delivering logs to CloudWatch Logs.
+
+            :param enabled: Whether log delivery to CloudWatch Logs is enabled.
+            :param log_group: The CloudWatch log group that is the destination for log delivery.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-replicator-cloudwatchlogs.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_msk as msk
+                
+                cloud_watch_logs_property = msk.CfnReplicator.CloudWatchLogsProperty(
+                    enabled=False,
+                
+                    # the properties below are optional
+                    log_group="logGroup"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__ed263ae94432f7830bbc1d75084600b07e616c545fc573cc10d2e0b4b2edb19a)
+                check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+                check_type(argname="argument log_group", value=log_group, expected_type=type_hints["log_group"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "enabled": enabled,
+            }
+            if log_group is not None:
+                self._values["log_group"] = log_group
+
+        @builtins.property
+        def enabled(self) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
+            '''Whether log delivery to CloudWatch Logs is enabled.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-replicator-cloudwatchlogs.html#cfn-msk-replicator-cloudwatchlogs-enabled
+            '''
+            result = self._values.get("enabled")
+            assert result is not None, "Required property 'enabled' is missing"
+            return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
+
+        @builtins.property
+        def log_group(self) -> typing.Optional[builtins.str]:
+            '''The CloudWatch log group that is the destination for log delivery.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-replicator-cloudwatchlogs.html#cfn-msk-replicator-cloudwatchlogs-loggroup
+            '''
+            result = self._values.get("log_group")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CloudWatchLogsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_msk.CfnReplicator.ConsumerGroupReplicationProperty",
         jsii_struct_bases=[],
         name_mapping={
             "consumer_groups_to_replicate": "consumerGroupsToReplicate",
+            "consumer_group_offset_sync_mode": "consumerGroupOffsetSyncMode",
             "consumer_groups_to_exclude": "consumerGroupsToExclude",
             "detect_and_copy_new_consumer_groups": "detectAndCopyNewConsumerGroups",
             "synchronise_consumer_group_offsets": "synchroniseConsumerGroupOffsets",
@@ -4663,6 +4876,7 @@ class CfnReplicator(
             self,
             *,
             consumer_groups_to_replicate: typing.Sequence[builtins.str],
+            consumer_group_offset_sync_mode: typing.Optional[builtins.str] = None,
             consumer_groups_to_exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
             detect_and_copy_new_consumer_groups: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
             synchronise_consumer_group_offsets: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
@@ -4670,6 +4884,7 @@ class CfnReplicator(
             '''Details about consumer group replication.
 
             :param consumer_groups_to_replicate: List of regular expression patterns indicating the consumer groups to copy.
+            :param consumer_group_offset_sync_mode: The consumer group offset synchronization mode.
             :param consumer_groups_to_exclude: List of regular expression patterns indicating the consumer groups that should not be replicated.
             :param detect_and_copy_new_consumer_groups: Enables synchronization of consumer groups to target cluster.
             :param synchronise_consumer_group_offsets: Enables synchronization of consumer group offsets to target cluster. The translated offsets will be written to topic __consumer_offsets.
@@ -4687,6 +4902,7 @@ class CfnReplicator(
                     consumer_groups_to_replicate=["consumerGroupsToReplicate"],
                 
                     # the properties below are optional
+                    consumer_group_offset_sync_mode="consumerGroupOffsetSyncMode",
                     consumer_groups_to_exclude=["consumerGroupsToExclude"],
                     detect_and_copy_new_consumer_groups=False,
                     synchronise_consumer_group_offsets=False
@@ -4695,12 +4911,15 @@ class CfnReplicator(
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__d275044c7f1818eee4a5b889cbed2bc735fed9b36ba22974b19abea8f1b87d61)
                 check_type(argname="argument consumer_groups_to_replicate", value=consumer_groups_to_replicate, expected_type=type_hints["consumer_groups_to_replicate"])
+                check_type(argname="argument consumer_group_offset_sync_mode", value=consumer_group_offset_sync_mode, expected_type=type_hints["consumer_group_offset_sync_mode"])
                 check_type(argname="argument consumer_groups_to_exclude", value=consumer_groups_to_exclude, expected_type=type_hints["consumer_groups_to_exclude"])
                 check_type(argname="argument detect_and_copy_new_consumer_groups", value=detect_and_copy_new_consumer_groups, expected_type=type_hints["detect_and_copy_new_consumer_groups"])
                 check_type(argname="argument synchronise_consumer_group_offsets", value=synchronise_consumer_group_offsets, expected_type=type_hints["synchronise_consumer_group_offsets"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "consumer_groups_to_replicate": consumer_groups_to_replicate,
             }
+            if consumer_group_offset_sync_mode is not None:
+                self._values["consumer_group_offset_sync_mode"] = consumer_group_offset_sync_mode
             if consumer_groups_to_exclude is not None:
                 self._values["consumer_groups_to_exclude"] = consumer_groups_to_exclude
             if detect_and_copy_new_consumer_groups is not None:
@@ -4717,6 +4936,15 @@ class CfnReplicator(
             result = self._values.get("consumer_groups_to_replicate")
             assert result is not None, "Required property 'consumer_groups_to_replicate' is missing"
             return typing.cast(typing.List[builtins.str], result)
+
+        @builtins.property
+        def consumer_group_offset_sync_mode(self) -> typing.Optional[builtins.str]:
+            '''The consumer group offset synchronization mode.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-replicator-consumergroupreplication.html#cfn-msk-replicator-consumergroupreplication-consumergroupoffsetsyncmode
+            '''
+            result = self._values.get("consumer_group_offset_sync_mode")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
         def consumer_groups_to_exclude(
@@ -4761,6 +4989,140 @@ class CfnReplicator(
 
         def __repr__(self) -> str:
             return "ConsumerGroupReplicationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_msk.CfnReplicator.FirehoseProperty",
+        jsii_struct_bases=[],
+        name_mapping={"enabled": "enabled", "delivery_stream": "deliveryStream"},
+    )
+    class FirehoseProperty:
+        def __init__(
+            self,
+            *,
+            enabled: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
+            delivery_stream: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Details about delivering logs to Firehose.
+
+            :param enabled: Whether log delivery to Firehose is enabled.
+            :param delivery_stream: The Firehose delivery stream that is the destination for log delivery.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-replicator-firehose.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_msk as msk
+                
+                firehose_property = msk.CfnReplicator.FirehoseProperty(
+                    enabled=False,
+                
+                    # the properties below are optional
+                    delivery_stream="deliveryStream"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__42de6b2042f8086b2898030e584464f88b05b245c742dd15f6ac50ce12274d0d)
+                check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+                check_type(argname="argument delivery_stream", value=delivery_stream, expected_type=type_hints["delivery_stream"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "enabled": enabled,
+            }
+            if delivery_stream is not None:
+                self._values["delivery_stream"] = delivery_stream
+
+        @builtins.property
+        def enabled(self) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
+            '''Whether log delivery to Firehose is enabled.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-replicator-firehose.html#cfn-msk-replicator-firehose-enabled
+            '''
+            result = self._values.get("enabled")
+            assert result is not None, "Required property 'enabled' is missing"
+            return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
+
+        @builtins.property
+        def delivery_stream(self) -> typing.Optional[builtins.str]:
+            '''The Firehose delivery stream that is the destination for log delivery.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-replicator-firehose.html#cfn-msk-replicator-firehose-deliverystream
+            '''
+            result = self._values.get("delivery_stream")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "FirehoseProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_msk.CfnReplicator.KafkaClusterClientAuthenticationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"sasl_scram": "saslScram"},
+    )
+    class KafkaClusterClientAuthenticationProperty:
+        def __init__(
+            self,
+            *,
+            sasl_scram: typing.Union["_IResolvable_da3f097b", typing.Union["CfnReplicator.KafkaClusterSaslScramAuthenticationProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''Details of the client authentication used by the Apache Kafka cluster.
+
+            :param sasl_scram: Details for SASL/SCRAM client authentication.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-replicator-kafkaclusterclientauthentication.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_msk as msk
+                
+                kafka_cluster_client_authentication_property = msk.CfnReplicator.KafkaClusterClientAuthenticationProperty(
+                    sasl_scram=msk.CfnReplicator.KafkaClusterSaslScramAuthenticationProperty(
+                        mechanism="mechanism",
+                        secret_arn="secretArn"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__c571a114ab290550ca33f1735aecfb895c5cfc0879d719ffab9178fd3c27f276)
+                check_type(argname="argument sasl_scram", value=sasl_scram, expected_type=type_hints["sasl_scram"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "sasl_scram": sasl_scram,
+            }
+
+        @builtins.property
+        def sasl_scram(
+            self,
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnReplicator.KafkaClusterSaslScramAuthenticationProperty"]:
+            '''Details for SASL/SCRAM client authentication.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-replicator-kafkaclusterclientauthentication.html#cfn-msk-replicator-kafkaclusterclientauthentication-saslscram
+            '''
+            result = self._values.get("sasl_scram")
+            assert result is not None, "Required property 'sasl_scram' is missing"
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnReplicator.KafkaClusterSaslScramAuthenticationProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "KafkaClusterClientAuthenticationProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -4841,10 +5203,89 @@ class CfnReplicator(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_msk.CfnReplicator.KafkaClusterEncryptionInTransitProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "encryption_type": "encryptionType",
+            "root_ca_certificate": "rootCaCertificate",
+        },
+    )
+    class KafkaClusterEncryptionInTransitProperty:
+        def __init__(
+            self,
+            *,
+            encryption_type: builtins.str,
+            root_ca_certificate: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Details of encryption in transit to the Apache Kafka cluster.
+
+            :param encryption_type: The type of encryption in transit to the Apache Kafka cluster.
+            :param root_ca_certificate: The root CA certificate.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-replicator-kafkaclusterencryptionintransit.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_msk as msk
+                
+                kafka_cluster_encryption_in_transit_property = msk.CfnReplicator.KafkaClusterEncryptionInTransitProperty(
+                    encryption_type="encryptionType",
+                
+                    # the properties below are optional
+                    root_ca_certificate="rootCaCertificate"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__91b4882bfa3be581c7d0490f265b896701a077acbf8099ee4488efd91b48c01e)
+                check_type(argname="argument encryption_type", value=encryption_type, expected_type=type_hints["encryption_type"])
+                check_type(argname="argument root_ca_certificate", value=root_ca_certificate, expected_type=type_hints["root_ca_certificate"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "encryption_type": encryption_type,
+            }
+            if root_ca_certificate is not None:
+                self._values["root_ca_certificate"] = root_ca_certificate
+
+        @builtins.property
+        def encryption_type(self) -> builtins.str:
+            '''The type of encryption in transit to the Apache Kafka cluster.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-replicator-kafkaclusterencryptionintransit.html#cfn-msk-replicator-kafkaclusterencryptionintransit-encryptiontype
+            '''
+            result = self._values.get("encryption_type")
+            assert result is not None, "Required property 'encryption_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def root_ca_certificate(self) -> typing.Optional[builtins.str]:
+            '''The root CA certificate.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-replicator-kafkaclusterencryptionintransit.html#cfn-msk-replicator-kafkaclusterencryptionintransit-rootcacertificate
+            '''
+            result = self._values.get("root_ca_certificate")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "KafkaClusterEncryptionInTransitProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_msk.CfnReplicator.KafkaClusterProperty",
         jsii_struct_bases=[],
         name_mapping={
             "amazon_msk_cluster": "amazonMskCluster",
+            "apache_kafka_cluster": "apacheKafkaCluster",
+            "client_authentication": "clientAuthentication",
+            "encryption_in_transit": "encryptionInTransit",
             "vpc_config": "vpcConfig",
         },
     )
@@ -4852,12 +5293,18 @@ class CfnReplicator(
         def __init__(
             self,
             *,
-            amazon_msk_cluster: typing.Union["_IResolvable_da3f097b", typing.Union["CfnReplicator.AmazonMskClusterProperty", typing.Dict[builtins.str, typing.Any]]],
-            vpc_config: typing.Union["_IResolvable_da3f097b", typing.Union["CfnReplicator.KafkaClusterClientVpcConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+            amazon_msk_cluster: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnReplicator.AmazonMskClusterProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            apache_kafka_cluster: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnReplicator.ApacheKafkaClusterProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            client_authentication: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnReplicator.KafkaClusterClientAuthenticationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            encryption_in_transit: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnReplicator.KafkaClusterEncryptionInTransitProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            vpc_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnReplicator.KafkaClusterClientVpcConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Information about Kafka Cluster to be used as source / target for replication.
 
             :param amazon_msk_cluster: Details of an Amazon MSK Cluster.
+            :param apache_kafka_cluster: Details of an Apache Kafka cluster.
+            :param client_authentication: Details of the client authentication used by the Apache Kafka cluster.
+            :param encryption_in_transit: Details of encryption in transit to the Apache Kafka cluster.
             :param vpc_config: Details of an Amazon VPC which has network connectivity to the Apache Kafka cluster.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-replicator-kafkacluster.html
@@ -4873,6 +5320,22 @@ class CfnReplicator(
                     amazon_msk_cluster=msk.CfnReplicator.AmazonMskClusterProperty(
                         msk_cluster_arn="mskClusterArn"
                     ),
+                    apache_kafka_cluster=msk.CfnReplicator.ApacheKafkaClusterProperty(
+                        apache_kafka_cluster_id="apacheKafkaClusterId",
+                        bootstrap_broker_string="bootstrapBrokerString"
+                    ),
+                    client_authentication=msk.CfnReplicator.KafkaClusterClientAuthenticationProperty(
+                        sasl_scram=msk.CfnReplicator.KafkaClusterSaslScramAuthenticationProperty(
+                            mechanism="mechanism",
+                            secret_arn="secretArn"
+                        )
+                    ),
+                    encryption_in_transit=msk.CfnReplicator.KafkaClusterEncryptionInTransitProperty(
+                        encryption_type="encryptionType",
+                
+                        # the properties below are optional
+                        root_ca_certificate="rootCaCertificate"
+                    ),
                     vpc_config=msk.CfnReplicator.KafkaClusterClientVpcConfigProperty(
                         subnet_ids=["subnetIds"],
                 
@@ -4884,35 +5347,76 @@ class CfnReplicator(
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__6bd0abb9f47b9df020dcab4109fa663638863abb8a4bbd2280b4a02b658e2cb8)
                 check_type(argname="argument amazon_msk_cluster", value=amazon_msk_cluster, expected_type=type_hints["amazon_msk_cluster"])
+                check_type(argname="argument apache_kafka_cluster", value=apache_kafka_cluster, expected_type=type_hints["apache_kafka_cluster"])
+                check_type(argname="argument client_authentication", value=client_authentication, expected_type=type_hints["client_authentication"])
+                check_type(argname="argument encryption_in_transit", value=encryption_in_transit, expected_type=type_hints["encryption_in_transit"])
                 check_type(argname="argument vpc_config", value=vpc_config, expected_type=type_hints["vpc_config"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "amazon_msk_cluster": amazon_msk_cluster,
-                "vpc_config": vpc_config,
-            }
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if amazon_msk_cluster is not None:
+                self._values["amazon_msk_cluster"] = amazon_msk_cluster
+            if apache_kafka_cluster is not None:
+                self._values["apache_kafka_cluster"] = apache_kafka_cluster
+            if client_authentication is not None:
+                self._values["client_authentication"] = client_authentication
+            if encryption_in_transit is not None:
+                self._values["encryption_in_transit"] = encryption_in_transit
+            if vpc_config is not None:
+                self._values["vpc_config"] = vpc_config
 
         @builtins.property
         def amazon_msk_cluster(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnReplicator.AmazonMskClusterProperty"]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnReplicator.AmazonMskClusterProperty"]]:
             '''Details of an Amazon MSK Cluster.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-replicator-kafkacluster.html#cfn-msk-replicator-kafkacluster-amazonmskcluster
             '''
             result = self._values.get("amazon_msk_cluster")
-            assert result is not None, "Required property 'amazon_msk_cluster' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnReplicator.AmazonMskClusterProperty"], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnReplicator.AmazonMskClusterProperty"]], result)
+
+        @builtins.property
+        def apache_kafka_cluster(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnReplicator.ApacheKafkaClusterProperty"]]:
+            '''Details of an Apache Kafka cluster.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-replicator-kafkacluster.html#cfn-msk-replicator-kafkacluster-apachekafkacluster
+            '''
+            result = self._values.get("apache_kafka_cluster")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnReplicator.ApacheKafkaClusterProperty"]], result)
+
+        @builtins.property
+        def client_authentication(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnReplicator.KafkaClusterClientAuthenticationProperty"]]:
+            '''Details of the client authentication used by the Apache Kafka cluster.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-replicator-kafkacluster.html#cfn-msk-replicator-kafkacluster-clientauthentication
+            '''
+            result = self._values.get("client_authentication")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnReplicator.KafkaClusterClientAuthenticationProperty"]], result)
+
+        @builtins.property
+        def encryption_in_transit(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnReplicator.KafkaClusterEncryptionInTransitProperty"]]:
+            '''Details of encryption in transit to the Apache Kafka cluster.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-replicator-kafkacluster.html#cfn-msk-replicator-kafkacluster-encryptionintransit
+            '''
+            result = self._values.get("encryption_in_transit")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnReplicator.KafkaClusterEncryptionInTransitProperty"]], result)
 
         @builtins.property
         def vpc_config(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnReplicator.KafkaClusterClientVpcConfigProperty"]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnReplicator.KafkaClusterClientVpcConfigProperty"]]:
             '''Details of an Amazon VPC which has network connectivity to the Apache Kafka cluster.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-replicator-kafkacluster.html#cfn-msk-replicator-kafkacluster-vpcconfig
             '''
             result = self._values.get("vpc_config")
-            assert result is not None, "Required property 'vpc_config' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnReplicator.KafkaClusterClientVpcConfigProperty"], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnReplicator.KafkaClusterClientVpcConfigProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4926,14 +5430,164 @@ class CfnReplicator(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_msk.CfnReplicator.KafkaClusterSaslScramAuthenticationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"mechanism": "mechanism", "secret_arn": "secretArn"},
+    )
+    class KafkaClusterSaslScramAuthenticationProperty:
+        def __init__(
+            self,
+            *,
+            mechanism: builtins.str,
+            secret_arn: builtins.str,
+        ) -> None:
+            '''Details for SASL/SCRAM client authentication.
+
+            :param mechanism: The SASL/SCRAM authentication mechanism.
+            :param secret_arn: The Amazon Resource Name (ARN) of the Secrets Manager secret.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-replicator-kafkaclustersaslscramauthentication.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_msk as msk
+                
+                kafka_cluster_sasl_scram_authentication_property = msk.CfnReplicator.KafkaClusterSaslScramAuthenticationProperty(
+                    mechanism="mechanism",
+                    secret_arn="secretArn"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__3eb263d5716fcee3fef4a4aa7910e0b86ed47647bdf01ac2dc17718f9e391076)
+                check_type(argname="argument mechanism", value=mechanism, expected_type=type_hints["mechanism"])
+                check_type(argname="argument secret_arn", value=secret_arn, expected_type=type_hints["secret_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "mechanism": mechanism,
+                "secret_arn": secret_arn,
+            }
+
+        @builtins.property
+        def mechanism(self) -> builtins.str:
+            '''The SASL/SCRAM authentication mechanism.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-replicator-kafkaclustersaslscramauthentication.html#cfn-msk-replicator-kafkaclustersaslscramauthentication-mechanism
+            '''
+            result = self._values.get("mechanism")
+            assert result is not None, "Required property 'mechanism' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def secret_arn(self) -> builtins.str:
+            '''The Amazon Resource Name (ARN) of the Secrets Manager secret.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-replicator-kafkaclustersaslscramauthentication.html#cfn-msk-replicator-kafkaclustersaslscramauthentication-secretarn
+            '''
+            result = self._values.get("secret_arn")
+            assert result is not None, "Required property 'secret_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "KafkaClusterSaslScramAuthenticationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_msk.CfnReplicator.LogDeliveryProperty",
+        jsii_struct_bases=[],
+        name_mapping={"replicator_log_delivery": "replicatorLogDelivery"},
+    )
+    class LogDeliveryProperty:
+        def __init__(
+            self,
+            *,
+            replicator_log_delivery: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnReplicator.ReplicatorLogDeliveryProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Configuration for log delivery for the replicator.
+
+            :param replicator_log_delivery: Details of the log delivery for the replicator.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-replicator-logdelivery.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_msk as msk
+                
+                log_delivery_property = msk.CfnReplicator.LogDeliveryProperty(
+                    replicator_log_delivery=msk.CfnReplicator.ReplicatorLogDeliveryProperty(
+                        cloud_watch_logs=msk.CfnReplicator.CloudWatchLogsProperty(
+                            enabled=False,
+                
+                            # the properties below are optional
+                            log_group="logGroup"
+                        ),
+                        firehose=msk.CfnReplicator.FirehoseProperty(
+                            enabled=False,
+                
+                            # the properties below are optional
+                            delivery_stream="deliveryStream"
+                        ),
+                        s3=msk.CfnReplicator.S3Property(
+                            enabled=False,
+                
+                            # the properties below are optional
+                            bucket="bucket",
+                            prefix="prefix"
+                        )
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__760b13d91777fe7e56a0ad91019c1625e730034f2fecd7c5d4d943115f3e7c3b)
+                check_type(argname="argument replicator_log_delivery", value=replicator_log_delivery, expected_type=type_hints["replicator_log_delivery"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if replicator_log_delivery is not None:
+                self._values["replicator_log_delivery"] = replicator_log_delivery
+
+        @builtins.property
+        def replicator_log_delivery(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnReplicator.ReplicatorLogDeliveryProperty"]]:
+            '''Details of the log delivery for the replicator.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-replicator-logdelivery.html#cfn-msk-replicator-logdelivery-replicatorlogdelivery
+            '''
+            result = self._values.get("replicator_log_delivery")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnReplicator.ReplicatorLogDeliveryProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "LogDeliveryProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_msk.CfnReplicator.ReplicationInfoProperty",
         jsii_struct_bases=[],
         name_mapping={
             "consumer_group_replication": "consumerGroupReplication",
-            "source_kafka_cluster_arn": "sourceKafkaClusterArn",
             "target_compression_type": "targetCompressionType",
-            "target_kafka_cluster_arn": "targetKafkaClusterArn",
             "topic_replication": "topicReplication",
+            "source_kafka_cluster_arn": "sourceKafkaClusterArn",
+            "source_kafka_cluster_id": "sourceKafkaClusterId",
+            "target_kafka_cluster_arn": "targetKafkaClusterArn",
+            "target_kafka_cluster_id": "targetKafkaClusterId",
         },
     )
     class ReplicationInfoProperty:
@@ -4941,18 +5595,22 @@ class CfnReplicator(
             self,
             *,
             consumer_group_replication: typing.Union["_IResolvable_da3f097b", typing.Union["CfnReplicator.ConsumerGroupReplicationProperty", typing.Dict[builtins.str, typing.Any]]],
-            source_kafka_cluster_arn: builtins.str,
             target_compression_type: builtins.str,
-            target_kafka_cluster_arn: builtins.str,
             topic_replication: typing.Union["_IResolvable_da3f097b", typing.Union["CfnReplicator.TopicReplicationProperty", typing.Dict[builtins.str, typing.Any]]],
+            source_kafka_cluster_arn: typing.Optional[builtins.str] = None,
+            source_kafka_cluster_id: typing.Optional[builtins.str] = None,
+            target_kafka_cluster_arn: typing.Optional[builtins.str] = None,
+            target_kafka_cluster_id: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Specifies configuration for replication between a source and target Kafka cluster.
 
             :param consumer_group_replication: Configuration relating to consumer group replication.
-            :param source_kafka_cluster_arn: The ARN of the source Kafka cluster.
             :param target_compression_type: The compression type to use when producing records to target cluster.
-            :param target_kafka_cluster_arn: The ARN of the target Kafka cluster.
             :param topic_replication: Configuration relating to topic replication.
+            :param source_kafka_cluster_arn: The ARN of the source Kafka cluster.
+            :param source_kafka_cluster_id: The ID of the source Kafka cluster.
+            :param target_kafka_cluster_arn: The ARN of the target Kafka cluster.
+            :param target_kafka_cluster_id: The ID of the target Kafka cluster.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-replicator-replicationinfo.html
             :exampleMetadata: fixture=_generated
@@ -4968,13 +5626,12 @@ class CfnReplicator(
                         consumer_groups_to_replicate=["consumerGroupsToReplicate"],
                 
                         # the properties below are optional
+                        consumer_group_offset_sync_mode="consumerGroupOffsetSyncMode",
                         consumer_groups_to_exclude=["consumerGroupsToExclude"],
                         detect_and_copy_new_consumer_groups=False,
                         synchronise_consumer_group_offsets=False
                     ),
-                    source_kafka_cluster_arn="sourceKafkaClusterArn",
                     target_compression_type="targetCompressionType",
-                    target_kafka_cluster_arn="targetKafkaClusterArn",
                     topic_replication=msk.CfnReplicator.TopicReplicationProperty(
                         topics_to_replicate=["topicsToReplicate"],
                 
@@ -4989,23 +5646,37 @@ class CfnReplicator(
                             type="type"
                         ),
                         topics_to_exclude=["topicsToExclude"]
-                    )
+                    ),
+                
+                    # the properties below are optional
+                    source_kafka_cluster_arn="sourceKafkaClusterArn",
+                    source_kafka_cluster_id="sourceKafkaClusterId",
+                    target_kafka_cluster_arn="targetKafkaClusterArn",
+                    target_kafka_cluster_id="targetKafkaClusterId"
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__1dda95e7e04f4c21eabf1745c35859aeb7d3710c716f2649a23a1bda996cfee3)
                 check_type(argname="argument consumer_group_replication", value=consumer_group_replication, expected_type=type_hints["consumer_group_replication"])
-                check_type(argname="argument source_kafka_cluster_arn", value=source_kafka_cluster_arn, expected_type=type_hints["source_kafka_cluster_arn"])
                 check_type(argname="argument target_compression_type", value=target_compression_type, expected_type=type_hints["target_compression_type"])
-                check_type(argname="argument target_kafka_cluster_arn", value=target_kafka_cluster_arn, expected_type=type_hints["target_kafka_cluster_arn"])
                 check_type(argname="argument topic_replication", value=topic_replication, expected_type=type_hints["topic_replication"])
+                check_type(argname="argument source_kafka_cluster_arn", value=source_kafka_cluster_arn, expected_type=type_hints["source_kafka_cluster_arn"])
+                check_type(argname="argument source_kafka_cluster_id", value=source_kafka_cluster_id, expected_type=type_hints["source_kafka_cluster_id"])
+                check_type(argname="argument target_kafka_cluster_arn", value=target_kafka_cluster_arn, expected_type=type_hints["target_kafka_cluster_arn"])
+                check_type(argname="argument target_kafka_cluster_id", value=target_kafka_cluster_id, expected_type=type_hints["target_kafka_cluster_id"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "consumer_group_replication": consumer_group_replication,
-                "source_kafka_cluster_arn": source_kafka_cluster_arn,
                 "target_compression_type": target_compression_type,
-                "target_kafka_cluster_arn": target_kafka_cluster_arn,
                 "topic_replication": topic_replication,
             }
+            if source_kafka_cluster_arn is not None:
+                self._values["source_kafka_cluster_arn"] = source_kafka_cluster_arn
+            if source_kafka_cluster_id is not None:
+                self._values["source_kafka_cluster_id"] = source_kafka_cluster_id
+            if target_kafka_cluster_arn is not None:
+                self._values["target_kafka_cluster_arn"] = target_kafka_cluster_arn
+            if target_kafka_cluster_id is not None:
+                self._values["target_kafka_cluster_id"] = target_kafka_cluster_id
 
         @builtins.property
         def consumer_group_replication(
@@ -5020,16 +5691,6 @@ class CfnReplicator(
             return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnReplicator.ConsumerGroupReplicationProperty"], result)
 
         @builtins.property
-        def source_kafka_cluster_arn(self) -> builtins.str:
-            '''The ARN of the source Kafka cluster.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-replicator-replicationinfo.html#cfn-msk-replicator-replicationinfo-sourcekafkaclusterarn
-            '''
-            result = self._values.get("source_kafka_cluster_arn")
-            assert result is not None, "Required property 'source_kafka_cluster_arn' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
         def target_compression_type(self) -> builtins.str:
             '''The compression type to use when producing records to target cluster.
 
@@ -5037,16 +5698,6 @@ class CfnReplicator(
             '''
             result = self._values.get("target_compression_type")
             assert result is not None, "Required property 'target_compression_type' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def target_kafka_cluster_arn(self) -> builtins.str:
-            '''The ARN of the target Kafka cluster.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-replicator-replicationinfo.html#cfn-msk-replicator-replicationinfo-targetkafkaclusterarn
-            '''
-            result = self._values.get("target_kafka_cluster_arn")
-            assert result is not None, "Required property 'target_kafka_cluster_arn' is missing"
             return typing.cast(builtins.str, result)
 
         @builtins.property
@@ -5060,6 +5711,42 @@ class CfnReplicator(
             result = self._values.get("topic_replication")
             assert result is not None, "Required property 'topic_replication' is missing"
             return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnReplicator.TopicReplicationProperty"], result)
+
+        @builtins.property
+        def source_kafka_cluster_arn(self) -> typing.Optional[builtins.str]:
+            '''The ARN of the source Kafka cluster.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-replicator-replicationinfo.html#cfn-msk-replicator-replicationinfo-sourcekafkaclusterarn
+            '''
+            result = self._values.get("source_kafka_cluster_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def source_kafka_cluster_id(self) -> typing.Optional[builtins.str]:
+            '''The ID of the source Kafka cluster.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-replicator-replicationinfo.html#cfn-msk-replicator-replicationinfo-sourcekafkaclusterid
+            '''
+            result = self._values.get("source_kafka_cluster_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def target_kafka_cluster_arn(self) -> typing.Optional[builtins.str]:
+            '''The ARN of the target Kafka cluster.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-replicator-replicationinfo.html#cfn-msk-replicator-replicationinfo-targetkafkaclusterarn
+            '''
+            result = self._values.get("target_kafka_cluster_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def target_kafka_cluster_id(self) -> typing.Optional[builtins.str]:
+            '''The ID of the target Kafka cluster.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-replicator-replicationinfo.html#cfn-msk-replicator-replicationinfo-targetkafkaclusterid
+            '''
+            result = self._values.get("target_kafka_cluster_id")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5171,6 +5858,205 @@ class CfnReplicator(
 
         def __repr__(self) -> str:
             return "ReplicationTopicNameConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_msk.CfnReplicator.ReplicatorLogDeliveryProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "cloud_watch_logs": "cloudWatchLogs",
+            "firehose": "firehose",
+            "s3": "s3",
+        },
+    )
+    class ReplicatorLogDeliveryProperty:
+        def __init__(
+            self,
+            *,
+            cloud_watch_logs: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnReplicator.CloudWatchLogsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            firehose: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnReplicator.FirehoseProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            s3: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnReplicator.S3Property", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Details of the log delivery for the replicator.
+
+            :param cloud_watch_logs: Details about delivering logs to CloudWatch Logs.
+            :param firehose: Details about delivering logs to Firehose.
+            :param s3: Details about delivering logs to S3.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-replicator-replicatorlogdelivery.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_msk as msk
+                
+                replicator_log_delivery_property = msk.CfnReplicator.ReplicatorLogDeliveryProperty(
+                    cloud_watch_logs=msk.CfnReplicator.CloudWatchLogsProperty(
+                        enabled=False,
+                
+                        # the properties below are optional
+                        log_group="logGroup"
+                    ),
+                    firehose=msk.CfnReplicator.FirehoseProperty(
+                        enabled=False,
+                
+                        # the properties below are optional
+                        delivery_stream="deliveryStream"
+                    ),
+                    s3=msk.CfnReplicator.S3Property(
+                        enabled=False,
+                
+                        # the properties below are optional
+                        bucket="bucket",
+                        prefix="prefix"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__a66ba428ca5f1f92b6ff45a48fb4c1dda44b9a11a222784e97afe47843a4f638)
+                check_type(argname="argument cloud_watch_logs", value=cloud_watch_logs, expected_type=type_hints["cloud_watch_logs"])
+                check_type(argname="argument firehose", value=firehose, expected_type=type_hints["firehose"])
+                check_type(argname="argument s3", value=s3, expected_type=type_hints["s3"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if cloud_watch_logs is not None:
+                self._values["cloud_watch_logs"] = cloud_watch_logs
+            if firehose is not None:
+                self._values["firehose"] = firehose
+            if s3 is not None:
+                self._values["s3"] = s3
+
+        @builtins.property
+        def cloud_watch_logs(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnReplicator.CloudWatchLogsProperty"]]:
+            '''Details about delivering logs to CloudWatch Logs.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-replicator-replicatorlogdelivery.html#cfn-msk-replicator-replicatorlogdelivery-cloudwatchlogs
+            '''
+            result = self._values.get("cloud_watch_logs")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnReplicator.CloudWatchLogsProperty"]], result)
+
+        @builtins.property
+        def firehose(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnReplicator.FirehoseProperty"]]:
+            '''Details about delivering logs to Firehose.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-replicator-replicatorlogdelivery.html#cfn-msk-replicator-replicatorlogdelivery-firehose
+            '''
+            result = self._values.get("firehose")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnReplicator.FirehoseProperty"]], result)
+
+        @builtins.property
+        def s3(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnReplicator.S3Property"]]:
+            '''Details about delivering logs to S3.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-replicator-replicatorlogdelivery.html#cfn-msk-replicator-replicatorlogdelivery-s3
+            '''
+            result = self._values.get("s3")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnReplicator.S3Property"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ReplicatorLogDeliveryProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_msk.CfnReplicator.S3Property",
+        jsii_struct_bases=[],
+        name_mapping={"enabled": "enabled", "bucket": "bucket", "prefix": "prefix"},
+    )
+    class S3Property:
+        def __init__(
+            self,
+            *,
+            enabled: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
+            bucket: typing.Optional[builtins.str] = None,
+            prefix: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Details about delivering logs to S3.
+
+            :param enabled: Whether log delivery to S3 is enabled.
+            :param bucket: The S3 bucket that is the destination for log delivery.
+            :param prefix: The S3 prefix that is the destination for log delivery.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-replicator-s3.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_msk as msk
+                
+                s3_property = msk.CfnReplicator.S3Property(
+                    enabled=False,
+                
+                    # the properties below are optional
+                    bucket="bucket",
+                    prefix="prefix"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__199f17594029cddef64efe7a848c1c92b044689cdba2e2a86ce4955424665ae8)
+                check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+                check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
+                check_type(argname="argument prefix", value=prefix, expected_type=type_hints["prefix"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "enabled": enabled,
+            }
+            if bucket is not None:
+                self._values["bucket"] = bucket
+            if prefix is not None:
+                self._values["prefix"] = prefix
+
+        @builtins.property
+        def enabled(self) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
+            '''Whether log delivery to S3 is enabled.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-replicator-s3.html#cfn-msk-replicator-s3-enabled
+            '''
+            result = self._values.get("enabled")
+            assert result is not None, "Required property 'enabled' is missing"
+            return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
+
+        @builtins.property
+        def bucket(self) -> typing.Optional[builtins.str]:
+            '''The S3 bucket that is the destination for log delivery.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-replicator-s3.html#cfn-msk-replicator-s3-bucket
+            '''
+            result = self._values.get("bucket")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def prefix(self) -> typing.Optional[builtins.str]:
+            '''The S3 prefix that is the destination for log delivery.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-replicator-s3.html#cfn-msk-replicator-s3-prefix
+            '''
+            result = self._values.get("prefix")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "S3Property(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -5354,6 +6240,7 @@ class CfnReplicator(
         "replicator_name": "replicatorName",
         "service_execution_role_arn": "serviceExecutionRoleArn",
         "description": "description",
+        "log_delivery": "logDelivery",
         "tags": "tags",
     },
 )
@@ -5366,6 +6253,7 @@ class CfnReplicatorProps:
         replicator_name: builtins.str,
         service_execution_role_arn: builtins.str,
         description: typing.Optional[builtins.str] = None,
+        log_delivery: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnReplicator.LogDeliveryProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnReplicator``.
@@ -5375,6 +6263,7 @@ class CfnReplicatorProps:
         :param replicator_name: The name of the replicator. Alpha-numeric characters with '-' are allowed.
         :param service_execution_role_arn: The ARN of the IAM role used by the replicator to access resources in the customer's account (e.g source and target clusters).
         :param description: A summary description of the replicator.
+        :param log_delivery: Configuration for log delivery for the replicator.
         :param tags: List of tags to attach to created Replicator.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-replicator.html
@@ -5392,6 +6281,22 @@ class CfnReplicatorProps:
                     amazon_msk_cluster=msk.CfnReplicator.AmazonMskClusterProperty(
                         msk_cluster_arn="mskClusterArn"
                     ),
+                    apache_kafka_cluster=msk.CfnReplicator.ApacheKafkaClusterProperty(
+                        apache_kafka_cluster_id="apacheKafkaClusterId",
+                        bootstrap_broker_string="bootstrapBrokerString"
+                    ),
+                    client_authentication=msk.CfnReplicator.KafkaClusterClientAuthenticationProperty(
+                        sasl_scram=msk.CfnReplicator.KafkaClusterSaslScramAuthenticationProperty(
+                            mechanism="mechanism",
+                            secret_arn="secretArn"
+                        )
+                    ),
+                    encryption_in_transit=msk.CfnReplicator.KafkaClusterEncryptionInTransitProperty(
+                        encryption_type="encryptionType",
+            
+                        # the properties below are optional
+                        root_ca_certificate="rootCaCertificate"
+                    ),
                     vpc_config=msk.CfnReplicator.KafkaClusterClientVpcConfigProperty(
                         subnet_ids=["subnetIds"],
             
@@ -5404,13 +6309,12 @@ class CfnReplicatorProps:
                         consumer_groups_to_replicate=["consumerGroupsToReplicate"],
             
                         # the properties below are optional
+                        consumer_group_offset_sync_mode="consumerGroupOffsetSyncMode",
                         consumer_groups_to_exclude=["consumerGroupsToExclude"],
                         detect_and_copy_new_consumer_groups=False,
                         synchronise_consumer_group_offsets=False
                     ),
-                    source_kafka_cluster_arn="sourceKafkaClusterArn",
                     target_compression_type="targetCompressionType",
-                    target_kafka_cluster_arn="targetKafkaClusterArn",
                     topic_replication=msk.CfnReplicator.TopicReplicationProperty(
                         topics_to_replicate=["topicsToReplicate"],
             
@@ -5425,13 +6329,42 @@ class CfnReplicatorProps:
                             type="type"
                         ),
                         topics_to_exclude=["topicsToExclude"]
-                    )
+                    ),
+            
+                    # the properties below are optional
+                    source_kafka_cluster_arn="sourceKafkaClusterArn",
+                    source_kafka_cluster_id="sourceKafkaClusterId",
+                    target_kafka_cluster_arn="targetKafkaClusterArn",
+                    target_kafka_cluster_id="targetKafkaClusterId"
                 )],
                 replicator_name="replicatorName",
                 service_execution_role_arn="serviceExecutionRoleArn",
             
                 # the properties below are optional
                 description="description",
+                log_delivery=msk.CfnReplicator.LogDeliveryProperty(
+                    replicator_log_delivery=msk.CfnReplicator.ReplicatorLogDeliveryProperty(
+                        cloud_watch_logs=msk.CfnReplicator.CloudWatchLogsProperty(
+                            enabled=False,
+            
+                            # the properties below are optional
+                            log_group="logGroup"
+                        ),
+                        firehose=msk.CfnReplicator.FirehoseProperty(
+                            enabled=False,
+            
+                            # the properties below are optional
+                            delivery_stream="deliveryStream"
+                        ),
+                        s3=msk.CfnReplicator.S3Property(
+                            enabled=False,
+            
+                            # the properties below are optional
+                            bucket="bucket",
+                            prefix="prefix"
+                        )
+                    )
+                ),
                 tags=[CfnTag(
                     key="key",
                     value="value"
@@ -5445,6 +6378,7 @@ class CfnReplicatorProps:
             check_type(argname="argument replicator_name", value=replicator_name, expected_type=type_hints["replicator_name"])
             check_type(argname="argument service_execution_role_arn", value=service_execution_role_arn, expected_type=type_hints["service_execution_role_arn"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument log_delivery", value=log_delivery, expected_type=type_hints["log_delivery"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "kafka_clusters": kafka_clusters,
@@ -5454,6 +6388,8 @@ class CfnReplicatorProps:
         }
         if description is not None:
             self._values["description"] = description
+        if log_delivery is not None:
+            self._values["log_delivery"] = log_delivery
         if tags is not None:
             self._values["tags"] = tags
 
@@ -5511,6 +6447,17 @@ class CfnReplicatorProps:
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def log_delivery(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnReplicator.LogDeliveryProperty"]]:
+        '''Configuration for log delivery for the replicator.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-replicator.html#cfn-msk-replicator-logdelivery
+        '''
+        result = self._values.get("log_delivery")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnReplicator.LogDeliveryProperty"]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
@@ -7449,6 +8396,7 @@ def _typecheckingstub__dfeb157957f65ee344afab32ca8fffe9eb07ec631c59935f85e890a85
     replicator_name: builtins.str,
     service_execution_role_arn: builtins.str,
     description: typing.Optional[builtins.str] = None,
+    log_delivery: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnReplicator.LogDeliveryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -7508,6 +8456,12 @@ def _typecheckingstub__0d4359699d0ff82e6e6d493eefa33cd643cafd7ea12f638de022a962a
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__8fb205dc879f12fc8edb332700a70c2ee3c0701980503cb78bdd2181398fcdde(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnReplicator.LogDeliveryProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__bc354f2be8b1c9d39ac22542641d1fa2b82dfe634bd35bb8c6672b45284a864d(
     value: typing.Optional[typing.List[_CfnTag_f6864754]],
 ) -> None:
@@ -7521,12 +8475,44 @@ def _typecheckingstub__a0fbe0628e6231e4ec8e3b3629178973d10f9e0f283d5a33788f965bb
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__b009b9d5e6905d82699a079adb25df15808b9151f52eb78de8b482ac824ecb40(
+    *,
+    apache_kafka_cluster_id: builtins.str,
+    bootstrap_broker_string: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ed263ae94432f7830bbc1d75084600b07e616c545fc573cc10d2e0b4b2edb19a(
+    *,
+    enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
+    log_group: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__d275044c7f1818eee4a5b889cbed2bc735fed9b36ba22974b19abea8f1b87d61(
     *,
     consumer_groups_to_replicate: typing.Sequence[builtins.str],
+    consumer_group_offset_sync_mode: typing.Optional[builtins.str] = None,
     consumer_groups_to_exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
     detect_and_copy_new_consumer_groups: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     synchronise_consumer_group_offsets: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__42de6b2042f8086b2898030e584464f88b05b245c742dd15f6ac50ce12274d0d(
+    *,
+    enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
+    delivery_stream: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c571a114ab290550ca33f1735aecfb895c5cfc0879d719ffab9178fd3c27f276(
+    *,
+    sasl_scram: typing.Union[_IResolvable_da3f097b, typing.Union[CfnReplicator.KafkaClusterSaslScramAuthenticationProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7539,10 +8525,36 @@ def _typecheckingstub__24e970cae56f2d082d9fcca2c1deb2dd4a03fb70f483a3deffbe23df5
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__91b4882bfa3be581c7d0490f265b896701a077acbf8099ee4488efd91b48c01e(
+    *,
+    encryption_type: builtins.str,
+    root_ca_certificate: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__6bd0abb9f47b9df020dcab4109fa663638863abb8a4bbd2280b4a02b658e2cb8(
     *,
-    amazon_msk_cluster: typing.Union[_IResolvable_da3f097b, typing.Union[CfnReplicator.AmazonMskClusterProperty, typing.Dict[builtins.str, typing.Any]]],
-    vpc_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnReplicator.KafkaClusterClientVpcConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    amazon_msk_cluster: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnReplicator.AmazonMskClusterProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    apache_kafka_cluster: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnReplicator.ApacheKafkaClusterProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    client_authentication: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnReplicator.KafkaClusterClientAuthenticationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    encryption_in_transit: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnReplicator.KafkaClusterEncryptionInTransitProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    vpc_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnReplicator.KafkaClusterClientVpcConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3eb263d5716fcee3fef4a4aa7910e0b86ed47647bdf01ac2dc17718f9e391076(
+    *,
+    mechanism: builtins.str,
+    secret_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__760b13d91777fe7e56a0ad91019c1625e730034f2fecd7c5d4d943115f3e7c3b(
+    *,
+    replicator_log_delivery: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnReplicator.ReplicatorLogDeliveryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7550,10 +8562,12 @@ def _typecheckingstub__6bd0abb9f47b9df020dcab4109fa663638863abb8a4bbd2280b4a02b6
 def _typecheckingstub__1dda95e7e04f4c21eabf1745c35859aeb7d3710c716f2649a23a1bda996cfee3(
     *,
     consumer_group_replication: typing.Union[_IResolvable_da3f097b, typing.Union[CfnReplicator.ConsumerGroupReplicationProperty, typing.Dict[builtins.str, typing.Any]]],
-    source_kafka_cluster_arn: builtins.str,
     target_compression_type: builtins.str,
-    target_kafka_cluster_arn: builtins.str,
     topic_replication: typing.Union[_IResolvable_da3f097b, typing.Union[CfnReplicator.TopicReplicationProperty, typing.Dict[builtins.str, typing.Any]]],
+    source_kafka_cluster_arn: typing.Optional[builtins.str] = None,
+    source_kafka_cluster_id: typing.Optional[builtins.str] = None,
+    target_kafka_cluster_arn: typing.Optional[builtins.str] = None,
+    target_kafka_cluster_id: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7568,6 +8582,24 @@ def _typecheckingstub__5867862d62f899b15989ba1bdfade827bc8239f7341776ead0babb821
 def _typecheckingstub__9f42794dadb7055f47c6b1d4ac38c1e97c2d772710d83250815945ce778bce1c(
     *,
     type: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a66ba428ca5f1f92b6ff45a48fb4c1dda44b9a11a222784e97afe47843a4f638(
+    *,
+    cloud_watch_logs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnReplicator.CloudWatchLogsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    firehose: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnReplicator.FirehoseProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    s3: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnReplicator.S3Property, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__199f17594029cddef64efe7a848c1c92b044689cdba2e2a86ce4955424665ae8(
+    *,
+    enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
+    bucket: typing.Optional[builtins.str] = None,
+    prefix: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7592,6 +8624,7 @@ def _typecheckingstub__8386726baf4842aa1a4af40915bf45a4cc4edffd70ea82fa6a181cca6
     replicator_name: builtins.str,
     service_execution_role_arn: builtins.str,
     description: typing.Optional[builtins.str] = None,
+    log_delivery: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnReplicator.LogDeliveryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""

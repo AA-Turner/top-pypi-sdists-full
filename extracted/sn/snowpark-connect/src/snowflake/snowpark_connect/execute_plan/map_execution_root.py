@@ -13,15 +13,11 @@ from pyarrow import Table
 
 import snowflake.snowpark_connect.tcm as tcm
 from snowflake import snowpark
-from snowflake.connector.cursor import SnowflakeCursor
-from snowflake.connector.errors import NotSupportedError
 from snowflake.snowpark._internal.analyzer.snowflake_plan import PlanQueryType
 from snowflake.snowpark._internal.utils import (
     create_or_update_statement_params_with_query_tag,
 )
 from snowflake.snowpark_connect.dataframe_container import DataFrameContainer
-from snowflake.snowpark_connect.error.error_codes import ErrorCodes
-from snowflake.snowpark_connect.error.error_utils import attach_custom_error_code
 from snowflake.snowpark_connect.execute_plan.utils import (
     _is_agg_function_with_single_row_result,
     arrow_table_to_arrow_bytes,
@@ -54,22 +50,6 @@ def _build_execute_plan_response(
         schema=schema,
     )
 
-
-def sproc_connector_fetch_arrow_batches_fix(self) -> Iterator[Table]:
-    self.check_can_use_arrow_resultset()
-    if self._prefetch_hook is not None:
-        self._prefetch_hook()
-    if self._query_result_format != "arrow":
-        exception = NotSupportedError()
-        attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
-        raise exception
-    return self._result_set._fetch_arrow_batches()
-
-
-# TODO: SNOW-2039432 use to_arrow_batches once it is fixed in sproc-python-connector
-# We need to do this monkey patching because sproc python connector has a bug where it does not call _prefetch_hook()
-# inside fetch_arrow_batches() which causes TCM, notebook and stored procs to throw error on df.collect()
-SnowflakeCursor.fetch_arrow_batches = sproc_connector_fetch_arrow_batches_fix
 
 SKIP_LEVELS_TWO = (
     2  # limit traceback to return up to 2 stack trace entries from traceback object tb

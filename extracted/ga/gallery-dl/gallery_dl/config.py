@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright 2015-2025 Mike Fährmann
+# Copyright 2015-2026 Mike Fährmann
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -21,33 +21,59 @@ log = logging.getLogger("config")
 
 _config = {}
 _files = []
-
-if util.WINDOWS:
-    _default_configs = [
-        r"%APPDATA%\gallery-dl\config.json",
-        r"%USERPROFILE%\gallery-dl\config.json",
-        r"%USERPROFILE%\gallery-dl.conf",
-    ]
-else:
-    _default_configs = [
-        "/etc/gallery-dl.conf",
-        "${XDG_CONFIG_HOME}/gallery-dl/config.json"
-        if os.environ.get("XDG_CONFIG_HOME") else
-        "${HOME}/.config/gallery-dl/config.json",
-        "${HOME}/.gallery-dl.conf",
-    ]
-
-
-if util.EXECUTABLE:
-    # look for config file in PyInstaller executable directory (#682)
-    _default_configs.append(os.path.join(
-        os.path.dirname(sys.executable),
-        "gallery-dl.conf",
-    ))
+_type = "json"
+_load = util.json_loads
+_default_configs = ()
 
 
 # --------------------------------------------------------------------
 # public interface
+
+
+def default(type=None):
+    global _type
+    global _load
+    global _default_configs
+
+    if not type or (type := type.lower()) == "json":
+        _type = type = "json"
+        _load = util.json_loads
+    elif type == "yaml":
+        _type = "yaml"
+        from yaml import safe_load as _load
+    elif type == "toml":
+        _type = "toml"
+        try:
+            from tomllib import loads as _load
+        except ImportError:
+            from toml import loads as _load
+    else:
+        raise ValueError(f"Unsupported config file type '{type}'")
+
+    if util.WINDOWS:
+        _default_configs = [
+            r"%APPDATA%\gallery-dl\config." + type,
+            r"%USERPROFILE%\gallery-dl\config." + type,
+            r"%USERPROFILE%\gallery-dl.conf",
+        ]
+    else:
+        _default_configs = [
+            "/etc/gallery-dl.conf",
+            "${XDG_CONFIG_HOME}/gallery-dl/config." + type
+            if os.environ.get("XDG_CONFIG_HOME") else
+            "${HOME}/.config/gallery-dl/config." + type,
+            "${HOME}/.gallery-dl.conf",
+        ]
+
+    if util.EXECUTABLE:
+        # look for config file in PyInstaller executable directory (#682)
+        _default_configs.append(os.path.join(
+            os.path.dirname(sys.executable),
+            "gallery-dl.conf",
+        ))
+
+
+default(os.environ.get("GDL_CONFIG_TYPE"))
 
 
 def initialize():
@@ -120,7 +146,7 @@ def open_extern():
     if not retcode:
         try:
             with open(path, encoding="utf-8") as fp:
-                util.json_loads(fp.read())
+                _load(fp.read())
         except Exception as exc:
             log.warning("%s when parsing '%s': %s",
                         exc.__class__.__name__, path, exc)
@@ -138,15 +164,17 @@ def status():
 
         try:
             with open(path, encoding="utf-8") as fp:
-                util.json_loads(fp.read())
+                _load(fp.read())
         except FileNotFoundError:
-            status = "Not Present"
-        except OSError:
+            status = ""
+        except OSError as exc:
+            log.debug("%s: %s", exc.__class__.__name__, exc)
             status = "Inaccessible"
-        except ValueError:
-            status = "Invalid JSON"
+        except ValueError as exc:
+            log.debug("%s: %s", exc.__class__.__name__, exc)
+            status = "Invalid " + _type.upper()
         except Exception as exc:
-            log.debug(exc)
+            log.debug("%s: %s", exc.__class__.__name__, exc)
             status = "Unknown"
         else:
             status = "OK"
@@ -154,7 +182,6 @@ def status():
         paths.append((path, status))
 
     fmt = f"{{:<{max(len(p[0]) for p in paths)}}} : {{}}\n".format
-
     for path, status in paths:
         stdout_write(fmt(path, status))
 
@@ -187,8 +214,11 @@ def remap_categories():
             opts[new] = opts[old]
 
 
-def load(files=None, strict=False, loads=util.json_loads, conf=_config):
-    """Load JSON configuration files"""
+def load(files=None, strict=False, loads=None, conf=_config):
+    """Load configuration files"""
+    if loads is None:
+        loads = _load
+
     for pathfmt in files or _default_configs:
         path = util.expand_path(pathfmt)
         try:

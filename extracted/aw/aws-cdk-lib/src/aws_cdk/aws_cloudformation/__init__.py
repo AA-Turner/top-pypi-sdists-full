@@ -754,7 +754,7 @@ class CfnGuardHook(
         def __init__(
             self,
             *,
-            input_params: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGuardHook.S3LocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            input_params: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGuardHook.S3LocationProperty", typing.Dict[builtins.str, typing.Any]], typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGuardHook.S3LocationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''Specifies the input parameters for a Guard Hook.
 
@@ -788,13 +788,13 @@ class CfnGuardHook(
         @builtins.property
         def input_params(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnGuardHook.S3LocationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnGuardHook.S3LocationProperty", typing.List[typing.Union["_IResolvable_da3f097b", "CfnGuardHook.S3LocationProperty"]]]]:
             '''Specifies the S3 location where your input parameters are located.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudformation-guardhook-options.html#cfn-cloudformation-guardhook-options-inputparams
             '''
             result = self._values.get("input_params")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnGuardHook.S3LocationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnGuardHook.S3LocationProperty", typing.List[typing.Union["_IResolvable_da3f097b", "CfnGuardHook.S3LocationProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -9062,7 +9062,7 @@ def _typecheckingstub__75d10faed01d259a75abfd83308e4f5f99124946f274bb8e8b5c92b03
 
 def _typecheckingstub__9b598c3b73355c67dcc3aa78319cd2f0d94b1f77b3311af71cc07b20334e0eca(
     *,
-    input_params: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGuardHook.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    input_params: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGuardHook.S3LocationProperty, typing.Dict[builtins.str, typing.Any]], typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGuardHook.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

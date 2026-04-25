@@ -5,6 +5,9 @@
 //! Run with: cargo bench -p grafeo-engine --bench serialization_bench
 // Bench values are small known constants
 #![allow(clippy::cast_possible_wrap)]
+// reason: criterion_group! expansion from codspeed-criterion-compat does not
+// carry doc comments on the generated wrapper functions.
+#![allow(missing_docs)]
 
 use std::hint::black_box;
 

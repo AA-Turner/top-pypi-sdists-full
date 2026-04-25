@@ -10,6 +10,7 @@ import QuantConnect.Data
 import QuantConnect.Data.Fundamental
 import QuantConnect.Data.Market
 import QuantConnect.Data.UniverseSelection
+import QuantConnect.DataSource
 import QuantConnect.Interfaces
 import QuantConnect.Scheduling
 import QuantConnect.Securities
@@ -24,149 +25,6 @@ QuantConnect_Data_UniverseSelection_ConstituentsUniverse_T = typing.TypeVar("Qua
 QuantConnect_Data_UniverseSelection_FuncUniverse_T = typing.TypeVar("QuantConnect_Data_UniverseSelection_FuncUniverse_T")
 QuantConnect_Data_UniverseSelection__EventContainer_Callable = typing.TypeVar("QuantConnect_Data_UniverseSelection__EventContainer_Callable")
 QuantConnect_Data_UniverseSelection__EventContainer_ReturnType = typing.TypeVar("QuantConnect_Data_UniverseSelection__EventContainer_ReturnType")
-
-
-class IFundamentalDataProvider(metaclass=abc.ABCMeta):
-    """"""
-
-    def initialize(self, data_provider: QuantConnect.Interfaces.IDataProvider, live_mode: bool) -> None:
-        """
-        Initializes the service
-        
-        :param data_provider: The data provider instance to use
-        :param live_mode: True if running in live mode
-        """
-        ...
-
-
-class FundamentalService(System.Object):
-    """Fundamental data provider service"""
-
-    @staticmethod
-    @overload
-    def initialize(data_provider: QuantConnect.Interfaces.IDataProvider, live_mode: bool) -> None:
-        """
-        Initializes the service
-        
-        :param data_provider: The data provider instance to use
-        :param live_mode: True if running in live mode
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def initialize(data_provider: QuantConnect.Interfaces.IDataProvider, fundamental_data_provider: str, live_mode: bool) -> None:
-        """
-        Initializes the service
-        
-        :param data_provider: The data provider instance to use
-        :param fundamental_data_provider: The fundamental data provider
-        :param live_mode: True if running in live mode
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def initialize(data_provider: QuantConnect.Interfaces.IDataProvider, fundamental_data_provider: QuantConnect.Data.UniverseSelection.IFundamentalDataProvider, live_mode: bool) -> None:
-        """
-        Initializes the service
-        
-        :param data_provider: The data provider instance to use
-        :param fundamental_data_provider: The fundamental data provider
-        :param live_mode: True if running in live mode
-        """
-        ...
-
-
-class CoarseFundamental(QuantConnect.Data.BaseData):
-    """Defines summary information about a single symbol for a given date"""
-
-    @property
-    def market(self) -> str:
-        """Gets the market for this symbol"""
-        ...
-
-    @property
-    def dollar_volume(self) -> float:
-        """Gets the day's dollar volume for this symbol"""
-        ...
-
-    @property
-    def volume(self) -> int:
-        """Gets the day's total volume"""
-        ...
-
-    @property
-    def has_fundamental_data(self) -> bool:
-        """Returns whether the symbol has fundamental data for the given date"""
-        ...
-
-    @property
-    def price_factor(self) -> float:
-        """Gets the price factor for the given date"""
-        ...
-
-    @property
-    def split_factor(self) -> float:
-        """Gets the split factor for the given date"""
-        ...
-
-    @property
-    def price_scale_factor(self) -> float:
-        """Gets the combined factor used to create adjusted prices from raw prices"""
-        ...
-
-    @property
-    def adjusted_price(self) -> float:
-        """Gets the split and dividend adjusted price"""
-        ...
-
-    @property
-    def end_time(self) -> datetime.datetime:
-        """The end time of this data."""
-        ...
-
-    @end_time.setter
-    def end_time(self, value: datetime.datetime) -> None:
-        ...
-
-    @property
-    def price(self) -> float:
-        """Gets the raw price"""
-        ...
-
-    def __init__(self) -> None:
-        """Initializes a new instance of the CoarseFundamental class"""
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Return the URL string source of the file. This will be converted to a stream
-        
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: String URL of source file.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Reader converts each line of the data source into BaseData objects. Each data type creates its own factory method, and returns a new instance of the object
-        each time it is called.
-        
-        :param config: Subscription data config setup object
-        :param line: Line of the source document
-        :param date: Date of the requested data
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: Instance of the T:BaseData object generated by this line of the CSV.
-        """
-        ...
-
-    @staticmethod
-    def to_row(coarse: QuantConnect.Data.UniverseSelection.CoarseFundamental) -> str:
-        """Converts a given fundamental data point into row format"""
-        ...
 
 
 class Schedule(System.Object):
@@ -752,6 +610,212 @@ class Universe(System.Object, System.IDisposable, metaclass=abc.ABCMeta):
         :param data: The symbols to remain in the universe
         :returns: The data that passes the filter.
         """
+        ...
+
+
+class CryptoUniverseFactory(QuantConnect.Data.UniverseSelection.Universe):
+    """Defines a universe that reads crypto coarse data"""
+
+    @overload
+    def __init__(self, market: str, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, selector: typing.Any) -> None:
+        """
+        Initializes a new instance of the CryptoUniverseFactory class
+        
+        :param market: The target crypto market
+        :param universe_settings: The settings used for new subscriptions generated by this universe
+        :param selector: Returns the symbols that should be included in the universe
+        """
+        ...
+
+    @overload
+    def __init__(self, market: str, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, selector: typing.Callable[[typing.List[QuantConnect.DataSource.CryptoUniverse]], typing.List[QuantConnect.Symbol]]) -> None:
+        """
+        Initializes a new instance of the CryptoUniverseFactory class
+        
+        :param market: The target crypto market
+        :param universe_settings: The settings used for new subscriptions generated by this universe
+        :param selector: Returns the symbols that should be included in the universe
+        """
+        ...
+
+    @staticmethod
+    def create_configuration(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> QuantConnect.Data.SubscriptionDataConfig:
+        """
+        Creates a CryptoUniverse subscription configuration for the selected Crypto market
+        
+        :param symbol: The symbol used in the returned configuration
+        :returns: A coarse fundamental subscription configuration with the specified symbol.
+        """
+        ...
+
+    def select_symbols(self, utc_time: typing.Union[datetime.datetime, datetime.date], data: QuantConnect.Data.UniverseSelection.BaseDataCollection) -> typing.Sequence[QuantConnect.Symbol]:
+        """
+        Performs universe selection using the data specified
+        
+        :param utc_time: The current utc time
+        :param data: The symbols to remain in the universe
+        :returns: The data that passes the filter.
+        """
+        ...
+
+
+class CryptoCoarseFundamentalUniverse(QuantConnect.Data.UniverseSelection.CryptoUniverseFactory):
+    """
+    Defines a universe that reads crypto coarse data
+    
+    
+    'CryptoCoarseFundamentalUniverse' was renamed to 'CryptoUniverseFactory'
+    """
+
+    @overload
+    def __init__(self, market: str, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, selector: typing.Any) -> None:
+        ...
+
+    @overload
+    def __init__(self, market: str, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, selector: typing.Callable[[typing.List[QuantConnect.DataSource.CryptoUniverse]], typing.List[QuantConnect.Symbol]]) -> None:
+        ...
+
+
+class IFundamentalDataProvider(metaclass=abc.ABCMeta):
+    """"""
+
+    def initialize(self, data_provider: QuantConnect.Interfaces.IDataProvider, live_mode: bool) -> None:
+        """
+        Initializes the service
+        
+        :param data_provider: The data provider instance to use
+        :param live_mode: True if running in live mode
+        """
+        ...
+
+
+class FundamentalService(System.Object):
+    """Fundamental data provider service"""
+
+    @staticmethod
+    @overload
+    def initialize(data_provider: QuantConnect.Interfaces.IDataProvider, live_mode: bool) -> None:
+        """
+        Initializes the service
+        
+        :param data_provider: The data provider instance to use
+        :param live_mode: True if running in live mode
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def initialize(data_provider: QuantConnect.Interfaces.IDataProvider, fundamental_data_provider: str, live_mode: bool) -> None:
+        """
+        Initializes the service
+        
+        :param data_provider: The data provider instance to use
+        :param fundamental_data_provider: The fundamental data provider
+        :param live_mode: True if running in live mode
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def initialize(data_provider: QuantConnect.Interfaces.IDataProvider, fundamental_data_provider: QuantConnect.Data.UniverseSelection.IFundamentalDataProvider, live_mode: bool) -> None:
+        """
+        Initializes the service
+        
+        :param data_provider: The data provider instance to use
+        :param fundamental_data_provider: The fundamental data provider
+        :param live_mode: True if running in live mode
+        """
+        ...
+
+
+class CoarseFundamental(QuantConnect.Data.BaseData):
+    """Defines summary information about a single symbol for a given date"""
+
+    @property
+    def market(self) -> str:
+        """Gets the market for this symbol"""
+        ...
+
+    @property
+    def dollar_volume(self) -> float:
+        """Gets the day's dollar volume for this symbol"""
+        ...
+
+    @property
+    def volume(self) -> int:
+        """Gets the day's total volume"""
+        ...
+
+    @property
+    def has_fundamental_data(self) -> bool:
+        """Returns whether the symbol has fundamental data for the given date"""
+        ...
+
+    @property
+    def price_factor(self) -> float:
+        """Gets the price factor for the given date"""
+        ...
+
+    @property
+    def split_factor(self) -> float:
+        """Gets the split factor for the given date"""
+        ...
+
+    @property
+    def price_scale_factor(self) -> float:
+        """Gets the combined factor used to create adjusted prices from raw prices"""
+        ...
+
+    @property
+    def adjusted_price(self) -> float:
+        """Gets the split and dividend adjusted price"""
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """The end time of this data."""
+        ...
+
+    @end_time.setter
+    def end_time(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    def price(self) -> float:
+        """Gets the raw price"""
+        ...
+
+    def __init__(self) -> None:
+        """Initializes a new instance of the CoarseFundamental class"""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Return the URL string source of the file. This will be converted to a stream
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: String URL of source file.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Reader converts each line of the data source into BaseData objects. Each data type creates its own factory method, and returns a new instance of the object
+        each time it is called.
+        
+        :param config: Subscription data config setup object
+        :param line: Line of the source document
+        :param date: Date of the requested data
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: Instance of the T:BaseData object generated by this line of the CSV.
+        """
+        ...
+
+    @staticmethod
+    def to_row(coarse: QuantConnect.Data.UniverseSelection.CoarseFundamental) -> str:
+        """Converts a given fundamental data point into row format"""
         ...
 
 

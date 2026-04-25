@@ -41,7 +41,7 @@ class AgentEvent:
     data: dict[str, Any]
 
 
-_DEFAULT_TOOL_OUTPUT_MAX_CHARS = 2000
+_DEFAULT_TOOL_OUTPUT_MAX_CHARS = 10_000
 _DEFAULT_TOOL_TIMEOUT = 300  # 5 minutes hard cap per tool execution
 
 # Proactive compaction thresholds live in the shared compaction module;
@@ -256,6 +256,39 @@ _NARRATION_PROMPT = (
 )
 
 
+def _has_compacted_prefix(messages: list[dict[str, Any]]) -> bool:
+    """Return True when history starts with a compact summary shape."""
+    if not messages:
+        return False
+    return bool(messages[0].get("metadata", {}).get("compact_summary"))
+
+
+def _compaction_prefix_len(messages: list[dict[str, Any]]) -> int:
+    """Length of the leading compact summary/boundary prefix, if present."""
+    if not _has_compacted_prefix(messages):
+        return 0
+    if len(messages) > 1 and messages[1].get("metadata", {}).get("compact_boundary"):
+        return 2
+    return 1
+
+
+def _enough_new_history_since_compaction(messages: list[dict[str, Any]], *, preserve_tail: int) -> bool:
+    """Avoid compacting a freshly compacted history again on every turn.
+
+    Boundary compaction cannot shrink below summary + boundary + preserved
+    tail. If the configured message threshold is at or below that floor,
+    total message count can immediately re-trigger compaction after each
+    user/assistant pair. Require at least ``COMPACTION_MIN_MESSAGES`` messages
+    beyond the preserved tail before re-compacting an already compacted shape.
+    """
+    prefix_len = _compaction_prefix_len(messages)
+    if prefix_len == 0:
+        return True
+    preserved_tail = max(0, preserve_tail)
+    compactable_since_last_summary = len(messages) - prefix_len - preserved_tail
+    return compactable_since_last_summary >= COMPACTION_MIN_MESSAGES
+
+
 async def run_agent_loop(
     ai_service: AIService,
     messages: list[dict[str, Any]],
@@ -421,17 +454,15 @@ async def run_agent_loop(
         _loop_token_estimate = count_message_tokens(messages)
         _should_compact = (
             _loop_token_estimate >= summary_trigger_token_count or len(messages) >= summary_trigger_msg_count
-        )
+        ) and _enough_new_history_since_compaction(messages, preserve_tail=compact_preserve_tail)
         if _should_compact:
             logger.info(
                 "Proactive compaction triggered: ~%d tokens, %d messages",
                 _loop_token_estimate,
                 len(messages),
             )
-            yield AgentEvent(
-                kind="token",
-                data={"content": "\n\n*Compacting conversation history to stay within context limits...*\n\n"},
-            )
+            yield AgentEvent(kind="thinking", data={})
+            yield AgentEvent(kind="phase", data={"phase": "compacting"})
             if await _compact_messages(
                 ai_service,
                 messages,

@@ -7,11 +7,13 @@ and visible_namespaces (scope visibility).
 
 from __future__ import annotations
 
+import sqlite3
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 from anteroom.config import MemoryRecallConfig
+from anteroom.db import _SCHEMA, ThreadSafeConnection
 from anteroom.services.memory_recall import (
     RecalledMemory,
     format_memory_context,
@@ -19,6 +21,7 @@ from anteroom.services.memory_recall import (
     strip_memory_context,
     visible_namespaces,
 )
+from anteroom.services.memory_service import create_memory
 
 
 def _make_config(**overrides: object) -> MemoryRecallConfig:
@@ -68,6 +71,16 @@ def _make_vec_manager(*, has_memories: bool = True) -> MagicMock:
     vm = MagicMock()
     vm.memories = MagicMock() if has_memories else None
     return vm
+
+
+@pytest.fixture()
+def real_db() -> ThreadSafeConnection:
+    conn = sqlite3.connect(":memory:", check_same_thread=False)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys=ON")
+    conn.executescript(_SCHEMA)
+    conn.commit()
+    return ThreadSafeConnection(conn)
 
 
 class TestVisibleNamespaces:
@@ -210,6 +223,53 @@ class TestRetrieveMemories:
             )
         assert memories == []
         assert reason == "no_embeddings_yet"
+
+    @pytest.mark.asyncio
+    async def test_no_vec_support_falls_back_to_lexical_match(self, real_db: ThreadSafeConnection) -> None:
+        create_memory(
+            real_db,
+            "My company id is 12345",
+            scope="user",
+            category="project_fact",
+            name="company-id",
+        )
+        emb = AsyncMock()
+        emb.embed = AsyncMock(return_value=_fake_embedding())
+
+        memories, reason = await retrieve_memories(
+            query="What is my company ID?",
+            db=real_db,
+            embedding_service=emb,
+            config=_make_config(),
+            vec_manager=_make_vec_manager(has_memories=False),
+        )
+
+        assert reason is None
+        assert [m.fqn for m in memories] == ["@user/memory/company-id"]
+
+    @pytest.mark.asyncio
+    async def test_no_embeddings_yet_falls_back_to_active_memory_scan(self, real_db: ThreadSafeConnection) -> None:
+        create_memory(
+            real_db,
+            "My company id is 12345",
+            scope="user",
+            category="project_fact",
+            name="company-id-fallback",
+        )
+        emb = AsyncMock()
+        emb.embed = AsyncMock(return_value=_fake_embedding())
+
+        with _patch_search([]):
+            memories, reason = await retrieve_memories(
+                query="What is my company ID?",
+                db=real_db,
+                embedding_service=emb,
+                config=_make_config(),
+                vec_manager=_make_vec_manager(),
+            )
+
+        assert reason is None
+        assert [m.fqn for m in memories] == ["@user/memory/company-id-fallback"]
 
     @pytest.mark.asyncio
     async def test_distance_threshold_filters(self) -> None:

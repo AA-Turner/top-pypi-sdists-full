@@ -25,7 +25,6 @@
 Region of interest and an item
 """
 
-
 __authors__ = ["H. Payno"]
 __license__ = "MIT"
 __date__ = "22/07/2019"
@@ -170,7 +169,7 @@ class _GetROIItemCoupleDialog(qt.QDialog):
         return self._kind_name_to_item[(kind, item_name)]
 
 
-class ROIStatsItemHelper(object):
+class ROIStatsItemHelper:
     """Item utils to associate a plot item and a roi
 
     Display on one row statistics regarding the couple
@@ -357,10 +356,6 @@ class _StatsROITable(_StatsWidgetBase, TableWidget):
         return True
 
     def _removeAllItems(self):
-        for row in range(self.rowCount()):
-            tableItem = self.item(row, 0)
-            # item = self._tableItemToItem(tableItem)
-            # item.sigItemChanged.disconnect(self._plotItemChanged)
         self.clearContents()
         self.setRowCount(0)
 
@@ -569,7 +564,7 @@ class _StatsROITable(_StatsWidgetBase, TableWidget):
                 )
                 try:
                     roi.sigRegionChanged.disconnect(self._updateAllStats)
-                except:
+                except Exception:
                     pass
             else:
                 roi.sigChanged.disconnect(self._updateAllStats)

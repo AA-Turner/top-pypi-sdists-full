@@ -20,7 +20,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 #
-########################################################################### */
+# ########################################################################## */
 """This modules defines a set of background model functions and associated
 estimation functions in a format that can be imported into a
 :class:`silx.math.fit.FitManager` object.
@@ -65,6 +65,7 @@ file is::
         'theory_name_2': …,
     }
 """
+
 __authors__ = ["P. Knobel"]
 __license__ = "MIT"
 __date__ = "16/01/2017"

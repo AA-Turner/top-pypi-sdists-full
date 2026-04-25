@@ -18,12 +18,10 @@ use super::aws_common::{
     sign_request, warn_if_credential_exfiltration_risk,
 };
 use super::helpers::{inject_extra_request_data, peek_first_chunk};
-use crate::cache::ModelProviderRequest;
 use crate::endpoints::inference::InferenceCredentials;
 use crate::error::{DisplayOrDebugGateway, Error, ErrorDetails};
 use crate::http::TensorzeroHttpClient;
 use crate::inference::InferenceProvider;
-use crate::inference::types::ProviderInferenceResponseArgs;
 use crate::inference::types::batch::BatchRequestRow;
 use crate::inference::types::batch::PollBatchInferenceResponse;
 use crate::inference::types::chat_completion_inference_params::{
@@ -36,15 +34,17 @@ use crate::inference::types::{
     ApiType, ContentBlock, ContentBlockChunk, ContentBlockOutput, FunctionType, Latency,
     ModelInferenceRequest, ModelInferenceRequestJsonMode, ObjectStorageFile,
     PeekableProviderInferenceResponseStream, ProviderInferenceResponse,
-    ProviderInferenceResponseChunk, ProviderInferenceResponseStreamInner, RequestMessage,
-    Role as TensorZeroRole, Text, TextChunk, Usage, batch::StartBatchProviderInferenceResponse,
+    ProviderInferenceResponseArgs, ProviderInferenceResponseChunk,
+    ProviderInferenceResponseStreamInner, RequestMessage, Role as TensorZeroRole, Text, TextChunk,
+    Usage, batch::StartBatchProviderInferenceResponse,
 };
 use crate::inference::types::{FinishReason, Thought, ThoughtChunk};
-use crate::model::ModelProvider;
+use crate::model::{ModelProviderRequestInfo, ProviderInferenceRequest};
+
 use crate::model::{CredentialLocation, CredentialLocationOrHardcoded};
-use crate::tool::{
-    FunctionToolConfig, ToolCall, ToolCallChunk, ToolChoice as TensorZeroToolChoice,
-};
+use tensorzero_inference_types::FunctionToolDef;
+
+use crate::tool::{ToolCall, ToolCallChunk, ToolChoice as TensorZeroToolChoice};
 use tensorzero_types_providers::aws_bedrock::{
     self as types, AdditionalModelRequestFields, ContentBlock as BedrockContentBlock,
     ContentBlockDelta, ContentBlockDeltaEvent, ContentBlockStart, ContentBlockStartEvent,
@@ -213,16 +213,15 @@ impl AWSBedrockProvider {
 impl InferenceProvider for AWSBedrockProvider {
     async fn infer<'a>(
         &'a self,
-        ModelProviderRequest {
+        ProviderInferenceRequest {
             request,
             provider_name: _,
             model_name,
-            otlp_config: _,
             model_inference_id,
-        }: ModelProviderRequest<'a>,
+        }: ProviderInferenceRequest<'a>,
         http_client: &'a TensorzeroHttpClient,
         dynamic_api_keys: &'a InferenceCredentials,
-        model_provider: &'a ModelProvider,
+        model_provider: &'a ModelProviderRequestInfo,
     ) -> Result<ProviderInferenceResponse, Error> {
         // Prepare the request body
         let PreparedRequestBody {
@@ -340,16 +339,15 @@ impl InferenceProvider for AWSBedrockProvider {
 
     async fn infer_stream<'a>(
         &'a self,
-        ModelProviderRequest {
+        ProviderInferenceRequest {
             request,
             provider_name: _,
             model_name,
-            otlp_config: _,
             model_inference_id,
-        }: ModelProviderRequest<'a>,
+        }: ProviderInferenceRequest<'a>,
         http_client: &'a TensorzeroHttpClient,
         dynamic_api_keys: &'a InferenceCredentials,
-        model_provider: &'a ModelProvider,
+        model_provider: &'a ModelProviderRequestInfo,
     ) -> Result<(PeekableProviderInferenceResponseStream, String), Error> {
         // Prepare the request body
         let PreparedRequestBody {
@@ -515,7 +513,7 @@ struct PreparedRequestBody {
 async fn prepare_request_body(
     model_id: &str,
     request: &ModelInferenceRequest<'_>,
-    model_provider: &ModelProvider,
+    model_provider: &ModelProviderRequestInfo,
     model_name: &str,
 ) -> Result<PreparedRequestBody, Error> {
     // Build the request body
@@ -826,14 +824,14 @@ async fn convert_content_block_to_bedrock(
     }
 }
 
-/// Convert a FunctionToolConfig to a Bedrock Tool
-fn convert_tool(tool_config: &FunctionToolConfig) -> Tool {
+/// Convert a FunctionToolDef to a Bedrock Tool
+fn convert_tool(tool_config: &FunctionToolDef) -> Tool {
     Tool {
         tool_spec: ToolSpec {
-            name: tool_config.name().to_string(),
-            description: tool_config.description().to_string(),
+            name: tool_config.name.clone(),
+            description: tool_config.description.clone(),
             input_schema: ToolInputSchema {
-                json: tool_config.parameters().clone(),
+                json: tool_config.parameters.clone(),
             },
         },
     }

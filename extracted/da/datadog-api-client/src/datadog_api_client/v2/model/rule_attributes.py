@@ -34,6 +34,7 @@ class RuleAttributes(ModelNormal):
             "modified_at": (datetime,),
             "name": (str,),
             "owner": (str,),
+            "scope_query": (str,),
             "scorecard_name": (str,),
         }
 
@@ -47,6 +48,7 @@ class RuleAttributes(ModelNormal):
         "modified_at": "modified_at",
         "name": "name",
         "owner": "owner",
+        "scope_query": "scope_query",
         "scorecard_name": "scorecard_name",
     }
 
@@ -61,6 +63,7 @@ class RuleAttributes(ModelNormal):
         modified_at: Union[datetime, UnsetType] = unset,
         name: Union[str, UnsetType] = unset,
         owner: Union[str, UnsetType] = unset,
+        scope_query: Union[str, UnsetType] = unset,
         scorecard_name: Union[str, UnsetType] = unset,
         **kwargs,
     ):
@@ -94,6 +97,9 @@ class RuleAttributes(ModelNormal):
         :param owner: Owner of the rule.
         :type owner: str, optional
 
+        :param scope_query: A query to filter which entities this rule applies to.
+        :type scope_query: str, optional
+
         :param scorecard_name: The scorecard name to which this rule must belong.
         :type scorecard_name: str, optional
         """
@@ -115,6 +121,8 @@ class RuleAttributes(ModelNormal):
             kwargs["name"] = name
         if owner is not unset:
             kwargs["owner"] = owner
+        if scope_query is not unset:
+            kwargs["scope_query"] = scope_query
         if scorecard_name is not unset:
             kwargs["scorecard_name"] = scorecard_name
         super().__init__(kwargs)

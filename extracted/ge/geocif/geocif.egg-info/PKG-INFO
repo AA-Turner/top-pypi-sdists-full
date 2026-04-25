@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: geocif
-Version: 0.4.424
+Version: 0.4.430
 Summary: Models to visualize and forecast crop conditions and yields
 Author-email: Ritvik Sahajpal <ritvik@umd.edu>
 License: MIT
@@ -405,6 +405,7 @@ panel_model = True
 cat_features = ["Harvest Year", "Region_ID", "Region"]
 outlook_n_years = 10        ; Number of historical years for yield outlook comparison
 outlook_aggregation = mean  ; mean or median
+run_time_steps = latest         ; latest, all, or N (every Nth time period)
 run_cluster_analysis = False
 cluster_analysis_proxy = AUC_NDVI
 cluster_analysis_max_k = 8

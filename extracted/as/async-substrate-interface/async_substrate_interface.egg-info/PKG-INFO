@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: async-substrate-interface
-Version: 2.0.1
+Version: 2.0.2
 Summary: Asyncio library for interacting with substrate. Mostly API-compatible with py-substrate-interface
 Author: Opentensor Foundation
 Author-email: BD Himes <b@latent.to>
@@ -46,7 +46,7 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: wheel
 Requires-Dist: aiosqlite<1.0.0,>=0.21.0
-Requires-Dist: cyscale<1.0.0,>=0.3.0
+Requires-Dist: cyscale<1.0.0,>=0.3.1
 Requires-Dist: websockets>=14.1
 Requires-Dist: xxhash
 Provides-Extra: dev

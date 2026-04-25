@@ -26,6 +26,7 @@ from typing import (
     Any,
     AsyncIterator,
     Iterable,
+    Optional,
     TextIO,
 )
 
@@ -195,6 +196,40 @@ def _resolve_entrypoint(entrypoint: str) -> Any:
     return obj
 
 
+def _get_callable_kind(message: Any) -> str | None:
+    """Return the active callable field across recent proto variants."""
+    try:
+        return message.WhichOneof("callable")
+    except ValueError:
+        has_function = _has_field(message, "function")
+        has_entrypoint = _has_field(message, "entrypoint")
+        if has_function:
+            return "function"
+        if has_entrypoint:
+            return "entrypoint"
+        return None
+
+
+def _has_field(message: Any, field_name: str) -> bool:
+    try:
+        return message.HasField(field_name)
+    except ValueError:
+        return False
+
+
+def _get_optional_bool_field(message: Any, field_name: str) -> Optional[bool]:
+    """Read an optional bool field across proto variants.
+
+    Older generated protobuf modules may expose the field without presence
+    tracking. In that case, only ``True`` can be observed distinctly; ``False``
+    is treated like "unset" so legacy fallback behavior is preserved.
+    """
+    try:
+        return getattr(message, field_name) if message.HasField(field_name) else None
+    except ValueError:
+        return True if getattr(message, field_name, False) else None
+
+
 class AgentServicer(definitions.AgentServicer):
     def __init__(self, log_file: TextIO | None = None):
         super().__init__()
@@ -267,7 +302,7 @@ class AgentServicer(definitions.AgentServicer):
 
         # The `callable` oneof enforces at-most-one on the wire; here we
         # only need to reject the "neither set" case.
-        callable_kind = request.WhichOneof("callable")
+        callable_kind = _get_callable_kind(request)
         if callable_kind is None:
             self.abort_with_msg(
                 context,
@@ -328,18 +363,19 @@ class AgentServicer(definitions.AgentServicer):
             extra_args.append(self._run_cache[cache_key])
 
         try:
+            run_on_main_thread = _get_optional_bool_field(request, "run_on_main_thread")
             if has_entrypoint:
                 invocation = await self.execute_entrypoint(
                     request.entrypoint,
                     "function",
-                    run_on_main_thread=request.run_on_main_thread,
+                    run_on_main_thread=run_on_main_thread,
                 )
             else:
                 invocation = await self.execute_function(
                     request.function,
                     "function",
                     extra_args=extra_args,
-                    run_on_main_thread=request.run_on_main_thread,
+                    run_on_main_thread=run_on_main_thread,
                 )
             result, was_it_raised, stringized_tb = invocation
             yield self.send_object(
@@ -358,7 +394,7 @@ class AgentServicer(definitions.AgentServicer):
         function_kind: str,
         *,
         extra_args: Iterable[Any] = (),
-        run_on_main_thread: bool = False,
+        run_on_main_thread: Optional[bool] = None,
     ) -> tuple[Any, bool, str | None]:
         if function.was_it_raised:
             raise AbortException(
@@ -388,16 +424,37 @@ class AgentServicer(definitions.AgentServicer):
         entrypoint: str,
         function_kind: str,
         *,
-        run_on_main_thread: bool = False,
+        run_on_main_thread: Optional[bool] = None,
     ) -> tuple[Any, bool, str | None]:
         # Resolve lazily so import / attribute errors surface through the
         # regular exception capture in _invoke_callable and reach the client
-        # as a raised result, matching the pickle error path.
-        def function() -> Any:
-            return _resolve_entrypoint(entrypoint)()
+        # as a raised result, matching the pickle error path. The wrapper also
+        # mirrors the resolved callable's legacy `_run_on_main_thread` flag so
+        # absent RPC fields keep the old fallback behavior for entrypoints.
+        unresolved = object()
+
+        class ResolvedEntrypoint:
+            def __init__(self, value: str):
+                self._entrypoint = value
+                self._resolved: Any = unresolved
+
+            def _resolve(self) -> Any:
+                if self._resolved is unresolved:
+                    self._resolved = _resolve_entrypoint(self._entrypoint)
+                return self._resolved
+
+            @property
+            def _run_on_main_thread(self) -> bool:
+                try:
+                    return getattr(self._resolve(), "_run_on_main_thread", False)
+                except Exception:
+                    return False
+
+            def __call__(self) -> Any:
+                return self._resolve()()
 
         return await self._invoke_callable(
-            function,
+            ResolvedEntrypoint(entrypoint),
             function_kind,
             run_on_main_thread=run_on_main_thread,
         )
@@ -408,7 +465,7 @@ class AgentServicer(definitions.AgentServicer):
         function_kind: str,
         extra_args: Iterable[Any] = (),
         *,
-        run_on_main_thread: bool = False,
+        run_on_main_thread: Optional[bool] = None,
     ) -> tuple[Any, bool, str | None]:
         if not callable(function):
             raise AbortException(
@@ -429,7 +486,10 @@ class AgentServicer(definitions.AgentServicer):
             # called from a running event loop" error and stay backward
             # compatible, we offload those unflagged functions to a thread pool.
 
-            if run_on_main_thread or getattr(function, "_run_on_main_thread", False):
+            if run_on_main_thread is None:
+                run_on_main_thread = getattr(function, "_run_on_main_thread", False)
+
+            if run_on_main_thread:
                 result = function(*extra_args)
             else:
                 result = self._thread_pool.submit(function, *extra_args).result()

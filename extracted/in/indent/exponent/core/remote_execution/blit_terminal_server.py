@@ -10,13 +10,26 @@ BLIT_SOCKET_ENV = "INDENT_TERMINAL_CONTROLLER_BLIT_SOCKET"
 BLIT_SERVER_BINARY = "blit-server"
 _SOCKET_READY_RETRIES = 50
 _SOCKET_READY_INTERVAL_S = 0.1
+# Per-frame deadline for reads after the handshake has completed. Tight on
+# purpose so a wedged server doesn't stall a startup-terminal fan-out.
 _BLIT_FRAME_TIMEOUT_S = 0.25
+# Total wall-clock budget for the initial server preface (HELLO, optional
+# compositor surfaces, LIST). 0.28.x can take a few hundred ms under load
+# between HELLO and LIST while the server gathers session state, so we use a
+# generous deadline rather than a per-frame timeout — the dominant error class
+# in the 0.22→0.28 base-image bump was the 0.25s per-frame budget firing in
+# the gap between HELLO and LIST.
+_BLIT_INITIAL_LIST_TIMEOUT_S = 5.0
 _BLIT_CREATE_TIMEOUT_S = 1.5
 _TAGGED_CREATE_MAX_RETRIES = 5
 _TAGGED_CREATE_INITIAL_BACKOFF_S = 0.2
 
 C2S_CREATE = 0x10
 S2C_CREATED = 0x01
+# Server-to-client opcodes we care about during the connect preface. The
+# server sends HELLO first (since at least 0.22), optionally surface frames
+# in 0.28+, then LIST, then READY. We scan past anything that isn't LIST.
+S2C_HELLO = 0x07
 S2C_LIST = 0x03
 
 
@@ -58,10 +71,23 @@ async def _read_frame(
 
 async def _read_until_initial_list(
     reader: asyncio.StreamReader,
-    timeout_s: float,
+    deadline_s: float,
 ) -> bytes | None:
+    """Drain the server's connect preface until the PTY list arrives.
+
+    The server sends `S2C_HELLO` first (since at least 0.22) and, in 0.28+
+    with the compositor enabled, may interleave surface-state frames before
+    `S2C_LIST`. `deadline_s` is a *total* wall-clock budget rather than a
+    per-frame timeout so that a slow-but-progressing handshake under load is
+    not mistaken for a wedged server.
+    """
+    loop = asyncio.get_running_loop()
+    end = loop.time() + deadline_s
     while True:
-        frame = await _read_frame(reader, timeout_s=timeout_s)
+        remaining = end - loop.time()
+        if remaining <= 0:
+            return None
+        frame = await _read_frame(reader, timeout_s=remaining)
         if frame is None:
             return None
         if frame and frame[0] == S2C_LIST:
@@ -101,7 +127,7 @@ class BlitTerminalServer:
             raise RuntimeError(f"Blit socket not found at {socket_path}")
         reader, writer = await asyncio.open_unix_connection(socket_path)
         try:
-            list_frame = await _read_until_initial_list(reader, timeout_s=_BLIT_FRAME_TIMEOUT_S)
+            list_frame = await _read_until_initial_list(reader, deadline_s=_BLIT_INITIAL_LIST_TIMEOUT_S)
             if list_frame is None:
                 raise RuntimeError(f"Blit socket at {socket_path} is not responding")
         finally:
@@ -209,7 +235,7 @@ class BlitTerminalServer:
     ) -> int:
         reader, writer = await asyncio.open_unix_connection(self.socket_path)
         try:
-            list_frame = await _read_until_initial_list(reader, timeout_s=_BLIT_FRAME_TIMEOUT_S)
+            list_frame = await _read_until_initial_list(reader, deadline_s=_BLIT_INITIAL_LIST_TIMEOUT_S)
             if list_frame is None:
                 raise RuntimeError(f"Timed out waiting for initial blit list on {self.socket_path}")
 

@@ -74,6 +74,7 @@ from .literals import (
     RestApiMethodType,
     SchemaTypeType,
     ServerProtocolType,
+    StatusType,
     TargetStatusType,
 )
 
@@ -456,9 +457,10 @@ __all__ = (
     "LlmAsAJudgeEvaluatorConfigTypeDef",
     "MCPGatewayConfigurationOutputTypeDef",
     "MCPGatewayConfigurationTypeDef",
-    "ManagedLatticeResourceOutputTypeDef",
-    "ManagedLatticeResourceTypeDef",
     "ManagedResourceDetailsTypeDef",
+    "ManagedVpcResourceOutputTypeDef",
+    "ManagedVpcResourceTypeDef",
+    "ManagedVpcResourceUnionTypeDef",
     "McpDescriptorTypeDef",
     "McpLambdaTargetConfigurationOutputTypeDef",
     "McpLambdaTargetConfigurationTypeDef",
@@ -512,6 +514,9 @@ __all__ = (
     "PolicyGenerationTypeDef",
     "PolicyTypeDef",
     "PrivateEndpointOutputTypeDef",
+    "PrivateEndpointOverrideOutputTypeDef",
+    "PrivateEndpointOverrideTypeDef",
+    "PrivateEndpointOverrideUnionTypeDef",
     "PrivateEndpointTypeDef",
     "PrivateEndpointUnionTypeDef",
     "ProtocolConfigurationTypeDef",
@@ -1514,7 +1519,7 @@ class WorkloadIdentityTypeTypeDef(TypedDict):
     name: str
     workloadIdentityArn: str
 
-class ManagedLatticeResourceOutputTypeDef(TypedDict):
+class ManagedVpcResourceOutputTypeDef(TypedDict):
     vpcIdentifier: str
     subnetIds: list[str]
     endpointIpAddressType: EndpointIpAddressTypeType
@@ -1522,7 +1527,7 @@ class ManagedLatticeResourceOutputTypeDef(TypedDict):
     tags: NotRequired[dict[str, str]]
     routingDomain: NotRequired[str]
 
-class ManagedLatticeResourceTypeDef(TypedDict):
+class ManagedVpcResourceTypeDef(TypedDict):
     vpcIdentifier: str
     subnetIds: Sequence[str]
     endpointIpAddressType: EndpointIpAddressTypeType
@@ -2534,6 +2539,8 @@ class ListWorkloadIdentitiesResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
+ManagedVpcResourceUnionTypeDef = Union[ManagedVpcResourceTypeDef, ManagedVpcResourceOutputTypeDef]
+
 class UpdatedServerDefinitionTypeDef(TypedDict):
     optionalValue: NotRequired[ServerDefinitionTypeDef]
 
@@ -2574,11 +2581,7 @@ class PolicyDefinitionTypeDef(TypedDict):
 
 class PrivateEndpointOutputTypeDef(TypedDict):
     selfManagedLatticeResource: NotRequired[SelfManagedLatticeResourceTypeDef]
-    managedLatticeResource: NotRequired[ManagedLatticeResourceOutputTypeDef]
-
-class PrivateEndpointTypeDef(TypedDict):
-    selfManagedLatticeResource: NotRequired[SelfManagedLatticeResourceTypeDef]
-    managedLatticeResource: NotRequired[ManagedLatticeResourceTypeDef]
+    managedVpcResource: NotRequired[ManagedVpcResourceOutputTypeDef]
 
 class RegistryRecordCredentialProviderUnionOutputTypeDef(TypedDict):
     oauthCredentialProvider: NotRequired[RegistryRecordOAuthCredentialProviderOutputTypeDef]
@@ -2784,6 +2787,10 @@ class GatewayInterceptorConfigurationTypeDef(TypedDict):
     interceptionPoints: Sequence[GatewayInterceptionPointType]
     inputConfiguration: NotRequired[InterceptorInputConfigurationTypeDef]
 
+class PrivateEndpointTypeDef(TypedDict):
+    selfManagedLatticeResource: NotRequired[SelfManagedLatticeResourceTypeDef]
+    managedVpcResource: NotRequired[ManagedVpcResourceUnionTypeDef]
+
 class DescriptorsTypeDef(TypedDict):
     mcp: NotRequired[McpDescriptorTypeDef]
     a2a: NotRequired[A2aDescriptorTypeDef]
@@ -2805,10 +2812,6 @@ class HarnessGatewayOutboundAuthTypeDef(TypedDict):
     oauth: NotRequired[OAuthCredentialProviderUnionTypeDef]
 
 class AtlassianOauth2ProviderConfigOutputTypeDef(TypedDict):
-    oauthDiscovery: Oauth2DiscoveryOutputTypeDef
-    clientId: NotRequired[str]
-
-class CustomOauth2ProviderConfigOutputTypeDef(TypedDict):
     oauthDiscovery: Oauth2DiscoveryOutputTypeDef
     clientId: NotRequired[str]
 
@@ -2929,7 +2932,9 @@ class UpdatePolicyResponseTypeDef(TypedDict):
     statusReasons: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
-PrivateEndpointUnionTypeDef = Union[PrivateEndpointTypeDef, PrivateEndpointOutputTypeDef]
+class PrivateEndpointOverrideOutputTypeDef(TypedDict):
+    domain: str
+    privateEndpoint: PrivateEndpointOutputTypeDef
 
 class RegistryRecordCredentialProviderConfigurationOutputTypeDef(TypedDict):
     credentialProviderType: RegistryRecordCredentialProviderTypeType
@@ -2964,13 +2969,6 @@ class SelfManagedConfigurationTypeDef(TypedDict):
 
 class UpdatedAgentSkillsDescriptorTypeDef(TypedDict):
     optionalValue: NotRequired[UpdatedAgentSkillsDescriptorFieldsTypeDef]
-
-class CustomJWTAuthorizerConfigurationOutputTypeDef(TypedDict):
-    discoveryUrl: str
-    allowedAudience: NotRequired[list[str]]
-    allowedClients: NotRequired[list[str]]
-    allowedScopes: NotRequired[list[str]]
-    customClaims: NotRequired[list[CustomClaimValidationTypeOutputTypeDef]]
 
 class LlmAsAJudgeEvaluatorConfigOutputTypeDef(TypedDict):
     instructions: str
@@ -3091,6 +3089,7 @@ class HarnessMemoryConfigurationTypeDef(TypedDict):
 GatewayInterceptorConfigurationUnionTypeDef = Union[
     GatewayInterceptorConfigurationTypeDef, GatewayInterceptorConfigurationOutputTypeDef
 ]
+PrivateEndpointUnionTypeDef = Union[PrivateEndpointTypeDef, PrivateEndpointOutputTypeDef]
 
 class UpdatedMcpDescriptorTypeDef(TypedDict):
     optionalValue: NotRequired[UpdatedMcpDescriptorFieldsTypeDef]
@@ -3099,18 +3098,6 @@ CredentialProviderUnionTypeDef = Union[CredentialProviderTypeDef, CredentialProv
 HarnessGatewayOutboundAuthUnionTypeDef = Union[
     HarnessGatewayOutboundAuthTypeDef, HarnessGatewayOutboundAuthOutputTypeDef
 ]
-
-class Oauth2ProviderConfigOutputTypeDef(TypedDict):
-    customOauth2ProviderConfig: NotRequired[CustomOauth2ProviderConfigOutputTypeDef]
-    googleOauth2ProviderConfig: NotRequired[GoogleOauth2ProviderConfigOutputTypeDef]
-    githubOauth2ProviderConfig: NotRequired[GithubOauth2ProviderConfigOutputTypeDef]
-    slackOauth2ProviderConfig: NotRequired[SlackOauth2ProviderConfigOutputTypeDef]
-    salesforceOauth2ProviderConfig: NotRequired[SalesforceOauth2ProviderConfigOutputTypeDef]
-    microsoftOauth2ProviderConfig: NotRequired[MicrosoftOauth2ProviderConfigOutputTypeDef]
-    atlassianOauth2ProviderConfig: NotRequired[AtlassianOauth2ProviderConfigOutputTypeDef]
-    linkedinOauth2ProviderConfig: NotRequired[LinkedinOauth2ProviderConfigOutputTypeDef]
-    includedOauth2ProviderConfig: NotRequired[IncludedOauth2ProviderConfigOutputTypeDef]
-
 Oauth2DiscoveryUnionTypeDef = Union[Oauth2DiscoveryTypeDef, Oauth2DiscoveryOutputTypeDef]
 
 class ListPolicyGenerationAssetsResponseTypeDef(TypedDict):
@@ -3122,6 +3109,21 @@ class ListPoliciesResponseTypeDef(TypedDict):
     policies: list[PolicyTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+class CustomJWTAuthorizerConfigurationOutputTypeDef(TypedDict):
+    discoveryUrl: str
+    allowedAudience: NotRequired[list[str]]
+    allowedClients: NotRequired[list[str]]
+    allowedScopes: NotRequired[list[str]]
+    customClaims: NotRequired[list[CustomClaimValidationTypeOutputTypeDef]]
+    privateEndpoint: NotRequired[PrivateEndpointOutputTypeDef]
+    privateEndpointOverrides: NotRequired[list[PrivateEndpointOverrideOutputTypeDef]]
+
+class CustomOauth2ProviderConfigOutputTypeDef(TypedDict):
+    oauthDiscovery: Oauth2DiscoveryOutputTypeDef
+    clientId: NotRequired[str]
+    privateEndpoint: NotRequired[PrivateEndpointOutputTypeDef]
+    privateEndpointOverrides: NotRequired[list[PrivateEndpointOverrideOutputTypeDef]]
 
 class FromUrlSynchronizationConfigurationOutputTypeDef(TypedDict):
     url: str
@@ -3164,9 +3166,6 @@ StrategyConfigurationTypeDef = TypedDict(
         "selfManagedConfiguration": NotRequired[SelfManagedConfigurationTypeDef],
     },
 )
-
-class AuthorizerConfigurationOutputTypeDef(TypedDict):
-    customJWTAuthorizer: NotRequired[CustomJWTAuthorizerConfigurationOutputTypeDef]
 
 class EvaluatorConfigOutputTypeDef(TypedDict):
     llmAsAJudge: NotRequired[LlmAsAJudgeEvaluatorConfigOutputTypeDef]
@@ -3226,6 +3225,10 @@ HarnessMemoryConfigurationUnionTypeDef = Union[
     HarnessMemoryConfigurationTypeDef, HarnessMemoryConfigurationOutputTypeDef
 ]
 
+class PrivateEndpointOverrideTypeDef(TypedDict):
+    domain: str
+    privateEndpoint: PrivateEndpointUnionTypeDef
+
 class UpdatedDescriptorsUnionTypeDef(TypedDict):
     mcp: NotRequired[UpdatedMcpDescriptorTypeDef]
     a2a: NotRequired[UpdatedA2aDescriptorTypeDef]
@@ -3240,40 +3243,19 @@ class HarnessAgentCoreGatewayConfigTypeDef(TypedDict):
     gatewayArn: str
     outboundAuth: NotRequired[HarnessGatewayOutboundAuthUnionTypeDef]
 
-class CreateOauth2CredentialProviderResponseTypeDef(TypedDict):
-    clientSecretArn: SecretTypeDef
-    name: str
-    credentialProviderArn: str
-    callbackUrl: str
-    oauth2ProviderConfigOutput: Oauth2ProviderConfigOutputTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
+class AuthorizerConfigurationOutputTypeDef(TypedDict):
+    customJWTAuthorizer: NotRequired[CustomJWTAuthorizerConfigurationOutputTypeDef]
 
-class GetOauth2CredentialProviderResponseTypeDef(TypedDict):
-    clientSecretArn: SecretTypeDef
-    name: str
-    credentialProviderArn: str
-    credentialProviderVendor: CredentialProviderVendorTypeType
-    callbackUrl: str
-    oauth2ProviderConfigOutput: Oauth2ProviderConfigOutputTypeDef
-    createdTime: datetime
-    lastUpdatedTime: datetime
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class UpdateOauth2CredentialProviderResponseTypeDef(TypedDict):
-    clientSecretArn: SecretTypeDef
-    name: str
-    credentialProviderVendor: CredentialProviderVendorTypeType
-    credentialProviderArn: str
-    callbackUrl: str
-    oauth2ProviderConfigOutput: Oauth2ProviderConfigOutputTypeDef
-    createdTime: datetime
-    lastUpdatedTime: datetime
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class CustomOauth2ProviderConfigInputTypeDef(TypedDict):
-    oauthDiscovery: Oauth2DiscoveryUnionTypeDef
-    clientId: str
-    clientSecret: str
+class Oauth2ProviderConfigOutputTypeDef(TypedDict):
+    customOauth2ProviderConfig: NotRequired[CustomOauth2ProviderConfigOutputTypeDef]
+    googleOauth2ProviderConfig: NotRequired[GoogleOauth2ProviderConfigOutputTypeDef]
+    githubOauth2ProviderConfig: NotRequired[GithubOauth2ProviderConfigOutputTypeDef]
+    slackOauth2ProviderConfig: NotRequired[SlackOauth2ProviderConfigOutputTypeDef]
+    salesforceOauth2ProviderConfig: NotRequired[SalesforceOauth2ProviderConfigOutputTypeDef]
+    microsoftOauth2ProviderConfig: NotRequired[MicrosoftOauth2ProviderConfigOutputTypeDef]
+    atlassianOauth2ProviderConfig: NotRequired[AtlassianOauth2ProviderConfigOutputTypeDef]
+    linkedinOauth2ProviderConfig: NotRequired[LinkedinOauth2ProviderConfigOutputTypeDef]
+    includedOauth2ProviderConfig: NotRequired[IncludedOauth2ProviderConfigOutputTypeDef]
 
 class SynchronizationConfigurationOutputTypeDef(TypedDict):
     fromUrl: NotRequired[FromUrlSynchronizationConfigurationOutputTypeDef]
@@ -3332,6 +3314,45 @@ MemoryStrategyTypeDef = TypedDict(
         "status": NotRequired[MemoryStrategyStatusType],
     },
 )
+
+class GetEvaluatorResponseTypeDef(TypedDict):
+    evaluatorArn: str
+    evaluatorId: str
+    evaluatorName: str
+    description: str
+    evaluatorConfig: EvaluatorConfigOutputTypeDef
+    level: EvaluatorLevelType
+    status: EvaluatorStatusType
+    createdAt: datetime
+    updatedAt: datetime
+    lockedForModification: bool
+    ResponseMetadata: ResponseMetadataTypeDef
+
+EvaluatorConfigUnionTypeDef = Union[EvaluatorConfigTypeDef, EvaluatorConfigOutputTypeDef]
+
+class HarnessEnvironmentProviderRequestTypeDef(TypedDict):
+    agentCoreRuntimeEnvironment: NotRequired[HarnessAgentCoreRuntimeEnvironmentRequestTypeDef]
+
+CustomClaimValidationTypeUnionTypeDef = Union[
+    CustomClaimValidationTypeTypeDef, CustomClaimValidationTypeOutputTypeDef
+]
+
+class UpdatedHarnessMemoryConfigurationTypeDef(TypedDict):
+    optionalValue: NotRequired[HarnessMemoryConfigurationUnionTypeDef]
+
+PrivateEndpointOverrideUnionTypeDef = Union[
+    PrivateEndpointOverrideTypeDef, PrivateEndpointOverrideOutputTypeDef
+]
+
+class UpdatedDescriptorsTypeDef(TypedDict):
+    optionalValue: NotRequired[UpdatedDescriptorsUnionTypeDef]
+
+CredentialProviderConfigurationUnionTypeDef = Union[
+    CredentialProviderConfigurationTypeDef, CredentialProviderConfigurationOutputTypeDef
+]
+HarnessAgentCoreGatewayConfigUnionTypeDef = Union[
+    HarnessAgentCoreGatewayConfigTypeDef, HarnessAgentCoreGatewayConfigOutputTypeDef
+]
 
 class CreateGatewayResponseTypeDef(TypedDict):
     gatewayArn: str
@@ -3414,6 +3435,30 @@ class GetRegistryResponseTypeDef(TypedDict):
     updatedAt: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
+class HarnessTypeDef(TypedDict):
+    harnessId: str
+    harnessName: str
+    arn: str
+    status: HarnessStatusType
+    executionRoleArn: str
+    createdAt: datetime
+    updatedAt: datetime
+    model: HarnessModelConfigurationTypeDef
+    systemPrompt: list[HarnessSystemContentBlockTypeDef]
+    tools: list[HarnessToolOutputTypeDef]
+    skills: list[HarnessSkillTypeDef]
+    allowedTools: list[str]
+    truncation: HarnessTruncationConfigurationTypeDef
+    environment: HarnessEnvironmentProviderTypeDef
+    environmentArtifact: NotRequired[HarnessEnvironmentArtifactTypeDef]
+    environmentVariables: NotRequired[dict[str, str]]
+    authorizerConfiguration: NotRequired[AuthorizerConfigurationOutputTypeDef]
+    memory: NotRequired[HarnessMemoryConfigurationOutputTypeDef]
+    maxIterations: NotRequired[int]
+    maxTokens: NotRequired[int]
+    timeoutSeconds: NotRequired[int]
+    failureReason: NotRequired[str]
+
 class UpdateGatewayResponseTypeDef(TypedDict):
     gatewayArn: str
     gatewayId: str
@@ -3450,75 +3495,39 @@ class UpdateRegistryResponseTypeDef(TypedDict):
     updatedAt: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
-class GetEvaluatorResponseTypeDef(TypedDict):
-    evaluatorArn: str
-    evaluatorId: str
-    evaluatorName: str
-    description: str
-    evaluatorConfig: EvaluatorConfigOutputTypeDef
-    level: EvaluatorLevelType
-    status: EvaluatorStatusType
-    createdAt: datetime
-    updatedAt: datetime
-    lockedForModification: bool
+class CreateOauth2CredentialProviderResponseTypeDef(TypedDict):
+    clientSecretArn: SecretTypeDef
+    name: str
+    credentialProviderArn: str
+    callbackUrl: str
+    oauth2ProviderConfigOutput: Oauth2ProviderConfigOutputTypeDef
+    status: StatusType
     ResponseMetadata: ResponseMetadataTypeDef
 
-EvaluatorConfigUnionTypeDef = Union[EvaluatorConfigTypeDef, EvaluatorConfigOutputTypeDef]
+class GetOauth2CredentialProviderResponseTypeDef(TypedDict):
+    clientSecretArn: SecretTypeDef
+    name: str
+    credentialProviderArn: str
+    credentialProviderVendor: CredentialProviderVendorTypeType
+    callbackUrl: str
+    oauth2ProviderConfigOutput: Oauth2ProviderConfigOutputTypeDef
+    createdTime: datetime
+    lastUpdatedTime: datetime
+    status: StatusType
+    failureReason: str
+    ResponseMetadata: ResponseMetadataTypeDef
 
-class HarnessEnvironmentProviderRequestTypeDef(TypedDict):
-    agentCoreRuntimeEnvironment: NotRequired[HarnessAgentCoreRuntimeEnvironmentRequestTypeDef]
-
-CustomClaimValidationTypeUnionTypeDef = Union[
-    CustomClaimValidationTypeTypeDef, CustomClaimValidationTypeOutputTypeDef
-]
-
-class HarnessTypeDef(TypedDict):
-    harnessId: str
-    harnessName: str
-    arn: str
-    status: HarnessStatusType
-    executionRoleArn: str
-    createdAt: datetime
-    updatedAt: datetime
-    model: HarnessModelConfigurationTypeDef
-    systemPrompt: list[HarnessSystemContentBlockTypeDef]
-    tools: list[HarnessToolOutputTypeDef]
-    skills: list[HarnessSkillTypeDef]
-    allowedTools: list[str]
-    truncation: HarnessTruncationConfigurationTypeDef
-    environment: HarnessEnvironmentProviderTypeDef
-    environmentArtifact: NotRequired[HarnessEnvironmentArtifactTypeDef]
-    environmentVariables: NotRequired[dict[str, str]]
-    authorizerConfiguration: NotRequired[AuthorizerConfigurationOutputTypeDef]
-    memory: NotRequired[HarnessMemoryConfigurationOutputTypeDef]
-    maxIterations: NotRequired[int]
-    maxTokens: NotRequired[int]
-    timeoutSeconds: NotRequired[int]
-    failureReason: NotRequired[str]
-
-class UpdatedHarnessMemoryConfigurationTypeDef(TypedDict):
-    optionalValue: NotRequired[HarnessMemoryConfigurationUnionTypeDef]
-
-class UpdatedDescriptorsTypeDef(TypedDict):
-    optionalValue: NotRequired[UpdatedDescriptorsUnionTypeDef]
-
-CredentialProviderConfigurationUnionTypeDef = Union[
-    CredentialProviderConfigurationTypeDef, CredentialProviderConfigurationOutputTypeDef
-]
-HarnessAgentCoreGatewayConfigUnionTypeDef = Union[
-    HarnessAgentCoreGatewayConfigTypeDef, HarnessAgentCoreGatewayConfigOutputTypeDef
-]
-
-class Oauth2ProviderConfigInputTypeDef(TypedDict):
-    customOauth2ProviderConfig: NotRequired[CustomOauth2ProviderConfigInputTypeDef]
-    googleOauth2ProviderConfig: NotRequired[GoogleOauth2ProviderConfigInputTypeDef]
-    githubOauth2ProviderConfig: NotRequired[GithubOauth2ProviderConfigInputTypeDef]
-    slackOauth2ProviderConfig: NotRequired[SlackOauth2ProviderConfigInputTypeDef]
-    salesforceOauth2ProviderConfig: NotRequired[SalesforceOauth2ProviderConfigInputTypeDef]
-    microsoftOauth2ProviderConfig: NotRequired[MicrosoftOauth2ProviderConfigInputTypeDef]
-    atlassianOauth2ProviderConfig: NotRequired[AtlassianOauth2ProviderConfigInputTypeDef]
-    linkedinOauth2ProviderConfig: NotRequired[LinkedinOauth2ProviderConfigInputTypeDef]
-    includedOauth2ProviderConfig: NotRequired[IncludedOauth2ProviderConfigInputTypeDef]
+class UpdateOauth2CredentialProviderResponseTypeDef(TypedDict):
+    clientSecretArn: SecretTypeDef
+    name: str
+    credentialProviderVendor: CredentialProviderVendorTypeType
+    credentialProviderArn: str
+    callbackUrl: str
+    oauth2ProviderConfigOutput: Oauth2ProviderConfigOutputTypeDef
+    createdTime: datetime
+    lastUpdatedTime: datetime
+    status: StatusType
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class GetRegistryRecordResponseTypeDef(TypedDict):
     registryArn: str
@@ -3612,6 +3621,22 @@ class CustomJWTAuthorizerConfigurationTypeDef(TypedDict):
     allowedClients: NotRequired[Sequence[str]]
     allowedScopes: NotRequired[Sequence[str]]
     customClaims: NotRequired[Sequence[CustomClaimValidationTypeUnionTypeDef]]
+    privateEndpoint: NotRequired[PrivateEndpointUnionTypeDef]
+    privateEndpointOverrides: NotRequired[Sequence[PrivateEndpointOverrideUnionTypeDef]]
+
+class CustomOauth2ProviderConfigInputTypeDef(TypedDict):
+    oauthDiscovery: Oauth2DiscoveryUnionTypeDef
+    clientId: str
+    clientSecret: str
+    privateEndpoint: NotRequired[PrivateEndpointUnionTypeDef]
+    privateEndpointOverrides: NotRequired[Sequence[PrivateEndpointOverrideUnionTypeDef]]
+
+class HarnessToolConfigurationTypeDef(TypedDict):
+    remoteMcp: NotRequired[HarnessRemoteMcpConfigUnionTypeDef]
+    agentCoreBrowser: NotRequired[HarnessAgentCoreBrowserConfigTypeDef]
+    agentCoreGateway: NotRequired[HarnessAgentCoreGatewayConfigUnionTypeDef]
+    inlineFunction: NotRequired[HarnessInlineFunctionConfigUnionTypeDef]
+    agentCoreCodeInterpreter: NotRequired[HarnessAgentCoreCodeInterpreterConfigTypeDef]
 
 class CreateHarnessResponseTypeDef(TypedDict):
     harness: HarnessTypeDef
@@ -3628,24 +3653,6 @@ class GetHarnessResponseTypeDef(TypedDict):
 class UpdateHarnessResponseTypeDef(TypedDict):
     harness: HarnessTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
-
-class HarnessToolConfigurationTypeDef(TypedDict):
-    remoteMcp: NotRequired[HarnessRemoteMcpConfigUnionTypeDef]
-    agentCoreBrowser: NotRequired[HarnessAgentCoreBrowserConfigTypeDef]
-    agentCoreGateway: NotRequired[HarnessAgentCoreGatewayConfigUnionTypeDef]
-    inlineFunction: NotRequired[HarnessInlineFunctionConfigUnionTypeDef]
-    agentCoreCodeInterpreter: NotRequired[HarnessAgentCoreCodeInterpreterConfigTypeDef]
-
-class CreateOauth2CredentialProviderRequestTypeDef(TypedDict):
-    name: str
-    credentialProviderVendor: CredentialProviderVendorTypeType
-    oauth2ProviderConfigInput: Oauth2ProviderConfigInputTypeDef
-    tags: NotRequired[Mapping[str, str]]
-
-class UpdateOauth2CredentialProviderRequestTypeDef(TypedDict):
-    name: str
-    credentialProviderVendor: CredentialProviderVendorTypeType
-    oauth2ProviderConfigInput: Oauth2ProviderConfigInputTypeDef
 
 class FromUrlSynchronizationConfigurationTypeDef(TypedDict):
     url: str
@@ -3759,6 +3766,18 @@ class UpdateMemoryOutputTypeDef(TypedDict):
 CustomJWTAuthorizerConfigurationUnionTypeDef = Union[
     CustomJWTAuthorizerConfigurationTypeDef, CustomJWTAuthorizerConfigurationOutputTypeDef
 ]
+
+class Oauth2ProviderConfigInputTypeDef(TypedDict):
+    customOauth2ProviderConfig: NotRequired[CustomOauth2ProviderConfigInputTypeDef]
+    googleOauth2ProviderConfig: NotRequired[GoogleOauth2ProviderConfigInputTypeDef]
+    githubOauth2ProviderConfig: NotRequired[GithubOauth2ProviderConfigInputTypeDef]
+    slackOauth2ProviderConfig: NotRequired[SlackOauth2ProviderConfigInputTypeDef]
+    salesforceOauth2ProviderConfig: NotRequired[SalesforceOauth2ProviderConfigInputTypeDef]
+    microsoftOauth2ProviderConfig: NotRequired[MicrosoftOauth2ProviderConfigInputTypeDef]
+    atlassianOauth2ProviderConfig: NotRequired[AtlassianOauth2ProviderConfigInputTypeDef]
+    linkedinOauth2ProviderConfig: NotRequired[LinkedinOauth2ProviderConfigInputTypeDef]
+    includedOauth2ProviderConfig: NotRequired[IncludedOauth2ProviderConfigInputTypeDef]
+
 HarnessToolConfigurationUnionTypeDef = Union[
     HarnessToolConfigurationTypeDef, HarnessToolConfigurationOutputTypeDef
 ]
@@ -3805,6 +3824,17 @@ class UpdateMemoryInputTypeDef(TypedDict):
 
 class AuthorizerConfigurationTypeDef(TypedDict):
     customJWTAuthorizer: NotRequired[CustomJWTAuthorizerConfigurationUnionTypeDef]
+
+class CreateOauth2CredentialProviderRequestTypeDef(TypedDict):
+    name: str
+    credentialProviderVendor: CredentialProviderVendorTypeType
+    oauth2ProviderConfigInput: Oauth2ProviderConfigInputTypeDef
+    tags: NotRequired[Mapping[str, str]]
+
+class UpdateOauth2CredentialProviderRequestTypeDef(TypedDict):
+    name: str
+    credentialProviderVendor: CredentialProviderVendorTypeType
+    oauth2ProviderConfigInput: Oauth2ProviderConfigInputTypeDef
 
 HarnessToolTypeDef = TypedDict(
     "HarnessToolTypeDef",

@@ -1,7 +1,7 @@
 use axum::body::Body;
 use axum::extract::{Path, State};
 use axum::response::{IntoResponse, Response};
-use axum::{Extension, Json, debug_handler};
+use axum::{Extension, Json};
 use futures::future::{join_all, try_join_all};
 use indexmap::IndexMap;
 use itertools::izip;
@@ -12,6 +12,7 @@ use std::borrow::Cow;
 use std::collections::{BTreeMap, HashMap};
 use std::iter::repeat;
 use std::sync::Arc;
+use std::sync::atomic::Ordering;
 use tokio::try_join;
 use tracing::instrument;
 use uuid::Uuid;
@@ -19,6 +20,7 @@ use uuid::Uuid;
 use super::inference::{
     ChatInferenceResponse, InferenceClients, InferenceCredentials, InferenceDatabaseInsertMetadata,
     InferenceIds, InferenceModels, InferenceParams, InferenceResponse, JsonInferenceResponse,
+    inference_response_from_result,
 };
 use crate::cache::{CacheEnabledMode, CacheOptions};
 use crate::config::Config;
@@ -50,15 +52,17 @@ use crate::inference::types::{
 use crate::inference::types::{Input, InputExt, batch::StartBatchModelInferenceWithMetadata};
 use crate::jsonschema_util::JSONSchema;
 use crate::model::ModelTable;
+use crate::observability::internal_metrics::TENSORZERO_INFERENCES_TOTAL;
 use crate::rate_limiting::ScopeInfo;
 use crate::relay::TensorzeroRelay;
 use crate::tool::{
-    BatchDynamicToolParams, BatchDynamicToolParamsWithSize, DynamicToolParams, ToolCallConfig,
+    BatchDynamicToolParams, BatchDynamicToolParamsWithSize, ToolCallConfig,
     ToolCallConfigDatabaseInsert,
 };
-use crate::utils::gateway::{AppState, AppStateData, StructuredJson};
+use crate::utils::gateway::{AppState, AppStateData, ResolvedAppStateData, StructuredJson};
 use crate::variant::{BatchInferenceConfig, InferenceConfig, Variant, VariantInfo};
 use tensorzero_auth::middleware::RequestApiKeyExtension;
+use tensorzero_inference_types::tool::DynamicToolParams;
 
 /// The expected payload to the `/start_batch_inference` endpoint.
 /// It will be a JSON object with the following fields:
@@ -119,9 +123,9 @@ pub type BatchOutputSchemas = Vec<Option<Value>>;
         variant_name = ?params.variant_name,
     )
 )]
-#[debug_handler(state = AppStateData)]
+
 pub async fn start_batch_inference_handler(
-    State(app_state): State<AppStateData>,
+    State(app_state): State<ResolvedAppStateData>,
     api_key_ext: Option<Extension<RequestApiKeyExtension>>,
     StructuredJson(params): StructuredJson<StartBatchInferenceParams>,
 ) -> Result<Response<Body>, Error> {
@@ -139,7 +143,7 @@ pub async fn start_batch_inference(
         rate_limiting_manager,
         primary_datastore,
         ..
-    }: AppStateData,
+    }: ResolvedAppStateData,
     params: StartBatchInferenceParams,
     api_key_ext: Option<Extension<RequestApiKeyExtension>>,
 ) -> Result<PrepareBatchInferenceOutput, Error> {
@@ -237,6 +241,7 @@ pub async fn start_batch_inference(
         "function_name" => params.function_name.to_string(),
     )
     .increment(num_inferences as u64);
+    TENSORZERO_INFERENCES_TOTAL.fetch_add(num_inferences as u64, Ordering::Relaxed);
 
     // Keep track of which variants failed
     let mut variant_errors = IndexMap::new();
@@ -257,7 +262,7 @@ pub async fn start_batch_inference(
         cache_manager,
         rate_limiting_manager,
         tags: tags.clone(),
-        otlp_config: config.gateway.export.otlp.clone(),
+        otlp_config: config.gateway.export.otlp.clone().unwrap_or_default(),
         deferred_tasks,
         scope_info: ScopeInfo::new(tags.clone(), api_key_ext),
         relay: config.gateway.relay.clone(),
@@ -508,7 +513,6 @@ pub struct PollPathParams {
 /// If the batch is failed, it will return a failed response immediately
 /// If the batch is completed, it will return the appropriate response immediately from the database
 #[instrument(name = "poll_batch_inference", skip_all, fields(query))]
-#[debug_handler(state = AppStateData)]
 pub async fn poll_batch_inference_handler(
     State(AppStateData {
         config,
@@ -1182,7 +1186,7 @@ pub async fn write_completed_batch_inference<'a>(
                 None,
             )
             .await?;
-        let inference_response = InferenceResponse::new(
+        let inference_response = inference_response_from_result(
             inference_result.clone(),
             episode_id,
             variant_name.to_string(),
@@ -1206,7 +1210,7 @@ pub async fn write_completed_batch_inference<'a>(
         };
         model_inference_rows_to_write.extend(
             inference_result
-                .get_model_inferences(config.hash.clone())
+                .get_model_inferences(function_name, &variant_name, config.hash.clone())
                 .await,
         );
         match inference_result {
@@ -1414,7 +1418,7 @@ mod tests {
                 postgres_healthy: false,
             },
         );
-        let app_state = gateway_handle.app_state.clone();
+        let app_state = gateway_handle.app_state.load_latest();
         let params = StartBatchInferenceParams::default();
         let error = start_batch_inference(app_state, params, None)
             .await

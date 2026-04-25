@@ -221,10 +221,14 @@ def add_statistics(
             df.loc[:, col] = np.nan
         return df
     
-    # Read hvstat filename from config, fall back to hardcoded default
+    # Read hvstat filename: per-country override → DEFAULT override → hardcoded default
     default_fn = "hvstat_africa_data_v1.0.csv"
-    if parser is not None and parser.has_option("DEFAULT", "production_statistics_file"):
-        default_fn = parser.get("DEFAULT", "production_statistics_file")
+    if parser is not None:
+        country_key = country.lower().replace(" ", "_")
+        if parser.has_option(country_key, "production_statistics_file"):
+            default_fn = parser.get(country_key, "production_statistics_file")
+        elif parser.has_option("DEFAULT", "production_statistics_file"):
+            default_fn = parser.get("DEFAULT", "production_statistics_file")
 
     if country == "Illinois":
         fn = "illinois.csv"

@@ -544,8 +544,8 @@ class CliConfig:
     stall_display_threshold: float = 5.0  # seconds of chunk silence before showing "stalled"
     stall_warning_threshold: float = 15.0  # seconds before showing full stall warning
     stall_throughput_threshold: float = 30.0  # chars/sec below which "slow" indicator shows
-    tool_output_max_chars: int = 2000  # max chars per tool result before truncation
-    tool_replay_max_chars: int = 2000  # max chars per tool result on conversation resume
+    tool_output_max_chars: int = 10_000  # max chars per tool result before truncation
+    tool_replay_max_chars: int = 10_000  # max chars per tool result on conversation resume
     file_reference_max_chars: int = 100_000  # max chars from @file references
     model_context_window: int = 128_000  # model context window size for usage bar
     background_suggest_seconds: int = 30  # advisory threshold for background shell tasks (0 = disabled)
@@ -888,6 +888,13 @@ class ReferencesConfig:
     instructions: list[str] = field(default_factory=list)
     rules: list[str] = field(default_factory=list)
     skills: list[str] = field(default_factory=list)
+
+
+@dataclass
+class ServerConfig:
+    """HTTP server settings."""
+
+    max_upload_mb: int = 50  # max request body size in MB; clamped [1, 1000]
 
 
 @dataclass
@@ -1606,6 +1613,7 @@ class AppConfig:
     storage: StorageConfig = field(default_factory=StorageConfig)
     session: SessionConfig = field(default_factory=SessionConfig)
     rate_limit: RateLimitConfig = field(default_factory=RateLimitConfig)
+    server: ServerConfig = field(default_factory=ServerConfig)
     audit: AuditConfig = field(default_factory=AuditConfig)
     memory: MemoryConfig = field(default_factory=MemoryConfig)
     compliance: ComplianceConfig = field(default_factory=ComplianceConfig)
@@ -2149,21 +2157,21 @@ def load_config(
     except (ValueError, TypeError):
         stall_throughput_threshold = 30.0
     try:
-        tool_output_max_chars = max(100, int(cli_raw.get("tool_output_max_chars", 2000)))
+        tool_output_max_chars = max(100, int(cli_raw.get("tool_output_max_chars", 10_000)))
     except (ValueError, TypeError):
-        tool_output_max_chars = 2000
+        tool_output_max_chars = 10_000
     try:
         tool_replay_max_chars = max(
             100,
             int(
                 cli_raw.get(
                     "tool_replay_max_chars",
-                    os.environ.get("AI_CHAT_TOOL_REPLAY_MAX_CHARS", 2000),
+                    os.environ.get("AI_CHAT_TOOL_REPLAY_MAX_CHARS", 10_000),
                 )
             ),
         )
     except (ValueError, TypeError):
-        tool_replay_max_chars = 2000
+        tool_replay_max_chars = 10_000
     try:
         file_reference_max_chars = max(1000, min(10_000_000, int(cli_raw.get("file_reference_max_chars", 100_000))))
     except (ValueError, TypeError):
@@ -3329,6 +3337,22 @@ def load_config(
         allowed_ips=session_allowed_ips,
     )
 
+    # Server config
+    server_raw = raw.get("server", {})
+    if not isinstance(server_raw, dict):
+        server_raw = {}
+    try:
+        server_max_upload_mb = min(
+            1000,
+            max(
+                1,
+                int(server_raw.get("max_upload_mb", os.environ.get("AI_CHAT_SERVER_MAX_UPLOAD_MB", 50))),
+            ),
+        )
+    except (ValueError, TypeError):
+        server_max_upload_mb = 50
+    server_config = ServerConfig(max_upload_mb=server_max_upload_mb)
+
     # Rate limit config
     rl_raw = raw.get("rate_limit", {})
     if not isinstance(rl_raw, dict):
@@ -3916,6 +3940,7 @@ def load_config(
             storage=storage_config,
             session=session_config,
             rate_limit=rate_limit_config,
+            server=server_config,
             audit=audit_config,
             memory=memory_config,
             compliance=compliance_config,

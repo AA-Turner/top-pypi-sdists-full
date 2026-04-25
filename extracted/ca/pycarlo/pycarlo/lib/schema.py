@@ -33423,6 +33423,7 @@ class Mutation(sgqlc.types.Type):
         "set_project_generate_alerts_for_test_warnings",
         "set_project_generate_alerts_for_snapshot_failures",
         "set_project_generate_alerts_for_seed_failures",
+        "set_project_propagate_job_tags",
         "set_job_generates_incidents",
         "set_job_generates_alerts",
         "snooze_dbt_node",
@@ -42951,6 +42952,36 @@ class Mutation(sgqlc.types.Type):
 
     * `generate_alerts` (`Boolean!`): should generate alerts for seed
       failures
+    * `uuid` (`UUID!`): dbt project uuid
+    """
+
+    set_project_propagate_job_tags = sgqlc.types.Field(
+        "SetProjectPropagateJobTags",
+        graphql_name="setProjectPropagateJobTags",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "propagate_job_tags",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(Boolean), graphql_name="propagateJobTags", default=None
+                    ),
+                ),
+                (
+                    "uuid",
+                    sgqlc.types.Arg(sgqlc.types.non_null(UUID), graphql_name="uuid", default=None),
+                ),
+            )
+        ),
+    )
+    """(experimental) Set whether dbt model tags and meta are propagated
+    onto dbt job assets. When enabled, propagation starts on the next
+    sync; existing runs are not backfilled. Turning it off stops
+    further updates but does not clear previously propagated tags.
+
+    Arguments:
+
+    * `propagate_job_tags` (`Boolean!`): whether dbt model tags and
+      meta should be propagated to dbt job assets
     * `uuid` (`UUID!`): dbt project uuid
     """
 
@@ -79986,6 +80017,16 @@ class SetProjectGenerateIncidentsForTestWarnings(sgqlc.types.Type):
     dbt_project = sgqlc.types.Field("DbtProject", graphql_name="dbtProject")
 
 
+class SetProjectPropagateJobTags(sgqlc.types.Type):
+    """Set whether dbt model tags and meta are propagated onto dbt job
+    assets.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("dbt_project",)
+    dbt_project = sgqlc.types.Field("DbtProject", graphql_name="dbtProject")
+
+
 class SetSensitivity(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("success",)
@@ -92490,6 +92531,7 @@ class DbtProject(sgqlc.types.Type, Node):
         "generate_alerts_for_test_warnings",
         "generate_alerts_for_snapshot_failures",
         "generate_alerts_for_seed_failures",
+        "propagate_job_tags",
         "webhook_status",
     )
     created_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdTime")
@@ -92676,6 +92718,15 @@ class DbtProject(sgqlc.types.Type, Node):
     generate_alerts_for_seed_failures = sgqlc.types.Field(
         Boolean, graphql_name="generateAlertsForSeedFailures"
     )
+
+    propagate_job_tags = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="propagateJobTags"
+    )
+    """Whether dbt model tags and meta are propagated onto dbt job
+    assets. When enabled, propagation starts from the next sync —
+    existing runs are not backfilled. Turning this off prevents
+    further updates but leaves previously propagated tags in place.
+    """
 
     webhook_status = sgqlc.types.Field(WebhookStatus, graphql_name="webhookStatus")
     """Webhook status info, or null for dbt Core (only dbt Cloud uses

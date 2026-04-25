@@ -5,16 +5,16 @@
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 
+use cryptography_key_parsing::pbe;
 use cryptography_x509::common::Utf8StoredBMPString;
 use cryptography_x509::oid::EKU_ANY_KEY_USAGE_OID;
 use pyo3::types::{PyAnyMethods, PyBytesMethods, PyListMethods};
 use pyo3::{IntoPyObject, PyTypeInfo};
 
-use crate::backend::{ciphers, hashes, hmac, kdf, keys};
+use crate::backend::{ciphers, hashes, hmac, keys};
 use crate::buf::CffiBuf;
 use crate::error::{CryptographyError, CryptographyResult};
 use crate::padding::PKCS7PaddingContext;
-use crate::utils::cstr_from_literal;
 use crate::x509::certificate::Certificate;
 use crate::{types, x509};
 
@@ -63,7 +63,10 @@ impl PKCS12Certificate {
         Ok(hasher.finish())
     }
 
-    fn __repr__(&self, py: pyo3::Python<'_>) -> pyo3::PyResult<String> {
+    fn __repr__<'py>(
+        &self,
+        py: pyo3::Python<'py>,
+    ) -> pyo3::PyResult<pyo3::Bound<'py, pyo3::types::PyString>> {
         let py_friendly_name_repr;
         let friendly_name_repr = match &self.friendly_name {
             Some(v) => {
@@ -75,11 +78,14 @@ impl PKCS12Certificate {
             }
             None => "None",
         };
-        Ok(format!(
-            "<PKCS12Certificate({}, friendly_name={})>",
-            self.certificate.bind(py).str()?,
-            friendly_name_repr
-        ))
+        pyo3::types::PyString::from_fmt(
+            py,
+            format_args!(
+                "<PKCS12Certificate({}, friendly_name={})>",
+                self.certificate.bind(py).str()?,
+                friendly_name_repr
+            ),
+        )
     }
 }
 
@@ -109,133 +115,6 @@ pub(crate) fn symmetric_encrypt(
     ciphertext.truncate(n + pad_n);
 
     Ok(ciphertext)
-}
-
-enum EncryptionAlgorithm {
-    PBESHA1And3KeyTripleDESCBC,
-    PBESv2SHA256AndAES256CBC,
-}
-
-impl EncryptionAlgorithm {
-    fn salt_length(&self) -> usize {
-        match self {
-            EncryptionAlgorithm::PBESHA1And3KeyTripleDESCBC => 8,
-            EncryptionAlgorithm::PBESv2SHA256AndAES256CBC => 16,
-        }
-    }
-
-    fn algorithm_identifier<'a>(
-        &self,
-        cipher_kdf_iter: u64,
-        salt: &'a [u8],
-        iv: &'a [u8],
-    ) -> cryptography_x509::common::AlgorithmIdentifier<'a> {
-        match self {
-            EncryptionAlgorithm::PBESHA1And3KeyTripleDESCBC => {
-                cryptography_x509::common::AlgorithmIdentifier {
-                    oid: asn1::DefinedByMarker::marker(),
-                    params: cryptography_x509::common::AlgorithmParameters::PbeWithShaAnd3KeyTripleDesCbc(cryptography_x509::common::Pkcs12PbeParams{
-                        salt,
-                        iterations: cipher_kdf_iter,
-                    }),
-                }
-            }
-            EncryptionAlgorithm::PBESv2SHA256AndAES256CBC => {
-                let kdf_algorithm_identifier = cryptography_x509::common::AlgorithmIdentifier {
-                    oid: asn1::DefinedByMarker::marker(),
-                    params: cryptography_x509::common::AlgorithmParameters::Pbkdf2(
-                        cryptography_x509::common::PBKDF2Params {
-                            salt,
-                            iteration_count: cipher_kdf_iter,
-                            key_length: None,
-                            prf: Box::new(cryptography_x509::common::AlgorithmIdentifier {
-                                oid: asn1::DefinedByMarker::marker(),
-                                params:
-                                    cryptography_x509::common::AlgorithmParameters::HmacWithSha256(
-                                        Some(()),
-                                    ),
-                            }),
-                        },
-                    ),
-                };
-                let encryption_algorithm_identifier =
-                    cryptography_x509::common::AlgorithmIdentifier {
-                        oid: asn1::DefinedByMarker::marker(),
-                        params: cryptography_x509::common::AlgorithmParameters::Aes256Cbc(
-                            iv[..16].try_into().unwrap(),
-                        ),
-                    };
-
-                cryptography_x509::common::AlgorithmIdentifier {
-                    oid: asn1::DefinedByMarker::marker(),
-                    params: cryptography_x509::common::AlgorithmParameters::Pbes2(
-                        cryptography_x509::common::PBES2Params {
-                            key_derivation_func: Box::new(kdf_algorithm_identifier),
-                            encryption_scheme: Box::new(encryption_algorithm_identifier),
-                        },
-                    ),
-                }
-            }
-        }
-    }
-
-    fn encrypt(
-        &self,
-        py: pyo3::Python<'_>,
-        password: &str,
-        cipher_kdf_iter: u64,
-        salt: &[u8],
-        iv: &[u8],
-        data: &[u8],
-    ) -> CryptographyResult<Vec<u8>> {
-        match self {
-            EncryptionAlgorithm::PBESHA1And3KeyTripleDESCBC => {
-                let key = cryptography_crypto::pkcs12::kdf(
-                    password,
-                    salt,
-                    cryptography_crypto::pkcs12::KDF_ENCRYPTION_KEY_ID,
-                    cipher_kdf_iter,
-                    24,
-                    openssl::hash::MessageDigest::sha1(),
-                )?;
-                let iv = cryptography_crypto::pkcs12::kdf(
-                    password,
-                    salt,
-                    cryptography_crypto::pkcs12::KDF_IV_ID,
-                    cipher_kdf_iter,
-                    8,
-                    openssl::hash::MessageDigest::sha1(),
-                )?;
-
-                let triple_des = types::TRIPLE_DES
-                    .get(py)?
-                    .call1((pyo3::types::PyBytes::new(py, &key),))?;
-                let cbc = types::CBC
-                    .get(py)?
-                    .call1((pyo3::types::PyBytes::new(py, &iv),))?;
-
-                symmetric_encrypt(py, triple_des, cbc, data)
-            }
-            EncryptionAlgorithm::PBESv2SHA256AndAES256CBC => {
-                let pass_buf = CffiBuf::from_bytes(py, password.as_bytes());
-                let sha256 = types::SHA256.get(py)?.call0()?;
-
-                let key = kdf::derive_pbkdf2_hmac(
-                    py,
-                    pass_buf,
-                    &sha256,
-                    salt,
-                    cipher_kdf_iter.try_into().unwrap(),
-                    32,
-                )?;
-
-                let aes256 = types::AES256.get(py)?.call1((key,))?;
-                let cbc = types::CBC.get(py)?.call1((iv,))?;
-
-                symmetric_encrypt(py, aes256, cbc, data)
-            }
-        }
-    }
 }
 
 fn pkcs12_attributes<'a>(
@@ -313,7 +192,7 @@ struct KeySerializationEncryption<'a> {
     mac_algorithm: pyo3::Bound<'a, pyo3::PyAny>,
     mac_kdf_iter: u64,
     cipher_kdf_iter: u64,
-    encryption_algorithm: Option<EncryptionAlgorithm>,
+    encryption_algorithm: Option<pbe::EncryptionAlgorithm>,
 }
 
 #[allow(clippy::type_complexity)]
@@ -336,17 +215,18 @@ fn decode_encryption_algorithm<'a>(
     } else if encryption_algorithm.is_instance(&types::ENCRYPTION_BUILDER.get(py)?)?
         && encryption_algorithm
             .getattr(pyo3::intern!(py, "_format"))?
-            .is(&types::PRIVATE_FORMAT_PKCS12.get(py)?)
+            .extract::<crate::serialization::PrivateFormat>()?
+            == crate::serialization::PrivateFormat::PKCS12
     {
         let key_cert_alg =
             encryption_algorithm.getattr(pyo3::intern!(py, "_key_cert_algorithm"))?;
         let cipher = if key_cert_alg.is(&types::PBES_PBESV1SHA1AND3KEYTRIPLEDESCBC.get(py)?) {
-            EncryptionAlgorithm::PBESHA1And3KeyTripleDESCBC
+            pbe::EncryptionAlgorithm::PBESHA1And3KeyTripleDESCBC
         } else if key_cert_alg.is(&types::PBES_PBESV2SHA256ANDAES256CBC.get(py)?) {
-            EncryptionAlgorithm::PBESv2SHA256AndAES256CBC
+            pbe::EncryptionAlgorithm::PBESv2SHA256AndAES256CBC
         } else {
             assert!(key_cert_alg.is_none());
-            EncryptionAlgorithm::PBESv2SHA256AndAES256CBC
+            pbe::EncryptionAlgorithm::PBESv2SHA256AndAES256CBC
         };
 
         let hmac_alg = if let Some(v) = encryption_algorithm
@@ -384,7 +264,7 @@ fn decode_encryption_algorithm<'a>(
             mac_algorithm: default_hmac_alg,
             mac_kdf_iter: default_hmac_kdf_iter,
             cipher_kdf_iter: default_cipher_kdf_iter,
-            encryption_algorithm: Some(EncryptionAlgorithm::PBESv2SHA256AndAES256CBC),
+            encryption_algorithm: Some(pbe::EncryptionAlgorithm::PBESv2SHA256AndAES256CBC),
         })
     } else {
         Err(CryptographyError::from(
@@ -437,8 +317,7 @@ fn serialize_safebags<'p>(
             auth_safe_iv = crate::backend::rand::get_rand_bytes(py, 16)?
                 .extract::<pyo3::pybacked::PyBackedBytes>()?;
             auth_safe_ciphertext = e.encrypt(
-                py,
-                password,
+                password.as_bytes(),
                 encryption_details.cipher_kdf_iter,
                 &auth_safe_salt,
                 &auth_safe_iv,
@@ -562,8 +441,7 @@ fn serialize_key_and_certificates<'p>(
     encryption_algorithm: pyo3::Bound<'_, pyo3::PyAny>,
 ) -> CryptographyResult<pyo3::Bound<'p, pyo3::types::PyBytes>> {
     let encryption_details = decode_encryption_algorithm(py, encryption_algorithm)?;
-    let password = std::str::from_utf8(&encryption_details.password)
-        .map_err(|_| pyo3::exceptions::PyValueError::new_err("password must be valid UTF-8"))?;
+    let password = &encryption_details.password;
 
     let mut safebags = vec![];
     let (key_salt, key_iv, key_ciphertext, pkcs8_bytes);
@@ -616,14 +494,16 @@ fn serialize_key_and_certificates<'p>(
     }
 
     if let Some(key) = key {
-        let der = types::ENCODING_DER.get(py)?;
-        let pkcs8 = types::PRIVATE_FORMAT_PKCS8.get(py)?;
         let no_encryption = types::NO_ENCRYPTION.get(py)?.call0()?;
 
         pkcs8_bytes = key
             .call_method1(
                 pyo3::intern!(py, "private_bytes"),
-                (der, pkcs8, no_encryption),
+                (
+                    crate::serialization::Encoding::DER,
+                    crate::serialization::PrivateFormat::PKCS8,
+                    no_encryption,
+                ),
             )?
             .extract::<pyo3::pybacked::PyBackedBytes>()?;
 
@@ -633,7 +513,6 @@ fn serialize_key_and_certificates<'p>(
             key_iv = crate::backend::rand::get_rand_bytes(py, 16)?
                 .extract::<pyo3::pybacked::PyBackedBytes>()?;
             key_ciphertext = e.encrypt(
-                py,
                 password,
                 encryption_details.cipher_kdf_iter,
                 &key_salt,
@@ -697,10 +576,10 @@ fn decode_p12(
         .parse2(password)
         .map_err(|_| pyo3::exceptions::PyValueError::new_err("Invalid password or PKCS12 data"))?;
 
-    if asn1::parse_single::<cryptography_x509::pkcs12::Pfx<'_>>(data.as_bytes()).is_err() {
+    if let Err(e) = asn1::parse_single::<cryptography_x509::pkcs12::Pfx<'_>>(data.as_bytes()) {
         let warning_cls = pyo3::exceptions::PyUserWarning::type_object(py);
-        let message = cstr_from_literal!("PKCS#12 bundle could not be parsed as DER, falling back to parsing as BER. Please file an issue at https://github.com/pyca/cryptography/issues explaining how your PKCS#12 bundle was created. In the future, this may become an exception.");
-        pyo3::PyErr::warn(py, &warning_cls, message, 1)?;
+        let message = std::ffi::CString::new(format!("PKCS#12 bundle could not be parsed as DER, falling back to parsing as BER. Please file an issue at https://github.com/pyca/cryptography/issues explaining how your PKCS#12 bundle was created. In the future, this may become an exception. Error details: {e}")).unwrap();
+        pyo3::PyErr::warn(py, &warning_cls, &message, 1)?;
     }
 
     Ok(parsed)
@@ -739,9 +618,7 @@ fn load_key_and_certificates<'p>(
     let additional_certs = pyo3::types::PyList::empty(py);
     if let Some(ossl_certs) = p12.ca {
         cfg_if::cfg_if! {
-            if #[cfg(any(
-                CRYPTOGRAPHY_OPENSSL_300_OR_GREATER, CRYPTOGRAPHY_IS_BORINGSSL, CRYPTOGRAPHY_IS_AWSLC
-            ))] {
+            if #[cfg(not(CRYPTOGRAPHY_IS_LIBRESSL))] {
                 let it = ossl_certs.iter();
             } else {
                 let it = ossl_certs.iter().rev();
@@ -793,9 +670,7 @@ fn load_pkcs12<'p>(
     let additional_certs = pyo3::types::PyList::empty(py);
     if let Some(ossl_certs) = p12.ca {
         cfg_if::cfg_if! {
-            if #[cfg(any(
-                CRYPTOGRAPHY_OPENSSL_300_OR_GREATER, CRYPTOGRAPHY_IS_BORINGSSL, CRYPTOGRAPHY_IS_AWSLC
-            ))] {
+            if #[cfg(not(CRYPTOGRAPHY_IS_LIBRESSL))] {
                 let it = ossl_certs.iter();
             } else {
                 let it = ossl_certs.iter().rev();

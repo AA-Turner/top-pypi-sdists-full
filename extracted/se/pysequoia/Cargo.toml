@@ -1,6 +1,6 @@
 [package]
 name = "pysequoia"
-version = "0.1.32"
+version = "0.1.33"
 edition = "2024"
 description = "Python bindings for Sequoia PGP"
 homepage = "https://github.com/wiktor-k/pysequoia"
@@ -10,7 +10,6 @@ license = "Apache-2.0"
 # The crate is useless for Rust clients, it's mainly used via Python:
 # https://pypi.org/project/pysequoia/
 publish = false
-readme = "README.md"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [lib]
@@ -18,6 +17,7 @@ name = "pysequoia"
 crate-type = ["cdylib"]
 
 [workspace]
+members = [".", "xtask"]
 resolver = "3"
 package.edition = "2024"
 
@@ -31,4 +31,4 @@ sequoia-openpgp = { version = "2", default-features = false, features = [ "crypt
 version = "0.28"
 # "py-clone" feature added to keep the original behavior but it'd be good to avoid it
 # see: https://github.com/PyO3/pyo3/pull/4095
-features = ["extension-module", "anyhow", "chrono", "py-clone", "experimental-inspect"]
+features = ["anyhow", "chrono", "py-clone", "experimental-inspect"]

@@ -12,7 +12,7 @@ def get_zotero_client(locale: str = "en-US") -> zotero.Zotero:
     return zotero.Zotero(library_id="0", library_type="user", local=True, locale=locale)
 
 
-def normalize_doi(doi: str) -> str:
+def normalise_doi(doi: str) -> str:
     """Normalise a DOI for case-insensitive matching.
 
     Strips common prefixes (https://doi.org/, http://doi.org/, doi:) and converts to lowercase.
@@ -35,30 +35,6 @@ def normalize_doi(doi: str) -> str:
     return doi.lower().strip()
 
 
-def build_doi_index(zot: zotero.Zotero) -> dict[str, str]:
-    """Build a mapping of normalised DOIs to Zotero item keys.
-
-    Returns:
-        Dict mapping normalised DOIs to item keys
-
-    """
-    doi_map: dict[str, str] = {}
-    all_items = zot.everything(zot.items())
-
-    for item in all_items:
-        data = item.get("data", {})
-        item_doi = data.get("DOI", "")
-
-        if item_doi:
-            normalised_doi = normalize_doi(item_doi)
-            item_key = data.get("key", "")
-
-            if normalised_doi and item_key:
-                doi_map[normalised_doi] = item_key
-
-    return doi_map
-
-
 def build_doi_index_full(zot: zotero.Zotero) -> dict[str, dict[str, str]]:
     """Build a mapping of normalised DOIs to Zotero item keys and original DOIs.
 
@@ -67,20 +43,40 @@ def build_doi_index_full(zot: zotero.Zotero) -> dict[str, dict[str, str]]:
 
     """
     doi_map: dict[str, dict[str, str]] = {}
-    all_items = zot.everything(zot.items())
-
-    for item in all_items:
+    for item in zot.everything(zot.items()):
         data = item.get("data", {})
         item_doi = data.get("DOI", "")
-
-        if item_doi:
-            normalised_doi = normalize_doi(item_doi)
-            item_key = data.get("key", "")
-
-            if normalised_doi and item_key:
-                doi_map[normalised_doi] = {"key": item_key, "original": item_doi}
-
+        if not item_doi:
+            continue
+        normalised_doi = normalise_doi(item_doi)
+        item_key = data.get("key", "")
+        if normalised_doi and item_key:
+            doi_map[normalised_doi] = {"key": item_key, "original": item_doi}
     return doi_map
+
+
+def build_doi_index(zot: zotero.Zotero) -> dict[str, str]:
+    """Build a mapping of normalised DOIs to Zotero item keys."""
+    return {norm: entry["key"] for norm, entry in build_doi_index_full(zot).items()}
+
+
+def format_creators(creators: list[dict[str, Any]]) -> list[str]:
+    """Flatten Zotero creator dicts to display strings.
+
+    Zotero creators may carry either (firstName, lastName) or a single ``name``
+    field; emit ``"<first> <last>"``, falling back to ``lastName`` or ``name``.
+    Creators that have none of the recognised fields are dropped.
+    """
+    names: list[str] = []
+    for creator in creators:
+        if "lastName" in creator:
+            if "firstName" in creator:
+                names.append(f"{creator['firstName']} {creator['lastName']}")
+            else:
+                names.append(creator["lastName"])
+        elif "name" in creator:
+            names.append(creator["name"])
+    return names
 
 
 def format_s2_paper(
@@ -133,7 +129,7 @@ def annotate_with_library(
         doi = paper.get("doi")
         in_library = False
         if doi:
-            normalised = normalize_doi(doi)
+            normalised = normalise_doi(doi)
             in_library = normalised in doi_map
         results.append(format_s2_paper(paper, in_library))
     return results

@@ -252,7 +252,10 @@ class TestECWithNumbers:
         )
         for vector, hash_type in vectors:
             with subtests.test():
-                curve = ec._CURVE_TYPES[vector["curve"]]
+                try:
+                    curve = ec._CURVE_TYPES[vector["curve"]]
+                except KeyError:
+                    pytest.skip(f"Curve {vector['curve']} is not supported")
 
                 _skip_ecdsa_vector(backend, curve, hash_type)
 
@@ -284,7 +287,10 @@ class TestECDSAVectors:
         )
         for vector, hash_type in vectors:
             with subtests.test():
-                curve = ec._CURVE_TYPES[vector["curve"]]
+                try:
+                    curve = ec._CURVE_TYPES[vector["curve"]]
+                except KeyError:
+                    pytest.skip(f"Curve {vector['curve']} is not supported")
 
                 _skip_ecdsa_vector(backend, curve, hash_type)
 
@@ -507,7 +513,10 @@ class TestECDSAVectors:
         for vector in vectors:
             with subtests.test():
                 hash_type = _HASH_TYPES[vector["digest_algorithm"]]
-                curve = ec._CURVE_TYPES[vector["curve"]]
+                try:
+                    curve = ec._CURVE_TYPES[vector["curve"]]
+                except KeyError:
+                    pytest.skip(f"Curve {vector['curve']} is not supported")
 
                 _skip_ecdsa_vector(backend, curve, hash_type)
 
@@ -527,7 +536,10 @@ class TestECDSAVectors:
         for vector in vectors:
             with subtests.test():
                 hash_type = _HASH_TYPES[vector["digest_algorithm"]]
-                curve = ec._CURVE_TYPES[vector["curve"]]
+                try:
+                    curve = ec._CURVE_TYPES[vector["curve"]]
+                except KeyError:
+                    pytest.skip(f"Curve {vector['curve']} is not supported")
 
                 _skip_ecdsa_vector(backend, curve, hash_type)
 
@@ -571,16 +583,6 @@ class TestECDSAVectors:
             "SHA512": hashes.SHA512(),
         }
         curves = {
-            "B-163": ec.SECT163R2(),
-            "B-233": ec.SECT233R1(),
-            "B-283": ec.SECT283R1(),
-            "B-409": ec.SECT409R1(),
-            "B-571": ec.SECT571R1(),
-            "K-163": ec.SECT163K1(),
-            "K-233": ec.SECT233K1(),
-            "K-283": ec.SECT283K1(),
-            "K-409": ec.SECT409K1(),
-            "K-571": ec.SECT571K1(),
             "P-192": ec.SECP192R1(),
             "P-224": ec.SECP224R1(),
             "P-256": ec.SECP256R1(),
@@ -599,7 +601,12 @@ class TestECDSAVectors:
                 input = bytes(vector["input"], "utf-8")
                 output = bytes.fromhex(vector["output"])
                 key = bytes("\n".join(vector["key"]), "utf-8")
-                curve = curves[vector["key_name"].split("_")[0]]
+                curve_name = vector["key_name"].split("_")[0]
+                try:
+                    curve = curves[curve_name]
+                except KeyError:
+                    pytest.skip(f"Curve {curve_name} is not supported")
+
                 _skip_curve_unsupported(backend, curve)
 
                 if "digest_sign" in vector:
@@ -769,6 +776,17 @@ class TestECEquality:
 
         assert key1 == key2
 
+    def test_public_key_deepcopy(self, backend):
+        _skip_curve_unsupported(backend, ec.SECP256R1())
+        key_bytes = load_vectors_from_file(
+            os.path.join("asymmetric", "PKCS8", "ec_private_key.pem"),
+            lambda pemfile: pemfile.read().encode(),
+        )
+        key1 = serialization.load_pem_private_key(key_bytes, None).public_key()
+        key2 = copy.deepcopy(key1)
+
+        assert key1 == key2
+
     def test_private_key_copy(self, backend):
         _skip_curve_unsupported(backend, ec.SECP256R1())
         key_bytes = load_vectors_from_file(
@@ -777,6 +795,17 @@ class TestECEquality:
         )
         key1 = serialization.load_pem_private_key(key_bytes, None)
         key2 = copy.copy(key1)
+
+        assert key1 == key2
+
+    def test_private_key_deepcopy(self, backend):
+        _skip_curve_unsupported(backend, ec.SECP256R1())
+        key_bytes = load_vectors_from_file(
+            os.path.join("asymmetric", "PKCS8", "ec_private_key.pem"),
+            lambda pemfile: pemfile.read().encode(),
+        )
+        key1 = serialization.load_pem_private_key(key_bytes, None)
+        key2 = copy.deepcopy(key1)
 
         assert key1 == key2
 
@@ -849,7 +878,7 @@ class TestECSerialization:
     def test_private_bytes_rejects_invalid(self, encoding, fmt, backend):
         _skip_curve_unsupported(backend, ec.SECP256R1())
         key = ec.generate_private_key(ec.SECP256R1(), backend)
-        with pytest.raises(ValueError):
+        with pytest.raises((TypeError, ValueError)):
             key.private_bytes(encoding, fmt, serialization.NoEncryption())
 
     @pytest.mark.parametrize(
@@ -1061,8 +1090,11 @@ class TestECSerialization:
         parsed_public = serialization.load_pem_public_key(pem, backend)
         assert parsed_public
 
-    def test_load_private_key_explicit_parameters(self):
-        with pytest.raises(ValueError, match="explicit parameters"):
+    def test_load_private_key_unsupported_explicit_parameters(self):
+        # This vector is P256 except the prime field value is wrong
+        with pytest.raises(
+            exceptions.UnsupportedAlgorithm, match="explicit parameters"
+        ):
             load_vectors_from_file(
                 os.path.join(
                     "asymmetric", "EC", "explicit_parameters_private_key.pem"
@@ -1073,18 +1105,49 @@ class TestECSerialization:
                 mode="rb",
             )
 
-        with pytest.raises(ValueError, match="explicit parameters"):
-            load_vectors_from_file(
-                os.path.join(
-                    "asymmetric",
-                    "EC",
-                    "explicit_parameters_wap_wsg_idm_ecid_wtls11_private_key.pem",
-                ),
-                lambda pemfile: serialization.load_pem_private_key(
-                    pemfile.read(), password=None
-                ),
-                mode="rb",
-            )
+    @pytest.mark.parametrize(
+        ("curve", "file"),
+        [
+            (ec.SECP256R1, "secp256r1-explicit-seed.pem"),
+            (ec.SECP256R1, "secp256r1-explicit-no-seed.pem"),
+            (ec.SECP384R1, "secp384r1-explicit-seed.pem"),
+            (ec.SECP384R1, "secp384r1-explicit-no-seed.pem"),
+            (ec.SECP521R1, "secp521r1-explicit-seed.pem"),
+            (ec.SECP521R1, "secp521r1-explicit-no-seed.pem"),
+        ],
+    )
+    def test_load_private_key_explicit_parameters(self, curve, file, backend):
+        _skip_curve_unsupported(backend, curve())
+        key = load_vectors_from_file(
+            os.path.join("asymmetric", "EC", file),
+            lambda pemfile: serialization.load_pem_private_key(
+                pemfile.read(), password=None
+            ),
+            mode="rb",
+        )
+        assert isinstance(key, ec.EllipticCurvePrivateKey)
+        assert isinstance(key.curve, curve)
+
+    @pytest.mark.parametrize(
+        ("curve", "file"),
+        [
+            (ec.SECP256R1, "secp256r1-pub-explicit-seed.pem"),
+            (ec.SECP256R1, "secp256r1-pub-explicit-no-seed.pem"),
+            (ec.SECP384R1, "secp384r1-pub-explicit-seed.pem"),
+            (ec.SECP384R1, "secp384r1-pub-explicit-no-seed.pem"),
+            (ec.SECP521R1, "secp521r1-pub-explicit-seed.pem"),
+            (ec.SECP521R1, "secp521r1-pub-explicit-no-seed.pem"),
+        ],
+    )
+    def test_load_public_key_explicit_parameters(self, curve, file, backend):
+        _skip_curve_unsupported(backend, curve())
+        key = load_vectors_from_file(
+            os.path.join("asymmetric", "EC", file),
+            lambda pemfile: serialization.load_pem_public_key(pemfile.read()),
+            mode="rb",
+        )
+        assert isinstance(key, ec.EllipticCurvePublicKey)
+        assert isinstance(key.curve, curve)
 
     def test_load_private_key_unsupported_curve(self):
         with pytest.raises((ValueError, exceptions.UnsupportedAlgorithm)):
@@ -1095,27 +1158,6 @@ class TestECSerialization:
                 ),
                 mode="rb",
             )
-
-    @pytest.mark.parametrize(
-        ("key_file", "curve"),
-        [
-            ("sect163k1-spki.pem", ec.SECT163K1),
-            ("sect163r2-spki.pem", ec.SECT163R2),
-            ("sect233k1-spki.pem", ec.SECT233K1),
-            ("sect233r1-spki.pem", ec.SECT233R1),
-        ],
-    )
-    def test_load_public_keys(self, key_file, curve, backend):
-        _skip_curve_unsupported(backend, curve())
-        key = load_vectors_from_file(
-            os.path.join("asymmetric", "EC", key_file),
-            lambda pemfile: serialization.load_pem_public_key(
-                pemfile.read(),
-            ),
-            mode="rb",
-        )
-        assert isinstance(key, ec.EllipticCurvePublicKey)
-        assert isinstance(key.curve, curve)
 
     def test_pkcs8_inconsistent_curve(self):
         # The curve can appear twice in a PKCS8 EC key, error if they're not
@@ -1165,6 +1207,52 @@ class TestECSerialization:
         )
         with pytest.raises(ValueError):
             serialization.load_pem_private_key(data, password=None)
+
+    def test_private_bytes_high_private_key_bit_set(self):
+        data = load_vectors_from_file(
+            os.path.join("asymmetric", "EC", "high-bit-set.pem"),
+            lambda f: f.read(),
+            mode="rb",
+        )
+
+        key = serialization.load_pem_private_key(data, password=None)
+        assert isinstance(key, ec.EllipticCurvePrivateKey)
+        # The high bit is set in the private key. Ensure that it's not
+        # serialized with an additional leading 0, as you would if serializing
+        # an ASN.1 integer.
+        expected_private_key = (
+            0xA07AB72DF25722849DF17FCE9AF1D2AC02EFA32C3251D8E075C29EA868D9E2A2
+        )
+        assert key.private_numbers().private_value == expected_private_key
+        assert (
+            key.private_bytes(
+                serialization.Encoding.PEM,
+                serialization.PrivateFormat.TraditionalOpenSSL,
+                serialization.NoEncryption(),
+            )
+            == data
+        )
+
+    def test_private_bytes_small_key(self):
+        key = ec.derive_private_key(private_value=1, curve=ec.SECP256R1())
+        der = key.private_bytes(
+            serialization.Encoding.DER,
+            serialization.PrivateFormat.TraditionalOpenSSL,
+            serialization.NoEncryption(),
+        )
+        # Ensure that serialized keys are always padded to the group order
+        # length.
+        assert (b"\x00" * 31 + b"\x01") in der
+
+    def test_load_private_key_short_key_warngs(self):
+        data = load_vectors_from_file(
+            os.path.join("asymmetric", "EC", "truncated-private-key.der"),
+            lambda f: f.read(),
+            mode="rb",
+        )
+
+        with pytest.raises(ValueError, match="private key value is too short"):
+            serialization.load_der_private_key(data, password=None)
 
 
 class TestEllipticCurvePEMPublicKeySerialization:
@@ -1274,7 +1362,7 @@ class TestEllipticCurvePEMPublicKeySerialization:
     def test_public_bytes_rejects_invalid(self, encoding, fmt, backend):
         _skip_curve_unsupported(backend, ec.SECP256R1())
         key = ec.generate_private_key(ec.SECP256R1(), backend).public_key()
-        with pytest.raises(ValueError):
+        with pytest.raises((TypeError, ValueError)):
             key.public_bytes(encoding, fmt)
 
     def test_public_bytes_invalid_format(self, backend):
@@ -1542,40 +1630,3 @@ class TestECDH:
 
         with pytest.raises(ValueError):
             key.exchange(ec.ECDH(), public_key)
-
-
-def test_invalid_sect_public_keys(backend):
-    _skip_curve_unsupported(backend, ec.SECT571K1())
-    public_numbers = ec.EllipticCurvePublicNumbers(1, 1, ec.SECT571K1())
-    with pytest.raises(ValueError):
-        public_numbers.public_key()
-
-    point = binascii.unhexlify(
-        b"0400000000000000000000000000000000000000000000000000000000000000000"
-        b"0000000000000000000000000000000000000000000000000000000000000000000"
-        b"0000000000010000000000000000000000000000000000000000000000000000000"
-        b"0000000000000000000000000000000000000000000000000000000000000000000"
-        b"0000000000000000000001"
-    )
-    with pytest.raises(ValueError):
-        ec.EllipticCurvePublicKey.from_encoded_point(ec.SECT571K1(), point)
-
-    der = binascii.unhexlify(
-        b"3081a7301006072a8648ce3d020106052b810400260381920004000000000000000"
-        b"0000000000000000000000000000000000000000000000000000000000000000000"
-        b"0000000000000000000000000000000000000000000000000000000000000100000"
-        b"0000000000000000000000000000000000000000000000000000000000000000000"
-        b"0000000000000000000000000000000000000000000000000000000000000000000"
-        b"00001"
-    )
-    with pytest.raises(ValueError):
-        serialization.load_der_public_key(der)
-
-    pem = textwrap.dedent("""-----BEGIN PUBLIC KEY-----
-    MIGnMBAGByqGSM49AgEGBSuBBAAmA4GSAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-    AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-    AAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-    AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAE=
-    -----END PUBLIC KEY-----""").encode()
-    with pytest.raises(ValueError):
-        serialization.load_pem_public_key(pem)

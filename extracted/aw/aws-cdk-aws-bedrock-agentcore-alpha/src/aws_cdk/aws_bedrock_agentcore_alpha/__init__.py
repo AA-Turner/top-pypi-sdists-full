@@ -130,6 +130,15 @@ This construct library facilitates the deployment of Bedrock AgentCore primitive
       * [Memory with Custom Execution Role](#memory-with-custom-execution-role)
     * [Memory with self-managed Strategies](#memory-with-self-managed-strategies)
     * [Memory Strategy Methods](#memory-strategy-methods)
+  * [Policy](#policy)
+
+    * [PolicyEngine Properties](#policyengine-properties)
+    * [Policy Properties](#policy-properties)
+    * [Basic PolicyEngine and Policy Creation](#basic-policyengine-and-policy-creation)
+    * [Associating a Policy Engine with a Gateway](#associating-a-policy-engine-with-a-gateway)
+    * [Type-Safe Policy Builder](#type-safe-policy-builder)
+    * [PolicyEngine with KMS Encryption](#policyengine-with-kms-encryption)
+    * [Policy Validation Modes](#policy-validation-modes)
 
 ## AgentCore Runtime
 
@@ -779,6 +788,49 @@ agentcore.Runtime(self, "test-runtime",
 )
 ```
 
+#### Observability configuration
+
+The Runtime construct supports observability features including X-Ray tracing and logging to CloudWatch Logs, S3, or Kinesis Data Firehose. This allows you to monitor and debug your agent runtime invocations.
+
+You can configure:
+
+* tracingEnabled: Enable X-Ray tracing for the runtime
+* loggingConfigs: Send APPLICATION_LOGS (agent runtime invocations) and USAGE_LOGS (session-level resource consumption) to CloudWatch Logs, S3, or Kinesis Data Firehose
+
+For additional information, please refer to the [Set up logging and tracing for AgentCore](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/observability.html).
+
+```python
+repository = ecr.Repository(self, "TestRepository",
+    repository_name="test-agent-runtime"
+)
+
+agent_runtime_artifact = agentcore.AgentRuntimeArtifact.from_ecr_repository(repository, "v1.0.0")
+
+# Create logging destinations
+log_group = logs.LogGroup(self, "RuntimeLogGroup")
+log_bucket = s3.Bucket(self, "RuntimeLogBucket")
+firehose_stream = firehose.DeliveryStream(self, "RuntimeLogStream",
+    destination=firehose.S3Bucket(log_bucket)
+)
+
+agentcore.Runtime(self, "test-runtime",
+    runtime_name="test_runtime",
+    agent_runtime_artifact=agent_runtime_artifact,
+    tracing_enabled=True,
+    logging_configs=[agentcore.LoggingConfig(
+        log_type=agentcore.LogType.APPLICATION_LOGS,
+        destination=agentcore.LoggingDestination.cloud_watch_logs(log_group)
+    ), agentcore.LoggingConfig(
+        log_type=agentcore.LogType.APPLICATION_LOGS,
+        destination=agentcore.LoggingDestination.s3(log_bucket)
+    ), agentcore.LoggingConfig(
+        log_type=agentcore.LogType.APPLICATION_LOGS,
+        destination=agentcore.LoggingDestination.firehose(firehose_stream)
+    )
+    ]
+)
+```
+
 ## Browser
 
 The Amazon Bedrock AgentCore Browser provides a secure, cloud-based browser that enables AI agents to interact with websites. It includes security features such as session isolation, built-in observability through live viewing, CloudTrail logging, and session replay capabilities.
@@ -1154,6 +1206,7 @@ The Gateway construct provides a way to create Amazon Bedrock Agent Core Gateway
 | `kmsKey` | `kms.IKey` | No | The AWS KMS key used to encrypt data associated with the gateway |
 | `role` | `iam.IRole` | No | The IAM role that provides permissions for the gateway to access AWS services. A new role will be created if not provided |
 | `tags` | `{ [key: string]: string }` | No | Tags for the gateway. A list of key:value pairs of tags to apply to this Gateway resource |
+| `policyEngineConfiguration` | `GatewayPolicyEngineConfig` | No | Associates a policy engine with this gateway. All agent requests are evaluated against the Cedar policies in the engine. The gateway role is automatically granted evaluate permissions. Default: no policy engine |
 
 ### Basic Gateway Creation
 
@@ -1240,6 +1293,20 @@ lambda_role = iam.Role(self, "LambdaRole",
 # The Lambda needs permission to invoke the gateway
 gateway.grant_invoke(lambda_role)
 ```
+
+**No Authorization** – Creates a gateway with no inbound authorization. This is useful for building public MCP servers,
+or when you want to skip gateway-level authentication and enforce tool execution-level authentication using Gateway Interceptors.
+
+```python
+gateway = agentcore.Gateway(self, "MyGateway",
+    gateway_name="my-gateway",
+    authorizer_configuration=agentcore.GatewayAuthorizer.with_no_auth()
+)
+```
+
+> **⚠️ Important:** Do not use No Authorization gateways for production workloads unless you have implemented all the security best practices. No Authorization gateways are most appropriate for testing and development purposes. See [Security Best Practices](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/gateway-inbound-auth.html#gateway-inbound-auth-none) for required compensating controls.
+
+For more information, see [No Authorization](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/gateway-inbound-auth.html#gateway-inbound-auth-none).
 
 **Cognito with M2M (Machine-to-Machine) Authentication (Default)** – When no authorizer is specified, the construct automatically creates a Cognito User Pool configured for OAuth 2.0 client credentials flow. This enables machine-to-machine authentication suitable for AI agents and service-to-service communication.
 
@@ -2465,6 +2532,277 @@ memory = agentcore.Memory(self, "test-memory",
 memory.add_memory_strategy(agentcore.MemoryStrategy.using_built_in_summarization())
 memory.add_memory_strategy(agentcore.MemoryStrategy.using_built_in_semantic())
 ```
+
+## Policy Engine
+
+A policy engine is a collection of policies that evaluates and authorizes agent tool calls. When associated with a gateway, the policy engine intercepts all agent requests and determines whether to allow or deny each action based on the defined policies.
+
+### PolicyEngine Properties
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `policyEngineName` | `string` | No | The name of the policy engine. Valid characters: a-z, A-Z, 0-9, _ (underscore). Must start with a letter, 1-48 characters. If not provided, a unique name will be auto-generated |
+| `description` | `string` | No | Optional description for the policy engine (max 4,096 characters). Default: no description |
+| `kmsKey` | `IKey` | No | Custom KMS key for encryption. **IMPORTANT**: Once set, cannot be changed (requires replacement). Must be symmetric ENCRYPT_DECRYPT key. If key becomes inaccessible, all authorization decisions will be DENIED. Default: AWS owned key |
+| `tags` | `{ [key: string]: string }` | No | Tags for the policy engine (max 50 tags). Default: no tags |
+
+### Understanding Cedar Policies in AgentCore
+
+Policies are constructed using [Cedar language](https://www.cedarpolicy.com/en/tutorial), an open source language for writing and enforcing authorization policies.
+Cedar policies in AgentCore follow a specific structure with three main components: **Principal**, **Action**, and **Resource**. Understanding how these components work together is critical for writing effective policies.
+
+#### Policy Structure
+
+Every Cedar policy has this basic structure:
+
+```cedar
+permit(              // or forbid
+  principal,         // Who is making the request
+  action,            // What operation they want to perform
+  resource           // What Gateway/tool they want to access
+)
+when {               // Optional conditions
+  // Additional constraints
+};
+```
+
+Example Policy
+
+```cedar
+permit(
+  principal,
+  action == AgentCore::Action::"ApplicationToolTarget___create_application",
+  resource == AgentCore::Gateway::"<gateway-arn>"
+) when {
+  context.input.coverage_amount <= 1000000
+};
+```
+
+### Basic PolicyEngine and Policy Creation
+
+Create a policy engine and add policies to it.
+
+```python
+# Create a Policy engine
+policy_engine = agentcore.PolicyEngine(self, "MyPolicyEngine",
+    policy_engine_name="my_policy_engine",
+    description="Policy engine for access control"
+)
+
+gateway = agentcore.Gateway(self, "MyGateway",
+    gateway_name="my-gateway",
+    policy_engine_configuration=agentcore.GatewayPolicyEngineConfig(
+        policy_engine=policy_engine
+    )
+)
+
+# Add policy to policy engine
+policy_engine.add_policy("AllowAllActions",
+    definition=f"""
+        permit(
+          principal,
+          action,
+          resource == AgentCore::Gateway::\"{gateway.gatewayArn}\"
+        );
+      """,
+    description="Allow all actions on specific gateway (development)",
+    validation_mode=agentcore.PolicyValidationMode.IGNORE_ALL_FINDINGS
+)
+
+# you can add multiple policies to the policy engine
+policy_engine.add_policy("SpecificToolPolicy",
+    definition=f"""
+        permit(
+          principal is AgentCore::OAuthUser,
+          action == AgentCore::Action::\"WeatherTool__get_forecast\",
+          resource == AgentCore::Gateway::\"{gateway.gatewayArn}\"
+        );
+      """,
+    description="Allow specific weather tool access",
+    validation_mode=agentcore.PolicyValidationMode.FAIL_ON_ANY_FINDINGS
+)
+```
+
+### Type-Safe Policy Builder
+
+For a more type-safe approach, use the `PolicyStatement` builder instead of writing raw Cedar syntax.
+
+```python
+gateway = agentcore.Gateway(self, "MyGateway",
+    gateway_name="my-gateway"
+)
+
+policy_engine = agentcore.PolicyEngine(self, "MyPolicyEngine",
+    policy_engine_name="my_policy_engine"
+)
+
+allow_all_policy = agentcore.Policy(self, "AllowAllPolicy",
+    policy_engine=policy_engine,
+    policy_name="allow_all",
+    statement=agentcore.PolicyStatement.permit().for_all_principals().on_all_actions().on_resource("AgentCore::Gateway", gateway.gateway_arn),
+    description="Allow all actions on specific gateway (development only)",
+    validation_mode=agentcore.PolicyValidationMode.IGNORE_ALL_FINDINGS
+)
+```
+
+#### Policy with Specific Actions
+
+```python
+# policy_engine: agentcore.PolicyEngine
+# gateway: agentcore.Gateway
+
+
+# Allow specific tool actions on specific gateway
+# Action names follow pattern: "ToolName__operation"
+policy_engine.add_policy("SpecificToolPolicy",
+    statement=agentcore.PolicyStatement.permit().for_principal("AgentCore::OAuthUser::your-client-id").on_actions(["AgentCore::Action::WeatherTool__get_forecast", "AgentCore::Action::WeatherTool__get_current"
+    ]).on_resource("AgentCore::Gateway", gateway.gateway_arn),
+    description="Allow specific weather tool operations",
+    validation_mode=agentcore.PolicyValidationMode.FAIL_ON_ANY_FINDINGS
+)
+```
+
+#### Policy with Conditions
+
+Use `when` clauses to add advanced conditions based on principal tags (from OAuth token) or context:
+
+```python
+# policy_engine: agentcore.PolicyEngine
+# gateway: agentcore.Gateway
+
+
+# Policy with when conditions using principal tags
+conditional_policy = agentcore.Policy(self, "ConditionalPolicy",
+    policy_engine=policy_engine,
+    policy_name="conditional_access",
+    statement=agentcore.PolicyStatement.permit().for_principal("AgentCore::OAuthUser").on_all_actions().on_resource("AgentCore::Gateway", gateway.gateway_arn).when().principal_attribute("department").equal_to("Engineering").and().context_attribute("input.priority").equal_to("high").done(),
+    description="Allow engineers for high-priority requests",
+    validation_mode=agentcore.PolicyValidationMode.FAIL_ON_ANY_FINDINGS
+)
+```
+
+#### Forbid (Deny) Policy
+
+Use `forbid` to explicitly deny access. Forbid policies override permit policies.
+
+```python
+# policy_engine: agentcore.PolicyEngine
+# gateway: agentcore.Gateway
+
+
+# Explicitly deny dangerous tool operations
+policy_engine.add_policy("DenyDangerous",
+    statement=agentcore.PolicyStatement.forbid().for_all_principals().on_action("AgentCore::Action::DeleteTool__delete_all").on_resource("AgentCore::Gateway", gateway.gateway_arn),
+    description="Forbid delete_all operation for all users",
+    validation_mode=agentcore.PolicyValidationMode.FAIL_ON_ANY_FINDINGS
+)
+```
+
+#### Raw Cedar for Advanced Cases
+
+For advanced Cedar features not supported by the builder, use raw Cedar strings:
+
+```python
+# policy_engine: agentcore.PolicyEngine
+
+
+# Option 1: Using definition property
+advanced_policy = agentcore.Policy(self, "AdvancedPolicy",
+    policy_engine=policy_engine,
+    definition="permit(principal, action, resource) when { context.custom > 10 };",
+    description="Advanced policy with custom Cedar logic"
+)
+
+# Option 2: Using fromCedar() with statement property
+policy_engine.add_policy("CustomPolicy",
+    statement=agentcore.PolicyStatement.from_cedar("forbid(principal, action, resource) when { resource.confidential == true };"),
+    description="Custom policy from Cedar string"
+)
+```
+
+**Note**: You must specify **either** `definition` (raw Cedar string) **or** `statement` (PolicyStatement builder), but not both.
+
+#### Accessing Policies on PolicyEngine
+
+You can access the list of policies added to a PolicyEngine using policyEngine.policies.
+
+### PolicyEngine with KMS Encryption
+
+Encrypt policy data with a custom KMS key.
+
+```python
+# Create a custom KMS key
+policy_key = kms.Key(self, "PolicyEngineKey",
+    enable_key_rotation=True,
+    description="KMS key for policy engine encryption"
+)
+
+# Create policy engine with encryption
+policy_engine = agentcore.PolicyEngine(self, "EncryptedEngine",
+    policy_engine_name="encrypted_engine",
+    description="Policy engine with KMS encryption",
+    kms_key=policy_key
+)
+```
+
+### Importing Existing PolicyEngine
+
+Import an existing policy engine from its ARN:
+
+```python
+imported_engine = agentcore.PolicyEngine.from_policy_engine_attributes(self, "ImportedEngine",
+    policy_engine_arn="policy-engine-arn",
+    kms_key_arn="kms-arn"
+)
+
+# Use the imported engine
+policy = agentcore.Policy(self, "PolicyForImportedEngine",
+    policy_engine=imported_engine,
+    definition="permit(principal, action, resource);"
+)
+```
+
+### Importing Existing Policy
+
+Import an existing policy from its ARN:
+
+```python
+imported_engine = agentcore.PolicyEngine.from_policy_engine_attributes(self, "ImportedEngine",
+    policy_engine_arn="policy-engine/my-engine-id"
+)
+
+imported_policy = agentcore.Policy.from_policy_attributes(self, "ImportedPolicy",
+    policy_arn="my-policy-arn",
+    policy_engine=imported_engine
+)
+
+# Grant permissions to the imported policy
+role = iam.Role(self, "PolicyRole",
+    assumed_by=iam.ServicePrincipal("lambda.amazonaws.com")
+)
+
+imported_policy.grant_read(role)
+```
+
+### PolicyEngine IAM Permissions
+
+Grant various levels of access to policy engines:
+
+```python
+policy_engine = agentcore.PolicyEngine(self, "MyEngine",
+    policy_engine_name="my_engine"
+)
+
+lambda_role = iam.Role(self, "LambdaRole",
+    assumed_by=iam.ServicePrincipal("lambda.amazonaws.com")
+)
+
+# Grant read permissions
+policy_engine.grant_read(lambda_role)
+
+# Grant evaluation permissions
+policy_engine.grant_evaluate(lambda_role)
+```
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -2508,8 +2846,10 @@ import aws_cdk.aws_ec2 as _aws_cdk_aws_ec2_ceddda9d
 import aws_cdk.aws_ecr as _aws_cdk_aws_ecr_ceddda9d
 import aws_cdk.aws_ecr_assets as _aws_cdk_aws_ecr_assets_ceddda9d
 import aws_cdk.aws_iam as _aws_cdk_aws_iam_ceddda9d
+import aws_cdk.aws_kinesisfirehose as _aws_cdk_aws_kinesisfirehose_ceddda9d
 import aws_cdk.aws_kms as _aws_cdk_aws_kms_ceddda9d
 import aws_cdk.aws_lambda as _aws_cdk_aws_lambda_ceddda9d
+import aws_cdk.aws_logs as _aws_cdk_aws_logs_ceddda9d
 import aws_cdk.aws_s3 as _aws_cdk_aws_s3_ceddda9d
 import aws_cdk.aws_s3_assets as _aws_cdk_aws_s3_assets_ceddda9d
 import aws_cdk.aws_sns as _aws_cdk_aws_sns_ceddda9d
@@ -3237,6 +3577,149 @@ class AddOpenApiTargetOptions:
 
     def __repr__(self) -> str:
         return "AddOpenApiTargetOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.AddPolicyOptions",
+    jsii_struct_bases=[],
+    name_mapping={
+        "definition": "definition",
+        "description": "description",
+        "policy_name": "policyName",
+        "statement": "statement",
+        "validation_mode": "validationMode",
+    },
+)
+class AddPolicyOptions:
+    def __init__(
+        self,
+        *,
+        definition: typing.Optional[builtins.str] = None,
+        description: typing.Optional[builtins.str] = None,
+        policy_name: typing.Optional[builtins.str] = None,
+        statement: typing.Optional["PolicyStatement"] = None,
+        validation_mode: typing.Optional["PolicyValidationMode"] = None,
+    ) -> None:
+        '''(experimental) Options for adding a policy via PolicyEngine.addPolicy().
+
+        :param definition: (experimental) Cedar policy statement (35-153,600 characters). You must specify either ``definition`` or ``statement``, but not both. Default: - Must provide either definition or statement
+        :param description: (experimental) Optional description for the policy (max 4,096 characters). Default: - No description
+        :param policy_name: (experimental) The name of the policy. Valid characters: a-z, A-Z, 0-9, _ (underscore) Must start with a letter, 1-48 characters Default: - Auto-generated unique name
+        :param statement: (experimental) Type-safe Cedar policy statement built using PolicyStatement builder. Use this for a type-safe, form-like API to build Cedar policies without writing raw Cedar syntax. The builder validates at synthesis time. You must specify either ``definition`` or ``statement``, but not both. Default: - Must provide either definition or statement
+        :param validation_mode: (experimental) Validation mode for the policy. Default: PolicyValidationMode.FAIL_ON_ANY_FINDINGS
+
+        :stability: experimental
+        :exampleMetadata: fixture=default infused
+
+        Example::
+
+            # policy_engine: agentcore.PolicyEngine
+            # gateway: agentcore.Gateway
+            
+            
+            # Allow specific tool actions on specific gateway
+            # Action names follow pattern: "ToolName__operation"
+            policy_engine.add_policy("SpecificToolPolicy",
+                statement=agentcore.PolicyStatement.permit().for_principal("AgentCore::OAuthUser::your-client-id").on_actions(["AgentCore::Action::WeatherTool__get_forecast", "AgentCore::Action::WeatherTool__get_current"
+                ]).on_resource("AgentCore::Gateway", gateway.gateway_arn),
+                description="Allow specific weather tool operations",
+                validation_mode=agentcore.PolicyValidationMode.FAIL_ON_ANY_FINDINGS
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3d6f5ede60211ce6d3bddaf50c8332aedc56652bcbee28d8139fddfd36a49896)
+            check_type(argname="argument definition", value=definition, expected_type=type_hints["definition"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument policy_name", value=policy_name, expected_type=type_hints["policy_name"])
+            check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
+            check_type(argname="argument validation_mode", value=validation_mode, expected_type=type_hints["validation_mode"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if definition is not None:
+            self._values["definition"] = definition
+        if description is not None:
+            self._values["description"] = description
+        if policy_name is not None:
+            self._values["policy_name"] = policy_name
+        if statement is not None:
+            self._values["statement"] = statement
+        if validation_mode is not None:
+            self._values["validation_mode"] = validation_mode
+
+    @builtins.property
+    def definition(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Cedar policy statement (35-153,600 characters).
+
+        You must specify either ``definition`` or ``statement``, but not both.
+
+        :default: - Must provide either definition or statement
+
+        :stability: experimental
+        '''
+        result = self._values.get("definition")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Optional description for the policy (max 4,096 characters).
+
+        :default: - No description
+
+        :stability: experimental
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def policy_name(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The name of the policy.
+
+        Valid characters: a-z, A-Z, 0-9, _ (underscore)
+        Must start with a letter, 1-48 characters
+
+        :default: - Auto-generated unique name
+
+        :stability: experimental
+        '''
+        result = self._values.get("policy_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def statement(self) -> typing.Optional["PolicyStatement"]:
+        '''(experimental) Type-safe Cedar policy statement built using PolicyStatement builder.
+
+        Use this for a type-safe, form-like API to build Cedar policies without
+        writing raw Cedar syntax. The builder validates at synthesis time.
+
+        You must specify either ``definition`` or ``statement``, but not both.
+
+        :default: - Must provide either definition or statement
+
+        :stability: experimental
+        '''
+        result = self._values.get("statement")
+        return typing.cast(typing.Optional["PolicyStatement"], result)
+
+    @builtins.property
+    def validation_mode(self) -> typing.Optional["PolicyValidationMode"]:
+        '''(experimental) Validation mode for the policy.
+
+        :default: PolicyValidationMode.FAIL_ON_ANY_FINDINGS
+
+        :stability: experimental
+        '''
+        result = self._values.get("validation_mode")
+        return typing.cast(typing.Optional["PolicyValidationMode"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AddPolicyOptions(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -5035,6 +5518,168 @@ class AssetApiSchema(
         return typing.cast(None, jsii.invoke(self, "grantPermissionsToRole", [role]))
 
 
+class AttributeAccessor(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.AttributeAccessor",
+):
+    '''(experimental) Accessor for building type-safe attribute comparisons.
+
+    Provides methods for common comparison operators with proper type checking.
+
+    :stability: experimental
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        import aws_cdk.aws_bedrock_agentcore_alpha as bedrock_agentcore_alpha
+        
+        # condition_builder: bedrock_agentcore_alpha.ConditionBuilder
+        
+        attribute_accessor = bedrock_agentcore_alpha.AttributeAccessor("path", condition_builder)
+    '''
+
+    def __init__(self, path: builtins.str, parent: "ConditionBuilder") -> None:
+        '''
+        :param path: -
+        :param parent: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ad79c7ede66109ea698e7bef89e9b4d8a445fe1cbf2847caac7b193ba4ce20cb)
+            check_type(argname="argument path", value=path, expected_type=type_hints["path"])
+            check_type(argname="argument parent", value=parent, expected_type=type_hints["parent"])
+        jsii.create(self.__class__, self, [path, parent])
+
+    @jsii.member(jsii_name="contains")
+    def contains(self, value: builtins.str) -> "ConditionBuilder":
+        '''(experimental) String contains check.
+
+        :param value: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bd0f34b60371640e40c8f58396cedf1061c13d4a394710ed3f980d62578b3f78)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        return typing.cast("ConditionBuilder", jsii.invoke(self, "contains", [value]))
+
+    @jsii.member(jsii_name="equalTo")
+    def equal_to(
+        self,
+        value: typing.Union[builtins.str, jsii.Number, builtins.bool],
+    ) -> "ConditionBuilder":
+        '''(experimental) Equality comparison (==).
+
+        :param value: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__74ec28744dac34dfbc97342f9cb65ba0868785d32e78b623cf6e678865961e20)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        return typing.cast("ConditionBuilder", jsii.invoke(self, "equalTo", [value]))
+
+    @jsii.member(jsii_name="greaterThan")
+    def greater_than(self, value: jsii.Number) -> "ConditionBuilder":
+        '''(experimental) Greater than comparison (>).
+
+        :param value: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__af6bb5564081a88488d4af236d076654e5b7e6c0064bdbc0443920e4aadabd26)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        return typing.cast("ConditionBuilder", jsii.invoke(self, "greaterThan", [value]))
+
+    @jsii.member(jsii_name="greaterThanOrEqualTo")
+    def greater_than_or_equal_to(self, value: jsii.Number) -> "ConditionBuilder":
+        '''(experimental) Greater than or equals comparison (>=).
+
+        :param value: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ee7fcda935a94a60db2e445e0385756067b10fdbe23c0db304304dddbc6e03fe)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        return typing.cast("ConditionBuilder", jsii.invoke(self, "greaterThanOrEqualTo", [value]))
+
+    @jsii.member(jsii_name="isIn")
+    def is_in(
+        self,
+        values: typing.Sequence[typing.Union[builtins.str, jsii.Number]],
+    ) -> "ConditionBuilder":
+        '''(experimental) Check if attribute is in a set/list.
+
+        :param values: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bc520361571a0a8f9d3ba4d4f6a515ac2b996e8f6bb6937c91beb25a5dda547d)
+            check_type(argname="argument values", value=values, expected_type=type_hints["values"])
+        return typing.cast("ConditionBuilder", jsii.invoke(self, "isIn", [values]))
+
+    @jsii.member(jsii_name="isInRange")
+    def is_in_range(self, ip_range: builtins.str) -> "ConditionBuilder":
+        '''(experimental) IP range check - tests if IP address is in CIDR range.
+
+        :param ip_range: - CIDR notation (e.g., '192.168.1.0/24').
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__80c0e138c72af3ed2a8775bf7c03c2abaa3ee98c4e66609343465bc6413b6c4d)
+            check_type(argname="argument ip_range", value=ip_range, expected_type=type_hints["ip_range"])
+        return typing.cast("ConditionBuilder", jsii.invoke(self, "isInRange", [ip_range]))
+
+    @jsii.member(jsii_name="lessThan")
+    def less_than(self, value: jsii.Number) -> "ConditionBuilder":
+        '''(experimental) Less than comparison (<).
+
+        :param value: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5c9a002fe1be39b2bb193a89d1f3ce6993b55c525047510793a37d5121dc5931)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        return typing.cast("ConditionBuilder", jsii.invoke(self, "lessThan", [value]))
+
+    @jsii.member(jsii_name="lessThanOrEqualTo")
+    def less_than_or_equal_to(self, value: jsii.Number) -> "ConditionBuilder":
+        '''(experimental) Less than or equals comparison (<=).
+
+        :param value: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__75e9c1d43a240c04f527fa53184a545a456f445752bfe117b0076f41d562e7fb)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        return typing.cast("ConditionBuilder", jsii.invoke(self, "lessThanOrEqualTo", [value]))
+
+    @jsii.member(jsii_name="notEqualTo")
+    def not_equal_to(
+        self,
+        value: typing.Union[builtins.str, jsii.Number, builtins.bool],
+    ) -> "ConditionBuilder":
+        '''(experimental) Inequality comparison (!=).
+
+        :param value: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d9734afe25b3e7dee71166c8dab754a65a4d78a901c2c3d73e7caff5ff05faca)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        return typing.cast("ConditionBuilder", jsii.invoke(self, "notEqualTo", [value]))
+
+
 @jsii.data_type(
     jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.BrowserCustomAttributes",
     jsii_struct_bases=[],
@@ -6136,6 +6781,397 @@ class CognitoAuthorizerProps:
         )
 
 
+class ConditionBuilder(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.ConditionBuilder",
+):
+    '''(experimental) Builder for condition expressions in Cedar policies.
+
+    Conditions define when a policy statement should apply or not apply.
+    Supports logical operators (AND, OR) and various comparison operators.
+
+    :stability: experimental
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        import aws_cdk.aws_bedrock_agentcore_alpha as bedrock_agentcore_alpha
+        
+        condition_builder = bedrock_agentcore_alpha.ConditionBuilder()
+    '''
+
+    def __init__(self) -> None:
+        '''
+        :stability: experimental
+        '''
+        jsii.create(self.__class__, self, [])
+
+    @jsii.member(jsii_name="and")
+    def and_(self) -> "ConditionBuilder":
+        '''(experimental) Logical AND operator - all conditions must be true.
+
+        :stability: experimental
+        '''
+        return typing.cast("ConditionBuilder", jsii.invoke(self, "and", []))
+
+    @jsii.member(jsii_name="contextAttribute")
+    def context_attribute(self, attribute: builtins.str) -> "AttributeAccessor":
+        '''(experimental) Access a context attribute for comparison.
+
+        Context attributes come from the request environment.
+        Common attributes: sourceIp, timestamp, environment, region, etc.
+
+        :param attribute: - The attribute name (e.g., 'sourceIp', 'environment', 'timestamp').
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f8478bf1b023d2aba9a8e54a78c249de58d816b9136c130a9d57692f94f5da02)
+            check_type(argname="argument attribute", value=attribute, expected_type=type_hints["attribute"])
+        return typing.cast("AttributeAccessor", jsii.invoke(self, "contextAttribute", [attribute]))
+
+    @jsii.member(jsii_name="or")
+    def or_(self) -> "ConditionBuilder":
+        '''(experimental) Logical OR operator - at least one condition must be true.
+
+        :stability: experimental
+        '''
+        return typing.cast("ConditionBuilder", jsii.invoke(self, "or", []))
+
+    @jsii.member(jsii_name="principalAttribute")
+    def principal_attribute(self, attribute: builtins.str) -> "AttributeAccessor":
+        '''(experimental) Access a principal attribute for comparison.
+
+        Principal attributes come from the authenticated user/service making the request.
+        Common attributes: username, role, department, groups, etc.
+
+        :param attribute: - The attribute name (e.g., 'department', 'role', 'username').
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__41fc4817a38aa72174ec607c60642f22503d43635dbdfaf63dc1a95b7092b12a)
+            check_type(argname="argument attribute", value=attribute, expected_type=type_hints["attribute"])
+        return typing.cast("AttributeAccessor", jsii.invoke(self, "principalAttribute", [attribute]))
+
+    @jsii.member(jsii_name="resourceAttribute")
+    def resource_attribute(self, attribute: builtins.str) -> "AttributeAccessor":
+        '''(experimental) Access a resource attribute for comparison.
+
+        Resource attributes come from the target resource being accessed.
+        Common attributes: arn, type, tags, owner, etc.
+
+        :param attribute: - The attribute name (e.g., 'confidential', 'owner', 'classification').
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3088e7d7697775a9684c5551d40c17927b5c3f399201caeda5b0e75ba8543271)
+            check_type(argname="argument attribute", value=attribute, expected_type=type_hints["attribute"])
+        return typing.cast("AttributeAccessor", jsii.invoke(self, "resourceAttribute", [attribute]))
+
+
+class ConditionalAttributeAccessor(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.ConditionalAttributeAccessor",
+):
+    '''(experimental) Accessor for building type-safe attribute comparisons within conditional statements.
+
+    Returns ConditionalPolicyStatement to allow chaining back to policy building.
+
+    :stability: experimental
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        import aws_cdk.aws_bedrock_agentcore_alpha as bedrock_agentcore_alpha
+        
+        # conditional_policy_statement: bedrock_agentcore_alpha.ConditionalPolicyStatement
+        # condition_builder: bedrock_agentcore_alpha.ConditionBuilder
+        
+        conditional_attribute_accessor = bedrock_agentcore_alpha.ConditionalAttributeAccessor("path", conditional_policy_statement, condition_builder)
+    '''
+
+    def __init__(
+        self,
+        path: builtins.str,
+        parent: "ConditionalPolicyStatement",
+        condition_builder: "ConditionBuilder",
+    ) -> None:
+        '''
+        :param path: -
+        :param parent: -
+        :param condition_builder: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__537e07b7ca40ce37744fcbd9090102d4beffd9dcec8e2816db91c153f9d7b45b)
+            check_type(argname="argument path", value=path, expected_type=type_hints["path"])
+            check_type(argname="argument parent", value=parent, expected_type=type_hints["parent"])
+            check_type(argname="argument condition_builder", value=condition_builder, expected_type=type_hints["condition_builder"])
+        jsii.create(self.__class__, self, [path, parent, condition_builder])
+
+    @jsii.member(jsii_name="contains")
+    def contains(self, value: builtins.str) -> "ConditionalPolicyStatement":
+        '''(experimental) String contains check.
+
+        :param value: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3c27d65bd3bfcd3d80238f8b3b9587ddf103981888b1484537cfdbc3adcb9c81)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        return typing.cast("ConditionalPolicyStatement", jsii.invoke(self, "contains", [value]))
+
+    @jsii.member(jsii_name="equalTo")
+    def equal_to(
+        self,
+        value: typing.Union[builtins.str, jsii.Number, builtins.bool],
+    ) -> "ConditionalPolicyStatement":
+        '''(experimental) Equality comparison (==).
+
+        :param value: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5cff688ba8d6fc004627f1fc3e7adf1e85949dc175792eaf3bf5d238dbc22800)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        return typing.cast("ConditionalPolicyStatement", jsii.invoke(self, "equalTo", [value]))
+
+    @jsii.member(jsii_name="greaterThan")
+    def greater_than(self, value: jsii.Number) -> "ConditionalPolicyStatement":
+        '''(experimental) Greater than comparison (>).
+
+        :param value: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fd5927ace99133f1b53885795d81e311b0626bfd31a5a73cb415700347bb716b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        return typing.cast("ConditionalPolicyStatement", jsii.invoke(self, "greaterThan", [value]))
+
+    @jsii.member(jsii_name="greaterThanOrEqualTo")
+    def greater_than_or_equal_to(
+        self,
+        value: jsii.Number,
+    ) -> "ConditionalPolicyStatement":
+        '''(experimental) Greater than or equals comparison (>=).
+
+        :param value: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__799f293df5a168bf6579b7a46ce71f1859146c159f6ee5c35c303e71daf0eb5a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        return typing.cast("ConditionalPolicyStatement", jsii.invoke(self, "greaterThanOrEqualTo", [value]))
+
+    @jsii.member(jsii_name="isIn")
+    def is_in(
+        self,
+        values: typing.Sequence[typing.Union[builtins.str, jsii.Number]],
+    ) -> "ConditionalPolicyStatement":
+        '''(experimental) Check if attribute is in a set/list.
+
+        :param values: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1b6699ee67df1e7f27943b374c2864602f326ad7cfef019189e19ed2b925ccfe)
+            check_type(argname="argument values", value=values, expected_type=type_hints["values"])
+        return typing.cast("ConditionalPolicyStatement", jsii.invoke(self, "isIn", [values]))
+
+    @jsii.member(jsii_name="isInRange")
+    def is_in_range(self, ip_range: builtins.str) -> "ConditionalPolicyStatement":
+        '''(experimental) IP range check - tests if IP address is in CIDR range.
+
+        :param ip_range: - CIDR notation (e.g., '192.168.1.0/24').
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__45ed4d9e6cd632c5af4cce72d5bd3ba6f5d77c55f6e5cad97dd215752867d7d3)
+            check_type(argname="argument ip_range", value=ip_range, expected_type=type_hints["ip_range"])
+        return typing.cast("ConditionalPolicyStatement", jsii.invoke(self, "isInRange", [ip_range]))
+
+    @jsii.member(jsii_name="lessThan")
+    def less_than(self, value: jsii.Number) -> "ConditionalPolicyStatement":
+        '''(experimental) Less than comparison (<).
+
+        :param value: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8c131841f49718895c8db4525d0cd3c305789cd5c0632ef4b32a47cf891ec801)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        return typing.cast("ConditionalPolicyStatement", jsii.invoke(self, "lessThan", [value]))
+
+    @jsii.member(jsii_name="lessThanOrEqualTo")
+    def less_than_or_equal_to(self, value: jsii.Number) -> "ConditionalPolicyStatement":
+        '''(experimental) Less than or equals comparison (<=).
+
+        :param value: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__61c5bf7b1e6a8c42d2784908d3c6e3f2a674817384ae3a3327042b13742156c8)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        return typing.cast("ConditionalPolicyStatement", jsii.invoke(self, "lessThanOrEqualTo", [value]))
+
+    @jsii.member(jsii_name="notEqualTo")
+    def not_equal_to(
+        self,
+        value: typing.Union[builtins.str, jsii.Number, builtins.bool],
+    ) -> "ConditionalPolicyStatement":
+        '''(experimental) Inequality comparison (!=).
+
+        :param value: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7cd04e1bbac856bd40610343c9f1121e220eaafcd27c8f0198a1d514c5cd5b3e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        return typing.cast("ConditionalPolicyStatement", jsii.invoke(self, "notEqualTo", [value]))
+
+
+class ConditionalPolicyStatement(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.ConditionalPolicyStatement",
+):
+    '''(experimental) Wrapper class for conditionally building policy statements.
+
+    This class allows chaining condition methods and returning to the parent
+    PolicyStatement when done. It proxies condition building methods from
+    ConditionBuilder.
+
+    :stability: experimental
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        import aws_cdk.aws_bedrock_agentcore_alpha as bedrock_agentcore_alpha
+        
+        # condition_builder: bedrock_agentcore_alpha.ConditionBuilder
+        # policy_statement: bedrock_agentcore_alpha.PolicyStatement
+        
+        conditional_policy_statement = bedrock_agentcore_alpha.ConditionalPolicyStatement(policy_statement, condition_builder)
+    '''
+
+    def __init__(
+        self,
+        policy_statement: "PolicyStatement",
+        condition_builder: "ConditionBuilder",
+    ) -> None:
+        '''
+        :param policy_statement: -
+        :param condition_builder: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3ebb164d99d3b380394f129ea2c18833fada60a06115bddcbc95b9b59c745de4)
+            check_type(argname="argument policy_statement", value=policy_statement, expected_type=type_hints["policy_statement"])
+            check_type(argname="argument condition_builder", value=condition_builder, expected_type=type_hints["condition_builder"])
+        jsii.create(self.__class__, self, [policy_statement, condition_builder])
+
+    @jsii.member(jsii_name="and")
+    def and_(self) -> "ConditionalPolicyStatement":
+        '''(experimental) Logical AND operator - all conditions must be true.
+
+        :stability: experimental
+        '''
+        return typing.cast("ConditionalPolicyStatement", jsii.invoke(self, "and", []))
+
+    @jsii.member(jsii_name="contextAttribute")
+    def context_attribute(
+        self,
+        attribute: builtins.str,
+    ) -> "ConditionalAttributeAccessor":
+        '''(experimental) Access a context attribute for comparison.
+
+        :param attribute: - The attribute name (e.g., 'sourceIp', 'environment', 'timestamp').
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d6ccca968702d9925351b54e6431acb46402826bf350aa4576d4d60bfa906f44)
+            check_type(argname="argument attribute", value=attribute, expected_type=type_hints["attribute"])
+        return typing.cast("ConditionalAttributeAccessor", jsii.invoke(self, "contextAttribute", [attribute]))
+
+    @jsii.member(jsii_name="done")
+    def done(self) -> "PolicyStatement":
+        '''(experimental) Complete condition building and return to the PolicyStatement.
+
+        Use this to finish building when/unless conditions and continue
+        configuring the policy statement.
+
+        :stability: experimental
+        '''
+        return typing.cast("PolicyStatement", jsii.invoke(self, "done", []))
+
+    @jsii.member(jsii_name="or")
+    def or_(self) -> "ConditionalPolicyStatement":
+        '''(experimental) Logical OR operator - at least one condition must be true.
+
+        :stability: experimental
+        '''
+        return typing.cast("ConditionalPolicyStatement", jsii.invoke(self, "or", []))
+
+    @jsii.member(jsii_name="principalAttribute")
+    def principal_attribute(
+        self,
+        attribute: builtins.str,
+    ) -> "ConditionalAttributeAccessor":
+        '''(experimental) Access a principal attribute for comparison.
+
+        :param attribute: - The attribute name (e.g., 'department', 'role', 'username').
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__831599bb25914ffffff05cb8461e3fdb5fe4dedcb9557172875de775a3375cab)
+            check_type(argname="argument attribute", value=attribute, expected_type=type_hints["attribute"])
+        return typing.cast("ConditionalAttributeAccessor", jsii.invoke(self, "principalAttribute", [attribute]))
+
+    @jsii.member(jsii_name="resourceAttribute")
+    def resource_attribute(
+        self,
+        attribute: builtins.str,
+    ) -> "ConditionalAttributeAccessor":
+        '''(experimental) Access a resource attribute for comparison.
+
+        :param attribute: - The attribute name (e.g., 'confidential', 'owner', 'classification').
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__887fc1f99f546ea642566ecdcc77a2bd6556200dbe08079081886699758ce6b5)
+            check_type(argname="argument attribute", value=attribute, expected_type=type_hints["attribute"])
+        return typing.cast("ConditionalAttributeAccessor", jsii.invoke(self, "resourceAttribute", [attribute]))
+
+    @jsii.member(jsii_name="unless")
+    def unless(self) -> "ConditionalPolicyStatement":
+        '''(experimental) Alias for done() to support fluent unless() chaining.
+
+        :stability: experimental
+        '''
+        return typing.cast("ConditionalPolicyStatement", jsii.invoke(self, "unless", []))
+
+
 @jsii.enum(jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.CredentialProviderType")
 class CredentialProviderType(enum.Enum):
     '''(experimental) Credential provider types supported by gateway target.
@@ -6555,29 +7591,22 @@ class GatewayAuthorizer(
 
     Example::
 
-        # Create a KMS key for encryption
-        encryption_key = kms.Key(self, "GatewayEncryptionKey",
-            enable_key_rotation=True,
-            description="KMS key for gateway encryption"
-        )
+        # Optional: Create custom claims (CustomClaimOperator and GatewayCustomClaim from agentcore)
+        custom_claims = [
+            agentcore.GatewayCustomClaim.with_string_value("department", "engineering"),
+            agentcore.GatewayCustomClaim.with_string_array_value("roles", ["admin"], agentcore.CustomClaimOperator.CONTAINS),
+            agentcore.GatewayCustomClaim.with_string_array_value("permissions", ["read", "write"], agentcore.CustomClaimOperator.CONTAINS_ANY)
+        ]
         
-        # Create gateway with KMS encryption
         gateway = agentcore.Gateway(self, "MyGateway",
-            gateway_name="my-encrypted-gateway",
-            description="Gateway with KMS encryption",
-            protocol_configuration=agentcore.McpProtocolConfiguration(
-                instructions="Use this gateway to connect to external MCP tools",
-                search_type=agentcore.McpGatewaySearchType.SEMANTIC,
-                supported_versions=[agentcore.MCPProtocolVersion.MCP_2025_03_26]
-            ),
+            gateway_name="my-gateway",
             authorizer_configuration=agentcore.GatewayAuthorizer.using_custom_jwt(
                 discovery_url="https://auth.example.com/.well-known/openid-configuration",
                 allowed_audience=["my-app"],
                 allowed_clients=["my-client-id"],
-                allowed_scopes=["read", "write"]
-            ),
-            kms_key=encryption_key,
-            exception_level=agentcore.GatewayExceptionLevel.DEBUG
+                allowed_scopes=["read", "write"],
+                custom_claims=custom_claims
+            )
         )
     '''
 
@@ -6662,6 +7691,22 @@ class GatewayAuthorizer(
 
         return typing.cast("IGatewayAuthorizerConfig", jsii.sinvoke(cls, "usingCustomJwt", [configuration]))
 
+    @jsii.member(jsii_name="withNoAuth")
+    @builtins.classmethod
+    def with_no_auth(cls) -> "IGatewayAuthorizerConfig":
+        '''(experimental) No authorization — the gateway will not perform any inbound authorization.
+
+        The gateway endpoint will be publicly accessible without credentials.
+        Use this for testing/development, or for production gateways where you have
+        implemented compensating controls such as Gateway Interceptors.
+
+        :return: IGatewayAuthorizerConfig configured for no authorization
+
+        :see: https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/gateway-inbound-auth.html#gateway-inbound-auth-none
+        :stability: experimental
+        '''
+        return typing.cast("IGatewayAuthorizerConfig", jsii.sinvoke(cls, "withNoAuth", []))
+
 
 class _GatewayAuthorizerProxy(GatewayAuthorizer):
     pass
@@ -6684,6 +7729,11 @@ class GatewayAuthorizerType(enum.Enum):
     '''
     AWS_IAM = "AWS_IAM"
     '''(experimental) AWS IAM authorizer type.
+
+    :stability: experimental
+    '''
+    NONE = "NONE"
+    '''(experimental) No authorization type.
 
     :stability: experimental
     '''
@@ -6957,6 +8007,119 @@ class GatewayExceptionLevel(enum.Enum):
 
 
 @jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.GatewayPolicyEngineConfig",
+    jsii_struct_bases=[],
+    name_mapping={"policy_engine": "policyEngine", "mode": "mode"},
+)
+class GatewayPolicyEngineConfig:
+    def __init__(
+        self,
+        *,
+        policy_engine: "IPolicyEngine",
+        mode: typing.Optional["PolicyEngineMode"] = None,
+    ) -> None:
+        '''(experimental) Configuration for associating a policy engine with a gateway.
+
+        When configured, the policy engine intercepts all agent requests through this
+        gateway and evaluates them against the defined Cedar policies.
+        [disable-awslint:prefer-ref-interface]
+
+        :param policy_engine: (experimental) The policy engine to associate with this gateway. [disable-awslint:prefer-ref-interface]
+        :param mode: (experimental) The enforcement mode for the policy engine. - ``LOG_ONLY``: Evaluates and logs decisions without enforcing them. Use for testing. - ``ENFORCE``: Actively allows or denies requests based on Cedar policy evaluation. Default: PolicyEngineMode.LOG_ONLY
+
+        :stability: experimental
+        :exampleMetadata: fixture=default infused
+
+        Example::
+
+            # Create a Policy engine
+            policy_engine = agentcore.PolicyEngine(self, "MyPolicyEngine",
+                policy_engine_name="my_policy_engine",
+                description="Policy engine for access control"
+            )
+            
+            gateway = agentcore.Gateway(self, "MyGateway",
+                gateway_name="my-gateway",
+                policy_engine_configuration=agentcore.GatewayPolicyEngineConfig(
+                    policy_engine=policy_engine
+                )
+            )
+            
+            # Add policy to policy engine
+            policy_engine.add_policy("AllowAllActions",
+                definition=f"""
+                    permit(
+                      principal,
+                      action,
+                      resource == AgentCore::Gateway::\"{gateway.gatewayArn}\"
+                    );
+                  """,
+                description="Allow all actions on specific gateway (development)",
+                validation_mode=agentcore.PolicyValidationMode.IGNORE_ALL_FINDINGS
+            )
+            
+            # you can add multiple policies to the policy engine
+            policy_engine.add_policy("SpecificToolPolicy",
+                definition=f"""
+                    permit(
+                      principal is AgentCore::OAuthUser,
+                      action == AgentCore::Action::\"WeatherTool__get_forecast\",
+                      resource == AgentCore::Gateway::\"{gateway.gatewayArn}\"
+                    );
+                  """,
+                description="Allow specific weather tool access",
+                validation_mode=agentcore.PolicyValidationMode.FAIL_ON_ANY_FINDINGS
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__435057ae4f78629e4878de149e02cd44d5162ebec4281a566717b0158d964524)
+            check_type(argname="argument policy_engine", value=policy_engine, expected_type=type_hints["policy_engine"])
+            check_type(argname="argument mode", value=mode, expected_type=type_hints["mode"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "policy_engine": policy_engine,
+        }
+        if mode is not None:
+            self._values["mode"] = mode
+
+    @builtins.property
+    def policy_engine(self) -> "IPolicyEngine":
+        '''(experimental) The policy engine to associate with this gateway.
+
+        [disable-awslint:prefer-ref-interface]
+
+        :stability: experimental
+        '''
+        result = self._values.get("policy_engine")
+        assert result is not None, "Required property 'policy_engine' is missing"
+        return typing.cast("IPolicyEngine", result)
+
+    @builtins.property
+    def mode(self) -> typing.Optional["PolicyEngineMode"]:
+        '''(experimental) The enforcement mode for the policy engine.
+
+        - ``LOG_ONLY``: Evaluates and logs decisions without enforcing them. Use for testing.
+        - ``ENFORCE``: Actively allows or denies requests based on Cedar policy evaluation.
+
+        :default: PolicyEngineMode.LOG_ONLY
+
+        :stability: experimental
+        '''
+        result = self._values.get("mode")
+        return typing.cast(typing.Optional["PolicyEngineMode"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "GatewayPolicyEngineConfig(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.GatewayProps",
     jsii_struct_bases=[],
     name_mapping={
@@ -6966,6 +8129,7 @@ class GatewayExceptionLevel(enum.Enum):
         "gateway_name": "gatewayName",
         "interceptor_configurations": "interceptorConfigurations",
         "kms_key": "kmsKey",
+        "policy_engine_configuration": "policyEngineConfiguration",
         "protocol_configuration": "protocolConfiguration",
         "role": "role",
         "tags": "tags",
@@ -6981,6 +8145,7 @@ class GatewayProps:
         gateway_name: typing.Optional[builtins.str] = None,
         interceptor_configurations: typing.Optional[typing.Sequence["IInterceptor"]] = None,
         kms_key: typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"] = None,
+        policy_engine_configuration: typing.Optional[typing.Union["GatewayPolicyEngineConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         protocol_configuration: typing.Optional["IGatewayProtocolConfig"] = None,
         role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -6993,6 +8158,7 @@ class GatewayProps:
         :param gateway_name: (experimental) The name of the gateway Valid characters are a-z, A-Z, 0-9, _ (underscore) and - (hyphen) The name must be unique within your account. Default: - auto generate
         :param interceptor_configurations: (experimental) Interceptor configurations for the gateway. Interceptors allow you to run custom code during each gateway invocation: - REQUEST interceptors execute before the gateway calls the target - RESPONSE interceptors execute after the target responds A gateway can have at most one REQUEST interceptor and one RESPONSE interceptor. Default: - No interceptors
         :param kms_key: (experimental) The AWS KMS key used to encrypt data associated with the gateway. Default: - No encryption
+        :param policy_engine_configuration: (experimental) The policy engine configuration for this gateway. When provided, the specified policy engine will be associated with this gateway. All agent requests through this gateway will be evaluated against the Cedar policies defined in the policy engine. Default: - No policy engine (requests are not subject to Cedar policy authorization)
         :param protocol_configuration: (experimental) The protocol configuration for the gateway. Default: - A default protocol configuration will be created using MCP with following params supportedVersions: [MCPProtocolVersion.MCP_2025_03_26], searchType: McpGatewaySearchType.SEMANTIC, instructions: "Default gateway to connect to external MCP tools",
         :param role: (experimental) The IAM role that provides permissions for the gateway to access AWS services. Default: - A new role will be created
         :param tags: (experimental) Tags for the gateway A list of key:value pairs of tags to apply to this Gateway resource. Default: - No tags
@@ -7006,29 +8172,20 @@ class GatewayProps:
                 gateway_name="my-gateway"
             )
             
-            lambda_function = lambda_.Function(self, "MyFunction",
-                runtime=lambda_.Runtime.NODEJS_22_X,
-                handler="index.handler",
-                code=lambda_.Code.from_inline("""
-                            exports.handler = async (event) => {
-                                return {
-                                    statusCode: 200,
-                                    body: JSON.stringify({ message: 'Hello from Lambda!' })
-                                };
-                            };
-                        """)
+            policy_engine = agentcore.PolicyEngine(self, "MyPolicyEngine",
+                policy_engine_name="my_policy_engine"
             )
             
-            # Create a gateway target with Lambda and tool schema
-            target = agentcore.GatewayTarget.for_lambda(self, "MyLambdaTarget",
-                gateway_target_name="my-lambda-target",
-                description="Target for Lambda function integration",
-                gateway=gateway,
-                lambda_function=lambda_function,
-                tool_schema=agentcore.ToolSchema.from_local_asset(
-                    path.join(__dirname, "schemas", "my-tool-schema.json"))
+            allow_all_policy = agentcore.Policy(self, "AllowAllPolicy",
+                policy_engine=policy_engine,
+                policy_name="allow_all",
+                statement=agentcore.PolicyStatement.permit().for_all_principals().on_all_actions().on_resource("AgentCore::Gateway", gateway.gateway_arn),
+                description="Allow all actions on specific gateway (development only)",
+                validation_mode=agentcore.PolicyValidationMode.IGNORE_ALL_FINDINGS
             )
         '''
+        if isinstance(policy_engine_configuration, dict):
+            policy_engine_configuration = GatewayPolicyEngineConfig(**policy_engine_configuration)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2a23c669f31d3b397457d411ed0f8b3bc5e4864707cd7ad3439804b69b0e7b9f)
             check_type(argname="argument authorizer_configuration", value=authorizer_configuration, expected_type=type_hints["authorizer_configuration"])
@@ -7037,6 +8194,7 @@ class GatewayProps:
             check_type(argname="argument gateway_name", value=gateway_name, expected_type=type_hints["gateway_name"])
             check_type(argname="argument interceptor_configurations", value=interceptor_configurations, expected_type=type_hints["interceptor_configurations"])
             check_type(argname="argument kms_key", value=kms_key, expected_type=type_hints["kms_key"])
+            check_type(argname="argument policy_engine_configuration", value=policy_engine_configuration, expected_type=type_hints["policy_engine_configuration"])
             check_type(argname="argument protocol_configuration", value=protocol_configuration, expected_type=type_hints["protocol_configuration"])
             check_type(argname="argument role", value=role, expected_type=type_hints["role"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -7053,6 +8211,8 @@ class GatewayProps:
             self._values["interceptor_configurations"] = interceptor_configurations
         if kms_key is not None:
             self._values["kms_key"] = kms_key
+        if policy_engine_configuration is not None:
+            self._values["policy_engine_configuration"] = policy_engine_configuration
         if protocol_configuration is not None:
             self._values["protocol_configuration"] = protocol_configuration
         if role is not None:
@@ -7135,6 +8295,23 @@ class GatewayProps:
         '''
         result = self._values.get("kms_key")
         return typing.cast(typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"], result)
+
+    @builtins.property
+    def policy_engine_configuration(
+        self,
+    ) -> typing.Optional["GatewayPolicyEngineConfig"]:
+        '''(experimental) The policy engine configuration for this gateway.
+
+        When provided, the specified policy engine will be associated with this gateway.
+        All agent requests through this gateway will be evaluated against the Cedar policies
+        defined in the policy engine.
+
+        :default: - No policy engine (requests are not subject to Cedar policy authorization)
+
+        :stability: experimental
+        '''
+        result = self._values.get("policy_engine_configuration")
+        return typing.cast(typing.Optional["GatewayPolicyEngineConfig"], result)
 
     @builtins.property
     def protocol_configuration(self) -> typing.Optional["IGatewayProtocolConfig"]:
@@ -15018,6 +16195,1154 @@ class _IMemoryStrategyProxy:
 typing.cast(typing.Any, IMemoryStrategy).__jsii_proxy_class__ = lambda : _IMemoryStrategyProxy
 
 
+@jsii.interface(jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.IPolicy")
+class IPolicy(
+    _aws_cdk_ceddda9d.IResource,
+    _aws_cdk_interfaces_aws_bedrockagentcore_ceddda9d.IPolicyRef,
+    _aws_cdk_aws_iam_ceddda9d.IGrantable,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Minimal reference interface for Policy resources.
+
+    Used for resource identification and ARN construction.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="policyArn")
+    def policy_arn(self) -> builtins.str:
+        '''(experimental) The ARN of the policy resource.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="policyEngine")
+    def policy_engine(self) -> "IPolicyEngine":
+        '''(experimental) The policy engine this policy belongs to.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="policyId")
+    def policy_id(self) -> builtins.str:
+        '''(experimental) The ID of the policy.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="policyName")
+    def policy_name(self) -> builtins.str:
+        '''(experimental) The name of the policy.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The description of the policy.
+
+        :stability: experimental
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="validationMode")
+    def validation_mode(self) -> typing.Optional["PolicyValidationMode"]:
+        '''(experimental) The validation mode for the policy.
+
+        :stability: experimental
+        '''
+        ...
+
+    @jsii.member(jsii_name="grant")
+    def grant(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+        *actions: builtins.str,
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Grants IAM actions to the IAM Principal.
+
+        :param grantee: - The IAM principal to grant permissions to.
+        :param actions: - The actions to grant.
+
+        :stability: experimental
+        '''
+        ...
+
+    @jsii.member(jsii_name="grantRead")
+    def grant_read(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Grants read permissions on the Policy (data plane).
+
+        This grants runtime read access to policy configuration. Use this for monitoring,
+        audit, or read-only administrative roles that need to inspect policy definitions.
+
+        :param grantee: - The IAM principal to grant read permissions to.
+
+        :stability: experimental
+        '''
+        ...
+
+    @jsii.member(jsii_name="metric")
+    def metric(
+        self,
+        metric_name: builtins.str,
+        dimensions: typing.Mapping[builtins.str, builtins.str],
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
+        '''(experimental) Return the given named metric for this policy.
+
+        :param metric_name: The name of the metric.
+        :param dimensions: Additional dimensions for the metric.
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :stability: experimental
+        '''
+        ...
+
+    @jsii.member(jsii_name="metricEvaluationLatency")
+    def metric_evaluation_latency(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
+        '''(experimental) Return a metric measuring the evaluation latency for this policy.
+
+        This metric represents the time taken to evaluate this specific policy.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :stability: experimental
+        '''
+        ...
+
+    @jsii.member(jsii_name="metricEvaluations")
+    def metric_evaluations(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
+        '''(experimental) Return a metric containing the total number of evaluations for this policy.
+
+        This metric tracks how many times this policy has been evaluated.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IPolicyProxy(
+    jsii.proxy_for(_aws_cdk_ceddda9d.IResource), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_interfaces_aws_bedrockagentcore_ceddda9d.IPolicyRef), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_aws_iam_ceddda9d.IGrantable), # type: ignore[misc]
+):
+    '''(experimental) Minimal reference interface for Policy resources.
+
+    Used for resource identification and ARN construction.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "@aws-cdk/aws-bedrock-agentcore-alpha.IPolicy"
+
+    @builtins.property
+    @jsii.member(jsii_name="policyArn")
+    def policy_arn(self) -> builtins.str:
+        '''(experimental) The ARN of the policy resource.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "policyArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="policyEngine")
+    def policy_engine(self) -> "IPolicyEngine":
+        '''(experimental) The policy engine this policy belongs to.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        return typing.cast("IPolicyEngine", jsii.get(self, "policyEngine"))
+
+    @builtins.property
+    @jsii.member(jsii_name="policyId")
+    def policy_id(self) -> builtins.str:
+        '''(experimental) The ID of the policy.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "policyId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="policyName")
+    def policy_name(self) -> builtins.str:
+        '''(experimental) The name of the policy.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "policyName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The description of the policy.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @builtins.property
+    @jsii.member(jsii_name="validationMode")
+    def validation_mode(self) -> typing.Optional["PolicyValidationMode"]:
+        '''(experimental) The validation mode for the policy.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional["PolicyValidationMode"], jsii.get(self, "validationMode"))
+
+    @jsii.member(jsii_name="grant")
+    def grant(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+        *actions: builtins.str,
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Grants IAM actions to the IAM Principal.
+
+        :param grantee: - The IAM principal to grant permissions to.
+        :param actions: - The actions to grant.
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b06d682754dabb267b2363658c431dab477668c081aca5169652420e8e2fd7b0)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+            check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grant", [grantee, *actions]))
+
+    @jsii.member(jsii_name="grantRead")
+    def grant_read(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Grants read permissions on the Policy (data plane).
+
+        This grants runtime read access to policy configuration. Use this for monitoring,
+        audit, or read-only administrative roles that need to inspect policy definitions.
+
+        :param grantee: - The IAM principal to grant read permissions to.
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4151e11652fd8cb4c7881ed73f2682071e66519ce35be4ffaaf08c6b4077b8af)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantRead", [grantee]))
+
+    @jsii.member(jsii_name="metric")
+    def metric(
+        self,
+        metric_name: builtins.str,
+        dimensions: typing.Mapping[builtins.str, builtins.str],
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
+        '''(experimental) Return the given named metric for this policy.
+
+        :param metric_name: The name of the metric.
+        :param dimensions: Additional dimensions for the metric.
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5ba5ef78a25a2bc38482302d3e630747fb5952e00a7df97f4106735369c1bf59)
+            check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
+            check_type(argname="argument dimensions", value=dimensions, expected_type=type_hints["dimensions"])
+        props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metric", [metric_name, dimensions, props]))
+
+    @jsii.member(jsii_name="metricEvaluationLatency")
+    def metric_evaluation_latency(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
+        '''(experimental) Return a metric measuring the evaluation latency for this policy.
+
+        This metric represents the time taken to evaluate this specific policy.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :stability: experimental
+        '''
+        props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metricEvaluationLatency", [props]))
+
+    @jsii.member(jsii_name="metricEvaluations")
+    def metric_evaluations(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
+        '''(experimental) Return a metric containing the total number of evaluations for this policy.
+
+        This metric tracks how many times this policy has been evaluated.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :stability: experimental
+        '''
+        props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metricEvaluations", [props]))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IPolicy).__jsii_proxy_class__ = lambda : _IPolicyProxy
+
+
+@jsii.interface(jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.IPolicyEngine")
+class IPolicyEngine(
+    _aws_cdk_ceddda9d.IResource,
+    _aws_cdk_interfaces_aws_bedrockagentcore_ceddda9d.IPolicyEngineRef,
+    _aws_cdk_aws_iam_ceddda9d.IGrantable,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Contains all properties and methods for both created and imported policy engines.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="policyEngineArn")
+    def policy_engine_arn(self) -> builtins.str:
+        '''(experimental) The ARN of the policy engine resource.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="policyEngineId")
+    def policy_engine_id(self) -> builtins.str:
+        '''(experimental) The ID of the policy engine.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="policyEngineName")
+    def policy_engine_name(self) -> builtins.str:
+        '''(experimental) The name of the policy engine.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The description of the policy engine.
+
+        :stability: experimental
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="kmsKey")
+    def kms_key(self) -> typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"]:
+        '''(experimental) The KMS key used for encryption.
+
+        :stability: experimental
+        '''
+        ...
+
+    @jsii.member(jsii_name="grant")
+    def grant(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+        *actions: builtins.str,
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Grants IAM actions to the IAM Principal.
+
+        :param grantee: - The IAM principal to grant permissions to.
+        :param actions: - The actions to grant.
+
+        :stability: experimental
+        '''
+        ...
+
+    @jsii.member(jsii_name="grantEvaluate")
+    def grant_evaluate(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Grants permissions to evaluate policies at runtime .
+
+        This is the primary permission needed by Gateway execution roles to evaluate
+        authorization decisions during agent requests. Grant this to roles that need
+        to call AuthorizeAction or PartiallyAuthorizeActions.
+
+        :param grantee: - The IAM principal to grant evaluation permissions to.
+
+        :stability: experimental
+        '''
+        ...
+
+    @jsii.member(jsii_name="grantEvaluateForGateway")
+    def grant_evaluate_for_gateway(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+        gateway: "IGateway",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Grants the full set of permissions required for a gateway execution role to use this policy engine, correctly scoped to both the policy engine and gateway ARNs.
+
+        Per the AWS docs, ``AuthorizeAction`` and ``PartiallyAuthorizeActions`` require
+        both the policy engine ARN and the gateway ARN as resources, while
+        ``GetPolicyEngine`` only needs the policy engine ARN.
+
+        This follows the same pattern as Lambda's ``grantInvokeVersion(grantee, version)``.
+
+        :param grantee: - The IAM principal (gateway execution role) to grant permissions to.
+        :param gateway: - The gateway that will use this policy engine [disable-awslint:prefer-ref-interface].
+
+        :stability: experimental
+        '''
+        ...
+
+    @jsii.member(jsii_name="grantRead")
+    def grant_read(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Grants read permissions on the PolicyEngine.
+
+        This grants runtime read access to policy engine configuration. Use this for
+        monitoring, observability, or read-only administrative roles.
+
+        :param grantee: - The IAM principal to grant read permissions to.
+
+        :stability: experimental
+        '''
+        ...
+
+    @jsii.member(jsii_name="metric")
+    def metric(
+        self,
+        metric_name: builtins.str,
+        dimensions: typing.Mapping[builtins.str, builtins.str],
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
+        '''(experimental) Return the given named metric for this policy engine.
+
+        :param metric_name: The name of the metric.
+        :param dimensions: Additional dimensions for the metric.
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :stability: experimental
+        '''
+        ...
+
+    @jsii.member(jsii_name="metricAuthorizationLatency")
+    def metric_authorization_latency(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
+        '''(experimental) Return a metric measuring the authorization latency for this policy engine.
+
+        This metric represents the time taken to evaluate authorization policies.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :stability: experimental
+        '''
+        ...
+
+    @jsii.member(jsii_name="metricDeniedRequests")
+    def metric_denied_requests(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
+        '''(experimental) Return a metric containing the number of denied authorization requests for this policy engine.
+
+        This metric tracks authorization requests that were explicitly denied by policies.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :stability: experimental
+        '''
+        ...
+
+    @jsii.member(jsii_name="metricErrors")
+    def metric_errors(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
+        '''(experimental) Return a metric containing the number of errors during authorization for this policy engine.
+
+        This metric tracks errors encountered during policy evaluation.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IPolicyEngineProxy(
+    jsii.proxy_for(_aws_cdk_ceddda9d.IResource), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_interfaces_aws_bedrockagentcore_ceddda9d.IPolicyEngineRef), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_aws_iam_ceddda9d.IGrantable), # type: ignore[misc]
+):
+    '''(experimental) Contains all properties and methods for both created and imported policy engines.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "@aws-cdk/aws-bedrock-agentcore-alpha.IPolicyEngine"
+
+    @builtins.property
+    @jsii.member(jsii_name="policyEngineArn")
+    def policy_engine_arn(self) -> builtins.str:
+        '''(experimental) The ARN of the policy engine resource.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "policyEngineArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="policyEngineId")
+    def policy_engine_id(self) -> builtins.str:
+        '''(experimental) The ID of the policy engine.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "policyEngineId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="policyEngineName")
+    def policy_engine_name(self) -> builtins.str:
+        '''(experimental) The name of the policy engine.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "policyEngineName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The description of the policy engine.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @builtins.property
+    @jsii.member(jsii_name="kmsKey")
+    def kms_key(self) -> typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"]:
+        '''(experimental) The KMS key used for encryption.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"], jsii.get(self, "kmsKey"))
+
+    @jsii.member(jsii_name="grant")
+    def grant(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+        *actions: builtins.str,
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Grants IAM actions to the IAM Principal.
+
+        :param grantee: - The IAM principal to grant permissions to.
+        :param actions: - The actions to grant.
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__148192c5398a59c586d71214857a39232819b2bd42bea22dfee7a891b4290c8b)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+            check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grant", [grantee, *actions]))
+
+    @jsii.member(jsii_name="grantEvaluate")
+    def grant_evaluate(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Grants permissions to evaluate policies at runtime .
+
+        This is the primary permission needed by Gateway execution roles to evaluate
+        authorization decisions during agent requests. Grant this to roles that need
+        to call AuthorizeAction or PartiallyAuthorizeActions.
+
+        :param grantee: - The IAM principal to grant evaluation permissions to.
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e585477e6e26879cd9e1093388492a452d2806210bd7d1519945696009f895ab)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantEvaluate", [grantee]))
+
+    @jsii.member(jsii_name="grantEvaluateForGateway")
+    def grant_evaluate_for_gateway(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+        gateway: "IGateway",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Grants the full set of permissions required for a gateway execution role to use this policy engine, correctly scoped to both the policy engine and gateway ARNs.
+
+        Per the AWS docs, ``AuthorizeAction`` and ``PartiallyAuthorizeActions`` require
+        both the policy engine ARN and the gateway ARN as resources, while
+        ``GetPolicyEngine`` only needs the policy engine ARN.
+
+        This follows the same pattern as Lambda's ``grantInvokeVersion(grantee, version)``.
+
+        :param grantee: - The IAM principal (gateway execution role) to grant permissions to.
+        :param gateway: - The gateway that will use this policy engine [disable-awslint:prefer-ref-interface].
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9772c1b57118ae52a70b2df1fd6f8148234e389c7d4c6e150c288fa3d5d7d0c5)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+            check_type(argname="argument gateway", value=gateway, expected_type=type_hints["gateway"])
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantEvaluateForGateway", [grantee, gateway]))
+
+    @jsii.member(jsii_name="grantRead")
+    def grant_read(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Grants read permissions on the PolicyEngine.
+
+        This grants runtime read access to policy engine configuration. Use this for
+        monitoring, observability, or read-only administrative roles.
+
+        :param grantee: - The IAM principal to grant read permissions to.
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1860e73b8be2fec2486f160542c4bda3067a4177710ff35f5a2a1662531ae1d5)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantRead", [grantee]))
+
+    @jsii.member(jsii_name="metric")
+    def metric(
+        self,
+        metric_name: builtins.str,
+        dimensions: typing.Mapping[builtins.str, builtins.str],
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
+        '''(experimental) Return the given named metric for this policy engine.
+
+        :param metric_name: The name of the metric.
+        :param dimensions: Additional dimensions for the metric.
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c33cbd179cc843f026ea3816459fe334400806b7154f2ee404b2c3d65bc10fa0)
+            check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
+            check_type(argname="argument dimensions", value=dimensions, expected_type=type_hints["dimensions"])
+        props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metric", [metric_name, dimensions, props]))
+
+    @jsii.member(jsii_name="metricAuthorizationLatency")
+    def metric_authorization_latency(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
+        '''(experimental) Return a metric measuring the authorization latency for this policy engine.
+
+        This metric represents the time taken to evaluate authorization policies.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :stability: experimental
+        '''
+        props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metricAuthorizationLatency", [props]))
+
+    @jsii.member(jsii_name="metricDeniedRequests")
+    def metric_denied_requests(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
+        '''(experimental) Return a metric containing the number of denied authorization requests for this policy engine.
+
+        This metric tracks authorization requests that were explicitly denied by policies.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :stability: experimental
+        '''
+        props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metricDeniedRequests", [props]))
+
+    @jsii.member(jsii_name="metricErrors")
+    def metric_errors(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
+        '''(experimental) Return a metric containing the number of errors during authorization for this policy engine.
+
+        This metric tracks errors encountered during policy evaluation.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :stability: experimental
+        '''
+        props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metricErrors", [props]))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IPolicyEngine).__jsii_proxy_class__ = lambda : _IPolicyEngineProxy
+
+
 @jsii.interface(jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.IRuntimeEndpoint")
 class IRuntimeEndpoint(
     _aws_cdk_ceddda9d.IResource,
@@ -15908,6 +18233,275 @@ class LifecycleConfiguration:
         return "LifecycleConfiguration(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+class LogType(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.LogType",
+):
+    '''(experimental) Log types for AgentCore Runtime observability.
+
+    :stability: experimental
+    :exampleMetadata: fixture=default infused
+
+    Example::
+
+        repository = ecr.Repository(self, "TestRepository",
+            repository_name="test-agent-runtime"
+        )
+        
+        agent_runtime_artifact = agentcore.AgentRuntimeArtifact.from_ecr_repository(repository, "v1.0.0")
+        
+        # Create logging destinations
+        log_group = logs.LogGroup(self, "RuntimeLogGroup")
+        log_bucket = s3.Bucket(self, "RuntimeLogBucket")
+        firehose_stream = firehose.DeliveryStream(self, "RuntimeLogStream",
+            destination=firehose.S3Bucket(log_bucket)
+        )
+        
+        agentcore.Runtime(self, "test-runtime",
+            runtime_name="test_runtime",
+            agent_runtime_artifact=agent_runtime_artifact,
+            tracing_enabled=True,
+            logging_configs=[agentcore.LoggingConfig(
+                log_type=agentcore.LogType.APPLICATION_LOGS,
+                destination=agentcore.LoggingDestination.cloud_watch_logs(log_group)
+            ), agentcore.LoggingConfig(
+                log_type=agentcore.LogType.APPLICATION_LOGS,
+                destination=agentcore.LoggingDestination.s3(log_bucket)
+            ), agentcore.LoggingConfig(
+                log_type=agentcore.LogType.APPLICATION_LOGS,
+                destination=agentcore.LoggingDestination.firehose(firehose_stream)
+            )
+            ]
+        )
+    '''
+
+    @jsii.member(jsii_name="of")
+    @builtins.classmethod
+    def of(cls, value: builtins.str) -> "LogType":
+        '''(experimental) A custom log type value.
+
+        :param value: The log type value.
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__71fa942160dc29641e8a833cbb88163994e44dcd90d7aa9de1bd4ae58c4a8230)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        return typing.cast("LogType", jsii.sinvoke(cls, "of", [value]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="APPLICATION_LOGS")
+    def APPLICATION_LOGS(cls) -> "LogType":
+        '''(experimental) Application logs for agent runtime invocations.
+
+        :stability: experimental
+        '''
+        return typing.cast("LogType", jsii.sget(cls, "APPLICATION_LOGS"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="USAGE_LOGS")
+    def USAGE_LOGS(cls) -> "LogType":
+        '''(experimental) Usage logs for session-level resource consumption.
+
+        :stability: experimental
+        '''
+        return typing.cast("LogType", jsii.sget(cls, "USAGE_LOGS"))
+
+    @builtins.property
+    @jsii.member(jsii_name="value")
+    def value(self) -> builtins.str:
+        '''(experimental) The log type value.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "value"))
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.LoggingConfig",
+    jsii_struct_bases=[],
+    name_mapping={"destination": "destination", "log_type": "logType"},
+)
+class LoggingConfig:
+    def __init__(
+        self,
+        *,
+        destination: "LoggingDestination",
+        log_type: "LogType",
+    ) -> None:
+        '''(experimental) Configuration for logging with log type and destination.
+
+        :param destination: (experimental) The destination for logs.
+        :param log_type: (experimental) The type of logs to deliver.
+
+        :stability: experimental
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.aws_bedrock_agentcore_alpha as bedrock_agentcore_alpha
+            
+            # logging_destination: bedrock_agentcore_alpha.LoggingDestination
+            # log_type: bedrock_agentcore_alpha.LogType
+            
+            logging_config = bedrock_agentcore_alpha.LoggingConfig(
+                destination=logging_destination,
+                log_type=log_type
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__654f884964ac0b13fac1e55ba4c404875b612a8564bc94c251872f35452c6364)
+            check_type(argname="argument destination", value=destination, expected_type=type_hints["destination"])
+            check_type(argname="argument log_type", value=log_type, expected_type=type_hints["log_type"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "destination": destination,
+            "log_type": log_type,
+        }
+
+    @builtins.property
+    def destination(self) -> "LoggingDestination":
+        '''(experimental) The destination for logs.
+
+        :stability: experimental
+        '''
+        result = self._values.get("destination")
+        assert result is not None, "Required property 'destination' is missing"
+        return typing.cast("LoggingDestination", result)
+
+    @builtins.property
+    def log_type(self) -> "LogType":
+        '''(experimental) The type of logs to deliver.
+
+        :stability: experimental
+        '''
+        result = self._values.get("log_type")
+        assert result is not None, "Required property 'log_type' is missing"
+        return typing.cast("LogType", result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "LoggingConfig(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class LoggingDestination(
+    metaclass=jsii.JSIIAbstractClass,
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.LoggingDestination",
+):
+    '''(experimental) Represents a logging destination for AgentCore Runtime.
+
+    Use the static factory methods to create instances:
+
+    - ``LoggingDestination.cloudWatchLogs(logGroup)`` - Send logs to CloudWatch Logs
+    - ``LoggingDestination.s3(bucket)`` - Send logs to S3
+    - ``LoggingDestination.firehose(stream)`` - Send logs to Kinesis Data Firehose
+
+    :stability: experimental
+    :exampleMetadata: fixture=default infused
+
+    Example::
+
+        repository = ecr.Repository(self, "TestRepository",
+            repository_name="test-agent-runtime"
+        )
+        
+        agent_runtime_artifact = agentcore.AgentRuntimeArtifact.from_ecr_repository(repository, "v1.0.0")
+        
+        # Create logging destinations
+        log_group = logs.LogGroup(self, "RuntimeLogGroup")
+        log_bucket = s3.Bucket(self, "RuntimeLogBucket")
+        firehose_stream = firehose.DeliveryStream(self, "RuntimeLogStream",
+            destination=firehose.S3Bucket(log_bucket)
+        )
+        
+        agentcore.Runtime(self, "test-runtime",
+            runtime_name="test_runtime",
+            agent_runtime_artifact=agent_runtime_artifact,
+            tracing_enabled=True,
+            logging_configs=[agentcore.LoggingConfig(
+                log_type=agentcore.LogType.APPLICATION_LOGS,
+                destination=agentcore.LoggingDestination.cloud_watch_logs(log_group)
+            ), agentcore.LoggingConfig(
+                log_type=agentcore.LogType.APPLICATION_LOGS,
+                destination=agentcore.LoggingDestination.s3(log_bucket)
+            ), agentcore.LoggingConfig(
+                log_type=agentcore.LogType.APPLICATION_LOGS,
+                destination=agentcore.LoggingDestination.firehose(firehose_stream)
+            )
+            ]
+        )
+    '''
+
+    def __init__(self) -> None:
+        '''
+        :stability: experimental
+        '''
+        jsii.create(self.__class__, self, [])
+
+    @jsii.member(jsii_name="cloudWatchLogs")
+    @builtins.classmethod
+    def cloud_watch_logs(
+        cls,
+        log_group: "_aws_cdk_aws_logs_ceddda9d.ILogGroup",
+    ) -> "LoggingDestination":
+        '''(experimental) Create a logging destination that sends logs to a CloudWatch Log Group.
+
+        :param log_group: The CloudWatch Log Group to send logs to.
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5e0db8113583ca06d41b3358e48b67227ce94f048b875bb6361017f54aa196c1)
+            check_type(argname="argument log_group", value=log_group, expected_type=type_hints["log_group"])
+        return typing.cast("LoggingDestination", jsii.sinvoke(cls, "cloudWatchLogs", [log_group]))
+
+    @jsii.member(jsii_name="firehose")
+    @builtins.classmethod
+    def firehose(
+        cls,
+        stream: "_aws_cdk_aws_kinesisfirehose_ceddda9d.IDeliveryStream",
+    ) -> "LoggingDestination":
+        '''(experimental) Create a logging destination that sends logs to a Kinesis Data Firehose delivery stream.
+
+        :param stream: The Firehose delivery stream to send logs to.
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ac3aaaf8127edf6b2c5993dc602a7f3a2a95268826944b9c1ca2ad932da8b4a0)
+            check_type(argname="argument stream", value=stream, expected_type=type_hints["stream"])
+        return typing.cast("LoggingDestination", jsii.sinvoke(cls, "firehose", [stream]))
+
+    @jsii.member(jsii_name="s3")
+    @builtins.classmethod
+    def s3(cls, bucket: "_aws_cdk_aws_s3_ceddda9d.IBucket") -> "LoggingDestination":
+        '''(experimental) Create a logging destination that sends logs to an S3 bucket.
+
+        :param bucket: The S3 bucket to send logs to.
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__963a8e2b4e6bd265e3a6ff1cbaadd89f56ca4a30cb151994e3b6b7d127c54c9f)
+            check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
+        return typing.cast("LoggingDestination", jsii.sinvoke(cls, "s3", [bucket]))
+
+
+class _LoggingDestinationProxy(LoggingDestination):
+    pass
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the abstract class
+typing.cast(typing.Any, LoggingDestination).__jsii_proxy_class__ = lambda : _LoggingDestinationProxy
 
 
 @jsii.enum(jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.MCPProtocolVersion")
@@ -18365,6 +20959,41 @@ class _NetworkConfigurationProxy(NetworkConfiguration):
 typing.cast(typing.Any, NetworkConfiguration).__jsii_proxy_class__ = lambda : _NetworkConfigurationProxy
 
 
+@jsii.implements(IGatewayAuthorizerConfig)
+class NoAuthAuthorizer(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.NoAuthAuthorizer",
+):
+    '''(experimental) No authorization configuration implementation.
+
+    :stability: experimental
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        import aws_cdk.aws_bedrock_agentcore_alpha as bedrock_agentcore_alpha
+        
+        no_auth_authorizer = bedrock_agentcore_alpha.NoAuthAuthorizer()
+    '''
+
+    def __init__(self) -> None:
+        '''
+        :stability: experimental
+        '''
+        jsii.create(self.__class__, self, [])
+
+    @builtins.property
+    @jsii.member(jsii_name="authorizerType")
+    def authorizer_type(self) -> "GatewayAuthorizerType":
+        '''(experimental) The authorizer type.
+
+        :stability: experimental
+        '''
+        return typing.cast("GatewayAuthorizerType", jsii.get(self, "authorizerType"))
+
+
 @jsii.data_type(
     jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.OAuthConfiguration",
     jsii_struct_bases=[],
@@ -18716,6 +21345,1872 @@ class OverrideConfig:
         return "OverrideConfig(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.PolicyAttributes",
+    jsii_struct_bases=[],
+    name_mapping={"policy_arn": "policyArn", "policy_engine": "policyEngine"},
+)
+class PolicyAttributes:
+    def __init__(
+        self,
+        *,
+        policy_arn: builtins.str,
+        policy_engine: "IPolicyEngine",
+    ) -> None:
+        '''(experimental) Attributes for importing an existing Policy.
+
+        :param policy_arn: (experimental) The ARN of the policy.
+        :param policy_engine: (experimental) The policy engine this policy belongs to [disable-awslint:prefer-ref-interface].
+
+        :stability: experimental
+        :exampleMetadata: fixture=default infused
+
+        Example::
+
+            imported_engine = agentcore.PolicyEngine.from_policy_engine_attributes(self, "ImportedEngine",
+                policy_engine_arn="policy-engine/my-engine-id"
+            )
+            
+            imported_policy = agentcore.Policy.from_policy_attributes(self, "ImportedPolicy",
+                policy_arn="my-policy-arn",
+                policy_engine=imported_engine
+            )
+            
+            # Grant permissions to the imported policy
+            role = iam.Role(self, "PolicyRole",
+                assumed_by=iam.ServicePrincipal("lambda.amazonaws.com")
+            )
+            
+            imported_policy.grant_read(role)
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a349c59b6a28e8c6a9bfb6287b4772bbc5cb59029c08ede4e4dd98ab2a300301)
+            check_type(argname="argument policy_arn", value=policy_arn, expected_type=type_hints["policy_arn"])
+            check_type(argname="argument policy_engine", value=policy_engine, expected_type=type_hints["policy_engine"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "policy_arn": policy_arn,
+            "policy_engine": policy_engine,
+        }
+
+    @builtins.property
+    def policy_arn(self) -> builtins.str:
+        '''(experimental) The ARN of the policy.
+
+        :stability: experimental
+        '''
+        result = self._values.get("policy_arn")
+        assert result is not None, "Required property 'policy_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def policy_engine(self) -> "IPolicyEngine":
+        '''(experimental) The policy engine this policy belongs to [disable-awslint:prefer-ref-interface].
+
+        :stability: experimental
+        '''
+        result = self._values.get("policy_engine")
+        assert result is not None, "Required property 'policy_engine' is missing"
+        return typing.cast("IPolicyEngine", result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "PolicyAttributes(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(IPolicy)
+class PolicyBase(
+    _aws_cdk_ceddda9d.Resource,
+    metaclass=jsii.JSIIAbstractClass,
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.PolicyBase",
+):
+    '''(experimental) Abstract base class for a Policy.
+
+    Contains methods and attributes valid for Policies either created with CDK or imported.
+
+    :stability: experimental
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        environment_from_arn: typing.Optional[builtins.str] = None,
+        physical_name: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param scope: -
+        :param id: -
+        :param account: The AWS account ID this resource belongs to. Default: - the resource is in the same account as the stack it belongs to
+        :param environment_from_arn: ARN to deduce region and account from. The ARN is parsed and the account and region are taken from the ARN. This should be used for imported resources. Cannot be supplied together with either ``account`` or ``region``. Default: - take environment from ``account``, ``region`` parameters, or use Stack environment.
+        :param physical_name: The value passed in by users to the physical name prop of the resource. - ``undefined`` implies that a physical name will be allocated by CloudFormation during deployment. - a concrete value implies a specific physical name - ``PhysicalName.GENERATE_IF_NEEDED`` is a marker that indicates that a physical will only be generated by the CDK if it is needed for cross-environment references. Otherwise, it will be allocated by CloudFormation. Default: - The physical name will be allocated by CloudFormation at deployment time
+        :param region: The AWS region this resource belongs to. Default: - the resource is in the same region as the stack it belongs to
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f7d80c72df117beffdb5fa2062373d47765a93cd8f2290374234ba017e392c08)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = _aws_cdk_ceddda9d.ResourceProps(
+            account=account,
+            environment_from_arn=environment_from_arn,
+            physical_name=physical_name,
+            region=region,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="grant")
+    def grant(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+        *actions: builtins.str,
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Grants IAM actions to the IAM Principal.
+
+        [disable-awslint:no-grants]
+
+        :param grantee: - The IAM principal to grant permissions to.
+        :param actions: - The actions to grant.
+
+        :return: An IAM Grant object representing the granted permissions
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__513937dbc4ae96a58c739eb9d0b3351508ef2c7a54c20cb26d98c6739b8e9225)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+            check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grant", [grantee, *actions]))
+
+    @jsii.member(jsii_name="grantRead")
+    def grant_read(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Grants read permissions on the Policy (data plane).
+
+        This grants runtime read access to policy configuration. Use this for monitoring,
+        audit, or read-only administrative roles that need to inspect policy definitions
+        and Cedar statements at runtime.
+
+        IMPORTANT: This does NOT grant permissions to create/update/delete the Policy
+        resource itself. Those are control plane operations performed by CloudFormation
+        during ``cdk deploy``, not by your application at runtime.
+
+        [disable-awslint:no-grants]
+
+        :param grantee: - The IAM principal to grant read permissions to.
+
+        :return: An IAM Grant object representing the granted permissions
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e413208486f080a8a19ffe7a93f7e19d74a3a5539aa04172d9ccd45d4170df3e)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantRead", [grantee]))
+
+    @jsii.member(jsii_name="metric")
+    def metric(
+        self,
+        metric_name: builtins.str,
+        dimensions: typing.Mapping[builtins.str, builtins.str],
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
+        '''(experimental) Return the given named metric for this policy.
+
+        By default, the metric will be calculated as a sum over a period of 5 minutes.
+        You can customize this by using the ``statistic`` and ``period`` properties.
+
+        :param metric_name: The name of the metric.
+        :param dimensions: Additional dimensions for the metric.
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6a8bc8fd6b9f95f4761d8cd71d54145fdf9a0a46975f4a7a23e4ff9bd6cf8e10)
+            check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
+            check_type(argname="argument dimensions", value=dimensions, expected_type=type_hints["dimensions"])
+        props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metric", [metric_name, dimensions, props]))
+
+    @jsii.member(jsii_name="metricEvaluationLatency")
+    def metric_evaluation_latency(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
+        '''(experimental) Return a metric measuring the evaluation latency for this policy.
+
+        This metric represents the time taken to evaluate this specific policy.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :stability: experimental
+        '''
+        props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metricEvaluationLatency", [props]))
+
+    @jsii.member(jsii_name="metricEvaluations")
+    def metric_evaluations(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
+        '''(experimental) Return a metric containing the total number of evaluations for this policy.
+
+        This metric tracks how many times this policy has been evaluated.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :stability: experimental
+        '''
+        props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metricEvaluations", [props]))
+
+    @builtins.property
+    @jsii.member(jsii_name="grantPrincipal")
+    @abc.abstractmethod
+    def grant_principal(self) -> "_aws_cdk_aws_iam_ceddda9d.IPrincipal":
+        '''(experimental) The principal to grant permissions to.
+
+        :stability: experimental
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="policyArn")
+    @abc.abstractmethod
+    def policy_arn(self) -> builtins.str:
+        '''(experimental) The ARN of the policy resource.
+
+        :stability: experimental
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="policyEngine")
+    @abc.abstractmethod
+    def policy_engine(self) -> "IPolicyEngine":
+        '''(experimental) The policy engine this policy belongs to.
+
+        :stability: experimental
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="policyId")
+    @abc.abstractmethod
+    def policy_id(self) -> builtins.str:
+        '''(experimental) The ID of the policy.
+
+        :stability: experimental
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="policyName")
+    @abc.abstractmethod
+    def policy_name(self) -> builtins.str:
+        '''(experimental) The name of the policy.
+
+        :stability: experimental
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="policyRef")
+    def policy_ref(
+        self,
+    ) -> "_aws_cdk_interfaces_aws_bedrockagentcore_ceddda9d.PolicyReference":
+        '''(experimental) A reference to this Policy resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("_aws_cdk_interfaces_aws_bedrockagentcore_ceddda9d.PolicyReference", jsii.get(self, "policyRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    @abc.abstractmethod
+    def description(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The description of the policy.
+
+        :stability: experimental
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="validationMode")
+    @abc.abstractmethod
+    def validation_mode(self) -> typing.Optional["PolicyValidationMode"]:
+        '''(experimental) The validation mode for the policy.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _PolicyBaseProxy(
+    PolicyBase,
+    jsii.proxy_for(_aws_cdk_ceddda9d.Resource), # type: ignore[misc]
+):
+    @builtins.property
+    @jsii.member(jsii_name="grantPrincipal")
+    def grant_principal(self) -> "_aws_cdk_aws_iam_ceddda9d.IPrincipal":
+        '''(experimental) The principal to grant permissions to.
+
+        :stability: experimental
+        '''
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.IPrincipal", jsii.get(self, "grantPrincipal"))
+
+    @builtins.property
+    @jsii.member(jsii_name="policyArn")
+    def policy_arn(self) -> builtins.str:
+        '''(experimental) The ARN of the policy resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "policyArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="policyEngine")
+    def policy_engine(self) -> "IPolicyEngine":
+        '''(experimental) The policy engine this policy belongs to.
+
+        :stability: experimental
+        '''
+        return typing.cast("IPolicyEngine", jsii.get(self, "policyEngine"))
+
+    @builtins.property
+    @jsii.member(jsii_name="policyId")
+    def policy_id(self) -> builtins.str:
+        '''(experimental) The ID of the policy.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "policyId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="policyName")
+    def policy_name(self) -> builtins.str:
+        '''(experimental) The name of the policy.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "policyName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The description of the policy.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @builtins.property
+    @jsii.member(jsii_name="validationMode")
+    def validation_mode(self) -> typing.Optional["PolicyValidationMode"]:
+        '''(experimental) The validation mode for the policy.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional["PolicyValidationMode"], jsii.get(self, "validationMode"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the abstract class
+typing.cast(typing.Any, PolicyBase).__jsii_proxy_class__ = lambda : _PolicyBaseProxy
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.PolicyEngineAttributes",
+    jsii_struct_bases=[],
+    name_mapping={"policy_engine_arn": "policyEngineArn", "kms_key_arn": "kmsKeyArn"},
+)
+class PolicyEngineAttributes:
+    def __init__(
+        self,
+        *,
+        policy_engine_arn: builtins.str,
+        kms_key_arn: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''(experimental) Attributes for importing an existing PolicyEngine.
+
+        :param policy_engine_arn: (experimental) The ARN of the policy engine.
+        :param kms_key_arn: (experimental) The KMS key ARN used for encryption (optional). Default: - No KMS key
+
+        :stability: experimental
+        :exampleMetadata: fixture=default infused
+
+        Example::
+
+            imported_engine = agentcore.PolicyEngine.from_policy_engine_attributes(self, "ImportedEngine",
+                policy_engine_arn="policy-engine-arn",
+                kms_key_arn="kms-arn"
+            )
+            
+            # Use the imported engine
+            policy = agentcore.Policy(self, "PolicyForImportedEngine",
+                policy_engine=imported_engine,
+                definition="permit(principal, action, resource);"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__15903847864dfa4ba0fb9644cd35e68d31e4a0bc382c6328f11c375e29c82184)
+            check_type(argname="argument policy_engine_arn", value=policy_engine_arn, expected_type=type_hints["policy_engine_arn"])
+            check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "policy_engine_arn": policy_engine_arn,
+        }
+        if kms_key_arn is not None:
+            self._values["kms_key_arn"] = kms_key_arn
+
+    @builtins.property
+    def policy_engine_arn(self) -> builtins.str:
+        '''(experimental) The ARN of the policy engine.
+
+        :stability: experimental
+        '''
+        result = self._values.get("policy_engine_arn")
+        assert result is not None, "Required property 'policy_engine_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def kms_key_arn(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The KMS key ARN used for encryption (optional).
+
+        :default: - No KMS key
+
+        :stability: experimental
+        '''
+        result = self._values.get("kms_key_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "PolicyEngineAttributes(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(IPolicyEngine)
+class PolicyEngineBase(
+    _aws_cdk_ceddda9d.Resource,
+    metaclass=jsii.JSIIAbstractClass,
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.PolicyEngineBase",
+):
+    '''(experimental) Abstract base class for a PolicyEngine.
+
+    Contains methods and attributes valid for PolicyEngines either created with CDK or imported.
+
+    :stability: experimental
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        environment_from_arn: typing.Optional[builtins.str] = None,
+        physical_name: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param scope: -
+        :param id: -
+        :param account: The AWS account ID this resource belongs to. Default: - the resource is in the same account as the stack it belongs to
+        :param environment_from_arn: ARN to deduce region and account from. The ARN is parsed and the account and region are taken from the ARN. This should be used for imported resources. Cannot be supplied together with either ``account`` or ``region``. Default: - take environment from ``account``, ``region`` parameters, or use Stack environment.
+        :param physical_name: The value passed in by users to the physical name prop of the resource. - ``undefined`` implies that a physical name will be allocated by CloudFormation during deployment. - a concrete value implies a specific physical name - ``PhysicalName.GENERATE_IF_NEEDED`` is a marker that indicates that a physical will only be generated by the CDK if it is needed for cross-environment references. Otherwise, it will be allocated by CloudFormation. Default: - The physical name will be allocated by CloudFormation at deployment time
+        :param region: The AWS region this resource belongs to. Default: - the resource is in the same region as the stack it belongs to
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1b833461b581a40cfbff65b497cab7ffd8a1a9ea8a526357b52abfdf2d02d9a6)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = _aws_cdk_ceddda9d.ResourceProps(
+            account=account,
+            environment_from_arn=environment_from_arn,
+            physical_name=physical_name,
+            region=region,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="grant")
+    def grant(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+        *actions: builtins.str,
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Grants IAM actions to the IAM Principal.
+
+        [disable-awslint:no-grants]
+
+        :param grantee: - The IAM principal to grant permissions to.
+        :param actions: - The actions to grant.
+
+        :return: An IAM Grant object representing the granted permissions
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__115be8ff5ce162ce863e43ee462116a9e04be35f2c07165c87f0b9982abf85db)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+            check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grant", [grantee, *actions]))
+
+    @jsii.member(jsii_name="grantEvaluate")
+    def grant_evaluate(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Grants permissions to evaluate policies at runtime (data plane operations).
+
+        This is the primary permission needed by Gateway execution roles to evaluate
+        authorization decisions during agent requests. Grant this to roles that need
+        to call AuthorizeAction or PartiallyAuthorizeActions at runtime.
+
+        [disable-awslint:no-grants]
+
+        :param grantee: - The IAM principal to grant evaluation permissions to.
+
+        :return: An IAM Grant object representing the granted permissions
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2f757ae7ed9b5ea6eff07664bffc5946a880b8ef47088200d9c206f2198ad476)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantEvaluate", [grantee]))
+
+    @jsii.member(jsii_name="grantEvaluateForGateway")
+    def grant_evaluate_for_gateway(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+        gateway: "IGateway",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Grants the full set of permissions required for a gateway execution role to use this policy engine, correctly scoped to both the policy engine and gateway ARNs.
+
+        Per the AWS docs:
+
+        - ``GetPolicyEngine`` → policy engine ARN only
+        - ``AuthorizeAction`` + ``PartiallyAuthorizeActions`` → policy engine ARN **and** gateway ARN
+
+        [disable-awslint:no-grants]
+
+        :param grantee: - The IAM principal (gateway execution role) to grant permissions to.
+        :param gateway: - The gateway that will use this policy engine [disable-awslint:prefer-ref-interface].
+
+        :return: A combined IAM Grant representing all granted permissions
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9e4298fd9a5000914a5239bd2451e05845e5a861b0cdc12fe1b9f05e7793f8fe)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+            check_type(argname="argument gateway", value=gateway, expected_type=type_hints["gateway"])
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantEvaluateForGateway", [grantee, gateway]))
+
+    @jsii.member(jsii_name="grantRead")
+    def grant_read(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Grants read permissions on the PolicyEngine (data plane).
+
+        This grants runtime read access to policy engine configuration. Use this for
+        monitoring, observability, or read-only administrative roles that need to inspect
+        policy engine settings at runtime.
+
+        [disable-awslint:no-grants]
+
+        :param grantee: - The IAM principal to grant read permissions to.
+
+        :return: An IAM Grant object representing the granted permissions
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fb187ca9118ad519dcab9c8a34fb8a330b6d703cde2a550444bb6e13539658d6)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantRead", [grantee]))
+
+    @jsii.member(jsii_name="metric")
+    def metric(
+        self,
+        metric_name: builtins.str,
+        dimensions: typing.Mapping[builtins.str, builtins.str],
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
+        '''(experimental) Return the given named metric for this policy engine.
+
+        By default, the metric will be calculated as a sum over a period of 5 minutes.
+        You can customize this by using the ``statistic`` and ``period`` properties.
+
+        :param metric_name: The name of the metric.
+        :param dimensions: Additional dimensions for the metric.
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7e28ab00ca545731b7d6e11787a86ffe9c84d06b5cf43be8fe7d4ee41a07632c)
+            check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
+            check_type(argname="argument dimensions", value=dimensions, expected_type=type_hints["dimensions"])
+        props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metric", [metric_name, dimensions, props]))
+
+    @jsii.member(jsii_name="metricAuthorizationLatency")
+    def metric_authorization_latency(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
+        '''(experimental) Return a metric measuring the authorization latency for this policy engine.
+
+        This metric represents the time taken to evaluate authorization policies.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :stability: experimental
+        '''
+        props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metricAuthorizationLatency", [props]))
+
+    @jsii.member(jsii_name="metricAuthorizations")
+    def metric_authorizations(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
+        '''(experimental) Return a metric containing the total number of authorizations for this policy engine.
+
+        This metric tracks all authorization requests processed by the policy engine.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :stability: experimental
+        '''
+        props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metricAuthorizations", [props]))
+
+    @jsii.member(jsii_name="metricDeniedRequests")
+    def metric_denied_requests(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
+        '''(experimental) Return a metric containing the number of denied authorization requests for this policy engine.
+
+        This metric tracks authorization requests that were explicitly denied by policies.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :stability: experimental
+        '''
+        props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metricDeniedRequests", [props]))
+
+    @jsii.member(jsii_name="metricErrors")
+    def metric_errors(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
+        '''(experimental) Return a metric containing the number of errors during authorization for this policy engine.
+
+        This metric tracks errors encountered during policy evaluation.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :stability: experimental
+        '''
+        props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metricErrors", [props]))
+
+    @builtins.property
+    @jsii.member(jsii_name="grantPrincipal")
+    @abc.abstractmethod
+    def grant_principal(self) -> "_aws_cdk_aws_iam_ceddda9d.IPrincipal":
+        '''(experimental) The principal to grant permissions to.
+
+        :stability: experimental
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="policyEngineArn")
+    @abc.abstractmethod
+    def policy_engine_arn(self) -> builtins.str:
+        '''(experimental) The ARN of the policy engine resource.
+
+        :stability: experimental
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="policyEngineId")
+    @abc.abstractmethod
+    def policy_engine_id(self) -> builtins.str:
+        '''(experimental) The ID of the policy engine.
+
+        :stability: experimental
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="policyEngineName")
+    @abc.abstractmethod
+    def policy_engine_name(self) -> builtins.str:
+        '''(experimental) The name of the policy engine.
+
+        :stability: experimental
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="policyEngineRef")
+    def policy_engine_ref(
+        self,
+    ) -> "_aws_cdk_interfaces_aws_bedrockagentcore_ceddda9d.PolicyEngineReference":
+        '''(experimental) A reference to this PolicyEngine resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("_aws_cdk_interfaces_aws_bedrockagentcore_ceddda9d.PolicyEngineReference", jsii.get(self, "policyEngineRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    @abc.abstractmethod
+    def description(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The description of the policy engine.
+
+        :stability: experimental
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="kmsKey")
+    @abc.abstractmethod
+    def kms_key(self) -> typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"]:
+        '''(experimental) The KMS key used for encryption.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _PolicyEngineBaseProxy(
+    PolicyEngineBase,
+    jsii.proxy_for(_aws_cdk_ceddda9d.Resource), # type: ignore[misc]
+):
+    @builtins.property
+    @jsii.member(jsii_name="grantPrincipal")
+    def grant_principal(self) -> "_aws_cdk_aws_iam_ceddda9d.IPrincipal":
+        '''(experimental) The principal to grant permissions to.
+
+        :stability: experimental
+        '''
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.IPrincipal", jsii.get(self, "grantPrincipal"))
+
+    @builtins.property
+    @jsii.member(jsii_name="policyEngineArn")
+    def policy_engine_arn(self) -> builtins.str:
+        '''(experimental) The ARN of the policy engine resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "policyEngineArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="policyEngineId")
+    def policy_engine_id(self) -> builtins.str:
+        '''(experimental) The ID of the policy engine.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "policyEngineId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="policyEngineName")
+    def policy_engine_name(self) -> builtins.str:
+        '''(experimental) The name of the policy engine.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "policyEngineName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The description of the policy engine.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @builtins.property
+    @jsii.member(jsii_name="kmsKey")
+    def kms_key(self) -> typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"]:
+        '''(experimental) The KMS key used for encryption.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"], jsii.get(self, "kmsKey"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the abstract class
+typing.cast(typing.Any, PolicyEngineBase).__jsii_proxy_class__ = lambda : _PolicyEngineBaseProxy
+
+
+class PolicyEngineMode(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.PolicyEngineMode",
+):
+    '''(experimental) The enforcement mode for a policy engine associated with a gateway.
+
+    :stability: experimental
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        import aws_cdk.aws_bedrock_agentcore_alpha as bedrock_agentcore_alpha
+        
+        policy_engine_mode = bedrock_agentcore_alpha.PolicyEngineMode("value")
+    '''
+
+    def __init__(self, value: builtins.str) -> None:
+        '''
+        :param value: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__622a324404fed6c321a67a3ac68e1f127641f97aaa5eb357ed2acb593cb7fc4b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.create(self.__class__, self, [value])
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ENFORCE")
+    def ENFORCE(cls) -> "PolicyEngineMode":
+        '''(experimental) Enforces decisions by allowing or denying agent operations based on Cedar policies.
+
+        :stability: experimental
+        '''
+        return typing.cast("PolicyEngineMode", jsii.sget(cls, "ENFORCE"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="LOG_ONLY")
+    def LOG_ONLY(cls) -> "PolicyEngineMode":
+        '''(experimental) Evaluates actions and adds traces but does not enforce decisions.
+
+        Use this mode for testing and validation before enabling enforcement.
+
+        :stability: experimental
+        '''
+        return typing.cast("PolicyEngineMode", jsii.sget(cls, "LOG_ONLY"))
+
+    @builtins.property
+    @jsii.member(jsii_name="value")
+    def value(self) -> builtins.str:
+        '''(experimental) The string value of the policy engine mode.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "value"))
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.PolicyEngineProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "description": "description",
+        "kms_key": "kmsKey",
+        "policy_engine_name": "policyEngineName",
+        "tags": "tags",
+    },
+)
+class PolicyEngineProps:
+    def __init__(
+        self,
+        *,
+        description: typing.Optional[builtins.str] = None,
+        kms_key: typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"] = None,
+        policy_engine_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''(experimental) Properties for creating a PolicyEngine resource.
+
+        :param description: (experimental) Optional description for the policy engine. Maximum 4,096 characters. Default: - No description
+        :param kms_key: (experimental) Custom KMS key for encryption. [disable-awslint:prefer-ref-interface] Default: - AWS owned key
+        :param policy_engine_name: (experimental) The name of the policy engine. Valid characters: a-z, A-Z, 0-9, _ (underscore) Must start with a letter, 1-48 characters Pattern: ^[A-Za-z][A-Za-z0-9_]*$ Default: - Auto-generated unique name
+        :param tags: (experimental) Tags for the policy engine. Maximum 50 tags. Default: - No tags
+
+        :stability: experimental
+        :exampleMetadata: fixture=default infused
+
+        Example::
+
+            policy_engine = agentcore.PolicyEngine(self, "MyEngine",
+                policy_engine_name="my_engine"
+            )
+            
+            lambda_role = iam.Role(self, "LambdaRole",
+                assumed_by=iam.ServicePrincipal("lambda.amazonaws.com")
+            )
+            
+            # Grant read permissions
+            policy_engine.grant_read(lambda_role)
+            
+            # Grant evaluation permissions
+            policy_engine.grant_evaluate(lambda_role)
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__24140c33786b19b00228bcdaae493864733f9f0da75b482cc3f927ae89e0e56e)
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument kms_key", value=kms_key, expected_type=type_hints["kms_key"])
+            check_type(argname="argument policy_engine_name", value=policy_engine_name, expected_type=type_hints["policy_engine_name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if description is not None:
+            self._values["description"] = description
+        if kms_key is not None:
+            self._values["kms_key"] = kms_key
+        if policy_engine_name is not None:
+            self._values["policy_engine_name"] = policy_engine_name
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Optional description for the policy engine.
+
+        Maximum 4,096 characters.
+
+        :default: - No description
+
+        :stability: experimental
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def kms_key(self) -> typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"]:
+        '''(experimental) Custom KMS key for encryption.
+
+        [disable-awslint:prefer-ref-interface]
+
+        :default: - AWS owned key
+
+        :stability: experimental
+        '''
+        result = self._values.get("kms_key")
+        return typing.cast(typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"], result)
+
+    @builtins.property
+    def policy_engine_name(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The name of the policy engine.
+
+        Valid characters: a-z, A-Z, 0-9, _ (underscore)
+        Must start with a letter, 1-48 characters
+        Pattern: ^[A-Za-z][A-Za-z0-9_]*$
+
+        :default: - Auto-generated unique name
+
+        :stability: experimental
+        '''
+        result = self._values.get("policy_engine_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''(experimental) Tags for the policy engine.
+
+        Maximum 50 tags.
+
+        :default: - No tags
+
+        :stability: experimental
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "PolicyEngineProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.PolicyProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "policy_engine": "policyEngine",
+        "definition": "definition",
+        "description": "description",
+        "policy_name": "policyName",
+        "statement": "statement",
+        "validation_mode": "validationMode",
+    },
+)
+class PolicyProps:
+    def __init__(
+        self,
+        *,
+        policy_engine: "IPolicyEngine",
+        definition: typing.Optional[builtins.str] = None,
+        description: typing.Optional[builtins.str] = None,
+        policy_name: typing.Optional[builtins.str] = None,
+        statement: typing.Optional["PolicyStatement"] = None,
+        validation_mode: typing.Optional["PolicyValidationMode"] = None,
+    ) -> None:
+        '''(experimental) Properties for creating a Policy resource.
+
+        :param policy_engine: (experimental) The policy engine this policy belongs to. [disable-awslint:prefer-ref-interface]
+        :param definition: (experimental) Cedar policy statement. The authorization policy written in Cedar policy language. Cedar supports permit and forbid rules with conditions. The statement will be wrapped in a PolicyDefinition structure internally. Pass the raw Cedar statement as a string. For example: - "permit(principal, action, resource);" - "permit(principal in Group::"Admins", action == Action::"InvokeModel", resource) when { context.environment == "production" };" You must specify either ``definition`` or ``statement``, but not both. Default: - Must provide either definition or statement
+        :param description: (experimental) Optional description for the policy. Maximum length of 4096. Default: - No description
+        :param policy_name: (experimental) The name of the policy. Valid characters: a-z, A-Z, 0-9, _ (underscore) Must start with a letter, 1-48 characters Pattern: ^[A-Za-z][A-Za-z0-9_]*$ Default: - Auto-generated unique name
+        :param statement: (experimental) Type-safe Cedar policy statement built using PolicyStatement builder. Use this for a type-safe, form-like API to build Cedar policies without writing raw Cedar syntax. The builder validates at synthesis time. You must specify either ``definition`` or ``statement``, but not both. Default: - Must provide either definition or statement
+        :param validation_mode: (experimental) Validation mode for the policy. Controls how Cedar analyzer validation findings are handled. Default: PolicyValidationMode.FAIL_ON_ANY_FINDINGS
+
+        :stability: experimental
+        :exampleMetadata: fixture=default infused
+
+        Example::
+
+            # policy_engine: agentcore.PolicyEngine
+            
+            
+            # Option 1: Using definition property
+            advanced_policy = agentcore.Policy(self, "AdvancedPolicy",
+                policy_engine=policy_engine,
+                definition="permit(principal, action, resource) when { context.custom > 10 };",
+                description="Advanced policy with custom Cedar logic"
+            )
+            
+            # Option 2: Using fromCedar() with statement property
+            policy_engine.add_policy("CustomPolicy",
+                statement=agentcore.PolicyStatement.from_cedar("forbid(principal, action, resource) when { resource.confidential == true };"),
+                description="Custom policy from Cedar string"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8363fb4096a59944f0d2f98a244709dc4327c371267fab92dfac96359309ab18)
+            check_type(argname="argument policy_engine", value=policy_engine, expected_type=type_hints["policy_engine"])
+            check_type(argname="argument definition", value=definition, expected_type=type_hints["definition"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument policy_name", value=policy_name, expected_type=type_hints["policy_name"])
+            check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
+            check_type(argname="argument validation_mode", value=validation_mode, expected_type=type_hints["validation_mode"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "policy_engine": policy_engine,
+        }
+        if definition is not None:
+            self._values["definition"] = definition
+        if description is not None:
+            self._values["description"] = description
+        if policy_name is not None:
+            self._values["policy_name"] = policy_name
+        if statement is not None:
+            self._values["statement"] = statement
+        if validation_mode is not None:
+            self._values["validation_mode"] = validation_mode
+
+    @builtins.property
+    def policy_engine(self) -> "IPolicyEngine":
+        '''(experimental) The policy engine this policy belongs to.
+
+        [disable-awslint:prefer-ref-interface]
+
+        :stability: experimental
+        '''
+        result = self._values.get("policy_engine")
+        assert result is not None, "Required property 'policy_engine' is missing"
+        return typing.cast("IPolicyEngine", result)
+
+    @builtins.property
+    def definition(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Cedar policy statement. The authorization policy written in Cedar policy language.
+
+        Cedar supports permit and forbid rules with conditions.
+        The statement will be wrapped in a PolicyDefinition structure internally.
+
+        Pass the raw Cedar statement as a string. For example:
+
+        - "permit(principal, action, resource);"
+        - "permit(principal in Group::"Admins", action == Action::"InvokeModel", resource) when { context.environment == "production" };"
+
+        You must specify either ``definition`` or ``statement``, but not both.
+
+        :default: - Must provide either definition or statement
+
+        :stability: experimental
+        '''
+        result = self._values.get("definition")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Optional description for the policy.
+
+        Maximum length of 4096.
+
+        :default: - No description
+
+        :stability: experimental
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def policy_name(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The name of the policy.
+
+        Valid characters: a-z, A-Z, 0-9, _ (underscore)
+        Must start with a letter, 1-48 characters
+        Pattern: ^[A-Za-z][A-Za-z0-9_]*$
+
+        :default: - Auto-generated unique name
+
+        :stability: experimental
+        '''
+        result = self._values.get("policy_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def statement(self) -> typing.Optional["PolicyStatement"]:
+        '''(experimental) Type-safe Cedar policy statement built using PolicyStatement builder.
+
+        Use this for a type-safe, form-like API to build Cedar policies without
+        writing raw Cedar syntax. The builder validates at synthesis time.
+
+        You must specify either ``definition`` or ``statement``, but not both.
+
+        :default: - Must provide either definition or statement
+
+        :stability: experimental
+        '''
+        result = self._values.get("statement")
+        return typing.cast(typing.Optional["PolicyStatement"], result)
+
+    @builtins.property
+    def validation_mode(self) -> typing.Optional["PolicyValidationMode"]:
+        '''(experimental) Validation mode for the policy.
+
+        Controls how Cedar analyzer validation findings are handled.
+
+        :default: PolicyValidationMode.FAIL_ON_ANY_FINDINGS
+
+        :stability: experimental
+        '''
+        result = self._values.get("validation_mode")
+        return typing.cast(typing.Optional["PolicyValidationMode"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "PolicyProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class PolicyStatement(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.PolicyStatement",
+):
+    '''(experimental) Type-safe builder for creating Cedar authorization policy statements.
+
+    This builder provides a fluent API for constructing Cedar policies without
+    requiring knowledge of Cedar syntax. It supports:
+
+    - Permit and forbid effects
+    - Principal, action, and resource specifications
+    - Conditional logic (when/unless clauses)
+    - Raw Cedar for advanced cases
+
+    The builder generates valid Cedar policy statements that can be used with
+    the Policy construct.
+
+    :stability: experimental
+
+    Example::
+
+        from aws_cdk.aws_bedrock_agentcore_alpha import Policy, PolicyEngine, PolicyStatement
+        # engine: PolicyEngine
+        
+        
+        # Example 4: Raw Cedar policy
+        # For advanced Cedar features not supported by the builder
+        Policy(self, "CustomPolicy",
+            policy_engine=engine,
+            definition="permit(principal, action, resource) when { context.custom > 10 };"
+        )
+        
+        # Or using fromCedar():
+        Policy(self, "ImportedPolicy",
+            policy_engine=engine,
+            statement=PolicyStatement.from_cedar("forbid(principal, action, resource) when { resource.confidential == true };")
+        )
+    '''
+
+    @jsii.member(jsii_name="forbid")
+    @builtins.classmethod
+    def forbid(cls) -> "PolicyStatement":
+        '''(experimental) Create a forbid statement - denies the action if conditions are met.
+
+        Forbid statements deny access when their conditions evaluate to true.
+        Forbid always takes precedence over permit (explicit deny).
+
+        :stability: experimental
+        '''
+        return typing.cast("PolicyStatement", jsii.sinvoke(cls, "forbid", []))
+
+    @jsii.member(jsii_name="fromCedar")
+    @builtins.classmethod
+    def from_cedar(cls, cedar_statement: builtins.str) -> "PolicyStatement":
+        '''(experimental) Create from raw Cedar policy statement string.
+
+        Use this for advanced Cedar features not supported by the builder,
+        or when migrating existing Cedar policies.
+
+        Validation is deferred to the Policy construct's validationMode setting.
+
+        :param cedar_statement: - Complete Cedar policy statement including effect, principal, action, resource, and conditions.
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__22557703ec55a600948cd6747e04f25b3aafc3397b0c95357b8cd4d3b209f045)
+            check_type(argname="argument cedar_statement", value=cedar_statement, expected_type=type_hints["cedar_statement"])
+        return typing.cast("PolicyStatement", jsii.sinvoke(cls, "fromCedar", [cedar_statement]))
+
+    @jsii.member(jsii_name="permit")
+    @builtins.classmethod
+    def permit(cls) -> "PolicyStatement":
+        '''(experimental) Create a permit statement - allows the action if conditions are met.
+
+        Permit statements grant access when their conditions evaluate to true.
+        Multiple permit statements can apply; any matching permit allows access.
+
+        :stability: experimental
+        '''
+        return typing.cast("PolicyStatement", jsii.sinvoke(cls, "permit", []))
+
+    @jsii.member(jsii_name="forAllPrincipals")
+    def for_all_principals(self) -> "PolicyStatement":
+        '''(experimental) Apply to all principals (any user, service, or entity).
+
+        Generates: ``principal`` in Cedar
+
+        :stability: experimental
+        '''
+        return typing.cast("PolicyStatement", jsii.invoke(self, "forAllPrincipals", []))
+
+    @jsii.member(jsii_name="forPrincipal")
+    def for_principal(
+        self,
+        entity_type: builtins.str,
+        entity_id: typing.Optional[builtins.str] = None,
+    ) -> "PolicyStatement":
+        '''(experimental) Apply to a specific principal entity.
+
+        Generates: ``principal == EntityType::"entityId"`` in Cedar
+
+        :param entity_type: - The entity type (e.g., 'AgentCore::OAuthUser').
+        :param entity_id: - Optional specific entity ID.
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9dbf9cd610a7752ff740eb9c965493e5eab437a9d2eb0f5f7141874b547061e6)
+            check_type(argname="argument entity_type", value=entity_type, expected_type=type_hints["entity_type"])
+            check_type(argname="argument entity_id", value=entity_id, expected_type=type_hints["entity_id"])
+        return typing.cast("PolicyStatement", jsii.invoke(self, "forPrincipal", [entity_type, entity_id]))
+
+    @jsii.member(jsii_name="forPrincipalInGroup")
+    def for_principal_in_group(
+        self,
+        group_type: builtins.str,
+        group_id: builtins.str,
+    ) -> "PolicyStatement":
+        '''(experimental) Apply to principals that are members of a specific group.
+
+        Generates: ``principal in Group::"groupId"`` in Cedar
+
+        :param group_type: - The group entity type (e.g., 'Group').
+        :param group_id: - The group identifier (e.g., 'Admins', 'Engineers').
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ea07f89b2ecd68d587bc1ff6116ed9784fdb3999d6234f99477dbd42db4751c2)
+            check_type(argname="argument group_type", value=group_type, expected_type=type_hints["group_type"])
+            check_type(argname="argument group_id", value=group_id, expected_type=type_hints["group_id"])
+        return typing.cast("PolicyStatement", jsii.invoke(self, "forPrincipalInGroup", [group_type, group_id]))
+
+    @jsii.member(jsii_name="onAction")
+    def on_action(self, action: builtins.str) -> "PolicyStatement":
+        '''(experimental) Apply to a single specific action.
+
+        Generates: ``action == Action::"name"`` in Cedar
+
+        :param action: - Action name (e.g., 'AgentCore::Action::InsuranceAPI__get_policy').
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__129e559145fecf5e9b9e27089816cc1576480472c9869380127c9a003c75345c)
+            check_type(argname="argument action", value=action, expected_type=type_hints["action"])
+        return typing.cast("PolicyStatement", jsii.invoke(self, "onAction", [action]))
+
+    @jsii.member(jsii_name="onActions")
+    def on_actions(self, actions: typing.Sequence[builtins.str]) -> "PolicyStatement":
+        '''(experimental) Apply to specific action(s).
+
+        Generates: ``action == Action::"name"`` or ``action in [Action::"name1", Action::"name2"]`` in Cedar
+
+        :param actions: - Array of action names (e.g., ['AgentCore::Action::InsuranceAPI__get_policy']).
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__27f4cb6794d3ea842578b1a2cfc77dc9ad17053a54a5ae656a4a8efa0b7edbca)
+            check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
+        return typing.cast("PolicyStatement", jsii.invoke(self, "onActions", [actions]))
+
+    @jsii.member(jsii_name="onAllActions")
+    def on_all_actions(self) -> "PolicyStatement":
+        '''(experimental) Apply to all actions (any operation).
+
+        Generates: ``action`` in Cedar
+
+        :stability: experimental
+        '''
+        return typing.cast("PolicyStatement", jsii.invoke(self, "onAllActions", []))
+
+    @jsii.member(jsii_name="onAllResources")
+    def on_all_resources(
+        self,
+        entity_type: typing.Optional[builtins.str] = None,
+    ) -> "PolicyStatement":
+        '''(experimental) Apply to all resources of a specific type.
+
+        **AWS Requirement**: AWS Bedrock AgentCore Policy service does not allow wildcard
+        resources (``resource``). This method provides type-constrained resources which are
+        required for policy validation to succeed.
+
+        Generates: ``resource is EntityType`` in Cedar
+
+        :param entity_type: - The entity type (default: 'AgentCore::Gateway').
+
+        :stability: experimental
+
+        Example::
+
+            from aws_cdk.aws_bedrock_agentcore_alpha import PolicyStatement
+            
+            
+            # Constrain to Gateway resources (default)
+            PolicyStatement.permit().for_all_principals().on_all_actions().on_all_resources() # → "resource is AgentCore::Gateway"
+            
+            # Constrain to Runtime resources
+            PolicyStatement.permit().for_all_principals().on_all_actions().on_all_resources("AgentCore::Runtime")
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3d43adf2799cf9a34de0961a8ae26a80f34f04195e2ba006e94aff82cdbdada6)
+            check_type(argname="argument entity_type", value=entity_type, expected_type=type_hints["entity_type"])
+        return typing.cast("PolicyStatement", jsii.invoke(self, "onAllResources", [entity_type]))
+
+    @jsii.member(jsii_name="onResource")
+    def on_resource(
+        self,
+        entity_type: builtins.str,
+        entity_arn: builtins.str,
+    ) -> "PolicyStatement":
+        '''(experimental) Apply to a specific resource instance.
+
+        **AWS Requirement**: When using specific actions (e.g., ``action == Action::"Delete"``),
+        you must constrain the resource to a specific instance, not just a type.
+
+        Generates: ``resource == EntityType::"arn"`` in Cedar
+
+        :param entity_type: - The entity type (e.g., 'AgentCore::Gateway').
+        :param entity_arn: - The resource ARN or identifier.
+
+        :stability: experimental
+
+        Example::
+
+            from aws_cdk.aws_bedrock_agentcore_alpha import PolicyStatement
+            # gateway_arn: str
+            
+            
+            PolicyStatement.forbid().for_all_principals().on_action("AgentCore::Action::Delete").on_resource("AgentCore::Gateway", gateway_arn)
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__05401a9b1108cf76784603ece6acaee8e9c23afc00d798d76ea53029f0686c2d)
+            check_type(argname="argument entity_type", value=entity_type, expected_type=type_hints["entity_type"])
+            check_type(argname="argument entity_arn", value=entity_arn, expected_type=type_hints["entity_arn"])
+        return typing.cast("PolicyStatement", jsii.invoke(self, "onResource", [entity_type, entity_arn]))
+
+    @jsii.member(jsii_name="onResourceType")
+    def on_resource_type(self, entity_type: builtins.str) -> "PolicyStatement":
+        '''(experimental) Apply to all resources of a specific type (explicit method).
+
+        **AWS Requirement**: Resource type constraints are required by AWS Bedrock
+        AgentCore when using wildcard principals or actions.
+
+        Generates: ``resource is EntityType`` in Cedar
+
+        :param entity_type: - The entity type (e.g., 'AgentCore::Gateway', 'AgentCore::Runtime').
+
+        :stability: experimental
+
+        Example::
+
+            from aws_cdk.aws_bedrock_agentcore_alpha import PolicyStatement
+            
+            
+            PolicyStatement.permit().for_all_principals().on_all_actions().on_resource_type("AgentCore::Gateway")
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__56659c2ecdc209115a5701a8e2946f591513814f7adb983832abe5cc4b341c73)
+            check_type(argname="argument entity_type", value=entity_type, expected_type=type_hints["entity_type"])
+        return typing.cast("PolicyStatement", jsii.invoke(self, "onResourceType", [entity_type]))
+
+    @jsii.member(jsii_name="toCedar")
+    def to_cedar(self) -> builtins.str:
+        '''(experimental) Generate the Cedar policy statement string.
+
+        Converts the builder state into valid Cedar policy syntax.
+        This is called internally by the Policy construct.
+
+        :return: Valid Cedar policy statement
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.invoke(self, "toCedar", []))
+
+    @jsii.member(jsii_name="unless")
+    def unless(self) -> "ConditionalPolicyStatement":
+        '''(experimental) Add unless conditions - policy applies only if these conditions are false.
+
+        Unless conditions define negative requirements (exclusions).
+        The policy applies when these conditions are NOT met.
+
+        Returns a ConditionBuilder that you can chain condition methods on.
+        Call done() when finished to return to the PolicyStatement.
+
+        :stability: experimental
+        '''
+        return typing.cast("ConditionalPolicyStatement", jsii.invoke(self, "unless", []))
+
+    @jsii.member(jsii_name="when")
+    def when(self) -> "ConditionalPolicyStatement":
+        '''(experimental) Add when conditions - policy applies only if these conditions are true.
+
+        When conditions define positive requirements that must be met.
+        Multiple conditions can be combined with AND/OR operators.
+
+        Returns a ConditionBuilder that you can chain condition methods on.
+        Call done() when finished to return to the PolicyStatement.
+
+        :stability: experimental
+        '''
+        return typing.cast("ConditionalPolicyStatement", jsii.invoke(self, "when", []))
+
+
+class PolicyValidationMode(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.PolicyValidationMode",
+):
+    '''(experimental) Validation mode for Cedar policy definitions.
+
+    :stability: experimental
+    :exampleMetadata: fixture=default infused
+
+    Example::
+
+        gateway = agentcore.Gateway(self, "MyGateway",
+            gateway_name="my-gateway"
+        )
+        
+        policy_engine = agentcore.PolicyEngine(self, "MyPolicyEngine",
+            policy_engine_name="my_policy_engine"
+        )
+        
+        allow_all_policy = agentcore.Policy(self, "AllowAllPolicy",
+            policy_engine=policy_engine,
+            policy_name="allow_all",
+            statement=agentcore.PolicyStatement.permit().for_all_principals().on_all_actions().on_resource("AgentCore::Gateway", gateway.gateway_arn),
+            description="Allow all actions on specific gateway (development only)",
+            validation_mode=agentcore.PolicyValidationMode.IGNORE_ALL_FINDINGS
+        )
+    '''
+
+    def __init__(self, value: builtins.str) -> None:
+        '''
+        :param value: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__722bffc4dbcac5d09b1c8e417ac1d75b0072e92c62151a5841c8bc621b6d3b48)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.create(self.__class__, self, [value])
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="FAIL_ON_ANY_FINDINGS")
+    def FAIL_ON_ANY_FINDINGS(cls) -> "PolicyValidationMode":
+        '''(experimental) Fail policy creation if any validation findings are detected.
+
+        This is the safer default - catches policy errors early.
+
+        :stability: experimental
+        '''
+        return typing.cast("PolicyValidationMode", jsii.sget(cls, "FAIL_ON_ANY_FINDINGS"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="IGNORE_ALL_FINDINGS")
+    def IGNORE_ALL_FINDINGS(cls) -> "PolicyValidationMode":
+        '''(experimental) Ignore all validation findings and create the policy anyway.
+
+        Use with caution - may result in runtime authorization errors.
+
+        :stability: experimental
+        '''
+        return typing.cast("PolicyValidationMode", jsii.sget(cls, "IGNORE_ALL_FINDINGS"))
+
+    @builtins.property
+    @jsii.member(jsii_name="value")
+    def value(self) -> builtins.str:
+        '''(experimental) The string value of the validation mode.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "value"))
 
 
 @jsii.enum(jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.ProtocolType")
@@ -20707,11 +25202,13 @@ class RuntimeNetworkConfiguration(
         "environment_variables": "environmentVariables",
         "execution_role": "executionRole",
         "lifecycle_configuration": "lifecycleConfiguration",
+        "logging_configs": "loggingConfigs",
         "network_configuration": "networkConfiguration",
         "protocol_configuration": "protocolConfiguration",
         "request_header_configuration": "requestHeaderConfiguration",
         "runtime_name": "runtimeName",
         "tags": "tags",
+        "tracing_enabled": "tracingEnabled",
     },
 )
 class RuntimeProps:
@@ -20724,11 +25221,13 @@ class RuntimeProps:
         environment_variables: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         execution_role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
         lifecycle_configuration: typing.Optional[typing.Union["LifecycleConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
+        logging_configs: typing.Optional[typing.Sequence[typing.Union["LoggingConfig", typing.Dict[builtins.str, typing.Any]]]] = None,
         network_configuration: typing.Optional["RuntimeNetworkConfiguration"] = None,
         protocol_configuration: typing.Optional["ProtocolType"] = None,
         request_header_configuration: typing.Optional[typing.Union["RequestHeaderConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         runtime_name: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        tracing_enabled: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''(experimental) Properties for creating a Bedrock Agent Core Runtime resource.
 
@@ -20738,11 +25237,13 @@ class RuntimeProps:
         :param environment_variables: (experimental) Environment variables for the agent runtime - Maximum 50 environment variables - Key: Must be 1-100 characters, start with letter or underscore, contain only letters, numbers, and underscores - Value: Must be 0-2048 characters (per CloudFormation specification). Default: - No environment variables
         :param execution_role: (experimental) The IAM role that provides permissions for the agent runtime If not provided, a role will be created automatically. Default: - A new role will be created
         :param lifecycle_configuration: (experimental) The life cycle configuration for the AgentCore Runtime. Default: - No lifecycle configuration
+        :param logging_configs: (experimental) Logging configuration for the runtime. Allows sending APPLICATION_LOGS and USAGE_LOGS to CloudWatch Logs, S3, or Kinesis Data Firehose. Default: - No logging configured
         :param network_configuration: (experimental) Network configuration for the agent runtime. Default: - RuntimeNetworkConfiguration.usingPublicNetwork()
         :param protocol_configuration: (experimental) Protocol configuration for the agent runtime. Default: - ProtocolType.HTTP
         :param request_header_configuration: (experimental) Configuration for HTTP request headers that will be passed through to the runtime. Default: - No request headers configured
         :param runtime_name: (experimental) The name of the agent runtime Valid characters are a-z, A-Z, 0-9, _ (underscore) Must start with a letter and can be up to 48 characters long Pattern: ^[a-zA-Z][a-zA-Z0-9_]{0,47}$. Default: - auto generate
         :param tags: (experimental) Tags for the agent runtime A list of key:value pairs of tags to apply to this Runtime resource. Default: {} - no tags
+        :param tracing_enabled: (experimental) Whether to enable X-Ray tracing for this runtime. When enabled, traces will be delivered to AWS X-Ray. Default: false
 
         :stability: experimental
         :exampleMetadata: fixture=default infused
@@ -20779,11 +25280,13 @@ class RuntimeProps:
             check_type(argname="argument environment_variables", value=environment_variables, expected_type=type_hints["environment_variables"])
             check_type(argname="argument execution_role", value=execution_role, expected_type=type_hints["execution_role"])
             check_type(argname="argument lifecycle_configuration", value=lifecycle_configuration, expected_type=type_hints["lifecycle_configuration"])
+            check_type(argname="argument logging_configs", value=logging_configs, expected_type=type_hints["logging_configs"])
             check_type(argname="argument network_configuration", value=network_configuration, expected_type=type_hints["network_configuration"])
             check_type(argname="argument protocol_configuration", value=protocol_configuration, expected_type=type_hints["protocol_configuration"])
             check_type(argname="argument request_header_configuration", value=request_header_configuration, expected_type=type_hints["request_header_configuration"])
             check_type(argname="argument runtime_name", value=runtime_name, expected_type=type_hints["runtime_name"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument tracing_enabled", value=tracing_enabled, expected_type=type_hints["tracing_enabled"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "agent_runtime_artifact": agent_runtime_artifact,
         }
@@ -20797,6 +25300,8 @@ class RuntimeProps:
             self._values["execution_role"] = execution_role
         if lifecycle_configuration is not None:
             self._values["lifecycle_configuration"] = lifecycle_configuration
+        if logging_configs is not None:
+            self._values["logging_configs"] = logging_configs
         if network_configuration is not None:
             self._values["network_configuration"] = network_configuration
         if protocol_configuration is not None:
@@ -20807,6 +25312,8 @@ class RuntimeProps:
             self._values["runtime_name"] = runtime_name
         if tags is not None:
             self._values["tags"] = tags
+        if tracing_enabled is not None:
+            self._values["tracing_enabled"] = tracing_enabled
 
     @builtins.property
     def agent_runtime_artifact(self) -> "AgentRuntimeArtifact":
@@ -20881,6 +25388,20 @@ class RuntimeProps:
         return typing.cast(typing.Optional["LifecycleConfiguration"], result)
 
     @builtins.property
+    def logging_configs(self) -> typing.Optional[typing.List["LoggingConfig"]]:
+        '''(experimental) Logging configuration for the runtime.
+
+        Allows sending APPLICATION_LOGS and USAGE_LOGS to CloudWatch Logs, S3, or Kinesis Data Firehose.
+
+        :default: - No logging configured
+
+        :see: https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/observability.html
+        :stability: experimental
+        '''
+        result = self._values.get("logging_configs")
+        return typing.cast(typing.Optional[typing.List["LoggingConfig"]], result)
+
+    @builtins.property
     def network_configuration(self) -> typing.Optional["RuntimeNetworkConfiguration"]:
         '''(experimental) Network configuration for the agent runtime.
 
@@ -20936,6 +25457,20 @@ class RuntimeProps:
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def tracing_enabled(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Whether to enable X-Ray tracing for this runtime.
+
+        When enabled, traces will be delivered to AWS X-Ray.
+
+        :default: false
+
+        :see: https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/observability.html
+        :stability: experimental
+        '''
+        result = self._values.get("tracing_enabled")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -27116,6 +31651,431 @@ class Memory(
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "updatedAt"))
 
 
+class Policy(
+    PolicyBase,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.Policy",
+):
+    '''(experimental) Individual Cedar policy defining what agents can access.
+
+    Policies use Cedar language to specify precise access control rules
+    that are evaluated deterministically by the PolicyEngine.
+
+    :see: https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/policy.html
+    :stability: experimental
+    :resource: AWS::BedrockAgentCore::Policy
+    :exampleMetadata: fixture=default infused
+
+    Example::
+
+        imported_engine = agentcore.PolicyEngine.from_policy_engine_attributes(self, "ImportedEngine",
+            policy_engine_arn="policy-engine/my-engine-id"
+        )
+        
+        imported_policy = agentcore.Policy.from_policy_attributes(self, "ImportedPolicy",
+            policy_arn="my-policy-arn",
+            policy_engine=imported_engine
+        )
+        
+        # Grant permissions to the imported policy
+        role = iam.Role(self, "PolicyRole",
+            assumed_by=iam.ServicePrincipal("lambda.amazonaws.com")
+        )
+        
+        imported_policy.grant_read(role)
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        policy_engine: "IPolicyEngine",
+        definition: typing.Optional[builtins.str] = None,
+        description: typing.Optional[builtins.str] = None,
+        policy_name: typing.Optional[builtins.str] = None,
+        statement: typing.Optional["PolicyStatement"] = None,
+        validation_mode: typing.Optional["PolicyValidationMode"] = None,
+    ) -> None:
+        '''
+        :param scope: -
+        :param id: -
+        :param policy_engine: (experimental) The policy engine this policy belongs to. [disable-awslint:prefer-ref-interface]
+        :param definition: (experimental) Cedar policy statement. The authorization policy written in Cedar policy language. Cedar supports permit and forbid rules with conditions. The statement will be wrapped in a PolicyDefinition structure internally. Pass the raw Cedar statement as a string. For example: - "permit(principal, action, resource);" - "permit(principal in Group::"Admins", action == Action::"InvokeModel", resource) when { context.environment == "production" };" You must specify either ``definition`` or ``statement``, but not both. Default: - Must provide either definition or statement
+        :param description: (experimental) Optional description for the policy. Maximum length of 4096. Default: - No description
+        :param policy_name: (experimental) The name of the policy. Valid characters: a-z, A-Z, 0-9, _ (underscore) Must start with a letter, 1-48 characters Pattern: ^[A-Za-z][A-Za-z0-9_]*$ Default: - Auto-generated unique name
+        :param statement: (experimental) Type-safe Cedar policy statement built using PolicyStatement builder. Use this for a type-safe, form-like API to build Cedar policies without writing raw Cedar syntax. The builder validates at synthesis time. You must specify either ``definition`` or ``statement``, but not both. Default: - Must provide either definition or statement
+        :param validation_mode: (experimental) Validation mode for the policy. Controls how Cedar analyzer validation findings are handled. Default: PolicyValidationMode.FAIL_ON_ANY_FINDINGS
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7004ff7e66eb9bd92f5e3382efd82acca2795fddd2ceb6f63d7ec61fc26b5bc2)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = PolicyProps(
+            policy_engine=policy_engine,
+            definition=definition,
+            description=description,
+            policy_name=policy_name,
+            statement=statement,
+            validation_mode=validation_mode,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="fromPolicyAttributes")
+    @builtins.classmethod
+    def from_policy_attributes(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        policy_arn: builtins.str,
+        policy_engine: "IPolicyEngine",
+    ) -> "IPolicy":
+        '''(experimental) Creates a Policy reference from an existing policy's attributes.
+
+        :param scope: - The construct scope.
+        :param id: - Identifier of the construct.
+        :param policy_arn: (experimental) The ARN of the policy.
+        :param policy_engine: (experimental) The policy engine this policy belongs to [disable-awslint:prefer-ref-interface].
+
+        :return: An IPolicy reference to the existing policy
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ba58938674de237078683f4259b17ae55e9b37e93e341f8f76079106517e29ae)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        attrs = PolicyAttributes(policy_arn=policy_arn, policy_engine=policy_engine)
+
+        return typing.cast("IPolicy", jsii.sinvoke(cls, "fromPolicyAttributes", [scope, id, attrs]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    def PROPERTY_INJECTION_ID(cls) -> builtins.str:
+        '''(experimental) Uniquely identifies this class.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
+
+    @builtins.property
+    @jsii.member(jsii_name="definition")
+    def definition(self) -> builtins.str:
+        '''(experimental) The Cedar policy definition.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "definition"))
+
+    @builtins.property
+    @jsii.member(jsii_name="grantPrincipal")
+    def grant_principal(self) -> "_aws_cdk_aws_iam_ceddda9d.IPrincipal":
+        '''(experimental) The principal to grant permissions to.
+
+        :stability: experimental
+        '''
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.IPrincipal", jsii.get(self, "grantPrincipal"))
+
+    @builtins.property
+    @jsii.member(jsii_name="policyArn")
+    def policy_arn(self) -> builtins.str:
+        '''(experimental) The ARN of the policy resource.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "policyArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="policyEngine")
+    def policy_engine(self) -> "IPolicyEngine":
+        '''(experimental) The policy engine this policy belongs to.
+
+        [disable-awslint:attribute-tag]
+
+        :stability: experimental
+        '''
+        return typing.cast("IPolicyEngine", jsii.get(self, "policyEngine"))
+
+    @builtins.property
+    @jsii.member(jsii_name="policyId")
+    def policy_id(self) -> builtins.str:
+        '''(experimental) The ID of the policy.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "policyId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="policyName")
+    def policy_name(self) -> builtins.str:
+        '''(experimental) The name of the policy.
+
+        [disable-awslint:attribute-tag]
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "policyName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The description of the policy.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @builtins.property
+    @jsii.member(jsii_name="validationMode")
+    def validation_mode(self) -> typing.Optional["PolicyValidationMode"]:
+        '''(experimental) The validation mode for the policy.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional["PolicyValidationMode"], jsii.get(self, "validationMode"))
+
+
+class PolicyEngine(
+    PolicyEngineBase,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.PolicyEngine",
+):
+    '''(experimental) Container that manages Cedar authorization policies associated with gateways.
+
+    PolicyEngine enables deterministic authorization control for Bedrock agents,
+    allowing fine-grained access control to tools and actions via Cedar policy language.
+
+    :see: https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/policy-engine.html
+    :stability: experimental
+    :resource: AWS::BedrockAgentCore::PolicyEngine
+    :exampleMetadata: fixture=default infused
+
+    Example::
+
+        imported_engine = agentcore.PolicyEngine.from_policy_engine_attributes(self, "ImportedEngine",
+            policy_engine_arn="policy-engine/my-engine-id"
+        )
+        
+        imported_policy = agentcore.Policy.from_policy_attributes(self, "ImportedPolicy",
+            policy_arn="my-policy-arn",
+            policy_engine=imported_engine
+        )
+        
+        # Grant permissions to the imported policy
+        role = iam.Role(self, "PolicyRole",
+            assumed_by=iam.ServicePrincipal("lambda.amazonaws.com")
+        )
+        
+        imported_policy.grant_read(role)
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        description: typing.Optional[builtins.str] = None,
+        kms_key: typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"] = None,
+        policy_engine_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''
+        :param scope: -
+        :param id: -
+        :param description: (experimental) Optional description for the policy engine. Maximum 4,096 characters. Default: - No description
+        :param kms_key: (experimental) Custom KMS key for encryption. [disable-awslint:prefer-ref-interface] Default: - AWS owned key
+        :param policy_engine_name: (experimental) The name of the policy engine. Valid characters: a-z, A-Z, 0-9, _ (underscore) Must start with a letter, 1-48 characters Pattern: ^[A-Za-z][A-Za-z0-9_]*$ Default: - Auto-generated unique name
+        :param tags: (experimental) Tags for the policy engine. Maximum 50 tags. Default: - No tags
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4973799f2174196a829eb95925f878a0bcf1d3f21efa0d39e02114f3a43d1b97)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = PolicyEngineProps(
+            description=description,
+            kms_key=kms_key,
+            policy_engine_name=policy_engine_name,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="fromPolicyEngineAttributes")
+    @builtins.classmethod
+    def from_policy_engine_attributes(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        policy_engine_arn: builtins.str,
+        kms_key_arn: typing.Optional[builtins.str] = None,
+    ) -> "IPolicyEngine":
+        '''(experimental) Creates a PolicyEngine reference from an existing policy engine's attributes.
+
+        :param scope: - The construct scope.
+        :param id: - Identifier of the construct.
+        :param policy_engine_arn: (experimental) The ARN of the policy engine.
+        :param kms_key_arn: (experimental) The KMS key ARN used for encryption (optional). Default: - No KMS key
+
+        :return: An IPolicyEngine reference to the existing policy engine
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7ea6ccd06549c765b0e6519dea3e84eed679fcd3984dbf9ca907498340f77475)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        attrs = PolicyEngineAttributes(
+            policy_engine_arn=policy_engine_arn, kms_key_arn=kms_key_arn
+        )
+
+        return typing.cast("IPolicyEngine", jsii.sinvoke(cls, "fromPolicyEngineAttributes", [scope, id, attrs]))
+
+    @jsii.member(jsii_name="addPolicy")
+    def add_policy(
+        self,
+        id: builtins.str,
+        *,
+        definition: typing.Optional[builtins.str] = None,
+        description: typing.Optional[builtins.str] = None,
+        policy_name: typing.Optional[builtins.str] = None,
+        statement: typing.Optional["PolicyStatement"] = None,
+        validation_mode: typing.Optional["PolicyValidationMode"] = None,
+    ) -> "Policy":
+        '''(experimental) Add a policy to this policy engine. Convenience method that creates a Policy construct with this engine as the parent.
+
+        **Automatic Sequential Chaining**: By default, policies are automatically chained
+        sequentially to prevent concurrent creation issues with the AWS Bedrock AgentCore
+        service. Each new policy will depend on the previous policy added to this engine.
+
+        This ensures policies are created one at a time, avoiding "Resource stabilization
+        failed" errors that occur with concurrent policy operations.
+
+        :param id: - Unique identifier for the policy construct.
+        :param definition: (experimental) Cedar policy statement (35-153,600 characters). You must specify either ``definition`` or ``statement``, but not both. Default: - Must provide either definition or statement
+        :param description: (experimental) Optional description for the policy (max 4,096 characters). Default: - No description
+        :param policy_name: (experimental) The name of the policy. Valid characters: a-z, A-Z, 0-9, _ (underscore) Must start with a letter, 1-48 characters Default: - Auto-generated unique name
+        :param statement: (experimental) Type-safe Cedar policy statement built using PolicyStatement builder. Use this for a type-safe, form-like API to build Cedar policies without writing raw Cedar syntax. The builder validates at synthesis time. You must specify either ``definition`` or ``statement``, but not both. Default: - Must provide either definition or statement
+        :param validation_mode: (experimental) Validation mode for the policy. Default: PolicyValidationMode.FAIL_ON_ANY_FINDINGS
+
+        :return: The created Policy construct
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__aa647a5a7f1d91ff69b94f03554d6de3a76e17f7170282cc545819d13600a2c1)
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        options = AddPolicyOptions(
+            definition=definition,
+            description=description,
+            policy_name=policy_name,
+            statement=statement,
+            validation_mode=validation_mode,
+        )
+
+        return typing.cast("Policy", jsii.invoke(self, "addPolicy", [id, options]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    def PROPERTY_INJECTION_ID(cls) -> builtins.str:
+        '''(experimental) Uniquely identifies this class.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
+
+    @builtins.property
+    @jsii.member(jsii_name="grantPrincipal")
+    def grant_principal(self) -> "_aws_cdk_aws_iam_ceddda9d.IPrincipal":
+        '''(experimental) The principal to grant permissions to.
+
+        :stability: experimental
+        '''
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.IPrincipal", jsii.get(self, "grantPrincipal"))
+
+    @builtins.property
+    @jsii.member(jsii_name="policies")
+    def policies(self) -> typing.List["Policy"]:
+        '''(experimental) Get the list of policies added to this policy engine.
+
+        Returns an array of Policy constructs that were added using addPolicy().
+        This allows you to iterate over all policies associated with this engine.
+
+        :return: A copy of the policies array
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.List["Policy"], jsii.get(self, "policies"))
+
+    @builtins.property
+    @jsii.member(jsii_name="policyEngineArn")
+    def policy_engine_arn(self) -> builtins.str:
+        '''(experimental) The ARN of the policy engine resource.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "policyEngineArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="policyEngineId")
+    def policy_engine_id(self) -> builtins.str:
+        '''(experimental) The ID of the policy engine.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "policyEngineId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="policyEngineName")
+    def policy_engine_name(self) -> builtins.str:
+        '''(experimental) The name of the policy engine.
+
+        [disable-awslint:attribute-tag]
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "policyEngineName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The description of the policy engine.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @builtins.property
+    @jsii.member(jsii_name="kmsKey")
+    def kms_key(self) -> typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"]:
+        '''(experimental) The KMS key used to encrypt the policy engine.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"], jsii.get(self, "kmsKey"))
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''(experimental) Tags applied to this policy engine resource.
+
+        :default: - No tags applied
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], jsii.get(self, "tags"))
+
+
 class Runtime(
     RuntimeBase,
     metaclass=jsii.JSIIMeta,
@@ -27160,11 +32120,13 @@ class Runtime(
         environment_variables: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         execution_role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
         lifecycle_configuration: typing.Optional[typing.Union["LifecycleConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
+        logging_configs: typing.Optional[typing.Sequence[typing.Union["LoggingConfig", typing.Dict[builtins.str, typing.Any]]]] = None,
         network_configuration: typing.Optional["RuntimeNetworkConfiguration"] = None,
         protocol_configuration: typing.Optional["ProtocolType"] = None,
         request_header_configuration: typing.Optional[typing.Union["RequestHeaderConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         runtime_name: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        tracing_enabled: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''
         :param scope: -
@@ -27175,11 +32137,13 @@ class Runtime(
         :param environment_variables: (experimental) Environment variables for the agent runtime - Maximum 50 environment variables - Key: Must be 1-100 characters, start with letter or underscore, contain only letters, numbers, and underscores - Value: Must be 0-2048 characters (per CloudFormation specification). Default: - No environment variables
         :param execution_role: (experimental) The IAM role that provides permissions for the agent runtime If not provided, a role will be created automatically. Default: - A new role will be created
         :param lifecycle_configuration: (experimental) The life cycle configuration for the AgentCore Runtime. Default: - No lifecycle configuration
+        :param logging_configs: (experimental) Logging configuration for the runtime. Allows sending APPLICATION_LOGS and USAGE_LOGS to CloudWatch Logs, S3, or Kinesis Data Firehose. Default: - No logging configured
         :param network_configuration: (experimental) Network configuration for the agent runtime. Default: - RuntimeNetworkConfiguration.usingPublicNetwork()
         :param protocol_configuration: (experimental) Protocol configuration for the agent runtime. Default: - ProtocolType.HTTP
         :param request_header_configuration: (experimental) Configuration for HTTP request headers that will be passed through to the runtime. Default: - No request headers configured
         :param runtime_name: (experimental) The name of the agent runtime Valid characters are a-z, A-Z, 0-9, _ (underscore) Must start with a letter and can be up to 48 characters long Pattern: ^[a-zA-Z][a-zA-Z0-9_]{0,47}$. Default: - auto generate
         :param tags: (experimental) Tags for the agent runtime A list of key:value pairs of tags to apply to this Runtime resource. Default: {} - no tags
+        :param tracing_enabled: (experimental) Whether to enable X-Ray tracing for this runtime. When enabled, traces will be delivered to AWS X-Ray. Default: false
 
         :stability: experimental
         '''
@@ -27194,11 +32158,13 @@ class Runtime(
             environment_variables=environment_variables,
             execution_role=execution_role,
             lifecycle_configuration=lifecycle_configuration,
+            logging_configs=logging_configs,
             network_configuration=network_configuration,
             protocol_configuration=protocol_configuration,
             request_header_configuration=request_header_configuration,
             runtime_name=runtime_name,
             tags=tags,
+            tracing_enabled=tracing_enabled,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -28262,27 +33228,16 @@ class Gateway(
             gateway_name="my-gateway"
         )
         
-        lambda_function = lambda_.Function(self, "MyFunction",
-            runtime=lambda_.Runtime.NODEJS_22_X,
-            handler="index.handler",
-            code=lambda_.Code.from_inline("""
-                        exports.handler = async (event) => {
-                            return {
-                                statusCode: 200,
-                                body: JSON.stringify({ message: 'Hello from Lambda!' })
-                            };
-                        };
-                    """)
+        policy_engine = agentcore.PolicyEngine(self, "MyPolicyEngine",
+            policy_engine_name="my_policy_engine"
         )
         
-        # Create a gateway target with Lambda and tool schema
-        target = agentcore.GatewayTarget.for_lambda(self, "MyLambdaTarget",
-            gateway_target_name="my-lambda-target",
-            description="Target for Lambda function integration",
-            gateway=gateway,
-            lambda_function=lambda_function,
-            tool_schema=agentcore.ToolSchema.from_local_asset(
-                path.join(__dirname, "schemas", "my-tool-schema.json"))
+        allow_all_policy = agentcore.Policy(self, "AllowAllPolicy",
+            policy_engine=policy_engine,
+            policy_name="allow_all",
+            statement=agentcore.PolicyStatement.permit().for_all_principals().on_all_actions().on_resource("AgentCore::Gateway", gateway.gateway_arn),
+            description="Allow all actions on specific gateway (development only)",
+            validation_mode=agentcore.PolicyValidationMode.IGNORE_ALL_FINDINGS
         )
     '''
 
@@ -28297,6 +33252,7 @@ class Gateway(
         gateway_name: typing.Optional[builtins.str] = None,
         interceptor_configurations: typing.Optional[typing.Sequence["IInterceptor"]] = None,
         kms_key: typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"] = None,
+        policy_engine_configuration: typing.Optional[typing.Union["GatewayPolicyEngineConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         protocol_configuration: typing.Optional["IGatewayProtocolConfig"] = None,
         role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -28310,6 +33266,7 @@ class Gateway(
         :param gateway_name: (experimental) The name of the gateway Valid characters are a-z, A-Z, 0-9, _ (underscore) and - (hyphen) The name must be unique within your account. Default: - auto generate
         :param interceptor_configurations: (experimental) Interceptor configurations for the gateway. Interceptors allow you to run custom code during each gateway invocation: - REQUEST interceptors execute before the gateway calls the target - RESPONSE interceptors execute after the target responds A gateway can have at most one REQUEST interceptor and one RESPONSE interceptor. Default: - No interceptors
         :param kms_key: (experimental) The AWS KMS key used to encrypt data associated with the gateway. Default: - No encryption
+        :param policy_engine_configuration: (experimental) The policy engine configuration for this gateway. When provided, the specified policy engine will be associated with this gateway. All agent requests through this gateway will be evaluated against the Cedar policies defined in the policy engine. Default: - No policy engine (requests are not subject to Cedar policy authorization)
         :param protocol_configuration: (experimental) The protocol configuration for the gateway. Default: - A default protocol configuration will be created using MCP with following params supportedVersions: [MCPProtocolVersion.MCP_2025_03_26], searchType: McpGatewaySearchType.SEMANTIC, instructions: "Default gateway to connect to external MCP tools",
         :param role: (experimental) The IAM role that provides permissions for the gateway to access AWS services. Default: - A new role will be created
         :param tags: (experimental) Tags for the gateway A list of key:value pairs of tags to apply to this Gateway resource. Default: - No tags
@@ -28327,6 +33284,7 @@ class Gateway(
             gateway_name=gateway_name,
             interceptor_configurations=interceptor_configurations,
             kms_key=kms_key,
+            policy_engine_configuration=policy_engine_configuration,
             protocol_configuration=protocol_configuration,
             role=role,
             tags=tags,
@@ -28702,6 +33660,17 @@ class Gateway(
         :stability: experimental
         '''
         return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "oauthScopes"))
+
+    @builtins.property
+    @jsii.member(jsii_name="policyEngineConfiguration")
+    def policy_engine_configuration(
+        self,
+    ) -> typing.Optional["GatewayPolicyEngineConfig"]:
+        '''(experimental) The policy engine configuration associated with this gateway.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional["GatewayPolicyEngineConfig"], jsii.get(self, "policyEngineConfiguration"))
 
     @builtins.property
     @jsii.member(jsii_name="status")
@@ -29344,6 +34313,7 @@ __all__ = [
     "AddLambdaTargetOptions",
     "AddMcpServerTargetOptions",
     "AddOpenApiTargetOptions",
+    "AddPolicyOptions",
     "AddSmithyTargetOptions",
     "AgentCoreRuntime",
     "AgentRuntimeArtifact",
@@ -29360,6 +34330,7 @@ __all__ = [
     "ApiSchema",
     "AssetApiSchema",
     "AssetToolSchema",
+    "AttributeAccessor",
     "BrowserCustom",
     "BrowserCustomAttributes",
     "BrowserCustomBase",
@@ -29373,6 +34344,9 @@ __all__ = [
     "CodeInterpreterCustomProps",
     "CodeInterpreterNetworkConfiguration",
     "CognitoAuthorizerProps",
+    "ConditionBuilder",
+    "ConditionalAttributeAccessor",
+    "ConditionalPolicyStatement",
     "CredentialProviderType",
     "CustomClaimOperator",
     "CustomJwtAuthorizer",
@@ -29386,6 +34360,7 @@ __all__ = [
     "GatewayCredentialProvider",
     "GatewayCustomClaim",
     "GatewayExceptionLevel",
+    "GatewayPolicyEngineConfig",
     "GatewayProps",
     "GatewayProtocol",
     "GatewayTarget",
@@ -29411,6 +34386,8 @@ __all__ = [
     "IMcpGatewayTarget",
     "IMemory",
     "IMemoryStrategy",
+    "IPolicy",
+    "IPolicyEngine",
     "IRuntimeEndpoint",
     "ITargetConfiguration",
     "IamAuthorizer",
@@ -29423,6 +34400,9 @@ __all__ = [
     "LambdaInterceptor",
     "LambdaTargetConfiguration",
     "LifecycleConfiguration",
+    "LogType",
+    "LoggingConfig",
+    "LoggingDestination",
     "MCPProtocolVersion",
     "ManagedMemoryStrategy",
     "ManagedStrategyProps",
@@ -29441,9 +34421,21 @@ __all__ = [
     "MemoryStrategyType",
     "MetadataConfiguration",
     "NetworkConfiguration",
+    "NoAuthAuthorizer",
     "OAuthConfiguration",
     "OpenApiTargetConfiguration",
     "OverrideConfig",
+    "Policy",
+    "PolicyAttributes",
+    "PolicyBase",
+    "PolicyEngine",
+    "PolicyEngineAttributes",
+    "PolicyEngineBase",
+    "PolicyEngineMode",
+    "PolicyEngineProps",
+    "PolicyProps",
+    "PolicyStatement",
+    "PolicyValidationMode",
     "ProtocolType",
     "RecordingConfig",
     "RequestHeaderConfiguration",
@@ -29522,6 +34514,17 @@ def _typecheckingstub__0e470bb39eca66fb6432853e6b587e6dfd6a12cbae113042c771ed94c
     description: typing.Optional[builtins.str] = None,
     gateway_target_name: typing.Optional[builtins.str] = None,
     validate_open_api_schema: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3d6f5ede60211ce6d3bddaf50c8332aedc56652bcbee28d8139fddfd36a49896(
+    *,
+    definition: typing.Optional[builtins.str] = None,
+    description: typing.Optional[builtins.str] = None,
+    policy_name: typing.Optional[builtins.str] = None,
+    statement: typing.Optional[PolicyStatement] = None,
+    validation_mode: typing.Optional[PolicyValidationMode] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -29728,6 +34731,67 @@ def _typecheckingstub__1969177f30cd75ca15eb5fe82753cf55235f009c3212efb6859ea47bd
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__ad79c7ede66109ea698e7bef89e9b4d8a445fe1cbf2847caac7b193ba4ce20cb(
+    path: builtins.str,
+    parent: ConditionBuilder,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bd0f34b60371640e40c8f58396cedf1061c13d4a394710ed3f980d62578b3f78(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__74ec28744dac34dfbc97342f9cb65ba0868785d32e78b623cf6e678865961e20(
+    value: typing.Union[builtins.str, jsii.Number, builtins.bool],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__af6bb5564081a88488d4af236d076654e5b7e6c0064bdbc0443920e4aadabd26(
+    value: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ee7fcda935a94a60db2e445e0385756067b10fdbe23c0db304304dddbc6e03fe(
+    value: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bc520361571a0a8f9d3ba4d4f6a515ac2b996e8f6bb6937c91beb25a5dda547d(
+    values: typing.Sequence[typing.Union[builtins.str, jsii.Number]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__80c0e138c72af3ed2a8775bf7c03c2abaa3ee98c4e66609343465bc6413b6c4d(
+    ip_range: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5c9a002fe1be39b2bb193a89d1f3ce6993b55c525047510793a37d5121dc5931(
+    value: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__75e9c1d43a240c04f527fa53184a545a456f445752bfe117b0076f41d562e7fb(
+    value: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d9734afe25b3e7dee71166c8dab754a65a4d78a901c2c3d73e7caff5ff05faca(
+    value: typing.Union[builtins.str, jsii.Number, builtins.bool],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__14ea7632e5df00d60970b59a9a4cb5f38d208fd7a26740e3444fd2b1e4b432ba(
     *,
     browser_arn: builtins.str,
@@ -29806,6 +34870,111 @@ def _typecheckingstub__92abeeb0cd72ad10c1ed39de7f364db187c911a46c1bb3a5d59f6d256
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__f8478bf1b023d2aba9a8e54a78c249de58d816b9136c130a9d57692f94f5da02(
+    attribute: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__41fc4817a38aa72174ec607c60642f22503d43635dbdfaf63dc1a95b7092b12a(
+    attribute: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3088e7d7697775a9684c5551d40c17927b5c3f399201caeda5b0e75ba8543271(
+    attribute: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__537e07b7ca40ce37744fcbd9090102d4beffd9dcec8e2816db91c153f9d7b45b(
+    path: builtins.str,
+    parent: ConditionalPolicyStatement,
+    condition_builder: ConditionBuilder,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3c27d65bd3bfcd3d80238f8b3b9587ddf103981888b1484537cfdbc3adcb9c81(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5cff688ba8d6fc004627f1fc3e7adf1e85949dc175792eaf3bf5d238dbc22800(
+    value: typing.Union[builtins.str, jsii.Number, builtins.bool],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fd5927ace99133f1b53885795d81e311b0626bfd31a5a73cb415700347bb716b(
+    value: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__799f293df5a168bf6579b7a46ce71f1859146c159f6ee5c35c303e71daf0eb5a(
+    value: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1b6699ee67df1e7f27943b374c2864602f326ad7cfef019189e19ed2b925ccfe(
+    values: typing.Sequence[typing.Union[builtins.str, jsii.Number]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__45ed4d9e6cd632c5af4cce72d5bd3ba6f5d77c55f6e5cad97dd215752867d7d3(
+    ip_range: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8c131841f49718895c8db4525d0cd3c305789cd5c0632ef4b32a47cf891ec801(
+    value: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__61c5bf7b1e6a8c42d2784908d3c6e3f2a674817384ae3a3327042b13742156c8(
+    value: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7cd04e1bbac856bd40610343c9f1121e220eaafcd27c8f0198a1d514c5cd5b3e(
+    value: typing.Union[builtins.str, jsii.Number, builtins.bool],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3ebb164d99d3b380394f129ea2c18833fada60a06115bddcbc95b9b59c745de4(
+    policy_statement: PolicyStatement,
+    condition_builder: ConditionBuilder,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d6ccca968702d9925351b54e6431acb46402826bf350aa4576d4d60bfa906f44(
+    attribute: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__831599bb25914ffffff05cb8461e3fdb5fe4dedcb9557172875de775a3375cab(
+    attribute: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__887fc1f99f546ea642566ecdcc77a2bd6556200dbe08079081886699758ce6b5(
+    attribute: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__8f177e0b2ed3cb35819aacc05e59d683acdf040799acfae81a60470ec0eb3e55(
     *,
     discovery_url: builtins.str,
@@ -29849,6 +35018,14 @@ def _typecheckingstub__97ec8a345ac29ddf979f31966a7251449d3e536194411e1f95b7903ea
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__435057ae4f78629e4878de149e02cd44d5162ebec4281a566717b0158d964524(
+    *,
+    policy_engine: IPolicyEngine,
+    mode: typing.Optional[PolicyEngineMode] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__2a23c669f31d3b397457d411ed0f8b3bc5e4864707cd7ad3439804b69b0e7b9f(
     *,
     authorizer_configuration: typing.Optional[IGatewayAuthorizerConfig] = None,
@@ -29857,6 +35034,7 @@ def _typecheckingstub__2a23c669f31d3b397457d411ed0f8b3bc5e4864707cd7ad3439804b69
     gateway_name: typing.Optional[builtins.str] = None,
     interceptor_configurations: typing.Optional[typing.Sequence[IInterceptor]] = None,
     kms_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey] = None,
+    policy_engine_configuration: typing.Optional[typing.Union[GatewayPolicyEngineConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     protocol_configuration: typing.Optional[IGatewayProtocolConfig] = None,
     role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -30599,6 +35777,85 @@ def _typecheckingstub__934b8b491b04ba3c7c4ab4f5bc06c324dbefd303c41cbc2cfa9779067
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__b06d682754dabb267b2363658c431dab477668c081aca5169652420e8e2fd7b0(
+    grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
+    *actions: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4151e11652fd8cb4c7881ed73f2682071e66519ce35be4ffaaf08c6b4077b8af(
+    grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5ba5ef78a25a2bc38482302d3e630747fb5952e00a7df97f4106735369c1bf59(
+    metric_name: builtins.str,
+    dimensions: typing.Mapping[builtins.str, builtins.str],
+    *,
+    account: typing.Optional[builtins.str] = None,
+    color: typing.Optional[builtins.str] = None,
+    dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    id: typing.Optional[builtins.str] = None,
+    label: typing.Optional[builtins.str] = None,
+    period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+    region: typing.Optional[builtins.str] = None,
+    stack_account: typing.Optional[builtins.str] = None,
+    stack_region: typing.Optional[builtins.str] = None,
+    statistic: typing.Optional[builtins.str] = None,
+    unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+    visible: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__148192c5398a59c586d71214857a39232819b2bd42bea22dfee7a891b4290c8b(
+    grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
+    *actions: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e585477e6e26879cd9e1093388492a452d2806210bd7d1519945696009f895ab(
+    grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9772c1b57118ae52a70b2df1fd6f8148234e389c7d4c6e150c288fa3d5d7d0c5(
+    grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
+    gateway: IGateway,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1860e73b8be2fec2486f160542c4bda3067a4177710ff35f5a2a1662531ae1d5(
+    grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c33cbd179cc843f026ea3816459fe334400806b7154f2ee404b2c3d65bc10fa0(
+    metric_name: builtins.str,
+    dimensions: typing.Mapping[builtins.str, builtins.str],
+    *,
+    account: typing.Optional[builtins.str] = None,
+    color: typing.Optional[builtins.str] = None,
+    dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    id: typing.Optional[builtins.str] = None,
+    label: typing.Optional[builtins.str] = None,
+    period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+    region: typing.Optional[builtins.str] = None,
+    stack_account: typing.Optional[builtins.str] = None,
+    stack_region: typing.Optional[builtins.str] = None,
+    statistic: typing.Optional[builtins.str] = None,
+    unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+    visible: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__1717bbf253ab46d20bef66b2b02083fcd9ff690cbfcb83e8c649f81b006ea810(
     scope: _constructs_77d1e7e8.Construct,
     gateway: IGateway,
@@ -30673,6 +35930,38 @@ def _typecheckingstub__f39adc22c8396a71405e7fd3ec49f4208fd91c3ccafc829e042a75577
     *,
     idle_runtime_session_timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
     max_lifetime: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__71fa942160dc29641e8a833cbb88163994e44dcd90d7aa9de1bd4ae58c4a8230(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__654f884964ac0b13fac1e55ba4c404875b612a8564bc94c251872f35452c6364(
+    *,
+    destination: LoggingDestination,
+    log_type: LogType,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5e0db8113583ca06d41b3358e48b67227ce94f048b875bb6361017f54aa196c1(
+    log_group: _aws_cdk_aws_logs_ceddda9d.ILogGroup,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ac3aaaf8127edf6b2c5993dc602a7f3a2a95268826944b9c1ca2ad932da8b4a0(
+    stream: _aws_cdk_aws_kinesisfirehose_ceddda9d.IDeliveryStream,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__963a8e2b4e6bd265e3a6ff1cbaadd89f56ca4a30cb151994e3b6b7d127c54c9f(
+    bucket: _aws_cdk_aws_s3_ceddda9d.IBucket,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -30975,6 +36264,210 @@ def _typecheckingstub__b3dfe3652e8566d6eb013039b79337022b12d64febe65e86a809b46df
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__a349c59b6a28e8c6a9bfb6287b4772bbc5cb59029c08ede4e4dd98ab2a300301(
+    *,
+    policy_arn: builtins.str,
+    policy_engine: IPolicyEngine,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f7d80c72df117beffdb5fa2062373d47765a93cd8f2290374234ba017e392c08(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    account: typing.Optional[builtins.str] = None,
+    environment_from_arn: typing.Optional[builtins.str] = None,
+    physical_name: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__513937dbc4ae96a58c739eb9d0b3351508ef2c7a54c20cb26d98c6739b8e9225(
+    grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
+    *actions: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e413208486f080a8a19ffe7a93f7e19d74a3a5539aa04172d9ccd45d4170df3e(
+    grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6a8bc8fd6b9f95f4761d8cd71d54145fdf9a0a46975f4a7a23e4ff9bd6cf8e10(
+    metric_name: builtins.str,
+    dimensions: typing.Mapping[builtins.str, builtins.str],
+    *,
+    account: typing.Optional[builtins.str] = None,
+    color: typing.Optional[builtins.str] = None,
+    dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    id: typing.Optional[builtins.str] = None,
+    label: typing.Optional[builtins.str] = None,
+    period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+    region: typing.Optional[builtins.str] = None,
+    stack_account: typing.Optional[builtins.str] = None,
+    stack_region: typing.Optional[builtins.str] = None,
+    statistic: typing.Optional[builtins.str] = None,
+    unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+    visible: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__15903847864dfa4ba0fb9644cd35e68d31e4a0bc382c6328f11c375e29c82184(
+    *,
+    policy_engine_arn: builtins.str,
+    kms_key_arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1b833461b581a40cfbff65b497cab7ffd8a1a9ea8a526357b52abfdf2d02d9a6(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    account: typing.Optional[builtins.str] = None,
+    environment_from_arn: typing.Optional[builtins.str] = None,
+    physical_name: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__115be8ff5ce162ce863e43ee462116a9e04be35f2c07165c87f0b9982abf85db(
+    grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
+    *actions: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2f757ae7ed9b5ea6eff07664bffc5946a880b8ef47088200d9c206f2198ad476(
+    grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9e4298fd9a5000914a5239bd2451e05845e5a861b0cdc12fe1b9f05e7793f8fe(
+    grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
+    gateway: IGateway,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fb187ca9118ad519dcab9c8a34fb8a330b6d703cde2a550444bb6e13539658d6(
+    grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7e28ab00ca545731b7d6e11787a86ffe9c84d06b5cf43be8fe7d4ee41a07632c(
+    metric_name: builtins.str,
+    dimensions: typing.Mapping[builtins.str, builtins.str],
+    *,
+    account: typing.Optional[builtins.str] = None,
+    color: typing.Optional[builtins.str] = None,
+    dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    id: typing.Optional[builtins.str] = None,
+    label: typing.Optional[builtins.str] = None,
+    period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+    region: typing.Optional[builtins.str] = None,
+    stack_account: typing.Optional[builtins.str] = None,
+    stack_region: typing.Optional[builtins.str] = None,
+    statistic: typing.Optional[builtins.str] = None,
+    unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+    visible: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__622a324404fed6c321a67a3ac68e1f127641f97aaa5eb357ed2acb593cb7fc4b(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__24140c33786b19b00228bcdaae493864733f9f0da75b482cc3f927ae89e0e56e(
+    *,
+    description: typing.Optional[builtins.str] = None,
+    kms_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey] = None,
+    policy_engine_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8363fb4096a59944f0d2f98a244709dc4327c371267fab92dfac96359309ab18(
+    *,
+    policy_engine: IPolicyEngine,
+    definition: typing.Optional[builtins.str] = None,
+    description: typing.Optional[builtins.str] = None,
+    policy_name: typing.Optional[builtins.str] = None,
+    statement: typing.Optional[PolicyStatement] = None,
+    validation_mode: typing.Optional[PolicyValidationMode] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__22557703ec55a600948cd6747e04f25b3aafc3397b0c95357b8cd4d3b209f045(
+    cedar_statement: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9dbf9cd610a7752ff740eb9c965493e5eab437a9d2eb0f5f7141874b547061e6(
+    entity_type: builtins.str,
+    entity_id: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ea07f89b2ecd68d587bc1ff6116ed9784fdb3999d6234f99477dbd42db4751c2(
+    group_type: builtins.str,
+    group_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__129e559145fecf5e9b9e27089816cc1576480472c9869380127c9a003c75345c(
+    action: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__27f4cb6794d3ea842578b1a2cfc77dc9ad17053a54a5ae656a4a8efa0b7edbca(
+    actions: typing.Sequence[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3d43adf2799cf9a34de0961a8ae26a80f34f04195e2ba006e94aff82cdbdada6(
+    entity_type: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__05401a9b1108cf76784603ece6acaee8e9c23afc00d798d76ea53029f0686c2d(
+    entity_type: builtins.str,
+    entity_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__56659c2ecdc209115a5701a8e2946f591513814f7adb983832abe5cc4b341c73(
+    entity_type: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__722bffc4dbcac5d09b1c8e417ac1d75b0072e92c62151a5841c8bc621b6d3b48(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__847016f3fc41e4cdc9b08f4aeed6b6521f23c2c1ef8b55de56db5d14f7dbdc82(
     *,
     enabled: typing.Optional[builtins.bool] = None,
@@ -31168,11 +36661,13 @@ def _typecheckingstub__e60d912f60dcec4a97a088e67e9b6da136fd8fbd51038c0380995a194
     environment_variables: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     execution_role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
     lifecycle_configuration: typing.Optional[typing.Union[LifecycleConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
+    logging_configs: typing.Optional[typing.Sequence[typing.Union[LoggingConfig, typing.Dict[builtins.str, typing.Any]]]] = None,
     network_configuration: typing.Optional[RuntimeNetworkConfiguration] = None,
     protocol_configuration: typing.Optional[ProtocolType] = None,
     request_header_configuration: typing.Optional[typing.Union[RequestHeaderConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
     runtime_name: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    tracing_enabled: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -32015,6 +37510,64 @@ def _typecheckingstub__d88d525f5db5bcf500ab4eef917307847de4249de07b49c2ddf92dd64
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__7004ff7e66eb9bd92f5e3382efd82acca2795fddd2ceb6f63d7ec61fc26b5bc2(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    policy_engine: IPolicyEngine,
+    definition: typing.Optional[builtins.str] = None,
+    description: typing.Optional[builtins.str] = None,
+    policy_name: typing.Optional[builtins.str] = None,
+    statement: typing.Optional[PolicyStatement] = None,
+    validation_mode: typing.Optional[PolicyValidationMode] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ba58938674de237078683f4259b17ae55e9b37e93e341f8f76079106517e29ae(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    policy_arn: builtins.str,
+    policy_engine: IPolicyEngine,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4973799f2174196a829eb95925f878a0bcf1d3f21efa0d39e02114f3a43d1b97(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    description: typing.Optional[builtins.str] = None,
+    kms_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey] = None,
+    policy_engine_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7ea6ccd06549c765b0e6519dea3e84eed679fcd3984dbf9ca907498340f77475(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    policy_engine_arn: builtins.str,
+    kms_key_arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__aa647a5a7f1d91ff69b94f03554d6de3a76e17f7170282cc545819d13600a2c1(
+    id: builtins.str,
+    *,
+    definition: typing.Optional[builtins.str] = None,
+    description: typing.Optional[builtins.str] = None,
+    policy_name: typing.Optional[builtins.str] = None,
+    statement: typing.Optional[PolicyStatement] = None,
+    validation_mode: typing.Optional[PolicyValidationMode] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__d3c75c162a496b2457c5b16d4ab318237dd0f6028aaaa787f5968728ad5bea40(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -32025,11 +37578,13 @@ def _typecheckingstub__d3c75c162a496b2457c5b16d4ab318237dd0f6028aaaa787f5968728a
     environment_variables: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     execution_role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
     lifecycle_configuration: typing.Optional[typing.Union[LifecycleConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
+    logging_configs: typing.Optional[typing.Sequence[typing.Union[LoggingConfig, typing.Dict[builtins.str, typing.Any]]]] = None,
     network_configuration: typing.Optional[RuntimeNetworkConfiguration] = None,
     protocol_configuration: typing.Optional[ProtocolType] = None,
     request_header_configuration: typing.Optional[typing.Union[RequestHeaderConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
     runtime_name: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    tracing_enabled: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -32177,6 +37732,7 @@ def _typecheckingstub__2985121a5f15718200b977df97c21191f0a411a8b56ec2d94bff0c84f
     gateway_name: typing.Optional[builtins.str] = None,
     interceptor_configurations: typing.Optional[typing.Sequence[IInterceptor]] = None,
     kms_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey] = None,
+    policy_engine_configuration: typing.Optional[typing.Union[GatewayPolicyEngineConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     protocol_configuration: typing.Optional[IGatewayProtocolConfig] = None,
     role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -32390,5 +37946,5 @@ def _typecheckingstub__d19feef196b77e5e83bf68d3b43488ef8ac66df0eb65c4f1ece12f93d
     """Type checking stubs"""
     pass
 
-for cls in [IBedrockAgentRuntime, IBrowserCustom, ICodeInterpreterCustom, ICredentialProviderConfig, IGateway, IGatewayAuthorizerConfig, IGatewayProtocolConfig, IGatewayTarget, IInterceptor, IMcpGatewayTarget, IMemory, IMemoryStrategy, IRuntimeEndpoint, ITargetConfiguration]:
+for cls in [IBedrockAgentRuntime, IBrowserCustom, ICodeInterpreterCustom, ICredentialProviderConfig, IGateway, IGatewayAuthorizerConfig, IGatewayProtocolConfig, IGatewayTarget, IInterceptor, IMcpGatewayTarget, IMemory, IMemoryStrategy, IPolicy, IPolicyEngine, IRuntimeEndpoint, ITargetConfiguration]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

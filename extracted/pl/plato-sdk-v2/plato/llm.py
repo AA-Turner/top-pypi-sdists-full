@@ -45,6 +45,52 @@ from plato.otel import get_tracer, record_step_cost
 litellm.suppress_debug_info = True  # type: ignore[assignment]
 logging.getLogger("LiteLLM").setLevel(logging.WARNING)
 
+
+def _patch_openrouter_byok_cost() -> None:
+    """Patch LiteLLM's OpenRouter transformation to include BYOK upstream cost.
+
+    OpenRouter returns its markup in usage.cost and the actual provider cost in
+    usage.cost_details.upstream_inference_cost. LiteLLM only reads usage.cost,
+    so BYOK calls report $0. This patch adds the upstream cost so the total
+    reflects both OpenRouter's fee and the provider charge.
+    """
+    try:
+        from litellm.llms.openrouter.chat.transformation import OpenrouterConfig
+    except ImportError:
+        return
+
+    _orig_transform = OpenrouterConfig.transform_response
+
+    def _transform_with_byok_cost(self, model, raw_response, model_response, *args, **kwargs):  # type: ignore[no-untyped-def]
+        result = _orig_transform(self, model, raw_response, model_response, *args, **kwargs)
+        try:
+            response_json = raw_response.json()
+            usage = response_json.get("usage") or {}
+            cost_details = usage.get("cost_details") or {}
+            upstream_cost = cost_details.get("upstream_inference_cost")
+            if upstream_cost is not None and float(upstream_cost) > 0:
+                if not hasattr(result, "_hidden_params") or result._hidden_params is None:
+                    result._hidden_params = {}
+                if "additional_headers" not in result._hidden_params:
+                    result._hidden_params["additional_headers"] = {}
+                openrouter_cost = float(
+                    result._hidden_params["additional_headers"].get("llm_provider-x-litellm-response-cost", 0.0) or 0.0
+                )
+                # For non-BYOK, usage.cost already includes upstream + margin;
+                # only add upstream_inference_cost when OpenRouter's own fee is zero.
+                if openrouter_cost == 0.0:
+                    result._hidden_params["additional_headers"]["llm_provider-x-litellm-response-cost"] = float(
+                        upstream_cost
+                    )
+        except Exception:
+            pass
+        return result
+
+    OpenrouterConfig.transform_response = _transform_with_byok_cost  # type: ignore[assignment]
+
+
+_patch_openrouter_byok_cost()
+
 # Global per-model concurrency semaphores keyed by (model, api_base)
 _model_semaphores: dict[tuple[str, str], asyncio.Semaphore] = {}
 _model_semaphore_lock = asyncio.Lock()
@@ -441,6 +487,18 @@ def _parse_response(raw_response: Any, model: str) -> LLMResponse:
         cost = litellm.completion_cost(completion_response=raw_response)
     except Exception:
         pass
+
+    if cost == 0.0:
+        try:
+            hidden = getattr(raw_response, "_hidden_params", None)
+            if isinstance(hidden, dict):
+                headers = hidden.get("additional_headers")
+                if isinstance(headers, dict):
+                    provider_cost = headers.get("llm_provider-x-litellm-response-cost")
+                    if provider_cost is not None:
+                        cost = float(provider_cost)
+        except (TypeError, ValueError):
+            pass
 
     # Extract stop reason
     stop_reason = ""

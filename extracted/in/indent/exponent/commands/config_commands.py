@@ -5,7 +5,6 @@ import click
 
 from exponent.commands.common import (
     redirect_to_login,
-    refresh_api_key_task,
     run_until_complete,
     set_login_complete,
 )
@@ -321,21 +320,3 @@ async def get_authenticated_user_task(
     graphql_client = GraphQLClient(api_key, base_api_url, base_ws_url)
     result = await graphql_client.execute(CURRENT_USER_QUERY)
     click.echo(result)
-
-
-@config_cli.command(hidden=True)
-@use_settings
-def refresh_key(settings: Settings) -> None:
-    """Refresh your API key."""
-    if not settings.api_key:
-        redirect_to_login(settings)
-        return
-
-    click.echo("Refreshing API key...")
-    run_until_complete(
-        refresh_api_key_task(
-            api_key=settings.api_key,
-            base_api_url=settings.get_base_api_url(),
-            base_ws_url=settings.get_base_ws_url(),
-        )
-    )

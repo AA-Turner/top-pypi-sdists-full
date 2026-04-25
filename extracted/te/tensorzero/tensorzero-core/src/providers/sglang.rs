@@ -10,11 +10,9 @@ use serde_json::{Value, json};
 use tokio::time::Instant;
 use url::Url;
 
-use crate::cache::ModelProviderRequest;
 use crate::endpoints::inference::InferenceCredentials;
 use crate::error::{DelayedError, DisplayOrDebugGateway, Error, ErrorDetails};
 use crate::inference::InferenceProvider;
-use crate::inference::types::ProviderInferenceResponseArgs;
 use crate::inference::types::batch::{BatchRequestRow, PollBatchInferenceResponse};
 use crate::inference::types::chat_completion_inference_params::{
     ChatCompletionInferenceParamsV2, warn_inference_parameter_not_supported,
@@ -22,18 +20,19 @@ use crate::inference::types::chat_completion_inference_params::{
 use crate::inference::types::usage::raw_usage_entries_from_value;
 use crate::inference::types::{
     ApiType, Latency, ModelInferenceRequest, ModelInferenceRequestJsonMode,
-    PeekableProviderInferenceResponseStream, ProviderInferenceResponse, Thought,
-    batch::StartBatchProviderInferenceResponse,
+    PeekableProviderInferenceResponseStream, ProviderInferenceResponse,
+    ProviderInferenceResponseArgs, Thought, batch::StartBatchProviderInferenceResponse,
 };
 use crate::inference::types::{
     ContentBlockChunk, ContentBlockOutput, FinishReason, ProviderInferenceResponseChunk,
     ProviderInferenceResponseStreamInner, TextChunk, ThoughtChunk,
 };
-use crate::model::{Credential, ModelProvider};
+use crate::model::Credential;
+use crate::model::{ModelProviderRequestInfo, ProviderInferenceRequest};
 use crate::providers::helpers::{
     inject_extra_request_data_and_send, inject_extra_request_data_and_send_eventsource,
 };
-use crate::providers::openai::{OpenAIMessagesConfig, check_api_base_suffix};
+use crate::providers::openai::{OpenAIMessagesConfig, ReasoningFieldName, check_api_base_suffix};
 use crate::tool::ToolCallChunk;
 use uuid::Uuid;
 
@@ -141,16 +140,15 @@ impl SGLangCredentials {
 impl InferenceProvider for SGLangProvider {
     async fn infer<'a>(
         &'a self,
-        ModelProviderRequest {
+        ProviderInferenceRequest {
             request,
             provider_name: _,
             model_name,
-            otlp_config: _,
             model_inference_id,
-        }: ModelProviderRequest<'a>,
+        }: ProviderInferenceRequest<'a>,
         http_client: &'a TensorzeroHttpClient,
         dynamic_api_keys: &'a InferenceCredentials,
-        model_provider: &'a ModelProvider,
+        model_provider: &'a ModelProviderRequestInfo,
     ) -> Result<ProviderInferenceResponse, Error> {
         let request_body = serde_json::to_value(
             SGLangRequest::new(&self.model_name, request).await?,
@@ -248,16 +246,15 @@ impl InferenceProvider for SGLangProvider {
 
     async fn infer_stream<'a>(
         &'a self,
-        ModelProviderRequest {
+        ProviderInferenceRequest {
             request,
             provider_name: _,
             model_name,
-            otlp_config: _,
             model_inference_id,
-        }: ModelProviderRequest<'a>,
+        }: ProviderInferenceRequest<'a>,
         http_client: &'a TensorzeroHttpClient,
         dynamic_api_keys: &'a InferenceCredentials,
-        model_provider: &'a ModelProvider,
+        model_provider: &'a ModelProviderRequestInfo,
     ) -> Result<(PeekableProviderInferenceResponseStream, String), Error> {
         let request_body = serde_json::to_value(
             SGLangRequest::new(&self.model_name, request).await?,
@@ -711,6 +708,7 @@ impl<'a> SGLangRequest<'a> {
                 fetch_and_encode_input_files_before_inference: request
                     .fetch_and_encode_input_files_before_inference,
                 content_type_overrides: None,
+                reasoning_field_name: ReasoningFieldName::ReasoningContent,
             },
         )
         .await?;
@@ -859,10 +857,13 @@ mod tests {
                 OpenAIFinishReason, OpenAIResponseChoice, OpenAIResponseMessage,
                 OpenAIToolChoiceString, OpenAIUsage,
             },
-            test_helpers::{MULTI_TOOL_CONFIG, QUERY_TOOL, WEATHER_TOOL, WEATHER_TOOL_CONFIG},
+            test_helpers::{
+                MULTI_PROVIDER_TOOL_CONFIG, QUERY_TOOL, WEATHER_PROVIDER_TOOL_CONFIG, WEATHER_TOOL,
+            },
         },
         tool::{ToolCallConfig, ToolChoice},
     };
+    use tensorzero_inference_types::ProviderToolCallConfig;
 
     use super::*;
 
@@ -929,7 +930,7 @@ mod tests {
             seed: None,
             stream: false,
             json_mode: ModelInferenceRequestJsonMode::On,
-            tool_config: Some(Cow::Borrowed(&WEATHER_TOOL_CONFIG)),
+            tool_config: Some(Cow::Borrowed(&*WEATHER_PROVIDER_TOOL_CONFIG)),
             function_type: FunctionType::Chat,
             output_schema: None,
             extra_body: Default::default(),
@@ -1202,7 +1203,7 @@ mod tests {
             seed: None,
             stream: false,
             json_mode: ModelInferenceRequestJsonMode::Off,
-            tool_config: Some(Cow::Borrowed(&MULTI_TOOL_CONFIG)),
+            tool_config: Some(Cow::Borrowed(&*MULTI_PROVIDER_TOOL_CONFIG)),
             function_type: FunctionType::Chat,
             output_schema: None,
             extra_body: Default::default(),
@@ -1243,6 +1244,7 @@ mod tests {
         };
 
         // Test no tools but a tool choice and make sure tool choice output is None
+        let provider_tool_config = ProviderToolCallConfig::from(&tool_config);
         let request_without_tools = ModelInferenceRequest {
             inference_id: Uuid::now_v7(),
             messages: vec![RequestMessage {
@@ -1258,7 +1260,7 @@ mod tests {
             seed: None,
             stream: false,
             json_mode: ModelInferenceRequestJsonMode::Off,
-            tool_config: Some(Cow::Borrowed(&tool_config)),
+            tool_config: Some(Cow::Borrowed(&provider_tool_config)),
             function_type: FunctionType::Chat,
             output_schema: None,
             extra_body: Default::default(),

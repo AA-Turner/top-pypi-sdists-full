@@ -21,8 +21,7 @@
 # THE SOFTWARE.
 #
 # ###########################################################################*/
-"""This module provides tool bar helper.
-"""
+"""This module provides tool bar helper."""
 
 __authors__ = ["V. Valls"]
 __license__ = "MIT"
@@ -38,7 +37,6 @@ from . import manager
 from .. import roi as roi_mdl
 from silx.gui.plot import items
 
-
 _logger = logging.getLogger(__name__)
 
 
@@ -50,7 +48,7 @@ class ProfileToolBar(qt.QToolBar):
     """
 
     def __init__(self, parent=None, plot=None):
-        super(ProfileToolBar, self).__init__(parent=parent)
+        super().__init__(parent=parent)
         self.__scheme = None
         self.__manager = None
         self.__plot = weakref.ref(plot)

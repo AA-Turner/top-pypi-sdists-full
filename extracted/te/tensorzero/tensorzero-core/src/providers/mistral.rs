@@ -2,7 +2,7 @@ use std::{borrow::Cow, time::Duration};
 
 use crate::{
     http::{TensorZeroEventSource, TensorzeroHttpClient},
-    providers::openai::OpenAIMessagesConfig,
+    providers::openai::{OpenAIMessagesConfig, ReasoningFieldName},
 };
 use futures::StreamExt;
 use lazy_static::lazy_static;
@@ -21,7 +21,6 @@ use url::Url;
 
 use crate::inference::types::usage::raw_usage_entries_from_value;
 use crate::{
-    cache::ModelProviderRequest,
     endpoints::inference::InferenceCredentials,
     error::{DelayedError, DisplayOrDebugGateway, Error, ErrorDetails},
     inference::{
@@ -41,13 +40,14 @@ use crate::{
             },
         },
     },
-    model::{Credential, ModelProvider},
+    model::{Credential, ModelProviderRequestInfo, ProviderInferenceRequest},
     providers::helpers::{
         check_new_tool_call_name, convert_stream_error, inject_extra_request_data_and_send,
         inject_extra_request_data_and_send_eventsource,
     },
-    tool::{FunctionToolConfig, ToolCall, ToolCallChunk, ToolChoice},
+    tool::{ToolCall, ToolCallChunk, ToolChoice},
 };
+use tensorzero_inference_types::FunctionToolDef;
 use uuid::Uuid;
 
 use super::openai::{
@@ -171,16 +171,15 @@ impl MistralCredentials {
 impl InferenceProvider for MistralProvider {
     async fn infer<'a>(
         &'a self,
-        ModelProviderRequest {
+        ProviderInferenceRequest {
             request,
             provider_name: _,
             model_name,
-            otlp_config: _,
             model_inference_id,
-        }: ModelProviderRequest<'a>,
+        }: ProviderInferenceRequest<'a>,
         http_client: &'a TensorzeroHttpClient,
         dynamic_api_keys: &'a InferenceCredentials,
-        model_provider: &'a ModelProvider,
+        model_provider: &'a ModelProviderRequestInfo,
     ) -> Result<ProviderInferenceResponse, Error> {
         let request_body = serde_json::to_value(
             MistralRequest::new(&self.model_name, request, self.prompt_mode.as_deref()).await?,
@@ -275,16 +274,15 @@ impl InferenceProvider for MistralProvider {
 
     async fn infer_stream<'a>(
         &'a self,
-        ModelProviderRequest {
+        ProviderInferenceRequest {
             request,
             provider_name: _,
             model_name,
-            otlp_config: _,
             model_inference_id,
-        }: ModelProviderRequest<'a>,
+        }: ProviderInferenceRequest<'a>,
         http_client: &'a TensorzeroHttpClient,
         dynamic_api_keys: &'a InferenceCredentials,
-        model_provider: &'a ModelProvider,
+        model_provider: &'a ModelProviderRequestInfo,
     ) -> Result<(PeekableProviderInferenceResponseStream, String), Error> {
         let request_body = serde_json::to_value(
             MistralRequest::new(&self.model_name, request, self.prompt_mode.as_deref()).await?,
@@ -655,14 +653,14 @@ pub(super) struct MistralTool<'a> {
     function: OpenAIFunction<'a>,
 }
 
-impl<'a> From<&'a FunctionToolConfig> for MistralTool<'a> {
-    fn from(tool: &'a FunctionToolConfig) -> Self {
+impl<'a> From<&'a FunctionToolDef> for MistralTool<'a> {
+    fn from(tool: &'a FunctionToolDef) -> Self {
         MistralTool {
             r#type: OpenAIToolType::Function,
             function: OpenAIFunction {
-                name: tool.name(),
-                description: Some(tool.description()),
-                parameters: tool.parameters(),
+                name: &tool.name,
+                description: Some(&tool.description),
+                parameters: &tool.parameters,
             },
         }
     }
@@ -778,6 +776,7 @@ impl<'a> MistralRequest<'a> {
                 fetch_and_encode_input_files_before_inference: request
                     .fetch_and_encode_input_files_before_inference,
                 content_type_overrides: None,
+                reasoning_field_name: ReasoningFieldName::ReasoningContent,
             },
             prompt_mode.is_some(),
         )
@@ -1080,8 +1079,9 @@ mod tests {
     use googletest::prelude::*;
 
     use crate::inference::types::{FunctionType, RequestMessage, Role};
-    use crate::providers::test_helpers::{QUERY_TOOL, WEATHER_TOOL, WEATHER_TOOL_CONFIG};
+    use crate::providers::test_helpers::{QUERY_TOOL, WEATHER_PROVIDER_TOOL_CONFIG, WEATHER_TOOL};
     use crate::tool::{AllowedTools, ToolCallConfig};
+    use tensorzero_inference_types::ProviderToolCallConfig;
     use tensorzero_types_providers::mistral::{
         MistralChatChunkChoice, MistralDelta, MistralResponseFunctionCall, MistralResponseMessage,
         MistralThinkingSubChunk,
@@ -1103,7 +1103,7 @@ mod tests {
             frequency_penalty: None,
             stream: false,
             json_mode: ModelInferenceRequestJsonMode::On,
-            tool_config: Some(Cow::Borrowed(&WEATHER_TOOL_CONFIG)),
+            tool_config: Some(Cow::Borrowed(&*WEATHER_PROVIDER_TOOL_CONFIG)),
             function_type: FunctionType::Chat,
             output_schema: None,
             extra_body: Default::default(),
@@ -1158,6 +1158,7 @@ mod tests {
             },
         };
 
+        let provider_tool_config = ProviderToolCallConfig::from(&tool_config);
         let request = ModelInferenceRequest {
             inference_id: Uuid::now_v7(),
             messages: vec![RequestMessage {
@@ -1173,7 +1174,7 @@ mod tests {
             seed: None,
             stream: false,
             json_mode: ModelInferenceRequestJsonMode::Off,
-            tool_config: Some(Cow::Borrowed(&tool_config)),
+            tool_config: Some(Cow::Borrowed(&provider_tool_config)),
             function_type: FunctionType::Chat,
             output_schema: None,
             extra_body: Default::default(),
@@ -1211,6 +1212,7 @@ mod tests {
             allowed_tools: AllowedTools::default(),
         };
 
+        let provider_tool_config = ProviderToolCallConfig::from(&tool_config);
         let request = ModelInferenceRequest {
             inference_id: Uuid::now_v7(),
             messages: vec![RequestMessage {
@@ -1226,7 +1228,7 @@ mod tests {
             seed: None,
             stream: false,
             json_mode: ModelInferenceRequestJsonMode::Off,
-            tool_config: Some(Cow::Borrowed(&tool_config)),
+            tool_config: Some(Cow::Borrowed(&provider_tool_config)),
             function_type: FunctionType::Chat,
             output_schema: None,
             extra_body: Default::default(),
@@ -1264,6 +1266,7 @@ mod tests {
             allowed_tools: AllowedTools::default(),
         };
 
+        let provider_tool_config = ProviderToolCallConfig::from(&tool_config);
         let request = ModelInferenceRequest {
             inference_id: Uuid::now_v7(),
             messages: vec![RequestMessage {
@@ -1279,7 +1282,7 @@ mod tests {
             seed: None,
             stream: false,
             json_mode: ModelInferenceRequestJsonMode::Off,
-            tool_config: Some(Cow::Borrowed(&tool_config)),
+            tool_config: Some(Cow::Borrowed(&provider_tool_config)),
             function_type: FunctionType::Chat,
             output_schema: None,
             extra_body: Default::default(),
@@ -1315,6 +1318,7 @@ mod tests {
             allowed_tools: AllowedTools::default(),
         };
 
+        let provider_tool_config = ProviderToolCallConfig::from(&tool_config);
         let request = ModelInferenceRequest {
             inference_id: Uuid::now_v7(),
             messages: vec![RequestMessage {
@@ -1330,7 +1334,7 @@ mod tests {
             seed: None,
             stream: false,
             json_mode: ModelInferenceRequestJsonMode::Off,
-            tool_config: Some(Cow::Borrowed(&tool_config)),
+            tool_config: Some(Cow::Borrowed(&provider_tool_config)),
             function_type: FunctionType::Chat,
             output_schema: None,
             extra_body: Default::default(),
@@ -1371,7 +1375,7 @@ mod tests {
             seed: None,
             stream: false,
             json_mode: ModelInferenceRequestJsonMode::Off,
-            tool_config: Some(Cow::Borrowed(&WEATHER_TOOL_CONFIG)),
+            tool_config: Some(Cow::Borrowed(&*WEATHER_PROVIDER_TOOL_CONFIG)),
             function_type: FunctionType::Chat,
             output_schema: None,
             extra_body: Default::default(),
@@ -1435,7 +1439,7 @@ mod tests {
             frequency_penalty: None,
             stream: false,
             json_mode: ModelInferenceRequestJsonMode::On,
-            tool_config: Some(Cow::Borrowed(&WEATHER_TOOL_CONFIG)),
+            tool_config: Some(Cow::Borrowed(&*WEATHER_PROVIDER_TOOL_CONFIG)),
             function_type: FunctionType::Chat,
             output_schema: None,
             extra_body: Default::default(),
@@ -1533,7 +1537,7 @@ mod tests {
             frequency_penalty: Some(0.1),
             stream: false,
             json_mode: ModelInferenceRequestJsonMode::On,
-            tool_config: Some(Cow::Borrowed(&WEATHER_TOOL_CONFIG)),
+            tool_config: Some(Cow::Borrowed(&*WEATHER_PROVIDER_TOOL_CONFIG)),
             function_type: FunctionType::Chat,
             output_schema: None,
             extra_body: Default::default(),

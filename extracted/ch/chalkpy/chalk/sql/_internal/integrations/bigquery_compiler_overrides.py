@@ -309,7 +309,7 @@ class BQLargeBinary(LargeBinary):
 @functools.lru_cache(None)
 def register_bigquery_compiler_hooks():
     colspecs = dict(BigQueryDialect.colspecs)
-    colspecs.pop(_Binary)
+    colspecs.pop(_Binary, None)
     colspecs[BINARY] = BQBINARY
     colspecs[LargeBinary] = BQLargeBinary
     BigQueryDialect.colspecs = colspecs

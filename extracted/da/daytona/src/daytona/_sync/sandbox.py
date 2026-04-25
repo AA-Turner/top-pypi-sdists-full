@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import threading
 import time
 
 from deprecated import deprecated
@@ -20,6 +21,7 @@ from daytona_api_client import (
     SignedPortPreviewUrl,
     SshAccessDto,
     SshAccessValidationDto,
+    UpdateSandboxNetworkSettings,
 )
 from daytona_toolbox_api_client import (
     ApiClient,
@@ -103,6 +105,7 @@ class Sandbox(SandboxDto):
         toolbox_api: ApiClient,
         sandbox_api: SandboxApi,
         language: str,
+        ws_handshake_semaphore: threading.Semaphore | None = None,
     ):
         """Initialize a new Sandbox instance.
 
@@ -121,9 +124,9 @@ class Sandbox(SandboxDto):
 
         self._fs = FileSystem(FileSystemApi(self._toolbox_api))
         self._git = Git(GitApi(self._toolbox_api))
-        self._process = Process(language, ProcessApi(self._toolbox_api))
+        self._process = Process(language, ProcessApi(self._toolbox_api), ws_handshake_semaphore)
         self._computer_use = ComputerUse(ComputerUseApi(self._toolbox_api))
-        self._code_interpreter = CodeInterpreter(InterpreterApi(self._toolbox_api))
+        self._code_interpreter = CodeInterpreter(InterpreterApi(self._toolbox_api), ws_handshake_semaphore)
         self._info_api: InfoApi = InfoApi(self._toolbox_api)
 
     @property
@@ -500,6 +503,41 @@ class Sandbox(SandboxDto):
         _ = self._sandbox_api.set_auto_delete_interval(self.id, interval)
         self.auto_delete_interval = interval
 
+    @intercept_errors(message_prefix="Failed to update network settings: ")
+    @with_instrumentation()
+    def update_network_settings(
+        self,
+        *,
+        network_block_all: bool | None = None,
+        network_allow_list: str | None = None,
+    ) -> None:
+        """Updates outbound network policy on the runner (block all, restore access, or CIDR allow list).
+
+        Args:
+            network_block_all: When ``True``, blocks all outbound traffic. When ``False``, restores general
+                outbound access (and clears a stored allow list).
+            network_allow_list: Comma-separated IPv4 CIDRs to allow; implies not blocking all.
+
+        Raises:
+            DaytonaValidationError: If neither argument is set.
+
+        Example:
+            ```python
+            sandbox.update_network_settings(network_block_all=True)
+            sandbox.update_network_settings(network_block_all=False)
+            ```
+        """
+        if network_block_all is None and network_allow_list is None:
+            raise DaytonaValidationError("At least one of network_block_all or network_allow_list must be set")
+
+        body = UpdateSandboxNetworkSettings(
+            network_block_all=network_block_all,
+            network_allow_list=network_allow_list,
+        )
+        updated = self._sandbox_api.update_network_settings(self.id, body)
+        self.network_block_all = updated.network_block_all
+        self.network_allow_list = updated.network_allow_list
+
     @intercept_errors(message_prefix="Failed to get preview link: ")
     @with_instrumentation()
     def get_preview_link(self, port: int) -> PortPreviewUrl:
@@ -716,6 +754,7 @@ class Sandbox(SandboxDto):
             self._toolbox_api._api_client,
             self._sandbox_api,
             language,
+            ws_handshake_semaphore=self._process._ws_handshake_semaphore,
         )
         forked.wait_for_sandbox_start(timeout=0)
         return forked

@@ -2,9 +2,10 @@ import ast
 import importlib
 import os
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 from types import ModuleType
-from typing import Any, Dict, Optional, Set, Tuple, Union
+from typing import Any, Dict, Optional, Set, Union
 
 from chalk.utils.cached_type_hints import cached_get_type_hints
 from chalk.utils.log_with_context import get_logger
@@ -110,7 +111,14 @@ def find_type_checking_aliases(tree: ast.AST) -> Set[str]:
     return aliases
 
 
-def gather_all_imports_and_local_classes(tree: ast.Module) -> Tuple[list[str], list[str], list[str]]:
+@dataclass(frozen=True, kw_only=True)
+class _GatheredImports:
+    regular_from_imports: list[str]  # names imported at module scope (outside any TYPE_CHECKING block)
+    type_checking_imports: list[str]  # names imported inside an `if TYPE_CHECKING:` block
+    local_classes: list[str]  # class names defined in the module itself
+
+
+def gather_all_imports_and_local_classes(tree: ast.Module) -> _GatheredImports:
     # Lists to store the different types of imports
     regular_from_imports: list[str] = []
     type_checking_imports: list[str] = []
@@ -163,7 +171,11 @@ def gather_all_imports_and_local_classes(tree: ast.Module) -> Tuple[list[str], l
     # Process the entire AST starting from the root
     process_node(tree)
 
-    return regular_from_imports, type_checking_imports, local_classes
+    return _GatheredImports(
+        regular_from_imports=regular_from_imports,
+        type_checking_imports=type_checking_imports,
+        local_classes=local_classes,
+    )
 
 
 def get_detailed_type_hint_errors(
@@ -206,8 +218,7 @@ def get_type_checking_imports(file_path: str) -> list[str]:
     with open(file_path, "r") as f:
         tree = ast.parse(f.read())
 
-    _, type_checking_imports, _ = gather_all_imports_and_local_classes(tree)
-    return type_checking_imports
+    return gather_all_imports_and_local_classes(tree).type_checking_imports
 
 
 def check_if_subpackage(base_package: Union[ModuleType, str], submodule_name: str) -> bool:

@@ -573,6 +573,11 @@ class TestCliConfig:
         config, _ = load_config(cfg)
         assert config.cli.tool_output_max_chars == 500
 
+    def test_tool_output_max_chars_default(self, tmp_path: Path) -> None:
+        cfg = _write_config(tmp_path, {"ai": {"base_url": "http://t", "api_key": "k"}})
+        config, _ = load_config(cfg)
+        assert config.cli.tool_output_max_chars == 10_000
+
     def test_tool_output_max_chars_clamped_min(self, tmp_path: Path) -> None:
         cfg = _write_config(
             tmp_path,
@@ -587,7 +592,34 @@ class TestCliConfig:
             {"ai": {"base_url": "http://t", "api_key": "k"}, "cli": {"tool_output_max_chars": "bad"}},
         )
         config, _ = load_config(cfg)
-        assert config.cli.tool_output_max_chars == 2000
+        assert config.cli.tool_output_max_chars == 10_000
+
+    def test_tool_replay_max_chars_default(self, tmp_path: Path) -> None:
+        cfg = _write_config(tmp_path, {"ai": {"base_url": "http://t", "api_key": "k"}})
+        config, _ = load_config(cfg)
+        assert config.cli.tool_replay_max_chars == 10_000
+
+    def test_tool_replay_max_chars_from_yaml(self, tmp_path: Path) -> None:
+        cfg = _write_config(
+            tmp_path,
+            {"ai": {"base_url": "http://t", "api_key": "k"}, "cli": {"tool_replay_max_chars": 750}},
+        )
+        config, _ = load_config(cfg)
+        assert config.cli.tool_replay_max_chars == 750
+
+    def test_tool_replay_max_chars_from_env(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        cfg = _write_config(tmp_path, {"ai": {"base_url": "http://t", "api_key": "k"}})
+        monkeypatch.setenv("AI_CHAT_TOOL_REPLAY_MAX_CHARS", "900")
+        config, _ = load_config(cfg)
+        assert config.cli.tool_replay_max_chars == 900
+
+    def test_tool_replay_max_chars_invalid_falls_back(self, tmp_path: Path) -> None:
+        cfg = _write_config(
+            tmp_path,
+            {"ai": {"base_url": "http://t", "api_key": "k"}, "cli": {"tool_replay_max_chars": "bad"}},
+        )
+        config, _ = load_config(cfg)
+        assert config.cli.tool_replay_max_chars == 10_000
 
     def test_show_attribution_footer_default_true(self, tmp_path: Path) -> None:
         cfg = _write_config(tmp_path, {"ai": {"base_url": "http://t", "api_key": "k"}})
@@ -3455,6 +3487,43 @@ class TestApiKeyCommand:
         cfg = _write_config(tmp_path, {"ai": {"base_url": "https://api.example.com"}})
         config, _ = load_config(cfg)
         assert config.ai.api_key_command == "vault read secret/key"
+
+
+class TestServerConfig:
+    def test_server_defaults(self, tmp_path: Path) -> None:
+        cfg = _minimal(tmp_path)
+        config, _ = load_config(cfg)
+        assert config.server.max_upload_mb == 50
+
+    def test_server_max_upload_mb_from_yaml(self, tmp_path: Path) -> None:
+        raw = {"ai": {"base_url": "http://t", "api_key": "k"}, "server": {"max_upload_mb": 200}}
+        cfg = _write_config(tmp_path, raw)
+        config, _ = load_config(cfg)
+        assert config.server.max_upload_mb == 200
+
+    def test_server_max_upload_mb_from_env(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        cfg = _minimal(tmp_path)
+        monkeypatch.setenv("AI_CHAT_SERVER_MAX_UPLOAD_MB", "100")
+        config, _ = load_config(cfg)
+        assert config.server.max_upload_mb == 100
+
+    def test_server_max_upload_mb_clamped_to_minimum(self, tmp_path: Path) -> None:
+        raw = {"ai": {"base_url": "http://t", "api_key": "k"}, "server": {"max_upload_mb": 0}}
+        cfg = _write_config(tmp_path, raw)
+        config, _ = load_config(cfg)
+        assert config.server.max_upload_mb == 1
+
+    def test_server_max_upload_mb_clamped_to_maximum(self, tmp_path: Path) -> None:
+        raw = {"ai": {"base_url": "http://t", "api_key": "k"}, "server": {"max_upload_mb": 9999}}
+        cfg = _write_config(tmp_path, raw)
+        config, _ = load_config(cfg)
+        assert config.server.max_upload_mb == 1000
+
+    def test_server_max_upload_mb_invalid_falls_back(self, tmp_path: Path) -> None:
+        raw = {"ai": {"base_url": "http://t", "api_key": "k"}, "server": {"max_upload_mb": "notanint"}}
+        cfg = _write_config(tmp_path, raw)
+        config, _ = load_config(cfg)
+        assert config.server.max_upload_mb == 50
 
 
 class TestRateLimitConfig:

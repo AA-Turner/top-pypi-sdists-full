@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: streamlit-pdf-viewer
-Version: 0.0.28
+Version: 0.0.29
 Summary: Streamlit component for PDF visualisation and manipulation
 Home-page: https://github.com/lfoppiano/streamlit-pdf-viewer
 Author: Luca Foppiano, Tomoya Mato
@@ -72,6 +72,17 @@ Here are some caveats to be aware of:
     - If you need to use all the available space and limit the height, you can encapsulate the `pdf_viewer()` into a
       `st.component(width:...)` setting the width.
 - The `legacy` rendering has been removed from version 0.1.x+
+
+## Streamlit compatibility
+
+Streamlit ≥ 1.41 has a regression in custom-component iframe handling that can reset the page
+scroll position after an `st.dialog` is closed — see issue
+[#107](https://github.com/lfoppiano/streamlit-pdf-viewer/issues/107) for details and the bisect
+data. The last fully working Streamlit version in our testing is 1.40.2.
+
+If this regression affects your app, pin `streamlit<1.41` in your requirements. A runtime
+`UserWarning` is emitted at import time whenever a newer Streamlit is detected.
+
 ## Getting started
 
 ```sh
@@ -122,7 +133,7 @@ In the following table the list of parameters that can be provided to the `pdf_v
 | viewer_align            | The alignment of the PDF viewer within its container. Can be `"center"` (default), `"left"`, or `"right"`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | show_page_separator     | Whether to show a horizontal separator line between PDF pages. Defaults to `True`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | scroll_to_page          | Scroll to a specific page when the component is rendered. The parameter is an integer, which represent the positional value of the page. E.g. 1, will be the first page. Default is None. Require ints and ignores the parameters below zero.                                                                                                                                                                                                                                                                                                                                                                     |
-| scroll_to_annotation    | Scroll to a specific annotation when the component is rendered. The parameter is an integer, which represent the positional value of the annotation. E.g. 1, will be the first annotation. Default is None (don't scroll). Mutually exclusive with `scroll_to_page`. Raise an exception if used with `scroll_to_page`                                                                                                                                                                                                                                                                                             |
+| scroll_to_annotation    | Scroll to a specific annotation when the component is rendered. The parameter is a 1-based positional integer referring to the annotation's order in the `annotations` list, independent of any `id` field set on the annotation. E.g. 1 scrolls to the first annotation. Default is None (don't scroll). Requires an int; values below 1 are silently coerced to None. Mutually exclusive with `scroll_to_page`. Raises an exception if used with `scroll_to_page`.                                                                                                                                                 |
 | scroll_behavior         | The scrolling behavior when navigating to a page or annotation. Can be `"smooth"` (animated scroll) or `"instant"` (immediate jump). Defaults to `"smooth"`.                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | on_annotation_click     | Callback function that is called when an annotation is clicked. The function receives the annotation as a parameter.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: cdk-monitoring-constructs
-Version: 9.23.0
+Version: 10.0.0
 Summary: cdk-monitoring-constructs
 Home-page: https://github.com/cdklabs/cdk-monitoring-constructs
 Author: Amazon Web Services<aws-cdk-dev@amazon.com>
@@ -46,7 +46,7 @@ Easy-to-use CDK constructs for monitoring your AWS infrastructure with [Amazon C
 
 <details><summary><strong>TypeScript</strong></summary>
 
-> https://www.npmjs.com/package/cdk-monitoring-constructs
+> [https://www.npmjs.com/package/cdk-monitoring-constructs](https://www.npmjs.com/package/cdk-monitoring-constructs)
 
 In your `package.json`:
 
@@ -66,63 +66,63 @@ In your `package.json`:
 
 </details><details><summary><strong>Java</strong></summary>
 
-See https://mvnrepository.com/artifact/io.github.cdklabs/cdkmonitoringconstructs
+See [https://mvnrepository.com/artifact/io.github.cdklabs/cdkmonitoringconstructs](https://mvnrepository.com/artifact/io.github.cdklabs/cdkmonitoringconstructs)
 
 </details><details><summary><strong>Python</strong></summary>
 
-See https://pypi.org/project/cdk-monitoring-constructs/
+See [https://pypi.org/project/cdk-monitoring-constructs/](https://pypi.org/project/cdk-monitoring-constructs/)
 
 </details><details><summary><strong>C#</strong></summary>
 
-See https://www.nuget.org/packages/Cdklabs.CdkMonitoringConstructs/
+See [https://www.nuget.org/packages/Cdklabs.CdkMonitoringConstructs/](https://www.nuget.org/packages/Cdklabs.CdkMonitoringConstructs/)
 
 </details>
 
 ## Features
 
-You can browse the documentation at https://constructs.dev/packages/cdk-monitoring-constructs/
+You can browse the documentation at [https://constructs.dev/packages/cdk-monitoring-constructs/](https://constructs.dev/packages/cdk-monitoring-constructs/)
 
-| Item | Monitoring | Alarms | Notes |
-| ---- | ---------- | ------ | ----- |
-| AWS API Gateway (REST API) (`.monitorApiGateway()`) | TPS, latency, errors | Latency, error count/rate, low/high TPS | To see metrics, you have to enable Advanced Monitoring |
-| AWS API Gateway V2 (HTTP API) (`.monitorApiGatewayV2HttpApi()`) | TPS, latency, errors | Latency, error count/rate, low/high TPS | To see route level metrics, you have to enable Advanced Monitoring |
-| AWS AppSync (GraphQL API) (`.monitorAppSyncApi()`) | TPS, latency, errors | Latency, error count/rate, low/high TPS | |
-| Amazon Aurora (`.monitorAuroraCluster()`) | Query duration, connections, latency, CPU usage, Serverless Database Capacity | Connections, Serverless Database Capacity and CPU usage | |
-| AWS Billing (`.monitorBilling()`) | AWS account cost | Total cost (anomaly) | [Requires enabling](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/gs_monitor_estimated_charges_with_cloudwatch.html#gs_turning_on_billing_metrics) the **Receive Billing Alerts** option in AWS Console / Billing Preferences |
-| AWS Certificate Manager (`.monitorCertificate()`) | Certificate expiration | Days until expiration | |
-| AWS CloudFront (`.monitorCloudFrontDistribution()`) | TPS, traffic, latency, errors | Error rate, low/high TPS | |
-| AWS CloudWatch Logs (`.monitorLog()`) | Patterns present in the log group | Minimum incoming logs | |
-| AWS CloudWatch Synthetics Canary (`.monitorSyntheticsCanary()`) | Latency, error count/rate | Error count/rate, latency | |
-| AWS CodeBuild (`.monitorCodeBuildProject()`) | Build counts (total, successful, failed), failed rate, duration | Failed build count/rate, duration | |
-| AWS DocumentDB (`.monitorDocumentDbCluster()`) | CPU, throttling, read/write latency, transactions, cursors | CPU | |
-| AWS DynamoDB (`.monitorDynamoTable()`) | Read and write capacity provisioned / used | Consumed capacity, throttling, latency, errors | |
-| AWS DynamoDB Global Secondary Index (`.monitorDynamoTableGlobalSecondaryIndex()`) | Read and write capacity, indexing progress, throttled events | | |
-| AWS EC2 (`.monitorEC2Instances()`) | CPU, disk operations, network | | |
-| AWS EC2 Auto Scaling Groups (`.monitorAutoScalingGroup()`) | Group size, instance status | | |
-| AWS ECS (`.monitorFargateService()`, `.monitorEc2Service()`, `.monitorSimpleFargateService()`, `monitorSimpleEc2Service()`, `.monitorQueueProcessingFargateService()`, `.monitorQueueProcessingEc2Service()`) | System resources and task health | Unhealthy task count, running tasks count, CPU/memory usage, and bytes processed by load balancer (if any) | Use for ecs-patterns load balanced ec2/fargate constructs (NetworkLoadBalancedEc2Service, NetworkLoadBalancedFargateService, ApplicationLoadBalancedEc2Service, ApplicationLoadBalancedFargateService) |
-| AWS ElastiCache (`.monitorElastiCacheCluster()`) | CPU/memory usage, evictions and connections | CPU, memory, items count | |
-| AWS Glue (`.monitorGlueJob()`) | Traffic, job status, memory/CPU usage | Failed/killed task count/rate | |
-| AWS Kinesis Data Analytics (`.monitorKinesisDataAnalytics`) | Up/Downtime, CPU/memory usage, KPU usage, checkpoint metrics, and garbage collection metrics | Downtime, full restart count | |
-| AWS Kinesis Data Stream (`.monitorKinesisDataStream()`) | Put/Get/Incoming Record/s and Throttling | Throttling, throughput, iterator max age | |
-| AWS Kinesis Firehose (`.monitorKinesisFirehose()`) | Number of records, requests, latency, throttling | Throttling | |
-| AWS Lambda (`.monitorLambdaFunction()`) | Latency, errors, iterator max age | Latency, errors, throttles, iterator max age | Optional Lambda Insights metrics (opt-in) support |
-| AWS Load Balancing (`.monitorNetworkLoadBalancer()`, `.monitorFargateApplicationLoadBalancer()`, `.monitorFargateNetworkLoadBalancer()`, `.monitorEc2ApplicationLoadBalancer()`, `.monitorEc2NetworkLoadBalancer()`) | System resources and task health | Unhealthy task count, running tasks count, (for Fargate/Ec2 apps) CPU/memory usage | Use for FargateService or Ec2Service backed by a NetworkLoadBalancer or ApplicationLoadBalancer |
-| AWS OpenSearch/Elasticsearch (`.monitorOpenSearchCluster()`, `.monitorElasticsearchCluster()`) | Indexing and search latency, disk/memory/CPU usage | Indexing and search latency, disk/memory/CPU usage, cluster status, KMS keys | |
-| AWS OpenSearch Ingestion (`.monitorOpenSearchIngestionPipeline()`) | Latency, incoming data, DLQ records count | DLQ records count | |
-| AWS OpenSearch Serverless (`.monitorOpenSearchServerlessCollection()`) | Search latency, errors, ingestion requests/latency | Search latency, errors | |
-| AWS OpenSearch Serverless (`.monitorOpenSearchServerlessIndex()`) | Documents count | | |
-| AWS RDS (`.monitorRdsCluster()`) | Query duration, connections, latency, disk/CPU usage | Connections, disk and CPU usage | |
-| AWS RDS (`.monitorRdsInstance()`) | Query duration, connections, latency, disk/CPU usage | Connections, disk and CPU usage | |
-| AWS Redshift (`.monitorRedshiftCluster()`) | Query duration, connections, latency, disk/CPU usage | Query duration, connections, disk and CPU usage | |
-| AWS S3 Bucket (`.monitorS3Bucket()`) | Bucket size and number of objects | | |
-| AWS SecretsManager (`.monitorSecretsManager()`) | Max secret count, min secret sount, secret count change | Min/max secret count or change in secret count | |
-| AWS SecretsManager Secret (`.monitorSecretsManagerSecret()`) | Days since last rotation | Days since last change or rotation | |
-| AWS SNS Topic (`.monitorSnsTopic()`) | Message count, size, failed notifications | Failed notifications, min/max published messages | |
-| AWS SQS Queue (`.monitorSqsQueue()`, `.monitorSqsQueueWithDlq()`) | Message count, age, size | Message count, age, DLQ incoming messages | |
-| AWS Step Functions (`.monitorStepFunction()`, `.monitorStepFunctionActivity()`, `monitorStepFunctionLambdaIntegration()`, `.monitorStepFunctionServiceIntegration()`) | Execution count and breakdown per state | Duration, failed, failed rate, aborted, throttled, timed out executions | |
-| AWS Web Application Firewall (`.monitorWebApplicationFirewallAclV2()`) | Allowed/blocked requests | Blocked requests count/rate | |
-| FluentBit (`.monitorFluentBit()`) | Num of input records, Output failures & retries, Filter metrics, Storage metrics | | FluentBit needs proper configuration with  metrics enabled: [Official sample configuration](https://github.com/aws-samples/amazon-ecs-firelens-examples/tree/mainline/examples/fluent-bit/send-fb-internal-metrics-to-cw). This function creates MetricFilters to publish all FluentBit metrics. |
-| Custom metrics (`.monitorCustom()`) | Addition of custom metrics into the dashboard (each group is a widget) | | Supports anomaly detection |
+| Item                                                                                                                                                                                                                 | Monitoring                                                                                   | Alarms                                                                                                     | Notes                                                                                                                                                                                                                                                                                           |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| AWS API Gateway (REST API) (`.monitorApiGateway()`)                                                                                                                                                                  | TPS, latency, errors                                                                         | Latency, error count/rate, low/high TPS                                                                    | To see metrics, you have to enable Advanced Monitoring                                                                                                                                                                                                                                          |
+| AWS API Gateway V2 (HTTP API) (`.monitorApiGatewayV2HttpApi()`)                                                                                                                                                      | TPS, latency, errors                                                                         | Latency, error count/rate, low/high TPS                                                                    | To see route level metrics, you have to enable Advanced Monitoring                                                                                                                                                                                                                              |
+| AWS AppSync (GraphQL API) (`.monitorAppSyncApi()`)                                                                                                                                                                   | TPS, latency, errors                                                                         | Latency, error count/rate, low/high TPS                                                                    |                                                                                                                                                                                                                                                                                                 |
+| Amazon Aurora (`.monitorAuroraCluster()`)                                                                                                                                                                            | Query duration, connections, latency, CPU usage, Serverless Database Capacity                | Connections, Serverless Database Capacity and CPU usage                                                    |                                                                                                                                                                                                                                                                                                 |
+| AWS Billing (`.monitorBilling()`)                                                                                                                                                                                    | AWS account cost                                                                             | Total cost (anomaly)                                                                                       | [Requires enabling](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/gs_monitor_estimated_charges_with_cloudwatch.html#gs_turning_on_billing_metrics) the **Receive Billing Alerts** option in AWS Console / Billing Preferences                                                  |
+| AWS Certificate Manager (`.monitorCertificate()`)                                                                                                                                                                    | Certificate expiration                                                                       | Days until expiration                                                                                      |                                                                                                                                                                                                                                                                                                 |
+| AWS CloudFront (`.monitorCloudFrontDistribution()`)                                                                                                                                                                  | TPS, traffic, latency, errors                                                                | Error rate, low/high TPS                                                                                   |                                                                                                                                                                                                                                                                                                 |
+| AWS CloudWatch Logs (`.monitorLog()`)                                                                                                                                                                                | Patterns present in the log group                                                            | Minimum incoming logs                                                                                      |                                                                                                                                                                                                                                                                                                 |
+| AWS CloudWatch Synthetics Canary (`.monitorSyntheticsCanary()`)                                                                                                                                                      | Latency, error count/rate                                                                    | Error count/rate, latency                                                                                  |                                                                                                                                                                                                                                                                                                 |
+| AWS CodeBuild (`.monitorCodeBuildProject()`)                                                                                                                                                                         | Build counts (total, successful, failed), failed rate, duration                              | Failed build count/rate, duration                                                                          |                                                                                                                                                                                                                                                                                                 |
+| AWS DocumentDB (`.monitorDocumentDbCluster()`)                                                                                                                                                                       | CPU, throttling, read/write latency, transactions, cursors                                   | CPU                                                                                                        |                                                                                                                                                                                                                                                                                                 |
+| AWS DynamoDB (`.monitorDynamoTable()`)                                                                                                                                                                               | Read and write capacity provisioned / used                                                   | Consumed capacity, throttling, latency, errors                                                             |                                                                                                                                                                                                                                                                                                 |
+| AWS DynamoDB Global Secondary Index (`.monitorDynamoTableGlobalSecondaryIndex()`)                                                                                                                                    | Read and write capacity, indexing progress, throttled events                                 |                                                                                                            |                                                                                                                                                                                                                                                                                                 |
+| AWS EC2 (`.monitorEC2Instances()`)                                                                                                                                                                                   | CPU, disk operations, network                                                                |                                                                                                            |                                                                                                                                                                                                                                                                                                 |
+| AWS EC2 Auto Scaling Groups (`.monitorAutoScalingGroup()`)                                                                                                                                                           | Group size, instance status                                                                  |                                                                                                            |                                                                                                                                                                                                                                                                                                 |
+| AWS ECS (`.monitorFargateService()`, `.monitorEc2Service()`, `.monitorSimpleFargateService()`, `monitorSimpleEc2Service()`, `.monitorQueueProcessingFargateService()`, `.monitorQueueProcessingEc2Service()`)        | System resources and task health                                                             | Unhealthy task count, running tasks count, CPU/memory usage, and bytes processed by load balancer (if any) | Use for ecs-patterns load balanced ec2/fargate constructs (NetworkLoadBalancedEc2Service, NetworkLoadBalancedFargateService, ApplicationLoadBalancedEc2Service, ApplicationLoadBalancedFargateService)                                                                                          |
+| AWS ElastiCache (`.monitorElastiCacheCluster()`)                                                                                                                                                                     | CPU/memory usage, evictions and connections                                                  | CPU, memory, items count                                                                                   |                                                                                                                                                                                                                                                                                                 |
+| AWS Glue (`.monitorGlueJob()`)                                                                                                                                                                                       | Traffic, job status, memory/CPU usage                                                        | Failed/killed task count/rate                                                                              |                                                                                                                                                                                                                                                                                                 |
+| AWS Kinesis Data Analytics (`.monitorKinesisDataAnalytics`)                                                                                                                                                          | Up/Downtime, CPU/memory usage, KPU usage, checkpoint metrics, and garbage collection metrics | Downtime, full restart count                                                                               |                                                                                                                                                                                                                                                                                                 |
+| AWS Kinesis Data Stream (`.monitorKinesisDataStream()`)                                                                                                                                                              | Put/Get/Incoming Record/s and Throttling                                                     | Throttling, throughput, iterator max age                                                                   |                                                                                                                                                                                                                                                                                                 |
+| AWS Kinesis Firehose (`.monitorKinesisFirehose()`)                                                                                                                                                                   | Number of records, requests, latency, throttling                                             | Throttling                                                                                                 |                                                                                                                                                                                                                                                                                                 |
+| AWS Lambda (`.monitorLambdaFunction()`)                                                                                                                                                                              | Latency, errors, iterator max age                                                            | Latency, errors, throttles, iterator max age                                                               | Optional Lambda Insights metrics (opt-in) support                                                                                                                                                                                                                                               |
+| AWS Load Balancing (`.monitorNetworkLoadBalancer()`, `.monitorFargateApplicationLoadBalancer()`, `.monitorFargateNetworkLoadBalancer()`, `.monitorEc2ApplicationLoadBalancer()`, `.monitorEc2NetworkLoadBalancer()`) | System resources and task health                                                             | Unhealthy task count, running tasks count, (for Fargate/Ec2 apps) CPU/memory usage                         | Use for FargateService or Ec2Service backed by a NetworkLoadBalancer or ApplicationLoadBalancer                                                                                                                                                                                                 |
+| AWS OpenSearch/Elasticsearch (`.monitorOpenSearchCluster()`, `.monitorElasticsearchCluster()`)                                                                                                                       | Indexing and search latency, disk/memory/CPU usage                                           | Indexing and search latency, disk/memory/CPU usage, cluster status, KMS keys                               |                                                                                                                                                                                                                                                                                                 |
+| AWS OpenSearch Ingestion (`.monitorOpenSearchIngestionPipeline()`)                                                                                                                                                   | Latency, incoming data, DLQ records count                                                    | DLQ records count                                                                                          |                                                                                                                                                                                                                                                                                                 |
+| AWS OpenSearch Serverless (`.monitorOpenSearchServerlessCollection()`)                                                                                                                                               | Search latency, errors, ingestion requests/latency                                           | Search latency, errors                                                                                     |                                                                                                                                                                                                                                                                                                 |
+| AWS OpenSearch Serverless (`.monitorOpenSearchServerlessIndex()`)                                                                                                                                                    | Documents count                                                                              |                                                                                                            |                                                                                                                                                                                                                                                                                                 |
+| AWS RDS (`.monitorRdsCluster()`)                                                                                                                                                                                     | Query duration, connections, latency, disk/CPU usage                                         | Connections, disk and CPU usage                                                                            |                                                                                                                                                                                                                                                                                                 |
+| AWS RDS (`.monitorRdsInstance()`)                                                                                                                                                                                    | Query duration, connections, latency, disk/CPU usage                                         | Connections, disk and CPU usage                                                                            |                                                                                                                                                                                                                                                                                                 |
+| AWS Redshift (`.monitorRedshiftCluster()`)                                                                                                                                                                           | Query duration, connections, latency, disk/CPU usage                                         | Query duration, connections, disk and CPU usage                                                            |                                                                                                                                                                                                                                                                                                 |
+| AWS S3 Bucket (`.monitorS3Bucket()`)                                                                                                                                                                                 | Bucket size and number of objects                                                            |                                                                                                            |                                                                                                                                                                                                                                                                                                 |
+| AWS SecretsManager (`.monitorSecretsManager()`)                                                                                                                                                                      | Max secret count, min secret sount, secret count change                                      | Min/max secret count or change in secret count                                                             |                                                                                                                                                                                                                                                                                                 |
+| AWS SecretsManager Secret (`.monitorSecretsManagerSecret()`)                                                                                                                                                         | Days since last rotation                                                                     | Days since last change or rotation                                                                         |                                                                                                                                                                                                                                                                                                 |
+| AWS SNS Topic (`.monitorSnsTopic()`)                                                                                                                                                                                 | Message count, size, failed notifications                                                    | Failed notifications, min/max published messages                                                           |                                                                                                                                                                                                                                                                                                 |
+| AWS SQS Queue (`.monitorSqsQueue()`, `.monitorSqsQueueWithDlq()`)                                                                                                                                                    | Message count, age, size                                                                     | Message count, age, DLQ incoming messages                                                                  |                                                                                                                                                                                                                                                                                                 |
+| AWS Step Functions (`.monitorStepFunction()`, `.monitorStepFunctionActivity()`, `monitorStepFunctionLambdaIntegration()`, `.monitorStepFunctionServiceIntegration()`)                                                | Execution count and breakdown per state                                                      | Duration, failed, failed rate, aborted, throttled, timed out executions                                    |                                                                                                                                                                                                                                                                                                 |
+| AWS Web Application Firewall (`.monitorWebApplicationFirewallAclV2()`)                                                                                                                                               | Allowed/blocked requests                                                                     | Blocked requests count/rate                                                                                |                                                                                                                                                                                                                                                                                                 |
+| FluentBit (`.monitorFluentBit()`)                                                                                                                                                                                    | Num of input records, Output failures & retries, Filter metrics, Storage metrics             |                                                                                                            | FluentBit needs proper configuration with metrics enabled: [Official sample configuration](https://github.com/aws-samples/amazon-ecs-firelens-examples/tree/mainline/examples/fluent-bit/send-fb-internal-metrics-to-cw). This function creates MetricFilters to publish all FluentBit metrics. |
+| Custom metrics (`.monitorCustom()`)                                                                                                                                                                                  | Addition of custom metrics into the dashboard (each group is a widget)                       |                                                                                                            | Supports anomaly detection                                                                                                                                                                                                                                                                      |
 
 ## Getting started
 
@@ -163,7 +163,6 @@ Example of notifying an SNS topic:
 # Example automatically generated from non-compiling source. May contain errors.
 # on_alarm_topic: ITopic
 
-
 monitoring = MonitoringFacade(self, "Monitoring",
     # ...other props
     alarm_factory_defaults={
@@ -197,8 +196,9 @@ You can also compose multiple actions using `multipleActions`:
 # on_alarm_topic: ITopic
 # on_alarm_function: IFunction
 
-
-action = multiple_actions(notify_sns(on_alarm_topic), trigger_lambda(on_alarm_function))
+action = multiple_actions(
+    notify_sns(on_alarm_topic),
+    trigger_lambda(on_alarm_function))
 ```
 
 ### Custom metrics
@@ -234,24 +234,22 @@ In this case, only one metric is supported.
 Multiple metrics cannot be rendered with anomaly detection in a single widget due to a CloudWatch limitation.
 
 ```python
-# Example automatically generated from non-compiling source. May contain errors.
-monitor_custom(
-    title="Metric with anomaly detection",
-    metric_groups=[{
+monitor_custom({
+    "title": "Metric with anomaly detection",
+    "metric_groups": [{
         "metric": m1,
         "anomaly_detection_standard_deviation_to_render": 3
     }
     ]
-)
+})
 ```
 
 Adding an alarm:
 
 ```python
-# Example automatically generated from non-compiling source. May contain errors.
-monitor_custom(
-    title="Metric with anomaly detection and alarm",
-    metric_groups=[{
+monitor_custom({
+    "title": "Metric with anomaly detection and alarm",
+    "metric_groups": [{
         "metric": m1,
         "alarm_friendly_name": "MetricWithAnomalyDetectionAlarm",
         "anomaly_detection_standard_deviation_to_render": 3,
@@ -264,16 +262,15 @@ monitor_custom(
         }
     }
     ]
-)
+})
 ```
 
 #### Example: search metrics
 
 ```python
-# Example automatically generated from non-compiling source. May contain errors.
-monitor_custom(
-    title="Metric search",
-    metric_groups=[{
+monitor_custom({
+    "title": "Metric search",
+    "metric_groups": [{
         "search_query": "My.Prefix.",
         "dimensions_map": {
             "FirstDimension": "FirstDimensionValue",
@@ -283,7 +280,7 @@ monitor_custom(
         "statistic": MetricStatistic.SUM
     }
     ]
-)
+})
 ```
 
 Search metrics do not support setting an alarm, which is a CloudWatch limitation.
@@ -294,7 +291,6 @@ Route53 has [strict requirements](https://docs.aws.amazon.com/Route53/latest/Dev
 You adjust the metric for an alarm so that it can be used in a Route53 Health Checks as follows:
 
 ```python
-# Example automatically generated from non-compiling source. May contain errors.
 monitoring.monitor_something(something,
     add_some_alarm={
         "Warning": {
@@ -311,7 +307,6 @@ In order to easily find your Route53 Health Check alarms later on, you can apply
 ```python
 # Example automatically generated from non-compiling source. May contain errors.
 from aws_cdk.aws_route53 import CfnHealthCheck
-
 
 monitoring.monitor_something(something,
     add_some_alarm={
@@ -374,8 +369,8 @@ To modify the widgets:
    # Example automatically generated from non-compiling source. May contain errors.
    # facade: MonitoringFacade
 
-
-   facade.add_segment(MyCustomizedLambdaFunctionMonitoring(facade))
+   facade.add_segment(
+       MyCustomizedLambdaFunctionMonitoring(facade))
    ```
 
 ### Custom dashboards
@@ -422,9 +417,19 @@ export enum DashboardTypes {
 class ExampleSegment(IDynamicDashboardSegment):
     def widgets_for_dashboard(self, name): switch (name) {
               case DashboardTypes.HostedService:
-                return [new TextWidget({ markdown: "This shows metrics for your service hosted on AWS Infrastructure" })];
+                return [
+                  new TextWidget({
+                    markdown:
+                      "This shows metrics for your service hosted on AWS Infrastructure",
+                  }),
+                ];
               case DashboardTypes.Infrastructure:
-                return [new TextWidget({ markdown: "This shows metrics for the AWS Infrastructure supporting your hosted service" })];
+                return [
+                  new TextWidget({
+                    markdown:
+                      "This shows metrics for the AWS Infrastructure supporting your hosted service",
+                  }),
+                ];
               default:
                 throw new Error("Unexpected dashboard name!");
             }
@@ -453,20 +458,19 @@ Now, this widget will be added to both dashboards and will show different conten
 Facades can be configured for different regions/accounts as a whole:
 
 ```python
-# Example automatically generated from non-compiling source. May contain errors.
+from cdk_monitoring_constructs import MetricFactoryDefaults
 MonitoringFacade(stack, "Monitoring",
-    metric_factory_defaults={
+    metric_factory_defaults=MetricFactoryDefaults(
         # Different region/account than what you're deploying to
-        "region": "us-west-2",
-        "account": "01234567890"
-    }
+        region="us-west-2",
+        account="01234567890"
+    )
 )
 ```
 
 Or at a more granular level:
 
 ```python
-# Example automatically generated from non-compiling source. May contain errors.
 monitoring.monitor_dynamo_table(
     # Table from the same account/region
     table=Table.from_table_name(stack, "ImportedTable", "MyTableName")
@@ -491,7 +495,6 @@ Note that while this allows for cross-account cross-Region dashboarding, cross-R
 You can monitor complete CDK construct scopes using an aspect. It will automatically discover all monitorable resources within the scope recursively and add them to your dashboard.
 
 ```python
-# Example automatically generated from non-compiling source. May contain errors.
 monitoring.monitor_scope(stack,
     # With optional configuration
     lambda_={
@@ -522,20 +525,20 @@ function.
 # Clone alarms using a cloning-function
 critical_alarms = monitoring.created_alarms_with_disambiguator("Critical")
 clones = monitoring.clone_alarms(critical_alarms, (a) => {
-       // Define a new alarm that has values inspired by the original alarm
-       // Adjust some of those values using arbitrary, user-provided logic
-       return {
-          ...a.alarmDefinition.addAlarmProps,
-          actionsEnabled: false,
-          disambiguator: "ClonedCritical",
-          alarmDescription: "Cloned alarm of " + a.alarmDescription,
-          // Bump the threshold a bit
-          threshold: a.alarmDefinition.addAlarmProps.threshold * 1.1,
-          // Tighten the number of datapoints a bit
-          datapointsToAlarm: a.alarmDefinition.datapointsToAlarm - 1,
-          // Keep the same number of evaluation periods
-          evaluationPeriods: a.alarmDefinition.evaluationPeriods,
-       }
+      // Define a new alarm that has values inspired by the original alarm
+      // Adjust some of those values using arbitrary, user-provided logic
+      return {
+        ...a.alarmDefinition.addAlarmProps,
+        actionsEnabled: false,
+        disambiguator: "ClonedCritical",
+        alarmDescription: "Cloned alarm of " + a.alarmDescription,
+        // Bump the threshold a bit
+        threshold: a.alarmDefinition.addAlarmProps.threshold * 1.1,
+        // Tighten the number of datapoints a bit
+        datapointsToAlarm: a.alarmDefinition.datapointsToAlarm - 1,
+        // Keep the same number of evaluation periods
+        evaluationPeriods: a.alarmDefinition.evaluationPeriods,
+      };
     })
 ```
 
@@ -552,15 +555,15 @@ create the companion alarms by cloning with a scaling function. This library pro
 and 1.0 will generate more aggressive alarms.
 
 ```python
-# Example automatically generated from non-compiling source. May contain errors.
 # Clone critical alarms using a tighting scaling function
 critical_alarms = monitoring.created_alarms_with_disambiguator("Critical")
-rollback_alarms = monitoring.clone_alarms(critical_alarms, ScaleAlarms(
-    disambiguator="Rollback",
-    threshold_multiplier=0.8,
-    datapoints_to_alarm_multiplier=0.3,
-    evaluation_periods_multiplier=0.5
-))
+rollback_alarms = monitoring.clone_alarms(critical_alarms,
+    ScaleAlarms(
+        disambiguator="Rollback",
+        threshold_multiplier=0.8,
+        datapoints_to_alarm_multiplier=0.3,
+        evaluation_periods_multiplier=0.5
+    ))
 ```
 
 ## Contributing

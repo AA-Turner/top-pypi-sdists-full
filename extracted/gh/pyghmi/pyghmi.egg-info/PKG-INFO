@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyghmi
-Version: 1.6.15
+Version: 1.6.16
 Summary: Python General Hardware Management Initiative (IPMI and others)
 Home-page: http://github.com/openstack/pyghmi/
 Author: Jarrod Johnson

@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "alpaca-py"
 # placeholder for poetry-dynamic-versioning
-version = "0.43.2"
+version = "0.43.3"
 description = "The Official Python SDK for Alpaca APIs"
 authors = [
     "Rahul Chowdhury <rahul.chowdhury@alpaca.markets>",
@@ -23,6 +23,7 @@ pandas = ">=1.5.3"
 msgpack = "^1.0.3"
 websockets = ">=10.4"
 sseclient-py = "^1.7.2"
+pytz = ">=2020.1"
 
 
 [tool.poetry.dev-dependencies]

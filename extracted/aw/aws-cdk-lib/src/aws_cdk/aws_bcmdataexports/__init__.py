@@ -127,7 +127,10 @@ class CfnExport(
                             overwrite="overwrite"
                         ),
                         s3_prefix="s3Prefix",
-                        s3_region="s3Region"
+                        s3_region="s3Region",
+        
+                        # the properties below are optional
+                        s3_bucket_owner="s3BucketOwner"
                     )
                 ),
                 name="name",
@@ -408,7 +411,10 @@ class CfnExport(
                             overwrite="overwrite"
                         ),
                         s3_prefix="s3Prefix",
-                        s3_region="s3Region"
+                        s3_region="s3Region",
+                
+                        # the properties below are optional
+                        s3_bucket_owner="s3BucketOwner"
                     )
                 )
             '''
@@ -504,7 +510,10 @@ class CfnExport(
                                 overwrite="overwrite"
                             ),
                             s3_prefix="s3Prefix",
-                            s3_region="s3Region"
+                            s3_region="s3Region",
+                
+                            # the properties below are optional
+                            s3_bucket_owner="s3BucketOwner"
                         )
                     ),
                     name="name",
@@ -739,6 +748,7 @@ class CfnExport(
             "s3_output_configurations": "s3OutputConfigurations",
             "s3_prefix": "s3Prefix",
             "s3_region": "s3Region",
+            "s3_bucket_owner": "s3BucketOwner",
         },
     )
     class S3DestinationProperty:
@@ -749,6 +759,7 @@ class CfnExport(
             s3_output_configurations: typing.Union["_IResolvable_da3f097b", typing.Union["CfnExport.S3OutputConfigurationsProperty", typing.Dict[builtins.str, typing.Any]]],
             s3_prefix: builtins.str,
             s3_region: builtins.str,
+            s3_bucket_owner: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Describes the destination Amazon Simple Storage Service (Amazon S3) bucket name and object keys of a data exports file.
 
@@ -756,6 +767,7 @@ class CfnExport(
             :param s3_output_configurations: The output configuration for the data export.
             :param s3_prefix: The S3 path prefix you want prepended to the name of your data export.
             :param s3_region: The S3 bucket Region.
+            :param s3_bucket_owner: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bcmdataexports-export-s3destination.html
             :exampleMetadata: fixture=_generated
@@ -775,7 +787,10 @@ class CfnExport(
                         overwrite="overwrite"
                     ),
                     s3_prefix="s3Prefix",
-                    s3_region="s3Region"
+                    s3_region="s3Region",
+                
+                    # the properties below are optional
+                    s3_bucket_owner="s3BucketOwner"
                 )
             '''
             if __debug__:
@@ -784,12 +799,15 @@ class CfnExport(
                 check_type(argname="argument s3_output_configurations", value=s3_output_configurations, expected_type=type_hints["s3_output_configurations"])
                 check_type(argname="argument s3_prefix", value=s3_prefix, expected_type=type_hints["s3_prefix"])
                 check_type(argname="argument s3_region", value=s3_region, expected_type=type_hints["s3_region"])
+                check_type(argname="argument s3_bucket_owner", value=s3_bucket_owner, expected_type=type_hints["s3_bucket_owner"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "s3_bucket": s3_bucket,
                 "s3_output_configurations": s3_output_configurations,
                 "s3_prefix": s3_prefix,
                 "s3_region": s3_region,
             }
+            if s3_bucket_owner is not None:
+                self._values["s3_bucket_owner"] = s3_bucket_owner
 
         @builtins.property
         def s3_bucket(self) -> builtins.str:
@@ -832,6 +850,14 @@ class CfnExport(
             result = self._values.get("s3_region")
             assert result is not None, "Required property 's3_region' is missing"
             return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def s3_bucket_owner(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bcmdataexports-export-s3destination.html#cfn-bcmdataexports-export-s3destination-s3bucketowner
+            '''
+            result = self._values.get("s3_bucket_owner")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1001,7 +1027,10 @@ class CfnExportProps:
                                 overwrite="overwrite"
                             ),
                             s3_prefix="s3Prefix",
-                            s3_region="s3Region"
+                            s3_region="s3Region",
+            
+                            # the properties below are optional
+                            s3_bucket_owner="s3BucketOwner"
                         )
                     ),
                     name="name",
@@ -1164,6 +1193,7 @@ def _typecheckingstub__f0e9ff7de57059ed083f4105af6db04a1e6eed259177bb46ecb6f3d06
     s3_output_configurations: typing.Union[_IResolvable_da3f097b, typing.Union[CfnExport.S3OutputConfigurationsProperty, typing.Dict[builtins.str, typing.Any]]],
     s3_prefix: builtins.str,
     s3_region: builtins.str,
+    s3_bucket_owner: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

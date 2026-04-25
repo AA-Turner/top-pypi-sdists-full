@@ -21,8 +21,7 @@
 # THE SOFTWARE.
 #
 # ###########################################################################*/
-"""Utilitary functions dealing with numbers.
-"""
+"""Utilitary functions dealing with numbers."""
 
 __authors__ = ["V. Valls"]
 __license__ = "MIT"
@@ -33,8 +32,17 @@ import re
 import logging
 import warnings
 
+from silx.utils.deprecation import deprecated, deprecated_warning
 
 _logger = logging.getLogger(__name__)
+
+
+deprecated_warning(
+    "Module",
+    "silx.utils.number",
+    since_version="3.0.0",
+    replacement="numpy",
+)
 
 
 _biggest_float = None
@@ -58,6 +66,7 @@ _parse_numeric_value = re.compile(
 )
 
 
+@deprecated(since_version="3.0.0")
 def is_longdouble_64bits():
     """Returns true if the system uses floating-point 64bits for it's
     long double type.
@@ -68,6 +77,7 @@ def is_longdouble_64bits():
     return _biggest_float == numpy.float64
 
 
+@deprecated(replacement="numpy.min_scalar_type", since_version="3.0.0")
 def min_numerical_convertible_type(string, check_accuracy=True):
     """
     Parse the string and try to return the smallest numerical type to use for
@@ -107,7 +117,9 @@ def min_numerical_convertible_type(string, check_accuracy=True):
 
     nb_precision_digits = int(exponent) - len(decimal) - 1
     with warnings.catch_warnings():
-        warnings.filterwarnings("ignore", "overflow encountered in scalar power", RuntimeWarning)
+        warnings.filterwarnings(
+            "ignore", "overflow encountered in scalar power", RuntimeWarning
+        )
         precision = _biggest_float(10) ** nb_precision_digits * 1.2
     previous_type = _biggest_float
     for numpy_type in _float_types:
@@ -115,7 +127,9 @@ def min_numerical_convertible_type(string, check_accuracy=True):
             # value was already casted using the bigger type
             continue
         with warnings.catch_warnings():
-            warnings.filterwarnings("ignore", "overflow encountered in cast", RuntimeWarning)
+            warnings.filterwarnings(
+                "ignore", "overflow encountered in cast", RuntimeWarning
+            )
             reduced_value = numpy_type(value)
         if not numpy.isfinite(reduced_value):
             break

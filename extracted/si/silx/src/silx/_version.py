@@ -48,6 +48,8 @@ Thus 2.1.0a3 is hexversion 0x020100a3.
 
 """
 
+from collections import namedtuple
+
 __authors__ = ["Jérôme Kieffer"]
 __license__ = "MIT"
 __copyright__ = "European Synchrotron Radiation Facility, Grenoble, France"
@@ -67,15 +69,14 @@ RELEASE_LEVEL_VALUE = {"dev": 0, "alpha": 10, "beta": 11, "candidate": 12, "fina
 
 PRERELEASE_NORMALIZED_NAME = {"dev": "a", "alpha": "a", "beta": "b", "candidate": "rc"}
 
-MAJOR = 2
-MINOR = 2
-MICRO = 2
+MAJOR = 3
+MINOR = 0
+MICRO = 0
 RELEV = "final"  # <16
 SERIAL = 0  # <16
 
 date = __date__
 
-from collections import namedtuple
 
 _version_info = namedtuple(
     "version_info", ["major", "minor", "micro", "releaselevel", "serial"]
@@ -86,7 +87,7 @@ version_info = _version_info(MAJOR, MINOR, MICRO, RELEV, SERIAL)
 strictversion = version = debianversion = "%d.%d.%d" % version_info[:3]
 if version_info.releaselevel != "final":
     _prerelease = PRERELEASE_NORMALIZED_NAME[version_info[3]]
-    version += "-%s%s" % (_prerelease, version_info[-1])
+    version += f"-{_prerelease}{version_info[-1]}"
     debianversion += (
         "~adev%i" % version_info[-1]
         if RELEV == "dev"

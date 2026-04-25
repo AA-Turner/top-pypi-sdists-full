@@ -99,8 +99,8 @@ impl X448PrivateKey {
     fn private_bytes<'p>(
         slf: &pyo3::Bound<'p, Self>,
         py: pyo3::Python<'p>,
-        encoding: &pyo3::Bound<'p, pyo3::PyAny>,
-        format: &pyo3::Bound<'p, pyo3::PyAny>,
+        encoding: crate::serialization::Encoding,
+        format: crate::serialization::PrivateFormat,
         encryption_algorithm: &pyo3::Bound<'p, pyo3::PyAny>,
     ) -> CryptographyResult<pyo3::Bound<'p, pyo3::types::PyBytes>> {
         utils::pkey_private_bytes(
@@ -118,6 +118,13 @@ impl X448PrivateKey {
     fn __copy__(slf: pyo3::PyRef<'_, Self>) -> pyo3::PyRef<'_, Self> {
         slf
     }
+
+    fn __deepcopy__<'p>(
+        slf: pyo3::PyRef<'p, Self>,
+        _memo: &pyo3::Bound<'p, pyo3::PyAny>,
+    ) -> pyo3::PyRef<'p, Self> {
+        slf
+    }
 }
 
 #[pyo3::pymethods]
@@ -133,8 +140,8 @@ impl X448PublicKey {
     fn public_bytes<'p>(
         slf: &pyo3::Bound<'p, Self>,
         py: pyo3::Python<'p>,
-        encoding: &pyo3::Bound<'p, pyo3::PyAny>,
-        format: &pyo3::Bound<'p, pyo3::PyAny>,
+        encoding: crate::serialization::Encoding,
+        format: crate::serialization::PublicFormat,
     ) -> CryptographyResult<pyo3::Bound<'p, pyo3::types::PyBytes>> {
         utils::pkey_public_bytes(py, slf, &slf.borrow().pkey, encoding, format, false, true)
     }
@@ -144,6 +151,13 @@ impl X448PublicKey {
     }
 
     fn __copy__(slf: pyo3::PyRef<'_, Self>) -> pyo3::PyRef<'_, Self> {
+        slf
+    }
+
+    fn __deepcopy__<'p>(
+        slf: pyo3::PyRef<'p, Self>,
+        _memo: &pyo3::Bound<'p, pyo3::PyAny>,
+    ) -> pyo3::PyRef<'p, Self> {
         slf
     }
 }

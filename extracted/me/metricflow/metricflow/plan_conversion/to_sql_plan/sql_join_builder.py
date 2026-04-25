@@ -3,10 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import List, Optional, Sequence, Tuple
 
-from dbt_semantic_interfaces.protocols.metric import MetricTimeWindow
-from dbt_semantic_interfaces.type_enums.time_granularity import TimeGranularity
-from metricflow_semantics.assert_one_arg import assert_exactly_one_arg_set
 from metricflow_semantics.errors.custom_grain_not_supported import error_if_not_standard_grain
+from metricflow_semantics.specs.time_window import TimeWindow
 from metricflow_semantics.sql.sql_exprs import (
     SqlColumnReference,
     SqlColumnReferenceExpression,
@@ -19,6 +17,7 @@ from metricflow_semantics.sql.sql_exprs import (
     SqlSubtractTimeIntervalExpression,
 )
 from metricflow_semantics.sql.sql_join_type import SqlJoinType
+from metricflow_semantics.toolkit.assert_one_arg import assert_exactly_one_arg_set
 
 from metricflow.dataflow.nodes.join_conversion_events import JoinConversionEventsNode
 from metricflow.dataflow.nodes.join_over_time import JoinOverTimeRangeNode
@@ -28,6 +27,7 @@ from metricflow.dataset.sql_dataset import AnnotatedSqlDataSet
 from metricflow.plan_conversion.sql_expression_builders import make_coalesced_expr
 from metricflow.sql.sql_plan import SqlExpressionNode
 from metricflow.sql.sql_select_node import SqlJoinDescription, SqlSelectStatementNode
+from metricflow_semantic_interfaces.type_enums.time_granularity import TimeGranularity
 
 
 @dataclass(frozen=True)
@@ -410,7 +410,7 @@ class SqlPlanJoinBuilder:
     def _make_time_range_window_join_condition(
         base_data_set: AnnotatedSqlDataSet,
         time_comparison_dataset: AnnotatedSqlDataSet,
-        window: Optional[MetricTimeWindow] = None,
+        window: Optional[TimeWindow] = None,
         grain_to_date: Optional[TimeGranularity] = None,
     ) -> SqlLogicalExpression:
         """Helper to generate a renderable SqlExpression for expressing a time range window join condition.

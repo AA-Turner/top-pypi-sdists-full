@@ -12,6 +12,7 @@ from pydantic import ValidationError
 
 from ..models import SourceCreate, SourceGroupCreate, SourceGroupUpdate, SourceUpdate
 from ..services import storage
+from ..services.space_storage import get_space
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +55,19 @@ def _parse_body(model_cls: type, body: dict) -> Any:
             {"msg": err.get("msg", "Validation error"), "type": err.get("type", "value_error")} for err in e.errors()
         ]
         raise HTTPException(status_code=422, detail=errors)
+
+
+def _resolve_upload_space(db: Any, space_id: str | None) -> dict[str, Any] | None:
+    if space_id is None:
+        return None
+    normalized = space_id.strip()
+    if not normalized:
+        return None
+    _validate_uuid(normalized, "space_id")
+    space = get_space(db, normalized)
+    if not space:
+        raise HTTPException(status_code=404, detail="Space not found")
+    return space
 
 
 # --- Sources ---
@@ -134,13 +148,16 @@ async def upload_source(
     request: Request,
     file: UploadFile,
     title: str | None = Form(default=None),
+    space_id: str | None = Form(default=None),
 ) -> dict[str, Any]:
     db = _get_db(request)
     data_dir = request.app.state.config.app.data_dir
     user_id, display_name = _get_identity(request)
+    upload_space = _resolve_upload_space(db, space_id)
 
     file_data = await file.read()
     try:
+        max_size_bytes = request.app.state.config.server.max_upload_mb * 1024 * 1024
         source, warnings = storage.save_source_file(
             db,
             title=title or file.filename or "Untitled",
@@ -150,9 +167,13 @@ async def upload_source(
             data_dir=data_dir,
             user_id=user_id,
             user_display_name=display_name,
+            max_size_bytes=max_size_bytes,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
+
+    if upload_space:
+        storage.link_source_to_space(db, upload_space["id"], source_id=source["id"])
 
     worker = getattr(request.app.state, "embedding_worker", None)
     if worker and source.get("content"):

@@ -91700,17 +91700,51 @@ class scout_integrations_api_CreateSimpleWebhookDetails(ConjureBeanType):
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
-            'webhook': ConjureFieldDefinition('webhook', str)
+            'webhook': ConjureFieldDefinition('webhook', str),
+            'secret': ConjureFieldDefinition('secret', OptionalTypeWrapper[str]),
+            'content_type': ConjureFieldDefinition('contentType', OptionalTypeWrapper[scout_integrations_api_WebhookContentType]),
+            'timeout_seconds': ConjureFieldDefinition('timeoutSeconds', OptionalTypeWrapper[int]),
+            'custom_headers': ConjureFieldDefinition('customHeaders', OptionalTypeWrapper[Dict[str, str]])
         }
 
-    __slots__: List[str] = ['_webhook']
+    __slots__: List[str] = ['_webhook', '_secret', '_content_type', '_timeout_seconds', '_custom_headers']
 
-    def __init__(self, webhook: str) -> None:
+    def __init__(self, webhook: str, content_type: Optional["scout_integrations_api_WebhookContentType"] = None, custom_headers: Optional[Dict[str, str]] = None, secret: Optional[str] = None, timeout_seconds: Optional[int] = None) -> None:
         self._webhook = webhook
+        self._secret = secret
+        self._content_type = content_type
+        self._timeout_seconds = timeout_seconds
+        self._custom_headers = custom_headers
 
     @builtins.property
     def webhook(self) -> str:
+        """Webhook URL (must be HTTPS in production)
+        """
         return self._webhook
+
+    @builtins.property
+    def secret(self) -> Optional[str]:
+        """Optional secret for HMAC-SHA256 signing (recommended)
+        """
+        return self._secret
+
+    @builtins.property
+    def content_type(self) -> Optional["scout_integrations_api_WebhookContentType"]:
+        """Content-Type for requests (default: application/json)
+        """
+        return self._content_type
+
+    @builtins.property
+    def timeout_seconds(self) -> Optional[int]:
+        """HTTP request timeout in seconds (default: 30, max: 120)
+        """
+        return self._timeout_seconds
+
+    @builtins.property
+    def custom_headers(self) -> Optional[Dict[str, str]]:
+        """Additional headers to include in all requests
+        """
+        return self._custom_headers
 
 
 scout_integrations_api_CreateSimpleWebhookDetails.__name__ = "CreateSimpleWebhookDetails"
@@ -92904,10 +92938,43 @@ class scout_integrations_api_SimpleWebhookIntegration(ConjureBeanType):
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
+            'hmac_secret_rid': ConjureFieldDefinition('hmacSecretRid', OptionalTypeWrapper[str]),
+            'content_type': ConjureFieldDefinition('contentType', OptionalTypeWrapper[scout_integrations_api_WebhookContentType]),
+            'timeout_seconds': ConjureFieldDefinition('timeoutSeconds', OptionalTypeWrapper[int]),
+            'custom_headers': ConjureFieldDefinition('customHeaders', OptionalTypeWrapper[Dict[str, str]])
         }
 
-    __slots__: List[str] = []
+    __slots__: List[str] = ['_hmac_secret_rid', '_content_type', '_timeout_seconds', '_custom_headers']
 
+    def __init__(self, content_type: Optional["scout_integrations_api_WebhookContentType"] = None, custom_headers: Optional[Dict[str, str]] = None, hmac_secret_rid: Optional[str] = None, timeout_seconds: Optional[int] = None) -> None:
+        self._hmac_secret_rid = hmac_secret_rid
+        self._content_type = content_type
+        self._timeout_seconds = timeout_seconds
+        self._custom_headers = custom_headers
+
+    @builtins.property
+    def hmac_secret_rid(self) -> Optional[str]:
+        """Optional RID of secret containing HMAC-SHA256 signing key
+        """
+        return self._hmac_secret_rid
+
+    @builtins.property
+    def content_type(self) -> Optional["scout_integrations_api_WebhookContentType"]:
+        """Content-Type for requests (default: application/json)
+        """
+        return self._content_type
+
+    @builtins.property
+    def timeout_seconds(self) -> Optional[int]:
+        """HTTP request timeout in seconds (default: 30, max: 120)
+        """
+        return self._timeout_seconds
+
+    @builtins.property
+    def custom_headers(self) -> Optional[Dict[str, str]]:
+        """Additional headers to include in all requests
+        """
+        return self._custom_headers
 
 
 scout_integrations_api_SimpleWebhookIntegration.__name__ = "SimpleWebhookIntegration"
@@ -93291,17 +93358,51 @@ class scout_integrations_api_UpdateSimpleWebhookDetails(ConjureBeanType):
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
-            'webhook': ConjureFieldDefinition('webhook', str)
+            'webhook': ConjureFieldDefinition('webhook', str),
+            'secret': ConjureFieldDefinition('secret', OptionalTypeWrapper[str]),
+            'content_type': ConjureFieldDefinition('contentType', OptionalTypeWrapper[scout_integrations_api_WebhookContentType]),
+            'timeout_seconds': ConjureFieldDefinition('timeoutSeconds', OptionalTypeWrapper[int]),
+            'custom_headers': ConjureFieldDefinition('customHeaders', OptionalTypeWrapper[Dict[str, str]])
         }
 
-    __slots__: List[str] = ['_webhook']
+    __slots__: List[str] = ['_webhook', '_secret', '_content_type', '_timeout_seconds', '_custom_headers']
 
-    def __init__(self, webhook: str) -> None:
+    def __init__(self, webhook: str, content_type: Optional["scout_integrations_api_WebhookContentType"] = None, custom_headers: Optional[Dict[str, str]] = None, secret: Optional[str] = None, timeout_seconds: Optional[int] = None) -> None:
         self._webhook = webhook
+        self._secret = secret
+        self._content_type = content_type
+        self._timeout_seconds = timeout_seconds
+        self._custom_headers = custom_headers
 
     @builtins.property
     def webhook(self) -> str:
+        """Webhook URL (must be HTTPS in production)
+        """
         return self._webhook
+
+    @builtins.property
+    def secret(self) -> Optional[str]:
+        """Optional secret for HMAC-SHA256 signing
+        """
+        return self._secret
+
+    @builtins.property
+    def content_type(self) -> Optional["scout_integrations_api_WebhookContentType"]:
+        """Content-Type for requests
+        """
+        return self._content_type
+
+    @builtins.property
+    def timeout_seconds(self) -> Optional[int]:
+        """HTTP request timeout in seconds
+        """
+        return self._timeout_seconds
+
+    @builtins.property
+    def custom_headers(self) -> Optional[Dict[str, str]]:
+        """Additional headers to include in all requests
+        """
+        return self._custom_headers
 
 
 scout_integrations_api_UpdateSimpleWebhookDetails.__name__ = "UpdateSimpleWebhookDetails"
@@ -93330,6 +93431,26 @@ class scout_integrations_api_UpdateTeamsWebhookIntegrationDetails(ConjureBeanTyp
 scout_integrations_api_UpdateTeamsWebhookIntegrationDetails.__name__ = "UpdateTeamsWebhookIntegrationDetails"
 scout_integrations_api_UpdateTeamsWebhookIntegrationDetails.__qualname__ = "UpdateTeamsWebhookIntegrationDetails"
 scout_integrations_api_UpdateTeamsWebhookIntegrationDetails.__module__ = "nominal_api.scout_integrations_api"
+
+
+class scout_integrations_api_WebhookContentType(ConjureEnumType):
+    """Content-Type for webhook requests
+    """
+
+    APPLICATION_JSON = 'APPLICATION_JSON'
+    '''APPLICATION_JSON'''
+    APPLICATION_X_WWW_FORM_URLENCODED = 'APPLICATION_X_WWW_FORM_URLENCODED'
+    '''APPLICATION_X_WWW_FORM_URLENCODED'''
+    UNKNOWN = 'UNKNOWN'
+    '''UNKNOWN'''
+
+    def __reduce_ex__(self, proto):
+        return self.__class__, (self.name,)
+
+
+scout_integrations_api_WebhookContentType.__name__ = "WebhookContentType"
+scout_integrations_api_WebhookContentType.__qualname__ = "WebhookContentType"
+scout_integrations_api_WebhookContentType.__module__ = "nominal_api.scout_integrations_api"
 
 
 class scout_integrations_api_WebhookDeliveryConfig(ConjureBeanType):
@@ -96755,7 +96876,8 @@ scout_notebook_api_CreateNotebookRequest.__module__ = "nominal_api.scout_noteboo
 class scout_notebook_api_DuplicateNotebookRequest(ConjureBeanType):
     """Request to duplicate a workbook. All content fields (layout, charts, contentV2, eventRefs) are
 copied from the source workbook. Metadata fields can be optionally overridden; if not provided,
-they default to the source workbook's values (except isDraft, which defaults to true).
+they default to the source workbook's values (except isDraft which defaults to true, and
+isLocked which defaults to false).
     """
 
     @builtins.classmethod
@@ -96766,20 +96888,22 @@ they default to the source workbook's values (except isDraft, which defaults to 
             'description': ConjureFieldDefinition('description', OptionalTypeWrapper[str]),
             'data_scope': ConjureFieldDefinition('dataScope', OptionalTypeWrapper[scout_notebook_api_NotebookDataScope]),
             'is_draft': ConjureFieldDefinition('isDraft', OptionalTypeWrapper[bool]),
+            'is_locked': ConjureFieldDefinition('isLocked', OptionalTypeWrapper[bool]),
             'workspace': ConjureFieldDefinition('workspace', api_rids_WorkspaceRid),
             'labels': ConjureFieldDefinition('labels', OptionalTypeWrapper[List[api_Label]]),
             'properties': ConjureFieldDefinition('properties', OptionalTypeWrapper[Dict[api_PropertyName, api_PropertyValue]]),
             'preview_image': ConjureFieldDefinition('previewImage', OptionalTypeWrapper[api_ThemeAwareImage])
         }
 
-    __slots__: List[str] = ['_title', '_title_suffix', '_description', '_data_scope', '_is_draft', '_workspace', '_labels', '_properties', '_preview_image']
+    __slots__: List[str] = ['_title', '_title_suffix', '_description', '_data_scope', '_is_draft', '_is_locked', '_workspace', '_labels', '_properties', '_preview_image']
 
-    def __init__(self, workspace: str, data_scope: Optional["scout_notebook_api_NotebookDataScope"] = None, description: Optional[str] = None, is_draft: Optional[bool] = None, labels: Optional[List[str]] = None, preview_image: Optional["api_ThemeAwareImage"] = None, properties: Optional[Dict[str, str]] = None, title: Optional[str] = None, title_suffix: Optional[str] = None) -> None:
+    def __init__(self, workspace: str, data_scope: Optional["scout_notebook_api_NotebookDataScope"] = None, description: Optional[str] = None, is_draft: Optional[bool] = None, is_locked: Optional[bool] = None, labels: Optional[List[str]] = None, preview_image: Optional["api_ThemeAwareImage"] = None, properties: Optional[Dict[str, str]] = None, title: Optional[str] = None, title_suffix: Optional[str] = None) -> None:
         self._title = title
         self._title_suffix = title_suffix
         self._description = description
         self._data_scope = data_scope
         self._is_draft = is_draft
+        self._is_locked = is_locked
         self._workspace = workspace
         self._labels = labels
         self._properties = properties
@@ -96813,9 +96937,18 @@ Defaults to "copy". Ignored if title is explicitly provided.
 
     @builtins.property
     def is_draft(self) -> Optional[bool]:
-        """Override draft status. Defaults to true.
+        """Override draft status. Defaults to true — even published (and locked) workbooks become
+drafts when duplicated, since the copy is a new working version for the caller to review
+before publishing.
         """
         return self._is_draft
+
+    @builtins.property
+    def is_locked(self) -> Optional[bool]:
+        """Override lock status. Defaults to false — locked workbooks are unlocked when duplicated,
+since the copy is a new draft for the caller to iterate on.
+        """
+        return self._is_locked
 
     @builtins.property
     def workspace(self) -> str:

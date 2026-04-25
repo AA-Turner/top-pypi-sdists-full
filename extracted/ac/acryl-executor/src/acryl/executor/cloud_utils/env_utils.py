@@ -39,3 +39,9 @@ def get_cloud_log_path() -> str:
 
 def is_datahub_hosted() -> bool:
     return string_to_bool(os.environ.get("DATAHUB_EXECUTOR_INTERNAL_WORKER", "false"))
+
+
+def get_print_subprocess_logs() -> bool:
+    return string_to_bool(
+        os.environ.get("DATAHUB_EXECUTOR_PRINT_SUBPROCESS_LOGS", "true")
+    )

@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use pyo3::prelude::*;
@@ -6,13 +7,17 @@ use sequoia_openpgp::{cert, policy::Policy, serialize::SerializeInto};
 use crate::decrypt;
 use crate::signer::PySigner;
 
+/// A certificate that contains secret key material.
+///
+/// Provides access to signing, certification, and decryption operations
+/// that require private keys.
 #[pyclass]
-pub struct SecretCert {
+pub struct Tsk {
     cert: cert::Cert,
     policy: Arc<Mutex<Box<dyn Policy>>>,
 }
 
-impl SecretCert {
+impl Tsk {
     pub fn new(cert: cert::Cert, policy: &Arc<Mutex<Box<dyn Policy>>>) -> Self {
         Self {
             cert,
@@ -25,12 +30,25 @@ impl SecretCert {
 }
 
 #[pymethods]
-impl SecretCert {
+impl Tsk {
+    /// Return the ASCII-armored secret key representation (Transferable Secret Key).
     pub fn __str__(&self) -> PyResult<String> {
         let armored = self.cert.as_tsk().armored();
         Ok(String::from_utf8(armored.to_vec()?)?)
     }
 
+    pub fn __repr__(&self) -> String {
+        format!("<Tsk fingerprint={}>", self.cert.fingerprint())
+    }
+
+    /// Return the raw binary encoding of this certificate.
+    pub fn __bytes__(&self) -> PyResult<Cow<'_, [u8]>> {
+        Ok(self.cert.as_tsk().to_vec()?.into())
+    }
+
+    /// Get a signer using this certificate's signing component key.
+    ///
+    /// If the secret key is password-protected, provide the password to decrypt it.
     #[pyo3(signature = (password=None))]
     pub fn signer(&self, password: Option<String>) -> PyResult<PySigner> {
         if let Some(key) = self
@@ -54,6 +72,9 @@ impl SecretCert {
         }
     }
 
+    /// Get a certifier using this certificate's certification-capable primary key.
+    ///
+    /// If the secret key is password-protected, provide the password to decrypt it.
     #[pyo3(signature = (password=None))]
     pub fn certifier(&self, password: Option<String>) -> PyResult<PySigner> {
         if let Some(key) = self
@@ -77,6 +98,9 @@ impl SecretCert {
         }
     }
 
+    /// Get a decryptor using this certificate's encryption component key.
+    ///
+    /// If the secret key is password-protected, provide the password to decrypt it.
     #[pyo3(signature = (password=None))]
     pub fn decryptor(&self, password: Option<String>) -> PyResult<decrypt::PyDecryptor> {
         if let Some(key) = self

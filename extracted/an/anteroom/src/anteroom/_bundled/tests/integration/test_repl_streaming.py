@@ -225,6 +225,20 @@ class TestStreamingTurnIntegration:
         output = buf.getvalue()
         assert "bold" in output
 
+    def test_disabled_streaming_does_not_flush_mid_turn_narration(self) -> None:
+        capture, buf = _install_capture_console()
+        renderer.set_theme(CliTheme.load("midnight"))
+        renderer.configure_streaming(enabled=False, refresh_hz=20.0)
+
+        renderer.render_token("I'm checking the config first.")
+        renderer.flush_buffered_text()
+
+        assert "checking the config" not in buf.getvalue()
+
+        renderer.render_response_end()
+
+        assert "checking the config" in buf.getvalue()
+
     def test_exec_mode_without_opt_in_disables_live(self) -> None:
         capture, buf = _install_capture_console()
         renderer.set_theme(CliTheme.load("midnight"))

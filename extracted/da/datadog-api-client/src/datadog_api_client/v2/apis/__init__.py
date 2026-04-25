@@ -10,6 +10,7 @@ from datadog_api_client.v2.api.app_builder_api import AppBuilderApi
 from datadog_api_client.v2.api.application_security_api import ApplicationSecurityApi
 from datadog_api_client.v2.api.audit_api import AuditApi
 from datadog_api_client.v2.api.authn_mappings_api import AuthNMappingsApi
+from datadog_api_client.v2.api.bits_ai_api import BitsAIApi
 from datadog_api_client.v2.api.ci_visibility_pipelines_api import CIVisibilityPipelinesApi
 from datadog_api_client.v2.api.ci_visibility_tests_api import CIVisibilityTestsApi
 from datadog_api_client.v2.api.csm_agents_api import CSMAgentsApi
@@ -29,6 +30,7 @@ from datadog_api_client.v2.api.container_images_api import ContainerImagesApi
 from datadog_api_client.v2.api.containers_api import ContainersApi
 from datadog_api_client.v2.api.dora_metrics_api import DORAMetricsApi
 from datadog_api_client.v2.api.dashboard_lists_api import DashboardListsApi
+from datadog_api_client.v2.api.dashboard_secure_embed_api import DashboardSecureEmbedApi
 from datadog_api_client.v2.api.data_deletion_api import DataDeletionApi
 from datadog_api_client.v2.api.datasets_api import DatasetsApi
 from datadog_api_client.v2.api.deployment_gates_api import DeploymentGatesApi
@@ -67,6 +69,7 @@ from datadog_api_client.v2.api.on_call_api import OnCallApi
 from datadog_api_client.v2.api.on_call_paging_api import OnCallPagingApi
 from datadog_api_client.v2.api.opsgenie_integration_api import OpsgenieIntegrationApi
 from datadog_api_client.v2.api.org_connections_api import OrgConnectionsApi
+from datadog_api_client.v2.api.org_groups_api import OrgGroupsApi
 from datadog_api_client.v2.api.organizations_api import OrganizationsApi
 from datadog_api_client.v2.api.powerpack_api import PowerpackApi
 from datadog_api_client.v2.api.processes_api import ProcessesApi
@@ -82,13 +85,13 @@ from datadog_api_client.v2.api.rum_replay_playlists_api import RumReplayPlaylist
 from datadog_api_client.v2.api.rum_replay_sessions_api import RumReplaySessionsApi
 from datadog_api_client.v2.api.rum_replay_viewership_api import RumReplayViewershipApi
 from datadog_api_client.v2.api.rum_retention_filters_api import RumRetentionFiltersApi
+from datadog_api_client.v2.api.scorecards_api import ScorecardsApi
 from datadog_api_client.v2.api.seats_api import SeatsApi
 from datadog_api_client.v2.api.security_monitoring_api import SecurityMonitoringApi
 from datadog_api_client.v2.api.sensitive_data_scanner_api import SensitiveDataScannerApi
 from datadog_api_client.v2.api.service_accounts_api import ServiceAccountsApi
 from datadog_api_client.v2.api.service_definition_api import ServiceDefinitionApi
 from datadog_api_client.v2.api.service_level_objectives_api import ServiceLevelObjectivesApi
-from datadog_api_client.v2.api.service_scorecards_api import ServiceScorecardsApi
 from datadog_api_client.v2.api.service_now_integration_api import ServiceNowIntegrationApi
 from datadog_api_client.v2.api.software_catalog_api import SoftwareCatalogApi
 from datadog_api_client.v2.api.spa_api import SpaApi
@@ -118,6 +121,7 @@ __all__ = [
     "ApplicationSecurityApi",
     "AuditApi",
     "AuthNMappingsApi",
+    "BitsAIApi",
     "CIVisibilityPipelinesApi",
     "CIVisibilityTestsApi",
     "CSMAgentsApi",
@@ -137,6 +141,7 @@ __all__ = [
     "ContainersApi",
     "DORAMetricsApi",
     "DashboardListsApi",
+    "DashboardSecureEmbedApi",
     "DataDeletionApi",
     "DatasetsApi",
     "DeploymentGatesApi",
@@ -175,6 +180,7 @@ __all__ = [
     "OnCallPagingApi",
     "OpsgenieIntegrationApi",
     "OrgConnectionsApi",
+    "OrgGroupsApi",
     "OrganizationsApi",
     "PowerpackApi",
     "ProcessesApi",
@@ -190,13 +196,13 @@ __all__ = [
     "RumReplaySessionsApi",
     "RumReplayViewershipApi",
     "RumRetentionFiltersApi",
+    "ScorecardsApi",
     "SeatsApi",
     "SecurityMonitoringApi",
     "SensitiveDataScannerApi",
     "ServiceAccountsApi",
     "ServiceDefinitionApi",
     "ServiceLevelObjectivesApi",
-    "ServiceScorecardsApi",
     "ServiceNowIntegrationApi",
     "SoftwareCatalogApi",
     "SpaApi",

@@ -38,6 +38,7 @@ class FakeJob():
         self.out = output.NullOutput()
         self.get_logger = logging.getLogger
         self.hooks = collections.defaultdict(list)
+        self.status = 0
 
     def register_hooks(self, hooks, options=None):
         for hook, callback in hooks.items():
@@ -51,6 +52,8 @@ class TestPostprocessorModule(unittest.TestCase):
 
     def test_find(self):
         for name in (postprocessor.modules):
+            if name == "fs":
+                name = "filesystem"
             cls = postprocessor.find(name)
             self.assertEqual(cls.__name__, f"{name.capitalize()}PP")
             self.assertIs(cls.__base__, PostProcessor)
@@ -121,6 +124,10 @@ class BasePostprocessorTest(unittest.TestCase):
 
 class ActionsTest(BasePostprocessorTest):
 
+    def tearDown(self):
+        super().tearDown()
+        util.FLAGS.clear()
+
     def test_raises(self):
         self._create({"action": "raise AbortExtraction foobar"})
 
@@ -143,6 +150,26 @@ class ActionsTest(BasePostprocessorTest):
         self.assertEqual(self.job.status, 0)
         self._trigger()
         self.assertEqual(self.job.status, 123)
+
+    def test_flag_clear(self):
+        self._create({"action": "flag download clear"})
+
+        util.FLAGS.DOWNLOAD = "stop"
+        self._trigger()
+        self.assertEqual(util.FLAGS.DOWNLOAD, None)
+        self._trigger()
+        self.assertEqual(util.FLAGS.DOWNLOAD, None)
+
+    def test_flag_toggle(self):
+        self._create({"action": "flag download toggle"})
+
+        self.assertEqual(util.FLAGS.DOWNLOAD, None)
+        self._trigger()
+        self.assertEqual(util.FLAGS.DOWNLOAD, "stop")
+        self._trigger()
+        self.assertEqual(util.FLAGS.DOWNLOAD, None)
+        self._trigger()
+        self.assertEqual(util.FLAGS.DOWNLOAD, "stop")
 
 
 class ClassifyTest(BasePostprocessorTest):
@@ -254,6 +281,7 @@ class ExecTest(BasePostprocessorTest):
             shell=True,
             creationflags=0,
             start_new_session=False,
+            stdout=None, stderr=None,
         )
         i.wait.assert_called_once_with()
 
@@ -278,6 +306,7 @@ class ExecTest(BasePostprocessorTest):
             shell=False,
             creationflags=0,
             start_new_session=False,
+            stdout=None, stderr=None,
         )
 
     def test_command_many(self):
@@ -307,6 +336,7 @@ class ExecTest(BasePostprocessorTest):
                 shell=True,
                 creationflags=0,
                 start_new_session=False,
+                stdout=None, stderr=None,
             ),
             call(
                 [
@@ -317,6 +347,7 @@ class ExecTest(BasePostprocessorTest):
                 shell=False,
                 creationflags=0,
                 start_new_session=False,
+                stdout=None, stderr=None,
             ),
         ])
 
@@ -370,6 +401,7 @@ class ExecTest(BasePostprocessorTest):
             shell=False,
             creationflags=0,
             start_new_session=True,
+            stdout=None, stderr=None,
         )
         i.wait.assert_called_once_with()
 
@@ -392,6 +424,7 @@ class ExecTest(BasePostprocessorTest):
             shell=False,
             creationflags=subprocess.CREATE_NEW_PROCESS_GROUP,
             start_new_session=False,
+            stdout=None, stderr=None,
         )
         i.wait.assert_called_once_with()
 
@@ -445,6 +478,57 @@ class ExecTest(BasePostprocessorTest):
         msg = "DEBUG:postprocessor.exec:Running 'echo'"
         self.assertEqual(log_info.output[0], msg)
         self.assertIn("'echo' returned with non-zero ", log_info.output[1])
+
+    def test_opt_success(self):
+        self._create({
+            "command": "echo foo bar",
+            "success": "status = 11",
+        })
+
+        self.assertEqual(self.job.status, 0)
+        with patch("gallery_dl.util.Popen") as p:
+            p.return_value = i = Mock()
+            i.wait.return_value = 0
+            self._trigger(("after",))
+        self.assertEqual(self.job.status, 11)
+
+    def test_opt_error(self):
+        self._create({
+            "command": "echo foo bar",
+            "success": "status = 11",
+            "error"  : "status = 23",
+        })
+
+        self.assertEqual(self.job.status, 0)
+        with patch("gallery_dl.util.Popen") as p, \
+                self.assertLogs(level=10) as log_info:
+            p.return_value = i = Mock()
+            i.wait.return_value = 1  # non-zero exit status
+            self._trigger(("after",))
+        self.assertEqual(self.job.status, 23)
+        self.assertIn("'echo foo bar' returned with non-zero ",
+                      log_info.output[1])
+
+    def test_opt_output(self):
+        self._create({
+            "command": ["echo", "foobar"],
+            "output" : False,
+        })
+
+        with patch("gallery_dl.util.Popen") as p:
+            p.return_value = i = Mock()
+            i.wait.return_value = 0
+            self._trigger(("after",))
+
+        import subprocess
+        p.assert_called_once_with(
+            ["echo", "foobar"],
+            shell=False,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            creationflags=0,
+            start_new_session=False,
+        )
 
 
 class HashTest(BasePostprocessorTest):
@@ -629,15 +713,6 @@ class MetadataTest(BasePostprocessorTest):
         with patch("builtins.open", mock_open()) as m:
             self._trigger()
         self.assertEqual(self._output(m), "foo\nbar\nbaz\n")
-
-    def test_metadata_tags_dict(self):
-        self._create(
-            {"mode": "tags"},
-            {"tags": {"g": ["foobar1", "foobar2"], "m": ["foobarbaz"]}},
-        )
-        with patch("builtins.open", mock_open()) as m:
-            self._trigger()
-        self.assertEqual(self._output(m), "foobar1\nfoobar2\nfoobarbaz\n")
 
     def test_metadata_tags_list_of_dict(self):
         self._create(
@@ -945,6 +1020,42 @@ class MetadataTest(BasePostprocessorTest):
     "public": "hello ワールド"
 }
 """)
+
+    def test_metadata_option_empty_json(self):
+        self._create({"mode": "json", "include": "_"})
+
+        with patch("builtins.open", mock_open()) as m:
+            self._trigger()
+
+        m.assert_not_called()
+        self.assertEqual(self._output(m), "")
+
+    def test_metadata_option_empty_tags(self):
+        self._create({"mode": "tags"})
+
+        with patch("builtins.open", mock_open()) as m:
+            self._trigger()
+
+        m.assert_not_called()
+        self.assertEqual(self._output(m), "")
+
+    def test_metadata_option_empty_fmt(self):
+        self._create({"format": "{''}"})
+
+        with patch("builtins.open", mock_open()) as m:
+            self._trigger()
+
+        m.assert_not_called()
+        self.assertEqual(self._output(m), "")
+
+    def test_metadata_option_empty_true(self):
+        self._create({"empty": True, "format": "{''}"})
+
+        with patch("builtins.open", mock_open()) as m:
+            self._trigger()
+
+        m.assert_called_once()
+        self.assertEqual(self._output(m), "")
 
     def test_archive(self):
         pp = self._create({

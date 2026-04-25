@@ -33,6 +33,7 @@ import weakref
 import functools
 from silx.gui import qt
 import silx.utils.weakref
+from ...utils.deprecation import deprecated
 
 
 class DataViewerSelector(qt.QWidget):
@@ -44,7 +45,7 @@ class DataViewerSelector(qt.QWidget):
         :param QWidget parent: The parent of the widget
         :param DataViewer dataViewer: The connected `DataViewer`
         """
-        super(DataViewerSelector, self).__init__(parent)
+        super().__init__(parent)
 
         self.__group = None
         self.__buttons = {}
@@ -127,6 +128,7 @@ class DataViewerSelector(qt.QWidget):
             self.__dataViewer.displayedViewChanged.connect(self.__displayedViewChanged)
         self.__updateButtons()
 
+    @deprecated(reason="Inconsistent display", since_version="3.0.0")
     def setFlat(self, isFlat):
         """Set the flat state of all the buttons.
 

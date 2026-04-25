@@ -9,8 +9,7 @@
 """Extractors for https://www.weibo.com/"""
 
 from .common import Extractor, Message, Dispatch
-from .. import text, util, exception
-from ..cache import cache
+from .. import text, util
 import random
 
 BASE_PATTERN = r"(?:https?://)?(?:www\.|m\.)?weibo\.c(?:om|n)"
@@ -38,10 +37,12 @@ class WeiboExtractor(Extractor):
         self.longtext = self.config("text", False)
         self.videos = self.config("videos", True)
         self.movies = self.config("movies", False)
+        self.likes = self.config("likes", False)
         self.gifs = self.config("gifs", True)
         self.gifs_video = (self.gifs == "video")
 
-        cookies = _cookie_cache()
+        cookies = self.cache(
+            _cookie_cache, _key=None, _exp=365*86400, _mem=False)
         if cookies is None:
             self.logged_in = self.cookies_check(
                 self.cookies_names, self.cookies_domain)
@@ -65,7 +66,7 @@ class WeiboExtractor(Extractor):
 
         if response.history:
             if "login.sina.com" in response.url:
-                raise exception.AbortExtraction(
+                raise self.exc.AbortExtraction(
                     f"HTTP redirect to login page "
                     f"({response.url.partition('?')[0]})")
             if "passport.weibo.com" in response.url:
@@ -76,6 +77,7 @@ class WeiboExtractor(Extractor):
 
     def items(self):
         original_retweets = (self.retweets == "original")
+        is_like = text.re(r"\d-\d\d?赞过").search
 
         for status in self.statuses():
 
@@ -99,6 +101,14 @@ class WeiboExtractor(Extractor):
             else:
                 files = []
                 self._extract_status(status, files)
+
+            if is_like(status["title"]["text"]):
+                if not self.likes:
+                    self.log.debug("Skipping %s (赞过 like)", status["id"])
+                    continue
+                status["like"] = True
+            else:
+                status["like"] = False
 
             if self.longtext and status.get("isLongText") and \
                     status["text"].endswith('class="expand">展开</span>'):
@@ -189,7 +199,7 @@ class WeiboExtractor(Extractor):
                 not text.ext_from_url(video["url"]):
             try:
                 video["url"] = self.request_location(video["url"])
-            except exception.HttpError as exc:
+            except self.exc.HttpError as exc:
                 self.log.warning("%s: %s", exc.__class__.__name__, exc)
                 video["url"] = ""
 
@@ -227,11 +237,14 @@ class WeiboExtractor(Extractor):
             headers["X-XSRF-TOKEN"] = response.cookies.get("XSRF-TOKEN")
 
             data = response.json()
-            if not data.get("ok"):
+            if not (ok := data.get("ok", 0)):
                 self.log.debug(response.content)
                 if "since_id" not in params:  # first iteration
-                    raise exception.AbortExtraction(
+                    raise self.exc.AbortExtraction(
                         f'"{data.get("msg") or "unknown error"}"')
+            elif ok < 0:
+                self.request(self.root + "/").content
+                continue
 
             try:
                 data = data["data"]
@@ -277,12 +290,15 @@ class WeiboExtractor(Extractor):
     def _sina_visitor_system(self, response):
         self.log.info("Sina Visitor System")
 
-        passport_url = "https://passport.weibo.com/visitor/genvisitor"
+        passport_url = "https://passport.weibo.com/visitor/genvisitor2"
         headers = {"Referer": response.url}
         data = {
-            "cb": "gen_callback",
-            "fp": '{"os":"1","browser":"Gecko109,0,0,0","fonts":"undefined",'
-                  '"screenInfo":"1920*1080*24","plugins":""}',
+            "cb"  : "visitor_gray_callback",
+            "ver" : "20250916",
+            "tid" : "",
+            "from": "weibo",
+            "webdriver" : "false",
+            "return_url": "https://weibo.com/",
         }
 
         page = Extractor.request(
@@ -291,17 +307,18 @@ class WeiboExtractor(Extractor):
 
         passport_url = "https://passport.weibo.com/visitor/visitor"
         params = {
-            "a"    : "incarnate",
-            "t"    : data["tid"],
-            "w"    : "3" if data.get("new_tid") else "2",
-            "c"    : f"{data.get('confidence') or 100:>03}",
-            "gc"   : "",
-            "cb"   : "cross_domain",
+            "a"    : "crossdomain",
+            "t"    : data.get("tid"),
+            "sp"   : data["subp"],
+            "s"    : data["sub"],
             "from" : "weibo",
             "_rand": random.random(),
+            "url"  : response.url
         }
-        response = Extractor.request(self, passport_url, params=params)
-        _cookie_cache.update("", response.cookies)
+        response = Extractor.request(
+            self, passport_url, params=params, allow_redirects=False)
+        self.cache_update(
+            _cookie_cache, ..., response.cookies, _exp=365*86400)
 
 
 class WeiboUserExtractor(WeiboExtractor):
@@ -479,14 +496,14 @@ class WeiboAlbumExtractor(WeiboExtractor):
             try:
                 sub = subalbums[int(subalbum)-1]
             except Exception:
-                raise exception.NotFoundError("subalbum")
+                raise self.exc.NotFoundError("subalbum")
         else:
             subalbum = text.unquote(subalbum)
             for sub in subalbums:
                 if sub["pic_title"] == subalbum:
                     break
             else:
-                raise exception.NotFoundError("subalbum")
+                raise self.exc.NotFoundError("subalbum")
         return ((sub, self._pagination_subalbum(uid, sub)),)
 
     def _pagination_subalbum(self, uid, sub):
@@ -504,10 +521,9 @@ class WeiboStatusExtractor(WeiboExtractor):
         status = self._status_by_id(self.user)
         if status.get("ok") != 1:
             self.log.debug(status)
-            raise exception.NotFoundError("status")
+            raise self.exc.NotFoundError("status")
         return (status,)
 
 
-@cache(maxage=365*86400)
 def _cookie_cache():
     return None

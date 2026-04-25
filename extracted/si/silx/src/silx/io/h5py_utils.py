@@ -21,6 +21,7 @@
 #
 # ############################################################################*/
 from __future__ import annotations
+
 """
 This module provides utility methods on top of h5py, mainly to handle
 parallel writing and reading.
@@ -30,17 +31,18 @@ __authors__ = ["W. de Nolf"]
 __license__ = "MIT"
 __date__ = "28/11/2023"
 
+from typing import Any
 
 import os
 import sys
 import traceback
 import logging
-from typing import Sequence
+from collections.abc import Sequence
 import h5py
+import inspect
 
 from .._version import calc_hexversion
 from ..utils import retry as retry_mod
-from silx.utils.deprecation import deprecated_warning
 
 _logger = logging.getLogger(__name__)
 
@@ -66,33 +68,6 @@ HAS_LOCKING_ARGUMENT = HDF5_HAS_LOCKING_ARGUMENT & H5PY_HAS_LOCKING_ARGUMENT
 
 LATEST_LIBVER_IS_V108 = HDF5_HEX_VERSION < calc_hexversion(1, 10, 0)
 
-LOCKING_ARG_CHANGED_H5PY_VS_HDF5_WARMED = False
-
-
-def only_once(func):
-    """
-    simple decorator to make sure the warning is call at most one time.
-    """
-
-    def wrapper(*args, **kwargs):
-        global LOCKING_ARG_CHANGED_H5PY_VS_HDF5_WARMED
-        if not LOCKING_ARG_CHANGED_H5PY_VS_HDF5_WARMED:
-            LOCKING_ARG_CHANGED_H5PY_VS_HDF5_WARMED = True
-            return func(*args, **kwargs)
-
-    return wrapper
-
-
-@only_once
-def warm_incoherent_locking_argument():
-    """warm the user that file locking behavior has changed in recent versions of libhdf5"""
-    _logger.critical(
-        "The version of libhdf5 ({}) used by h5py ({}) is not supported: "
-        "Do not expect file locking to work.".format(
-            h5py.version.hdf5_version, h5py.version.version
-        )
-    )
-
 
 def _libver_low_bound_is_v108(libver) -> bool:
     if libver is None:
@@ -109,12 +84,12 @@ def _libver_low_bound_is_v108(libver) -> bool:
 
 
 def _hdf5_file_locking(
-        mode: str | None = "r",
-        locking: bool | str | None = None,
-        swmr: bool | None = None,
-        libver: str | Sequence[str] | None = None,
-        **_
-    ) -> str | bool | None:
+    mode: str | None = "r",
+    locking: bool | str | None = None,
+    swmr: bool | None = None,
+    libver: str | Sequence[str] | None = None,
+    **_,
+) -> str | bool | None:
     """Concurrent access by disabling file locking is not supported
     in these cases:
 
@@ -148,17 +123,25 @@ def _hdf5_file_locking(
     return locking
 
 
-def is_h5py_exception(e):
-    """
-    :param BaseException e:
-    :returns bool:
-    """
+def _is_h5py_module(module_name: Any):
+    if not isinstance(module_name, str):
+        return False
+
+    return module_name.split(".")[0].startswith("h5py")
+
+
+def is_h5py_exception(e: BaseException) -> bool:
     if not isinstance(e, Exception):
         return False
-    for frame in traceback.walk_tb(e.__traceback__):
-        for namespace in (frame[0].f_locals, frame[0].f_globals):
-            if namespace.get("__package__", None) == "h5py":
-                return True
+    for frame, _ in traceback.walk_tb(e.__traceback__):
+        mod = inspect.getmodule(frame)
+        if mod and _is_h5py_module(mod.__name__):
+            return True
+        if _is_h5py_module(frame.f_locals.get("__package__", None)):
+            return True
+        if _is_h5py_module(frame.f_globals.get("__package__", None)):
+            return True
+
     return False
 
 
@@ -384,7 +367,6 @@ class File(h5py.File):
         filename: str,
         mode: str | None = None,
         locking: bool | str | None = None,
-        enable_file_locking: bool | None = None,
         swmr: bool | None = None,
         libver: str | Sequence[str] | None = None,
         **kwargs,
@@ -397,33 +379,28 @@ class File(h5py.File):
         :param locking: by default it is disabled for `mode='r'`
                         and `swmr=False` and enabled when supported
                         for all other modes.
-        :param enable_file_locking: deprecated
         :param swmr: try both modes when `mode='r'` and `swmr=None`
         :param libver:
         :param \**kwargs: see `h5py.File.__init__`
         """
         # File locking behavior has changed in recent versions of libhdf5
         if HDF5_HAS_LOCKING_ARGUMENT != H5PY_HAS_LOCKING_ARGUMENT:
-            warm_incoherent_locking_argument()
+            _logger.critical(
+                "The version of libhdf5 ({}) used by h5py ({}) is not supported: "
+                "Do not expect file locking to work.".format(
+                    h5py.version.hdf5_version, h5py.version.version
+                )
+            )
 
         if mode is None:
             mode = "r"
         elif mode not in ("r", "w", "w-", "x", "a", "r+"):
-            raise ValueError("invalid mode {}".format(mode))
+            raise ValueError(f"invalid mode {mode}")
         if not HAS_SWMR:
             swmr = False
         if swmr and libver is None:
             libver = self._SWMR_LIBVER
 
-        if enable_file_locking is not None:
-            deprecated_warning(
-                type_="argument",
-                name="enable_file_locking",
-                replacement="locking",
-                since_version="1.0",
-            )
-            if locking is None:
-                locking = enable_file_locking
         locking = _hdf5_file_locking(
             mode=mode, locking=locking, swmr=swmr, libver=libver
         )

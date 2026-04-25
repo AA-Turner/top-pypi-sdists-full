@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ipython
-Version: 9.12.0
+Version: 9.13.0
 Summary: IPython: Productive Interactive Computing
 Author: The IPython Development Team
 Author-email: ipython-dev@python.org
@@ -22,7 +22,7 @@ Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Topic :: System :: Shells
-Requires-Python: >=3.12
+Requires-Python: >=3.11
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 License-File: COPYING.rst
@@ -33,9 +33,11 @@ Requires-Dist: jedi>=0.18.2
 Requires-Dist: matplotlib-inline>=0.1.6
 Requires-Dist: pexpect>4.6; sys_platform != "win32" and sys_platform != "emscripten"
 Requires-Dist: prompt_toolkit<3.1.0,>=3.0.41
+Requires-Dist: psutil>=7
 Requires-Dist: pygments>=2.14.0
 Requires-Dist: stack_data>=0.6.0
 Requires-Dist: traitlets>=5.13.0
+Requires-Dist: typing_extensions>=4.6; python_version < "3.12"
 Provides-Extra: black
 Requires-Dist: black; extra == "black"
 Provides-Extra: doc

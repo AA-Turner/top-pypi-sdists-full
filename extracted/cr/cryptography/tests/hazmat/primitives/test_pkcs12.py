@@ -23,6 +23,7 @@ from cryptography.hazmat.primitives.asymmetric import (
 from cryptography.hazmat.primitives.ciphers.modes import CBC
 from cryptography.hazmat.primitives.serialization import (
     Encoding,
+    PrivateFormat,
     PublicFormat,
     load_pem_private_key,
 )
@@ -322,10 +323,6 @@ class TestPKCS12Creation:
                 ed25519.Ed25519PrivateKey.generate,
                 ed25519.Ed25519PrivateKey,
                 [],
-                marks=pytest.mark.supported(
-                    only_if=lambda backend: backend.ed25519_supported(),
-                    skip_message="Requires OpenSSL with Ed25519 support",
-                ),
             ),
             (rsa.generate_private_key, rsa.RSAPrivateKey, [65537, 1024]),
             (dsa.generate_private_key, dsa.DSAPrivateKey, [1024]),
@@ -478,7 +475,9 @@ class TestPKCS12Creation:
         )
         with pytest.raises(TypeError) as exc:
             serialize_key_and_certificates(b"name", key, key, None, encryption)
-        assert "object cannot be converted to 'Certificate'" in str(exc.value)
+        assert "is not an instance of" in str(
+            exc.value
+        ) and "Certificate" in str(exc.value)
 
         with pytest.raises(TypeError) as exc:
             serialize_key_and_certificates(b"name", key, cert, None, key)
@@ -737,6 +736,19 @@ class TestPKCS12Creation:
         )
         assert p12.count(cert.fingerprint(hashes.SHA1())) == count
 
+    def test_invalid_utf8_password_pbes1(self, backend):
+        cert, key = _load_ca(backend)
+        encryption_algorithm = (
+            PrivateFormat.PKCS12.encryption_builder()
+            .key_cert_algorithm(PBES.PBESv1SHA1And3KeyTripleDESCBC)
+            .build(b"\xff")
+        )
+
+        with pytest.raises(ValueError):
+            serialize_key_and_certificates(
+                None, key, cert, None, encryption_algorithm
+            )
+
 
 @pytest.mark.skip_fips(
     reason="PKCS12 unsupported in FIPS mode. So much bad crypto in it."
@@ -899,18 +911,18 @@ class TestPKCS12TrustStoreCreation:
 
         with pytest.raises(TypeError) as exc:
             serialize_java_truststore([cert], encryption)
-        assert "object cannot be converted to 'PKCS12Certificate'" in str(
+        assert "is not an instance of" in str(
             exc.value
-        )
+        ) and "PKCS12Certificate" in str(exc.value)
 
         with pytest.raises(TypeError) as exc:
             serialize_java_truststore(
                 [PKCS12Certificate(cert, None), key],
                 encryption,
             )
-        assert "object cannot be converted to 'PKCS12Certificate'" in str(
+        assert "is not an instance of" in str(
             exc.value
-        )
+        ) and "PKCS12Certificate" in str(exc.value)
 
         with pytest.raises(TypeError) as exc:
             serialize_java_truststore([PKCS12Certificate(cert, None)], cert)
@@ -920,9 +932,9 @@ class TestPKCS12TrustStoreCreation:
         )
         with pytest.raises(TypeError) as exc:
             serialize_java_truststore([key], encryption)
-        assert "object cannot be converted to 'PKCS12Certificate'" in str(
+        assert "is not an instance of" in str(
             exc.value
-        )
+        ) and "PKCS12Certificate" in str(exc.value)
 
 
 @pytest.mark.skip_fips(

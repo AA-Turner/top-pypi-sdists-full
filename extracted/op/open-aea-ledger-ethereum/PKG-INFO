@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: open-aea-ledger-ethereum
-Version: 2.2.1
+Version: 2.2.2
 Summary: Python package wrapping the public and private key cryptography and ledger api of Ethereum.
 Author: Valory AG
 License: Apache-2.0

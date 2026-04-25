@@ -1563,31 +1563,20 @@ generated CloudFormation templates against your policies immediately after
 synthesis. If there are any violations, the synthesis will fail and a report
 will be printed to the console or to a file (see below).
 
-> [!NOTE]
-> This feature is considered experimental, and both the plugin API and the
-> format of the validation report are subject to change in the future.
-
 ### For application developers
 
 To use one or more validation plugins in your application, use the
-`policyValidationBeta1` property of `Stage`:
+`Validations.of()` API:
 
 ```python
 # globally for the entire app (an app is a stage)
-app = App(
-    policy_validation_beta1=[
-        # These hypothetical classes implement IPolicyValidationPluginBeta1:
-        ThirdPartyPluginX(),
-        ThirdPartyPluginY()
-    ]
-)
+app = App()
+Validations.of(app).add_plugins(ThirdPartyPluginX())
+Validations.of(app).add_plugins(ThirdPartyPluginY())
 
 # only apply to a particular stage
-prod_stage = Stage(app, "ProdStage",
-    policy_validation_beta1=[
-        ThirdPartyPluginX()
-    ]
-)
+prod_stage = Stage(app, "ProdStage")
+Validations.of(prod_stage).add_plugins(ThirdPartyPluginX())
 ```
 
 Immediately after synthesis, all plugins registered this way will be invoked to
@@ -1635,19 +1624,19 @@ the standard output.
 ### For plugin authors
 
 The communication protocol between the CDK core module and your policy tool is
-defined by the `IPolicyValidationPluginBeta1` interface. To create a new plugin you must
+defined by the `IPolicyValidationPlugin` interface. To create a new plugin you must
 write a class that implements this interface. There are two things you need to
 implement: the plugin name (by overriding the `name` property), and the
 `validate()` method.
 
-The framework will call `validate()`, passing an `IPolicyValidationContextBeta1` object.
+The framework will call `validate()`, passing an `IPolicyValidationContext` object.
 The location of the templates to be validated is given by `templatePaths`. The
-plugin should return an instance of `PolicyValidationPluginReportBeta1`. This object
-represents the report that the user wil receive at the end of the synthesis.
+plugin should return an instance of `PolicyValidationPluginReport`. This object
+represents the report that the user will receive at the end of the synthesis.
 
 ```python
-from aws_cdk import PolicyValidationPluginReportBeta1, PolicyViolationBeta1, PolicyViolatingResourceBeta1
-@jsii.implements(IPolicyValidationPluginBeta1)
+from aws_cdk import PolicyValidationPluginReport, PolicyViolation, PolicyViolatingResource
+@jsii.implements(IPolicyValidationPlugin)
 class MyPlugin:
 
     def validate(self, context):
@@ -1655,13 +1644,13 @@ class MyPlugin:
 
         # ...then perform the validation, and then compose and return the report.
         # Using hard-coded values here for better clarity:
-        return PolicyValidationPluginReportBeta1(
+        return PolicyValidationPluginReport(
             success=False,
-            violations=[PolicyViolationBeta1(
+            violations=[PolicyViolation(
                 rule_name="CKV_AWS_117",
                 description="Ensure that AWS Lambda function is configured inside a VPC",
                 fix="https://docs.bridgecrew.io/docs/ensure-that-aws-lambda-function-is-configured-inside-a-vpc-1",
-                violating_resources=[PolicyViolatingResourceBeta1(
+                violating_resources=[PolicyViolatingResource(
                     resource_logical_id="MyFunction3BAA72D1",
                     template_path="/home/johndoe/myapp/cdk.out/MyService.template.json",
                     locations=["Properties/VpcConfig"]
@@ -1671,7 +1660,7 @@ class MyPlugin:
 ```
 
 In addition to the name, plugins may optionally report their version (`version`
-property ) and a list of IDs of the rules they are going to evaluate (`ruleIds`
+property) and a list of IDs of the rules they are going to evaluate (`ruleIds`
 property).
 
 Note that plugins are not allowed to modify anything in the cloud assembly. Any
@@ -2697,7 +2686,7 @@ class AppProps:
         :param context: Additional context values for the application. Context set by the CLI or the ``context`` key in ``cdk.json`` has precedence. Context can be read from any construct using ``node.getContext(key)``. Default: - no additional context
         :param default_stack_synthesizer: The stack synthesizer to use by default for all Stacks in the App. The Stack Synthesizer controls aspects of synthesis and deployment, like how assets are referenced and what IAM roles to use. For more information, see the README of the main CDK package. Default: - A ``DefaultStackSynthesizer`` with default settings
         :param outdir: The output directory into which to emit synthesized artifacts. You should never need to set this value. By default, the value you pass to the CLI's ``--output`` flag will be used, and if you change it to a different directory the CLI will fail to pick up the generated Cloud Assembly. This property is intended for internal and testing use. Default: - If this value is *not* set, considers the environment variable ``CDK_OUTDIR``. If ``CDK_OUTDIR`` is not defined, uses a temp directory.
-        :param policy_validation_beta1: Validation plugins to run after synthesis. Default: - no validation plugins
+        :param policy_validation_beta1: (deprecated) Validation plugins to run after synthesis. Default: - no validation plugins
         :param post_cli_context: Additional context values for the application. Context provided here has precedence over context set by: - The CLI via --context - The ``context`` key in ``cdk.json`` - The ``AppProps.context`` property This property is recommended over the ``AppProps.context`` property since you can make final decision over which context value to take in your app. Context can be read from any construct using ``node.getContext(key)``. Default: - no additional context
         :param property_injectors: A list of IPropertyInjector attached to this App. Default: - no PropertyInjectors
         :param stack_traces: Include construct creation stack trace in the ``aws:cdk:trace`` metadata key of all constructs. Default: true stack traces are included unless ``aws:cdk:disable-stack-trace`` is set in the context.
@@ -2829,9 +2818,13 @@ class AppProps:
     def policy_validation_beta1(
         self,
     ) -> typing.Optional[typing.List["IPolicyValidationPluginBeta1"]]:
-        '''Validation plugins to run after synthesis.
+        '''(deprecated) Validation plugins to run after synthesis.
 
         :default: - no validation plugins
+
+        :deprecated: Use ``Validations.of(app).addPlugins()`` instead.
+
+        :stability: deprecated
         '''
         result = self._values.get("policy_validation_beta1")
         return typing.cast(typing.Optional[typing.List["IPolicyValidationPluginBeta1"]], result)
@@ -17584,8 +17577,8 @@ class _INumberProducerProxy:
 typing.cast(typing.Any, INumberProducer).__jsii_proxy_class__ = lambda : _INumberProducerProxy
 
 
-@jsii.interface(jsii_type="aws-cdk-lib.IPolicyValidationContextBeta1")
-class IPolicyValidationContextBeta1(typing_extensions.Protocol):
+@jsii.interface(jsii_type="aws-cdk-lib.IPolicyValidationContext")
+class IPolicyValidationContext(typing_extensions.Protocol):
     '''Context available to the validation plugin.'''
 
     @builtins.property
@@ -17595,10 +17588,10 @@ class IPolicyValidationContextBeta1(typing_extensions.Protocol):
         ...
 
 
-class _IPolicyValidationContextBeta1Proxy:
+class _IPolicyValidationContextProxy:
     '''Context available to the validation plugin.'''
 
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.IPolicyValidationContextBeta1"
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.IPolicyValidationContext"
 
     @builtins.property
     @jsii.member(jsii_name="templatePaths")
@@ -17607,17 +17600,59 @@ class _IPolicyValidationContextBeta1Proxy:
         return typing.cast(typing.List[builtins.str], jsii.get(self, "templatePaths"))
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IPolicyValidationContext).__jsii_proxy_class__ = lambda : _IPolicyValidationContextProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.IPolicyValidationContextBeta1")
+class IPolicyValidationContextBeta1(typing_extensions.Protocol):
+    '''(deprecated) Context available to the validation plugin.
+
+    :deprecated: Use ``IPolicyValidationContext`` instead.
+
+    :stability: deprecated
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="templatePaths")
+    def template_paths(self) -> typing.List[builtins.str]:
+        '''(deprecated) The absolute path of all templates to be processed.
+
+        :stability: deprecated
+        '''
+        ...
+
+
+class _IPolicyValidationContextBeta1Proxy:
+    '''(deprecated) Context available to the validation plugin.
+
+    :deprecated: Use ``IPolicyValidationContext`` instead.
+
+    :stability: deprecated
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.IPolicyValidationContextBeta1"
+
+    @builtins.property
+    @jsii.member(jsii_name="templatePaths")
+    def template_paths(self) -> typing.List[builtins.str]:
+        '''(deprecated) The absolute path of all templates to be processed.
+
+        :stability: deprecated
+        '''
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "templatePaths"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IPolicyValidationContextBeta1).__jsii_proxy_class__ = lambda : _IPolicyValidationContextBeta1Proxy
 
 
-@jsii.interface(jsii_type="aws-cdk-lib.IPolicyValidationPluginBeta1")
-class IPolicyValidationPluginBeta1(typing_extensions.Protocol):
+@jsii.interface(jsii_type="aws-cdk-lib.IPolicyValidationPlugin")
+class IPolicyValidationPlugin(typing_extensions.Protocol):
     '''Represents a validation plugin that will be executed during synthesis.
 
     Example::
 
-        from aws_cdk import PolicyValidationPluginReportBeta1, PolicyViolationBeta1, PolicyViolatingResourceBeta1
-        @jsii.implements(IPolicyValidationPluginBeta1)
+        from aws_cdk import PolicyValidationPluginReport, PolicyViolation, PolicyViolatingResource
+        @jsii.implements(IPolicyValidationPlugin)
         class MyPlugin:
         
             def validate(self, context):
@@ -17625,13 +17660,13 @@ class IPolicyValidationPluginBeta1(typing_extensions.Protocol):
         
                 # ...then perform the validation, and then compose and return the report.
                 # Using hard-coded values here for better clarity:
-                return PolicyValidationPluginReportBeta1(
+                return PolicyValidationPluginReport(
                     success=False,
-                    violations=[PolicyViolationBeta1(
+                    violations=[PolicyViolation(
                         rule_name="CKV_AWS_117",
                         description="Ensure that AWS Lambda function is configured inside a VPC",
                         fix="https://docs.bridgecrew.io/docs/ensure-that-aws-lambda-function-is-configured-inside-a-vpc-1",
-                        violating_resources=[PolicyViolatingResourceBeta1(
+                        violating_resources=[PolicyViolatingResource(
                             resource_logical_id="MyFunction3BAA72D1",
                             template_path="/home/johndoe/myapp/cdk.out/MyService.template.json",
                             locations=["Properties/VpcConfig"]
@@ -17667,8 +17702,8 @@ class IPolicyValidationPluginBeta1(typing_extensions.Protocol):
     @jsii.member(jsii_name="validate")
     def validate(
         self,
-        context: "IPolicyValidationContextBeta1",
-    ) -> "PolicyValidationPluginReportBeta1":
+        context: "IPolicyValidationContext",
+    ) -> "PolicyValidationPluginReport":
         '''The method that will be called by the CDK framework to perform validations.
 
         This is where the plugin will evaluate the CloudFormation
@@ -17679,13 +17714,13 @@ class IPolicyValidationPluginBeta1(typing_extensions.Protocol):
         ...
 
 
-class _IPolicyValidationPluginBeta1Proxy:
+class _IPolicyValidationPluginProxy:
     '''Represents a validation plugin that will be executed during synthesis.
 
     Example::
 
-        from aws_cdk import PolicyValidationPluginReportBeta1, PolicyViolationBeta1, PolicyViolatingResourceBeta1
-        @jsii.implements(IPolicyValidationPluginBeta1)
+        from aws_cdk import PolicyValidationPluginReport, PolicyViolation, PolicyViolatingResource
+        @jsii.implements(IPolicyValidationPlugin)
         class MyPlugin:
         
             def validate(self, context):
@@ -17693,13 +17728,13 @@ class _IPolicyValidationPluginBeta1Proxy:
         
                 # ...then perform the validation, and then compose and return the report.
                 # Using hard-coded values here for better clarity:
-                return PolicyValidationPluginReportBeta1(
+                return PolicyValidationPluginReport(
                     success=False,
-                    violations=[PolicyViolationBeta1(
+                    violations=[PolicyViolation(
                         rule_name="CKV_AWS_117",
                         description="Ensure that AWS Lambda function is configured inside a VPC",
                         fix="https://docs.bridgecrew.io/docs/ensure-that-aws-lambda-function-is-configured-inside-a-vpc-1",
-                        violating_resources=[PolicyViolatingResourceBeta1(
+                        violating_resources=[PolicyViolatingResource(
                             resource_logical_id="MyFunction3BAA72D1",
                             template_path="/home/johndoe/myapp/cdk.out/MyService.template.json",
                             locations=["Properties/VpcConfig"]
@@ -17708,7 +17743,7 @@ class _IPolicyValidationPluginBeta1Proxy:
                 )
     '''
 
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.IPolicyValidationPluginBeta1"
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.IPolicyValidationPlugin"
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -17737,14 +17772,137 @@ class _IPolicyValidationPluginBeta1Proxy:
     @jsii.member(jsii_name="validate")
     def validate(
         self,
-        context: "IPolicyValidationContextBeta1",
-    ) -> "PolicyValidationPluginReportBeta1":
+        context: "IPolicyValidationContext",
+    ) -> "PolicyValidationPluginReport":
         '''The method that will be called by the CDK framework to perform validations.
 
         This is where the plugin will evaluate the CloudFormation
         templates for compliance and report and violations
 
         :param context: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3b496ecc1e6654ba894c0d4d3592ff413b70fab502ec7621b324b386b37d0e90)
+            check_type(argname="argument context", value=context, expected_type=type_hints["context"])
+        return typing.cast("PolicyValidationPluginReport", jsii.invoke(self, "validate", [context]))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IPolicyValidationPlugin).__jsii_proxy_class__ = lambda : _IPolicyValidationPluginProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.IPolicyValidationPluginBeta1")
+class IPolicyValidationPluginBeta1(typing_extensions.Protocol):
+    '''(deprecated) Represents a validation plugin that will be executed during synthesis.
+
+    :deprecated: Use ``IPolicyValidationPlugin`` instead.
+
+    :stability: deprecated
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''(deprecated) The name of the plugin that will be displayed in the validation report.
+
+        :stability: deprecated
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="ruleIds")
+    def rule_ids(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(deprecated) The list of rule IDs that the plugin will evaluate.
+
+        Used for analytics
+        purposes.
+
+        :default: - No rule is reported
+
+        :stability: deprecated
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="version")
+    def version(self) -> typing.Optional[builtins.str]:
+        '''(deprecated) The version of the plugin, following the Semantic Versioning specification (see https://semver.org/). This version is used for analytics purposes, to measure the usage of different plugins and different versions. The value of this property should be kept in sync with the actual version of the software package. If the version is not provided or is not a valid semantic version, it will be reported as ``0.0.0``.
+
+        :stability: deprecated
+        '''
+        ...
+
+    @jsii.member(jsii_name="validate")
+    def validate(
+        self,
+        context: "IPolicyValidationContextBeta1",
+    ) -> "PolicyValidationPluginReportBeta1":
+        '''(deprecated) The method that will be called by the CDK framework to perform validations.
+
+        This is where the plugin will evaluate the CloudFormation
+        templates for compliance and report and violations
+
+        :param context: -
+
+        :stability: deprecated
+        '''
+        ...
+
+
+class _IPolicyValidationPluginBeta1Proxy:
+    '''(deprecated) Represents a validation plugin that will be executed during synthesis.
+
+    :deprecated: Use ``IPolicyValidationPlugin`` instead.
+
+    :stability: deprecated
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.IPolicyValidationPluginBeta1"
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''(deprecated) The name of the plugin that will be displayed in the validation report.
+
+        :stability: deprecated
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @builtins.property
+    @jsii.member(jsii_name="ruleIds")
+    def rule_ids(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(deprecated) The list of rule IDs that the plugin will evaluate.
+
+        Used for analytics
+        purposes.
+
+        :default: - No rule is reported
+
+        :stability: deprecated
+        '''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "ruleIds"))
+
+    @builtins.property
+    @jsii.member(jsii_name="version")
+    def version(self) -> typing.Optional[builtins.str]:
+        '''(deprecated) The version of the plugin, following the Semantic Versioning specification (see https://semver.org/). This version is used for analytics purposes, to measure the usage of different plugins and different versions. The value of this property should be kept in sync with the actual version of the software package. If the version is not provided or is not a valid semantic version, it will be reported as ``0.0.0``.
+
+        :stability: deprecated
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "version"))
+
+    @jsii.member(jsii_name="validate")
+    def validate(
+        self,
+        context: "IPolicyValidationContextBeta1",
+    ) -> "PolicyValidationPluginReportBeta1":
+        '''(deprecated) The method that will be called by the CDK framework to perform validations.
+
+        This is where the plugin will evaluate the CloudFormation
+        templates for compliance and report and violations
+
+        :param context: -
+
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ff68896e7a1dd6c95e953098d0c8bc64151d6882e77d1d918aef207ff49dbfad)
@@ -17870,10 +18028,14 @@ class IResolvable(typing_extensions.Protocol):
     @builtins.property
     @jsii.member(jsii_name="creationStack")
     def creation_stack(self) -> typing.List[builtins.str]:
-        '''The creation stack of this resolvable which will be appended to errors thrown during resolution.
+        '''(deprecated) The creation stack of this resolvable which will be appended to errors thrown during resolution.
 
         This may return an array with a single informational element indicating how
         to get this property populated, if it was skipped for performance reasons.
+
+        :deprecated: creationStack has been deprecated for low usefulness and cost to capture
+
+        :stability: deprecated
         '''
         ...
 
@@ -17911,10 +18073,14 @@ class _IResolvableProxy:
     @builtins.property
     @jsii.member(jsii_name="creationStack")
     def creation_stack(self) -> typing.List[builtins.str]:
-        '''The creation stack of this resolvable which will be appended to errors thrown during resolution.
+        '''(deprecated) The creation stack of this resolvable which will be appended to errors thrown during resolution.
 
         This may return an array with a single informational element indicating how
         to get this property populated, if it was skipped for performance reasons.
+
+        :deprecated: creationStack has been deprecated for low usefulness and cost to capture
+
+        :stability: deprecated
         '''
         return typing.cast(typing.List[builtins.str], jsii.get(self, "creationStack"))
 
@@ -20861,6 +21027,125 @@ class PhysicalName(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.PhysicalName"
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.PolicyValidationPluginReport",
+    jsii_struct_bases=[],
+    name_mapping={
+        "success": "success",
+        "violations": "violations",
+        "metadata": "metadata",
+        "plugin_version": "pluginVersion",
+    },
+)
+class PolicyValidationPluginReport:
+    def __init__(
+        self,
+        *,
+        success: builtins.bool,
+        violations: typing.Sequence[typing.Union["PolicyViolation", typing.Dict[builtins.str, typing.Any]]],
+        metadata: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        plugin_version: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''The report emitted by the plugin after evaluation.
+
+        :param success: Whether or not the report was successful.
+        :param violations: List of violations in the report.
+        :param metadata: Arbitrary information about the report. Default: - no metadata
+        :param plugin_version: The version of the plugin that created the report. Default: - no version
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk as cdk
+            
+            policy_validation_plugin_report = cdk.PolicyValidationPluginReport(
+                success=False,
+                violations=[cdk.PolicyViolation(
+                    description="description",
+                    rule_name="ruleName",
+                    violating_resources=[cdk.PolicyViolatingResource(
+                        locations=["locations"],
+                        resource_logical_id="resourceLogicalId",
+                        template_path="templatePath"
+                    )],
+            
+                    # the properties below are optional
+                    fix="fix",
+                    rule_metadata={
+                        "rule_metadata_key": "ruleMetadata"
+                    },
+                    severity="severity"
+                )],
+            
+                # the properties below are optional
+                metadata={
+                    "metadata_key": "metadata"
+                },
+                plugin_version="pluginVersion"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__01a429594fd5036b46fd30855a23904e62b7e0b90195ef94e897f8486e7eaafc)
+            check_type(argname="argument success", value=success, expected_type=type_hints["success"])
+            check_type(argname="argument violations", value=violations, expected_type=type_hints["violations"])
+            check_type(argname="argument metadata", value=metadata, expected_type=type_hints["metadata"])
+            check_type(argname="argument plugin_version", value=plugin_version, expected_type=type_hints["plugin_version"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "success": success,
+            "violations": violations,
+        }
+        if metadata is not None:
+            self._values["metadata"] = metadata
+        if plugin_version is not None:
+            self._values["plugin_version"] = plugin_version
+
+    @builtins.property
+    def success(self) -> builtins.bool:
+        '''Whether or not the report was successful.'''
+        result = self._values.get("success")
+        assert result is not None, "Required property 'success' is missing"
+        return typing.cast(builtins.bool, result)
+
+    @builtins.property
+    def violations(self) -> typing.List["PolicyViolation"]:
+        '''List of violations in the report.'''
+        result = self._values.get("violations")
+        assert result is not None, "Required property 'violations' is missing"
+        return typing.cast(typing.List["PolicyViolation"], result)
+
+    @builtins.property
+    def metadata(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''Arbitrary information about the report.
+
+        :default: - no metadata
+        '''
+        result = self._values.get("metadata")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def plugin_version(self) -> typing.Optional[builtins.str]:
+        '''The version of the plugin that created the report.
+
+        :default: - no version
+        '''
+        result = self._values.get("plugin_version")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "PolicyValidationPluginReport(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.PolicyValidationPluginReportBeta1",
     jsii_struct_bases=[],
     name_mapping={
@@ -20879,13 +21164,16 @@ class PolicyValidationPluginReportBeta1:
         metadata: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         plugin_version: typing.Optional[builtins.str] = None,
     ) -> None:
-        '''The report emitted by the plugin after evaluation.
+        '''(deprecated) The report emitted by the plugin after evaluation.
 
-        :param success: Whether or not the report was successful.
-        :param violations: List of violations in the report.
-        :param metadata: Arbitrary information about the report. Default: - no metadata
-        :param plugin_version: The version of the plugin that created the report. Default: - no version
+        :param success: (deprecated) Whether or not the report was successful.
+        :param violations: (deprecated) List of violations in the report.
+        :param metadata: (deprecated) Arbitrary information about the report. Default: - no metadata
+        :param plugin_version: (deprecated) The version of the plugin that created the report. Default: - no version
 
+        :deprecated: Use ``PolicyValidationPluginReport`` instead.
+
+        :stability: deprecated
         :exampleMetadata: fixture=_generated
 
         Example::
@@ -20937,32 +21225,42 @@ class PolicyValidationPluginReportBeta1:
 
     @builtins.property
     def success(self) -> builtins.bool:
-        '''Whether or not the report was successful.'''
+        '''(deprecated) Whether or not the report was successful.
+
+        :stability: deprecated
+        '''
         result = self._values.get("success")
         assert result is not None, "Required property 'success' is missing"
         return typing.cast(builtins.bool, result)
 
     @builtins.property
     def violations(self) -> typing.List["PolicyViolationBeta1"]:
-        '''List of violations in the report.'''
+        '''(deprecated) List of violations in the report.
+
+        :stability: deprecated
+        '''
         result = self._values.get("violations")
         assert result is not None, "Required property 'violations' is missing"
         return typing.cast(typing.List["PolicyViolationBeta1"], result)
 
     @builtins.property
     def metadata(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Arbitrary information about the report.
+        '''(deprecated) Arbitrary information about the report.
 
         :default: - no metadata
+
+        :stability: deprecated
         '''
         result = self._values.get("metadata")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def plugin_version(self) -> typing.Optional[builtins.str]:
-        '''The version of the plugin that created the report.
+        '''(deprecated) The version of the plugin that created the report.
 
         :default: - no version
+
+        :stability: deprecated
         '''
         result = self._values.get("plugin_version")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -20979,8 +21277,8 @@ class PolicyValidationPluginReportBeta1:
         )
 
 
-@jsii.enum(jsii_type="aws-cdk-lib.PolicyValidationReportStatusBeta1")
-class PolicyValidationReportStatusBeta1(enum.Enum):
+@jsii.enum(jsii_type="aws-cdk-lib.PolicyValidationReportStatus")
+class PolicyValidationReportStatus(enum.Enum):
     '''The final status of the validation report.'''
 
     SUCCESS = "SUCCESS"
@@ -20989,8 +21287,29 @@ class PolicyValidationReportStatusBeta1(enum.Enum):
     '''At least one violation was found.'''
 
 
+@jsii.enum(jsii_type="aws-cdk-lib.PolicyValidationReportStatusBeta1")
+class PolicyValidationReportStatusBeta1(enum.Enum):
+    '''(deprecated) The final status of the validation report.
+
+    :deprecated: Use ``PolicyValidationReportStatus`` instead.
+
+    :stability: deprecated
+    '''
+
+    SUCCESS = "SUCCESS"
+    '''(deprecated) No violations were found.
+
+    :stability: deprecated
+    '''
+    FAILURE = "FAILURE"
+    '''(deprecated) At least one violation was found.
+
+    :stability: deprecated
+    '''
+
+
 @jsii.data_type(
-    jsii_type="aws-cdk-lib.PolicyViolatingResourceBeta1",
+    jsii_type="aws-cdk-lib.PolicyViolatingResource",
     jsii_struct_bases=[],
     name_mapping={
         "locations": "locations",
@@ -20998,7 +21317,7 @@ class PolicyValidationReportStatusBeta1(enum.Enum):
         "template_path": "templatePath",
     },
 )
-class PolicyViolatingResourceBeta1:
+class PolicyViolatingResource:
     def __init__(
         self,
         *,
@@ -21020,14 +21339,14 @@ class PolicyViolatingResourceBeta1:
             # The values are placeholders you should change.
             import aws_cdk as cdk
             
-            policy_violating_resource_beta1 = cdk.PolicyViolatingResourceBeta1(
+            policy_violating_resource = cdk.PolicyViolatingResource(
                 locations=["locations"],
                 resource_logical_id="resourceLogicalId",
                 template_path="templatePath"
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d6f720d14d413c17b7efbaec187c8ce7e76ca4e581d69e43119ae9751d6e5529)
+            type_hints = typing.get_type_hints(_typecheckingstub__f94629927ab4a3e4d89f801754c91a550a97106ebedf9d446e39f3ce945a86b7)
             check_type(argname="argument locations", value=locations, expected_type=type_hints["locations"])
             check_type(argname="argument resource_logical_id", value=resource_logical_id, expected_type=type_hints["resource_logical_id"])
             check_type(argname="argument template_path", value=template_path, expected_type=type_hints["template_path"])
@@ -21065,7 +21384,245 @@ class PolicyViolatingResourceBeta1:
         return not (rhs == self)
 
     def __repr__(self) -> str:
+        return "PolicyViolatingResource(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.PolicyViolatingResourceBeta1",
+    jsii_struct_bases=[],
+    name_mapping={
+        "locations": "locations",
+        "resource_logical_id": "resourceLogicalId",
+        "template_path": "templatePath",
+    },
+)
+class PolicyViolatingResourceBeta1:
+    def __init__(
+        self,
+        *,
+        locations: typing.Sequence[builtins.str],
+        resource_logical_id: builtins.str,
+        template_path: builtins.str,
+    ) -> None:
+        '''(deprecated) Resource violating a specific rule.
+
+        :param locations: (deprecated) The locations in the CloudFormation template that pose the violations.
+        :param resource_logical_id: (deprecated) The logical ID of the resource in the CloudFormation template.
+        :param template_path: (deprecated) The path to the CloudFormation template that contains this resource.
+
+        :deprecated: Use ``PolicyViolatingResource`` instead.
+
+        :stability: deprecated
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk as cdk
+            
+            policy_violating_resource_beta1 = cdk.PolicyViolatingResourceBeta1(
+                locations=["locations"],
+                resource_logical_id="resourceLogicalId",
+                template_path="templatePath"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d6f720d14d413c17b7efbaec187c8ce7e76ca4e581d69e43119ae9751d6e5529)
+            check_type(argname="argument locations", value=locations, expected_type=type_hints["locations"])
+            check_type(argname="argument resource_logical_id", value=resource_logical_id, expected_type=type_hints["resource_logical_id"])
+            check_type(argname="argument template_path", value=template_path, expected_type=type_hints["template_path"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "locations": locations,
+            "resource_logical_id": resource_logical_id,
+            "template_path": template_path,
+        }
+
+    @builtins.property
+    def locations(self) -> typing.List[builtins.str]:
+        '''(deprecated) The locations in the CloudFormation template that pose the violations.
+
+        :stability: deprecated
+        '''
+        result = self._values.get("locations")
+        assert result is not None, "Required property 'locations' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def resource_logical_id(self) -> builtins.str:
+        '''(deprecated) The logical ID of the resource in the CloudFormation template.
+
+        :stability: deprecated
+        '''
+        result = self._values.get("resource_logical_id")
+        assert result is not None, "Required property 'resource_logical_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def template_path(self) -> builtins.str:
+        '''(deprecated) The path to the CloudFormation template that contains this resource.
+
+        :stability: deprecated
+        '''
+        result = self._values.get("template_path")
+        assert result is not None, "Required property 'template_path' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
         return "PolicyViolatingResourceBeta1(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.PolicyViolation",
+    jsii_struct_bases=[],
+    name_mapping={
+        "description": "description",
+        "rule_name": "ruleName",
+        "violating_resources": "violatingResources",
+        "fix": "fix",
+        "rule_metadata": "ruleMetadata",
+        "severity": "severity",
+    },
+)
+class PolicyViolation:
+    def __init__(
+        self,
+        *,
+        description: builtins.str,
+        rule_name: builtins.str,
+        violating_resources: typing.Sequence[typing.Union["PolicyViolatingResource", typing.Dict[builtins.str, typing.Any]]],
+        fix: typing.Optional[builtins.str] = None,
+        rule_metadata: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        severity: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Violation produced by the validation plugin.
+
+        :param description: The description of the violation.
+        :param rule_name: The name of the rule.
+        :param violating_resources: The resources violating this rule.
+        :param fix: How to fix the violation. Default: - no fix is provided
+        :param rule_metadata: Additional metadata to include with the rule results. This can be used to provide additional information that is plugin specific. The data provided here will be rendered as is. Default: - no rule metadata
+        :param severity: The severity of the violation, only used for reporting purposes. This is useful for helping the user discriminate between warnings, errors, information, etc. Default: - no severity
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk as cdk
+            
+            policy_violation = cdk.PolicyViolation(
+                description="description",
+                rule_name="ruleName",
+                violating_resources=[cdk.PolicyViolatingResource(
+                    locations=["locations"],
+                    resource_logical_id="resourceLogicalId",
+                    template_path="templatePath"
+                )],
+            
+                # the properties below are optional
+                fix="fix",
+                rule_metadata={
+                    "rule_metadata_key": "ruleMetadata"
+                },
+                severity="severity"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__52936fa28221e49c561c9566ffbf8ef6c8490103eae5b5e05095854f5685918f)
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument rule_name", value=rule_name, expected_type=type_hints["rule_name"])
+            check_type(argname="argument violating_resources", value=violating_resources, expected_type=type_hints["violating_resources"])
+            check_type(argname="argument fix", value=fix, expected_type=type_hints["fix"])
+            check_type(argname="argument rule_metadata", value=rule_metadata, expected_type=type_hints["rule_metadata"])
+            check_type(argname="argument severity", value=severity, expected_type=type_hints["severity"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "description": description,
+            "rule_name": rule_name,
+            "violating_resources": violating_resources,
+        }
+        if fix is not None:
+            self._values["fix"] = fix
+        if rule_metadata is not None:
+            self._values["rule_metadata"] = rule_metadata
+        if severity is not None:
+            self._values["severity"] = severity
+
+    @builtins.property
+    def description(self) -> builtins.str:
+        '''The description of the violation.'''
+        result = self._values.get("description")
+        assert result is not None, "Required property 'description' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def rule_name(self) -> builtins.str:
+        '''The name of the rule.'''
+        result = self._values.get("rule_name")
+        assert result is not None, "Required property 'rule_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def violating_resources(self) -> typing.List["PolicyViolatingResource"]:
+        '''The resources violating this rule.'''
+        result = self._values.get("violating_resources")
+        assert result is not None, "Required property 'violating_resources' is missing"
+        return typing.cast(typing.List["PolicyViolatingResource"], result)
+
+    @builtins.property
+    def fix(self) -> typing.Optional[builtins.str]:
+        '''How to fix the violation.
+
+        :default: - no fix is provided
+        '''
+        result = self._values.get("fix")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def rule_metadata(
+        self,
+    ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''Additional metadata to include with the rule results.
+
+        This can be used to provide additional information that is
+        plugin specific. The data provided here will be rendered as is.
+
+        :default: - no rule metadata
+        '''
+        result = self._values.get("rule_metadata")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def severity(self) -> typing.Optional[builtins.str]:
+        '''The severity of the violation, only used for reporting purposes.
+
+        This is useful for helping the user discriminate between warnings,
+        errors, information, etc.
+
+        :default: - no severity
+        '''
+        result = self._values.get("severity")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "PolicyViolation(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -21093,15 +21650,18 @@ class PolicyViolationBeta1:
         rule_metadata: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         severity: typing.Optional[builtins.str] = None,
     ) -> None:
-        '''Violation produced by the validation plugin.
+        '''(deprecated) Violation produced by the validation plugin.
 
-        :param description: The description of the violation.
-        :param rule_name: The name of the rule.
-        :param violating_resources: The resources violating this rule.
-        :param fix: How to fix the violation. Default: - no fix is provided
-        :param rule_metadata: Additional metadata to include with the rule results. This can be used to provide additional information that is plugin specific. The data provided here will be rendered as is. Default: - no rule metadata
-        :param severity: The severity of the violation, only used for reporting purposes. This is useful for helping the user discriminate between warnings, errors, information, etc. Default: - no severity
+        :param description: (deprecated) The description of the violation.
+        :param rule_name: (deprecated) The name of the rule.
+        :param violating_resources: (deprecated) The resources violating this rule.
+        :param fix: (deprecated) How to fix the violation. Default: - no fix is provided
+        :param rule_metadata: (deprecated) Additional metadata to include with the rule results. This can be used to provide additional information that is plugin specific. The data provided here will be rendered as is. Default: - no rule metadata
+        :param severity: (deprecated) The severity of the violation, only used for reporting purposes. This is useful for helping the user discriminate between warnings, errors, information, etc. Default: - no severity
 
+        :deprecated: Use ``PolicyViolation`` instead.
+
+        :stability: deprecated
         :exampleMetadata: fixture=_generated
 
         Example::
@@ -21149,30 +21709,41 @@ class PolicyViolationBeta1:
 
     @builtins.property
     def description(self) -> builtins.str:
-        '''The description of the violation.'''
+        '''(deprecated) The description of the violation.
+
+        :stability: deprecated
+        '''
         result = self._values.get("description")
         assert result is not None, "Required property 'description' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def rule_name(self) -> builtins.str:
-        '''The name of the rule.'''
+        '''(deprecated) The name of the rule.
+
+        :stability: deprecated
+        '''
         result = self._values.get("rule_name")
         assert result is not None, "Required property 'rule_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def violating_resources(self) -> typing.List["PolicyViolatingResourceBeta1"]:
-        '''The resources violating this rule.'''
+        '''(deprecated) The resources violating this rule.
+
+        :stability: deprecated
+        '''
         result = self._values.get("violating_resources")
         assert result is not None, "Required property 'violating_resources' is missing"
         return typing.cast(typing.List["PolicyViolatingResourceBeta1"], result)
 
     @builtins.property
     def fix(self) -> typing.Optional[builtins.str]:
-        '''How to fix the violation.
+        '''(deprecated) How to fix the violation.
 
         :default: - no fix is provided
+
+        :stability: deprecated
         '''
         result = self._values.get("fix")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -21181,24 +21752,28 @@ class PolicyViolationBeta1:
     def rule_metadata(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Additional metadata to include with the rule results.
+        '''(deprecated) Additional metadata to include with the rule results.
 
         This can be used to provide additional information that is
         plugin specific. The data provided here will be rendered as is.
 
         :default: - no rule metadata
+
+        :stability: deprecated
         '''
         result = self._values.get("rule_metadata")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def severity(self) -> typing.Optional[builtins.str]:
-        '''The severity of the violation, only used for reporting purposes.
+        '''(deprecated) The severity of the violation, only used for reporting purposes.
 
         This is useful for helping the user discriminate between warnings,
         errors, information, etc.
 
         :default: - no severity
+
+        :stability: deprecated
         '''
         result = self._values.get("severity")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -25049,17 +25624,20 @@ class Stage(
 
     Example::
 
-        # pipeline: pipelines.CodePipeline
+        # synth: pipelines.ShellStep
         
-        europe_wave = pipeline.add_wave("Europe")
-        europe_wave.add_stage(
-            MyApplicationStage(self, "Ireland",
-                env=cdk.Environment(region="eu-west-1")
-            ))
-        europe_wave.add_stage(
-            MyApplicationStage(self, "Germany",
-                env=cdk.Environment(region="eu-central-1")
-            ))
+        stage = MyApplicationStage(self, "MyApplication")
+        pipeline = pipelines.CodePipeline(self, "Pipeline", synth=synth)
+        
+        pipeline.add_stage(stage,
+            post=[
+                pipelines.ShellStep("Approve",
+                    # Use the contents of the 'integ' directory from the synth step as the input
+                    input=synth.add_output_directory("integ"),
+                    commands=["cd integ && ./run.sh"]
+                )
+            ]
+        )
     '''
 
     def __init__(
@@ -25080,7 +25658,7 @@ class Stage(
         :param env: Default AWS environment (account/region) for ``Stack``s in this ``Stage``. Stacks defined inside this ``Stage`` with either ``region`` or ``account`` missing from its env will use the corresponding field given here. If either ``region`` or ``account``is is not configured for ``Stack`` (either on the ``Stack`` itself or on the containing ``Stage``), the Stack will be *environment-agnostic*. Environment-agnostic stacks can be deployed to any environment, may not be able to take advantage of all features of the CDK. For example, they will not be able to use environmental context lookups, will not automatically translate Service Principals to the right format based on the environment's AWS partition, and other such enhancements. Default: - The environments should be configured on the ``Stack``s.
         :param outdir: The output directory into which to emit synthesized artifacts. Can only be specified if this stage is the root stage (the app). If this is specified and this stage is nested within another stage, an error will be thrown. Default: - for nested stages, outdir will be determined as a relative directory to the outdir of the app. For apps, if outdir is not specified, a temporary directory will be created.
         :param permissions_boundary: Options for applying a permissions boundary to all IAM Roles and Users created within this Stage. Be aware that this feature uses Aspects, and the Aspects are applied at the Stack level with a priority of ``MUTATING`` (if the feature flag ``@aws-cdk/core:aspectPrioritiesMutating`` is set) or ``DEFAULT`` (if the flag is not set). This is relevant if you are both using your own Aspects to assign Permissions Boundaries, as well as specifying this property. The Aspect added by this property will overwrite the Permissions Boundary assigned by your own Aspect if both: (a) your Aspect has a lower or equal priority to the automatic Aspect, and (b) your Aspect is applied *above* the Stack level. If either of those conditions are not true, your own Aspect will win. We recommend assigning Permissions Boundaries only using the provided APIs, and not using custom Aspects. Default: - no permissions boundary is applied
-        :param policy_validation_beta1: Validation plugins to run during synthesis. If any plugin reports any violation, synthesis will be interrupted and the report displayed to the user. Default: - no validation plugins are used
+        :param policy_validation_beta1: (deprecated) Validation plugins to run during synthesis. If any plugin reports any violation, synthesis will be interrupted and the report displayed to the user. Default: - no validation plugins are used
         :param property_injectors: A list of IPropertyInjector attached to this Stage. Default: - no PropertyInjectors
         :param stage_name: Name of this stage. Default: - Derived from the id.
         '''
@@ -25253,7 +25831,7 @@ class StageProps:
         :param env: Default AWS environment (account/region) for ``Stack``s in this ``Stage``. Stacks defined inside this ``Stage`` with either ``region`` or ``account`` missing from its env will use the corresponding field given here. If either ``region`` or ``account``is is not configured for ``Stack`` (either on the ``Stack`` itself or on the containing ``Stage``), the Stack will be *environment-agnostic*. Environment-agnostic stacks can be deployed to any environment, may not be able to take advantage of all features of the CDK. For example, they will not be able to use environmental context lookups, will not automatically translate Service Principals to the right format based on the environment's AWS partition, and other such enhancements. Default: - The environments should be configured on the ``Stack``s.
         :param outdir: The output directory into which to emit synthesized artifacts. Can only be specified if this stage is the root stage (the app). If this is specified and this stage is nested within another stage, an error will be thrown. Default: - for nested stages, outdir will be determined as a relative directory to the outdir of the app. For apps, if outdir is not specified, a temporary directory will be created.
         :param permissions_boundary: Options for applying a permissions boundary to all IAM Roles and Users created within this Stage. Be aware that this feature uses Aspects, and the Aspects are applied at the Stack level with a priority of ``MUTATING`` (if the feature flag ``@aws-cdk/core:aspectPrioritiesMutating`` is set) or ``DEFAULT`` (if the flag is not set). This is relevant if you are both using your own Aspects to assign Permissions Boundaries, as well as specifying this property. The Aspect added by this property will overwrite the Permissions Boundary assigned by your own Aspect if both: (a) your Aspect has a lower or equal priority to the automatic Aspect, and (b) your Aspect is applied *above* the Stack level. If either of those conditions are not true, your own Aspect will win. We recommend assigning Permissions Boundaries only using the provided APIs, and not using custom Aspects. Default: - no permissions boundary is applied
-        :param policy_validation_beta1: Validation plugins to run during synthesis. If any plugin reports any violation, synthesis will be interrupted and the report displayed to the user. Default: - no validation plugins are used
+        :param policy_validation_beta1: (deprecated) Validation plugins to run during synthesis. If any plugin reports any violation, synthesis will be interrupted and the report displayed to the user. Default: - no validation plugins are used
         :param property_injectors: A list of IPropertyInjector attached to this Stage. Default: - no PropertyInjectors
         :param stage_name: Name of this stage. Default: - Derived from the id.
 
@@ -25381,12 +25959,16 @@ class StageProps:
     def policy_validation_beta1(
         self,
     ) -> typing.Optional[typing.List["IPolicyValidationPluginBeta1"]]:
-        '''Validation plugins to run during synthesis.
+        '''(deprecated) Validation plugins to run during synthesis.
 
         If any plugin reports any violation,
         synthesis will be interrupted and the report displayed to the user.
 
         :default: - no validation plugins are used
+
+        :deprecated: Use ``Validations.of(stage).addPlugins()`` instead.
+
+        :stability: deprecated
         '''
         result = self._values.get("policy_validation_beta1")
         return typing.cast(typing.Optional[typing.List["IPolicyValidationPluginBeta1"]], result)
@@ -30441,6 +31023,45 @@ class ValidationResults(
         jsii.set(self, "results", value) # pyright: ignore[reportArgumentType]
 
 
+class Validations(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.Validations"):
+    '''Manages validations for CDK constructs.
+
+    Example::
+
+        # my_app: App
+        # plugin: IPolicyValidationPlugin
+        
+        Validations.of(my_app).add_plugins(plugin)
+    '''
+
+    @jsii.member(jsii_name="of")
+    @builtins.classmethod
+    def of(cls, scope: "_constructs_77d1e7e8.IConstruct") -> "Validations":
+        '''Returns the Validations for the given construct scope.
+
+        :param scope: any construct.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__802f737e59a21c849962707a334260d55243ac47ff11ec47851a5d92f4d8f107)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+        return typing.cast("Validations", jsii.sinvoke(cls, "of", [scope]))
+
+    @jsii.member(jsii_name="addPlugins")
+    def add_plugins(self, *plugins: "IPolicyValidationPlugin") -> None:
+        '''Register one or more validation plugins that will be executed during synthesis.
+
+        Plugins can only be registered within a Stage or App scope.
+        If any plugin reports a violation, synthesis will be interrupted and the
+        report displayed to the user.
+
+        :param plugins: the validation plugins to add.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8a49ad616c6be0e08de769e51e25757202dbb461c8f88e7522a8e10ce42a788f)
+            check_type(argname="argument plugins", value=plugins, expected_type=typing.Tuple[type_hints["plugins"], ...]) # pyright: ignore [reportGeneralTypeIssues]
+        return typing.cast(None, jsii.invoke(self, "addPlugins", [*plugins]))
+
+
 class App(Stage, metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.App"):
     '''A construct which represents an entire CDK app. This construct is normally the root of the construct tree.
 
@@ -30505,7 +31126,7 @@ class App(Stage, metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.App"):
         :param context: Additional context values for the application. Context set by the CLI or the ``context`` key in ``cdk.json`` has precedence. Context can be read from any construct using ``node.getContext(key)``. Default: - no additional context
         :param default_stack_synthesizer: The stack synthesizer to use by default for all Stacks in the App. The Stack Synthesizer controls aspects of synthesis and deployment, like how assets are referenced and what IAM roles to use. For more information, see the README of the main CDK package. Default: - A ``DefaultStackSynthesizer`` with default settings
         :param outdir: The output directory into which to emit synthesized artifacts. You should never need to set this value. By default, the value you pass to the CLI's ``--output`` flag will be used, and if you change it to a different directory the CLI will fail to pick up the generated Cloud Assembly. This property is intended for internal and testing use. Default: - If this value is *not* set, considers the environment variable ``CDK_OUTDIR``. If ``CDK_OUTDIR`` is not defined, uses a temp directory.
-        :param policy_validation_beta1: Validation plugins to run after synthesis. Default: - no validation plugins
+        :param policy_validation_beta1: (deprecated) Validation plugins to run after synthesis. Default: - no validation plugins
         :param post_cli_context: Additional context values for the application. Context provided here has precedence over context set by: - The CLI via --context - The ``context`` key in ``cdk.json`` - The ``AppProps.context`` property This property is recommended over the ``AppProps.context`` property since you can make final decision over which context value to take in your app. Context can be read from any construct using ``node.getContext(key)``. Default: - no additional context
         :param property_injectors: A list of IPropertyInjector attached to this App. Default: - no PropertyInjectors
         :param stack_traces: Include construct creation stack trace in the ``aws:cdk:trace`` metadata key of all constructs. Default: true stack traces are included unless ``aws:cdk:disable-stack-trace`` is set in the context.
@@ -31568,7 +32189,7 @@ class CfnGuardHook(
         def __init__(
             self,
             *,
-            input_params: typing.Optional[typing.Union["IResolvable", typing.Union["CfnGuardHook.S3LocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            input_params: typing.Optional[typing.Union["IResolvable", typing.Union["CfnGuardHook.S3LocationProperty", typing.Dict[builtins.str, typing.Any]], typing.Sequence[typing.Union["IResolvable", typing.Union["CfnGuardHook.S3LocationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''Specifies the input parameters for a Guard Hook.
 
@@ -31602,13 +32223,13 @@ class CfnGuardHook(
         @builtins.property
         def input_params(
             self,
-        ) -> typing.Optional[typing.Union["IResolvable", "CfnGuardHook.S3LocationProperty"]]:
+        ) -> typing.Optional[typing.Union["IResolvable", "CfnGuardHook.S3LocationProperty", typing.List[typing.Union["IResolvable", "CfnGuardHook.S3LocationProperty"]]]]:
             '''Specifies the S3 location where your input parameters are located.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudformation-guardhook-options.html#cfn-cloudformation-guardhook-options-inputparams
             '''
             result = self._values.get("input_params")
-            return typing.cast(typing.Optional[typing.Union["IResolvable", "CfnGuardHook.S3LocationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["IResolvable", "CfnGuardHook.S3LocationProperty", typing.List[typing.Union["IResolvable", "CfnGuardHook.S3LocationProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -39948,7 +40569,9 @@ __all__ = [
     "ILocalBundling",
     "IMergeStrategy",
     "INumberProducer",
+    "IPolicyValidationContext",
     "IPolicyValidationContextBeta1",
+    "IPolicyValidationPlugin",
     "IPolicyValidationPluginBeta1",
     "IPostProcessor",
     "IPropertyInjector",
@@ -39992,9 +40615,13 @@ __all__ = [
     "PermissionsBoundaryBindOptions",
     "PermissionsOptions",
     "PhysicalName",
+    "PolicyValidationPluginReport",
     "PolicyValidationPluginReportBeta1",
+    "PolicyValidationReportStatus",
     "PolicyValidationReportStatusBeta1",
+    "PolicyViolatingResource",
     "PolicyViolatingResourceBeta1",
+    "PolicyViolation",
     "PolicyViolationBeta1",
     "PropertyInjectors",
     "PropertyMergeStrategy",
@@ -40043,6 +40670,7 @@ __all__ = [
     "UniqueResourceNameOptions",
     "ValidationResult",
     "ValidationResults",
+    "Validations",
     "alexa_ask",
     "assertions",
     "aws_accessanalyzer",
@@ -42629,6 +43257,12 @@ def _typecheckingstub__30b3c7fb9a08baf4f7cd67be0951b086dfc7fd44085a0a6af2eb9881a
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__3b496ecc1e6654ba894c0d4d3592ff413b70fab502ec7621b324b386b37d0e90(
+    context: IPolicyValidationContext,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__ff68896e7a1dd6c95e953098d0c8bc64151d6882e77d1d918aef207ff49dbfad(
     context: IPolicyValidationContextBeta1,
 ) -> None:
@@ -43063,6 +43697,16 @@ def _typecheckingstub__d3358ef27690bcbf495ddb0cd22155f07ce2da1164a27b0e66f7b0f92
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__01a429594fd5036b46fd30855a23904e62b7e0b90195ef94e897f8486e7eaafc(
+    *,
+    success: builtins.bool,
+    violations: typing.Sequence[typing.Union[PolicyViolation, typing.Dict[builtins.str, typing.Any]]],
+    metadata: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    plugin_version: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__53f32baa53504563bf348cb26d2308de0b3c94f4fea93a1c0384fb0aed6ab2f1(
     *,
     success: builtins.bool,
@@ -43073,11 +43717,32 @@ def _typecheckingstub__53f32baa53504563bf348cb26d2308de0b3c94f4fea93a1c0384fb0ae
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__f94629927ab4a3e4d89f801754c91a550a97106ebedf9d446e39f3ce945a86b7(
+    *,
+    locations: typing.Sequence[builtins.str],
+    resource_logical_id: builtins.str,
+    template_path: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__d6f720d14d413c17b7efbaec187c8ce7e76ca4e581d69e43119ae9751d6e5529(
     *,
     locations: typing.Sequence[builtins.str],
     resource_logical_id: builtins.str,
     template_path: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__52936fa28221e49c561c9566ffbf8ef6c8490103eae5b5e05095854f5685918f(
+    *,
+    description: builtins.str,
+    rule_name: builtins.str,
+    violating_resources: typing.Sequence[typing.Union[PolicyViolatingResource, typing.Dict[builtins.str, typing.Any]]],
+    fix: typing.Optional[builtins.str] = None,
+    rule_metadata: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    severity: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -44081,6 +44746,18 @@ def _typecheckingstub__9effc33e84903ea022b71088eb4acbafab3c5e135ab84d1b08231a7b3
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__802f737e59a21c849962707a334260d55243ac47ff11ec47851a5d92f4d8f107(
+    scope: _constructs_77d1e7e8.IConstruct,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8a49ad616c6be0e08de769e51e25757202dbb461c8f88e7522a8e10ce42a788f(
+    *plugins: IPolicyValidationPlugin,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__35aa557fa12e9d406415aec6c61b056749a1154d97c26976b46cb44152fdc787(
     obj: typing.Any,
 ) -> None:
@@ -44310,7 +44987,7 @@ def _typecheckingstub__db8b1657d3f3b07986674bc25e9dc656a6052c212816bc8d02a3be486
 
 def _typecheckingstub__fc8b5f7d5493afa375ed8c4a6ed28a6b7a5188af9fc0a1ab0a10e79d528a33a1(
     *,
-    input_params: typing.Optional[typing.Union[IResolvable, typing.Union[CfnGuardHook.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    input_params: typing.Optional[typing.Union[IResolvable, typing.Union[CfnGuardHook.S3LocationProperty, typing.Dict[builtins.str, typing.Any]], typing.Sequence[typing.Union[IResolvable, typing.Union[CfnGuardHook.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -45836,5 +46513,5 @@ def _typecheckingstub__47e469f0015340593bcbbe8474c853bc170a6dfd3bcb31e6795042408
     """Type checking stubs"""
     pass
 
-for cls in [IAnyProducer, IAspect, IAsset, IBoundStackSynthesizer, ICfnConditionExpression, ICfnResourceOptions, ICfnRuleConditionExpression, IConstructSelector, IFragmentConcatenator, IInspectable, IListProducer, ILocalBundling, IMergeStrategy, INumberProducer, IPolicyValidationContextBeta1, IPolicyValidationPluginBeta1, IPostProcessor, IPropertyInjector, IResolvable, IResolveContext, IResource, IReusableStackSynthesizer, IStableAnyProducer, IStableListProducer, IStableNumberProducer, IStableStringProducer, IStackSynthesizer, IStringProducer, ISynthesisSession, ITaggable, ITaggableV2, ITemplateOptions, ITokenMapper, ITokenResolver]:
+for cls in [IAnyProducer, IAspect, IAsset, IBoundStackSynthesizer, ICfnConditionExpression, ICfnResourceOptions, ICfnRuleConditionExpression, IConstructSelector, IFragmentConcatenator, IInspectable, IListProducer, ILocalBundling, IMergeStrategy, INumberProducer, IPolicyValidationContext, IPolicyValidationContextBeta1, IPolicyValidationPlugin, IPolicyValidationPluginBeta1, IPostProcessor, IPropertyInjector, IResolvable, IResolveContext, IResource, IReusableStackSynthesizer, IStableAnyProducer, IStableListProducer, IStableNumberProducer, IStableStringProducer, IStackSynthesizer, IStringProducer, ISynthesisSession, ITaggable, ITaggableV2, ITemplateOptions, ITokenMapper, ITokenResolver]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

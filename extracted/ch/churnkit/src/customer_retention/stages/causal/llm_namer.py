@@ -39,7 +39,9 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Protocol, runtime_c
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:  # pragma: no cover
-    pass
+    from customer_retention.stages.causal.interpretation.archetype_context import (
+        EnrichedArchetypeContext,
+    )
 
 
 FALLBACK_SUFFIX: str = ":fallback"
@@ -119,7 +121,11 @@ class LLMNamer(Protocol):
     @property
     def model_id(self) -> str: ...  # pragma: no cover
 
-    def name_archetype(self, context: ArchetypeContext) -> ArchetypeNaming: ...
+    def name_archetype(
+        self,
+        context: ArchetypeContext,
+        enriched: Optional["EnrichedArchetypeContext"] = None,
+    ) -> ArchetypeNaming: ...
 
 
 # ---------------------------------------------------------------------------
@@ -183,7 +189,11 @@ class ProseOverlapMatcher:
 
     model_id: str = "prose_overlap"
 
-    def name_archetype(self, context: ArchetypeContext) -> ArchetypeNaming:
+    def name_archetype(
+        self,
+        context: ArchetypeContext,
+        enriched: Optional["EnrichedArchetypeContext"] = None,
+    ) -> ArchetypeNaming:
         from .playbook_mapper import ArchetypeSummary, prose_overlap_score
 
         archetype = ArchetypeSummary(
@@ -197,7 +207,11 @@ class ProseOverlapMatcher:
         top_positive = context.top_positive_drivers[0] if context.top_positive_drivers else None
         top_negative = context.top_negative_drivers[0] if context.top_negative_drivers else None
         label = self._template_label(context, top_positive, top_negative)
-        description = self._template_description(context, top_positive, top_negative)
+        description = (
+            self._template_description_enriched(context, enriched)
+            if enriched is not None
+            else self._template_description(context, top_positive, top_negative)
+        )
 
         decisions: List[PlaybookFitDecision] = []
         for cand in context.candidate_playbooks:
@@ -250,6 +264,33 @@ class ProseOverlapMatcher:
         return " ".join(parts)
 
     @staticmethod
+    def _template_description_enriched(
+        context: ArchetypeContext,
+        enriched: "EnrichedArchetypeContext",
+    ) -> str:
+        """Phase 3/4 fallback — use enriched ``business_phrase``/``value_phrase``
+        so the deterministic path reads the same as the LLM path."""
+        parts = [
+            f"Cluster of {context.cluster_size} customers with mean churn "
+            f"probability {context.cluster_mean_churn_probability:.3f}."
+        ]
+        if enriched.top_positive_drivers:
+            driver = enriched.top_positive_drivers[0]
+            parts.append(
+                f"Top risk driver: {driver.business_phrase} "
+                f"({driver.value_phrase})."
+            )
+        if enriched.top_negative_drivers:
+            driver = enriched.top_negative_drivers[0]
+            parts.append(
+                f"Top protective driver: {driver.business_phrase} "
+                f"({driver.value_phrase})."
+            )
+        if enriched.eligibility_rule_prose:
+            parts.append(f"Eligible when: {enriched.eligibility_rule_prose}.")
+        return " ".join(parts)
+
+    @staticmethod
     def _template_rationale(
         candidate: Dict[str, Any],
         score: float,
@@ -279,20 +320,22 @@ class ProseOverlapMatcher:
 class DatabricksFoundationModelNamer:
     """Calls a Databricks Mosaic AI Foundation Model serving endpoint.
 
-    Uses the OpenAI-compatible client pointed at the workspace's serving
-    endpoints URL — no API key management because Databricks authenticates
-    via the workspace credentials passed in (or inherited from environment
-    variables ``DATABRICKS_HOST`` and ``DATABRICKS_TOKEN``).
+    Uses ``mlflow.deployments.get_deploy_client("databricks")`` — the same
+    route that ``column_describer`` and the notebook-0.15 auto-describer
+    use. The deployments client picks up ambient cluster auth, so no
+    ``DATABRICKS_HOST`` / ``DATABRICKS_TOKEN`` env vars are required on
+    serverless / shared clusters.
 
-    On any failure (network, auth, malformed JSON), the call falls back to
-    ``ProseOverlapMatcher`` so the derivation pipeline never blocks.
+    On any failure (endpoint unreachable, malformed JSON, missing SDK),
+    the call falls back to ``ProseOverlapMatcher`` so the derivation
+    pipeline never blocks.
     """
 
     def __init__(
         self,
         endpoint_name: str,
-        workspace_url: Optional[str] = None,
-        workspace_token: Optional[str] = None,
+        workspace_url: Optional[str] = None,  # accepted for back-compat; unused
+        workspace_token: Optional[str] = None,  # accepted for back-compat; unused
         max_tokens: int = 800,
         temperature: float = 0.0,
     ) -> None:
@@ -308,23 +351,30 @@ class DatabricksFoundationModelNamer:
     def model_id(self) -> str:
         return self.endpoint_name
 
-    def name_archetype(self, context: ArchetypeContext) -> ArchetypeNaming:
+    def name_archetype(
+        self,
+        context: ArchetypeContext,
+        enriched: Optional["EnrichedArchetypeContext"] = None,
+    ) -> ArchetypeNaming:
         client = self._get_client()
         if client is None:
-            return self._fallback_with_log("OpenAI client unavailable", context)
+            return self._fallback_with_log("deployments client unavailable", context, enriched)
         try:
-            response = client.chat.completions.create(
-                model=self.endpoint_name,
-                messages=[{"role": "user", "content": self._build_prompt(context)}],
-                max_tokens=self.max_tokens,
-                temperature=self.temperature,
+            messages = self._build_messages(context, enriched)
+            response = client.predict(
+                endpoint=self.endpoint_name,
+                inputs={
+                    "messages": messages,
+                    "max_tokens": self.max_tokens,
+                    "temperature": self.temperature,
+                },
             )
-            content = response.choices[0].message.content if response and response.choices else ""
+            content = _extract_message_content(response)
             parsed = self._parse_response(content)
         except Exception as exc:  # noqa: BLE001 — fallback for any LLM error
-            return self._fallback_with_log(f"LLM call failed: {exc}", context)
+            return self._fallback_with_log(f"LLM call failed: {exc}", context, enriched)
         if parsed is None:
-            return self._fallback_with_log("LLM returned unparseable JSON", context)
+            return self._fallback_with_log("LLM returned unparseable JSON", context, enriched)
         decisions = [
             PlaybookFitDecision(
                 playbook_id=str(item.get("playbook_id")),
@@ -345,23 +395,40 @@ class DatabricksFoundationModelNamer:
     def _get_client(self) -> Any:
         if self._client is not None:
             return self._client
-        if not self.workspace_url:
-            return None
         try:
-            from openai import OpenAI  # type: ignore[import-not-found]
+            import mlflow.deployments  # type: ignore[import-not-found]
         except ImportError:
             return None
-        base_url = self.workspace_url.rstrip("/") + "/serving-endpoints"
-        self._client = OpenAI(base_url=base_url, api_key=self.workspace_token or "dummy")
+        try:
+            self._client = mlflow.deployments.get_deploy_client("databricks")
+        except Exception:  # noqa: BLE001 — no ambient auth / off-cluster
+            return None
         return self._client
 
-    def _fallback_with_log(self, reason: str, context: ArchetypeContext) -> ArchetypeNaming:
+    def _fallback_with_log(
+        self,
+        reason: str,
+        context: ArchetypeContext,
+        enriched: Optional["EnrichedArchetypeContext"] = None,
+    ) -> ArchetypeNaming:
         logger.warning(
             "DatabricksFoundationModelNamer fallback (%s); using ProseOverlapMatcher", reason
         )
-        result = self._fallback.name_archetype(context)
+        result = self._fallback.name_archetype(context, enriched=enriched)
         result.llm_model_id = self.endpoint_name + FALLBACK_SUFFIX
         return result
+
+    def _build_messages(
+        self,
+        context: ArchetypeContext,
+        enriched: Optional["EnrichedArchetypeContext"],
+    ) -> List[Dict[str, str]]:
+        if enriched is not None:
+            from customer_retention.stages.causal.interpretation.llm_prompt import (
+                build_enriched_prompt_messages,
+            )
+            return build_enriched_prompt_messages(enriched)
+        return [{"role": "user", "content": self._build_prompt(context)}]
 
     def _build_prompt(self, context: ArchetypeContext) -> str:
         positive_block = "\n".join(
@@ -398,20 +465,45 @@ class DatabricksFoundationModelNamer:
         )
 
     @staticmethod
-    def _parse_response(content: str) -> Optional[Dict[str, Any]]:
-        if not content:
+    def _parse_response(content: str) -> Optional[Dict[str, Any]]:  # noqa: D401
+        return _parse_json_response(content)
+
+
+def _extract_message_content(response: Any) -> str:
+    """Pull the assistant text from an `mlflow.deployments.DatabricksDeploymentClient.predict` response.
+
+    The serving-endpoints API returns an OpenAI-style dict:
+    ``{"choices": [{"message": {"role": "assistant", "content": "..."}, ...}], ...}``.
+    The deploy client wraps it in a mapping-like object that supports both
+    dict access and attribute access depending on SDK version.
+    """
+    if response is None:
+        return ""
+    choices = response.get("choices") if isinstance(response, dict) else getattr(response, "choices", None)
+    if not choices:
+        return ""
+    first = choices[0]
+    message = first.get("message") if isinstance(first, dict) else getattr(first, "message", None)
+    if message is None:
+        return ""
+    content = message.get("content") if isinstance(message, dict) else getattr(message, "content", None)
+    return content or ""
+
+
+def _parse_json_response(content: str) -> Optional[Dict[str, Any]]:
+    if not content:
+        return None
+    text = content.strip()
+    if text.startswith("```"):
+        text = text.strip("`").lstrip("json").strip()
+    try:
+        return json.loads(text)
+    except (TypeError, ValueError, json.JSONDecodeError):
+        start = text.find("{")
+        end = text.rfind("}")
+        if start == -1 or end == -1 or end <= start:
             return None
-        text = content.strip()
-        if text.startswith("```"):
-            text = text.strip("`").lstrip("json").strip()
         try:
-            return json.loads(text)
+            return json.loads(text[start : end + 1])
         except (TypeError, ValueError, json.JSONDecodeError):
-            start = text.find("{")
-            end = text.rfind("}")
-            if start == -1 or end == -1 or end <= start:
-                return None
-            try:
-                return json.loads(text[start : end + 1])
-            except (TypeError, ValueError, json.JSONDecodeError):
-                return None
+            return None

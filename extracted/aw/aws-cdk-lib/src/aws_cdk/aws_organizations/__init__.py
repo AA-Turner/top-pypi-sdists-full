@@ -288,6 +288,15 @@ class CfnAccount(
         return typing.cast(builtins.str, jsii.get(self, "attrJoinedTimestamp"))
 
     @builtins.property
+    @jsii.member(jsii_name="attrPaths")
+    def attr_paths(self) -> typing.List[builtins.str]:
+        '''The paths in the organization where the account exists.
+
+        :cloudformationAttribute: Paths
+        '''
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "attrPaths"))
+
+    @builtins.property
     @jsii.member(jsii_name="attrState")
     def attr_state(self) -> builtins.str:
         '''Each state represents a specific phase in the account lifecycle.
@@ -943,6 +952,15 @@ class CfnOrganizationalUnit(
         :cloudformationAttribute: Id
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrPath")
+    def attr_path(self) -> builtins.str:
+        '''The path in the organization where this OU exists.
+
+        :cloudformationAttribute: Path
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrPath"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")

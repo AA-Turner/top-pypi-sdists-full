@@ -50,7 +50,7 @@ def _make_config(tmp_path: Path) -> MagicMock:
     config.mcp_servers = []
     config.mcp_tool_warning_threshold = 50
     config.cli.max_tool_iterations = 50
-    config.cli.tool_output_max_chars = 2000
+    config.cli.tool_output_max_chars = 10_000
     config.cli.max_consecutive_text_only = 3
     config.cli.max_line_repeats = 5
     return config

@@ -6,10 +6,12 @@
 import base64
 import itertools
 import os
+import sys
 import textwrap
 
 import pytest
 
+from cryptography.exceptions import UnsupportedAlgorithm
 from cryptography.hazmat.bindings._rust import openssl as rust_openssl
 from cryptography.hazmat.decrepit.ciphers.algorithms import _DES, ARC4, RC2
 from cryptography.hazmat.primitives.asymmetric import (
@@ -423,7 +425,7 @@ class TestDERSerialization:
             lambda f: f.read(),
             mode="rb",
         )
-        with pytest.raises(ValueError):
+        with pytest.raises(UnsupportedAlgorithm):
             load_der_private_key(data, password=None)
 
     @pytest.mark.skip_fips(reason="3DES is not FIPS")
@@ -463,6 +465,17 @@ class TestDERSerialization:
         with pytest.raises(ValueError):
             load_pem_private_key(data, password=b"password")
 
+    def test_load_pkcs8_private_key_pbkdf2_zero_iterations(self):
+        data = load_vectors_from_file(
+            os.path.join(
+                "asymmetric", "PKCS8", "enc-rsa-pkcs8-pbkdf2-0iter.pem"
+            ),
+            lambda f: f.read(),
+            mode="rb",
+        )
+        with pytest.raises(ValueError):
+            load_pem_private_key(data, password=b"baz")
+
     @pytest.mark.skip_fips(reason="3DES unsupported in FIPS")
     def test_load_pkcs8_pbes_long_salt(self):
         data = load_vectors_from_file(
@@ -496,12 +509,12 @@ class TestDERSerialization:
         assert key.key_size == 2048
 
     @pytest.mark.supported(
-        only_if=lambda backend: backend.cipher_supported(
-            RC2(b"\x00" * 16), modes.CBC(b"\x00" * 8)
-        )
-        and not (
-            rust_openssl.CRYPTOGRAPHY_IS_BORINGSSL
-            or rust_openssl.CRYPTOGRAPHY_IS_AWSLC
+        only_if=lambda backend: (
+            backend.cipher_supported(RC2(b"\x00" * 16), modes.CBC(b"\x00" * 8))
+            and not (
+                rust_openssl.CRYPTOGRAPHY_IS_BORINGSSL
+                or rust_openssl.CRYPTOGRAPHY_IS_AWSLC
+            )
         ),
         skip_message="Does not support RC2 CBC",
     )
@@ -515,12 +528,12 @@ class TestDERSerialization:
         assert key.key_size == 1024
 
     @pytest.mark.supported(
-        only_if=lambda backend: backend.cipher_supported(
-            RC2(b"\x00" * 16), modes.CBC(b"\x00" * 8)
-        )
-        and not (
-            rust_openssl.CRYPTOGRAPHY_IS_BORINGSSL
-            or rust_openssl.CRYPTOGRAPHY_IS_AWSLC
+        only_if=lambda backend: (
+            backend.cipher_supported(RC2(b"\x00" * 16), modes.CBC(b"\x00" * 8))
+            and not (
+                rust_openssl.CRYPTOGRAPHY_IS_BORINGSSL
+                or rust_openssl.CRYPTOGRAPHY_IS_AWSLC
+            )
         ),
         skip_message="Does not support RC2 CBC",
     )
@@ -589,8 +602,10 @@ class TestDERSerialization:
         assert isinstance(key, ed25519.Ed25519PrivateKey)
 
     @pytest.mark.supported(
-        only_if=lambda backend: backend.hash_supported(MD5())
-        and backend.cipher_supported(_DES(), modes.CBC(b"\x00" * 8)),
+        only_if=lambda backend: (
+            backend.hash_supported(MD5())
+            and backend.cipher_supported(_DES(), modes.CBC(b"\x00" * 8))
+        ),
         skip_message="Does not support DES MD5",
     )
     def test_load_pkcs8_pbe_with_md5_and_des_cbc(self):
@@ -1248,7 +1263,7 @@ class TestPEMSerialization:
         ("key_file", "password"), [("bad-oid-dsa-key.pem", None)]
     )
     def test_load_bad_oid_key(self, key_file, password, backend):
-        with pytest.raises(ValueError):
+        with pytest.raises(UnsupportedAlgorithm):
             load_vectors_from_file(
                 os.path.join("asymmetric", "PKCS8", key_file),
                 lambda pemfile: load_pem_private_key(
@@ -1355,6 +1370,24 @@ class TestPEMSerialization:
         with pytest.raises(ValueError):
             load_pem_private_key(data, password=b"password")
 
+    def test_pkcs8_key_with_wrong_pem_delimiter(self):
+        data = load_vectors_from_file(
+            os.path.join(
+                "asymmetric",
+                "PKCS8",
+                "wrong-pem-delimiter-rsa.pem",
+            ),
+            lambda f: f.read(),
+            mode="rb",
+        )
+
+        with pytest.raises(ValueError) as exc_info:
+            load_pem_private_key(data, password=None)
+
+        if sys.version_info >= (3, 11):
+            assert len(exc_info.value.__notes__) == 1
+            assert "PKCS#8 format" in exc_info.value.__notes__[0]
+
 
 class TestKeySerializationEncryptionTypes:
     def test_non_bytes_password(self):
@@ -1366,10 +1399,6 @@ class TestKeySerializationEncryptionTypes:
             BestAvailableEncryption(b"")
 
 
-@pytest.mark.supported(
-    only_if=lambda backend: backend.ed25519_supported(),
-    skip_message="Requires OpenSSL with Ed25519 support",
-)
 class TestEd25519Serialization:
     def test_load_der_private_key(self, backend):
         data = load_vectors_from_file(
@@ -1766,7 +1795,7 @@ class TestDHSerialization:
                 ):
                     # tested elsewhere
                     continue
-                with pytest.raises(ValueError):
+                with pytest.raises((TypeError, ValueError)):
                     public_key.public_bytes(enc, fmt)
 
     @pytest.mark.skip_fips(reason="non-FIPS parameters")
@@ -1795,7 +1824,7 @@ class TestDHSerialization:
                 ):
                     # tested elsewhere
                     continue
-                with pytest.raises(ValueError):
+                with pytest.raises((ValueError, TypeError)):
                     private_key.private_bytes(enc, fmt, NoEncryption())
 
 

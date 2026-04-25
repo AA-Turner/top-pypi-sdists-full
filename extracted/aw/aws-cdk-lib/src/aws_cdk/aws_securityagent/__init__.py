@@ -1479,15 +1479,15 @@ class CfnPentest(
 
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
-        :param agent_space_id: 
-        :param assets: 
-        :param service_role: 
-        :param code_remediation_strategy: 
-        :param exclude_risk_types: 
-        :param log_config: 
-        :param network_traffic_config: 
-        :param title: 
-        :param vpc_config: 
+        :param agent_space_id: Identifier of agent space where the pentest should be created.
+        :param assets: Collection of assets to be tested during the pentest.
+        :param service_role: Service role for accessing resources.
+        :param code_remediation_strategy: Strategy for remediating code vulnerabilities discovered during the pentest.
+        :param exclude_risk_types: A list of risk types excluded from the pentest execution.
+        :param log_config: CloudWatch Logs configuration for pentest output.
+        :param network_traffic_config: Network traffic configuration for the pentest.
+        :param title: Title of the penetration test.
+        :param vpc_config: VPC configuration that the pentest agent accesses.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3d83c0f79102402315ab2667cd779997a2fd84704dc25119af31f0018a831848)
@@ -1552,7 +1552,8 @@ class CfnPentest(
     @builtins.property
     @jsii.member(jsii_name="attrCreatedAt")
     def attr_created_at(self) -> builtins.str:
-        '''
+        '''Timestamp when the pentest was created.
+
         :cloudformationAttribute: CreatedAt
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrCreatedAt"))
@@ -1560,7 +1561,8 @@ class CfnPentest(
     @builtins.property
     @jsii.member(jsii_name="attrPentestId")
     def attr_pentest_id(self) -> builtins.str:
-        '''
+        '''Unique identifier of the pentest.
+
         :cloudformationAttribute: PentestId
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrPentestId"))
@@ -1568,7 +1570,8 @@ class CfnPentest(
     @builtins.property
     @jsii.member(jsii_name="attrUpdatedAt")
     def attr_updated_at(self) -> builtins.str:
-        '''
+        '''Timestamp when the pentest was last updated.
+
         :cloudformationAttribute: UpdatedAt
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrUpdatedAt"))
@@ -1587,6 +1590,7 @@ class CfnPentest(
     @builtins.property
     @jsii.member(jsii_name="agentSpaceId")
     def agent_space_id(self) -> builtins.str:
+        '''Identifier of agent space where the pentest should be created.'''
         return typing.cast(builtins.str, jsii.get(self, "agentSpaceId"))
 
     @agent_space_id.setter
@@ -1601,6 +1605,7 @@ class CfnPentest(
     def assets(
         self,
     ) -> typing.Union["_IResolvable_da3f097b", "CfnPentest.AssetsProperty"]:
+        '''Collection of assets to be tested during the pentest.'''
         return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnPentest.AssetsProperty"], jsii.get(self, "assets"))
 
     @assets.setter
@@ -1616,6 +1621,7 @@ class CfnPentest(
     @builtins.property
     @jsii.member(jsii_name="serviceRole")
     def service_role(self) -> builtins.str:
+        '''Service role for accessing resources.'''
         return typing.cast(builtins.str, jsii.get(self, "serviceRole"))
 
     @service_role.setter
@@ -1628,6 +1634,7 @@ class CfnPentest(
     @builtins.property
     @jsii.member(jsii_name="codeRemediationStrategy")
     def code_remediation_strategy(self) -> typing.Optional[builtins.str]:
+        '''Strategy for remediating code vulnerabilities discovered during the pentest.'''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "codeRemediationStrategy"))
 
     @code_remediation_strategy.setter
@@ -1640,6 +1647,7 @@ class CfnPentest(
     @builtins.property
     @jsii.member(jsii_name="excludeRiskTypes")
     def exclude_risk_types(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''A list of risk types excluded from the pentest execution.'''
         return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "excludeRiskTypes"))
 
     @exclude_risk_types.setter
@@ -1657,6 +1665,7 @@ class CfnPentest(
     def log_config(
         self,
     ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPentest.CloudWatchLogProperty"]]:
+        '''CloudWatch Logs configuration for pentest output.'''
         return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPentest.CloudWatchLogProperty"]], jsii.get(self, "logConfig"))
 
     @log_config.setter
@@ -1674,6 +1683,7 @@ class CfnPentest(
     def network_traffic_config(
         self,
     ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPentest.NetworkTrafficConfigProperty"]]:
+        '''Network traffic configuration for the pentest.'''
         return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPentest.NetworkTrafficConfigProperty"]], jsii.get(self, "networkTrafficConfig"))
 
     @network_traffic_config.setter
@@ -1689,6 +1699,7 @@ class CfnPentest(
     @builtins.property
     @jsii.member(jsii_name="title")
     def title(self) -> typing.Optional[builtins.str]:
+        '''Title of the penetration test.'''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "title"))
 
     @title.setter
@@ -1703,6 +1714,7 @@ class CfnPentest(
     def vpc_config(
         self,
     ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPentest.VpcConfigProperty"]]:
+        '''VPC configuration that the pentest agent accesses.'''
         return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPentest.VpcConfigProperty"]], jsii.get(self, "vpcConfig"))
 
     @vpc_config.setter
@@ -1734,11 +1746,12 @@ class CfnPentest(
             identifier: typing.Optional[builtins.str] = None,
             uris: typing.Optional[typing.Sequence[builtins.str]] = None,
         ) -> None:
-            '''
-            :param authentication: 
-            :param description: 
-            :param identifier: 
-            :param uris: 
+            '''An authenticated actor to be used during pentest execution.
+
+            :param authentication: Authentication configuration for a pentest actor.
+            :param description: Description of the actor.
+            :param identifier: Identifier for the actor.
+            :param uris: List of URIs this actor is authorized to access.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-pentest-actor.html
             :exampleMetadata: fixture=_generated
@@ -1779,7 +1792,8 @@ class CfnPentest(
         def authentication(
             self,
         ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPentest.AuthenticationProperty"]]:
-            '''
+            '''Authentication configuration for a pentest actor.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-pentest-actor.html#cfn-securityagent-pentest-actor-authentication
             '''
             result = self._values.get("authentication")
@@ -1787,7 +1801,8 @@ class CfnPentest(
 
         @builtins.property
         def description(self) -> typing.Optional[builtins.str]:
-            '''
+            '''Description of the actor.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-pentest-actor.html#cfn-securityagent-pentest-actor-description
             '''
             result = self._values.get("description")
@@ -1795,7 +1810,8 @@ class CfnPentest(
 
         @builtins.property
         def identifier(self) -> typing.Optional[builtins.str]:
-            '''
+            '''Identifier for the actor.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-pentest-actor.html#cfn-securityagent-pentest-actor-identifier
             '''
             result = self._values.get("identifier")
@@ -1803,7 +1819,8 @@ class CfnPentest(
 
         @builtins.property
         def uris(self) -> typing.Optional[typing.List[builtins.str]]:
-            '''
+            '''List of URIs this actor is authorized to access.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-pentest-actor.html#cfn-securityagent-pentest-actor-uris
             '''
             result = self._values.get("uris")
@@ -1841,12 +1858,13 @@ class CfnPentest(
             integrated_repositories: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPentest.IntegratedRepositoryProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             source_code: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPentest.SourceCodeRepositoryProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
-            '''
-            :param actors: 
-            :param documents: 
-            :param endpoints: 
-            :param integrated_repositories: 
-            :param source_code: 
+            '''Collection of assets to be tested during the pentest.
+
+            :param actors: List of actors used during testing.
+            :param documents: List of documents providing additional context for the pentest.
+            :param endpoints: List of endpoints to test.
+            :param integrated_repositories: List of repositories connected via provider integrations.
+            :param source_code: List of source code repositories to analyze.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-pentest-assets.html
             :exampleMetadata: fixture=_generated
@@ -1906,7 +1924,8 @@ class CfnPentest(
         def actors(
             self,
         ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPentest.ActorProperty"]]]]:
-            '''
+            '''List of actors used during testing.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-pentest-assets.html#cfn-securityagent-pentest-assets-actors
             '''
             result = self._values.get("actors")
@@ -1916,7 +1935,8 @@ class CfnPentest(
         def documents(
             self,
         ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPentest.DocumentInfoProperty"]]]]:
-            '''
+            '''List of documents providing additional context for the pentest.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-pentest-assets.html#cfn-securityagent-pentest-assets-documents
             '''
             result = self._values.get("documents")
@@ -1926,7 +1946,8 @@ class CfnPentest(
         def endpoints(
             self,
         ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPentest.EndpointProperty"]]]]:
-            '''
+            '''List of endpoints to test.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-pentest-assets.html#cfn-securityagent-pentest-assets-endpoints
             '''
             result = self._values.get("endpoints")
@@ -1936,7 +1957,8 @@ class CfnPentest(
         def integrated_repositories(
             self,
         ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPentest.IntegratedRepositoryProperty"]]]]:
-            '''
+            '''List of repositories connected via provider integrations.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-pentest-assets.html#cfn-securityagent-pentest-assets-integratedrepositories
             '''
             result = self._values.get("integrated_repositories")
@@ -1946,7 +1968,8 @@ class CfnPentest(
         def source_code(
             self,
         ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPentest.SourceCodeRepositoryProperty"]]]]:
-            '''
+            '''List of source code repositories to analyze.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-pentest-assets.html#cfn-securityagent-pentest-assets-sourcecode
             '''
             result = self._values.get("source_code")
@@ -1975,9 +1998,10 @@ class CfnPentest(
             provider_type: typing.Optional[builtins.str] = None,
             value: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''
-            :param provider_type: 
-            :param value: 
+            '''Authentication configuration for a pentest actor.
+
+            :param provider_type: Type of authentication provider.
+            :param value: Reference value for the authentication provider, such as a secret ARN or Lambda ARN.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-pentest-authentication.html
             :exampleMetadata: fixture=_generated
@@ -2005,7 +2029,8 @@ class CfnPentest(
 
         @builtins.property
         def provider_type(self) -> typing.Optional[builtins.str]:
-            '''
+            '''Type of authentication provider.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-pentest-authentication.html#cfn-securityagent-pentest-authentication-providertype
             '''
             result = self._values.get("provider_type")
@@ -2013,7 +2038,8 @@ class CfnPentest(
 
         @builtins.property
         def value(self) -> typing.Optional[builtins.str]:
-            '''
+            '''Reference value for the authentication provider, such as a secret ARN or Lambda ARN.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-pentest-authentication.html#cfn-securityagent-pentest-authentication-value
             '''
             result = self._values.get("value")
@@ -2042,9 +2068,10 @@ class CfnPentest(
             log_group: typing.Optional[builtins.str] = None,
             log_stream: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''
-            :param log_group: 
-            :param log_stream: 
+            '''CloudWatch Logs configuration for pentest output.
+
+            :param log_group: CloudWatch log group.
+            :param log_stream: CloudWatch log stream.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-pentest-cloudwatchlog.html
             :exampleMetadata: fixture=_generated
@@ -2072,7 +2099,8 @@ class CfnPentest(
 
         @builtins.property
         def log_group(self) -> typing.Optional[builtins.str]:
-            '''
+            '''CloudWatch log group.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-pentest-cloudwatchlog.html#cfn-securityagent-pentest-cloudwatchlog-loggroup
             '''
             result = self._values.get("log_group")
@@ -2080,7 +2108,8 @@ class CfnPentest(
 
         @builtins.property
         def log_stream(self) -> typing.Optional[builtins.str]:
-            '''
+            '''CloudWatch log stream.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-pentest-cloudwatchlog.html#cfn-securityagent-pentest-cloudwatchlog-logstream
             '''
             result = self._values.get("log_stream")
@@ -2109,9 +2138,10 @@ class CfnPentest(
             name: typing.Optional[builtins.str] = None,
             value: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''
-            :param name: 
-            :param value: 
+            '''A custom header to include in outbound requests.
+
+            :param name: Name of the header.
+            :param value: Value of the header.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-pentest-customheader.html
             :exampleMetadata: fixture=_generated
@@ -2139,7 +2169,8 @@ class CfnPentest(
 
         @builtins.property
         def name(self) -> typing.Optional[builtins.str]:
-            '''
+            '''Name of the header.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-pentest-customheader.html#cfn-securityagent-pentest-customheader-name
             '''
             result = self._values.get("name")
@@ -2147,7 +2178,8 @@ class CfnPentest(
 
         @builtins.property
         def value(self) -> typing.Optional[builtins.str]:
-            '''
+            '''Value of the header.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-pentest-customheader.html#cfn-securityagent-pentest-customheader-value
             '''
             result = self._values.get("value")
@@ -2176,9 +2208,10 @@ class CfnPentest(
             artifact_id: typing.Optional[builtins.str] = None,
             s3_location: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''
-            :param artifact_id: 
-            :param s3_location: 
+            '''A document stored in S3 that provides context for the pentest.
+
+            :param artifact_id: Artifact identifier.
+            :param s3_location: S3 document location.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-pentest-documentinfo.html
             :exampleMetadata: fixture=_generated
@@ -2206,7 +2239,8 @@ class CfnPentest(
 
         @builtins.property
         def artifact_id(self) -> typing.Optional[builtins.str]:
-            '''
+            '''Artifact identifier.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-pentest-documentinfo.html#cfn-securityagent-pentest-documentinfo-artifactid
             '''
             result = self._values.get("artifact_id")
@@ -2214,7 +2248,8 @@ class CfnPentest(
 
         @builtins.property
         def s3_location(self) -> typing.Optional[builtins.str]:
-            '''
+            '''S3 document location.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-pentest-documentinfo.html#cfn-securityagent-pentest-documentinfo-s3location
             '''
             result = self._values.get("s3_location")
@@ -2238,8 +2273,9 @@ class CfnPentest(
     )
     class EndpointProperty:
         def __init__(self, *, uri: typing.Optional[builtins.str] = None) -> None:
-            '''
-            :param uri: 
+            '''An endpoint to be tested during the pentest.
+
+            :param uri: URI of the endpoint to test.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-pentest-endpoint.html
             :exampleMetadata: fixture=_generated
@@ -2263,7 +2299,8 @@ class CfnPentest(
 
         @builtins.property
         def uri(self) -> typing.Optional[builtins.str]:
-            '''
+            '''URI of the endpoint to test.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-pentest-endpoint.html#cfn-securityagent-pentest-endpoint-uri
             '''
             result = self._values.get("uri")
@@ -2295,9 +2332,10 @@ class CfnPentest(
             integration_id: builtins.str,
             provider_resource_id: builtins.str,
         ) -> None:
-            '''
-            :param integration_id: 
-            :param provider_resource_id: 
+            '''A repository connected via a provider integration.
+
+            :param integration_id: Unique identifier of the provider integration.
+            :param provider_resource_id: Identifier of the resource within the provider integration.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-pentest-integratedrepository.html
             :exampleMetadata: fixture=_generated
@@ -2324,7 +2362,8 @@ class CfnPentest(
 
         @builtins.property
         def integration_id(self) -> builtins.str:
-            '''
+            '''Unique identifier of the provider integration.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-pentest-integratedrepository.html#cfn-securityagent-pentest-integratedrepository-integrationid
             '''
             result = self._values.get("integration_id")
@@ -2333,7 +2372,8 @@ class CfnPentest(
 
         @builtins.property
         def provider_resource_id(self) -> builtins.str:
-            '''
+            '''Identifier of the resource within the provider integration.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-pentest-integratedrepository.html#cfn-securityagent-pentest-integratedrepository-providerresourceid
             '''
             result = self._values.get("provider_resource_id")
@@ -2363,9 +2403,10 @@ class CfnPentest(
             custom_headers: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPentest.CustomHeaderProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             rules: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPentest.NetworkTrafficRuleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
-            '''
-            :param custom_headers: 
-            :param rules: 
+            '''Network traffic configuration for the pentest.
+
+            :param custom_headers: Custom headers to include in outbound requests.
+            :param rules: Ordered list of network traffic rules.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-pentest-networktrafficconfig.html
             :exampleMetadata: fixture=_generated
@@ -2402,7 +2443,8 @@ class CfnPentest(
         def custom_headers(
             self,
         ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPentest.CustomHeaderProperty"]]]]:
-            '''
+            '''Custom headers to include in outbound requests.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-pentest-networktrafficconfig.html#cfn-securityagent-pentest-networktrafficconfig-customheaders
             '''
             result = self._values.get("custom_headers")
@@ -2412,7 +2454,8 @@ class CfnPentest(
         def rules(
             self,
         ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPentest.NetworkTrafficRuleProperty"]]]]:
-            '''
+            '''Ordered list of network traffic rules.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-pentest-networktrafficconfig.html#cfn-securityagent-pentest-networktrafficconfig-rules
             '''
             result = self._values.get("rules")
@@ -2446,10 +2489,11 @@ class CfnPentest(
             network_traffic_rule_type: typing.Optional[builtins.str] = None,
             pattern: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''
-            :param effect: 
-            :param network_traffic_rule_type: 
-            :param pattern: 
+            '''Network traffic rule.
+
+            :param effect: Whether to allow or deny traffic matching this rule.
+            :param network_traffic_rule_type: Type of pattern matching for this rule.
+            :param pattern: URL pattern this rule applies to.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-pentest-networktrafficrule.html
             :exampleMetadata: fixture=_generated
@@ -2481,7 +2525,8 @@ class CfnPentest(
 
         @builtins.property
         def effect(self) -> typing.Optional[builtins.str]:
-            '''
+            '''Whether to allow or deny traffic matching this rule.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-pentest-networktrafficrule.html#cfn-securityagent-pentest-networktrafficrule-effect
             '''
             result = self._values.get("effect")
@@ -2489,7 +2534,8 @@ class CfnPentest(
 
         @builtins.property
         def network_traffic_rule_type(self) -> typing.Optional[builtins.str]:
-            '''
+            '''Type of pattern matching for this rule.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-pentest-networktrafficrule.html#cfn-securityagent-pentest-networktrafficrule-networktrafficruletype
             '''
             result = self._values.get("network_traffic_rule_type")
@@ -2497,7 +2543,8 @@ class CfnPentest(
 
         @builtins.property
         def pattern(self) -> typing.Optional[builtins.str]:
-            '''
+            '''URL pattern this rule applies to.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-pentest-networktrafficrule.html#cfn-securityagent-pentest-networktrafficrule-pattern
             '''
             result = self._values.get("pattern")
@@ -2525,8 +2572,9 @@ class CfnPentest(
             *,
             s3_location: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''
-            :param s3_location: 
+            '''A source code archive stored in S3 for analysis during the pentest.
+
+            :param s3_location: S3 source code location.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-pentest-sourcecoderepository.html
             :exampleMetadata: fixture=_generated
@@ -2550,7 +2598,8 @@ class CfnPentest(
 
         @builtins.property
         def s3_location(self) -> typing.Optional[builtins.str]:
-            '''
+            '''S3 source code location.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-pentest-sourcecoderepository.html#cfn-securityagent-pentest-sourcecoderepository-s3location
             '''
             result = self._values.get("s3_location")
@@ -2584,9 +2633,10 @@ class CfnPentest(
             subnet_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
             vpc_arn: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''
-            :param security_group_arns: 
-            :param subnet_arns: 
+            '''VPC configuration that the pentest agent accesses.
+
+            :param security_group_arns: List of security groups in the VPC.
+            :param subnet_arns: List of subnets in the VPC.
             :param vpc_arn: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-pentest-vpcconfig.html
@@ -2619,7 +2669,8 @@ class CfnPentest(
 
         @builtins.property
         def security_group_arns(self) -> typing.Optional[typing.List[builtins.str]]:
-            '''
+            '''List of security groups in the VPC.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-pentest-vpcconfig.html#cfn-securityagent-pentest-vpcconfig-securitygrouparns
             '''
             result = self._values.get("security_group_arns")
@@ -2627,7 +2678,8 @@ class CfnPentest(
 
         @builtins.property
         def subnet_arns(self) -> typing.Optional[typing.List[builtins.str]]:
-            '''
+            '''List of subnets in the VPC.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-pentest-vpcconfig.html#cfn-securityagent-pentest-vpcconfig-subnetarns
             '''
             result = self._values.get("subnet_arns")
@@ -2684,15 +2736,15 @@ class CfnPentestProps:
     ) -> None:
         '''Properties for defining a ``CfnPentest``.
 
-        :param agent_space_id: 
-        :param assets: 
-        :param service_role: 
-        :param code_remediation_strategy: 
-        :param exclude_risk_types: 
-        :param log_config: 
-        :param network_traffic_config: 
-        :param title: 
-        :param vpc_config: 
+        :param agent_space_id: Identifier of agent space where the pentest should be created.
+        :param assets: Collection of assets to be tested during the pentest.
+        :param service_role: Service role for accessing resources.
+        :param code_remediation_strategy: Strategy for remediating code vulnerabilities discovered during the pentest.
+        :param exclude_risk_types: A list of risk types excluded from the pentest execution.
+        :param log_config: CloudWatch Logs configuration for pentest output.
+        :param network_traffic_config: Network traffic configuration for the pentest.
+        :param title: Title of the penetration test.
+        :param vpc_config: VPC configuration that the pentest agent accesses.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityagent-pentest.html
         :exampleMetadata: fixture=_generated
@@ -2789,7 +2841,8 @@ class CfnPentestProps:
 
     @builtins.property
     def agent_space_id(self) -> builtins.str:
-        '''
+        '''Identifier of agent space where the pentest should be created.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityagent-pentest.html#cfn-securityagent-pentest-agentspaceid
         '''
         result = self._values.get("agent_space_id")
@@ -2800,7 +2853,8 @@ class CfnPentestProps:
     def assets(
         self,
     ) -> typing.Union["_IResolvable_da3f097b", "CfnPentest.AssetsProperty"]:
-        '''
+        '''Collection of assets to be tested during the pentest.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityagent-pentest.html#cfn-securityagent-pentest-assets
         '''
         result = self._values.get("assets")
@@ -2809,7 +2863,8 @@ class CfnPentestProps:
 
     @builtins.property
     def service_role(self) -> builtins.str:
-        '''
+        '''Service role for accessing resources.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityagent-pentest.html#cfn-securityagent-pentest-servicerole
         '''
         result = self._values.get("service_role")
@@ -2818,7 +2873,8 @@ class CfnPentestProps:
 
     @builtins.property
     def code_remediation_strategy(self) -> typing.Optional[builtins.str]:
-        '''
+        '''Strategy for remediating code vulnerabilities discovered during the pentest.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityagent-pentest.html#cfn-securityagent-pentest-coderemediationstrategy
         '''
         result = self._values.get("code_remediation_strategy")
@@ -2826,7 +2882,8 @@ class CfnPentestProps:
 
     @builtins.property
     def exclude_risk_types(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''
+        '''A list of risk types excluded from the pentest execution.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityagent-pentest.html#cfn-securityagent-pentest-excluderisktypes
         '''
         result = self._values.get("exclude_risk_types")
@@ -2836,7 +2893,8 @@ class CfnPentestProps:
     def log_config(
         self,
     ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPentest.CloudWatchLogProperty"]]:
-        '''
+        '''CloudWatch Logs configuration for pentest output.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityagent-pentest.html#cfn-securityagent-pentest-logconfig
         '''
         result = self._values.get("log_config")
@@ -2846,7 +2904,8 @@ class CfnPentestProps:
     def network_traffic_config(
         self,
     ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPentest.NetworkTrafficConfigProperty"]]:
-        '''
+        '''Network traffic configuration for the pentest.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityagent-pentest.html#cfn-securityagent-pentest-networktrafficconfig
         '''
         result = self._values.get("network_traffic_config")
@@ -2854,7 +2913,8 @@ class CfnPentestProps:
 
     @builtins.property
     def title(self) -> typing.Optional[builtins.str]:
-        '''
+        '''Title of the penetration test.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityagent-pentest.html#cfn-securityagent-pentest-title
         '''
         result = self._values.get("title")
@@ -2864,7 +2924,8 @@ class CfnPentestProps:
     def vpc_config(
         self,
     ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPentest.VpcConfigProperty"]]:
-        '''
+        '''VPC configuration that the pentest agent accesses.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityagent-pentest.html#cfn-securityagent-pentest-vpcconfig
         '''
         result = self._values.get("vpc_config")

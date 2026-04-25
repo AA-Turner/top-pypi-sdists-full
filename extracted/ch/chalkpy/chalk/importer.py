@@ -288,9 +288,21 @@ def _parse_simple_feature_ref(arg_name: str, arg_val: Any) -> str:
     raise ChalkParseError(f"expected a feature for '{arg_name}', like `_.amount`, but got {arg_val}")
 
 
+@dataclass(frozen=True, kw_only=True)
+class _ParsedAggCall:
+    aggregation: str  # the aggregation name, e.g. "sum", "approx_top_k"
+    operand: Underscore  # the expression the aggregation is being called on (parent of the `.sum()` attr)
+    aggregation_kwargs: FrozenOrderedSet[
+        Tuple[str, Any]
+    ]  # kwargs that survive round-tripping through the proto (typically just `k`)
+    additional_features: list[
+        str
+    ]  # child-namespace feature names lifted out of kwargs/positional args (e.g. `by` for approx_top_k)
+
+
 def _parse_agg_function_call(
     expr: Underscore | None,
-) -> Tuple[str, Underscore, FrozenOrderedSet[Tuple[str, Any]], list[str]]:
+) -> _ParsedAggCall:
     if not isinstance(expr, UnderscoreCall):
         raise ChalkParseError(
             "missing aggregation function call for materialized aggregate feature -- if materialization is enabled, the expression must include an aggregation function (e.g. .count())"
@@ -361,7 +373,12 @@ def _parse_agg_function_call(
     elif len(call_expr._chalk__args) > 0 or len(call_expr._chalk__kwargs) > 0:
         raise ChalkParseError("should not have any arguments or keyword arguments")
 
-    return aggregation, function_attribute._chalk__parent, opts, additional_features
+    return _ParsedAggCall(
+        aggregation=aggregation,
+        operand=function_attribute._chalk__parent,
+        aggregation_kwargs=opts,
+        additional_features=additional_features,
+    )
 
 
 def _parse_projection(expr: Underscore | None) -> str:
@@ -376,21 +393,24 @@ def _parse_projection(expr: Underscore | None) -> str:
     return attr
 
 
+@dataclass(frozen=True, kw_only=True)
+class _HasManyResolution:
+    joined_class: Type[Features]  # the child Features class the has-many points to
+    group_by_features: list[
+        Feature
+    ]  # the foreign join keys plus any user-requested group-by features on the joined class
+    aggregated_features: list[
+        Feature
+    ]  # the features on the joined class being aggregated (e.g. `_.amount` in `.sum(_.amount)`)
+
+
 def _get_has_many_class(
     parent: Type[Features],
     has_many_feature_name: str,
     group_names: list[str],
     aggregated_feature_names: list[str],
-) -> Tuple[Type[Features], list[Feature], list[Feature]]:
-    """
-    If the has-many class and aggregated features are found:
-        Tuple[
-            Type[Features], -- joined_class
-            list[Feature],  -- the group_names translated to features on joined_class. Also includes the foreign join key
-            Feature | None, -- the aggregated feature on joined_class, from aggregated_feature_name
-            None            -- the error is None
-        ]
-    """
+) -> _HasManyResolution:
+    """Resolve a has-many feature into its joined class plus the group-by and aggregated Feature objects on that class."""
     try:
         has_many_feature = getattr(parent, has_many_feature_name)
     except Exception:
@@ -445,7 +465,11 @@ def _get_has_many_class(
             )
         aggregated_features.append(aggregated_feature)
 
-    return joined_class, group_by_features, aggregated_features
+    return _HasManyResolution(
+        joined_class=joined_class,
+        group_by_features=group_by_features,
+        aggregated_features=aggregated_features,
+    )
 
 
 def run_post_import_fixups():
@@ -540,7 +564,11 @@ def parse_grouped_window(f: Feature) -> WindowConfigResolved:
 
     aggregation_expr = call_expr._chalk__args[0]
 
-    aggregation, par, aggregation_kwargs, additional_features = _parse_agg_function_call(aggregation_expr)
+    parsed_agg = _parse_agg_function_call(aggregation_expr)
+    aggregation = parsed_agg.aggregation
+    par = parsed_agg.operand
+    aggregation_kwargs = parsed_agg.aggregation_kwargs
+    additional_features = parsed_agg.additional_features
 
     # If it's an error, we'll tolerate `.count()`, so leave it be for now.
     try:
@@ -579,7 +607,9 @@ def parse_grouped_window(f: Feature) -> WindowConfigResolved:
     # this one has filters in it
     filters: list[UnderscoreFunction] = []
     if isinstance(has_many_parent, UnderscoreItem):
-        projections, filters = extract_filters_and_projections(has_many_parent)
+        extracted = extract_filters_and_projections(has_many_parent)
+        projections = extracted.projections
+        filters = extracted.filters
 
         if len(projections) != 0:
             raise ChalkParseError(
@@ -592,12 +622,15 @@ def parse_grouped_window(f: Feature) -> WindowConfigResolved:
 
     aggregate_on_names = ([] if child_feature_name is None else [child_feature_name]) + additional_features
 
-    joined_class, group_key_features, aggregated_features = _get_has_many_class(
+    resolution = _get_has_many_class(
         parent=f.features_cls,
         has_many_feature_name=has_many_name,
         group_names=group_keys,
         aggregated_feature_names=aggregate_on_names,
     )
+    joined_class = resolution.joined_class
+    group_key_features = resolution.group_by_features
+    aggregated_features = resolution.aggregated_features
     _check_types(
         feature_name=f.name,
         aggregation=aggregation,
@@ -674,9 +707,19 @@ def parse_grouped_window(f: Feature) -> WindowConfigResolved:
     return cfg
 
 
+@dataclass(frozen=True, kw_only=True)
+class _FiltersAndProjections:
+    projections: list[
+        UnderscoreAttr
+    ]  # feature references inside the `[...]`, e.g. the `_.amount` in `_.children[_.amount]`
+    filters: list[
+        UnderscoreFunction
+    ]  # boolean filter expressions inside the `[...]`, e.g. the `_.x > 0` in `_.children[_.x > 0]`
+
+
 def extract_filters_and_projections(
     expr: Underscore,
-) -> Tuple[List[UnderscoreAttr], List[UnderscoreFunction]]:
+) -> _FiltersAndProjections:
     projections: list[UnderscoreAttr] = []
     filters: list[UnderscoreFunction] = []
     if not isinstance(expr, UnderscoreItem):
@@ -694,7 +737,7 @@ def extract_filters_and_projections(
         else:
             raise ChalkParseError("expected a feature, like `_.amount`, or a filter, like `_.amount > 0`")
 
-    return projections, filters
+    return _FiltersAndProjections(projections=projections, filters=filters)
 
 
 def clean_filters(joined_class: Type[Features], filters: list[UnderscoreFunction]) -> List[Filter]:
@@ -736,9 +779,11 @@ def clean_filters(joined_class: Type[Features], filters: list[UnderscoreFunction
 def parse_windowed_materialization(f: Feature) -> WindowConfigResolved | None:
     if f.window_duration is None:
         return None
-    aggregation, getitem_expression, aggregation_kwargs, additional_features = _parse_agg_function_call(
-        f.underscore_expression
-    )
+    parsed_agg = _parse_agg_function_call(f.underscore_expression)
+    aggregation = parsed_agg.aggregation
+    getitem_expression = parsed_agg.operand
+    aggregation_kwargs = parsed_agg.aggregation_kwargs
+    additional_features = parsed_agg.additional_features
 
     filters: list[UnderscoreFunction] = []
     aggregated_value = None
@@ -782,12 +827,15 @@ def parse_windowed_materialization(f: Feature) -> WindowConfigResolved | None:
 
     aggregate_on_names = ([] if aggregated_value is None else [aggregated_value]) + additional_features
 
-    joined_class, group_by_features, aggregated_features = _get_has_many_class(
+    resolution = _get_has_many_class(
         parent=f.features_cls,
         has_many_feature_name=child_attr_name,
         group_names=[],
         aggregated_feature_names=aggregate_on_names,
     )
+    joined_class = resolution.joined_class
+    group_by_features = resolution.group_by_features
+    aggregated_features = resolution.aggregated_features
 
     if aggregation == "sum" or aggregation == "mean":
         try:

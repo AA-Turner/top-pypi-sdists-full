@@ -21,10 +21,9 @@
 # THE SOFTWARE.
 #
 # ###########################################################################*/
-"""This module provides the base class for items of the :class:`Plot`.
-"""
-from __future__ import annotations
+"""This module provides the base class for items of the :class:`Plot`."""
 
+from __future__ import annotations
 
 __authors__ = ["T. Vincent"]
 __license__ = "MIT"
@@ -35,10 +34,11 @@ from copy import deepcopy
 import logging
 import enum
 import numbers
-from typing import Optional, Tuple, Union
+from typing import Union
 import weakref
 
 import numpy
+from numpy.typing import ArrayLike
 
 from ....utils.proxy import docstring
 from ....utils.enum import Enum as _Enum
@@ -46,11 +46,11 @@ from ....math.combo import min_max
 from ... import qt
 from ... import colors
 from ...colors import Colormap, _Colormappable
+from ._cache import LRUCache
 from ._pick import PickingResult
 
 from silx import config
 from silx._utils import NP_OPTIONAL_COPY
-
 
 _logger = logging.getLogger(__name__)
 
@@ -321,7 +321,7 @@ class Item(qt.QObject):
             info = deepcopy(info)
         self._info = info
 
-    def getVisibleBounds(self) -> Optional[Tuple[float, float, float, float]]:
+    def getVisibleBounds(self) -> tuple[float, float, float, float] | None:
         """Returns visible bounds of the item bounding box in the plot area.
 
         :returns:
@@ -515,7 +515,7 @@ class DataItem(Item):
 # Mix-in classes ##############################################################
 
 
-class ItemMixInBase(object):
+class ItemMixInBase:
     """Base class for Item mix-in"""
 
     def _updated(self, event=None, checkVisibility=True):
@@ -605,11 +605,15 @@ class DraggableMixIn(ItemMixInBase):
 class ColormapMixIn(_Colormappable, ItemMixInBase):
     """Mix-in class for items with colormap"""
 
+    COLORMAP_CACHE_SIZE = 128
+
     def __init__(self):
         self._colormap = Colormap()
         self._colormap.sigChanged.connect(self._colormapChanged)
         self.__data = None
-        self.__cacheColormapRange = {}  # Store {normalization: range}
+        self.__cacheColormapRange = LRUCache(
+            maxsize=self.COLORMAP_CACHE_SIZE
+        )  # Store {(normalization, autoscale mode): range}
 
     def getColormap(self):
         """Return the used colormap"""
@@ -651,15 +655,20 @@ class ColormapMixIn(_Colormappable, ItemMixInBase):
             Minimum of strictly positive values of the data
         :param Union[None,float] max_: Maximum value of the data
         """
-        self.__data = None if data is None else numpy.array(data, copy=copy or NP_OPTIONAL_COPY)
-        self.__cacheColormapRange = {}  # Reset cache
+        self.__data = (
+            None if data is None else numpy.array(data, copy=copy or NP_OPTIONAL_COPY)
+        )
+        self.__cacheColormapRange.clear()
 
         # Fill-up colormap range cache if values are provided
         if max_ is not None and numpy.isfinite(max_):
             if min_ is not None and numpy.isfinite(min_):
-                self.__cacheColormapRange[Colormap.LINEAR, Colormap.MINMAX] = min_, max_
+                self.__cacheColormapRange[Colormap.LINEAR, Colormap.MINMAX, None] = (
+                    min_,
+                    max_,
+                )
             if minPositive is not None and numpy.isfinite(minPositive):
-                self.__cacheColormapRange[Colormap.LOGARITHM, Colormap.MINMAX] = (
+                self.__cacheColormapRange[Colormap.LOGARITHM, Colormap.MINMAX, None] = (
                     minPositive,
                     max_,
                 )
@@ -697,7 +706,12 @@ class ColormapMixIn(_Colormappable, ItemMixInBase):
 
         normalization = colormap.getNormalization()
         autoscaleMode = colormap.getAutoscaleMode()
-        key = normalization, autoscaleMode
+        if autoscaleMode == Colormap.PERCENTILE:
+            percentile = colormap.getAutoscalePercentiles()
+        else:
+            percentile = None
+
+        key = normalization, autoscaleMode, percentile
         vRange = self.__cacheColormapRange.get(key, None)
         if vRange is None:
             vRange = colormap._computeAutoscaleRange(data)
@@ -817,34 +831,62 @@ class SymbolMixIn(ItemMixInBase):
             self._symbol = symbol
             self._updated(ItemChangedType.SYMBOL)
 
-    def getSymbolSize(self):
-        """Return the point marker size in points.
+    def getSymbolSize(self, copy: bool = True) -> float | numpy.ndarray:
+        """Return the marker size in points."""
+        if isinstance(self._symbol_size, numpy.ndarray):
+            return numpy.array(self._symbol_size, copy=copy or NP_OPTIONAL_COPY)
+        else:
+            return self._symbol_size
 
-        :rtype: float
-        """
-        return self._symbol_size
-
-    def setSymbolSize(self, size):
-        """Set the point marker size in points.
+    def setSymbolSize(self, size: float | ArrayLike | None, copy: bool = True):
+        """Set the marker size in points.
 
         See :meth:`getSymbolSize`.
-
-        :param str symbol: Marker type
         """
         if size is None:
             size = self._DEFAULT_SYMBOL_SIZE
-        if size != self._symbol_size:
-            self._symbol_size = size
-            self._updated(ItemChangedType.SYMBOL_SIZE)
+
+        if isinstance(size, numbers.Number):
+            if (
+                not isinstance(self._symbol_size, numpy.ndarray)
+                and size == self._symbol_size
+            ):
+                return
+            self._symbol_size = float(size)
+        else:
+            self._symbol_size = numpy.array(size, copy=copy or NP_OPTIONAL_COPY)
+
+        self._updated(ItemChangedType.SYMBOL_SIZE)
+
+    def isSingleSymbolSize(self) -> bool:
+        """Returns True if there is a unique symbol size, False if it is an array"""
+        return not isinstance(self._symbol_size, numpy.ndarray)
+
+
+class SymbolSingleSizeMixIn(SymbolMixIn):
+    """Mix-in class for items with symbol with a unique size"""
+
+    def getSymbolSize(self, copy: bool = True) -> float:
+        """Return the marker size in points."""
+        return self._symbol_size
+
+    def setSymbolSize(self, size: float | None, copy: bool = True):
+        """Set the marker size in points.
+
+        See :meth:`getSymbolSize`.
+        """
+        if size is None or isinstance(size, numbers.Number):
+            return super().setSymbolSize(size, copy)
+        raise TypeError(f"Unsupported size type: {size}")
 
 
 LineStyleType = Union[
     str,
-    Tuple[Union[float, int], None],
-    Tuple[Union[float, int], Tuple[Union[float, int], Union[float, int]]],
-    Tuple[
+    tuple[Union[float, int], None],
+    tuple[Union[float, int], tuple[Union[float, int], Union[float, int]]],
+    tuple[
         Union[float, int],
-        Tuple[
+        tuple[
             Union[float, int], Union[float, int], Union[float, int], Union[float, int]
         ],
     ],
@@ -1311,12 +1353,12 @@ class ScatterVisualizationMixIn(ItemMixInBase):
 
     def __init__(self):
         self.__visualization = self.Visualization.POINTS
-        self.__parameters = dict(  # Init parameters to None
-            (parameter, None) for parameter in self.VisualizationParameter
+        self.__parameters = {  # Init parameters to None
+            parameter: None for parameter in self.VisualizationParameter
+        }
+        self.__parameters[self.VisualizationParameter.BINNED_STATISTIC_FUNCTION] = (
+            "mean"
         )
-        self.__parameters[
-            self.VisualizationParameter.BINNED_STATISTIC_FUNCTION
-        ] = "mean"
 
     @classmethod
     def supportedVisualizations(cls):
@@ -1427,7 +1469,7 @@ class ScatterVisualizationMixIn(ItemMixInBase):
         return self.getVisualizationParameter(parameter)
 
 
-class PointsBase(DataItem, SymbolMixIn, AlphaMixIn):
+class PointsBase(DataItem, SymbolSingleSizeMixIn, AlphaMixIn):
     """Base class for :class:`Curve` and :class:`Scatter`"""
 
     # note: _filterData must be overloaded if you overload
@@ -1439,7 +1481,7 @@ class PointsBase(DataItem, SymbolMixIn, AlphaMixIn):
 
     def __init__(self):
         DataItem.__init__(self)
-        SymbolMixIn.__init__(self)
+        SymbolSingleSizeMixIn.__init__(self)
         AlphaMixIn.__init__(self)
         self._x = ()
         self._y = ()
@@ -1592,9 +1634,9 @@ class PointsBase(DataItem, SymbolMixIn, AlphaMixIn):
     def __minMaxDataWithError(
         cls,
         data: numpy.ndarray,
-        error: Optional[Union[float, numpy.ndarray]],
+        error: float | numpy.ndarray | None,
         positiveOnly: bool,
-    ) -> Tuple[float]:
+    ) -> tuple[float]:
         if error is None:
             min_, max_ = min_max(data, finite=True)
             return min_, max_
@@ -1796,7 +1838,7 @@ class PointsBase(DataItem, SymbolMixIn, AlphaMixIn):
         self._updated(ItemChangedType.DATA)
 
 
-class BaselineMixIn(object):
+class BaselineMixIn:
     """Base class for Baseline mix-in"""
 
     def __init__(self, baseline=None):

@@ -41,14 +41,12 @@ import numpy
 
 from . import commonh5
 from silx import version as silx_version
-import silx.utils.number
 import h5py
-
 
 _logger = logging.getLogger(__name__)
 
 
-_fabio_extensions = set([])
+_fabio_extensions = set()
 
 
 def supported_extensions():
@@ -62,7 +60,7 @@ def supported_extensions():
         return _fabio_extensions
 
     formats = fabio.fabioformats.get_classes(reader=True)
-    all_extensions = set([])
+    all_extensions = set()
 
     for reader in formats:
         if not hasattr(reader, "DEFAULT_EXTENSIONS"):
@@ -132,7 +130,7 @@ class FrameData(commonh5.LazyLoadableDataset):
                     # negative indexing
                     item += len(self)
                 return self.__fabio_reader.fabio_file().jump_image(item).data
-        return super(FrameData, self).__getitem__(item)
+        return super().__getitem__(item)
 
 
 class RawHeaderData(commonh5.LazyLoadableDataset):
@@ -145,13 +143,13 @@ class RawHeaderData(commonh5.LazyLoadableDataset):
     def _create_data(self):
         """Initialize hold data by merging all headers of each frames."""
         headers = []
-        types = set([])
+        types = set()
         for fabio_frame in self.__fabio_reader.iter_frames():
             header = fabio_frame.header
 
             data = []
             for key, value in header.items():
-                data.append("%s: %s" % (str(key), str(value)))
+                data.append(f"{str(key)}: {str(value)}")
 
             data = "\n".join(data)
             try:
@@ -316,7 +314,7 @@ class MeasurementGroup(commonh5.LazyLoadableGroup):
             self.add_node(dataset)
 
 
-class FabioReader(object):
+class FabioReader:
     """Class which read and cache data and metadata from a fabio image."""
 
     DEFAULT = 0
@@ -341,7 +339,7 @@ class FabioReader(object):
         self.__counters = {}
         self.__positioners = {}
         self.__measurements = {}
-        self.__key_filters = set([])
+        self.__key_filters = set()
         self.__data = None
         self.__frame_count = self.frame_count()
         self._read()
@@ -576,7 +574,6 @@ class FabioReader(object):
         return previous
 
     def _normalize_vector_type(self, dtype):
-        """Normalize the"""
         if self.__at_least_32bits:
             if numpy.issubdtype(dtype, numpy.signedinteger):
                 dtype = numpy.result_type(dtype, numpy.uint32)
@@ -592,85 +589,56 @@ class FabioReader(object):
                 dtype = numpy.result_type(dtype, signed)
         return dtype
 
-    def _convert_metadata_vector(self, values):
+    def _get_none_value(self, dtype: numpy.dtype):
+        """Finds the fill value for missing data according to the array type"""
+        if dtype.kind == "S":
+            return b""
+        if dtype.kind == "U":
+            return ""
+        if dtype.kind == "f":
+            return dtype.type("NaN")
+        if dtype.kind in ("i", "u", "b"):
+            return dtype.type(0)
+
+        return None
+
+    def _convert_metadata_vector(self, values: list):
         """Convert a list of numpy data into a numpy array with the better
         fitting type."""
-        converted = []
-        types = set([])
-        has_none = False
-        is_array = False
-        array = []
+        converted_values = list(self._convert_value(v) for v in values)
+        valid_converted_values = list(v for v in converted_values if v is not None)
 
-        for v in values:
-            if v is None:
-                converted.append(None)
-                has_none = True
-                array.append(None)
-            else:
-                c = self._convert_value(v)
-                if c.shape != tuple():
-                    array.append(v.split(" "))
-                    is_array = True
-                else:
-                    array.append(v)
-                converted.append(c)
-                types.add(c.dtype)
-
-        if has_none and len(types) == 0:
+        if len(valid_converted_values) == 0:
             # That's a list of none values
             return numpy.array([0] * len(values), numpy.int8)
 
-        result_type = numpy.result_type(*types)
-
-        if issubclass(result_type.type, numpy.bytes_):
+        types = set(v.dtype for v in valid_converted_values)
+        result_type = self._normalize_vector_type(numpy.result_type(*types))
+        if issubclass(result_type.type, (numpy.bytes_, numpy.str_)):
             # use the raw data to create the array
-            result = values
-        elif issubclass(result_type.type, numpy.str_):
-            # use the raw data to create the array
-            result = values
+            raw_result = values
+        elif result_type.kind in "uifd" and len(values) > 1 and len(types) > 1:
+            raw_result = values
         else:
-            result = converted
+            raw_result = converted_values
 
-        result_type = self._normalize_vector_type(result_type)
+        none_value = self._get_none_value(result_type)
+        result = list(v if v is not None else none_value for v in raw_result)
 
-        if has_none:
-            # Fix missing data according to the array type
-            if result_type.kind == "S":
-                none_value = b""
-            elif result_type.kind == "U":
-                none_value = ""
-            elif result_type.kind == "f":
-                none_value = numpy.float64("NaN")
-            elif result_type.kind == "i":
-                none_value = numpy.int64(0)
-            elif result_type.kind == "u":
-                none_value = numpy.int64(0)
-            elif result_type.kind == "b":
-                none_value = numpy.bool_(False)
-            else:
-                none_value = None
-
-            for index, r in enumerate(result):
-                if r is not None:
-                    continue
-                result[index] = none_value
-                values[index] = none_value
-                array[index] = none_value
-
-        if result_type.kind in "uifd" and len(types) > 1 and len(values) > 1:
-            # Catch numerical precision
-            if is_array and len(array) > 1:
-                return numpy.array(array, dtype=result_type)
-            else:
-                return numpy.array(values, dtype=result_type)
         return numpy.array(result, dtype=result_type)
 
-    def _convert_value(self, value):
-        """Convert a string into a numpy object (scalar or array).
+    def _convert_value(
+        self, value: list | dict | str | bytes | None
+    ) -> (
+        numpy.ndarray | numpy.void | numpy.floating | numpy.integer | numpy.str_ | None
+    ):
+        """Convert an object into a numpy object (scalar or array).
 
         The value is most of the time a string, but it can be python object
         in case if TIFF decoder for example.
         """
+        if value is None:
+            return None
         if isinstance(value, list):
             # convert to a numpy array
             return numpy.array(value)
@@ -698,47 +666,43 @@ class FabioReader(object):
             result = self._convert_scalar_value(value)
         return result
 
-    def _convert_scalar_value(self, value):
+    def _convert_scalar_value(
+        self, value: str
+    ) -> numpy.str_ | numpy.integer | numpy.floating:
         """Convert a string into a numpy int or float.
 
         If it is not possible it returns a numpy string.
         """
         try:
-            numpy_type = silx.utils.number.min_numerical_convertible_type(value)
-            converted = numpy_type(value)
+            int_value = int(value)
         except ValueError:
-            converted = numpy.bytes_(value)
-        return converted
+            try:
+                return numpy.float64(value)
+            except ValueError:
+                return numpy.str_(value)
+        else:
+            dtype = numpy.min_scalar_type(int_value)
+            if dtype.kind in "iu":  # dtype is object for too big int
+                return dtype.type(int_value)
+            return numpy.str_(value)
 
-    def _convert_list(self, value):
+    def _convert_list(self, value: str) -> numpy.ndarray | numpy.str_:
         """Convert a string into a typed numpy array.
 
         If it is not possible it returns a numpy string.
         """
         try:
-            numpy_values = []
-            values = value.split(" ")
-            types = set([])
-            for string_value in values:
-                v = self._convert_scalar_value(string_value)
-                numpy_values.append(v)
-                types.add(v.dtype.type)
-
-            result_type = numpy.result_type(*types)
-
-            if issubclass(result_type.type, (numpy.bytes_, bytes)):
-                # use the raw data to create the result
-                return numpy.bytes_(value)
-            elif issubclass(result_type.type, (numpy.str_, str)):
-                # use the raw data to create the result
-                return numpy.str_(value)
-            else:
-                if len(types) == 1:
-                    return numpy.array(numpy_values, dtype=result_type)
-                else:
-                    return numpy.array(values, dtype=result_type)
+            raw_values = value.split(" ")
         except ValueError:
-            return numpy.bytes_(value)
+            return numpy.str_(value)
+
+        converted_values = [self._convert_scalar_value(v) for v in raw_values]
+        result_type = numpy.result_type(*converted_values)
+
+        if issubclass(result_type.type, (numpy.str_, str)):
+            return numpy.str_(value)
+
+        return numpy.array(converted_values, dtype=result_type)
 
     def has_sample_information(self):
         """Returns true if there is information about the sample in the
@@ -780,7 +744,7 @@ class EdfFabioReader(FabioReader):
     def _read_frame(self, frame_id, header):
         """Overwrite the method to check and parse special keys: counter and
         motors keys."""
-        self.__catch_keys = set([])
+        self.__catch_keys = set()
         if "motor_pos" in header and "motor_mne" in header:
             self.__catch_keys.add("motor_pos")
             self.__catch_keys.add("motor_mne")
@@ -850,7 +814,7 @@ class EdfFabioReader(FabioReader):
         :rtype: bool
         """
         header = self._get_first_header()
-        expected_keys = set(["UB_mne", "UB_pos", "sample_mne", "sample_pos"])
+        expected_keys = {"UB_mne", "UB_pos", "sample_mne", "sample_pos"}
         return expected_keys.issubset(header)
 
     def parse_ub_matrix(self):

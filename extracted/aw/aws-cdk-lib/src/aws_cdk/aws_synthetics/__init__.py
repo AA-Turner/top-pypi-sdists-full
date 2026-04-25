@@ -39,7 +39,10 @@ const pageLoadBlueprint = async function () {
   const url = `https://api.example.com/${process.env.stage}/user/books/topbook/`;
 
   const page = await synthetics.getPage();
-  const response = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+  const response = await page.goto(url, {
+    waitUntil: 'domcontentloaded',
+    timeout: 30000,
+  });
   // Wait for page to render. Increase or decrease wait time based on endpoint being monitored.
   await page.waitFor(15000);
   // This will take a screenshot that will be included in test output artifacts.
@@ -411,7 +414,8 @@ canary = synthetics.Canary(self, "MyCanary",
     runtime=synthetics.Runtime.SYNTHETICS_NODEJS_PUPPETEER_6_2,
     artifacts_bucket_lifecycle_rules=[LifecycleRule(
         expiration=Duration.days(30)
-    )]
+    )
+    ]
 )
 ```
 
@@ -437,7 +441,8 @@ canary = synthetics.Canary(self, "MyCanary",
     runtime=synthetics.Runtime.SYNTHETICS_NODEJS_PUPPETEER_7_0,
     artifacts_bucket_lifecycle_rules=[LifecycleRule(
         expiration=Duration.days(30)
-    )],
+    )
+    ],
     artifact_s3_encryption_mode=synthetics.ArtifactsEncryptionMode.KMS,
     artifact_s3_kms_key=key
 )
@@ -455,11 +460,68 @@ canary = synthetics.Canary(self, "MyCanary",
         handler="index.handler"
     ),
     runtime=synthetics.Runtime.SYNTHETICS_NODEJS_PUPPETEER_7_0,
-    resources_to_replicate_tags=[synthetics.ResourceToReplicateTags.LAMBDA_FUNCTION]
+    resources_to_replicate_tags=[synthetics.ResourceToReplicateTags.LAMBDA_FUNCTION
+    ]
 )
 ```
 
 When you specify `ResourceToReplicateTags.LAMBDA_FUNCTION` in the `resourcesToReplicateTags` property, CloudWatch Synthetics will keep the tags of the canary and the Lambda function synchronized. Any future changes you make to the canary's tags will also be applied to the function.
+
+## Groups
+
+You can create groups to associate canaries with each other, including cross-Region canaries. Using groups can help you with managing and automating your canaries, and you can also view aggregated run results and statistics for all canaries in a group.
+
+Groups are global resources. When you create a group, it is replicated across all AWS Regions that support groups, and you can add canaries from any of these Regions to it.
+
+### Creating a Group
+
+You can create a group and associate canaries with it:
+
+```python
+# First, declare your canaries
+# canary1: synthetics.ICanary
+# canary2: synthetics.ICanary
+
+
+group = synthetics.Group(self, "MyCanaryGroup",
+    group_name="production-canaries",
+    canaries=[canary1, canary2]
+)
+```
+
+### Adding Canaries to a Group
+
+You can add canaries to a group after creation:
+
+```python
+# canary: synthetics.ICanary
+
+
+group = synthetics.Group(self, "MyCanaryGroup")
+
+# Add canary to group
+group.add_canary(canary)
+```
+
+### Group Limitations
+
+* Each group can contain as many as 10 canaries
+* You can have as many as 20 groups in your account
+* Any single canary can be a member of up to 10 groups
+
+### Importing Existing Groups
+
+You can import existing groups by ARN or name:
+
+```python
+# Import by ARN
+imported_group_by_arn = synthetics.Group.from_group_arn(self, "ImportedGroup", "arn:aws:synthetics:us-east-1:123456789012:group:my-group")
+
+# Import by name
+imported_group_by_name = synthetics.Group.from_group_name(self, "ImportedGroup", "my-group")
+```
+
+For more information about groups, see the [CloudWatch Synthetics Groups documentation](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Groups.html).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -502,6 +564,7 @@ from .. import (
     Duration as _Duration_4839e8c3,
     IInspectable as _IInspectable_c2943556,
     IResolvable as _IResolvable_da3f097b,
+    IResource as _IResource_c80c4260,
     ITaggable as _ITaggable_36806126,
     IgnoreMode as _IgnoreMode_655a98e8,
     Resource as _Resource_45bc6135,
@@ -642,7 +705,8 @@ class ArtifactsEncryptionMode(enum.Enum):
             runtime=synthetics.Runtime.SYNTHETICS_NODEJS_PUPPETEER_7_0,
             artifacts_bucket_lifecycle_rules=[LifecycleRule(
                 expiration=Duration.days(30)
-            )],
+            )
+            ],
             artifact_s3_encryption_mode=synthetics.ArtifactsEncryptionMode.KMS,
             artifact_s3_kms_key=key
         )
@@ -678,336 +742,6 @@ class BrowserType(enum.Enum):
     '''Google Chrome browser.'''
     FIREFOX = "FIREFOX"
     '''Mozilla Firefox browser.'''
-
-
-@jsii.implements(_IConnectable_10015a05)
-class Canary(
-    _Resource_45bc6135,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_synthetics.Canary",
-):
-    '''Define a new Canary.
-
-    :exampleMetadata: infused
-
-    Example::
-
-        canary = synthetics.Canary(self, "MyCanary",
-            schedule=synthetics.Schedule.rate(Duration.minutes(5)),
-            test=synthetics.Test.custom(
-                code=synthetics.Code.from_asset(path.join(__dirname, "canary")),
-                handler="index.handler"
-            ),
-            runtime=synthetics.Runtime.SYNTHETICS_NODEJS_PUPPETEER_7_0,
-            resources_to_replicate_tags=[synthetics.ResourceToReplicateTags.LAMBDA_FUNCTION]
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: "_constructs_77d1e7e8.Construct",
-        id: builtins.str,
-        *,
-        runtime: "Runtime",
-        test: "Test",
-        active_tracing: typing.Optional[builtins.bool] = None,
-        artifact_s3_encryption_mode: typing.Optional["ArtifactsEncryptionMode"] = None,
-        artifact_s3_kms_key: typing.Optional["_IKey_5f11635f"] = None,
-        artifacts_bucket_lifecycle_rules: typing.Optional[typing.Sequence[typing.Union["_LifecycleRule_bb74e6ff", typing.Dict[builtins.str, typing.Any]]]] = None,
-        artifacts_bucket_location: typing.Optional[typing.Union["ArtifactsBucketLocation", typing.Dict[builtins.str, typing.Any]]] = None,
-        browser_configs: typing.Optional[typing.Sequence["BrowserType"]] = None,
-        canary_name: typing.Optional[builtins.str] = None,
-        cleanup: typing.Optional["Cleanup"] = None,
-        dry_run_and_update: typing.Optional[builtins.bool] = None,
-        environment_variables: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        failure_retention_period: typing.Optional["_Duration_4839e8c3"] = None,
-        max_retries: typing.Optional[jsii.Number] = None,
-        memory: typing.Optional["_Size_7b441c34"] = None,
-        provisioned_resource_cleanup: typing.Optional[builtins.bool] = None,
-        resources_to_replicate_tags: typing.Optional[typing.Sequence["ResourceToReplicateTags"]] = None,
-        role: typing.Optional["_IRole_235f5d8e"] = None,
-        schedule: typing.Optional["Schedule"] = None,
-        security_groups: typing.Optional[typing.Sequence["_ISecurityGroup_acf8a799"]] = None,
-        start_after_creation: typing.Optional[builtins.bool] = None,
-        success_retention_period: typing.Optional["_Duration_4839e8c3"] = None,
-        timeout: typing.Optional["_Duration_4839e8c3"] = None,
-        time_to_live: typing.Optional["_Duration_4839e8c3"] = None,
-        vpc: typing.Optional["_IVpc_f30d5663"] = None,
-        vpc_subnets: typing.Optional[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]] = None,
-    ) -> None:
-        '''
-        :param scope: -
-        :param id: -
-        :param runtime: Specify the runtime version to use for the canary.
-        :param test: The type of test that you want your canary to run. Use ``Test.custom()`` to specify the test to run.
-        :param active_tracing: Specifies whether this canary is to use active AWS X-Ray tracing when it runs. Active tracing enables this canary run to be displayed in the ServiceLens and X-Ray service maps even if the canary does not hit an endpoint that has X-Ray tracing enabled. Using X-Ray tracing incurs charges. You can enable active tracing only for canaries that use version ``syn-nodejs-2.0`` or later for their canary runtime. Default: false
-        :param artifact_s3_encryption_mode: Canary Artifacts in S3 encryption mode. Artifact encryption is only supported for canaries that use Synthetics runtime version ``syn-nodejs-puppeteer-3.3`` or later. Default: - Artifacts are encrypted at rest using an AWS managed key. ``ArtifactsEncryptionMode.KMS`` is set if you specify ``artifactS3KmsKey``.
-        :param artifact_s3_kms_key: The KMS key used to encrypt canary artifacts. Default: - no kms key if ``artifactS3EncryptionMode`` is set to ``S3_MANAGED``. A key will be created if one is not provided and ``artifactS3EncryptionMode`` is set to ``KMS``.
-        :param artifacts_bucket_lifecycle_rules: Lifecycle rules for the generated canary artifact bucket. Has no effect if a bucket is passed to ``artifactsBucketLocation``. If you pass a bucket to ``artifactsBucketLocation``, you can add lifecycle rules to the bucket itself. Default: - no rules applied to the generated bucket.
-        :param artifacts_bucket_location: The s3 location that stores the data of the canary runs. Default: - A new s3 bucket will be created without a prefix.
-        :param browser_configs: Browser configurations for the canary. Specifies which browser(s) to use for running the canary tests. You can specify up to 2 browser configurations. Firefox is supported with Node.js Puppeteer and Playwright runtimes, but not with Python Selenium runtimes. Default: undefined - AWS CloudWatch default is using only Chrome browser
-        :param canary_name: The name of the canary. Be sure to give it a descriptive name that distinguishes it from other canaries in your account. Do not include secrets or proprietary information in your canary name. The canary name makes up part of the canary ARN, which is included in outbound calls over the internet. Default: - A unique name will be generated from the construct ID
-        :param cleanup: (deprecated) Specify the underlying resources to be cleaned up when the canary is deleted. Using ``Cleanup.LAMBDA`` will create a Custom Resource to achieve this. Default: Cleanup.NOTHING
-        :param dry_run_and_update: Specifies whether to perform a dry run before updating the canary. If set to true, CDK will execute a dry run to validate the changes before applying them to the canary. If the dry run succeeds, the canary will be updated with the changes. If the dry run fails, the CloudFormation deployment will fail with the dry run's failure reason. If set to false or omitted, the canary will be updated directly without first performing a dry run. Default: undefined - AWS CloudWatch default is false
-        :param environment_variables: Key-value pairs that the Synthetics caches and makes available for your canary scripts. Use environment variables to apply configuration changes, such as test and production environment configurations, without changing your Canary script source code. Default: - No environment variables.
-        :param failure_retention_period: How many days should failed runs be retained. Default: Duration.days(31)
-        :param max_retries: The amount of times the canary will automatically retry a failed run. This is only supported on the following runtimes or newer: ``Runtime.SYNTHETICS_NODEJS_PUPPETEER_10_0``, ``Runtime.SYNTHETICS_NODEJS_PLAYWRIGHT_2_0``, ``Runtime.SYNTHETICS_PYTHON_SELENIUM_5_1``. Max retries can be set between 0 and 2. Canaries which time out after 10 minutes are automatically limited to one retry. Default: 0
-        :param memory: The maximum amount of memory that the canary can use while running. This value must be a multiple of 64 Mib. The range is 960 MiB to 3008 MiB. Default: Size.mebibytes(1024)
-        :param provisioned_resource_cleanup: Whether to also delete the Lambda functions and layers used by this canary when the canary is deleted. Default: undefined - the default behavior is to not delete the Lambda functions and layers
-        :param resources_to_replicate_tags: Specifies which resources should have their tags replicated to this canary. To have the tags that you apply to this canary also be applied to the Lambda function that the canary uses, specify this property with the value ResourceToReplicateTags.LAMBDA_FUNCTION. If you do this, CloudWatch Synthetics will keep the tags of the canary and the Lambda function synchronized. Any future changes you make to the canary's tags will also be applied to the function. Default: - No resources will have their tags replicated to this canary
-        :param role: Canary execution role. This is the role that will be assumed by the canary upon execution. It controls the permissions that the canary will have. The role must be assumable by the AWS Lambda service principal. If not supplied, a role will be created with all the required permissions. If you provide a Role, you must add the required permissions. Default: - A unique role will be generated for this canary. You can add permissions to roles by calling 'addToRolePolicy'.
-        :param schedule: Specify the schedule for how often the canary runs. For example, if you set ``schedule`` to ``rate(10 minutes)``, then the canary will run every 10 minutes. You can set the schedule with ``Schedule.rate(Duration)`` (recommended) or you can specify an expression using ``Schedule.expression()``. Default: 'rate(5 minutes)'
-        :param security_groups: The list of security groups to associate with the canary's network interfaces. You must provide ``vpc`` when using this prop. Default: - If the canary is placed within a VPC and a security group is not specified a dedicated security group will be created for this canary.
-        :param start_after_creation: Whether or not the canary should start after creation. Default: true
-        :param success_retention_period: How many days should successful runs be retained. Default: Duration.days(31)
-        :param timeout: How long the canary is allowed to run before it must stop. You can't set this time to be longer than the frequency of the runs of this canary. The minimum allowed value is 3 seconds. The maximum allowed value is 840 seconds (14 minutes). Default: - the frequency of the canary is used as this value, up to a maximum of 900 seconds.
-        :param time_to_live: How long the canary will be in a 'RUNNING' state. For example, if you set ``timeToLive`` to be 1 hour and ``schedule`` to be ``rate(10 minutes)``, your canary will run at 10 minute intervals for an hour, for a total of 6 times. Default: - no limit
-        :param vpc: The VPC where this canary is run. Specify this if the canary needs to access resources in a VPC. Default: - Not in VPC
-        :param vpc_subnets: Where to place the network interfaces within the VPC. You must provide ``vpc`` when using this prop. Default: - the Vpc default strategy if not specified
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b3b6d76e5f93e31884e16cc00a9b4fc93e6782ff7db09c74aa1ef9346f53ccb0)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CanaryProps(
-            runtime=runtime,
-            test=test,
-            active_tracing=active_tracing,
-            artifact_s3_encryption_mode=artifact_s3_encryption_mode,
-            artifact_s3_kms_key=artifact_s3_kms_key,
-            artifacts_bucket_lifecycle_rules=artifacts_bucket_lifecycle_rules,
-            artifacts_bucket_location=artifacts_bucket_location,
-            browser_configs=browser_configs,
-            canary_name=canary_name,
-            cleanup=cleanup,
-            dry_run_and_update=dry_run_and_update,
-            environment_variables=environment_variables,
-            failure_retention_period=failure_retention_period,
-            max_retries=max_retries,
-            memory=memory,
-            provisioned_resource_cleanup=provisioned_resource_cleanup,
-            resources_to_replicate_tags=resources_to_replicate_tags,
-            role=role,
-            schedule=schedule,
-            security_groups=security_groups,
-            start_after_creation=start_after_creation,
-            success_retention_period=success_retention_period,
-            timeout=timeout,
-            time_to_live=time_to_live,
-            vpc=vpc,
-            vpc_subnets=vpc_subnets,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="metricDuration")
-    def metric_duration(
-        self,
-        *,
-        account: typing.Optional[builtins.str] = None,
-        color: typing.Optional[builtins.str] = None,
-        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        id: typing.Optional[builtins.str] = None,
-        label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
-        region: typing.Optional[builtins.str] = None,
-        stack_account: typing.Optional[builtins.str] = None,
-        stack_region: typing.Optional[builtins.str] = None,
-        statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
-        visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
-        '''Measure the Duration of a single canary run, in seconds.
-
-        :param account: Account which this metric comes from. Default: - Deployment account.
-        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
-        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
-        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
-        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
-        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
-        :param region: Region which this metric comes from. Default: - Deployment region.
-        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
-        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
-        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
-        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
-        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
-
-        :default: avg over 5 minutes
-        '''
-        options = _MetricOptions_1788b62f(
-            account=account,
-            color=color,
-            dimensions_map=dimensions_map,
-            id=id,
-            label=label,
-            period=period,
-            region=region,
-            stack_account=stack_account,
-            stack_region=stack_region,
-            statistic=statistic,
-            unit=unit,
-            visible=visible,
-        )
-
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricDuration", [options]))
-
-    @jsii.member(jsii_name="metricFailed")
-    def metric_failed(
-        self,
-        *,
-        account: typing.Optional[builtins.str] = None,
-        color: typing.Optional[builtins.str] = None,
-        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        id: typing.Optional[builtins.str] = None,
-        label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
-        region: typing.Optional[builtins.str] = None,
-        stack_account: typing.Optional[builtins.str] = None,
-        stack_region: typing.Optional[builtins.str] = None,
-        statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
-        visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
-        '''Measure the number of failed canary runs over a given time period.
-
-        Default: sum over 5 minutes
-
-        :param account: Account which this metric comes from. Default: - Deployment account.
-        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
-        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
-        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
-        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
-        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
-        :param region: Region which this metric comes from. Default: - Deployment region.
-        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
-        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
-        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
-        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
-        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
-        '''
-        options = _MetricOptions_1788b62f(
-            account=account,
-            color=color,
-            dimensions_map=dimensions_map,
-            id=id,
-            label=label,
-            period=period,
-            region=region,
-            stack_account=stack_account,
-            stack_region=stack_region,
-            statistic=statistic,
-            unit=unit,
-            visible=visible,
-        )
-
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricFailed", [options]))
-
-    @jsii.member(jsii_name="metricSuccessPercent")
-    def metric_success_percent(
-        self,
-        *,
-        account: typing.Optional[builtins.str] = None,
-        color: typing.Optional[builtins.str] = None,
-        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        id: typing.Optional[builtins.str] = None,
-        label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
-        region: typing.Optional[builtins.str] = None,
-        stack_account: typing.Optional[builtins.str] = None,
-        stack_region: typing.Optional[builtins.str] = None,
-        statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
-        visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
-        '''Measure the percentage of successful canary runs.
-
-        :param account: Account which this metric comes from. Default: - Deployment account.
-        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
-        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
-        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
-        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
-        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
-        :param region: Region which this metric comes from. Default: - Deployment region.
-        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
-        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
-        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
-        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
-        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
-
-        :default: avg over 5 minutes
-        '''
-        options = _MetricOptions_1788b62f(
-            account=account,
-            color=color,
-            dimensions_map=dimensions_map,
-            id=id,
-            label=label,
-            period=period,
-            region=region,
-            stack_account=stack_account,
-            stack_region=stack_region,
-            statistic=statistic,
-            unit=unit,
-            visible=visible,
-        )
-
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricSuccessPercent", [options]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
-    def PROPERTY_INJECTION_ID(cls) -> builtins.str:
-        '''Uniquely identifies this class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
-
-    @builtins.property
-    @jsii.member(jsii_name="artifactsBucket")
-    def artifacts_bucket(self) -> "_IBucket_42e086fd":
-        '''Bucket where data from each canary run is stored.'''
-        return typing.cast("_IBucket_42e086fd", jsii.get(self, "artifactsBucket"))
-
-    @builtins.property
-    @jsii.member(jsii_name="canaryId")
-    def canary_id(self) -> builtins.str:
-        '''The canary ID.
-
-        :attribute: true
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "canaryId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="canaryName")
-    def canary_name(self) -> builtins.str:
-        '''The canary Name.
-
-        :attribute: true
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "canaryName"))
-
-    @builtins.property
-    @jsii.member(jsii_name="canaryState")
-    def canary_state(self) -> builtins.str:
-        '''The state of the canary.
-
-        For example, 'RUNNING', 'STOPPED', 'NOT STARTED', or 'ERROR'.
-
-        :attribute: true
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "canaryState"))
-
-    @builtins.property
-    @jsii.member(jsii_name="connections")
-    def connections(self) -> "_Connections_0f31fce8":
-        '''Access the Connections object.
-
-        Will fail if not a VPC-enabled Canary
-        '''
-        return typing.cast("_Connections_0f31fce8", jsii.get(self, "connections"))
-
-    @builtins.property
-    @jsii.member(jsii_name="role")
-    def role(self) -> "_IRole_235f5d8e":
-        '''Execution role associated with this Canary.'''
-        return typing.cast("_IRole_235f5d8e", jsii.get(self, "role"))
 
 
 @jsii.data_type(
@@ -1113,7 +847,8 @@ class CanaryProps:
                     handler="index.handler"
                 ),
                 runtime=synthetics.Runtime.SYNTHETICS_NODEJS_PUPPETEER_7_0,
-                resources_to_replicate_tags=[synthetics.ResourceToReplicateTags.LAMBDA_FUNCTION]
+                resources_to_replicate_tags=[synthetics.ResourceToReplicateTags.LAMBDA_FUNCTION
+                ]
             )
         '''
         if isinstance(artifacts_bucket_location, dict):
@@ -4095,7 +3830,8 @@ class Code(
                 handler="index.handler"
             ),
             runtime=synthetics.Runtime.SYNTHETICS_NODEJS_PUPPETEER_7_0,
-            resources_to_replicate_tags=[synthetics.ResourceToReplicateTags.LAMBDA_FUNCTION]
+            resources_to_replicate_tags=[synthetics.ResourceToReplicateTags.LAMBDA_FUNCTION
+            ]
         )
     '''
 
@@ -4469,7 +4205,8 @@ class CustomTestOptions:
                     handler="index.handler"
                 ),
                 runtime=synthetics.Runtime.SYNTHETICS_NODEJS_PUPPETEER_7_0,
-                resources_to_replicate_tags=[synthetics.ResourceToReplicateTags.LAMBDA_FUNCTION]
+                resources_to_replicate_tags=[synthetics.ResourceToReplicateTags.LAMBDA_FUNCTION
+                ]
             )
         '''
         if __debug__:
@@ -4508,6 +4245,229 @@ class CustomTestOptions:
         return "CustomTestOptions(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_synthetics.GroupProps",
+    jsii_struct_bases=[],
+    name_mapping={"canaries": "canaries", "group_name": "groupName"},
+)
+class GroupProps:
+    def __init__(
+        self,
+        *,
+        canaries: typing.Optional[typing.Sequence["ICanary"]] = None,
+        group_name: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a CloudWatch Synthetics Group.
+
+        :param canaries: List of canaries to associate with this group. Each group can contain as many as 10 canaries. Default: - No canaries are associated with the group initially
+        :param group_name: A name for the group. Must contain only lowercase alphanumeric characters, hyphens, or underscores, and be at most 64 characters. The names for all groups in your account, across all Regions, must be unique. Default: - A unique name will be generated from the construct ID
+
+        :exampleMetadata: infused
+
+        Example::
+
+            # First, declare your canaries
+            # canary1: synthetics.ICanary
+            # canary2: synthetics.ICanary
+            
+            
+            group = synthetics.Group(self, "MyCanaryGroup",
+                group_name="production-canaries",
+                canaries=[canary1, canary2]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8465da39b07a79baa615c25d0a78853fcf5a91cbbe4e337bc40ac276b72d62ac)
+            check_type(argname="argument canaries", value=canaries, expected_type=type_hints["canaries"])
+            check_type(argname="argument group_name", value=group_name, expected_type=type_hints["group_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if canaries is not None:
+            self._values["canaries"] = canaries
+        if group_name is not None:
+            self._values["group_name"] = group_name
+
+    @builtins.property
+    def canaries(self) -> typing.Optional[typing.List["ICanary"]]:
+        '''List of canaries to associate with this group.
+
+        Each group can contain as many as 10 canaries.
+
+        :default: - No canaries are associated with the group initially
+        '''
+        result = self._values.get("canaries")
+        return typing.cast(typing.Optional[typing.List["ICanary"]], result)
+
+    @builtins.property
+    def group_name(self) -> typing.Optional[builtins.str]:
+        '''A name for the group. Must contain only lowercase alphanumeric characters, hyphens, or underscores, and be at most 64 characters.
+
+        The names for all groups in your account, across all Regions, must be unique.
+
+        :default: - A unique name will be generated from the construct ID
+        '''
+        result = self._values.get("group_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "GroupProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_synthetics.ICanary")
+class ICanary(_IResource_c80c4260, _ICanaryRef_cf407e49, typing_extensions.Protocol):
+    '''Represents a CloudWatch Synthetics Canary.'''
+
+    @builtins.property
+    @jsii.member(jsii_name="canaryArn")
+    def canary_arn(self) -> builtins.str:
+        '''The ARN of the canary.
+
+        :attribute: true
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="canaryId")
+    def canary_id(self) -> builtins.str:
+        '''The ID of the canary.
+
+        For imported canaries, this may be the canary name as a fallback,
+        since the actual ID (a UUID) is not available when importing by name.
+
+        :attribute: true
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="canaryName")
+    def canary_name(self) -> builtins.str:
+        '''The name of the canary.
+
+        :attribute: true
+        '''
+        ...
+
+
+class _ICanaryProxy(
+    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
+    jsii.proxy_for(_ICanaryRef_cf407e49), # type: ignore[misc]
+):
+    '''Represents a CloudWatch Synthetics Canary.'''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_synthetics.ICanary"
+
+    @builtins.property
+    @jsii.member(jsii_name="canaryArn")
+    def canary_arn(self) -> builtins.str:
+        '''The ARN of the canary.
+
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "canaryArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="canaryId")
+    def canary_id(self) -> builtins.str:
+        '''The ID of the canary.
+
+        For imported canaries, this may be the canary name as a fallback,
+        since the actual ID (a UUID) is not available when importing by name.
+
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "canaryId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="canaryName")
+    def canary_name(self) -> builtins.str:
+        '''The name of the canary.
+
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "canaryName"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ICanary).__jsii_proxy_class__ = lambda : _ICanaryProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_synthetics.IGroup")
+class IGroup(_IResource_c80c4260, _IGroupRef_4fc55162, typing_extensions.Protocol):
+    '''Represents a CloudWatch Synthetics Group.'''
+
+    @builtins.property
+    @jsii.member(jsii_name="groupArn")
+    def group_arn(self) -> builtins.str:
+        '''The ARN of the group.
+
+        :attribute: true
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="groupId")
+    def group_id(self) -> builtins.str:
+        '''The ID of the group.
+
+        :attribute: true
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="groupName")
+    def group_name(self) -> builtins.str:
+        '''The name of the group.
+
+        :attribute: true
+        '''
+        ...
+
+
+class _IGroupProxy(
+    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
+    jsii.proxy_for(_IGroupRef_4fc55162), # type: ignore[misc]
+):
+    '''Represents a CloudWatch Synthetics Group.'''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_synthetics.IGroup"
+
+    @builtins.property
+    @jsii.member(jsii_name="groupArn")
+    def group_arn(self) -> builtins.str:
+        '''The ARN of the group.
+
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "groupArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="groupId")
+    def group_id(self) -> builtins.str:
+        '''The ID of the group.
+
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "groupId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="groupName")
+    def group_name(self) -> builtins.str:
+        '''The name of the group.
+
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "groupName"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IGroup).__jsii_proxy_class__ = lambda : _IGroupProxy
 
 
 class InlineCode(
@@ -4576,7 +4536,8 @@ class ResourceToReplicateTags(enum.Enum):
                 handler="index.handler"
             ),
             runtime=synthetics.Runtime.SYNTHETICS_NODEJS_PUPPETEER_7_0,
-            resources_to_replicate_tags=[synthetics.ResourceToReplicateTags.LAMBDA_FUNCTION]
+            resources_to_replicate_tags=[synthetics.ResourceToReplicateTags.LAMBDA_FUNCTION
+            ]
         )
     '''
 
@@ -4603,7 +4564,8 @@ class Runtime(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_synthetics.Run
                 handler="index.handler"
             ),
             runtime=synthetics.Runtime.SYNTHETICS_NODEJS_PUPPETEER_7_0,
-            resources_to_replicate_tags=[synthetics.ResourceToReplicateTags.LAMBDA_FUNCTION]
+            resources_to_replicate_tags=[synthetics.ResourceToReplicateTags.LAMBDA_FUNCTION
+            ]
         )
     '''
 
@@ -5401,7 +5363,8 @@ class Test(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_synthetics.Test")
                 handler="index.handler"
             ),
             runtime=synthetics.Runtime.SYNTHETICS_NODEJS_PUPPETEER_7_0,
-            resources_to_replicate_tags=[synthetics.ResourceToReplicateTags.LAMBDA_FUNCTION]
+            resources_to_replicate_tags=[synthetics.ResourceToReplicateTags.LAMBDA_FUNCTION
+            ]
         )
     '''
 
@@ -5564,6 +5527,540 @@ class AssetCode(
         return typing.cast("CodeConfig", jsii.invoke(self, "bind", [scope, handler, family, runtime_name]))
 
 
+@jsii.implements(_IConnectable_10015a05, ICanary)
+class Canary(
+    _Resource_45bc6135,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_synthetics.Canary",
+):
+    '''Define a new Canary.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        canary = synthetics.Canary(self, "MyCanary",
+            schedule=synthetics.Schedule.rate(Duration.minutes(5)),
+            test=synthetics.Test.custom(
+                code=synthetics.Code.from_asset(path.join(__dirname, "canary")),
+                handler="index.handler"
+            ),
+            runtime=synthetics.Runtime.SYNTHETICS_NODEJS_PUPPETEER_7_0,
+            resources_to_replicate_tags=[synthetics.ResourceToReplicateTags.LAMBDA_FUNCTION
+            ]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        runtime: "Runtime",
+        test: "Test",
+        active_tracing: typing.Optional[builtins.bool] = None,
+        artifact_s3_encryption_mode: typing.Optional["ArtifactsEncryptionMode"] = None,
+        artifact_s3_kms_key: typing.Optional["_IKey_5f11635f"] = None,
+        artifacts_bucket_lifecycle_rules: typing.Optional[typing.Sequence[typing.Union["_LifecycleRule_bb74e6ff", typing.Dict[builtins.str, typing.Any]]]] = None,
+        artifacts_bucket_location: typing.Optional[typing.Union["ArtifactsBucketLocation", typing.Dict[builtins.str, typing.Any]]] = None,
+        browser_configs: typing.Optional[typing.Sequence["BrowserType"]] = None,
+        canary_name: typing.Optional[builtins.str] = None,
+        cleanup: typing.Optional["Cleanup"] = None,
+        dry_run_and_update: typing.Optional[builtins.bool] = None,
+        environment_variables: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        failure_retention_period: typing.Optional["_Duration_4839e8c3"] = None,
+        max_retries: typing.Optional[jsii.Number] = None,
+        memory: typing.Optional["_Size_7b441c34"] = None,
+        provisioned_resource_cleanup: typing.Optional[builtins.bool] = None,
+        resources_to_replicate_tags: typing.Optional[typing.Sequence["ResourceToReplicateTags"]] = None,
+        role: typing.Optional["_IRole_235f5d8e"] = None,
+        schedule: typing.Optional["Schedule"] = None,
+        security_groups: typing.Optional[typing.Sequence["_ISecurityGroup_acf8a799"]] = None,
+        start_after_creation: typing.Optional[builtins.bool] = None,
+        success_retention_period: typing.Optional["_Duration_4839e8c3"] = None,
+        timeout: typing.Optional["_Duration_4839e8c3"] = None,
+        time_to_live: typing.Optional["_Duration_4839e8c3"] = None,
+        vpc: typing.Optional["_IVpc_f30d5663"] = None,
+        vpc_subnets: typing.Optional[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]] = None,
+    ) -> None:
+        '''
+        :param scope: -
+        :param id: -
+        :param runtime: Specify the runtime version to use for the canary.
+        :param test: The type of test that you want your canary to run. Use ``Test.custom()`` to specify the test to run.
+        :param active_tracing: Specifies whether this canary is to use active AWS X-Ray tracing when it runs. Active tracing enables this canary run to be displayed in the ServiceLens and X-Ray service maps even if the canary does not hit an endpoint that has X-Ray tracing enabled. Using X-Ray tracing incurs charges. You can enable active tracing only for canaries that use version ``syn-nodejs-2.0`` or later for their canary runtime. Default: false
+        :param artifact_s3_encryption_mode: Canary Artifacts in S3 encryption mode. Artifact encryption is only supported for canaries that use Synthetics runtime version ``syn-nodejs-puppeteer-3.3`` or later. Default: - Artifacts are encrypted at rest using an AWS managed key. ``ArtifactsEncryptionMode.KMS`` is set if you specify ``artifactS3KmsKey``.
+        :param artifact_s3_kms_key: The KMS key used to encrypt canary artifacts. Default: - no kms key if ``artifactS3EncryptionMode`` is set to ``S3_MANAGED``. A key will be created if one is not provided and ``artifactS3EncryptionMode`` is set to ``KMS``.
+        :param artifacts_bucket_lifecycle_rules: Lifecycle rules for the generated canary artifact bucket. Has no effect if a bucket is passed to ``artifactsBucketLocation``. If you pass a bucket to ``artifactsBucketLocation``, you can add lifecycle rules to the bucket itself. Default: - no rules applied to the generated bucket.
+        :param artifacts_bucket_location: The s3 location that stores the data of the canary runs. Default: - A new s3 bucket will be created without a prefix.
+        :param browser_configs: Browser configurations for the canary. Specifies which browser(s) to use for running the canary tests. You can specify up to 2 browser configurations. Firefox is supported with Node.js Puppeteer and Playwright runtimes, but not with Python Selenium runtimes. Default: undefined - AWS CloudWatch default is using only Chrome browser
+        :param canary_name: The name of the canary. Be sure to give it a descriptive name that distinguishes it from other canaries in your account. Do not include secrets or proprietary information in your canary name. The canary name makes up part of the canary ARN, which is included in outbound calls over the internet. Default: - A unique name will be generated from the construct ID
+        :param cleanup: (deprecated) Specify the underlying resources to be cleaned up when the canary is deleted. Using ``Cleanup.LAMBDA`` will create a Custom Resource to achieve this. Default: Cleanup.NOTHING
+        :param dry_run_and_update: Specifies whether to perform a dry run before updating the canary. If set to true, CDK will execute a dry run to validate the changes before applying them to the canary. If the dry run succeeds, the canary will be updated with the changes. If the dry run fails, the CloudFormation deployment will fail with the dry run's failure reason. If set to false or omitted, the canary will be updated directly without first performing a dry run. Default: undefined - AWS CloudWatch default is false
+        :param environment_variables: Key-value pairs that the Synthetics caches and makes available for your canary scripts. Use environment variables to apply configuration changes, such as test and production environment configurations, without changing your Canary script source code. Default: - No environment variables.
+        :param failure_retention_period: How many days should failed runs be retained. Default: Duration.days(31)
+        :param max_retries: The amount of times the canary will automatically retry a failed run. This is only supported on the following runtimes or newer: ``Runtime.SYNTHETICS_NODEJS_PUPPETEER_10_0``, ``Runtime.SYNTHETICS_NODEJS_PLAYWRIGHT_2_0``, ``Runtime.SYNTHETICS_PYTHON_SELENIUM_5_1``. Max retries can be set between 0 and 2. Canaries which time out after 10 minutes are automatically limited to one retry. Default: 0
+        :param memory: The maximum amount of memory that the canary can use while running. This value must be a multiple of 64 Mib. The range is 960 MiB to 3008 MiB. Default: Size.mebibytes(1024)
+        :param provisioned_resource_cleanup: Whether to also delete the Lambda functions and layers used by this canary when the canary is deleted. Default: undefined - the default behavior is to not delete the Lambda functions and layers
+        :param resources_to_replicate_tags: Specifies which resources should have their tags replicated to this canary. To have the tags that you apply to this canary also be applied to the Lambda function that the canary uses, specify this property with the value ResourceToReplicateTags.LAMBDA_FUNCTION. If you do this, CloudWatch Synthetics will keep the tags of the canary and the Lambda function synchronized. Any future changes you make to the canary's tags will also be applied to the function. Default: - No resources will have their tags replicated to this canary
+        :param role: Canary execution role. This is the role that will be assumed by the canary upon execution. It controls the permissions that the canary will have. The role must be assumable by the AWS Lambda service principal. If not supplied, a role will be created with all the required permissions. If you provide a Role, you must add the required permissions. Default: - A unique role will be generated for this canary. You can add permissions to roles by calling 'addToRolePolicy'.
+        :param schedule: Specify the schedule for how often the canary runs. For example, if you set ``schedule`` to ``rate(10 minutes)``, then the canary will run every 10 minutes. You can set the schedule with ``Schedule.rate(Duration)`` (recommended) or you can specify an expression using ``Schedule.expression()``. Default: 'rate(5 minutes)'
+        :param security_groups: The list of security groups to associate with the canary's network interfaces. You must provide ``vpc`` when using this prop. Default: - If the canary is placed within a VPC and a security group is not specified a dedicated security group will be created for this canary.
+        :param start_after_creation: Whether or not the canary should start after creation. Default: true
+        :param success_retention_period: How many days should successful runs be retained. Default: Duration.days(31)
+        :param timeout: How long the canary is allowed to run before it must stop. You can't set this time to be longer than the frequency of the runs of this canary. The minimum allowed value is 3 seconds. The maximum allowed value is 840 seconds (14 minutes). Default: - the frequency of the canary is used as this value, up to a maximum of 900 seconds.
+        :param time_to_live: How long the canary will be in a 'RUNNING' state. For example, if you set ``timeToLive`` to be 1 hour and ``schedule`` to be ``rate(10 minutes)``, your canary will run at 10 minute intervals for an hour, for a total of 6 times. Default: - no limit
+        :param vpc: The VPC where this canary is run. Specify this if the canary needs to access resources in a VPC. Default: - Not in VPC
+        :param vpc_subnets: Where to place the network interfaces within the VPC. You must provide ``vpc`` when using this prop. Default: - the Vpc default strategy if not specified
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b3b6d76e5f93e31884e16cc00a9b4fc93e6782ff7db09c74aa1ef9346f53ccb0)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CanaryProps(
+            runtime=runtime,
+            test=test,
+            active_tracing=active_tracing,
+            artifact_s3_encryption_mode=artifact_s3_encryption_mode,
+            artifact_s3_kms_key=artifact_s3_kms_key,
+            artifacts_bucket_lifecycle_rules=artifacts_bucket_lifecycle_rules,
+            artifacts_bucket_location=artifacts_bucket_location,
+            browser_configs=browser_configs,
+            canary_name=canary_name,
+            cleanup=cleanup,
+            dry_run_and_update=dry_run_and_update,
+            environment_variables=environment_variables,
+            failure_retention_period=failure_retention_period,
+            max_retries=max_retries,
+            memory=memory,
+            provisioned_resource_cleanup=provisioned_resource_cleanup,
+            resources_to_replicate_tags=resources_to_replicate_tags,
+            role=role,
+            schedule=schedule,
+            security_groups=security_groups,
+            start_after_creation=start_after_creation,
+            success_retention_period=success_retention_period,
+            timeout=timeout,
+            time_to_live=time_to_live,
+            vpc=vpc,
+            vpc_subnets=vpc_subnets,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="fromCanaryArn")
+    @builtins.classmethod
+    def from_canary_arn(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        canary_arn: builtins.str,
+    ) -> "ICanary":
+        '''Import an existing canary by ARN.
+
+        :param scope: -
+        :param id: -
+        :param canary_arn: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ef4d2dbddad6751814c12d91c0030333a05c93dfdab3494a9d5cf7e75b0d4f6c)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument canary_arn", value=canary_arn, expected_type=type_hints["canary_arn"])
+        return typing.cast("ICanary", jsii.sinvoke(cls, "fromCanaryArn", [scope, id, canary_arn]))
+
+    @jsii.member(jsii_name="fromCanaryName")
+    @builtins.classmethod
+    def from_canary_name(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        canary_name: builtins.str,
+    ) -> "ICanary":
+        '''Import an existing canary by name.
+
+        :param scope: -
+        :param id: -
+        :param canary_name: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a4b2865c96be39753955e1b46311801c7524d63c1efb9a104d2b3ef03d64636a)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument canary_name", value=canary_name, expected_type=type_hints["canary_name"])
+        return typing.cast("ICanary", jsii.sinvoke(cls, "fromCanaryName", [scope, id, canary_name]))
+
+    @jsii.member(jsii_name="metricDuration")
+    def metric_duration(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional["_Duration_4839e8c3"] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> "_Metric_e396a4dc":
+        '''Measure the Duration of a single canary run, in seconds.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :default: avg over 5 minutes
+        '''
+        options = _MetricOptions_1788b62f(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricDuration", [options]))
+
+    @jsii.member(jsii_name="metricFailed")
+    def metric_failed(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional["_Duration_4839e8c3"] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> "_Metric_e396a4dc":
+        '''Measure the number of failed canary runs over a given time period.
+
+        Default: sum over 5 minutes
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+        '''
+        options = _MetricOptions_1788b62f(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricFailed", [options]))
+
+    @jsii.member(jsii_name="metricSuccessPercent")
+    def metric_success_percent(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional["_Duration_4839e8c3"] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> "_Metric_e396a4dc":
+        '''Measure the percentage of successful canary runs.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :default: avg over 5 minutes
+        '''
+        options = _MetricOptions_1788b62f(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricSuccessPercent", [options]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    def PROPERTY_INJECTION_ID(cls) -> builtins.str:
+        '''Uniquely identifies this class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
+
+    @builtins.property
+    @jsii.member(jsii_name="artifactsBucket")
+    def artifacts_bucket(self) -> "_IBucket_42e086fd":
+        '''Bucket where data from each canary run is stored.'''
+        return typing.cast("_IBucket_42e086fd", jsii.get(self, "artifactsBucket"))
+
+    @builtins.property
+    @jsii.member(jsii_name="canaryArn")
+    def canary_arn(self) -> builtins.str:
+        '''The canary ARN.
+
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "canaryArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="canaryId")
+    def canary_id(self) -> builtins.str:
+        '''The canary ID.
+
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "canaryId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="canaryName")
+    def canary_name(self) -> builtins.str:
+        '''The canary Name.
+
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "canaryName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="canaryRef")
+    def canary_ref(self) -> "_CanaryReference_fbbe85ce":
+        '''A reference to the canary.'''
+        return typing.cast("_CanaryReference_fbbe85ce", jsii.get(self, "canaryRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="canaryState")
+    def canary_state(self) -> builtins.str:
+        '''The state of the canary.
+
+        For example, 'RUNNING', 'STOPPED', 'NOT STARTED', or 'ERROR'.
+
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "canaryState"))
+
+    @builtins.property
+    @jsii.member(jsii_name="connections")
+    def connections(self) -> "_Connections_0f31fce8":
+        '''Access the Connections object.
+
+        Will fail if not a VPC-enabled Canary
+        '''
+        return typing.cast("_Connections_0f31fce8", jsii.get(self, "connections"))
+
+    @builtins.property
+    @jsii.member(jsii_name="role")
+    def role(self) -> "_IRole_235f5d8e":
+        '''Execution role associated with this Canary.'''
+        return typing.cast("_IRole_235f5d8e", jsii.get(self, "role"))
+
+
+@jsii.implements(IGroup)
+class Group(
+    _Resource_45bc6135,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_synthetics.Group",
+):
+    '''Define a new CloudWatch Synthetics Group.
+
+    Groups allow you to associate canaries with each other, including cross-Region canaries.
+    Using groups can help you with managing and automating your canaries, and you can also
+    view aggregated run results and statistics for all canaries in a group.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        # canary: synthetics.ICanary
+        
+        
+        group = synthetics.Group(self, "MyCanaryGroup")
+        
+        # Add canary to group
+        group.add_canary(canary)
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        canaries: typing.Optional[typing.Sequence["ICanary"]] = None,
+        group_name: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param scope: -
+        :param id: -
+        :param canaries: List of canaries to associate with this group. Each group can contain as many as 10 canaries. Default: - No canaries are associated with the group initially
+        :param group_name: A name for the group. Must contain only lowercase alphanumeric characters, hyphens, or underscores, and be at most 64 characters. The names for all groups in your account, across all Regions, must be unique. Default: - A unique name will be generated from the construct ID
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3005c8d1126585f8fa0f8a88bd88d4564937584e5ea5e3c306639a249e1074b2)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = GroupProps(canaries=canaries, group_name=group_name)
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="fromGroupArn")
+    @builtins.classmethod
+    def from_group_arn(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        group_arn: builtins.str,
+    ) -> "IGroup":
+        '''Import an existing group by ARN.
+
+        :param scope: -
+        :param id: -
+        :param group_arn: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3f77c0b7ebe86536cb12796fb6c81b18cd18b3ecef826aad10b5f86090692e54)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument group_arn", value=group_arn, expected_type=type_hints["group_arn"])
+        return typing.cast("IGroup", jsii.sinvoke(cls, "fromGroupArn", [scope, id, group_arn]))
+
+    @jsii.member(jsii_name="fromGroupName")
+    @builtins.classmethod
+    def from_group_name(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        group_name: builtins.str,
+    ) -> "IGroup":
+        '''Import an existing group by name.
+
+        :param scope: -
+        :param id: -
+        :param group_name: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c89384e12be07349404f4cd57ac2dabb3eaebbf9c993cca96ea43743a55dd671)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument group_name", value=group_name, expected_type=type_hints["group_name"])
+        return typing.cast("IGroup", jsii.sinvoke(cls, "fromGroupName", [scope, id, group_name]))
+
+    @jsii.member(jsii_name="addCanary")
+    def add_canary(self, canary: "ICanary") -> None:
+        '''Add a canary to this group.
+
+        :param canary: The canary to add to the group [disable-awslint:prefer-ref-interface].
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d9e40db192df9338faed014e4ba88fc39f8046ceabe5e37b855d915643025eae)
+            check_type(argname="argument canary", value=canary, expected_type=type_hints["canary"])
+        return typing.cast(None, jsii.invoke(self, "addCanary", [canary]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    def PROPERTY_INJECTION_ID(cls) -> builtins.str:
+        '''Uniquely identifies this class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
+
+    @builtins.property
+    @jsii.member(jsii_name="canaries")
+    def canaries(self) -> typing.List["ICanary"]:
+        '''Get all canaries associated with this group.'''
+        return typing.cast(typing.List["ICanary"], jsii.get(self, "canaries"))
+
+    @builtins.property
+    @jsii.member(jsii_name="groupArn")
+    def group_arn(self) -> builtins.str:
+        '''The ARN of the group.
+
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "groupArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="groupId")
+    def group_id(self) -> builtins.str:
+        '''The ID of the group.
+
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "groupId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="groupName")
+    def group_name(self) -> builtins.str:
+        '''The name of the group.
+
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "groupName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="groupRef")
+    def group_ref(self) -> "_GroupReference_37835a7e":
+        '''A reference to the group.'''
+        return typing.cast("_GroupReference_37835a7e", jsii.get(self, "groupRef"))
+
+
 __all__ = [
     "ArtifactsBucketLocation",
     "ArtifactsEncryptionMode",
@@ -5580,6 +6077,10 @@ __all__ = [
     "CodeConfig",
     "CronOptions",
     "CustomTestOptions",
+    "Group",
+    "GroupProps",
+    "ICanary",
+    "IGroup",
     "InlineCode",
     "ResourceToReplicateTags",
     "Runtime",
@@ -5595,40 +6096,6 @@ def _typecheckingstub__a3f4adf0ebd4ec63bde8a045a448259a907ff7a524c6a3b4503e1797b
     *,
     bucket: _IBucket_42e086fd,
     prefix: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__b3b6d76e5f93e31884e16cc00a9b4fc93e6782ff7db09c74aa1ef9346f53ccb0(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    runtime: Runtime,
-    test: Test,
-    active_tracing: typing.Optional[builtins.bool] = None,
-    artifact_s3_encryption_mode: typing.Optional[ArtifactsEncryptionMode] = None,
-    artifact_s3_kms_key: typing.Optional[_IKey_5f11635f] = None,
-    artifacts_bucket_lifecycle_rules: typing.Optional[typing.Sequence[typing.Union[_LifecycleRule_bb74e6ff, typing.Dict[builtins.str, typing.Any]]]] = None,
-    artifacts_bucket_location: typing.Optional[typing.Union[ArtifactsBucketLocation, typing.Dict[builtins.str, typing.Any]]] = None,
-    browser_configs: typing.Optional[typing.Sequence[BrowserType]] = None,
-    canary_name: typing.Optional[builtins.str] = None,
-    cleanup: typing.Optional[Cleanup] = None,
-    dry_run_and_update: typing.Optional[builtins.bool] = None,
-    environment_variables: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    failure_retention_period: typing.Optional[_Duration_4839e8c3] = None,
-    max_retries: typing.Optional[jsii.Number] = None,
-    memory: typing.Optional[_Size_7b441c34] = None,
-    provisioned_resource_cleanup: typing.Optional[builtins.bool] = None,
-    resources_to_replicate_tags: typing.Optional[typing.Sequence[ResourceToReplicateTags]] = None,
-    role: typing.Optional[_IRole_235f5d8e] = None,
-    schedule: typing.Optional[Schedule] = None,
-    security_groups: typing.Optional[typing.Sequence[_ISecurityGroup_acf8a799]] = None,
-    start_after_creation: typing.Optional[builtins.bool] = None,
-    success_retention_period: typing.Optional[_Duration_4839e8c3] = None,
-    timeout: typing.Optional[_Duration_4839e8c3] = None,
-    time_to_live: typing.Optional[_Duration_4839e8c3] = None,
-    vpc: typing.Optional[_IVpc_f30d5663] = None,
-    vpc_subnets: typing.Optional[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6092,6 +6559,14 @@ def _typecheckingstub__998aa034b450d34cd7535661c029c2c24a7a34b950b79e5a2b055d31a
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__8465da39b07a79baa615c25d0a78853fcf5a91cbbe4e337bc40ac276b72d62ac(
+    *,
+    canaries: typing.Optional[typing.Sequence[ICanary]] = None,
+    group_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__8e4d6f25be5e212e7eccf81a0bb26d92760fb4f335d2fd7395acbdc376c975d2(
     code: builtins.str,
 ) -> None:
@@ -6168,3 +6643,88 @@ def _typecheckingstub__dcf81e22fccedf5b193b8ec9218200abb14bc77d3601c5cd7edbedda5
 ) -> None:
     """Type checking stubs"""
     pass
+
+def _typecheckingstub__b3b6d76e5f93e31884e16cc00a9b4fc93e6782ff7db09c74aa1ef9346f53ccb0(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    runtime: Runtime,
+    test: Test,
+    active_tracing: typing.Optional[builtins.bool] = None,
+    artifact_s3_encryption_mode: typing.Optional[ArtifactsEncryptionMode] = None,
+    artifact_s3_kms_key: typing.Optional[_IKey_5f11635f] = None,
+    artifacts_bucket_lifecycle_rules: typing.Optional[typing.Sequence[typing.Union[_LifecycleRule_bb74e6ff, typing.Dict[builtins.str, typing.Any]]]] = None,
+    artifacts_bucket_location: typing.Optional[typing.Union[ArtifactsBucketLocation, typing.Dict[builtins.str, typing.Any]]] = None,
+    browser_configs: typing.Optional[typing.Sequence[BrowserType]] = None,
+    canary_name: typing.Optional[builtins.str] = None,
+    cleanup: typing.Optional[Cleanup] = None,
+    dry_run_and_update: typing.Optional[builtins.bool] = None,
+    environment_variables: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    failure_retention_period: typing.Optional[_Duration_4839e8c3] = None,
+    max_retries: typing.Optional[jsii.Number] = None,
+    memory: typing.Optional[_Size_7b441c34] = None,
+    provisioned_resource_cleanup: typing.Optional[builtins.bool] = None,
+    resources_to_replicate_tags: typing.Optional[typing.Sequence[ResourceToReplicateTags]] = None,
+    role: typing.Optional[_IRole_235f5d8e] = None,
+    schedule: typing.Optional[Schedule] = None,
+    security_groups: typing.Optional[typing.Sequence[_ISecurityGroup_acf8a799]] = None,
+    start_after_creation: typing.Optional[builtins.bool] = None,
+    success_retention_period: typing.Optional[_Duration_4839e8c3] = None,
+    timeout: typing.Optional[_Duration_4839e8c3] = None,
+    time_to_live: typing.Optional[_Duration_4839e8c3] = None,
+    vpc: typing.Optional[_IVpc_f30d5663] = None,
+    vpc_subnets: typing.Optional[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ef4d2dbddad6751814c12d91c0030333a05c93dfdab3494a9d5cf7e75b0d4f6c(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    canary_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a4b2865c96be39753955e1b46311801c7524d63c1efb9a104d2b3ef03d64636a(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    canary_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3005c8d1126585f8fa0f8a88bd88d4564937584e5ea5e3c306639a249e1074b2(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    canaries: typing.Optional[typing.Sequence[ICanary]] = None,
+    group_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3f77c0b7ebe86536cb12796fb6c81b18cd18b3ecef826aad10b5f86090692e54(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    group_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c89384e12be07349404f4cd57ac2dabb3eaebbf9c993cca96ea43743a55dd671(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    group_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d9e40db192df9338faed014e4ba88fc39f8046ceabe5e37b855d915643025eae(
+    canary: ICanary,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+for cls in [ICanary, IGroup]:
+    typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

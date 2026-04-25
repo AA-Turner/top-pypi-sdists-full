@@ -1,0 +1,89 @@
+from __future__ import annotations
+
+import os
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pytest
+
+os.environ["RUNNING_PYTEST"] = "true"
+
+import boost_histogram as bh
+import uproot
+from skhep_testdata import data_path
+
+import mplhep as mh
+
+"""
+To test run:
+pytest --mpl
+
+When adding new tests, run:
+pytest --mpl-generate-path=tests/baseline
+"""
+
+plt.switch_backend("Agg")
+
+
+@pytest.mark.mpl_image_compare(style="default", remove_text=True)
+def test_inputs_basic():
+    np.random.seed(0)
+    H = np.histogram(np.random.normal(5, 2, 1000), bins=np.arange(0, 10, 1))
+    h, bins = H
+
+    fig, ax = plt.subplots()
+    mh.histplot(H, label="tuple", ls="--")
+    H = (h * 2, bins)
+    mh.histplot(H, label="unwrap", ls=":")
+    mh.histplot(h * 3, bins, label="split")
+
+    return fig
+
+
+@pytest.mark.mpl_image_compare(style="default", remove_text=True)
+def test_inputs_uproot():
+    fname = data_path("uproot-hepdata-example.root")
+    f = uproot.open(fname)
+
+    fig, axs = plt.subplots(1, 2, figsize=(14, 5))
+    TH1, TH2 = f["hpx"], f["hpxpy"]
+    mh.histplot(TH1, yerr=False, ax=axs[0])
+    mh.hist2dplot(TH2, ax=axs[1], cbar=False)
+
+    return fig
+
+
+@pytest.mark.mpl_image_compare(style="default", remove_text=True)
+def test_inputs_bh():
+    np.random.seed(0)
+
+    hist2d = bh.Histogram(bh.axis.Regular(10, 0.0, 1.0), bh.axis.Regular(10, 0, 1))
+    hist2d.fill(np.random.normal(0.5, 0.2, 1000), np.random.normal(0.5, 0.2, 1000))
+
+    fig, axs = plt.subplots(1, 2, figsize=(14, 5))
+    mh.histplot(hist2d.project(0), yerr=False, ax=axs[0])
+    mh.hist2dplot(hist2d, labels=True, cbar=False, ax=axs[1])
+
+    return fig
+
+
+@pytest.mark.mpl_image_compare(style="default", remove_text=True)
+def test_inputs_bh_cat():
+    np.random.seed(0)
+
+    hist2d = bh.Histogram(
+        bh.axis.IntCategory(range(10)), bh.axis.StrCategory("", growth=True)
+    )
+
+    x = np.round(np.random.normal(5, 3, 1000)).astype(int)
+    A, Z = np.array(["A", "Z"]).view("int32")
+    y = list(
+        np.random.randint(low=A, high=Z, size=1000, dtype="int32").view(f"U{1000}")[0]
+    )
+    hist2d.fill(x, y)
+
+    fig, axs = plt.subplots(1, 2, figsize=(14, 5))
+    mh.histplot(hist2d.project(0), yerr=False, ax=axs[0])
+    mh.hist2dplot(hist2d, cbar=False, ax=axs[1])
+
+    return fig

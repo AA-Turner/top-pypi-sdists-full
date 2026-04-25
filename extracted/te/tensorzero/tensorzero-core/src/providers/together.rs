@@ -5,7 +5,7 @@ use crate::inference::types::chat_completion_inference_params::{
     ChatCompletionInferenceParamsV2, warn_inference_parameter_not_supported,
 };
 use crate::inference::types::{ContentBlock, RequestMessage, Role};
-use crate::providers::openai::OpenAIMessagesConfig;
+use crate::providers::openai::{OpenAIMessagesConfig, ReasoningFieldName};
 use futures::StreamExt;
 use lazy_static::lazy_static;
 use reqwest_sse_stream::Event;
@@ -15,17 +15,17 @@ use serde_json::Value;
 use tokio::time::Instant;
 use url::Url;
 
-use crate::cache::ModelProviderRequest;
 use crate::error::DisplayOrDebugGateway;
 use crate::http::{TensorZeroEventSource, TensorzeroHttpClient};
 use crate::inference::InferenceProvider;
-use crate::inference::types::ProviderInferenceResponseArgs;
 use crate::inference::types::usage::raw_usage_entries_from_value;
 use crate::inference::types::{
     ApiType, Latency, ModelInferenceRequest, ModelInferenceRequestJsonMode,
     PeekableProviderInferenceResponseStream, ProviderInferenceResponse,
+    ProviderInferenceResponseArgs,
 };
-use crate::model::{Credential, ModelProvider};
+use crate::model::Credential;
+use crate::model::{ModelProviderRequestInfo, ProviderInferenceRequest};
 use crate::providers::helpers::{
     inject_extra_request_data_and_send, inject_extra_request_data_and_send_eventsource,
 };
@@ -161,16 +161,15 @@ impl TogetherCredentials {
 impl InferenceProvider for TogetherProvider {
     async fn infer<'a>(
         &'a self,
-        ModelProviderRequest {
+        ProviderInferenceRequest {
             request,
             provider_name: _,
             model_name,
-            otlp_config: _,
             model_inference_id,
-        }: ModelProviderRequest<'a>,
+        }: ProviderInferenceRequest<'a>,
         http_client: &'a TensorzeroHttpClient,
         dynamic_api_keys: &'a InferenceCredentials,
-        model_provider: &'a ModelProvider,
+        model_provider: &'a ModelProviderRequestInfo,
     ) -> Result<ProviderInferenceResponse, Error> {
         let request_body = serde_json::to_value(
             TogetherRequest::new(&self.model_name, request).await?,
@@ -269,16 +268,15 @@ impl InferenceProvider for TogetherProvider {
 
     async fn infer_stream<'a>(
         &'a self,
-        ModelProviderRequest {
+        ProviderInferenceRequest {
             request,
             provider_name: _,
             model_name,
-            otlp_config: _,
             model_inference_id,
-        }: ModelProviderRequest<'a>,
+        }: ProviderInferenceRequest<'a>,
         http_client: &'a TensorzeroHttpClient,
         dynamic_api_keys: &'a InferenceCredentials,
-        model_provider: &'a ModelProvider,
+        model_provider: &'a ModelProviderRequestInfo,
     ) -> Result<(PeekableProviderInferenceResponseStream, String), Error> {
         let request_body = serde_json::to_value(
             TogetherRequest::new(&self.model_name, request).await?,
@@ -465,6 +463,7 @@ impl<'a> TogetherRequest<'a> {
                 fetch_and_encode_input_files_before_inference: request
                     .fetch_and_encode_input_files_before_inference,
                 content_type_overrides: None,
+                reasoning_field_name: ReasoningFieldName::ReasoningContent,
             },
         )
         .await?;
@@ -1095,7 +1094,7 @@ mod tests {
         ChatCompletionToolChoice, ChatCompletionToolType,
     };
     use crate::providers::openai::OpenAIUsage;
-    use crate::providers::test_helpers::{WEATHER_TOOL, WEATHER_TOOL_CONFIG};
+    use crate::providers::test_helpers::{WEATHER_PROVIDER_TOOL_CONFIG, WEATHER_TOOL};
 
     #[tokio::test]
     async fn test_together_request_new() {
@@ -1114,7 +1113,7 @@ mod tests {
             seed: Some(69),
             stream: false,
             json_mode: ModelInferenceRequestJsonMode::Off,
-            tool_config: Some(Cow::Borrowed(&WEATHER_TOOL_CONFIG)),
+            tool_config: Some(Cow::Borrowed(&*WEATHER_PROVIDER_TOOL_CONFIG)),
             function_type: FunctionType::Chat,
             output_schema: None,
             extra_body: Default::default(),
@@ -2242,6 +2241,7 @@ mod tests {
             provider_type: PROVIDER_TYPE,
             fetch_and_encode_input_files_before_inference: true,
             content_type_overrides: None,
+            reasoning_field_name: ReasoningFieldName::ReasoningContent,
         };
         let msg = tensorzero_to_together_assistant_message(Cow::Owned(content), config)
             .await
@@ -2279,6 +2279,7 @@ mod tests {
             provider_type: PROVIDER_TYPE,
             fetch_and_encode_input_files_before_inference: true,
             content_type_overrides: None,
+            reasoning_field_name: ReasoningFieldName::ReasoningContent,
         };
         let msg = tensorzero_to_together_assistant_message(Cow::Owned(content), config)
             .await
@@ -2331,6 +2332,7 @@ mod tests {
             provider_type: PROVIDER_TYPE,
             fetch_and_encode_input_files_before_inference: true,
             content_type_overrides: None,
+            reasoning_field_name: ReasoningFieldName::ReasoningContent,
         };
         let msg = tensorzero_to_together_assistant_message(Cow::Owned(content), config)
             .await
@@ -2363,6 +2365,7 @@ mod tests {
             provider_type: PROVIDER_TYPE,
             fetch_and_encode_input_files_before_inference: true,
             content_type_overrides: None,
+            reasoning_field_name: ReasoningFieldName::ReasoningContent,
         };
         let msg = tensorzero_to_together_assistant_message(Cow::Owned(content), config)
             .await
@@ -2394,6 +2397,7 @@ mod tests {
             provider_type: PROVIDER_TYPE,
             fetch_and_encode_input_files_before_inference: true,
             content_type_overrides: None,
+            reasoning_field_name: ReasoningFieldName::ReasoningContent,
         };
         let result = tensorzero_to_together_assistant_message(Cow::Owned(content), config).await;
         assert!(result.is_err(), "should error on unknown reasoning_format");

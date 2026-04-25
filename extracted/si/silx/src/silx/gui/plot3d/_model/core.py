@@ -49,7 +49,7 @@ class BaseRow(qt.QObject):
     def __init__(self, children=()):
         self.__modelRef = None
         self.__parentRef = None
-        super(BaseRow, self).__init__()
+        super().__init__()
         self.__children = []
         for row in children:
             assert isinstance(row, BaseRow)
@@ -71,7 +71,7 @@ class BaseRow(qt.QObject):
 
         self._updateModel(model)
 
-        super(BaseRow, self).setParent(parent)
+        super().setParent(parent)
 
     def parent(self):
         """Override :meth:`QObject.setParent` to use cached parent
@@ -243,7 +243,7 @@ class StaticRow(BaseRow):
     """
 
     def __init__(self, display=("", None), roles=None, children=()):
-        super(StaticRow, self).__init__(children)
+        super().__init__(children)
         self._dataByRoles = {} if roles is None else roles
         self._dataByRoles[qt.Qt.DisplayRole] = display
 
@@ -252,7 +252,7 @@ class StaticRow(BaseRow):
             data = self._dataByRoles[role]
             if column < len(data):
                 return data[column]
-        return super(StaticRow, self).data(column, role)
+        return super().data(column, role)
 
     def columnCount(self):
         return len(self._dataByRoles[qt.Qt.DisplayRole])
@@ -276,6 +276,7 @@ class ProxyRow(BaseRow):
         An optional callable converting data provided to the model to
         data for fset.
     :param editorHint: Data to provide as UserRole for editor selection/setup
+    :param children: Iterable of BaseRow to start with (not signaled)
     """
 
     def __init__(
@@ -287,8 +288,9 @@ class ProxyRow(BaseRow):
         toModelData=None,
         fromModelData=None,
         editorHint=None,
+        children=(),
     ):
-        super(ProxyRow, self).__init__()
+        super().__init__(children)
         self.__name = name
         self.__editorHint = editorHint
 
@@ -326,7 +328,7 @@ class ProxyRow(BaseRow):
                     data = self._toModelData(data)
                 return data
 
-        return super(ProxyRow, self).data(column, role)
+        return super().data(column, role)
 
     def setData(self, column, value, role):
         if role == qt.Qt.EditRole and self._fset is not None:
@@ -335,7 +337,7 @@ class ProxyRow(BaseRow):
             self._fset(value)
             return True
 
-        return super(ProxyRow, self).setData(column, value, role)
+        return super().setData(column, value, role)
 
 
 class ColorProxyRow(ProxyRow):
@@ -352,7 +354,7 @@ class ColorProxyRow(ProxyRow):
                 return None
             if role == qt.Qt.DecorationRole:
                 role = qt.Qt.DisplayRole
-        return super(ColorProxyRow, self).data(column, role)
+        return super().data(column, role)
 
 
 class AngleDegreeRow(ProxyRow):
@@ -362,10 +364,10 @@ class AngleDegreeRow(ProxyRow):
     """
 
     def __init__(self, *args, **kwargs):
-        super(AngleDegreeRow, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
     def data(self, column, role):
         if column == 1 and role == qt.Qt.DisplayRole:
-            return "%g°" % super(AngleDegreeRow, self).data(column, role)
+            return "%g°" % super().data(column, role)
         else:
-            return super(AngleDegreeRow, self).data(column, role)
+            return super().data(column, role)

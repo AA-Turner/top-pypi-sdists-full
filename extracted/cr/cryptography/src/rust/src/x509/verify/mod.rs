@@ -117,7 +117,7 @@ impl PolicyBuilder {
     fn time(
         &self,
         py: pyo3::Python<'_>,
-        time: pyo3::Bound<'_, pyo3::PyAny>,
+        time: pyo3::Bound<'_, pyo3::types::PyDateTime>,
     ) -> CryptographyResult<PolicyBuilder> {
         policy_builder_set_once_check!(self, time, "validation time");
 
@@ -446,7 +446,7 @@ fn build_subject_owner(
         let value = subject
             .getattr(pyo3::intern!(py, "_packed"))?
             .call0()?
-            .downcast::<pyo3::types::PyBytes>()?
+            .cast::<pyo3::types::PyBytes>()?
             .clone();
         Ok(SubjectOwner::IPAddress(value.unbind()))
     } else {
@@ -500,11 +500,13 @@ self_cell::self_cell!(
     }
 );
 
+// NO-COVERAGE-START
 #[pyo3::pyclass(
     frozen,
     name = "Store",
     module = "cryptography.hazmat.bindings._rust.x509"
 )]
+// NO-COVERAGE-END
 pub(crate) struct PyStore {
     raw: RawPyStore,
 }

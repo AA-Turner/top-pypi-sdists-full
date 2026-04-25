@@ -29,6 +29,7 @@ def _make_app() -> FastAPI:
     mock_config.identity = None
     mock_config.app.data_dir = Path(tempfile.mkdtemp())
     mock_config.app.tls = False
+    mock_config.server.max_upload_mb = 50
     app.state.config = mock_config
 
     app.state.tool_registry = MagicMock()
@@ -153,6 +154,41 @@ class TestParseMultipartRequest:
 class TestAttachmentContentBuilding:
     """Attachment contents are correctly built for different file types."""
 
+    def test_attachment_source_linked_to_conversation_space(self) -> None:
+        conv_id = str(uuid.uuid4())
+        msg_id = str(uuid.uuid4())
+        space_id = str(uuid.uuid4())
+        app = _make_app()
+        with patch("anteroom.routers.chat.storage") as mock_storage:
+            _setup_storage(mock_storage, conv_id, msg_id)
+            mock_storage.get_conversation.return_value = {"id": conv_id, "type": "chat", "space_id": space_id}
+            mock_storage.create_source_from_attachment.return_value = {"id": "src-1", "content": "important notes"}
+            client = TestClient(app, raise_server_exceptions=False)
+            client.post(
+                f"/api/conversations/{conv_id}/chat",
+                data={"message": "read this"},
+                files=[("files", ("notes.txt", io.BytesIO(b"important notes"), "text/plain"))],
+            )
+            mock_storage.link_source_to_space.assert_called_once()
+            args = mock_storage.link_source_to_space.call_args
+            assert args.args[1] == space_id
+            assert args.kwargs == {"source_id": "src-1"}
+
+    def test_attachment_source_not_linked_without_conversation_space(self) -> None:
+        conv_id = str(uuid.uuid4())
+        msg_id = str(uuid.uuid4())
+        app = _make_app()
+        with patch("anteroom.routers.chat.storage") as mock_storage:
+            _setup_storage(mock_storage, conv_id, msg_id)
+            mock_storage.create_source_from_attachment.return_value = {"id": "src-1", "content": "important notes"}
+            client = TestClient(app, raise_server_exceptions=False)
+            client.post(
+                f"/api/conversations/{conv_id}/chat",
+                data={"message": "read this"},
+                files=[("files", ("notes.txt", io.BytesIO(b"important notes"), "text/plain"))],
+            )
+            mock_storage.link_source_to_space.assert_not_called()
+
     def test_text_file_triggers_save_attachment(self) -> None:
         conv_id = str(uuid.uuid4())
         msg_id = str(uuid.uuid4())
@@ -166,6 +202,7 @@ class TestAttachmentContentBuilding:
                 files=[("files", ("notes.txt", io.BytesIO(b"important notes"), "text/plain"))],
             )
             assert mock_storage.save_attachment.called
+            assert mock_storage.save_attachment.call_args.kwargs["max_size_bytes"] == 50 * 1024 * 1024
 
     def test_image_file_triggers_save_attachment(self) -> None:
         conv_id = str(uuid.uuid4())

@@ -11076,6 +11076,25 @@ class CfnRouterInput(
                     flow_arn="flowArn",
                     flow_output_arn="flowOutputArn"
                 ),
+                media_live_channel=mediaconnect.CfnRouterInput.MediaLiveChannelRouterInputConfigurationProperty(
+                    source_transit_decryption=mediaconnect.CfnRouterInput.MediaLiveTransitEncryptionProperty(
+                        encryption_key_configuration=mediaconnect.CfnRouterInput.MediaLiveTransitEncryptionKeyConfigurationProperty(
+                            automatic=automatic,
+                            secrets_manager=mediaconnect.CfnRouterInput.SecretsManagerEncryptionKeyConfigurationProperty(
+                                role_arn="roleArn",
+                                secret_arn="secretArn"
+                            )
+                        ),
+        
+                        # the properties below are optional
+                        encryption_key_type="encryptionKeyType"
+                    ),
+        
+                    # the properties below are optional
+                    media_live_channel_arn="mediaLiveChannelArn",
+                    media_live_channel_output_name="mediaLiveChannelOutputName",
+                    media_live_pipeline_id="mediaLivePipelineId"
+                ),
                 merge=mediaconnect.CfnRouterInput.MergeRouterInputConfigurationProperty(
                     merge_recovery_window_milliseconds=123,
                     network_interface_arn="networkInterfaceArn",
@@ -11828,7 +11847,7 @@ class CfnRouterInput(
         ) -> None:
             '''
             :param automatic: Configuration settings for automatic encryption key management, where MediaConnect handles key creation and rotation.
-            :param secrets_manager: The configuration settings for transit encryption using AWS Secrets Manager, including the secret ARN and role ARN.
+            :param secrets_manager: The configuration settings for transit encryption using Secrets Manager, including the secret ARN and role ARN.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-flowtransitencryptionkeyconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -11872,7 +11891,7 @@ class CfnRouterInput(
         def secrets_manager(
             self,
         ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterInput.SecretsManagerEncryptionKeyConfigurationProperty"]]:
-            '''The configuration settings for transit encryption using AWS Secrets Manager, including the secret ARN and role ARN.
+            '''The configuration settings for transit encryption using Secrets Manager, including the secret ARN and role ARN.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-flowtransitencryptionkeyconfiguration.html#cfn-mediaconnect-routerinput-flowtransitencryptionkeyconfiguration-secretsmanager
             '''
@@ -12155,6 +12174,293 @@ class CfnRouterInput(
 
         def __repr__(self) -> str:
             return "MediaConnectFlowRouterInputConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediaconnect.CfnRouterInput.MediaLiveChannelRouterInputConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "source_transit_decryption": "sourceTransitDecryption",
+            "media_live_channel_arn": "mediaLiveChannelArn",
+            "media_live_channel_output_name": "mediaLiveChannelOutputName",
+            "media_live_pipeline_id": "mediaLivePipelineId",
+        },
+    )
+    class MediaLiveChannelRouterInputConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            source_transit_decryption: typing.Union["_IResolvable_da3f097b", typing.Union["CfnRouterInput.MediaLiveTransitEncryptionProperty", typing.Dict[builtins.str, typing.Any]]],
+            media_live_channel_arn: typing.Optional[builtins.str] = None,
+            media_live_channel_output_name: typing.Optional[builtins.str] = None,
+            media_live_pipeline_id: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Configuration settings for connecting a router input to a MediaLive channel output.
+
+            :param source_transit_decryption: The encryption configuration that defines how content is encrypted during transit between MediaConnect Router and MediaLive. This configuration determines whether encryption keys are automatically managed by the service or manually managed through Secrets Manager.
+            :param media_live_channel_arn: The ARN of the MediaLive channel to connect to this router input.
+            :param media_live_channel_output_name: The name of the MediaLive channel output to connect to this router input.
+            :param media_live_pipeline_id: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-medialivechannelrouterinputconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediaconnect as mediaconnect
+                
+                # automatic: Any
+                
+                media_live_channel_router_input_configuration_property = mediaconnect.CfnRouterInput.MediaLiveChannelRouterInputConfigurationProperty(
+                    source_transit_decryption=mediaconnect.CfnRouterInput.MediaLiveTransitEncryptionProperty(
+                        encryption_key_configuration=mediaconnect.CfnRouterInput.MediaLiveTransitEncryptionKeyConfigurationProperty(
+                            automatic=automatic,
+                            secrets_manager=mediaconnect.CfnRouterInput.SecretsManagerEncryptionKeyConfigurationProperty(
+                                role_arn="roleArn",
+                                secret_arn="secretArn"
+                            )
+                        ),
+                
+                        # the properties below are optional
+                        encryption_key_type="encryptionKeyType"
+                    ),
+                
+                    # the properties below are optional
+                    media_live_channel_arn="mediaLiveChannelArn",
+                    media_live_channel_output_name="mediaLiveChannelOutputName",
+                    media_live_pipeline_id="mediaLivePipelineId"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__c8a5cd4ba452e1a027060dc52fb511ad148a40e0df4d4b14ee47a95b896f0735)
+                check_type(argname="argument source_transit_decryption", value=source_transit_decryption, expected_type=type_hints["source_transit_decryption"])
+                check_type(argname="argument media_live_channel_arn", value=media_live_channel_arn, expected_type=type_hints["media_live_channel_arn"])
+                check_type(argname="argument media_live_channel_output_name", value=media_live_channel_output_name, expected_type=type_hints["media_live_channel_output_name"])
+                check_type(argname="argument media_live_pipeline_id", value=media_live_pipeline_id, expected_type=type_hints["media_live_pipeline_id"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "source_transit_decryption": source_transit_decryption,
+            }
+            if media_live_channel_arn is not None:
+                self._values["media_live_channel_arn"] = media_live_channel_arn
+            if media_live_channel_output_name is not None:
+                self._values["media_live_channel_output_name"] = media_live_channel_output_name
+            if media_live_pipeline_id is not None:
+                self._values["media_live_pipeline_id"] = media_live_pipeline_id
+
+        @builtins.property
+        def source_transit_decryption(
+            self,
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnRouterInput.MediaLiveTransitEncryptionProperty"]:
+            '''The encryption configuration that defines how content is encrypted during transit between MediaConnect Router and MediaLive.
+
+            This configuration determines whether encryption keys are automatically managed by the service or manually managed through Secrets Manager.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-medialivechannelrouterinputconfiguration.html#cfn-mediaconnect-routerinput-medialivechannelrouterinputconfiguration-sourcetransitdecryption
+            '''
+            result = self._values.get("source_transit_decryption")
+            assert result is not None, "Required property 'source_transit_decryption' is missing"
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnRouterInput.MediaLiveTransitEncryptionProperty"], result)
+
+        @builtins.property
+        def media_live_channel_arn(self) -> typing.Optional[builtins.str]:
+            '''The ARN of the MediaLive channel to connect to this router input.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-medialivechannelrouterinputconfiguration.html#cfn-mediaconnect-routerinput-medialivechannelrouterinputconfiguration-medialivechannelarn
+            '''
+            result = self._values.get("media_live_channel_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def media_live_channel_output_name(self) -> typing.Optional[builtins.str]:
+            '''The name of the MediaLive channel output to connect to this router input.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-medialivechannelrouterinputconfiguration.html#cfn-mediaconnect-routerinput-medialivechannelrouterinputconfiguration-medialivechanneloutputname
+            '''
+            result = self._values.get("media_live_channel_output_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def media_live_pipeline_id(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-medialivechannelrouterinputconfiguration.html#cfn-mediaconnect-routerinput-medialivechannelrouterinputconfiguration-medialivepipelineid
+            '''
+            result = self._values.get("media_live_pipeline_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MediaLiveChannelRouterInputConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediaconnect.CfnRouterInput.MediaLiveTransitEncryptionKeyConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"automatic": "automatic", "secrets_manager": "secretsManager"},
+    )
+    class MediaLiveTransitEncryptionKeyConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            automatic: typing.Any = None,
+            secrets_manager: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRouterInput.SecretsManagerEncryptionKeyConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param automatic: Configuration settings for automatic encryption key management, where MediaConnect handles key creation and rotation.
+            :param secrets_manager: The configuration settings for transit encryption using Secrets Manager, including the secret ARN and role ARN.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-medialivetransitencryptionkeyconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediaconnect as mediaconnect
+                
+                # automatic: Any
+                
+                media_live_transit_encryption_key_configuration_property = mediaconnect.CfnRouterInput.MediaLiveTransitEncryptionKeyConfigurationProperty(
+                    automatic=automatic,
+                    secrets_manager=mediaconnect.CfnRouterInput.SecretsManagerEncryptionKeyConfigurationProperty(
+                        role_arn="roleArn",
+                        secret_arn="secretArn"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__ed65de0b474672156e612783c6e60babe3b082f649c2c1ee8aa99f2febef28c5)
+                check_type(argname="argument automatic", value=automatic, expected_type=type_hints["automatic"])
+                check_type(argname="argument secrets_manager", value=secrets_manager, expected_type=type_hints["secrets_manager"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if automatic is not None:
+                self._values["automatic"] = automatic
+            if secrets_manager is not None:
+                self._values["secrets_manager"] = secrets_manager
+
+        @builtins.property
+        def automatic(self) -> typing.Any:
+            '''Configuration settings for automatic encryption key management, where MediaConnect handles key creation and rotation.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-medialivetransitencryptionkeyconfiguration.html#cfn-mediaconnect-routerinput-medialivetransitencryptionkeyconfiguration-automatic
+            '''
+            result = self._values.get("automatic")
+            return typing.cast(typing.Any, result)
+
+        @builtins.property
+        def secrets_manager(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterInput.SecretsManagerEncryptionKeyConfigurationProperty"]]:
+            '''The configuration settings for transit encryption using Secrets Manager, including the secret ARN and role ARN.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-medialivetransitencryptionkeyconfiguration.html#cfn-mediaconnect-routerinput-medialivetransitencryptionkeyconfiguration-secretsmanager
+            '''
+            result = self._values.get("secrets_manager")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterInput.SecretsManagerEncryptionKeyConfigurationProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MediaLiveTransitEncryptionKeyConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediaconnect.CfnRouterInput.MediaLiveTransitEncryptionProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "encryption_key_configuration": "encryptionKeyConfiguration",
+            "encryption_key_type": "encryptionKeyType",
+        },
+    )
+    class MediaLiveTransitEncryptionProperty:
+        def __init__(
+            self,
+            *,
+            encryption_key_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnRouterInput.MediaLiveTransitEncryptionKeyConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+            encryption_key_type: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The encryption configuration that defines how content is encrypted during transit between MediaConnect Router and MediaLive.
+
+            This configuration determines whether encryption keys are automatically managed by the service or manually managed through Secrets Manager.
+
+            :param encryption_key_configuration: Configuration settings for the MediaLive transit encryption key.
+            :param encryption_key_type: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-medialivetransitencryption.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediaconnect as mediaconnect
+                
+                # automatic: Any
+                
+                media_live_transit_encryption_property = mediaconnect.CfnRouterInput.MediaLiveTransitEncryptionProperty(
+                    encryption_key_configuration=mediaconnect.CfnRouterInput.MediaLiveTransitEncryptionKeyConfigurationProperty(
+                        automatic=automatic,
+                        secrets_manager=mediaconnect.CfnRouterInput.SecretsManagerEncryptionKeyConfigurationProperty(
+                            role_arn="roleArn",
+                            secret_arn="secretArn"
+                        )
+                    ),
+                
+                    # the properties below are optional
+                    encryption_key_type="encryptionKeyType"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__964a0641d54ca9b3931c99857b3cbb193dd32758f7c19fc986a3b2c9e7a8d2ab)
+                check_type(argname="argument encryption_key_configuration", value=encryption_key_configuration, expected_type=type_hints["encryption_key_configuration"])
+                check_type(argname="argument encryption_key_type", value=encryption_key_type, expected_type=type_hints["encryption_key_type"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "encryption_key_configuration": encryption_key_configuration,
+            }
+            if encryption_key_type is not None:
+                self._values["encryption_key_type"] = encryption_key_type
+
+        @builtins.property
+        def encryption_key_configuration(
+            self,
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnRouterInput.MediaLiveTransitEncryptionKeyConfigurationProperty"]:
+            '''Configuration settings for the MediaLive transit encryption key.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-medialivetransitencryption.html#cfn-mediaconnect-routerinput-medialivetransitencryption-encryptionkeyconfiguration
+            '''
+            result = self._values.get("encryption_key_configuration")
+            assert result is not None, "Required property 'encryption_key_configuration' is missing"
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnRouterInput.MediaLiveTransitEncryptionKeyConfigurationProperty"], result)
+
+        @builtins.property
+        def encryption_key_type(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-medialivetransitencryption.html#cfn-mediaconnect-routerinput-medialivetransitencryption-encryptionkeytype
+            '''
+            result = self._values.get("encryption_key_type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MediaLiveTransitEncryptionProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -12489,6 +12795,7 @@ class CfnRouterInput(
         name_mapping={
             "failover": "failover",
             "media_connect_flow": "mediaConnectFlow",
+            "media_live_channel": "mediaLiveChannel",
             "merge": "merge",
             "standard": "standard",
         },
@@ -12499,12 +12806,14 @@ class CfnRouterInput(
             *,
             failover: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRouterInput.FailoverRouterInputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             media_connect_flow: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRouterInput.MediaConnectFlowRouterInputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            media_live_channel: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRouterInput.MediaLiveChannelRouterInputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             merge: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRouterInput.MergeRouterInputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             standard: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRouterInput.StandardRouterInputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''
             :param failover: Configuration settings for a failover router input that allows switching between two input sources.
             :param media_connect_flow: Configuration settings for connecting a router input to a flow output.
+            :param media_live_channel: Configuration settings for connecting a router input to a MediaLive channel output.
             :param merge: Configuration settings for a merge router input that combines two input sources.
             :param standard: The configuration settings for a standard router input, including the protocol, protocol-specific configuration, network interface, and availability zone.
 
@@ -12583,6 +12892,25 @@ class CfnRouterInput(
                         flow_arn="flowArn",
                         flow_output_arn="flowOutputArn"
                     ),
+                    media_live_channel=mediaconnect.CfnRouterInput.MediaLiveChannelRouterInputConfigurationProperty(
+                        source_transit_decryption=mediaconnect.CfnRouterInput.MediaLiveTransitEncryptionProperty(
+                            encryption_key_configuration=mediaconnect.CfnRouterInput.MediaLiveTransitEncryptionKeyConfigurationProperty(
+                                automatic=automatic,
+                                secrets_manager=mediaconnect.CfnRouterInput.SecretsManagerEncryptionKeyConfigurationProperty(
+                                    role_arn="roleArn",
+                                    secret_arn="secretArn"
+                                )
+                            ),
+                
+                            # the properties below are optional
+                            encryption_key_type="encryptionKeyType"
+                        ),
+                
+                        # the properties below are optional
+                        media_live_channel_arn="mediaLiveChannelArn",
+                        media_live_channel_output_name="mediaLiveChannelOutputName",
+                        media_live_pipeline_id="mediaLivePipelineId"
+                    ),
                     merge=mediaconnect.CfnRouterInput.MergeRouterInputConfigurationProperty(
                         merge_recovery_window_milliseconds=123,
                         network_interface_arn="networkInterfaceArn",
@@ -12649,6 +12977,7 @@ class CfnRouterInput(
                 type_hints = typing.get_type_hints(_typecheckingstub__367935140f8b2e56d02ff3e2c05252a68073eace6c0eeda3b7abeeeac1209e1b)
                 check_type(argname="argument failover", value=failover, expected_type=type_hints["failover"])
                 check_type(argname="argument media_connect_flow", value=media_connect_flow, expected_type=type_hints["media_connect_flow"])
+                check_type(argname="argument media_live_channel", value=media_live_channel, expected_type=type_hints["media_live_channel"])
                 check_type(argname="argument merge", value=merge, expected_type=type_hints["merge"])
                 check_type(argname="argument standard", value=standard, expected_type=type_hints["standard"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -12656,6 +12985,8 @@ class CfnRouterInput(
                 self._values["failover"] = failover
             if media_connect_flow is not None:
                 self._values["media_connect_flow"] = media_connect_flow
+            if media_live_channel is not None:
+                self._values["media_live_channel"] = media_live_channel
             if merge is not None:
                 self._values["merge"] = merge
             if standard is not None:
@@ -12682,6 +13013,17 @@ class CfnRouterInput(
             '''
             result = self._values.get("media_connect_flow")
             return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterInput.MediaConnectFlowRouterInputConfigurationProperty"]], result)
+
+        @builtins.property
+        def media_live_channel(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterInput.MediaLiveChannelRouterInputConfigurationProperty"]]:
+            '''Configuration settings for connecting a router input to a MediaLive channel output.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-routerinputconfiguration.html#cfn-mediaconnect-routerinput-routerinputconfiguration-medialivechannel
+            '''
+            result = self._values.get("media_live_channel")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterInput.MediaLiveChannelRouterInputConfigurationProperty"]], result)
 
         @builtins.property
         def merge(
@@ -12874,7 +13216,7 @@ class CfnRouterInput(
         ) -> None:
             '''
             :param automatic: Configuration settings for automatic encryption key management, where MediaConnect handles key creation and rotation.
-            :param secrets_manager: The configuration settings for transit encryption using AWS Secrets Manager, including the secret ARN and role ARN.
+            :param secrets_manager: The configuration settings for transit encryption using Secrets Manager, including the secret ARN and role ARN.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-routerinputtransitencryptionkeyconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -12918,7 +13260,7 @@ class CfnRouterInput(
         def secrets_manager(
             self,
         ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterInput.SecretsManagerEncryptionKeyConfigurationProperty"]]:
-            '''The configuration settings for transit encryption using AWS Secrets Manager, including the secret ARN and role ARN.
+            '''The configuration settings for transit encryption using Secrets Manager, including the secret ARN and role ARN.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-routerinputtransitencryptionkeyconfiguration.html#cfn-mediaconnect-routerinput-routerinputtransitencryptionkeyconfiguration-secretsmanager
             '''
@@ -13103,10 +13445,10 @@ class CfnRouterInput(
     )
     class SecretsManagerEncryptionKeyConfigurationProperty:
         def __init__(self, *, role_arn: builtins.str, secret_arn: builtins.str) -> None:
-            '''The configuration settings for transit encryption using AWS Secrets Manager, including the secret ARN and role ARN.
+            '''The configuration settings for transit encryption using Secrets Manager, including the secret ARN and role ARN.
 
-            :param role_arn: The ARN of the IAM role assumed by MediaConnect to access the AWS Secrets Manager secret.
-            :param secret_arn: The ARN of the AWS Secrets Manager secret used for transit encryption.
+            :param role_arn: The ARN of the IAM role assumed by MediaConnect to access the Secrets Manager secret.
+            :param secret_arn: The ARN of the Secrets Manager secret used for transit encryption.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-secretsmanagerencryptionkeyconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -13133,7 +13475,7 @@ class CfnRouterInput(
 
         @builtins.property
         def role_arn(self) -> builtins.str:
-            '''The ARN of the IAM role assumed by MediaConnect to access the AWS Secrets Manager secret.
+            '''The ARN of the IAM role assumed by MediaConnect to access the Secrets Manager secret.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-secretsmanagerencryptionkeyconfiguration.html#cfn-mediaconnect-routerinput-secretsmanagerencryptionkeyconfiguration-rolearn
             '''
@@ -13143,7 +13485,7 @@ class CfnRouterInput(
 
         @builtins.property
         def secret_arn(self) -> builtins.str:
-            '''The ARN of the AWS Secrets Manager secret used for transit encryption.
+            '''The ARN of the Secrets Manager secret used for transit encryption.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-secretsmanagerencryptionkeyconfiguration.html#cfn-mediaconnect-routerinput-secretsmanagerencryptionkeyconfiguration-secretarn
             '''
@@ -13306,7 +13648,7 @@ class CfnRouterInput(
         ) -> None:
             '''Contains the configuration settings for decrypting SRT streams, including the encryption key details and decryption parameters.
 
-            :param encryption_key: The configuration settings for transit encryption using AWS Secrets Manager, including the secret ARN and role ARN.
+            :param encryption_key: The configuration settings for transit encryption using Secrets Manager, including the secret ARN and role ARN.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-srtdecryptionconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -13335,7 +13677,7 @@ class CfnRouterInput(
         def encryption_key(
             self,
         ) -> typing.Union["_IResolvable_da3f097b", "CfnRouterInput.SecretsManagerEncryptionKeyConfigurationProperty"]:
-            '''The configuration settings for transit encryption using AWS Secrets Manager, including the secret ARN and role ARN.
+            '''The configuration settings for transit encryption using Secrets Manager, including the secret ARN and role ARN.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-srtdecryptionconfiguration.html#cfn-mediaconnect-routerinput-srtdecryptionconfiguration-encryptionkey
             '''
@@ -13705,6 +14047,25 @@ class CfnRouterInputProps:
                         # the properties below are optional
                         flow_arn="flowArn",
                         flow_output_arn="flowOutputArn"
+                    ),
+                    media_live_channel=mediaconnect.CfnRouterInput.MediaLiveChannelRouterInputConfigurationProperty(
+                        source_transit_decryption=mediaconnect.CfnRouterInput.MediaLiveTransitEncryptionProperty(
+                            encryption_key_configuration=mediaconnect.CfnRouterInput.MediaLiveTransitEncryptionKeyConfigurationProperty(
+                                automatic=automatic,
+                                secrets_manager=mediaconnect.CfnRouterInput.SecretsManagerEncryptionKeyConfigurationProperty(
+                                    role_arn="roleArn",
+                                    secret_arn="secretArn"
+                                )
+                            ),
+            
+                            # the properties below are optional
+                            encryption_key_type="encryptionKeyType"
+                        ),
+            
+                        # the properties below are optional
+                        media_live_channel_arn="mediaLiveChannelArn",
+                        media_live_channel_output_name="mediaLiveChannelOutputName",
+                        media_live_pipeline_id="mediaLivePipelineId"
                     ),
                     merge=mediaconnect.CfnRouterInput.MergeRouterInputConfigurationProperty(
                         merge_recovery_window_milliseconds=123,
@@ -15080,7 +15441,7 @@ class CfnRouterOutput(
         ) -> None:
             '''
             :param automatic: Configuration settings for automatic encryption key management, where MediaConnect handles key creation and rotation.
-            :param secrets_manager: The configuration settings for transit encryption using AWS Secrets Manager, including the secret ARN and role ARN.
+            :param secrets_manager: The configuration settings for transit encryption using Secrets Manager, including the secret ARN and role ARN.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routeroutput-flowtransitencryptionkeyconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -15124,7 +15485,7 @@ class CfnRouterOutput(
         def secrets_manager(
             self,
         ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterOutput.SecretsManagerEncryptionKeyConfigurationProperty"]]:
-            '''The configuration settings for transit encryption using AWS Secrets Manager, including the secret ARN and role ARN.
+            '''The configuration settings for transit encryption using Secrets Manager, including the secret ARN and role ARN.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routeroutput-flowtransitencryptionkeyconfiguration.html#cfn-mediaconnect-routeroutput-flowtransitencryptionkeyconfiguration-secretsmanager
             '''
@@ -15429,7 +15790,7 @@ class CfnRouterOutput(
         ) -> None:
             '''Configuration settings for connecting a router output to a MediaLive input.
 
-            :param destination_transit_encryption: The encryption configuration that defines how content is encrypted during transit between MediaConnect Router and MediaLive. This configuration determines whether encryption keys are automatically managed by the service or manually managed through AWS Secrets Manager.
+            :param destination_transit_encryption: The encryption configuration that defines how content is encrypted during transit between MediaConnect Router and MediaLive. This configuration determines whether encryption keys are automatically managed by the service or manually managed through Secrets Manager.
             :param media_live_input_arn: The ARN of the MediaLive input to connect to this router output.
             :param media_live_pipeline_id: 
 
@@ -15482,7 +15843,7 @@ class CfnRouterOutput(
         ) -> typing.Union["_IResolvable_da3f097b", "CfnRouterOutput.MediaLiveTransitEncryptionProperty"]:
             '''The encryption configuration that defines how content is encrypted during transit between MediaConnect Router and MediaLive.
 
-            This configuration determines whether encryption keys are automatically managed by the service or manually managed through AWS Secrets Manager.
+            This configuration determines whether encryption keys are automatically managed by the service or manually managed through Secrets Manager.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routeroutput-medialiveinputrouteroutputconfiguration.html#cfn-mediaconnect-routeroutput-medialiveinputrouteroutputconfiguration-destinationtransitencryption
             '''
@@ -15532,7 +15893,7 @@ class CfnRouterOutput(
         ) -> None:
             '''
             :param automatic: Configuration settings for automatic encryption key management, where MediaConnect handles key creation and rotation.
-            :param secrets_manager: The configuration settings for transit encryption using AWS Secrets Manager, including the secret ARN and role ARN.
+            :param secrets_manager: The configuration settings for transit encryption using Secrets Manager, including the secret ARN and role ARN.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routeroutput-medialivetransitencryptionkeyconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -15576,7 +15937,7 @@ class CfnRouterOutput(
         def secrets_manager(
             self,
         ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRouterOutput.SecretsManagerEncryptionKeyConfigurationProperty"]]:
-            '''The configuration settings for transit encryption using AWS Secrets Manager, including the secret ARN and role ARN.
+            '''The configuration settings for transit encryption using Secrets Manager, including the secret ARN and role ARN.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routeroutput-medialivetransitencryptionkeyconfiguration.html#cfn-mediaconnect-routeroutput-medialivetransitencryptionkeyconfiguration-secretsmanager
             '''
@@ -15611,7 +15972,7 @@ class CfnRouterOutput(
         ) -> None:
             '''The encryption configuration that defines how content is encrypted during transit between MediaConnect Router and MediaLive.
 
-            This configuration determines whether encryption keys are automatically managed by the service or manually managed through AWS Secrets Manager.
+            This configuration determines whether encryption keys are automatically managed by the service or manually managed through Secrets Manager.
 
             :param encryption_key_configuration: Configuration settings for the MediaLive transit encryption key.
             :param encryption_key_type: 
@@ -16237,10 +16598,10 @@ class CfnRouterOutput(
     )
     class SecretsManagerEncryptionKeyConfigurationProperty:
         def __init__(self, *, role_arn: builtins.str, secret_arn: builtins.str) -> None:
-            '''The configuration settings for transit encryption using AWS Secrets Manager, including the secret ARN and role ARN.
+            '''The configuration settings for transit encryption using Secrets Manager, including the secret ARN and role ARN.
 
-            :param role_arn: The ARN of the IAM role assumed by MediaConnect to access the AWS Secrets Manager secret.
-            :param secret_arn: The ARN of the AWS Secrets Manager secret used for transit encryption.
+            :param role_arn: The ARN of the IAM role assumed by MediaConnect to access the Secrets Manager secret.
+            :param secret_arn: The ARN of the Secrets Manager secret used for transit encryption.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routeroutput-secretsmanagerencryptionkeyconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -16267,7 +16628,7 @@ class CfnRouterOutput(
 
         @builtins.property
         def role_arn(self) -> builtins.str:
-            '''The ARN of the IAM role assumed by MediaConnect to access the AWS Secrets Manager secret.
+            '''The ARN of the IAM role assumed by MediaConnect to access the Secrets Manager secret.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routeroutput-secretsmanagerencryptionkeyconfiguration.html#cfn-mediaconnect-routeroutput-secretsmanagerencryptionkeyconfiguration-rolearn
             '''
@@ -16277,7 +16638,7 @@ class CfnRouterOutput(
 
         @builtins.property
         def secret_arn(self) -> builtins.str:
-            '''The ARN of the AWS Secrets Manager secret used for transit encryption.
+            '''The ARN of the Secrets Manager secret used for transit encryption.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routeroutput-secretsmanagerencryptionkeyconfiguration.html#cfn-mediaconnect-routeroutput-secretsmanagerencryptionkeyconfiguration-secretarn
             '''
@@ -16440,7 +16801,7 @@ class CfnRouterOutput(
         ) -> None:
             '''Contains the configuration settings for encrypting SRT streams, including the encryption key details and encryption parameters.
 
-            :param encryption_key: The configuration settings for transit encryption using AWS Secrets Manager, including the secret ARN and role ARN.
+            :param encryption_key: The configuration settings for transit encryption using Secrets Manager, including the secret ARN and role ARN.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routeroutput-srtencryptionconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -16469,7 +16830,7 @@ class CfnRouterOutput(
         def encryption_key(
             self,
         ) -> typing.Union["_IResolvable_da3f097b", "CfnRouterOutput.SecretsManagerEncryptionKeyConfigurationProperty"]:
-            '''The configuration settings for transit encryption using AWS Secrets Manager, including the secret ARN and role ARN.
+            '''The configuration settings for transit encryption using Secrets Manager, including the secret ARN and role ARN.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routeroutput-srtencryptionconfiguration.html#cfn-mediaconnect-routeroutput-srtencryptionconfiguration-encryptionkey
             '''
@@ -18684,6 +19045,32 @@ def _typecheckingstub__07cd74860f626ccccd2d7b9722c16c895a7f51382af41cc9a3aa3da27
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__c8a5cd4ba452e1a027060dc52fb511ad148a40e0df4d4b14ee47a95b896f0735(
+    *,
+    source_transit_decryption: typing.Union[_IResolvable_da3f097b, typing.Union[CfnRouterInput.MediaLiveTransitEncryptionProperty, typing.Dict[builtins.str, typing.Any]]],
+    media_live_channel_arn: typing.Optional[builtins.str] = None,
+    media_live_channel_output_name: typing.Optional[builtins.str] = None,
+    media_live_pipeline_id: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ed65de0b474672156e612783c6e60babe3b082f649c2c1ee8aa99f2febef28c5(
+    *,
+    automatic: typing.Any = None,
+    secrets_manager: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRouterInput.SecretsManagerEncryptionKeyConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__964a0641d54ca9b3931c99857b3cbb193dd32758f7c19fc986a3b2c9e7a8d2ab(
+    *,
+    encryption_key_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnRouterInput.MediaLiveTransitEncryptionKeyConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    encryption_key_type: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__c207577b6eab68f0d1c3f7593cc0b00c18a7e10d165eed0314d6bcb41a434578(
     *,
     merge_recovery_window_milliseconds: jsii.Number,
@@ -18721,6 +19108,7 @@ def _typecheckingstub__367935140f8b2e56d02ff3e2c05252a68073eace6c0eeda3b7abeeeac
     *,
     failover: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRouterInput.FailoverRouterInputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     media_connect_flow: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRouterInput.MediaConnectFlowRouterInputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    media_live_channel: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRouterInput.MediaLiveChannelRouterInputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     merge: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRouterInput.MergeRouterInputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     standard: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRouterInput.StandardRouterInputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:

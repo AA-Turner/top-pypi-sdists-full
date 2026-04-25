@@ -144,7 +144,7 @@ pub struct EvaluateVariantParams {
     pub db: Arc<dyn DelegatingDatabaseQueries + Send + Sync>,
     pub functions: HashMap<String, Arc<FunctionConfig>>,
     pub evaluation_config: Arc<EvaluationConfig>,
-    pub evaluation_name: String,
+    pub evaluation_name: Option<String>,
     pub variant_name: String,
     pub variant_config: UninitializedChatCompletionConfig,
     pub dataset_name: String,
@@ -188,6 +188,15 @@ pub async fn evaluate_variant(params: EvaluateVariantParams) -> Result<Evaluatio
     // Wrap the gateway client in ClientInferenceExecutor for use with evaluations
     let inference_executor = Arc::new(ClientInferenceExecutor::new(params.gateway_client));
 
+    let ts_executor =
+        evaluations::evaluators::typescript_judge::TypescriptJudgeExecutor::with_defaults()
+            .await
+            .map_err(|e| {
+                Error::new(ErrorDetails::InternalError {
+                    message: format!("Failed to build TypeScript judge executor: {e}"),
+                })
+            })?;
+
     // Create EvaluationCoreArgs
     let core_args = EvaluationCoreArgs {
         inference_executor,
@@ -195,7 +204,7 @@ pub async fn evaluate_variant(params: EvaluateVariantParams) -> Result<Evaluatio
         function_name,
         function_config,
         evaluators: inference_config.evaluators.clone(),
-        evaluation_name: Some(params.evaluation_name),
+        evaluation_name: params.evaluation_name,
         evaluation_run_id,
         dataset_name: Some(params.dataset_name),
         datapoint_ids: None,
@@ -203,7 +212,8 @@ pub async fn evaluate_variant(params: EvaluateVariantParams) -> Result<Evaluatio
         concurrency: params.concurrency,
         inference_cache: CacheEnabledMode::Off, // Disable caching for fair evaluation
         tags: HashMap::new(),                   // No external tags for optimizer evaluations
-                                                // We may want to tag inferences made as part of GEPA later as well.
+        // We may want to tag inferences made as part of GEPA later as well.
+        ts_executor,
     };
 
     // Call run_evaluation_core_streaming

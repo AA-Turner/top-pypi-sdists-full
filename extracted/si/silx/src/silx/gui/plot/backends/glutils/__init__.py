@@ -21,8 +21,7 @@
 # THE SOFTWARE.
 #
 # ############################################################################*/
-"""This module provides convenient classes for the OpenGL rendering backend.
-"""
+"""This module provides convenient classes for the OpenGL rendering backend."""
 
 __authors__ = ["T. Vincent"]
 __license__ = "MIT"
@@ -30,7 +29,6 @@ __date__ = "03/04/2017"
 
 
 import logging
-
 
 _logger = logging.getLogger(__name__)
 

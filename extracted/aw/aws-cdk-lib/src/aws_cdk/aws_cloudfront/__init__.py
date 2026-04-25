@@ -14179,7 +14179,7 @@ class CfnDistributionTenantProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IFunctionRef_2f1d7e70)
+@jsii.implements(_IInspectable_c2943556, _IFunctionRef_2f1d7e70, _ITaggableV2_4e6798f8)
 class CfnFunction(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -14201,6 +14201,7 @@ class CfnFunction(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_cloudfront as cloudfront
@@ -14222,7 +14223,11 @@ class CfnFunction(
             auto_publish=False,
             function_metadata=cloudfront.CfnFunction.FunctionMetadataProperty(
                 function_arn="functionArn"
-            )
+            ),
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
         )
     '''
 
@@ -14236,6 +14241,7 @@ class CfnFunction(
         name: builtins.str,
         auto_publish: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         function_metadata: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFunction.FunctionMetadataProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::CloudFront::Function``.
 
@@ -14246,6 +14252,7 @@ class CfnFunction(
         :param name: A name to identify the function.
         :param auto_publish: A flag that determines whether to automatically publish the function to the ``LIVE`` stage when it’s created. To automatically publish to the ``LIVE`` stage, set this property to ``true`` .
         :param function_metadata: Contains metadata about a CloudFront function.
+        :param tags: 
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7fd6686720dc42916d1486e9d86a083535cb418c14fb4746839d47b9f77562f0)
@@ -14257,6 +14264,7 @@ class CfnFunction(
             name=name,
             auto_publish=auto_publish,
             function_metadata=function_metadata,
+            tags=tags,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -14349,6 +14357,12 @@ class CfnFunction(
         return typing.cast(builtins.str, jsii.get(self, "attrStage"))
 
     @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
@@ -14438,6 +14452,18 @@ class CfnFunction(
             type_hints = typing.get_type_hints(_typecheckingstub__fe3c43f2af2adeb7b33e657cb565ba1627c04114bab013dcd445631d30026b9e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "functionMetadata", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f230438436f507ff08bcf6c3c32930bacf493acc04c728895c105eec7015f67e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_cloudfront.CfnFunction.FunctionConfigProperty",
@@ -14654,6 +14680,7 @@ class CfnFunction(
         "name": "name",
         "auto_publish": "autoPublish",
         "function_metadata": "functionMetadata",
+        "tags": "tags",
     },
 )
 class CfnFunctionProps:
@@ -14665,6 +14692,7 @@ class CfnFunctionProps:
         name: builtins.str,
         auto_publish: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         function_metadata: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFunction.FunctionMetadataProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnFunction``.
 
@@ -14673,12 +14701,14 @@ class CfnFunctionProps:
         :param name: A name to identify the function.
         :param auto_publish: A flag that determines whether to automatically publish the function to the ``LIVE`` stage when it’s created. To automatically publish to the ``LIVE`` stage, set this property to ``true`` .
         :param function_metadata: Contains metadata about a CloudFront function.
+        :param tags: 
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudfront-function.html
         :exampleMetadata: fixture=_generated
 
         Example::
 
+            from aws_cdk import CfnTag
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import aws_cloudfront as cloudfront
@@ -14700,7 +14730,11 @@ class CfnFunctionProps:
                 auto_publish=False,
                 function_metadata=cloudfront.CfnFunction.FunctionMetadataProperty(
                     function_arn="functionArn"
-                )
+                ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
             )
         '''
         if __debug__:
@@ -14710,6 +14744,7 @@ class CfnFunctionProps:
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument auto_publish", value=auto_publish, expected_type=type_hints["auto_publish"])
             check_type(argname="argument function_metadata", value=function_metadata, expected_type=type_hints["function_metadata"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "function_code": function_code,
             "function_config": function_config,
@@ -14719,6 +14754,8 @@ class CfnFunctionProps:
             self._values["auto_publish"] = auto_publish
         if function_metadata is not None:
             self._values["function_metadata"] = function_metadata
+        if tags is not None:
+            self._values["tags"] = tags
 
     @builtins.property
     def function_code(self) -> builtins.str:
@@ -14777,6 +14814,14 @@ class CfnFunctionProps:
         '''
         result = self._values.get("function_metadata")
         return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFunction.FunctionMetadataProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudfront-function.html#cfn-cloudfront-function-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -34043,6 +34088,7 @@ def _typecheckingstub__7fd6686720dc42916d1486e9d86a083535cb418c14fb4746839d47b9f
     name: builtins.str,
     auto_publish: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     function_metadata: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFunction.FunctionMetadataProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -34101,6 +34147,12 @@ def _typecheckingstub__fe3c43f2af2adeb7b33e657cb565ba1627c04114bab013dcd445631d3
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__f230438436f507ff08bcf6c3c32930bacf493acc04c728895c105eec7015f67e(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__e34db5cf326a0cd47f00dc35b60e1fbde4ec723cb88839d65178012682abd233(
     *,
     comment: builtins.str,
@@ -34131,6 +34183,7 @@ def _typecheckingstub__8288752acdcd70ed40eb65e878d490645ed376ded173a5c2d02caa4e1
     name: builtins.str,
     auto_publish: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     function_metadata: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFunction.FunctionMetadataProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

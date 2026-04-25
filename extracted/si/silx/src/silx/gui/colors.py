@@ -21,8 +21,7 @@
 # THE SOFTWARE.
 #
 # ###########################################################################*/
-"""This module provides API to manage colors.
-"""
+"""This module provides API to manage colors."""
 
 from __future__ import annotations
 
@@ -36,7 +35,8 @@ import logging
 import numbers
 import re
 from collections.abc import Iterable
-from typing import Any, Sequence, Tuple, Union
+from typing import Any, Union
+from collections.abc import Sequence
 
 import silx
 from silx._utils import NP_OPTIONAL_COPY
@@ -44,23 +44,15 @@ from silx.gui import qt
 from silx.gui.utils import blockSignals
 from silx.math import colormap as _colormap
 from silx.utils.exceptions import NotEditableError
-
+from silx.utils.deprecation import deprecated_warning
 
 _logger = logging.getLogger(__name__)
 
 try:
     import silx.gui.utils.matplotlib  # noqa  Initalize matplotlib
-
-    try:
-        from matplotlib import colormaps as _matplotlib_colormaps
-    except ImportError:  # For matplotlib < 3.5
-        from matplotlib import cm as _matplotlib_cm
-        from matplotlib.pyplot import colormaps as _matplotlib_colormaps
-    else:
-        _matplotlib_cm = None
+    from matplotlib import colormaps as _matplotlib_colormaps
 except ImportError:
     _logger.info("matplotlib not available, only embedded colormaps available")
-    _matplotlib_cm = None
     _matplotlib_colormaps = None
 
 
@@ -109,7 +101,7 @@ ColorType = Union[str, Sequence[numbers.Real], qt.QColor]
 """Type of :func:`rgba`'s color argument"""
 
 
-RGBAColorType = Tuple[float, float, float, float]
+RGBAColorType = tuple[float, float, float, float]
 """Type of :func:`rgba` return value"""
 
 
@@ -162,26 +154,28 @@ def rgba(
         return rgba(color.getRgb(), colorDict, colors)
 
     # From array
-    values = numpy.asarray(color).ravel()
+    varray = numpy.asarray(color).ravel()
 
-    if values.dtype.kind not in "iuf":
+    if varray.dtype.kind not in "iuf":
         raise ValueError(
-            f"The array color must be integer/unsigned or float. Found '{values.dtype.kind}'"
+            f"The array color must be integer/unsigned or float. Found '{varray.dtype.kind}'"
         )
-    if len(values) not in (3, 4):
+    if len(varray) not in (3, 4):
         raise ValueError(
-            f"The array color must have 3 or 4 compound. Found '{len(values)}'"
+            f"The array color must have 3 or 4 compound. Found '{len(varray)}'"
         )
 
     # Convert from integers in [0, 255] to float in [0, 1]
-    if values.dtype.kind in "iu":
-        values = values / 255.0
+    if varray.dtype.kind in "iu":
+        farray = varray / 255.0
+    else:
+        farray = varray
 
-    values = numpy.clip(values, 0.0, 1.0)
+    farray = numpy.clip(farray, 0.0, 1.0)
 
-    if len(values) == 3:
-        return values[0], values[1], values[2], 1.0
-    return tuple(values)
+    if len(farray) == 3:
+        return farray[0], farray[1], farray[2], 1.0
+    return farray[0], farray[1], farray[2], farray[3]
 
 
 def greyed(
@@ -232,10 +226,7 @@ def _registerColormapFromMatplotlib(
     cursor_color: str = "black",
     preferred: bool = False,
 ):
-    if _matplotlib_cm is not None:
-        colormap = _matplotlib_cm.get_cmap(name)
-    else:  # matplotlib >= 3.5
-        colormap = _matplotlib_colormaps[name]
+    colormap = _matplotlib_colormaps[name]
     lut = colormap(numpy.linspace(0, 1, colormap.N, endpoint=True))
     colors = _colormap.array_to_rgba8888(lut)
     registerLUT(name, colors, cursor_color, preferred)
@@ -275,7 +266,7 @@ class _Colormappable:
         """
         raise NotImplementedError("This method must be implemented in subclass")
 
-    def getColormappedData(copy: bool = False) -> numpy.ndarray | None:
+    def getColormappedData(self, copy: bool = False) -> numpy.ndarray | None:
         """Returns the data used to compute the displayed colors
 
         :param copy: True to get a copy, False to get internal data (do not modify!).
@@ -332,9 +323,12 @@ class Colormap(qt.QObject):
     with a clamp on min/max of the data"""
 
     PERCENTILE_1_99 = "percentile_1_99"
-    """constant for autoscale using 1st and 99th percentile of data"""
+    """constant for autoscale using 1st and 99th percentile of data. Deprecated to the benefit of 'percentile'"""
 
-    AUTOSCALE_MODES = (MINMAX, STDDEV3, PERCENTILE_1_99)
+    PERCENTILE = "percentile"
+    """constant for autoscale using n'st and m'th percentile of data"""
+
+    AUTOSCALE_MODES = (MINMAX, STDDEV3, PERCENTILE)
     """Tuple of managed auto scale algorithms"""
 
     sigChanged = qt.Signal()
@@ -342,10 +336,12 @@ class Colormap(qt.QObject):
 
     _DEFAULT_NAN_COLOR = 255, 255, 255, 0
 
+    _DEFAULT_PERCENTILES = (1.0, 99.0)
+
     def __init__(
         self,
         name: str | None = None,
-        colors: numpy.ndarray | None = None,
+        colors: numpy.ndarray | list[RGBAColorType] | None = None,
         normalization: str = LINEAR,
         vmin: float | None = None,
         vmax: float | None = None,
@@ -358,6 +354,15 @@ class Colormap(qt.QObject):
         self.__nanColor = numpy.array(self._DEFAULT_NAN_COLOR, dtype=numpy.uint8)
 
         assert normalization in Colormap.NORMALIZATIONS
+
+        if autoscaleMode == self.PERCENTILE_1_99:
+            deprecated_warning(
+                type_="Argument",
+                name="autoscaleMode='percentile_1_99'",
+                replacement="autoscaleMode='percentile'",
+                since_version="3.0",
+            )
+            autoscaleMode = self.PERCENTILE
         assert autoscaleMode in Colormap.AUTOSCALE_MODES
 
         if normalization is Colormap.LOGARITHM:
@@ -369,8 +374,8 @@ class Colormap(qt.QObject):
                 vmin = None
                 vmax = None
 
-        self._name = None
-        self._colors = None
+        self._name: str | None = None
+        self._colors: numpy.ndarray | None = None
 
         if colors is not None and name is not None:
             raise ValueError("name and colors arguments can't be set at the same time")
@@ -385,6 +390,7 @@ class Colormap(qt.QObject):
 
         self._normalization = str(normalization)
         self._autoscaleMode = str(autoscaleMode)
+        self._percentiles = self._DEFAULT_PERCENTILES
         self._vmin = float(vmin) if vmin is not None else None
         self._vmax = float(vmax) if vmax is not None else None
         self.__warnBadVmin = True
@@ -404,7 +410,10 @@ class Colormap(qt.QObject):
             if name is not None:
                 self.setName(name)
             else:
-                self.setColormapLUT(other.getColormapLUT())
+                colors = other.getColormapLUT()
+                # There is no name so there is a color
+                assert colors is not None
+                self.setColormapLUT(colors)
             self.setNaNColor(other.getNaNColor())
             self.setNormalization(other.getNormalization())
             self.setGammaNormalizationParameter(other.getGammaNormalizationParameter())
@@ -468,7 +477,7 @@ class Colormap(qt.QObject):
             return numpy.array(self._colors, copy=copy or NP_OPTIONAL_COPY)
         return None
 
-    def setColormapLUT(self, colors: numpy.ndarray):
+    def setColormapLUT(self, colors: numpy.ndarray | list[RGBAColorType]):
         """Set the colors of the colormap.
 
         :param colors: the colors of the LUT.
@@ -551,21 +560,43 @@ class Colormap(qt.QObject):
         """Returns the gamma correction parameter value."""
         return self.__gamma
 
-    def getAutoscaleMode(self) -> str:
-        """Return the autoscale mode of the colormap ('minmax' or 'stddev3')"""
+    def getAutoscaleMode(self) -> _colormap.AutoScaleModeType:
+        """Return the autoscale mode of the colormap."""
         return self._autoscaleMode
 
-    def setAutoscaleMode(self, mode: str):
-        """Set the autoscale mode: either 'minmax' or 'stddev3'
+    def setAutoscaleMode(self, mode: _colormap.AutoScaleModeType):
+        """Set the autoscale mode.
 
         :param mode: the mode to set
         """
         if self.isEditable() is False:
             raise NotEditableError("Colormap is not editable")
+        if mode == self.PERCENTILE_1_99:
+            deprecated_warning(
+                type_="Argument",
+                name="mode='percentile_1_99'",
+                replacement="mode='percentile'",
+                since_version="3.0",
+            )
+            mode = self.PERCENTILE
+            self.setAutoscalePercentiles((1.0, 99.0))
         assert mode in self.AUTOSCALE_MODES
         if mode != self._autoscaleMode:
             self._autoscaleMode = mode
             self.sigChanged.emit()
+
+    def setAutoscalePercentiles(self, value: tuple[float, float]):
+        self._percentiles = value
+        self.sigChanged.emit()
+
+    def getAutoscalePercentiles(self) -> tuple[float, float]:
+        """
+        Return the (min, max) percentiles used for autoscaling in 'percentile' mode.
+        'min' and 'max' are between 0 and 100 included.
+
+        :return: (min, max)
+        """
+        return self._percentiles
 
     def isAutoscale(self) -> bool:
         """Return True if both min and max are in autoscale mode"""
@@ -656,7 +687,11 @@ class Colormap(qt.QObject):
         :param data: The data for which to compute the range
         :return: (vmin, vmax) range
         """
-        return self._getNormalizer().autoscale(data, mode=self.getAutoscaleMode())
+        return self._getNormalizer().autoscale(
+            data,
+            mode=self.getAutoscaleMode(),
+            percentiles=self.getAutoscalePercentiles(),
+        )
 
     def getColormapRange(
         self,
@@ -687,22 +722,34 @@ class Colormap(qt.QObject):
                 _logger.info("Invalid vmax, switching to autoscale for upper bound")
             vmax = None
 
-        if vmin is None or vmax is None:  # Handle autoscale
-            if isinstance(data, _Colormappable):
-                min_, max_ = data._getColormapAutoscaleRange(self)
-                # Make sure min_, max_ are not None
-                min_ = normalizer.DEFAULT_RANGE[0] if min_ is None else min_
-                max_ = normalizer.DEFAULT_RANGE[1] if max_ is None else max_
-            else:
-                min_, max_ = normalizer.autoscale(data, mode=self.getAutoscaleMode())
+        if vmin is not None and vmax is not None:
+            return vmin, vmax
 
-            if vmin is None:  # Set vmin respecting provided vmax
-                vmin = min_ if vmax is None else min(min_, vmax)
+        # Handle autoscale
 
-            if vmax is None:
-                vmax = max(max_, vmin)  # Handle max_ <= 0 for log scale
+        if isinstance(data, _Colormappable):
+            min_, max_ = data._getColormapAutoscaleRange(self)
+            # Make sure min_, max_ are not None
+            fmin = normalizer.DEFAULT_RANGE[0] if min_ is None else min_
+            fmax = normalizer.DEFAULT_RANGE[1] if max_ is None else max_
+        else:
+            fmin, fmax = normalizer.autoscale(
+                data,
+                mode=self.getAutoscaleMode(),
+                percentiles=self.getAutoscalePercentiles(),
+            )
 
-        return vmin, vmax
+        if vmin is None:  # Set vmin respecting provided vmax
+            vmin2 = fmin if vmax is None else min(fmin, vmax)
+        else:
+            vmin2 = vmin
+
+        if vmax is None:
+            vmax2 = max(fmax, vmin2)  # Handle max_ <= 0 for log scale
+        else:
+            vmax2 = vmax
+
+        return vmin2, vmax2
 
     def getVRange(self) -> tuple[float | None, float | None]:
         """Get the bounds of the colormap
@@ -828,6 +875,8 @@ class Colormap(qt.QObject):
         if name is not None:
             self.setName(name)
         else:
+            # if name is None => colors is not None
+            assert colors is not None
             self.setColormapLUT(colors)
         self._vmin = vmin
         self._vmax = vmax
@@ -877,10 +926,12 @@ class Colormap(qt.QObject):
         vmin, vmax = self.getColormapRange(reference)
 
         if isinstance(data, _Colormappable):  # Use item's data
-            data = data.getColormappedData(copy=False)
+            array = data.getColormappedData(copy=False)
+        else:
+            array = data
 
         return _colormap.cmap(
-            data, self._colors, vmin, vmax, self._getNormalizer(), self.__nanColor
+            array, self._colors, vmin, vmax, self._getNormalizer(), self.__nanColor
         )
 
     @staticmethod
@@ -1027,7 +1078,7 @@ class Colormap(qt.QObject):
         return data
 
 
-_PREFERRED_COLORMAPS = None
+_PREFERRED_COLORMAPS: list[str] | None = None
 """
 Tuple of preferred colormap names accessed with :meth:`preferredColormaps`.
 """
@@ -1055,10 +1106,13 @@ def preferredColormaps() -> tuple[str, ...]:
     This list is used by widgets allowing to change the colormap
     like the :class:`ColormapDialog` as a subset of colormap choices.
     """
-    global _PREFERRED_COLORMAPS
     if _PREFERRED_COLORMAPS is None:
         # Initialize preferred colormaps
         setPreferredColormaps(_DEFAULT_PREFERRED_COLORMAPS)
+
+    # setPreferredColormaps initialize _PREFERRED_COLORMAPS
+    assert _PREFERRED_COLORMAPS is not None
+
     return tuple(_PREFERRED_COLORMAPS)
 
 
@@ -1103,16 +1157,9 @@ def registerLUT(
 
     if preferred:
         # Invalidate the preferred cache
-        global _PREFERRED_COLORMAPS
         if _PREFERRED_COLORMAPS is not None:
             if name not in _PREFERRED_COLORMAPS:
                 _PREFERRED_COLORMAPS.append(name)
         else:
             # The cache is not yet loaded, it's fine
             pass
-
-
-# Load some colormaps from matplotlib by default
-if _matplotlib_cm is not None:
-    _registerColormapFromMatplotlib("jet", cursor_color="pink", preferred=True)
-    _registerColormapFromMatplotlib("hsv", cursor_color="black", preferred=True)

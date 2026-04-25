@@ -48,7 +48,6 @@ from silx.gui.widgets.FlowLayout import FlowLayout
 from . import PlotWidget
 from . import items as plotitems
 
-
 _logger = logging.getLogger(__name__)
 
 
@@ -91,7 +90,7 @@ class _Wrapper(qt.QObject):
     """Signal emitted when the visible data area has changed"""
 
     def __init__(self, plot=None):
-        super(_Wrapper, self).__init__(parent=None)
+        super().__init__(parent=None)
         self._plotRef = None if plot is None else weakref.ref(plot)
 
     def getPlot(self):
@@ -146,7 +145,7 @@ class _PlotWidgetWrapper(_Wrapper):
 
     def __init__(self, plot):
         assert isinstance(plot, PlotWidget)
-        super(_PlotWidgetWrapper, self).__init__(plot)
+        super().__init__(plot)
         plot.sigItemAdded.connect(self.sigItemAdded.emit)
         plot.sigItemAboutToBeRemoved.connect(self.sigItemRemoved.emit)
         plot.sigActiveCurveChanged.connect(self._activeCurveChanged)
@@ -230,7 +229,7 @@ class _SceneWidgetWrapper(_Wrapper):
         from ..plot3d.SceneWidget import SceneWidget
 
         assert isinstance(plot, SceneWidget)
-        super(_SceneWidgetWrapper, self).__init__(plot)
+        super().__init__(plot)
         plot.getSceneGroup().sigItemAdded.connect(self.sigItemAdded)
         plot.getSceneGroup().sigItemRemoved.connect(self.sigItemRemoved)
         plot.selection().sigCurrentChanged.connect(self._currentChanged)
@@ -280,7 +279,7 @@ class _ScalarFieldViewWrapper(_Wrapper):
         from ..plot3d.items import ScalarField3D
 
         assert isinstance(plot, ScalarFieldView)
-        super(_ScalarFieldViewWrapper, self).__init__(plot)
+        super().__init__(plot)
         self._item = ScalarField3D()
         self._dataChanged()
         plot.sigDataChanged.connect(self._dataChanged)
@@ -309,7 +308,7 @@ class _ScalarFieldViewWrapper(_Wrapper):
         return "image"
 
 
-class _Container(object):
+class _Container:
     """Class to contain a plot item.
 
     This is apparently needed for compatibility with PySide2,
@@ -324,7 +323,7 @@ class _Container(object):
         return self._obj
 
 
-class _StatsWidgetBase(object):
+class _StatsWidgetBase:
     """
     Base class for all widgets which want to display statistics
     """
@@ -362,7 +361,7 @@ class _StatsWidgetBase(object):
             The plot containing the items on which statistics are applied
         """
         try:
-            import OpenGL
+            import OpenGL  # noqa: F401
         except ImportError:
             has_opengl = False
         else:
@@ -633,6 +632,8 @@ class StatsTable(_StatsWidgetBase, TableWidget):
         horizontalHeader = self.horizontalHeader()
         horizontalHeader.setSectionResizeMode(qt.QHeaderView.ResizeToContents)
 
+        horizontalHeader.setStretchLastSection(True)
+
         self._updateItemObserve()
 
     def setPlot(self, plot):
@@ -817,6 +818,7 @@ class StatsTable(_StatsWidgetBase, TableWidget):
             for column, tableItem in enumerate(tableItems):
                 tableItem.setData(qt.Qt.UserRole, _Container(item))
                 tableItem.setFlags(qt.Qt.ItemIsEnabled | qt.Qt.ItemIsSelectable)
+                tableItem.setTextAlignment(qt.Qt.AlignHCenter | qt.Qt.AlignVCenter)
                 self.setItem(row, column, tableItem)
 
             # Update table items content

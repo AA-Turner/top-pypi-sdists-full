@@ -794,16 +794,20 @@ struct ResolvedEvaluationConfig {
 }
 
 /// Builds `EvaluationCoreArgs` for running an evaluation in embedded mode.
+///
+/// The caller constructs `ts_executor` separately (it's async) and passes
+/// it in here so this helper stays synchronous.
 #[expect(clippy::too_many_arguments)]
 fn build_embedded_evaluation_args(
     client: &Client,
-    app_state: &tensorzero_core::utils::gateway::AppStateData,
+    app_state: &tensorzero_core::utils::gateway::ResolvedAppStateData,
     resolved: ResolvedEvaluationConfig,
     dataset_name: Option<String>,
     datapoint_ids: Option<Vec<Uuid>>,
     variant: EvaluationVariant,
     concurrency: usize,
     inference_cache: tensorzero_core::cache::CacheEnabledMode,
+    ts_executor: evaluations::evaluators::typescript_judge::TypescriptJudgeExecutor,
 ) -> EvaluationCoreArgs {
     let inference_executor = Arc::new(ClientInferenceExecutor::new(client.clone()));
 
@@ -821,6 +825,7 @@ fn build_embedded_evaluation_args(
         concurrency,
         inference_cache,
         tags: HashMap::new(),
+        ts_executor,
     }
 }
 
@@ -911,7 +916,7 @@ fn build_http_evaluation_params(
 /// Deserializes the internal_dynamic_variant_config if provided and validates that exactly one of the two is provided.
 /// Resolves evaluation configuration from either `evaluation_name` or `function_name` + `evaluator_names`.
 fn resolve_evaluation_config(
-    app_state: &tensorzero_core::utils::gateway::AppStateData,
+    app_state: &tensorzero_core::utils::gateway::ResolvedAppStateData,
     evaluation_name: Option<String>,
     function_name: Option<String>,
     evaluator_names: Option<Vec<String>>,
@@ -1167,7 +1172,7 @@ impl TensorZeroGateway {
         }
     }
 
-    #[pyo3(signature = (*, input, function_name=None, model_name=None, episode_id=None, namespace=None, stream=None, params=None, variant_name=None, dryrun=None, output_schema=None, allowed_tools=None, additional_tools=None, provider_tools=None, tool_choice=None, parallel_tool_calls=None, internal=None, tags=None, credentials=None, cache_options=None, extra_body=None, extra_headers=None, include_original_response=None, include_raw_response=None, include_raw_usage=None, include_aggregated_response=None, otlp_traces_extra_headers=None, otlp_traces_extra_attributes=None, otlp_traces_extra_resources=None, internal_dynamic_variant_config=None))]
+    #[pyo3(signature = (*, input, function_name=None, model_name=None, episode_id=None, namespace=None, stream=None, params=None, variant_name=None, dryrun=None, output_schema=None, allowed_tools=None, additional_tools=None, provider_tools=None, tool_choice=None, parallel_tool_calls=None, internal=None, tags=None, credentials=None, cache_options=None, extra_body=None, extra_headers=None, include_original_response=None, include_raw_response=None, include_raw_usage=None, include_aggregated_response=None, otlp_traces_extra_headers=None, otlp_traces_extra_attributes=None, otlp_traces_extra_resources=None, internal_dynamic_variant_config=None, gateway_http_headers=None))]
     #[expect(clippy::too_many_arguments)]
     /// Make a request to the /inference endpoint.
     ///
@@ -1211,6 +1216,9 @@ impl TensorZeroGateway {
     /// :param otlp_traces_extra_resources: If set, attaches custom HTTP headers to OTLP trace exports for this request.
     ///                                     Headers will be automatically prefixed with "tensorzero-otlp-traces-extra-resources-".
     ///                                     Example: {"My-Resource": "My-Value"} becomes header "tensorzero-otlp-traces-extra-resource-My-Resource: My-Value"
+    /// :param gateway_http_headers: If set, attaches extra HTTP headers to the request sent to the TensorZero Gateway.
+    ///                              Useful for passing W3C `traceparent` / `tracestate` or other custom headers.
+    ///                              Only meaningful for HTTP-mode clients; ignored by embedded gateways.
     /// :return: If stream is false, returns an InferenceResponse.
     ///          If stream is true, returns a generator that yields InferenceChunks as they come in.
     fn inference(
@@ -1245,9 +1253,10 @@ impl TensorZeroGateway {
         otlp_traces_extra_attributes: Option<HashMap<String, String>>,
         otlp_traces_extra_resources: Option<HashMap<String, String>>,
         internal_dynamic_variant_config: Option<&Bound<'_, PyDict>>,
+        gateway_http_headers: Option<HashMap<String, String>>,
     ) -> PyResult<Py<PyAny>> {
         let client = this.as_super().client.clone();
-        let fut = client.inference(BaseTensorZeroGateway::prepare_inference_params(
+        let inference_params = BaseTensorZeroGateway::prepare_inference_params(
             py,
             input,
             function_name,
@@ -1278,7 +1287,12 @@ impl TensorZeroGateway {
             otlp_traces_extra_attributes,
             otlp_traces_extra_resources,
             internal_dynamic_variant_config,
-        )?);
+        )?;
+        let fut = async move {
+            client
+                .inference_with_request_headers(inference_params, gateway_http_headers.as_ref())
+                .await
+        };
 
         // We're in the synchronous `TensorZeroGateway` class, so we need to block on the Rust future,
         // and then return the result to the Python caller directly (not wrapped in a Python `Future`).
@@ -1655,8 +1669,9 @@ impl TensorZeroGateway {
         // Parse datapoint_ids from strings to UUIDs (keeping as Option)
         let datapoint_ids: Option<Vec<Uuid>> = parse_datapoint_ids(datapoint_ids)?;
 
-        let result = if let Some(app_state) = client.get_app_state_data() {
+        let result = if let Some(swappable_state) = client.get_app_state_data() {
             // Embedded mode: run evaluation directly
+            let app_state = swappable_state.load_latest();
             let inference_cache_enum: tensorzero_core::cache::CacheEnabledMode =
                 deserialize_from_pyobj(
                     this.py(),
@@ -1664,21 +1679,32 @@ impl TensorZeroGateway {
                 )?;
 
             let resolved = resolve_evaluation_config(
-                app_state,
+                &app_state,
                 evaluation_name,
                 function_name,
                 evaluator_names,
             )?;
 
+            let ts_executor = tokio_block_on_without_gil(
+                this.py(),
+                evaluations::evaluators::typescript_judge::TypescriptJudgeExecutor::with_defaults(),
+            )
+            .map_err(|e| {
+                pyo3::exceptions::PyRuntimeError::new_err(format!(
+                    "Failed to build TypeScript judge executor: {e}"
+                ))
+            })?;
+
             let core_args = build_embedded_evaluation_args(
                 &client,
-                app_state,
+                &app_state,
                 resolved,
                 dataset_name,
                 datapoint_ids,
                 variant,
                 concurrency,
                 inference_cache_enum,
+                ts_executor,
             );
 
             let stream_result = tokio_block_on_without_gil(
@@ -1825,7 +1851,7 @@ impl TensorZeroGateway {
             .map(|x| {
                 // NOTE(shuyangli): We do not re-fetch any files here, and simply error out if any samples have files.
                 // We may need to rearchitect the optimization pipeline to support this.
-                deserialize_from_stored_sample(this.py(), x, config)
+                deserialize_from_stored_sample(this.py(), x, &config)
             })
             .collect::<Result<Vec<_>, _>>()?;
         let fut = client.experimental_render_samples(stored_samples, variants, concurrency);
@@ -2122,7 +2148,7 @@ impl AsyncTensorZeroGateway {
         }
     }
 
-    #[pyo3(signature = (*, input, function_name=None, model_name=None, episode_id=None, namespace=None, stream=None, params=None, variant_name=None, dryrun=None, output_schema=None, allowed_tools=None, additional_tools=None, provider_tools=None, tool_choice=None, parallel_tool_calls=None, internal=None, tags=None, credentials=None, cache_options=None, extra_body=None, extra_headers=None, include_original_response=None, include_raw_response=None, include_raw_usage=None, include_aggregated_response=None, otlp_traces_extra_headers=None, otlp_traces_extra_attributes=None, otlp_traces_extra_resources=None, internal_dynamic_variant_config=None))]
+    #[pyo3(signature = (*, input, function_name=None, model_name=None, episode_id=None, namespace=None, stream=None, params=None, variant_name=None, dryrun=None, output_schema=None, allowed_tools=None, additional_tools=None, provider_tools=None, tool_choice=None, parallel_tool_calls=None, internal=None, tags=None, credentials=None, cache_options=None, extra_body=None, extra_headers=None, include_original_response=None, include_raw_response=None, include_raw_usage=None, include_aggregated_response=None, otlp_traces_extra_headers=None, otlp_traces_extra_attributes=None, otlp_traces_extra_resources=None, internal_dynamic_variant_config=None, gateway_http_headers=None))]
     #[expect(clippy::too_many_arguments)]
     /// Make a request to the /inference endpoint.
     ///
@@ -2160,6 +2186,9 @@ impl AsyncTensorZeroGateway {
     /// :param otlp_traces_extra_headers: If set, attaches custom HTTP headers to OTLP trace exports for this request.
     ///                                   Headers will be automatically prefixed with "tensorzero-otlp-traces-extra-header-".
     ///                                   Example: {"My-Header": "My-Value"} becomes header "tensorzero-otlp-traces-extra-header-My-Header: My-Value"
+    /// :param gateway_http_headers: If set, attaches extra HTTP headers to the request sent to the TensorZero Gateway.
+    ///                              Useful for passing W3C `traceparent` / `tracestate` or other custom headers.
+    ///                              Only meaningful for HTTP-mode clients; ignored by embedded gateways.
     /// :return: If stream is false, returns an InferenceResponse.
     ///          If stream is true, returns an async generator that yields InferenceChunks as they come in.
     fn inference<'a>(
@@ -2194,6 +2223,7 @@ impl AsyncTensorZeroGateway {
         otlp_traces_extra_attributes: Option<HashMap<String, String>>,
         otlp_traces_extra_resources: Option<HashMap<String, String>>,
         internal_dynamic_variant_config: Option<&Bound<'_, PyDict>>,
+        gateway_http_headers: Option<HashMap<String, String>>,
     ) -> PyResult<Bound<'a, PyAny>> {
         let params = BaseTensorZeroGateway::prepare_inference_params(
             py,
@@ -2231,7 +2261,9 @@ impl AsyncTensorZeroGateway {
         let gateway = this.into_pyobject(py)?.into_any().unbind();
         // See `AsyncStreamWrapper::__anext__` for more details about `future_into_py`
         pyo3_async_runtimes::tokio::future_into_py(py, async move {
-            let res = client.inference(params).await;
+            let res = client
+                .inference_with_request_headers(params, gateway_http_headers.as_ref())
+                .await;
             // We need to interact with Python objects here (to build up a Python inference response),
             // so we need the GIL
             Python::attach(|py| {
@@ -2702,11 +2734,12 @@ impl AsyncTensorZeroGateway {
         pyo3_async_runtimes::tokio::future_into_py(this.py(), async move {
             let result = if is_embedded {
                 // Embedded mode: run evaluation directly
-                let app_state = client.get_app_state_data().ok_or_else(|| {
+                let swappable_state = client.get_app_state_data().ok_or_else(|| {
                     pyo3::exceptions::PyRuntimeError::new_err(
                         "Client is not in EmbeddedGateway mode",
                     )
                 })?;
+                let app_state = swappable_state.load_latest();
 
                 let inference_cache_enum = inference_cache_enum.ok_or_else(|| {
                     pyo3::exceptions::PyRuntimeError::new_err(
@@ -2715,21 +2748,31 @@ impl AsyncTensorZeroGateway {
                 })?;
 
                 let resolved = resolve_evaluation_config(
-                    app_state,
+                    &app_state,
                     evaluation_name,
                     function_name,
                     evaluator_names,
                 )?;
 
+                let ts_executor =
+                    evaluations::evaluators::typescript_judge::TypescriptJudgeExecutor::with_defaults()
+                        .await
+                        .map_err(|e| {
+                            pyo3::exceptions::PyRuntimeError::new_err(format!(
+                                "Failed to build TypeScript judge executor: {e}"
+                            ))
+                        })?;
+
                 let core_args = build_embedded_evaluation_args(
                     &client,
-                    app_state,
+                    &app_state,
                     resolved,
                     dataset_name,
                     datapoint_ids,
                     variant,
                     concurrency,
                     inference_cache_enum,
+                    ts_executor,
                 );
 
                 let stream_result =
@@ -2918,7 +2961,7 @@ impl AsyncTensorZeroGateway {
             .map(|x| {
                 // NOTE(shuyangli): We do not re-fetch any files here, and simply error out if any samples have files.
                 // We may need to rearchitect the optimization pipeline to support this.
-                deserialize_from_stored_sample(this.py(), x, config)
+                deserialize_from_stored_sample(this.py(), x, &config)
             })
             .collect::<Result<Vec<_>, _>>()?;
         pyo3_async_runtimes::tokio::future_into_py(this.py(), async move {

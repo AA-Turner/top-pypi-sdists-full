@@ -45,11 +45,10 @@ from silx.gui import qt
 from silx.gui.plot3d.ScalarFieldView import ScalarFieldView
 from silx.gui.plot3d import SFViewParamTree
 
-logging.basicConfig()
-
-_logger = logging.getLogger(__name__)
-
 import h5py
+
+logging.basicConfig()
+_logger = logging.getLogger(__name__)
 
 
 def load(filename):
@@ -62,7 +61,7 @@ def load(filename):
     :return: numpy.ndarray with 3 dimensions.
     """
     if not os.path.isfile(filename.split("::")[0]):
-        raise IOError("No input file: %s" % filename)
+        raise OSError("No input file: %s" % filename)
 
     if h5py.is_hdf5(filename.split("::")[0]):
         if "::" not in filename:
@@ -83,8 +82,8 @@ def load(filename):
     else:  # Try with numpy
         try:
             data = numpy.load(filename)
-        except IOError:
-            raise IOError("Unsupported file format: %s" % filename)
+        except OSError:
+            raise OSError("Unsupported file format: %s" % filename)
 
     if data.ndim != 3:
         raise RuntimeError("Unsupported data set dimensions, only supports 3D datasets")

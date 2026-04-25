@@ -32,19 +32,17 @@ import importlib
 import logging
 import os
 import sys
-import traceback
 
 from packaging.version import Version
-from silx.utils import deprecation
 
 _logger = logging.getLogger(__name__)
 
 
 BINDING = None
-"""The name of the Qt binding in use: PyQt5, PySide6, PyQt6."""
+"""The name of the Qt binding in use: PySide6, PyQt6, PyQt5."""
 
 QtBinding = None  # noqa
-"""The Qt binding module in use: PyQt5, PySide6, PyQt6."""
+"""The Qt binding module in use: PySide6, PyQt6, PyQt5."""
 
 HAS_SVG = False
 """True if Qt provides support for Scalable Vector Graphics (QtSVG)."""
@@ -64,7 +62,7 @@ def _select_binding() -> str:
     :raises ImportError:
     :returns: Loaded binding
     """
-    bindings = "PyQt5", "PySide6", "PyQt6"
+    bindings = "PySide6", "PyQt6", "PyQt5"
 
     envvar = os.environ.get("QT_API", "").lower()
 
@@ -103,7 +101,7 @@ def _select_binding() -> str:
         else:
             return binding
 
-    raise ImportError("No Qt wrapper found. Install PyQt5, PySide6, PyQt6.")
+    raise ImportError("No Qt wrapper found. Install PySide6, PyQt6, PyQt5.")
 
 
 BINDING = _select_binding()
@@ -143,18 +141,18 @@ if BINDING == "PyQt5":
 
     from PyQt5.uic import loadUi  # noqa
 
-    Signal = pyqtSignal
+    Signal = QtCore.pyqtSignal
 
-    Property = pyqtProperty
+    Property = QtCore.pyqtProperty
 
-    Slot = pyqtSlot
+    Slot = QtCore.pyqtSlot
 
     # Disable PyQt5's cooperative multi-inheritance since other bindings do not provide it.
     # See https://www.riverbankcomputing.com/static/Docs/PyQt5/multiinheritance.html?highlight=inheritance
-    class _Foo(object):
+    class _Foo:
         pass
 
-    class QObject(QObject, _Foo):
+    class QObject(QtCore.QObject, _Foo):
         pass
 
 elif BINDING == "PySide6":
@@ -162,11 +160,12 @@ elif BINDING == "PySide6":
 
     import PySide6 as QtBinding  # noqa
 
-    if Version(QtBinding.__version__) < Version("6.4"):
+    if Version(QtBinding.__version__) < Version("6.5"):
         raise RuntimeError(
             f"PySide6 v{QtBinding.__version__} is not supported, please upgrade it."
         )
 
+    from PySide6 import QtCore
     from PySide6.QtCore import *  # noqa
     from PySide6.QtGui import *  # noqa
     from PySide6.QtWidgets import *  # noqa
@@ -189,7 +188,7 @@ elif BINDING == "PySide6":
     else:
         HAS_SVG = True
 
-    pyqtSignal = Signal
+    pyqtSignal = QtCore.Signal
 
 
 elif BINDING == "PyQt6":
@@ -200,7 +199,7 @@ elif BINDING == "PyQt6":
     from . import _pyqt6
     from PyQt6 import QtCore
 
-    if QtCore.PYQT_VERSION < int("0x60300", 16):
+    if QtCore.PYQT_VERSION < int("0x60500", 16):
         raise RuntimeError(
             "PyQt6 v%s is not supported, please upgrade it." % QtCore.PYQT_VERSION_STR
         )
@@ -238,43 +237,19 @@ elif BINDING == "PyQt6":
 
     from PyQt6.uic import loadUi  # noqa
 
-    Signal = pyqtSignal
+    Signal = QtCore.pyqtSignal
 
-    Property = pyqtProperty
+    Property = QtCore.pyqtProperty
 
-    Slot = pyqtSlot
+    Slot = QtCore.pyqtSlot
 
     # Disable PyQt6 cooperative multi-inheritance since other bindings do not provide it.
     # See https://www.riverbankcomputing.com/static/Docs/PyQt6/multiinheritance.html?highlight=inheritance
-    class _Foo(object):
+    class _Foo:
         pass
 
-    class QObject(QObject, _Foo):
+    class QObject(QtCore.QObject, _Foo):
         pass
 
 else:
     raise ImportError("No Qt wrapper found. Install PyQt5, PySide6 or PyQt6")
-
-
-# provide a exception handler but not implement it by default
-def exceptionHandler(type_, value, trace):
-    """
-    This exception handler prevents quitting to the command line when there is
-    an unhandled exception while processing a Qt signal.
-
-    The script/application willing to use it should implement code similar to:
-
-    .. code-block:: python
-
-        if __name__ == "__main__":
-            sys.excepthook = qt.exceptionHandler
-
-    """
-    _logger.error("%s %s %s", type_, value, "".join(traceback.format_tb(trace)))
-    msg = QMessageBox()
-    msg.setWindowTitle("Unhandled exception")
-    msg.setIcon(QMessageBox.Critical)
-    msg.setInformativeText("%s %s\nPlease report details" % (type_, value))
-    msg.setDetailedText(("%s " % value) + "".join(traceback.format_tb(trace)))
-    msg.raise_()
-    msg.exec()

@@ -352,6 +352,22 @@ class Workspace:
 
     async def commit(self, step_name: str, message: str = "", *, trigger_span_id: str = "") -> str:
         """Snapshot current workspace to S3 via smart commit."""
+        logger.info(
+            "Checkpoint workspace '%s' at '%s'",
+            self.name,
+            step_name,
+            extra={
+                "otel_attributes": {
+                    # Discriminator for consumers is `plato.checkpoint.workspace`,
+                    # not a sibling `plato.checkpoint=true` boolean — the two
+                    # collide in nested-JSON stores (e.g. ClickHouse splits at
+                    # dots, then orjson dedupes the duplicate `checkpoint` keys
+                    # and the boolean is lost).
+                    "plato.checkpoint.workspace": self.name,
+                    "plato.checkpoint.label": step_name,
+                }
+            },
+        )
         async with self._commit_lock:
             return await self._commit_inner(step_name, message, trigger_span_id=trigger_span_id)
 

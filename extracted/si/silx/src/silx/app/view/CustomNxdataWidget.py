@@ -39,7 +39,6 @@ from silx.gui.data.TextFormatter import TextFormatter
 from silx.gui.hdf5.Hdf5Formatter import Hdf5Formatter
 from silx.gui import icons
 
-
 _logger = logging.getLogger(__name__)
 _formatter = TextFormatter()
 _hdf5Formatter = Hdf5Formatter(textFormatter=_formatter)
@@ -66,7 +65,7 @@ class _DatasetItemRow(_RowItems):
 
     def __init__(self, label="", dataset=None):
         """Constructor"""
-        super(_DatasetItemRow, self).__init__(label)
+        super().__init__(label)
         self.setEditable(False)
         self.setDropEnabled(False)
         self.setDragEnabled(False)
@@ -155,7 +154,7 @@ class _DatasetAxisItemRow(_DatasetItemRow):
 
     def __init__(self):
         """Constructor"""
-        super(_DatasetAxisItemRow, self).__init__()
+        super().__init__()
 
     def setAxisId(self, axisId):
         """Set the id of the axis (the first axis is 0)
@@ -609,7 +608,7 @@ class CustomNxDataToolBar(qt.QToolBar):
 
     def __init__(self, parent=None):
         """Constructor"""
-        super(CustomNxDataToolBar, self).__init__(parent=parent)
+        super().__init__(parent=parent)
         self.__nxdataWidget = None
         self.__initContent()
         # Initialize action state
@@ -724,7 +723,7 @@ class _HashDropZones(qt.QStyledItemDelegate):
 
     def __init__(self, parent=None):
         """Constructor"""
-        super(_HashDropZones, self).__init__(parent)
+        super().__init__(parent)
         pen = qt.QPen()
         pen.setColor(qt.QColor("#D0D0D0"))
         pen.setStyle(qt.Qt.DotLine)

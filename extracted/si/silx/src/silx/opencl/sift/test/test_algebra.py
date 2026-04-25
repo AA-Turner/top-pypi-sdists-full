@@ -33,7 +33,7 @@ __authors__ = ["Jérôme Kieffer"]
 __contact__ = "jerome.kieffer@esrf.eu"
 __license__ = "MIT"
 __copyright__ = "2013 European Synchrotron Radiation Facility, Grenoble, France"
-__date__ = "01/08/2019"
+__date__ = "13/03/2026"
 
 import os
 import time
@@ -41,7 +41,7 @@ import logging
 import numpy
 
 import unittest
-from silx.opencl import ocl, kernel_workgroup_size
+from ... import ocl, kernel_workgroup_size
 
 if ocl:
     import pyopencl.array
@@ -75,7 +75,7 @@ def my_compact(keypoints, nbkeypoints):
 class TestAlgebra(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        super(TestAlgebra, cls).setUpClass()
+        super().setUpClass()
         if ocl:
             cls.ctx = ocl.create_context()
             if logger.getEffectiveLevel() <= logging.INFO:
@@ -98,7 +98,7 @@ class TestAlgebra(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        super(TestAlgebra, cls).tearDownClass()
+        super().tearDownClass()
         cls.ctx = None
         cls.queue = None
 
@@ -132,7 +132,7 @@ class TestAlgebra(unittest.TestCase):
         )
         t0 = time.time()
         try:
-            k1 = self.program.combine(
+            k1 = pyopencl.Kernel(self.program, "combine")(
                 self.queue,
                 (int(width), int(height)),
                 None,
@@ -192,7 +192,7 @@ class TestAlgebra(unittest.TestCase):
         startkeypoints = numpy.int32(0)
         t0 = time.time()
         try:
-            k1 = self.program.compact(
+            k1 = pyopencl.Kernel(self.program, "compact")(
                 self.queue,
                 shape,
                 wg,
@@ -221,7 +221,7 @@ class TestAlgebra(unittest.TestCase):
         res_sort = res[res_sort_arg]
         ref_sort_arg = ref[:, 2].argsort(axis=0)
         ref_sort = ref[ref_sort_arg]
-        delta = abs((res_sort - ref_sort)).max()
+        delta = abs(res_sort - ref_sort).max()
         self.assertLess(delta, 1e-5, "delta=%s" % (delta))
         self.assertEqual(count, count_ref, "counters are the same")
         logger.debug("delta=%s", delta)

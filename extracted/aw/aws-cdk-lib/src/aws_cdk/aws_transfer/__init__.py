@@ -1423,6 +1423,7 @@ class CfnConnector(
                 )
             ),
             egress_type="egressType",
+            ip_address_type="ipAddressType",
             logging_role="loggingRole",
             security_policy_name="securityPolicyName",
             sftp_config=transfer.CfnConnector.SftpConfigProperty(
@@ -1447,6 +1448,7 @@ class CfnConnector(
         as2_config: typing.Any = None,
         egress_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnector.ConnectorEgressConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         egress_type: typing.Optional[builtins.str] = None,
+        ip_address_type: typing.Optional[builtins.str] = None,
         logging_role: typing.Optional[builtins.str] = None,
         security_policy_name: typing.Optional[builtins.str] = None,
         sftp_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnector.SftpConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -1461,6 +1463,7 @@ class CfnConnector(
         :param as2_config: A structure that contains the parameters for an AS2 connector object.
         :param egress_config: Current egress configuration of the connector, showing how traffic is routed to the SFTP server. Contains VPC Lattice settings when using VPC_LATTICE egress type. When using the VPC_LATTICE egress type, AWS Transfer Family uses a managed Service Network to simplify the resource sharing process.
         :param egress_type: Type of egress configuration for the connector. SERVICE_MANAGED uses Transfer Family managed NAT gateways, while VPC_LATTICE routes traffic through customer VPCs using VPC Lattice.
+        :param ip_address_type: IP address type for Connector.
         :param logging_role: The Amazon Resource Name (ARN) of the AWS Identity and Access Management (IAM) role that allows a connector to turn on CloudWatch logging for Amazon S3 events. When set, you can view connector activity in your CloudWatch logs.
         :param security_policy_name: The text name of the security policy for the specified connector.
         :param sftp_config: A structure that contains the parameters for an SFTP connector object.
@@ -1476,6 +1479,7 @@ class CfnConnector(
             as2_config=as2_config,
             egress_config=egress_config,
             egress_type=egress_type,
+            ip_address_type=ip_address_type,
             logging_role=logging_role,
             security_policy_name=security_policy_name,
             sftp_config=sftp_config,
@@ -1704,6 +1708,19 @@ class CfnConnector(
             type_hints = typing.get_type_hints(_typecheckingstub__76cb18c9a86ea56efbf380e02f9b601550c701ceae1cc70d08ec7b3e6acf483f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "egressType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="ipAddressType")
+    def ip_address_type(self) -> typing.Optional[builtins.str]:
+        '''IP address type for Connector.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "ipAddressType"))
+
+    @ip_address_type.setter
+    def ip_address_type(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e6104cd943242757c1683a7c9792a470247f58f34836e2170000b186b4280b2c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "ipAddressType", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="loggingRole")
@@ -2386,6 +2403,7 @@ class CfnConnector(
         "as2_config": "as2Config",
         "egress_config": "egressConfig",
         "egress_type": "egressType",
+        "ip_address_type": "ipAddressType",
         "logging_role": "loggingRole",
         "security_policy_name": "securityPolicyName",
         "sftp_config": "sftpConfig",
@@ -2401,6 +2419,7 @@ class CfnConnectorProps:
         as2_config: typing.Any = None,
         egress_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnector.ConnectorEgressConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         egress_type: typing.Optional[builtins.str] = None,
+        ip_address_type: typing.Optional[builtins.str] = None,
         logging_role: typing.Optional[builtins.str] = None,
         security_policy_name: typing.Optional[builtins.str] = None,
         sftp_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnector.SftpConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -2413,6 +2432,7 @@ class CfnConnectorProps:
         :param as2_config: A structure that contains the parameters for an AS2 connector object.
         :param egress_config: Current egress configuration of the connector, showing how traffic is routed to the SFTP server. Contains VPC Lattice settings when using VPC_LATTICE egress type. When using the VPC_LATTICE egress type, AWS Transfer Family uses a managed Service Network to simplify the resource sharing process.
         :param egress_type: Type of egress configuration for the connector. SERVICE_MANAGED uses Transfer Family managed NAT gateways, while VPC_LATTICE routes traffic through customer VPCs using VPC Lattice.
+        :param ip_address_type: IP address type for Connector.
         :param logging_role: The Amazon Resource Name (ARN) of the AWS Identity and Access Management (IAM) role that allows a connector to turn on CloudWatch logging for Amazon S3 events. When set, you can view connector activity in your CloudWatch logs.
         :param security_policy_name: The text name of the security policy for the specified connector.
         :param sftp_config: A structure that contains the parameters for an SFTP connector object.
@@ -2445,6 +2465,7 @@ class CfnConnectorProps:
                     )
                 ),
                 egress_type="egressType",
+                ip_address_type="ipAddressType",
                 logging_role="loggingRole",
                 security_policy_name="securityPolicyName",
                 sftp_config=transfer.CfnConnector.SftpConfigProperty(
@@ -2465,6 +2486,7 @@ class CfnConnectorProps:
             check_type(argname="argument as2_config", value=as2_config, expected_type=type_hints["as2_config"])
             check_type(argname="argument egress_config", value=egress_config, expected_type=type_hints["egress_config"])
             check_type(argname="argument egress_type", value=egress_type, expected_type=type_hints["egress_type"])
+            check_type(argname="argument ip_address_type", value=ip_address_type, expected_type=type_hints["ip_address_type"])
             check_type(argname="argument logging_role", value=logging_role, expected_type=type_hints["logging_role"])
             check_type(argname="argument security_policy_name", value=security_policy_name, expected_type=type_hints["security_policy_name"])
             check_type(argname="argument sftp_config", value=sftp_config, expected_type=type_hints["sftp_config"])
@@ -2479,6 +2501,8 @@ class CfnConnectorProps:
             self._values["egress_config"] = egress_config
         if egress_type is not None:
             self._values["egress_type"] = egress_type
+        if ip_address_type is not None:
+            self._values["ip_address_type"] = ip_address_type
         if logging_role is not None:
             self._values["logging_role"] = logging_role
         if security_policy_name is not None:
@@ -2545,6 +2569,15 @@ class CfnConnectorProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-connector.html#cfn-transfer-connector-egresstype
         '''
         result = self._values.get("egress_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def ip_address_type(self) -> typing.Optional[builtins.str]:
+        '''IP address type for Connector.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-connector.html#cfn-transfer-connector-ipaddresstype
+        '''
+        result = self._values.get("ip_address_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -8202,6 +8235,7 @@ def _typecheckingstub__2a3d92be7ab611ebe6dbf531ad899c2a95b3655fb829aeffdf52fdb11
     as2_config: typing.Any = None,
     egress_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnector.ConnectorEgressConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     egress_type: typing.Optional[builtins.str] = None,
+    ip_address_type: typing.Optional[builtins.str] = None,
     logging_role: typing.Optional[builtins.str] = None,
     security_policy_name: typing.Optional[builtins.str] = None,
     sftp_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnector.SftpConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -8270,6 +8304,12 @@ def _typecheckingstub__55aea3d9a7ecfbca3e7720afc14e3094de156e071c5256ed2311a1836
     pass
 
 def _typecheckingstub__76cb18c9a86ea56efbf380e02f9b601550c701ceae1cc70d08ec7b3e6acf483f(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e6104cd943242757c1683a7c9792a470247f58f34836e2170000b186b4280b2c(
     value: typing.Optional[builtins.str],
 ) -> None:
     """Type checking stubs"""
@@ -8360,6 +8400,7 @@ def _typecheckingstub__7675f9dcded8f51977cf70f499821100319fe5d62996cb917457f772c
     as2_config: typing.Any = None,
     egress_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnector.ConnectorEgressConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     egress_type: typing.Optional[builtins.str] = None,
+    ip_address_type: typing.Optional[builtins.str] = None,
     logging_role: typing.Optional[builtins.str] = None,
     security_policy_name: typing.Optional[builtins.str] = None,
     sftp_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnector.SftpConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,

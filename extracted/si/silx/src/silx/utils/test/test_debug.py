@@ -34,7 +34,7 @@ from silx.utils import testutils
 
 
 @debug.log_all_methods
-class _Foobar(object):
+class _Foobar:
     def a(self):
         return None
 
@@ -53,8 +53,7 @@ class TestDebug(unittest.TestCase):
 
     def logB(self):
         """
-        Can be used to check the log output using:
-        `./run_tests.py silx.utils.test.test_debug.TestDebug.logB -v`
+        Can be used to check the log output
         """
         print()
         test = _Foobar()

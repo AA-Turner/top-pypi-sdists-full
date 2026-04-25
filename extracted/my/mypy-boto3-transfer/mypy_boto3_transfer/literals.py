@@ -83,6 +83,7 @@ __all__ = (
     "WaiterName",
     "WebAppEndpointPolicyType",
     "WebAppEndpointTypeType",
+    "WebAppVpcEndpointIpAddressTypeType",
     "WorkflowStepTypeType",
 )
 
@@ -154,6 +155,7 @@ TlsSessionResumptionModeType = Literal["DISABLED", "ENABLED", "ENFORCED"]
 TransferTableStatusType = Literal["COMPLETED", "FAILED", "IN_PROGRESS", "QUEUED"]
 WebAppEndpointPolicyType = Literal["FIPS", "STANDARD"]
 WebAppEndpointTypeType = Literal["PUBLIC", "VPC"]
+WebAppVpcEndpointIpAddressTypeType = Literal["DUALSTACK", "IPV4"]
 WorkflowStepTypeType = Literal["COPY", "CUSTOM", "DECRYPT", "DELETE", "TAG"]
 TransferServiceName = Literal["transfer"]
 ServiceName = Literal[
@@ -341,6 +343,7 @@ ServiceName = Literal[
     "inspector",
     "inspector-scan",
     "inspector2",
+    "interconnect",
     "internetmonitor",
     "invoicing",
     "iot",
@@ -397,6 +400,7 @@ ServiceName = Literal[
     "marketplace-agreement",
     "marketplace-catalog",
     "marketplace-deployment",
+    "marketplace-discovery",
     "marketplace-entitlement",
     "marketplace-reporting",
     "marketplacecommerceanalytics",
@@ -494,6 +498,7 @@ ServiceName = Literal[
     "rum",
     "s3",
     "s3control",
+    "s3files",
     "s3outposts",
     "s3tables",
     "s3vectors",

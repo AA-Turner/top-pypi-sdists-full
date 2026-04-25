@@ -78,8 +78,6 @@ global___SKUUsageSummary = SKUUsageSummary
 
 @typing.final
 class SharedBudgetUsageSummary(google.protobuf.message.Message):
-    """Pricing breakdown for a shared budget spanning multiple SKUs."""
-
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     SKUS_FIELD_NUMBER: builtins.int
@@ -105,25 +103,75 @@ class SharedBudgetUsageSummary(google.protobuf.message.Message):
 global___SharedBudgetUsageSummary = SharedBudgetUsageSummary
 
 @typing.final
+class LineItemUsageSummary(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    LINE_ITEM_UID_FIELD_NUMBER: builtins.int
+    PAYG_SPEND_CENTS_FIELD_NUMBER: builtins.int
+    line_item_uid: builtins.str
+    """Refers to uid in sentry_protos.billing.v1.common.v1.LineItemDetails"""
+    payg_spend_cents: builtins.int
+    """Net cents consumed by this line item in the billing period (after credits/trials applied)."""
+    def __init__(
+        self,
+        *,
+        line_item_uid: builtins.str = ...,
+        payg_spend_cents: builtins.int = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing.Literal["line_item_uid", b"line_item_uid", "payg_spend_cents", b"payg_spend_cents"]) -> None: ...
+
+global___LineItemUsageSummary = LineItemUsageSummary
+
+@typing.final
+class SharedLineItemUsageSummary(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    PAYG_SPEND_CENTS_FIELD_NUMBER: builtins.int
+    LINE_ITEM_SUMMARIES_FIELD_NUMBER: builtins.int
+    payg_spend_cents: builtins.int
+    """Net cents consumed across all SKUs in this shared budget (after credits/trials applied)."""
+    @property
+    def line_item_summaries(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___LineItemUsageSummary]:
+        """Line item breakdown within shared budget"""
+
+    def __init__(
+        self,
+        *,
+        payg_spend_cents: builtins.int = ...,
+        line_item_summaries: collections.abc.Iterable[global___LineItemUsageSummary] | None = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing.Literal["line_item_summaries", b"line_item_summaries", "payg_spend_cents", b"payg_spend_cents"]) -> None: ...
+
+global___SharedLineItemUsageSummary = SharedLineItemUsageSummary
+
+@typing.final
 class UsagePricerResponse(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     SKU_SUMMARIES_FIELD_NUMBER: builtins.int
     SHARED_BUDGET_SUMMARIES_FIELD_NUMBER: builtins.int
+    LINE_ITEM_SUMMARIES_FIELD_NUMBER: builtins.int
+    SHARED_LINE_ITEM_SUMMARIES_FIELD_NUMBER: builtins.int
     @property
     def sku_summaries(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___SKUUsageSummary]:
-        """Per-SKU pricing breakdown."""
+        """use line_item_summaries"""
 
     @property
     def shared_budget_summaries(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___SharedBudgetUsageSummary]:
-        """Per-shared-budget pricing breakdown (for SKUs sharing a budget)."""
+        """use shared_line_item_summaries"""
 
+    @property
+    def line_item_summaries(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___LineItemUsageSummary]: ...
+    @property
+    def shared_line_item_summaries(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___SharedLineItemUsageSummary]: ...
     def __init__(
         self,
         *,
         sku_summaries: collections.abc.Iterable[global___SKUUsageSummary] | None = ...,
         shared_budget_summaries: collections.abc.Iterable[global___SharedBudgetUsageSummary] | None = ...,
+        line_item_summaries: collections.abc.Iterable[global___LineItemUsageSummary] | None = ...,
+        shared_line_item_summaries: collections.abc.Iterable[global___SharedLineItemUsageSummary] | None = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing.Literal["shared_budget_summaries", b"shared_budget_summaries", "sku_summaries", b"sku_summaries"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["line_item_summaries", b"line_item_summaries", "shared_budget_summaries", b"shared_budget_summaries", "shared_line_item_summaries", b"shared_line_item_summaries", "sku_summaries", b"sku_summaries"]) -> None: ...
 
 global___UsagePricerResponse = UsagePricerResponse

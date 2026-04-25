@@ -8,6 +8,7 @@ from typing import Any, Callable, Coroutine
 logger = logging.getLogger(__name__)
 
 AskCallback = Callable[[str, list[str] | None], Coroutine[Any, Any, str | None]]
+MAX_ANSWER_CHARS = 4096
 
 DEFINITION: dict[str, Any] = {
     "name": "ask_user",
@@ -15,7 +16,7 @@ DEFINITION: dict[str, Any] = {
         "Ask the user a question and wait for their response. "
         "Use this when you need information you cannot infer from context, tools, or prior conversation. "
         "Do NOT ask questions in your text output — use this tool instead. "
-        "Provide options when the user should choose from a fixed set of choices."
+        "Provide options when the user should see suggested choices; users may still provide custom text."
     ),
     "parameters": {
         "type": "object",
@@ -28,8 +29,8 @@ DEFINITION: dict[str, Any] = {
                 "type": "array",
                 "items": {"type": "string"},
                 "description": (
-                    "Optional list of choices for the user to pick from. "
-                    "Omit for freeform text input. When provided, the user selects one option."
+                    "Optional list of suggested choices for the user to pick from. "
+                    "Omit for freeform text input. When provided, users may select an option or type custom text."
                 ),
             },
         },
@@ -70,6 +71,8 @@ async def handle(
         answer = await _ask_callback(question.strip(), clean_options)
         if answer is _CANCEL_SENTINEL:
             return {"cancelled": True, "answer": ""}
+        if len(answer) > MAX_ANSWER_CHARS:
+            answer = answer[:MAX_ANSWER_CHARS]
         return {"answer": answer}
     except (EOFError, KeyboardInterrupt):
         return {"cancelled": True, "answer": ""}

@@ -45,6 +45,8 @@ use crate::model::ModelTable;
 use crate::model::StreamResponse;
 use crate::model::StreamResponseAndMessages;
 use crate::relay::TensorzeroRelay;
+use tensorzero_inference_types::ProviderToolCallConfig;
+
 use crate::tool::{ToolCallConfig, create_dynamic_implicit_tool_config};
 use crate::utils::retries::RetryConfig;
 use crate::{inference::types::InferenceResult, model::ModelConfig};
@@ -439,7 +441,12 @@ impl Variant for VariantInfo {
                 }
             }
         };
-        if let Some(timeout) = self.timeouts.non_streaming.total_ms {
+        if let Some(timeout) = self
+            .timeouts
+            .non_streaming
+            .as_ref()
+            .and_then(|ns| ns.total_ms)
+        {
             let timeout = tokio::time::Duration::from_millis(timeout);
             tokio::time::timeout(timeout, fut)
                 .await
@@ -547,9 +554,10 @@ impl Variant for VariantInfo {
         let ttft_timeout = self
             .timeouts
             .streaming
-            .ttft_ms
+            .as_ref()
+            .and_then(|s| s.ttft_ms)
             .map(tokio::time::Duration::from_millis);
-        let streaming_total_ms = self.timeouts.streaming.total_ms;
+        let streaming_total_ms = self.timeouts.streaming.as_ref().and_then(|s| s.total_ms);
         let total_timeout = streaming_total_ms.map(tokio::time::Duration::from_millis);
         let pre_ttft_timeout = match (ttft_timeout, total_timeout) {
             (Some(ttft), Some(total)) => {
@@ -753,12 +761,12 @@ fn prepare_model_inference_request<'request>(
     Ok(match function {
         FunctionConfig::Chat(_) => {
             // For chat functions with `json_mode="tool"`, create a tool config based on the output schema
-            let tool_config = match json_mode {
+            let tool_config: Option<Cow<'_, ProviderToolCallConfig>> = match json_mode {
                 Some(JsonMode::Tool) => {
                     // We know dynamic_output_schema exists because validation already checked this
                     match &inference_config.dynamic_output_schema {
-                        Some(schema) => Some(Cow::Owned(create_dynamic_implicit_tool_config(
-                            schema.value.clone(),
+                        Some(schema) => Some(Cow::Owned(ProviderToolCallConfig::from(
+                            &create_dynamic_implicit_tool_config(schema.value.clone()),
                         ))),
                         None => {
                             return Err(ErrorDetails::InvalidRequest {
@@ -771,7 +779,7 @@ fn prepare_model_inference_request<'request>(
                 _ => inference_config
                     .tool_config
                     .as_ref()
-                    .map(|arc| Cow::Borrowed(arc.as_ref())),
+                    .map(|arc| Cow::Owned(ProviderToolCallConfig::from(arc.as_ref()))),
             };
 
             ModelInferenceRequest {
@@ -813,12 +821,14 @@ fn prepare_model_inference_request<'request>(
             }
         }
         FunctionConfig::Json(json_config) => {
-            let tool_config = match json_mode {
+            let tool_config: Option<Cow<'_, ProviderToolCallConfig>> = match json_mode {
                 Some(JsonMode::Tool) => match &inference_config.dynamic_output_schema {
-                    Some(schema) => Some(Cow::Owned(create_dynamic_implicit_tool_config(
-                        schema.value.clone(),
+                    Some(schema) => Some(Cow::Owned(ProviderToolCallConfig::from(
+                        &create_dynamic_implicit_tool_config(schema.value.clone()),
                     ))),
-                    None => Some(Cow::Borrowed(&json_config.json_mode_tool_call_config)),
+                    None => Some(Cow::Owned(ProviderToolCallConfig::from(
+                        &json_config.json_mode_tool_call_config,
+                    ))),
                 },
                 _ => None,
             };
@@ -887,7 +897,12 @@ async fn infer_model_request(
         .retry_config
         .retry_collecting_errors(|| async {
             args.model_config
-                .infer(&args.request, &clients, &args.model_name)
+                .infer(
+                    &args.request,
+                    &clients,
+                    &args.model_name,
+                    Some(&args.inference_config.function_name),
+                )
                 .await
         })
         .await;
@@ -940,6 +955,7 @@ async fn infer_model_request(
 // Note: this is due to a bug in Clippy 1.86 which runs on CI
 // when we upgrate it we should be able to remove this attribute
 #[allow(clippy::needless_lifetimes, clippy::allow_attributes)]
+#[expect(clippy::too_many_arguments)]
 async fn infer_model_request_stream<'request>(
     request: ModelInferenceRequest<'request>,
     model_name: Arc<str>,
@@ -948,12 +964,13 @@ async fn infer_model_request_stream<'request>(
     clients: InferenceClients,
     inference_params: InferenceParams,
     retry_config: RetryConfig,
+    function_name: Option<&'request str>,
 ) -> Result<(InferenceResultStream, ModelUsedInfo), Error> {
     let include_raw_response = clients.include_raw_response;
     let (result, retry_errors) = retry_config
         .retry_collecting_errors(|| async {
             model_config
-                .infer_stream(&request, &clients, &model_name)
+                .infer_stream(&request, &clients, &model_name, function_name)
                 .await
         })
         .await;
@@ -1127,6 +1144,7 @@ mod tests {
 
         // Define a dummy tool config for testing
         let tool_config = ToolCallConfig::default();
+        let provider_tool_config = ProviderToolCallConfig::from(&tool_config);
         let tool_config_arc = Arc::new(tool_config.clone());
 
         // Create a sample inference config
@@ -1203,7 +1221,10 @@ mod tests {
 
         assert_eq!(result.messages.len(), 2);
         assert_eq!(result.system, system);
-        assert_eq!(result.tool_config, Some(Cow::Borrowed(&tool_config)));
+        assert_eq!(
+            result.tool_config,
+            Some(Cow::Borrowed(&provider_tool_config))
+        );
         assert_eq!(result.temperature, Some(0.7));
         assert_eq!(result.top_p, Some(0.9));
         assert_eq!(result.max_tokens, Some(50));
@@ -1305,8 +1326,8 @@ mod tests {
 
         assert_eq!(
             result.tool_config,
-            Some(Cow::Owned(create_dynamic_implicit_tool_config(
-                dynamic_output_schema_value.clone(),
+            Some(Cow::Owned(ProviderToolCallConfig::from(
+                &create_dynamic_implicit_tool_config(dynamic_output_schema_value.clone(),)
             )))
         );
         assert_eq!(result.output_schema, Some(&dynamic_output_schema_value));
@@ -1980,6 +2001,7 @@ mod tests {
             clients.clone(),
             inference_params.clone(),
             retry_config,
+            None,
         )
         .await;
 
@@ -2167,6 +2189,7 @@ mod tests {
             clients.clone(),
             inference_params.clone(),
             retry_config,
+            None,
         )
         .await;
 

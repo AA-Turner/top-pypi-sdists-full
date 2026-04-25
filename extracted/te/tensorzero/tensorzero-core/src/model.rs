@@ -1,14 +1,20 @@
+use crate::providers::openai::ContentBlockType;
 use futures::StreamExt;
 use futures::future::try_join_all;
 use indexmap::IndexMap;
-use secrecy::SecretString;
 use serde_json::Value;
 use std::borrow::Cow;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
+use std::sync::atomic::Ordering;
 use std::time::Duration;
 use strum::VariantNames;
 use tensorzero_derive::TensorZeroDeserialize;
+use tensorzero_stored_config::{
+    StoredContentBlockType, StoredHostedProviderKind, StoredModelConfig, StoredModelProvider,
+    StoredOpenAIAPIType, StoredProviderConfig,
+};
+use tensorzero_stored_config::{StoredCostConfig, StoredTimeoutsConfig, StoredUnifiedCostConfig};
 use tokio::time::error::Elapsed;
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use tracing::{Level, Span, span};
@@ -33,11 +39,19 @@ use crate::endpoints::inference::InferenceClients;
 use crate::http::TensorzeroHttpClient;
 use crate::inference::types::usage::aggregate_usage_from_single_streaming_model_inference;
 use crate::model_table::ProviderKind;
+use crate::observability::genai_conventions;
+use crate::observability::internal_metrics::{
+    TENSORZERO_INPUT_TOKENS_TOTAL, TENSORZERO_OUTPUT_TOKENS_TOTAL,
+};
 use crate::providers::aws_bedrock::build_aws_bedrock_provider_config;
 use crate::providers::aws_sagemaker::{AWSSagemakerProvider, build_aws_sagemaker_config};
 #[cfg(any(test, feature = "e2e_tests"))]
 use crate::providers::dummy::DummyProvider;
 use crate::providers::google_ai_studio_gemini::GoogleAIStudioGeminiProvider;
+use tensorzero_stored_config::{
+    StoredCredentialLocation, StoredCredentialLocationOrHardcoded,
+    StoredCredentialLocationWithFallback, StoredEndpointLocation,
+};
 use tensorzero_types::{UninitializedCostConfig, UninitializedUnifiedCostConfig};
 
 use crate::inference::WrappedProvider;
@@ -76,6 +90,7 @@ use crate::{
 };
 use metrics::counter;
 use serde::{Deserialize, Serialize};
+use tensorzero_stored_config::{StoredExtraBodyConfig, StoredExtraHeadersConfig};
 
 use crate::providers::{
     anthropic::AnthropicProvider, aws_bedrock::AWSBedrockProvider, azure::AzureProvider,
@@ -89,9 +104,11 @@ use crate::providers::{
 pub(crate) fn record_usage_metrics(usage: &Usage) {
     if let Some(input_tokens) = usage.input_tokens {
         counter!("tensorzero_input_tokens_total").increment(input_tokens as u64);
+        TENSORZERO_INPUT_TOKENS_TOTAL.fetch_add(input_tokens as u64, Ordering::Relaxed);
     }
     if let Some(output_tokens) = usage.output_tokens {
         counter!("tensorzero_output_tokens_total").increment(output_tokens as u64);
+        TENSORZERO_OUTPUT_TOKENS_TOTAL.fetch_add(output_tokens as u64, Ordering::Relaxed);
     }
 }
 
@@ -202,6 +219,364 @@ impl UninitializedModelConfig {
             skip_relay,
             namespace: self.namespace,
         })
+    }
+}
+
+impl TryFrom<StoredModelConfig> for UninitializedModelConfig {
+    type Error = Error;
+
+    fn try_from(stored: StoredModelConfig) -> Result<Self, Error> {
+        let providers = stored
+            .providers
+            .into_iter()
+            .map(|(name, provider)| {
+                let provider: UninitializedModelProvider = provider.try_into()?;
+                Ok((Arc::<str>::from(name), provider))
+            })
+            .collect::<Result<HashMap<_, _>, Error>>()?;
+        Ok(UninitializedModelConfig {
+            routing: stored.routing.into_iter().map(Arc::<str>::from).collect(),
+            providers,
+            timeouts: stored
+                .timeouts
+                .map(TimeoutsConfig::from)
+                .unwrap_or_default(),
+            skip_relay: stored.skip_relay,
+            namespace: stored.namespace.map(Namespace::new).transpose()?,
+        })
+    }
+}
+
+impl TryFrom<StoredModelProvider> for UninitializedModelProvider {
+    type Error = Error;
+
+    fn try_from(stored: StoredModelProvider) -> Result<Self, Error> {
+        let config: UninitializedProviderConfig = stored.provider.try_into()?;
+        let cost = stored.cost.map(UninitializedCostConfig::from);
+        let batch_cost = stored.batch_cost.map(UninitializedUnifiedCostConfig::from);
+        Ok(UninitializedModelProvider {
+            config,
+            extra_body: stored.extra_body.map(ExtraBodyConfig::from),
+            extra_headers: stored.extra_headers.map(ExtraHeadersConfig::from),
+            timeouts: stored
+                .timeouts
+                .map(TimeoutsConfig::from)
+                .unwrap_or_default(),
+            discard_unknown_chunks: stored.discard_unknown_chunks.unwrap_or_default(),
+            cost,
+            batch_cost,
+        })
+    }
+}
+
+impl TryFrom<&UninitializedModelConfig> for StoredModelConfig {
+    type Error = Error;
+
+    fn try_from(config: &UninitializedModelConfig) -> Result<Self, Error> {
+        let providers = config
+            .providers
+            .iter()
+            .map(|(provider_name, provider)| {
+                Ok::<_, Error>((
+                    provider_name.to_string(),
+                    StoredModelProvider::from(provider),
+                ))
+            })
+            .collect::<Result<BTreeMap<_, _>, _>>()?;
+
+        Ok(StoredModelConfig {
+            routing: config.routing.iter().map(ToString::to_string).collect(),
+            providers,
+            timeouts: Some(StoredTimeoutsConfig::from(&config.timeouts)),
+            skip_relay: config.skip_relay,
+            namespace: config.namespace.as_ref().map(ToString::to_string),
+        })
+    }
+}
+
+impl From<StoredHostedProviderKind> for HostedProviderKind {
+    fn from(stored: StoredHostedProviderKind) -> Self {
+        match stored {
+            StoredHostedProviderKind::OpenAI => Self::OpenAI,
+            StoredHostedProviderKind::TGI => Self::TGI,
+        }
+    }
+}
+
+impl From<StoredOpenAIAPIType> for OpenAIAPIType {
+    fn from(stored: StoredOpenAIAPIType) -> Self {
+        match stored {
+            StoredOpenAIAPIType::ChatCompletions => Self::ChatCompletions,
+            StoredOpenAIAPIType::Responses => Self::Responses,
+        }
+    }
+}
+
+impl From<StoredContentBlockType> for ContentBlockType {
+    fn from(stored: StoredContentBlockType) -> Self {
+        match stored {
+            StoredContentBlockType::ImageUrl => Self::ImageUrl,
+            StoredContentBlockType::File => Self::File,
+            StoredContentBlockType::InputAudio => Self::InputAudio,
+        }
+    }
+}
+
+impl From<&ContentBlockType> for StoredContentBlockType {
+    fn from(value: &ContentBlockType) -> Self {
+        match value {
+            ContentBlockType::ImageUrl => StoredContentBlockType::ImageUrl,
+            ContentBlockType::File => StoredContentBlockType::File,
+            ContentBlockType::InputAudio => StoredContentBlockType::InputAudio,
+        }
+    }
+}
+
+fn parse_optional_url(url: Option<String>, field_name: &str) -> Result<Option<Url>, Error> {
+    url.map(|u| {
+        u.parse::<Url>().map_err(|e| {
+            Error::new(ErrorDetails::Config {
+                message: format!("Failed to parse `{field_name}` URL: {e}"),
+            })
+        })
+    })
+    .transpose()
+}
+
+fn parse_url(url: String, field_name: &str) -> Result<Url, Error> {
+    url.parse::<Url>().map_err(|e| {
+        Error::new(ErrorDetails::Config {
+            message: format!("Failed to parse `{field_name}` URL: {e}"),
+        })
+    })
+}
+
+impl TryFrom<StoredProviderConfig> for UninitializedProviderConfig {
+    type Error = Error;
+
+    fn try_from(stored: StoredProviderConfig) -> Result<Self, Error> {
+        match stored {
+            StoredProviderConfig::Anthropic {
+                model_name,
+                api_base,
+                api_key_location,
+                beta_structured_outputs,
+                provider_tools,
+            } => Ok(Self::Anthropic {
+                model_name,
+                api_base: parse_optional_url(api_base, "api_base")?,
+                api_key_location: api_key_location.map(CredentialLocationWithFallback::from),
+                beta_structured_outputs,
+                provider_tools: provider_tools.unwrap_or_default(),
+            }),
+            StoredProviderConfig::AWSBedrock {
+                model_id,
+                region,
+                allow_auto_detect_region,
+                endpoint_url,
+                api_key,
+                access_key_id,
+                secret_access_key,
+                session_token,
+            } => Ok(Self::AWSBedrock {
+                model_id,
+                region: region.map(CredentialLocationOrHardcoded::from),
+                allow_auto_detect_region: allow_auto_detect_region.unwrap_or_default(),
+                endpoint_url: endpoint_url.map(CredentialLocationOrHardcoded::from),
+                api_key: api_key.map(CredentialLocation::from),
+                access_key_id: access_key_id.map(CredentialLocation::from),
+                secret_access_key: secret_access_key.map(CredentialLocation::from),
+                session_token: session_token.map(CredentialLocation::from),
+            }),
+            StoredProviderConfig::AWSSagemaker {
+                endpoint_name,
+                model_name,
+                region,
+                allow_auto_detect_region,
+                hosted_provider,
+                endpoint_url,
+                access_key_id,
+                secret_access_key,
+                session_token,
+            } => Ok(Self::AWSSagemaker {
+                endpoint_name,
+                model_name,
+                region: region.map(CredentialLocationOrHardcoded::from),
+                allow_auto_detect_region: allow_auto_detect_region.unwrap_or_default(),
+                hosted_provider: hosted_provider.into(),
+                endpoint_url: endpoint_url.map(CredentialLocationOrHardcoded::from),
+                access_key_id: access_key_id.map(CredentialLocation::from),
+                secret_access_key: secret_access_key.map(CredentialLocation::from),
+                session_token: session_token.map(CredentialLocation::from),
+            }),
+            StoredProviderConfig::Azure {
+                deployment_id,
+                endpoint,
+                api_key_location,
+            } => Ok(Self::Azure {
+                deployment_id,
+                endpoint: EndpointLocation::from(endpoint),
+                api_key_location: api_key_location.map(CredentialLocationWithFallback::from),
+            }),
+            StoredProviderConfig::GCPVertexAnthropic {
+                model_id,
+                location,
+                project_id,
+                credential_location,
+                provider_tools,
+            } => Ok(Self::GCPVertexAnthropic {
+                model_id,
+                location,
+                project_id,
+                credential_location: credential_location.map(CredentialLocationWithFallback::from),
+                provider_tools: provider_tools.unwrap_or_default(),
+            }),
+            StoredProviderConfig::GCPVertexGemini {
+                model_id,
+                endpoint_id,
+                location,
+                project_id,
+                credential_location,
+            } => Ok(Self::GCPVertexGemini {
+                model_id,
+                endpoint_id,
+                location,
+                project_id,
+                credential_location: credential_location.map(CredentialLocationWithFallback::from),
+            }),
+            StoredProviderConfig::GoogleAIStudioGemini {
+                model_name,
+                api_key_location,
+            } => Ok(Self::GoogleAIStudioGemini {
+                model_name,
+                api_key_location: api_key_location.map(CredentialLocationWithFallback::from),
+            }),
+            StoredProviderConfig::Groq {
+                model_name,
+                api_key_location,
+                reasoning_format,
+            } => Ok(Self::Groq {
+                model_name,
+                api_key_location: api_key_location.map(CredentialLocationWithFallback::from),
+                reasoning_format,
+            }),
+            StoredProviderConfig::Hyperbolic {
+                model_name,
+                api_key_location,
+            } => Ok(Self::Hyperbolic {
+                model_name,
+                api_key_location: api_key_location.map(CredentialLocationWithFallback::from),
+            }),
+            StoredProviderConfig::Fireworks {
+                model_name,
+                api_key_location,
+                parse_think_blocks,
+            } => Ok(Self::Fireworks {
+                model_name,
+                api_key_location: api_key_location.map(CredentialLocationWithFallback::from),
+                parse_think_blocks,
+            }),
+            StoredProviderConfig::Mistral {
+                model_name,
+                api_key_location,
+                prompt_mode,
+            } => Ok(Self::Mistral {
+                model_name,
+                api_key_location: api_key_location.map(CredentialLocationWithFallback::from),
+                prompt_mode,
+            }),
+            StoredProviderConfig::OpenAI {
+                model_name,
+                api_base,
+                api_key_location,
+                api_type,
+                include_encrypted_reasoning,
+                provider_tools,
+                content_type_overrides,
+            } => Ok(Self::OpenAI {
+                model_name,
+                api_base: parse_optional_url(api_base, "api_base")?,
+                api_key_location: api_key_location.map(CredentialLocationWithFallback::from),
+                api_type: api_type.map(OpenAIAPIType::from).unwrap_or_default(),
+                include_encrypted_reasoning: include_encrypted_reasoning.unwrap_or_default(),
+                provider_tools: provider_tools.unwrap_or_default(),
+                content_type_overrides: content_type_overrides
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(|(k, v)| (k, ContentBlockType::from(v)))
+                    .collect(),
+            }),
+            StoredProviderConfig::OpenRouter {
+                model_name,
+                api_key_location,
+            } => Ok(Self::OpenRouter {
+                model_name,
+                api_key_location: api_key_location.map(CredentialLocationWithFallback::from),
+            }),
+            StoredProviderConfig::Together {
+                model_name,
+                api_key_location,
+                parse_think_blocks,
+            } => Ok(Self::Together {
+                model_name,
+                api_key_location: api_key_location.map(CredentialLocationWithFallback::from),
+                parse_think_blocks,
+            }),
+            StoredProviderConfig::VLLM {
+                model_name,
+                api_base,
+                api_key_location,
+            } => Ok(Self::VLLM {
+                model_name,
+                api_base: parse_url(api_base, "api_base")?,
+                api_key_location: api_key_location.map(CredentialLocationWithFallback::from),
+            }),
+            StoredProviderConfig::XAI {
+                model_name,
+                api_key_location,
+            } => Ok(Self::XAI {
+                model_name,
+                api_key_location: api_key_location.map(CredentialLocationWithFallback::from),
+            }),
+            StoredProviderConfig::TGI {
+                api_base,
+                api_key_location,
+            } => Ok(Self::TGI {
+                api_base: parse_url(api_base, "api_base")?,
+                api_key_location: api_key_location.map(CredentialLocationWithFallback::from),
+            }),
+            StoredProviderConfig::SGLang {
+                model_name,
+                api_base,
+                api_key_location,
+            } => Ok(Self::SGLang {
+                model_name,
+                api_base: parse_url(api_base, "api_base")?,
+                api_key_location: api_key_location.map(CredentialLocationWithFallback::from),
+            }),
+            StoredProviderConfig::DeepSeek {
+                model_name,
+                api_key_location,
+            } => Ok(Self::DeepSeek {
+                model_name,
+                api_key_location: api_key_location.map(CredentialLocationWithFallback::from),
+            }),
+            #[cfg(any(test, feature = "e2e_tests"))]
+            StoredProviderConfig::Dummy {
+                model_name,
+                api_key_location,
+            } => Ok(Self::Dummy {
+                model_name,
+                api_key_location: api_key_location
+                    .map(serde_json::from_value)
+                    .transpose()
+                    .map_err(|e| {
+                        Error::new(ErrorDetails::Config {
+                            message: format!("invalid Dummy api_key_location: {e}"),
+                        })
+                    })?,
+            }),
+        }
     }
 }
 
@@ -509,6 +884,7 @@ impl ModelConfig {
         request: &'request ModelInferenceRequest<'request>,
         clients: &InferenceClients,
         model_name: &'request str,
+        function_name: Option<&'request str>,
     ) -> Result<ModelInferenceResponse, Error> {
         let span = tracing::Span::current();
         clients.otlp_config.mark_openinference_chain_span(&span);
@@ -541,6 +917,7 @@ impl ModelConfig {
                     provider_name,
                     otlp_config: &clients.otlp_config,
                     model_inference_id: Uuid::now_v7(),
+                    function_name,
                 };
                 let cache_key = model_provider_request.get_cache_key()?;
 
@@ -625,7 +1002,12 @@ impl ModelConfig {
         // Some of the providers may themselves have timeouts, which is fine. Provider timeouts
         // are treated as just another kind of provider error - a timeout of N ms is equivalent
         // to a provider taking N ms, and then producing a normal HTTP error.
-        if let Some(timeout) = self.timeouts.non_streaming.total_ms {
+        if let Some(timeout) = self
+            .timeouts
+            .non_streaming
+            .as_ref()
+            .and_then(|ns| ns.total_ms)
+        {
             let timeout = Duration::from_millis(timeout);
             tokio::time::timeout(timeout, run_all_models)
                 .await
@@ -649,6 +1031,7 @@ impl ModelConfig {
         request: &'request ModelInferenceRequest<'request>,
         clients: &InferenceClients,
         model_name: &'request str,
+        function_name: Option<&'request str>,
     ) -> Result<StreamResponseAndMessages, Error> {
         clients
             .otlp_config
@@ -689,6 +1072,7 @@ impl ModelConfig {
                     provider_name,
                     otlp_config: &clients.otlp_config,
                     model_inference_id: Uuid::now_v7(),
+                    function_name,
                 };
 
                 // This future includes a call to `peek_first_chunk`, so applying
@@ -772,8 +1156,13 @@ impl ModelConfig {
         let start = tokio::time::Instant::now();
 
         // Compute the effective pre-TTFT deadline from both ttft_ms and total_ms.
-        let ttft_timeout = self.timeouts.streaming.ttft_ms.map(Duration::from_millis);
-        let streaming_total_ms = self.timeouts.streaming.total_ms;
+        let ttft_timeout = self
+            .timeouts
+            .streaming
+            .as_ref()
+            .and_then(|s| s.ttft_ms)
+            .map(Duration::from_millis);
+        let streaming_total_ms = self.timeouts.streaming.as_ref().and_then(|s| s.total_ms);
         let total_timeout = streaming_total_ms.map(Duration::from_millis);
         let pre_ttft_timeout = match (ttft_timeout, total_timeout) {
             (Some(ttft), Some(total)) => {
@@ -890,6 +1279,7 @@ fn wrap_provider_stream(
         .clone()
         .map(std::borrow::Cow::into_owned);
     let otlp_config = clients.otlp_config.clone();
+    let capture_content = otlp_config.genai_content_capture_enabled();
     let deferred_tasks = clients.deferred_tasks.clone();
     let span_clone = span.clone();
 
@@ -899,6 +1289,7 @@ fn wrap_provider_stream(
     let base_stream = async_stream::stream! {
         let mut buffer = vec![];
         let mut errored = false;
+        let should_buffer = write_to_cache || capture_content;
 
         // IMPORTANT: We should NOT modify chunks here, as they'll be re-processed downstream (e.g. `create_stream`).
         while let Some(chunk) = stream.next().await {
@@ -906,14 +1297,14 @@ fn wrap_provider_stream(
                 usages.push(*chunk_usage);
             }
 
-            // We can skip cloning the chunk if we know we're not going to write to the cache
-            if write_to_cache && !errored {
+            // Buffer chunks when we need them downstream (cache write and/or GenAI span attribute emission).
+            if should_buffer && !errored {
                 match chunk.as_ref() {
                     Ok(chunk) => {
                         buffer.push(chunk.clone());
                     }
                     Err(e) => {
-                        tracing::warn!("Skipping cache write for stream response due to error in stream: {e}");
+                        tracing::warn!("Skipping buffered chunk due to error in stream: {e}");
                         errored = true;
                     }
                 }
@@ -936,6 +1327,13 @@ fn wrap_provider_stream(
         let aggregated_usage = aggregate_usage_from_single_streaming_model_inference(usages);
 
         otlp_config.apply_usage_to_model_provider_span(&span_clone, &aggregated_usage);
+        if capture_content && !errored {
+            let out_messages = genai_conventions::to_genai_output_from_chunks(&buffer);
+            span_clone.set_attribute(
+                "gen_ai.output.messages",
+                serde_json::to_string(&out_messages).unwrap_or_default(),
+            );
+        }
         // Make sure that we finish updating rate-limiting tickets if the gateway shuts down
         deferred_tasks.spawn(async move {
             let nano_cost = aggregated_usage.cost.map(decimal_cost_to_nano_cost);
@@ -973,7 +1371,8 @@ fn wrap_provider_stream(
                 tool_config
             );
         }
-    }.instrument(span);
+    }
+    .instrument(span);
     // We unconditionally create a stream, and forward items into it from a separate task
     // This ensures that we keep processing chunks (and call `return_tickets` to update rate-limiting information)
     // even if the top-level HTTP request is later dropped.
@@ -1019,6 +1418,29 @@ pub struct UninitializedModelProvider {
     pub batch_cost: Option<UninitializedUnifiedCostConfig>,
 }
 
+impl From<&UninitializedModelProvider> for StoredModelProvider {
+    fn from(provider: &UninitializedModelProvider) -> Self {
+        StoredModelProvider {
+            provider: StoredProviderConfig::from(&provider.config),
+            extra_body: provider
+                .extra_body
+                .as_ref()
+                .map(StoredExtraBodyConfig::from),
+            extra_headers: provider
+                .extra_headers
+                .as_ref()
+                .map(StoredExtraHeadersConfig::from),
+            timeouts: Some(StoredTimeoutsConfig::from(&provider.timeouts)),
+            discard_unknown_chunks: Some(provider.discard_unknown_chunks),
+            cost: provider.cost.as_ref().map(StoredCostConfig::from),
+            batch_cost: provider
+                .batch_cost
+                .as_ref()
+                .map(StoredUnifiedCostConfig::from),
+        }
+    }
+}
+
 #[cfg_attr(feature = "ts-bindings", derive(ts_rs::TS))]
 #[derive(Debug, Serialize)]
 #[cfg_attr(feature = "ts-bindings", ts(export))]
@@ -1052,15 +1474,21 @@ impl ModelProvider {
         Ok(())
     }
     fn non_streaming_total_timeout(&self) -> Option<Duration> {
-        Some(Duration::from_millis(self.timeouts.non_streaming.total_ms?))
+        Some(Duration::from_millis(
+            self.timeouts.non_streaming.as_ref()?.total_ms?,
+        ))
     }
 
     fn streaming_ttft_timeout(&self) -> Option<Duration> {
-        Some(Duration::from_millis(self.timeouts.streaming.ttft_ms?))
+        Some(Duration::from_millis(
+            self.timeouts.streaming.as_ref()?.ttft_ms?,
+        ))
     }
 
     fn streaming_total_timeout(&self) -> Option<Duration> {
-        Some(Duration::from_millis(self.timeouts.streaming.total_ms?))
+        Some(Duration::from_millis(
+            self.timeouts.streaming.as_ref()?.total_ms?,
+        ))
     }
 
     /// The name to report in the OTEL `gen_ai.system` attribute
@@ -1146,15 +1574,9 @@ impl From<&ModelProvider> for ModelProviderRequestInfo {
             provider_name: val.name.clone(),
             extra_headers: val.extra_headers.clone(),
             extra_body: val.extra_body.clone(),
+            discard_unknown_chunks: val.discard_unknown_chunks,
         }
     }
-}
-
-#[derive(Clone, Debug)]
-pub struct ModelProviderRequestInfo {
-    pub provider_name: Arc<str>,
-    pub extra_headers: Option<ExtraHeadersConfig>,
-    pub extra_body: Option<ExtraBodyConfig>,
 }
 
 #[derive(Debug, Serialize)]
@@ -1484,6 +1906,275 @@ pub enum UninitializedProviderConfig {
     },
 }
 
+impl From<&UninitializedProviderConfig> for StoredProviderConfig {
+    fn from(config: &UninitializedProviderConfig) -> Self {
+        match config {
+            UninitializedProviderConfig::Anthropic {
+                model_name,
+                api_base,
+                api_key_location,
+                beta_structured_outputs,
+                provider_tools,
+            } => StoredProviderConfig::Anthropic {
+                model_name: model_name.clone(),
+                api_base: api_base.as_ref().map(ToString::to_string),
+                api_key_location: api_key_location
+                    .as_ref()
+                    .map(StoredCredentialLocationWithFallback::from),
+                beta_structured_outputs: *beta_structured_outputs,
+                provider_tools: (!provider_tools.is_empty()).then(|| provider_tools.clone()),
+            },
+            UninitializedProviderConfig::AWSBedrock {
+                model_id,
+                region,
+                allow_auto_detect_region,
+                endpoint_url,
+                api_key,
+                access_key_id,
+                secret_access_key,
+                session_token,
+            } => StoredProviderConfig::AWSBedrock {
+                model_id: model_id.clone(),
+                region: region
+                    .as_ref()
+                    .map(StoredCredentialLocationOrHardcoded::from),
+                allow_auto_detect_region: Some(*allow_auto_detect_region),
+                endpoint_url: endpoint_url
+                    .as_ref()
+                    .map(StoredCredentialLocationOrHardcoded::from),
+                api_key: api_key.as_ref().map(StoredCredentialLocation::from),
+                access_key_id: access_key_id.as_ref().map(StoredCredentialLocation::from),
+                secret_access_key: secret_access_key
+                    .as_ref()
+                    .map(StoredCredentialLocation::from),
+                session_token: session_token.as_ref().map(StoredCredentialLocation::from),
+            },
+            UninitializedProviderConfig::AWSSagemaker {
+                endpoint_name,
+                model_name,
+                region,
+                allow_auto_detect_region,
+                hosted_provider,
+                endpoint_url,
+                access_key_id,
+                secret_access_key,
+                session_token,
+            } => StoredProviderConfig::AWSSagemaker {
+                endpoint_name: endpoint_name.clone(),
+                model_name: model_name.clone(),
+                region: region
+                    .as_ref()
+                    .map(StoredCredentialLocationOrHardcoded::from),
+                allow_auto_detect_region: Some(*allow_auto_detect_region),
+                hosted_provider: hosted_provider.clone().into(),
+                endpoint_url: endpoint_url
+                    .as_ref()
+                    .map(StoredCredentialLocationOrHardcoded::from),
+                access_key_id: access_key_id.as_ref().map(StoredCredentialLocation::from),
+                secret_access_key: secret_access_key
+                    .as_ref()
+                    .map(StoredCredentialLocation::from),
+                session_token: session_token.as_ref().map(StoredCredentialLocation::from),
+            },
+            UninitializedProviderConfig::Azure {
+                deployment_id,
+                endpoint,
+                api_key_location,
+            } => StoredProviderConfig::Azure {
+                deployment_id: deployment_id.clone(),
+                endpoint: StoredEndpointLocation::from(endpoint),
+                api_key_location: api_key_location
+                    .as_ref()
+                    .map(StoredCredentialLocationWithFallback::from),
+            },
+            UninitializedProviderConfig::GCPVertexAnthropic {
+                model_id,
+                location,
+                project_id,
+                credential_location,
+                provider_tools,
+            } => StoredProviderConfig::GCPVertexAnthropic {
+                model_id: model_id.clone(),
+                location: location.clone(),
+                project_id: project_id.clone(),
+                credential_location: credential_location
+                    .as_ref()
+                    .map(StoredCredentialLocationWithFallback::from),
+                provider_tools: (!provider_tools.is_empty()).then(|| provider_tools.clone()),
+            },
+            UninitializedProviderConfig::GCPVertexGemini {
+                model_id,
+                endpoint_id,
+                location,
+                project_id,
+                credential_location,
+            } => StoredProviderConfig::GCPVertexGemini {
+                model_id: model_id.clone(),
+                endpoint_id: endpoint_id.clone(),
+                location: location.clone(),
+                project_id: project_id.clone(),
+                credential_location: credential_location
+                    .as_ref()
+                    .map(StoredCredentialLocationWithFallback::from),
+            },
+            UninitializedProviderConfig::GoogleAIStudioGemini {
+                model_name,
+                api_key_location,
+            } => StoredProviderConfig::GoogleAIStudioGemini {
+                model_name: model_name.clone(),
+                api_key_location: api_key_location
+                    .as_ref()
+                    .map(StoredCredentialLocationWithFallback::from),
+            },
+            UninitializedProviderConfig::Groq {
+                model_name,
+                api_key_location,
+                reasoning_format,
+            } => StoredProviderConfig::Groq {
+                model_name: model_name.clone(),
+                api_key_location: api_key_location
+                    .as_ref()
+                    .map(StoredCredentialLocationWithFallback::from),
+                reasoning_format: reasoning_format.clone(),
+            },
+            UninitializedProviderConfig::Hyperbolic {
+                model_name,
+                api_key_location,
+            } => StoredProviderConfig::Hyperbolic {
+                model_name: model_name.clone(),
+                api_key_location: api_key_location
+                    .as_ref()
+                    .map(StoredCredentialLocationWithFallback::from),
+            },
+            UninitializedProviderConfig::Fireworks {
+                model_name,
+                api_key_location,
+                parse_think_blocks,
+            } => StoredProviderConfig::Fireworks {
+                model_name: model_name.clone(),
+                api_key_location: api_key_location
+                    .as_ref()
+                    .map(StoredCredentialLocationWithFallback::from),
+                parse_think_blocks: *parse_think_blocks,
+            },
+            UninitializedProviderConfig::Mistral {
+                model_name,
+                api_key_location,
+                prompt_mode,
+            } => StoredProviderConfig::Mistral {
+                model_name: model_name.clone(),
+                api_key_location: api_key_location
+                    .as_ref()
+                    .map(StoredCredentialLocationWithFallback::from),
+                prompt_mode: prompt_mode.clone(),
+            },
+            UninitializedProviderConfig::OpenAI {
+                model_name,
+                api_base,
+                api_key_location,
+                api_type,
+                include_encrypted_reasoning,
+                provider_tools,
+                content_type_overrides,
+            } => StoredProviderConfig::OpenAI {
+                model_name: model_name.clone(),
+                api_base: api_base.as_ref().map(ToString::to_string),
+                api_key_location: api_key_location
+                    .as_ref()
+                    .map(StoredCredentialLocationWithFallback::from),
+                api_type: Some((*api_type).into()),
+                include_encrypted_reasoning: Some(*include_encrypted_reasoning),
+                provider_tools: (!provider_tools.is_empty()).then(|| provider_tools.clone()),
+                content_type_overrides: (!content_type_overrides.is_empty()).then(|| {
+                    content_type_overrides
+                        .iter()
+                        .map(|(k, v)| (k.clone(), v.into()))
+                        .collect()
+                }),
+            },
+            UninitializedProviderConfig::OpenRouter {
+                model_name,
+                api_key_location,
+            } => StoredProviderConfig::OpenRouter {
+                model_name: model_name.clone(),
+                api_key_location: api_key_location
+                    .as_ref()
+                    .map(StoredCredentialLocationWithFallback::from),
+            },
+            UninitializedProviderConfig::Together {
+                model_name,
+                api_key_location,
+                parse_think_blocks,
+            } => StoredProviderConfig::Together {
+                model_name: model_name.clone(),
+                api_key_location: api_key_location
+                    .as_ref()
+                    .map(StoredCredentialLocationWithFallback::from),
+                parse_think_blocks: *parse_think_blocks,
+            },
+            UninitializedProviderConfig::VLLM {
+                model_name,
+                api_base,
+                api_key_location,
+            } => StoredProviderConfig::VLLM {
+                model_name: model_name.clone(),
+                api_base: api_base.to_string(),
+                api_key_location: api_key_location
+                    .as_ref()
+                    .map(StoredCredentialLocationWithFallback::from),
+            },
+            UninitializedProviderConfig::XAI {
+                model_name,
+                api_key_location,
+            } => StoredProviderConfig::XAI {
+                model_name: model_name.clone(),
+                api_key_location: api_key_location
+                    .as_ref()
+                    .map(StoredCredentialLocationWithFallback::from),
+            },
+            UninitializedProviderConfig::TGI {
+                api_base,
+                api_key_location,
+            } => StoredProviderConfig::TGI {
+                api_base: api_base.to_string(),
+                api_key_location: api_key_location
+                    .as_ref()
+                    .map(StoredCredentialLocationWithFallback::from),
+            },
+            UninitializedProviderConfig::SGLang {
+                model_name,
+                api_base,
+                api_key_location,
+            } => StoredProviderConfig::SGLang {
+                model_name: model_name.clone(),
+                api_base: api_base.to_string(),
+                api_key_location: api_key_location
+                    .as_ref()
+                    .map(StoredCredentialLocationWithFallback::from),
+            },
+            UninitializedProviderConfig::DeepSeek {
+                model_name,
+                api_key_location,
+            } => StoredProviderConfig::DeepSeek {
+                model_name: model_name.clone(),
+                api_key_location: api_key_location
+                    .as_ref()
+                    .map(StoredCredentialLocationWithFallback::from),
+            },
+            #[cfg(any(test, feature = "e2e_tests"))]
+            UninitializedProviderConfig::Dummy {
+                model_name,
+                api_key_location,
+            } => StoredProviderConfig::Dummy {
+                model_name: model_name.clone(),
+                api_key_location: api_key_location
+                    .as_ref()
+                    .and_then(|value| serde_json::to_value(value).ok()),
+            },
+        }
+    }
+}
+
 impl UninitializedProviderConfig {
     pub async fn load(
         self,
@@ -1647,17 +2338,21 @@ impl UninitializedProviderConfig {
                 project_id,
                 credential_location: api_key_location,
                 provider_tools,
-            } => ProviderConfig::GCPVertexAnthropic(
-                GCPVertexAnthropicProvider::new(
+            } => {
+                let credentials = crate::model_table::GCPVertexAnthropicKind
+                    .get_defaulted_credential(
+                        api_key_location.as_ref(),
+                        provider_type_default_credentials,
+                    )
+                    .await?;
+                ProviderConfig::GCPVertexAnthropic(GCPVertexAnthropicProvider::new(
                     model_id,
                     location,
                     project_id,
-                    api_key_location,
-                    provider_type_default_credentials,
+                    credentials,
                     provider_tools,
-                )
-                .await?,
-            ),
+                ))
+            }
             UninitializedProviderConfig::GCPVertexGemini {
                 model_id,
                 endpoint_id,
@@ -1665,16 +2360,38 @@ impl UninitializedProviderConfig {
                 project_id,
                 credential_location: api_key_location,
             } => {
+                let credentials = crate::model_table::GCPVertexGeminiKind
+                    .get_defaulted_credential(
+                        api_key_location.as_ref(),
+                        provider_type_default_credentials,
+                    )
+                    .await?;
+                let batch_config = match &provider_types.gcp_vertex_gemini {
+                    Some(crate::config::provider_types::GCPVertexGeminiProviderTypeConfig {
+                        batch:
+                            Some(crate::config::provider_types::GCPBatchConfigType::CloudStorage(
+                                crate::config::provider_types::GCPBatchConfigCloudStorage {
+                                    input_uri_prefix,
+                                    output_uri_prefix,
+                                },
+                            )),
+                        ..
+                    }) => Some(crate::providers::gcp_vertex_gemini::BatchConfig::new(
+                        &project_id,
+                        &location,
+                        input_uri_prefix.clone(),
+                        output_uri_prefix.clone(),
+                    )),
+                    _ => None,
+                };
                 let provider = GCPVertexGeminiProvider::new(
                     model_id,
                     endpoint_id,
                     location,
                     project_id,
-                    api_key_location,
-                    provider_types,
-                    provider_type_default_credentials,
-                )
-                .await?;
+                    credentials,
+                    batch_config,
+                )?;
 
                 ProviderConfig::GCPVertexGemini(provider)
             }
@@ -1863,6 +2580,24 @@ impl UninitializedProviderConfig {
     }
 }
 
+impl From<HostedProviderKind> for StoredHostedProviderKind {
+    fn from(kind: HostedProviderKind) -> Self {
+        match kind {
+            HostedProviderKind::OpenAI => StoredHostedProviderKind::OpenAI,
+            HostedProviderKind::TGI => StoredHostedProviderKind::TGI,
+        }
+    }
+}
+
+impl From<OpenAIAPIType> for StoredOpenAIAPIType {
+    fn from(api_type: OpenAIAPIType) -> Self {
+        match api_type {
+            OpenAIAPIType::ChatCompletions => StoredOpenAIAPIType::ChatCompletions,
+            OpenAIAPIType::Responses => StoredOpenAIAPIType::Responses,
+        }
+    }
+}
+
 struct StreamAndRawRequest {
     stream: tracing_futures::Instrumented<PeekableProviderInferenceResponseStream>,
     raw_request: String,
@@ -1875,24 +2610,57 @@ pub struct StreamResponseAndMessages {
 }
 
 impl ModelProvider {
-    fn apply_otlp_span_fields_input(&self, otlp_config: &OtlpConfig, span: &Span) {
-        if otlp_config.traces.enabled {
-            match otlp_config.traces.format {
-                OtlpTracesFormat::OpenTelemetry => {
-                    span.set_attribute("gen_ai.operation.name", "chat");
-                    span.set_attribute("gen_ai.system", self.genai_system_name());
+    fn apply_otlp_span_fields_input(&self, request: ModelProviderRequest<'_>, span: &Span) {
+        let traces = match &request.otlp_config.traces {
+            Some(t) => t,
+            None => return,
+        };
+        if !traces.enabled.unwrap_or(false) {
+            return;
+        }
+        match &traces.format {
+            None | Some(OtlpTracesFormat::OpenTelemetry) => {
+                span.set_attribute("gen_ai.operation.name", "chat");
+                span.set_attribute("gen_ai.system", self.genai_system_name());
 
-                    if let Some(model_name) = self.genai_model_name() {
-                        span.set_attribute("gen_ai.request.model", model_name.to_string());
+                if let Some(model_name) = self.genai_model_name() {
+                    span.set_attribute("gen_ai.request.model", model_name.to_string());
+                }
+
+                if let Some(function_name) = request.function_name {
+                    span.set_attribute("gen_ai.agent.name", function_name.to_string());
+                }
+
+                if traces.include_content.unwrap_or(false) {
+                    let messages = genai_conventions::to_genai_messages(&request.request.messages);
+                    span.set_attribute(
+                        "gen_ai.input.messages",
+                        serde_json::to_string(&messages).unwrap_or_default(),
+                    );
+                    if let Some(instructions) = genai_conventions::to_genai_system_instructions(
+                        request.request.system.as_deref(),
+                    ) {
+                        span.set_attribute(
+                            "gen_ai.system_instructions",
+                            serde_json::to_string(&instructions).unwrap_or_default(),
+                        );
+                    }
+                    if let Some(tool_defs) = genai_conventions::to_genai_tool_definitions(
+                        request.request.tool_config.as_deref(),
+                    ) {
+                        span.set_attribute(
+                            "gen_ai.tool.definitions",
+                            serde_json::to_string(&tool_defs).unwrap_or_default(),
+                        );
                     }
                 }
-                OtlpTracesFormat::OpenInference => {
-                    span.set_attribute("openinference.span.kind", "LLM");
-                    span.set_attribute("llm.system", self.genai_system_name());
+            }
+            Some(OtlpTracesFormat::OpenInference) => {
+                span.set_attribute("openinference.span.kind", "LLM");
+                span.set_attribute("llm.system", self.genai_system_name());
 
-                    if let Some(model_name) = self.genai_model_name() {
-                        span.set_attribute("llm.model_name", model_name.to_string());
-                    }
+                if let Some(model_name) = self.genai_model_name() {
+                    span.set_attribute("llm.model_name", model_name.to_string());
                 }
             }
         }
@@ -1905,12 +2673,28 @@ impl ModelProvider {
         span: &Span,
         resp: &Result<ProviderInferenceResponse, Error>,
     ) {
+        let traces_format = otlp_config.traces.as_ref().and_then(|t| t.format.clone());
+        let include_content = otlp_config
+            .traces
+            .as_ref()
+            .is_some_and(|t| t.enabled.unwrap_or(false) && t.include_content.unwrap_or(false));
         match resp {
             Ok(response) => {
                 otlp_config.apply_usage_to_model_provider_span(span, &response.usage);
-                match otlp_config.traces.format {
-                    OtlpTracesFormat::OpenTelemetry => {}
-                    OtlpTracesFormat::OpenInference => {
+                match traces_format {
+                    None | Some(OtlpTracesFormat::OpenTelemetry) => {
+                        if include_content {
+                            let out_messages = genai_conventions::to_genai_output(
+                                &response.output,
+                                response.finish_reason,
+                            );
+                            span.set_attribute(
+                                "gen_ai.output.messages",
+                                serde_json::to_string(&out_messages).unwrap_or_default(),
+                            );
+                        }
+                    }
+                    Some(OtlpTracesFormat::OpenInference) => {
                         // If we ever add providers that don't use JSON, we'll need to update this.
                         span.set_attribute("input.mime_type", "application/json");
                         span.set_attribute("input.value", response.raw_request.clone());
@@ -1932,9 +2716,9 @@ impl ModelProvider {
                         raw_response,
                         ..
                     } => {
-                        match otlp_config.traces.format {
-                            OtlpTracesFormat::OpenTelemetry => {}
-                            OtlpTracesFormat::OpenInference => {
+                        match traces_format {
+                            None | Some(OtlpTracesFormat::OpenTelemetry) => {}
+                            Some(OtlpTracesFormat::OpenInference) => {
                                 // If we ever add providers that don't use JSON, we'll need to update this.
                                 if let Some(raw_request) = raw_request {
                                     span.set_attribute("input.mime_type", "application/json");
@@ -1957,7 +2741,7 @@ impl ModelProvider {
     /// Returns an error if dynamic provider_tools are scoped to this provider but it doesn't support them.
     fn validate_provider_tools_support(
         &self,
-        request: &ModelProviderRequest<'_>,
+        request: &ProviderInferenceRequest<'_>,
     ) -> Result<(), Error> {
         // Skip validation if the provider supports provider_tools
         if self.config.supports_provider_tools() {
@@ -1992,10 +2776,18 @@ impl ModelProvider {
         clients: &InferenceClients,
     ) -> Result<ProviderInferenceResponse, Error> {
         let span = Span::current();
-        self.apply_otlp_span_fields_input(request.otlp_config, &span);
+        self.apply_otlp_span_fields_input(request, &span);
+
+        let provider_request = ProviderInferenceRequest {
+            request: request.request,
+            model_name: request.model_name,
+            provider_name: request.provider_name,
+            model_inference_id: request.model_inference_id,
+        };
+        let model_provider_info = ModelProviderRequestInfo::from(self);
 
         // Validate that provider_tools are not used with unsupported providers
-        self.validate_provider_tools_support(&request)?;
+        self.validate_provider_tools_support(&provider_request)?;
 
         let ticket_borrow = clients
             .rate_limiting_manager
@@ -2004,103 +2796,203 @@ impl ModelProvider {
         let res = match &self.config {
             ProviderConfig::Anthropic(provider) => {
                 provider
-                    .infer(request, &clients.http_client, &clients.credentials, self)
+                    .infer(
+                        provider_request,
+                        &clients.http_client,
+                        &clients.credentials,
+                        &model_provider_info,
+                    )
                     .await
             }
             ProviderConfig::AWSBedrock(provider) => {
                 provider
-                    .infer(request, &clients.http_client, &clients.credentials, self)
+                    .infer(
+                        provider_request,
+                        &clients.http_client,
+                        &clients.credentials,
+                        &model_provider_info,
+                    )
                     .await
             }
             ProviderConfig::AWSSagemaker(provider) => {
                 provider
-                    .infer(request, &clients.http_client, &clients.credentials, self)
+                    .infer(
+                        provider_request,
+                        &clients.http_client,
+                        &clients.credentials,
+                        &model_provider_info,
+                    )
                     .await
             }
             ProviderConfig::Azure(provider) => {
                 provider
-                    .infer(request, &clients.http_client, &clients.credentials, self)
+                    .infer(
+                        provider_request,
+                        &clients.http_client,
+                        &clients.credentials,
+                        &model_provider_info,
+                    )
                     .await
             }
             ProviderConfig::Fireworks(provider) => {
                 provider
-                    .infer(request, &clients.http_client, &clients.credentials, self)
+                    .infer(
+                        provider_request,
+                        &clients.http_client,
+                        &clients.credentials,
+                        &model_provider_info,
+                    )
                     .await
             }
             ProviderConfig::GCPVertexAnthropic(provider) => {
                 provider
-                    .infer(request, &clients.http_client, &clients.credentials, self)
+                    .infer(
+                        provider_request,
+                        &clients.http_client,
+                        &clients.credentials,
+                        &model_provider_info,
+                    )
                     .await
             }
             ProviderConfig::GCPVertexGemini(provider) => {
                 provider
-                    .infer(request, &clients.http_client, &clients.credentials, self)
+                    .infer(
+                        provider_request,
+                        &clients.http_client,
+                        &clients.credentials,
+                        &model_provider_info,
+                    )
                     .await
             }
             ProviderConfig::Groq(provider) => {
                 provider
-                    .infer(request, &clients.http_client, &clients.credentials, self)
+                    .infer(
+                        provider_request,
+                        &clients.http_client,
+                        &clients.credentials,
+                        &model_provider_info,
+                    )
                     .await
             }
             ProviderConfig::GoogleAIStudioGemini(provider) => {
                 provider
-                    .infer(request, &clients.http_client, &clients.credentials, self)
+                    .infer(
+                        provider_request,
+                        &clients.http_client,
+                        &clients.credentials,
+                        &model_provider_info,
+                    )
                     .await
             }
             ProviderConfig::Hyperbolic(provider) => {
                 provider
-                    .infer(request, &clients.http_client, &clients.credentials, self)
+                    .infer(
+                        provider_request,
+                        &clients.http_client,
+                        &clients.credentials,
+                        &model_provider_info,
+                    )
                     .await
             }
             ProviderConfig::Mistral(provider) => {
                 provider
-                    .infer(request, &clients.http_client, &clients.credentials, self)
+                    .infer(
+                        provider_request,
+                        &clients.http_client,
+                        &clients.credentials,
+                        &model_provider_info,
+                    )
                     .await
             }
             ProviderConfig::OpenAI(provider) => {
                 provider
-                    .infer(request, &clients.http_client, &clients.credentials, self)
+                    .infer(
+                        provider_request,
+                        &clients.http_client,
+                        &clients.credentials,
+                        &model_provider_info,
+                    )
                     .await
             }
             ProviderConfig::OpenRouter(provider) => {
                 provider
-                    .infer(request, &clients.http_client, &clients.credentials, self)
+                    .infer(
+                        provider_request,
+                        &clients.http_client,
+                        &clients.credentials,
+                        &model_provider_info,
+                    )
                     .await
             }
             ProviderConfig::Together(provider) => {
                 provider
-                    .infer(request, &clients.http_client, &clients.credentials, self)
+                    .infer(
+                        provider_request,
+                        &clients.http_client,
+                        &clients.credentials,
+                        &model_provider_info,
+                    )
                     .await
             }
             ProviderConfig::SGLang(provider) => {
                 provider
-                    .infer(request, &clients.http_client, &clients.credentials, self)
+                    .infer(
+                        provider_request,
+                        &clients.http_client,
+                        &clients.credentials,
+                        &model_provider_info,
+                    )
                     .await
             }
             ProviderConfig::VLLM(provider) => {
                 provider
-                    .infer(request, &clients.http_client, &clients.credentials, self)
+                    .infer(
+                        provider_request,
+                        &clients.http_client,
+                        &clients.credentials,
+                        &model_provider_info,
+                    )
                     .await
             }
             ProviderConfig::XAI(provider) => {
                 provider
-                    .infer(request, &clients.http_client, &clients.credentials, self)
+                    .infer(
+                        provider_request,
+                        &clients.http_client,
+                        &clients.credentials,
+                        &model_provider_info,
+                    )
                     .await
             }
             ProviderConfig::TGI(provider) => {
                 provider
-                    .infer(request, &clients.http_client, &clients.credentials, self)
+                    .infer(
+                        provider_request,
+                        &clients.http_client,
+                        &clients.credentials,
+                        &model_provider_info,
+                    )
                     .await
             }
             ProviderConfig::DeepSeek(provider) => {
                 provider
-                    .infer(request, &clients.http_client, &clients.credentials, self)
+                    .infer(
+                        provider_request,
+                        &clients.http_client,
+                        &clients.credentials,
+                        &model_provider_info,
+                    )
                     .await
             }
             #[cfg(any(test, feature = "e2e_tests"))]
             ProviderConfig::Dummy(provider) => {
                 provider
-                    .infer(request, &clients.http_client, &clients.credentials, self)
+                    .infer(
+                        provider_request,
+                        &clients.http_client,
+                        &clients.credentials,
+                        &model_provider_info,
+                    )
                     .await
             }
         };
@@ -2127,10 +3019,18 @@ impl ModelProvider {
         request: ModelProviderRequest<'_>,
         clients: &InferenceClients,
     ) -> Result<StreamAndRawRequest, Error> {
-        self.apply_otlp_span_fields_input(request.otlp_config, &Span::current());
+        self.apply_otlp_span_fields_input(request, &Span::current());
+
+        let provider_request = ProviderInferenceRequest {
+            request: request.request,
+            model_name: request.model_name,
+            provider_name: request.provider_name,
+            model_inference_id: request.model_inference_id,
+        };
+        let model_provider_info = ModelProviderRequestInfo::from(self);
 
         // Validate that provider_tools are not used with unsupported providers
-        self.validate_provider_tools_support(&request)?;
+        self.validate_provider_tools_support(&provider_request)?;
 
         let ticket_borrow = clients
             .rate_limiting_manager
@@ -2139,103 +3039,203 @@ impl ModelProvider {
         let (stream, raw_request) = match &self.config {
             ProviderConfig::Anthropic(provider) => {
                 provider
-                    .infer_stream(request, &clients.http_client, &clients.credentials, self)
+                    .infer_stream(
+                        provider_request,
+                        &clients.http_client,
+                        &clients.credentials,
+                        &model_provider_info,
+                    )
                     .await
             }
             ProviderConfig::AWSBedrock(provider) => {
                 provider
-                    .infer_stream(request, &clients.http_client, &clients.credentials, self)
+                    .infer_stream(
+                        provider_request,
+                        &clients.http_client,
+                        &clients.credentials,
+                        &model_provider_info,
+                    )
                     .await
             }
             ProviderConfig::AWSSagemaker(provider) => {
                 provider
-                    .infer_stream(request, &clients.http_client, &clients.credentials, self)
+                    .infer_stream(
+                        provider_request,
+                        &clients.http_client,
+                        &clients.credentials,
+                        &model_provider_info,
+                    )
                     .await
             }
             ProviderConfig::Azure(provider) => {
                 provider
-                    .infer_stream(request, &clients.http_client, &clients.credentials, self)
+                    .infer_stream(
+                        provider_request,
+                        &clients.http_client,
+                        &clients.credentials,
+                        &model_provider_info,
+                    )
                     .await
             }
             ProviderConfig::Fireworks(provider) => {
                 provider
-                    .infer_stream(request, &clients.http_client, &clients.credentials, self)
+                    .infer_stream(
+                        provider_request,
+                        &clients.http_client,
+                        &clients.credentials,
+                        &model_provider_info,
+                    )
                     .await
             }
             ProviderConfig::GCPVertexAnthropic(provider) => {
                 provider
-                    .infer_stream(request, &clients.http_client, &clients.credentials, self)
+                    .infer_stream(
+                        provider_request,
+                        &clients.http_client,
+                        &clients.credentials,
+                        &model_provider_info,
+                    )
                     .await
             }
             ProviderConfig::GCPVertexGemini(provider) => {
                 provider
-                    .infer_stream(request, &clients.http_client, &clients.credentials, self)
+                    .infer_stream(
+                        provider_request,
+                        &clients.http_client,
+                        &clients.credentials,
+                        &model_provider_info,
+                    )
                     .await
             }
             ProviderConfig::GoogleAIStudioGemini(provider) => {
                 provider
-                    .infer_stream(request, &clients.http_client, &clients.credentials, self)
+                    .infer_stream(
+                        provider_request,
+                        &clients.http_client,
+                        &clients.credentials,
+                        &model_provider_info,
+                    )
                     .await
             }
             ProviderConfig::Groq(provider) => {
                 provider
-                    .infer_stream(request, &clients.http_client, &clients.credentials, self)
+                    .infer_stream(
+                        provider_request,
+                        &clients.http_client,
+                        &clients.credentials,
+                        &model_provider_info,
+                    )
                     .await
             }
             ProviderConfig::Hyperbolic(provider) => {
                 provider
-                    .infer_stream(request, &clients.http_client, &clients.credentials, self)
+                    .infer_stream(
+                        provider_request,
+                        &clients.http_client,
+                        &clients.credentials,
+                        &model_provider_info,
+                    )
                     .await
             }
             ProviderConfig::Mistral(provider) => {
                 provider
-                    .infer_stream(request, &clients.http_client, &clients.credentials, self)
+                    .infer_stream(
+                        provider_request,
+                        &clients.http_client,
+                        &clients.credentials,
+                        &model_provider_info,
+                    )
                     .await
             }
             ProviderConfig::OpenAI(provider) => {
                 provider
-                    .infer_stream(request, &clients.http_client, &clients.credentials, self)
+                    .infer_stream(
+                        provider_request,
+                        &clients.http_client,
+                        &clients.credentials,
+                        &model_provider_info,
+                    )
                     .await
             }
             ProviderConfig::OpenRouter(provider) => {
                 provider
-                    .infer_stream(request, &clients.http_client, &clients.credentials, self)
+                    .infer_stream(
+                        provider_request,
+                        &clients.http_client,
+                        &clients.credentials,
+                        &model_provider_info,
+                    )
                     .await
             }
             ProviderConfig::Together(provider) => {
                 provider
-                    .infer_stream(request, &clients.http_client, &clients.credentials, self)
+                    .infer_stream(
+                        provider_request,
+                        &clients.http_client,
+                        &clients.credentials,
+                        &model_provider_info,
+                    )
                     .await
             }
             ProviderConfig::SGLang(provider) => {
                 provider
-                    .infer_stream(request, &clients.http_client, &clients.credentials, self)
+                    .infer_stream(
+                        provider_request,
+                        &clients.http_client,
+                        &clients.credentials,
+                        &model_provider_info,
+                    )
                     .await
             }
             ProviderConfig::XAI(provider) => {
                 provider
-                    .infer_stream(request, &clients.http_client, &clients.credentials, self)
+                    .infer_stream(
+                        provider_request,
+                        &clients.http_client,
+                        &clients.credentials,
+                        &model_provider_info,
+                    )
                     .await
             }
             ProviderConfig::VLLM(provider) => {
                 provider
-                    .infer_stream(request, &clients.http_client, &clients.credentials, self)
+                    .infer_stream(
+                        provider_request,
+                        &clients.http_client,
+                        &clients.credentials,
+                        &model_provider_info,
+                    )
                     .await
             }
             ProviderConfig::TGI(provider) => {
                 provider
-                    .infer_stream(request, &clients.http_client, &clients.credentials, self)
+                    .infer_stream(
+                        provider_request,
+                        &clients.http_client,
+                        &clients.credentials,
+                        &model_provider_info,
+                    )
                     .await
             }
             ProviderConfig::DeepSeek(provider) => {
                 provider
-                    .infer_stream(request, &clients.http_client, &clients.credentials, self)
+                    .infer_stream(
+                        provider_request,
+                        &clients.http_client,
+                        &clients.credentials,
+                        &model_provider_info,
+                    )
                     .await
             }
             #[cfg(any(test, feature = "e2e_tests"))]
             ProviderConfig::Dummy(provider) => {
                 provider
-                    .infer_stream(request, &clients.http_client, &clients.credentials, self)
+                    .infer_stream(
+                        provider_request,
+                        &clients.http_client,
+                        &clients.credentials,
+                        &model_provider_info,
+                    )
                     .await
             }
         }?;
@@ -2474,291 +3474,10 @@ impl ModelProvider {
     }
 }
 
-#[cfg_attr(feature = "ts-bindings", derive(ts_rs::TS))]
-#[derive(Debug, PartialEq, Clone)]
-#[cfg_attr(feature = "ts-bindings", ts(export))]
-pub enum CredentialLocation {
-    /// Environment variable containing the actual credential
-    Env(String),
-    /// Environment variable containing the path to a credential file
-    PathFromEnv(String),
-    /// For dynamic credential resolution
-    Dynamic(String),
-    /// Direct path to a credential file
-    Path(String),
-    /// Use a provider-specific SDK to determine credentials
-    Sdk,
-    None,
-}
-
-/// Credential location with optional fallback support
-#[cfg_attr(feature = "ts-bindings", derive(ts_rs::TS))]
-#[derive(Debug, PartialEq, Clone, Serialize)]
-#[serde(untagged)]
-pub enum CredentialLocationWithFallback {
-    /// Single credential location (backward compatible)
-    Single(#[cfg_attr(feature = "ts-bindings", ts(type = "string"))] CredentialLocation),
-    /// Credential location with fallback
-    WithFallback {
-        #[cfg_attr(feature = "ts-bindings", ts(type = "string"))]
-        default: CredentialLocation,
-        #[cfg_attr(feature = "ts-bindings", ts(type = "string"))]
-        fallback: CredentialLocation,
-    },
-}
-
-impl CredentialLocationWithFallback {
-    /// Get the default (primary) credential location
-    pub fn default_location(&self) -> &CredentialLocation {
-        match self {
-            CredentialLocationWithFallback::Single(loc) => loc,
-            CredentialLocationWithFallback::WithFallback { default, .. } => default,
-        }
-    }
-
-    /// Get the fallback credential location if present
-    pub fn fallback_location(&self) -> Option<&CredentialLocation> {
-        match self {
-            CredentialLocationWithFallback::Single(_) => None,
-            CredentialLocationWithFallback::WithFallback { fallback, .. } => Some(fallback),
-        }
-    }
-}
-
-/// Credential location that also allows hardcoded string values.
-/// Used for non-sensitive fields like AWS region and endpoint_url.
-#[cfg_attr(feature = "ts-bindings", derive(ts_rs::TS))]
-#[derive(Debug, PartialEq, Clone)]
-#[cfg_attr(feature = "ts-bindings", ts(export))]
-pub enum CredentialLocationOrHardcoded {
-    /// Hardcoded value (e.g., region = "us-east-1")
-    Hardcoded(String),
-    /// Standard credential location (env::, dynamic::, sdk, etc.)
-    #[cfg_attr(feature = "ts-bindings", ts(type = "string"))]
-    Location(CredentialLocation),
-}
-
-impl<'de> Deserialize<'de> for CredentialLocationOrHardcoded {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let s = String::deserialize(deserializer)?;
-        // Try to parse as CredentialLocation first
-        if let Some(inner) = s.strip_prefix("env::") {
-            Ok(CredentialLocationOrHardcoded::Location(
-                CredentialLocation::Env(inner.to_string()),
-            ))
-        } else if let Some(inner) = s.strip_prefix("path_from_env::") {
-            Ok(CredentialLocationOrHardcoded::Location(
-                CredentialLocation::PathFromEnv(inner.to_string()),
-            ))
-        } else if let Some(inner) = s.strip_prefix("dynamic::") {
-            Ok(CredentialLocationOrHardcoded::Location(
-                CredentialLocation::Dynamic(inner.to_string()),
-            ))
-        } else if let Some(inner) = s.strip_prefix("path::") {
-            Ok(CredentialLocationOrHardcoded::Location(
-                CredentialLocation::Path(inner.to_string()),
-            ))
-        } else if s == "sdk" {
-            Ok(CredentialLocationOrHardcoded::Location(
-                CredentialLocation::Sdk,
-            ))
-        } else if s == "none" {
-            Ok(CredentialLocationOrHardcoded::Location(
-                CredentialLocation::None,
-            ))
-        } else {
-            // Treat as hardcoded value
-            Ok(CredentialLocationOrHardcoded::Hardcoded(s))
-        }
-    }
-}
-
-impl Serialize for CredentialLocationOrHardcoded {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        match self {
-            CredentialLocationOrHardcoded::Hardcoded(inner) => serializer.serialize_str(inner),
-            CredentialLocationOrHardcoded::Location(loc) => loc.serialize(serializer),
-        }
-    }
-}
-
-#[cfg_attr(feature = "ts-bindings", derive(ts_rs::TS))]
-#[derive(Debug, PartialEq, Clone)]
-#[cfg_attr(feature = "ts-bindings", ts(export))]
-pub enum EndpointLocation {
-    /// Environment variable containing the actual endpoint URL
-    Env(String),
-    /// For dynamic endpoint resolution
-    Dynamic(String),
-    /// Direct endpoint URL
-    Static(String),
-}
-
-impl<'de> Deserialize<'de> for EndpointLocation {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let s = String::deserialize(deserializer)?;
-        if let Some(inner) = s.strip_prefix("env::") {
-            Ok(EndpointLocation::Env(inner.to_string()))
-        } else if let Some(inner) = s.strip_prefix("dynamic::") {
-            Ok(EndpointLocation::Dynamic(inner.to_string()))
-        } else {
-            // Default to static endpoint
-            Ok(EndpointLocation::Static(s))
-        }
-    }
-}
-
-impl Serialize for EndpointLocation {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        let s = match self {
-            EndpointLocation::Env(inner) => format!("env::{inner}"),
-            EndpointLocation::Dynamic(inner) => format!("dynamic::{inner}"),
-            EndpointLocation::Static(inner) => inner.clone(),
-        };
-        serializer.serialize_str(&s)
-    }
-}
-
-impl<'de> Deserialize<'de> for CredentialLocation {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let s = String::deserialize(deserializer)?;
-        if let Some(inner) = s.strip_prefix("env::") {
-            Ok(CredentialLocation::Env(inner.to_string()))
-        } else if let Some(inner) = s.strip_prefix("path_from_env::") {
-            Ok(CredentialLocation::PathFromEnv(inner.to_string()))
-        } else if let Some(inner) = s.strip_prefix("dynamic::") {
-            Ok(CredentialLocation::Dynamic(inner.to_string()))
-        } else if let Some(inner) = s.strip_prefix("path::") {
-            Ok(CredentialLocation::Path(inner.to_string()))
-        } else if s == "sdk" {
-            Ok(CredentialLocation::Sdk)
-        } else if s == "none" {
-            Ok(CredentialLocation::None)
-        } else {
-            Err(serde::de::Error::custom(format!(
-                "Invalid credential location format: `{s}`. \
-                 Use `env::VAR_NAME`, `path::FILE_PATH`, `dynamic::KEY_NAME`, or `sdk`."
-            )))
-        }
-    }
-}
-
-impl Serialize for CredentialLocation {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        let s = match self {
-            CredentialLocation::Env(inner) => format!("env::{inner}"),
-            CredentialLocation::PathFromEnv(inner) => format!("path_from_env::{inner}"),
-            CredentialLocation::Dynamic(inner) => format!("dynamic::{inner}"),
-            CredentialLocation::Path(inner) => format!("path::{inner}"),
-            CredentialLocation::Sdk => "sdk".to_string(),
-            CredentialLocation::None => "none".to_string(),
-        };
-        serializer.serialize_str(&s)
-    }
-}
-
-impl<'de> Deserialize<'de> for CredentialLocationWithFallback {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        use serde::de::{Error, MapAccess, Visitor};
-        use std::fmt;
-
-        struct CredentialLocationWithFallbackVisitor;
-
-        impl<'de> Visitor<'de> for CredentialLocationWithFallbackVisitor {
-            type Value = CredentialLocationWithFallback;
-
-            fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-                formatter.write_str("a string or an object with 'default' and 'fallback' fields")
-            }
-
-            fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
-            where
-                E: Error,
-            {
-                // Parse as single CredentialLocation
-                let location =
-                    CredentialLocation::deserialize(serde::de::value::StrDeserializer::new(value))?;
-                Ok(CredentialLocationWithFallback::Single(location))
-            }
-
-            fn visit_map<M>(self, mut map: M) -> Result<Self::Value, M::Error>
-            where
-                M: MapAccess<'de>,
-            {
-                let mut default = None;
-                let mut fallback = None;
-
-                while let Some(key) = map.next_key::<String>()? {
-                    match key.as_str() {
-                        "default" => {
-                            if default.is_some() {
-                                return Err(Error::duplicate_field("default"));
-                            }
-                            let value: String = map.next_value()?;
-                            default = Some(CredentialLocation::deserialize(
-                                serde::de::value::StrDeserializer::new(&value),
-                            )?);
-                        }
-                        "fallback" => {
-                            if fallback.is_some() {
-                                return Err(Error::duplicate_field("fallback"));
-                            }
-                            let value: String = map.next_value()?;
-                            fallback = Some(CredentialLocation::deserialize(
-                                serde::de::value::StrDeserializer::new(&value),
-                            )?);
-                        }
-                        _ => {
-                            return Err(Error::unknown_field(&key, &["default", "fallback"]));
-                        }
-                    }
-                }
-
-                let default = default.ok_or_else(|| Error::missing_field("default"))?;
-                let fallback = fallback.ok_or_else(|| Error::missing_field("fallback"))?;
-
-                Ok(CredentialLocationWithFallback::WithFallback { default, fallback })
-            }
-        }
-
-        deserializer.deserialize_any(CredentialLocationWithFallbackVisitor)
-    }
-}
-
-#[derive(Clone, Debug)]
-pub enum Credential {
-    Static(SecretString),
-    FileContents(SecretString),
-    Dynamic(String),
-    Sdk,
-    None,
-    Missing,
-    WithFallback {
-        default: Box<Credential>,
-        fallback: Box<Credential>,
-    },
-}
+pub use tensorzero_inference_types::credentials::{
+    Credential, CredentialLocation, CredentialLocationOrHardcoded, CredentialLocationWithFallback,
+    EndpointLocation, ModelProviderRequestInfo, ProviderInferenceRequest,
+};
 
 pub const SHORTHAND_MODEL_PREFIXES: &[&str] = &[
     "anthropic::",
@@ -2828,12 +3547,24 @@ impl ShorthandModelConfig for ModelConfig {
                         .await?,
                 )?)
             }
-            "gcp_vertex_gemini" => ProviderConfig::GCPVertexGemini(
-                GCPVertexGeminiProvider::new_shorthand(model_name, default_credentials).await?,
-            ),
-            "gcp_vertex_anthropic" => ProviderConfig::GCPVertexAnthropic(
-                GCPVertexAnthropicProvider::new_shorthand(model_name, default_credentials).await?,
-            ),
+            "gcp_vertex_gemini" => {
+                let credentials = crate::model_table::GCPVertexGeminiKind
+                    .get_defaulted_credential(None, default_credentials)
+                    .await?;
+                ProviderConfig::GCPVertexGemini(GCPVertexGeminiProvider::new_shorthand(
+                    model_name,
+                    credentials,
+                )?)
+            }
+            "gcp_vertex_anthropic" => {
+                let credentials = crate::model_table::GCPVertexAnthropicKind
+                    .get_defaulted_credential(None, default_credentials)
+                    .await?;
+                ProviderConfig::GCPVertexAnthropic(GCPVertexAnthropicProvider::new_shorthand(
+                    model_name,
+                    credentials,
+                )?)
+            }
             "groq" => ProviderConfig::Groq(GroqProvider::new(
                 model_name,
                 GroqKind
@@ -2993,7 +3724,7 @@ mod tests {
     use crate::cache::{CacheEnabledMode, CacheManager};
     use crate::config::with_skip_credential_validation;
     use crate::rate_limiting::ScopeInfo;
-    use crate::tool::ToolCallConfig;
+
     use crate::{
         cache::CacheOptions,
         db::{clickhouse::ClickHouseConnectionInfo, postgres::PostgresConnectionInfo},
@@ -3009,6 +3740,7 @@ mod tests {
         rate_limiting::{RateLimitingConfig, RateLimitingManager, UninitializedRateLimitingConfig},
     };
     use secrecy::SecretString;
+    use tensorzero_inference_types::ProviderToolCallConfig;
     use tokio_stream::StreamExt;
     use uuid::Uuid;
 
@@ -3043,7 +3775,7 @@ mod tests {
             skip_relay: false,
             namespace: None,
         };
-        let tool_config = ToolCallConfig::with_tools_available(vec![], vec![]);
+        let tool_config = ProviderToolCallConfig::default();
         let api_keys = InferenceCredentials::default();
         let http_client = TensorzeroHttpClient::new_testing().unwrap();
         let clickhouse_connection_info = ClickHouseConnectionInfo::new_disabled();
@@ -3092,7 +3824,7 @@ mod tests {
         };
         let model_name = "test model";
         let response = model_config
-            .infer(&request, &clients, model_name)
+            .infer(&request, &clients, model_name, None)
             .await
             .unwrap();
         let content = response.output;
@@ -3136,7 +3868,7 @@ mod tests {
             namespace: None,
         };
         let response = model_config
-            .infer(&request, &clients, model_name)
+            .infer(&request, &clients, model_name, None)
             .await
             .unwrap_err();
         assert_eq!(
@@ -3236,6 +3968,7 @@ mod tests {
             provider_name: "test_provider",
             otlp_config: &Default::default(),
             model_inference_id: Uuid::now_v7(),
+            function_name: None,
         };
 
         // Should fail with RateLimitMissingMaxTokens
@@ -3264,6 +3997,7 @@ mod tests {
             provider_name: "test_provider",
             otlp_config: &Default::default(),
             model_inference_id: Uuid::now_v7(),
+            function_name: None,
         };
 
         let result = provider
@@ -3372,7 +4106,7 @@ mod tests {
 
         let model_name = "test model";
         let response = model_config
-            .infer(&request, &clients, model_name)
+            .infer(&request, &clients, model_name, None)
             .await
             .unwrap();
         // Ensure that the error for the bad provider was logged, but the request worked nonetheless
@@ -3488,7 +4222,7 @@ mod tests {
                 },
             messages: _input,
         } = model_config
-            .infer_stream(&request, &clients, "my_model")
+            .infer_stream(&request, &clients, "my_model", None)
             .await
             .unwrap();
         let initial_chunk = stream.next().await.unwrap().unwrap();
@@ -3544,7 +4278,7 @@ mod tests {
             namespace: None,
         };
         let response = model_config
-            .infer_stream(&request, &clients, "my_model")
+            .infer_stream(&request, &clients, "my_model", None)
             .await;
         assert!(response.is_err());
         let error = match response {
@@ -3678,7 +4412,7 @@ mod tests {
                 },
             messages: _,
         } = model_config
-            .infer_stream(&request, &clients, "my_model")
+            .infer_stream(&request, &clients, "my_model", None)
             .await
             .unwrap();
         let initial_chunk = stream.next().await.unwrap().unwrap();
@@ -3741,7 +4475,7 @@ mod tests {
             skip_relay: false,
             namespace: None,
         };
-        let tool_config = ToolCallConfig::with_tools_available(vec![], vec![]);
+        let tool_config = ProviderToolCallConfig::default();
         let api_keys = InferenceCredentials::default();
         let http_client = TensorzeroHttpClient::new_testing().unwrap();
         let clickhouse_connection_info = ClickHouseConnectionInfo::new_disabled();
@@ -3789,7 +4523,7 @@ mod tests {
         };
         let model_name = "test model";
         let error = model_config
-            .infer(&request, &clients, model_name)
+            .infer(&request, &clients, model_name, None)
             .await
             .unwrap_err();
         assert_eq!(
@@ -3835,7 +4569,7 @@ mod tests {
             include_aggregated_response: false,
         };
         let response = model_config
-            .infer(&request, &clients, model_name)
+            .infer(&request, &clients, model_name, None)
             .await
             .unwrap_err();
         assert_eq!(
@@ -3880,7 +4614,7 @@ mod tests {
             skip_relay: false,
             namespace: None,
         };
-        let tool_config = ToolCallConfig::with_tools_available(vec![], vec![]);
+        let tool_config = ProviderToolCallConfig::default();
         let api_keys = InferenceCredentials::default();
         let http_client = TensorzeroHttpClient::new_testing().unwrap();
         let clickhouse_connection_info = ClickHouseConnectionInfo::new_disabled();
@@ -3927,7 +4661,7 @@ mod tests {
             ..Default::default()
         };
         let error = model_config
-            .infer(&request, &clients, model_name)
+            .infer(&request, &clients, model_name, None)
             .await
             .unwrap_err();
         assert_eq!(
@@ -3973,7 +4707,7 @@ mod tests {
             include_aggregated_response: false,
         };
         let response = model_config
-            .infer(&request, &clients, model_name)
+            .infer(&request, &clients, model_name, None)
             .await
             .unwrap();
         assert_eq!(
@@ -4464,5 +5198,250 @@ mod tests {
             provider.effective_batch_cost_config().is_none(),
             "should return None when both cost and batch_cost are absent"
         );
+    }
+
+    // ─── Round-trip tests: Uninitialized → Stored → Uninitialized ───────────
+
+    mod stored_round_trip {
+        use std::collections::HashMap;
+        use std::sync::Arc;
+
+        use googletest::prelude::*;
+        use rust_decimal::Decimal;
+        use tensorzero_stored_config::{
+            StoredCostConfig, StoredModelConfig, StoredModelProvider, StoredProviderConfig,
+            StoredUnifiedCostConfig,
+        };
+        use tensorzero_types::{
+            CostPointerConfig, UnifiedCostPointerConfig, UninitializedCostConfig,
+            UninitializedCostConfigEntry, UninitializedCostRate, UninitializedUnifiedCostConfig,
+        };
+
+        use crate::config::{Namespace, NonStreamingTimeouts, TimeoutsConfig};
+        use crate::inference::types::extra_body::{
+            ExtraBodyConfig, ExtraBodyReplacement, ExtraBodyReplacementKind,
+        };
+        use crate::model::{
+            CredentialLocation, CredentialLocationWithFallback, UninitializedModelConfig,
+            UninitializedModelProvider, UninitializedProviderConfig,
+        };
+        use crate::providers::openai::OpenAIAPIType;
+
+        #[gtest]
+        fn test_credential_location_round_trip() {
+            use tensorzero_stored_config::StoredCredentialLocation;
+            let variants = vec![
+                CredentialLocation::Env("MY_API_KEY".to_string()),
+                CredentialLocation::Dynamic("x-custom-key".to_string()),
+                CredentialLocation::Sdk,
+                CredentialLocation::None,
+            ];
+            for original in &variants {
+                let stored = StoredCredentialLocation::from(original);
+                let restored = CredentialLocation::from(stored);
+                expect_that!(restored, eq(original));
+            }
+        }
+
+        #[gtest]
+        fn test_credential_location_with_fallback_round_trip() {
+            use tensorzero_stored_config::StoredCredentialLocationWithFallback;
+            let variants = vec![
+                CredentialLocationWithFallback::Single(CredentialLocation::Env(
+                    "MY_KEY".to_string(),
+                )),
+                CredentialLocationWithFallback::WithFallback {
+                    default: CredentialLocation::Dynamic("x-key".to_string()),
+                    fallback: CredentialLocation::Env("FALLBACK_KEY".to_string()),
+                },
+            ];
+            for original in &variants {
+                let stored = StoredCredentialLocationWithFallback::from(original);
+                let restored = CredentialLocationWithFallback::from(stored);
+                expect_that!(restored, eq(original));
+            }
+        }
+
+        #[gtest]
+        fn test_provider_config_openai_round_trip() {
+            let original = UninitializedProviderConfig::OpenAI {
+                model_name: "gpt-4o".to_string(),
+                api_base: None,
+                api_key_location: Some(CredentialLocationWithFallback::Single(
+                    CredentialLocation::Env("OPENAI_API_KEY".to_string()),
+                )),
+                api_type: OpenAIAPIType::ChatCompletions,
+                include_encrypted_reasoning: false,
+                provider_tools: vec![],
+                content_type_overrides: HashMap::new(),
+            };
+            let stored = StoredProviderConfig::from(&original);
+            let restored: UninitializedProviderConfig =
+                stored.try_into().expect("should convert back");
+            expect_that!(restored, eq(&original));
+        }
+
+        #[gtest]
+        fn test_provider_config_anthropic_round_trip() {
+            let original = UninitializedProviderConfig::Anthropic {
+                model_name: "claude-sonnet-4-20250514".to_string(),
+                api_base: None,
+                api_key_location: Some(CredentialLocationWithFallback::Single(
+                    CredentialLocation::Env("ANTHROPIC_API_KEY".to_string()),
+                )),
+                beta_structured_outputs: Some(true),
+                provider_tools: vec![],
+            };
+            let stored = StoredProviderConfig::from(&original);
+            let restored: UninitializedProviderConfig =
+                stored.try_into().expect("should convert back");
+            expect_that!(restored, eq(&original));
+        }
+
+        #[gtest]
+        fn test_model_provider_round_trip() {
+            let original = UninitializedModelProvider {
+                config: UninitializedProviderConfig::OpenAI {
+                    model_name: "gpt-4o".to_string(),
+                    api_base: None,
+                    api_key_location: Some(CredentialLocationWithFallback::Single(
+                        CredentialLocation::Env("OPENAI_API_KEY".to_string()),
+                    )),
+                    api_type: OpenAIAPIType::ChatCompletions,
+                    include_encrypted_reasoning: false,
+                    provider_tools: vec![],
+                    content_type_overrides: HashMap::new(),
+                },
+                extra_body: Some(ExtraBodyConfig {
+                    data: vec![ExtraBodyReplacement {
+                        pointer: "/temperature".to_string(),
+                        kind: ExtraBodyReplacementKind::Value(serde_json::json!(0.5)),
+                    }],
+                }),
+                extra_headers: None,
+                timeouts: TimeoutsConfig {
+                    non_streaming: Some(NonStreamingTimeouts {
+                        total_ms: Some(30000),
+                    }),
+                    streaming: None,
+                },
+                discard_unknown_chunks: true,
+                cost: Some(vec![UninitializedCostConfigEntry {
+                    pointer: CostPointerConfig {
+                        pointer: Some("/usage/input_tokens".to_string()),
+                        pointer_nonstreaming: None,
+                        pointer_streaming: None,
+                    },
+                    rate: UninitializedCostRate {
+                        cost_per_million: Some(Decimal::new(3, 0)),
+                        cost_per_unit: None,
+                    },
+                    required: false,
+                }]),
+                batch_cost: None,
+            };
+            let stored = StoredModelProvider::from(&original);
+            let restored: UninitializedModelProvider =
+                stored.try_into().expect("should convert back");
+            expect_that!(restored, eq(&original));
+        }
+
+        #[gtest]
+        fn test_model_config_round_trip() {
+            let original = UninitializedModelConfig {
+                routing: vec![Arc::from("provider_a")],
+                providers: HashMap::from([(
+                    Arc::from("provider_a"),
+                    UninitializedModelProvider {
+                        config: UninitializedProviderConfig::Anthropic {
+                            model_name: "claude-sonnet-4-20250514".to_string(),
+                            api_base: None,
+                            api_key_location: Some(CredentialLocationWithFallback::Single(
+                                CredentialLocation::Env("ANTHROPIC_API_KEY".to_string()),
+                            )),
+                            beta_structured_outputs: None,
+                            provider_tools: vec![],
+                        },
+                        extra_body: None,
+                        extra_headers: None,
+                        timeouts: TimeoutsConfig::default(),
+                        discard_unknown_chunks: false,
+                        cost: None,
+                        batch_cost: None,
+                    },
+                )]),
+                timeouts: TimeoutsConfig::default(),
+                skip_relay: Some(true),
+                namespace: Some(
+                    Namespace::new("my_namespace".to_string()).expect("valid namespace"),
+                ),
+            };
+            let stored = StoredModelConfig::try_from(&original).expect("should serialize");
+            let restored: UninitializedModelConfig =
+                stored.try_into().expect("should convert back");
+            expect_that!(restored, eq(&original));
+        }
+
+        #[gtest]
+        fn test_cost_config_round_trip() {
+            let original: UninitializedCostConfig = vec![
+                UninitializedCostConfigEntry {
+                    pointer: CostPointerConfig {
+                        pointer: Some("/usage/input_tokens".to_string()),
+                        pointer_nonstreaming: None,
+                        pointer_streaming: Some("/usage/streaming_tokens".to_string()),
+                    },
+                    rate: UninitializedCostRate {
+                        cost_per_million: Some(Decimal::new(150, 2)),
+                        cost_per_unit: None,
+                    },
+                    required: false,
+                },
+                UninitializedCostConfigEntry {
+                    pointer: CostPointerConfig {
+                        pointer: None,
+                        pointer_nonstreaming: Some("/usage/nonstream".to_string()),
+                        pointer_streaming: None,
+                    },
+                    rate: UninitializedCostRate {
+                        cost_per_million: None,
+                        cost_per_unit: Some(Decimal::new(1, 6)),
+                    },
+                    required: true,
+                },
+            ];
+            let stored = StoredCostConfig::from(&original);
+            let restored: UninitializedCostConfig = stored.into();
+            expect_that!(restored, eq(&original));
+        }
+
+        #[gtest]
+        fn test_unified_cost_config_round_trip() {
+            let original: UninitializedUnifiedCostConfig = vec![
+                UninitializedCostConfigEntry {
+                    pointer: UnifiedCostPointerConfig {
+                        pointer: "/usage/input_tokens".to_string(),
+                    },
+                    rate: UninitializedCostRate {
+                        cost_per_million: Some(Decimal::new(150, 2)),
+                        cost_per_unit: None,
+                    },
+                    required: true,
+                },
+                UninitializedCostConfigEntry {
+                    pointer: UnifiedCostPointerConfig {
+                        pointer: "/usage/output_tokens".to_string(),
+                    },
+                    rate: UninitializedCostRate {
+                        cost_per_million: None,
+                        cost_per_unit: Some(Decimal::new(6, 6)),
+                    },
+                    required: false,
+                },
+            ];
+            let stored = StoredUnifiedCostConfig::from(&original);
+            let restored: UninitializedUnifiedCostConfig = stored.into();
+            expect_that!(restored, eq(&original));
+        }
     }
 }

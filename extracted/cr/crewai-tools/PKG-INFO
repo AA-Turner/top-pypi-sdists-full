@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: crewai-tools
-Version: 1.14.2
+Version: 1.14.3
 Summary: Set of tools for the crewAI framework
 Project-URL: Homepage, https://crewai.com
 Project-URL: Repository, https://github.com/crewAIInc/crewAI
@@ -8,7 +8,7 @@ Project-URL: Documentation, https://docs.crewai.com
 Author-email: João Moura <joaomdmoura@gmail.com>
 Requires-Python: <3.14,>=3.10
 Requires-Dist: beautifulsoup4~=4.13.4
-Requires-Dist: crewai==1.14.2
+Requires-Dist: crewai==1.14.3
 Requires-Dist: pymupdf~=1.26.6
 Requires-Dist: python-docx~=1.2.0
 Requires-Dist: pytube~=15.0.0
@@ -35,6 +35,11 @@ Provides-Extra: couchbase
 Requires-Dist: couchbase>=4.3.5; extra == 'couchbase'
 Provides-Extra: databricks-sdk
 Requires-Dist: databricks-sdk>=0.46.0; extra == 'databricks-sdk'
+Provides-Extra: daytona
+Requires-Dist: daytona~=0.140.0; extra == 'daytona'
+Provides-Extra: e2b
+Requires-Dist: e2b-code-interpreter~=2.6.0; extra == 'e2b'
+Requires-Dist: e2b~=2.20.0; extra == 'e2b'
 Provides-Extra: exa-py
 Requires-Dist: exa-py>=1.8.7; extra == 'exa-py'
 Provides-Extra: firecrawl-py
@@ -64,7 +69,7 @@ Requires-Dist: psycopg2-binary>=2.9.10; extra == 'postgresql'
 Provides-Extra: qdrant-client
 Requires-Dist: qdrant-client>=1.12.1; extra == 'qdrant-client'
 Provides-Extra: rag
-Requires-Dist: lxml<5.4.0,>=5.3.0; extra == 'rag'
+Requires-Dist: lxml<7,>=6.1.0; extra == 'rag'
 Requires-Dist: python-docx>=1.1.0; extra == 'rag'
 Provides-Extra: scrapegraph-py
 Requires-Dist: scrapegraph-py>=1.9.0; extra == 'scrapegraph-py'

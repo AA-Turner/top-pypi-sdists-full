@@ -3,6 +3,7 @@
 # Usage:
 #   from plato.v2 import Plato, Session, Environment  # Sync
 #   from plato.v2 import AsyncPlato, AsyncSession, AsyncEnvironment  # Async
+#   from plato.v2 import DatagenSession, AsyncDatagenSession, DatagenResponse  # Agent runtime
 #   from plato.v2 import Env, SimConfigCompute, Flow  # Helpers
 #
 # For Chronos, use `from plato.chronos.sdk import Chronos, AsyncChronos`.
@@ -15,6 +16,7 @@ from plato.v2 import async_, sync
 # Async exports (prefixed with Async)
 from plato.v2.async_.cdp_bridge import shared_cdp_chromium
 from plato.v2.async_.client import AsyncPlato
+from plato.v2.async_.datagen_session import DatagenSession as AsyncDatagenSession
 from plato.v2.async_.environment import Environment as AsyncEnvironment
 from plato.v2.async_.flow_backends import FlowBackend as AsyncFlowBackend
 from plato.v2.async_.flow_backends import PlaywrightBackend as AsyncPlaywrightBackend
@@ -25,6 +27,11 @@ from plato.v2.async_.session import SerializedSession
 from plato.v2.async_.session import Session as AsyncSession
 from plato.v2.async_.testcase import AsyncTestcaseManager
 from plato.v2.sync.client import Plato
+from plato.v2.sync.datagen_session import (
+    DATA_LOAD_INSTRUCTION,
+    DatagenResponse,
+    DatagenSession,
+)
 from plato.v2.sync.environment import Environment
 from plato.v2.sync.flow_backends import (
     FlowBackend,
@@ -35,6 +42,9 @@ from plato.v2.sync.sandbox import SandboxClient
 from plato.v2.sync.session import LoginResult, Session
 from plato.v2.sync.testcase import TestcaseManager
 
+# DatagenResponse lives in both sync and async datagen_session modules
+# (structurally identical pydantic models) — the sync export is the
+# canonical public one.
 # Helper types
 from plato.v2.types import (
     Env,
@@ -48,6 +58,9 @@ __all__ = [
     # Sync
     "Plato",
     "Session",
+    "DatagenSession",
+    "DatagenResponse",
+    "DATA_LOAD_INSTRUCTION",
     "Environment",
     "LoginResult",
     "FlowExecutor",
@@ -60,6 +73,7 @@ __all__ = [
     # Async
     "AsyncPlato",
     "AsyncSession",
+    "AsyncDatagenSession",
     "AsyncEnvironment",
     "AsyncFlowExecutor",
     "AsyncFlowExecutionError",

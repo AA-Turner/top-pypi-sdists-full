@@ -605,7 +605,7 @@ class TestMcpManagerShutdown:
         assert mgr._sessions == {}
 
     @pytest.mark.asyncio()
-    async def test_shutdown_timeout_prevents_hang(self) -> None:
+    async def test_shutdown_timeout_prevents_hang(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Shutdown should complete within its internal 5s timeout, not hang forever."""
         mgr = McpManager([])
         entered_hang = asyncio.Event()
@@ -619,15 +619,22 @@ class TestMcpManagerShutdown:
         mgr._exit_stacks = {"stuck-server": stack}
         mgr._sessions = {"stuck-server": AsyncMock()}
 
-        import time
+        async def fake_wait_for(awaitable: Any, *, timeout: float) -> None:
+            assert timeout == 5.0
+            task = asyncio.create_task(awaitable)
+            await asyncio.sleep(0)
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+            raise asyncio.TimeoutError
 
-        start = time.monotonic()
+        monkeypatch.setattr("anteroom.services.mcp_manager.asyncio.wait_for", fake_wait_for)
         await mgr.shutdown()
-        elapsed = time.monotonic() - start
 
         assert mgr._exit_stacks == {}
         assert entered_hang.is_set(), "hang_forever should have been entered"
-        assert elapsed < 8.0, f"Shutdown took {elapsed:.1f}s — internal timeout not working"
 
     @pytest.mark.asyncio()
     async def test_disconnect_handles_base_exception_from_stack(self) -> None:

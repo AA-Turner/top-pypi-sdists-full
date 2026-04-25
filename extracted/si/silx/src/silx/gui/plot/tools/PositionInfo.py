@@ -42,7 +42,6 @@ from ... import qt
 from .. import items
 from ...widgets.ElidedLabel import ElidedLabel
 
-
 _logger = logging.getLogger(__name__)
 
 
@@ -112,7 +111,7 @@ class PositionInfo(qt.QWidget):
         self._plotRef = weakref.ref(plot)
         self._snappingMode = self.SNAPPING_DISABLED
 
-        super(PositionInfo, self).__init__(parent)
+        super().__init__(parent)
 
         if converters is None:
             converters = (("X", lambda x, y: x), ("Y", lambda x, y: y))
@@ -299,7 +298,7 @@ class PositionInfo(qt.QWidget):
                 value = func(xData, yData)
                 text = self.valueToString(value)
                 label.setText(text)
-            except:
+            except Exception:
                 label.setText("Error")
                 _logger.error(
                     "Error while converting coordinates (%f, %f)"

@@ -4,6 +4,7 @@
 
 
 import re
+import sys
 
 import pytest
 
@@ -112,11 +113,11 @@ class TestKBKDFHMAC:
         with pytest.raises(AlreadyFinalized):
             kdf.verify(b"material", key)
 
-    def test_key_length(self, backend):
+    def test_derive_into(self, backend):
         kdf = KBKDFHMAC(
-            hashes.SHA1(),
+            hashes.SHA256(),
             Mode.CounterMode,
-            85899345920,
+            32,
             4,
             4,
             CounterLocation.BeforeFixed,
@@ -125,9 +126,76 @@ class TestKBKDFHMAC:
             None,
             backend=backend,
         )
+        buf = bytearray(32)
+        n = kdf.derive_into(b"material", buf)
+        assert n == 32
+        # Verify the output matches what derive would produce
+        kdf2 = KBKDFHMAC(
+            hashes.SHA256(),
+            Mode.CounterMode,
+            32,
+            4,
+            4,
+            CounterLocation.BeforeFixed,
+            b"label",
+            b"context",
+            None,
+            backend=backend,
+        )
+        expected = kdf2.derive(b"material")
+        assert buf == expected
 
-        with pytest.raises(ValueError):
-            kdf.derive(b"material")
+    @pytest.mark.parametrize(("buflen", "outlen"), [(31, 32), (33, 32)])
+    def test_derive_into_buffer_incorrect_size(self, buflen, outlen, backend):
+        kdf = KBKDFHMAC(
+            hashes.SHA256(),
+            Mode.CounterMode,
+            outlen,
+            4,
+            4,
+            CounterLocation.BeforeFixed,
+            b"label",
+            b"context",
+            None,
+            backend=backend,
+        )
+        buf = bytearray(buflen)
+        with pytest.raises(ValueError, match="buffer must be"):
+            kdf.derive_into(b"material", buf)
+
+    def test_derive_into_already_finalized(self, backend):
+        kdf = KBKDFHMAC(
+            hashes.SHA256(),
+            Mode.CounterMode,
+            32,
+            4,
+            4,
+            CounterLocation.BeforeFixed,
+            b"label",
+            b"context",
+            None,
+            backend=backend,
+        )
+        buf = bytearray(32)
+        kdf.derive_into(b"material", buf)
+        with pytest.raises(AlreadyFinalized):
+            kdf.derive_into(b"material2", buf)
+
+    def test_key_length(self, backend):
+        error = OverflowError if sys.maxsize <= 2**31 else ValueError
+        with pytest.raises(error):
+            KBKDFHMAC(
+                hashes.SHA1(),
+                Mode.CounterMode,
+                85899345920,
+                4,
+                4,
+                CounterLocation.BeforeFixed,
+                b"label",
+                b"context",
+                None,
+                backend=backend,
+            )
 
     def test_rlen(self, backend):
         with pytest.raises(ValueError):
@@ -298,31 +366,11 @@ class TestKBKDFHMAC:
                 b"context",
                 None,
                 backend,
-                0,  # break_location
-            )  # type: ignore[misc]
-
-    def test_invalid_break_location(self, backend):
-        with pytest.raises(
-            TypeError, match=re.escape("break_location must be an integer")
-        ):
-            KBKDFHMAC(
-                hashes.SHA256(),
-                Mode.CounterMode,
-                32,
-                4,
-                4,
-                CounterLocation.MiddleFixed,
-                b"label",
-                b"context",
-                None,
-                backend=backend,
-                break_location="0",  # type: ignore[arg-type]
+                0,  # type: ignore[misc]
             )
 
-        with pytest.raises(
-            ValueError,
-            match=re.escape("break_location must be a positive integer"),
-        ):
+    def test_invalid_break_location(self, backend):
+        with pytest.raises(OverflowError):
             KBKDFHMAC(
                 hashes.SHA256(),
                 Mode.CounterMode,
@@ -402,7 +450,7 @@ class TestKBKDFHMAC:
     def test_unsupported_hash(self, backend):
         with raises_unsupported_algorithm(_Reasons.UNSUPPORTED_HASH):
             KBKDFHMAC(
-                object(),  # type: ignore[arg-type]
+                DummyHashAlgorithm(),
                 Mode.CounterMode,
                 32,
                 4,
@@ -584,21 +632,20 @@ class TestKBKDFCMAC:
             kdf.verify(self._KEY_MATERIAL, key)
 
     def test_key_length(self, backend):
-        kdf = KBKDFCMAC(
-            algorithms.AES,
-            Mode.CounterMode,
-            85899345920,
-            4,
-            4,
-            CounterLocation.BeforeFixed,
-            b"label",
-            b"context",
-            None,
-            backend=backend,
-        )
-
-        with pytest.raises(ValueError):
-            kdf.derive(self._KEY_MATERIAL)
+        error = OverflowError if sys.maxsize <= 2**31 else ValueError
+        with pytest.raises(error):
+            KBKDFCMAC(
+                algorithms.AES,
+                Mode.CounterMode,
+                85899345920,
+                4,
+                4,
+                CounterLocation.BeforeFixed,
+                b"label",
+                b"context",
+                None,
+                backend=backend,
+            )
 
     def test_rlen(self, backend):
         with pytest.raises(ValueError):
@@ -769,31 +816,11 @@ class TestKBKDFCMAC:
                 b"context",
                 None,
                 backend,
-                0,  # break_location
-            )  # type: ignore[misc]
-
-    def test_invalid_break_location(self, backend):
-        with pytest.raises(
-            TypeError, match=re.escape("break_location must be an integer")
-        ):
-            KBKDFCMAC(
-                algorithms.AES,
-                Mode.CounterMode,
-                32,
-                4,
-                4,
-                CounterLocation.MiddleFixed,
-                b"label",
-                b"context",
-                None,
-                backend=backend,
-                break_location="0",  # type: ignore[arg-type]
+                0,  # type: ignore[misc]
             )
 
-        with pytest.raises(
-            ValueError,
-            match=re.escape("break_location must be a positive integer"),
-        ):
+    def test_invalid_break_location(self, backend):
+        with pytest.raises(OverflowError):
             KBKDFCMAC(
                 algorithms.AES,
                 Mode.CounterMode,
@@ -871,20 +898,6 @@ class TestKBKDFCMAC:
             )
 
     def test_unsupported_algorithm(self, backend):
-        with raises_unsupported_algorithm(_Reasons.UNSUPPORTED_CIPHER):
-            KBKDFCMAC(
-                object,
-                Mode.CounterMode,
-                32,
-                4,
-                4,
-                CounterLocation.BeforeFixed,
-                b"label",
-                b"context",
-                None,
-                backend=backend,
-            )
-
         with raises_unsupported_algorithm(_Reasons.UNSUPPORTED_CIPHER):
             KBKDFCMAC(
                 DummyCipherAlgorithm,

@@ -10,7 +10,9 @@ use pyo3::types::PyAnyMethods;
 use crate::types;
 
 // Common error message generation
-fn generate_non_convertible_buffer_error_msg(pyobj: &pyo3::Bound<'_, pyo3::PyAny>) -> String {
+fn generate_non_convertible_buffer_error_msg(
+    pyobj: &pyo3::Borrowed<'_, '_, pyo3::PyAny>,
+) -> String {
     if pyobj.is_instance_of::<pyo3::types::PyString>() {
         format!(
             "Cannot convert \"{}\" instance to a buffer.\nDid you mean to pass a bytestring instead?",
@@ -26,7 +28,7 @@ fn generate_non_convertible_buffer_error_msg(pyobj: &pyo3::Bound<'_, pyo3::PyAny
 
 #[cfg(Py_3_11)]
 fn _extract_buffer_length(
-    pyobj: &pyo3::Bound<'_, pyo3::PyAny>,
+    pyobj: &pyo3::Borrowed<'_, '_, pyo3::PyAny>,
     mutable: bool,
 ) -> pyo3::PyResult<(Option<pyo3::buffer::PyBuffer<u8>>, usize, usize)> {
     let buf = pyo3::buffer::PyBuffer::<u8>::get(pyobj).map_err(|_| {
@@ -50,7 +52,7 @@ fn _extract_buffer_length(
 
 #[cfg(not(Py_3_11))]
 fn _extract_buffer_length<'p>(
-    pyobj: &pyo3::Bound<'p, pyo3::PyAny>,
+    pyobj: &pyo3::Borrowed<'_, 'p, pyo3::PyAny>,
     mutable: bool,
 ) -> pyo3::PyResult<(pyo3::Bound<'p, pyo3::PyAny>, usize, usize)> {
     let py = pyobj.py();
@@ -106,9 +108,11 @@ impl<'a> CffiBuf<'a> {
     }
 }
 
-impl<'a> pyo3::conversion::FromPyObject<'a> for CffiBuf<'a> {
-    fn extract_bound(pyobj: &pyo3::Bound<'a, pyo3::PyAny>) -> pyo3::PyResult<Self> {
-        let (bufobj, ptrval, len) = _extract_buffer_length(pyobj, false)?;
+impl<'p> pyo3::conversion::FromPyObject<'_, 'p> for CffiBuf<'p> {
+    type Error = pyo3::PyErr;
+
+    fn extract(pyobj: pyo3::Borrowed<'_, 'p, pyo3::PyAny>) -> pyo3::PyResult<Self> {
+        let (bufobj, ptrval, len) = _extract_buffer_length(&pyobj, false)?;
         let buf = if len == 0 {
             &[]
         } else {
@@ -123,7 +127,7 @@ impl<'a> pyo3::conversion::FromPyObject<'a> for CffiBuf<'a> {
             unsafe { slice::from_raw_parts(ptrval as *const u8, len) }
         };
         Ok(CffiBuf {
-            pyobj: pyobj.clone(),
+            pyobj: pyobj.to_owned(),
             _bufobj: bufobj,
             buf,
         })
@@ -139,15 +143,28 @@ pub(crate) struct CffiMutBuf<'p> {
     buf: &'p mut [u8],
 }
 
-impl CffiMutBuf<'_> {
+impl<'a> CffiMutBuf<'a> {
+    pub(crate) fn from_bytes(py: pyo3::Python<'a>, buf: &'a mut [u8]) -> Self {
+        CffiMutBuf {
+            _pyobj: py.None().into_bound(py),
+            #[cfg(Py_3_11)]
+            _bufobj: None,
+            #[cfg(not(Py_3_11))]
+            _bufobj: py.None().into_bound(py),
+            buf,
+        }
+    }
+
     pub(crate) fn as_mut_bytes(&mut self) -> &mut [u8] {
         self.buf
     }
 }
 
-impl<'a> pyo3::conversion::FromPyObject<'a> for CffiMutBuf<'a> {
-    fn extract_bound(pyobj: &pyo3::Bound<'a, pyo3::PyAny>) -> pyo3::PyResult<Self> {
-        let (bufobj, ptrval, len) = _extract_buffer_length(pyobj, true)?;
+impl<'p> pyo3::conversion::FromPyObject<'_, 'p> for CffiMutBuf<'p> {
+    type Error = pyo3::PyErr;
+
+    fn extract(pyobj: pyo3::Borrowed<'_, 'p, pyo3::PyAny>) -> pyo3::PyResult<Self> {
+        let (bufobj, ptrval, len) = _extract_buffer_length(&pyobj, true)?;
         let buf = if len == 0 {
             &mut []
         } else {
@@ -162,7 +179,7 @@ impl<'a> pyo3::conversion::FromPyObject<'a> for CffiMutBuf<'a> {
             unsafe { slice::from_raw_parts_mut(ptrval as *mut u8, len) }
         };
         Ok(CffiMutBuf {
-            _pyobj: pyobj.clone(),
+            _pyobj: pyobj.to_owned(),
             _bufobj: bufobj,
             buf,
         })

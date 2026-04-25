@@ -271,7 +271,7 @@ class GLPlotColormap(_GLPlotData2D):
         assert data.dtype in self._INTERNAL_FORMATS
         assert normalization in self.SUPPORTED_NORMALIZATIONS
 
-        super(GLPlotColormap, self).__init__(data, origin, scale)
+        super().__init__(data, origin, scale)
         self.colormap = numpy.asarray(colormap)
         self.normalization = normalization
         self.gamma = gamma
@@ -342,7 +342,7 @@ class GLPlotColormap(_GLPlotData2D):
                 texUnit=self._CMAP_TEX_UNIT,
                 minFilter=gl.GL_NEAREST,
                 magFilter=gl.GL_NEAREST,
-                wrap=(gl.GL_CLAMP_TO_EDGE, gl.GL_CLAMP_TO_EDGE),
+                wrap=gl.GL_MIRRORED_REPEAT,
             )
             self._cmap_texture.prepare()
 
@@ -640,7 +640,7 @@ class GLPlotRGBAImage(_GLPlotData2D):
         :param float alpha: Opacity from 0 (transparent) to 1 (opaque)
         """
         assert data.dtype in self._SUPPORTED_DTYPES
-        super(GLPlotRGBAImage, self).__init__(data, origin, scale)
+        super().__init__(data, origin, scale)
         self._texture = None
         self._textureIsDirty = False
         self._alpha = numpy.clip(alpha, 0.0, 1.0)

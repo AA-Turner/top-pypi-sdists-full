@@ -375,7 +375,7 @@ def create_output_directory(method, admin_zone, country, crop, path_output):
     return dir_output
 
 
-def to_db(db_path, table_name, df, max_retries=5):
+def to_db(db_path, table_name, df, max_retries=10):
     """
 
     Args:
@@ -392,13 +392,14 @@ def to_db(db_path, table_name, df, max_retries=5):
 
     engine = create_engine(
         "sqlite:///" + str(db_path),
-        connect_args={"timeout": 60},
+        connect_args={"timeout": 120},
     )
 
     @event.listens_for(engine, "connect")
     def set_sqlite_pragma(dbapi_connection, connection_record):
         cursor = dbapi_connection.cursor()
         cursor.execute("PRAGMA journal_mode=WAL")
+        cursor.execute("PRAGMA busy_timeout=120000")
         cursor.close()
 
     for attempt in range(max_retries):

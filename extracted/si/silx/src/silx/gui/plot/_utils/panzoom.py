@@ -35,7 +35,6 @@ import math
 from typing import NamedTuple
 import numpy
 
-
 _logger = logging.getLogger(__name__)
 
 
@@ -214,13 +213,13 @@ def applyPan(min_, max_, panFactor, isLog10):
     return min_, max_
 
 
-class _Unset(object):
+class _Unset:
     """To be able to have distinction between None and unset"""
 
     pass
 
 
-class ViewConstraints(object):
+class ViewConstraints:
     """
     Store constraints applied on the view box and compute the resulting view box.
     """

@@ -1,7 +1,7 @@
 import asyncio
 import logging
+import mimetypes
 import os
-import shutil
 import urllib.request
 import uuid
 from collections.abc import Callable
@@ -56,6 +56,7 @@ from exponent.core.remote_execution.languages.shell_streaming import (
     get_rc_file_source_command,
 )
 from exponent.core.remote_execution.openai_apply_patch import execute_apply_patch_tool
+from exponent.core.remote_execution.shell_resolution import resolve_shell
 from exponent.core.remote_execution.truncation import truncate_tool_result
 from exponent.core.remote_execution.utils import (
     assert_unreachable,
@@ -114,12 +115,17 @@ def truncate_result[T: ToolResultType](tool_result: T) -> T:
     return truncate_tool_result(tool_result)
 
 
-def is_image_file(file_path: str) -> tuple[bool, str | None]:
-    ext = Path(file_path).suffix.lower()
-    if ext == ".png":
-        return (True, "image/png")
-    elif ext in [".jpg", ".jpeg"]:
-        return (True, "image/jpeg")
+ARTIFACT_MEDIA_TYPES = {
+    "image/png",
+    "image/jpeg",
+    "application/pdf",
+}
+
+
+def is_artifact_file(file_path: str) -> tuple[bool, str | None]:
+    media_type, _ = mimetypes.guess_type(file_path)
+    if media_type and media_type in ARTIFACT_MEDIA_TYPES:
+        return (True, media_type)
     return (False, None)
 
 
@@ -174,12 +180,11 @@ async def execute_read_file(
     if access_error is not None:
         return access_error
 
-    # Check if this is an image file
-    is_image, media_type = is_image_file(tool_input.file_path)
-    if is_image and media_type:
+    is_artifact, media_type = is_artifact_file(tool_input.file_path)
+    if is_artifact and media_type:
         try:
             file_name = Path(tool_input.file_path).name
-            s3_key = f"images/{uuid.uuid4()}/{file_name}"
+            s3_key = f"artifacts/{uuid.uuid4()}/{file_name}"
 
             upload_response = await client.request_upload_url(s3_key, media_type)
 
@@ -210,7 +215,7 @@ async def execute_read_file(
                 )
             )
         except Exception as e:
-            return ErrorToolResult(error_message=f"Failed to upload image to S3: {e!s}")
+            return ErrorToolResult(error_message=f"Failed to upload file to S3: {e!s}")
 
     read_result = await _read_text_file(tool_input.file_path, working_directory)
     if isinstance(read_result, ErrorToolResult):
@@ -456,8 +461,18 @@ async def execute_edit_file(  # noqa: PLR0911
         return ErrorToolResult(error_message=f"Error writing file: {e!s}")
 
 
-async def execute_glob_files(tool_input: GlobToolInput, working_directory: str) -> GlobToolResult:
-    # async timer
+async def execute_glob_files(tool_input: GlobToolInput, working_directory: str) -> GlobToolResult | ErrorToolResult:
+    # Reject absolute patterns. They silently mis-match because the underlying
+    # glob engine anchors leading `/` to the search root, not the filesystem
+    # root. Callers should pass the directory via `path` and a relative pattern.
+    if tool_input.pattern.startswith("/"):
+        return ErrorToolResult(
+            error_message=(
+                f"Glob pattern must be relative, got absolute path: {tool_input.pattern}. "
+                f"Pass the directory via 'path' and a relative pattern "
+                f'(e.g. pattern="**/*.ts", path="/tmp/foo").'
+            ),
+        )
     start_time = time()
     results = await files.glob(
         path=working_directory if tool_input.path is None else tool_input.path,
@@ -535,9 +550,7 @@ async def execute_bash_tool_background(
     output_file, _ = bash_result_path(chat_uuid, bash_id, epoch_ms)
     os.makedirs(os.path.dirname(output_file), exist_ok=True)
 
-    shell_path = os.environ.get("SHELL") or shutil.which("bash") or shutil.which("sh")
-    if not shell_path:
-        shell_path = "/bin/sh"
+    shell_path = resolve_shell()
 
     rc_source_cmd = get_rc_file_source_command(shell_path)
     full_command = f"{rc_source_cmd}{tool_input.command}"

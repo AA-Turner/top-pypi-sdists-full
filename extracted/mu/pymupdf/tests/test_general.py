@@ -1082,15 +1082,11 @@ def test_cli_out():
     import platform
     import re
     import subprocess
+    import pipcl
     log_prefix = None
     if os.environ.get('PYMUPDF_USE_EXTRA') == '0':
         log_prefix = f'.+Using non-default setting from PYMUPDF_USE_EXTRA: \'0\''
     
-    sys.path.append(os.path.normpath(f'{__file__}/../..'))
-    try:
-        import pipcl
-    finally:
-        del sys.path[0]
     pipcl.show_system()
     def check(
             expect_out,
@@ -1482,11 +1478,7 @@ def test_open2():
     # of tests/resources/test_open2_expected.json regardless of the actual
     # checkout directory.
     print()
-    sys.path.append(root)
-    try:
-        import pipcl
-    finally:
-        del sys.path[0]
+    import pipcl
     paths = pipcl.git_items(f'{root}/tests/resources')
     paths = fnmatch.filter(paths, f'test_open2.*')
     paths = [f'tests/resources/{i}' for i in paths]
@@ -2031,11 +2023,11 @@ def test_4392():
     
     assert e1 == 5
     if pymupdf.swig_version_tuple >= (4, 4):
-        if sysconfig.get_config_var('Py_GIL_DISABLED') == 1:
+        if sysconfig.get_config_var('Py_GIL_DISABLED') == 1 and sys._is_gil_enabled():
             assert e2 == 4
         else:
             assert e2 == 5
-        if sysconfig.get_config_var('Py_GIL_DISABLED') == 1:
+        if sysconfig.get_config_var('Py_GIL_DISABLED') == 1 and sys._is_gil_enabled():
             # GIL warning results in failure because of -Werror.
             assert e3 == 1
         else:
@@ -2213,13 +2205,12 @@ def test_4907():
             display_list = page.get_displaylist(annots=False)
             text_page = display_list.get_textpage()
 
+
 def test_4928():
     path = os.path.normpath(f'{__file__}/../../tests/resources/test_4928.pdf')
     with pymupdf.open(path) as document:
-        try:
-            document.scrub()
-        except Exception as e:
-            print(f'Ignoring expected exception: {e}')
+        document.scrub()
+
     
 def test_4902():
     print()

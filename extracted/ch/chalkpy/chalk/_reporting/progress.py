@@ -75,7 +75,7 @@ class ProgressService:
         operation_id: uuid.UUID,
         client: "ChalkAPIClientImpl",
         environment_id: EnvironmentId,
-        num_computers: int,
+        num_shards: int,
         show_progress: bool,
         caller_method: Optional[str],
     ):
@@ -98,7 +98,7 @@ class ProgressService:
         self.caller_method = caller_method
         self._environment_id = environment_id
         self._operation_kind: Optional[BatchOpKind] = None
-        self._num_computers = num_computers
+        self._num_shards = num_shards
         self._shard_id = 0
 
         try:
@@ -137,7 +137,7 @@ class ProgressService:
                 if caller_method
                 else None
             )
-            if self._num_computers > 1:
+            if self._num_shards > 1:
                 self.shard_progress = Progress(
                     TextColumn("{task.description}"),
                     MofNCompleteColumn(),
@@ -211,10 +211,10 @@ class ProgressService:
         if shard_task_id is not None and self.shard_progress is not None:
             self.shard_progress.update(shard_task_id, advance=1)
         if self.enclosure_panel is not None:
-            if self._shard_id == self._num_computers:
+            if self._shard_id == self._num_shards:
                 self.enclosure_panel.title = "chalk ■"
         if self.main_progress is not None:
-            if self._shard_id == self._num_computers:
+            if self._shard_id == self._num_shards:
                 self.main_progress.update(main_task_id, description=f"{operation_display_type} completed", completed=1)
         if self.resolver_progress is not None:
             for task_id in fqn_to_task_id.values():
@@ -398,7 +398,7 @@ class ProgressService:
         if self.main_progress is not None:
             main_task_id = self.main_progress.add_task(description=initial_description, total=1)
             if self.shard_progress is not None:
-                shard_task_id = self.shard_progress.add_task(description="Processing Shards", total=self._num_computers)
+                shard_task_id = self.shard_progress.add_task(description="Processing Shards", total=self._num_shards)
             else:
                 shard_task_id = None
         else:
@@ -424,7 +424,7 @@ class ProgressService:
                             fqn_to_task_id=fqn_to_task_id,
                             shard_task_id=shard_task_id,
                         )
-                    if self._shard_id == self._num_computers:
+                    if self._shard_id == self._num_shards:
                         break
 
                 if batch_report.status == BatchOpStatus.FAILED:

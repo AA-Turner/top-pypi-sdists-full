@@ -1,6 +1,7 @@
 """Chronos API SDK - v0.1.0"""
 
 from . import api, errors, models
+from .child_session import ChildSessionOutcome, wait_for_child_session
 from .client import AsyncClient, Client
 from .errors import (
     APIError,
@@ -19,6 +20,9 @@ __all__ = [
     # Clients
     "Client",
     "AsyncClient",
+    # Child-session wait scaffold
+    "ChildSessionOutcome",
+    "wait_for_child_session",
     # Modules
     "api",
     "models",

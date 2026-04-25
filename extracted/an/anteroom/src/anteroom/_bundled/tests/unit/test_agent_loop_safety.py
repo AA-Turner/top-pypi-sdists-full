@@ -535,6 +535,90 @@ class TestContextRecovery:
 
         # Compaction event indicates summary fired.
         assert any(e.kind == "compaction" for e in events)
+        assert any(e.kind == "phase" and e.data.get("phase") == "compacting" for e in events)
+        assert not any(
+            e.kind == "token" and "Compacting conversation history" in e.data.get("content", "") for e in events
+        )
+
+    @pytest.mark.asyncio
+    async def test_compacted_history_does_not_recompact_at_preserved_tail_floor(self) -> None:
+        """A low message threshold must not re-trigger compaction every turn."""
+        success_events = _make_stream_events("ok")
+        ai = _mock_ai_service(success_events)
+        ai.complete = AsyncMock(return_value="Summary")
+
+        messages: list[dict[str, Any]] = [
+            {
+                "role": "user",
+                "content": "previous summary",
+                "metadata": {"compact_summary": True},
+            },
+            {
+                "role": "system",
+                "content": "boundary",
+                "metadata": {"compact_boundary": True},
+            },
+            *[
+                {"role": "user" if i % 2 == 0 else "assistant", "content": f"tail {i}"}
+                for i in range(8)
+            ],
+        ]
+
+        events = await _collect(
+            run_agent_loop(
+                ai_service=ai,
+                messages=messages,
+                tool_executor=_executor,
+                tools_openai=None,
+                compact_preserve_tail=6,
+                summary_trigger_msg_count=10,
+                summary_trigger_token_count=1_000_000,
+            )
+        )
+
+        assert not any(e.kind == "compaction" for e in events)
+        assert not any(e.kind == "phase" and e.data.get("phase") == "compacting" for e in events)
+        ai.complete.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_compacted_history_recompacts_after_enough_new_messages(self) -> None:
+        """Already-compacted history can compact again once enough new context accumulates."""
+        success_events = _make_stream_events("ok")
+        ai = _mock_ai_service(success_events)
+        ai.complete = AsyncMock(return_value="Summary")
+
+        messages: list[dict[str, Any]] = [
+            {
+                "role": "user",
+                "content": "previous summary",
+                "metadata": {"compact_summary": True},
+            },
+            {
+                "role": "system",
+                "content": "boundary",
+                "metadata": {"compact_boundary": True},
+            },
+            *[
+                {"role": "user" if i % 2 == 0 else "assistant", "content": f"tail {i}"}
+                for i in range(10)
+            ],
+        ]
+
+        events = await _collect(
+            run_agent_loop(
+                ai_service=ai,
+                messages=messages,
+                tool_executor=_executor,
+                tools_openai=None,
+                compact_preserve_tail=6,
+                summary_trigger_msg_count=10,
+                summary_trigger_token_count=1_000_000,
+            )
+        )
+
+        assert any(e.kind == "compaction" for e in events)
+        assert any(e.kind == "phase" and e.data.get("phase") == "compacting" for e in events)
+        ai.complete.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_summary_trigger_token_count_from_config(self) -> None:

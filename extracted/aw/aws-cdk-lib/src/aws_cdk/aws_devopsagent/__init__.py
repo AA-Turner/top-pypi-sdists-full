@@ -82,7 +82,9 @@ from ..interfaces.aws_devopsagent import (
     AssociationReference as _AssociationReference_249ec236,
     IAgentSpaceRef as _IAgentSpaceRef_2ffb48ed,
     IAssociationRef as _IAssociationRef_ac0997e3,
+    IPrivateConnectionRef as _IPrivateConnectionRef_818757a8,
     IServiceRef as _IServiceRef_a4cfa131,
+    PrivateConnectionReference as _PrivateConnectionReference_43c54ff2,
     ServiceReference as _ServiceReference_cb07f28f,
 )
 
@@ -909,6 +911,9 @@ class CfnAssociation(
                         value="value"
                     )]
                 ),
+                azure=devopsagent.CfnAssociation.AzureConfigurationProperty(
+                    subscription_id="subscriptionId"
+                ),
                 dynatrace=devopsagent.CfnAssociation.DynatraceConfigurationProperty(
                     env_id="envId",
         
@@ -954,12 +959,22 @@ class CfnAssociation(
                     account_id="accountId",
                     endpoint="endpoint"
                 ),
+                mcp_server_sig_v4=devopsagent.CfnAssociation.MCPServerSigV4ConfigurationProperty(
+                    tools=["tools"]
+                ),
                 mcp_server_splunk=devopsagent.CfnAssociation.MCPServerSplunkConfigurationProperty(
                     endpoint="endpoint",
                     name="name",
         
                     # the properties below are optional
                     description="description",
+                    enable_webhook_updates=False
+                ),
+                pager_duty=devopsagent.CfnAssociation.PagerDutyConfigurationProperty(
+                    customer_email="customerEmail",
+                    services=["services"],
+        
+                    # the properties below are optional
                     enable_webhook_updates=False
                 ),
                 service_now=devopsagent.CfnAssociation.ServiceNowConfigurationProperty(
@@ -1410,6 +1425,58 @@ class CfnAssociation(
 
         def __repr__(self) -> str:
             return "AWSResourceProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_devopsagent.CfnAssociation.AzureConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"subscription_id": "subscriptionId"},
+    )
+    class AzureConfigurationProperty:
+        def __init__(self, *, subscription_id: builtins.str) -> None:
+            '''Azure subscription integration configuration.
+
+            :param subscription_id: Azure subscription ID corresponding to provided resources.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-association-azureconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_devopsagent as devopsagent
+                
+                azure_configuration_property = devopsagent.CfnAssociation.AzureConfigurationProperty(
+                    subscription_id="subscriptionId"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__f836cc91db14f6396fae800a0997ac7a32626b2df8d6a13e21c7bbd05304dad8)
+                check_type(argname="argument subscription_id", value=subscription_id, expected_type=type_hints["subscription_id"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "subscription_id": subscription_id,
+            }
+
+        @builtins.property
+        def subscription_id(self) -> builtins.str:
+            '''Azure subscription ID corresponding to provided resources.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-association-azureconfiguration.html#cfn-devopsagent-association-azureconfiguration-subscriptionid
+            '''
+            result = self._values.get("subscription_id")
+            assert result is not None, "Required property 'subscription_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AzureConfigurationProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -2163,6 +2230,58 @@ class CfnAssociation(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_devopsagent.CfnAssociation.MCPServerSigV4ConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"tools": "tools"},
+    )
+    class MCPServerSigV4ConfigurationProperty:
+        def __init__(self, *, tools: typing.Sequence[builtins.str]) -> None:
+            '''SigV4-authenticated MCP server configuration.
+
+            :param tools: List of MCP tools available for the association.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-association-mcpserversigv4configuration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_devopsagent as devopsagent
+                
+                m_cPServer_sig_v4_configuration_property = devopsagent.CfnAssociation.MCPServerSigV4ConfigurationProperty(
+                    tools=["tools"]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__9afa21fa4ae99fbc4534896e25187b224676c93894e599ac06339bb54dbe06e8)
+                check_type(argname="argument tools", value=tools, expected_type=type_hints["tools"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "tools": tools,
+            }
+
+        @builtins.property
+        def tools(self) -> typing.List[builtins.str]:
+            '''List of MCP tools available for the association.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-association-mcpserversigv4configuration.html#cfn-devopsagent-association-mcpserversigv4configuration-tools
+            '''
+            result = self._values.get("tools")
+            assert result is not None, "Required property 'tools' is missing"
+            return typing.cast(typing.List[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MCPServerSigV4ConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_devopsagent.CfnAssociation.MCPServerSplunkConfigurationProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -2275,10 +2394,105 @@ class CfnAssociation(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_devopsagent.CfnAssociation.PagerDutyConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "customer_email": "customerEmail",
+            "services": "services",
+            "enable_webhook_updates": "enableWebhookUpdates",
+        },
+    )
+    class PagerDutyConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            customer_email: builtins.str,
+            services: typing.Sequence[builtins.str],
+            enable_webhook_updates: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        ) -> None:
+            '''PagerDuty integration configuration.
+
+            :param customer_email: Email to be used in PagerDuty API header.
+            :param services: List of PagerDuty service IDs available for the association.
+            :param enable_webhook_updates: When set to true, enables the Agent Space to create and update webhooks for receiving notifications and events from the service.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-association-pagerdutyconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_devopsagent as devopsagent
+                
+                pager_duty_configuration_property = devopsagent.CfnAssociation.PagerDutyConfigurationProperty(
+                    customer_email="customerEmail",
+                    services=["services"],
+                
+                    # the properties below are optional
+                    enable_webhook_updates=False
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__fa44ac3f3a7da9627c8e3d6693d029e4f70ecd3477c5729fec2b2ee1ab7873b0)
+                check_type(argname="argument customer_email", value=customer_email, expected_type=type_hints["customer_email"])
+                check_type(argname="argument services", value=services, expected_type=type_hints["services"])
+                check_type(argname="argument enable_webhook_updates", value=enable_webhook_updates, expected_type=type_hints["enable_webhook_updates"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "customer_email": customer_email,
+                "services": services,
+            }
+            if enable_webhook_updates is not None:
+                self._values["enable_webhook_updates"] = enable_webhook_updates
+
+        @builtins.property
+        def customer_email(self) -> builtins.str:
+            '''Email to be used in PagerDuty API header.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-association-pagerdutyconfiguration.html#cfn-devopsagent-association-pagerdutyconfiguration-customeremail
+            '''
+            result = self._values.get("customer_email")
+            assert result is not None, "Required property 'customer_email' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def services(self) -> typing.List[builtins.str]:
+            '''List of PagerDuty service IDs available for the association.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-association-pagerdutyconfiguration.html#cfn-devopsagent-association-pagerdutyconfiguration-services
+            '''
+            result = self._values.get("services")
+            assert result is not None, "Required property 'services' is missing"
+            return typing.cast(typing.List[builtins.str], result)
+
+        @builtins.property
+        def enable_webhook_updates(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+            '''When set to true, enables the Agent Space to create and update webhooks for receiving notifications and events from the service.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-association-pagerdutyconfiguration.html#cfn-devopsagent-association-pagerdutyconfiguration-enablewebhookupdates
+            '''
+            result = self._values.get("enable_webhook_updates")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "PagerDutyConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_devopsagent.CfnAssociation.ServiceConfigurationProperty",
         jsii_struct_bases=[],
         name_mapping={
             "aws": "aws",
+            "azure": "azure",
             "dynatrace": "dynatrace",
             "event_channel": "eventChannel",
             "git_hub": "gitHub",
@@ -2286,7 +2500,9 @@ class CfnAssociation(
             "mcp_server": "mcpServer",
             "mcp_server_datadog": "mcpServerDatadog",
             "mcp_server_new_relic": "mcpServerNewRelic",
+            "mcp_server_sig_v4": "mcpServerSigV4",
             "mcp_server_splunk": "mcpServerSplunk",
+            "pager_duty": "pagerDuty",
             "service_now": "serviceNow",
             "slack": "slack",
             "source_aws": "sourceAws",
@@ -2297,6 +2513,7 @@ class CfnAssociation(
             self,
             *,
             aws: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAssociation.AWSConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            azure: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAssociation.AzureConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             dynatrace: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAssociation.DynatraceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             event_channel: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAssociation.EventChannelConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             git_hub: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAssociation.GitHubConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -2304,7 +2521,9 @@ class CfnAssociation(
             mcp_server: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAssociation.MCPServerConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             mcp_server_datadog: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAssociation.MCPServerDatadogConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             mcp_server_new_relic: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAssociation.MCPServerNewRelicConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            mcp_server_sig_v4: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAssociation.MCPServerSigV4ConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             mcp_server_splunk: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAssociation.MCPServerSplunkConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            pager_duty: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAssociation.PagerDutyConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             service_now: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAssociation.ServiceNowConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             slack: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAssociation.SlackConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             source_aws: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAssociation.SourceAwsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -2314,6 +2533,7 @@ class CfnAssociation(
             You can specify only one configuration type per association.
 
             :param aws: Configuration for AWS monitor account integration. Specifies the account ID, assumable role ARN, and resources to be monitored in the primary monitoring account.
+            :param azure: Azure subscription integration configuration.
             :param dynatrace: Configuration for Dynatrace monitoring integration. Specifies the environment ID, resources to monitor, and webhook settings to enable the Agent Space to access Dynatrace metrics, traces, and logs.
             :param event_channel: Configuration for Event Channel integration. Specifies webhook settings to enable the Agent Space to receive and process real-time events from external systems.
             :param git_hub: Configuration for GitHub repository integration. Specifies the repository name, repository ID, owner, and owner type to enable the Agent Space to access code, pull requests, and issues.
@@ -2321,7 +2541,9 @@ class CfnAssociation(
             :param mcp_server: Configuration for custom MCP (Model Context Protocol) server integration. Specifies the server name, endpoint URL, available tools, description, and webhook settings to enable the Agent Space to interact with custom MCP servers.
             :param mcp_server_datadog: Configuration for Datadog MCP server integration. Specifies the server name, endpoint URL, optional description, and webhook settings to enable the Agent Space to query metrics, traces, and logs from Datadog.
             :param mcp_server_new_relic: Configuration for New Relic MCP server integration. Specifies the New Relic account ID and MCP endpoint URL to enable the Agent Space to query metrics, traces, and logs from New Relic.
+            :param mcp_server_sig_v4: SigV4-authenticated MCP server configuration.
             :param mcp_server_splunk: Configuration for Splunk MCP server integration. Specifies the server name, endpoint URL, optional description, and webhook settings to enable the Agent Space to query logs, metrics, and events from Splunk.
+            :param pager_duty: PagerDuty integration configuration.
             :param service_now: Configuration for ServiceNow instance integration. Specifies the instance URL, instance ID, and webhook settings to enable the Agent Space to create, update, and manage ServiceNow incidents and change requests.
             :param slack: Configuration for Slack workspace integration. Specifies the workspace ID, workspace name, and transmission targets to enable the Agent Space to send notifications to designated Slack channels.
             :param source_aws: Configuration for AWS source account integration. Specifies the account ID, assumable role ARN, and resources to be monitored in the source account.
@@ -2355,6 +2577,9 @@ class CfnAssociation(
                             key="key",
                             value="value"
                         )]
+                    ),
+                    azure=devopsagent.CfnAssociation.AzureConfigurationProperty(
+                        subscription_id="subscriptionId"
                     ),
                     dynatrace=devopsagent.CfnAssociation.DynatraceConfigurationProperty(
                         env_id="envId",
@@ -2401,12 +2626,22 @@ class CfnAssociation(
                         account_id="accountId",
                         endpoint="endpoint"
                     ),
+                    mcp_server_sig_v4=devopsagent.CfnAssociation.MCPServerSigV4ConfigurationProperty(
+                        tools=["tools"]
+                    ),
                     mcp_server_splunk=devopsagent.CfnAssociation.MCPServerSplunkConfigurationProperty(
                         endpoint="endpoint",
                         name="name",
                 
                         # the properties below are optional
                         description="description",
+                        enable_webhook_updates=False
+                    ),
+                    pager_duty=devopsagent.CfnAssociation.PagerDutyConfigurationProperty(
+                        customer_email="customerEmail",
+                        services=["services"],
+                
+                        # the properties below are optional
                         enable_webhook_updates=False
                     ),
                     service_now=devopsagent.CfnAssociation.ServiceNowConfigurationProperty(
@@ -2448,6 +2683,7 @@ class CfnAssociation(
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__534ff66bec4c3f764380e71fc8dbccb3b6b0319f301032fa7e975aa1842a74e1)
                 check_type(argname="argument aws", value=aws, expected_type=type_hints["aws"])
+                check_type(argname="argument azure", value=azure, expected_type=type_hints["azure"])
                 check_type(argname="argument dynatrace", value=dynatrace, expected_type=type_hints["dynatrace"])
                 check_type(argname="argument event_channel", value=event_channel, expected_type=type_hints["event_channel"])
                 check_type(argname="argument git_hub", value=git_hub, expected_type=type_hints["git_hub"])
@@ -2455,13 +2691,17 @@ class CfnAssociation(
                 check_type(argname="argument mcp_server", value=mcp_server, expected_type=type_hints["mcp_server"])
                 check_type(argname="argument mcp_server_datadog", value=mcp_server_datadog, expected_type=type_hints["mcp_server_datadog"])
                 check_type(argname="argument mcp_server_new_relic", value=mcp_server_new_relic, expected_type=type_hints["mcp_server_new_relic"])
+                check_type(argname="argument mcp_server_sig_v4", value=mcp_server_sig_v4, expected_type=type_hints["mcp_server_sig_v4"])
                 check_type(argname="argument mcp_server_splunk", value=mcp_server_splunk, expected_type=type_hints["mcp_server_splunk"])
+                check_type(argname="argument pager_duty", value=pager_duty, expected_type=type_hints["pager_duty"])
                 check_type(argname="argument service_now", value=service_now, expected_type=type_hints["service_now"])
                 check_type(argname="argument slack", value=slack, expected_type=type_hints["slack"])
                 check_type(argname="argument source_aws", value=source_aws, expected_type=type_hints["source_aws"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if aws is not None:
                 self._values["aws"] = aws
+            if azure is not None:
+                self._values["azure"] = azure
             if dynatrace is not None:
                 self._values["dynatrace"] = dynatrace
             if event_channel is not None:
@@ -2476,8 +2716,12 @@ class CfnAssociation(
                 self._values["mcp_server_datadog"] = mcp_server_datadog
             if mcp_server_new_relic is not None:
                 self._values["mcp_server_new_relic"] = mcp_server_new_relic
+            if mcp_server_sig_v4 is not None:
+                self._values["mcp_server_sig_v4"] = mcp_server_sig_v4
             if mcp_server_splunk is not None:
                 self._values["mcp_server_splunk"] = mcp_server_splunk
+            if pager_duty is not None:
+                self._values["pager_duty"] = pager_duty
             if service_now is not None:
                 self._values["service_now"] = service_now
             if slack is not None:
@@ -2497,6 +2741,17 @@ class CfnAssociation(
             '''
             result = self._values.get("aws")
             return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAssociation.AWSConfigurationProperty"]], result)
+
+        @builtins.property
+        def azure(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAssociation.AzureConfigurationProperty"]]:
+            '''Azure subscription integration configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-association-serviceconfiguration.html#cfn-devopsagent-association-serviceconfiguration-azure
+            '''
+            result = self._values.get("azure")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAssociation.AzureConfigurationProperty"]], result)
 
         @builtins.property
         def dynatrace(
@@ -2590,6 +2845,17 @@ class CfnAssociation(
             return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAssociation.MCPServerNewRelicConfigurationProperty"]], result)
 
         @builtins.property
+        def mcp_server_sig_v4(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAssociation.MCPServerSigV4ConfigurationProperty"]]:
+            '''SigV4-authenticated MCP server configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-association-serviceconfiguration.html#cfn-devopsagent-association-serviceconfiguration-mcpserversigv4
+            '''
+            result = self._values.get("mcp_server_sig_v4")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAssociation.MCPServerSigV4ConfigurationProperty"]], result)
+
+        @builtins.property
         def mcp_server_splunk(
             self,
         ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAssociation.MCPServerSplunkConfigurationProperty"]]:
@@ -2601,6 +2867,17 @@ class CfnAssociation(
             '''
             result = self._values.get("mcp_server_splunk")
             return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAssociation.MCPServerSplunkConfigurationProperty"]], result)
+
+        @builtins.property
+        def pager_duty(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAssociation.PagerDutyConfigurationProperty"]]:
+            '''PagerDuty integration configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-association-serviceconfiguration.html#cfn-devopsagent-association-serviceconfiguration-pagerduty
+            '''
+            result = self._values.get("pager_duty")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAssociation.PagerDutyConfigurationProperty"]], result)
 
         @builtins.property
         def service_now(
@@ -3166,6 +3443,9 @@ class CfnAssociationProps:
                             value="value"
                         )]
                     ),
+                    azure=devopsagent.CfnAssociation.AzureConfigurationProperty(
+                        subscription_id="subscriptionId"
+                    ),
                     dynatrace=devopsagent.CfnAssociation.DynatraceConfigurationProperty(
                         env_id="envId",
             
@@ -3211,12 +3491,22 @@ class CfnAssociationProps:
                         account_id="accountId",
                         endpoint="endpoint"
                     ),
+                    mcp_server_sig_v4=devopsagent.CfnAssociation.MCPServerSigV4ConfigurationProperty(
+                        tools=["tools"]
+                    ),
                     mcp_server_splunk=devopsagent.CfnAssociation.MCPServerSplunkConfigurationProperty(
                         endpoint="endpoint",
                         name="name",
             
                         # the properties below are optional
                         description="description",
+                        enable_webhook_updates=False
+                    ),
+                    pager_duty=devopsagent.CfnAssociation.PagerDutyConfigurationProperty(
+                        customer_email="customerEmail",
+                        services=["services"],
+            
+                        # the properties below are optional
                         enable_webhook_updates=False
                     ),
                     service_now=devopsagent.CfnAssociation.ServiceNowConfigurationProperty(
@@ -3333,6 +3623,669 @@ class CfnAssociationProps:
         )
 
 
+@jsii.implements(_IInspectable_c2943556, _IPrivateConnectionRef_818757a8, _ITaggableV2_4e6798f8)
+class CfnPrivateConnection(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_devopsagent.CfnPrivateConnection",
+):
+    '''Resource Type definition for AWS::DevOpsAgent::PrivateConnection.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devopsagent-privateconnection.html
+    :cloudformationResource: AWS::DevOpsAgent::PrivateConnection
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_devopsagent as devopsagent
+        
+        cfn_private_connection = devopsagent.CfnPrivateConnection(self, "MyCfnPrivateConnection",
+            connection_configuration=devopsagent.CfnPrivateConnection.ConnectionConfigurationProperty(
+                self_managed=devopsagent.CfnPrivateConnection.SelfManagedModeProperty(
+                    resource_configuration_id="resourceConfigurationId"
+                ),
+                service_managed=devopsagent.CfnPrivateConnection.ServiceManagedModeProperty(
+                    host_address="hostAddress",
+                    vpc_id="vpcId",
+        
+                    # the properties below are optional
+                    ip_address_type="ipAddressType",
+                    ipv4_addresses_per_eni=123,
+                    port_ranges=["portRanges"],
+                    security_group_ids=["securityGroupIds"],
+                    subnet_ids=["subnetIds"]
+                )
+            ),
+            name="name",
+        
+            # the properties below are optional
+            certificate="certificate",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        connection_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnPrivateConnection.ConnectionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        name: builtins.str,
+        certificate: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::DevOpsAgent::PrivateConnection``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param connection_configuration: The connection configuration, either SelfManaged or ServiceManaged.
+        :param name: Unique name for this Private Connection within the account.
+        :param certificate: Certificate for the Private Connection.
+        :param tags: An array of key-value pairs to apply to this resource.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__737bb9aa336e98c23861ebeafe9c6c361036ad6e1eac7734f03f6f6063bd80c7)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnPrivateConnectionProps(
+            connection_configuration=connection_configuration,
+            name=name,
+            certificate=certificate,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForPrivateConnection")
+    @builtins.classmethod
+    def arn_for_private_connection(
+        cls,
+        resource: "_IPrivateConnectionRef_818757a8",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__359495259ac1ec01b0746c3bed97ca24644abaaf96132c656165c7c8684db31b)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForPrivateConnection", [resource]))
+
+    @jsii.member(jsii_name="isCfnPrivateConnection")
+    @builtins.classmethod
+    def is_cfn_private_connection(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnPrivateConnection.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7f803fad564b0efd5620333b50e9d9bf8aadbce6265c33e39656c4b54aff79db)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnPrivateConnection", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ba2963d733aaea01bc0257750a1269cf4f0ce08c9763f54ea851071acca09b6b)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0eff1e20894f0d957d5760fdf375a3ad4b9d0b3324a77bd7a8cca2d16c0cfd27)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the Private Connection.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCertificateExpiryTime")
+    def attr_certificate_expiry_time(self) -> builtins.str:
+        '''The expiry time of the certificate associated with the Private Connection.
+
+        :cloudformationAttribute: CertificateExpiryTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCertificateExpiryTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''The status of the Private Connection.
+
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="privateConnectionRef")
+    def private_connection_ref(self) -> "_PrivateConnectionReference_43c54ff2":
+        '''A reference to a PrivateConnection resource.'''
+        return typing.cast("_PrivateConnectionReference_43c54ff2", jsii.get(self, "privateConnectionRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="connectionConfiguration")
+    def connection_configuration(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnPrivateConnection.ConnectionConfigurationProperty"]:
+        '''The connection configuration, either SelfManaged or ServiceManaged.'''
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnPrivateConnection.ConnectionConfigurationProperty"], jsii.get(self, "connectionConfiguration"))
+
+    @connection_configuration.setter
+    def connection_configuration(
+        self,
+        value: typing.Union["_IResolvable_da3f097b", "CfnPrivateConnection.ConnectionConfigurationProperty"],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b96d3935f0c92a4ca328bada94e61a1b0776eadec28c0bc34194a87c717ef709)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "connectionConfiguration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''Unique name for this Private Connection within the account.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a4cd20912efc0734dc7e62490bfec1102f60d389bcd9f7182bf1274ba0dd1485)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="certificate")
+    def certificate(self) -> typing.Optional[builtins.str]:
+        '''Certificate for the Private Connection.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "certificate"))
+
+    @certificate.setter
+    def certificate(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__dc7a05bd78eeec8b4a66a55c79fff9aa2f574654964458c4649007fe00412478)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "certificate", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''An array of key-value pairs to apply to this resource.'''
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b03fd4b9d54598fadabf544a7c5bcbbc02ee50b1ce15ca7410a87bdcf2eb610e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_devopsagent.CfnPrivateConnection.ConnectionConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "self_managed": "selfManaged",
+            "service_managed": "serviceManaged",
+        },
+    )
+    class ConnectionConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            self_managed: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPrivateConnection.SelfManagedModeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            service_managed: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPrivateConnection.ServiceManagedModeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param self_managed: Configuration for a self-managed Private Connection.
+            :param service_managed: Configuration for a service-managed Private Connection.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-privateconnection-connectionconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_devopsagent as devopsagent
+                
+                connection_configuration_property = devopsagent.CfnPrivateConnection.ConnectionConfigurationProperty(
+                    self_managed=devopsagent.CfnPrivateConnection.SelfManagedModeProperty(
+                        resource_configuration_id="resourceConfigurationId"
+                    ),
+                    service_managed=devopsagent.CfnPrivateConnection.ServiceManagedModeProperty(
+                        host_address="hostAddress",
+                        vpc_id="vpcId",
+                
+                        # the properties below are optional
+                        ip_address_type="ipAddressType",
+                        ipv4_addresses_per_eni=123,
+                        port_ranges=["portRanges"],
+                        security_group_ids=["securityGroupIds"],
+                        subnet_ids=["subnetIds"]
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__8aadfdbeba1600978fcabb235296ed84309fda8c21af28c185666a466b088103)
+                check_type(argname="argument self_managed", value=self_managed, expected_type=type_hints["self_managed"])
+                check_type(argname="argument service_managed", value=service_managed, expected_type=type_hints["service_managed"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if self_managed is not None:
+                self._values["self_managed"] = self_managed
+            if service_managed is not None:
+                self._values["service_managed"] = service_managed
+
+        @builtins.property
+        def self_managed(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPrivateConnection.SelfManagedModeProperty"]]:
+            '''Configuration for a self-managed Private Connection.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-privateconnection-connectionconfiguration.html#cfn-devopsagent-privateconnection-connectionconfiguration-selfmanaged
+            '''
+            result = self._values.get("self_managed")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPrivateConnection.SelfManagedModeProperty"]], result)
+
+        @builtins.property
+        def service_managed(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPrivateConnection.ServiceManagedModeProperty"]]:
+            '''Configuration for a service-managed Private Connection.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-privateconnection-connectionconfiguration.html#cfn-devopsagent-privateconnection-connectionconfiguration-servicemanaged
+            '''
+            result = self._values.get("service_managed")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPrivateConnection.ServiceManagedModeProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ConnectionConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_devopsagent.CfnPrivateConnection.SelfManagedModeProperty",
+        jsii_struct_bases=[],
+        name_mapping={"resource_configuration_id": "resourceConfigurationId"},
+    )
+    class SelfManagedModeProperty:
+        def __init__(self, *, resource_configuration_id: builtins.str) -> None:
+            '''Configuration for a self-managed Private Connection.
+
+            :param resource_configuration_id: The ARN of the Resource Configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-privateconnection-selfmanagedmode.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_devopsagent as devopsagent
+                
+                self_managed_mode_property = devopsagent.CfnPrivateConnection.SelfManagedModeProperty(
+                    resource_configuration_id="resourceConfigurationId"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__e1e03abfdff546b24d6fc2a53633a5ab27dd805066c64cbafb0fcf72304ad1db)
+                check_type(argname="argument resource_configuration_id", value=resource_configuration_id, expected_type=type_hints["resource_configuration_id"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "resource_configuration_id": resource_configuration_id,
+            }
+
+        @builtins.property
+        def resource_configuration_id(self) -> builtins.str:
+            '''The ARN of the Resource Configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-privateconnection-selfmanagedmode.html#cfn-devopsagent-privateconnection-selfmanagedmode-resourceconfigurationid
+            '''
+            result = self._values.get("resource_configuration_id")
+            assert result is not None, "Required property 'resource_configuration_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SelfManagedModeProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_devopsagent.CfnPrivateConnection.ServiceManagedModeProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "host_address": "hostAddress",
+            "vpc_id": "vpcId",
+            "ip_address_type": "ipAddressType",
+            "ipv4_addresses_per_eni": "ipv4AddressesPerEni",
+            "port_ranges": "portRanges",
+            "security_group_ids": "securityGroupIds",
+            "subnet_ids": "subnetIds",
+        },
+    )
+    class ServiceManagedModeProperty:
+        def __init__(
+            self,
+            *,
+            host_address: builtins.str,
+            vpc_id: builtins.str,
+            ip_address_type: typing.Optional[builtins.str] = None,
+            ipv4_addresses_per_eni: typing.Optional[jsii.Number] = None,
+            port_ranges: typing.Optional[typing.Sequence[builtins.str]] = None,
+            security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+            subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ) -> None:
+            '''Configuration for a service-managed Private Connection.
+
+            :param host_address: IP address or DNS name of the target resource.
+            :param vpc_id: VPC to create the service-managed Resource Gateway in.
+            :param ip_address_type: IP address type of the service-managed Resource Gateway.
+            :param ipv4_addresses_per_eni: Number of IPv4 addresses in each ENI for the service-managed Resource Gateway.
+            :param port_ranges: TCP port ranges that a consumer can use to access the resource.
+            :param security_group_ids: Security groups to attach to the service-managed Resource Gateway.
+            :param subnet_ids: Subnets that the service-managed Resource Gateway will span.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-privateconnection-servicemanagedmode.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_devopsagent as devopsagent
+                
+                service_managed_mode_property = devopsagent.CfnPrivateConnection.ServiceManagedModeProperty(
+                    host_address="hostAddress",
+                    vpc_id="vpcId",
+                
+                    # the properties below are optional
+                    ip_address_type="ipAddressType",
+                    ipv4_addresses_per_eni=123,
+                    port_ranges=["portRanges"],
+                    security_group_ids=["securityGroupIds"],
+                    subnet_ids=["subnetIds"]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__8fee6e08afdb0c9c636dbb7c0d262dc667068c03d13e61ccfbc3b6fe4e5d6c2c)
+                check_type(argname="argument host_address", value=host_address, expected_type=type_hints["host_address"])
+                check_type(argname="argument vpc_id", value=vpc_id, expected_type=type_hints["vpc_id"])
+                check_type(argname="argument ip_address_type", value=ip_address_type, expected_type=type_hints["ip_address_type"])
+                check_type(argname="argument ipv4_addresses_per_eni", value=ipv4_addresses_per_eni, expected_type=type_hints["ipv4_addresses_per_eni"])
+                check_type(argname="argument port_ranges", value=port_ranges, expected_type=type_hints["port_ranges"])
+                check_type(argname="argument security_group_ids", value=security_group_ids, expected_type=type_hints["security_group_ids"])
+                check_type(argname="argument subnet_ids", value=subnet_ids, expected_type=type_hints["subnet_ids"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "host_address": host_address,
+                "vpc_id": vpc_id,
+            }
+            if ip_address_type is not None:
+                self._values["ip_address_type"] = ip_address_type
+            if ipv4_addresses_per_eni is not None:
+                self._values["ipv4_addresses_per_eni"] = ipv4_addresses_per_eni
+            if port_ranges is not None:
+                self._values["port_ranges"] = port_ranges
+            if security_group_ids is not None:
+                self._values["security_group_ids"] = security_group_ids
+            if subnet_ids is not None:
+                self._values["subnet_ids"] = subnet_ids
+
+        @builtins.property
+        def host_address(self) -> builtins.str:
+            '''IP address or DNS name of the target resource.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-privateconnection-servicemanagedmode.html#cfn-devopsagent-privateconnection-servicemanagedmode-hostaddress
+            '''
+            result = self._values.get("host_address")
+            assert result is not None, "Required property 'host_address' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def vpc_id(self) -> builtins.str:
+            '''VPC to create the service-managed Resource Gateway in.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-privateconnection-servicemanagedmode.html#cfn-devopsagent-privateconnection-servicemanagedmode-vpcid
+            '''
+            result = self._values.get("vpc_id")
+            assert result is not None, "Required property 'vpc_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def ip_address_type(self) -> typing.Optional[builtins.str]:
+            '''IP address type of the service-managed Resource Gateway.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-privateconnection-servicemanagedmode.html#cfn-devopsagent-privateconnection-servicemanagedmode-ipaddresstype
+            '''
+            result = self._values.get("ip_address_type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def ipv4_addresses_per_eni(self) -> typing.Optional[jsii.Number]:
+            '''Number of IPv4 addresses in each ENI for the service-managed Resource Gateway.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-privateconnection-servicemanagedmode.html#cfn-devopsagent-privateconnection-servicemanagedmode-ipv4addressespereni
+            '''
+            result = self._values.get("ipv4_addresses_per_eni")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def port_ranges(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''TCP port ranges that a consumer can use to access the resource.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-privateconnection-servicemanagedmode.html#cfn-devopsagent-privateconnection-servicemanagedmode-portranges
+            '''
+            result = self._values.get("port_ranges")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def security_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''Security groups to attach to the service-managed Resource Gateway.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-privateconnection-servicemanagedmode.html#cfn-devopsagent-privateconnection-servicemanagedmode-securitygroupids
+            '''
+            result = self._values.get("security_group_ids")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def subnet_ids(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''Subnets that the service-managed Resource Gateway will span.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-privateconnection-servicemanagedmode.html#cfn-devopsagent-privateconnection-servicemanagedmode-subnetids
+            '''
+            result = self._values.get("subnet_ids")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ServiceManagedModeProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_devopsagent.CfnPrivateConnectionProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "connection_configuration": "connectionConfiguration",
+        "name": "name",
+        "certificate": "certificate",
+        "tags": "tags",
+    },
+)
+class CfnPrivateConnectionProps:
+    def __init__(
+        self,
+        *,
+        connection_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnPrivateConnection.ConnectionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        name: builtins.str,
+        certificate: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnPrivateConnection``.
+
+        :param connection_configuration: The connection configuration, either SelfManaged or ServiceManaged.
+        :param name: Unique name for this Private Connection within the account.
+        :param certificate: Certificate for the Private Connection.
+        :param tags: An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devopsagent-privateconnection.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_devopsagent as devopsagent
+            
+            cfn_private_connection_props = devopsagent.CfnPrivateConnectionProps(
+                connection_configuration=devopsagent.CfnPrivateConnection.ConnectionConfigurationProperty(
+                    self_managed=devopsagent.CfnPrivateConnection.SelfManagedModeProperty(
+                        resource_configuration_id="resourceConfigurationId"
+                    ),
+                    service_managed=devopsagent.CfnPrivateConnection.ServiceManagedModeProperty(
+                        host_address="hostAddress",
+                        vpc_id="vpcId",
+            
+                        # the properties below are optional
+                        ip_address_type="ipAddressType",
+                        ipv4_addresses_per_eni=123,
+                        port_ranges=["portRanges"],
+                        security_group_ids=["securityGroupIds"],
+                        subnet_ids=["subnetIds"]
+                    )
+                ),
+                name="name",
+            
+                # the properties below are optional
+                certificate="certificate",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ffc3b7df4ad86379ff4f15af752d5449502636379b6ea2d834daebcc525bf809)
+            check_type(argname="argument connection_configuration", value=connection_configuration, expected_type=type_hints["connection_configuration"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument certificate", value=certificate, expected_type=type_hints["certificate"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "connection_configuration": connection_configuration,
+            "name": name,
+        }
+        if certificate is not None:
+            self._values["certificate"] = certificate
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def connection_configuration(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnPrivateConnection.ConnectionConfigurationProperty"]:
+        '''The connection configuration, either SelfManaged or ServiceManaged.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devopsagent-privateconnection.html#cfn-devopsagent-privateconnection-connectionconfiguration
+        '''
+        result = self._values.get("connection_configuration")
+        assert result is not None, "Required property 'connection_configuration' is missing"
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnPrivateConnection.ConnectionConfigurationProperty"], result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''Unique name for this Private Connection within the account.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devopsagent-privateconnection.html#cfn-devopsagent-privateconnection-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def certificate(self) -> typing.Optional[builtins.str]:
+        '''Certificate for the Private Connection.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devopsagent-privateconnection.html#cfn-devopsagent-privateconnection-certificate
+        '''
+        result = self._values.get("certificate")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devopsagent-privateconnection.html#cfn-devopsagent-privateconnection-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnPrivateConnectionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_IInspectable_c2943556, _IServiceRef_a4cfa131, _ITaggableV2_4e6798f8)
 class CfnService(
     _CfnResource_9df397a6,
@@ -3360,6 +4313,12 @@ class CfnService(
             # the properties below are optional
             kms_key_arn="kmsKeyArn",
             service_details=devopsagent.CfnService.ServiceDetailsProperty(
+                azure_identity=devopsagent.CfnService.AzureIdentityServiceDetailsProperty(
+                    client_id="clientId",
+                    tenant_id="tenantId",
+                    web_identity_role_arn="webIdentityRoleArn",
+                    web_identity_token_audiences=["webIdentityTokenAudiences"]
+                ),
                 dynatrace=devopsagent.CfnService.DynatraceServiceDetailsProperty(
                     account_urn="accountUrn",
         
@@ -3421,6 +4380,23 @@ class CfnService(
                         )
                     )
                 ),
+                mcp_server_sig_v4=devopsagent.CfnService.MCPServerSigV4DetailsProperty(
+                    authorization_config=devopsagent.CfnService.MCPServerSigV4AuthorizationConfigProperty(
+                        region="region",
+                        role_arn="roleArn",
+                        service="service",
+        
+                        # the properties below are optional
+                        custom_headers={
+                            "custom_headers_key": "customHeaders"
+                        }
+                    ),
+                    endpoint="endpoint",
+                    name="name",
+        
+                    # the properties below are optional
+                    description="description"
+                ),
                 mcp_server_splunk=devopsagent.CfnService.MCPServerSplunkDetailsProperty(
                     authorization_config=devopsagent.CfnService.MCPServerSplunkAuthorizationConfigProperty(
                         bearer_token=devopsagent.CfnService.BearerTokenDetailsProperty(
@@ -3436,6 +4412,19 @@ class CfnService(
         
                     # the properties below are optional
                     description="description"
+                ),
+                pager_duty=devopsagent.CfnService.PagerDutyDetailsProperty(
+                    authorization_config=devopsagent.CfnService.PagerDutyAuthorizationConfigProperty(
+                        o_auth_client_credentials=devopsagent.CfnService.OAuthClientDetailsProperty(
+                            client_id="clientId",
+                            client_secret="clientSecret",
+        
+                            # the properties below are optional
+                            client_name="clientName",
+                            exchange_parameters=exchange_parameters
+                        )
+                    ),
+                    scopes=["scopes"]
                 ),
                 service_now=devopsagent.CfnService.ServiceNowServiceDetailsProperty(
                     instance_url="instanceUrl",
@@ -3701,11 +4690,14 @@ class CfnService(
         jsii_type="aws-cdk-lib.aws_devopsagent.CfnService.AdditionalServiceDetailsProperty",
         jsii_struct_bases=[],
         name_mapping={
+            "azure_identity": "azureIdentity",
             "dynatrace": "dynatrace",
             "git_lab": "gitLab",
             "mcp_server": "mcpServer",
             "mcp_server_new_relic": "mcpServerNewRelic",
+            "mcp_server_sig_v4": "mcpServerSigV4",
             "mcp_server_splunk": "mcpServerSplunk",
+            "pager_duty": "pagerDuty",
             "service_now": "serviceNow",
         },
     )
@@ -3713,19 +4705,25 @@ class CfnService(
         def __init__(
             self,
             *,
+            azure_identity: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.RegisteredAzureIdentityDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             dynatrace: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.RegisteredDynatraceDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             git_lab: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.RegisteredGitLabServiceDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             mcp_server: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.RegisteredMCPServerDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             mcp_server_new_relic: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.RegisteredNewRelicDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            mcp_server_sig_v4: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.RegisteredMCPServerSigV4DetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             mcp_server_splunk: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.RegisteredMCPServerDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            pager_duty: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.RegisteredPagerDutyDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             service_now: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.RegisteredServiceNowDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''
+            :param azure_identity: Azure Identity service details returned after registration.
             :param dynatrace: Dynatrace service details returned after registration.
             :param git_lab: GitLab service details returned after registration.
             :param mcp_server: MCP server details returned after registration.
             :param mcp_server_new_relic: New Relic service details returned after registration.
+            :param mcp_server_sig_v4: SigV4-authenticated MCP server details returned after registration.
             :param mcp_server_splunk: MCP server details returned after registration.
+            :param pager_duty: PagerDuty service details returned after registration.
             :param service_now: ServiceNow service details returned after registration.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-additionalservicedetails.html
@@ -3738,6 +4736,12 @@ class CfnService(
                 from aws_cdk import aws_devopsagent as devopsagent
                 
                 additional_service_details_property = devopsagent.CfnService.AdditionalServiceDetailsProperty(
+                    azure_identity=devopsagent.CfnService.RegisteredAzureIdentityDetailsProperty(
+                        client_id="clientId",
+                        tenant_id="tenantId",
+                        web_identity_role_arn="webIdentityRoleArn",
+                        web_identity_token_audiences=["webIdentityTokenAudiences"]
+                    ),
                     dynatrace=devopsagent.CfnService.RegisteredDynatraceDetailsProperty(
                         account_urn="accountUrn"
                     ),
@@ -3764,6 +4768,19 @@ class CfnService(
                         # the properties below are optional
                         description="description"
                     ),
+                    mcp_server_sig_v4=devopsagent.CfnService.RegisteredMCPServerSigV4DetailsProperty(
+                        endpoint="endpoint",
+                        name="name",
+                        region="region",
+                        role_arn="roleArn",
+                        service="service",
+                
+                        # the properties below are optional
+                        custom_headers={
+                            "custom_headers_key": "customHeaders"
+                        },
+                        description="description"
+                    ),
                     mcp_server_splunk=devopsagent.CfnService.RegisteredMCPServerDetailsProperty(
                         authorization_method="authorizationMethod",
                         endpoint="endpoint",
@@ -3773,6 +4790,9 @@ class CfnService(
                         api_key_header="apiKeyHeader",
                         description="description"
                     ),
+                    pager_duty=devopsagent.CfnService.RegisteredPagerDutyDetailsProperty(
+                        scopes=["scopes"]
+                    ),
                     service_now=devopsagent.CfnService.RegisteredServiceNowDetailsProperty(
                         instance_url="instanceUrl"
                     )
@@ -3780,13 +4800,18 @@ class CfnService(
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__35d2aa127fac97efcf9f5ae815fbac6244f4de11a1b85beb8acc053b8eb8edee)
+                check_type(argname="argument azure_identity", value=azure_identity, expected_type=type_hints["azure_identity"])
                 check_type(argname="argument dynatrace", value=dynatrace, expected_type=type_hints["dynatrace"])
                 check_type(argname="argument git_lab", value=git_lab, expected_type=type_hints["git_lab"])
                 check_type(argname="argument mcp_server", value=mcp_server, expected_type=type_hints["mcp_server"])
                 check_type(argname="argument mcp_server_new_relic", value=mcp_server_new_relic, expected_type=type_hints["mcp_server_new_relic"])
+                check_type(argname="argument mcp_server_sig_v4", value=mcp_server_sig_v4, expected_type=type_hints["mcp_server_sig_v4"])
                 check_type(argname="argument mcp_server_splunk", value=mcp_server_splunk, expected_type=type_hints["mcp_server_splunk"])
+                check_type(argname="argument pager_duty", value=pager_duty, expected_type=type_hints["pager_duty"])
                 check_type(argname="argument service_now", value=service_now, expected_type=type_hints["service_now"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if azure_identity is not None:
+                self._values["azure_identity"] = azure_identity
             if dynatrace is not None:
                 self._values["dynatrace"] = dynatrace
             if git_lab is not None:
@@ -3795,10 +4820,25 @@ class CfnService(
                 self._values["mcp_server"] = mcp_server
             if mcp_server_new_relic is not None:
                 self._values["mcp_server_new_relic"] = mcp_server_new_relic
+            if mcp_server_sig_v4 is not None:
+                self._values["mcp_server_sig_v4"] = mcp_server_sig_v4
             if mcp_server_splunk is not None:
                 self._values["mcp_server_splunk"] = mcp_server_splunk
+            if pager_duty is not None:
+                self._values["pager_duty"] = pager_duty
             if service_now is not None:
                 self._values["service_now"] = service_now
+
+        @builtins.property
+        def azure_identity(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.RegisteredAzureIdentityDetailsProperty"]]:
+            '''Azure Identity service details returned after registration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-additionalservicedetails.html#cfn-devopsagent-service-additionalservicedetails-azureidentity
+            '''
+            result = self._values.get("azure_identity")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.RegisteredAzureIdentityDetailsProperty"]], result)
 
         @builtins.property
         def dynatrace(
@@ -3845,6 +4885,17 @@ class CfnService(
             return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.RegisteredNewRelicDetailsProperty"]], result)
 
         @builtins.property
+        def mcp_server_sig_v4(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.RegisteredMCPServerSigV4DetailsProperty"]]:
+            '''SigV4-authenticated MCP server details returned after registration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-additionalservicedetails.html#cfn-devopsagent-service-additionalservicedetails-mcpserversigv4
+            '''
+            result = self._values.get("mcp_server_sig_v4")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.RegisteredMCPServerSigV4DetailsProperty"]], result)
+
+        @builtins.property
         def mcp_server_splunk(
             self,
         ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.RegisteredMCPServerDetailsProperty"]]:
@@ -3854,6 +4905,17 @@ class CfnService(
             '''
             result = self._values.get("mcp_server_splunk")
             return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.RegisteredMCPServerDetailsProperty"]], result)
+
+        @builtins.property
+        def pager_duty(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.RegisteredPagerDutyDetailsProperty"]]:
+            '''PagerDuty service details returned after registration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-additionalservicedetails.html#cfn-devopsagent-service-additionalservicedetails-pagerduty
+            '''
+            result = self._values.get("pager_duty")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.RegisteredPagerDutyDetailsProperty"]], result)
 
         @builtins.property
         def service_now(
@@ -3964,6 +5026,112 @@ class CfnService(
 
         def __repr__(self) -> str:
             return "ApiKeyDetailsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_devopsagent.CfnService.AzureIdentityServiceDetailsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "client_id": "clientId",
+            "tenant_id": "tenantId",
+            "web_identity_role_arn": "webIdentityRoleArn",
+            "web_identity_token_audiences": "webIdentityTokenAudiences",
+        },
+    )
+    class AzureIdentityServiceDetailsProperty:
+        def __init__(
+            self,
+            *,
+            client_id: builtins.str,
+            tenant_id: builtins.str,
+            web_identity_role_arn: builtins.str,
+            web_identity_token_audiences: typing.Sequence[builtins.str],
+        ) -> None:
+            '''Azure Identity service configuration for federated identity.
+
+            :param client_id: Azure AD application client ID.
+            :param tenant_id: Azure AD tenant ID.
+            :param web_identity_role_arn: ARN of the IAM role for web identity token exchange.
+            :param web_identity_token_audiences: List of audiences for the web identity token.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-azureidentityservicedetails.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_devopsagent as devopsagent
+                
+                azure_identity_service_details_property = devopsagent.CfnService.AzureIdentityServiceDetailsProperty(
+                    client_id="clientId",
+                    tenant_id="tenantId",
+                    web_identity_role_arn="webIdentityRoleArn",
+                    web_identity_token_audiences=["webIdentityTokenAudiences"]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__5cd0c5b00b63839d8ccb70703357d4a49251ebc15c3edfa7b123ce200a667b92)
+                check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
+                check_type(argname="argument tenant_id", value=tenant_id, expected_type=type_hints["tenant_id"])
+                check_type(argname="argument web_identity_role_arn", value=web_identity_role_arn, expected_type=type_hints["web_identity_role_arn"])
+                check_type(argname="argument web_identity_token_audiences", value=web_identity_token_audiences, expected_type=type_hints["web_identity_token_audiences"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "client_id": client_id,
+                "tenant_id": tenant_id,
+                "web_identity_role_arn": web_identity_role_arn,
+                "web_identity_token_audiences": web_identity_token_audiences,
+            }
+
+        @builtins.property
+        def client_id(self) -> builtins.str:
+            '''Azure AD application client ID.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-azureidentityservicedetails.html#cfn-devopsagent-service-azureidentityservicedetails-clientid
+            '''
+            result = self._values.get("client_id")
+            assert result is not None, "Required property 'client_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def tenant_id(self) -> builtins.str:
+            '''Azure AD tenant ID.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-azureidentityservicedetails.html#cfn-devopsagent-service-azureidentityservicedetails-tenantid
+            '''
+            result = self._values.get("tenant_id")
+            assert result is not None, "Required property 'tenant_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def web_identity_role_arn(self) -> builtins.str:
+            '''ARN of the IAM role for web identity token exchange.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-azureidentityservicedetails.html#cfn-devopsagent-service-azureidentityservicedetails-webidentityrolearn
+            '''
+            result = self._values.get("web_identity_role_arn")
+            assert result is not None, "Required property 'web_identity_role_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def web_identity_token_audiences(self) -> typing.List[builtins.str]:
+            '''List of audiences for the web identity token.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-azureidentityservicedetails.html#cfn-devopsagent-service-azureidentityservicedetails-webidentitytokenaudiences
+            '''
+            result = self._values.get("web_identity_token_audiences")
+            assert result is not None, "Required property 'web_identity_token_audiences' is missing"
+            return typing.cast(typing.List[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AzureIdentityServiceDetailsProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -4686,6 +5854,239 @@ class CfnService(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_devopsagent.CfnService.MCPServerSigV4AuthorizationConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "region": "region",
+            "role_arn": "roleArn",
+            "service": "service",
+            "custom_headers": "customHeaders",
+        },
+    )
+    class MCPServerSigV4AuthorizationConfigProperty:
+        def __init__(
+            self,
+            *,
+            region: builtins.str,
+            role_arn: builtins.str,
+            service: builtins.str,
+            custom_headers: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        ) -> None:
+            '''SigV4 authorization configuration for MCP server.
+
+            :param region: AWS region for SigV4 signing. Use '*' for SigV4a multi-region signing.
+            :param role_arn: IAM role ARN to assume for SigV4 signing.
+            :param service: AWS service name for SigV4 signing.
+            :param custom_headers: Custom headers for the SigV4 MCP server.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-mcpserversigv4authorizationconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_devopsagent as devopsagent
+                
+                m_cPServer_sig_v4_authorization_config_property = devopsagent.CfnService.MCPServerSigV4AuthorizationConfigProperty(
+                    region="region",
+                    role_arn="roleArn",
+                    service="service",
+                
+                    # the properties below are optional
+                    custom_headers={
+                        "custom_headers_key": "customHeaders"
+                    }
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__dbe588b1e3456b646061af08c161d891f42e0088a6279e9d947f0af6e4226e90)
+                check_type(argname="argument region", value=region, expected_type=type_hints["region"])
+                check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
+                check_type(argname="argument service", value=service, expected_type=type_hints["service"])
+                check_type(argname="argument custom_headers", value=custom_headers, expected_type=type_hints["custom_headers"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "region": region,
+                "role_arn": role_arn,
+                "service": service,
+            }
+            if custom_headers is not None:
+                self._values["custom_headers"] = custom_headers
+
+        @builtins.property
+        def region(self) -> builtins.str:
+            '''AWS region for SigV4 signing.
+
+            Use '*' for SigV4a multi-region signing.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-mcpserversigv4authorizationconfig.html#cfn-devopsagent-service-mcpserversigv4authorizationconfig-region
+            '''
+            result = self._values.get("region")
+            assert result is not None, "Required property 'region' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def role_arn(self) -> builtins.str:
+            '''IAM role ARN to assume for SigV4 signing.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-mcpserversigv4authorizationconfig.html#cfn-devopsagent-service-mcpserversigv4authorizationconfig-rolearn
+            '''
+            result = self._values.get("role_arn")
+            assert result is not None, "Required property 'role_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def service(self) -> builtins.str:
+            '''AWS service name for SigV4 signing.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-mcpserversigv4authorizationconfig.html#cfn-devopsagent-service-mcpserversigv4authorizationconfig-service
+            '''
+            result = self._values.get("service")
+            assert result is not None, "Required property 'service' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def custom_headers(
+            self,
+        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+            '''Custom headers for the SigV4 MCP server.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-mcpserversigv4authorizationconfig.html#cfn-devopsagent-service-mcpserversigv4authorizationconfig-customheaders
+            '''
+            result = self._values.get("custom_headers")
+            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MCPServerSigV4AuthorizationConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_devopsagent.CfnService.MCPServerSigV4DetailsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "authorization_config": "authorizationConfig",
+            "endpoint": "endpoint",
+            "name": "name",
+            "description": "description",
+        },
+    )
+    class MCPServerSigV4DetailsProperty:
+        def __init__(
+            self,
+            *,
+            authorization_config: typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.MCPServerSigV4AuthorizationConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+            endpoint: builtins.str,
+            name: builtins.str,
+            description: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''SigV4-authenticated MCP server configuration.
+
+            :param authorization_config: SigV4 authorization configuration for MCP server.
+            :param endpoint: MCP server endpoint URL.
+            :param name: MCP server name.
+            :param description: Optional description for the MCP server.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-mcpserversigv4details.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_devopsagent as devopsagent
+                
+                m_cPServer_sig_v4_details_property = devopsagent.CfnService.MCPServerSigV4DetailsProperty(
+                    authorization_config=devopsagent.CfnService.MCPServerSigV4AuthorizationConfigProperty(
+                        region="region",
+                        role_arn="roleArn",
+                        service="service",
+                
+                        # the properties below are optional
+                        custom_headers={
+                            "custom_headers_key": "customHeaders"
+                        }
+                    ),
+                    endpoint="endpoint",
+                    name="name",
+                
+                    # the properties below are optional
+                    description="description"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__3f739786a815245ff902cf78e02f5663d8f780771bef301382419ef464d87585)
+                check_type(argname="argument authorization_config", value=authorization_config, expected_type=type_hints["authorization_config"])
+                check_type(argname="argument endpoint", value=endpoint, expected_type=type_hints["endpoint"])
+                check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+                check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "authorization_config": authorization_config,
+                "endpoint": endpoint,
+                "name": name,
+            }
+            if description is not None:
+                self._values["description"] = description
+
+        @builtins.property
+        def authorization_config(
+            self,
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnService.MCPServerSigV4AuthorizationConfigProperty"]:
+            '''SigV4 authorization configuration for MCP server.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-mcpserversigv4details.html#cfn-devopsagent-service-mcpserversigv4details-authorizationconfig
+            '''
+            result = self._values.get("authorization_config")
+            assert result is not None, "Required property 'authorization_config' is missing"
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnService.MCPServerSigV4AuthorizationConfigProperty"], result)
+
+        @builtins.property
+        def endpoint(self) -> builtins.str:
+            '''MCP server endpoint URL.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-mcpserversigv4details.html#cfn-devopsagent-service-mcpserversigv4details-endpoint
+            '''
+            result = self._values.get("endpoint")
+            assert result is not None, "Required property 'endpoint' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def name(self) -> builtins.str:
+            '''MCP server name.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-mcpserversigv4details.html#cfn-devopsagent-service-mcpserversigv4details-name
+            '''
+            result = self._values.get("name")
+            assert result is not None, "Required property 'name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def description(self) -> typing.Optional[builtins.str]:
+            '''Optional description for the MCP server.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-mcpserversigv4details.html#cfn-devopsagent-service-mcpserversigv4details-description
+            '''
+            result = self._values.get("description")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MCPServerSigV4DetailsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_devopsagent.CfnService.MCPServerSplunkAuthorizationConfigProperty",
         jsii_struct_bases=[],
         name_mapping={"bearer_token": "bearerToken"},
@@ -5254,6 +6655,265 @@ class CfnService(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_devopsagent.CfnService.PagerDutyAuthorizationConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"o_auth_client_credentials": "oAuthClientCredentials"},
+    )
+    class PagerDutyAuthorizationConfigProperty:
+        def __init__(
+            self,
+            *,
+            o_auth_client_credentials: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.OAuthClientDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''PagerDuty OAuth authorization configuration.
+
+            :param o_auth_client_credentials: OAuth client credentials.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-pagerdutyauthorizationconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_devopsagent as devopsagent
+                
+                # exchange_parameters: Any
+                
+                pager_duty_authorization_config_property = devopsagent.CfnService.PagerDutyAuthorizationConfigProperty(
+                    o_auth_client_credentials=devopsagent.CfnService.OAuthClientDetailsProperty(
+                        client_id="clientId",
+                        client_secret="clientSecret",
+                
+                        # the properties below are optional
+                        client_name="clientName",
+                        exchange_parameters=exchange_parameters
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__e9c2095dbabf003a9912f9996c082e4a598169c9405f9f93d53255656e718605)
+                check_type(argname="argument o_auth_client_credentials", value=o_auth_client_credentials, expected_type=type_hints["o_auth_client_credentials"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if o_auth_client_credentials is not None:
+                self._values["o_auth_client_credentials"] = o_auth_client_credentials
+
+        @builtins.property
+        def o_auth_client_credentials(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.OAuthClientDetailsProperty"]]:
+            '''OAuth client credentials.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-pagerdutyauthorizationconfig.html#cfn-devopsagent-service-pagerdutyauthorizationconfig-oauthclientcredentials
+            '''
+            result = self._values.get("o_auth_client_credentials")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.OAuthClientDetailsProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "PagerDutyAuthorizationConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_devopsagent.CfnService.PagerDutyDetailsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "authorization_config": "authorizationConfig",
+            "scopes": "scopes",
+        },
+    )
+    class PagerDutyDetailsProperty:
+        def __init__(
+            self,
+            *,
+            authorization_config: typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.PagerDutyAuthorizationConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+            scopes: typing.Sequence[builtins.str],
+        ) -> None:
+            '''PagerDuty service configuration.
+
+            :param authorization_config: PagerDuty OAuth authorization configuration.
+            :param scopes: PagerDuty scopes.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-pagerdutydetails.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_devopsagent as devopsagent
+                
+                # exchange_parameters: Any
+                
+                pager_duty_details_property = devopsagent.CfnService.PagerDutyDetailsProperty(
+                    authorization_config=devopsagent.CfnService.PagerDutyAuthorizationConfigProperty(
+                        o_auth_client_credentials=devopsagent.CfnService.OAuthClientDetailsProperty(
+                            client_id="clientId",
+                            client_secret="clientSecret",
+                
+                            # the properties below are optional
+                            client_name="clientName",
+                            exchange_parameters=exchange_parameters
+                        )
+                    ),
+                    scopes=["scopes"]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__e955f5727dffbd72cd3740fd98d395e25da149a2354852b2fe8137636322ed85)
+                check_type(argname="argument authorization_config", value=authorization_config, expected_type=type_hints["authorization_config"])
+                check_type(argname="argument scopes", value=scopes, expected_type=type_hints["scopes"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "authorization_config": authorization_config,
+                "scopes": scopes,
+            }
+
+        @builtins.property
+        def authorization_config(
+            self,
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnService.PagerDutyAuthorizationConfigProperty"]:
+            '''PagerDuty OAuth authorization configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-pagerdutydetails.html#cfn-devopsagent-service-pagerdutydetails-authorizationconfig
+            '''
+            result = self._values.get("authorization_config")
+            assert result is not None, "Required property 'authorization_config' is missing"
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnService.PagerDutyAuthorizationConfigProperty"], result)
+
+        @builtins.property
+        def scopes(self) -> typing.List[builtins.str]:
+            '''PagerDuty scopes.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-pagerdutydetails.html#cfn-devopsagent-service-pagerdutydetails-scopes
+            '''
+            result = self._values.get("scopes")
+            assert result is not None, "Required property 'scopes' is missing"
+            return typing.cast(typing.List[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "PagerDutyDetailsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_devopsagent.CfnService.RegisteredAzureIdentityDetailsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "client_id": "clientId",
+            "tenant_id": "tenantId",
+            "web_identity_role_arn": "webIdentityRoleArn",
+            "web_identity_token_audiences": "webIdentityTokenAudiences",
+        },
+    )
+    class RegisteredAzureIdentityDetailsProperty:
+        def __init__(
+            self,
+            *,
+            client_id: builtins.str,
+            tenant_id: builtins.str,
+            web_identity_role_arn: builtins.str,
+            web_identity_token_audiences: typing.Sequence[builtins.str],
+        ) -> None:
+            '''Azure Identity service details returned after registration.
+
+            :param client_id: Azure AD application client ID.
+            :param tenant_id: Azure AD tenant ID.
+            :param web_identity_role_arn: ARN of the IAM role for web identity token exchange.
+            :param web_identity_token_audiences: List of audiences for the web identity token.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-registeredazureidentitydetails.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_devopsagent as devopsagent
+                
+                registered_azure_identity_details_property = devopsagent.CfnService.RegisteredAzureIdentityDetailsProperty(
+                    client_id="clientId",
+                    tenant_id="tenantId",
+                    web_identity_role_arn="webIdentityRoleArn",
+                    web_identity_token_audiences=["webIdentityTokenAudiences"]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__09ec9c52702c89a1805f1f95be14e6c467fc62e75bfdb55208d5c8f732acfb84)
+                check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
+                check_type(argname="argument tenant_id", value=tenant_id, expected_type=type_hints["tenant_id"])
+                check_type(argname="argument web_identity_role_arn", value=web_identity_role_arn, expected_type=type_hints["web_identity_role_arn"])
+                check_type(argname="argument web_identity_token_audiences", value=web_identity_token_audiences, expected_type=type_hints["web_identity_token_audiences"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "client_id": client_id,
+                "tenant_id": tenant_id,
+                "web_identity_role_arn": web_identity_role_arn,
+                "web_identity_token_audiences": web_identity_token_audiences,
+            }
+
+        @builtins.property
+        def client_id(self) -> builtins.str:
+            '''Azure AD application client ID.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-registeredazureidentitydetails.html#cfn-devopsagent-service-registeredazureidentitydetails-clientid
+            '''
+            result = self._values.get("client_id")
+            assert result is not None, "Required property 'client_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def tenant_id(self) -> builtins.str:
+            '''Azure AD tenant ID.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-registeredazureidentitydetails.html#cfn-devopsagent-service-registeredazureidentitydetails-tenantid
+            '''
+            result = self._values.get("tenant_id")
+            assert result is not None, "Required property 'tenant_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def web_identity_role_arn(self) -> builtins.str:
+            '''ARN of the IAM role for web identity token exchange.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-registeredazureidentitydetails.html#cfn-devopsagent-service-registeredazureidentitydetails-webidentityrolearn
+            '''
+            result = self._values.get("web_identity_role_arn")
+            assert result is not None, "Required property 'web_identity_role_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def web_identity_token_audiences(self) -> typing.List[builtins.str]:
+            '''List of audiences for the web identity token.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-registeredazureidentitydetails.html#cfn-devopsagent-service-registeredazureidentitydetails-webidentitytokenaudiences
+            '''
+            result = self._values.get("web_identity_token_audiences")
+            assert result is not None, "Required property 'web_identity_token_audiences' is missing"
+            return typing.cast(typing.List[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RegisteredAzureIdentityDetailsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_devopsagent.CfnService.RegisteredDynatraceDetailsProperty",
         jsii_struct_bases=[],
         name_mapping={"account_urn": "accountUrn"},
@@ -5522,6 +7182,166 @@ class CfnService(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_devopsagent.CfnService.RegisteredMCPServerSigV4DetailsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "endpoint": "endpoint",
+            "name": "name",
+            "region": "region",
+            "role_arn": "roleArn",
+            "service": "service",
+            "custom_headers": "customHeaders",
+            "description": "description",
+        },
+    )
+    class RegisteredMCPServerSigV4DetailsProperty:
+        def __init__(
+            self,
+            *,
+            endpoint: builtins.str,
+            name: builtins.str,
+            region: builtins.str,
+            role_arn: builtins.str,
+            service: builtins.str,
+            custom_headers: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            description: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''SigV4-authenticated MCP server details returned after registration.
+
+            :param endpoint: The MCP server endpoint URL.
+            :param name: The MCP server name.
+            :param region: AWS region for SigV4 signing.
+            :param role_arn: IAM role ARN for SigV4 signing.
+            :param service: AWS service name for SigV4 signing.
+            :param custom_headers: Custom headers for the SigV4 MCP server.
+            :param description: Optional description for the MCP server.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-registeredmcpserversigv4details.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_devopsagent as devopsagent
+                
+                registered_mCPServer_sig_v4_details_property = devopsagent.CfnService.RegisteredMCPServerSigV4DetailsProperty(
+                    endpoint="endpoint",
+                    name="name",
+                    region="region",
+                    role_arn="roleArn",
+                    service="service",
+                
+                    # the properties below are optional
+                    custom_headers={
+                        "custom_headers_key": "customHeaders"
+                    },
+                    description="description"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__3dfa7ec3a9a0d94659cfc778970e21b2e98b7be71f7c5ad9f0a44fcb7f6e81d7)
+                check_type(argname="argument endpoint", value=endpoint, expected_type=type_hints["endpoint"])
+                check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+                check_type(argname="argument region", value=region, expected_type=type_hints["region"])
+                check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
+                check_type(argname="argument service", value=service, expected_type=type_hints["service"])
+                check_type(argname="argument custom_headers", value=custom_headers, expected_type=type_hints["custom_headers"])
+                check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "endpoint": endpoint,
+                "name": name,
+                "region": region,
+                "role_arn": role_arn,
+                "service": service,
+            }
+            if custom_headers is not None:
+                self._values["custom_headers"] = custom_headers
+            if description is not None:
+                self._values["description"] = description
+
+        @builtins.property
+        def endpoint(self) -> builtins.str:
+            '''The MCP server endpoint URL.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-registeredmcpserversigv4details.html#cfn-devopsagent-service-registeredmcpserversigv4details-endpoint
+            '''
+            result = self._values.get("endpoint")
+            assert result is not None, "Required property 'endpoint' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def name(self) -> builtins.str:
+            '''The MCP server name.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-registeredmcpserversigv4details.html#cfn-devopsagent-service-registeredmcpserversigv4details-name
+            '''
+            result = self._values.get("name")
+            assert result is not None, "Required property 'name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def region(self) -> builtins.str:
+            '''AWS region for SigV4 signing.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-registeredmcpserversigv4details.html#cfn-devopsagent-service-registeredmcpserversigv4details-region
+            '''
+            result = self._values.get("region")
+            assert result is not None, "Required property 'region' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def role_arn(self) -> builtins.str:
+            '''IAM role ARN for SigV4 signing.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-registeredmcpserversigv4details.html#cfn-devopsagent-service-registeredmcpserversigv4details-rolearn
+            '''
+            result = self._values.get("role_arn")
+            assert result is not None, "Required property 'role_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def service(self) -> builtins.str:
+            '''AWS service name for SigV4 signing.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-registeredmcpserversigv4details.html#cfn-devopsagent-service-registeredmcpserversigv4details-service
+            '''
+            result = self._values.get("service")
+            assert result is not None, "Required property 'service' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def custom_headers(
+            self,
+        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+            '''Custom headers for the SigV4 MCP server.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-registeredmcpserversigv4details.html#cfn-devopsagent-service-registeredmcpserversigv4details-customheaders
+            '''
+            result = self._values.get("custom_headers")
+            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+
+        @builtins.property
+        def description(self) -> typing.Optional[builtins.str]:
+            '''Optional description for the MCP server.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-registeredmcpserversigv4details.html#cfn-devopsagent-service-registeredmcpserversigv4details-description
+            '''
+            result = self._values.get("description")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RegisteredMCPServerSigV4DetailsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_devopsagent.CfnService.RegisteredNewRelicDetailsProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -5614,6 +7434,58 @@ class CfnService(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_devopsagent.CfnService.RegisteredPagerDutyDetailsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"scopes": "scopes"},
+    )
+    class RegisteredPagerDutyDetailsProperty:
+        def __init__(self, *, scopes: typing.Sequence[builtins.str]) -> None:
+            '''PagerDuty service details returned after registration.
+
+            :param scopes: The scopes assigned to the service.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-registeredpagerdutydetails.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_devopsagent as devopsagent
+                
+                registered_pager_duty_details_property = devopsagent.CfnService.RegisteredPagerDutyDetailsProperty(
+                    scopes=["scopes"]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__1ea95fb8f44113d51d17deef453b37aa6c6ed88c4e006a233ce3583a9444a04c)
+                check_type(argname="argument scopes", value=scopes, expected_type=type_hints["scopes"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "scopes": scopes,
+            }
+
+        @builtins.property
+        def scopes(self) -> typing.List[builtins.str]:
+            '''The scopes assigned to the service.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-registeredpagerdutydetails.html#cfn-devopsagent-service-registeredpagerdutydetails-scopes
+            '''
+            result = self._values.get("scopes")
+            assert result is not None, "Required property 'scopes' is missing"
+            return typing.cast(typing.List[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RegisteredPagerDutyDetailsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_devopsagent.CfnService.RegisteredServiceNowDetailsProperty",
         jsii_struct_bases=[],
         name_mapping={"instance_url": "instanceUrl"},
@@ -5669,11 +7541,14 @@ class CfnService(
         jsii_type="aws-cdk-lib.aws_devopsagent.CfnService.ServiceDetailsProperty",
         jsii_struct_bases=[],
         name_mapping={
+            "azure_identity": "azureIdentity",
             "dynatrace": "dynatrace",
             "git_lab": "gitLab",
             "mcp_server": "mcpServer",
             "mcp_server_new_relic": "mcpServerNewRelic",
+            "mcp_server_sig_v4": "mcpServerSigV4",
             "mcp_server_splunk": "mcpServerSplunk",
+            "pager_duty": "pagerDuty",
             "service_now": "serviceNow",
         },
     )
@@ -5681,19 +7556,25 @@ class CfnService(
         def __init__(
             self,
             *,
+            azure_identity: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.AzureIdentityServiceDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             dynatrace: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.DynatraceServiceDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             git_lab: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.GitLabDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             mcp_server: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.MCPServerDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             mcp_server_new_relic: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.NewRelicServiceDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            mcp_server_sig_v4: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.MCPServerSigV4DetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             mcp_server_splunk: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.MCPServerSplunkDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            pager_duty: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.PagerDutyDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             service_now: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.ServiceNowServiceDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''
+            :param azure_identity: Azure Identity service configuration for federated identity.
             :param dynatrace: Dynatrace service configuration.
             :param git_lab: GitLab service configuration.
             :param mcp_server: MCP server configuration.
             :param mcp_server_new_relic: New Relic service configuration.
+            :param mcp_server_sig_v4: SigV4-authenticated MCP server configuration.
             :param mcp_server_splunk: Splunk MCP server configuration.
+            :param pager_duty: PagerDuty service configuration.
             :param service_now: ServiceNow service configuration.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-servicedetails.html
@@ -5708,6 +7589,12 @@ class CfnService(
                 # exchange_parameters: Any
                 
                 service_details_property = devopsagent.CfnService.ServiceDetailsProperty(
+                    azure_identity=devopsagent.CfnService.AzureIdentityServiceDetailsProperty(
+                        client_id="clientId",
+                        tenant_id="tenantId",
+                        web_identity_role_arn="webIdentityRoleArn",
+                        web_identity_token_audiences=["webIdentityTokenAudiences"]
+                    ),
                     dynatrace=devopsagent.CfnService.DynatraceServiceDetailsProperty(
                         account_urn="accountUrn",
                 
@@ -5769,6 +7656,23 @@ class CfnService(
                             )
                         )
                     ),
+                    mcp_server_sig_v4=devopsagent.CfnService.MCPServerSigV4DetailsProperty(
+                        authorization_config=devopsagent.CfnService.MCPServerSigV4AuthorizationConfigProperty(
+                            region="region",
+                            role_arn="roleArn",
+                            service="service",
+                
+                            # the properties below are optional
+                            custom_headers={
+                                "custom_headers_key": "customHeaders"
+                            }
+                        ),
+                        endpoint="endpoint",
+                        name="name",
+                
+                        # the properties below are optional
+                        description="description"
+                    ),
                     mcp_server_splunk=devopsagent.CfnService.MCPServerSplunkDetailsProperty(
                         authorization_config=devopsagent.CfnService.MCPServerSplunkAuthorizationConfigProperty(
                             bearer_token=devopsagent.CfnService.BearerTokenDetailsProperty(
@@ -5784,6 +7688,19 @@ class CfnService(
                 
                         # the properties below are optional
                         description="description"
+                    ),
+                    pager_duty=devopsagent.CfnService.PagerDutyDetailsProperty(
+                        authorization_config=devopsagent.CfnService.PagerDutyAuthorizationConfigProperty(
+                            o_auth_client_credentials=devopsagent.CfnService.OAuthClientDetailsProperty(
+                                client_id="clientId",
+                                client_secret="clientSecret",
+                
+                                # the properties below are optional
+                                client_name="clientName",
+                                exchange_parameters=exchange_parameters
+                            )
+                        ),
+                        scopes=["scopes"]
                     ),
                     service_now=devopsagent.CfnService.ServiceNowServiceDetailsProperty(
                         instance_url="instanceUrl",
@@ -5804,13 +7721,18 @@ class CfnService(
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__2d3cc706658e74f84415c4cda29e3f1af191a52f1dbbf8701c25e0091302740f)
+                check_type(argname="argument azure_identity", value=azure_identity, expected_type=type_hints["azure_identity"])
                 check_type(argname="argument dynatrace", value=dynatrace, expected_type=type_hints["dynatrace"])
                 check_type(argname="argument git_lab", value=git_lab, expected_type=type_hints["git_lab"])
                 check_type(argname="argument mcp_server", value=mcp_server, expected_type=type_hints["mcp_server"])
                 check_type(argname="argument mcp_server_new_relic", value=mcp_server_new_relic, expected_type=type_hints["mcp_server_new_relic"])
+                check_type(argname="argument mcp_server_sig_v4", value=mcp_server_sig_v4, expected_type=type_hints["mcp_server_sig_v4"])
                 check_type(argname="argument mcp_server_splunk", value=mcp_server_splunk, expected_type=type_hints["mcp_server_splunk"])
+                check_type(argname="argument pager_duty", value=pager_duty, expected_type=type_hints["pager_duty"])
                 check_type(argname="argument service_now", value=service_now, expected_type=type_hints["service_now"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if azure_identity is not None:
+                self._values["azure_identity"] = azure_identity
             if dynatrace is not None:
                 self._values["dynatrace"] = dynatrace
             if git_lab is not None:
@@ -5819,10 +7741,25 @@ class CfnService(
                 self._values["mcp_server"] = mcp_server
             if mcp_server_new_relic is not None:
                 self._values["mcp_server_new_relic"] = mcp_server_new_relic
+            if mcp_server_sig_v4 is not None:
+                self._values["mcp_server_sig_v4"] = mcp_server_sig_v4
             if mcp_server_splunk is not None:
                 self._values["mcp_server_splunk"] = mcp_server_splunk
+            if pager_duty is not None:
+                self._values["pager_duty"] = pager_duty
             if service_now is not None:
                 self._values["service_now"] = service_now
+
+        @builtins.property
+        def azure_identity(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.AzureIdentityServiceDetailsProperty"]]:
+            '''Azure Identity service configuration for federated identity.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-servicedetails.html#cfn-devopsagent-service-servicedetails-azureidentity
+            '''
+            result = self._values.get("azure_identity")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.AzureIdentityServiceDetailsProperty"]], result)
 
         @builtins.property
         def dynatrace(
@@ -5869,6 +7806,17 @@ class CfnService(
             return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.NewRelicServiceDetailsProperty"]], result)
 
         @builtins.property
+        def mcp_server_sig_v4(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.MCPServerSigV4DetailsProperty"]]:
+            '''SigV4-authenticated MCP server configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-servicedetails.html#cfn-devopsagent-service-servicedetails-mcpserversigv4
+            '''
+            result = self._values.get("mcp_server_sig_v4")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.MCPServerSigV4DetailsProperty"]], result)
+
+        @builtins.property
         def mcp_server_splunk(
             self,
         ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.MCPServerSplunkDetailsProperty"]]:
@@ -5878,6 +7826,17 @@ class CfnService(
             '''
             result = self._values.get("mcp_server_splunk")
             return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.MCPServerSplunkDetailsProperty"]], result)
+
+        @builtins.property
+        def pager_duty(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.PagerDutyDetailsProperty"]]:
+            '''PagerDuty service configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-servicedetails.html#cfn-devopsagent-service-servicedetails-pagerduty
+            '''
+            result = self._values.get("pager_duty")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.PagerDutyDetailsProperty"]], result)
 
         @builtins.property
         def service_now(
@@ -6101,6 +8060,12 @@ class CfnServiceProps:
                 # the properties below are optional
                 kms_key_arn="kmsKeyArn",
                 service_details=devopsagent.CfnService.ServiceDetailsProperty(
+                    azure_identity=devopsagent.CfnService.AzureIdentityServiceDetailsProperty(
+                        client_id="clientId",
+                        tenant_id="tenantId",
+                        web_identity_role_arn="webIdentityRoleArn",
+                        web_identity_token_audiences=["webIdentityTokenAudiences"]
+                    ),
                     dynatrace=devopsagent.CfnService.DynatraceServiceDetailsProperty(
                         account_urn="accountUrn",
             
@@ -6162,6 +8127,23 @@ class CfnServiceProps:
                             )
                         )
                     ),
+                    mcp_server_sig_v4=devopsagent.CfnService.MCPServerSigV4DetailsProperty(
+                        authorization_config=devopsagent.CfnService.MCPServerSigV4AuthorizationConfigProperty(
+                            region="region",
+                            role_arn="roleArn",
+                            service="service",
+            
+                            # the properties below are optional
+                            custom_headers={
+                                "custom_headers_key": "customHeaders"
+                            }
+                        ),
+                        endpoint="endpoint",
+                        name="name",
+            
+                        # the properties below are optional
+                        description="description"
+                    ),
                     mcp_server_splunk=devopsagent.CfnService.MCPServerSplunkDetailsProperty(
                         authorization_config=devopsagent.CfnService.MCPServerSplunkAuthorizationConfigProperty(
                             bearer_token=devopsagent.CfnService.BearerTokenDetailsProperty(
@@ -6177,6 +8159,19 @@ class CfnServiceProps:
             
                         # the properties below are optional
                         description="description"
+                    ),
+                    pager_duty=devopsagent.CfnService.PagerDutyDetailsProperty(
+                        authorization_config=devopsagent.CfnService.PagerDutyAuthorizationConfigProperty(
+                            o_auth_client_credentials=devopsagent.CfnService.OAuthClientDetailsProperty(
+                                client_id="clientId",
+                                client_secret="clientSecret",
+            
+                                # the properties below are optional
+                                client_name="clientName",
+                                exchange_parameters=exchange_parameters
+                            )
+                        ),
+                        scopes=["scopes"]
                     ),
                     service_now=devopsagent.CfnService.ServiceNowServiceDetailsProperty(
                         instance_url="instanceUrl",
@@ -6272,6 +8267,8 @@ __all__ = [
     "CfnAgentSpaceProps",
     "CfnAssociation",
     "CfnAssociationProps",
+    "CfnPrivateConnection",
+    "CfnPrivateConnectionProps",
     "CfnService",
     "CfnServiceProps",
 ]
@@ -6474,6 +8471,13 @@ def _typecheckingstub__c83865c7f5f4d4caa82576ab7efaac17f6225904d0ac52970333a1906
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__f836cc91db14f6396fae800a0997ac7a32626b2df8d6a13e21c7bbd05304dad8(
+    *,
+    subscription_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__af533dc830c7a5f8fd17b5170cecf1e7dd483fe076400d57927aca27831a0ca8(
     *,
     env_id: builtins.str,
@@ -6547,6 +8551,13 @@ def _typecheckingstub__d60c2241968bd47959618d5fef16076f92aa6b8c2e1932e3d7d5e3983
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__9afa21fa4ae99fbc4534896e25187b224676c93894e599ac06339bb54dbe06e8(
+    *,
+    tools: typing.Sequence[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__5251bb56068759277d9b99b06c4d20b0e0434473774eeb3d825f9ed5301ba970(
     *,
     endpoint: builtins.str,
@@ -6557,9 +8568,19 @@ def _typecheckingstub__5251bb56068759277d9b99b06c4d20b0e0434473774eeb3d825f9ed53
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__fa44ac3f3a7da9627c8e3d6693d029e4f70ecd3477c5729fec2b2ee1ab7873b0(
+    *,
+    customer_email: builtins.str,
+    services: typing.Sequence[builtins.str],
+    enable_webhook_updates: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__534ff66bec4c3f764380e71fc8dbccb3b6b0319f301032fa7e975aa1842a74e1(
     *,
     aws: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAssociation.AWSConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    azure: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAssociation.AzureConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     dynatrace: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAssociation.DynatraceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     event_channel: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAssociation.EventChannelConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     git_hub: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAssociation.GitHubConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -6567,7 +8588,9 @@ def _typecheckingstub__534ff66bec4c3f764380e71fc8dbccb3b6b0319f301032fa7e975aa18
     mcp_server: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAssociation.MCPServerConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     mcp_server_datadog: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAssociation.MCPServerDatadogConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     mcp_server_new_relic: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAssociation.MCPServerNewRelicConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    mcp_server_sig_v4: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAssociation.MCPServerSigV4ConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     mcp_server_splunk: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAssociation.MCPServerSplunkConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    pager_duty: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAssociation.PagerDutyConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     service_now: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAssociation.ServiceNowConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     slack: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAssociation.SlackConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     source_aws: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAssociation.SourceAwsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -6624,6 +8647,104 @@ def _typecheckingstub__4b9c7866e61a4a7267964c2e97d2c2f23071408ae1546eca41521d60b
     configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAssociation.ServiceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
     service_id: builtins.str,
     linked_association_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__737bb9aa336e98c23861ebeafe9c6c361036ad6e1eac7734f03f6f6063bd80c7(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    connection_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnPrivateConnection.ConnectionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    name: builtins.str,
+    certificate: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__359495259ac1ec01b0746c3bed97ca24644abaaf96132c656165c7c8684db31b(
+    resource: _IPrivateConnectionRef_818757a8,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7f803fad564b0efd5620333b50e9d9bf8aadbce6265c33e39656c4b54aff79db(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ba2963d733aaea01bc0257750a1269cf4f0ce08c9763f54ea851071acca09b6b(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0eff1e20894f0d957d5760fdf375a3ad4b9d0b3324a77bd7a8cca2d16c0cfd27(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b96d3935f0c92a4ca328bada94e61a1b0776eadec28c0bc34194a87c717ef709(
+    value: typing.Union[_IResolvable_da3f097b, CfnPrivateConnection.ConnectionConfigurationProperty],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a4cd20912efc0734dc7e62490bfec1102f60d389bcd9f7182bf1274ba0dd1485(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dc7a05bd78eeec8b4a66a55c79fff9aa2f574654964458c4649007fe00412478(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b03fd4b9d54598fadabf544a7c5bcbbc02ee50b1ce15ca7410a87bdcf2eb610e(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8aadfdbeba1600978fcabb235296ed84309fda8c21af28c185666a466b088103(
+    *,
+    self_managed: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPrivateConnection.SelfManagedModeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    service_managed: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPrivateConnection.ServiceManagedModeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e1e03abfdff546b24d6fc2a53633a5ab27dd805066c64cbafb0fcf72304ad1db(
+    *,
+    resource_configuration_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8fee6e08afdb0c9c636dbb7c0d262dc667068c03d13e61ccfbc3b6fe4e5d6c2c(
+    *,
+    host_address: builtins.str,
+    vpc_id: builtins.str,
+    ip_address_type: typing.Optional[builtins.str] = None,
+    ipv4_addresses_per_eni: typing.Optional[jsii.Number] = None,
+    port_ranges: typing.Optional[typing.Sequence[builtins.str]] = None,
+    security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+    subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ffc3b7df4ad86379ff4f15af752d5449502636379b6ea2d834daebcc525bf809(
+    *,
+    connection_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnPrivateConnection.ConnectionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    name: builtins.str,
+    certificate: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6706,11 +8827,14 @@ def _typecheckingstub__6618cd62adcc1e863b754d59ca807f0c557b1efa334823690aa1f3f94
 
 def _typecheckingstub__35d2aa127fac97efcf9f5ae815fbac6244f4de11a1b85beb8acc053b8eb8edee(
     *,
+    azure_identity: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.RegisteredAzureIdentityDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     dynatrace: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.RegisteredDynatraceDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     git_lab: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.RegisteredGitLabServiceDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     mcp_server: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.RegisteredMCPServerDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     mcp_server_new_relic: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.RegisteredNewRelicDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    mcp_server_sig_v4: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.RegisteredMCPServerSigV4DetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     mcp_server_splunk: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.RegisteredMCPServerDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    pager_duty: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.RegisteredPagerDutyDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     service_now: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.RegisteredServiceNowDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -6721,6 +8845,16 @@ def _typecheckingstub__76e209fab46047902f46ddb19cd603ac6794e4e730c2326df60b50163
     api_key_header: builtins.str,
     api_key_name: builtins.str,
     api_key_value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5cd0c5b00b63839d8ccb70703357d4a49251ebc15c3edfa7b123ce200a667b92(
+    *,
+    client_id: builtins.str,
+    tenant_id: builtins.str,
+    web_identity_role_arn: builtins.str,
+    web_identity_token_audiences: typing.Sequence[builtins.str],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6789,6 +8923,26 @@ def _typecheckingstub__198a110da941ce87aaecb0a0b1ba18fa10731b81d29b4a768fd8f795f
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__dbe588b1e3456b646061af08c161d891f42e0088a6279e9d947f0af6e4226e90(
+    *,
+    region: builtins.str,
+    role_arn: builtins.str,
+    service: builtins.str,
+    custom_headers: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3f739786a815245ff902cf78e02f5663d8f780771bef301382419ef464d87585(
+    *,
+    authorization_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.MCPServerSigV4AuthorizationConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    endpoint: builtins.str,
+    name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__7c92e97e3c227e3467ecb452f408839f30cb1b85644fbd8f96962ea3606723a1(
     *,
     bearer_token: typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.BearerTokenDetailsProperty, typing.Dict[builtins.str, typing.Any]]],
@@ -6842,6 +8996,31 @@ def _typecheckingstub__69d30adb9097619b550fc8e2637f42ea3cd647e1f1847d2932439a6b3
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__e9c2095dbabf003a9912f9996c082e4a598169c9405f9f93d53255656e718605(
+    *,
+    o_auth_client_credentials: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.OAuthClientDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e955f5727dffbd72cd3740fd98d395e25da149a2354852b2fe8137636322ed85(
+    *,
+    authorization_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.PagerDutyAuthorizationConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    scopes: typing.Sequence[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__09ec9c52702c89a1805f1f95be14e6c467fc62e75bfdb55208d5c8f732acfb84(
+    *,
+    client_id: builtins.str,
+    tenant_id: builtins.str,
+    web_identity_role_arn: builtins.str,
+    web_identity_token_audiences: typing.Sequence[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__699f5a8b23e937bb3b578edf7c8136622218b1b1889514fbae9a950886329586(
     *,
     account_urn: builtins.str,
@@ -6869,11 +9048,31 @@ def _typecheckingstub__64842feca3ddfa950e85ba4c6de1af968036678a7ccca7400342a6c0f
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__3dfa7ec3a9a0d94659cfc778970e21b2e98b7be71f7c5ad9f0a44fcb7f6e81d7(
+    *,
+    endpoint: builtins.str,
+    name: builtins.str,
+    region: builtins.str,
+    role_arn: builtins.str,
+    service: builtins.str,
+    custom_headers: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    description: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__9deb554de08ee49b5922b70dd0b785627adafa9ad66a8f39d7cf9b406b3b7499(
     *,
     account_id: builtins.str,
     region: builtins.str,
     description: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1ea95fb8f44113d51d17deef453b37aa6c6ed88c4e006a233ce3583a9444a04c(
+    *,
+    scopes: typing.Sequence[builtins.str],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6887,11 +9086,14 @@ def _typecheckingstub__69bbba76b884f0dd1a6039cedb012b79e9c976c7d68746f12a2491753
 
 def _typecheckingstub__2d3cc706658e74f84415c4cda29e3f1af191a52f1dbbf8701c25e0091302740f(
     *,
+    azure_identity: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.AzureIdentityServiceDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     dynatrace: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.DynatraceServiceDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     git_lab: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.GitLabDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     mcp_server: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.MCPServerDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     mcp_server_new_relic: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.NewRelicServiceDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    mcp_server_sig_v4: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.MCPServerSigV4DetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     mcp_server_splunk: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.MCPServerSplunkDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    pager_duty: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.PagerDutyDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     service_now: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.ServiceNowServiceDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""

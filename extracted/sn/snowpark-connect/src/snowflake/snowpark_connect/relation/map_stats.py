@@ -3,8 +3,8 @@
 #
 
 import ast
+import decimal
 
-import numpy as np
 import pandas
 import pyspark.sql.connect.proto.relations_pb2 as relation_proto
 from pyspark.errors.exceptions.base import AnalysisException, IllegalArgumentException
@@ -14,6 +14,7 @@ import snowflake.snowpark.functions as fn
 import snowflake.snowpark.types as snowpark_types
 from snowflake import snowpark
 from snowflake.snowpark.exceptions import SnowparkSQLException
+from snowflake.snowpark.types import _FractionalType, _IntegralType
 from snowflake.snowpark_connect.config import get_boolean_session_config_param
 from snowflake.snowpark_connect.dataframe_container import DataFrameContainer
 from snowflake.snowpark_connect.error.error_codes import ErrorCodes
@@ -128,6 +129,79 @@ def map_approx_quantile(
     return pandas.DataFrame({"approx_quantile": [result]})
 
 
+def _format_describe_value(
+    value: object,
+    stat_name: str,
+    original_col_type: snowpark_types.DataType | None,
+) -> str | None:
+    """Format a describe/summary statistic value to match Spark's Cast(Type, StringType).
+
+    Spark always returns StringType columns from describe/summary. The string formatting
+    depends on the statistic type and the original column type:
+    - count: always formatted as integer (Long -> "5")
+    - mean/stddev: always formatted as float (Double -> "3.0", preserves .0)
+    - min/max: formatted according to original column type
+      (Int -> "1", Double -> "45000.0", String -> "Alice")
+    """
+    if value is None:
+        return None
+
+    if isinstance(value, (int, float, decimal.Decimal)):
+        numeric = float(value)
+        if stat_name == "count":
+            return str(int(numeric))
+        elif stat_name in ("min", "max") and isinstance(
+            original_col_type, _IntegralType
+        ):
+            return str(int(numeric))
+        elif stat_name in ("mean", "stddev") or stat_name.endswith("%"):
+            return str(numeric)
+        elif isinstance(original_col_type, _FractionalType):
+            return str(numeric)
+        elif isinstance(value, (int, decimal.Decimal)) and not isinstance(
+            original_col_type, _FractionalType
+        ):
+            return str(int(numeric))
+        else:
+            return str(numeric)
+
+    if isinstance(value, str):
+        if stat_name in ("mean", "stddev") or stat_name.endswith("%"):
+            try:
+                return str(float(value))
+            except (ValueError, TypeError):
+                return value
+        if stat_name in ("min", "max") and isinstance(
+            original_col_type, _FractionalType
+        ):
+            try:
+                return str(float(value))
+            except (ValueError, TypeError):
+                return value
+
+    return str(value)
+
+
+def _format_stats_rows(
+    rows: list,
+    col_names: list[str],
+    original_types: dict[str, snowpark_types.DataType],
+) -> dict[str, list[str | None]]:
+    """Format collected describe/summary rows into string values keyed by stat name."""
+    col_index = {name: i for i, name in enumerate(col_names)}
+    result: dict[str, list[str | None]] = {}
+    for row in rows:
+        stat_name = row[0]
+        string_row: list[str | None] = [stat_name]
+        for col_name in col_names[1:]:
+            value = row[col_index[col_name]]
+            string_row.append(
+                _format_describe_value(value, stat_name, original_types.get(col_name))
+            )
+        result[stat_name] = string_row
+    return result
+
+
 def map_describe(
     rel: relation_proto.Relation,
 ) -> DataFrameContainer:
@@ -154,23 +228,42 @@ def map_describe(
         for column in spark_cols
     ]
 
-    ordered_statistics = []
     statistics = ["count", "mean", "stddev", "min", "max"]
     # TODO: there's a bug in Snowpark where strings can either all cast to numbers and then
     # stddev and mean will be computed correctly, try_cast will need to be used in snowpark when
     # strings_include_math_stats=True, this is the workaround for now
     try:
-        df_rows = input_df.describe(cols, strings_include_math_stats=True).collect()
+        desc_df = input_df.describe(cols, strings_include_math_stats=True)
+        df_rows = desc_df.collect()
     except SnowparkSQLException as e:
         if "Numeric value" not in str(e) or "is not recognized" not in str(e):
-            # Re-raise the exception if it's not a casting error
             raise
-        df_rows = input_df.describe(cols, strings_include_math_stats=False).collect()
+        desc_df = input_df.describe(cols, strings_include_math_stats=False)
+        df_rows = desc_df.collect()
+
+    ordered_rows = []
     for stat in statistics:
         for row in df_rows:
             if stat == row.SUMMARY:
-                ordered_statistics.append(row)
-    ordered_desc_df = session.create_dataframe(ordered_statistics)
+                ordered_rows.append(row)
+
+    desc_columns = desc_df.columns
+    original_types = {
+        field.name: field.datatype
+        for field in input_df.schema.fields
+        if field.name in desc_columns
+    }
+
+    formatted = _format_stats_rows(ordered_rows, desc_columns, original_types)
+    string_data = [formatted[stat] for stat in statistics if stat in formatted]
+
+    schema = snowpark_types.StructType(
+        [
+            snowpark_types.StructField(name, snowpark_types.StringType())
+            for name in desc_columns
+        ]
+    )
+    ordered_desc_df = session.create_dataframe(string_data, schema)
     return _build_column_map_helper_container(ordered_desc_df, input_container)
 
 
@@ -212,54 +305,52 @@ def map_summary(
     # Select only those columns
     input_df = input_df.select(*numeric_and_string_snowpark_cols)
 
-    # retrieve 5 statistics from describe
+    original_types = {field.name: field.datatype for field in input_df.schema.fields}
+
+    # Collect raw describe stats and format in Python to preserve precision
     desc_df: snowpark.DataFrame = input_df.describe([])
-    quantiles = []
-    percentages = []
+    desc_col_names = desc_df.columns
+    desc_rows = desc_df.collect()
+
+    formatted_stats = _format_stats_rows(desc_rows, desc_col_names, original_types)
+
     if rel.summary.statistics:
         statistics = list(rel.summary.statistics)
     else:
         # default statistics
         statistics = ["count", "mean", "stddev", "min", "25%", "50%", "75%", "max"]
 
-    # filter out non-requested statistics
-    summary_df = desc_df.filter(desc_df.SUMMARY.isin(statistics))
+    quantiles = []
+    percentages = []
 
-    summary_df = summary_df.select(
-        [fn.col(col).cast("string") for col in summary_df.columns]
-    )
-
-    # convert percentages into decimal
     for stat in statistics:
         if stat[-1] == "%":
             quantiles.append(int(stat[:-1]) / 100)
             percentages.append(stat)
         elif stat == "count_distinct":
-            # include "count_distinct" as it's the row name
-            distinct_list_values = ["count_distinct"] + [
-                str(input_df.select(column).distinct().count())
-                for column in input_df.columns
+            count_distinct_values = [
+                fn.count_distinct(column) for column in input_df.columns
             ]
-            summary_df = add_stat_to_df(session, summary_df, [distinct_list_values])
+            count_distinct_rows = input_df.select(*count_distinct_values).collect()
+            formatted_stats["count_distinct"] = ["count_distinct"] + [
+                str(value)
+                for row in count_distinct_rows
+                for value in row.as_dict().values()
+            ]
         elif stat == "approx_count_distinct":
             approx_count_distinct_list_values = [
                 fn.approx_count_distinct(column) for column in input_df.columns
             ]
-            approx_count_distinct_df = input_df.select(
+            approx_count_distinct_df_rows = input_df.select(
                 *approx_count_distinct_list_values
-            )
-            approx_count_distinct_df_rows = approx_count_distinct_df.collect()
-            # convert approx_count_distinct rows into values
-            approx_count_distinct_list_values = [
+            ).collect()
+            values = [
                 str(value)
                 for row in approx_count_distinct_df_rows
                 for value in row.as_dict().values()
             ]
-            # insert "approx_count_distinct" as it's the row name
-            approx_count_distinct_list_values.insert(0, "approx_count_distinct")
-            summary_df = add_stat_to_df(
-                session, summary_df, [approx_count_distinct_list_values]
-            )
+            values.insert(0, "approx_count_distinct")
+            formatted_stats["approx_count_distinct"] = values
 
     if len(quantiles) > 0:
         eligible_columns = []
@@ -272,34 +363,48 @@ def map_summary(
             eligible_columns, percentile=quantiles
         )
 
-        # Modified quantile results, inserting [None, None, None] for string columns
         numeric_index = iter(approx_quantile_values)
-        approx_quantile_values_including_string_columns = [
-            (
-                [str(value) for value in next(numeric_index)]
-                if col in eligible_columns
-                else [None] * len(quantiles)
-            )
-            for col in input_df.columns
-        ]
+        per_col_quantiles = []
+        for col in input_df.columns:
+            col_type = original_types.get(col)
+            if col in eligible_columns:
+                col_values = next(numeric_index)
+                if isinstance(col_type, _IntegralType):
+                    per_col_quantiles.append(
+                        [str(int(v)) if v is not None else None for v in col_values]
+                    )
+                else:
+                    per_col_quantiles.append(
+                        [str(v) if v is not None else None for v in col_values]
+                    )
+            else:
+                per_col_quantiles.append([None] * len(quantiles))
 
-        approx_quantile_values_transposed = np.transpose(
-            approx_quantile_values_including_string_columns
-        )
-        # the first parameter includes each percentage as the row name
-        approx_quantile_list_values = np.hstack(
-            (np.array(percentages).reshape(-1, 1), approx_quantile_values_transposed)
-        ).tolist()
-        summary_df = add_stat_to_df(session, summary_df, approx_quantile_list_values)
+        for j, percentage in enumerate(percentages):
+            row = [percentage]
+            for col_quantiles in per_col_quantiles:
+                row.append(col_quantiles[j])
+            formatted_stats[percentage] = row
 
-    # return the statistics in the requested order
-    ordered_statistics = []
-    df_rows = summary_df.collect()
+    # Build result in the requested order; stats from describe() (count, mean, stddev,
+    # min, max) are always present, others (percentiles, count_distinct,
+    # approx_count_distinct) are populated above only when requested.
+    string_data = []
     for stat in statistics:
-        for row in df_rows:
-            if stat == row[0]:
-                ordered_statistics.append(row)
-    ordered_summary_df = session.create_dataframe(ordered_statistics)
+        if stat in formatted_stats:
+            string_data.append(formatted_stats[stat])
+        elif stat not in ("count", "mean", "stddev", "min", "max"):
+            continue
+        else:
+            raise ValueError(f"Expected statistic '{stat}' was not computed")
+
+    schema = snowpark_types.StructType(
+        [
+            snowpark_types.StructField(name, snowpark_types.StringType())
+            for name in desc_col_names
+        ]
+    )
+    ordered_summary_df = session.create_dataframe(string_data, schema)
 
     spark_col_names = ["summary"]
     spark_col_names.extend(numeric_and_string_spark_cols)
@@ -371,15 +476,6 @@ def map_freq_items(rel: relation_proto.Relation) -> DataFrameContainer:
         spark_column_names=spark_col_names,
         snowpark_column_names=spark_col_names,
     )
-
-
-def add_stat_to_df(
-    session,
-    summary_df,
-    stat_values,
-) -> snowpark.DataFrame:
-    df_data = [tuple(row) for row in stat_values]
-    return summary_df.union(session.createDataFrame(df_data, summary_df.schema))
 
 
 def _build_column_map_helper_container(

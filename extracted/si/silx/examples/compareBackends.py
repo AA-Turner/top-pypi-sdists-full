@@ -41,7 +41,6 @@ from silx.gui.plot import items
 from silx.gui.plot.items.marker import Marker
 from silx.gui.plot.utils.axis import SyncAxes
 
-
 _DESCRIPTIONS = {}
 
 
@@ -49,7 +48,7 @@ class MyPlotWindow(qt.QMainWindow):
     """QMainWindow with selected tools"""
 
     def __init__(self, parent=None):
-        super(MyPlotWindow, self).__init__(parent)
+        super().__init__(parent)
 
         # Create a PlotWidget
         self._plot1 = PlotWidget(parent=self, backend="mpl")
@@ -168,7 +167,7 @@ class MyPlotWindow(qt.QMainWindow):
             plot.addItem(createShape())
 
     @_register("linewidth", "Line width")
-    def _setupLineStyle(self, plot: PlotWidget):
+    def _setupLineWidth(self, plot: PlotWidget):
         self._addLine(plot, 0.5, "-", "#0000FF", None, curve=False)
         self._addLine(plot, 1.0, "-", "#0000FF", None, curve=False)
         self._addLine(plot, 2.0, "-", "#0000FF", None, curve=False)

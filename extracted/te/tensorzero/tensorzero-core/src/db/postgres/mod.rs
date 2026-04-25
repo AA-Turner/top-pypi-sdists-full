@@ -7,7 +7,7 @@ use futures::TryStreamExt;
 use sqlx::{PgPool, Row, migrate, postgres::PgPoolOptions};
 use tokio::time::timeout;
 
-use crate::error::{Error, ErrorDetails};
+use crate::error::{DelayedError, Error, ErrorDetails};
 
 use self::batching::PostgresBatchSender;
 use super::BatchWriterHandle;
@@ -22,12 +22,17 @@ pub mod dicl_queries;
 pub mod evaluation_queries;
 pub mod experimentation;
 pub mod feedback;
+mod file_writes;
+pub mod function_config_writes;
 mod howdy_queries;
 pub mod inference_queries;
 pub mod model_inferences;
 pub mod postgres_setup;
 pub mod rate_limiting;
 mod resolve_uuid;
+pub mod stored_config_queries;
+pub mod stored_config_writes;
+mod variant_statistics;
 pub mod workflow_evaluation_queries;
 
 mod episode_queries;
@@ -114,16 +119,20 @@ impl PostgresConnectionInfo {
         }
     }
 
-    pub fn get_pool_result(&self) -> Result<&PgPool, Error> {
+    pub fn get_pool_result(&self) -> Result<&PgPool, DelayedError> {
         match self {
             Self::Enabled { pool, .. } => Ok(pool),
             #[cfg(test)]
-            Self::Mock { .. } => Err(Error::new(ErrorDetails::PostgresConnectionInitialization {
-                message: "Mock database is not supported".to_string(),
-            })),
-            Self::Disabled => Err(Error::new(ErrorDetails::PostgresConnectionInitialization {
-                message: "Database is disabled".to_string(),
-            })),
+            Self::Mock { .. } => Err(DelayedError::new(
+                ErrorDetails::PostgresConnectionInitialization {
+                    message: "Mock database is not supported".to_string(),
+                },
+            )),
+            Self::Disabled => Err(DelayedError::new(
+                ErrorDetails::PostgresConnectionInitialization {
+                    message: "Database is disabled".to_string(),
+                },
+            )),
         }
     }
 
@@ -149,13 +158,15 @@ impl PostgresConnectionInfo {
 
     /// If the connection is active, check that the set of migrations that have succeeded matches the expected set of migrations.
     /// If the connection is not active, return Ok(()).
-    pub async fn check_migrations(&self) -> Result<(), Error> {
+    ///
+    /// TODO(#7127): Relax this check so blue/green deployments work.
+    pub async fn check_migrations(&self) -> Result<(), DelayedError> {
         if let Some(pool) = self.get_pool() {
             let migrator = make_migrator();
             let expected_migrations: HashSet<i64> = migrator.iter().map(|m| m.version).collect();
             // Query the database for all successfully applied migration versions.
             let applied_migrations = get_applied_migrations(pool).await.map_err(|e| {
-                Error::new(ErrorDetails::PostgresConnectionInitialization {
+                DelayedError::new(ErrorDetails::PostgresConnectionInitialization {
                     message: format!(
                         "Failed to retrieve applied `tensorzero-core` migrations: {e}. {RUN_MIGRATIONS_COMMAND}"
                     ),
@@ -172,7 +183,7 @@ impl PostgresConnectionInfo {
                 tensorzero_auth::postgres::get_migrations_data(pool)
                     .await
                     .map_err(|e| {
-                        Error::new(ErrorDetails::PostgresConnectionInitialization {
+                        DelayedError::new(ErrorDetails::PostgresConnectionInitialization {
                             message: format!(
                                 "Failed to retrieve applied `tensorzero-auth` migrations: {e}. {RUN_MIGRATIONS_COMMAND}"
                             ),
@@ -182,6 +193,22 @@ impl PostgresConnectionInfo {
                 "tensorzero-auth",
                 &tensorzero_auth_migrations_data.applied,
                 &tensorzero_auth_migrations_data.expected,
+            )?;
+
+            let stored_config_migrations_data =
+                tensorzero_stored_config::postgres::get_migrations_data(pool)
+                    .await
+                    .map_err(|e| {
+                        DelayedError::new(ErrorDetails::PostgresConnectionInitialization {
+                            message: format!(
+                                "Failed to retrieve applied `tensorzero-stored-config` migrations: {e}. {RUN_MIGRATIONS_COMMAND}"
+                            ),
+                        })
+                    })?;
+            Self::check_applied_expected(
+                "tensorzero-stored-config",
+                &stored_config_migrations_data.applied,
+                &stored_config_migrations_data.expected,
             )?;
         }
 
@@ -198,7 +225,7 @@ impl PostgresConnectionInfo {
         name: &str,
         applied_migrations: &HashSet<i64>,
         expected_migrations: &HashSet<i64>,
-    ) -> Result<(), Error> {
+    ) -> Result<(), DelayedError> {
         if expected_migrations.is_subset(applied_migrations) {
             // If expected migrations (what this gateway version expects) is a subset of applied migrations, we are okay - during rolling upgrades
             // or with optional features, this is expected.
@@ -208,11 +235,13 @@ impl PostgresConnectionInfo {
         let missing_migrations = expected_migrations
             .difference(applied_migrations)
             .collect::<Vec<_>>();
-        Err(Error::new(ErrorDetails::PostgresConnectionInitialization {
-            message: format!(
-                "Applied `{name}` migrations do not match expected migrations: {missing_migrations:?} are missing from the database. {RUN_MIGRATIONS_COMMAND}"
-            ),
-        }))
+        Err(DelayedError::new(
+            ErrorDetails::PostgresConnectionInitialization {
+                message: format!(
+                    "Applied `{name}` migrations do not match expected migrations: {missing_migrations:?} are missing from the database. {RUN_MIGRATIONS_COMMAND}"
+                ),
+            },
+        ))
     }
 
     /// Writes retention configuration to the `tensorzero.retention_config` table.
@@ -221,7 +250,7 @@ impl PostgresConnectionInfo {
         &self,
         inference_metadata_retention_days: Option<u32>,
         inference_data_retention_days: Option<u32>,
-    ) -> Result<(), Error> {
+    ) -> Result<(), DelayedError> {
         let Some(pool) = self.get_pool() else {
             return Ok(());
         };
@@ -233,7 +262,7 @@ impl PostgresConnectionInfo {
         .execute(pool)
         .await
         .map_err(|e| {
-            Error::new(ErrorDetails::PostgresQuery {
+            DelayedError::new(ErrorDetails::PostgresQuery {
                 message: format!("Failed to delete legacy `inference_retention_days` config: {e}"),
             })
         })?;
@@ -264,7 +293,7 @@ impl PostgresConnectionInfo {
         pool: &sqlx::PgPool,
         key: &str,
         value: Option<u32>,
-    ) -> Result<(), Error> {
+    ) -> Result<(), DelayedError> {
         match value {
             Some(days) => {
                 sqlx::query!(
@@ -279,7 +308,7 @@ impl PostgresConnectionInfo {
                 .execute(pool)
                 .await
                 .map_err(|e| {
-                    Error::new(ErrorDetails::PostgresQuery {
+                    DelayedError::new(ErrorDetails::PostgresQuery {
                         message: format!("Failed to write `{key}` config: {e}"),
                     })
                 })?;
@@ -292,7 +321,7 @@ impl PostgresConnectionInfo {
                 .execute(pool)
                 .await
                 .map_err(|e| {
-                    Error::new(ErrorDetails::PostgresQuery {
+                    DelayedError::new(ErrorDetails::PostgresQuery {
                         message: format!("Failed to clear `{key}` config: {e}"),
                     })
                 })?;
@@ -304,7 +333,7 @@ impl PostgresConnectionInfo {
 
 #[async_trait]
 impl HealthCheckable for PostgresConnectionInfo {
-    async fn health(&self) -> Result<(), Error> {
+    async fn health(&self) -> Result<(), DelayedError> {
         match self {
             Self::Disabled => Ok(()),
             #[cfg(test)]
@@ -312,7 +341,7 @@ impl HealthCheckable for PostgresConnectionInfo {
                 if *healthy {
                     Ok(())
                 } else {
-                    Err(Error::new(ErrorDetails::PostgresConnection {
+                    Err(DelayedError::new(ErrorDetails::PostgresConnection {
                         message: "Unhealthy mock postgres connection".to_string(),
                     }))
                 }
@@ -320,7 +349,7 @@ impl HealthCheckable for PostgresConnectionInfo {
             Self::Enabled { pool, .. } => {
                 let check = async {
                     let _result = sqlx::query("SELECT 1").fetch_one(pool).await.map_err(|e| {
-                        Error::new(ErrorDetails::PostgresConnection {
+                        DelayedError::new(ErrorDetails::PostgresConnection {
                             message: e.to_string(),
                         })
                     })?;
@@ -332,7 +361,7 @@ impl HealthCheckable for PostgresConnectionInfo {
                 match timeout(Duration::from_millis(1000), check).await {
                     Ok(Ok(())) => Ok(()),
                     Ok(Err(e)) => Err(e),
-                    Err(_) => Err(Error::new(ErrorDetails::PostgresConnection {
+                    Err(_) => Err(DelayedError::new(ErrorDetails::PostgresConnection {
                         message: "Postgres healthcheck query timed out.".to_string(),
                     })),
                 }
@@ -385,6 +414,14 @@ pub async fn manual_run_postgres_migrations_with_url(postgres_url: &str) -> Resu
             message: e.to_string(),
         })
     })?;
+    tensorzero_stored_config::postgres::make_migrator()
+        .run(&pool)
+        .await
+        .map_err(|e| {
+            Error::new(ErrorDetails::PostgresMigration {
+                message: format!("Failed to run tensorzero-stored-config migrations: {e}"),
+            })
+        })?;
 
     // Try to set up pg_cron extension and schedule partition management jobs.
     // This is idempotent and runs every time.

@@ -5,6 +5,13 @@ use schemars::JsonSchema;
 use serde::de::{self, Deserializer, MapAccess, Visitor};
 use serde::{Deserialize, Serialize};
 use tensorzero_derive::TensorZeroDeserialize;
+use tensorzero_stored_config::{
+    StoredEvaluationConfig, StoredExactMatchConfig, StoredInferenceEvaluationConfig,
+    StoredLLMJudgeIncludeConfig, StoredLLMJudgeInputFormat, StoredLLMJudgeOptimize,
+    StoredLLMJudgeOutputType, StoredRegexConfig, StoredToolUseConfig,
+    StoredTypescriptJudgeOptimize, StoredTypescriptJudgeOutputType,
+};
+use uuid::Uuid;
 
 use crate::variant::chain_of_thought::ChainOfThoughtConfig;
 
@@ -43,13 +50,13 @@ pub const LLM_JUDGE_FLOAT_OUTPUT_SCHEMA_TEXT: &str =
 pub const LLM_JUDGE_BOOLEAN_OUTPUT_SCHEMA_TEXT: &str =
     include_str!("llm_judge_boolean_output_schema.json");
 
+#[serde_with::skip_serializing_none]
 #[cfg_attr(feature = "ts-bindings", derive(ts_rs::TS))]
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[cfg_attr(feature = "ts-bindings", ts(export, optional_fields))]
 pub struct InferenceEvaluationConfig {
     pub evaluators: HashMap<String, EvaluatorConfig>,
     pub function_name: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
 }
 
@@ -77,6 +84,8 @@ pub enum EvaluatorConfig {
     LLMJudge(LLMJudgeConfig),
     ToolUse(ToolUseConfig),
     Regex(RegexConfig),
+    #[serde(rename = "typescript")]
+    TypescriptJudge(TypescriptJudgeConfig),
 }
 
 /// Minimal function configuration for evaluation purposes.
@@ -110,7 +119,9 @@ impl EvaluatorConfig {
         match self {
             EvaluatorConfig::ExactMatch(config) => config.cutoff,
             EvaluatorConfig::LLMJudge(config) => config.cutoff,
-            EvaluatorConfig::ToolUse(_) | EvaluatorConfig::Regex(_) => Option::None,
+            EvaluatorConfig::ToolUse(_)
+            | EvaluatorConfig::Regex(_)
+            | EvaluatorConfig::TypescriptJudge(_) => Option::None,
         }
     }
 
@@ -120,6 +131,7 @@ impl EvaluatorConfig {
             | EvaluatorConfig::ToolUse(_)
             | EvaluatorConfig::Regex(_) => MetricConfigOptimize::Max,
             EvaluatorConfig::LLMJudge(config) => config.optimize.into(),
+            EvaluatorConfig::TypescriptJudge(config) => config.optimize.into(),
         }
     }
 
@@ -131,6 +143,9 @@ impl EvaluatorConfig {
             | EvaluatorConfig::Regex(_) => true,
             EvaluatorConfig::LLMJudge(config) => {
                 matches!(config.output_type, LLMJudgeOutputType::Boolean)
+            }
+            EvaluatorConfig::TypescriptJudge(config) => {
+                matches!(config.output_type, TypescriptJudgeOutputType::Boolean)
             }
         }
     }
@@ -150,10 +165,21 @@ impl EvaluatorConfig {
                 UninitializedEvaluatorConfig::ToolUse(config.clone())
             }
             EvaluatorConfig::Regex(config) => UninitializedEvaluatorConfig::Regex(config.clone()),
+            EvaluatorConfig::TypescriptJudge(config) => {
+                UninitializedEvaluatorConfig::TypescriptJudge(UninitializedTypescriptJudgeConfig {
+                    typescript_file: ResolvedTomlPathData::new_fake_path(
+                        "typescript_evaluator".to_string(),
+                        config.typescript_code.clone(),
+                    ),
+                    output_type: config.output_type,
+                    optimize: config.optimize,
+                })
+            }
         }
     }
 }
 
+#[serde_with::skip_serializing_none]
 #[cfg_attr(feature = "ts-bindings", derive(ts_rs::TS))]
 #[derive(Clone, Debug, Default, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[cfg_attr(feature = "ts-bindings", ts(export, optional_fields))]
@@ -162,7 +188,6 @@ pub struct ExactMatchConfig {
     #[deprecated(
         note = "Evaluator config `cutoff` is deprecated. Use evaluations CLI `--cutoffs` instead."
     )]
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cutoff: Option<f32>,
 }
 
@@ -201,19 +226,19 @@ impl std::fmt::Display for ToolUseConfig {
 ///
 /// At least one of `must_match` or `must_not_match` must be specified.
 /// If both are specified, the result is the logical AND: `must_match` matches AND `must_not_match` does not match.
+#[serde_with::skip_serializing_none]
 #[cfg_attr(feature = "ts-bindings", derive(ts_rs::TS))]
 #[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[cfg_attr(feature = "ts-bindings", ts(export, optional_fields))]
 #[serde(deny_unknown_fields)]
 pub struct RegexConfig {
     /// Regex pattern that the inference output must match for the evaluation to pass.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub must_match: Option<String>,
     /// Regex pattern that the inference output must *not* match for the evaluation to pass.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub must_not_match: Option<String>,
 }
 
+#[serde_with::skip_serializing_none]
 #[cfg_attr(feature = "ts-bindings", derive(ts_rs::TS))]
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[cfg_attr(feature = "ts-bindings", ts(export, optional_fields))]
@@ -226,9 +251,7 @@ pub struct LLMJudgeConfig {
     #[deprecated(
         note = "Evaluator config `cutoff` is deprecated. Use evaluations CLI `--cutoffs` instead."
     )]
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cutoff: Option<f32>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
 }
 
@@ -239,11 +262,11 @@ impl LLMJudgeConfig {
     #[expect(deprecated)]
     pub fn as_uninitialized(&self) -> UninitializedLLMJudgeConfig {
         UninitializedLLMJudgeConfig {
-            input_format: self.input_format.clone(),
+            input_format: Some(self.input_format.clone()),
             variants: HashMap::new(),
             output_type: self.output_type,
             optimize: self.optimize,
-            include: self.include.clone(),
+            include: Some(self.include.clone()),
             cutoff: self.cutoff,
             description: self.description.clone(),
         }
@@ -260,11 +283,10 @@ pub struct LLMJudgeIncludeConfig {
 }
 
 #[cfg_attr(feature = "ts-bindings", derive(ts_rs::TS))]
-#[derive(Clone, Debug, Default, Deserialize, JsonSchema, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[cfg_attr(feature = "ts-bindings", ts(export))]
 #[serde(rename_all = "snake_case")]
 pub enum LLMJudgeInputFormat {
-    #[default]
     Serialized,
     Messages,
 }
@@ -301,6 +323,172 @@ impl From<LLMJudgeOptimize> for MetricConfigOptimize {
         match optimize {
             LLMJudgeOptimize::Min => MetricConfigOptimize::Min,
             LLMJudgeOptimize::Max => MetricConfigOptimize::Max,
+        }
+    }
+}
+
+// ─── TypeScript judge types ──────────────────────────────────────────────────
+
+#[serde_with::skip_serializing_none]
+#[cfg_attr(feature = "ts-bindings", derive(ts_rs::TS))]
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[cfg_attr(feature = "ts-bindings", ts(export, optional_fields))]
+#[serde(deny_unknown_fields)]
+pub struct TypescriptJudgeConfig {
+    pub typescript_code: String,
+    pub output_type: TypescriptJudgeOutputType,
+    pub optimize: TypescriptJudgeOptimize,
+}
+
+#[cfg_attr(feature = "ts-bindings", derive(ts_rs::TS))]
+#[derive(Clone, Copy, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
+#[cfg_attr(feature = "ts-bindings", ts(export))]
+#[serde(rename_all = "snake_case")]
+pub enum TypescriptJudgeOutputType {
+    Float,
+    Boolean,
+}
+
+impl From<TypescriptJudgeOutputType> for MetricConfigType {
+    fn from(output_type: TypescriptJudgeOutputType) -> Self {
+        match output_type {
+            TypescriptJudgeOutputType::Float => MetricConfigType::Float,
+            TypescriptJudgeOutputType::Boolean => MetricConfigType::Boolean,
+        }
+    }
+}
+
+#[cfg_attr(feature = "ts-bindings", derive(ts_rs::TS))]
+#[derive(Clone, Copy, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
+#[cfg_attr(feature = "ts-bindings", ts(export))]
+#[serde(rename_all = "snake_case")]
+pub enum TypescriptJudgeOptimize {
+    Min,
+    Max,
+}
+
+impl From<TypescriptJudgeOptimize> for MetricConfigOptimize {
+    fn from(optimize: TypescriptJudgeOptimize) -> Self {
+        match optimize {
+            TypescriptJudgeOptimize::Min => MetricConfigOptimize::Min,
+            TypescriptJudgeOptimize::Max => MetricConfigOptimize::Max,
+        }
+    }
+}
+
+// ─── Stored → Uninitialized conversions (simple types) ───────────────────────
+
+impl From<StoredLLMJudgeInputFormat> for LLMJudgeInputFormat {
+    fn from(stored: StoredLLMJudgeInputFormat) -> Self {
+        match stored {
+            StoredLLMJudgeInputFormat::Serialized => LLMJudgeInputFormat::Serialized,
+            StoredLLMJudgeInputFormat::Messages => LLMJudgeInputFormat::Messages,
+        }
+    }
+}
+
+impl From<StoredLLMJudgeOutputType> for LLMJudgeOutputType {
+    fn from(stored: StoredLLMJudgeOutputType) -> Self {
+        match stored {
+            StoredLLMJudgeOutputType::Float => LLMJudgeOutputType::Float,
+            StoredLLMJudgeOutputType::Boolean => LLMJudgeOutputType::Boolean,
+        }
+    }
+}
+
+impl From<StoredLLMJudgeOptimize> for LLMJudgeOptimize {
+    fn from(stored: StoredLLMJudgeOptimize) -> Self {
+        match stored {
+            StoredLLMJudgeOptimize::Min => LLMJudgeOptimize::Min,
+            StoredLLMJudgeOptimize::Max => LLMJudgeOptimize::Max,
+        }
+    }
+}
+
+impl From<StoredLLMJudgeIncludeConfig> for LLMJudgeIncludeConfig {
+    fn from(stored: StoredLLMJudgeIncludeConfig) -> Self {
+        LLMJudgeIncludeConfig {
+            reference_output: stored.reference_output,
+        }
+    }
+}
+
+#[expect(deprecated)]
+impl From<StoredExactMatchConfig> for ExactMatchConfig {
+    fn from(stored: StoredExactMatchConfig) -> Self {
+        ExactMatchConfig {
+            cutoff: stored.cutoff,
+        }
+    }
+}
+
+impl From<StoredRegexConfig> for RegexConfig {
+    fn from(stored: StoredRegexConfig) -> Self {
+        RegexConfig {
+            must_match: stored.must_match,
+            must_not_match: stored.must_not_match,
+        }
+    }
+}
+
+impl From<StoredToolUseConfig> for ToolUseConfig {
+    fn from(stored: StoredToolUseConfig) -> Self {
+        match stored {
+            StoredToolUseConfig::None => ToolUseConfig::None,
+            StoredToolUseConfig::NoneOf { tools } => ToolUseConfig::NoneOf { tools },
+            StoredToolUseConfig::Any => ToolUseConfig::Any,
+            StoredToolUseConfig::AnyOf { tools } => ToolUseConfig::AnyOf { tools },
+            StoredToolUseConfig::AllOf { tools } => ToolUseConfig::AllOf { tools },
+        }
+    }
+}
+
+impl From<ToolUseConfig> for StoredToolUseConfig {
+    fn from(stored: ToolUseConfig) -> Self {
+        match stored {
+            ToolUseConfig::None => StoredToolUseConfig::None,
+            ToolUseConfig::NoneOf { tools } => StoredToolUseConfig::NoneOf { tools },
+            ToolUseConfig::Any => StoredToolUseConfig::Any,
+            ToolUseConfig::AnyOf { tools } => StoredToolUseConfig::AnyOf { tools },
+            ToolUseConfig::AllOf { tools } => StoredToolUseConfig::AllOf { tools },
+        }
+    }
+}
+
+// ─── Stored ↔ TypeScript judge conversions ───────────────────────────────────
+
+impl From<StoredTypescriptJudgeOutputType> for TypescriptJudgeOutputType {
+    fn from(stored: StoredTypescriptJudgeOutputType) -> Self {
+        match stored {
+            StoredTypescriptJudgeOutputType::Float => TypescriptJudgeOutputType::Float,
+            StoredTypescriptJudgeOutputType::Boolean => TypescriptJudgeOutputType::Boolean,
+        }
+    }
+}
+
+impl From<TypescriptJudgeOutputType> for StoredTypescriptJudgeOutputType {
+    fn from(val: TypescriptJudgeOutputType) -> Self {
+        match val {
+            TypescriptJudgeOutputType::Float => StoredTypescriptJudgeOutputType::Float,
+            TypescriptJudgeOutputType::Boolean => StoredTypescriptJudgeOutputType::Boolean,
+        }
+    }
+}
+
+impl From<StoredTypescriptJudgeOptimize> for TypescriptJudgeOptimize {
+    fn from(stored: StoredTypescriptJudgeOptimize) -> Self {
+        match stored {
+            StoredTypescriptJudgeOptimize::Min => TypescriptJudgeOptimize::Min,
+            StoredTypescriptJudgeOptimize::Max => TypescriptJudgeOptimize::Max,
+        }
+    }
+}
+
+impl From<TypescriptJudgeOptimize> for StoredTypescriptJudgeOptimize {
+    fn from(val: TypescriptJudgeOptimize) -> Self {
+        match val {
+            TypescriptJudgeOptimize::Min => StoredTypescriptJudgeOptimize::Min,
+            TypescriptJudgeOptimize::Max => StoredTypescriptJudgeOptimize::Max,
         }
     }
 }
@@ -405,6 +593,7 @@ impl<'de> Deserialize<'de> for UninitializedEvaluationConfig {
     }
 }
 
+#[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "ts-bindings", derive(ts_rs::TS))]
@@ -413,7 +602,6 @@ pub struct UninitializedInferenceEvaluationConfig {
     #[serde(default)]
     pub evaluators: HashMap<String, UninitializedEvaluatorConfig>,
     pub function_name: String,
-    #[serde(default)]
     pub description: Option<String>,
 }
 
@@ -508,28 +696,35 @@ pub enum UninitializedEvaluatorConfig {
     LLMJudge(UninitializedLLMJudgeConfig),
     ToolUse(ToolUseConfig),
     Regex(RegexConfig),
+    #[serde(rename = "typescript")]
+    TypescriptJudge(UninitializedTypescriptJudgeConfig),
 }
 
 #[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "ts-bindings", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts-bindings", ts(export))]
+pub struct UninitializedTypescriptJudgeConfig {
+    pub typescript_file: ResolvedTomlPathData,
+    pub output_type: TypescriptJudgeOutputType,
+    pub optimize: TypescriptJudgeOptimize,
+}
+
+#[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
+#[serde_with::skip_serializing_none]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "ts-bindings", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts-bindings", ts(export, optional_fields))]
 pub struct UninitializedLLMJudgeConfig {
-    #[serde(default)]
-    pub input_format: LLMJudgeInputFormat,
+    pub input_format: Option<LLMJudgeInputFormat>,
     pub variants: HashMap<String, UninitializedLLMJudgeVariantInfo>,
     pub output_type: LLMJudgeOutputType,
     pub optimize: LLMJudgeOptimize,
-    #[serde(default)]
-    pub include: LLMJudgeIncludeConfig,
+    pub include: Option<LLMJudgeIncludeConfig>,
     #[deprecated(
         note = "Evaluator config `cutoff` is deprecated. Use evaluations CLI `--cutoffs` instead."
     )]
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts-bindings", ts(optional))]
     pub cutoff: Option<f32>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts-bindings", ts(optional))]
     pub description: Option<String>,
 }
 
@@ -575,7 +770,11 @@ impl UninitializedEvaluatorConfig {
                 },
             )),
             UninitializedEvaluatorConfig::LLMJudge(params) => {
-                let user_schema_value: Option<serde_json::Value> = match params.input_format {
+                let input_format = params
+                    .input_format
+                    .clone()
+                    .unwrap_or(LLMJudgeInputFormat::Serialized);
+                let user_schema_value: Option<serde_json::Value> = match input_format {
                     LLMJudgeInputFormat::Serialized => Some(serde_json::from_str(LLM_JUDGE_USER_SCHEMA_TEXT)
                         .map_err(|e| {
                             Error::new(ErrorDetails::JsonSchema {
@@ -607,7 +806,7 @@ impl UninitializedEvaluatorConfig {
                             .load(
                                 &evaluator_context,
                                 evaluator_name,
-                                &params.input_format,
+                                &input_format,
                                 &name,
                                 user_schema.clone(),
                             )
@@ -688,9 +887,9 @@ impl UninitializedEvaluatorConfig {
                 #[expect(deprecated)]
                 Ok((
                     EvaluatorConfig::LLMJudge(LLMJudgeConfig {
-                        input_format: params.input_format,
+                        input_format,
                         output_type: params.output_type,
-                        include: params.include,
+                        include: params.include.unwrap_or_default(),
                         optimize: params.optimize,
                         cutoff: params.cutoff,
                         description: params.description,
@@ -773,18 +972,34 @@ impl UninitializedEvaluatorConfig {
                     },
                 ))
             }
+            UninitializedEvaluatorConfig::TypescriptJudge(config) => {
+                let typescript_code = config.typescript_file.data().to_string();
+                Ok((
+                    EvaluatorConfig::TypescriptJudge(TypescriptJudgeConfig {
+                        typescript_code,
+                        output_type: config.output_type,
+                        optimize: config.optimize,
+                    }),
+                    None,
+                    MetricConfig {
+                        r#type: config.output_type.into(),
+                        optimize: config.optimize.into(),
+                        level: MetricConfigLevel::Inference,
+                        description: None,
+                    },
+                ))
+            }
         }
     }
 }
 
 #[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[cfg_attr(feature = "ts-bindings", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts-bindings", ts(export))]
+#[cfg_attr(feature = "ts-bindings", ts(export, optional_fields))]
 pub struct UninitializedLLMJudgeVariantInfo {
     #[serde(flatten)]
     pub inner: UninitializedLLMJudgeVariantConfig,
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts-bindings", ts(optional))]
     pub timeouts: Option<TimeoutsConfig>,
 }
 
@@ -805,57 +1020,32 @@ pub enum UninitializedLLMJudgeVariantConfig {
     ChainOfThought(UninitializedLLMJudgeChainOfThoughtVariantConfig),
 }
 
+#[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "ts-bindings", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts-bindings", ts(export))]
+#[cfg_attr(feature = "ts-bindings", ts(export, optional_fields))]
 pub struct UninitializedLLMJudgeChatCompletionVariantConfig {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts-bindings", ts(optional))]
     pub active: Option<bool>,
     pub model: Arc<str>,
     pub system_instructions: ResolvedTomlPathData,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts-bindings", ts(optional))]
     pub temperature: Option<f32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts-bindings", ts(optional))]
     pub top_p: Option<f32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts-bindings", ts(optional))]
     pub max_tokens: Option<u32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts-bindings", ts(optional))]
     pub presence_penalty: Option<f32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts-bindings", ts(optional))]
     pub frequency_penalty: Option<f32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts-bindings", ts(optional))]
     pub seed: Option<u32>,
     pub json_mode: JsonMode, // This is a JSON function
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts-bindings", ts(optional))]
     pub stop_sequences: Option<Vec<String>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts-bindings", ts(optional))]
     pub reasoning_effort: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts-bindings", ts(optional))]
     pub service_tier: Option<ServiceTier>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts-bindings", ts(optional))]
     pub thinking_budget_tokens: Option<i32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts-bindings", ts(optional))]
     pub verbosity: Option<String>,
     #[serde(default)]
     pub retries: RetryConfig,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts-bindings", ts(optional))]
+
     pub extra_body: Option<ExtraBodyConfig>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts-bindings", ts(optional))]
+
     pub extra_headers: Option<ExtraHeadersConfig>,
 }
 
@@ -932,85 +1122,58 @@ fn convert_chat_completion_judge_to_variant(
     )
 }
 
+#[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "ts-bindings", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts-bindings", ts(export))]
+#[cfg_attr(feature = "ts-bindings", ts(export, optional_fields))]
 pub struct UninitializedLLMJudgeBestOfNVariantConfig {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts-bindings", ts(optional))]
     pub active: Option<bool>,
     #[deprecated(note = "Use `[timeouts]` on your candidate variants instead (#2480 / 2026.2+)")]
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts-bindings", ts(optional))]
     pub timeout_s: Option<f64>,
     #[serde(default)]
     pub candidates: Vec<String>,
     pub evaluator: UninitializedLLMJudgeChatCompletionVariantConfig,
 }
 
+#[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "ts-bindings", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts-bindings", ts(export))]
+#[cfg_attr(feature = "ts-bindings", ts(export, optional_fields))]
 pub struct UninitializedLLMJudgeMixtureOfNVariantConfig {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts-bindings", ts(optional))]
     pub active: Option<bool>,
     #[deprecated(note = "Use `[timeouts]` on your candidate variants instead (#2480 / 2026.2+)")]
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts-bindings", ts(optional))]
     pub timeout_s: Option<f64>,
     #[serde(default)]
     pub candidates: Vec<String>,
     pub fuser: UninitializedLLMJudgeChatCompletionVariantConfig,
 }
 
+#[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "ts-bindings", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts-bindings", ts(export))]
+#[cfg_attr(feature = "ts-bindings", ts(export, optional_fields))]
 pub struct UninitializedLLMJudgeDiclVariantConfig {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts-bindings", ts(optional))]
     pub active: Option<bool>,
     pub embedding_model: String,
     pub k: u32, // k as in k-nearest neighbors
     pub model: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts-bindings", ts(optional))]
     pub system_instructions: Option<ResolvedTomlPathData>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts-bindings", ts(optional))]
     pub temperature: Option<f32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts-bindings", ts(optional))]
     pub top_p: Option<f32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts-bindings", ts(optional))]
     pub presence_penalty: Option<f32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts-bindings", ts(optional))]
     pub frequency_penalty: Option<f32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts-bindings", ts(optional))]
     pub max_tokens: Option<u32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts-bindings", ts(optional))]
     pub seed: Option<u32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts-bindings", ts(optional))]
     pub json_mode: Option<JsonMode>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts-bindings", ts(optional))]
     pub stop_sequences: Option<Vec<String>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts-bindings", ts(optional))]
+
     pub extra_body: Option<ExtraBodyConfig>,
     #[serde(default)]
     pub retries: RetryConfig,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts-bindings", ts(optional))]
+
     pub extra_headers: Option<ExtraHeadersConfig>,
 }
 
@@ -1070,6 +1233,103 @@ impl<'a> EvaluatorContext<'a> {
             ),
         };
         ResolvedTomlPathData::new_fake_path(path, data)
+    }
+}
+
+// ── Stored-config conversion helpers ──────────────────────────────────────────
+
+impl UninitializedEvaluationConfig {
+    /// Collect all `ResolvedTomlPathData` references that need stored file rows.
+    pub(crate) fn files_for_db(&self) -> Vec<&ResolvedTomlPathData> {
+        match self {
+            UninitializedEvaluationConfig::Inference(config) => config.files_for_db(),
+        }
+    }
+
+    /// Convert to the stored representation for DB persistence.
+    pub(crate) fn to_stored_for_db(
+        &self,
+        file_version_ids: &HashMap<String, Uuid>,
+    ) -> Result<StoredEvaluationConfig, Error> {
+        match self {
+            UninitializedEvaluationConfig::Inference(config) => {
+                config.to_stored_for_db(file_version_ids)
+            }
+        }
+    }
+}
+
+impl UninitializedInferenceEvaluationConfig {
+    fn files_for_db(&self) -> Vec<&ResolvedTomlPathData> {
+        let mut templates = Vec::new();
+        for evaluator in self.evaluators.values() {
+            evaluator.collect_files(&mut templates);
+        }
+        templates
+    }
+
+    fn to_stored_for_db(
+        &self,
+        file_version_ids: &HashMap<String, Uuid>,
+    ) -> Result<StoredEvaluationConfig, Error> {
+        let stored_evaluators = crate::db::postgres::function_config_writes::convert_evaluators(
+            &self.evaluators,
+            file_version_ids,
+        )?;
+        Ok(StoredEvaluationConfig::Inference(
+            StoredInferenceEvaluationConfig {
+                evaluators: Some(stored_evaluators),
+                function_name: self.function_name.clone(),
+                description: self.description.clone(),
+            },
+        ))
+    }
+}
+
+impl UninitializedEvaluatorConfig {
+    fn collect_files<'a>(&'a self, templates: &mut Vec<&'a ResolvedTomlPathData>) {
+        match self {
+            UninitializedEvaluatorConfig::LLMJudge(config) => {
+                for variant in config.variants.values() {
+                    variant.inner.collect_files(templates);
+                }
+            }
+            UninitializedEvaluatorConfig::TypescriptJudge(config) => {
+                let UninitializedTypescriptJudgeConfig {
+                    typescript_file,
+                    output_type: _,
+                    optimize: _,
+                } = config;
+                templates.push(typescript_file);
+            }
+            UninitializedEvaluatorConfig::ExactMatch(_)
+            | UninitializedEvaluatorConfig::ToolUse(_)
+            | UninitializedEvaluatorConfig::Regex(_) => {}
+        }
+    }
+}
+
+impl UninitializedLLMJudgeVariantConfig {
+    fn collect_files<'a>(&'a self, templates: &mut Vec<&'a ResolvedTomlPathData>) {
+        match self {
+            UninitializedLLMJudgeVariantConfig::ChatCompletion(config) => {
+                templates.push(&config.system_instructions);
+            }
+            UninitializedLLMJudgeVariantConfig::BestOfNSampling(config) => {
+                templates.push(&config.evaluator.system_instructions);
+            }
+            UninitializedLLMJudgeVariantConfig::MixtureOfNSampling(config) => {
+                templates.push(&config.fuser.system_instructions);
+            }
+            UninitializedLLMJudgeVariantConfig::Dicl(config) => {
+                if let Some(system_instructions) = &config.system_instructions {
+                    templates.push(system_instructions);
+                }
+            }
+            UninitializedLLMJudgeVariantConfig::ChainOfThought(config) => {
+                templates.push(&config.inner.system_instructions);
+            }
+        }
     }
 }
 
@@ -1609,13 +1869,13 @@ mod tests {
 
             #[expect(deprecated)]
             let llm_judge_config = UninitializedLLMJudgeConfig {
-                input_format: LLMJudgeInputFormat::Serialized,
+                input_format: Some(LLMJudgeInputFormat::Serialized),
                 variants,
                 output_type: LLMJudgeOutputType::Boolean,
                 optimize: LLMJudgeOptimize::Min,
-                include: LLMJudgeIncludeConfig {
+                include: Some(LLMJudgeIncludeConfig {
                     reference_output: false,
-                },
+                }),
                 cutoff: None,
                 description: Some("llm judge description".to_string()),
             };
@@ -1753,13 +2013,13 @@ mod tests {
 
             #[expect(deprecated)]
             let llm_judge_config = UninitializedLLMJudgeConfig {
-                input_format: LLMJudgeInputFormat::Serialized,
+                input_format: Some(LLMJudgeInputFormat::Serialized),
                 variants,
                 output_type: LLMJudgeOutputType::Float,
                 optimize: LLMJudgeOptimize::Max,
-                include: LLMJudgeIncludeConfig {
+                include: Some(LLMJudgeIncludeConfig {
                     reference_output: true,
-                },
+                }),
                 cutoff: None,
                 description: Some("llm judge description float".to_string()),
             };
@@ -1969,13 +2229,13 @@ mod tests {
 
             #[expect(deprecated)]
             let llm_judge_config = UninitializedLLMJudgeConfig {
-                input_format: LLMJudgeInputFormat::Serialized,
+                input_format: Some(LLMJudgeInputFormat::Serialized),
                 variants,
                 output_type: LLMJudgeOutputType::Boolean,
                 optimize: LLMJudgeOptimize::Min,
-                include: LLMJudgeIncludeConfig {
+                include: Some(LLMJudgeIncludeConfig {
                     reference_output: false,
-                },
+                }),
                 cutoff: Some(0.3),
                 description: None,
             };
@@ -2086,13 +2346,13 @@ mod tests {
 
             #[expect(deprecated)]
             let llm_judge_config = UninitializedLLMJudgeConfig {
-                input_format: LLMJudgeInputFormat::Serialized,
+                input_format: Some(LLMJudgeInputFormat::Serialized),
                 variants,
                 output_type: LLMJudgeOutputType::Boolean,
                 optimize: LLMJudgeOptimize::Min,
-                include: LLMJudgeIncludeConfig {
+                include: Some(LLMJudgeIncludeConfig {
                     reference_output: true,
-                },
+                }),
                 cutoff: None,
                 description: None,
             };
@@ -2167,11 +2427,11 @@ mod tests {
 
             #[expect(deprecated)]
             let llm_judge_config = UninitializedLLMJudgeConfig {
-                input_format: LLMJudgeInputFormat::Serialized,
+                input_format: Some(LLMJudgeInputFormat::Serialized),
                 variants,
                 output_type: LLMJudgeOutputType::Boolean,
                 optimize: LLMJudgeOptimize::Max,
-                include: LLMJudgeIncludeConfig::default(),
+                include: None,
                 cutoff: None,
                 description: None,
             };
@@ -2249,11 +2509,11 @@ mod tests {
 
             #[expect(deprecated)]
             let llm_judge_config = UninitializedLLMJudgeConfig {
-                input_format: LLMJudgeInputFormat::Serialized,
+                input_format: Some(LLMJudgeInputFormat::Serialized),
                 variants,
                 output_type: LLMJudgeOutputType::Boolean,
                 optimize: LLMJudgeOptimize::Max,
-                include: LLMJudgeIncludeConfig::default(),
+                include: None,
                 cutoff: None,
                 description: None,
             };

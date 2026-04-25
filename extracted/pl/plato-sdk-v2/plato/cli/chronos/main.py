@@ -7,14 +7,19 @@ import json
 import logging
 import os
 import tempfile
+import time
 from datetime import UTC, datetime
 from enum import Enum
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 
+import httpx
 import typer
 from rich.table import Table
 
+from plato.chronos.api.settings import get_setting, update_setting
+from plato.chronos.errors import NotFoundError
+from plato.chronos.models import UpdateSettingRequest
 from plato.chronos.sdk import Chronos
 from plato.cli.chronos.settings import get_settings
 from plato.cli.utils import console, safe_print
@@ -281,20 +286,36 @@ _CRED_PATHS = {
 
 _ENV_KEYS = {
     AgentType.claude: "CLAUDE_OAUTH_CREDENTIALS",
-    AgentType.codex: "CODEX_OAUTH_CREDENTIALS",
+    AgentType.codex: "CODEX_AUTH_CREDENTIALS",
 }
+
+_ANALYZER_ENV_KEY = "chronos:analyzer-env"
+_CLAUDE_OAUTH_CLIENT_ID = (
+    "9d1c250a-e61b-44d9-88ed-5944d1962f5e"  # gitleaks:allow — public Claude Code OAuth client_id, not a secret
+)
+_CLAUDE_OAUTH_TOKEN_URL = "https://platform.claude.com/v1/oauth/token"
 
 
 @chronos_app.command("refresh-creds")
 def refresh_creds(
     agent: Annotated[AgentType, typer.Argument(help="Agent type: claude or codex")],
-    env_file: Annotated[Path, typer.Argument(help="Path to .env file to update", exists=True)],
+    env_file: Annotated[
+        Path | None,
+        typer.Argument(help="Optional .env file to also update"),
+    ] = None,
+    chronos_url: str = typer.Option(None, "--url", "-u", envvar="CHRONOS_URL", help="Chronos API URL"),
+    api_key: str = typer.Option(None, "--api-key", "-k", envvar="PLATO_API_KEY", help="Plato API key"),
 ):
-    """Read OAuth credentials and update the corresponding key in a .env file.
+    """Refresh OAuth creds and push them into the Chronos analyzer-env (user scope).
 
-    Reads from ~/.claude/.credentials.json or ~/.codex/auth.json,
-    compacts the JSON, and writes it as the value of CLAUDE_OAUTH_CREDENTIALS
-    or CODEX_OAUTH_CREDENTIALS in the target .env file.
+    For claude: reads ~/.claude/.credentials.json, calls the Anthropic OAuth refresh
+    endpoint, writes the rotated creds back to that file, and PUTs the compact JSON
+    as CLAUDE_OAUTH_CREDENTIALS into the user-scoped chronos:analyzer-env setting.
+
+    For codex: reads ~/.codex/auth.json as-is and PUTs it as CODEX_AUTH_CREDENTIALS
+    into the same setting (no remote refresh — re-run `codex login` first if stale).
+
+    If `env_file` is supplied, the compact JSON is also mirrored into that .env file.
     """
     cred_path = _CRED_PATHS[agent]
     env_key = _ENV_KEYS[agent]
@@ -309,36 +330,111 @@ def refresh_creds(
         console.print(f"[red]Invalid JSON in {cred_path}: {e}[/red]")
         raise typer.Exit(1)
 
-    # Show expiry info if available
-    expires_at = creds.get("expiresAt") or creds.get("expires_at")
-    if expires_at:
-        try:
-            exp_dt = datetime.fromisoformat(expires_at.replace("Z", "+00:00"))
-            remaining = exp_dt - datetime.now(UTC)
-            mins = int(remaining.total_seconds() / 60)
-            if mins < 0:
-                console.print(f"[yellow]Warning: token expired {-mins} minutes ago[/yellow]")
-            else:
-                console.print(f"[dim]Token expires in {mins} minutes[/dim]")
-        except (ValueError, TypeError):
-            pass
+    # Fail fast on missing API key before any irreversible side effects
+    # (claude's refresh rotates the Anthropic refresh token and rewrites the
+    # local credentials file).
+    chronos_url_resolved = chronos_url or settings.chronos_url
+    api_key_resolved = _require_api_key(api_key)
+
+    if agent == AgentType.claude:
+        creds = _refresh_claude_creds(creds, cred_path)
 
     compact = json.dumps(creds, separators=(",", ":"))
+    _push_to_analyzer_env(chronos_url_resolved, api_key_resolved, env_key, compact)
+    if env_file is not None:
+        _write_env_value(env_file, env_key, compact)
+        console.print(f"[green]Updated {env_key} in {env_file}[/green]")
 
-    # Read existing .env and update or append the key
-    env_path = Path(env_file)
-    lines = env_path.read_text().splitlines()
+
+def _refresh_claude_creds(creds: dict[str, Any], cred_path: Path) -> dict[str, Any]:
+    """Refresh the claudeAiOauth block via Anthropic and write it back to cred_path."""
+    inner = creds.get("claudeAiOauth")
+    if not isinstance(inner, dict):
+        console.print(f"[red]Missing claudeAiOauth block in {cred_path}[/red]")
+        raise typer.Exit(1)
+
+    refresh_token = inner.get("refreshToken")
+    scopes = inner.get("scopes") or []
+    if not refresh_token:
+        console.print(f"[red]Missing refreshToken in {cred_path}[/red]")
+        raise typer.Exit(1)
+
+    console.print("[blue]Refreshing OAuth token via Anthropic...[/blue]")
+    # Claude Code itself POSTs JSON (not form-urlencoded) to this endpoint —
+    # see the `feH` refresh routine in the claude binary.
+    try:
+        resp = httpx.post(
+            _CLAUDE_OAUTH_TOKEN_URL,
+            json={
+                "grant_type": "refresh_token",
+                "refresh_token": refresh_token,
+                "client_id": _CLAUDE_OAUTH_CLIENT_ID,
+                "scope": " ".join(scopes),
+            },
+            timeout=30.0,
+        )
+    except httpx.RequestError as e:
+        safe_print(f"[red]OAuth refresh request failed:[/red] {e}")
+        raise typer.Exit(1)
+
+    if not resp.is_success:
+        safe_print(f"[red]OAuth refresh failed ({resp.status_code}):[/red] {resp.text}")
+        raise typer.Exit(1)
+
+    token_data = resp.json()
+    access_token = token_data.get("access_token")
+    new_refresh = token_data.get("refresh_token")
+    if not access_token or not new_refresh:
+        console.print("[red]OAuth response missing access_token/refresh_token[/red]")
+        raise typer.Exit(1)
+
+    expires_in = int(token_data.get("expires_in", 28800))
+    expires_at_ms = int((time.time() + expires_in) * 1000)
+
+    new_inner = {
+        **inner,
+        "accessToken": access_token,
+        "refreshToken": new_refresh,
+        "expiresAt": expires_at_ms,
+        "scopes": scopes,
+    }
+    new_creds = {**creds, "claudeAiOauth": new_inner}
+
+    cred_path.write_text(json.dumps(new_creds, indent=2))
+    console.print(f"[green]Updated {cred_path}[/green] (expires in {expires_in // 60} min)")
+    return new_creds
+
+
+def _push_to_analyzer_env(chronos_url: str, api_key: str, env_key: str, value: str) -> None:
+    """Splice ``env_key=value`` into the user-scoped chronos:analyzer-env setting."""
+    with Chronos(base_url=chronos_url, api_key=api_key) as client:
+        try:
+            existing = get_setting.sync(client._client, key=_ANALYZER_ENV_KEY, scope="user")
+            current = dict(existing.value or {})
+        except NotFoundError:
+            current = {}
+        current[env_key] = value
+        update_setting.sync(
+            client._client,
+            key=_ANALYZER_ENV_KEY,
+            scope="user",
+            body=UpdateSettingRequest(value=current),
+        )
+    console.print(f"[green]Updated {env_key} in Chronos analyzer-env (user scope)[/green]")
+
+
+def _write_env_value(env_path: Path, key: str, value: str) -> None:
+    """Update or append ``key=value`` in env_path, creating the file if missing."""
+    lines = env_path.read_text().splitlines() if env_path.exists() else []
     found = False
     for i, line in enumerate(lines):
-        if line.startswith(f"{env_key}="):
-            lines[i] = f"{env_key}={compact}"
+        if line.startswith(f"{key}="):
+            lines[i] = f"{key}={value}"
             found = True
             break
     if not found:
-        lines.append(f"{env_key}={compact}")
-
+        lines.append(f"{key}={value}")
     env_path.write_text("\n".join(lines) + "\n")
-    console.print(f"[green]Updated {env_key} in {env_file}[/green]")
 
 
 # ---------------------------------------------------------------------------

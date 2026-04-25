@@ -29,13 +29,12 @@ __date__ = "15/05/2017"
 import logging
 import numpy
 import os
-import sys
 import tempfile
 import unittest
 
-logger1 = logging.getLogger(__name__)
-
 from ..specfilewrapper import Specfile
+
+logger1 = logging.getLogger(__name__)
 
 sftext = """#F /tmp/sf.dat
 #E 1455180875

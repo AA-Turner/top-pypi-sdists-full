@@ -505,6 +505,7 @@ RegionName = Literal[
     "ap-southeast-2",
     "ap-southeast-3",
     "ap-southeast-5",
+    "ap-southeast-6",
     "ap-southeast-7",
     "ca-central-1",
     "ca-west-1",

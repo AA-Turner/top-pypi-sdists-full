@@ -37,7 +37,7 @@ def _make_stream_ctx(**overrides: object) -> MagicMock:
     ctx.plan_path = None
     ctx.request = MagicMock()
     ctx.request.app.state.config.cli.max_tool_iterations = 50
-    ctx.request.app.state.config.cli.tool_output_max_chars = 2000
+    ctx.request.app.state.config.cli.tool_output_max_chars = 10_000
     ctx.request.app.state.config.cli.max_consecutive_text_only = 3
     ctx.request.app.state.config.cli.max_line_repeats = 5
     ctx.request.app.state.audit_writer = None

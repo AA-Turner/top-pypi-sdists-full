@@ -41,7 +41,6 @@ import math
 import weakref
 import logging
 import numbers
-from typing import Optional, Union
 from collections import namedtuple
 
 import numpy
@@ -67,7 +66,7 @@ _logger = logging.getLogger(__name__)
 # PlotAxis ####################################################################
 
 
-class PlotAxis(object):
+class PlotAxis:
     """Represents a 1D axis of the plot.
     This class is intended to be used with :class:`GLPlotFrame`.
     """
@@ -104,7 +103,7 @@ class PlotAxis(object):
         self._foregroundColor = foregroundColor
         self._labelAlign = labelAlign
         self._labelVAlign = labelVAlign
-        self._orderOffetAnchor = (1.0, 0.0)
+        self._orderOffsetAnchor = (1.0, 0.0)
         self._orderOffsetAlign = orderOffsetAlign
         self._orderOffsetVAlign = orderOffsetVAlign
         self._titleAlign = titleAlign
@@ -212,14 +211,14 @@ class PlotAxis(object):
             self._dirtyPlotFrame()
 
     @property
-    def orderOffetAnchor(self) -> tuple[float, float]:
+    def orderOffsetAnchor(self) -> tuple[float, float]:
         """Anchor position for the tick order&offset text"""
-        return self._orderOffetAnchor
+        return self._orderOffsetAnchor
 
-    @orderOffetAnchor.setter
-    def orderOffetAnchor(self, position: tuple[float, float]):
-        if position != self._orderOffetAnchor:
-            self._orderOffetAnchor = position
+    @orderOffsetAnchor.setter
+    def orderOffsetAnchor(self, position: tuple[float, float]):
+        if position != self._orderOffsetAnchor:
+            self._orderOffsetAnchor = position
             self._dirtyTicks()
 
     @property
@@ -241,9 +240,9 @@ class PlotAxis(object):
     @foregroundColor.setter
     def foregroundColor(self, color):
         """Color used for frame and labels"""
-        assert len(color) == 4, "foregroundColor must have length 4, got {}".format(
-            len(self._foregroundColor)
-        )
+        assert (
+            len(color) == 4
+        ), f"foregroundColor must have length 4, got {len(self._foregroundColor)}"
         if self._foregroundColor != color:
             self._foregroundColor = color
             self._dirtyTicks()
@@ -316,20 +315,36 @@ class PlotAxis(object):
         labels.append(axisTitle)
 
         if self._orderAndOffsetText:
-            xOrderOffset, yOrderOffet = self.orderOffetAnchor
+            orderAndOffsetFont = self._orderAndOffsetFont(self.font)
+
+            xOrderOffset, yOrderOffset = self.orderOffsetAnchor
             labels.append(
                 Text2D(
                     text=self._orderAndOffsetText,
-                    font=self.font,
+                    font=orderAndOffsetFont,
                     color=self._foregroundColor,
                     x=xOrderOffset,
-                    y=yOrderOffet,
+                    y=yOrderOffset,
                     align=self._orderOffsetAlign,
                     valign=self._orderOffsetVAlign,
                     devicePixelRatio=self.devicePixelRatio,
                 )
             )
         return vertices, labels
+
+    @staticmethod
+    def _orderAndOffsetFont(font: qt.QFont) -> qt.QFont:
+        """Returns a larger bold font"""
+        boldBiggerFont = qt.QFont(font)
+        boldBiggerFont.setWeight(qt.QFont.ExtraBold)
+        # Increase font size which is either in pixel or in points
+        pointSize = boldBiggerFont.pointSizeF()
+        if pointSize > 0:
+            boldBiggerFont.setPointSizeF(1.1 * pointSize)
+        pixelSize = boldBiggerFont.pixelSize()
+        if pixelSize > 0:
+            boldBiggerFont.setPixelSize(int(1.1 * pixelSize))
+        return boldBiggerFont
 
     def _dirtyPlotFrame(self):
         """Dirty parent GLPlotFrame"""
@@ -460,7 +475,7 @@ class PlotAxis(object):
 # GLPlotFrame #################################################################
 
 
-class GLPlotFrame(object):
+class GLPlotFrame:
     """Base class for rendering a 2D frame surrounded by axes."""
 
     _TICK_LENGTH_IN_PIXELS = 5
@@ -541,9 +556,9 @@ class GLPlotFrame(object):
     @foregroundColor.setter
     def foregroundColor(self, color):
         """Color used for frame and labels"""
-        assert len(color) == 4, "foregroundColor must have length 4, got {}".format(
-            len(self._foregroundColor)
-        )
+        assert (
+            len(color) == 4
+        ), f"foregroundColor must have length 4, got {len(self._foregroundColor)}"
         if self._foregroundColor != color:
             self._foregroundColor = color
             for axis in self.axes:
@@ -558,9 +573,9 @@ class GLPlotFrame(object):
     @gridColor.setter
     def gridColor(self, color):
         """Color used for frame and labels"""
-        assert len(color) == 4, "gridColor must have length 4, got {}".format(
-            len(self._gridColor)
-        )
+        assert (
+            len(color) == 4
+        ), f"gridColor must have length 4, got {len(self._gridColor)}"
         if self._gridColor != color:
             self._gridColor = color
             self._dirty()
@@ -829,9 +844,7 @@ class GLPlotFrame2D(GLPlotFrame):
         :type gridColor: tuple RGBA with RGBA values ranging from 0.0 to 1.0
         :param font: Font used by the axes label
         """
-        super(GLPlotFrame2D, self).__init__(
-            marginRatios, foregroundColor, gridColor, font
-        )
+        super().__init__(marginRatios, foregroundColor, gridColor, font)
         self._font = font
 
         self.axes.append(
@@ -859,7 +872,7 @@ class GLPlotFrame2D(GLPlotFrame):
                 foregroundColor=self._foregroundColor,
                 labelAlign=RIGHT,
                 labelVAlign=CENTER,
-                orderOffsetAlign=LEFT,
+                orderOffsetAlign=RIGHT,
                 orderOffsetVAlign=BOTTOM,
                 titleAlign=CENTER,
                 titleVAlign=BOTTOM,
@@ -874,7 +887,7 @@ class GLPlotFrame2D(GLPlotFrame):
             foregroundColor=self._foregroundColor,
             labelAlign=LEFT,
             labelVAlign=CENTER,
-            orderOffsetAlign=RIGHT,
+            orderOffsetAlign=LEFT,
             orderOffsetVAlign=BOTTOM,
             titleAlign=CENTER,
             titleVAlign=TOP,
@@ -882,6 +895,7 @@ class GLPlotFrame2D(GLPlotFrame):
             font=self._font,
         )
 
+        self._isXAxisInverted = False
         self._isYAxisInverted = False
 
         self._dataRanges = {"x": (1.0, 100.0), "y": (1.0, 100.0), "y2": (1.0, 100.0)}
@@ -893,7 +907,7 @@ class GLPlotFrame2D(GLPlotFrame):
         self._transformedDataY2ProjMat = None
 
     def _dirty(self):
-        super(GLPlotFrame2D, self)._dirty()
+        super()._dirty()
         self._transformedDataRanges = None
         self._transformedDataProjMat = None
         self._transformedDataY2ProjMat = None
@@ -902,7 +916,7 @@ class GLPlotFrame2D(GLPlotFrame):
     def isDirty(self):
         """True if it need to refresh graphic rendering, False otherwise."""
         return (
-            super(GLPlotFrame2D, self).isDirty
+            super().isDirty
             or self._transformedDataRanges is None
             or self._transformedDataProjMat is None
             or self._transformedDataY2ProjMat is None
@@ -936,15 +950,26 @@ class GLPlotFrame2D(GLPlotFrame):
             self._dirty()
 
     @property
-    def isYAxisInverted(self):
+    def isYAxisInverted(self) -> bool:
         """Whether Y axes are inverted or not as a bool."""
         return self._isYAxisInverted
 
     @isYAxisInverted.setter
-    def isYAxisInverted(self, value):
+    def isYAxisInverted(self, value: bool):
         value = bool(value)
         if value != self._isYAxisInverted:
             self._isYAxisInverted = value
+            self._dirty()
+
+    @property
+    def isXAxisInverted(self) -> bool:
+        return self._isXAxisInverted
+
+    @isXAxisInverted.setter
+    def isXAxisInverted(self, value: bool):
+        value = bool(value)
+        if value != self._isXAxisInverted:
+            self._isXAxisInverted = value
             self._dirty()
 
     DEFAULT_BASE_VECTORS = (1.0, 0.0), (0.0, 1.0)
@@ -1098,10 +1123,12 @@ class GLPlotFrame2D(GLPlotFrame):
             yMin, yMax = self.transformedDataRanges.y
 
             if self.isYAxisInverted:
-                mat = mat4Ortho(xMin, xMax, yMax, yMin, 1, -1)
-            else:
-                mat = mat4Ortho(xMin, xMax, yMin, yMax, 1, -1)
-            self._transformedDataProjMat = mat
+                yMax, yMin = yMin, yMax
+
+            if self.isXAxisInverted:
+                xMax, xMin = xMin, xMax
+
+            self._transformedDataProjMat = mat4Ortho(xMin, xMax, yMin, yMax, 1, -1)
 
         return self._transformedDataProjMat
 
@@ -1117,17 +1144,19 @@ class GLPlotFrame2D(GLPlotFrame):
             y2Min, y2Max = self.transformedDataRanges.y2
 
             if self.isYAxisInverted:
-                mat = mat4Ortho(xMin, xMax, y2Max, y2Min, 1, -1)
-            else:
-                mat = mat4Ortho(xMin, xMax, y2Min, y2Max, 1, -1)
-            self._transformedDataY2ProjMat = mat
+                y2Max, y2Min = y2Min, y2Max
+
+            if self.isXAxisInverted:
+                xMax, xMin = xMin, xMax
+
+            self._transformedDataY2ProjMat = mat4Ortho(xMin, xMax, y2Min, y2Max, 1, -1)
 
         return self._transformedDataY2ProjMat
 
     @staticmethod
     def __applyLog(
-        data: Union[float, numpy.ndarray], isLog: bool
-    ) -> Optional[Union[float, numpy.ndarray]]:
+        data: float | numpy.ndarray, isLog: bool
+    ) -> float | numpy.ndarray | None:
         """Apply log to data filtering out"""
         if not isLog:
             return data
@@ -1167,9 +1196,13 @@ class GLPlotFrame2D(GLPlotFrame):
 
         plotWidth, plotHeight = self.plotSize
 
-        xPixel = self.margins.left + plotWidth * (xDataTr - trBounds.x[0]) / (
-            trBounds.x[1] - trBounds.x[0]
+        xOffset = (
+            plotWidth * (xDataTr - trBounds.x[0]) / (trBounds.x[1] - trBounds.x[0])
         )
+        if self.isXAxisInverted:
+            xPixel = self.size[0] - self.margins.right - xOffset
+        else:
+            xPixel = self.margins.left + xOffset
 
         usedAxis = trBounds.y if axis == "left" else trBounds.y2
         yOffset = plotHeight * (yDataTr - usedAxis[0]) / (usedAxis[1] - usedAxis[0])
@@ -1180,12 +1213,16 @@ class GLPlotFrame2D(GLPlotFrame):
             yPixel = self.size[1] - self.margins.bottom - yOffset
 
         return (
-            int(xPixel)
-            if isinstance(xPixel, numbers.Real)
-            else xPixel.astype(numpy.int64),
-            int(yPixel)
-            if isinstance(yPixel, numbers.Real)
-            else yPixel.astype(numpy.int64),
+            (
+                int(xPixel)
+                if isinstance(xPixel, numbers.Real)
+                else xPixel.astype(numpy.int64)
+            ),
+            (
+                int(yPixel)
+                if isinstance(yPixel, numbers.Real)
+                else yPixel.astype(numpy.int64)
+            ),
         )
 
     def pixelToData(self, x, y, axis="left"):
@@ -1202,17 +1239,22 @@ class GLPlotFrame2D(GLPlotFrame):
 
         trBounds = self.transformedDataRanges
 
-        xData = (x - self.margins.left + 0.5) / float(plotWidth)
-        xData = trBounds.x[0] + xData * (trBounds.x[1] - trBounds.x[0])
-
-        usedAxis = trBounds.y if axis == "left" else trBounds.y2
-        if self.isYAxisInverted:
-            yData = (y - self.margins.top + 0.5) / float(plotHeight)
-            yData = usedAxis[0] + yData * (usedAxis[1] - usedAxis[0])
+        if self.isXAxisInverted:
+            unscaledXData = self.size[0] - self.margins.right - x - 0.5
         else:
-            yData = self.size[1] - self.margins.bottom - y - 0.5
-            yData /= float(plotHeight)
-            yData = usedAxis[0] + yData * (usedAxis[1] - usedAxis[0])
+            unscaledXData = x - self.margins.left + 0.5
+        xData = trBounds.x[0] + unscaledXData / float(plotWidth) * (
+            trBounds.x[1] - trBounds.x[0]
+        )
+
+        if self.isYAxisInverted:
+            unscaledYData = y - self.margins.top + 0.5
+        else:
+            unscaledYData = self.size[1] - self.margins.bottom - y - 0.5
+        usedAxis = trBounds.y if axis == "left" else trBounds.y2
+        yData = usedAxis[0] + unscaledYData / float(plotHeight) * (
+            usedAxis[1] - usedAxis[0]
+        )
 
         # non-orthogonal axis
         if self.baseVectors != self.DEFAULT_BASE_VECTORS:
@@ -1326,49 +1368,59 @@ class GLPlotFrame2D(GLPlotFrame):
     def _buildVerticesAndLabels(self):
         width, height = self.size
 
-        xCoords = (self.margins.left - 0.5, width - self.margins.right + 0.5)
-        yCoords = (height - self.margins.bottom + 0.5, self.margins.top - 0.5)
+        xLeft = self.margins.left - 0.5
+        xRight = width - self.margins.right + 0.5
+        yBottom = height - self.margins.bottom + 0.5
+        yTop = self.margins.top - 0.5
 
-        self.axes[0].displayCoords = (
-            (xCoords[0], yCoords[0]),
-            (xCoords[1], yCoords[0]),
-        )
+        self._x2AxisCoords = ((xLeft, yTop), (xRight, yTop))
 
-        self._x2AxisCoords = ((xCoords[0], yCoords[1]), (xCoords[1], yCoords[1]))
-
-        # Set order&offset anchor **before** handling Y axis inversion
+        # Set order&offset anchor **before** handling axis inversion
         fontPixelSize = self._font.pixelSize()
         if fontPixelSize == -1:
             fontPixelSize = self._font.pointSizeF() / 72.0 * self.dotsPerInch
 
-        self.axes[0].orderOffetAnchor = (
-            xCoords[1],
-            yCoords[0] + fontPixelSize * 1.2,
+        self.axes[0].orderOffsetAnchor = (
+            xRight,
+            yBottom + fontPixelSize * 1.2,
         )
-        self.axes[1].orderOffetAnchor = (
-            xCoords[0],
-            yCoords[1] - 4 * self.devicePixelRatio,
+        self.axes[1].orderOffsetAnchor = (
+            xLeft,
+            yTop - 4 * self.devicePixelRatio - fontPixelSize / 2.0,
         )
-        self._y2Axis.orderOffetAnchor = (
-            xCoords[1],
-            yCoords[1] - 4 * self.devicePixelRatio,
+        self._y2Axis.orderOffsetAnchor = (
+            xRight,
+            yTop - 4 * self.devicePixelRatio - fontPixelSize / 2.0,
         )
 
         if self.isYAxisInverted:
-            # Y axes are inverted, axes coordinates are inverted
-            yCoords = yCoords[1], yCoords[0]
+            # Y axis is inverted: goes top to bottom
+            yCoords = yTop, yBottom
+        else:
+            yCoords = yBottom, yTop
+
+        if self.isXAxisInverted:
+            # X axis is inverted: goes right to left
+            xCoords = xRight, xLeft
+        else:
+            xCoords = xLeft, xRight
+
+        self.axes[0].displayCoords = (
+            (xCoords[0], yBottom),
+            (xCoords[1], yBottom),
+        )
 
         self.axes[1].displayCoords = (
-            (xCoords[0], yCoords[0]),
-            (xCoords[0], yCoords[1]),
+            (xLeft, yCoords[0]),
+            (xLeft, yCoords[1]),
         )
 
         self._y2Axis.displayCoords = (
-            (xCoords[1], yCoords[0]),
-            (xCoords[1], yCoords[1]),
+            (xRight, yCoords[0]),
+            (xRight, yCoords[1]),
         )
 
-        super(GLPlotFrame2D, self)._buildVerticesAndLabels()
+        super()._buildVerticesAndLabels()
 
         vertices, gridVertices, labels = self._renderResources
 
@@ -1391,9 +1443,9 @@ class GLPlotFrame2D(GLPlotFrame):
     @foregroundColor.setter
     def foregroundColor(self, color):
         """Color used for frame and labels"""
-        assert len(color) == 4, "foregroundColor must have length 4, got {}".format(
-            len(self._foregroundColor)
-        )
+        assert (
+            len(color) == 4
+        ), f"foregroundColor must have length 4, got {len(self._foregroundColor)}"
         if self._foregroundColor != color:
             self._y2Axis.foregroundColor = color
             GLPlotFrame.foregroundColor.fset(self, color)  # call parent property

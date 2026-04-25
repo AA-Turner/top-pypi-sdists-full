@@ -83,6 +83,7 @@ __all__ = (
     "WaiterName",
     "WebAppEndpointPolicyType",
     "WebAppEndpointTypeType",
+    "WebAppVpcEndpointIpAddressTypeType",
     "WorkflowStepTypeType",
 )
 
@@ -154,6 +155,7 @@ TlsSessionResumptionModeType = Literal["DISABLED", "ENABLED", "ENFORCED"]
 TransferTableStatusType = Literal["COMPLETED", "FAILED", "IN_PROGRESS", "QUEUED"]
 WebAppEndpointPolicyType = Literal["FIPS", "STANDARD"]
 WebAppEndpointTypeType = Literal["PUBLIC", "VPC"]
+WebAppVpcEndpointIpAddressTypeType = Literal["DUALSTACK", "IPV4"]
 WorkflowStepTypeType = Literal["COPY", "CUSTOM", "DECRYPT", "DELETE", "TAG"]
 TransferServiceName = Literal["transfer"]
 ServiceName = Literal[

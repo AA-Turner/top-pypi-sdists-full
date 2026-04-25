@@ -315,7 +315,7 @@ describe('#1467 preview truncation boundary', () => {
     beforeEach(() => { _toolRepeatReset(); });
 
     it('DOM text length matches server-provided preview length (no JS double-truncation)', () => {
-        const preview = 'x'.repeat(2000);  // tool_output_max_chars default
+        const preview = 'x'.repeat(10000);  // tool_output_max_chars default
         const details = buildLegacyToolCall('success');
         _applyToolDensityEnhancements(details, {
             summary: preview,
@@ -324,7 +324,7 @@ describe('#1467 preview truncation boundary', () => {
             tool_name: 'bash',
         });
         const body = details.querySelector('.tool-summary-body .tool-summary-text');
-        expect(body.textContent.length).toBe(2000);
+        expect(body.textContent.length).toBe(10000);
     });
 });
 

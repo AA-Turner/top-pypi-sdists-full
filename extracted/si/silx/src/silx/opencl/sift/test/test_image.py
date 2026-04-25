@@ -34,7 +34,7 @@ __authors__ = ["Jérôme Kieffer", "Pierre Paleo"]
 __contact__ = "jerome.kieffer@esrf.eu"
 __license__ = "MIT"
 __copyright__ = "2013 European Synchrotron Radiation Facility, Grenoble, France"
-__date__ = "01/08/2019"
+__date__ = "13/03/2026"
 
 import time
 import logging
@@ -42,10 +42,11 @@ import numpy
 import os
 
 
-from silx.opencl import ocl, kernel_workgroup_size
+from ... import ocl, kernel_workgroup_size
 
 if ocl:
-    import pyopencl, pyopencl.array
+    import pyopencl
+    import pyopencl.array
 
 import unittest
 from ..utils import calc_size, get_opencl_code
@@ -68,7 +69,7 @@ PRINT_KEYPOINTS = False
 class TestImage(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        super(TestImage, cls).setUpClass()
+        super().setUpClass()
         if ocl:
             cls.ctx = ocl.create_context()
             if logger.getEffectiveLevel() <= logging.INFO:
@@ -89,13 +90,13 @@ class TestImage(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        super(TestImage, cls).tearDownClass()
+        super().tearDownClass()
         cls.ctx = None
         cls.queue = None
 
     def setUp(self):
         kernel_src = os.linesep.join(
-            (get_opencl_code(os.path.join("sift", i)) for i in ("sift", "image"))
+            get_opencl_code(os.path.join("sift", i)) for i in ("sift", "image")
         )
         self.program = pyopencl.Program(self.ctx, kernel_src).build()
         self.wg = (8, 1)
@@ -134,7 +135,7 @@ class TestImage(unittest.TestCase):
         self.shape = calc_size((self.width, self.height), self.wg)
 
         t0 = time.time()
-        k1 = self.program.compute_gradient_orientation(
+        k1 = pyopencl.Kernel(self.program, "compute_gradient_orientation")(
             self.queue,
             self.shape,
             self.wg,
@@ -207,7 +208,7 @@ class TestImage(unittest.TestCase):
         )  # it's a 3D vector !!
 
         t0 = time.time()
-        k1 = self.program.local_maxmin(
+        k1 = pyopencl.Kernel(self.program, "local_maxmin")(
             self.queue,
             self.shape,
             self.wg,
@@ -320,9 +321,9 @@ class TestImage(unittest.TestCase):
         actual_nb_keypoints = numpy.int32(actual_nb_keypoints)
         InitSigma = numpy.float32(
             1.6
-        )  #   warning: it must be the same in my_keypoints_interpolation
+        )  # warning: it must be the same in my_keypoints_interpolation
         t0 = time.time()
-        k1 = self.program.interp_keypoint(
+        k1 = pyopencl.Kernel(self.program, "interp_keypoint")(
             self.queue,
             shape,
             (maxwg,),

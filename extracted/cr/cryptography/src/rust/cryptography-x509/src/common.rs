@@ -53,10 +53,22 @@ pub enum AlgorithmParameters<'a> {
     #[defined_by(oid::ED448_OID)]
     Ed448,
 
+    #[defined_by(oid::ML_DSA_44_OID)]
+    MlDsa44,
+    #[defined_by(oid::ML_DSA_65_OID)]
+    MlDsa65,
+    #[defined_by(oid::ML_DSA_87_OID)]
+    MlDsa87,
+
     #[defined_by(oid::X25519_OID)]
     X25519,
     #[defined_by(oid::X448_OID)]
     X448,
+
+    #[defined_by(oid::ML_KEM_768_OID)]
+    MlKem768,
+    #[defined_by(oid::ML_KEM_1024_OID)]
+    MlKem1024,
 
     // These encodings are only used in SPKI AlgorithmIdentifiers.
     #[defined_by(oid::EC_OID)]
@@ -192,6 +204,12 @@ pub struct SubjectPublicKeyInfo<'a> {
     pub subject_public_key: asn1::BitString<'a>,
 }
 
+#[derive(asn1::Asn1Read, asn1::Asn1Write)]
+pub struct Pkcs1RsaPublicKey<'a> {
+    pub n: asn1::BigUint<'a>,
+    pub e: asn1::BigUint<'a>,
+}
+
 #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Eq, Hash, Clone)]
 pub struct AttributeTypeValue<'a> {
     pub type_id: asn1::ObjectIdentifier,
@@ -250,6 +268,7 @@ impl<'a> asn1::Asn1Readable<'a> for RawTlv<'a> {
     }
 }
 impl asn1::Asn1Writable for RawTlv<'_> {
+    type Error = asn1::WriteError;
     fn write(&self, w: &mut asn1::Writer<'_>) -> asn1::WriteResult {
         w.write_tlv(self.tag, Some(self.value.len()), move |dest| {
             dest.push_slice(self.value)
@@ -309,9 +328,12 @@ impl<'a, T: asn1::SimpleAsn1Readable<'a>, U> asn1::SimpleAsn1Readable<'a>
     }
 }
 
-impl<T: asn1::SimpleAsn1Writable, U: asn1::SimpleAsn1Writable> asn1::SimpleAsn1Writable
-    for Asn1ReadableOrWritable<T, U>
+impl<
+        T: asn1::SimpleAsn1Writable<Error = asn1::WriteError>,
+        U: asn1::SimpleAsn1Writable<Error = asn1::WriteError>,
+    > asn1::SimpleAsn1Writable for Asn1ReadableOrWritable<T, U>
 {
+    type Error = asn1::WriteError;
     const TAG: asn1::Tag = U::TAG;
     fn write_data(&self, w: &mut asn1::WriteBuf) -> asn1::WriteResult {
         match self {
@@ -473,7 +495,59 @@ pub const PSS_SHA512_MASK_GEN_ALG: MaskGenAlgorithm<'_> = MaskGenAlgorithm {
 pub enum EcParameters<'a> {
     NamedCurve(asn1::ObjectIdentifier),
     ImplicitCurve(asn1::Null),
-    SpecifiedCurve(asn1::Sequence<'a>),
+    SpecifiedCurve(SpecifiedECDomain<'a>),
+}
+
+// From RFC 3279 Section 2.3.5 and RFC 5480 Appendix A
+// SpecifiedECDomain ::= SEQUENCE {
+//   version           ECPVer,
+//   fieldID           FieldID,
+//   curve             Curve,
+//   base              ECPoint,
+//   order             INTEGER,
+//   cofactor          INTEGER OPTIONAL
+// }
+#[derive(asn1::Asn1Read, asn1::Asn1Write, Hash, Clone, Eq, PartialEq, Debug)]
+pub struct SpecifiedECDomain<'a> {
+    pub version: u8,
+    pub field_id: FieldID<'a>,
+    pub curve: Curve<'a>,
+    pub base: &'a [u8], // ECPoint can be compressed or uncompressed
+    pub order: asn1::BigUint<'a>,
+    pub cofactor: Option<u8>,
+}
+
+// From RFC 3279 Section 2.3.5
+// FieldID ::= SEQUENCE {
+//   fieldType   FIELD-TYPE.&id({SupportedFieldTypes}),
+//   parameters  FIELD-TYPE.&Type({SupportedFieldTypes}{@fieldType})
+// }
+#[derive(asn1::Asn1Read, asn1::Asn1Write, Hash, Clone, PartialEq, Eq, Debug)]
+pub struct FieldID<'a> {
+    pub field_type: asn1::DefinedByMarker<asn1::ObjectIdentifier>,
+    #[defined_by(field_type)]
+    pub parameters: FieldParameters<'a>,
+}
+
+#[derive(asn1::Asn1DefinedByRead, asn1::Asn1DefinedByWrite, Hash, Clone, PartialEq, Eq, Debug)]
+pub enum FieldParameters<'a> {
+    #[defined_by(oid::PRIME_FIELD_OID)]
+    PrimeField(asn1::BigUint<'a>),
+    #[defined_by(oid::CHARACTERISTIC_TWO_FIELD_OID)]
+    CharacteristicTwo(asn1::Sequence<'a>),
+}
+
+// From RFC 3279 Section 2.3.5
+// Curve ::= SEQUENCE {
+//   a         FieldElement,
+//   b         FieldElement,
+//   seed      BIT STRING OPTIONAL
+// }
+#[derive(asn1::Asn1Read, asn1::Asn1Write, Hash, Clone, PartialEq, Eq, Debug)]
+pub struct Curve<'a> {
+    pub a: &'a [u8], // FieldElement
+    pub b: &'a [u8], // FieldElement
+    pub seed: Option<asn1::BitString<'a>>,
 }
 
 // From RFC 4055 section 3.1:
@@ -597,6 +671,7 @@ impl<'a> asn1::SimpleAsn1Readable<'a> for UnvalidatedVisibleString<'a> {
 }
 
 impl asn1::SimpleAsn1Writable for UnvalidatedVisibleString<'_> {
+    type Error = asn1::WriteError;
     const TAG: asn1::Tag = asn1::VisibleString::TAG;
     fn write_data(&self, _: &mut asn1::WriteBuf) -> asn1::WriteResult {
         unimplemented!();
@@ -617,6 +692,7 @@ impl<'a> Utf8StoredBMPString<'a> {
 }
 
 impl asn1::SimpleAsn1Writable for Utf8StoredBMPString<'_> {
+    type Error = asn1::WriteError;
     const TAG: asn1::Tag = asn1::BMPString::TAG;
     fn write_data(&self, writer: &mut asn1::WriteBuf) -> asn1::WriteResult {
         for ch in self.0.encode_utf16() {
@@ -665,7 +741,8 @@ impl<'a, T: asn1::Asn1Readable<'a>> asn1::Asn1Readable<'a> for WithTlv<'a, T> {
 }
 
 impl<T: asn1::Asn1Writable> asn1::Asn1Writable for WithTlv<'_, T> {
-    fn write(&self, w: &mut asn1::Writer<'_>) -> asn1::WriteResult<()> {
+    type Error = T::Error;
+    fn write(&self, w: &mut asn1::Writer<'_>) -> Result<(), T::Error> {
         self.value.write(w)
     }
 

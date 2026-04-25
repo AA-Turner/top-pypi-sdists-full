@@ -21,7 +21,7 @@ use super::{
 use crate::db::postgres::PostgresConnectionInfo;
 use crate::db::rate_limiting::{ConsumeTicketsRequest, DisabledRateLimitQueries, RateLimitQueries};
 use crate::db::valkey::ValkeyConnectionInfo;
-use crate::error::{Error, ErrorDetails};
+use crate::error::{DelayedError, Error, ErrorDetails};
 
 /// Manager for rate limiting operations.
 ///
@@ -61,7 +61,7 @@ impl RateLimitingManager {
         config: Arc<RateLimitingConfig>,
         valkey_connection_info: &ValkeyConnectionInfo,
         postgres_connection_info: &PostgresConnectionInfo,
-    ) -> Result<Self, Error> {
+    ) -> Result<Self, DelayedError> {
         let valkey_available =
             matches!(valkey_connection_info, ValkeyConnectionInfo::Enabled { .. });
 
@@ -76,7 +76,7 @@ impl RateLimitingManager {
                 tracing::debug!("Using Valkey for rate limiting");
                 return Ok(Self::new(config, Arc::new(valkey_connection_info.clone())));
             }
-            return Err(Error::new(ErrorDetails::Config {
+            return Err(DelayedError::new(ErrorDetails::Config {
                 message: "Rate limiting is configured to use Valkey, but Valkey is not available. Please check that the environment variable `TENSORZERO_VALKEY_URL` is set.".to_string(),
             }));
         }
@@ -89,7 +89,7 @@ impl RateLimitingManager {
                     Arc::new(postgres_connection_info.clone()),
                 ));
             }
-            return Err(Error::new(ErrorDetails::Config {
+            return Err(DelayedError::new(ErrorDetails::Config {
                 message: "Rate limiting is configured to use Postgres, but Postgres is not available. Please check the environment variable `TENSORZERO_POSTGRES_URL` is set.".to_string(),
             }));
         }
@@ -109,7 +109,7 @@ impl RateLimitingManager {
 
         // No backend available
         if config.enabled() && !config.rules().is_empty() {
-            return Err(Error::new(ErrorDetails::Config {
+            return Err(DelayedError::new(ErrorDetails::Config {
                 message: "Rate limiting is enabled with rules configured, but no backend is available. \
                           Please set either `TENSORZERO_VALKEY_URL` or `TENSORZERO_POSTGRES_URL` environment variable, \
                           or set `rate_limiting.enabled = false`.".to_string(),
@@ -321,12 +321,6 @@ impl RateLimitingManager {
 
         Ok(())
     }
-
-    /// Shutdown the rate limiting manager.
-    /// This is a no-op in direct mode (no tokens to return).
-    pub fn shutdown(&self) -> Result<(), Error> {
-        Ok(())
-    }
 }
 
 #[cfg(test)]
@@ -360,13 +354,6 @@ mod tests {
         }
     }
 
-    fn make_dummy_manager() -> RateLimitingManager {
-        RateLimitingManager::new(
-            Arc::new(RateLimitingConfig::default()),
-            Arc::new(PostgresConnectionInfo::Disabled),
-        )
-    }
-
     #[test]
     fn test_manager_is_empty_with_rules() {
         let rule = RateLimitingConfigRule {
@@ -385,13 +372,6 @@ mod tests {
             !manager.is_empty(),
             "Manager with rules should not be empty"
         );
-    }
-
-    #[test]
-    fn test_shutdown_returns_ok() {
-        let manager = make_dummy_manager();
-        let result = manager.shutdown();
-        assert!(result.is_ok(), "Shutdown should return Ok");
     }
 
     // Tests for consume_tickets and return_tickets with mock client

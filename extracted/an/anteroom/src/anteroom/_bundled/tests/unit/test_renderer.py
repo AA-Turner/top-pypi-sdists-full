@@ -99,6 +99,8 @@ def _reset_renderer_state() -> None:
         r._footer_mode = False
         r._toolbar_invalidator = None
         r._thinking_start = 0.0
+        r._toolbar_is_active = None
+        r._prompt_is_active = None
         r._spinner = None
         r._last_spinner_update = 0.0
         r._thinking_ticker_task = None
@@ -117,6 +119,7 @@ def _reset_renderer_state() -> None:
         r._tool_ticker_task = None
         r._tool_ticker_summary = ""
         r._tool_spinner = None
+        r._tool_line_visible = False
         r._dedup_key = ""
         r._dedup_count = 0
         r._dedup_first_summary = ""
@@ -465,6 +468,26 @@ class TestFlushBufferedText:
         r._streaming_buffer.append("   \n  ")
         flush_buffered_text()
         assert len(r._streaming_buffer) == 0
+
+    def test_flush_preserves_buffer_when_configured_streaming_disabled(self) -> None:
+        import anteroom.cli.renderer as r
+
+        r.configure_streaming(enabled=False)
+        r._streaming_buffer.append("mid-turn narration")
+
+        flush_buffered_text()
+
+        assert "".join(r._streaming_buffer) == "mid-turn narration"
+
+    def test_flush_clears_whitespace_when_configured_streaming_disabled(self) -> None:
+        import anteroom.cli.renderer as r
+
+        r.configure_streaming(enabled=False)
+        r._streaming_buffer.append("   \n  ")
+
+        flush_buffered_text()
+
+        assert r._streaming_buffer == []
 
 
 class TestFlushBufferedTextToolSpacing:
@@ -1785,6 +1808,13 @@ class TestPhaseLabels:
         r._thinking_phase = "waiting"
         assert _phase_label() == "Thinking..."
 
+    def test_phase_label_compacting(self) -> None:
+        """Label is explicit while proactive summary compaction runs."""
+        import anteroom.cli.renderer as r
+
+        r._thinking_phase = "compacting"
+        assert _phase_label() == "Compacting conversation history..."
+
     def test_phase_label_streaming(self) -> None:
         """Label is 'Writing...' when phase is streaming."""
         import anteroom.cli.renderer as r
@@ -1901,6 +1931,29 @@ class TestToolPhaseTracking:
         assert "Reading" in label
         assert "src/foo.py" in label
 
+    def test_tool_phase_label_strips_terminal_control_sequences(self) -> None:
+        """Unified tool_exec labels sanitize tool-derived arguments."""
+        enter_tool_phase("glob", {"pattern": "\x1b[31msecret\x1b[0m\x9b31m\x07\nagain\r"})
+
+        label = _tool_phase_label()
+
+        assert label == "Finding secretagain..."
+        assert "\x1b" not in label
+        assert "\x9b" not in label
+        assert "\x07" not in label
+        assert "\n" not in label
+
+    def test_tool_phase_label_strips_osc_payloads(self) -> None:
+        """OSC/DCS-style terminal controls should not leave payload garbage in labels."""
+        enter_tool_phase("glob", {"pattern": "\x1b]52;c;secret\x07again"})
+
+        label = _tool_phase_label()
+
+        assert label == "Finding again..."
+        assert "52;c" not in label
+        assert "secret" not in label
+        assert "\x1b" not in label
+
     def test_enter_tool_phase_parallel(self) -> None:
         """Multiple mixed tools show 'Running N tools...'."""
         import anteroom.cli.renderer as r
@@ -1971,6 +2024,26 @@ class TestToolPhaseTracking:
 
         r._thinking_phase = "tool_exec"
         assert _phase_suffix(10.0) == ""
+
+    def test_raw_thinking_line_strips_tool_exec_control_sequences(self) -> None:
+        """Raw unified thinking writes should not emit tool-derived terminal controls."""
+        import anteroom.cli.renderer as r
+
+        buf = io.StringIO()
+        r._repl_mode = True
+        r._stdout = buf
+        r._thinking_start = time.monotonic() - 5.0
+        r._thinking_phase = "tool_exec"
+        enter_tool_phase("glob", {"pattern": "\x1b[31msecret\x1b[0m\x9b31m\x07\nagain\r"})
+
+        _write_thinking_line(5.0)
+
+        output = buf.getvalue()
+        assert "Finding secretagain" in output
+        assert "\x1b[31m" not in output
+        assert "\x9b" not in output
+        assert "\x07" not in output
+        assert "\n" not in output
 
     def test_start_thinking_resets_tool_phase(self) -> None:
         """start_thinking() resets tool phase tracking state."""
@@ -3810,6 +3883,161 @@ class TestToolTicker:
             r._stdout = None
 
     @pytest.mark.asyncio
+    async def test_tool_ticker_uses_toolbar_when_prompt_surface_active(self) -> None:
+        """Tool-only status should not raw-repaint over an active REPL prompt."""
+        import anteroom.cli.renderer as r
+
+        buf = io.StringIO()
+        invalidations: list[int] = []
+        r._repl_mode = True
+        r._stdout = buf
+        r._toolbar_invalidator = lambda: invalidations.append(1)
+        r._toolbar_is_active = lambda: True
+        try:
+            r._tool_start = time.monotonic() - 5.0
+            start_tool_ticker("Running bash")
+            assert r._tool_ticker_task is not None
+            assert invalidations, "start should repaint the toolbar immediately"
+
+            await asyncio.sleep(0.6)
+
+            assert len(invalidations) >= 2, "ticker should continue through toolbar invalidation"
+            assert buf.getvalue() == "", "active prompt surface must not receive raw carriage-return ticker output"
+            status = get_busy_status()
+            assert status is not None
+            assert status.tool_label == "Running bash"
+        finally:
+            stop_tool_ticker_sync()
+            r._tool_start = 0
+            r._repl_mode = False
+            r._stdout = None
+            r._toolbar_invalidator = None
+            r._toolbar_is_active = None
+            r._prompt_is_active = None
+
+    @pytest.mark.asyncio
+    async def test_tool_ticker_uses_toolbar_when_prompt_input_active(self) -> None:
+        """Queued-input prompt activity should suppress raw tool ticker output."""
+        import anteroom.cli.renderer as r
+
+        buf = io.StringIO()
+        invalidations: list[int] = []
+        r._repl_mode = True
+        r._stdout = buf
+        r._toolbar_invalidator = lambda: invalidations.append(1)
+        r._toolbar_is_active = lambda: False
+        r._prompt_is_active = lambda: True
+        try:
+            r._tool_start = time.monotonic() - 5.0
+            start_tool_ticker("Finding **/config.yaml")
+            await asyncio.sleep(0.6)
+
+            assert invalidations, "active queued-input prompt should use prompt_toolkit invalidation"
+            assert "Finding **/config.yaml" not in buf.getvalue()
+        finally:
+            stop_tool_ticker_sync()
+            r._tool_start = 0
+            r._repl_mode = False
+            r._stdout = None
+            r._toolbar_invalidator = None
+            r._toolbar_is_active = None
+            r._prompt_is_active = None
+
+    @pytest.mark.asyncio
+    async def test_tool_ticker_switches_from_raw_to_toolbar_when_prompt_appears(self) -> None:
+        """A ticker that starts before prompt_async is active should stop raw writes once it is."""
+        import anteroom.cli.renderer as r
+
+        buf = io.StringIO()
+        invalidations: list[int] = []
+        prompt_active = False
+        r._repl_mode = True
+        r._stdout = buf
+        r._toolbar_invalidator = lambda: invalidations.append(1)
+        r._toolbar_is_active = lambda: prompt_active
+        try:
+            r._tool_start = time.monotonic() - 5.0
+            start_tool_ticker("Finding **/config.yaml")
+            await asyncio.sleep(0.6)
+
+            first_output = buf.getvalue()
+            assert "Finding **/config.yaml" in first_output
+            assert r._tool_line_visible is True
+            assert invalidations == []
+
+            prompt_active = True
+            await asyncio.sleep(0.6)
+
+            output_after_switch = buf.getvalue()
+            assert invalidations, "active prompt surface should take over after it appears"
+            assert r._tool_line_visible is False
+            assert output_after_switch.count("Finding **/config.yaml") == 1
+            assert output_after_switch.endswith("\r\033[2K")
+        finally:
+            stop_tool_ticker_sync()
+            r._tool_start = 0
+            r._repl_mode = False
+            r._stdout = None
+            r._toolbar_invalidator = None
+            r._toolbar_is_active = None
+            r._prompt_is_active = None
+
+    @pytest.mark.asyncio
+    async def test_tool_ticker_raw_fallback_strips_summary_control_sequences(self) -> None:
+        """Raw ticker summaries should not emit untrusted terminal controls."""
+        import anteroom.cli.renderer as r
+
+        buf = io.StringIO()
+        r._repl_mode = True
+        r._stdout = buf
+        r._toolbar_invalidator = None
+        try:
+            r._tool_start = time.monotonic() - 5.0
+            start_tool_ticker("Finding \x1b[31msecret\x1b[0m\x07\nagain\r")
+            await asyncio.sleep(0.6)
+
+            output = buf.getvalue()
+            assert "Finding secretagain" in output
+            assert "\x1b[31m" not in output
+            assert "\x1b[0m\x07" not in output
+            assert "\x07" not in output
+            assert "\n" not in output
+        finally:
+            stop_tool_ticker_sync()
+            r._tool_start = 0
+            r._repl_mode = False
+            r._stdout = None
+            r._toolbar_invalidator = None
+            r._toolbar_is_active = None
+            r._prompt_is_active = None
+
+    @pytest.mark.asyncio
+    async def test_tool_ticker_raw_fallback_strips_c1_control_sequences(self) -> None:
+        """Raw ticker summaries should strip 8-bit C1 terminal controls too."""
+        import anteroom.cli.renderer as r
+
+        buf = io.StringIO()
+        r._repl_mode = True
+        r._stdout = buf
+        r._toolbar_invalidator = None
+        try:
+            r._tool_start = time.monotonic() - 5.0
+            start_tool_ticker("Finding \x9b31msecret")
+            await asyncio.sleep(0.6)
+
+            output = buf.getvalue()
+            assert "Finding secret" in output
+            assert "\x9b" not in output
+        finally:
+            stop_tool_ticker_sync()
+            r._tool_start = 0
+            r._repl_mode = False
+            r._stdout = None
+            r._toolbar_invalidator = None
+            r._toolbar_is_active = None
+            r._prompt_is_active = None
+
+    @pytest.mark.asyncio
     async def test_tool_ticker_non_repl_uses_spinner(self) -> None:
         """In non-REPL mode, tool ticker should use Rich Status spinner."""
         import anteroom.cli.renderer as r
@@ -3817,9 +4045,10 @@ class TestToolTicker:
         r._repl_mode = False
         r._stdout = None
         try:
-            start_tool_ticker("Reading file")
+            start_tool_ticker("Reading \x1b[31mfile\x1b[0m\x07")
             assert r._tool_spinner is not None
             assert r._tool_ticker_task is not None
+            assert r._tool_ticker_summary == "Reading file"
         finally:
             stop_tool_ticker_sync()
             assert r._tool_spinner is None
@@ -4319,6 +4548,35 @@ class TestFormatStatusToolbar:
         text = "".join(t[1] for t in result)
         assert "read_file" in text
 
+    def test_busy_tool_label_strips_terminal_control_sequences(self):
+        busy = BusyStatus(thinking_text="", tool_label="Finding \x1b[31msecret\x1b[0m\x9b31m\x07\nagain\r")
+        result = format_status_toolbar(model="gpt-4o", busy_status=busy)
+        text = "".join(t[1] for t in result)
+        assert "Finding secretagain" in text
+        assert "\x1b" not in text
+        assert "\x9b" not in text
+        assert "\x07" not in text
+        assert "\n" not in text
+
+    def test_busy_tool_label_strips_osc_payloads(self):
+        busy = BusyStatus(thinking_text="", tool_label="Finding \x1b]52;c;secret\x07again")
+        result = format_status_toolbar(model="gpt-4o", busy_status=busy)
+        text = "".join(t[1] for t in result)
+        assert "Finding again" in text
+        assert "52;c" not in text
+        assert "secret" not in text
+        assert "\x1b" not in text
+
+    def test_busy_thinking_text_strips_terminal_control_sequences(self):
+        busy = BusyStatus(thinking_text="Finding \x1b[31msecret\x1b[0m\x9b31m\x07\nagain\r 5s")
+        result = format_status_toolbar(model="gpt-4o", busy_status=busy)
+        text = "".join(t[1] for t in result)
+        assert "Finding secretagain 5s" in text
+        assert "\x1b" not in text
+        assert "\x9b" not in text
+        assert "\x07" not in text
+        assert "\n" not in text
+
     def test_busy_thinking_and_tool(self):
         """#1428: unified surface — when both are present, thinking_text wins
         so the toolbar shows one slot, not two.  tool_label still renders when
@@ -4409,6 +4667,31 @@ class TestGetBusyStatus:
         status = get_busy_status()
         assert status is not None
         assert status.tool_label == "read_file"
+
+    def test_tool_label_strips_terminal_control_sequences(self):
+        self.mod._thinking_start = 0
+        self.mod._tool_ticker_summary = "Finding \x1b[31msecret\x1b[0m\x9b31m\x07\nagain\r"
+        status = get_busy_status()
+        assert status is not None
+        assert status.tool_label == "Finding secretagain"
+        assert "\x1b" not in status.tool_label
+        assert "\x9b" not in status.tool_label
+        assert "\x07" not in status.tool_label
+        assert "\n" not in status.tool_label
+
+    def test_thinking_text_strips_tool_exec_control_sequences(self):
+        self.mod._thinking_start = time.monotonic() - 5.0
+        self.mod._thinking_phase = "tool_exec"
+        enter_tool_phase("glob", {"pattern": "\x1b[31msecret\x1b[0m\x9b31m\x07\nagain\r"})
+
+        status = get_busy_status()
+
+        assert status is not None
+        assert "Finding secretagain" in status.thinking_text
+        assert "\x1b" not in status.thinking_text
+        assert "\x9b" not in status.thinking_text
+        assert "\x07" not in status.thinking_text
+        assert "\n" not in status.thinking_text
 
     def test_cancel_hint_after_delay(self):
         self.mod._thinking_start = time.monotonic() - 10.0

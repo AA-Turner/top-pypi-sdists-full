@@ -1,1 +1,0 @@
-import{aJ as r}from"./@ui-core-DKdciH1Z.js";import{aW as i}from"./index-CG6erkom.js";function m({children:s,className:t,...e}){return r.jsx("div",{className:i("flex items-center justify-end",t),...e,children:s})}export{m as A};

@@ -40645,6 +40645,12 @@ class FoundationModelIdentifier(
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_OPUS_4_6_V1"))
 
     @jsii.python.classproperty
+    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_OPUS_4_7")
+    def ANTHROPIC_CLAUDE_OPUS_4_7(cls) -> "FoundationModelIdentifier":
+        '''Base model "anthropic.claude-opus-4-7".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_OPUS_4_7"))
+
+    @jsii.python.classproperty
     @jsii.member(jsii_name="ANTHROPIC_CLAUDE_SONNET_4_20250514_V1_0")
     def ANTHROPIC_CLAUDE_SONNET_4_20250514_V1_0(cls) -> "FoundationModelIdentifier":
         '''Base model "anthropic.claude-sonnet-4-20250514-v1:0".'''

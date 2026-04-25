@@ -98,7 +98,7 @@ class Environment:
         if self.mesh_ip:
             return self.mesh_ip
 
-        logger.warning("mesh_ip not cached for job %s, falling back to API call", self.job_id)
+        logger.debug("mesh_ip not cached for job %s, falling back to API call", self.job_id)
 
         result = jobs.get_job_info.sync(
             client=self._http,

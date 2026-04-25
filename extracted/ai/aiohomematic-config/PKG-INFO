@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aiohomematic-config
-Version: 2026.4.6
+Version: 2026.4.7
 Summary: Presentation-layer library for Homematic device configuration UI.
 Author-email: SukramJ <sukramj@icloud.com>
 License: MIT License
@@ -27,6 +27,7 @@ Requires-Python: >=3.14
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: aiohomematic>=2026.4.16
+Requires-Dist: openccu-data>=2026.4.1
 Requires-Dist: pydantic>=2.10.0
 Dynamic: license-file
 

@@ -1190,6 +1190,24 @@ class CfnDirectoryBucket(
                 )]
             ),
             bucket_name="bucketName",
+            inventory_configurations=[s3express.CfnDirectoryBucket.InventoryConfigurationProperty(
+                destination=s3express.CfnDirectoryBucket.DestinationProperty(
+                    bucket_arn="bucketArn",
+                    format="format",
+        
+                    # the properties below are optional
+                    bucket_account_id="bucketAccountId",
+                    prefix="prefix"
+                ),
+                enabled=False,
+                id="id",
+                included_object_versions="includedObjectVersions",
+                schedule_frequency="scheduleFrequency",
+        
+                # the properties below are optional
+                optional_fields=["optionalFields"],
+                prefix="prefix"
+            )],
             lifecycle_configuration=s3express.CfnDirectoryBucket.LifecycleConfigurationProperty(
                 rules=[s3express.CfnDirectoryBucket.RuleProperty(
                     status="status",
@@ -1226,6 +1244,7 @@ class CfnDirectoryBucket(
         location_name: builtins.str,
         bucket_encryption: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDirectoryBucket.BucketEncryptionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         bucket_name: typing.Optional[builtins.str] = None,
+        inventory_configurations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDirectoryBucket.InventoryConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         lifecycle_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDirectoryBucket.LifecycleConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         metrics_configurations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDirectoryBucket.MetricsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -1238,6 +1257,7 @@ class CfnDirectoryBucket(
         :param location_name: The name of the location where the bucket will be created. For directory buckets, the name of the location is the Zone ID of the Availability Zone (AZ) or Local Zone (LZ) where the bucket will be created. An example AZ ID value is ``usw2-az1`` .
         :param bucket_encryption: Specifies default encryption for a bucket using server-side encryption with Amazon S3 managed keys (SSE-S3) or AWS KMS keys (SSE-KMS). For information about default encryption for directory buckets, see `Setting and monitoring default encryption for directory buckets <https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-express-bucket-encryption.html>`_ in the *Amazon S3 User Guide* .
         :param bucket_name: A name for the bucket. The bucket name must contain only lowercase letters, numbers, and hyphens (-). A directory bucket name must be unique in the chosen Zone (Availability Zone or Local Zone). The bucket name must also follow the format ``*bucket_base_name* -- *zone_id* --x-s3`` (for example, ``*bucket_base_name* -- *usw2-az1* --x-s3`` ). If you don't specify a name, AWS CloudFormation generates a unique ID and uses that ID for the bucket name. For information about bucket naming restrictions, see `Directory bucket naming rules <https://docs.aws.amazon.com/AmazonS3/latest/userguide/directory-bucket-naming-rules.html>`_ in the *Amazon S3 User Guide* . .. epigraph:: If you specify a name, you can't perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you need to replace the resource, specify a new name.
+        :param inventory_configurations: The inventory configuration for an Amazon S3 Express bucket.
         :param lifecycle_configuration: Container for lifecycle rules. You can add as many as 1000 rules. For more information see, `Creating and managing a lifecycle configuration for directory buckets <https://docs.aws.amazon.com/AmazonS3/latest/userguide/directory-buckets-objects-lifecycle.html>`_ in the *Amazon S3 User Guide* .
         :param metrics_configurations: Specifies the metrics configurations for the Amazon S3 Express bucket.
         :param tags: An array of tags that you can apply to the S3 directory bucket. Tags are key-value pairs of metadata used to categorize and organize your buckets, track costs, and control access. For more information, see `Using tags with directory buckets <https://docs.aws.amazon.com/AmazonS3/latest/userguide/directory-buckets-tagging.html>`_ .
@@ -1251,6 +1271,7 @@ class CfnDirectoryBucket(
             location_name=location_name,
             bucket_encryption=bucket_encryption,
             bucket_name=bucket_name,
+            inventory_configurations=inventory_configurations,
             lifecycle_configuration=lifecycle_configuration,
             metrics_configurations=metrics_configurations,
             tags=tags,
@@ -1456,6 +1477,24 @@ class CfnDirectoryBucket(
         jsii.set(self, "bucketName", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="inventoryConfigurations")
+    def inventory_configurations(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDirectoryBucket.InventoryConfigurationProperty"]]]]:
+        '''The inventory configuration for an Amazon S3 Express bucket.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDirectoryBucket.InventoryConfigurationProperty"]]]], jsii.get(self, "inventoryConfigurations"))
+
+    @inventory_configurations.setter
+    def inventory_configurations(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDirectoryBucket.InventoryConfigurationProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b19e1822dc425af49513f1aecbe639e62d29d21dfb53fc268210331a77a47857)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "inventoryConfigurations", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="lifecycleConfiguration")
     def lifecycle_configuration(
         self,
@@ -1628,6 +1667,281 @@ class CfnDirectoryBucket(
 
         def __repr__(self) -> str:
             return "BucketEncryptionProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_s3express.CfnDirectoryBucket.DestinationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "bucket_arn": "bucketArn",
+            "format": "format",
+            "bucket_account_id": "bucketAccountId",
+            "prefix": "prefix",
+        },
+    )
+    class DestinationProperty:
+        def __init__(
+            self,
+            *,
+            bucket_arn: builtins.str,
+            format: builtins.str,
+            bucket_account_id: typing.Optional[builtins.str] = None,
+            prefix: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Specifies information about where to publish inventory reports for an Amazon S3 Express bucket.
+
+            :param bucket_arn: The Amazon Resource Name (ARN) of the destination Amazon S3 bucket to which data is exported.
+            :param format: Specifies the file format used when exporting data to Amazon S3.
+            :param bucket_account_id: The account ID that owns the destination S3 bucket.
+            :param prefix: The prefix to use when exporting data. The prefix is prepended to all results.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3express-directorybucket-destination.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_s3express as s3express
+                
+                destination_property = s3express.CfnDirectoryBucket.DestinationProperty(
+                    bucket_arn="bucketArn",
+                    format="format",
+                
+                    # the properties below are optional
+                    bucket_account_id="bucketAccountId",
+                    prefix="prefix"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__d44f05919e427efd95124bf6d2878a2e3e667ec9c286055ae7c4e126ffe1e66c)
+                check_type(argname="argument bucket_arn", value=bucket_arn, expected_type=type_hints["bucket_arn"])
+                check_type(argname="argument format", value=format, expected_type=type_hints["format"])
+                check_type(argname="argument bucket_account_id", value=bucket_account_id, expected_type=type_hints["bucket_account_id"])
+                check_type(argname="argument prefix", value=prefix, expected_type=type_hints["prefix"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "bucket_arn": bucket_arn,
+                "format": format,
+            }
+            if bucket_account_id is not None:
+                self._values["bucket_account_id"] = bucket_account_id
+            if prefix is not None:
+                self._values["prefix"] = prefix
+
+        @builtins.property
+        def bucket_arn(self) -> builtins.str:
+            '''The Amazon Resource Name (ARN) of the destination Amazon S3 bucket to which data is exported.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3express-directorybucket-destination.html#cfn-s3express-directorybucket-destination-bucketarn
+            '''
+            result = self._values.get("bucket_arn")
+            assert result is not None, "Required property 'bucket_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def format(self) -> builtins.str:
+            '''Specifies the file format used when exporting data to Amazon S3.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3express-directorybucket-destination.html#cfn-s3express-directorybucket-destination-format
+            '''
+            result = self._values.get("format")
+            assert result is not None, "Required property 'format' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def bucket_account_id(self) -> typing.Optional[builtins.str]:
+            '''The account ID that owns the destination S3 bucket.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3express-directorybucket-destination.html#cfn-s3express-directorybucket-destination-bucketaccountid
+            '''
+            result = self._values.get("bucket_account_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def prefix(self) -> typing.Optional[builtins.str]:
+            '''The prefix to use when exporting data.
+
+            The prefix is prepended to all results.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3express-directorybucket-destination.html#cfn-s3express-directorybucket-destination-prefix
+            '''
+            result = self._values.get("prefix")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "DestinationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_s3express.CfnDirectoryBucket.InventoryConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "destination": "destination",
+            "enabled": "enabled",
+            "id": "id",
+            "included_object_versions": "includedObjectVersions",
+            "schedule_frequency": "scheduleFrequency",
+            "optional_fields": "optionalFields",
+            "prefix": "prefix",
+        },
+    )
+    class InventoryConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            destination: typing.Union["_IResolvable_da3f097b", typing.Union["CfnDirectoryBucket.DestinationProperty", typing.Dict[builtins.str, typing.Any]]],
+            enabled: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
+            id: builtins.str,
+            included_object_versions: builtins.str,
+            schedule_frequency: builtins.str,
+            optional_fields: typing.Optional[typing.Sequence[builtins.str]] = None,
+            prefix: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Specifies an inventory configuration for an Amazon S3 Express bucket.
+
+            :param destination: Specifies information about where to publish inventory reports for an Amazon S3 Express bucket.
+            :param enabled: Specifies whether the inventory is enabled or disabled.
+            :param id: The ID used to identify the inventory configuration.
+            :param included_object_versions: Object versions to include in the inventory list.
+            :param schedule_frequency: Specifies the schedule for generating inventory results.
+            :param optional_fields: Contains the optional fields that are included in the inventory results.
+            :param prefix: The prefix that is prepended to all inventory results.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3express-directorybucket-inventoryconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_s3express as s3express
+                
+                inventory_configuration_property = s3express.CfnDirectoryBucket.InventoryConfigurationProperty(
+                    destination=s3express.CfnDirectoryBucket.DestinationProperty(
+                        bucket_arn="bucketArn",
+                        format="format",
+                
+                        # the properties below are optional
+                        bucket_account_id="bucketAccountId",
+                        prefix="prefix"
+                    ),
+                    enabled=False,
+                    id="id",
+                    included_object_versions="includedObjectVersions",
+                    schedule_frequency="scheduleFrequency",
+                
+                    # the properties below are optional
+                    optional_fields=["optionalFields"],
+                    prefix="prefix"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__c16233de8313d99315495458096f46d89943ae0a98cdaffc0b3b2e86438f2bd9)
+                check_type(argname="argument destination", value=destination, expected_type=type_hints["destination"])
+                check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+                check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+                check_type(argname="argument included_object_versions", value=included_object_versions, expected_type=type_hints["included_object_versions"])
+                check_type(argname="argument schedule_frequency", value=schedule_frequency, expected_type=type_hints["schedule_frequency"])
+                check_type(argname="argument optional_fields", value=optional_fields, expected_type=type_hints["optional_fields"])
+                check_type(argname="argument prefix", value=prefix, expected_type=type_hints["prefix"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "destination": destination,
+                "enabled": enabled,
+                "id": id,
+                "included_object_versions": included_object_versions,
+                "schedule_frequency": schedule_frequency,
+            }
+            if optional_fields is not None:
+                self._values["optional_fields"] = optional_fields
+            if prefix is not None:
+                self._values["prefix"] = prefix
+
+        @builtins.property
+        def destination(
+            self,
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnDirectoryBucket.DestinationProperty"]:
+            '''Specifies information about where to publish inventory reports for an Amazon S3 Express bucket.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3express-directorybucket-inventoryconfiguration.html#cfn-s3express-directorybucket-inventoryconfiguration-destination
+            '''
+            result = self._values.get("destination")
+            assert result is not None, "Required property 'destination' is missing"
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnDirectoryBucket.DestinationProperty"], result)
+
+        @builtins.property
+        def enabled(self) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
+            '''Specifies whether the inventory is enabled or disabled.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3express-directorybucket-inventoryconfiguration.html#cfn-s3express-directorybucket-inventoryconfiguration-enabled
+            '''
+            result = self._values.get("enabled")
+            assert result is not None, "Required property 'enabled' is missing"
+            return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
+
+        @builtins.property
+        def id(self) -> builtins.str:
+            '''The ID used to identify the inventory configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3express-directorybucket-inventoryconfiguration.html#cfn-s3express-directorybucket-inventoryconfiguration-id
+            '''
+            result = self._values.get("id")
+            assert result is not None, "Required property 'id' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def included_object_versions(self) -> builtins.str:
+            '''Object versions to include in the inventory list.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3express-directorybucket-inventoryconfiguration.html#cfn-s3express-directorybucket-inventoryconfiguration-includedobjectversions
+            '''
+            result = self._values.get("included_object_versions")
+            assert result is not None, "Required property 'included_object_versions' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def schedule_frequency(self) -> builtins.str:
+            '''Specifies the schedule for generating inventory results.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3express-directorybucket-inventoryconfiguration.html#cfn-s3express-directorybucket-inventoryconfiguration-schedulefrequency
+            '''
+            result = self._values.get("schedule_frequency")
+            assert result is not None, "Required property 'schedule_frequency' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def optional_fields(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''Contains the optional fields that are included in the inventory results.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3express-directorybucket-inventoryconfiguration.html#cfn-s3express-directorybucket-inventoryconfiguration-optionalfields
+            '''
+            result = self._values.get("optional_fields")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def prefix(self) -> typing.Optional[builtins.str]:
+            '''The prefix that is prepended to all inventory results.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3express-directorybucket-inventoryconfiguration.html#cfn-s3express-directorybucket-inventoryconfiguration-prefix
+            '''
+            result = self._values.get("prefix")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "InventoryConfigurationProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -2163,6 +2477,7 @@ class CfnDirectoryBucket(
         "location_name": "locationName",
         "bucket_encryption": "bucketEncryption",
         "bucket_name": "bucketName",
+        "inventory_configurations": "inventoryConfigurations",
         "lifecycle_configuration": "lifecycleConfiguration",
         "metrics_configurations": "metricsConfigurations",
         "tags": "tags",
@@ -2176,6 +2491,7 @@ class CfnDirectoryBucketProps:
         location_name: builtins.str,
         bucket_encryption: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDirectoryBucket.BucketEncryptionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         bucket_name: typing.Optional[builtins.str] = None,
+        inventory_configurations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDirectoryBucket.InventoryConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         lifecycle_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDirectoryBucket.LifecycleConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         metrics_configurations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDirectoryBucket.MetricsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -2186,6 +2502,7 @@ class CfnDirectoryBucketProps:
         :param location_name: The name of the location where the bucket will be created. For directory buckets, the name of the location is the Zone ID of the Availability Zone (AZ) or Local Zone (LZ) where the bucket will be created. An example AZ ID value is ``usw2-az1`` .
         :param bucket_encryption: Specifies default encryption for a bucket using server-side encryption with Amazon S3 managed keys (SSE-S3) or AWS KMS keys (SSE-KMS). For information about default encryption for directory buckets, see `Setting and monitoring default encryption for directory buckets <https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-express-bucket-encryption.html>`_ in the *Amazon S3 User Guide* .
         :param bucket_name: A name for the bucket. The bucket name must contain only lowercase letters, numbers, and hyphens (-). A directory bucket name must be unique in the chosen Zone (Availability Zone or Local Zone). The bucket name must also follow the format ``*bucket_base_name* -- *zone_id* --x-s3`` (for example, ``*bucket_base_name* -- *usw2-az1* --x-s3`` ). If you don't specify a name, AWS CloudFormation generates a unique ID and uses that ID for the bucket name. For information about bucket naming restrictions, see `Directory bucket naming rules <https://docs.aws.amazon.com/AmazonS3/latest/userguide/directory-bucket-naming-rules.html>`_ in the *Amazon S3 User Guide* . .. epigraph:: If you specify a name, you can't perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you need to replace the resource, specify a new name.
+        :param inventory_configurations: The inventory configuration for an Amazon S3 Express bucket.
         :param lifecycle_configuration: Container for lifecycle rules. You can add as many as 1000 rules. For more information see, `Creating and managing a lifecycle configuration for directory buckets <https://docs.aws.amazon.com/AmazonS3/latest/userguide/directory-buckets-objects-lifecycle.html>`_ in the *Amazon S3 User Guide* .
         :param metrics_configurations: Specifies the metrics configurations for the Amazon S3 Express bucket.
         :param tags: An array of tags that you can apply to the S3 directory bucket. Tags are key-value pairs of metadata used to categorize and organize your buckets, track costs, and control access. For more information, see `Using tags with directory buckets <https://docs.aws.amazon.com/AmazonS3/latest/userguide/directory-buckets-tagging.html>`_ .
@@ -2217,6 +2534,24 @@ class CfnDirectoryBucketProps:
                     )]
                 ),
                 bucket_name="bucketName",
+                inventory_configurations=[s3express.CfnDirectoryBucket.InventoryConfigurationProperty(
+                    destination=s3express.CfnDirectoryBucket.DestinationProperty(
+                        bucket_arn="bucketArn",
+                        format="format",
+            
+                        # the properties below are optional
+                        bucket_account_id="bucketAccountId",
+                        prefix="prefix"
+                    ),
+                    enabled=False,
+                    id="id",
+                    included_object_versions="includedObjectVersions",
+                    schedule_frequency="scheduleFrequency",
+            
+                    # the properties below are optional
+                    optional_fields=["optionalFields"],
+                    prefix="prefix"
+                )],
                 lifecycle_configuration=s3express.CfnDirectoryBucket.LifecycleConfigurationProperty(
                     rules=[s3express.CfnDirectoryBucket.RuleProperty(
                         status="status",
@@ -2249,6 +2584,7 @@ class CfnDirectoryBucketProps:
             check_type(argname="argument location_name", value=location_name, expected_type=type_hints["location_name"])
             check_type(argname="argument bucket_encryption", value=bucket_encryption, expected_type=type_hints["bucket_encryption"])
             check_type(argname="argument bucket_name", value=bucket_name, expected_type=type_hints["bucket_name"])
+            check_type(argname="argument inventory_configurations", value=inventory_configurations, expected_type=type_hints["inventory_configurations"])
             check_type(argname="argument lifecycle_configuration", value=lifecycle_configuration, expected_type=type_hints["lifecycle_configuration"])
             check_type(argname="argument metrics_configurations", value=metrics_configurations, expected_type=type_hints["metrics_configurations"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -2260,6 +2596,8 @@ class CfnDirectoryBucketProps:
             self._values["bucket_encryption"] = bucket_encryption
         if bucket_name is not None:
             self._values["bucket_name"] = bucket_name
+        if inventory_configurations is not None:
+            self._values["inventory_configurations"] = inventory_configurations
         if lifecycle_configuration is not None:
             self._values["lifecycle_configuration"] = lifecycle_configuration
         if metrics_configurations is not None:
@@ -2315,6 +2653,17 @@ class CfnDirectoryBucketProps:
         '''
         result = self._values.get("bucket_name")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def inventory_configurations(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDirectoryBucket.InventoryConfigurationProperty"]]]]:
+        '''The inventory configuration for an Amazon S3 Express bucket.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3express-directorybucket.html#cfn-s3express-directorybucket-inventoryconfigurations
+        '''
+        result = self._values.get("inventory_configurations")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDirectoryBucket.InventoryConfigurationProperty"]]]], result)
 
     @builtins.property
     def lifecycle_configuration(
@@ -2573,6 +2922,7 @@ def _typecheckingstub__ea5a1e5897b0467fb93393ad6ea2dbcd3916f27713079e8bef3badf71
     location_name: builtins.str,
     bucket_encryption: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDirectoryBucket.BucketEncryptionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     bucket_name: typing.Optional[builtins.str] = None,
+    inventory_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDirectoryBucket.InventoryConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     lifecycle_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDirectoryBucket.LifecycleConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     metrics_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDirectoryBucket.MetricsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -2644,6 +2994,12 @@ def _typecheckingstub__678dc679eb1daf10bbced208f7ef85b8fe01f1ae8ea62c5354ac80b28
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__b19e1822dc425af49513f1aecbe639e62d29d21dfb53fc268210331a77a47857(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnDirectoryBucket.InventoryConfigurationProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__ddfd3872142b33ae9fa409c0018df1c791508213de3582b65e63e55af438eb3b(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDirectoryBucket.LifecycleConfigurationProperty]],
 ) -> None:
@@ -2672,6 +3028,29 @@ def _typecheckingstub__94d67335bbcb78d0b027e59764707d68d59cd3646befac6651614e419
 def _typecheckingstub__2bda13f500a0910d95ef795cf250698cc9bc399a6809500b0318dd2399fa0dfc(
     *,
     server_side_encryption_configuration: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDirectoryBucket.ServerSideEncryptionRuleProperty, typing.Dict[builtins.str, typing.Any]]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d44f05919e427efd95124bf6d2878a2e3e667ec9c286055ae7c4e126ffe1e66c(
+    *,
+    bucket_arn: builtins.str,
+    format: builtins.str,
+    bucket_account_id: typing.Optional[builtins.str] = None,
+    prefix: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c16233de8313d99315495458096f46d89943ae0a98cdaffc0b3b2e86438f2bd9(
+    *,
+    destination: typing.Union[_IResolvable_da3f097b, typing.Union[CfnDirectoryBucket.DestinationProperty, typing.Dict[builtins.str, typing.Any]]],
+    enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
+    id: builtins.str,
+    included_object_versions: builtins.str,
+    schedule_frequency: builtins.str,
+    optional_fields: typing.Optional[typing.Sequence[builtins.str]] = None,
+    prefix: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2727,6 +3106,7 @@ def _typecheckingstub__997b2abc28c849393aef2f13f43682b271277998e07114f1b22407894
     location_name: builtins.str,
     bucket_encryption: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDirectoryBucket.BucketEncryptionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     bucket_name: typing.Optional[builtins.str] = None,
+    inventory_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDirectoryBucket.InventoryConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     lifecycle_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDirectoryBucket.LifecycleConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     metrics_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDirectoryBucket.MetricsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,

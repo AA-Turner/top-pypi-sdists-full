@@ -670,50 +670,57 @@ class TestGetCalendarsConfig:
                     assert len(clients) == 2
 
 
-@pytest.mark.skipif(
-    not rfc6638_users, reason="need rfc6638_users to be set in order to run this test"
-)
-@pytest.mark.skipif(
-    len(rfc6638_users) < 3,
-    reason="need at least three users in rfc6638_users to be set in order to run this test",
-)
-class TestScheduling:
-    """Testing support of RFC6638.
-    TODO: work in progress.  Stalled a bit due to lack of proper testing accounts.  I haven't managed to get this test to pass at any systems yet, but I believe the problem is not on the library side.
-    * icloud: cannot really test much with only one test account
-      available.  I did some testing forth and back with emails sent
-      to an account on another service through the
-      scheduling_examples.py, and it seems like I was able both to
-      accept an invite from an external account (and the external
-      account got notified about it) and to receive notification that
-      the external party having accepted the calendar invite.
-      FreeBusy doesn't work.  I don't have capacity following up more
-      right now.
-    * DAViCal: I have only an old version to test with at the moment,
-      should look into that.  I did manage to send and receive a
-      calendar invite, but apparently I did not manage to accept the
-      calendar invite.  It should be looked more into.  FreeBusy
-      doesn't work in the old version, probably it works in a newer
-      version.
-    * SOGo: Sending a calendar invite, but receiving nothing in the
-      CalDAV inbox.  FreeBusy works somehow, but returns pure
-      iCalendar data and not XML, I believe that's not according to
-      RFC6638.
+class _TestSchedulingBase:
     """
+    Base class for RFC6638 scheduling tests.  Not collected directly by
+    pytest (no ``Test`` prefix); concrete subclasses supply ``_users``.
+
+    Concrete subclasses are generated dynamically in the module epilogue,
+    one per server that has ``scheduling_users`` configured (see
+    ``caldav_test_servers.yaml.example`` for setup instructions).
+    Docker test servers (Baikal, Nextcloud, Cyrus, SOGo, DAViCal, Davis,
+    CCS, Zimbra, Stalwart) pre-create multiple users for this purpose.
+    """
+
+    ## Subclasses set this to the list of user connection dicts to use.
+    _users: list[dict] = []
+    ## Server-level feature dict/FeatureSet; set by dynamic class generation.
+    _server_features: object = None
+
+    def _skip_unless_support(self, feature: str) -> None:
+        """Skip the test if the server does not declare support for *feature*."""
+        from caldav.compatibility_hints import FeatureSet
+
+        if not self._server_features:
+            pytest.skip(f"No feature information available, skipping {feature} test")
+        fs = (
+            self._server_features
+            if isinstance(self._server_features, FeatureSet)
+            else FeatureSet(self._server_features)
+        )
+        if not fs.is_supported(feature):
+            msg = fs.find_feature(feature).get("description", feature)
+            pytest.skip("Test skipped due to server incompatibility issue: " + msg)
 
     def _getCalendar(self, i):
         calendar_id = "schedulingnosetestcalendar%i" % i
         calendar_name = "caldav scheduling test %i" % i
         try:
-            self.principals[i].calendar(name=calendar_name).delete()
+            cal = self.principals[i].calendar(name=calendar_name)
+            ## Calendar already exists — clear its contents rather than delete+recreate,
+            ## since some servers (e.g. Nextcloud) move deleted calendars to a trash bin
+            ## and block re-creation with the same cal_id.
+            for obj in cal.objects():
+                obj.delete()
+            return cal
         except error.NotFoundError:
-            pass
-        return self.principals[i].make_calendar(name=calendar_name, cal_id=calendar_id)
+            return self.principals[i].make_calendar(name=calendar_name, cal_id=calendar_id)
 
     def setup_method(self):
         self.clients = []
         self.principals = []
-        for foo in rfc6638_users:
+        self._auto_scheduled_event_uids = []
+        for foo in self._users:
             c = client(**foo)
             if not c.check_scheduling_support():
                 continue  ## ignoring user because server does not support scheduling.
@@ -724,15 +731,47 @@ class TestScheduling:
         for i in range(0, len(self.principals)):
             calendar_name = "caldav scheduling test %i" % i
             try:
-                self.principals[i].calendar(name=calendar_name).delete()
+                cal = self.principals[i].calendar(name=calendar_name)
+                ## Clear events rather than deleting the calendar: some servers
+                ## (e.g. Nextcloud) soft-delete calendars to a trash bin, blocking
+                ## re-creation with the same cal_id on the next test run.
+                for obj in cal.objects():
+                    try:
+                        obj.delete()
+                    except Exception:
+                        pass
             except error.NotFoundError:
                 pass
+        ## Clean up any auto-scheduled events that the server placed in non-test
+        ## calendars (e.g. Cyrus delivers to the Default calendar).
+        if self._auto_scheduled_event_uids:
+            for principal in self.principals:
+                for cal in principal.calendars():
+                    for event in cal.get_events():
+                        try:
+                            if event.id in self._auto_scheduled_event_uids:
+                                event.delete()
+                        except Exception:
+                            pass
         for c in self.clients:
             c.__exit__()
 
-    ## TODO
-    # def testFreeBusy(self):
-    # pass
+    def testFreeBusy(self):
+        """Test RFC6638 freebusy query via the schedule outbox (Principal.freebusy_request)."""
+        if len(self.principals) < 1:
+            pytest.skip("need at least 1 principal")
+        self._skip_unless_support("scheduling.freebusy-query")
+
+        dtstart = (datetime.now() + timedelta(days=1)).replace(
+            hour=9, minute=0, second=0, microsecond=0
+        )
+        dtend = (datetime.now() + timedelta(days=1)).replace(
+            hour=18, minute=0, second=0, microsecond=0
+        )
+        attendees = [self.principals[0].get_vcal_address()]
+        ## Just verify the call completes without raising.
+        ## The response format varies per server.
+        self.principals[0].freebusy_request(dtstart, dtend, attendees)
 
     def testInviteAndRespond(self):
         ## Look through inboxes of principals[0] and principals[1] so we can sort
@@ -745,39 +784,144 @@ class TestScheduling:
         ## self.principal[0] is the organizer, and invites self.principal[1]
         organizers_calendar = self._getCalendar(0)
         attendee_calendar = self._getCalendar(1)
-        organizers_calendar.save_with_invites(
+        saved_event = organizers_calendar.save_with_invites(
             sched, [self.principals[0], self.principals[1].get_vcal_address()]
         )
+        event_uid = saved_event.id
+        self._auto_scheduled_event_uids.append(event_uid)
         assert len(organizers_calendar.get_events()) == 1
 
-        ## no new inbox items expected for principals[0]
+        ## Check attendee's inbox and calendars.  Some servers (e.g. Zimbra, CCS)
+        ## process scheduling asynchronously, so poll with backoff before giving up.
+        new_attendee_inbox_items = []
+        auto_scheduled = False
+        for _ in range(30):
+            new_attendee_inbox_items = [
+                item
+                for item in self.principals[1].schedule_inbox().get_items()
+                if item.url not in inbox_items
+            ]
+            ## Check whether the server auto-scheduled the event directly into
+            ## the attendee's calendar (server-side automatic scheduling).
+            ## The event may land in any calendar (e.g. Cyrus uses Default, not the
+            ## test calendar), so search all attendee calendars for the event UID.
+            auto_scheduled = any(
+                event.id == event_uid
+                for cal in self.principals[1].calendars()
+                for event in cal.get_events()
+            )
+            if new_attendee_inbox_items or auto_scheduled:
+                break
+            time.sleep(1)
+
+        if len(new_attendee_inbox_items) == 0 or auto_scheduled:
+            ## Server implements automatic scheduling.  Some servers (e.g.
+            ## Cyrus) may additionally deliver an iTIP copy to the inbox as
+            ## a notification, but the acceptance is already done.
+            assert auto_scheduled, (
+                "Expected invite in attendee inbox OR event auto-added to attendee calendar, got neither"
+            )
+            return
+
+        ## Normal inbox-delivery flow (RFC6638 section 4.1).
+
+        ## no new inbox items expected for principals[0] yet
         for item in self.principals[0].schedule_inbox().get_items():
             assert item.url in inbox_items
 
-        ## principals[1] should have one new inbox item
-        new_inbox_items = []
-        for item in self.principals[1].schedule_inbox().get_items():
-            if item.url not in inbox_items:
-                new_inbox_items.append(item)
-        assert len(new_inbox_items) == 1
+        assert len(new_attendee_inbox_items) == 1
         ## ... and the new inbox item should be an invite request
-        assert new_inbox_items[0].is_invite_request()
+        assert new_attendee_inbox_items[0].is_invite_request()
 
         ## Approving the invite
-        new_inbox_items[0].accept_invite(calendar=attendee_calendar)
+        new_attendee_inbox_items[0].accept_invite(calendar=attendee_calendar)
         ## (now, this item should probably appear on a calendar somewhere ...
         ## TODO: make asserts on that)
         ## TODO: what happens if we delete that invite request now?
 
         ## principals[0] should now have a notification in the inbox that the
         ## calendar invite was accepted
-        new_inbox_items = []
-        for item in self.principals[0].schedule_inbox().get_items():
-            if item.url not in inbox_items:
-                new_inbox_items.append(item)
-        assert len(new_inbox_items) == 1
-        assert new_inbox_items[0].is_invite_reply()
-        new_inbox_items[0].delete()
+        new_organizer_inbox_items = [
+            item
+            for item in self.principals[0].schedule_inbox().get_items()
+            if item.url not in inbox_items
+        ]
+        assert len(new_organizer_inbox_items) == 1
+        assert new_organizer_inbox_items[0].is_invite_reply()
+        new_organizer_inbox_items[0].delete()
+
+    def testAcceptInviteUsernameEmailFallback(self):
+        """accept_invite() works when the invite was built with username-as-email (issue #399).
+
+        The invite is constructed using the attendee's login username directly
+        instead of get_vcal_address(), mirroring what a client must do when the
+        server does not expose calendar-user-address-set.
+
+        On servers that expose calendar-user-address-set the normal code path
+        runs inside accept_invite(); on servers that do not, the username-email
+        fallback introduced by the fix kicks in.  Both paths produce the same
+        observable outcome (PARTSTAT updated, invite accepted), so this test is
+        valid regardless of whether calendar-user-address-set is available.
+
+        Only runs when:
+        - two principals are available
+        - the server delivers iTIP requests to the inbox
+        - the attendee's login username is an email address
+        """
+        if len(self.principals) < 2:
+            pytest.skip("need 2 principals to do the invite and respond test")
+
+        attendee_client = self.clients[1]
+        if not attendee_client.features.is_supported("scheduling.mailbox.inbox-delivery"):
+            pytest.skip("server does not deliver iTIP requests to the inbox")
+        attendee_username = getattr(attendee_client, "username", None)
+        if not attendee_username or "@" not in str(attendee_username):
+            pytest.skip(
+                "Attendee username %r is not an email address; "
+                "cannot build a matching ATTENDEE line" % attendee_username
+            )
+        attendee_email = "mailto:" + attendee_username
+
+        inbox_items = set(x.url for x in self.principals[0].schedule_inbox().get_items())
+        inbox_items.update(x.url for x in self.principals[1].schedule_inbox().get_items())
+
+        organizers_calendar = self._getCalendar(0)
+        attendee_calendar = self._getCalendar(1)
+        ## Build the invite using the attendee's email directly, since
+        ## get_vcal_address() would also fail without calendar-user-address-set.
+        ## Use a fresh UUID so Zimbra (and other servers) don't treat this as a
+        ## duplicate of the event sent by testInviteAndRespond.  Both tests use
+        ## the module-level `sched` which has the same UID for the whole test
+        ## session, so reusing it causes Zimbra to silently skip inbox delivery.
+        fresh_sched = sched_template % (
+            str(uuid.uuid4()),
+            "%2i%2i%2i" % (random.randint(0, 23), random.randint(0, 59), random.randint(0, 59)),
+            random.randint(1, 28),
+            "%2i%2i%2i" % (random.randint(0, 23), random.randint(0, 59), random.randint(0, 59)),
+        )
+        saved_event = organizers_calendar.save_with_invites(
+            fresh_sched, [self.principals[0], attendee_email]
+        )
+        self._auto_scheduled_event_uids.append(saved_event.id)
+
+        new_attendee_inbox_items = []
+        for _ in range(30):
+            new_attendee_inbox_items = [
+                item
+                for item in self.principals[1].schedule_inbox().get_items()
+                if item.url not in inbox_items
+            ]
+            if new_attendee_inbox_items:
+                break
+            time.sleep(1)
+
+        assert len(new_attendee_inbox_items) == 1, (
+            "expected exactly one new inbox item for attendee"
+        )
+        assert new_attendee_inbox_items[0].is_invite_request()
+
+        ## accept_invite() must work via the username-email fallback.
+        new_attendee_inbox_items[0].accept_invite(calendar=attendee_calendar)
 
     ## TODO.  Invite two principals, let both of them load the
     ## invitation, and then let them respond in order.  Lacks both
@@ -788,6 +932,322 @@ class TestScheduling:
 
     ## TODO: more testing ... what happens if deleting things from the
     ## inbox/outbox?
+
+    # ------------------------------------------------------------------ #
+    # Schedule-Tag tests (RFC 6638 section 3.2–3.3)                       #
+    # All tests below are expected to FAIL until the implementation is    #
+    # complete.  See docs/design/TODO_SCHEDULE_TAG.md and                 #
+    # https://github.com/python-caldav/caldav/issues/660                  #
+    # ------------------------------------------------------------------ #
+
+    def testScheduleTagReturnedOnSave(self):
+        """
+        Saving a scheduling object (one with ORGANIZER/ATTENDEE) to the server
+        should return a Schedule-Tag header.  After save() the tag must be
+        accessible via event.schedule_tag and stored in event.props.
+
+        RFC 6638 section 3.2: the server MUST return Schedule-Tag on
+        responses to PUT requests for scheduling object resources.
+        """
+        self._skip_unless_support("scheduling.schedule-tag")
+        if len(self.principals) < 2:
+            pytest.skip("need at least 1 principal")
+
+        cal = self._getCalendar(0)
+        addr = self.principals[0].get_vcal_address()
+        addr2 = self.principals[1].get_vcal_address()
+        uid = str(uuid.uuid4())
+        ical = (
+            "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Test//Test//EN\r\n"
+            "BEGIN:VEVENT\r\n"
+            f"UID:{uid}\r\n"
+            "DTSTAMP:20260101T000000Z\r\n"
+            "DTSTART:20320601T100000Z\r\nDURATION:PT1H\r\n"
+            "SUMMARY:Schedule-Tag test\r\n"
+            f"ORGANIZER:{addr}\r\n"
+            f"ATTENDEE;RSVP=TRUE;PARTSTAT=NEEDS-ACTION:{addr}\r\n"
+            f"ATTENDEE;RSVP=TRUE;PARTSTAT=NEEDS-ACTION:{addr2}\r\n"
+            "END:VEVENT\r\nEND:VCALENDAR\r\n"
+        )
+        event = cal.save_event(ical)
+
+        assert event.schedule_tag is not None, (
+            "Server did not return Schedule-Tag header after PUT; "
+            "either the server does not support it or event.schedule_tag "
+            "property is not implemented"
+        )
+
+    def testScheduleTagStableOnPartstateUpdate(self):
+        """
+        RFC 6638 section 3.2: when an attendee updates only their PARTSTAT
+        (participation status) the server MUST NOT change the Schedule-Tag.
+
+        The tag before and after a PARTSTAT-only PUT must be identical.
+        """
+        self._skip_unless_support("scheduling.schedule-tag")
+        self._skip_unless_support("scheduling.schedule-tag.stable-partstat")
+        if len(self.principals) < 2:
+            pytest.skip("need 2 principals")
+        if not self.clients[1].features.is_supported("scheduling.mailbox.inbox-delivery"):
+            pytest.skip("server does not deliver iTIP requests to the inbox")
+
+        organizer_cal = self._getCalendar(0)
+        attendee_cal = self._getCalendar(1)
+
+        fresh_sched = sched_template % (
+            str(uuid.uuid4()),
+            "%2i%2i%2i" % (random.randint(0, 23), random.randint(0, 59), random.randint(0, 59)),
+            random.randint(1, 28),
+            "%2i%2i%2i" % (random.randint(0, 23), random.randint(0, 59), random.randint(0, 59)),
+        )
+        saved_event = organizer_cal.save_with_invites(
+            fresh_sched, [self.principals[0], self.principals[1].get_vcal_address()]
+        )
+        self._auto_scheduled_event_uids.append(saved_event.id)
+
+        ## Wait for the REQUEST invite (matching our UID) to land in attendee's inbox
+        invite = None
+        for _ in range(30):
+            for item in self.principals[1].schedule_inbox().get_items():
+                item.load()
+                if item.is_invite_request() and item.id == saved_event.id:
+                    invite = item
+                    break
+            if invite:
+                break
+            time.sleep(1)
+
+        if not invite:
+            pytest.skip("Invite not delivered to attendee inbox; cannot test PARTSTAT stability")
+
+        ## Accept the invite — places the event in the attendee's calendar.
+        ## On auto-scheduling servers the event may already exist; _reply_to_invite_request
+        ## handles that by finding and updating it in place.
+        invite.accept_invite(calendar=attendee_cal)
+
+        ## Find the event across all attendee calendars; on auto-scheduling servers it may be
+        ## in the default calendar rather than attendee_cal.  Retry briefly for async servers.
+        attendee_event = None
+        for _ in range(5):
+            for cal in self.principals[1].calendars():
+                try:
+                    attendee_event = cal.event_by_uid(saved_event.id)
+                    break
+                except error.NotFoundError:
+                    pass
+            if attendee_event:
+                break
+            time.sleep(1)
+
+        assert attendee_event is not None, "Event not found in any attendee calendar after accept"
+        attendee_event.load()
+        tag_before = attendee_event.schedule_tag
+        assert tag_before is not None, "No Schedule-Tag on attendee's calendar event after accept"
+
+        ## Do a second PARTSTAT-only change (ACCEPTED → TENTATIVE) and compare tags
+        attendee_event.change_attendee_status(partstat="TENTATIVE")
+        attendee_event.save()
+        attendee_event.load()
+        tag_after = attendee_event.schedule_tag
+
+        assert tag_after is not None, "No Schedule-Tag on attendee's event after PARTSTAT update"
+        assert tag_before == tag_after, (
+            f"Schedule-Tag changed after PARTSTAT-only update: "
+            f"{tag_before!r} → {tag_after!r}; "
+            "RFC 6638 section 3.2 requires the tag to be stable across "
+            "participation-status-only updates"
+        )
+
+    def testScheduleTagChangesOnOrganizerUpdate(self):
+        """
+        RFC 6638 section 3.2: when the organizer sends a substantive update,
+        the server MUST update the Schedule-Tag on the attendee's copy.
+
+        The tag on the attendee's resource before and after an organizer PUT
+        must differ.
+        """
+        self._skip_unless_support("scheduling.schedule-tag")
+        if len(self.principals) < 2:
+            pytest.skip("need 2 principals")
+
+        organizer_cal = self._getCalendar(0)
+
+        uid = str(uuid.uuid4())
+        attendee_addr = self.principals[1].get_vcal_address()
+        organizer_addr = self.principals[0].get_vcal_address()
+
+        seqno = 0
+
+        def _make_ical(summary):
+            nonlocal seqno
+            s = seqno
+            seqno += 1
+            return (
+                "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Test//Test//EN\r\n"
+                "BEGIN:VEVENT\r\n"
+                f"UID:{uid}\r\n"
+                f"SEQUENCE:{s}\r\n"
+                "DTSTAMP:20260101T000000Z\r\n"
+                "DTSTART:20320601T100000Z\r\nDURATION:PT1H\r\n"
+                f"SUMMARY:{summary}\r\n"
+                f"ORGANIZER:{organizer_addr}\r\n"
+                f"ATTENDEE;RSVP=TRUE;PARTSTAT=NEEDS-ACTION:{attendee_addr}\r\n"
+                "END:VEVENT\r\nEND:VCALENDAR\r\n"
+            )
+
+        saved = organizer_cal.save_with_invites(
+            _make_ical("Original summary"),
+            [self.principals[0], attendee_addr],
+        )
+        self._auto_scheduled_event_uids.append(uid)
+
+        ## Find the attendee's copy and record the tag
+        attendee_event = None
+        for _ in range(30):
+            for cal in self.principals[1].calendars():
+                for ev in cal.get_events():
+                    if ev.id == uid:
+                        attendee_event = ev
+                        break
+                if attendee_event:
+                    break
+            if attendee_event:
+                break
+            time.sleep(1)
+
+        if attendee_event is None:
+            pytest.skip("Event not delivered to attendee; cannot test tag change")
+
+        attendee_event.load()
+        tag_before = attendee_event.schedule_tag
+        assert tag_before is not None, "No Schedule-Tag on attendee's copy before organizer update"
+
+        ## Organizer sends a substantive update (changed summary)
+        organizer_cal.save_with_invites(
+            _make_ical("Updated summary"),
+            [self.principals[0], attendee_addr],
+        )
+
+        ## Poll until the attendee's copy reflects the update
+        for _ in range(30):
+            attendee_event.load()
+            if attendee_event.schedule_tag != tag_before:
+                break
+            time.sleep(1)
+
+        tag_after = attendee_event.schedule_tag
+        assert tag_after != tag_before, (
+            f"Schedule-Tag did not change after organizer update: still {tag_before!r}; "
+            "RFC 6638 section 3.2.10 requires the attendees tag to change after organizer PUT"
+        )
+
+    def testScheduleTagMismatchRaisesError(self):
+        """
+        save() with a stale Schedule-Tag must raise ScheduleTagMismatchError
+        when the server returns 412.
+
+        _put() sends If-Schedule-Tag-Match whenever self.schedule_tag is set.
+        We fetch the event (tag=1), make a local conflicting edit, then a
+        concurrent organizer PUT advances the server-side tag to 2 with a
+        different edit on the same field.  The resulting divergence cannot be
+        auto-merged, so the server must reject with 412.
+        """
+        self._skip_unless_support("scheduling.schedule-tag")
+        if len(self.principals) < 2:
+            pytest.skip("need 2 principals to cause a server-side tag advance")
+
+        organizer_cal = self._getCalendar(0)
+        attendee_addr = self.principals[1].get_vcal_address()
+        organizer_addr = self.principals[0].get_vcal_address()
+        uid = str(uuid.uuid4())
+
+        def _make_ical(summary, seq):
+            return (
+                "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Test//Test//EN\r\n"
+                "BEGIN:VEVENT\r\n"
+                f"UID:{uid}\r\n"
+                f"SEQUENCE:{seq}\r\n"
+                "DTSTAMP:20260101T000000Z\r\n"
+                "DTSTART:20320601T100000Z\r\nDURATION:PT1H\r\n"
+                f"SUMMARY:{summary}\r\n"
+                f"ORGANIZER:{organizer_addr}\r\n"
+                f"ATTENDEE;RSVP=TRUE;PARTSTAT=NEEDS-ACTION:{attendee_addr}\r\n"
+                "END:VEVENT\r\nEND:VCALENDAR\r\n"
+            )
+
+        ## Create the event and load it; event now holds original content + tag=1
+        event = organizer_cal.save_event(_make_ical("Original", 0))
+        self._auto_scheduled_event_uids.append(uid)
+        event.load()
+        assert event.schedule_tag is not None, (
+            "server did not return Schedule-Tag after initial save"
+        )
+
+        ## Make a local conflicting edit (simulating a client that diverges from
+        ## the server before a concurrent organizer update arrives).
+        event.icalendar_component["SUMMARY"] = "Conflicting client change"
+
+        ## Concurrent organizer PUT advances the server-side tag; the two edits
+        ## now conflict on SUMMARY and cannot be auto-merged.
+        organizer_cal.save_event(_make_ical("Organizer update", 1))
+
+        ## PUT the locally-modified stale version; server must reject with 412
+        ## because the conflicting changes cannot be safely merged.
+        with pytest.raises(error.ScheduleTagMismatchError):
+            event.save(increase_seqno=False)
+
+    def testScheduleTagMatchSucceeds(self):
+        """
+        save() with the correct (current) tag must
+        succeed and the updated tag must be stored in event.props afterwards.
+
+        Requires 2 principals: servers only assign a Schedule-Tag to events
+        that have external attendees (i.e. real scheduling objects).
+        """
+        self._skip_unless_support("scheduling.schedule-tag")
+        if len(self.principals) < 2:
+            pytest.skip("need 2 principals for Schedule-Tag to be assigned")
+
+        cal = self._getCalendar(0)
+        addr = self.principals[0].get_vcal_address()
+        addr2 = self.principals[1].get_vcal_address()
+        uid = str(uuid.uuid4())
+        ical = (
+            "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Test//Test//EN\r\n"
+            "BEGIN:VEVENT\r\n"
+            f"UID:{uid}\r\n"
+            "DTSTAMP:20260101T000000Z\r\n"
+            "DTSTART:20320601T100000Z\r\nDURATION:PT1H\r\n"
+            "SUMMARY:Correct-tag test\r\n"
+            f"ORGANIZER:{addr}\r\n"
+            f"ATTENDEE;RSVP=TRUE;PARTSTAT=NEEDS-ACTION:{addr}\r\n"
+            f"ATTENDEE;RSVP=TRUE;PARTSTAT=NEEDS-ACTION:{addr2}\r\n"
+            "END:VEVENT\r\nEND:VCALENDAR\r\n"
+        )
+        event = cal.save_event(ical)
+        self._auto_scheduled_event_uids.append(uid)
+        event.load()
+
+        tag_before = event.schedule_tag
+        assert tag_before is not None, "Server did not return Schedule-Tag"
+
+        ## Modify something minor and save with the correct tag
+        event.icalendar_component["SUMMARY"] = "Correct-tag test (updated)"
+        event.save(increase_seqno=False)
+
+        ## Must not have raised; tag in props must be present (may have changed)
+        assert event.schedule_tag is not None, (
+            "schedule_tag property disappeared after conditional save"
+        )
+
+
+## Legacy: run TestScheduling against the top-level rfc6638_users config.
+if rfc6638_users:
+    TestScheduling = type(
+        "TestScheduling",
+        (_TestSchedulingBase,),
+        {"_users": rfc6638_users},
+    )
 
 
 def _delay_decorator(f, t=20):
@@ -1050,7 +1510,32 @@ class RepeatedFunctionalTestsBaseClass:
 
         # Use pdb debug mode if pytest was run with --pdb, otherwise use logging
         debug_mode = "pdb" if request.config.option.usepdb else "logging"
-        checker = ServerQuirkChecker(self.caldav, debug_mode=debug_mode)
+
+        ## Build extra clients from scheduling_users (skip index 0; main client covers that user)
+        extra_clients = []
+        for user_params in self.server_params.get("scheduling_users", [])[1:]:
+            params = {
+                k: v for k, v in user_params.items() if k not in ("name", "setup", "teardown")
+            }
+            try:
+                ec = client(**params)
+                ec.__enter__()
+                extra_clients.append(ec)
+            except Exception:
+                pass
+
+        try:
+            checker = ServerQuirkChecker(
+                self.caldav, debug_mode=debug_mode, extra_clients=extra_clients
+            )
+            checker.check_all()
+            checker.cleanup(force=False)
+        finally:
+            for ec in extra_clients:
+                try:
+                    ec.__exit__(None, None, None)
+                except Exception:
+                    pass
         checker.check_all()
         checker.cleanup(force=False)
 
@@ -1093,30 +1578,123 @@ class RepeatedFunctionalTestsBaseClass:
         self.skip_on_compatibility_flag("dav_not_supported")
         assert self.caldav.check_dav_support()
         assert self.caldav.check_cdav_support()
-        if self.check_compatibility_flag("no_scheduling"):
-            assert not self.caldav.check_scheduling_support()
-        else:
-            assert self.caldav.check_scheduling_support()
+        if self.is_supported("scheduling", str) != "unknown":
+            assert self.caldav.check_scheduling_support() == self.is_supported("scheduling")
 
     def testSchedulingInfo(self):
-        self.skip_on_compatibility_flag("no_scheduling")
-        self.skip_on_compatibility_flag("no_scheduling_calendar_user_address_set")
+        self.skip_unless_support("scheduling.calendar-user-address-set")
         calendar_user_address_set = self.principal.calendar_user_address_set()
         me_a_participant = self.principal.get_vcal_address()
 
+    def testAddOrganizer(self):
+        """add_organizer() sets ORGANIZER from the current principal (issue #524).
+
+        Tests three paths:
+        - no-arg: principal is looked up from the client (requires
+          scheduling.calendar-user-address-set).
+        - explicit email string: pure in-memory, no server interaction.
+        - explicit vCalAddress: pure in-memory, no server interaction.
+        """
+        from icalendar import vCalAddress
+
+        cal = self._fixCalendar()
+        event = Event(
+            client=self.caldav,
+            data=ev1,
+            parent=cal,
+        )
+
+        ## ---- explicit string arg (pure in-memory, always runs) ----
+        event.add_organizer("organizer@example.com")
+        org = event.icalendar_component.get("organizer")
+        assert org is not None, "ORGANIZER should be set after add_organizer(string)"
+        assert "organizer@example.com" in str(org)
+
+        ## ---- explicit vCalAddress arg ----
+        addr = vCalAddress("mailto:addr@example.com")
+        event.add_organizer(addr)
+        org = event.icalendar_component.get("organizer")
+        assert str(org) == "mailto:addr@example.com"
+
+        ## ---- no-arg: uses current principal ----
+        self.skip_unless_support("scheduling.calendar-user-address-set")
+        event.add_organizer()
+        org = event.icalendar_component.get("organizer")
+        assert org is not None, "ORGANIZER should be set when add_organizer() uses principal"
+        principal_addresses = self.principal.calendar_user_address_set()
+        assert any(addr in str(org) for addr in principal_addresses), (
+            f"ORGANIZER {org!r} should contain one of the principal's addresses {principal_addresses!r}"
+        )
+
+    def testIssue399ChangeAttendeeStatusUsernameEmailFallback(self):
+        """change_attendee_status() works when the attendee is identified
+        by the client username rather than calendar_user_address_set() (issue #399).
+
+        On servers that expose calendar-user-address-set the normal path runs;
+        on servers that do not, the username-email fallback introduced by the
+        fix kicks in.  Either way the PARTSTAT update must succeed.
+        Only skipped when the login username is not an email address.
+        """
+        self.skip_unless_support("scheduling")
+        username = getattr(self.caldav, "username", None)
+        if not username or "@" not in str(username):
+            pytest.skip(
+                "Client username %r is not an email address; "
+                "cannot build a matching ATTENDEE line" % username
+            )
+        my_email = "mailto:" + username
+
+        invite_data = """\
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Test//Test//EN
+METHOD:REQUEST
+BEGIN:VEVENT
+UID:test-issue-399-%s@test.example
+DTSTAMP:%s
+DTSTART:%s
+DTEND:%s
+SUMMARY:Test invite for issue 399
+ORGANIZER:mailto:organizer@test.example
+ATTENDEE;PARTSTAT=NEEDS-ACTION:%s
+END:VEVENT
+END:VCALENDAR
+""" % (
+            uuid.uuid4(),
+            datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ"),
+            (datetime.now(timezone.utc) + timedelta(days=10)).strftime("%Y%m%dT%H%M%SZ"),
+            (datetime.now(timezone.utc) + timedelta(days=10, hours=1)).strftime("%Y%m%dT%H%M%SZ"),
+            my_email,
+        )
+
+        ev = Event(client=self.caldav, data=invite_data)
+        ev.change_attendee_status(partstat="ACCEPTED")
+
+        attendee = ev.icalendar_component["attendee"]
+        assert attendee.params.get("PARTSTAT") == "ACCEPTED"
+
     def testSchedulingMailboxes(self):
-        self.skip_on_compatibility_flag("no_scheduling")
-        self.skip_on_compatibility_flag("no_scheduling_mailbox")
+        self.skip_unless_support("scheduling.mailbox")
         inbox = self.principal.schedule_inbox()
         outbox = self.principal.schedule_outbox()
 
     def testFindCalendarOwner(self):
         cal = self._fixCalendar()
         owner = cal.get_property(dav.Owner())
-        ## TODO: something should probably be asserted about the Owner
+        ## Not all servers expose the DAV:owner property; None is acceptable.
+        if owner is None:
+            return
+
+        ## The owner URL should point to a principal resource.
+        ## Constructing a Principal from it and fetching the vcal address
+        ## demonstrates the full workflow from issue #544.
+        if self.is_supported("scheduling.calendar-user-address-set"):
+            owner_principal = Principal(client=self.caldav, url=owner)
+            address = owner_principal.get_vcal_address()
+            assert address is not None
 
     def testIssue397(self):
-        self.skip_unless_support("search.text.by-uid")
+        self.skip_unless_support("save-load.event.recurrences.exception")
         cal = self._fixCalendar()
         cal.add_event(
             """BEGIN:VCALENDAR
@@ -1289,7 +1867,6 @@ END:VCALENDAR
         )
         event.change_attendee_status(attendee="testuser@example.com", PARTSTAT="ACCEPTED")
         event.save()
-        self.skip_unless_support("search.text.by-uid")
         event = c.get_event_by_uid("test1")
         ## TODO: work in progress ... see https://github.com/python-caldav/caldav/issues/399
 
@@ -1456,7 +2033,6 @@ END:VCALENDAR
         """
         It should be possible to save a task and retrieve it by uid
         """
-        self.skip_unless_support("search.text.by-uid")
         c = self._fixCalendar(supported_calendar_component_set=["VTODO"])
         c.add_todo(summary="Some test task with a well-known uid", uid="well_known_1")
         foo = c.get_object_by_uid("well_known_1")
@@ -1819,7 +2395,6 @@ END:VCALENDAR
         assert len(c.get_events()) == cnt
 
     def testGetSupportedComponents(self):
-        self.skip_on_compatibility_flag("no_supported_components_support")
         c = self._fixCalendar()
 
         components = c.get_supported_components()
@@ -2228,8 +2803,7 @@ END:VCALENDAR
 
     def testCreateChildParent(self):
         self.skip_unless_support("save-load.event")
-        self.skip_on_compatibility_flag("no_relships")
-        self.skip_unless_support("search.text.by-uid")
+        self.skip_unless_support("save-load.icalendar.related-to")
         c = self._fixCalendar(supported_calendar_component_set=["VEVENT"])
         parent = c.add_event(
             dtstart=datetime(2022, 12, 26, 19, 15),
@@ -2357,7 +2931,7 @@ END:VCALENDAR
             dtstart=datetime(2022, 12, 26, 19, 15, tzinfo=utc),
             due=datetime(2022, 12, 26, 20, 00, tzinfo=utc),
             summary="Some task",
-            uid="ctuid1",
+            uid="ctuid5",
         )
 
         ## setting the due should ... set the due (surprise, surprise)
@@ -2379,7 +2953,7 @@ END:VCALENDAR
             dtstart=datetime(2022, 12, 26, 19, 15, tzinfo=utc),
             duration=timedelta(minutes=15),
             summary="Some other task",
-            uid="ctuid2",
+            uid="ctuid6",
         )
         some_other_todo.set_due(datetime(2022, 12, 26, 19, 45, tzinfo=utc), move_dtstart=True)
         assert some_other_todo.icalendar_component["DUE"].dt == datetime(
@@ -2391,20 +2965,23 @@ END:VCALENDAR
 
         some_todo.save()
 
-        self.skip_on_compatibility_flag("no_relships")
-        self.skip_unless_support("search.text.by-uid")
+        self.skip_unless_support("save-load.icalendar.related-to")
+
         parent = c.add_todo(
             dtstart=datetime(2022, 12, 26, 19, 00, tzinfo=utc),
             due=datetime(2022, 12, 26, 21, 00, tzinfo=utc),
             summary="this is a parent test task",
-            uid="ctuid3",
+            uid="ctuid7",
             child=[some_todo.id],
         )
 
+        ## The check_reverse_relations method is cheeky,
+        ## returning a list of non-behaving relations
+        ## (so it SHOULD return an empty list)
         assert not parent.check_reverse_relations()
 
-        ## The above updates the some_todo object on the server side, but the local object is not
-        ## updated ... until we reload it
+        ## The above updates the some_todo object on the server side,
+        ## but the local object is not updated ... until we reload it
         some_todo.load()
 
         ## This should work out (set the children due to some time before the parents due)
@@ -2469,7 +3046,6 @@ END:VCALENDAR
         j1 = c.add_journal(journal)
         journals = c.get_journals()
         assert len(journals) == 1
-        self.skip_unless_support("search.text.by-uid")
         j1_ = c.get_journal_by_uid(j1.id)
         ## Direct comparison handles different line folding from different fetch methods
         assert j1_.get_icalendar_instance() == journals[0].get_icalendar_instance()
@@ -2765,7 +3341,7 @@ END:VCALENDAR
         todos2 = c.search(start=datetime(2025, 4, 14), todo=True, include_completed=True)
         todos3 = c.search(start=datetime(2025, 4, 14), todo=True)
 
-        if not self.check_compatibility_flag("no_search_openended"):
+        if self.is_supported("search.time-range.open.end"):
             assert isinstance(todos1[0], Todo)
             assert isinstance(todos2[0], Todo)
             assert isinstance(todos3[0], Todo)
@@ -2837,11 +3413,10 @@ END:VCALENDAR
         # The historic todo-item can still be accessed
         todos = c.get_todos(include_completed=True)
         assert len(todos) == 3
-        if self.is_supported("search.text.by-uid"):
-            t3_ = c.get_todo_by_uid(t3.id)
-            assert t3_.vobject_instance.vtodo.summary == t3.vobject_instance.vtodo.summary
-            assert t3_.vobject_instance.vtodo.uid == t3.vobject_instance.vtodo.uid
-            assert t3_.vobject_instance.vtodo.dtstart == t3.vobject_instance.vtodo.dtstart
+        t3_ = c.get_todo_by_uid(t3.id)
+        assert t3_.vobject_instance.vtodo.summary == t3.vobject_instance.vtodo.summary
+        assert t3_.vobject_instance.vtodo.uid == t3.vobject_instance.vtodo.uid
+        assert t3_.vobject_instance.vtodo.dtstart == t3.vobject_instance.vtodo.dtstart
 
         t2.delete()
 
@@ -3074,10 +3649,9 @@ END:VCALENDAR
             e2 = c.event_by_url(e1.url)
             assert e2.vobject_instance.vevent.uid == e1.vobject_instance.vevent.uid
             assert e2.url == e1.url
-        if self.is_supported("search.text.by-uid"):
-            e3 = c.get_event_by_uid("20010712T182145Z-123401@example.com")
-            assert e3.vobject_instance.vevent.uid == e1.vobject_instance.vevent.uid
-            assert e3.url == e1.url
+        e3 = c.get_event_by_uid("20010712T182145Z-123401@example.com")
+        assert e3.vobject_instance.vevent.uid == e1.vobject_instance.vevent.uid
+        assert e3.url == e1.url
 
         # Knowing the URL of an event, we should be able to get to it
         # without going through a calendar object
@@ -3101,10 +3675,9 @@ END:VCALENDAR
         c = self._fixCalendar()
         assert c.url is not None
 
-        # attempts on updating/overwriting a non-existing event should fail (unless get_object_by_uid_is_broken):
-        if self.is_supported("search.text.by-uid"):
-            with pytest.raises(error.ConsistencyError):
-                c.add_event(ev1, no_create=True)
+        # attempts on updating/overwriting a non-existing event should fail:
+        with pytest.raises(error.ConsistencyError):
+            c.add_event(ev1, no_create=True)
 
         # no_create and no_overwrite is mutually exclusive, this will always
         # raise an error (unless the ical given is blank)
@@ -3122,11 +3695,9 @@ END:VCALENDAR
             assert t1.url is not None
         if not self.check_compatibility_flag("event_by_url_is_broken"):
             assert c.event_by_url(e1.url).url == e1.url
-        if self.is_supported("search.text.by-uid"):
-            assert c.get_event_by_uid(e1.id).url == e1.url
+        assert c.get_event_by_uid(e1.id).url == e1.url
 
-        ## no_create will not work unless get_object_by_uid works
-        no_create = self.is_supported("search.text.by-uid")
+        no_create = True
 
         ## add same event again.  As it has same uid, it should be overwritten
         ## (but some calendars may throw a "409 Conflict")
@@ -3156,13 +3727,12 @@ END:VCALENDAR
                 e3 = c.event_by_url(e1.url)
                 assert e3.vobject_instance.vevent.summary.value == "Bastille Day Party!"
 
-        ## "no_overwrite" should throw a ConsistencyError.  But it depends on get_object_by_uid.
-        if self.is_supported("search.text.by-uid"):
+        ## "no_overwrite" should throw a ConsistencyError.
+        with pytest.raises(error.ConsistencyError):
+            c.add_event(ev1, no_overwrite=True)
+        if todo_ok:
             with pytest.raises(error.ConsistencyError):
-                c.add_event(ev1, no_overwrite=True)
-            if todo_ok:
-                with pytest.raises(error.ConsistencyError):
-                    c.add_todo(todo, no_overwrite=True)
+                c.add_todo(todo, no_overwrite=True)
 
         # delete event
         e1.delete()
@@ -3268,7 +3838,7 @@ END:VCALENDAR
             assert len(r) == 1
 
         # Lets try a freebusy request as well
-        self.skip_unless_support("freebusy-query.rfc4791")
+        self.skip_unless_support("freebusy-query")
 
         freebusy = c.freebusy_request(
             datetime(2007, 7, 13, 17, 00, 00), datetime(2007, 7, 15, 17, 00, 00)
@@ -3679,3 +4249,16 @@ for _caldav_server in caldav_servers:
         (RepeatedFunctionalTestsBaseClass,),
         {"server_params": _caldav_server},
     )
+
+    # If the server has scheduling_users configured, also generate a
+    # TestSchedulingForServer* class so scheduling tests run per-server.
+    if "scheduling_users" in _caldav_server:
+        _sched_classname = "TestSchedulingForServer" + _servername
+        vars()[_sched_classname] = type(
+            _sched_classname,
+            (_TestSchedulingBase,),
+            {
+                "_users": _caldav_server["scheduling_users"],
+                "_server_features": _caldav_server.get("features"),
+            },
+        )

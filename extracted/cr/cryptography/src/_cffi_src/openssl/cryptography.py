@@ -5,8 +5,6 @@
 from __future__ import annotations
 
 INCLUDES = r"""
-/* define our OpenSSL API compatibility level to 1.1.0. Any symbols older than
-   that will raise an error during compilation. */
 #define OPENSSL_API_COMPAT 0x10100000L
 
 #if defined(_WIN32)
@@ -54,8 +52,11 @@ INCLUDES = r"""
 #define CRYPTOGRAPHY_OPENSSL_320_OR_GREATER 0
 #endif
 
-#if OPENSSL_VERSION_NUMBER < 0x10101050
-    #error "pyca/cryptography MUST be linked with Openssl 1.1.1e or later"
+#if !CRYPTOGRAPHY_IS_LIBRESSL && !CRYPTOGRAPHY_IS_BORINGSSL && \
+    !CRYPTOGRAPHY_IS_AWSLC
+    #if OPENSSL_VERSION_NUMBER < 0x30000000
+        #error "pyca/cryptography MUST be linked with OpenSSL 3.0.0 or later"
+    #endif
 #endif
 """
 

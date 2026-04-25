@@ -20,7 +20,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 #
-########################################################################### */
+# ########################################################################## */
 """
 This module defines the :class:`FitTheory` object that is used by
 :class:`silx.math.fit.FitManager` to define fit functions and background
@@ -32,7 +32,7 @@ __license__ = "MIT"
 __date__ = "09/08/2016"
 
 
-class FitTheory(object):
+class FitTheory:
     """This class defines a fit theory, which consists of:
 
     - a model function, the actual function to be fitted

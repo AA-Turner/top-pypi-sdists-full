@@ -13,6 +13,7 @@ from dotenv import load_dotenv
 from plato.cli.agent import agent_app
 from plato.cli.chronos import chronos_app
 from plato.cli.compose import app as compose_app
+from plato.cli.db_tunnel import db_tunnel_app
 from plato.cli.hillclimb import hillclimb_app
 from plato.cli.pm import pm_app
 from plato.cli.sandbox import sandbox_app
@@ -93,6 +94,7 @@ def _app_callback(
 
 
 # Register sub-apps
+app.add_typer(db_tunnel_app, name="db-tunnel")
 app.add_typer(sandbox_app, name="sandbox")
 app.add_typer(session_app, name="session")
 app.add_typer(compose_app, name="compose")

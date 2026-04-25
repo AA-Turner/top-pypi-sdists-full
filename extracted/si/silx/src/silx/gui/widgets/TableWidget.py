@@ -55,7 +55,6 @@ __date__ = "03/07/2017"
 import sys
 from .. import qt
 
-
 if sys.platform.startswith("win"):
     row_separator = "\r\n"
 else:
@@ -88,7 +87,7 @@ class CopySelectedCellsAction(qt.QAction):
             raise ValueError(
                 "CopySelectedCellsAction must be initialised " + "with a QTableWidget."
             )
-        super(CopySelectedCellsAction, self).__init__(table)
+        super().__init__(table)
         self.setText("Copy selection")
         self.setToolTip("Copy selected cells into the clipboard.")
         self.setShortcut(qt.QKeySequence.Copy)
@@ -154,7 +153,7 @@ class CopyAllCellsAction(qt.QAction):
             raise ValueError(
                 "CopyAllCellsAction must be initialised " + "with a QTableWidget."
             )
-        super(CopyAllCellsAction, self).__init__(table)
+        super().__init__(table)
         self.setText("Copy all")
         self.setToolTip("Copy all cells into the clipboard.")
         self.triggered.connect(self.copyCellsToClipboard)
@@ -212,7 +211,7 @@ class CutSelectedCellsAction(CopySelectedCellsAction):
     :param table: :class:`QTableView` to which this action belongs."""
 
     def __init__(self, table):
-        super(CutSelectedCellsAction, self).__init__(table)
+        super().__init__(table)
         self.setText("Cut selection")
         self.setShortcut(qt.QKeySequence.Cut)
         self.setShortcutContext(qt.Qt.WidgetShortcut)
@@ -235,7 +234,7 @@ class CutAllCellsAction(CopyAllCellsAction):
     :param table: :class:`QTableView` to which this action belongs."""
 
     def __init__(self, table):
-        super(CutAllCellsAction, self).__init__(table)
+        super().__init__(table)
         self.setText("Cut all")
         self.setToolTip("Cut all cells into the clipboard.")
         self.cut = True
@@ -278,7 +277,7 @@ class PasteCellsAction(qt.QAction):
             raise ValueError(
                 "PasteCellsAction must be initialised " + "with a QTableWidget."
             )
-        super(PasteCellsAction, self).__init__(table)
+        super().__init__(table)
         self.table = table
         self.setText("Paste")
         self.setShortcut(qt.QKeySequence.Paste)
@@ -366,7 +365,7 @@ class CopySingleCellAction(qt.QAction):
             raise ValueError(
                 "CopySingleCellAction must be initialised " + "with a QTableWidget."
             )
-        super(CopySingleCellAction, self).__init__(table)
+        super().__init__(table)
         self.setText("Copy cell")
         self.setToolTip("Copy cell content into the clipboard.")
         self.triggered.connect(self.copyCellToClipboard)
@@ -407,7 +406,7 @@ class TableWidget(qt.QTableWidget):
     """
 
     def __init__(self, parent=None, cut=False, paste=False):
-        super(TableWidget, self).__init__(parent)
+        super().__init__(parent)
         self._text_last_cell_clicked = None
 
         self.copySelectedCellsAction = CopySelectedCellsAction(self)
@@ -430,7 +429,7 @@ class TableWidget(qt.QTableWidget):
         item = self.itemAt(event.pos())
         if item is not None:
             self._text_last_cell_clicked = item.text()
-        super(TableWidget, self).mousePressEvent(event)
+        super().mousePressEvent(event)
 
     def enablePaste(self):
         """Enable paste action, to paste data from the clipboard into the
@@ -486,7 +485,7 @@ class TableWidget(qt.QTableWidget):
             if self.copySingleCellAction is not None:
                 self.copySingleCellAction.setVisible(False)
                 self.copySingleCellAction.setEnabled(False)
-        super(TableWidget, self).setSelectionMode(mode)
+        super().setSelectionMode(mode)
 
 
 class TableView(qt.QTableView):
@@ -516,7 +515,7 @@ class TableView(qt.QTableView):
     """
 
     def __init__(self, parent=None, cut=False, paste=False):
-        super(TableView, self).__init__(parent)
+        super().__init__(parent)
         self._text_last_cell_clicked = None
 
         self.cut = cut
@@ -533,7 +532,7 @@ class TableView(qt.QTableView):
         qindex = self.indexAt(event.pos())
         if self.copyAllCellsAction is not None:  # model was set
             self._text_last_cell_clicked = self.model().data(qindex)
-        super(TableView, self).mousePressEvent(event)
+        super().mousePressEvent(event)
 
     def setModel(self, model):
         """Set the data model for the table view, activate the actions
@@ -541,7 +540,7 @@ class TableView(qt.QTableView):
 
         :param model: :class:`qt.QAbstractItemModel` object
         """
-        super(TableView, self).setModel(model)
+        super().setModel(model)
 
         self.copySelectedCellsAction = CopySelectedCellsAction(self)
         self.copyAllCellsAction = CopyAllCellsAction(self)
@@ -583,10 +582,10 @@ class TableView(qt.QTableView):
         # ensure the actions are not added multiple times:
         # compare action type and parent widget with those of existing actions
         for existing_action in self.actions():
-            if type(action) == type(existing_action):
+            if type(action) is type(existing_action):
                 if hasattr(action, "table") and action.table is existing_action.table:
                     return None
-        super(TableView, self).addAction(action)
+        super().addAction(action)
 
     def setSelectionMode(self, mode):
         """Overloaded from QTableView to disable cut/copy selection
@@ -618,7 +617,7 @@ class TableView(qt.QTableView):
             if self.copySingleCellAction is not None:
                 self.copySingleCellAction.setVisible(False)
                 self.copySingleCellAction.setEnabled(False)
-        super(TableView, self).setSelectionMode(mode)
+        super().setSelectionMode(mode)
 
 
 if __name__ == "__main__":

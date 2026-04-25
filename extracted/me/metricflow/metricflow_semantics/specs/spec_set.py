@@ -6,11 +6,11 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Generic, Iterable, List, Sequence, Tuple, TypeVar
 
-from dbt_semantic_interfaces.dataclass_serialization import SerializableDataclass
+from metricflow_semantics.specs.instance_spec import InstanceSpec, InstanceSpecVisitor, LinkableInstanceSpec
+from metricflow_semantics.toolkit.merger import Mergeable
 from typing_extensions import override
 
-from metricflow_semantics.collection_helpers.merger import Mergeable
-from metricflow_semantics.specs.instance_spec import InstanceSpec, InstanceSpecVisitor, LinkableInstanceSpec
+from metricflow_semantic_interfaces.dataclass_serialization import SerializableDataclass
 
 if TYPE_CHECKING:
     from metricflow_semantics.specs.dimension_spec import DimensionSpec
@@ -133,7 +133,7 @@ class InstanceSpecSet(Mergeable, SerializableDataclass):
         )
 
     @staticmethod
-    def create_from_specs(specs: Sequence[InstanceSpec]) -> InstanceSpecSet:  # noqa: D102
+    def create_from_specs(specs: Iterable[InstanceSpec]) -> InstanceSpecSet:  # noqa: D102
         return group_specs_by_type(specs)
 
 

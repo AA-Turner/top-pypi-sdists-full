@@ -1,10 +1,8 @@
 use std::borrow::Cow;
 
-use crate::cache::ModelProviderRequest;
 use crate::endpoints::inference::InferenceCredentials;
 use crate::error::{DelayedError, DisplayOrDebugGateway, Error, ErrorDetails};
 use crate::http::TensorzeroHttpClient;
-use crate::inference::types::ProviderInferenceResponseArgs;
 use crate::inference::types::batch::{BatchRequestRow, PollBatchInferenceResponse};
 use crate::inference::types::chat_completion_inference_params::{
     ChatCompletionInferenceParamsV2, warn_inference_parameter_not_supported,
@@ -13,13 +11,15 @@ use crate::inference::types::usage::raw_usage_entries_from_value;
 use crate::inference::types::{ApiType, ContentBlockOutput};
 use crate::inference::types::{
     Latency, ModelInferenceRequest, PeekableProviderInferenceResponseStream,
-    ProviderInferenceResponse, batch::StartBatchProviderInferenceResponse,
+    ProviderInferenceResponse, ProviderInferenceResponseArgs,
+    batch::StartBatchProviderInferenceResponse,
 };
-use crate::model::{Credential, ModelProvider};
+use crate::model::Credential;
+use crate::model::{ModelProviderRequestInfo, ProviderInferenceRequest};
 use crate::providers::helpers::{
     inject_extra_request_data_and_send, inject_extra_request_data_and_send_eventsource,
 };
-use crate::providers::openai::OpenAIMessagesConfig;
+use crate::providers::openai::{OpenAIMessagesConfig, ReasoningFieldName};
 use futures::{StreamExt, TryStreamExt};
 use lazy_static::lazy_static;
 use secrecy::{ExposeSecret, SecretString};
@@ -140,16 +140,15 @@ impl HyperbolicCredentials {
 impl InferenceProvider for HyperbolicProvider {
     async fn infer<'a>(
         &'a self,
-        ModelProviderRequest {
+        ProviderInferenceRequest {
             request,
             provider_name: _,
             model_name,
-            otlp_config: _,
             model_inference_id,
-        }: ModelProviderRequest<'a>,
+        }: ProviderInferenceRequest<'a>,
         http_client: &'a TensorzeroHttpClient,
         dynamic_api_keys: &'a InferenceCredentials,
-        model_provider: &'a ModelProvider,
+        model_provider: &'a ModelProviderRequestInfo,
     ) -> Result<ProviderInferenceResponse, Error> {
         let request_body =
             serde_json::to_value(HyperbolicRequest::new(&self.model_name, request).await?)
@@ -247,16 +246,15 @@ impl InferenceProvider for HyperbolicProvider {
 
     async fn infer_stream<'a>(
         &'a self,
-        ModelProviderRequest {
+        ProviderInferenceRequest {
             request,
             provider_name: _,
             model_name,
-            otlp_config: _,
             model_inference_id,
-        }: ModelProviderRequest<'a>,
+        }: ProviderInferenceRequest<'a>,
         http_client: &'a TensorzeroHttpClient,
         dynamic_api_keys: &'a InferenceCredentials,
-        model_provider: &'a ModelProvider,
+        model_provider: &'a ModelProviderRequestInfo,
     ) -> Result<(PeekableProviderInferenceResponseStream, String), Error> {
         let request_body =
             serde_json::to_value(HyperbolicRequest::new(&self.model_name, request).await?)
@@ -415,6 +413,7 @@ impl<'a> HyperbolicRequest<'a> {
                 fetch_and_encode_input_files_before_inference: request
                     .fetch_and_encode_input_files_before_inference,
                 content_type_overrides: None,
+                reasoning_field_name: ReasoningFieldName::ReasoningContent,
             },
         )
         .await?;
@@ -549,7 +548,7 @@ mod tests {
     use crate::providers::openai::{
         OpenAIFinishReason, OpenAIResponseChoice, OpenAIResponseMessage, OpenAIUsage,
     };
-    use crate::providers::test_helpers::WEATHER_TOOL_CONFIG;
+    use crate::providers::test_helpers::WEATHER_PROVIDER_TOOL_CONFIG;
     #[tokio::test]
     async fn test_hyperbolic_request_new() {
         let request_with_tools = ModelInferenceRequest {
@@ -567,7 +566,7 @@ mod tests {
             stream: false,
             seed: Some(69),
             json_mode: ModelInferenceRequestJsonMode::Off,
-            tool_config: Some(Cow::Borrowed(&WEATHER_TOOL_CONFIG)),
+            tool_config: Some(Cow::Borrowed(&*WEATHER_PROVIDER_TOOL_CONFIG)),
             function_type: FunctionType::Chat,
             output_schema: None,
             extra_body: Default::default(),

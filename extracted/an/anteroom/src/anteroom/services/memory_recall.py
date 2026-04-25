@@ -21,6 +21,7 @@ Graceful degradation: when the vector manager, embedding service, or
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass
 from typing import Any
 
@@ -29,6 +30,49 @@ from . import storage
 from .context_trust import wrap_untrusted
 
 logger = logging.getLogger(__name__)
+_TOKEN_RE = re.compile(r"[a-z0-9]+")
+_STOPWORDS = frozenset(
+    {
+        "a",
+        "an",
+        "and",
+        "are",
+        "as",
+        "at",
+        "be",
+        "by",
+        "did",
+        "do",
+        "for",
+        "from",
+        "how",
+        "i",
+        "id",
+        "in",
+        "is",
+        "it",
+        "me",
+        "my",
+        "of",
+        "on",
+        "or",
+        "our",
+        "that",
+        "the",
+        "this",
+        "to",
+        "us",
+        "was",
+        "we",
+        "what",
+        "when",
+        "where",
+        "who",
+        "why",
+        "with",
+        "your",
+    }
+)
 
 
 @dataclass
@@ -42,6 +86,100 @@ class RecalledMemory:
     distance: float
     scope: str  # "user" | "project" | "local"
     category: str  # memory_category from metadata
+
+
+def _tokenize(text: str) -> list[str]:
+    return _TOKEN_RE.findall(text.lower())
+
+
+def _keyword_tokens(text: str) -> set[str]:
+    return {tok for tok in _tokenize(text) if tok not in _STOPWORDS and (tok.isdigit() or len(tok) > 1)}
+
+
+def _lexical_fallback_candidates(db: Any, namespaces: list[str]) -> list[dict[str, Any]]:
+    if not namespaces:
+        return []
+    placeholders = ",".join("?" for _ in namespaces)
+    try:
+        rows = db.execute_fetchall(
+            f"""
+            SELECT
+                a.fqn,
+                a.namespace,
+                a.name,
+                a.content,
+                json_extract(a.metadata, '$.memory_scope') AS memory_scope,
+                json_extract(a.metadata, '$.memory_category') AS memory_category
+            FROM artifacts a
+            WHERE a.type = 'memory'
+              AND a.namespace IN ({placeholders})
+              AND json_extract(a.metadata, '$.memory_status') = 'active'
+            ORDER BY a.updated_at DESC
+            """,
+            tuple(namespaces),
+        )
+    except Exception:
+        logger.debug("Memory recall: lexical fallback query failed", exc_info=True)
+        return []
+    return [dict(r) for r in rows]
+
+
+def _lexical_fallback(
+    *,
+    query: str,
+    db: Any,
+    namespaces: list[str],
+    config: MemoryRecallConfig,
+) -> list[RecalledMemory]:
+    query_norm = " ".join(_tokenize(query))
+    query_keywords = _keyword_tokens(query)
+    query_numbers = {tok for tok in query_keywords if tok.isdigit()}
+    min_overlap = 1 if len(query_keywords) <= 2 else 2
+
+    scored: list[tuple[int, dict[str, Any]]] = []
+    for row in _lexical_fallback_candidates(db, namespaces):
+        content = str(row.get("content") or "")
+        content_norm = " ".join(_tokenize(content))
+        content_tokens = _keyword_tokens(content)
+        overlap = query_keywords & content_tokens
+        numeric_overlap = query_numbers & set(_tokenize(content))
+        exact_phrase = bool(query_norm and (query_norm in content_norm or content_norm in query_norm))
+
+        if not exact_phrase and not numeric_overlap and len(overlap) < min_overlap:
+            continue
+
+        score = len(overlap) * 10
+        score += len(numeric_overlap) * 25
+        if exact_phrase:
+            score += 40
+        if row.get("name") and any(tok in str(row["name"]).lower() for tok in overlap):
+            score += 5
+        scored.append((score, row))
+
+    scored.sort(key=lambda item: (-item[0], item[1].get("fqn", "")))
+
+    selected: list[RecalledMemory] = []
+    used_tokens = 0
+    for score, row in scored:
+        content = str(row.get("content") or "")
+        est_tokens = max(1, len(content) // 4)
+        if used_tokens + est_tokens > config.max_tokens:
+            continue
+        used_tokens += est_tokens
+        selected.append(
+            RecalledMemory(
+                fqn=str(row.get("fqn") or ""),
+                namespace=str(row.get("namespace") or ""),
+                name=str(row.get("name") or ""),
+                content=content,
+                distance=1.0 / max(score, 1),
+                scope=str(row.get("memory_scope") or ""),
+                category=str(row.get("memory_category") or ""),
+            )
+        )
+        if len(selected) >= config.max_memories:
+            break
+    return selected
 
 
 def visible_namespaces(
@@ -88,22 +226,29 @@ async def retrieve_memories(
     if len(query.strip()) < 10:
         return [], "Query too short for recall"
 
+    namespaces = visible_namespaces(space_type=space_type, project_namespace=project_namespace)
+
+    def _return_with_fallback(reason: str) -> tuple[list[RecalledMemory], str | None]:
+        fallback = _lexical_fallback(query=query, db=db, namespaces=namespaces, config=config)
+        if fallback:
+            logger.debug("Memory recall: lexical fallback returned %d memory(ies) after %s", len(fallback), reason)
+            return fallback, None
+        return [], reason
+
     if not vec_manager or not getattr(vec_manager, "memories", None):
-        return [], "no_vec_support"
+        return _return_with_fallback("no_vec_support")
 
     if embedding_service is None:
-        return [], "Embedding service unavailable"
+        return _return_with_fallback("Embedding service unavailable")
 
     try:
         embedding = await embedding_service.embed(query)
     except Exception:
         logger.debug("Memory recall: embedding failed", exc_info=True)
-        return [], "Embedding failed"
+        return _return_with_fallback("Embedding failed")
 
     if not embedding:
-        return [], "Embedding service returned empty result"
-
-    namespaces = visible_namespaces(space_type=space_type, project_namespace=project_namespace)
+        return _return_with_fallback("Embedding service returned empty result")
 
     # Fetch a wider candidate pool than needed so we can filter by status and
     # distance threshold before trimming to ``max_memories``.
@@ -118,10 +263,10 @@ async def retrieve_memories(
         )
     except Exception:
         logger.warning("Memory recall: similarity search failed", exc_info=True)
-        return [], "search_failed"
+        return _return_with_fallback("search_failed")
 
     if not rows:
-        return [], "no_embeddings_yet"
+        return _return_with_fallback("no_embeddings_yet")
 
     # Defensive: confirm namespace match even though the query already filters
     # it.  Prevents cross-space bypass if future callers pass a pre-populated
@@ -166,7 +311,7 @@ async def retrieve_memories(
             break
 
     if not selected:
-        return [], "no_matches_within_threshold"
+        return _return_with_fallback("no_matches_within_threshold")
 
     return selected, None
 

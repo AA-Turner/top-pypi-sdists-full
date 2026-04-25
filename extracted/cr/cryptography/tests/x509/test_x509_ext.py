@@ -9,7 +9,6 @@ import ipaddress
 import os
 import typing
 
-import pretend
 import pytest
 
 from cryptography import x509
@@ -36,6 +35,7 @@ from cryptography.x509.oid import (
     SubjectInformationAccessOID,
 )
 
+from ..doubles import DummyEd25519PublicKey
 from ..hazmat.primitives.test_ec import _skip_curve_unsupported
 from ..hazmat.primitives.test_rsa import rsa_key_2048
 from ..utils import load_vectors_from_file
@@ -1762,20 +1762,18 @@ class TestSubjectKeyIdentifierExtension:
             loader=lambda data: data.read(),
             mode="rb",
         )
-        pretend_key = pretend.stub(public_bytes=lambda x, y: data)
+        fake_key = DummyEd25519PublicKey(data)
         with pytest.raises(ValueError):
-            _key_identifier_from_public_key(pretend_key)
+            _key_identifier_from_public_key(fake_key)
 
         # The previous value is invalid for 2 reasons: a) it's got non-zero
         # padding bits (i.e. the first byte of the value is not zero), b) the
         # padding bits aren't all set to zero (i.e. the last bits of the value)
         # Here we swap the last byte out with zeros so we can hit both error
         # checks.
-        pretend_key = pretend.stub(
-            public_bytes=lambda x, y: data[:-1] + b"\x00"
-        )
+        fake_key = DummyEd25519PublicKey(data[:-1] + b"\x00")
         with pytest.raises(ValueError, match="Invalid public key encoding"):
-            _key_identifier_from_public_key(pretend_key)
+            _key_identifier_from_public_key(fake_key)
 
     def test_from_ec_public_key(self, backend):
         _skip_curve_unsupported(backend, ec.SECP384R1())
@@ -1790,10 +1788,6 @@ class TestSubjectKeyIdentifierExtension:
         ski = x509.SubjectKeyIdentifier.from_public_key(cert.public_key())
         assert ext.value == ski
 
-    @pytest.mark.supported(
-        only_if=lambda backend: backend.ed25519_supported(),
-        skip_message="Requires OpenSSL with Ed25519 support",
-    )
     def test_from_ed25519_public_key(self, backend):
         cert = _load_cert(
             os.path.join("x509", "ed25519", "root-ed25519.pem"),
@@ -2426,7 +2420,8 @@ class TestGeneralNames:
             x509.GeneralNames(
                 [
                     x509.DNSName("cryptography.io"),
-                    "invalid",  # type:ignore[list-item]
+                    # Invalid cast, to test error handling
+                    typing.cast(x509.GeneralName, "invalid"),
                 ]
             )
 
@@ -2489,7 +2484,8 @@ class TestIssuerAlternativeName:
             x509.IssuerAlternativeName(
                 [
                     x509.DNSName("cryptography.io"),
-                    "invalid",  # type:ignore[list-item]
+                    # Invalid cast, to test error handling
+                    typing.cast(x509.GeneralName, "invalid"),
                 ]
             )
 
@@ -2613,7 +2609,8 @@ class TestSubjectAlternativeName:
             x509.SubjectAlternativeName(
                 [
                     x509.DNSName("cryptography.io"),
-                    "invalid",  # type:ignore[list-item]
+                    # Invalid cast, to test error handling.
+                    typing.cast(x509.GeneralName, "invalid"),
                 ]
             )
 
@@ -5743,6 +5740,37 @@ class TestIssuingDistributionPointExtension:
             None,
             False,
             False,
+        )
+        assert hash(idp1) == hash(idp2)
+        assert hash(idp1) != hash(idp3)
+
+    def test_hash_with_full_name(self):
+        idp1 = x509.IssuingDistributionPoint(
+            full_name=[x509.DNSName("example.com")],
+            relative_name=None,
+            only_contains_user_certs=False,
+            only_contains_ca_certs=False,
+            only_some_reasons=None,
+            indirect_crl=False,
+            only_contains_attribute_certs=False,
+        )
+        idp2 = x509.IssuingDistributionPoint(
+            full_name=[x509.DNSName("example.com")],
+            relative_name=None,
+            only_contains_user_certs=False,
+            only_contains_ca_certs=False,
+            only_some_reasons=None,
+            indirect_crl=False,
+            only_contains_attribute_certs=False,
+        )
+        idp3 = x509.IssuingDistributionPoint(
+            full_name=[x509.DNSName("other.com")],
+            relative_name=None,
+            only_contains_user_certs=False,
+            only_contains_ca_certs=False,
+            only_some_reasons=None,
+            indirect_crl=False,
+            only_contains_attribute_certs=False,
         )
         assert hash(idp1) == hash(idp2)
         assert hash(idp1) != hash(idp3)

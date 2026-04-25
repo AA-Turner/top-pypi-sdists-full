@@ -42,21 +42,31 @@ def map_crosstab(
         )
 
     result: snowpark.DataFrame = input_df.crosstab(col1, col2)
-    new_columns = [f"{rel.crosstab.col1}_{rel.crosstab.col2}"] + [
-        (
-            # The Spark names are just the values, so we parse them from
-            # the Snowpark string.
-            "".join(c.split("CAST(")[1].split(" AS")[0].split("'"))
-            if "CAST" in c
-            else c.lower()
-            if c == "NULL"
-            else c[2:-2]
-        )
-        for c in result.columns[1:]
-    ]
-    # We can easily get to a point where the column names are too long and
-    # the internal columns names don't really matter to the end user anyway.
-    # Rename here keeps the mapping simpler.
+
+    # Parse Snowpark column names back to plain value strings.
+    def _parse_value_col_name(c: str) -> str:
+        if "CAST" in c:
+            return "".join(c.split("CAST(")[1].split(" AS")[0].split("'"))
+        if c == "NULL":
+            return c.lower()
+        return c[2:-2]
+
+    raw_value_cols = result.columns[1:]
+    spark_value_names = [_parse_value_col_name(c) for c in raw_value_cols]
+
+    # Spark orders value columns alphabetically; Snowflake does not guarantee this.
+    sorted_pairs = sorted(zip(spark_value_names, raw_value_cols), key=lambda p: p[0])
+    sorted_spark_names = [p[0] for p in sorted_pairs]
+    sorted_snowpark_cols = [p[1] for p in sorted_pairs]
+
+    # Reorder and cast count columns to LongType (Snowflake COUNT returns Decimal)
+    result = result.select(
+        fn.col(result.columns[0]),
+        *[fn.col(c).cast("long").alias(c) for c in sorted_snowpark_cols],
+    )
+
+    new_columns = [f"{rel.crosstab.col1}_{rel.crosstab.col2}"] + sorted_spark_names
+
     result = result.rename(
         dict(zip(result.columns, [f"c{i}" for i in range(len(result.columns))]))
     )

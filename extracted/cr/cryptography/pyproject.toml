@@ -2,7 +2,7 @@
 # These requirements must be kept sync with the requirements in
 # ./.github/requirements/build-requirements.{in,txt}
 requires = [
-    "maturin>=1.9.4,<2",
+    "maturin>=1.9.4,<2,!=1.12.0",
 
     # Must be kept in sync with `project.dependencies`
     "cffi>=1.14; platform_python_implementation != 'PyPy' and python_version == '3.8'",
@@ -16,7 +16,7 @@ build-backend = "maturin"
 
 [project]
 name = "cryptography"
-version = "46.0.7"
+version = "47.0.0"
 authors = [
     { name = "The Python Cryptographic Authority and individual contributors", email = "cryptography-dev@python.org" },
 ]
@@ -67,10 +67,18 @@ changelog = "https://cryptography.io/en/latest/changelog/"
 [project.optional-dependencies]
 ssh = ["bcrypt >=3.1.5"]
 
-# All the following are used for our own testing.
+[dependency-groups]
+dev = [
+    {include-group = "nox"},
+    {include-group = "test-randomorder"},
+    {include-group = "docs"},
+    {include-group = "docstest"},
+    {include-group = "sdist"},
+    {include-group = "pep8test"},
+]
 nox = ["nox[uv] >=2024.04.15"]
 test = [
-    "cryptography_vectors==46.0.7",
+    "cryptography_vectors==47.0.0",
     "pytest >=7.4.0",
     "pytest-benchmark >=4.0",
     "pytest-cov >=2.10.1",
@@ -78,7 +86,7 @@ test = [
     "pretend >=0.7",
     "certifi >=2024",
 ]
-test-randomorder = ["pytest-randomly"]
+test-randomorder = [{include-group = "test"}, "pytest-randomly"]
 docs = [
     "sphinx >=5.3.0",
     "sphinx-rtd-theme >=3.0.0",
@@ -106,10 +114,10 @@ module-name = "cryptography.hazmat.bindings._rust"
 locked = true
 sdist-generator = "git"
 include = [
-    "CHANGELOG.rst",
-    "CONTRIBUTING.rst",
+    { path = "CHANGELOG.rst", format = "sdist" },
+    { path = "CONTRIBUTING.rst", format = "sdist" },
 
-    "docs/**/*",
+    { path = "docs/**/*", format = "sdist" },
 
     { path = "src/_cffi_src/**/*.py", format = "sdist" },
     { path = "src/_cffi_src/**/*.c", format = "sdist" },
@@ -121,7 +129,7 @@ include = [
     { path = "src/rust/**/Cargo.lock", format = "sdist" },
     { path = "src/rust/**/*.rs", format = "sdist" },
 
-    "tests/**/*.py",
+    { path = "tests/**/*.py", format = "sdist" },
 ]
 exclude = [
     "vectors/**/*",
@@ -175,9 +183,6 @@ exclude_lines = [
     "@typing.overload",
     "if typing.TYPE_CHECKING",
 ]
-
-[tool.coverage.html]
-show_contexts = true
 
 [tool.ruff]
 line-length = 79

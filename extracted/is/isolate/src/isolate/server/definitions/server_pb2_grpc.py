@@ -5,7 +5,6 @@ import grpc
 from isolate.connections.grpc.definitions import common_pb2 as common__pb2
 from isolate.server.definitions import server_pb2 as server__pb2
 
-
 class IsolateStub(object):
     """Missing associated documentation comment in .proto file."""
 

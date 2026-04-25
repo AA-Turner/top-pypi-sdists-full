@@ -111,6 +111,12 @@ class ReadToolInput(ToolInput, tag=READ_TOOL_NAME):
     limit: int | None = None
     character_limit: int | None = None
     max_file_size_bytes: int | None = None
+    is_memory: bool | None = None
+
+    def to_llm(self) -> dict[str, Any]:
+        result = msgspec.to_builtins(self)
+        result.pop("is_memory", None)
+        return result
 
     def skip_result_truncation(self) -> bool:
         return self.character_limit == NO_CHARACTER_LIMIT
@@ -127,10 +133,11 @@ class ReadToolArtifactResult(ToolResult, tag=READ_TOOL_ARTIFACT_NAME):
     media_type: str
 
     def to_text(self) -> str:
-        # Text fallback used when the LLM provider doesn't support native image
-        # content blocks (OpenRouter) or when chat_context is unavailable
-        # (e.g. during compaction). Normally the image is delivered as a base64
-        # content block by the provider-specific history builder.
+        # Text representation stored alongside the artifact in the event stream.
+        # The actual binary content is delivered as a base64 content block
+        # by the provider-specific history builder via get_base64_content().
+        if self.media_type == "application/pdf":
+            return f"[PDF document: {self.file_path}]"
         return f"[Image artifact: {self.file_path}]"
 
     async def get_base64_content(self, chat_uuid: str) -> str:
@@ -147,15 +154,7 @@ class ReadToolArtifactResult(ToolResult, tag=READ_TOOL_ARTIFACT_NAME):
         s3_client = S3Client(chat_uuid=chat_uuid)
         await s3_client.authenticate()
 
-        s3_uri = self.s3_uri
-        bucket_prefix = f"s3://{s3_client.bucket_name}/"
-        if s3_uri.startswith(bucket_prefix):
-            s3_key = s3_uri[len(bucket_prefix) :]
-            chat_prefix = f"{chat_uuid}/"
-            if s3_key.startswith(chat_prefix):
-                s3_key = s3_key[len(chat_prefix) :]
-        else:
-            raise ValueError(f"S3 URI {s3_uri} does not match expected bucket prefix {bucket_prefix}")
+        s3_key = s3_client.get_key_for_uri(self.s3_uri)
 
         file_bytes = await s3_client.get_object(s3_key)
         return base64.standard_b64encode(file_bytes).decode("utf-8")
@@ -213,6 +212,12 @@ class WriteToolInput(ToolInput, tag=WRITE_TOOL_NAME):
     file_path: FilePath
     content: str
     last_known_modified_timestamp: float | None = None
+    is_memory: bool | None = None
+
+    def to_llm(self) -> dict[str, Any]:
+        result = msgspec.to_builtins(self)
+        result.pop("is_memory", None)
+        return result
 
 
 class WriteToolResult(ToolResult, tag=WRITE_TOOL_NAME):
@@ -249,6 +254,12 @@ class EditToolInput(ToolInput, tag=EDIT_TOOL_NAME):
     old_string_end: str | None = None
     # The last retrieved modified timestamp. This is used to check if the file has been modified since the last read/write that we are aware of (in which case we should re-read the file before editing).
     last_known_modified_timestamp: float | None = None
+    is_memory: bool | None = None
+
+    def to_llm(self) -> dict[str, Any]:
+        result = msgspec.to_builtins(self)
+        result.pop("is_memory", None)
+        return result
 
     @classmethod
     def from_server_side_input(
@@ -263,6 +274,7 @@ class EditToolInput(ToolInput, tag=EDIT_TOOL_NAME):
             replace_all=server_side_input.replace_all,
             old_string_end=server_side_input.old_string_end,
             last_known_modified_timestamp=last_known_modified_timestamp,
+            is_memory=server_side_input.is_memory,
         )
 
 
@@ -473,95 +485,6 @@ class DownloadFromUrlResponse(msgspec.Struct, tag="download_from_url"):
     error_message: str | None = None
 
 
-# Terminal session management
-class StartTerminalRequest(msgspec.Struct, tag="start_terminal"):
-    """Start a new terminal session with PTY"""
-
-    session_id: str
-    command: list[str] | None = None  # None = default shell, or specific command
-    cols: int = 80
-    rows: int = 24
-    env: dict[str, str] | None = None  # Additional environment variables
-    name: str | None = None  # Display name for the terminal
-
-
-class StartTerminalResponse(msgspec.Struct, tag="start_terminal"):
-    """Response after starting terminal"""
-
-    session_id: str
-    success: bool
-    error_message: str | None = None
-    name: str | None = None  # Display name for the terminal
-
-
-# Terminal input (user typing)
-class TerminalInputRequest(msgspec.Struct, tag="terminal_input"):
-    """Send user input to terminal"""
-
-    session_id: str
-    data: str  # Raw input data from user
-
-
-class TerminalInputResponse(msgspec.Struct, tag="terminal_input"):
-    """Acknowledge input received"""
-
-    session_id: str
-    success: bool
-    error_message: str | None = None
-
-
-# Terminal resize
-class TerminalResizeRequest(msgspec.Struct, tag="terminal_resize"):
-    """Resize terminal dimensions"""
-
-    session_id: str
-    cols: int
-    rows: int
-
-
-class TerminalResizeResponse(msgspec.Struct, tag="terminal_resize"):
-    """Acknowledge resize"""
-
-    session_id: str
-    success: bool
-    error_message: str | None = None
-
-
-# Terminal stop
-class StopTerminalRequest(msgspec.Struct, tag="stop_terminal"):
-    """Stop a terminal session"""
-
-    session_id: str
-
-
-class StopTerminalResponse(msgspec.Struct, tag="stop_terminal"):
-    """Acknowledge terminal stopped"""
-
-    session_id: str
-    success: bool
-    error_message: str | None = None
-
-
-class ListTerminalsRequest(msgspec.Struct, tag="list_terminals"):
-    """Request to list all active terminal sessions"""
-
-    pass
-
-
-class TerminalInfo(msgspec.Struct):
-    """Information about a terminal session"""
-
-    session_id: str
-    name: str | None = None
-    running: bool = True
-
-
-class ListTerminalsResponse(msgspec.Struct, tag="list_terminals"):
-    """Response with list of active terminal sessions"""
-
-    terminals: list[TerminalInfo]
-
-
 class StartBlitTerminalRequest(msgspec.Struct, tag="start_blit_terminal"):
     """Start a terminal directly in the blit server."""
 
@@ -597,11 +520,6 @@ class CliRpcRequest(msgspec.Struct):
         | SwitchCLIChatRequest
         | GenerateUploadUrlRequest
         | DownloadFromUrlRequest
-        | StartTerminalRequest
-        | TerminalInputRequest
-        | TerminalResizeRequest
-        | StopTerminalRequest
-        | ListTerminalsRequest
         | StartBlitTerminalRequest
         | StreamingCodeExecutionRequest
     )
@@ -662,9 +580,15 @@ class AuthSuccessMessage(msgspec.Struct):
 
 
 class AuthFailedMessage(msgspec.Struct):
-    """Authentication failure response."""
+    """Authentication failure response.
+
+    ``code`` is a stable machine-readable identifier so clients can distinguish
+    terminal failures (e.g. chat deleted — reconnecting will never succeed)
+    from transient ones (e.g. invalid credentials — user may refresh key).
+    """
 
     reason: str
+    code: str = "invalid_credentials"
 
 
 class BackgroundProcessCompletedNotification(msgspec.Struct, tag="background_process_completed"):
@@ -696,11 +620,6 @@ class CliRpcResponse(msgspec.Struct):
         | SwitchCLIChatResponse
         | GenerateUploadUrlResponse
         | DownloadFromUrlResponse
-        | StartTerminalResponse
-        | TerminalInputResponse
-        | TerminalResizeResponse
-        | StopTerminalResponse
-        | ListTerminalsResponse
         | StartBlitTerminalResponse
         | StreamingCodeExecutionResponseChunk
         | StreamingCodeExecutionResponse

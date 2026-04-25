@@ -26484,6 +26484,12 @@ class Runtime(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_lambda.Runtime
         '''The Ruby 3.4 runtime (ruby3.4).'''
         return typing.cast("Runtime", jsii.sget(cls, "RUBY_3_4"))
 
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="RUBY_4_0")
+    def RUBY_4_0(cls) -> "Runtime":
+        '''The Ruby 4.0 runtime (ruby4.0).'''
+        return typing.cast("Runtime", jsii.sget(cls, "RUBY_4_0"))
+
     @builtins.property
     @jsii.member(jsii_name="bundlingImage")
     def bundling_image(self) -> "_DockerImage_f97a0c12":

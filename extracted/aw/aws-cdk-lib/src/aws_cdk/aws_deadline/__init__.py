@@ -4503,6 +4503,7 @@ class CfnMonitor(
             subdomain="subdomain",
         
             # the properties below are optional
+            identity_center_region="identityCenterRegion",
             tags=[CfnTag(
                 key="key",
                 value="value"
@@ -4519,6 +4520,7 @@ class CfnMonitor(
         identity_center_instance_arn: builtins.str,
         role_arn: builtins.str,
         subdomain: builtins.str,
+        identity_center_region: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Deadline::Monitor``.
@@ -4529,6 +4531,7 @@ class CfnMonitor(
         :param identity_center_instance_arn: The Amazon Resource Name of the IAM Identity Center instance responsible for authenticating monitor users.
         :param role_arn: The Amazon Resource Name of the IAM role for the monitor. Users of the monitor use this role to access Deadline Cloud resources.
         :param subdomain: The subdomain used for the monitor URL. The full URL of the monitor is subdomain.Region.deadlinecloud.amazonaws.com.
+        :param identity_center_region: The AWS region where IAM Identity Center is enabled. Required when Identity Center is in a different region than the monitor.
         :param tags: An array of key-value pairs to apply to this resource.
         '''
         if __debug__:
@@ -4540,6 +4543,7 @@ class CfnMonitor(
             identity_center_instance_arn=identity_center_instance_arn,
             role_arn=role_arn,
             subdomain=subdomain,
+            identity_center_region=identity_center_region,
             tags=tags,
         )
 
@@ -4706,6 +4710,19 @@ class CfnMonitor(
         jsii.set(self, "subdomain", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="identityCenterRegion")
+    def identity_center_region(self) -> typing.Optional[builtins.str]:
+        '''The AWS region where IAM Identity Center is enabled.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "identityCenterRegion"))
+
+    @identity_center_region.setter
+    def identity_center_region(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1a4086b2adbb852e92f05a0e8269f5772c3582c2a7eca92c19dbaaa29a80dec1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "identityCenterRegion", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''An array of key-value pairs to apply to this resource.'''
@@ -4727,6 +4744,7 @@ class CfnMonitor(
         "identity_center_instance_arn": "identityCenterInstanceArn",
         "role_arn": "roleArn",
         "subdomain": "subdomain",
+        "identity_center_region": "identityCenterRegion",
         "tags": "tags",
     },
 )
@@ -4738,6 +4756,7 @@ class CfnMonitorProps:
         identity_center_instance_arn: builtins.str,
         role_arn: builtins.str,
         subdomain: builtins.str,
+        identity_center_region: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnMonitor``.
@@ -4746,6 +4765,7 @@ class CfnMonitorProps:
         :param identity_center_instance_arn: The Amazon Resource Name of the IAM Identity Center instance responsible for authenticating monitor users.
         :param role_arn: The Amazon Resource Name of the IAM role for the monitor. Users of the monitor use this role to access Deadline Cloud resources.
         :param subdomain: The subdomain used for the monitor URL. The full URL of the monitor is subdomain.Region.deadlinecloud.amazonaws.com.
+        :param identity_center_region: The AWS region where IAM Identity Center is enabled. Required when Identity Center is in a different region than the monitor.
         :param tags: An array of key-value pairs to apply to this resource.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-deadline-monitor.html
@@ -4765,6 +4785,7 @@ class CfnMonitorProps:
                 subdomain="subdomain",
             
                 # the properties below are optional
+                identity_center_region="identityCenterRegion",
                 tags=[CfnTag(
                     key="key",
                     value="value"
@@ -4777,6 +4798,7 @@ class CfnMonitorProps:
             check_type(argname="argument identity_center_instance_arn", value=identity_center_instance_arn, expected_type=type_hints["identity_center_instance_arn"])
             check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
             check_type(argname="argument subdomain", value=subdomain, expected_type=type_hints["subdomain"])
+            check_type(argname="argument identity_center_region", value=identity_center_region, expected_type=type_hints["identity_center_region"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "display_name": display_name,
@@ -4784,6 +4806,8 @@ class CfnMonitorProps:
             "role_arn": role_arn,
             "subdomain": subdomain,
         }
+        if identity_center_region is not None:
+            self._values["identity_center_region"] = identity_center_region
         if tags is not None:
             self._values["tags"] = tags
 
@@ -4836,6 +4860,17 @@ class CfnMonitorProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
+    def identity_center_region(self) -> typing.Optional[builtins.str]:
+        '''The AWS region where IAM Identity Center is enabled.
+
+        Required when Identity Center is in a different region than the monitor.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-deadline-monitor.html#cfn-deadline-monitor-identitycenterregion
+        '''
+        result = self._values.get("identity_center_region")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''An array of key-value pairs to apply to this resource.
 
@@ -4877,6 +4912,10 @@ class CfnQueue(
         # The values are placeholders you should change.
         from aws_cdk import aws_deadline as deadline
         
+        # always_schedule_first: Any
+        # always_schedule_last: Any
+        # priority_fifo: Any
+        
         cfn_queue = deadline.CfnQueue(self, "MyCfnQueue",
             display_name="displayName",
             farm_id="farmId",
@@ -4904,6 +4943,25 @@ class CfnQueue(
             ),
             required_file_system_location_names=["requiredFileSystemLocationNames"],
             role_arn="roleArn",
+            scheduling_configuration=deadline.CfnQueue.SchedulingConfigurationProperty(
+                priority_balanced=deadline.CfnQueue.PriorityBalancedSchedulingConfigurationProperty(
+                    rendering_task_buffer=123
+                ),
+                priority_fifo=priority_fifo,
+                weighted_balanced=deadline.CfnQueue.WeightedBalancedSchedulingConfigurationProperty(
+                    error_weight=123,
+                    max_priority_override=deadline.CfnQueue.SchedulingMaxPriorityOverrideProperty(
+                        always_schedule_first=always_schedule_first
+                    ),
+                    min_priority_override=deadline.CfnQueue.SchedulingMinPriorityOverrideProperty(
+                        always_schedule_last=always_schedule_last
+                    ),
+                    priority_weight=123,
+                    rendering_task_buffer=123,
+                    rendering_task_weight=123,
+                    submission_time_weight=123
+                )
+            ),
             tags=[CfnTag(
                 key="key",
                 value="value"
@@ -4925,6 +4983,7 @@ class CfnQueue(
         job_run_as_user: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnQueue.JobRunAsUserProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         required_file_system_location_names: typing.Optional[typing.Sequence[builtins.str]] = None,
         role_arn: typing.Optional[builtins.str] = None,
+        scheduling_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnQueue.SchedulingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Deadline::Queue``.
@@ -4940,6 +4999,7 @@ class CfnQueue(
         :param job_run_as_user: Identifies the user for a job.
         :param required_file_system_location_names: The file system location that the queue uses.
         :param role_arn: The Amazon Resource Name (ARN) of the IAM role that workers use when running jobs in this queue.
+        :param scheduling_configuration: 
         :param tags: The tags to add to your queue. Each tag consists of a tag key and a tag value. Tag keys and values are both required, but tag values can be empty strings.
         '''
         if __debug__:
@@ -4956,6 +5016,7 @@ class CfnQueue(
             job_run_as_user=job_run_as_user,
             required_file_system_location_names=required_file_system_location_names,
             role_arn=role_arn,
+            scheduling_configuration=scheduling_configuration,
             tags=tags,
         )
 
@@ -5183,6 +5244,23 @@ class CfnQueue(
             type_hints = typing.get_type_hints(_typecheckingstub__cfb5bb7ca40abe81d0cb9afaa09246c4bbb7553021c1125ddbc8a2f83d0da3db)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="schedulingConfiguration")
+    def scheduling_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnQueue.SchedulingConfigurationProperty"]]:
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnQueue.SchedulingConfigurationProperty"]], jsii.get(self, "schedulingConfiguration"))
+
+    @scheduling_configuration.setter
+    def scheduling_configuration(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnQueue.SchedulingConfigurationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__82a9f74d175cbcd0aaff94e7eccd835f3d247053961c19de186dba5bd6101919)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "schedulingConfiguration", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -5431,6 +5509,438 @@ class CfnQueue(
 
         def __repr__(self) -> str:
             return "PosixUserProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_deadline.CfnQueue.PriorityBalancedSchedulingConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"rendering_task_buffer": "renderingTaskBuffer"},
+    )
+    class PriorityBalancedSchedulingConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            rendering_task_buffer: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''
+            :param rendering_task_buffer: Default: - 1
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-queue-prioritybalancedschedulingconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_deadline as deadline
+                
+                priority_balanced_scheduling_configuration_property = deadline.CfnQueue.PriorityBalancedSchedulingConfigurationProperty(
+                    rendering_task_buffer=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__dd20b1e94c0290d72dd64fc68f5c411ea253cfe384b8a27868dd41f47f2feed3)
+                check_type(argname="argument rendering_task_buffer", value=rendering_task_buffer, expected_type=type_hints["rendering_task_buffer"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if rendering_task_buffer is not None:
+                self._values["rendering_task_buffer"] = rendering_task_buffer
+
+        @builtins.property
+        def rendering_task_buffer(self) -> typing.Optional[jsii.Number]:
+            '''
+            :default: - 1
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-queue-prioritybalancedschedulingconfiguration.html#cfn-deadline-queue-prioritybalancedschedulingconfiguration-renderingtaskbuffer
+            '''
+            result = self._values.get("rendering_task_buffer")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "PriorityBalancedSchedulingConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_deadline.CfnQueue.SchedulingConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "priority_balanced": "priorityBalanced",
+            "priority_fifo": "priorityFifo",
+            "weighted_balanced": "weightedBalanced",
+        },
+    )
+    class SchedulingConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            priority_balanced: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnQueue.PriorityBalancedSchedulingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            priority_fifo: typing.Any = None,
+            weighted_balanced: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnQueue.WeightedBalancedSchedulingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param priority_balanced: 
+            :param priority_fifo: 
+            :param weighted_balanced: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-queue-schedulingconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_deadline as deadline
+                
+                # always_schedule_first: Any
+                # always_schedule_last: Any
+                # priority_fifo: Any
+                
+                scheduling_configuration_property = deadline.CfnQueue.SchedulingConfigurationProperty(
+                    priority_balanced=deadline.CfnQueue.PriorityBalancedSchedulingConfigurationProperty(
+                        rendering_task_buffer=123
+                    ),
+                    priority_fifo=priority_fifo,
+                    weighted_balanced=deadline.CfnQueue.WeightedBalancedSchedulingConfigurationProperty(
+                        error_weight=123,
+                        max_priority_override=deadline.CfnQueue.SchedulingMaxPriorityOverrideProperty(
+                            always_schedule_first=always_schedule_first
+                        ),
+                        min_priority_override=deadline.CfnQueue.SchedulingMinPriorityOverrideProperty(
+                            always_schedule_last=always_schedule_last
+                        ),
+                        priority_weight=123,
+                        rendering_task_buffer=123,
+                        rendering_task_weight=123,
+                        submission_time_weight=123
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__43c12c33ef74f2065798b30a2e0b4b26beba00c10e9f094176bea5d454cd2280)
+                check_type(argname="argument priority_balanced", value=priority_balanced, expected_type=type_hints["priority_balanced"])
+                check_type(argname="argument priority_fifo", value=priority_fifo, expected_type=type_hints["priority_fifo"])
+                check_type(argname="argument weighted_balanced", value=weighted_balanced, expected_type=type_hints["weighted_balanced"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if priority_balanced is not None:
+                self._values["priority_balanced"] = priority_balanced
+            if priority_fifo is not None:
+                self._values["priority_fifo"] = priority_fifo
+            if weighted_balanced is not None:
+                self._values["weighted_balanced"] = weighted_balanced
+
+        @builtins.property
+        def priority_balanced(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnQueue.PriorityBalancedSchedulingConfigurationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-queue-schedulingconfiguration.html#cfn-deadline-queue-schedulingconfiguration-prioritybalanced
+            '''
+            result = self._values.get("priority_balanced")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnQueue.PriorityBalancedSchedulingConfigurationProperty"]], result)
+
+        @builtins.property
+        def priority_fifo(self) -> typing.Any:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-queue-schedulingconfiguration.html#cfn-deadline-queue-schedulingconfiguration-priorityfifo
+            '''
+            result = self._values.get("priority_fifo")
+            return typing.cast(typing.Any, result)
+
+        @builtins.property
+        def weighted_balanced(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnQueue.WeightedBalancedSchedulingConfigurationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-queue-schedulingconfiguration.html#cfn-deadline-queue-schedulingconfiguration-weightedbalanced
+            '''
+            result = self._values.get("weighted_balanced")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnQueue.WeightedBalancedSchedulingConfigurationProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SchedulingConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_deadline.CfnQueue.SchedulingMaxPriorityOverrideProperty",
+        jsii_struct_bases=[],
+        name_mapping={"always_schedule_first": "alwaysScheduleFirst"},
+    )
+    class SchedulingMaxPriorityOverrideProperty:
+        def __init__(self, *, always_schedule_first: typing.Any) -> None:
+            '''
+            :param always_schedule_first: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-queue-schedulingmaxpriorityoverride.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_deadline as deadline
+                
+                # always_schedule_first: Any
+                
+                scheduling_max_priority_override_property = deadline.CfnQueue.SchedulingMaxPriorityOverrideProperty(
+                    always_schedule_first=always_schedule_first
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__391b340a952b39210aa5ee26a64eb67349217e2cd0cc5ddea6719ab64da1d3ee)
+                check_type(argname="argument always_schedule_first", value=always_schedule_first, expected_type=type_hints["always_schedule_first"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "always_schedule_first": always_schedule_first,
+            }
+
+        @builtins.property
+        def always_schedule_first(self) -> typing.Any:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-queue-schedulingmaxpriorityoverride.html#cfn-deadline-queue-schedulingmaxpriorityoverride-alwaysschedulefirst
+            '''
+            result = self._values.get("always_schedule_first")
+            assert result is not None, "Required property 'always_schedule_first' is missing"
+            return typing.cast(typing.Any, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SchedulingMaxPriorityOverrideProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_deadline.CfnQueue.SchedulingMinPriorityOverrideProperty",
+        jsii_struct_bases=[],
+        name_mapping={"always_schedule_last": "alwaysScheduleLast"},
+    )
+    class SchedulingMinPriorityOverrideProperty:
+        def __init__(self, *, always_schedule_last: typing.Any) -> None:
+            '''
+            :param always_schedule_last: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-queue-schedulingminpriorityoverride.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_deadline as deadline
+                
+                # always_schedule_last: Any
+                
+                scheduling_min_priority_override_property = deadline.CfnQueue.SchedulingMinPriorityOverrideProperty(
+                    always_schedule_last=always_schedule_last
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__5fc3b3512aa62998ace20e26ed6a89ec69ccbabdc58284e1a0188887cc1903f9)
+                check_type(argname="argument always_schedule_last", value=always_schedule_last, expected_type=type_hints["always_schedule_last"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "always_schedule_last": always_schedule_last,
+            }
+
+        @builtins.property
+        def always_schedule_last(self) -> typing.Any:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-queue-schedulingminpriorityoverride.html#cfn-deadline-queue-schedulingminpriorityoverride-alwaysschedulelast
+            '''
+            result = self._values.get("always_schedule_last")
+            assert result is not None, "Required property 'always_schedule_last' is missing"
+            return typing.cast(typing.Any, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SchedulingMinPriorityOverrideProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_deadline.CfnQueue.WeightedBalancedSchedulingConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "error_weight": "errorWeight",
+            "max_priority_override": "maxPriorityOverride",
+            "min_priority_override": "minPriorityOverride",
+            "priority_weight": "priorityWeight",
+            "rendering_task_buffer": "renderingTaskBuffer",
+            "rendering_task_weight": "renderingTaskWeight",
+            "submission_time_weight": "submissionTimeWeight",
+        },
+    )
+    class WeightedBalancedSchedulingConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            error_weight: typing.Optional[jsii.Number] = None,
+            max_priority_override: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnQueue.SchedulingMaxPriorityOverrideProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            min_priority_override: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnQueue.SchedulingMinPriorityOverrideProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            priority_weight: typing.Optional[jsii.Number] = None,
+            rendering_task_buffer: typing.Optional[jsii.Number] = None,
+            rendering_task_weight: typing.Optional[jsii.Number] = None,
+            submission_time_weight: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''
+            :param error_weight: Default: - -10
+            :param max_priority_override: 
+            :param min_priority_override: 
+            :param priority_weight: Default: - 100
+            :param rendering_task_buffer: Default: - 1
+            :param rendering_task_weight: Default: - -100
+            :param submission_time_weight: Default: - 3
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-queue-weightedbalancedschedulingconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_deadline as deadline
+                
+                # always_schedule_first: Any
+                # always_schedule_last: Any
+                
+                weighted_balanced_scheduling_configuration_property = deadline.CfnQueue.WeightedBalancedSchedulingConfigurationProperty(
+                    error_weight=123,
+                    max_priority_override=deadline.CfnQueue.SchedulingMaxPriorityOverrideProperty(
+                        always_schedule_first=always_schedule_first
+                    ),
+                    min_priority_override=deadline.CfnQueue.SchedulingMinPriorityOverrideProperty(
+                        always_schedule_last=always_schedule_last
+                    ),
+                    priority_weight=123,
+                    rendering_task_buffer=123,
+                    rendering_task_weight=123,
+                    submission_time_weight=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__f3f46048ccd541e1c5594d8cb62ffc63c8a507bdf87e89129c76c1ba1ae827e0)
+                check_type(argname="argument error_weight", value=error_weight, expected_type=type_hints["error_weight"])
+                check_type(argname="argument max_priority_override", value=max_priority_override, expected_type=type_hints["max_priority_override"])
+                check_type(argname="argument min_priority_override", value=min_priority_override, expected_type=type_hints["min_priority_override"])
+                check_type(argname="argument priority_weight", value=priority_weight, expected_type=type_hints["priority_weight"])
+                check_type(argname="argument rendering_task_buffer", value=rendering_task_buffer, expected_type=type_hints["rendering_task_buffer"])
+                check_type(argname="argument rendering_task_weight", value=rendering_task_weight, expected_type=type_hints["rendering_task_weight"])
+                check_type(argname="argument submission_time_weight", value=submission_time_weight, expected_type=type_hints["submission_time_weight"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if error_weight is not None:
+                self._values["error_weight"] = error_weight
+            if max_priority_override is not None:
+                self._values["max_priority_override"] = max_priority_override
+            if min_priority_override is not None:
+                self._values["min_priority_override"] = min_priority_override
+            if priority_weight is not None:
+                self._values["priority_weight"] = priority_weight
+            if rendering_task_buffer is not None:
+                self._values["rendering_task_buffer"] = rendering_task_buffer
+            if rendering_task_weight is not None:
+                self._values["rendering_task_weight"] = rendering_task_weight
+            if submission_time_weight is not None:
+                self._values["submission_time_weight"] = submission_time_weight
+
+        @builtins.property
+        def error_weight(self) -> typing.Optional[jsii.Number]:
+            '''
+            :default: - -10
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-queue-weightedbalancedschedulingconfiguration.html#cfn-deadline-queue-weightedbalancedschedulingconfiguration-errorweight
+            '''
+            result = self._values.get("error_weight")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def max_priority_override(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnQueue.SchedulingMaxPriorityOverrideProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-queue-weightedbalancedschedulingconfiguration.html#cfn-deadline-queue-weightedbalancedschedulingconfiguration-maxpriorityoverride
+            '''
+            result = self._values.get("max_priority_override")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnQueue.SchedulingMaxPriorityOverrideProperty"]], result)
+
+        @builtins.property
+        def min_priority_override(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnQueue.SchedulingMinPriorityOverrideProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-queue-weightedbalancedschedulingconfiguration.html#cfn-deadline-queue-weightedbalancedschedulingconfiguration-minpriorityoverride
+            '''
+            result = self._values.get("min_priority_override")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnQueue.SchedulingMinPriorityOverrideProperty"]], result)
+
+        @builtins.property
+        def priority_weight(self) -> typing.Optional[jsii.Number]:
+            '''
+            :default: - 100
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-queue-weightedbalancedschedulingconfiguration.html#cfn-deadline-queue-weightedbalancedschedulingconfiguration-priorityweight
+            '''
+            result = self._values.get("priority_weight")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def rendering_task_buffer(self) -> typing.Optional[jsii.Number]:
+            '''
+            :default: - 1
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-queue-weightedbalancedschedulingconfiguration.html#cfn-deadline-queue-weightedbalancedschedulingconfiguration-renderingtaskbuffer
+            '''
+            result = self._values.get("rendering_task_buffer")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def rendering_task_weight(self) -> typing.Optional[jsii.Number]:
+            '''
+            :default: - -100
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-queue-weightedbalancedschedulingconfiguration.html#cfn-deadline-queue-weightedbalancedschedulingconfiguration-renderingtaskweight
+            '''
+            result = self._values.get("rendering_task_weight")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def submission_time_weight(self) -> typing.Optional[jsii.Number]:
+            '''
+            :default: - 3
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-queue-weightedbalancedschedulingconfiguration.html#cfn-deadline-queue-weightedbalancedschedulingconfiguration-submissiontimeweight
+            '''
+            result = self._values.get("submission_time_weight")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "WeightedBalancedSchedulingConfigurationProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -6302,6 +6812,7 @@ class CfnQueueLimitAssociationProps:
         "job_run_as_user": "jobRunAsUser",
         "required_file_system_location_names": "requiredFileSystemLocationNames",
         "role_arn": "roleArn",
+        "scheduling_configuration": "schedulingConfiguration",
         "tags": "tags",
     },
 )
@@ -6318,6 +6829,7 @@ class CfnQueueProps:
         job_run_as_user: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnQueue.JobRunAsUserProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         required_file_system_location_names: typing.Optional[typing.Sequence[builtins.str]] = None,
         role_arn: typing.Optional[builtins.str] = None,
+        scheduling_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnQueue.SchedulingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnQueue``.
@@ -6331,6 +6843,7 @@ class CfnQueueProps:
         :param job_run_as_user: Identifies the user for a job.
         :param required_file_system_location_names: The file system location that the queue uses.
         :param role_arn: The Amazon Resource Name (ARN) of the IAM role that workers use when running jobs in this queue.
+        :param scheduling_configuration: 
         :param tags: The tags to add to your queue. Each tag consists of a tag key and a tag value. Tag keys and values are both required, but tag values can be empty strings.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-deadline-queue.html
@@ -6342,6 +6855,10 @@ class CfnQueueProps:
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import aws_deadline as deadline
+            
+            # always_schedule_first: Any
+            # always_schedule_last: Any
+            # priority_fifo: Any
             
             cfn_queue_props = deadline.CfnQueueProps(
                 display_name="displayName",
@@ -6370,6 +6887,25 @@ class CfnQueueProps:
                 ),
                 required_file_system_location_names=["requiredFileSystemLocationNames"],
                 role_arn="roleArn",
+                scheduling_configuration=deadline.CfnQueue.SchedulingConfigurationProperty(
+                    priority_balanced=deadline.CfnQueue.PriorityBalancedSchedulingConfigurationProperty(
+                        rendering_task_buffer=123
+                    ),
+                    priority_fifo=priority_fifo,
+                    weighted_balanced=deadline.CfnQueue.WeightedBalancedSchedulingConfigurationProperty(
+                        error_weight=123,
+                        max_priority_override=deadline.CfnQueue.SchedulingMaxPriorityOverrideProperty(
+                            always_schedule_first=always_schedule_first
+                        ),
+                        min_priority_override=deadline.CfnQueue.SchedulingMinPriorityOverrideProperty(
+                            always_schedule_last=always_schedule_last
+                        ),
+                        priority_weight=123,
+                        rendering_task_buffer=123,
+                        rendering_task_weight=123,
+                        submission_time_weight=123
+                    )
+                ),
                 tags=[CfnTag(
                     key="key",
                     value="value"
@@ -6387,6 +6923,7 @@ class CfnQueueProps:
             check_type(argname="argument job_run_as_user", value=job_run_as_user, expected_type=type_hints["job_run_as_user"])
             check_type(argname="argument required_file_system_location_names", value=required_file_system_location_names, expected_type=type_hints["required_file_system_location_names"])
             check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
+            check_type(argname="argument scheduling_configuration", value=scheduling_configuration, expected_type=type_hints["scheduling_configuration"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "display_name": display_name,
@@ -6406,6 +6943,8 @@ class CfnQueueProps:
             self._values["required_file_system_location_names"] = required_file_system_location_names
         if role_arn is not None:
             self._values["role_arn"] = role_arn
+        if scheduling_configuration is not None:
+            self._values["scheduling_configuration"] = scheduling_configuration
         if tags is not None:
             self._values["tags"] = tags
 
@@ -6511,6 +7050,16 @@ class CfnQueueProps:
         '''
         result = self._values.get("role_arn")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def scheduling_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnQueue.SchedulingConfigurationProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-deadline-queue.html#cfn-deadline-queue-schedulingconfiguration
+        '''
+        result = self._values.get("scheduling_configuration")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnQueue.SchedulingConfigurationProperty"]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
@@ -7526,6 +8075,7 @@ def _typecheckingstub__4edf45db3ae8781366a254b5ea792b290cf7822e23073f5b7f959959e
     identity_center_instance_arn: builtins.str,
     role_arn: builtins.str,
     subdomain: builtins.str,
+    identity_center_region: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -7579,6 +8129,12 @@ def _typecheckingstub__92a6ea9073f47adeb866001ba027d5701cc6d06e3e3b1842bc227c770
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__1a4086b2adbb852e92f05a0e8269f5772c3582c2a7eca92c19dbaaa29a80dec1(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__d79166c0c9556907ea6c9def114020487a556a49bf64ecf1e6334c0fe7e8efac(
     value: typing.Optional[typing.List[_CfnTag_f6864754]],
 ) -> None:
@@ -7591,6 +8147,7 @@ def _typecheckingstub__491e65cd80e97b2076199940d899980b250e96b9da8d5783d92f236ae
     identity_center_instance_arn: builtins.str,
     role_arn: builtins.str,
     subdomain: builtins.str,
+    identity_center_region: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -7609,6 +8166,7 @@ def _typecheckingstub__7c8ed104ef6a730c7b90ba82ab4ab0b37d213e5444e12df63d7d60b1e
     job_run_as_user: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnQueue.JobRunAsUserProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     required_file_system_location_names: typing.Optional[typing.Sequence[builtins.str]] = None,
     role_arn: typing.Optional[builtins.str] = None,
+    scheduling_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnQueue.SchedulingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -7692,6 +8250,12 @@ def _typecheckingstub__cfb5bb7ca40abe81d0cb9afaa09246c4bbb7553021c1125ddbc8a2f83
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__82a9f74d175cbcd0aaff94e7eccd835f3d247053961c19de186dba5bd6101919(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnQueue.SchedulingConfigurationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__57b6aaea7cc5d22bb58ee62113bb0f076ca6250b3869aeb5848ed24fd0103755(
     value: typing.Optional[typing.List[_CfnTag_f6864754]],
 ) -> None:
@@ -7719,6 +8283,49 @@ def _typecheckingstub__e675ce01c62a0076a355385ac17aeacd32612beedb164bb4511f338c9
     *,
     group: builtins.str,
     user: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dd20b1e94c0290d72dd64fc68f5c411ea253cfe384b8a27868dd41f47f2feed3(
+    *,
+    rendering_task_buffer: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__43c12c33ef74f2065798b30a2e0b4b26beba00c10e9f094176bea5d454cd2280(
+    *,
+    priority_balanced: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnQueue.PriorityBalancedSchedulingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    priority_fifo: typing.Any = None,
+    weighted_balanced: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnQueue.WeightedBalancedSchedulingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__391b340a952b39210aa5ee26a64eb67349217e2cd0cc5ddea6719ab64da1d3ee(
+    *,
+    always_schedule_first: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5fc3b3512aa62998ace20e26ed6a89ec69ccbabdc58284e1a0188887cc1903f9(
+    *,
+    always_schedule_last: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f3f46048ccd541e1c5594d8cb62ffc63c8a507bdf87e89129c76c1ba1ae827e0(
+    *,
+    error_weight: typing.Optional[jsii.Number] = None,
+    max_priority_override: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnQueue.SchedulingMaxPriorityOverrideProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    min_priority_override: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnQueue.SchedulingMinPriorityOverrideProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    priority_weight: typing.Optional[jsii.Number] = None,
+    rendering_task_buffer: typing.Optional[jsii.Number] = None,
+    rendering_task_weight: typing.Optional[jsii.Number] = None,
+    submission_time_weight: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7926,6 +8533,7 @@ def _typecheckingstub__a92d64f51023fd5b945aa0d9e2b696749e02f9df358265737e05dd4a7
     job_run_as_user: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnQueue.JobRunAsUserProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     required_file_system_location_names: typing.Optional[typing.Sequence[builtins.str]] = None,
     role_arn: typing.Optional[builtins.str] = None,
+    scheduling_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnQueue.SchedulingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""

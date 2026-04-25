@@ -689,6 +689,10 @@ __all__ = [
     'NodeTemplateNodeTypeFlexibilityArgsDict',
     'NodeTemplateServerBindingArgs',
     'NodeTemplateServerBindingArgsDict',
+    'OrganizationSecurityPolicyRuleHeaderActionArgs',
+    'OrganizationSecurityPolicyRuleHeaderActionArgsDict',
+    'OrganizationSecurityPolicyRuleHeaderActionRequestHeadersToAddArgs',
+    'OrganizationSecurityPolicyRuleHeaderActionRequestHeadersToAddArgsDict',
     'OrganizationSecurityPolicyRuleMatchArgs',
     'OrganizationSecurityPolicyRuleMatchArgsDict',
     'OrganizationSecurityPolicyRuleMatchConfigArgs',
@@ -697,6 +701,20 @@ __all__ = [
     'OrganizationSecurityPolicyRuleMatchConfigLayer4ConfigArgsDict',
     'OrganizationSecurityPolicyRuleMatchExprArgs',
     'OrganizationSecurityPolicyRuleMatchExprArgsDict',
+    'OrganizationSecurityPolicyRulePreconfiguredWafConfigArgs',
+    'OrganizationSecurityPolicyRulePreconfiguredWafConfigArgsDict',
+    'OrganizationSecurityPolicyRulePreconfiguredWafConfigExclusionArgs',
+    'OrganizationSecurityPolicyRulePreconfiguredWafConfigExclusionArgsDict',
+    'OrganizationSecurityPolicyRulePreconfiguredWafConfigExclusionRequestCookyArgs',
+    'OrganizationSecurityPolicyRulePreconfiguredWafConfigExclusionRequestCookyArgsDict',
+    'OrganizationSecurityPolicyRulePreconfiguredWafConfigExclusionRequestHeaderArgs',
+    'OrganizationSecurityPolicyRulePreconfiguredWafConfigExclusionRequestHeaderArgsDict',
+    'OrganizationSecurityPolicyRulePreconfiguredWafConfigExclusionRequestQueryParamArgs',
+    'OrganizationSecurityPolicyRulePreconfiguredWafConfigExclusionRequestQueryParamArgsDict',
+    'OrganizationSecurityPolicyRulePreconfiguredWafConfigExclusionRequestUriArgs',
+    'OrganizationSecurityPolicyRulePreconfiguredWafConfigExclusionRequestUriArgsDict',
+    'OrganizationSecurityPolicyRuleRedirectOptionsArgs',
+    'OrganizationSecurityPolicyRuleRedirectOptionsArgsDict',
     'PacketMirroringCollectorIlbArgs',
     'PacketMirroringCollectorIlbArgsDict',
     'PacketMirroringFilterArgs',
@@ -34928,6 +34946,87 @@ class NodeTemplateServerBindingArgs:
         pulumi.set(self, "type", value)
 
 
+class OrganizationSecurityPolicyRuleHeaderActionArgsDict(TypedDict):
+    request_headers_to_adds: NotRequired[pulumi.Input[Sequence[pulumi.Input['OrganizationSecurityPolicyRuleHeaderActionRequestHeadersToAddArgsDict']]]]
+    """
+    The list of request headers to add or overwrite if they're already present.
+    Structure is documented below.
+    """
+
+@pulumi.input_type
+class OrganizationSecurityPolicyRuleHeaderActionArgs:
+    def __init__(__self__, *,
+                 request_headers_to_adds: Optional[pulumi.Input[Sequence[pulumi.Input['OrganizationSecurityPolicyRuleHeaderActionRequestHeadersToAddArgs']]]] = None):
+        """
+        :param pulumi.Input[Sequence[pulumi.Input['OrganizationSecurityPolicyRuleHeaderActionRequestHeadersToAddArgs']]] request_headers_to_adds: The list of request headers to add or overwrite if they're already present.
+               Structure is documented below.
+        """
+        if request_headers_to_adds is not None:
+            pulumi.set(__self__, "request_headers_to_adds", request_headers_to_adds)
+
+    @_builtins.property
+    @pulumi.getter(name="requestHeadersToAdds")
+    def request_headers_to_adds(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['OrganizationSecurityPolicyRuleHeaderActionRequestHeadersToAddArgs']]]]:
+        """
+        The list of request headers to add or overwrite if they're already present.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "request_headers_to_adds")
+
+    @request_headers_to_adds.setter
+    def request_headers_to_adds(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['OrganizationSecurityPolicyRuleHeaderActionRequestHeadersToAddArgs']]]]):
+        pulumi.set(self, "request_headers_to_adds", value)
+
+
+class OrganizationSecurityPolicyRuleHeaderActionRequestHeadersToAddArgsDict(TypedDict):
+    header_name: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    The name of the header to set.
+    """
+    header_value: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    The value to set the named header to.
+    """
+
+@pulumi.input_type
+class OrganizationSecurityPolicyRuleHeaderActionRequestHeadersToAddArgs:
+    def __init__(__self__, *,
+                 header_name: Optional[pulumi.Input[_builtins.str]] = None,
+                 header_value: Optional[pulumi.Input[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] header_name: The name of the header to set.
+        :param pulumi.Input[_builtins.str] header_value: The value to set the named header to.
+        """
+        if header_name is not None:
+            pulumi.set(__self__, "header_name", header_name)
+        if header_value is not None:
+            pulumi.set(__self__, "header_value", header_value)
+
+    @_builtins.property
+    @pulumi.getter(name="headerName")
+    def header_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        The name of the header to set.
+        """
+        return pulumi.get(self, "header_name")
+
+    @header_name.setter
+    def header_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "header_name", value)
+
+    @_builtins.property
+    @pulumi.getter(name="headerValue")
+    def header_value(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        The value to set the named header to.
+        """
+        return pulumi.get(self, "header_value")
+
+    @header_value.setter
+    def header_value(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "header_value", value)
+
+
 class OrganizationSecurityPolicyRuleMatchArgsDict(TypedDict):
     config: NotRequired[pulumi.Input['OrganizationSecurityPolicyRuleMatchConfigArgsDict']]
     """
@@ -35229,6 +35328,511 @@ class OrganizationSecurityPolicyRuleMatchExprArgs:
     @expression.setter
     def expression(self, value: pulumi.Input[_builtins.str]):
         pulumi.set(self, "expression", value)
+
+
+class OrganizationSecurityPolicyRulePreconfiguredWafConfigArgsDict(TypedDict):
+    exclusions: NotRequired[pulumi.Input[Sequence[pulumi.Input['OrganizationSecurityPolicyRulePreconfiguredWafConfigExclusionArgsDict']]]]
+    """
+    An exclusion to apply during preconfigured WAF evaluation.
+    Structure is documented below.
+    """
+
+@pulumi.input_type
+class OrganizationSecurityPolicyRulePreconfiguredWafConfigArgs:
+    def __init__(__self__, *,
+                 exclusions: Optional[pulumi.Input[Sequence[pulumi.Input['OrganizationSecurityPolicyRulePreconfiguredWafConfigExclusionArgs']]]] = None):
+        """
+        :param pulumi.Input[Sequence[pulumi.Input['OrganizationSecurityPolicyRulePreconfiguredWafConfigExclusionArgs']]] exclusions: An exclusion to apply during preconfigured WAF evaluation.
+               Structure is documented below.
+        """
+        if exclusions is not None:
+            pulumi.set(__self__, "exclusions", exclusions)
+
+    @_builtins.property
+    @pulumi.getter
+    def exclusions(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['OrganizationSecurityPolicyRulePreconfiguredWafConfigExclusionArgs']]]]:
+        """
+        An exclusion to apply during preconfigured WAF evaluation.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "exclusions")
+
+    @exclusions.setter
+    def exclusions(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['OrganizationSecurityPolicyRulePreconfiguredWafConfigExclusionArgs']]]]):
+        pulumi.set(self, "exclusions", value)
+
+
+class OrganizationSecurityPolicyRulePreconfiguredWafConfigExclusionArgsDict(TypedDict):
+    target_rule_set: pulumi.Input[_builtins.str]
+    """
+    Target WAF rule set to apply the preconfigured WAF exclusion.
+    """
+    request_cookies: NotRequired[pulumi.Input[Sequence[pulumi.Input['OrganizationSecurityPolicyRulePreconfiguredWafConfigExclusionRequestCookyArgsDict']]]]
+    """
+    Request cookie whose value will be excluded from inspection during preconfigured WAF evaluation.
+    Structure is documented below.
+    """
+    request_headers: NotRequired[pulumi.Input[Sequence[pulumi.Input['OrganizationSecurityPolicyRulePreconfiguredWafConfigExclusionRequestHeaderArgsDict']]]]
+    """
+    Request header whose value will be excluded from inspection during preconfigured WAF evaluation.
+    Structure is documented below.
+    """
+    request_query_params: NotRequired[pulumi.Input[Sequence[pulumi.Input['OrganizationSecurityPolicyRulePreconfiguredWafConfigExclusionRequestQueryParamArgsDict']]]]
+    """
+    Request query parameter whose value will be excluded from inspection during preconfigured WAF evaluation.
+    Note that the parameter can be in the query string or in the POST body.
+    Structure is documented below.
+    """
+    request_uris: NotRequired[pulumi.Input[Sequence[pulumi.Input['OrganizationSecurityPolicyRulePreconfiguredWafConfigExclusionRequestUriArgsDict']]]]
+    """
+    Request URI from the request line to be excluded from inspection during preconfigured WAF evaluation.
+    When specifying this field, the query or fragment part should be excluded.
+    Structure is documented below.
+    """
+    target_rule_ids: NotRequired[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]
+    """
+    A list of target rule IDs under the WAF rule set to apply the preconfigured WAF exclusion.
+    If omitted, it refers to all the rule IDs under the WAF rule set.
+    """
+
+@pulumi.input_type
+class OrganizationSecurityPolicyRulePreconfiguredWafConfigExclusionArgs:
+    def __init__(__self__, *,
+                 target_rule_set: pulumi.Input[_builtins.str],
+                 request_cookies: Optional[pulumi.Input[Sequence[pulumi.Input['OrganizationSecurityPolicyRulePreconfiguredWafConfigExclusionRequestCookyArgs']]]] = None,
+                 request_headers: Optional[pulumi.Input[Sequence[pulumi.Input['OrganizationSecurityPolicyRulePreconfiguredWafConfigExclusionRequestHeaderArgs']]]] = None,
+                 request_query_params: Optional[pulumi.Input[Sequence[pulumi.Input['OrganizationSecurityPolicyRulePreconfiguredWafConfigExclusionRequestQueryParamArgs']]]] = None,
+                 request_uris: Optional[pulumi.Input[Sequence[pulumi.Input['OrganizationSecurityPolicyRulePreconfiguredWafConfigExclusionRequestUriArgs']]]] = None,
+                 target_rule_ids: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None):
+        """
+        :param pulumi.Input[_builtins.str] target_rule_set: Target WAF rule set to apply the preconfigured WAF exclusion.
+        :param pulumi.Input[Sequence[pulumi.Input['OrganizationSecurityPolicyRulePreconfiguredWafConfigExclusionRequestCookyArgs']]] request_cookies: Request cookie whose value will be excluded from inspection during preconfigured WAF evaluation.
+               Structure is documented below.
+        :param pulumi.Input[Sequence[pulumi.Input['OrganizationSecurityPolicyRulePreconfiguredWafConfigExclusionRequestHeaderArgs']]] request_headers: Request header whose value will be excluded from inspection during preconfigured WAF evaluation.
+               Structure is documented below.
+        :param pulumi.Input[Sequence[pulumi.Input['OrganizationSecurityPolicyRulePreconfiguredWafConfigExclusionRequestQueryParamArgs']]] request_query_params: Request query parameter whose value will be excluded from inspection during preconfigured WAF evaluation.
+               Note that the parameter can be in the query string or in the POST body.
+               Structure is documented below.
+        :param pulumi.Input[Sequence[pulumi.Input['OrganizationSecurityPolicyRulePreconfiguredWafConfigExclusionRequestUriArgs']]] request_uris: Request URI from the request line to be excluded from inspection during preconfigured WAF evaluation.
+               When specifying this field, the query or fragment part should be excluded.
+               Structure is documented below.
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] target_rule_ids: A list of target rule IDs under the WAF rule set to apply the preconfigured WAF exclusion.
+               If omitted, it refers to all the rule IDs under the WAF rule set.
+        """
+        pulumi.set(__self__, "target_rule_set", target_rule_set)
+        if request_cookies is not None:
+            pulumi.set(__self__, "request_cookies", request_cookies)
+        if request_headers is not None:
+            pulumi.set(__self__, "request_headers", request_headers)
+        if request_query_params is not None:
+            pulumi.set(__self__, "request_query_params", request_query_params)
+        if request_uris is not None:
+            pulumi.set(__self__, "request_uris", request_uris)
+        if target_rule_ids is not None:
+            pulumi.set(__self__, "target_rule_ids", target_rule_ids)
+
+    @_builtins.property
+    @pulumi.getter(name="targetRuleSet")
+    def target_rule_set(self) -> pulumi.Input[_builtins.str]:
+        """
+        Target WAF rule set to apply the preconfigured WAF exclusion.
+        """
+        return pulumi.get(self, "target_rule_set")
+
+    @target_rule_set.setter
+    def target_rule_set(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "target_rule_set", value)
+
+    @_builtins.property
+    @pulumi.getter(name="requestCookies")
+    def request_cookies(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['OrganizationSecurityPolicyRulePreconfiguredWafConfigExclusionRequestCookyArgs']]]]:
+        """
+        Request cookie whose value will be excluded from inspection during preconfigured WAF evaluation.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "request_cookies")
+
+    @request_cookies.setter
+    def request_cookies(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['OrganizationSecurityPolicyRulePreconfiguredWafConfigExclusionRequestCookyArgs']]]]):
+        pulumi.set(self, "request_cookies", value)
+
+    @_builtins.property
+    @pulumi.getter(name="requestHeaders")
+    def request_headers(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['OrganizationSecurityPolicyRulePreconfiguredWafConfigExclusionRequestHeaderArgs']]]]:
+        """
+        Request header whose value will be excluded from inspection during preconfigured WAF evaluation.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "request_headers")
+
+    @request_headers.setter
+    def request_headers(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['OrganizationSecurityPolicyRulePreconfiguredWafConfigExclusionRequestHeaderArgs']]]]):
+        pulumi.set(self, "request_headers", value)
+
+    @_builtins.property
+    @pulumi.getter(name="requestQueryParams")
+    def request_query_params(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['OrganizationSecurityPolicyRulePreconfiguredWafConfigExclusionRequestQueryParamArgs']]]]:
+        """
+        Request query parameter whose value will be excluded from inspection during preconfigured WAF evaluation.
+        Note that the parameter can be in the query string or in the POST body.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "request_query_params")
+
+    @request_query_params.setter
+    def request_query_params(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['OrganizationSecurityPolicyRulePreconfiguredWafConfigExclusionRequestQueryParamArgs']]]]):
+        pulumi.set(self, "request_query_params", value)
+
+    @_builtins.property
+    @pulumi.getter(name="requestUris")
+    def request_uris(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['OrganizationSecurityPolicyRulePreconfiguredWafConfigExclusionRequestUriArgs']]]]:
+        """
+        Request URI from the request line to be excluded from inspection during preconfigured WAF evaluation.
+        When specifying this field, the query or fragment part should be excluded.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "request_uris")
+
+    @request_uris.setter
+    def request_uris(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['OrganizationSecurityPolicyRulePreconfiguredWafConfigExclusionRequestUriArgs']]]]):
+        pulumi.set(self, "request_uris", value)
+
+    @_builtins.property
+    @pulumi.getter(name="targetRuleIds")
+    def target_rule_ids(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
+        """
+        A list of target rule IDs under the WAF rule set to apply the preconfigured WAF exclusion.
+        If omitted, it refers to all the rule IDs under the WAF rule set.
+        """
+        return pulumi.get(self, "target_rule_ids")
+
+    @target_rule_ids.setter
+    def target_rule_ids(self, value: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "target_rule_ids", value)
+
+
+class OrganizationSecurityPolicyRulePreconfiguredWafConfigExclusionRequestCookyArgsDict(TypedDict):
+    operator: pulumi.Input[_builtins.str]
+    """
+    You can specify an exact match or a partial match by using a field operator and a field value.
+    Available options:
+    EQUALS: The operator matches if the field value equals the specified value.
+    STARTS_WITH: The operator matches if the field value starts with the specified value.
+    ENDS_WITH: The operator matches if the field value ends with the specified value.
+    CONTAINS: The operator matches if the field value contains the specified value.
+    EQUALS_ANY: The operator matches if the field value is any value.
+    """
+    value: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    A request field matching the specified value will be excluded from inspection during preconfigured WAF evaluation.
+    The field value must be given if the field operator is not EQUALS_ANY, and cannot be given if the field operator is EQUALS_ANY.
+    """
+
+@pulumi.input_type
+class OrganizationSecurityPolicyRulePreconfiguredWafConfigExclusionRequestCookyArgs:
+    def __init__(__self__, *,
+                 operator: pulumi.Input[_builtins.str],
+                 value: Optional[pulumi.Input[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] operator: You can specify an exact match or a partial match by using a field operator and a field value.
+               Available options:
+               EQUALS: The operator matches if the field value equals the specified value.
+               STARTS_WITH: The operator matches if the field value starts with the specified value.
+               ENDS_WITH: The operator matches if the field value ends with the specified value.
+               CONTAINS: The operator matches if the field value contains the specified value.
+               EQUALS_ANY: The operator matches if the field value is any value.
+        :param pulumi.Input[_builtins.str] value: A request field matching the specified value will be excluded from inspection during preconfigured WAF evaluation.
+               The field value must be given if the field operator is not EQUALS_ANY, and cannot be given if the field operator is EQUALS_ANY.
+        """
+        pulumi.set(__self__, "operator", operator)
+        if value is not None:
+            pulumi.set(__self__, "value", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def operator(self) -> pulumi.Input[_builtins.str]:
+        """
+        You can specify an exact match or a partial match by using a field operator and a field value.
+        Available options:
+        EQUALS: The operator matches if the field value equals the specified value.
+        STARTS_WITH: The operator matches if the field value starts with the specified value.
+        ENDS_WITH: The operator matches if the field value ends with the specified value.
+        CONTAINS: The operator matches if the field value contains the specified value.
+        EQUALS_ANY: The operator matches if the field value is any value.
+        """
+        return pulumi.get(self, "operator")
+
+    @operator.setter
+    def operator(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "operator", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def value(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        A request field matching the specified value will be excluded from inspection during preconfigured WAF evaluation.
+        The field value must be given if the field operator is not EQUALS_ANY, and cannot be given if the field operator is EQUALS_ANY.
+        """
+        return pulumi.get(self, "value")
+
+    @value.setter
+    def value(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "value", value)
+
+
+class OrganizationSecurityPolicyRulePreconfiguredWafConfigExclusionRequestHeaderArgsDict(TypedDict):
+    operator: pulumi.Input[_builtins.str]
+    """
+    You can specify an exact match or a partial match by using a field operator and a field value.
+    Available options:
+    EQUALS: The operator matches if the field value equals the specified value.
+    STARTS_WITH: The operator matches if the field value starts with the specified value.
+    ENDS_WITH: The operator matches if the field value ends with the specified value.
+    CONTAINS: The operator matches if the field value contains the specified value.
+    EQUALS_ANY: The operator matches if the field value is any value.
+    """
+    value: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    A request field matching the specified value will be excluded from inspection during preconfigured WAF evaluation.
+    The field value must be given if the field operator is not EQUALS_ANY, and cannot be given if the field operator is EQUALS_ANY.
+    """
+
+@pulumi.input_type
+class OrganizationSecurityPolicyRulePreconfiguredWafConfigExclusionRequestHeaderArgs:
+    def __init__(__self__, *,
+                 operator: pulumi.Input[_builtins.str],
+                 value: Optional[pulumi.Input[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] operator: You can specify an exact match or a partial match by using a field operator and a field value.
+               Available options:
+               EQUALS: The operator matches if the field value equals the specified value.
+               STARTS_WITH: The operator matches if the field value starts with the specified value.
+               ENDS_WITH: The operator matches if the field value ends with the specified value.
+               CONTAINS: The operator matches if the field value contains the specified value.
+               EQUALS_ANY: The operator matches if the field value is any value.
+        :param pulumi.Input[_builtins.str] value: A request field matching the specified value will be excluded from inspection during preconfigured WAF evaluation.
+               The field value must be given if the field operator is not EQUALS_ANY, and cannot be given if the field operator is EQUALS_ANY.
+        """
+        pulumi.set(__self__, "operator", operator)
+        if value is not None:
+            pulumi.set(__self__, "value", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def operator(self) -> pulumi.Input[_builtins.str]:
+        """
+        You can specify an exact match or a partial match by using a field operator and a field value.
+        Available options:
+        EQUALS: The operator matches if the field value equals the specified value.
+        STARTS_WITH: The operator matches if the field value starts with the specified value.
+        ENDS_WITH: The operator matches if the field value ends with the specified value.
+        CONTAINS: The operator matches if the field value contains the specified value.
+        EQUALS_ANY: The operator matches if the field value is any value.
+        """
+        return pulumi.get(self, "operator")
+
+    @operator.setter
+    def operator(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "operator", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def value(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        A request field matching the specified value will be excluded from inspection during preconfigured WAF evaluation.
+        The field value must be given if the field operator is not EQUALS_ANY, and cannot be given if the field operator is EQUALS_ANY.
+        """
+        return pulumi.get(self, "value")
+
+    @value.setter
+    def value(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "value", value)
+
+
+class OrganizationSecurityPolicyRulePreconfiguredWafConfigExclusionRequestQueryParamArgsDict(TypedDict):
+    operator: pulumi.Input[_builtins.str]
+    """
+    You can specify an exact match or a partial match by using a field operator and a field value.
+    Available options:
+    EQUALS: The operator matches if the field value equals the specified value.
+    STARTS_WITH: The operator matches if the field value starts with the specified value.
+    ENDS_WITH: The operator matches if the field value ends with the specified value.
+    CONTAINS: The operator matches if the field value contains the specified value.
+    EQUALS_ANY: The operator matches if the field value is any value.
+    """
+    value: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    A request field matching the specified value will be excluded from inspection during preconfigured WAF evaluation.
+    The field value must be given if the field operator is not EQUALS_ANY, and cannot be given if the field operator is EQUALS_ANY.
+    """
+
+@pulumi.input_type
+class OrganizationSecurityPolicyRulePreconfiguredWafConfigExclusionRequestQueryParamArgs:
+    def __init__(__self__, *,
+                 operator: pulumi.Input[_builtins.str],
+                 value: Optional[pulumi.Input[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] operator: You can specify an exact match or a partial match by using a field operator and a field value.
+               Available options:
+               EQUALS: The operator matches if the field value equals the specified value.
+               STARTS_WITH: The operator matches if the field value starts with the specified value.
+               ENDS_WITH: The operator matches if the field value ends with the specified value.
+               CONTAINS: The operator matches if the field value contains the specified value.
+               EQUALS_ANY: The operator matches if the field value is any value.
+        :param pulumi.Input[_builtins.str] value: A request field matching the specified value will be excluded from inspection during preconfigured WAF evaluation.
+               The field value must be given if the field operator is not EQUALS_ANY, and cannot be given if the field operator is EQUALS_ANY.
+        """
+        pulumi.set(__self__, "operator", operator)
+        if value is not None:
+            pulumi.set(__self__, "value", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def operator(self) -> pulumi.Input[_builtins.str]:
+        """
+        You can specify an exact match or a partial match by using a field operator and a field value.
+        Available options:
+        EQUALS: The operator matches if the field value equals the specified value.
+        STARTS_WITH: The operator matches if the field value starts with the specified value.
+        ENDS_WITH: The operator matches if the field value ends with the specified value.
+        CONTAINS: The operator matches if the field value contains the specified value.
+        EQUALS_ANY: The operator matches if the field value is any value.
+        """
+        return pulumi.get(self, "operator")
+
+    @operator.setter
+    def operator(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "operator", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def value(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        A request field matching the specified value will be excluded from inspection during preconfigured WAF evaluation.
+        The field value must be given if the field operator is not EQUALS_ANY, and cannot be given if the field operator is EQUALS_ANY.
+        """
+        return pulumi.get(self, "value")
+
+    @value.setter
+    def value(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "value", value)
+
+
+class OrganizationSecurityPolicyRulePreconfiguredWafConfigExclusionRequestUriArgsDict(TypedDict):
+    operator: pulumi.Input[_builtins.str]
+    """
+    You can specify an exact match or a partial match by using a field operator and a field value.
+    Available options:
+    EQUALS: The operator matches if the field value equals the specified value.
+    STARTS_WITH: The operator matches if the field value starts with the specified value.
+    ENDS_WITH: The operator matches if the field value ends with the specified value.
+    CONTAINS: The operator matches if the field value contains the specified value.
+    EQUALS_ANY: The operator matches if the field value is any value.
+    """
+    value: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    A request field matching the specified value will be excluded from inspection during preconfigured WAF evaluation.
+    The field value must be given if the field operator is not EQUALS_ANY, and cannot be given if the field operator is EQUALS_ANY.
+    """
+
+@pulumi.input_type
+class OrganizationSecurityPolicyRulePreconfiguredWafConfigExclusionRequestUriArgs:
+    def __init__(__self__, *,
+                 operator: pulumi.Input[_builtins.str],
+                 value: Optional[pulumi.Input[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] operator: You can specify an exact match or a partial match by using a field operator and a field value.
+               Available options:
+               EQUALS: The operator matches if the field value equals the specified value.
+               STARTS_WITH: The operator matches if the field value starts with the specified value.
+               ENDS_WITH: The operator matches if the field value ends with the specified value.
+               CONTAINS: The operator matches if the field value contains the specified value.
+               EQUALS_ANY: The operator matches if the field value is any value.
+        :param pulumi.Input[_builtins.str] value: A request field matching the specified value will be excluded from inspection during preconfigured WAF evaluation.
+               The field value must be given if the field operator is not EQUALS_ANY, and cannot be given if the field operator is EQUALS_ANY.
+        """
+        pulumi.set(__self__, "operator", operator)
+        if value is not None:
+            pulumi.set(__self__, "value", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def operator(self) -> pulumi.Input[_builtins.str]:
+        """
+        You can specify an exact match or a partial match by using a field operator and a field value.
+        Available options:
+        EQUALS: The operator matches if the field value equals the specified value.
+        STARTS_WITH: The operator matches if the field value starts with the specified value.
+        ENDS_WITH: The operator matches if the field value ends with the specified value.
+        CONTAINS: The operator matches if the field value contains the specified value.
+        EQUALS_ANY: The operator matches if the field value is any value.
+        """
+        return pulumi.get(self, "operator")
+
+    @operator.setter
+    def operator(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "operator", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def value(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        A request field matching the specified value will be excluded from inspection during preconfigured WAF evaluation.
+        The field value must be given if the field operator is not EQUALS_ANY, and cannot be given if the field operator is EQUALS_ANY.
+        """
+        return pulumi.get(self, "value")
+
+    @value.setter
+    def value(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "value", value)
+
+
+class OrganizationSecurityPolicyRuleRedirectOptionsArgsDict(TypedDict):
+    type: pulumi.Input[_builtins.str]
+    """
+    Type of the redirect action. For organization security policies, only EXTERNAL_302 is supported.
+    """
+    target: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    Target for the redirect action. This is required if the type is EXTERNAL_302.
+    """
+
+@pulumi.input_type
+class OrganizationSecurityPolicyRuleRedirectOptionsArgs:
+    def __init__(__self__, *,
+                 type: pulumi.Input[_builtins.str],
+                 target: Optional[pulumi.Input[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] type: Type of the redirect action. For organization security policies, only EXTERNAL_302 is supported.
+        :param pulumi.Input[_builtins.str] target: Target for the redirect action. This is required if the type is EXTERNAL_302.
+        """
+        pulumi.set(__self__, "type", type)
+        if target is not None:
+            pulumi.set(__self__, "target", target)
+
+    @_builtins.property
+    @pulumi.getter
+    def type(self) -> pulumi.Input[_builtins.str]:
+        """
+        Type of the redirect action. For organization security policies, only EXTERNAL_302 is supported.
+        """
+        return pulumi.get(self, "type")
+
+    @type.setter
+    def type(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "type", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def target(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Target for the redirect action. This is required if the type is EXTERNAL_302.
+        """
+        return pulumi.get(self, "target")
+
+    @target.setter
+    def target(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "target", value)
 
 
 class PacketMirroringCollectorIlbArgsDict(TypedDict):

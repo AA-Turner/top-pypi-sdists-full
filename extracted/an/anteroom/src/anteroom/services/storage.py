@@ -1187,7 +1187,7 @@ _TEXT_LIKE_MIME_TYPES = {
     "application/rtf",
 }
 
-MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024  # 10 MB
+MAX_ATTACHMENT_SIZE = 50 * 1024 * 1024  # 50 MB
 
 
 def _sanitize_filename(filename: str) -> str:
@@ -1240,10 +1240,11 @@ _TEXT_LIKE_EXTENSIONS = {
 }
 
 
-def _validate_upload(mime_type: str, data: bytes, filename: str) -> None:
+def _validate_upload(mime_type: str, data: bytes, filename: str, *, max_size_bytes: int | None = None) -> None:
     """Shared upload validation: size limit, MIME allowlist, and content verification."""
-    if len(data) > MAX_ATTACHMENT_SIZE:
-        raise ValueError(f"File exceeds maximum size of {MAX_ATTACHMENT_SIZE // (1024 * 1024)} MB")
+    size_limit = max_size_bytes if max_size_bytes is not None else MAX_ATTACHMENT_SIZE
+    if len(data) > size_limit:
+        raise ValueError(f"File exceeds maximum size of {size_limit // (1024 * 1024)} MB")
 
     # Handle application/octet-stream as a special case: browser sent no MIME type.
     # Only accept if the file extension is text-like AND content is valid UTF-8.
@@ -1293,8 +1294,10 @@ def save_attachment(
     mime_type: str,
     data: bytes,
     data_dir: Path,
+    *,
+    max_size_bytes: int | None = None,
 ) -> dict[str, Any]:
-    _validate_upload(mime_type, data, filename)
+    _validate_upload(mime_type, data, filename, max_size_bytes=max_size_bytes)
 
     safe_filename = _sanitize_filename(filename)
     aid = _uuid()
@@ -2092,6 +2095,7 @@ def save_source_file(
     data_dir: Path,
     user_id: str | None = None,
     user_display_name: str | None = None,
+    max_size_bytes: int | None = None,
 ) -> tuple[dict[str, Any], list[str]]:
     """Save a file as a source with MIME validation.
 
@@ -2104,7 +2108,7 @@ def save_source_file(
     Returns (source_dict, warnings) where warnings contains any extraction or
     pipeline feedback messages.
     """
-    _validate_upload(mime_type, data, filename)
+    _validate_upload(mime_type, data, filename, max_size_bytes=max_size_bytes)
     warnings: list[str] = []
 
     import hashlib

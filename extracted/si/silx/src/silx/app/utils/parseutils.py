@@ -31,9 +31,9 @@ __date__ = "28/05/2018"
 from collections.abc import Sequence
 import glob
 import logging
-from typing import Generator, Iterable, Union, Any, Optional
+from typing import Any
+from collections.abc import Generator, Iterable
 from pathlib import Path
-
 
 _logger = logging.getLogger(__name__)
 """Module logger"""
@@ -56,7 +56,7 @@ def _string_to_bool(string: str) -> bool:
     raise ValueError("'%s' is not a valid boolean" % string)
 
 
-def to_bool(thing: Any, default: Optional[bool] = None) -> bool:
+def to_bool(thing: Any, default: bool | None = None) -> bool:
     """Returns a boolean from an object.
 
     :raise ValueError: If the thing can't be interpreted as a boolean and
@@ -73,9 +73,9 @@ def to_bool(thing: Any, default: Optional[bool] = None) -> bool:
 
 
 def filenames_to_dataurls(
-    filenames: Iterable[Union[str, Path]],
+    filenames: Iterable[str | Path],
     slices: Sequence[int] = tuple(),
-) -> Generator[object, None, None]:
+) -> Generator[object]:
     """Expand filenames and HDF5 data path in files input argument"""
     # Imports here so they are performed after setting HDF5_USE_FILE_LOCKING and logging level
     import silx.io
@@ -120,14 +120,14 @@ def filenames_to_dataurls(
                     )
 
 
-def to_enum(thing: Any, enum_type, default: Optional[object] = None):
+def to_enum(thing: Any, enum_type, default: object | None = None):
     """Parse this string as this enum_type."""
     try:
         v = getattr(enum_type, str(thing))
         if isinstance(v, enum_type):
             return v
         raise ValueError(f"{thing} is not a {enum_type.__name__}")
-    except (AttributeError, ValueError) as e:
+    except (AttributeError, ValueError):
         if default is not None:
             return default
         raise

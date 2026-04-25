@@ -8,6 +8,7 @@ import httpx
 from dotenv import load_dotenv
 
 from plato.v2.sync.artifact import ArtifactManager
+from plato.v2.sync.datagen_session import DatagenSession
 from plato.v2.sync.session import Session
 from plato.v2.sync.testcase import TestcaseManager
 from plato.v2.types import EnvFromArtifact, EnvFromResource, EnvFromSimulator
@@ -120,6 +121,76 @@ class SessionManager:
         return session
 
 
+class DatagenSessionManager:
+    """Manager for DatagenSession operations, accessed via ``plato.datagen_sessions``.
+
+    Mirrors :class:`SessionManager` but returns :class:`DatagenSession`
+    instances — a Session subclass that launches via a Chronos experiment
+    (world + agent + MCPs + step shape bundled cloud-side) and exposes
+    :meth:`DatagenSession.send_message` / per-env tool dispatch.
+
+    The Plato client owns the http client and api key; this manager just
+    passes them through to :meth:`DatagenSession.from_envs`.
+    """
+
+    def __init__(self, http_client: httpx.Client, api_key: str):
+        self._http = http_client
+        self._api_key = api_key
+
+    def create(
+        self,
+        *,
+        envs: list[EnvFromSimulator | EnvFromArtifact | EnvFromResource],
+        experiment: str,
+        instruction: str,
+        allow_prerelease: bool = True,
+        timeout: int = 1800,
+    ) -> DatagenSession:
+        """Launch a DatagenSession from a Chronos experiment.
+
+        Args:
+            envs: Environment configs (use ``Env.artifact(...)`` so the SDK
+                can auto-wire the db MCP from ``db_config``).
+            experiment: Name of a Chronos experiment (carries world version,
+                agent model, step shape — infrastructure only).
+            instruction: Agent system prompt. Import a constant from
+                :mod:`plato.v2` (e.g. ``DATA_LOAD_INSTRUCTION``) or pass
+                your own. ``""`` runs the agent with only its built-in
+                default prompt.
+            allow_prerelease: Default True so dev experiments resolve.
+            timeout: Session-ready + REST-ready polling timeout.
+
+        Credentials (``ANTHROPIC_API_KEY`` etc.) are resolved by Chronos
+        from the user's / org's ``org_settings`` at launch — the SDK
+        never touches them. Set via ``PUT /api/settings/chronos:analyzer-env``.
+
+        Returns:
+            A ready :class:`DatagenSession` — call ``session.send_message(...)``
+            to drive the agent.
+
+        Example::
+
+            from plato.v2 import Plato, Env, DATA_LOAD_INSTRUCTION
+
+            plato = Plato()
+            session = plato.datagen_sessions.create(
+                envs=[Env.artifact("art_123", alias="main")],
+                experiment="agent-data-load",
+                instruction=DATA_LOAD_INSTRUCTION,
+            )
+            session.send_message("Insert 3 users: [...]")
+        """
+        return DatagenSession.from_envs(
+            http_client=self._http,
+            api_key=self._api_key,
+            envs=envs,
+            experiment=experiment,
+            instruction=instruction,
+            allow_prerelease=allow_prerelease,
+            timeout=timeout,
+        )
+
+
 class Plato:
     """Synchronous Plato client for v2 API.
 
@@ -173,6 +244,7 @@ class Plato:
         )
 
         self.sessions = SessionManager(self._http, self.api_key)
+        self.datagen_sessions = DatagenSessionManager(self._http, self.api_key)
         self.artifacts = ArtifactManager(self._http, self.api_key)
         self.testcases = TestcaseManager(self._http, self.api_key)
 

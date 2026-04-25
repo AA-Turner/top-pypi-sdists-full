@@ -34,7 +34,6 @@ from silx.gui import qt
 import numpy
 import scipy.signal
 
-
 logging.basicConfig()
 logger = logging.getLogger(__name__)
 
@@ -75,8 +74,6 @@ def main(argv=None):
     :rtype: int
     :raises IOError: if no image can be loaded from the file
     """
-    import argparse
-    import os.path
 
     global app  # QApplication must be global to avoid seg fault on quit
     app = qt.QApplication([])

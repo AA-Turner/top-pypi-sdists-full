@@ -23,14 +23,14 @@
 # ###########################################################################*/
 """Common wrapper over Python Qt bindings:
 
-- `PyQt5 <http://pyqt.sourceforge.net/Docs/PyQt5/>`_
 - `PySide6 <https://pypi.org/project/PySide6/>`_
 - `PyQt6 <https://pypi.org/project/PyQt6/>`_
+- `PyQt5 <http://pyqt.sourceforge.net/Docs/PyQt5/>`_
 
 If a Qt binding is already loaded, it will be used.
 If the `QT_API` environment variable is set to one of the supported Qt bindings
 (case insensitive), this binding is loaded if available, otherwise the
-different Qt bindings are tried in this order: PyQt5, PySide6, PyQt6.
+different Qt bindings are tried in this order: PySide6, PyQt6, PyQt5.
 
 The name of the loaded Qt binding is stored in the BINDING variable.
 
@@ -48,9 +48,15 @@ For an alternative solution providing a structured namespace,
 see `qtpy <https://pypi.org/project/QtPy/>`_.
 """
 
-from ._qt import *  # noqa
+from ._qt import BINDING
+from ._qt import *  # noqa: F401, F403
 
 if BINDING == "PySide6":
     # Import loadUi wrapper
-    from ._pyside_dynamic import loadUi  # noqa
-from ._utils import *  # noqa
+    from ._pyside_dynamic import loadUi  # noqa: F401
+from ._utils import (  # noqa: F401
+    exceptionHandler,
+    getMouseEventPosition,
+    silxGlobalThreadPool,
+    supportedImageFormats,
+)

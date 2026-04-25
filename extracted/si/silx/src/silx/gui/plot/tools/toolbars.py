@@ -21,8 +21,7 @@
 # THE SOFTWARE.
 #
 # ###########################################################################*/
-"""This module provides toolbars that work with :class:`PlotWidget`.
-"""
+"""This module provides toolbars that work with :class:`PlotWidget`."""
 
 __authors__ = ["T. Vincent"]
 __license__ = "MIT"
@@ -44,7 +43,7 @@ class InteractiveModeToolBar(qt.QToolBar):
     """
 
     def __init__(self, parent=None, plot=None, title="Plot Interaction"):
-        super(InteractiveModeToolBar, self).__init__(title, parent)
+        super().__init__(title, parent)
 
         assert isinstance(plot, PlotWidget)
 
@@ -78,7 +77,7 @@ class OutputToolBar(qt.QToolBar):
     """
 
     def __init__(self, parent=None, plot=None, title="Plot Output"):
-        super(OutputToolBar, self).__init__(title, parent)
+        super().__init__(title, parent)
 
         assert isinstance(plot, PlotWidget)
 
@@ -122,7 +121,7 @@ class ImageToolBar(qt.QToolBar):
     """
 
     def __init__(self, parent=None, plot=None, title="Image"):
-        super(ImageToolBar, self).__init__(title, parent)
+        super().__init__(title, parent)
 
         assert isinstance(plot, PlotWidget)
 
@@ -136,6 +135,11 @@ class ImageToolBar(qt.QToolBar):
             parent=self, plot=plot
         )
         self.addWidget(self._keepDataAspectRatioButton)
+
+        self._xAxisInvertedButton = PlotToolButtons.XAxisOriginToolButton(
+            parent=self, plot=plot
+        )
+        self.addWidget(self._xAxisInvertedButton)
 
         self._yAxisInvertedButton = PlotToolButtons.YAxisOriginToolButton(
             parent=self, plot=plot
@@ -163,11 +167,12 @@ class ImageToolBar(qt.QToolBar):
         """
         return self._keepDataAspectRatioButton
 
-    def getYAxisInvertedButton(self):
-        """Returns the QToolButton controlling Y axis orientation.
+    def getXAxisInvertedButton(self) -> PlotToolButtons.XAxisOriginToolButton:
+        """Returns the QToolButton controlling X axis orientation."""
+        return self._xAxisInvertedButton
 
-        :rtype: QToolButton
-        """
+    def getYAxisInvertedButton(self) -> PlotToolButtons.YAxisOriginToolButton:
+        """Returns the QToolButton controlling Y axis orientation."""
         return self._yAxisInvertedButton
 
 
@@ -180,7 +185,7 @@ class CurveToolBar(qt.QToolBar):
     """
 
     def __init__(self, parent=None, plot=None, title="Image"):
-        super(CurveToolBar, self).__init__(title, parent)
+        super().__init__(title, parent)
 
         assert isinstance(plot, PlotWidget)
 
@@ -274,7 +279,7 @@ class ScatterToolBar(qt.QToolBar):
     """
 
     def __init__(self, parent=None, plot=None, title="Scatter Tools"):
-        super(ScatterToolBar, self).__init__(title, parent)
+        super().__init__(title, parent)
 
         assert isinstance(plot, PlotWidget)
 

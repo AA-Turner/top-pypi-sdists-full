@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: labelme
-Version: 6.1.2
+Version: 6.1.3
 Summary: Image annotation with Python.
 Author-email: Kentaro Wada <www.kentaro.wada@gmail.com>
 License: GPL-3.0-only

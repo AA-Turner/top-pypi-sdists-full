@@ -15,6 +15,7 @@ __all__ = [
     'CloudProvider',
     'AgentOS',  # Production deployment platform (v0.14.16+)
     'AgentApp',  # Silent alias for AgentOS (backward compat)
+    'Agent',  # Wrapper Agent with CLI backend string resolution
     'recipe',
     'embed',
     'embedding',
@@ -22,8 +23,10 @@ __all__ = [
     'ManagedAgent',
     'ManagedConfig',
     'AnthropicManagedAgent',
-    'LocalManagedAgent',
-    'LocalManagedConfig',
+    'LocalManagedAgent',          # backward compat alias
+    'LocalManagedConfig',         # backward compat alias
+    'SandboxedAgent',             # new honest name
+    'SandboxedAgentConfig',       # new honest name
 ]
 
 # Telemetry initialization state
@@ -57,6 +60,9 @@ def __getattr__(name):
     if name == 'PraisonAI':
         from .cli import PraisonAI
         return PraisonAI
+    elif name == 'Agent':
+        from .agent import Agent
+        return Agent
     elif name == 'Deploy':
         from .deploy import Deploy
         return Deploy
@@ -108,6 +114,12 @@ def __getattr__(name):
     elif name == 'LocalManagedConfig':
         from .integrations.managed_local import LocalManagedConfig
         return LocalManagedConfig
+    elif name == 'SandboxedAgent':
+        from .integrations.sandboxed_agent import SandboxedAgent
+        return SandboxedAgent
+    elif name == 'SandboxedAgentConfig':
+        from .integrations.sandboxed_agent import SandboxedAgentConfig
+        return SandboxedAgentConfig
     elif name in ('ManagedConfig', 'ManagedBackendConfig'):
         from .integrations.managed_agents import ManagedConfig
         return ManagedConfig

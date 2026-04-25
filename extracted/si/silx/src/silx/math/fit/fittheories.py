@@ -20,7 +20,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 #
-########################################################################### */
+# ########################################################################## */
 """This modules provides a set of fit functions and associated
 estimation functions in a format that can be imported into a
 :class:`silx.math.fit.FitManager` instance.
@@ -75,6 +75,7 @@ for more information.
 Module members:
 ---------------
 """
+
 import numpy
 import logging
 
@@ -162,7 +163,7 @@ CSUM = 6
 CIGNORED = 7
 
 
-class FitTheories(object):
+class FitTheories:
     """Class wrapping functions from :class:`silx.math.fit.functions`
     and providing estimate functions for all of these fit functions."""
 

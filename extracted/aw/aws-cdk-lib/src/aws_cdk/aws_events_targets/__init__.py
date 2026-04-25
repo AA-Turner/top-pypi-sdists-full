@@ -850,11 +850,9 @@ from ..aws_ecs import (
 from ..aws_events import (
     IApiDestination as _IApiDestination_44cdeedd,
     IEventBus as _IEventBus_88d13111,
-    IRule as _IRule_af9e3d28,
     IRuleTarget as _IRuleTarget_7a91f454,
     RuleTargetConfig as _RuleTargetConfig_4e70fe03,
     RuleTargetInput as _RuleTargetInput_6beca786,
-    RuleTargetInputProperties as _RuleTargetInputProperties_38e7b0db,
 )
 from ..aws_iam import (
     IRole as _IRole_235f5d8e, PolicyStatement as _PolicyStatement_0fe33853
@@ -3032,6 +3030,7 @@ class LambdaFunction(
 
 
 class LogGroupTargetInput(
+    _RuleTargetInput_6beca786,
     metaclass=jsii.JSIIAbstractClass,
     jsii_type="aws-cdk-lib.aws_events_targets.LogGroupTargetInput",
 ):
@@ -3059,26 +3058,21 @@ class LogGroupTargetInput(
 
     @jsii.member(jsii_name="fromObject")
     @builtins.classmethod
-    def from_object(
-        cls,
-        *,
-        message: typing.Any = None,
-        timestamp: typing.Any = None,
-    ) -> "_RuleTargetInput_6beca786":
+    def from_object(cls, options: typing.Any) -> "_RuleTargetInput_6beca786":
         '''(deprecated) Pass a JSON object to the log group event target.
 
         May contain strings returned by ``EventField.from()`` to substitute in parts of the
         matched event.
 
-        :param message: The value provided here will be used in the Log "message" field. This field must be a string. If an object is passed (e.g. JSON data) it will not throw an error, but the message that makes it to CloudWatch logs will be incorrect. This is a likely scenario if doing something like: EventField.fromPath('$.detail') since in most cases the ``detail`` field contains JSON data. Default: EventField.detailType
-        :param timestamp: The timestamp that will appear in the CloudWatch Logs record. Default: EventField.time
+        :param options: -
 
         :deprecated: use fromObjectV2
 
         :stability: deprecated
         '''
-        options = LogGroupTargetInputOptions(message=message, timestamp=timestamp)
-
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__dc741be67551f329b823c2e9b24bb7aa95a1a876bec63dcda62427fb7a0f9a8a)
+            check_type(argname="argument options", value=options, expected_type=type_hints["options"])
         return typing.cast("_RuleTargetInput_6beca786", jsii.sinvoke(cls, "fromObject", [options]))
 
     @jsii.member(jsii_name="fromObjectV2")
@@ -3101,27 +3095,12 @@ class LogGroupTargetInput(
 
         return typing.cast("LogGroupTargetInput", jsii.sinvoke(cls, "fromObjectV2", [options]))
 
-    @jsii.member(jsii_name="bind")
-    @abc.abstractmethod
-    def bind(self, rule: "_IRule_af9e3d28") -> "_RuleTargetInputProperties_38e7b0db":
-        '''Return the input properties for this input object.
 
-        :param rule: -
-        '''
-        ...
-
-
-class _LogGroupTargetInputProxy(LogGroupTargetInput):
-    @jsii.member(jsii_name="bind")
-    def bind(self, rule: "_IRule_af9e3d28") -> "_RuleTargetInputProperties_38e7b0db":
-        '''Return the input properties for this input object.
-
-        :param rule: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__758083b81fe2898a867779bb9918a1aaa26f0291624b27f0e1637860027d86a5)
-            check_type(argname="argument rule", value=rule, expected_type=type_hints["rule"])
-        return typing.cast("_RuleTargetInputProperties_38e7b0db", jsii.invoke(self, "bind", [rule]))
+class _LogGroupTargetInputProxy(
+    LogGroupTargetInput,
+    jsii.proxy_for(_RuleTargetInput_6beca786), # type: ignore[misc]
+):
+    pass
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the abstract class
 typing.cast(typing.Any, LogGroupTargetInput).__jsii_proxy_class__ = lambda : _LogGroupTargetInputProxy
@@ -6730,8 +6709,8 @@ def _typecheckingstub__906b4fb6301e027a5cc5111944bf8d3844e211a5f528e71002c42bebd
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__758083b81fe2898a867779bb9918a1aaa26f0291624b27f0e1637860027d86a5(
-    rule: _IRule_af9e3d28,
+def _typecheckingstub__dc741be67551f329b823c2e9b24bb7aa95a1a876bec63dcda62427fb7a0f9a8a(
+    options: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass

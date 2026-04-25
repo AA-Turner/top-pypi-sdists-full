@@ -29,7 +29,6 @@ from urllib.parse import (
 
 import httpx
 import whenever
-from httpx import Request
 
 import pyzotero as pz
 
@@ -53,6 +52,10 @@ from .filetransport import Client as File_Client
 __author__ = "Stephan Hügel"
 __api_version__ = "3"
 
+# Regex pattern used by the retrieve decorator to pick out the 'content='
+# URL parameter when dispatching Atom-format responses to processors.
+_CONTENT_RE = re.compile(r"(?<=content=)\w+")
+
 
 class Zotero:
     """Zotero API methods.
@@ -70,6 +73,7 @@ class Zotero:
         locale: str = "en-US",
         local: bool = False,
         client: httpx.Client | None = None,
+        upload_timeout: int | float = 120,
     ) -> None:
         self.client: httpx.Client | None = None
         """Store Zotero credentials"""
@@ -102,15 +106,16 @@ class Zotero:
         self.tag_data = False
         self.request: httpx.Response | None = None
         self.snapshot = False
+        self.upload_timeout = upload_timeout
         self.client = client or httpx.Client(
             headers=self.default_headers(),
             follow_redirects=True,
         )
         # these aren't valid item fields, so never send them to the server
         self.temp_keys = {"key", "etag", "group_id", "updated"}
-        # determine which processor to use for the parsed content
-        self.fmt = re.compile(r"(?<=format=)\w+")
-        self.content = re.compile(r"(?<=content=)\w+")
+        # retained as an instance attribute for backwards compatibility; all
+        # usage inside pyzotero reads _CONTENT_RE at module scope.
+        self.content = _CONTENT_RE
         # JSON by default
         self.formats: dict[str, str] = {
             "application/atom+xml": "atom",
@@ -160,7 +165,7 @@ class Zotero:
             "html": self._bib_processor,
         }
         self.links: dict[str, str] | None = None
-        self.self_link: dict[str, Any] | httpx.URL = {}
+        self.self_link: httpx.URL | None = None
         self.templates: dict[str, Any] = {}
         self.savedsearch: Any = None
         # backoff handling: timestamp when backoff expires (0.0 = no backoff)
@@ -201,6 +206,22 @@ class Zotero:
         if remainder > 0.0:
             time.sleep(remainder)
 
+    def _post_check(self, resp: httpx.Response) -> None:
+        """Raise on HTTP error and record any server-supplied backoff.
+
+        Centralises the post-request pattern used by every method that
+        performs an HTTP call: ``raise_for_status`` is dispatched through
+        ``error_handler`` to produce a PyZotero exception, and any
+        ``Backoff``/``Retry-After`` header is recorded on the instance.
+        """
+        try:
+            resp.raise_for_status()
+        except httpx.HTTPError as exc:
+            error_handler(self, resp, exc)
+        backoff = get_backoff_duration(resp.headers)
+        if backoff:
+            self._set_backoff(backoff)
+
     def default_headers(self) -> dict[str, str]:
         """Return headers that are always OK to include."""
         _headers = {
@@ -218,10 +239,7 @@ class Zotero:
         to self.templates as a new dict using the specified key.
         """
         # cache template and retrieval time for subsequent calls
-        try:
-            thetime = whenever.ZonedDateTime.now("Europe/London").py_datetime()
-        except AttributeError:
-            thetime = whenever.ZonedDateTime.now("Europe/London").py_datetime()
+        thetime = whenever.ZonedDateTime.now("Europe/London").py_datetime()
         self.templates[key] = {"tmplt": response.json(), "updated": thetime}
         return copy.deepcopy(response.json())
 
@@ -231,7 +249,14 @@ class Zotero:
     ) -> dict[str, Any]:
         """Remove keys we added for internal use."""
         # this item's been retrieved from the API, we only need the 'data' entry
-        if to_clean.keys() == ["links", "library", "version", "meta", "key", "data"]:
+        if set(to_clean.keys()) == {
+            "links",
+            "library",
+            "version",
+            "meta",
+            "key",
+            "data",
+        }:
             to_clean = to_clean["data"]
         return {
             k: v for k, v in to_clean.items() if k in allow or k not in self.temp_keys
@@ -276,7 +301,6 @@ class Zotero:
             self.request = self.client.get(
                 url=final_url,
                 params=final_params,
-                headers=self.default_headers(),
                 timeout=DEFAULT_TIMEOUT,
             )
             self.request.encoding = "utf-8"
@@ -295,13 +319,7 @@ class Zotero:
             self.request = response
             # since we'll be writing bytes, we need to set this to a type that will trigger the bytes processor
             self.request.headers["Content-Type"] = "text/plain"
-        try:
-            self.request.raise_for_status()
-        except httpx.HTTPError as exc:
-            error_handler(self, self.request, exc)
-        backoff = get_backoff_duration(self.request.headers)
-        if backoff:
-            self._set_backoff(backoff)
+        self._post_check(self.request)
         return self.request
 
     def _extract_links(self) -> dict[str, str] | None:
@@ -363,13 +381,7 @@ class Zotero:
             # perform the request, and check whether the response returns 304
             self._check_backoff()
             req = self.client.get(query, headers=headers)
-            try:
-                req.raise_for_status()
-            except httpx.HTTPError as exc:
-                error_handler(self, req, exc)
-            backoff = get_backoff_duration(self.request.headers)
-            if backoff:
-                self._set_backoff(backoff)
+            self._post_check(req)
             return req.status_code == httpx.codes.NOT_MODIFIED
         # Still plenty of life left in't
         return False
@@ -513,13 +525,7 @@ class Zotero:
             params=params,
             headers=headers,
         )
-        try:
-            resp.raise_for_status()
-        except httpx.HTTPError as exc:
-            error_handler(self, resp, exc)
-        backoff = get_backoff_duration(self.request.headers)
-        if backoff:
-            self._set_backoff(backoff)
+        self._post_check(resp)
         return resp.json()
 
     def item_versions(self, **kwargs: Any) -> Any:
@@ -695,7 +701,6 @@ class Zotero:
     def tags(self, **kwargs: Any) -> str:
         """Get tags."""
         query_string = "/{t}/{u}/tags"
-        self.tag_data = True
         return self._build_query(query_string)
 
     @retrieve
@@ -704,7 +709,6 @@ class Zotero:
         query_string = (
             f"/{self.library_type}/{self.library_id}/items/{item.upper()}/tags"
         )
-        self.tag_data = True
         return self._build_query(query_string)
 
     def all_top(self, **kwargs: Any) -> Any:
@@ -884,13 +888,7 @@ class Zotero:
             json=payload,
         )
         self.request = req
-        try:
-            req.raise_for_status()
-        except httpx.HTTPError as exc:
-            error_handler(self, req, exc)
-        backoff = get_backoff_duration(self.request.headers)
-        if backoff:
-            self._set_backoff(backoff)
+        self._post_check(req)
         return req.json()
 
     @ss_wrap
@@ -910,13 +908,7 @@ class Zotero:
             params={"searchKey": ",".join(keys)},
         )
         self.request = req
-        try:
-            req.raise_for_status()
-        except httpx.HTTPError as exc:
-            error_handler(self, req, exc)
-        backoff = get_backoff_duration(self.request.headers)
-        if backoff:
-            self._set_backoff(backoff)
+        self._post_check(req)
         return req.status_code
 
     def upload_attachments(
@@ -949,26 +941,8 @@ class Zotero:
         Accepts a single argument: a list of one or more dicts.
         The retrieved fields are cached and re-used until a 304 call fails.
         """
-        params: dict[str, Any] = {"locale": self.locale, "timeout": DEFAULT_TIMEOUT}
-        query_string = "/itemFields"
-        r = Request(
-            "GET",
-            build_url(self.endpoint, query_string),
-            params=params,
-        )
-        response = self.client.send(r)
-        # now split up the URL
-        result = urlparse(str(response.url))
-        # construct cache key
-        cachekey = result.path + "_" + result.query
-        if self.templates.get(cachekey) and not self._updated(
-            query_string,
-            self.templates[cachekey],
-            cachekey,
-        ):
-            template = {t["field"] for t in self.templates[cachekey]["tmplt"]}
-        else:
-            template = {t["field"] for t in self.item_fields()}  # ty: ignore[invalid-argument-type]
+        # item_fields() is @tcache-decorated, so caching is handled there.
+        template = {t["field"] for t in self.item_fields()}  # ty: ignore[invalid-argument-type]
         # add fields we know to be OK
         template |= {
             "path",
@@ -1085,7 +1059,7 @@ class Zotero:
         headers = {"Zotero-Write-Token": token(), "Content-Type": "application/json"}
         if last_modified is not None:
             headers["If-Unmodified-Since-Version"] = str(last_modified)
-        to_send = list(self._cleanup(*payload, allow=("key")))
+        to_send = list(self._cleanup(*payload, allow=("key",)))
         if parentid:
             for item in to_send:
                 item["parentItem"] = parentid
@@ -1099,15 +1073,8 @@ class Zotero:
             headers=headers,
         )
         self.request = req
-        try:
-            req.raise_for_status()
-        except httpx.HTTPError as exc:
-            error_handler(self, req, exc)
-        resp = req.json()
-        backoff = get_backoff_duration(self.request.headers)
-        if backoff:
-            self._set_backoff(backoff)
-        return resp
+        self._post_check(req)
+        return req.json()
 
     def create_collection(
         self,
@@ -1149,13 +1116,7 @@ class Zotero:
             content=json.dumps(payload),
         )
         self.request = req
-        try:
-            req.raise_for_status()
-        except httpx.HTTPError as exc:
-            error_handler(self, req, exc)
-        backoff = get_backoff_duration(req.headers)
-        if backoff:
-            self._set_backoff(backoff)
+        self._post_check(req)
         return req.json()
 
     @backoff_check
@@ -1241,57 +1202,38 @@ class Zotero:
             content=json.dumps(to_send),
         )
 
+    def _batch_update(self, payload: list[dict[str, Any]], collection: str) -> bool:
+        """POST a payload to the library in chunks of DEFAULT_NUM_ITEMS.
+
+        ``collection`` is the last path segment (e.g. ``"items"`` or
+        ``"collections"``) - the API only accepts 50 objects at a time, so
+        anything longer is split across multiple requests.
+        """
+        to_send = [self.check_items([p])[0] for p in payload]
+        url = build_url(
+            self.endpoint,
+            f"/{self.library_type}/{self.library_id}/{collection}/",
+        )
+        for chunk in chunks(to_send, DEFAULT_NUM_ITEMS):
+            self._check_backoff()
+            req = self.client.post(url=url, json=chunk)
+            self.request = req
+            self._post_check(req)
+        return True
+
     def update_items(self, payload: list[dict[str, Any]]) -> bool:
         """Update existing items.
 
         Accepts one argument, a list of dicts containing Item data.
         """
-        to_send = [self.check_items([p])[0] for p in payload]
-        # the API only accepts 50 items at a time, so we have to split anything longer
-        for chunk in chunks(to_send, DEFAULT_NUM_ITEMS):
-            self._check_backoff()
-            req = self.client.post(
-                url=build_url(
-                    self.endpoint,
-                    f"/{self.library_type}/{self.library_id}/items/",
-                ),
-                json=chunk,
-            )
-            self.request = req
-            try:
-                req.raise_for_status()
-            except httpx.HTTPError as exc:
-                error_handler(self, req, exc)
-            backoff = get_backoff_duration(req.headers)
-            if backoff:
-                self._set_backoff(backoff)
-        return True
+        return self._batch_update(payload, "items")
 
     def update_collections(self, payload: list[dict[str, Any]]) -> bool:
         """Update existing collections.
 
         Accepts one argument, a list of dicts containing Collection data.
         """
-        to_send = [self.check_items([p])[0] for p in payload]
-        # the API only accepts 50 items at a time, so we have to split anything longer
-        for chunk in chunks(to_send, DEFAULT_NUM_ITEMS):
-            self._check_backoff()
-            req = self.client.post(
-                url=build_url(
-                    self.endpoint,
-                    f"/{self.library_type}/{self.library_id}/collections/",
-                ),
-                json=chunk,
-            )
-            self.request = req
-            try:
-                req.raise_for_status()
-            except httpx.HTTPError as exc:
-                error_handler(self, req, exc)
-            backoff = get_backoff_duration(req.headers)
-            if backoff:
-                self._set_backoff(backoff)
-        return True
+        return self._batch_update(payload, "collections")
 
     @backoff_check
     def addto_collection(
@@ -1365,6 +1307,35 @@ class Zotero:
             headers=headers,
         )
 
+    def _delete_entity(
+        self,
+        payload: dict[str, Any] | list[dict[str, Any]],
+        last_modified: int | None,
+        collection: str,
+        key_param: str,
+    ) -> httpx.Response:
+        """Dispatch a DELETE against one or many entities of the same type.
+
+        ``collection`` is the path segment (e.g. ``"items"``); ``key_param``
+        is the query-parameter name used for list payloads (e.g.
+        ``"itemKey"``).
+        """
+        base = f"/{self.library_type}/{self.library_id}/{collection}"
+        if isinstance(payload, list):
+            params = {key_param: ",".join([p["key"] for p in payload])}
+            modified = (
+                last_modified if last_modified is not None else payload[0]["version"]
+            )
+            url = build_url(self.endpoint, base)
+        else:
+            params = None
+            modified = (
+                last_modified if last_modified is not None else payload["version"]
+            )
+            url = build_url(self.endpoint, f"{base}/{payload['key']}")
+        headers = {"If-Unmodified-Since-Version": str(modified)}
+        return self.client.delete(url=url, params=params, headers=headers)
+
     @backoff_check
     def delete_item(
         self,
@@ -1377,29 +1348,7 @@ class Zotero:
             a dict containing item data
             OR a list of dicts containing item data
         """
-        params = None
-        if isinstance(payload, list):
-            params = {"itemKey": ",".join([p["key"] for p in payload])}
-            if last_modified is not None:
-                modified = last_modified
-            else:
-                modified = payload[0]["version"]
-            url = build_url(
-                self.endpoint,
-                f"/{self.library_type}/{self.library_id}/items",
-            )
-        else:
-            ident = payload["key"]
-            if last_modified is not None:
-                modified = last_modified
-            else:
-                modified = payload["version"]
-            url = build_url(
-                self.endpoint,
-                f"/{self.library_type}/{self.library_id}/items/{ident}",
-            )
-        headers = {"If-Unmodified-Since-Version": str(modified)}
-        return self.client.delete(url=url, params=params, headers=headers)
+        return self._delete_entity(payload, last_modified, "items", "itemKey")
 
     @backoff_check
     def delete_collection(
@@ -1413,29 +1362,9 @@ class Zotero:
             a dict containing item data
             OR a list of dicts containing item data
         """
-        params = None
-        if isinstance(payload, list):
-            params = {"collectionKey": ",".join([p["key"] for p in payload])}
-            if last_modified is not None:
-                modified = last_modified
-            else:
-                modified = payload[0]["version"]
-            url = build_url(
-                self.endpoint,
-                f"/{self.library_type}/{self.library_id}/collections",
-            )
-        else:
-            ident = payload["key"]
-            if last_modified is not None:
-                modified = last_modified
-            else:
-                modified = payload["version"]
-            url = build_url(
-                self.endpoint,
-                f"/{self.library_type}/{self.library_id}/collections/{ident}",
-            )
-        headers = {"If-Unmodified-Since-Version": str(modified)}
-        return self.client.delete(url=url, params=params, headers=headers)
+        return self._delete_entity(
+            payload, last_modified, "collections", "collectionKey"
+        )
 
 
 __all__ = ["Zotero"]

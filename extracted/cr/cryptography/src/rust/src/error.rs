@@ -34,8 +34,20 @@ impl From<pyo3::PyErr> for CryptographyError {
     }
 }
 
-impl From<pyo3::DowncastError<'_, '_>> for CryptographyError {
-    fn from(e: pyo3::DowncastError<'_, '_>) -> CryptographyError {
+impl From<pyo3::CastError<'_, '_>> for CryptographyError {
+    fn from(e: pyo3::CastError<'_, '_>) -> CryptographyError {
+        CryptographyError::Py(e.into())
+    }
+}
+
+impl From<pyo3::CastIntoError<'_>> for CryptographyError {
+    fn from(e: pyo3::CastIntoError<'_>) -> CryptographyError {
+        CryptographyError::Py(e.into())
+    }
+}
+
+impl From<pyo3::pyclass::PyClassGuardError<'_, '_>> for CryptographyError {
+    fn from(e: pyo3::pyclass::PyClassGuardError<'_, '_>) -> CryptographyError {
         CryptographyError::Py(e.into())
     }
 }
@@ -63,13 +75,15 @@ impl From<cryptography_key_parsing::KeyParsingError> for CryptographyError {
                 CryptographyError::Py(pyo3::exceptions::PyValueError::new_err("Invalid key"))
             }
             cryptography_key_parsing::KeyParsingError::ExplicitCurveUnsupported => {
-                CryptographyError::Py(pyo3::exceptions::PyValueError::new_err(
-                    "ECDSA keys with explicit parameters are unsupported at this time",
-                ))
+                CryptographyError::Py(exceptions::UnsupportedAlgorithm::new_err((
+                    "ECDSA keys with explicit parameters are only supported when they map to secp256r1, secp384r1, or secp521r1. No custom curves are supported.",
+                    exceptions::Reasons::UNSUPPORTED_ELLIPTIC_CURVE,
+                )))
             }
             cryptography_key_parsing::KeyParsingError::UnsupportedKeyType(oid) => {
-                CryptographyError::Py(pyo3::exceptions::PyValueError::new_err(format!(
-                    "Unknown key type: {oid}"
+                CryptographyError::Py(exceptions::UnsupportedAlgorithm::new_err((
+                    format!("Unknown key type: {oid}"),
+                    exceptions::Reasons::UNSUPPORTED_PUBLIC_KEY_ALGORITHM,
                 )))
             }
             cryptography_key_parsing::KeyParsingError::UnsupportedEllipticCurve(oid) => {
@@ -92,6 +106,57 @@ impl From<cryptography_key_parsing::KeyParsingError> for CryptographyError {
                 CryptographyError::Py(pyo3::exceptions::PyValueError::new_err(
                     "Incorrect password, could not decrypt key",
                 ))
+            }
+            cryptography_key_parsing::KeyParsingError::TruncatedEcPrivateKey => {
+                CryptographyError::Py(pyo3::exceptions::PyValueError::new_err(
+                    "EC private key is not encoded properly: private key value is too short. Please file an issue at https://github.com/pyca/cryptography/issues explaining how your private key was created.",
+                ))
+            }
+            cryptography_key_parsing::KeyParsingError::PemMissingDekInfo => {
+                CryptographyError::Py(pyo3::exceptions::PyValueError::new_err(
+                    "Encrypted PEM doesn't have a DEK-Info header.",
+                ))
+            }
+            cryptography_key_parsing::KeyParsingError::PemInvalidDekInfo => {
+                CryptographyError::Py(pyo3::exceptions::PyValueError::new_err(
+                    "Encrypted PEM's DEK-Info header is not valid.",
+                ))
+            }
+            cryptography_key_parsing::KeyParsingError::PemInvalidIv => CryptographyError::Py(
+                pyo3::exceptions::PyValueError::new_err("DEK-Info IV is not valid hex"),
+            ),
+            cryptography_key_parsing::KeyParsingError::PemUnableToDeriveKey => {
+                CryptographyError::Py(pyo3::exceptions::PyValueError::new_err(
+                    "Unable to derive key from password (are you in FIPS mode?)",
+                ))
+            }
+            cryptography_key_parsing::KeyParsingError::PemUnsupportedCipher => {
+                CryptographyError::Py(pyo3::exceptions::PyValueError::new_err(
+                    "Key encrypted with unknown cipher.",
+                ))
+            }
+            cryptography_key_parsing::KeyParsingError::PemInvalidProcType => {
+                CryptographyError::Py(pyo3::exceptions::PyValueError::new_err(
+                    "Proc-Type PEM header is not valid, key could not be decrypted.",
+                ))
+            }
+        }
+    }
+}
+
+impl From<cryptography_key_parsing::KeySerializationError> for CryptographyError {
+    fn from(e: cryptography_key_parsing::KeySerializationError) -> CryptographyError {
+        match e {
+            cryptography_key_parsing::KeySerializationError::PasswordMustBeUtf8 => {
+                CryptographyError::Py(pyo3::exceptions::PyValueError::new_err(
+                    "password must be valid UTF-8",
+                ))
+            }
+            cryptography_key_parsing::KeySerializationError::Write(e) => {
+                CryptographyError::Asn1Write(e)
+            }
+            cryptography_key_parsing::KeySerializationError::OpenSSL(e) => {
+                CryptographyError::OpenSSL(e)
             }
         }
     }
@@ -123,6 +188,12 @@ impl fmt::Display for CryptographyError {
                 write!(
                     f,
                     "failed to allocate memory while performing ASN.1 serialization"
+                )
+            }
+            CryptographyError::Asn1Write(asn1::WriteError::InvalidSetOrdering) => {
+                write!(
+                    f,
+                    "invalid SET ordering while performing ASN.1 serialization"
                 )
             }
             CryptographyError::KeyParsing(asn1_error) => {
@@ -157,6 +228,9 @@ impl From<CryptographyError> for pyo3::PyErr {
             CryptographyError::Asn1Write(asn1::WriteError::AllocationError) => {
                 pyo3::exceptions::PyMemoryError::new_err(e.to_string())
             }
+            CryptographyError::Asn1Write(asn1::WriteError::InvalidSetOrdering) => {
+                pyo3::exceptions::PyValueError::new_err(e.to_string())
+            }
             CryptographyError::Py(py_error) => py_error,
             CryptographyError::OpenSSL(ref error_stack) => pyo3::Python::attach(|py| {
                 let errors = list_from_openssl_error(py, error_stack);
@@ -175,6 +249,21 @@ impl CryptographyError {
             CryptographyError::Asn1Write(e) => CryptographyError::Asn1Write(e),
             CryptographyError::OpenSSL(e) => CryptographyError::OpenSSL(e),
         }
+    }
+
+    pub(crate) fn add_note(self, py: pyo3::Python<'_>, note: &str) -> Self {
+        let pyerr: pyo3::PyErr = self.into();
+        #[cfg(Py_3_11)]
+        {
+            // If we fail to add a note, silently ignore it.
+            _ = pyerr.add_note(py, note);
+        }
+        #[cfg(not(Py_3_11))]
+        {
+            _ = py;
+            _ = note;
+        }
+        Self::Py(pyerr)
     }
 }
 
@@ -210,14 +299,20 @@ impl OpenSSLError {
         self.e.reason().unwrap_or("").as_bytes()
     }
 
-    fn __repr__(&self) -> pyo3::PyResult<String> {
-        Ok(format!(
-            "<OpenSSLError(code={}, lib={}, reason={}, reason_text={})>",
-            self.e.code(),
-            self.e.library_code(),
-            self.e.reason_code(),
-            self.e.reason().unwrap_or("")
-        ))
+    fn __repr__<'py>(
+        &self,
+        py: pyo3::Python<'py>,
+    ) -> pyo3::PyResult<pyo3::Bound<'py, pyo3::types::PyString>> {
+        pyo3::types::PyString::from_fmt(
+            py,
+            format_args!(
+                "<OpenSSLError(code={}, lib={}, reason={}, reason_text={})>",
+                self.e.code(),
+                self.e.library_code(),
+                self.e.reason_code(),
+                self.e.reason().unwrap_or("")
+            ),
+        )
     }
 }
 
@@ -234,6 +329,9 @@ pub(crate) fn capture_error_stack(
 
 #[cfg(test)]
 mod tests {
+    use pyo3::types::PyAnyMethods;
+    use pyo3::PyTypeInfo;
+
     use super::CryptographyError;
 
     #[test]
@@ -243,6 +341,12 @@ mod tests {
             let py_error = pyo3::exceptions::PyRuntimeError::new_err("abc");
             let e: CryptographyError = py_error.clone_ref(py).into();
             assert!(e.to_string() == py_error.to_string());
+
+            let ordering_error = CryptographyError::Asn1Write(asn1::WriteError::InvalidSetOrdering);
+            assert!(
+                "invalid SET ordering while performing ASN.1 serialization"
+                    == ordering_error.to_string()
+            );
         })
     }
 
@@ -258,7 +362,19 @@ mod tests {
             let py_e: pyo3::PyErr = e.into();
             assert!(py_e.is_instance_of::<pyo3::exceptions::PyMemoryError>(py));
 
-            let e: CryptographyError = pyo3::DowncastError::new(py.None().bind(py), "abc").into();
+            let e: CryptographyError = asn1::WriteError::InvalidSetOrdering.into();
+            assert!(matches!(
+                e,
+                CryptographyError::Asn1Write(asn1::WriteError::InvalidSetOrdering)
+            ));
+            let py_e: pyo3::PyErr = e.into();
+            assert!(py_e.is_instance_of::<pyo3::exceptions::PyValueError>(py));
+
+            let e: CryptographyError = pyo3::CastError::new(
+                py.None().bind(py).as_borrowed(),
+                pyo3::types::PyString::type_object(py).into_any(),
+            )
+            .into();
             assert!(matches!(e, CryptographyError::Py(_)));
 
             let e = cryptography_key_parsing::KeyParsingError::OpenSSL(
@@ -266,7 +382,41 @@ mod tests {
             )
             .into();
             assert!(matches!(e, CryptographyError::OpenSSL(_)));
+
+            let e = pyo3::CastIntoError::new(
+                py.None().into_bound(py),
+                pyo3::types::PyString::type_object(py).into_any(),
+            )
+            .into();
+            assert!(matches!(e, CryptographyError::Py(_)));
+
+            let none = py.None();
+            let guard_err = none
+                .bind(py)
+                .extract::<crate::serialization::PrivateFormat>();
+            assert!(guard_err.is_err());
+            let e: CryptographyError = guard_err.err().unwrap().into();
+            assert!(matches!(e, CryptographyError::Py(_)));
         })
+    }
+
+    #[test]
+    fn test_cryptographyerror_from_key_serialization_error() {
+        let e = cryptography_key_parsing::KeySerializationError::Write(
+            asn1::WriteError::AllocationError,
+        );
+        assert!(matches!(
+            CryptographyError::from(e),
+            CryptographyError::Asn1Write(asn1::WriteError::AllocationError)
+        ));
+
+        let e = cryptography_key_parsing::KeySerializationError::OpenSSL(
+            openssl::error::ErrorStack::get(),
+        );
+        assert!(matches!(
+            CryptographyError::from(e),
+            CryptographyError::OpenSSL(_)
+        ));
     }
 
     #[test]

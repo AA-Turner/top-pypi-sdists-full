@@ -1,2 +1,0 @@
-import{o as e}from"./vendor-codemirror-BqSJl4Iu.js";import{Rt as t}from"./vendor-radix-DgruXJnc.js";import{f as n}from"./utils-B2NxAXHA.js";var r=e();function i({className:e,orientation:i=`horizontal`,decorative:a=!0,...o}){return(0,r.jsx)(t,{"data-slot":`separator-root`,decorative:a,orientation:i,className:n(`bg-border shrink-0 data-[orientation=horizontal]:h-px data-[orientation=horizontal]:w-full data-[orientation=vertical]:h-full data-[orientation=vertical]:w-px`,e),...o})}export{i as t};
-//# sourceMappingURL=separator-CpoiuHBZ.js.map

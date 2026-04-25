@@ -27,6 +27,8 @@ use crate::inference::types::{
 use crate::jsonschema_util::JSONSchema;
 use crate::model::ModelTable;
 use crate::tool::create_json_mode_tool_call_config_with_allowed_tools;
+use tensorzero_inference_types::ProviderToolCallConfig;
+
 use crate::tool::{AllowedTools, AllowedToolsChoice, ToolCallConfig};
 use crate::utils::unbounded_recursion_wrapper;
 use crate::variant::mixture_of_n::stream_inference_from_non_stream;
@@ -83,15 +85,14 @@ impl BestOfNSamplingConfig {
     }
 }
 
+#[serde_with::skip_serializing_none]
 #[cfg_attr(feature = "ts-bindings", derive(ts_rs::TS))]
 #[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[cfg_attr(feature = "ts-bindings", ts(export, optional_fields))]
 #[serde(deny_unknown_fields)]
 pub struct UninitializedBestOfNSamplingConfig {
-    #[serde(default)]
     pub weight: Option<f64>,
     #[deprecated(note = "Use `[timeouts]` on your candidate variants instead (#2480 / 2026.2+)")]
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub timeout_s: Option<f64>,
     pub candidates: Vec<String>,
     pub evaluator: UninitializedBestOfNEvaluatorConfig,
@@ -585,7 +586,12 @@ async fn inner_select_best_candidate<'a>(
         .retries()
         .retry(|| async {
             model_config
-                .infer(&inference_request, clients, evaluator.inner.model())
+                .infer(
+                    &inference_request,
+                    clients,
+                    evaluator.inner.model(),
+                    Some(&inference_config.function_name),
+                )
                 .await
         })
         .await?;
@@ -810,7 +816,9 @@ impl BestOfNEvaluatorConfig {
             .or_else(|| self.inner.json_mode().copied())
             .unwrap_or(JsonMode::Strict);
         let tool_config = match json_mode {
-            JsonMode::Tool => Some(Cow::Borrowed(&*JSON_MODE_TOOL_CALL_CONFIG)),
+            JsonMode::Tool => Some(Cow::Owned(ProviderToolCallConfig::from(
+                &*JSON_MODE_TOOL_CALL_CONFIG,
+            ))),
             JsonMode::Off | JsonMode::On | JsonMode::Strict => None,
         };
         if !inference_config.extra_body.is_empty() {

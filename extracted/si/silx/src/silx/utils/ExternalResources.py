@@ -21,8 +21,7 @@
 # THE SOFTWARE.
 #
 # ###########################################################################*/
-"""Helper to access to external resources.
-"""
+"""Helper to access to external resources."""
 
 __authors__ = ["Thomas Vincent", "J. Kieffer"]
 __license__ = "MIT"
@@ -42,11 +41,10 @@ import urllib.request
 import urllib.error
 import zipfile
 
-
 logger = logging.getLogger(__name__)
 
 
-class ExternalResources(object):
+class ExternalResources:
     """Utility class which allows to download test-data from www.silx.org
     and manage the temporary data during the tests.
 
@@ -100,7 +98,7 @@ class ExternalResources(object):
                 else:
                     name = "uid" + str(os.getuid())
 
-            basename = "%s_testdata_%s" % (self.project, name)
+            basename = f"{self.project}_testdata_{name}"
             data_home = os.path.join(tempfile.gettempdir(), basename)
         if not os.path.exists(data_home):
             os.makedirs(data_home)
@@ -139,14 +137,11 @@ class ExternalResources(object):
                             self.save_json()
                     self._initialized = True
 
-    def clean_up(self):
-        pass
-
     def getfile(self, filename):
         """Downloads the requested file from web-server available
         at https://www.silx.org/pub/silx/
 
-        :param: relative name of the image.
+        :param: relative name of the file.
         :return: full path of the locally saved file.
         """
         logger.debug("ExternalResources.getfile('%s')", filename)
@@ -158,7 +153,7 @@ class ExternalResources(object):
 
         if not os.path.isfile(fullfilename):
             logger.debug(
-                "Trying to download image %s, timeout set to %ss",
+                "Trying to download file %s, timeout set to %ss",
                 filename,
                 self.timeout,
             )
@@ -177,9 +172,9 @@ class ExternalResources(object):
             logger.debug("wget %s/%s", self.url_base, filename)
             try:
                 data = opener(
-                    "%s/%s" % (self.url_base, filename), data=None, timeout=self.timeout
+                    f"{self.url_base}/{filename}", data=None, timeout=self.timeout
                 ).read()
-                logger.info("Image %s successfully downloaded.", filename)
+                logger.info("File %s successfully downloaded.", filename)
             except urllib.error.URLError:
                 raise unittest.SkipTest("network unreachable.")
 
@@ -190,22 +185,17 @@ class ExternalResources(object):
             try:
                 with open(fullfilename, mode="wb") as outfile:
                     outfile.write(data)
-            except IOError:
-                raise IOError(
-                    "unable to write downloaded \
-                    data to disk at %s"
-                    % self.data_home
-                )
+            except OSError:
+                raise OSError("unable to write downloaded \
+                    data to disk at %s" % self.data_home)
 
             if not os.path.isfile(fullfilename):
-                raise RuntimeError(
-                    """Could not automatically download test images %s!
-                    If you are behind a firewall, please set both environment variable http_proxy and https_proxy.
+                raise RuntimeError("""Could not automatically download test files %s!
+                    If you are behind a firewall, please set both environment variable
+                     http_proxy and https_proxy.
                     This even works under windows !
-                    Otherwise please try to download the images manually from
-                    %s/%s"""
-                    % (filename, self.url_base, filename)
-                )
+                    Otherwise please try to download the files manually from
+                    %s/%s""" % (filename, self.url_base, filename))
             else:
                 self.all_data[filename] = self.get_hash(data=data)
                 self.save_json()
@@ -223,13 +213,13 @@ class ExternalResources(object):
         return fullfilename
 
     def save_json(self):
-        image_list = list(self.all_data.keys())
-        image_list.sort()
-        dico = dict([(i, self.all_data[i]) for i in image_list])
+        file_list = list(self.all_data.keys())
+        file_list.sort()
+        dico = {i: self.all_data[i] for i in file_list}
         try:
             with open(self.testdata, "w") as fp:
                 json.dump(dico, fp, indent=4)
-        except IOError:
+        except OSError:
             logger.info("Unable to save JSON dict")
 
     def getdir(self, dirname):
@@ -237,7 +227,7 @@ class ExternalResources(object):
         https://www.silx.org/pub/silx/
         and unzips it into the data directory
 
-        :param: relative name of the image.
+        :param: relative name of the file.
         :return: list of files with their full path.
         """
         lodn = dirname.lower()
@@ -246,7 +236,7 @@ class ExternalResources(object):
 
         if lodn.endswith(("tar", "tgz", "tbz2", "tar.gz", "tar.bz2")):
             with tarfile.TarFile.open(full_path, mode="r") as fd:
-                # Avoid unsafe filter deprecation warning during transistion of mode change
+                # Avoid unsafe filter deprecation warning during mode change
                 if (3, 12) <= sys.version_info < (3, 14):
                     fd.extraction_filter = tarfile.data_filter
                 fd.extractall(output)
@@ -265,7 +255,7 @@ class ExternalResources(object):
         """
         Download the requested file, decompress and repack it to bz2 and gz.
 
-        :param str filename: name of the image.
+        :param str filename: name of the file.
         :rtype: str
         :return: full path of the locally saved file
         """
@@ -273,42 +263,39 @@ class ExternalResources(object):
             self._initialize_data()
         if filename not in self.all_data:
             self.all_data[filename] = self.get_hash(filename)
-            seld.save_json()
-        baseimage = os.path.basename(filename)
-        logger.info("UtilsTest.getimage('%s')" % baseimage)
+            self.save_json()
+        basefilename = os.path.basename(filename)
 
         if not os.path.exists(self.data_home):
             os.makedirs(self.data_home)
-        fullimagename = os.path.abspath(os.path.join(self.data_home, baseimage))
+        fullfilename = os.path.abspath(os.path.join(self.data_home, basefilename))
 
-        if baseimage.endswith(".bz2"):
-            bzip2name = baseimage
-            basename = baseimage[:-4]
+        if basefilename.endswith(".bz2"):
+            bzip2name = basefilename
+            basename = basefilename[:-4]
             gzipname = basename + ".gz"
-        elif baseimage.endswith(".gz"):
-            gzipname = baseimage
-            basename = baseimage[:-3]
+        elif basefilename.endswith(".gz"):
+            gzipname = basefilename
+            basename = basefilename[:-3]
             bzip2name = basename + ".bz2"
         else:
-            basename = baseimage
-            gzipname = baseimage + "gz2"
+            basename = basefilename
+            gzipname = basefilename + "gz2"
             bzip2name = basename + ".bz2"
 
-        fullimagename_gz = os.path.abspath(os.path.join(self.data_home, gzipname))
-        fullimagename_raw = os.path.abspath(os.path.join(self.data_home, basename))
-        fullimagename_bz2 = os.path.abspath(os.path.join(self.data_home, bzip2name))
+        fullfilename_gz = os.path.abspath(os.path.join(self.data_home, gzipname))
+        fullfilename_raw = os.path.abspath(os.path.join(self.data_home, basename))
+        fullfilename_bz2 = os.path.abspath(os.path.join(self.data_home, bzip2name))
 
         # The files are recreated from the bz2 file
-        if not os.path.isfile(fullimagename_bz2):
+        if not os.path.isfile(fullfilename_bz2):
             self.getfile(bzip2name)
-            if not os.path.isfile(fullimagename_bz2):
-                raise RuntimeError(
-                    """Could not automatically download test images %s!
-                    If you are behind a firewall, please set the environment variable http_proxy.
-                    Otherwise please try to download the images manually from
-                    %s"""
-                    % (self.url_base, filename)
-                )
+            if not os.path.isfile(fullfilename_bz2):
+                raise RuntimeError("""Could not automatically download test files %s!
+                    If you are behind a firewall, please set the environment variable
+                     http_proxy.
+                    Otherwise please try to download the files manually from
+                    %s""" % (self.url_base, filename))
 
         try:
             import bz2
@@ -319,37 +306,31 @@ class ExternalResources(object):
         except ImportError:
             gzip = None
 
-        raw_file_exists = os.path.isfile(fullimagename_raw)
-        gz_file_exists = os.path.isfile(fullimagename_gz)
+        raw_file_exists = os.path.isfile(fullfilename_raw)
+        gz_file_exists = os.path.isfile(fullfilename_gz)
         if not raw_file_exists or not gz_file_exists:
-            with open(fullimagename_bz2, "rb") as f:
+            with open(fullfilename_bz2, "rb") as f:
                 data = f.read()
             decompressed = bz2.decompress(data)
 
             if not raw_file_exists:
                 try:
-                    with open(fullimagename_raw, "wb") as fullimage:
-                        fullimage.write(decompressed)
-                except IOError:
-                    raise IOError(
-                        "unable to write decompressed \
-                    data to disk at %s"
-                        % self.data_home
-                    )
+                    with open(fullfilename_raw, "wb") as fullfile:
+                        fullfile.write(decompressed)
+                except OSError:
+                    raise OSError("unable to write decompressed \
+                    data to disk at %s" % self.data_home)
 
             if not gz_file_exists:
                 if gzip is None:
                     raise RuntimeError("gzip library is expected to recompress data")
                 try:
-                    gzip.open(fullimagename_gz, "wb").write(decompressed)
-                except IOError:
-                    raise IOError(
-                        "unable to write gzipped \
-                    data to disk at %s"
-                        % self.data_home
-                    )
+                    gzip.open(fullfilename_gz, "wb").write(decompressed)
+                except OSError:
+                    raise OSError("unable to write gzipped \
+                    data to disk at %s" % self.data_home)
 
-        return fullimagename
+        return fullfilename
 
     def download_all(self, imgs=None):
         """Download all data needed for the test/benchmarks

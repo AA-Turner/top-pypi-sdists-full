@@ -238,6 +238,12 @@ class Process:
                         break  # Only include the most recent one
                         
         return context
+    
+    async def _set_workflow_finished(self, value: bool):
+        """Thread-safe setter for workflow_finished flag."""
+        lock = await self._get_state_lock()
+        async with lock:
+            self.workflow_finished = value
 
     def _find_next_not_started_task(self) -> Optional[Task]:
         """Fallback mechanism to find the next 'not started' task."""
@@ -245,9 +251,10 @@ class Process:
         temp_current_task = None
         
         # Clear previous task context before finding next task
+        # NOTE: Fixed to only clear _execution_context instead of mutating descriptions
         for task in self.tasks.values():
-            if hasattr(task, 'description') and 'Input data from previous tasks:' in task.description:
-                task.description = task.description.split('Input data from previous tasks:')[0].strip()
+            if hasattr(task, '_execution_context'):
+                task._execution_context = None
         
         while fallback_attempts < self.max_retries and not temp_current_task:
             fallback_attempts += 1
@@ -263,18 +270,18 @@ class Process:
                     
                     if not leads_to_task and not task_candidate.next_tasks:
                         continue  # Skip if no valid path exists
-                        
-                    if self.task_retry_counter.get(task_candidate.id, 0) < self.max_retries:
-                        # Atomic increment using thread lock to prevent race conditions
-                        with self._state_lock_init:
-                            current_count = self.task_retry_counter.get(task_candidate.id, 0)
+                    
+                    # Fix TOCTOU bug: Move the entire check-and-increment inside the lock
+                    with self._state_lock_init:
+                        current_count = self.task_retry_counter.get(task_candidate.id, 0)
+                        if current_count < self.max_retries:
                             self.task_retry_counter[task_candidate.id] = current_count + 1
-                        temp_current_task = task_candidate
-                        logging.debug(f"Fallback attempt {fallback_attempts}: Found 'not started' task: {temp_current_task.name}, retry count: {self.task_retry_counter[temp_current_task.id]}")
-                        return temp_current_task # Return the found task immediately
-                    else:
-                        logging.debug(f"Max retries ({self.max_retries}) reached for task {task_candidate.name} in fallback mode, marking as failed.")
-                        task_candidate.status = "failed"
+                            temp_current_task = task_candidate
+                            logging.debug(f"Fallback attempt {fallback_attempts}: Found 'not started' task: {temp_current_task.name}, retry count: {self.task_retry_counter[temp_current_task.id]}")
+                            return temp_current_task # Return the found task immediately
+                        else:
+                            logging.debug(f"Max retries ({self.max_retries}) reached for task {task_candidate.name} in fallback mode, marking as failed.")
+                            task_candidate.status = "failed"
             if not temp_current_task:
                 logging.debug(f"Fallback attempt {fallback_attempts}: No 'not started' task found within retry limit.")
         return None # Return None if no task found after all attempts
@@ -386,7 +393,7 @@ class Process:
         # Parse JSON and validate with Pydantic
         return self._parse_manager_instructions(response, ManagerInstructions)
 
-    def _check_all_tasks_completed(self) -> bool:
+    async def _check_all_tasks_completed(self) -> bool:
         """Check if all tasks are completed and handle workflow completion.
         
         Returns:
@@ -394,9 +401,27 @@ class Process:
         """
         if all(task.status == "completed" for task in self.tasks.values()):
             logging.info("All tasks are completed.")
-            self.workflow_finished = True
+            await self._set_workflow_finished(True)
             return True
         return False
+    
+    def _check_all_tasks_completed_sync(self) -> bool:
+        """Synchronous version of _check_all_tasks_completed.
+        
+        Returns:
+            bool: True if all tasks are completed and workflow should exit, False otherwise.
+        """
+        if all(task.status == "completed" for task in self.tasks.values()):
+            logging.info("All tasks are completed.")
+            # Use thread-safe setter for sync context
+            self._set_workflow_finished_sync(True)
+            return True
+        return False
+    
+    def _set_workflow_finished_sync(self, value: bool):
+        """Thread-safe setter for workflow_finished flag in sync context."""
+        with self._state_lock_init:
+            self.workflow_finished = value
 
     async def aworkflow(self) -> AsyncGenerator[str, None]:
         """Async version of workflow method"""
@@ -473,7 +498,7 @@ Tasks by type:
             """)
 
             # ADDED: Check if all tasks are completed and set workflow_finished flag
-            if self._check_all_tasks_completed():
+            if await self._check_all_tasks_completed():
                 break  # Exit immediately to prevent task reset
 
             task_id = current_task.id
@@ -488,13 +513,10 @@ Context tasks: {[t.name for t in current_task.context] if current_task.context e
 Description length: {len(current_task.description)}
             """)
 
-            # Build context and set description for this execution pass only
+            # Build context and store separately instead of mutating description
             context = self._build_task_context(current_task)
-            # Store original description if not already stored
-            if not hasattr(current_task, '_original_description'):
-                current_task._original_description = current_task.description
-            # Set description with context for execution; reset after yield to prevent accumulation
-            current_task.description = current_task._original_description + (context if context else "")
+            # Store context in dedicated field instead of concatenating to description
+            current_task._execution_context = context if context else ""
 
             # Skip execution for loop tasks, only process their subtasks
             if current_task.task_type == "loop":
@@ -565,7 +587,7 @@ Subtask: {st.name}
                             if next_task:
                                 next_task.status = "not started"  # Reset status to allow execution
                                 logging.debug(f"Routing to {next_task.name} based on decision: {decision_str}")
-                                self.workflow_finished = False
+                                await self._set_workflow_finished(False)
                                 current_task = next_task
                                 # Ensure the task is yielded for execution
                                 if current_task.id not in visited_tasks:
@@ -574,7 +596,7 @@ Subtask: {st.name}
                             else:
                                 # End workflow if no valid next task found
                                 logging.info(f"No valid next task found for decision: {decision_str}")
-                                self.workflow_finished = True
+                                await self._set_workflow_finished(True)
                                 current_task = None
                                 break
                 else:
@@ -611,7 +633,7 @@ Subtask: {st.name}
                     for t in self.tasks.values()
                 ):
                     logging.info(f"Task {current_task.name} has no next tasks, ending workflow")
-                    self.workflow_finished = True
+                    await self._set_workflow_finished(True)
                     current_task = None
                     break
 
@@ -674,7 +696,7 @@ Subtask: {st.name}
                         # Handle all forms of exit conditions
                         if not target_tasks or target_tasks == "exit" or (isinstance(target_tasks, list) and (not target_tasks or target_tasks[0] == "exit")):
                             logging.info(f"Workflow exit condition met on decision: {decision_str}")
-                            self.workflow_finished = True
+                            await self._set_workflow_finished(True)
                             current_task = None
                             break
                         else:
@@ -714,7 +736,7 @@ Subtask: {st.name}
                                 
                                 logging.debug(f"Routing to {next_task.name} based on decision: {decision_str}")
                                 # Don't mark workflow as finished when following condition path
-                                self.workflow_finished = False
+                                await self._set_workflow_finished(False)
 
             # If no condition-based routing, use next_tasks
             if not next_task and current_task and current_task.next_tasks:
@@ -728,7 +750,7 @@ Subtask: {st.name}
                         next_task.next_tasks and 
                         next_task.next_tasks[0] in self.tasks and 
                         next_task.name in self.tasks[next_task.next_tasks[0]].previous_tasks):
-                        self.workflow_finished = False
+                        await self._set_workflow_finished(False)
                     logging.debug(f"Following next_tasks to {next_task.name}")
 
             current_task = next_task
@@ -1073,7 +1095,7 @@ Tasks by type:
             """)
 
             # ADDED: Check if all tasks are completed and set workflow_finished flag
-            if self._check_all_tasks_completed():
+            if self._check_all_tasks_completed_sync():
                 break  # Exit immediately to prevent task reset
 
 
@@ -1162,13 +1184,10 @@ Context tasks: {[t.name for t in current_task.context] if current_task.context e
 Description length: {len(current_task.description)}
             """)
 
-            # Build context and set description for this execution pass only
+            # Build context and store separately instead of mutating description
             context = self._build_task_context(current_task)
-            # Store original description if not already stored
-            if not hasattr(current_task, '_original_description'):
-                current_task._original_description = current_task.description
-            # Set description with context for execution; reset after yield to prevent accumulation
-            current_task.description = current_task._original_description + (context if context else "")
+            # Store context in dedicated field instead of concatenating to description
+            current_task._execution_context = context if context else ""
 
             # Skip execution for loop tasks, only process their subtasks
             if current_task.task_type == "loop":
@@ -1239,7 +1258,7 @@ Subtask: {st.name}
                             if next_task:
                                 next_task.status = "not started"  # Reset status to allow execution
                                 logging.debug(f"Routing to {next_task.name} based on decision: {decision_str}")
-                                self.workflow_finished = False
+                                self._set_workflow_finished_sync(False)
                                 current_task = next_task
                                 # Ensure the task is yielded for execution
                                 if current_task.id not in visited_tasks:
@@ -1248,7 +1267,7 @@ Subtask: {st.name}
                             else:
                                 # End workflow if no valid next task found
                                 logging.info(f"No valid next task found for decision: {decision_str}")
-                                self.workflow_finished = True
+                                self._set_workflow_finished_sync(True)
                                 current_task = None
                                 break
                 else:
@@ -1285,7 +1304,7 @@ Subtask: {st.name}
                     for t in self.tasks.values()
                 ):
                     logging.info(f"Task {current_task.name} has no next tasks, ending workflow")
-                    self.workflow_finished = True
+                    self._set_workflow_finished_sync(True)
                     current_task = None
                     break
 
@@ -1346,7 +1365,7 @@ Subtask: {st.name}
                         # Handle all forms of exit conditions
                         if not target_tasks or target_tasks == "exit" or (isinstance(target_tasks, list) and (not target_tasks or target_tasks[0] == "exit")):
                             logging.info(f"Workflow exit condition met on decision: {decision_str}")
-                            self.workflow_finished = True
+                            self._set_workflow_finished_sync(True)
                             current_task = None
                             break
                         else:
@@ -1386,7 +1405,7 @@ Subtask: {st.name}
                                 
                                 logging.debug(f"Routing to {next_task.name} based on decision: {decision_str}")
                                 # Don't mark workflow as finished when following condition path
-                                self.workflow_finished = False
+                                self._set_workflow_finished_sync(False)
 
             # If no condition-based routing, use next_tasks
             if not next_task and current_task and current_task.next_tasks:
@@ -1400,7 +1419,7 @@ Subtask: {st.name}
                         next_task.next_tasks and 
                         next_task.next_tasks[0] in self.tasks and 
                         next_task.name in self.tasks[next_task.next_tasks[0]].previous_tasks):
-                        self.workflow_finished = False
+                        self._set_workflow_finished_sync(False)
                     logging.debug(f"Following next_tasks to {next_task.name}")
 
             current_task = next_task

@@ -47,20 +47,10 @@ from exponent.core.remote_execution.cli_rpc_types import (
     GetAllFilesRequest,
     GetAllFilesResponse,
     HttpRequest,
-    ListTerminalsRequest,
-    ListTerminalsResponse,
     StartBlitTerminalRequest,
     StartBlitTerminalResponse,
-    StartTerminalRequest,
-    StartTerminalResponse,
-    StopTerminalRequest,
-    StopTerminalResponse,
     SwitchCLIChatRequest,
     SwitchCLIChatResponse,
-    TerminalInputRequest,
-    TerminalInputResponse,
-    TerminalResizeRequest,
-    TerminalResizeResponse,
     TerminateRequest,
     TerminateResponse,
     ToolExecutionRequest,
@@ -84,9 +74,6 @@ from exponent.core.remote_execution.session import (
     get_session,
     send_exception_log,
 )
-from exponent.core.remote_execution.terminal_controller import TerminalControllerServer
-from exponent.core.remote_execution.terminal_session import TerminalSessionManager
-from exponent.core.remote_execution.terminal_types import TerminalMessage
 from exponent.core.remote_execution.tool_execution import (
     BackgroundBashResult,
     execute_bash_tool,
@@ -130,7 +117,6 @@ class RemoteExecutionClient:
         self._websocket: ClientConnection | None = None
 
         self._background_tracker = BackgroundProcessTracker(on_complete=self._on_background_process_complete)
-        self._terminal_controller: TerminalControllerServer | None = None
         self._blit_terminal_server: BlitTerminalServer | None = None
 
         self._executed_idempotency_keys: set[str] = set()
@@ -180,8 +166,6 @@ class RemoteExecutionClient:
         truncated: bool,
         duration_ms: int,
     ) -> None:
-        if self._terminal_controller is not None:
-            await self._terminal_controller.handle_bg_process_completed(str(tracked.pid), exit_code)
         notification = BackgroundProcessCompletedNotification(
             pid=tracked.pid,
             command=tracked.command,
@@ -238,12 +222,11 @@ class RemoteExecutionClient:
         except asyncio.CancelledError:
             return None
 
-    async def _handle_websocket_message(  # noqa: PLR0911
+    async def _handle_websocket_message(
         self,
         msg: str,
         websocket: ClientConnection,
         requests: asyncio.Queue[CliRpcRequest],
-        terminal_session_manager: TerminalSessionManager,
     ) -> REMOTE_EXECUTION_CLIENT_EXIT_INFO | None:
         self._last_request_time = time.time()
 
@@ -383,114 +366,6 @@ class RemoteExecutionClient:
                 )
             )
             return None
-        elif isinstance(request.request, StartTerminalRequest):
-            session_id = await terminal_session_manager.start_session(
-                websocket=websocket,
-                session_id=request.request.session_id,
-                command=request.request.command,
-                cols=request.request.cols,
-                rows=request.request.rows,
-                env=request.request.env,
-                name=request.request.name,
-            )
-            await websocket.send(
-                json.dumps(
-                    {
-                        "type": "result",
-                        "data": msgspec.to_builtins(
-                            CliRpcResponse(
-                                request_id=request.request_id,
-                                response=StartTerminalResponse(
-                                    session_id=session_id,
-                                    success=True,
-                                    name=request.request.name,
-                                ),
-                            )
-                        ),
-                    }
-                )
-            )
-            return None
-        elif isinstance(request.request, TerminalInputRequest):
-            success = await terminal_session_manager.send_input(
-                session_id=request.request.session_id,
-                data=request.request.data,
-            )
-            await websocket.send(
-                json.dumps(
-                    {
-                        "type": "result",
-                        "data": msgspec.to_builtins(
-                            CliRpcResponse(
-                                request_id=request.request_id,
-                                response=TerminalInputResponse(
-                                    session_id=request.request.session_id,
-                                    success=success,
-                                ),
-                            )
-                        ),
-                    }
-                )
-            )
-            return None
-        elif isinstance(request.request, TerminalResizeRequest):
-            success = await terminal_session_manager.resize_terminal(
-                session_id=request.request.session_id,
-                rows=request.request.rows,
-                cols=request.request.cols,
-            )
-            await websocket.send(
-                json.dumps(
-                    {
-                        "type": "result",
-                        "data": msgspec.to_builtins(
-                            CliRpcResponse(
-                                request_id=request.request_id,
-                                response=TerminalResizeResponse(
-                                    session_id=request.request.session_id,
-                                    success=success,
-                                ),
-                            )
-                        ),
-                    }
-                )
-            )
-            return None
-        elif isinstance(request.request, StopTerminalRequest):
-            success = await terminal_session_manager.stop_session(session_id=request.request.session_id)
-            await websocket.send(
-                json.dumps(
-                    {
-                        "type": "result",
-                        "data": msgspec.to_builtins(
-                            CliRpcResponse(
-                                request_id=request.request_id,
-                                response=StopTerminalResponse(
-                                    session_id=request.request.session_id,
-                                    success=success,
-                                ),
-                            )
-                        ),
-                    }
-                )
-            )
-            return None
-        elif isinstance(request.request, ListTerminalsRequest):
-            terminals = await terminal_session_manager.list_sessions()
-            await websocket.send(
-                json.dumps(
-                    {
-                        "type": "result",
-                        "data": msgspec.to_builtins(
-                            CliRpcResponse(
-                                request_id=request.request_id,
-                                response=ListTerminalsResponse(terminals=terminals),
-                            )
-                        ),
-                    }
-                )
-            )
-            return None
         else:
             if isinstance(request.request, ToolExecutionRequest) and isinstance(
                 request.request.tool_input, BashToolInput
@@ -595,24 +470,20 @@ class RemoteExecutionClient:
         beats: asyncio.Queue[HeartbeatInfo],
         requests: asyncio.Queue[CliRpcRequest],
         results: asyncio.Queue[CliRpcResponse],
-        terminal_output_queue: asyncio.Queue[TerminalMessage],
-        terminal_session_manager: TerminalSessionManager,
-        terminal_controller: TerminalControllerServer | None = None,
     ) -> REMOTE_EXECUTION_CLIENT_EXIT_INFO:
         pending: set[asyncio.Task[object]] = set()
         try:
             recv = asyncio.create_task(websocket.recv())
             get_beat = asyncio.create_task(beats.get())
             get_result = asyncio.create_task(results.get())
-            get_terminal_output = asyncio.create_task(terminal_output_queue.get())
-            pending = {recv, get_beat, get_result, get_terminal_output}
+            pending = {recv, get_beat, get_result}
 
             while True:
                 done, pending = await asyncio.wait(pending, return_when=asyncio.FIRST_COMPLETED)
 
                 if recv in done:
                     msg = str(recv.result())
-                    exit_info = await self._handle_websocket_message(msg, websocket, requests, terminal_session_manager)
+                    exit_info = await self._handle_websocket_message(msg, websocket, requests)
                     if exit_info is not None:
                         return exit_info
 
@@ -637,18 +508,6 @@ class RemoteExecutionClient:
                     get_result = asyncio.create_task(results.get())
                     pending.add(get_result)
 
-                if get_terminal_output in done:
-                    terminal_message = get_terminal_output.result()
-
-                    if terminal_controller is not None:
-                        await terminal_controller.handle_terminal_message(terminal_message)
-                    else:
-                        data = msgspec.to_builtins(terminal_message)
-                        msg = json.dumps({"type": "terminal_message", "data": data})
-                        await websocket.send(msg)
-
-                    get_terminal_output = asyncio.create_task(terminal_output_queue.get())
-                    pending.add(get_terminal_output)
         finally:
             for task in pending:
                 task.cancel()
@@ -662,9 +521,6 @@ class RemoteExecutionClient:
         beats: asyncio.Queue[HeartbeatInfo],
         requests: asyncio.Queue[CliRpcRequest],
         results: asyncio.Queue[CliRpcResponse],
-        terminal_output_queue: asyncio.Queue[TerminalMessage],
-        terminal_session_manager: TerminalSessionManager,
-        terminal_controller: TerminalControllerServer | None = None,
     ) -> REMOTE_EXECUTION_CLIENT_EXIT_INFO | None:
         if connection_tracker is not None:
             await connection_tracker.set_connected(True)
@@ -677,9 +533,6 @@ class RemoteExecutionClient:
                 beats,
                 requests,
                 results,
-                terminal_output_queue,
-                terminal_session_manager,
-                terminal_controller,
             )
         except asyncio.CancelledError:
             raise
@@ -742,7 +595,7 @@ class RemoteExecutionClient:
             await blit_terminal_server.start()
         except Exception:
             logger.warning(
-                "Failed to start blit terminal server, falling back to legacy terminal controller",
+                "Failed to start blit terminal server",
                 extra={"socket_path": socket_path},
                 exc_info=True,
             )
@@ -756,7 +609,6 @@ class RemoteExecutionClient:
         chat_uuid: str,
         connection_tracker: ConnectionTracker | None = None,
         timeout_seconds: int | None = None,
-        terminal_controller_socket_path: str | None = None,
     ) -> REMOTE_EXECUTION_CLIENT_EXIT_INFO:
         self.current_session.set_chat_uuid(chat_uuid)
         ensure_chat_directories(chat_uuid)
@@ -766,36 +618,9 @@ class RemoteExecutionClient:
         beats: asyncio.Queue[HeartbeatInfo] = asyncio.Queue()
         requests: asyncio.Queue[CliRpcRequest] = asyncio.Queue()
         results: asyncio.Queue[CliRpcResponse] = asyncio.Queue()
-        terminal_output_queue: asyncio.Queue[TerminalMessage] = asyncio.Queue()
 
-        terminal_session_manager = TerminalSessionManager(terminal_output_queue)
-
-        terminal_controller: TerminalControllerServer | None = None
-        blit_terminal_server: BlitTerminalServer | None = None
-        self._blit_terminal_server = None
-        if terminal_controller_socket_path:
-
-            async def _on_input(session_id: str, data: str) -> None:
-                await terminal_session_manager.send_input(session_id, data)
-
-            async def _on_resize(session_id: str, cols: int, rows: int) -> None:
-                await terminal_session_manager.resize_terminal(session_id, rows=rows, cols=cols)
-
-            async def _on_start_terminal(session_id: str, cols: int, rows: int) -> None:
-                await terminal_session_manager.start_session(
-                    websocket=None, session_id=session_id, cols=cols, rows=rows
-                )
-
-            terminal_controller = TerminalControllerServer(
-                terminal_controller_socket_path,
-                on_input=_on_input,
-                on_resize=_on_resize,
-                on_start_terminal=_on_start_terminal,
-            )
-            await terminal_controller.start()
-            blit_terminal_server = await self._connect_blit_terminal_server()
-            self._blit_terminal_server = blit_terminal_server
-        self._terminal_controller = terminal_controller
+        blit_terminal_server = await self._connect_blit_terminal_server()
+        self._blit_terminal_server = blit_terminal_server
 
         executors = await self._setup_tasks(beats, requests, results)
 
@@ -811,9 +636,6 @@ class RemoteExecutionClient:
                                 beats,
                                 requests,
                                 results,
-                                terminal_output_queue,
-                                terminal_session_manager,
-                                terminal_controller,
                             )
                         ),
                         asyncio.create_task(self._timeout_monitor(timeout_seconds)),
@@ -834,11 +656,6 @@ class RemoteExecutionClient:
             self._blit_terminal_server = None
             if blit_terminal_server is not None:
                 await blit_terminal_server.stop()
-
-            if terminal_controller is not None:
-                await terminal_controller.stop()
-
-            await terminal_session_manager.stop_all_sessions()
 
             await self._background_tracker.stop_all()
 
@@ -951,12 +768,6 @@ class RemoteExecutionClient:
                             command=request.request.tool_input.command,
                             correlation_id=request.request_id,
                         )
-                        if self._terminal_controller is not None and bash_result.process.pid is not None:
-                            await self._terminal_controller.handle_bg_process_started(
-                                str(bash_result.process.pid),
-                                request.request.tool_input.command,
-                                bash_result.result.output_file or "",
-                            )
                         raw_result = bash_result.result
                     else:
                         raw_result = bash_result
@@ -1008,12 +819,6 @@ class RemoteExecutionClient:
                             command=tool_input.command,
                             correlation_id=f"{request.request_id}_{i}",
                         )
-                        if self._terminal_controller is not None and result.process.pid is not None:
-                            await self._terminal_controller.handle_bg_process_started(
-                                str(result.process.pid),
-                                tool_input.command,
-                                result.result.output_file or "",
-                            )
                         processed_results.append(truncate_result(result.result))
                     else:
                         tool_input = tool_inputs[i]
@@ -1044,16 +849,6 @@ class RemoteExecutionClient:
 
             elif isinstance(request.request, SwitchCLIChatRequest):
                 raise ValueError("SwitchCLIChatRequest should not be handled by handle_request")
-            elif isinstance(request.request, StartTerminalRequest):
-                raise ValueError("StartTerminalRequest should not be handled by handle_request")
-            elif isinstance(request.request, TerminalInputRequest):
-                raise ValueError("TerminalInputRequest should not be handled by handle_request")
-            elif isinstance(request.request, TerminalResizeRequest):
-                raise ValueError("TerminalResizeRequest should not be handled by handle_request")
-            elif isinstance(request.request, StopTerminalRequest):
-                raise ValueError("StopTerminalRequest should not be handled by handle_request")
-            elif isinstance(request.request, ListTerminalsRequest):
-                raise ValueError("ListTerminalsRequest should not be handled by handle_request")
             else:
                 raise ValueError(f"Unhandled request type: {type(request)}")
 

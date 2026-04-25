@@ -36,7 +36,6 @@ from silx.gui.hdf5.Hdf5Formatter import Hdf5Formatter
 import silx.io
 from .AbstractDataFileDialog import AbstractDataFileDialog
 
-
 _logger = logging.getLogger(__name__)
 
 
@@ -44,7 +43,7 @@ class _DataPreview(qt.QWidget):
     """Provide a preview of the selected image"""
 
     def __init__(self, parent=None):
-        super(_DataPreview, self).__init__(parent)
+        super().__init__(parent)
 
         self.__formatter = Hdf5Formatter(self)
         self.__data = None

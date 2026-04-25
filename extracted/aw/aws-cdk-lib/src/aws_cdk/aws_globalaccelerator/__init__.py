@@ -511,6 +511,9 @@ class CfnAccelerator(
         
             # the properties below are optional
             enabled=False,
+            flow_logs_enabled=False,
+            flow_logs_s3_bucket="flowLogsS3Bucket",
+            flow_logs_s3_prefix="flowLogsS3Prefix",
             ip_addresses=["ipAddresses"],
             ip_address_type="ipAddressType",
             tags=[CfnTag(
@@ -527,6 +530,9 @@ class CfnAccelerator(
         *,
         name: builtins.str,
         enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        flow_logs_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        flow_logs_s3_bucket: typing.Optional[builtins.str] = None,
+        flow_logs_s3_prefix: typing.Optional[builtins.str] = None,
         ip_addresses: typing.Optional[typing.Sequence[builtins.str]] = None,
         ip_address_type: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -537,6 +543,9 @@ class CfnAccelerator(
         :param id: Construct identifier for this resource (unique in its scope).
         :param name: The name of the accelerator. The name must contain only alphanumeric characters or hyphens (-), and must not begin or end with a hyphen.
         :param enabled: Indicates whether the accelerator is enabled. The value is true or false. The default value is true. If the value is set to true, the accelerator cannot be deleted. If set to false, accelerator can be deleted. Default: - true
+        :param flow_logs_enabled: Indicates whether flow logs are enabled for the accelerator. Default: - false
+        :param flow_logs_s3_bucket: The name of the Amazon S3 bucket for the flow logs.
+        :param flow_logs_s3_prefix: The prefix for the location in the Amazon S3 bucket for the flow logs.
         :param ip_addresses: Optionally, if you've added your own IP address pool to Global Accelerator (BYOIP), you can choose IP addresses from your own pool to use for the accelerator's static IP addresses when you create an accelerator. You can specify one or two addresses, separated by a comma. Do not include the /32 suffix. Only one IP address from each of your IP address ranges can be used for each accelerator. If you specify only one IP address from your IP address range, Global Accelerator assigns a second static IP address for the accelerator from the AWS IP address pool. Note that you can't update IP addresses for an existing accelerator. To change them, you must create a new accelerator with the new addresses. For more information, see `Bring Your Own IP Addresses (BYOIP) <https://docs.aws.amazon.com/global-accelerator/latest/dg/using-byoip.html>`_ in the *AWS Global Accelerator Developer Guide* .
         :param ip_address_type: The IP address type that an accelerator supports. For a standard accelerator, the value can be IPV4 or DUAL_STACK. Default: - "IPV4"
         :param tags: Create tags for an accelerator. For more information, see `Tagging <https://docs.aws.amazon.com/global-accelerator/latest/dg/tagging-in-global-accelerator.html>`_ in the *AWS Global Accelerator Developer Guide* .
@@ -548,6 +557,9 @@ class CfnAccelerator(
         props = CfnAcceleratorProps(
             name=name,
             enabled=enabled,
+            flow_logs_enabled=flow_logs_enabled,
+            flow_logs_s3_bucket=flow_logs_s3_bucket,
+            flow_logs_s3_prefix=flow_logs_s3_prefix,
             ip_addresses=ip_addresses,
             ip_address_type=ip_address_type,
             tags=tags,
@@ -709,6 +721,50 @@ class CfnAccelerator(
         jsii.set(self, "enabled", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="flowLogsEnabled")
+    def flow_logs_enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        '''Indicates whether flow logs are enabled for the accelerator.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "flowLogsEnabled"))
+
+    @flow_logs_enabled.setter
+    def flow_logs_enabled(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__dcedca76e28811bd5bce3857f1faa6755cd17be97660969a2edfd3d16b0070e4)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "flowLogsEnabled", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="flowLogsS3Bucket")
+    def flow_logs_s3_bucket(self) -> typing.Optional[builtins.str]:
+        '''The name of the Amazon S3 bucket for the flow logs.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "flowLogsS3Bucket"))
+
+    @flow_logs_s3_bucket.setter
+    def flow_logs_s3_bucket(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__51bd47ec1a2b46d2f2b55c698f27f2c00efd66c964580d2f2dc4447869a7e342)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "flowLogsS3Bucket", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="flowLogsS3Prefix")
+    def flow_logs_s3_prefix(self) -> typing.Optional[builtins.str]:
+        '''The prefix for the location in the Amazon S3 bucket for the flow logs.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "flowLogsS3Prefix"))
+
+    @flow_logs_s3_prefix.setter
+    def flow_logs_s3_prefix(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1c530b9a7eb2940cda8481b01fb3cad74037cc5a16cc80386013da7668048e1e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "flowLogsS3Prefix", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="ipAddresses")
     def ip_addresses(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Optionally, if you've added your own IP address pool to Global Accelerator (BYOIP), you can choose IP addresses from your own pool to use for the accelerator's static IP addresses when you create an accelerator.'''
@@ -754,6 +810,9 @@ class CfnAccelerator(
     name_mapping={
         "name": "name",
         "enabled": "enabled",
+        "flow_logs_enabled": "flowLogsEnabled",
+        "flow_logs_s3_bucket": "flowLogsS3Bucket",
+        "flow_logs_s3_prefix": "flowLogsS3Prefix",
         "ip_addresses": "ipAddresses",
         "ip_address_type": "ipAddressType",
         "tags": "tags",
@@ -765,6 +824,9 @@ class CfnAcceleratorProps:
         *,
         name: builtins.str,
         enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        flow_logs_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        flow_logs_s3_bucket: typing.Optional[builtins.str] = None,
+        flow_logs_s3_prefix: typing.Optional[builtins.str] = None,
         ip_addresses: typing.Optional[typing.Sequence[builtins.str]] = None,
         ip_address_type: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -773,6 +835,9 @@ class CfnAcceleratorProps:
 
         :param name: The name of the accelerator. The name must contain only alphanumeric characters or hyphens (-), and must not begin or end with a hyphen.
         :param enabled: Indicates whether the accelerator is enabled. The value is true or false. The default value is true. If the value is set to true, the accelerator cannot be deleted. If set to false, accelerator can be deleted. Default: - true
+        :param flow_logs_enabled: Indicates whether flow logs are enabled for the accelerator. Default: - false
+        :param flow_logs_s3_bucket: The name of the Amazon S3 bucket for the flow logs.
+        :param flow_logs_s3_prefix: The prefix for the location in the Amazon S3 bucket for the flow logs.
         :param ip_addresses: Optionally, if you've added your own IP address pool to Global Accelerator (BYOIP), you can choose IP addresses from your own pool to use for the accelerator's static IP addresses when you create an accelerator. You can specify one or two addresses, separated by a comma. Do not include the /32 suffix. Only one IP address from each of your IP address ranges can be used for each accelerator. If you specify only one IP address from your IP address range, Global Accelerator assigns a second static IP address for the accelerator from the AWS IP address pool. Note that you can't update IP addresses for an existing accelerator. To change them, you must create a new accelerator with the new addresses. For more information, see `Bring Your Own IP Addresses (BYOIP) <https://docs.aws.amazon.com/global-accelerator/latest/dg/using-byoip.html>`_ in the *AWS Global Accelerator Developer Guide* .
         :param ip_address_type: The IP address type that an accelerator supports. For a standard accelerator, the value can be IPV4 or DUAL_STACK. Default: - "IPV4"
         :param tags: Create tags for an accelerator. For more information, see `Tagging <https://docs.aws.amazon.com/global-accelerator/latest/dg/tagging-in-global-accelerator.html>`_ in the *AWS Global Accelerator Developer Guide* .
@@ -792,6 +857,9 @@ class CfnAcceleratorProps:
             
                 # the properties below are optional
                 enabled=False,
+                flow_logs_enabled=False,
+                flow_logs_s3_bucket="flowLogsS3Bucket",
+                flow_logs_s3_prefix="flowLogsS3Prefix",
                 ip_addresses=["ipAddresses"],
                 ip_address_type="ipAddressType",
                 tags=[CfnTag(
@@ -804,6 +872,9 @@ class CfnAcceleratorProps:
             type_hints = typing.get_type_hints(_typecheckingstub__5a2b1dd32a23d6d5146bbceed209c5576192a998d13fcf3817f2dc4f8d691406)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+            check_type(argname="argument flow_logs_enabled", value=flow_logs_enabled, expected_type=type_hints["flow_logs_enabled"])
+            check_type(argname="argument flow_logs_s3_bucket", value=flow_logs_s3_bucket, expected_type=type_hints["flow_logs_s3_bucket"])
+            check_type(argname="argument flow_logs_s3_prefix", value=flow_logs_s3_prefix, expected_type=type_hints["flow_logs_s3_prefix"])
             check_type(argname="argument ip_addresses", value=ip_addresses, expected_type=type_hints["ip_addresses"])
             check_type(argname="argument ip_address_type", value=ip_address_type, expected_type=type_hints["ip_address_type"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -812,6 +883,12 @@ class CfnAcceleratorProps:
         }
         if enabled is not None:
             self._values["enabled"] = enabled
+        if flow_logs_enabled is not None:
+            self._values["flow_logs_enabled"] = flow_logs_enabled
+        if flow_logs_s3_bucket is not None:
+            self._values["flow_logs_s3_bucket"] = flow_logs_s3_bucket
+        if flow_logs_s3_prefix is not None:
+            self._values["flow_logs_s3_prefix"] = flow_logs_s3_prefix
         if ip_addresses is not None:
             self._values["ip_addresses"] = ip_addresses
         if ip_address_type is not None:
@@ -845,6 +922,37 @@ class CfnAcceleratorProps:
         '''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+    @builtins.property
+    def flow_logs_enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        '''Indicates whether flow logs are enabled for the accelerator.
+
+        :default: - false
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-globalaccelerator-accelerator.html#cfn-globalaccelerator-accelerator-flowlogsenabled
+        '''
+        result = self._values.get("flow_logs_enabled")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+    @builtins.property
+    def flow_logs_s3_bucket(self) -> typing.Optional[builtins.str]:
+        '''The name of the Amazon S3 bucket for the flow logs.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-globalaccelerator-accelerator.html#cfn-globalaccelerator-accelerator-flowlogss3bucket
+        '''
+        result = self._values.get("flow_logs_s3_bucket")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def flow_logs_s3_prefix(self) -> typing.Optional[builtins.str]:
+        '''The prefix for the location in the Amazon S3 bucket for the flow logs.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-globalaccelerator-accelerator.html#cfn-globalaccelerator-accelerator-flowlogss3prefix
+        '''
+        result = self._values.get("flow_logs_s3_prefix")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def ip_addresses(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -4403,6 +4511,9 @@ def _typecheckingstub__1b4e9743a0b90ee8f6751e3f45acf5d26ac65581ea6ebfd2056c79343
     *,
     name: builtins.str,
     enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    flow_logs_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    flow_logs_s3_bucket: typing.Optional[builtins.str] = None,
+    flow_logs_s3_prefix: typing.Optional[builtins.str] = None,
     ip_addresses: typing.Optional[typing.Sequence[builtins.str]] = None,
     ip_address_type: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -4446,6 +4557,24 @@ def _typecheckingstub__212958a90fe602ec7bd5bd63e1af9ffdda7f4715f76bb918b2954de8c
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__dcedca76e28811bd5bce3857f1faa6755cd17be97660969a2edfd3d16b0070e4(
+    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__51bd47ec1a2b46d2f2b55c698f27f2c00efd66c964580d2f2dc4447869a7e342(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1c530b9a7eb2940cda8481b01fb3cad74037cc5a16cc80386013da7668048e1e(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__c9293ebc99ee17e886faff8e0d9efb40ef7bebbbd4b48380c60934c13184439d(
     value: typing.Optional[typing.List[builtins.str]],
 ) -> None:
@@ -4468,6 +4597,9 @@ def _typecheckingstub__5a2b1dd32a23d6d5146bbceed209c5576192a998d13fcf3817f2dc4f8
     *,
     name: builtins.str,
     enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    flow_logs_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    flow_logs_s3_bucket: typing.Optional[builtins.str] = None,
+    flow_logs_s3_prefix: typing.Optional[builtins.str] = None,
     ip_addresses: typing.Optional[typing.Sequence[builtins.str]] = None,
     ip_address_type: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,

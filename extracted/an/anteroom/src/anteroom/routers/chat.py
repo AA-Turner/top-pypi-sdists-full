@@ -2669,6 +2669,7 @@ async def chat(conversation_id: str, request: Request) -> Any:
 
         if files:
             data_dir = request.app.state.config.app.data_dir
+            max_size_bytes = request.app.state.config.server.max_upload_mb * 1024 * 1024
             for f in files:
                 if hasattr(f, "read"):
                     file_data = await f.read()
@@ -2680,6 +2681,7 @@ async def chat(conversation_id: str, request: Request) -> Any:
                         f.content_type or "application/octet-stream",
                         file_data,
                         data_dir,
+                        max_size_bytes=max_size_bytes,
                     )
                     # Dual citizenship: also create a source from this attachment
                     try:
@@ -2694,6 +2696,8 @@ async def chat(conversation_id: str, request: Request) -> Any:
                             user_display_name=_udn,
                         )
                         if source:
+                            if conv.get("space_id"):
+                                storage.link_source_to_space(db, conv["space_id"], source_id=source["id"])
                             worker = getattr(request.app.state, "embedding_worker", None)
                             if worker and source.get("content"):
                                 try:

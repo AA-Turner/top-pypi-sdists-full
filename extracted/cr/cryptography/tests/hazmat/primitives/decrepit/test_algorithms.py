@@ -8,6 +8,7 @@ import os
 
 import pytest
 
+from cryptography import utils
 from cryptography.exceptions import _Reasons
 from cryptography.hazmat.decrepit.ciphers.algorithms import (
     ARC4,
@@ -17,6 +18,7 @@ from cryptography.hazmat.decrepit.ciphers.algorithms import (
     Blowfish,
     TripleDES,
 )
+from cryptography.hazmat.decrepit.ciphers.modes import CFB, OFB
 from cryptography.hazmat.primitives import ciphers
 from cryptography.hazmat.primitives.ciphers import modes
 
@@ -71,9 +73,8 @@ def test_invalid_mode_algorithm():
 
 
 class TestTripleDES:
-    @pytest.mark.parametrize("key", [b"0" * 16, b"0" * 32, b"0" * 48])
-    def test_key_size(self, key):
-        cipher = TripleDES(binascii.unhexlify(key))
+    def test_key_size(self):
+        cipher = TripleDES(binascii.unhexlify(b"0" * 48))
         assert cipher.key_size == 192
 
     def test_invalid_key_size(self):
@@ -83,6 +84,16 @@ class TestTripleDES:
     def test_invalid_key_type(self):
         with pytest.raises(TypeError, match="key must be bytes"):
             TripleDES("0" * 16)  # type: ignore[arg-type]
+
+    def test_single_key_deprecated(self):
+        with pytest.warns(utils.DeprecatedIn47):
+            cipher = TripleDES(binascii.unhexlify(b"0" * 16))
+        assert cipher.key_size == 192
+
+    def test_two_key_deprecated(self):
+        with pytest.warns(utils.DeprecatedIn47):
+            cipher = TripleDES(binascii.unhexlify(b"0" * 32))
+        assert cipher.key_size == 192
 
 
 class TestBlowfish:
@@ -137,7 +148,7 @@ class TestBlowfishModeCBC:
 
 @pytest.mark.supported(
     only_if=lambda backend: backend.cipher_supported(
-        Blowfish(b"\x00" * 56), modes.OFB(b"\x00" * 8)
+        Blowfish(b"\x00" * 56), OFB(b"\x00" * 8)
     ),
     skip_message="Does not support Blowfish OFB",
 )
@@ -147,13 +158,13 @@ class TestBlowfishModeOFB:
         os.path.join("ciphers", "Blowfish"),
         ["bf-ofb.txt"],
         lambda key, **kwargs: Blowfish(binascii.unhexlify(key)),
-        lambda iv, **kwargs: modes.OFB(binascii.unhexlify(iv)),
+        lambda iv, **kwargs: OFB(binascii.unhexlify(iv)),
     )
 
 
 @pytest.mark.supported(
     only_if=lambda backend: backend.cipher_supported(
-        Blowfish(b"\x00" * 56), modes.CFB(b"\x00" * 8)
+        Blowfish(b"\x00" * 56), CFB(b"\x00" * 8)
     ),
     skip_message="Does not support Blowfish CFB",
 )
@@ -163,7 +174,7 @@ class TestBlowfishModeCFB:
         os.path.join("ciphers", "Blowfish"),
         ["bf-cfb.txt"],
         lambda key, **kwargs: Blowfish(binascii.unhexlify(key)),
-        lambda iv, **kwargs: modes.CFB(binascii.unhexlify(iv)),
+        lambda iv, **kwargs: CFB(binascii.unhexlify(iv)),
     )
 
 
@@ -219,7 +230,7 @@ class TestCAST5ModeCBC:
 
 @pytest.mark.supported(
     only_if=lambda backend: backend.cipher_supported(
-        CAST5(b"\x00" * 16), modes.OFB(b"\x00" * 8)
+        CAST5(b"\x00" * 16), OFB(b"\x00" * 8)
     ),
     skip_message="Does not support CAST5 OFB",
 )
@@ -229,13 +240,13 @@ class TestCAST5ModeOFB:
         os.path.join("ciphers", "CAST5"),
         ["cast5-ofb.txt"],
         lambda key, **kwargs: CAST5(binascii.unhexlify(key)),
-        lambda iv, **kwargs: modes.OFB(binascii.unhexlify(iv)),
+        lambda iv, **kwargs: OFB(binascii.unhexlify(iv)),
     )
 
 
 @pytest.mark.supported(
     only_if=lambda backend: backend.cipher_supported(
-        CAST5(b"\x00" * 16), modes.CFB(b"\x00" * 8)
+        CAST5(b"\x00" * 16), CFB(b"\x00" * 8)
     ),
     skip_message="Does not support CAST5 CFB",
 )
@@ -245,7 +256,7 @@ class TestCAST5ModeCFB:
         os.path.join("ciphers", "CAST5"),
         ["cast5-cfb.txt"],
         lambda key, **kwargs: CAST5(binascii.unhexlify(key)),
-        lambda iv, **kwargs: modes.CFB(binascii.unhexlify(iv)),
+        lambda iv, **kwargs: CFB(binascii.unhexlify(iv)),
     )
 
 
@@ -297,7 +308,7 @@ class TestIDEAModeCBC:
 
 @pytest.mark.supported(
     only_if=lambda backend: backend.cipher_supported(
-        IDEA(b"\x00" * 16), modes.OFB(b"\x00" * 8)
+        IDEA(b"\x00" * 16), OFB(b"\x00" * 8)
     ),
     skip_message="Does not support IDEA OFB",
 )
@@ -307,13 +318,13 @@ class TestIDEAModeOFB:
         os.path.join("ciphers", "IDEA"),
         ["idea-ofb.txt"],
         lambda key, **kwargs: IDEA(binascii.unhexlify(key)),
-        lambda iv, **kwargs: modes.OFB(binascii.unhexlify(iv)),
+        lambda iv, **kwargs: OFB(binascii.unhexlify(iv)),
     )
 
 
 @pytest.mark.supported(
     only_if=lambda backend: backend.cipher_supported(
-        IDEA(b"\x00" * 16), modes.CFB(b"\x00" * 8)
+        IDEA(b"\x00" * 16), CFB(b"\x00" * 8)
     ),
     skip_message="Does not support IDEA CFB",
 )
@@ -323,7 +334,7 @@ class TestIDEAModeCFB:
         os.path.join("ciphers", "IDEA"),
         ["idea-cfb.txt"],
         lambda key, **kwargs: IDEA(binascii.unhexlify(key)),
-        lambda iv, **kwargs: modes.CFB(binascii.unhexlify(iv)),
+        lambda iv, **kwargs: CFB(binascii.unhexlify(iv)),
     )
 
 
@@ -375,7 +386,7 @@ class TestSEEDModeCBC:
 
 @pytest.mark.supported(
     only_if=lambda backend: backend.cipher_supported(
-        SEED(b"\x00" * 16), modes.OFB(b"\x00" * 16)
+        SEED(b"\x00" * 16), OFB(b"\x00" * 16)
     ),
     skip_message="Does not support SEED OFB",
 )
@@ -385,13 +396,13 @@ class TestSEEDModeOFB:
         os.path.join("ciphers", "SEED"),
         ["seed-ofb.txt"],
         lambda key, **kwargs: SEED(binascii.unhexlify(key)),
-        lambda iv, **kwargs: modes.OFB(binascii.unhexlify(iv)),
+        lambda iv, **kwargs: OFB(binascii.unhexlify(iv)),
     )
 
 
 @pytest.mark.supported(
     only_if=lambda backend: backend.cipher_supported(
-        SEED(b"\x00" * 16), modes.CFB(b"\x00" * 16)
+        SEED(b"\x00" * 16), CFB(b"\x00" * 16)
     ),
     skip_message="Does not support SEED CFB",
 )
@@ -401,5 +412,5 @@ class TestSEEDModeCFB:
         os.path.join("ciphers", "SEED"),
         ["seed-cfb.txt"],
         lambda key, **kwargs: SEED(binascii.unhexlify(key)),
-        lambda iv, **kwargs: modes.CFB(binascii.unhexlify(iv)),
+        lambda iv, **kwargs: CFB(binascii.unhexlify(iv)),
     )

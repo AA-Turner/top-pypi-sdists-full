@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import contextlib
-import warnings
 from contextvars import ContextVar
 
 from chalk_rs import build_namespaced_name as _rs_build_namespaced_name
@@ -13,17 +12,11 @@ _NAMESPACE_SEP = "::"
 
 @contextlib.contextmanager
 def namespace(name: str):
-    """Activate the given namespace. All features and resolvers defined herein will belong to this namespace, even if they defined in different files.
+    """Activate the given namespace. All features and resolvers defined herein will belong to this namespace,
+    even if they defined in different files.
 
     This is an experimental feature and support for feature namespaces may change in backwards-incompatible ways.
     """
-    warnings.warn(
-        (
-            "Hey! It looks like you discovered an experimental Chalk feature. Namespace contexts are not fully "
-            "supported by Chalk, and they may change or break without notice, causing data loss. To fix, please "
-            f"remove the call to the `with namespace('{name}'):` context manager."
-        )
-    )
     if len(name) == 0:
         raise ValueError("Namespace names cannot be empty.")
     new_namespace = build_namespaced_name(name=name)

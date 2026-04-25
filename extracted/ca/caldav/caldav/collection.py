@@ -13,11 +13,12 @@ A SynchronizableCalendarObjectCollection contains a local copy of objects from a
 import logging
 import uuid
 import warnings
+from dataclasses import dataclass
 from datetime import date as _date
 from datetime import datetime, timezone
 from time import sleep
 from typing import TYPE_CHECKING, Any, Optional, TypeVar
-from urllib.parse import ParseResult, SplitResult, quote, unquote
+from urllib.parse import ParseResult, SplitResult, quote, unquote, urlparse, urlunparse
 
 import icalendar
 
@@ -27,9 +28,10 @@ if TYPE_CHECKING:
     from .davclient import DAVClient
     from .search import CalDAVSearcher
 
-from collections.abc import Iterable, Iterator, Sequence
+from collections.abc import Coroutine, Iterable, Iterator, Sequence
 from typing import Literal
 
+from .base_client import ICALH
 from .calendarobjectresource import (
     CalendarObjectResource,
     Event,
@@ -47,6 +49,89 @@ _CC = TypeVar("_CC", bound="CalendarObjectResource")
 log = logging.getLogger("caldav")
 
 
+# ---------------------------------------------------------------------------
+# Helpers for extracting calendar / principal info from PROPFIND results.
+# These were previously in caldav/operations/calendarset_ops.py and
+# caldav/operations/principal_ops.py.
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class CalendarInfo:
+    """Data for a calendar extracted from a PROPFIND response."""
+
+    url: str
+    cal_id: str | None
+    name: str | None
+    resource_types: list[str]
+
+
+def _extract_calendar_id_from_url(url: str) -> str | None:
+    try:
+        parts = str(url).rstrip("/").split("/")
+        if parts:
+            cal_id = parts[-1]
+            if cal_id:
+                return cal_id
+    except Exception:
+        log.error(f"Calendar has unexpected url {url}")
+    return None
+
+
+def _quote_url_path(url: str) -> str:
+    """Quote the path component of a URL to handle unencoded spaces (e.g. Zimbra)."""
+    parsed = urlparse(url)
+    quoted_path = quote(unquote(parsed.path), safe="/@")
+    return urlunparse(parsed._replace(path=quoted_path))
+
+
+def _is_calendar_resource(properties: dict[str, Any]) -> bool:
+    rt = properties.get("{DAV:}resourcetype", [])
+    if not isinstance(rt, list):
+        rt = [rt] if rt else []
+    return "{urn:ietf:params:xml:ns:caldav}calendar" in rt
+
+
+def _extract_calendars_from_propfind_results(results: list[Any] | None) -> list[CalendarInfo]:
+    """Extract CalendarInfo objects from a list of PropfindResult objects."""
+    calendars = []
+    for result in results or []:
+        if not _is_calendar_resource(result.properties):
+            continue
+        url = _quote_url_path(result.href)
+        name = result.properties.get("{DAV:}displayname")
+        cal_id = _extract_calendar_id_from_url(url)
+        if not cal_id:
+            continue
+        calendars.append(
+            CalendarInfo(
+                url=url,
+                cal_id=cal_id,
+                name=name,
+                resource_types=result.properties.get("{DAV:}resourcetype", []),
+            )
+        )
+    return calendars
+
+
+def _sanitize_calendar_home_set_url(url: str | None) -> str | None:
+    """Quote @ in owncloud-style URLs that are not full URLs."""
+    if url is None:
+        return None
+    if "@" in url and "://" not in url and "%40" not in url:
+        return quote(url)
+    return url
+
+
+def _extract_calendar_home_set_from_results(results: list[Any] | None) -> str | None:
+    """Extract calendar-home-set URL from a list of PropfindResult objects."""
+    for result in results or []:
+        home_set = result.properties.get("{urn:ietf:params:xml:ns:caldav}calendar-home-set")
+        if home_set:
+            return _sanitize_calendar_home_set_url(home_set)
+    return None
+
+
 class CalendarSet(DAVObject):
     """
     A CalendarSet is a set of calendars.
@@ -54,17 +139,13 @@ class CalendarSet(DAVObject):
 
     def _calendars_from_results(self, results) -> list["Calendar"]:
         """Convert PropfindResult list into Calendar objects."""
-        from caldav.operations.calendarset_ops import (
-            _extract_calendars_from_propfind_results,
-        )
-
         calendar_infos = _extract_calendars_from_propfind_results(results)
         return [
             Calendar(client=self.client, url=info.url, name=info.name, id=info.cal_id, parent=self)
             for info in calendar_infos
         ]
 
-    def get_calendars(self) -> list["Calendar"]:
+    def get_calendars(self) -> "list[Calendar] | Coroutine[Any, Any, list[Calendar]]":
         """
         List all calendar collections in this set.
 
@@ -81,21 +162,21 @@ class CalendarSet(DAVObject):
             calendars = await calendar_set.get_calendars()
         """
         if self.is_async_client:
-            return self._async_calendars()
+            return self._async_get_calendars()
 
         response = self.client.propfind(
             str(self.url), props=self.client.CALENDAR_LIST_PROPS, depth=1
         )
         return self._calendars_from_results(response.results)
 
-    async def _async_calendars(self) -> list["Calendar"]:
+    async def _async_get_calendars(self) -> list["Calendar"]:
         """Async implementation of get_calendars()."""
         response = await self.client.propfind(
             str(self.url), props=self.client.CALENDAR_LIST_PROPS, depth=1
         )
         return self._calendars_from_results(response.results)
 
-    def calendars(self) -> list["Calendar"]:
+    def calendars(self) -> "list[Calendar] | Coroutine[Any, Any, list[Calendar]]":
         """
         Deprecated: Use :meth:`get_calendars` instead.
 
@@ -109,7 +190,7 @@ class CalendarSet(DAVObject):
         cal_id: str | None = None,
         supported_calendar_component_set: Any | None = None,
         method: str | None = None,
-    ) -> "Calendar":
+    ) -> "Calendar | Coroutine[Any, Any, Calendar]":
         """
         Utility method for creating a new calendar.
 
@@ -153,7 +234,7 @@ class CalendarSet(DAVObject):
             id=cal_id,
             supported_calendar_component_set=supported_calendar_component_set,
         )
-        return await calendar._async_save(method=method)
+        return await calendar.save(method=method)
 
     def calendar(self, name: str | None = None, cal_id: str | None = None) -> "Calendar":
         """
@@ -296,7 +377,7 @@ class Principal(DAVObject):
 
         if url is None:
             # Async URL discovery
-            cup = await principal._async_get_property(dav.CurrentUserPrincipal())
+            cup = await principal.get_property(dav.CurrentUserPrincipal())
             if cup is None:
                 log.warning("calendar server lacking a feature:")
                 log.warning("current-user-principal property not found")
@@ -312,7 +393,7 @@ class Principal(DAVObject):
         cal_id: str | None = None,
         supported_calendar_component_set: Any | None = None,
         method=None,
-    ) -> "Calendar":
+    ) -> "Calendar | Coroutine[Any, Any, Calendar]":
         """
         Convenience method, bypasses the self.calendar_home_set object.
         See CalendarSet.make_calendar for details.
@@ -338,7 +419,7 @@ class Principal(DAVObject):
     ) -> "Calendar":
         """Async implementation of make_calendar."""
         calendar_home_set = await self._async_get_calendar_home_set()
-        return await calendar_home_set._async_make_calendar(
+        return await calendar_home_set.make_calendar(
             name,
             cal_id,
             supported_calendar_component_set=supported_calendar_component_set,
@@ -350,7 +431,7 @@ class Principal(DAVObject):
         if self._calendar_home_set:
             return self._calendar_home_set
 
-        calendar_home_set_url = await self._async_get_property(cdav.CalendarHomeSet())
+        calendar_home_set_url = await self.get_property(cdav.CalendarHomeSet())
         if (
             calendar_home_set_url is not None
             and "@" in calendar_home_set_url
@@ -382,16 +463,38 @@ class Principal(DAVObject):
 
             return Calendar(self.client, url=self.client.url.join(cal_url))
 
-    def get_vcal_address(self) -> "vCalAddress":
+    def get_vcal_address(self) -> "vCalAddress | Coroutine[Any, Any, vCalAddress]":
         """
         Returns the principal, as an icalendar.vCalAddress object.
+        For async clients, returns a coroutine that must be awaited.
         """
+        if self.is_async_client:
+            return self._async_get_vcal_address()
         from icalendar import vCalAddress, vText
 
         cn = self.get_display_name()
         ids = self.calendar_user_address_set()
         cutype = self.get_property(cdav.CalendarUserType())
         ret = vCalAddress(ids[0])
+        ret.params["cn"] = vText(cn)
+        ret.params["cutype"] = vText(cutype)
+        return ret
+
+    async def _async_get_vcal_address(self) -> "vCalAddress":
+        """Async counterpart of get_vcal_address() for use with AsyncDAVClient."""
+        from icalendar import vCalAddress, vText
+
+        cn = self.get_display_name()
+        if not isinstance(cn, str):
+            cn = await cn
+
+        addresses_el = await self.get_property(cdav.CalendarUserAddressSet(), parse_props=False)
+        if addresses_el is None:
+            raise error.NotFoundError("No calendar user addresses given from server")
+        assert not [x for x in addresses_el if x.tag != dav.Href().tag]
+        addresses = sorted(list(addresses_el), key=lambda x: -int(x.get("preferred", 0)))
+        cutype = await self.get_property(cdav.CalendarUserType())
+        ret = vCalAddress(addresses[0].text)
         ret.params["cn"] = vText(cn)
         ret.params["cutype"] = vText(cutype)
         return ret
@@ -434,7 +537,7 @@ class Principal(DAVObject):
                 self.client.url = sanitized_url
         self._calendar_home_set = CalendarSet(self.client, self.client.url.join(sanitized_url))
 
-    def get_calendars(self) -> list["Calendar"]:
+    def get_calendars(self) -> "list[Calendar] | Coroutine[Any, Any, list[Calendar]]":
         """
         Return the principal's calendars.
 
@@ -450,7 +553,7 @@ class Principal(DAVObject):
         # Delegate to client for dual-mode support
         return self.client.get_calendars(self)
 
-    def calendars(self) -> list["Calendar"]:
+    def calendars(self) -> "list[Calendar] | Coroutine[Any, Any, list[Calendar]]":
         """
         Deprecated: Use :meth:`get_calendars` instead.
 
@@ -458,11 +561,19 @@ class Principal(DAVObject):
         """
         return self.get_calendars()
 
-    def freebusy_request(self, dtstart, dtend, attendees):
+    ## TODO: we have code in lib.vcal for constructing icalendar objects,
+    ## and from icalendar 7 there is also code in the icalendar library
+    ## for this.  The cruft below for constructing the request should be
+    ## eliminated.  Also, the async diversion should happen closer to the
+    ## bottom of the method, reducing the need of duplicating code
+    def freebusy_request(
+        self, dtstart, dtend, attendees
+    ) -> "dict[str, FreeBusy] | Coroutine[Any, Any, dict]":
         """Sends a freebusy-request for some attendee to the server
         as per RFC6638.
-        """
 
+        For async clients, returns a coroutine that must be awaited.
+        """
         freebusy_ical = icalendar.Calendar()
         freebusy_ical.add("prodid", "-//tobixen/python-caldav//EN")
         freebusy_ical.add("version", "2.0")
@@ -475,17 +586,30 @@ class Principal(DAVObject):
         freebusy_comp.add("dtend", dtend)
         freebusy_ical.add_component(freebusy_comp)
         outbox = self.schedule_outbox()
-        caldavobj = FreeBusy(data=freebusy_ical, parent=outbox)
-        caldavobj.add_organizer()
+        caldavobj = FreeBusy(data=freebusy_ical, parent=self)
         for attendee in attendees:
             caldavobj.add_attendee(attendee, no_default_parameters=True)
 
-        response = self.client.post(
-            outbox.url,
-            caldavobj.data,
-            headers={"Content-Type": "text/calendar; charset=utf-8"},
-        )
-        return response._find_objects_and_props()
+        if self.is_async_client:
+            return self._async_freebusy_request(outbox, caldavobj)
+
+        caldavobj.add_organizer()
+
+        response = self.client.post(outbox.url, caldavobj.data, headers=ICALH)
+        return response._parse_scheduling_response_objects(parent=self)
+
+    async def _async_freebusy_request(self, outbox, fb_obj) -> dict:
+        """Async implementation of freebusy_request() for async clients."""
+        ## TODO: could we have common headers as global variable?
+        headers = ICALH
+        outbox = await outbox
+        ## TODO: it's really bad that arbitrary methods returns
+        ## a coroutine in async mode.  It's needed to make it much
+        ## more clear what methods involves I/O and what methods
+        ## doesn't involve I/O in 4.0
+        await fb_obj.add_organizer()
+        response = await self.client.post(outbox.url, fb_obj.data, headers)
+        return response._parse_scheduling_response_objects(parent=self)
 
     def calendar_user_address_set(self) -> list[str | None]:
         """
@@ -505,17 +629,31 @@ class Principal(DAVObject):
         addresses.sort(key=lambda x: -int(x.get("preferred", 0)))
         return [x.text for x in addresses]
 
-    def schedule_inbox(self) -> "ScheduleInbox":
+    def schedule_inbox(self) -> "ScheduleInbox | Coroutine[Any, Any, ScheduleInbox]":
         """
-        Returns the schedule inbox, as defined in RFC6638
+        Returns the schedule inbox, as defined in RFC6638.
+        For async clients, returns a coroutine that must be awaited.
         """
+        if self.is_async_client:
+            return self._async_schedule_inbox()
         return ScheduleInbox(principal=self)
 
-    def schedule_outbox(self) -> "ScheduleOutbox":
+    def schedule_outbox(self) -> "ScheduleOutbox | Coroutine[Any, Any, ScheduleOutbox]":
         """
-        Returns the schedule outbox, as defined in RFC6638
+        Returns the schedule outbox, as defined in RFC6638.
+        For async clients, returns a coroutine that must be awaited.
         """
+        if self.is_async_client:
+            return self._async_schedule_outbox()
         return ScheduleOutbox(principal=self)
+
+    async def _async_schedule_inbox(self) -> "ScheduleInbox":
+        url = await self.get_property(cdav.ScheduleInboxURL())
+        return ScheduleInbox(client=self.client, url=url)
+
+    async def _async_schedule_outbox(self) -> "ScheduleOutbox":
+        url = await self.get_property(cdav.ScheduleOutboxURL())
+        return ScheduleOutbox(client=self.client, url=url)
 
 
 class Calendar(DAVObject):
@@ -552,15 +690,12 @@ class Calendar(DAVObject):
 
     def _create(
         self, name=None, id=None, supported_calendar_component_set=None, method=None
-    ) -> None:
+    ) -> "None | Coroutine[Any, Any, None]":
         """
         Create a new calendar with display name `name` in `parent`.
 
         For async clients, returns a coroutine that must be awaited.
         """
-        if self.is_async_client:
-            return self._async_create(name, id, supported_calendar_component_set, method)
-
         if id is None:
             id = str(uuid.uuid4())
         self.id = id
@@ -587,11 +722,10 @@ class Calendar(DAVObject):
         # zimbra gives 500 (!) if body is omitted ...
 
         prop = dav.Prop()
+        display_name = None
         if name:
             display_name = dav.DisplayName(name)
-            prop += [
-                display_name,
-            ]
+            prop += [display_name]
         if supported_calendar_component_set:
             sccs = cdav.SupportedCalendarComponentSet()
             for scc in supported_calendar_component_set:
@@ -601,10 +735,12 @@ class Calendar(DAVObject):
             prop += dav.ResourceType() + [dav.Collection(), cdav.Calendar()]
 
         set = dav.Set() + prop
-
         mkcol = (dav.Mkcol() if method == "mkcol" else cdav.Mkcalendar()) + set
 
-        r = self._query(root=mkcol, query_method=method, url=path, expected_return_value=201)
+        if self.is_async_client:
+            return self._async_create(path, mkcol, method, name, display_name)
+
+        self._query(root=mkcol, query_method=method, url=path, expected_return_value=201)
 
         # COMPATIBILITY ISSUE
         # name should already be set, but we've seen caldav servers failing
@@ -619,68 +755,25 @@ class Calendar(DAVObject):
                 try:
                     current_display_name = self.get_display_name()
                     error.assert_(current_display_name == name)
-                except:
+                except Exception:
                     log.warning(
                         "calendar server does not support display name on calendar?  Ignoring",
                         exc_info=True,
                     )
 
-    async def _async_create(
-        self, name=None, id=None, supported_calendar_component_set=None, method=None
-    ) -> None:
-        """Async implementation of _create."""
-        if id is None:
-            id = str(uuid.uuid4())
-        self.id = id
-
-        if method is None:
-            if self.client:
-                supported = self.client.features.is_supported("create-calendar", return_type=dict)
-                if supported["support"] not in ("full", "fragile", "quirk"):
-                    raise error.MkcalendarError(
-                        "Creation of calendars (allegedly) not supported on this server"
-                    )
-                if supported["support"] == "quirk" and supported["behaviour"] == "mkcol-required":
-                    method = "mkcol"
-                else:
-                    method = "mkcalendar"
-            else:
-                method = "mkcalendar"
-
-        path = self.parent.url.join(id + "/")
-        self.url = path
-
-        prop = dav.Prop()
-        if name:
-            display_name = dav.DisplayName(name)
-            prop += [
-                display_name,
-            ]
-        if supported_calendar_component_set:
-            sccs = cdav.SupportedCalendarComponentSet()
-            for scc in supported_calendar_component_set:
-                sccs += cdav.Comp(scc)
-            prop += sccs
-        if method == "mkcol":
-            prop += dav.ResourceType() + [dav.Collection(), cdav.Calendar()]
-
-        set = dav.Set() + prop
-
-        mkcol = (dav.Mkcol() if method == "mkcol" else cdav.Mkcalendar()) + set
-
-        await self._async_query(
-            root=mkcol, query_method=method, url=path, expected_return_value=201
-        )
+    async def _async_create(self, path, mkcol, method, name, display_name) -> None:
+        """Async implementation of _create (call via _create, not directly)."""
+        await self._query(root=mkcol, query_method=method, url=path, expected_return_value=201)
 
         # COMPATIBILITY ISSUE - try to set display name explicitly
         if name:
             try:
-                await self._async_set_properties([display_name])
+                await self.set_properties([display_name])
             except Exception:
                 try:
-                    current_display_name = await self._async_get_property(dav.DisplayName())
+                    current_display_name = await self.get_property(dav.DisplayName())
                     error.assert_(current_display_name == name)
-                except:
+                except Exception:
                     log.warning(
                         "calendar server does not support display name on calendar?  Ignoring",
                         exc_info=True,
@@ -692,7 +785,7 @@ class Calendar(DAVObject):
         For async clients, returns a coroutine that must be awaited.
         """
         if self.is_async_client:
-            return self._async_calendar_delete()
+            return self._async_delete()
 
         ## TODO: remove quirk handling from the functional tests
         ## TODO: this needs test code
@@ -718,7 +811,7 @@ class Calendar(DAVObject):
         else:
             super().delete()
 
-    async def _async_calendar_delete(self):
+    async def _async_delete(self):
         """Async implementation of Calendar.delete()."""
         import asyncio
 
@@ -729,7 +822,7 @@ class Calendar(DAVObject):
             # Do some retries on deleting the calendar
             for _ in range(0, 20):
                 try:
-                    await self._async_delete()
+                    await DAVObject._async_delete(self)
                 except error.DeleteError:
                     pass
                 try:
@@ -741,39 +834,67 @@ class Calendar(DAVObject):
 
         if wipe:
             for obj in await self.search():
-                await obj._async_delete()
+                await obj.delete()
         else:
-            await self._async_delete()
+            await DAVObject._async_delete(self)
 
-    def get_supported_components(self) -> list[Any]:
+    def _supported_components_from_response(self, response: Any, with_fallback: bool) -> list[Any]:
+        """Extract supported component types from a propfind DAVResponse.
+
+        Both the sync and async paths produce a DAVResponse via propfind,
+        which always populates response.results via the protocol layer.
+        """
+        for result in response.results or []:
+            components = result.properties.get(cdav.SupportedCalendarComponentSet().tag)
+            if components:
+                return components
+        ## Property absent: RFC 4791 s.5.2.3 says accept all types; trim by known server limits
+        if not with_fallback:
+            raise error.PropfindError("supported-calendar-component-set not supported")
+        rfc_default = ["VEVENT"]
+        if self.client and self.client.features.is_supported("save-load.todo"):
+            rfc_default.append("VTODO")
+        if self.client and self.client.features.is_supported("save-load.journal"):
+            rfc_default.append("VJOURNAL")
+        return rfc_default
+
+    def get_supported_components(
+        self, with_fallback=True
+    ) -> "list[Any] | Coroutine[Any, Any, list[Any]]":
         """
         returns a list of component types supported by the calendar, in
         string format (typically ['VJOURNAL', 'VTODO', 'VEVENT'])
+
+        RFC 4791 section 5.2.3: supported-calendar-component-set is optional.
+        When absent, the server MUST accept all component types, so we return
+        the RFC default list (trimmed by known server limitations from
+        compatibility hints) rather than raising or returning empty.
+        See https://github.com/python-caldav/caldav/issues/653
         """
         if self.url is None:
             raise ValueError("Unexpected value None for self.url")
-
+        if self.is_async_client:
+            return self._async_get_supported_components(with_fallback)
         props = [cdav.SupportedCalendarComponentSet()]
         response = self.get_properties(props, parse_response_xml=False)
+        return self._supported_components_from_response(response, with_fallback)
 
-        # Use protocol layer results if available
-        if response.results:
-            for result in response.results:
-                components = result.properties.get(cdav.SupportedCalendarComponentSet().tag)
-                if components:
-                    return components
-            return []
+    async def _async_get_supported_components(self, with_fallback=True) -> list[Any]:
+        props = [cdav.SupportedCalendarComponentSet()]
+        response = await self.get_properties(props, parse_response_xml=False)
+        return self._supported_components_from_response(response, with_fallback)
 
-        # Fallback for mocked responses without protocol parsing
-        response_list = response._find_objects_and_props()
-        prop = response_list[unquote(self.url.path)][cdav.SupportedCalendarComponentSet().tag]
-        return [supported.get("name") for supported in prop]
-
-    def save_with_invites(self, ical: str, attendees, **attendeeoptions) -> None:
+    def save_with_invites(
+        self, ical: str, attendees, **attendeeoptions
+    ) -> "CalendarObjectResource | Coroutine[Any, Any, CalendarObjectResource]":
         """
         sends a schedule request to the server.  Equivalent with add_event, add_todo, etc,
         but the attendees will be added to the ical object before sending it to the server.
+
+        For async clients, returns a coroutine that must be awaited.
         """
+        if self.is_async_client:
+            return self._async_save_with_invites(ical, attendees, **attendeeoptions)
         ## TODO: consolidate together with save_*
         obj = self._calendar_comp_class_by_data(ical)(data=ical, client=self.client)
         obj.parent = self
@@ -782,6 +903,19 @@ class Calendar(DAVObject):
             obj.add_attendee(attendee, **attendeeoptions)
         obj.id = obj.icalendar_instance.walk("vevent")[0]["uid"]
         obj.save()
+        return obj
+
+    async def _async_save_with_invites(self, ical: str, attendees, **attendeeoptions):
+        """Async implementation of save_with_invites() for async clients."""
+        obj = self._calendar_comp_class_by_data(ical)(data=ical, client=self.client)
+        obj.parent = self
+        await obj.add_organizer()
+        for attendee in attendees:
+            if isinstance(attendee, Principal):
+                attendee = await attendee.get_vcal_address()
+            obj.add_attendee(attendee, **attendeeoptions)
+        obj.id = obj.icalendar_instance.walk("vevent")[0]["uid"]
+        await obj.save()
         return obj
 
     def _use_or_create_ics(self, ical, objtype, **ical_data):
@@ -805,7 +939,7 @@ class Calendar(DAVObject):
         no_overwrite: bool = False,
         no_create: bool = False,
         **ical_data,
-    ) -> "CalendarResourceObject":
+    ) -> "CalendarObjectResource | Coroutine[Any, Any, CalendarObjectResource]":
         """Add a new calendar object (event, todo, journal) to the calendar.
 
         This method is for adding new content to the calendar.  To update
@@ -848,10 +982,10 @@ class Calendar(DAVObject):
         """Async helper for add_object(): awaits save() then handles reverse relations."""
         o = await o.save(no_overwrite=no_overwrite, no_create=no_create)
         if o.url is not None:
-            await o._async_handle_reverse_relations(fix=True)
+            await o._handle_reverse_relations(fix=True)
         return o
 
-    def add_event(self, *largs, **kwargs) -> "Event":
+    def add_event(self, *largs, **kwargs) -> "Event | Coroutine[Any, Any, Event]":
         """
         Add an event to the calendar.
 
@@ -859,7 +993,7 @@ class Calendar(DAVObject):
         """
         return self.add_object(Event, *largs, **kwargs)
 
-    def add_todo(self, *largs, **kwargs) -> "Todo":
+    def add_todo(self, *largs, **kwargs) -> "Todo | Coroutine[Any, Any, Todo]":
         """
         Add a todo/task to the calendar.
 
@@ -867,7 +1001,7 @@ class Calendar(DAVObject):
         """
         return self.add_object(Todo, *largs, **kwargs)
 
-    def add_journal(self, *largs, **kwargs) -> "Journal":
+    def add_journal(self, *largs, **kwargs) -> "Journal | Coroutine[Any, Any, Journal]":
         """
         Add a journal entry to the calendar.
 
@@ -878,7 +1012,9 @@ class Calendar(DAVObject):
     ## Deprecated aliases - use add_* instead
     ## These will be removed in a future version
 
-    def save_object(self, *largs, **kwargs) -> "CalendarResourceObject":
+    def save_object(
+        self, *largs, **kwargs
+    ) -> "CalendarObjectResource | Coroutine[Any, Any, CalendarObjectResource]":
         """
         Deprecated: Use :meth:`add_object` instead.
 
@@ -887,7 +1023,7 @@ class Calendar(DAVObject):
         """
         return self.add_object(*largs, **kwargs)
 
-    def save_event(self, *largs, **kwargs) -> "Event":
+    def save_event(self, *largs, **kwargs) -> "Event | Coroutine[Any, Any, Event]":
         """
         Deprecated: Use :meth:`add_event` instead.
 
@@ -896,7 +1032,7 @@ class Calendar(DAVObject):
         """
         return self.add_event(*largs, **kwargs)
 
-    def save_todo(self, *largs, **kwargs) -> "Todo":
+    def save_todo(self, *largs, **kwargs) -> "Todo | Coroutine[Any, Any, Todo]":
         """
         Deprecated: Use :meth:`add_todo` instead.
 
@@ -905,7 +1041,7 @@ class Calendar(DAVObject):
         """
         return self.add_todo(*largs, **kwargs)
 
-    def save_journal(self, *largs, **kwargs) -> "Journal":
+    def save_journal(self, *largs, **kwargs) -> "Journal | Coroutine[Any, Any, Journal]":
         """
         Deprecated: Use :meth:`add_journal` instead.
 
@@ -914,7 +1050,7 @@ class Calendar(DAVObject):
         """
         return self.add_journal(*largs, **kwargs)
 
-    def save(self, method=None):
+    def save(self, method=None) -> "Calendar | Coroutine[Any, Any, Calendar]":
         """
         The save method for a calendar is only used to create it, for now.
         We know we have to create it when we don't have a url.
@@ -924,23 +1060,18 @@ class Calendar(DAVObject):
         Returns:
          * self
         """
-        if self.is_async_client:
-            return self._async_save(method)
-
         if self.url is None:
             # Get display name from props cache
             display_name = self.props.get("{DAV:}displayname")
+            if self.is_async_client:
+                return self._async_save(display_name, method)
+
             self._create(id=self.id, name=display_name, method=method, **self.extra_init_options)
         return self
 
-    async def _async_save(self, method=None):
+    async def _async_save(self, display_name, method=None):
         """Async implementation of save."""
-        if self.url is None:
-            # Get display name from props cache
-            display_name = self.props.get("{DAV:}displayname")
-            await self._async_create(
-                name=display_name, id=self.id, method=method, **self.extra_init_options
-            )
+        await self._create(name=display_name, id=self.id, method=method, **self.extra_init_options)
         return self
 
     # def data2object_class
@@ -953,7 +1084,6 @@ class Calendar(DAVObject):
         if self.url is None:
             raise ValueError("Unexpected value None for self.url")
 
-        rv = []
         prop = dav.Prop() + cdav.CalendarData()
         root = cdav.CalendarMultiGet() + prop + [dav.Href(value=u.path) for u in event_urls]
         # RFC 4791 section 7.9: "the 'Depth' header MUST be ignored by the
@@ -995,7 +1125,7 @@ class Calendar(DAVObject):
 
         prop = dav.Prop() + cdav.CalendarData()
         root = cdav.CalendarMultiGet() + prop + [dav.Href(value=u.path) for u in event_urls]
-        response = await self._async_query(root, None, "report")
+        response = await self._query(root, None, "report")
         results = response.expand_simple_props([cdav.CalendarData()])
         if raise_notfound:
             for href in response.statuses:
@@ -1085,26 +1215,9 @@ class Calendar(DAVObject):
     ## TODO: this logic has been partly duplicated in calendar_multiget, but
     ## the code there is much more readable and condensed than this.
     ## Can code below be refactored?
-    def _request_report_build_resultlist(
-        self, xml, comp_class=None, props=None, no_calendardata=False
-    ):
-        """
-        Takes some input XML, does a report query on a calendar object
-        and returns the resource objects found.
-
-        For async clients, returns a coroutine that must be awaited.
-        """
-        if self.is_async_client:
-            return self._async_request_report_build_resultlist(
-                xml, comp_class, props, no_calendardata
-            )
-
+    def _post_request_report_build_resultlist(self, response, comp_class, props_):
+        """Shared post-processing for _request_report_build_resultlist."""
         matches = []
-        if props is None:
-            props_ = [cdav.CalendarData()]
-        else:
-            props_ = [cdav.CalendarData()] + props
-        response = self._query(xml, 1, "report")
         results = response.expand_simple_props(props_)
         for r in results:
             pdata = results[r]
@@ -1136,43 +1249,25 @@ class Calendar(DAVObject):
             )
         return (response, matches)
 
-    async def _async_request_report_build_resultlist(
+    def _request_report_build_resultlist(
         self, xml, comp_class=None, props=None, no_calendardata=False
-    ):
+    ) -> "tuple[Any, list[CalendarObjectResource]] | Coroutine[Any, Any, tuple[Any, list[CalendarObjectResource]]]":
+        """
+        Takes some input XML, does a report query on a calendar object
+        and returns the resource objects found.
+
+        For async clients, returns a coroutine that must be awaited.
+        """
+        props_ = [cdav.CalendarData()] if props is None else [cdav.CalendarData()] + props
+        if self.is_async_client:
+            return self._async_request_report_build_resultlist(xml, comp_class, props_)
+        response = self._query(xml, 1, "report")
+        return self._post_request_report_build_resultlist(response, comp_class, props_)
+
+    async def _async_request_report_build_resultlist(self, xml, comp_class, props_):
         """Async implementation of _request_report_build_resultlist."""
-        matches = []
-        if props is None:
-            props_ = [cdav.CalendarData()]
-        else:
-            props_ = [cdav.CalendarData()] + props
-        response = await self._async_query(xml, 1, "report")
-        results = response.expand_simple_props(props_)
-        for r in results:
-            pdata = results[r]
-            if cdav.CalendarData.tag in pdata:
-                cdata = pdata.pop(cdav.CalendarData.tag)
-                comp_class_ = (
-                    self._calendar_comp_class_by_data(cdata) if comp_class is None else comp_class
-                )
-            else:
-                cdata = None
-            if comp_class_ is None:
-                comp_class_ = CalendarObjectResource
-            url = URL(r)
-            if url.hostname is None:
-                url = quote(r)
-            if self.url.join(url) == self.url:
-                continue
-            matches.append(
-                comp_class_(
-                    self.client,
-                    url=self.url.join(url),
-                    data=cdata,
-                    parent=self,
-                    props=pdata,
-                )
-            )
-        return (response, matches)
+        response = await self._query(xml, 1, "report")
+        return self._post_request_report_build_resultlist(response, comp_class, props_)
 
     def _populate_searcher(self, my_searcher, searchargs: dict, sort_reverse: bool) -> None:
         """Populate a CalDAVSearcher from a dict of search keyword arguments.
@@ -1246,7 +1341,7 @@ class Calendar(DAVObject):
         post_filter=None,
         _hacks=None,
         **searchargs,
-    ) -> list[_CC]:
+    ) -> "list[_CC] | Coroutine[Any, Any, list[_CC]]":
         """Sends a search request towards the server, processes the
         results if needed and returns the objects found.
 
@@ -1375,7 +1470,7 @@ class Calendar(DAVObject):
         Returns:
           [FreeBusy(), ...]
         """
-
+        ## TODO: async variant?
         root = cdav.FreeBusyQuery() + [cdav.TimeRange(start, end)]
         response = self._query(root, 1, "report")
         return FreeBusy(self, response.raw)
@@ -1385,7 +1480,7 @@ class Calendar(DAVObject):
         sort_keys: Sequence[str] = ("due", "priority"),
         include_completed: bool = False,
         sort_key: str | None = None,
-    ) -> list["Todo"]:
+    ) -> "list[Todo] | Coroutine[Any, Any, list[Todo]]":
         """
         Fetches a list of todo items (this is a wrapper around search).
 
@@ -1410,7 +1505,7 @@ class Calendar(DAVObject):
         # delay decorators applied to search() are respected
         return self.search(todo=True, include_completed=include_completed, sort_keys=sort_keys)
 
-    def todos(self, *largs, **kwargs) -> list["Todo"]:
+    def todos(self, *largs, **kwargs) -> "list[Todo] | Coroutine[Any, Any, list[Todo]]":
         """
         Deprecated: Use :meth:`get_todos` instead.
 
@@ -1465,7 +1560,7 @@ class Calendar(DAVObject):
         uid: str,
         comp_filter: cdav.CompFilter | None = None,
         comp_class: Optional["CalendarObjectResource"] = None,
-    ) -> "Event":
+    ) -> "CalendarObjectResource | Coroutine[Any, Any, CalendarObjectResource]":
         """
         Get one calendar object from the calendar by UID.
 
@@ -1488,7 +1583,12 @@ class Calendar(DAVObject):
         ## apply an exact match filter afterwards to preserve the semantics of
         ## this method (see testObjectByUID).
         items_found = self.search(
-            uid=uid, comp_class=comp_class, xml=comp_filter, post_filter=True, _hacks="insist"
+            uid=uid,
+            comp_class=comp_class,
+            xml=comp_filter,
+            post_filter=True,
+            _hacks="insist",
+            include_completed=True,
         )
         items_found = [o for o in items_found if o.id == uid]
 
@@ -1514,36 +1614,44 @@ class Calendar(DAVObject):
         error.assert_(len(items_found) == 1)
         return items_found[0]
 
-    def get_todo_by_uid(self, uid: str) -> "CalendarObjectResource":
+    def get_todo_by_uid(
+        self, uid: str
+    ) -> "CalendarObjectResource | Coroutine[Any, Any, CalendarObjectResource]":
         """
         Get a task/todo from the calendar by UID.
 
         Returns the task with the given uid.
         See :meth:`get_object_by_uid` for more details.
         """
-        return self.get_object_by_uid(uid, comp_filter=cdav.CompFilter("VTODO"))
+        return self.get_object_by_uid(uid, comp_class=Todo)
 
-    def get_event_by_uid(self, uid: str) -> "CalendarObjectResource":
+    def get_event_by_uid(
+        self, uid: str
+    ) -> "CalendarObjectResource | Coroutine[Any, Any, CalendarObjectResource]":
         """
         Get an event from the calendar by UID.
 
         Returns the event with the given uid.
         See :meth:`get_object_by_uid` for more details.
         """
-        return self.get_object_by_uid(uid, comp_filter=cdav.CompFilter("VEVENT"))
+        return self.get_object_by_uid(uid, comp_class=Event)
 
-    def get_journal_by_uid(self, uid: str) -> "CalendarObjectResource":
+    def get_journal_by_uid(
+        self, uid: str
+    ) -> "CalendarObjectResource | Coroutine[Any, Any, CalendarObjectResource]":
         """
         Get a journal entry from the calendar by UID.
 
         Returns the journal with the given uid.
         See :meth:`get_object_by_uid` for more details.
         """
-        return self.get_object_by_uid(uid, comp_filter=cdav.CompFilter("VJOURNAL"))
+        return self.get_object_by_uid(uid, comp_class=Journal)
 
     ## Deprecated aliases - use get_*_by_uid instead
 
-    def object_by_uid(self, *largs, **kwargs) -> "CalendarObjectResource":
+    def object_by_uid(
+        self, *largs, **kwargs
+    ) -> "CalendarObjectResource | Coroutine[Any, Any, CalendarObjectResource]":
         """
         Deprecated: Use :meth:`get_object_by_uid` instead.
 
@@ -1551,7 +1659,9 @@ class Calendar(DAVObject):
         """
         return self.get_object_by_uid(*largs, **kwargs)
 
-    def event_by_uid(self, uid: str) -> "CalendarObjectResource":
+    def event_by_uid(
+        self, uid: str
+    ) -> "CalendarObjectResource | Coroutine[Any, Any, CalendarObjectResource]":
         """
         Deprecated: Use :meth:`get_event_by_uid` instead.
 
@@ -1559,7 +1669,9 @@ class Calendar(DAVObject):
         """
         return self.get_event_by_uid(uid)
 
-    def todo_by_uid(self, uid: str) -> "CalendarObjectResource":
+    def todo_by_uid(
+        self, uid: str
+    ) -> "CalendarObjectResource | Coroutine[Any, Any, CalendarObjectResource]":
         """
         Deprecated: Use :meth:`get_todo_by_uid` instead.
 
@@ -1567,7 +1679,9 @@ class Calendar(DAVObject):
         """
         return self.get_todo_by_uid(uid)
 
-    def journal_by_uid(self, uid: str) -> "CalendarObjectResource":
+    def journal_by_uid(
+        self, uid: str
+    ) -> "CalendarObjectResource | Coroutine[Any, Any, CalendarObjectResource]":
         """
         Deprecated: Use :meth:`get_journal_by_uid` instead.
 
@@ -1578,7 +1692,7 @@ class Calendar(DAVObject):
     # alias for backward compatibility
     event = event_by_uid
 
-    def get_events(self) -> list["Event"]:
+    def get_events(self) -> "list[Event] | Coroutine[Any, Any, list[Event]]":
         """
         List all events from the calendar.
 
@@ -1598,7 +1712,7 @@ class Calendar(DAVObject):
         # delay decorators applied to search() are respected
         return self.search(comp_class=Event)
 
-    def events(self) -> list["Event"]:
+    def events(self) -> "list[Event] | Coroutine[Any, Any, list[Event]]":
         """
         Deprecated: Use :meth:`get_events` instead.
 
@@ -1636,8 +1750,10 @@ class Calendar(DAVObject):
         sync_token: Any | None = None,
         load_objects: bool = False,
         disable_fallback: bool = False,
-    ) -> "SynchronizableCalendarObjectCollection":
+    ) -> "SynchronizableCalendarObjectCollection | Coroutine[Any, Any, SynchronizableCalendarObjectCollection]":
         """get_objects_by_sync_token aka get_objects
+
+        For async clients, returns a coroutine that must be awaited.
 
         Do a sync-collection report, ref RFC 6578 and
         https://github.com/python-caldav/caldav/issues/87
@@ -1663,6 +1779,11 @@ class Calendar(DAVObject):
         of falling back to retrieving all objects. This is useful for testing whether
         the server truly supports sync tokens.
         """
+        if self.is_async_client:
+            ## TODO: lots of code duplication here.  It's difficult, since there is a lot of
+            ## forth and back between the client and the server in this method.
+            return self._async_get_objects_by_sync_token(sync_token, load_objects, disable_fallback)
+
         ## Check if we should attempt to use sync tokens
         ## (either server supports them, or we haven't checked yet, or this is a fake token)
         use_sync_token = True
@@ -1677,19 +1798,12 @@ class Calendar(DAVObject):
 
         if use_sync_token:
             try:
-                cmd = dav.SyncCollection()
-                token = dav.SyncToken(value=sync_token)
-                level = dav.SyncLevel(value="1")
-                props = dav.Prop() + dav.GetEtag()
-                root = cmd + [level, token, props]
+                root = self.client._build_sync_collection_body(
+                    sync_token=sync_token, props=["getetag"]
+                )
                 (response, objects) = self._request_report_build_resultlist(
                     root, props=[dav.GetEtag()], no_calendardata=True
                 )
-                ## TODO: look more into this, I think sync_token should be directly available through response object
-                try:
-                    sync_token = response.sync_token
-                except:
-                    sync_token = response.tree.findall(".//" + dav.SyncToken.tag)[0].text
 
                 ## this is not quite right - the etag we've fetched can already be outdated
                 if load_objects:
@@ -1700,7 +1814,7 @@ class Calendar(DAVObject):
                             ## The object was deleted
                             pass
                 return SynchronizableCalendarObjectCollection(
-                    calendar=self, objects=objects, sync_token=sync_token
+                    calendar=self, objects=objects, sync_token=response.sync_token
                 )
             except (error.ReportError, error.DAVError) as e:
                 ## Server doesn't support sync tokens or the sync-collection REPORT failed
@@ -1773,7 +1887,9 @@ class Calendar(DAVObject):
             calendar=self, objects=all_objects, sync_token=fake_sync_token
         )
 
-    def objects_by_sync_token(self, *largs, **kwargs) -> "SynchronizableCalendarObjectCollection":
+    def objects_by_sync_token(
+        self, *largs, **kwargs
+    ) -> "SynchronizableCalendarObjectCollection | Coroutine[Any, Any, SynchronizableCalendarObjectCollection]":
         """
         Deprecated: Use :meth:`get_objects_by_sync_token` instead.
 
@@ -1784,7 +1900,91 @@ class Calendar(DAVObject):
     objects = objects_by_sync_token
     get_objects = get_objects_by_sync_token
 
-    def get_journals(self) -> list["Journal"]:
+    async def _async_get_objects_by_sync_token(
+        self,
+        sync_token: Any | None = None,
+        load_objects: bool = False,
+        disable_fallback: bool = False,
+    ) -> "SynchronizableCalendarObjectCollection":
+        """Async implementation of get_objects_by_sync_token."""
+
+        ## TODO: lots of code duplication here.  It's difficult, since there is a lot of
+        ## forth and back between the client and the server in this method.
+
+        use_sync_token = True
+        sync_support = self.client.features.is_supported("sync-token", return_type=dict)
+        if sync_support.get("support") == "unsupported":
+            if disable_fallback:
+                raise error.ReportError("Sync tokens are not supported by the server")
+            use_sync_token = False
+        if sync_token and isinstance(sync_token, str) and sync_token.startswith("fake-"):
+            use_sync_token = False
+
+        if use_sync_token:
+            try:
+                root = self.client._build_sync_collection_body(
+                    sync_token=sync_token, props=["getetag"]
+                )
+                (response, objects) = await self._request_report_build_resultlist(
+                    root, props=[dav.GetEtag()], no_calendardata=True
+                )
+                if load_objects:
+                    for obj in objects:
+                        try:
+                            await obj.load()
+                        except error.NotFoundError:
+                            pass
+                return SynchronizableCalendarObjectCollection(
+                    calendar=self, objects=objects, sync_token=response.sync_token
+                )
+            except (error.ReportError, error.DAVError) as e:
+                if disable_fallback:
+                    raise
+                log.info(f"Sync-collection REPORT failed ({e}), falling back to full retrieval")
+
+        log.debug("Using fallback sync mechanism (retrieving all objects)")
+
+        all_objects = list(await self.search())
+
+        if load_objects:
+            for obj in all_objects:
+                if not hasattr(obj, "_data") or obj._data is None:
+                    try:
+                        await obj.load()
+                    except error.NotFoundError:
+                        pass
+
+        if all_objects and (
+            not hasattr(all_objects[0], "props") or dav.GetEtag.tag not in all_objects[0].props
+        ):
+            try:
+                response = await self._query_properties([dav.GetEtag()], depth=1)
+                etag_props = response.expand_simple_props([dav.GetEtag()])
+                url_to_obj = {str(obj.url.canonical()): obj for obj in all_objects}
+                log.debug(f"Fallback: Fetching ETags for {len(url_to_obj)} objects")
+                for url_str, props in etag_props.items():
+                    canonical_url_str = str(self.url.join(url_str).canonical())
+                    if canonical_url_str in url_to_obj:
+                        if not hasattr(url_to_obj[canonical_url_str], "props"):
+                            url_to_obj[canonical_url_str].props = {}
+                        url_to_obj[canonical_url_str].props.update(props)
+                        log.debug(f"Fallback: Added ETag to {canonical_url_str}")
+            except Exception as e:
+                log.debug(f"Failed to fetch ETags for fallback sync: {e}")
+
+        fake_sync_token = self._generate_fake_sync_token(all_objects)
+
+        if sync_token and isinstance(sync_token, str) and sync_token.startswith("fake-"):
+            if sync_token == fake_sync_token:
+                return SynchronizableCalendarObjectCollection(
+                    calendar=self, objects=[], sync_token=fake_sync_token
+                )
+
+        return SynchronizableCalendarObjectCollection(
+            calendar=self, objects=all_objects, sync_token=fake_sync_token
+        )
+
+    def get_journals(self) -> "list[Journal] | Coroutine[Any, Any, list[Journal]]":
         """
         List all journals from the calendar.
 
@@ -1793,7 +1993,7 @@ class Calendar(DAVObject):
         """
         return self.search(comp_class=Journal)
 
-    def journals(self) -> list["Journal"]:
+    def journals(self) -> "list[Journal] | Coroutine[Any, Any, list[Journal]]":
         """
         Deprecated: Use :meth:`get_journals` instead.
 
@@ -1848,7 +2048,7 @@ class ScheduleMailbox(Calendar):
                 # we ignore the type here as this is defined in sub-classes only; require more changes to
                 # properly fix in a future revision
                 self.url = self.client.url.join(URL(self.get_property(self.findprop())))  # type: ignore
-            except:
+            except Exception:
                 logging.error("something bad happened", exc_info=True)
                 error.assert_(self.client.check_scheduling_support())
                 self.url = None
@@ -1858,36 +2058,84 @@ class ScheduleMailbox(Calendar):
                     "principal has no %s.  %s" % (str(self.findprop()), error.ERR_FRAGMENT)  # type: ignore
                 ) from None
 
-    def get_items(self):
+    def get_items(self) -> "list | Coroutine[Any, Any, list]":
+        """Return all items currently in this scheduling mailbox (inbox or outbox).
+
+        For async clients, returns a coroutine that must be awaited.
+
+        Unlike regular calendars, schedule mailboxes contain raw iTIP messages
+        (METHOD:REQUEST, METHOD:REPLY, METHOD:CANCEL, …) rather than permanent
+        calendar objects.  Items should be processed and then deleted; they are
+        not meant to be kept indefinitely.
+
+        Servers often do not support the sync-collection REPORT (RFC 6578) on
+        schedule-inbox/outbox — the inbox is not a full calendar collection and
+        may not be indexed the same way.  We therefore attempt the sync-token
+        path first (efficient for repeat polling) but fall back transparently to
+        a plain PROPFIND depth-1 followed by individual GETs.  Both paths return
+        loaded CalendarObjectResource objects.
+
+        Claude says that this method does NOT belong on the Calendar
+        super-class.  Calendar exposes type-specific accessors
+        (get_events, get_todos, …) and uses search() internally.  The
+        mailbox is a different beast — it holds transient, mixed-type
+        scheduling messages and must use children() as its fallback
+        because search() / REPORT queries against a mailbox URL are
+        unreliable across servers.
         """
-        TODO: work in progress
-        TODO: perhaps this belongs to the super class?
-        """
+        if self.is_async_client:
+            return self._async_get_items()
+
+        def _load_from_children():
+            items = [CalendarObjectResource(url=x[0], client=self.client) for x in self.children()]
+            for x in items:
+                x.load()
+            return items
+
         if not self._items:
             try:
                 self._items = self.objects(load_objects=True)
-            except:
+            except Exception:
                 logging.debug(
-                    "caldav server does not seem to support a sync-token REPORT query on a scheduling mailbox"
+                    "sync-collection REPORT not supported on scheduling mailbox %s; "
+                    "falling back to PROPFIND depth-1",
+                    self.url,
                 )
-                error.assert_("google" in str(self.url))
-                self._items = [
-                    CalendarObjectResource(url=x[0], client=self.client) for x in self.children()
-                ]
-                for x in self._items:
-                    x.load()
+                self._items = _load_from_children()
         else:
             try:
                 self._items.sync()
-            except:
-                self._items = [
-                    CalendarObjectResource(url=x[0], client=self.client) for x in self.children()
-                ]
-                for x in self._items:
-                    x.load()
+            except Exception:
+                self._items = _load_from_children()
         return self._items
 
-    ## TODO: work in progress
+    async def _async_get_items(self):
+        """Async implementation of get_items."""
+
+        async def _load_from_children():
+            items = [
+                CalendarObjectResource(url=x[0], client=self.client) for x in await self.children()
+            ]
+            for x in items:
+                await x.load()
+            return items
+
+        if not self._items:
+            try:
+                self._items = await self.objects(load_objects=True)
+            except Exception:
+                logging.debug(
+                    "sync-collection REPORT not supported on scheduling mailbox %s; "
+                    "falling back to PROPFIND depth-1",
+                    self.url,
+                )
+                self._items = await _load_from_children()
+        else:
+            try:
+                await self._items._async_sync()
+            except Exception:
+                self._items = await _load_from_children()
+        return self._items
 
 
 #    def get_invites():
@@ -1934,32 +2182,66 @@ class SynchronizableCalendarObjectCollection:
                 self._objects_by_url[obj.url.canonical()] = obj
         return self._objects_by_url
 
-    def sync(self) -> tuple[Any, Any]:
-        """
-        This method will contact the caldav server,
-        request all changes from it, and sync up the collection.
+    def _post_sync_fallback(
+        self, current_by_url: dict, old_by_url: dict
+    ) -> tuple[list[Any], list[Any]]:
+        """Pure post-processing for the fallback sync path (no I/O).
 
-        This method transparently falls back to comparing full calendar state
-        if the server doesn't support sync tokens.
+        Compares current server state against cached state to determine what
+        changed, then updates internal state.
         """
-        updated_objs = []
-        deleted_objs = []
+        updated_objs: list[Any] = []
+        deleted_objs: list[Any] = []
+
+        for url, obj in current_by_url.items():
+            if url in old_by_url:
+                old_data = old_by_url[url].data if hasattr(old_by_url[url], "data") else None
+                new_data = obj.data if hasattr(obj, "data") else None
+                if old_data != new_data and new_data is not None:
+                    updated_objs.append(obj)
+            else:
+                updated_objs.append(obj)
+
+        for url in old_by_url:
+            if url not in current_by_url:
+                deleted_objs.append(old_by_url[url])
+
+        self.objects = list(current_by_url.values())
+        self._objects_by_url = None
+        self.sync_token = self.calendar._generate_fake_sync_token(self.objects)
+        return (updated_objs, deleted_objs)
+
+    def sync(
+        self,
+    ) -> "tuple[Any, Any] | Coroutine[Any, Any, tuple[Any, Any]]":
+        """Contact the server, fetch changes, and update the local collection.
+
+        Falls back to comparing the full calendar state when the server does
+        not support sync tokens.
+
+        Returns a coroutine for async clients; call with ``await`` in that case.
+        """
+        if self.calendar.is_async_client:
+            return self._async_sync()
+
+        updated_objs: list[Any] = []
+        deleted_objs: list[Any] = []
 
         ## Check if we're using fake sync tokens (fallback mode)
         is_fake_token = isinstance(self.sync_token, str) and self.sync_token.startswith("fake-")
 
         if not is_fake_token:
-            ## Try to use real sync tokens
+            ## Try to use real sync tokens.
+            ## NOTE: the loop below mixes I/O (obj.load()) with data manipulation;
+            ## any changes here must be mirrored in _async_sync().
             try:
                 updates = self.calendar.get_objects_by_sync_token(
                     self.sync_token, load_objects=False
                 )
 
-                ## If we got a fake token back, we've fallen back
                 if isinstance(updates.sync_token, str) and updates.sync_token.startswith("fake-"):
                     is_fake_token = True
                 else:
-                    ## Real sync token path
                     obu = self.objects_by_url()
                     for obj in updates:
                         obj.url = obj.url.canonical()
@@ -1979,52 +2261,75 @@ class SynchronizableCalendarObjectCollection:
                             obu.pop(obj.url)
 
                     self.objects = list(obu.values())
-                    self._objects_by_url = None  ## Invalidate cache
+                    self._objects_by_url = None
                     self.sync_token = updates.sync_token
                     return (updated_objs, deleted_objs)
             except (error.ReportError, error.DAVError):
-                ## Sync failed, fall back
                 is_fake_token = True
 
-        if is_fake_token:
-            ## FALLBACK: Compare full calendar state
-            log.debug("Using fallback sync mechanism (comparing all objects)")
+        ## FALLBACK: fetch all objects and compare
+        log.debug("Using fallback sync mechanism (comparing all objects)")
+        current_objects = list(self.calendar.search())
+        for obj in current_objects:
+            try:
+                obj.load()
+            except error.NotFoundError:
+                pass
+        current_by_url = {obj.url.canonical(): obj for obj in current_objects}
+        return self._post_sync_fallback(current_by_url, self.objects_by_url())
 
-            ## Retrieve all current objects from server
-            current_objects = list(self.calendar.search())
+    async def _async_sync(self) -> tuple[Any, Any]:
+        """Async implementation of sync().
 
-            ## Load them
-            for obj in current_objects:
-                try:
-                    obj.load()
-                except error.NotFoundError:
-                    pass
+        NOTE: the real-token loop mixes I/O (await obj.load()) with data
+        manipulation; any changes here must be mirrored in sync().
+        """
+        updated_objs: list[Any] = []
+        deleted_objs: list[Any] = []
 
-            ## Build URL-indexed dicts for comparison
-            current_by_url = {obj.url.canonical(): obj for obj in current_objects}
-            old_by_url = self.objects_by_url()
+        is_fake_token = isinstance(self.sync_token, str) and self.sync_token.startswith("fake-")
 
-            ## Find updated and new objects
-            for url, obj in current_by_url.items():
-                if url in old_by_url:
-                    ## Object exists in both - check if modified
-                    ## Compare data if available, otherwise consider it unchanged
-                    old_data = old_by_url[url].data if hasattr(old_by_url[url], "data") else None
-                    new_data = obj.data if hasattr(obj, "data") else None
-                    if old_data != new_data and new_data is not None:
-                        updated_objs.append(obj)
+        if not is_fake_token:
+            try:
+                updates = await self.calendar.get_objects_by_sync_token(
+                    self.sync_token, load_objects=False
+                )
+
+                if isinstance(updates.sync_token, str) and updates.sync_token.startswith("fake-"):
+                    is_fake_token = True
                 else:
-                    ## New object
-                    updated_objs.append(obj)
+                    obu = self.objects_by_url()
+                    for obj in updates:
+                        obj.url = obj.url.canonical()
+                        if (
+                            obj.url in obu
+                            and dav.GetEtag.tag in obu[obj.url].props
+                            and dav.GetEtag.tag in obj.props
+                        ):
+                            if obu[obj.url].props[dav.GetEtag.tag] == obj.props[dav.GetEtag.tag]:
+                                continue
+                        obu[obj.url] = obj
+                        try:
+                            await obj.load()
+                            updated_objs.append(obj)
+                        except error.NotFoundError:
+                            deleted_objs.append(obj)
+                            obu.pop(obj.url)
 
-            ## Find deleted objects
-            for url in old_by_url:
-                if url not in current_by_url:
-                    deleted_objs.append(old_by_url[url])
+                    self.objects = list(obu.values())
+                    self._objects_by_url = None
+                    self.sync_token = updates.sync_token
+                    return (updated_objs, deleted_objs)
+            except (error.ReportError, error.DAVError):
+                is_fake_token = True
 
-            ## Update internal state
-            self.objects = list(current_by_url.values())
-            self._objects_by_url = None  ## Invalidate cache
-            self.sync_token = self.calendar._generate_fake_sync_token(self.objects)
-
-        return (updated_objs, deleted_objs)
+        ## FALLBACK: fetch all objects and compare
+        log.debug("Using fallback sync mechanism (comparing all objects)")
+        current_objects = list(await self.calendar.search())
+        for obj in current_objects:
+            try:
+                await obj.load()
+            except error.NotFoundError:
+                pass
+        current_by_url = {obj.url.canonical(): obj for obj in current_objects}
+        return self._post_sync_fallback(current_by_url, self.objects_by_url())

@@ -5,12 +5,11 @@ import logging
 import typing
 from abc import ABC, abstractmethod
 
+from metricflow_semantics.toolkit.table_helpers import IsolatedTabulateRunner
 from typing_extensions import override
 
-from metricflow_semantics.helpers.table_helpers import IsolatedTabulateRunner
-
 if typing.TYPE_CHECKING:
-    from metricflow_semantics.test_helpers.performance.performance_helpers import SessionReport
+    from metricflow_semantics.test_helpers.performance.profiling import SessionReport
 
 logger = logging.getLogger(__name__)
 

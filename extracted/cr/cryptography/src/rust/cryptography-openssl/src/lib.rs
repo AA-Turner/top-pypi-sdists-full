@@ -9,12 +9,18 @@ pub mod aead;
 pub mod cmac;
 pub mod fips;
 pub mod hmac;
+#[cfg(any(CRYPTOGRAPHY_IS_BORINGSSL, CRYPTOGRAPHY_IS_AWSLC))]
+pub mod mldsa;
+#[cfg(any(CRYPTOGRAPHY_IS_BORINGSSL, CRYPTOGRAPHY_IS_AWSLC))]
+pub mod mlkem;
 #[cfg(any(
     CRYPTOGRAPHY_IS_BORINGSSL,
     CRYPTOGRAPHY_IS_LIBRESSL,
     CRYPTOGRAPHY_IS_AWSLC
 ))]
 pub mod poly1305;
+pub mod rand;
+pub mod utils;
 
 pub type OpenSSLResult<T> = Result<T, openssl::error::ErrorStack>;
 

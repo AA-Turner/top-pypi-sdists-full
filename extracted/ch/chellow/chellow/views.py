@@ -78,6 +78,7 @@ from chellow.models import (
     Comm,
     Contract,
     Cop,
+    DC_MARKET_ROLE_CODES,
     EnergisationStatus,
     Era,
     GBatch,
@@ -1589,6 +1590,7 @@ def report_run_get(run_id):
             "report_run_ecoes_comparison.html",
             run=run,
             rows=rows,
+            DC_MARKET_ROLE_CODES=DC_MARKET_ROLE_CODES,
         )
 
     elif run.name == "supply_contacts":
@@ -1806,13 +1808,13 @@ def report_run_row_post(row_id):
 
 @home.route("/non_core_contracts")
 def non_core_contracts_get():
-    non_core_contracts = (
-        g.sess.query(Contract)
+    non_core_contracts = g.sess.scalars(
+        select(Contract)
+        .join(Party)
         .join(MarketRole)
-        .filter(MarketRole.code == "Z")
+        .where(MarketRole.code == "Z")
         .order_by(Contract.name)
-        .all()
-    )
+    ).all()
     return render_template(
         "non_core_contracts.html", non_core_contracts=non_core_contracts
     )
@@ -2233,13 +2235,14 @@ def rate_server_get():
     now_ct = ct_datetime_now()
     fy_year = now_ct.year if now_ct.month > 3 else now_ct.year - 1
     fy_start = to_utc(ct_datetime(fy_year, 4, 1))
-    dno_rs = g.sess.execute(
+    dno_rs = g.sess.scalars(
         select(RateScript)
         .join(RateScript.contract)
+        .join(Party)
         .join(MarketRole)
         .where(MarketRole.code == "R", RateScript.start_date >= fy_start)
         .order_by(Contract.name, RateScript.start_date.desc())
-    ).scalars()
+    )
     nts_rs = g.sess.execute(
         select(GRateScript)
         .join(GRateScript.g_contract)
@@ -2260,9 +2263,10 @@ def rate_server_get():
         )
         .order_by(GRateScript.start_date.desc())
     ).scalars()
-    bsuos_rs = g.sess.execute(
+    bsuos_rs = g.sess.scalars(
         select(RateScript)
         .join(RateScript.contract)
+        .join(Party)
         .join(MarketRole)
         .where(
             MarketRole.code == "Z",
@@ -2270,10 +2274,11 @@ def rate_server_get():
             Contract.name == "bsuos",
         )
         .order_by(RateScript.start_date.desc())
-    ).scalars()
-    ccl_rs = g.sess.execute(
+    )
+    ccl_rs = g.sess.scalars(
         select(RateScript)
         .join(RateScript.contract)
+        .join(Party)
         .join(MarketRole)
         .where(
             MarketRole.code == "Z",
@@ -2281,10 +2286,11 @@ def rate_server_get():
             Contract.name == "ccl",
         )
         .order_by(RateScript.start_date.desc())
-    ).scalars()
-    triad_dates_rs = g.sess.execute(
+    )
+    triad_dates_rs = g.sess.scalars(
         select(RateScript)
         .join(RateScript.contract)
+        .join(Party)
         .join(MarketRole)
         .where(
             MarketRole.code == "Z",
@@ -2292,7 +2298,7 @@ def rate_server_get():
             Contract.name == "triad_dates",
         )
         .order_by(RateScript.start_date.desc())
-    ).scalars()
+    )
     gas_ccl_rs = g.sess.execute(
         select(GRateScript)
         .join(GRateScript.g_contract)
@@ -2306,6 +2312,7 @@ def rate_server_get():
     ro_rs = g.sess.scalars(
         select(RateScript)
         .join(RateScript.contract)
+        .join(Party)
         .join(MarketRole)
         .where(
             MarketRole.code == "Z",

@@ -41,9 +41,10 @@ use crate::{
         ModelInferenceRequestJsonMode, ProviderInferenceResponse, ProviderInferenceResponseArgs,
         Text, resolved_input::LazyFile,
     },
-    tool::{DynamicToolParams, FunctionTool, Tool, ToolCall, ToolCallWrapper, ToolConfigRef},
+    tool::{ToolCall, ToolCallWrapper, ToolConfigRef},
     variant::JsonMode,
 };
+use tensorzero_inference_types::tool::{DynamicToolParams, FunctionTool, Tool};
 use uuid::Uuid;
 
 #[derive(Clone, Debug)]
@@ -571,10 +572,10 @@ impl TensorzeroRelay {
                         .tools_available_with_openai_custom()
                         .map(|t| match t {
                             ToolConfigRef::Function(f) => Tool::Function(FunctionTool {
-                                description: f.description().to_string(),
-                                parameters: f.parameters().clone(),
-                                name: f.name().to_string(),
-                                strict: f.strict(),
+                                description: f.description.clone(),
+                                parameters: f.parameters.clone(),
+                                name: f.name.clone(),
+                                strict: f.strict,
                             }),
                             ToolConfigRef::OpenAICustom(o) => Tool::OpenAICustom(o.clone()),
                         })

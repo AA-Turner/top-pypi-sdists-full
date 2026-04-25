@@ -21,8 +21,7 @@
 # THE SOFTWARE.
 #
 # ###########################################################################*/
-"""This module contains utils class for axes management.
-"""
+"""This module contains utils class for axes management."""
 
 __authors__ = ["V. Valls"]
 __license__ = "MIT"
@@ -36,11 +35,10 @@ import silx.utils.weakref as silxWeakref
 from silx.gui.plot.items.axis import Axis, XAxis, YAxis
 from ...qt.inspect import isValid as _isQObjectValid
 
-
 _logger = logging.getLogger(__name__)
 
 
-class SyncAxes(object):
+class SyncAxes:
     """Synchronize a set of plot axes together.
 
     It is created with the expected axes and starts to synchronize them.

@@ -139,6 +139,42 @@ def define_environment(kind: str, **kwargs: Any) -> definitions.EnvironmentDefin
 _NOT_SET = object()
 
 
+class LegacyCallableProto:
+    """Simulate the pre-oneof / pre-optional-bool generated protobuf API."""
+
+    def __init__(
+        self,
+        *,
+        function: bool = False,
+        entrypoint: bool = False,
+        run_on_main_thread: bool = False,
+        supports_entrypoint: bool = True,
+    ) -> None:
+        self.run_on_main_thread = run_on_main_thread
+        self._has_field = {
+            "function": function,
+            "entrypoint": entrypoint,
+        }
+        self._supports_entrypoint = supports_entrypoint
+
+    def WhichOneof(self, name: str) -> Optional[str]:
+        raise ValueError(f'Protocol message FunctionCall has no "{name}" field.')
+
+    def HasField(self, name: str) -> bool:
+        if name == "run_on_main_thread":
+            raise ValueError(
+                "Field FunctionCall.run_on_main_thread does not have presence."
+            )
+        if name == "entrypoint" and not self._supports_entrypoint:
+            raise ValueError('Protocol message FunctionCall has no "entrypoint" field.')
+        try:
+            return self._has_field[name]
+        except KeyError as exc:
+            raise ValueError(
+                f'Protocol message FunctionCall has no "{name}" field.'
+            ) from exc
+
+
 def run_request(
     stub: definitions.IsolateStub,
     request: definitions.BoundFunction,
@@ -174,7 +210,12 @@ def run_request(
         return cast(definitions.SerializedObject, return_value)
 
 
-def prepare_request(function, *args, **kwargs):
+def prepare_request(
+    function: Any,
+    *args: Any,
+    run_on_main_thread: Optional[bool] = None,
+    **kwargs: Any,
+) -> definitions.BoundFunction:
     import dill
 
     import __main__
@@ -190,10 +231,13 @@ def prepare_request(function, *args, **kwargs):
     if getattr(function, "_run_on_main_thread", False):
         setattr(basic_function, "_run_on_main_thread", True)
     environment = define_environment("virtualenv", requirements=[])
-    return definitions.BoundFunction(
+    request = definitions.BoundFunction(
         function=to_serialized_object(basic_function, method="dill"),
         environments=[environment],
     )
+    if run_on_main_thread is not None:
+        request.run_on_main_thread = run_on_main_thread
+    return request
 
 
 def run_function(stub, function, *args, log_handler=None, **kwargs):
@@ -261,6 +305,108 @@ def test_server_entrypoint(stub: definitions.IsolateStub, monkeypatch: Any) -> N
     assert result != os.getpid()
 
 
+def test_server_entrypoint_honors_legacy_main_thread_flag(
+    stub: definitions.IsolateStub,
+    monkeypatch: Any,
+    tmp_path: Path,
+) -> None:
+    inherit_from_local(monkeypatch)
+
+    package_dir = tmp_path / "entrypoint_main_thread_test_pkg"
+    package_dir.mkdir()
+
+    (package_dir / "setup.py").write_text(
+        textwrap.dedent(
+            """
+            from setuptools import setup
+
+
+            setup(py_modules=["entrypoint_main_thread_test"])
+            """
+        )
+    )
+    (package_dir / "entrypoint_main_thread_test.py").write_text(
+        textwrap.dedent(
+            """
+            import threading
+
+
+            def should_fail_on_main_thread():
+                if threading.current_thread() == threading.main_thread():
+                    raise RuntimeError("should fail on main thread")
+                return "should succeed on non-main thread"
+
+
+            should_fail_on_main_thread._run_on_main_thread = True
+            """
+        )
+    )
+
+    env_definition = define_environment(
+        "virtualenv",
+        requirements=[str(package_dir)],
+    )
+    request = definitions.BoundFunction(
+        entrypoint="entrypoint_main_thread_test:should_fail_on_main_thread",
+        environments=[env_definition],
+    )
+
+    raw_result = run_request(stub, request)
+    with pytest.raises(RuntimeError, match="should fail on main thread"):
+        from_grpc(raw_result)
+
+
+def test_server_entrypoint_explicit_false_overrides_legacy_main_thread_flag(
+    stub: definitions.IsolateStub,
+    monkeypatch: Any,
+    tmp_path: Path,
+) -> None:
+    inherit_from_local(monkeypatch)
+
+    package_dir = tmp_path / "entrypoint_main_thread_override_test_pkg"
+    package_dir.mkdir()
+
+    (package_dir / "setup.py").write_text(
+        textwrap.dedent(
+            """
+            from setuptools import setup
+
+
+            setup(py_modules=["entrypoint_main_thread_override_test"])
+            """
+        )
+    )
+    (package_dir / "entrypoint_main_thread_override_test.py").write_text(
+        textwrap.dedent(
+            """
+            import threading
+
+
+            def should_fail_on_main_thread():
+                if threading.current_thread() == threading.main_thread():
+                    raise RuntimeError("should fail on main thread")
+                return "should succeed on non-main thread"
+
+
+            should_fail_on_main_thread._run_on_main_thread = True
+            """
+        )
+    )
+
+    env_definition = define_environment(
+        "virtualenv",
+        requirements=[str(package_dir)],
+    )
+    request = definitions.BoundFunction(
+        entrypoint="entrypoint_main_thread_override_test:should_fail_on_main_thread",
+        environments=[env_definition],
+        run_on_main_thread=False,
+    )
+
+    raw_result = run_request(stub, request)
+    assert from_grpc(raw_result) == "should succeed on non-main thread"
+
+
 def test_agent_import_falls_back_when_settings_constant_missing(
     monkeypatch: Any,
 ) -> None:
@@ -305,6 +451,54 @@ def test_agent_import_falls_back_when_common_validator_missing(
     finally:
         monkeypatch.setitem(sys.modules, "isolate.connections.common", real_common)
         importlib.reload(agent_module)
+
+
+@pytest.mark.parametrize(
+    "module_name",
+    [
+        "isolate.connections.grpc.agent",
+        "isolate.server.server",
+    ],
+)
+def test_callable_kind_falls_back_when_proto_has_no_oneof(module_name: str) -> None:
+    module = importlib.import_module(module_name)
+
+    assert module._get_callable_kind(LegacyCallableProto(function=True)) == "function"
+    assert (
+        module._get_callable_kind(
+            LegacyCallableProto(function=True, supports_entrypoint=False)
+        )
+        == "function"
+    )
+    assert (
+        module._get_callable_kind(LegacyCallableProto(entrypoint=True)) == "entrypoint"
+    )
+    assert module._get_callable_kind(LegacyCallableProto()) is None
+
+
+@pytest.mark.parametrize(
+    "module_name",
+    [
+        "isolate.connections.grpc.agent",
+        "isolate.server.server",
+    ],
+)
+def test_optional_bool_field_falls_back_when_proto_has_no_presence(
+    module_name: str,
+) -> None:
+    module = importlib.import_module(module_name)
+
+    assert (
+        module._get_optional_bool_field(
+            LegacyCallableProto(run_on_main_thread=False),
+            "run_on_main_thread",
+        )
+        is None
+    )
+    assert module._get_optional_bool_field(
+        LegacyCallableProto(run_on_main_thread=True),
+        "run_on_main_thread",
+    )
 
 
 def test_server_entrypoint_module_not_found(
@@ -1072,6 +1266,12 @@ def test_server_run_on_main_thread(
         else:
             return "should succeed on non-main thread"
 
+    def func_should_fail_off_main_thread():
+        if threading.current_thread() != threading.main_thread():
+            raise RuntimeError("should fail on non-main thread")
+        else:
+            return "should succeed on main thread"
+
     result = from_grpc(
         run_request(stub, prepare_request(func_should_fail_on_main_thread))
     )
@@ -1080,6 +1280,28 @@ def test_server_run_on_main_thread(
     setattr(func_should_fail_on_main_thread, "_run_on_main_thread", True)
     with pytest.raises(RuntimeError):
         from_grpc(run_request(stub, prepare_request(func_should_fail_on_main_thread)))
+
+    result = from_grpc(
+        run_request(
+            stub,
+            prepare_request(
+                func_should_fail_on_main_thread,
+                run_on_main_thread=False,
+            ),
+        )
+    )
+    assert result == "should succeed on non-main thread"
+
+    result = from_grpc(
+        run_request(
+            stub,
+            prepare_request(
+                func_should_fail_off_main_thread,
+                run_on_main_thread=True,
+            ),
+        )
+    )
+    assert result == "should succeed on main thread"
 
 
 def test_server_async_function(

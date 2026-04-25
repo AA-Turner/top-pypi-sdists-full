@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright 2014-2025 Mike Fährmann
+# Copyright 2014-2026 Mike Fährmann
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -10,8 +10,7 @@
 
 from .booru import BooruExtractor
 from .common import Message
-from .. import text, util, exception
-from ..cache import cache
+from .. import text, util
 import collections
 
 BASE_PATTERN = r"(?:https?://)?" \
@@ -40,8 +39,11 @@ class SankakuExtractor(BooruExtractor):
         9: "meta",
     }
 
-    def skip(self, num):
-        return 0
+    skip_files = None
+
+    def import_blacklist(self):
+        self.api.authenticate()
+        return self.api.users_blacklist()
 
     def _init(self):
         self.api = SankakuAPI(self)
@@ -277,9 +279,47 @@ class SankakuAPI():
     def posts_keyset(self, params):
         return self._pagination("/v2/posts/keyset", params)
 
+    def users_blacklist(self):
+        endpoint = "/users/blacklist"
+        params = {
+            "entity": "tags",
+            "lang"  : "en",
+            "page"  : 1,
+            "limit" : 100,
+        }
+
+        results = []
+        while True:
+            data = self._call(endpoint, params)
+
+            if items := data.get("list"):
+                for result in items:
+                    results.append(" ".join(result["tags"]))
+
+            if len(items) < params["limit"]:
+                break
+            params["page"] += 1
+        return results
+
     def authenticate(self):
-        self.headers["Authorization"] = \
-            _authenticate_impl(self.extractor, self.username, self.password)
+        self.headers["Authorization"] = self.extractor.cache(
+            self._authenticate_impl, self.username, self.password,
+            _exp=365*86400, _mem=False)
+
+    def _authenticate_impl(self, username, password):
+        self.extractor.log.info("Logging in as %s", username)
+
+        self.headers["Authorization"] = None
+        url = self.ROOT + "/auth/token"
+        data = {"login": username, "password": password}
+
+        response = self.extractor.request(
+            url, method="POST", headers=self.headers, json=data, fatal=False)
+        data = response.json()
+
+        if response.status_code >= 400 or not data.get("success"):
+            raise self.extractor.exc.AuthenticationError(data.get("error"))
+        return "Bearer " + data["access_token"]
 
     def _call(self, endpoint, params=None):
         url = self.ROOT + endpoint
@@ -291,7 +331,7 @@ class SankakuAPI():
             if response.status_code == 429:
                 until = response.headers.get("X-RateLimit-Reset")
                 if not until and b"_tags-explicit-limit" in response.content:
-                    raise exception.AuthorizationError(
+                    raise self.extractor.exc.AuthorizationError(
                         "Search tag limit exceeded")
                 seconds = None if until else 600
                 self.extractor.wait(until=until, seconds=seconds)
@@ -306,13 +346,16 @@ class SankakuAPI():
                 code = data.get("code")
                 if code and code.endswith(
                         ("unauthorized", "invalid-token", "invalid_token")):
-                    _authenticate_impl.invalidate(self.username)
+                    self.extractor.cache_update(
+                        self._authenticate_impl, self.username)
                     continue
                 try:
-                    code = f"'{code.rpartition('__')[2].replace('-', ' ')}'"
+                    code = code.rpartition(
+                        "__")[2].replace("-", " ").replace("_", " ")
+                    code = f"'{code}'"
                 except Exception:
                     pass
-                raise exception.AbortExtraction(code)
+                raise self.extractor.exc.AbortExtraction(code)
             return data
 
     def _pagination(self, endpoint, params):
@@ -356,21 +399,3 @@ class SankakuAPI():
             params["next"] = data["meta"]["next"]
             if not params["next"]:
                 return
-
-
-@cache(maxage=365*86400, keyarg=1)
-def _authenticate_impl(extr, username, password):
-    extr.log.info("Logging in as %s", username)
-
-    api = extr.api
-    api.headers["Authorization"] = None
-    url = api.ROOT + "/auth/token"
-    data = {"login": username, "password": password}
-
-    response = extr.request(
-        url, method="POST", headers=api.headers, json=data, fatal=False)
-    data = response.json()
-
-    if response.status_code >= 400 or not data.get("success"):
-        raise exception.AuthenticationError(data.get("error"))
-    return "Bearer " + data["access_token"]

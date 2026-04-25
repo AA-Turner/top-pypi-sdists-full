@@ -64,6 +64,7 @@ from .ci_data import (
     CODEBUILD,
     GITHUB_CI,
     GITLAB_CI,
+    GUIX_BUILD,
     HEROKU_CI,
     TEAMCITY,
     TRAVIS_CI,
@@ -126,6 +127,7 @@ from .detection import (
     is_gnome_terminal,
     is_gnu_screen,
     is_guix,
+    is_guix_build,
     is_haiku,
     is_heroku_ci,
     is_hurd,
@@ -174,6 +176,7 @@ from .detection import (
     is_rocky,
     is_s390x,
     is_scientific,
+    is_sh,
     is_slackware,
     is_sles,
     is_solaris,
@@ -343,6 +346,7 @@ from .shell_data import (
     KSH,
     NUSHELL,
     POWERSHELL,
+    SH,
     TCSH,
     UNKNOWN_SHELL,
     XONSH,
@@ -395,7 +399,7 @@ Pytest optional.
 """
 
 
-__version__ = "11.1.0"
+__version__ = "12.0.0"
 
 
 def _initialize_group_detection_functions() -> list[str]:
@@ -428,7 +432,9 @@ def _initialize_group_detection_functions() -> list[str]:
             f"Function ID {func_id} already defined locally."
         )
         func_ids.append(func_id)
-        globals()[func_id] = cache(group_membership_check)
+        cached_func = cache(group_membership_check)
+        globals()[func_id] = cached_func
+        detection._detection_registry[func_id] = cached_func
 
     return func_ids
 
@@ -614,6 +620,7 @@ __all__ = (
     "GNU_SCREEN",
     "GPU_TERMINALS",
     "GUIX",
+    "GUIX_BUILD",
     "HAIKU",
     "HEROKU_CI",
     "HURD",
@@ -675,6 +682,7 @@ __all__ = (
     "ROCKY",
     "S390X",
     "SCIENTIFIC",
+    "SH",
     "SLACKWARE",
     "SLES",
     "SOLARIS",
@@ -806,6 +814,7 @@ __all__ = (
     "is_gnu_screen",
     "is_gpu_terminals",
     "is_guix",
+    "is_guix_build",
     "is_haiku",
     "is_heroku_ci",
     "is_hurd",
@@ -866,6 +875,7 @@ __all__ = (
     "is_rocky",
     "is_s390x",
     "is_scientific",
+    "is_sh",
     "is_slackware",
     "is_sles",
     "is_solaris",

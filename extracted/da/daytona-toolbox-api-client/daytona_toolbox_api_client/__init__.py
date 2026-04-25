@@ -16,7 +16,7 @@ from __future__ import annotations
 """  # noqa: E501
 
 
-__version__ = "0.168.0"
+__version__ = "0.169.0"
 
 import importlib
 from typing import TYPE_CHECKING

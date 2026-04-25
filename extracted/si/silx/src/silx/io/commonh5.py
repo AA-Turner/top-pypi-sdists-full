@@ -24,6 +24,7 @@
 This module contains generic objects, emulating *h5py* groups, datasets and
 files. They are used in :mod:`spech5` and :mod:`fabioh5`.
 """
+
 from types import MappingProxyType
 import weakref
 
@@ -33,13 +34,12 @@ import numpy
 from . import utils
 from .._utils import NP_OPTIONAL_COPY
 
-
 __authors__ = ["V. Valls", "P. Knobel"]
 __license__ = "MIT"
 __date__ = "02/07/2018"
 
 
-class Node(object):
+class Node:
     """This is the base class for all :mod:`spech5` and :mod:`fabioh5`
     classes. It represents a tree node, and knows its parent node
     (:attr:`parent`).
@@ -168,36 +168,7 @@ class Dataset(Node):
 
     def __init__(self, name, data, parent=None, attrs=None):
         Node.__init__(self, name, parent, attrs=attrs)
-        if data is not None:
-            self._check_data(data)
         self.__data = data
-
-    def _check_data(self, data):
-        """Check that the data provided by the dataset is valid.
-
-        It is valid when it can be stored in a HDF5 using h5py.
-
-        :param numpy.ndarray data: Data associated to the dataset
-        :raises TypeError: In the case the data is not valid.
-        """
-        if isinstance(data, (str, bytes)):
-            return
-
-        chartype = data.dtype.char
-        if chartype == "U":
-            pass
-        elif chartype == "O":
-            d = h5py.special_dtype(vlen=data.dtype)
-            if d is not None:
-                return
-            d = h5py.special_dtype(ref=data.dtype)
-            if d is not None:
-                return
-        else:
-            return
-
-        msg = "Type of the dataset '%s' is not supported. Found '%s'."
-        raise TypeError(msg % (self.name, data.dtype))
 
     def _set_data(self, data):
         """Set the data exposed by the dataset.
@@ -207,7 +178,6 @@ class Dataset(Node):
 
         :param numpy.ndarray data: Data associated to the dataset
         """
-        self._check_data(data)
         self.__data = data
 
     def _get_data(self):
@@ -285,11 +255,7 @@ class Dataset(Node):
 
     def __str__(self):
         basename = self.name.split("/")[-1]
-        return '<HDF5-like dataset "%s": shape %s, type "%s">' % (
-            basename,
-            self.shape,
-            self.dtype.str,
-        )
+        return f'<HDF5-like dataset "{basename}": shape {self.shape}, type "{self.dtype.str}">'
 
     def __getslice__(self, i, j):
         """Returns the slice of the data exposed by this dataset.
@@ -516,7 +482,7 @@ class LazyLoadableDataset(Dataset):
     """
 
     def __init__(self, name, parent=None, attrs=None):
-        super(LazyLoadableDataset, self).__init__(name, None, parent, attrs=attrs)
+        super().__init__(name, None, parent, attrs=attrs)
         self._is_initialized = False
 
     def _create_data(self):
@@ -543,7 +509,7 @@ class LazyLoadableDataset(Dataset):
             # is case of wrong check of the data
             self._is_initialized = True
             self._set_data(data)
-        return super(LazyLoadableDataset, self)._get_data()
+        return super()._get_data()
 
 
 class SoftLink(Node):
@@ -802,8 +768,7 @@ class Group(Node):
 
     def __iter__(self):
         """Iterate over member names"""
-        for x in self._get_items().__iter__():
-            yield x
+        yield from self._get_items().__iter__()
 
     def keys(self):
         """Returns an iterator over the children's names in a group."""

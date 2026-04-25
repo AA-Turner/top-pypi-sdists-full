@@ -44,7 +44,7 @@ if ocl:
     import pyopencl as cl
     import pyopencl.array as parray
     from .. import linalg
-from silx.test.utils import utilstest
+from ...test.utils import utilstest
 
 logger = logging.getLogger(__name__)
 try:
@@ -153,7 +153,7 @@ class TestLinAlg(unittest.TestCase):
 
     def compare(self, result, reference, abstol, name):
         errmax = np.max(np.abs(result - reference))
-        logger.info("%s: Max error = %e" % (name, errmax))
+        logger.info(f"{name}: Max error = {errmax:e}")
         self.assertTrue(errmax < abstol, str("%s: Max error is too high" % name))
 
     @unittest.skipUnless(ocl and mako, "pyopencl is missing")

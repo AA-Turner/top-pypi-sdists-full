@@ -48,7 +48,6 @@ from silx.gui.utils import concurrent
 from silx.gui.plot3d.SceneWindow import SceneWindow
 from silx.gui.plot3d import items
 
-
 MAX_NUMBER_OF_POINTS = 10**6
 
 
@@ -62,12 +61,12 @@ class UpdateScatterThread(threading.Thread):
         self.scatter3d = scatter3d
         self.running = False
         self.future_result = None
-        super(UpdateScatterThread, self).__init__()
+        super().__init__()
 
     def start(self):
         """Start the update thread"""
         self.running = True
-        super(UpdateScatterThread, self).start()
+        super().start()
 
     def _appendScatterData(self, x, y, z, value):
         """Add some data points to the Scatter3D item.

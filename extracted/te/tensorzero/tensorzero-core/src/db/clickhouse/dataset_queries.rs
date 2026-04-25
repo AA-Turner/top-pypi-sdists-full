@@ -753,7 +753,8 @@ impl ClickHouseConnectionInfo {
         };
         let result = self
             .run_query_with_external_data(external_data, query.to_string())
-            .await?;
+            .await
+            .map_err(|e| e.log())?;
         Ok(result.metadata.written_rows)
     }
 
@@ -821,7 +822,8 @@ impl ClickHouseConnectionInfo {
         };
         let result = self
             .run_query_with_external_data(external_data, query.to_string())
-            .await?;
+            .await
+            .map_err(|e| e.log())?;
         Ok(result.metadata.written_rows)
     }
 }
@@ -843,10 +845,8 @@ mod tests {
     use crate::endpoints::datasets::v1::types::DatapointOrderBy;
     use crate::endpoints::shared_types::OrderDirection;
     use crate::inference::types::{ContentBlockChatOutput, JsonInferenceOutput, StoredInput, Text};
-    use crate::tool::{
-        AllowedTools, AllowedToolsChoice, FunctionTool, Tool, ToolCallConfigDatabaseInsert,
-        ToolChoice,
-    };
+    use crate::tool::{AllowedTools, AllowedToolsChoice, ToolCallConfigDatabaseInsert, ToolChoice};
+    use tensorzero_inference_types::tool::{FunctionTool, Tool};
 
     use super::*;
 
@@ -1060,9 +1060,9 @@ mod tests {
     #[tokio::test]
     async fn test_insert_chat_datapoint_with_tool_params_executes_successfully() {
         use crate::tool::{
-            AllowedTools, AllowedToolsChoice, FunctionTool, Tool, ToolCallConfigDatabaseInsert,
-            ToolChoice,
+            AllowedTools, AllowedToolsChoice, ToolCallConfigDatabaseInsert, ToolChoice,
         };
+        use tensorzero_inference_types::tool::{FunctionTool, Tool};
 
         let mut mock_clickhouse_client = MockClickHouseClient::new();
         mock_clickhouse_client

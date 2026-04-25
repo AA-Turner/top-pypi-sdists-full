@@ -2,6 +2,7 @@
 # 2.0, and the BSD License. See the LICENSE file in the root of this repository
 # for complete details.
 
+from __future__ import annotations
 
 import binascii
 import collections
@@ -40,14 +41,14 @@ T = typing.TypeVar("T")
 
 
 def load_vectors_from_file(
-    filename, loader: typing.Callable[..., T], mode="r"
+    filename: str, loader: typing.Callable[..., T], mode: str = "r"
 ) -> T:
     with cryptography_vectors.open_vector_file(filename, mode) as vector_file:
         return loader(vector_file)
 
 
-def load_nist_vectors(vector_data):
-    test_data = {}
+def load_nist_vectors(vector_data: typing.Iterable[str]) -> list[dict]:
+    test_data: dict[str, typing.Any] = {}
     data = []
 
     for line in vector_data:
@@ -85,8 +86,10 @@ def load_nist_vectors(vector_data):
     return data
 
 
-def load_cryptrec_vectors(vector_data):
+def load_cryptrec_vectors(vector_data: typing.Iterable[str]) -> list[dict]:
     cryptrec_list = []
+    key = None
+    pt = None
 
     for line in vector_data:
         line = line.strip()
@@ -112,10 +115,11 @@ def load_cryptrec_vectors(vector_data):
 
 
 def load_hash_vectors(vector_data):
-    vectors: typing.List[typing.Union[KeyedHashVector, HashVector]] = []
+    vectors: list[KeyedHashVector | HashVector] = []
     key = None
     msg = None
     md = None
+    length = None
 
     for line in vector_data:
         line = line.strip()
@@ -132,6 +136,7 @@ def load_hash_vectors(vector_data):
             # In the NIST vectors they have chosen to represent an empty
             # string as hex 00, which is of course not actually an empty
             # string. So we parse the provided length and catch this edge case.
+            assert length is not None
             msg = line.split(" = ")[1].encode("ascii") if length > 0 else b""
         elif line.startswith(("MD", "Output")):
             md = line.split(" = ")[1]
@@ -150,15 +155,17 @@ def load_hash_vectors(vector_data):
     return vectors
 
 
-def load_pkcs1_vectors(vector_data):
+def load_pkcs1_vectors(
+    vector_data: typing.Iterable[str],
+) -> list[tuple[dict, dict]]:
     """
     Loads data out of RSA PKCS #1 vector files.
     """
-    private_key_vector: typing.Optional[typing.Dict[str, typing.Any]] = None
-    public_key_vector: typing.Optional[typing.Dict[str, typing.Any]] = None
+    private_key_vector: dict[str, typing.Any] | None = None
+    public_key_vector: dict[str, typing.Any] | None = None
     attr = None
     key: typing.Any = None
-    example_vector: typing.Optional[typing.Dict[str, typing.Any]] = None
+    example_vector: dict[str, typing.Any] | None = None
     examples = []
     vectors = []
     for line in vector_data:
@@ -166,9 +173,9 @@ def load_pkcs1_vectors(vector_data):
             ("# PSS Example", "# OAEP Example", "# PKCS#1 v1.5")
         ):
             if example_vector:
-                for key, value in example_vector.items():
+                for k, value in example_vector.items():
                     hex_bytes = "".join(value).replace(" ", "").encode("ascii")
-                    example_vector[key] = hex_bytes
+                    example_vector[k] = hex_bytes
                 examples.append(example_vector)
 
             attr = None
@@ -192,9 +199,9 @@ def load_pkcs1_vectors(vector_data):
         elif example_vector and line.startswith(
             "# ============================================="
         ):
-            for key, value in example_vector.items():
+            for k, value in example_vector.items():
                 hex_bytes = "".join(value).replace(" ", "").encode("ascii")
-                example_vector[key] = hex_bytes
+                example_vector[k] = hex_bytes
             examples.append(example_vector)
             example_vector = None
             attr = None
@@ -273,11 +280,13 @@ def load_pkcs1_vectors(vector_data):
     return vectors
 
 
-def load_rsa_nist_vectors(vector_data):
-    test_data: typing.Dict[str, typing.Any] = {}
+def load_rsa_nist_vectors(vector_data: typing.Iterable[str]) -> list[dict]:
+    test_data: dict[str, typing.Any] = {}
     p = None
     salt_length = None
     data = []
+    n = None
+    e = None
 
     for line in vector_data:
         line = line.strip()
@@ -331,7 +340,9 @@ def load_rsa_nist_vectors(vector_data):
     return data
 
 
-def load_fips_dsa_key_pair_vectors(vector_data):
+def load_fips_dsa_key_pair_vectors(
+    vector_data: typing.Iterable[str],
+) -> list[dict]:
     """
     Loads data out of the FIPS DSA KeyPair vector files.
     """
@@ -370,7 +381,7 @@ FIPS_SHA_REGEX = re.compile(
 )
 
 
-def load_fips_dsa_sig_vectors(vector_data):
+def load_fips_dsa_sig_vectors(vector_data: typing.Iterable[str]) -> list[dict]:
     """
     Loads data out of the FIPS DSA SigVer vector files.
     """
@@ -448,12 +459,15 @@ _ECDSA_CURVE_NAMES = {
 }
 
 
-def load_fips_ecdsa_key_pair_vectors(vector_data):
+def load_fips_ecdsa_key_pair_vectors(
+    vector_data: typing.Iterable[str],
+) -> list[dict]:
     """
     Loads data out of the FIPS ECDSA KeyPair vector files.
     """
     vectors = []
     key_data = None
+    curve_name = None
     for line in vector_data:
         line = line.strip()
 
@@ -486,13 +500,17 @@ CURVE_REGEX = re.compile(
 )
 
 
-def load_fips_ecdsa_signing_vectors(vector_data):
+def load_fips_ecdsa_signing_vectors(
+    vector_data: typing.Iterable[str],
+) -> list[dict]:
     """
     Loads data out of the FIPS ECDSA SigGen vector files.
     """
     vectors = []
+    curve_name: str | None = None
+    digest_name: str | None = None
 
-    data: typing.Optional[typing.Dict[str, object]] = None
+    data: dict[str, object] | None = None
     for line in vector_data:
         line = line.strip()
 
@@ -535,13 +553,13 @@ def load_fips_ecdsa_signing_vectors(vector_data):
 KASVS_RESULT_REGEX = re.compile(r"([FP]) \(([0-9]+) -")
 
 
-def load_kasvs_dh_vectors(vector_data):
+def load_kasvs_dh_vectors(vector_data: typing.Iterable[str]) -> list[dict]:
     """
     Loads data out of the KASVS key exchange vector data
     """
 
     vectors = []
-    data: typing.Dict[str, typing.Any] = {"fail_z": False, "fail_agree": False}
+    data: dict[str, typing.Any] = {"fail_z": False, "fail_agree": False}
 
     for line in vector_data:
         line = line.strip()
@@ -590,7 +608,7 @@ def load_kasvs_dh_vectors(vector_data):
     return vectors
 
 
-def load_kasvs_ecdh_vectors(vector_data):
+def load_kasvs_ecdh_vectors(vector_data: typing.Iterable[str]) -> list[dict]:
     """
     Loads data out of the KASVS key exchange vector data
     """
@@ -603,7 +621,7 @@ def load_kasvs_ecdh_vectors(vector_data):
         "P-521": "secp521r1",
     }
 
-    tags: typing.List[str] = []
+    tags: list[str] = []
     sets = {}
     vectors = []
 
@@ -641,7 +659,7 @@ def load_kasvs_ecdh_vectors(vector_data):
             break
 
     # Data
-    data: typing.Dict[str, typing.Any] = {
+    data: dict[str, typing.Any] = {
         "CAVS": {},
         "IUT": {},
     }
@@ -685,6 +703,7 @@ def load_kasvs_ecdh_vectors(vector_data):
                 data["fail"] = False
             data["errno"] = int(match.group(2))
 
+            assert tag is not None
             data["curve"] = sets[tag]
 
             vectors.append(data)
@@ -697,16 +716,16 @@ def load_kasvs_ecdh_vectors(vector_data):
     return vectors
 
 
-def load_rfc6979_vectors(vector_data):
+def load_rfc6979_vectors(vector_data: typing.Iterable[str]) -> list[dict]:
     """
     Loads data out of the ECDSA and DSA RFC6979 vector files.
     """
     vectors = []
-    keys: typing.Dict[str, typing.List[str]] = dict()
+    keys: dict[str, list[str]] = dict()
     reading_key = False
     current_key_name = None
 
-    data: typing.Dict[str, object] = dict()
+    data: dict[str, object] = dict()
     for line in vector_data:
         line = line.strip()
 
@@ -749,7 +768,7 @@ def load_rfc6979_vectors(vector_data):
     return vectors
 
 
-def load_x963_vectors(vector_data):
+def load_x963_vectors(vector_data: typing.Iterable[str]) -> list[dict]:
     """
     Loads data out of the X9.63 vector data
     """
@@ -758,7 +777,10 @@ def load_x963_vectors(vector_data):
 
     # Sets Metadata
     hashname = None
-    vector = {}
+    vector: dict[str, typing.Any] = {}
+    shared_secret_len: int | None = None
+    shared_info_len: int | None = None
+    key_data_len: int | None = None
     for line in vector_data:
         line = line.strip()
 
@@ -783,16 +805,19 @@ def load_x963_vectors(vector_data):
         elif line.startswith("Z"):
             vector["Z"] = line.split("=")[1].strip()
             assert vector["Z"] is not None
+            assert shared_secret_len is not None
             assert ((shared_secret_len + 7) // 8) * 2 == len(vector["Z"])
         elif line.startswith("SharedInfo"):
             if shared_info_len != 0:
                 vector["sharedinfo"] = line.split("=")[1].strip()
                 assert vector["sharedinfo"] is not None
                 silen = len(vector["sharedinfo"])
+                assert shared_info_len is not None
                 assert ((shared_info_len + 7) // 8) * 2 == silen
         elif line.startswith("key_data"):
             vector["key_data"] = line.split("=")[1].strip()
             assert vector["key_data"] is not None
+            assert key_data_len is not None
             assert ((key_data_len + 7) // 8) * 2 == len(vector["key_data"])
             vectors.append(vector)
             vector = {}
@@ -800,13 +825,13 @@ def load_x963_vectors(vector_data):
     return vectors
 
 
-def load_nist_kbkdf_vectors(vector_data):
+def load_nist_kbkdf_vectors(vector_data: typing.Iterable[str]) -> list[dict]:
     """
     Load NIST SP 800-108 KDF Vectors
     """
     vectors = []
-    test_data = None
-    tag = {}
+    test_data: dict[str, typing.Any] = {}
+    tag: dict[str, typing.Any] = {}
 
     for line in vector_data:
         line = line.strip()
@@ -818,11 +843,10 @@ def load_nist_kbkdf_vectors(vector_data):
             tag_data = line[1:-1]
             name, value = (c.strip() for c in tag_data.split("="))
             if value.endswith("_BITS"):
-                value = int(value.split("_")[0])
-                tag.update({name.lower(): value})
+                tag[name.lower()] = int(value.split("_")[0])
                 continue
 
-            tag.update({name.lower(): value.lower()})
+            tag[name.lower()] = value.lower()
         elif line.startswith("COUNT="):
             test_data = {}
             test_data.update(tag)
@@ -837,7 +861,7 @@ def load_nist_kbkdf_vectors(vector_data):
     return vectors
 
 
-def load_ed25519_vectors(vector_data):
+def load_ed25519_vectors(vector_data: typing.Iterable[str]) -> list[dict]:
     data = []
     for line in vector_data:
         secret_key, public_key, message, signature, _ = line.split(":")
@@ -856,10 +880,10 @@ def load_ed25519_vectors(vector_data):
     return data
 
 
-def load_nist_ccm_vectors(vector_data):
-    test_data = {}
-    section_data = None
-    global_data = {}
+def load_nist_ccm_vectors(vector_data: typing.Iterable[str]) -> list[dict]:
+    test_data: dict[str, typing.Any] = {}
+    section_data: dict[str, typing.Any] = {}
+    global_data: dict[str, typing.Any] = {}
     new_section = False
     data = []
 
@@ -966,7 +990,7 @@ class WycheproofTest:
         return cache_val
 
 
-def load_wycheproof_tests(wycheproof, test_file, subdir):
+def load_wycheproof_tests(wycheproof: str, test_file: str, subdir: str):
     path = os.path.join(wycheproof, subdir, test_file)
     with open(path) as f:
         data = json.load(f)

@@ -306,14 +306,14 @@ class Trait(_Identifiable, ABC):
         module import time.
         ```
         """
-        import extra_platforms
+        from .detection import _detection_registry
 
-        func = getattr(extra_platforms, self.detection_func_id, None)
+        func = _detection_registry.get(self.detection_func_id)
         if not func:
             raise NotImplementedError(
                 f"Detection function {self.detection_func_id}() is not implemented."
             )
-        return func()  # type: ignore[no-any-return]
+        return func()
 
     @abstractmethod
     def info(self) -> dict:
@@ -410,6 +410,14 @@ class Shell(Trait):
     ```
     """
 
+    version_env_var: str | None = field(repr=False, default=None)
+    """Environment variable set by the shell at startup (like ``BASH_VERSION``).
+
+    A reliable signal that the shell is *currently running*, not just configured
+    as the login shell in ``SHELL``. ``None`` for shells that do not set a
+    dedicated startup variable (like Dash or Almquist Shell).
+    """
+
     def info(self) -> dict[str, str | bool | None]:
         """Returns all shell attributes we can gather."""
         info: dict[str, str | bool | None] = {
@@ -418,24 +426,10 @@ class Shell(Trait):
             "path": None,
         }
         if self.current:
-            info["version"] = self._detect_version()
+            if self.version_env_var:
+                info["version"] = environ.get(self.version_env_var)
             info["path"] = environ.get("SHELL")
         return info
-
-    def _detect_version(self) -> str | None:
-        """Return the shell version from environment if available."""
-        version_vars = {
-            "bash": "BASH_VERSION",
-            "zsh": "ZSH_VERSION",
-            "fish": "FISH_VERSION",
-            "ksh": "KSH_VERSION",
-            "nushell": "NU_VERSION",
-            "xonsh": "XONSH_VERSION",
-        }
-        env_var = version_vars.get(self.id)
-        if env_var:
-            return environ.get(env_var)
-        return None
 
 
 @dataclass(frozen=True)

@@ -36,7 +36,6 @@ from silx.gui.utils.testutils import TestCaseQt
 from silx.gui import qt
 from silx.gui.plot import PlotWidget
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -54,7 +53,7 @@ class PlotWidgetTestCase(TestCaseQt):
         return PlotWidget(backend=self.backend)
 
     def setUp(self):
-        super(PlotWidgetTestCase, self).setUp()
+        super().setUp()
         self.plot = self._createPlot()
         self.plot.show()
         self.plotAlive = True
@@ -89,4 +88,4 @@ class PlotWidgetTestCase(TestCaseQt):
                 self.logScreenShot()
         self.qapp.processEvents()
         self._waitForPlotClosed()
-        super(PlotWidgetTestCase, self).tearDown()
+        super().tearDown()

@@ -10,7 +10,7 @@ Usage::
     ```python
     from types_boto3_bedrock_agentcore_control.literals import AgentManagedRuntimeTypeType
 
-    data: AgentManagedRuntimeTypeType = "PYTHON_3_10"
+    data: AgentManagedRuntimeTypeType = "NODE_22"
     ```
 """
 
@@ -110,13 +110,14 @@ __all__ = (
     "SearchTypeType",
     "ServerProtocolType",
     "ServiceName",
+    "StatusType",
     "SynchronizationTypeType",
     "TargetStatusType",
     "WaiterName",
 )
 
 AgentManagedRuntimeTypeType = Literal[
-    "PYTHON_3_10", "PYTHON_3_11", "PYTHON_3_12", "PYTHON_3_13", "PYTHON_3_14"
+    "NODE_22", "PYTHON_3_10", "PYTHON_3_11", "PYTHON_3_12", "PYTHON_3_13", "PYTHON_3_14"
 ]
 AgentRuntimeEndpointStatusType = Literal[
     "CREATE_FAILED", "CREATING", "DELETING", "READY", "UPDATE_FAILED", "UPDATING"
@@ -284,6 +285,9 @@ RestApiMethodType = Literal["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST",
 SchemaTypeType = Literal["array", "boolean", "integer", "number", "object", "string"]
 SearchTypeType = Literal["SEMANTIC"]
 ServerProtocolType = Literal["A2A", "AGUI", "HTTP", "MCP"]
+StatusType = Literal[
+    "CREATE_FAILED", "CREATING", "DELETE_FAILED", "DELETING", "READY", "UPDATE_FAILED", "UPDATING"
+]
 SynchronizationTypeType = Literal["URL"]
 TargetStatusType = Literal[
     "CREATE_PENDING_AUTH",

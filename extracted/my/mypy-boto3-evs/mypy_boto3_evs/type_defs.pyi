@@ -28,6 +28,7 @@ from .literals import (
     EntitlementStatusType,
     EnvironmentStateType,
     HostStateType,
+    InstanceTypeType,
     VcfVersionType,
     VlanStateType,
 )
@@ -170,7 +171,7 @@ CreateEnvironmentConnectorRequestTypeDef = TypedDict(
 class HostInfoForCreateTypeDef(TypedDict):
     hostName: str
     keyName: str
-    instanceType: Literal["i4i.metal"]
+    instanceType: InstanceTypeType
     placementGroupId: NotRequired[str]
     dedicatedHostId: NotRequired[str]
 
@@ -245,14 +246,14 @@ class GetEnvironmentRequestTypeDef(TypedDict):
     environmentId: str
 
 class InstanceTypeEsxVersionsInfoTypeDef(TypedDict):
-    instanceType: Literal["i4i.metal"]
+    instanceType: InstanceTypeType
     esxVersions: list[str]
 
 class VcfVersionInfoTypeDef(TypedDict):
     vcfVersion: VcfVersionType
     status: str
     defaultEsxVersion: str
-    instanceTypes: list[Literal["i4i.metal"]]
+    instanceTypes: list[InstanceTypeType]
 
 class NetworkInterfaceTypeDef(TypedDict):
     networkInterfaceId: NotRequired[str]
@@ -407,7 +408,7 @@ class HostTypeDef(TypedDict):
     hostName: NotRequired[str]
     ipAddress: NotRequired[str]
     keyName: NotRequired[str]
-    instanceType: NotRequired[Literal["i4i.metal"]]
+    instanceType: NotRequired[InstanceTypeType]
     placementGroupId: NotRequired[str]
     dedicatedHostId: NotRequired[str]
     createdAt: NotRequired[datetime]

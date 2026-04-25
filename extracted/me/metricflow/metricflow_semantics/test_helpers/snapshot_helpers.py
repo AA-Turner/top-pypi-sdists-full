@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import difflib
+import inspect
 import logging
 import os
 import pathlib
@@ -12,17 +13,16 @@ from typing import Any, Callable, Mapping, Optional, Tuple, TypeVar
 import _pytest.fixtures
 import tabulate
 from _pytest.fixtures import FixtureRequest
-
 from metricflow_semantics.dag.mf_dag import MetricFlowDag
-from metricflow_semantics.helpers.string_helpers import mf_indent
-from metricflow_semantics.mf_logging.format_option import PrettyFormatOption
-from metricflow_semantics.mf_logging.lazy_formattable import LazyFormat
-from metricflow_semantics.mf_logging.pretty_print import mf_pformat
 from metricflow_semantics.model.semantics.linkable_element_set_base import BaseGroupByItemSet
 from metricflow_semantics.naming.object_builder_scheme import ObjectBuilderNamingScheme
 from metricflow_semantics.specs.linkable_spec_set import LinkableSpecSet
 from metricflow_semantics.specs.spec_set import InstanceSpecSet, group_spec_by_type
 from metricflow_semantics.test_helpers.terminal_helpers import mf_colored_link_text
+from metricflow_semantics.toolkit.mf_logging.format_option import PrettyFormatOption
+from metricflow_semantics.toolkit.mf_logging.lazy_formattable import LazyFormat
+from metricflow_semantics.toolkit.mf_logging.pretty_print import mf_pformat
+from metricflow_semantics.toolkit.string_helpers import mf_indent
 
 logger = logging.getLogger(__name__)
 
@@ -85,14 +85,14 @@ def assert_snapshot_text_equal(
     # Add a header with context about the snapshot.
     if include_headers:
         path_to_test_file = pathlib.Path(request.node.fspath)
-        test_doc_string = request.function.__doc__
+        test_doc_string = inspect.getdoc(request.function)
         header_lines = [
             f"test_name: {request.node.name}",
             f"test_filename: {path_to_test_file.name}",
         ]
         if test_doc_string is not None:
             header_lines.append("docstring:")
-            header_lines.append(mf_indent(test_doc_string.rstrip()))
+            header_lines.append(mf_indent(test_doc_string))
         if additional_header_fields is not None:
             for header_field_name, header_field_value in additional_header_fields.items():
                 header_lines.append(f"{header_field_name}: {header_field_value}")

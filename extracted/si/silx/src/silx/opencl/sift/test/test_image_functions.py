@@ -297,7 +297,7 @@ def my_orientation(
                         weight = numpy.exp(-distsq / sigma2)
                         angle = ori[r, c]
                         mybin = numpy.int32(
-                            (36 * (angle + numpy.pi + 0.001) / (2.0 * numpy.pi))
+                            36 * (angle + numpy.pi + 0.001) / (2.0 * numpy.pi)
                         )
                         if mybin >= 0 and mybin <= 36:
                             mybin = min(mybin, 36 - 1)
@@ -407,7 +407,7 @@ def my_descriptor(keypoints, grad, orim, octsize, keypoints_start, keypoints_end
             iradius = int((1.414 * spacing * (5) / 2.0) + 0.5)
             for i in range(-iradius, iradius + 1):
                 for j in range(-iradius, iradius + 1):
-                    (rx, cx) = (
+                    rx, cx = (
                         numpy.dot(
                             numpy.array([[cosine, -sine], [sine, cosine]]),
                             numpy.array([i, j]),

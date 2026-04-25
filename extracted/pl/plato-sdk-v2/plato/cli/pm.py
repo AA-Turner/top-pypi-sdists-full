@@ -179,6 +179,8 @@ experiment_data_base_app = typer.Typer(help="Data base experiment")
 experiment_data_unified_app = typer.Typer(help="Data unified (multi-sim) experiment")
 experiment_check_app = typer.Typer(help="Sim-checker experiments")
 experiment_check_base_app = typer.Typer(help="Sim-checker base experiment")
+experiment_agent_app = typer.Typer(help="AgentSession experiments")
+experiment_agent_data_load_app = typer.Typer(help="Agent data-load experiment")
 
 pm_app.add_typer(list_app, name="list")
 pm_app.add_typer(review_app, name="review")
@@ -188,11 +190,13 @@ pm_app.add_typer(experiment_app, name="experiment")
 experiment_app.add_typer(experiment_env_app, name="env")
 experiment_app.add_typer(experiment_data_app, name="data")
 experiment_app.add_typer(experiment_check_app, name="check")
+experiment_app.add_typer(experiment_agent_app, name="agent")
 experiment_env_app.add_typer(experiment_env_base_app, name="base")
 experiment_env_app.add_typer(experiment_env_fix_app, name="fix")
 experiment_data_app.add_typer(experiment_data_base_app, name="base")
 experiment_data_app.add_typer(experiment_data_unified_app, name="unified")
 experiment_check_app.add_typer(experiment_check_base_app, name="base")
+experiment_agent_app.add_typer(experiment_agent_data_load_app, name="data-load")
 
 
 # =============================================================================
@@ -557,9 +561,15 @@ def list_data():
 
 
 def _find_templates_dir() -> Path:
-    """Find the cli/templates directory."""
-    cli_dir = Path(__file__).resolve().parent  # plato/cli/
-    return cli_dir / "templates"
+    """Find the templates directory (repo root ``templates/`` — not shipped in wheel).
+
+    Templates are Plato-internal infra bundles pushed to Chronos via
+    ``plato pm experiment ... push``. They're intentionally excluded from the
+    published SDK so external installs don't carry them.
+    """
+    # plato/cli/pm.py -> plato/cli/ -> plato/ -> <repo root>/ -> templates/
+    repo_root = Path(__file__).resolve().parent.parent.parent
+    return repo_root / "templates"
 
 
 def _load_template(name: str) -> dict:
@@ -579,6 +589,9 @@ _EXPERIMENT_NAMES: dict[tuple[str, str], str] = {
     ("data", "base"): "datagen-launch",
     ("data", "unified"): "datagen-unified-launch",
     ("check", "base"): "sim-checker-launch",
+    # AgentSession experiments — drop the legacy ``-launch`` suffix; these
+    # are long-lived session configs, not one-shot launch templates.
+    ("agent", "data-load"): "agent-data-load",
 }
 
 
@@ -937,10 +950,8 @@ async def _handle_data_level_reject(
         raise typer.Exit(1)
 
     datagen_action = None
-    datagen_iterations = 2
     if datagen_choice in ("2", "3"):
         datagen_action = "fresh" if datagen_choice == "2" else "resume"
-        datagen_iterations = typer.prompt("Iterations", default=2, type=int)
 
     status_walk_str = " → ".join([current_status] + walk) if walk else f"{current_status} (no change)"
     console.print("\n[bold]Review summary:[/bold]")
@@ -949,7 +960,7 @@ async def _handle_data_level_reject(
     console.print(f"  Comment: {message}")
     console.print(f"  Status:  {status_walk_str}")
     if datagen_action:
-        console.print(f"  Datagen: {datagen_action} ({datagen_iterations} iterations)")
+        console.print(f"  Datagen: {datagen_action}")
 
     if not typer.confirm("Submit?", default=True):
         console.print("[yellow]Cancelled — nothing submitted.[/yellow]")
@@ -997,7 +1008,6 @@ async def _handle_data_level_reject(
             simulator_name=simulator_name,
             artifact_id=artifact_id,
             api_key=api_key,
-            iterations=datagen_iterations,
             review_comments=[message] if datagen_action == "resume" else None,
         )
         if launched_session:
@@ -1180,7 +1190,6 @@ async def _launch_datagen_world(
     simulator_name: str,
     artifact_id: str,
     api_key: str,
-    iterations: int = 2,
     review_comments: list[str] | None = None,
 ) -> str | None:
     """Launch an interactive datagen world. Returns session_id or None."""
@@ -1253,36 +1262,16 @@ async def _launch_datagen_world(
         ]
         config["sim_name"] = simulator_name
 
-        # Expand steps to match `iterations`. Template ships as either:
-        #   - One step (stripped-down for verifier iteration): used as-is,
-        #     `iterations` ignored.
-        #   - Two steps (generate + audit_and_fill): 1 generate +
-        #     (iterations-1) audit_and_fill copies.
-        # Reject other lengths so a template change doesn't silently drop
-        # steps past index 1.
-        template_steps = config["steps"]
-        if len(template_steps) == 1:
-            step = template_steps[0]
-            if review_comments is not None:
-                step["instruction"] = _build_datagen_review_prompt(simulator_name, review_comments, step["instruction"])
-            config["steps"] = [step]
-        elif len(template_steps) == 2:
-            generate_step = template_steps[0]
-            audit_step = template_steps[1]
-            if review_comments is not None:
-                generate_step["instruction"] = _build_datagen_review_prompt(
-                    simulator_name, review_comments, generate_step["instruction"]
-                )
-            expanded = [generate_step]
-            for i in range(max(0, iterations - 1)):
-                step = json.loads(json.dumps(audit_step))
-                step["name"] = f"audit_and_fill_{i + 1}"
-                expanded.append(step)
-            config["steps"] = expanded
-        else:
-            raise ValueError(f"datagen template must have 1 or 2 steps, got {len(template_steps)}")
-        # Render step-instruction placeholders after expansion so both the
-        # generate and audit_and_fill_N copies pick up the values.
+        # Template ships with [generate, audit_and_fill]. Reject other shapes
+        # so a template change doesn't silently drop steps.
+        template_steps = config.get("steps") or []
+        step_names = [s.get("name") if isinstance(s, dict) else None for s in template_steps]
+        if step_names != ["generate", "audit_and_fill"]:
+            raise ValueError(f"datagen template must be [generate, audit_and_fill], got {step_names}")
+        if review_comments is not None:
+            template_steps[0]["instruction"] = _build_datagen_review_prompt(
+                simulator_name, review_comments, template_steps[0]["instruction"]
+            )
         _render_step_instructions(config, sim_name=simulator_name, workspace="/workspace")
 
         template["tags"].append(simulator_name)
@@ -1952,7 +1941,6 @@ def start_data(
         "-r",
         help="Rerun datagen from the current data artifact using the latest rejected data review comments",
     ),
-    iterations: int = typer.Option(2, "--iterations", "-i", help="Datagen iterations"),
     unified: bool = typer.Option(
         False,
         "--unified",
@@ -1966,7 +1954,6 @@ def start_data(
 
     Examples:
         plato pm start data aureus memos
-        plato pm start data aureus -i 3
         plato pm start data aureus -r    # rerun from current data_artifact_id with latest reject comments
         plato pm start data crm gmail pm --unified    # one session with shared scenario across sims
     """
@@ -2057,7 +2044,7 @@ def start_data(
         label = (
             f"\n[bold]Will launch unified datagen ({len(to_launch)} sims in one session):[/bold]"
             if unified
-            else f"\n[bold]Will launch datagen ({mode}, {iterations} iterations) for {len(to_launch)} simulator(s):[/bold]"
+            else f"\n[bold]Will launch datagen ({mode}) for {len(to_launch)} simulator(s):[/bold]"
         )
         console.print(label)
         for s in to_launch:
@@ -2123,7 +2110,6 @@ def start_data(
                     simulator_name=s["name"],
                     artifact_id=s["artifact_id"],
                     api_key=api_key,
-                    iterations=iterations,
                     review_comments=s.get("review_comments") if resume else None,
                 )
                 if launched:
@@ -2284,7 +2270,7 @@ def start_from_template(
     or ``-a <uuid>`` to override explicitly.
 
     Examples:
-        plato pm start from-template python-sdk/plato/cli/templates/extract-screenshots-launch.json aureus memos
+        plato pm start from-template python-sdk/templates/extract-screenshots-launch.json aureus memos
         plato pm start from-template ./extract-screenshots-launch.json aureus --base
         plato pm start from-template ./extract-screenshots-launch.json aureus -a 9c744a5b-f52c-40a7-ad67-c3863b34c68d
         plato pm start from-template ./extract-screenshots-unified.json aureus memos docmost --unified
@@ -3171,12 +3157,10 @@ def review_env(
             reject_action = None
             reject_action_inputs = {}
             pass_start_datagen = False
-            pass_datagen_iterations = 2
 
             if outcome == "pass":
                 if typer.confirm("Auto-start datagen?", default=True):
                     pass_start_datagen = True
-                    pass_datagen_iterations = int(typer.prompt("Iterations", default="2").strip() or "2")
 
             elif outcome == "reject":
                 comments = ""
@@ -3265,7 +3249,7 @@ def review_env(
                     action_desc += f" ({rs[:12]}...)" if rs else " (fresh state)"
                 console.print(f"  World: {action_desc}")
             if pass_start_datagen:
-                console.print(f"  Datagen: fresh ({pass_datagen_iterations} iterations)")
+                console.print("  Datagen: fresh")
 
             if not typer.confirm("Submit?", default=True):
                 console.print("[yellow]Cancelled — nothing submitted.[/yellow]")
@@ -3409,7 +3393,6 @@ def review_env(
                         simulator_name=simulator_name,
                         artifact_id=artifact_id,
                         api_key=api_key,
-                        iterations=pass_datagen_iterations,
                     )
                     if launched_session:
                         console.print(f"[green]✅ Datagen launched: {launched_session}[/green]")
@@ -3849,15 +3832,13 @@ def review_data(
                     datagen_choice = typer.prompt("Choice [1/2/3]", default="1").strip()
 
                     datagen_action = None
-                    datagen_iterations = 2
                     if datagen_choice in ("2", "3"):
                         datagen_action = "fresh" if datagen_choice == "2" else "resume"
-                        datagen_iterations = int(typer.prompt("Iterations", default="2").strip() or "2")
 
                     # Confirm
                     if datagen_action:
                         console.print("\n[bold]Post-review summary:[/bold]")
-                        console.print(f"  Datagen: {datagen_action} ({datagen_iterations} iterations)")
+                        console.print(f"  Datagen: {datagen_action}")
                         if datagen_action == "resume" and latest_reject_comments:
                             console.print(f"  Review feedback: {len(latest_reject_comments)} comment(s)")
 
@@ -3885,7 +3866,6 @@ def review_data(
                                     simulator_name=simulator_name,
                                     artifact_id=artifact_id,
                                     api_key=api_key,
-                                    iterations=datagen_iterations,
                                     review_comments=latest_reject_comments if datagen_action == "resume" else None,
                                 )
                                 if launched_session:
@@ -4201,6 +4181,7 @@ def _push_experiment(pipeline: str, mode: str, api_key: str) -> None:
         ("data", "base"): "datagen-launch.json",
         ("data", "unified"): "datagen-unified-launch.json",
         ("check", "base"): "sim-checker-launch.json",
+        ("agent", "data-load"): "agent-data-load.json",
     }[(pipeline, mode)]
     description = {
         ("env", "base"): "Run via: plato pm start env <sim> (fresh create) or plato pm review env <sim> (action=fresh)",
@@ -4208,6 +4189,7 @@ def _push_experiment(pipeline: str, mode: str, api_key: str) -> None:
         ("data", "base"): "Run via: plato pm start data <sim>",
         ("data", "unified"): "Run via: plato pm start data --unified <sim1> <sim2> ...",
         ("check", "base"): "Run via: plato pm start checker <sim>",
+        ("agent", "data-load"): "AgentSession recipe for loading user-supplied source data into a sim",
     }[(pipeline, mode)]
     world_key = {
         ("env", "base"): "structured-execution",
@@ -4215,6 +4197,7 @@ def _push_experiment(pipeline: str, mode: str, api_key: str) -> None:
         ("data", "base"): "interactive",
         ("data", "unified"): "structured-execution",
         ("check", "base"): "structured-execution",
+        ("agent", "data-load"): "structured-execution",
     }[(pipeline, mode)]
     config_json = _load_template(template_file)
 
@@ -4291,3 +4274,10 @@ def experiment_check_base_push() -> None:
     """Push local sim-checker-launch.json to Chronos as a new experiment version."""
     api_key = require_api_key()
     _push_experiment("check", "base", api_key)
+
+
+@experiment_agent_data_load_app.command(name="push")
+def experiment_agent_data_load_push() -> None:
+    """Push local agent-data-load.json to Chronos as a new experiment version."""
+    api_key = require_api_key()
+    _push_experiment("agent", "data-load", api_key)

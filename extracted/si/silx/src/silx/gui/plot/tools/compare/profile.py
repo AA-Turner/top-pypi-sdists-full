@@ -21,8 +21,7 @@
 # THE SOFTWARE.
 #
 # ###########################################################################*/
-"""This provides profile ROIs.
-"""
+"""This provides profile ROIs."""
 
 __authors__ = ["V. Valls"]
 __license__ = "MIT"
@@ -34,7 +33,6 @@ import numpy
 from silx.gui.plot.tools.profile import rois
 from silx.gui.plot.tools.profile import core
 from .core import _CompareImageItem
-
 
 COLOR_A = "C0"
 COLOR_B = "C8"

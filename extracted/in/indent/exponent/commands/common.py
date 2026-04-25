@@ -265,12 +265,10 @@ async def start_client(
         base_ws_url=base_ws_url,
         working_directory=os.getcwd(),
     ) as client:
-        terminal_controller_socket = os.environ.get("INDENT_TERMINAL_CONTROLLER_SOCKET")
         main_coro = client.run_connection(
             chat_uuid,
             connection_tracker,
             timeout_seconds,
-            terminal_controller_socket_path=terminal_controller_socket,
         )
         aux_coros: list[Coroutine[Any, Any, None]] = []
 
@@ -306,21 +304,3 @@ async def set_login_complete(api_key: str, base_api_url: str, base_ws_url: str) 
 
     if data.user_api_key != api_key:
         raise HandledExponentError("Invalid API key, login to https://indent.com to find your API key.")
-
-
-async def refresh_api_key_task(
-    api_key: str,
-    base_api_url: str,
-    base_ws_url: str,
-) -> None:
-    graphql_client = GraphQLClient(api_key, base_api_url, base_ws_url)
-    result = await graphql_client.refresh_api_key()
-
-    new_api_key = result.refresh_api_key.user_api_key
-    settings = get_settings()
-
-    click.echo(f"Saving new API Key to {settings.config_file_path}")
-    settings.update_api_key(new_api_key)
-    settings.write_settings_to_config_file()
-
-    click.secho("API key has been refreshed and saved successfully!", fg="green")

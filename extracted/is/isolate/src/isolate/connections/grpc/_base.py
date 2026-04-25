@@ -6,7 +6,7 @@ import time
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, ContextManager, Iterator, List, Tuple, Union, cast
+from typing import Any, ContextManager, Iterator, List, Optional, Tuple, Union, cast
 
 import grpc
 
@@ -125,15 +125,13 @@ class GRPCExecutionBase(EnvironmentConnection):
         self,
         entrypoint: str,
         *,
-        run_on_main_thread: bool = False,
+        run_on_main_thread: Optional[bool] = None,
     ) -> CallResultType:  # type: ignore[type-var]
         validate_entrypoint(entrypoint)
-        return self._run_function_call(
-            definitions.FunctionCall(
-                entrypoint=entrypoint,
-                run_on_main_thread=run_on_main_thread,
-            ),
-        )
+        function_call = definitions.FunctionCall(entrypoint=entrypoint)
+        if run_on_main_thread is not None:
+            function_call.run_on_main_thread = run_on_main_thread
+        return self._run_function_call(function_call)
 
     def _run_function_call(
         self, function_call: definitions.FunctionCall

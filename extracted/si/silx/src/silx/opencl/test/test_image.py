@@ -38,7 +38,7 @@ import logging
 import numpy
 
 import unittest
-from ..common import ocl, _measure_workgroup_size
+from ..common import ocl
 
 if ocl:
     import pyopencl
@@ -57,7 +57,7 @@ except ImportError:
 class TestImage(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        super(TestImage, cls).setUpClass()
+        super().setUpClass()
         if ocl:
             cls.ctx = ocl.create_context()
             cls.lena = utilstest.getfile("lena.png")
@@ -66,7 +66,7 @@ class TestImage(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        super(TestImage, cls).tearDownClass()
+        super().tearDownClass()
         cls.ctx = None
         cls.lena = None
         cls.data = None
@@ -98,7 +98,7 @@ class TestImage(unittest.TestCase):
         tests that all devices are working properly ...
         """
         tmp = pyopencl.array.empty(self.ip.ctx, self.data.shape, "float32")
-        res = self.ip.to_float(self.data, out=tmp)
+        _ = self.ip.to_float(self.data, out=tmp)
         res2 = self.ip.normalize(tmp, -100, 100, copy=False)
         norm = (self.data.astype(numpy.float32) - self.data.min()) / (
             self.data.max() - self.data.min()

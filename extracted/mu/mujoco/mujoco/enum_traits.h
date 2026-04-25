@@ -46,6 +46,7 @@ struct mjtDisableBit {
     std::make_pair("mjDSBL_AUTORESET", ::mjtDisableBit::mjDSBL_AUTORESET),
     std::make_pair("mjDSBL_NATIVECCD", ::mjtDisableBit::mjDSBL_NATIVECCD),
     std::make_pair("mjDSBL_ISLAND", ::mjtDisableBit::mjDSBL_ISLAND),
+    std::make_pair("mjDSBL_MULTICCD", ::mjtDisableBit::mjDSBL_MULTICCD),
     std::make_pair("mjNDISABLE", ::mjtDisableBit::mjNDISABLE)};
 };
 
@@ -57,7 +58,6 @@ struct mjtEnableBit {
     std::make_pair("mjENBL_ENERGY", ::mjtEnableBit::mjENBL_ENERGY),
     std::make_pair("mjENBL_FWDINV", ::mjtEnableBit::mjENBL_FWDINV),
     std::make_pair("mjENBL_INVDISCRETE", ::mjtEnableBit::mjENBL_INVDISCRETE),
-    std::make_pair("mjENBL_MULTICCD", ::mjtEnableBit::mjENBL_MULTICCD),
     std::make_pair("mjENBL_SLEEP", ::mjtEnableBit::mjENBL_SLEEP),
     std::make_pair("mjNENABLE", ::mjtEnableBit::mjNENABLE)};
 };

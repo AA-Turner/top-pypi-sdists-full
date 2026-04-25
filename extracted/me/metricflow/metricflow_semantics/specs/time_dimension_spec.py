@@ -4,20 +4,20 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Iterable, List, Mapping, Optional, Sequence, Tuple, Union
 
-from dbt_semantic_interfaces.naming.keywords import METRIC_TIME_ELEMENT_NAME
-from dbt_semantic_interfaces.references import DimensionReference, EntityReference, TimeDimensionReference
-from dbt_semantic_interfaces.type_enums import DatePart, TimeGranularity
-from typing_extensions import override
-
 from metricflow_semantics.aggregation_properties import AggregationState
-from metricflow_semantics.assert_one_arg import assert_exactly_one_arg_set
-from metricflow_semantics.collection_helpers.lru_cache import typed_lru_cache
 from metricflow_semantics.naming.linkable_spec_name import StructuredLinkableSpecName
 from metricflow_semantics.specs.dimension_spec import DimensionSpec
 from metricflow_semantics.specs.instance_spec import InstanceSpecVisitor
 from metricflow_semantics.sql.sql_exprs import SqlWindowFunction
 from metricflow_semantics.time.granularity import ExpandedTimeGranularity
-from metricflow_semantics.visitor import VisitorOutputT
+from metricflow_semantics.toolkit.assert_one_arg import assert_exactly_one_arg_set
+from metricflow_semantics.toolkit.cache.lru_cache import typed_lru_cache
+from metricflow_semantics.toolkit.visitor import VisitorOutputT
+from typing_extensions import override
+
+from metricflow_semantic_interfaces.naming.keywords import METRIC_TIME_ELEMENT_NAME
+from metricflow_semantic_interfaces.references import DimensionReference, EntityReference, TimeDimensionReference
+from metricflow_semantic_interfaces.type_enums import DatePart, TimeGranularity
 
 
 class TimeDimensionSpecField(Enum):

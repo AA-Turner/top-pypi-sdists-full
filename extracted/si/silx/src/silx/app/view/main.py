@@ -32,7 +32,13 @@ import os
 import signal
 import sys
 import traceback
+
 from silx.app.utils import parseutils
+
+try:
+    import hdf5plugin  # noqa
+except ImportError:
+    hdf5plugin = None
 
 
 _logger = logging.getLogger(__name__)
@@ -122,22 +128,22 @@ def mainQt(options):
     _logger.info("Set HDF5_USE_FILE_LOCKING=%s", hdf5_file_locking)
     os.environ["HDF5_USE_FILE_LOCKING"] = hdf5_file_locking
 
-    try:
-        # it should be loaded before h5py
-        import hdf5plugin  # noqa
-    except ImportError:
-        _logger.debug("Backtrace", exc_info=True)
-
-    import h5py
+    if hdf5plugin is None:
+        message = (
+            "Module 'hdf5plugin' is not installed. It supports additional hdf5"
+            + ' compressions. You can install it using "pip install hdf5plugin".'
+        )
+        _logger.debug(message)
 
     import silx
     from silx.gui import qt
 
     # Make sure matplotlib is configured
-    # Needed for Debian 8: compatibility between Qt4/Qt5 and old matplotlib
     import silx.gui.utils.matplotlib  # noqa
 
     app = qt.QApplication([])
+    if qt.BINDING != "PyQt5":
+        app.styleHints().setColorScheme(qt.Qt.ColorScheme.Light)
     qt.QLocale.setDefault(qt.QLocale.c())
 
     def sigintHandler(*args):
@@ -179,7 +185,7 @@ def mainQt(options):
         # TODO: Would be nice to add a process widget and a cancel button
         try:
             window.appendFile(url.path())
-        except IOError as e:
+        except OSError as e:
             _logger.error(e.args[0])
             _logger.debug("Backtrace", exc_info=True)
 

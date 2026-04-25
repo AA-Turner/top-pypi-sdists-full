@@ -25,6 +25,7 @@
 """This script is a simple example of how to use the periodic table widgets,
 select elements and connect signals.
 """
+
 import sys
 from silx.gui import qt
 from silx.gui.widgets import PeriodicTable
@@ -53,7 +54,7 @@ def change_combo(item):
 
 
 def click_table(item):
-    print("New table click: %s (%s)" % (item.name, item.subcategory))
+    print(f"New table click: {item.name} ({item.subcategory})")
 
 
 def change_table(items):

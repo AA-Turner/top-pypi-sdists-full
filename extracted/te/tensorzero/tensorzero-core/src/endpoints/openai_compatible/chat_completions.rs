@@ -5,12 +5,12 @@
 //! parameter parsing, inference execution, and response formatting for both streaming
 //! and non-streaming requests.
 
+use axum::Extension;
 use axum::Json;
 use axum::body::Body;
 use axum::extract::State;
 use axum::response::sse::Sse;
 use axum::response::{IntoResponse, Response};
-use axum::{Extension, debug_handler};
 
 use crate::endpoints::inference::{InferenceOutput, Params, inference};
 use crate::error::{Error, ErrorDetails};
@@ -22,7 +22,6 @@ use super::types::streaming::prepare_serialized_openai_compatible_events;
 use super::{OpenAICompatibleError, OpenAIStructuredJson};
 
 /// A handler for the OpenAI-compatible inference endpoint
-#[debug_handler(state = AppStateData)]
 pub async fn chat_completions_handler(
     State(AppStateData {
         config,

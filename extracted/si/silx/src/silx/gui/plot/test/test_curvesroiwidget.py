@@ -52,7 +52,7 @@ class TestCurvesROIWidget(TestCaseQt):
     """Basic test for CurvesROIWidget"""
 
     def setUp(self):
-        super(TestCurvesROIWidget, self).setUp()
+        super().setUp()
         self.plot = PlotWindow()
         self.plot.show()
         self.qWaitForWindowExposed(self.plot)
@@ -71,7 +71,7 @@ class TestCurvesROIWidget(TestCaseQt):
         self.widget.close()
         del self.widget
 
-        super(TestCurvesROIWidget, self).tearDown()
+        super().tearDown()
 
     def testDummyAPI(self):
         """Simple test of the getRois and setRois API"""
@@ -486,7 +486,7 @@ class TestRoiWidgetSignals(TestCaseQt):
                 self.assertEqual(self.listener.callCount(), 1)
 
     def testSetActiveCurve(self):
-        """Test sigRoiSignal when set an active curve"""
+        """Test sigROISignal when set an active curve"""
         roi1 = CurvesROIWidget.ROI(name="linear", fromdata=2, todata=5)
         self.curves_roi_widget.roiTable.setActiveRoi(roi1)
         self.listener.clear()

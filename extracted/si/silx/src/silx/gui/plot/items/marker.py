@@ -21,8 +21,8 @@
 # THE SOFTWARE.
 #
 # ###########################################################################*/
-"""This module provides markers item of the :class:`Plot`.
-"""
+"""This module provides markers item of the :class:`Plot`."""
+
 from __future__ import annotations
 
 __authors__ = ["T. Vincent"]
@@ -31,7 +31,6 @@ __date__ = "06/03/2017"
 
 
 import logging
-import numpy
 
 from ....utils.proxy import docstring
 from .core import (
@@ -39,14 +38,13 @@ from .core import (
     DraggableMixIn,
     ColorMixIn,
     LineMixIn,
-    SymbolMixIn,
+    SymbolSingleSizeMixIn,
     ItemChangedType,
     YAxisMixIn,
 )
 from silx import config
 from silx.gui import qt
 from silx.gui import colors
-
 
 _logger = logging.getLogger(__name__)
 
@@ -87,7 +85,7 @@ class MarkerBase(Item, DraggableMixIn, ColorMixIn, YAxisMixIn):
         self,
         backend,
         symbol=None,
-        symbolsize=10.,
+        symbolsize=10.0,
         linestyle="-",
         linewidth=1,
     ):
@@ -249,7 +247,7 @@ class MarkerBase(Item, DraggableMixIn, ColorMixIn, YAxisMixIn):
         return self.__isBeingDragged
 
 
-class Marker(MarkerBase, SymbolMixIn):
+class Marker(MarkerBase, SymbolSingleSizeMixIn):
     """Description of a marker"""
 
     _DEFAULT_SYMBOL = "+"
@@ -260,7 +258,7 @@ class Marker(MarkerBase, SymbolMixIn):
 
     def __init__(self):
         MarkerBase.__init__(self)
-        SymbolMixIn.__init__(self)
+        SymbolSingleSizeMixIn.__init__(self)
 
         self._x = 0.0
         self._y = 0.0
@@ -285,7 +283,7 @@ class Marker(MarkerBase, SymbolMixIn):
         elif constraint == "vertical":
             constraint = self._verticalConstraint
 
-        super(Marker, self)._setConstraint(constraint)
+        super()._setConstraint(constraint)
 
     def _horizontalConstraint(self, _, y):
         return self.getXPosition(), y

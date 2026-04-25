@@ -2188,6 +2188,46 @@ service = ecs.FargateService(self, "Service",
 
 > Visit [Amazon ECS support for configurable timeout for services running with Service Connect](https://aws.amazon.com/about-aws/whats-new/2024/01/amazon-ecs-configurable-timeout-service-connect/) for more details.
 
+### Service Connect Access Logs
+
+[Service Connect access logs](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/service-connect-envoy-access-logs.html) provide detailed telemetry about individual requests processed by the Service Connect proxy, including HTTP methods, paths, response codes, and timing information.
+These logs complement application logs by capturing per-request traffic metadata.
+
+```python
+# cluster: ecs.Cluster
+# task_definition: ecs.TaskDefinition
+
+
+service = ecs.FargateService(self, "Service",
+    cluster=cluster,
+    task_definition=task_definition,
+    service_connect_configuration=ecs.ServiceConnectProps(
+        services=[ecs.ServiceConnectService(
+            port_mapping_name="api"
+        )
+        ],
+        access_log_configuration=ecs.ServiceConnectAccessLogConfiguration(
+            format=ecs.ServiceConnectAccessLogFormat.JSON,
+            include_query_parameters=True
+        ),
+        # When configuring access log,
+        # you also need to configure the log driver accordingly.
+        log_driver=ecs.LogDrivers.aws_logs(
+            stream_prefix="prefix"
+        )
+    )
+)
+```
+
+The `format` option determines the format of the access log output:
+
+* `ServiceConnectAccessLogFormat.TEXT` - Human-readable text format
+* `ServiceConnectAccessLogFormat.JSON` - Structured JSON format for log analysis tools
+
+The `includeQueryParameters` option specifies whether to include query parameters in the access logs.
+When enabled, query parameters from HTTP requests are included in the logs. Consider security and privacy implications, as query parameters may contain sensitive information such as request IDs and tokens.
+By default, this parameter is `false`.
+
 ## ServiceManagedVolume
 
 Amazon ECS now supports the attachment of Amazon Elastic Block Store (EBS) volumes to ECS tasks,
@@ -5890,6 +5930,12 @@ class BaseServiceOptions:
                 min_healthy_percent=123,
                 propagate_tags=ecs.PropagatedTagSource.SERVICE,
                 service_connect_configuration=ecs.ServiceConnectProps(
+                    access_log_configuration=ecs.ServiceConnectAccessLogConfiguration(
+                        format=ecs.ServiceConnectAccessLogFormat.TEXT,
+            
+                        # the properties below are optional
+                        include_query_parameters=False
+                    ),
                     log_driver=log_driver,
                     namespace="namespace",
                     services=[ecs.ServiceConnectService(
@@ -6394,6 +6440,12 @@ class BaseServiceProps(BaseServiceOptions):
                 min_healthy_percent=123,
                 propagate_tags=ecs.PropagatedTagSource.SERVICE,
                 service_connect_configuration=ecs.ServiceConnectProps(
+                    access_log_configuration=ecs.ServiceConnectAccessLogConfiguration(
+                        format=ecs.ServiceConnectAccessLogFormat.TEXT,
+            
+                        # the properties below are optional
+                        include_query_parameters=False
+                    ),
                     log_driver=log_driver,
                     namespace="namespace",
                     services=[ecs.ServiceConnectService(
@@ -7367,6 +7419,9 @@ class CfnCapacityProvider(
                 ),
         
                 # the properties below are optional
+                auto_repair_configuration=ecs.CfnCapacityProvider.AutoRepairConfigurationProperty(
+                    actions_status="actionsStatus"
+                ),
                 infrastructure_optimization=ecs.CfnCapacityProvider.InfrastructureOptimizationProperty(
                     scale_in_after=123
                 ),
@@ -7733,6 +7788,59 @@ class CfnCapacityProvider(
 
         def __repr__(self) -> str:
             return "AcceleratorTotalMemoryMiBRequestProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_ecs.CfnCapacityProvider.AutoRepairConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"actions_status": "actionsStatus"},
+    )
+    class AutoRepairConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            actions_status: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param actions_status: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-capacityprovider-autorepairconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_ecs as ecs
+                
+                auto_repair_configuration_property = ecs.CfnCapacityProvider.AutoRepairConfigurationProperty(
+                    actions_status="actionsStatus"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__ad12ee29837ba99fa7508b914604b5b419a441bbe3e997c6a940fb6fc733581a)
+                check_type(argname="argument actions_status", value=actions_status, expected_type=type_hints["actions_status"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if actions_status is not None:
+                self._values["actions_status"] = actions_status
+
+        @builtins.property
+        def actions_status(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-capacityprovider-autorepairconfiguration.html#cfn-ecs-capacityprovider-autorepairconfiguration-actionsstatus
+            '''
+            result = self._values.get("actions_status")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AutoRepairConfigurationProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -9055,6 +9163,7 @@ class CfnCapacityProvider(
         name_mapping={
             "infrastructure_role_arn": "infrastructureRoleArn",
             "instance_launch_template": "instanceLaunchTemplate",
+            "auto_repair_configuration": "autoRepairConfiguration",
             "infrastructure_optimization": "infrastructureOptimization",
             "propagate_tags": "propagateTags",
         },
@@ -9065,6 +9174,7 @@ class CfnCapacityProvider(
             *,
             infrastructure_role_arn: builtins.str,
             instance_launch_template: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCapacityProvider.InstanceLaunchTemplateProperty", typing.Dict[builtins.str, typing.Any]]],
+            auto_repair_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCapacityProvider.AutoRepairConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             infrastructure_optimization: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCapacityProvider.InfrastructureOptimizationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             propagate_tags: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -9074,6 +9184,7 @@ class CfnCapacityProvider(
 
             :param infrastructure_role_arn: The Amazon Resource Name (ARN) of the infrastructure role that Amazon ECS assumes to manage instances. This role must include permissions for Amazon EC2 instance lifecycle management, networking, and any additional AWS services required for your workloads. For more information, see `Amazon ECS infrastructure IAM role <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/infrastructure_IAM_role.html>`_ in the *Amazon ECS Developer Guide* .
             :param instance_launch_template: The launch template that defines how Amazon ECS launches Amazon ECS Managed Instances. This includes the instance profile for your tasks, network and storage configuration, and instance requirements that determine which Amazon EC2 instance types can be used. For more information, see `Store instance launch parameters in Amazon EC2 launch templates <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-launch-templates.html>`_ in the *Amazon EC2 User Guide* .
+            :param auto_repair_configuration: 
             :param infrastructure_optimization: Defines how Amazon ECS Managed Instances optimizes the infrastastructure in your capacity provider. Configure it to turn on or off the infrastructure optimization in your capacity provider, and to control the idle or underutilized EC2 instances optimization delay.
             :param propagate_tags: Determines whether tags from the capacity provider are automatically applied to Amazon ECS Managed Instances. This helps with cost allocation and resource management by ensuring consistent tagging across your infrastructure.
 
@@ -9172,6 +9283,9 @@ class CfnCapacityProvider(
                     ),
                 
                     # the properties below are optional
+                    auto_repair_configuration=ecs.CfnCapacityProvider.AutoRepairConfigurationProperty(
+                        actions_status="actionsStatus"
+                    ),
                     infrastructure_optimization=ecs.CfnCapacityProvider.InfrastructureOptimizationProperty(
                         scale_in_after=123
                     ),
@@ -9182,12 +9296,15 @@ class CfnCapacityProvider(
                 type_hints = typing.get_type_hints(_typecheckingstub__45a3888e29c1b6fb29bc3dbf90f279f8c543b8924bb51956a75f3290eca0b7c9)
                 check_type(argname="argument infrastructure_role_arn", value=infrastructure_role_arn, expected_type=type_hints["infrastructure_role_arn"])
                 check_type(argname="argument instance_launch_template", value=instance_launch_template, expected_type=type_hints["instance_launch_template"])
+                check_type(argname="argument auto_repair_configuration", value=auto_repair_configuration, expected_type=type_hints["auto_repair_configuration"])
                 check_type(argname="argument infrastructure_optimization", value=infrastructure_optimization, expected_type=type_hints["infrastructure_optimization"])
                 check_type(argname="argument propagate_tags", value=propagate_tags, expected_type=type_hints["propagate_tags"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "infrastructure_role_arn": infrastructure_role_arn,
                 "instance_launch_template": instance_launch_template,
             }
+            if auto_repair_configuration is not None:
+                self._values["auto_repair_configuration"] = auto_repair_configuration
             if infrastructure_optimization is not None:
                 self._values["infrastructure_optimization"] = infrastructure_optimization
             if propagate_tags is not None:
@@ -9222,6 +9339,16 @@ class CfnCapacityProvider(
             result = self._values.get("instance_launch_template")
             assert result is not None, "Required property 'instance_launch_template' is missing"
             return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCapacityProvider.InstanceLaunchTemplateProperty"], result)
+
+        @builtins.property
+        def auto_repair_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCapacityProvider.AutoRepairConfigurationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-capacityprovider-managedinstancesprovider.html#cfn-ecs-capacityprovider-managedinstancesprovider-autorepairconfiguration
+            '''
+            result = self._values.get("auto_repair_configuration")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCapacityProvider.AutoRepairConfigurationProperty"]], result)
 
         @builtins.property
         def infrastructure_optimization(
@@ -10051,6 +10178,9 @@ class CfnCapacityProviderProps:
                     ),
             
                     # the properties below are optional
+                    auto_repair_configuration=ecs.CfnCapacityProvider.AutoRepairConfigurationProperty(
+                        actions_status="actionsStatus"
+                    ),
                     infrastructure_optimization=ecs.CfnCapacityProvider.InfrastructureOptimizationProperty(
                         scale_in_after=123
                     ),
@@ -11784,7 +11914,7 @@ class CfnDaemon(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_ecs.CfnDaemon",
 ):
-    '''Resource schema for AWS ECS Daemon.
+    '''Information about a daemon resource.
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-daemon.html
     :cloudformationResource: AWS::ECS::Daemon
@@ -11839,14 +11969,14 @@ class CfnDaemon(
 
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
-        :param capacity_provider_arns: 
-        :param cluster_arn: 
+        :param capacity_provider_arns: The Amazon Resource Names (ARNs) of the capacity providers associated with the daemon.
+        :param cluster_arn: The Amazon Resource Name (ARN) of the cluster that the daemon is running in.
         :param daemon_name: 
-        :param daemon_task_definition_arn: 
-        :param deployment_configuration: 
-        :param enable_ecs_managed_tags: 
-        :param enable_execute_command: 
-        :param propagate_tags: 
+        :param daemon_task_definition_arn: The Amazon Resource Name (ARN) of the daemon task definition used by this revision.
+        :param deployment_configuration: Optional deployment parameters that control how a daemon rolls out updates across container instances.
+        :param enable_ecs_managed_tags: Specifies whether Amazon ECS managed tags are turned on for the daemon tasks.
+        :param enable_execute_command: Specifies whether the execute command functionality is turned on for the daemon tasks.
+        :param propagate_tags: Specifies whether tags are propagated from the daemon to the daemon tasks.
         :param tags: 
         '''
         if __debug__:
@@ -11980,6 +12110,7 @@ class CfnDaemon(
     @builtins.property
     @jsii.member(jsii_name="capacityProviderArns")
     def capacity_provider_arns(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The Amazon Resource Names (ARNs) of the capacity providers associated with the daemon.'''
         return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "capacityProviderArns"))
 
     @capacity_provider_arns.setter
@@ -11995,6 +12126,7 @@ class CfnDaemon(
     @builtins.property
     @jsii.member(jsii_name="clusterArn")
     def cluster_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the cluster that the daemon is running in.'''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "clusterArn"))
 
     @cluster_arn.setter
@@ -12019,6 +12151,7 @@ class CfnDaemon(
     @builtins.property
     @jsii.member(jsii_name="daemonTaskDefinitionArn")
     def daemon_task_definition_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the daemon task definition used by this revision.'''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "daemonTaskDefinitionArn"))
 
     @daemon_task_definition_arn.setter
@@ -12033,6 +12166,7 @@ class CfnDaemon(
     def deployment_configuration(
         self,
     ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDaemon.DaemonDeploymentConfigurationProperty"]]:
+        '''Optional deployment parameters that control how a daemon rolls out updates across container instances.'''
         return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDaemon.DaemonDeploymentConfigurationProperty"]], jsii.get(self, "deploymentConfiguration"))
 
     @deployment_configuration.setter
@@ -12050,6 +12184,7 @@ class CfnDaemon(
     def enable_ecs_managed_tags(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        '''Specifies whether Amazon ECS managed tags are turned on for the daemon tasks.'''
         return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "enableEcsManagedTags"))
 
     @enable_ecs_managed_tags.setter
@@ -12067,6 +12202,7 @@ class CfnDaemon(
     def enable_execute_command(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        '''Specifies whether the execute command functionality is turned on for the daemon tasks.'''
         return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "enableExecuteCommand"))
 
     @enable_execute_command.setter
@@ -12082,6 +12218,7 @@ class CfnDaemon(
     @builtins.property
     @jsii.member(jsii_name="propagateTags")
     def propagate_tags(self) -> typing.Optional[builtins.str]:
+        '''Specifies whether tags are propagated from the daemon to the daemon tasks.'''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "propagateTags"))
 
     @propagate_tags.setter
@@ -12115,9 +12252,12 @@ class CfnDaemon(
             alarm_names: typing.Optional[typing.Sequence[builtins.str]] = None,
             enable: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         ) -> None:
-            '''
-            :param alarm_names: 
-            :param enable: 
+            '''The CloudWatch alarm configuration for a daemon.
+
+            When enabled, CloudWatch alarms determine whether a daemon deployment has failed.
+
+            :param alarm_names: The CloudWatch alarm names to monitor during a daemon deployment.
+            :param enable: Determines whether to use the CloudWatch alarm option in the daemon deployment process. The default value is ``false``.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemon-daemonalarmconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -12145,7 +12285,8 @@ class CfnDaemon(
 
         @builtins.property
         def alarm_names(self) -> typing.Optional[typing.List[builtins.str]]:
-            '''
+            '''The CloudWatch alarm names to monitor during a daemon deployment.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemon-daemonalarmconfiguration.html#cfn-ecs-daemon-daemonalarmconfiguration-alarmnames
             '''
             result = self._values.get("alarm_names")
@@ -12155,7 +12296,10 @@ class CfnDaemon(
         def enable(
             self,
         ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
-            '''
+            '''Determines whether to use the CloudWatch alarm option in the daemon deployment process.
+
+            The default value is ``false``.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemon-daemonalarmconfiguration.html#cfn-ecs-daemon-daemonalarmconfiguration-enable
             '''
             result = self._values.get("enable")
@@ -12189,10 +12333,11 @@ class CfnDaemon(
             bake_time_in_minutes: typing.Optional[jsii.Number] = None,
             drain_percent: typing.Optional[jsii.Number] = None,
         ) -> None:
-            '''
-            :param alarms: 
-            :param bake_time_in_minutes: 
-            :param drain_percent: 
+            '''Optional deployment parameters that control how a daemon rolls out updates across container instances.
+
+            :param alarms: The CloudWatch alarm configuration for a daemon. When enabled, CloudWatch alarms determine whether a daemon deployment has failed.
+            :param bake_time_in_minutes: The amount of time (in minutes) to wait after a successful deployment step before proceeding. This allows time to monitor for issues before continuing. The default value is 0.
+            :param drain_percent: The percentage of container instances to drain simultaneously during a daemon deployment. Valid values are between 0.0 and 100.0.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemon-daemondeploymentconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -12229,7 +12374,10 @@ class CfnDaemon(
         def alarms(
             self,
         ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDaemon.DaemonAlarmConfigurationProperty"]]:
-            '''
+            '''The CloudWatch alarm configuration for a daemon.
+
+            When enabled, CloudWatch alarms determine whether a daemon deployment has failed.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemon-daemondeploymentconfiguration.html#cfn-ecs-daemon-daemondeploymentconfiguration-alarms
             '''
             result = self._values.get("alarms")
@@ -12237,7 +12385,10 @@ class CfnDaemon(
 
         @builtins.property
         def bake_time_in_minutes(self) -> typing.Optional[jsii.Number]:
-            '''
+            '''The amount of time (in minutes) to wait after a successful deployment step before proceeding.
+
+            This allows time to monitor for issues before continuing. The default value is 0.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemon-daemondeploymentconfiguration.html#cfn-ecs-daemon-daemondeploymentconfiguration-baketimeinminutes
             '''
             result = self._values.get("bake_time_in_minutes")
@@ -12245,7 +12396,10 @@ class CfnDaemon(
 
         @builtins.property
         def drain_percent(self) -> typing.Optional[jsii.Number]:
-            '''
+            '''The percentage of container instances to drain simultaneously during a daemon deployment.
+
+            Valid values are between 0.0 and 100.0.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemon-daemondeploymentconfiguration.html#cfn-ecs-daemon-daemondeploymentconfiguration-drainpercent
             '''
             result = self._values.get("drain_percent")
@@ -12294,14 +12448,14 @@ class CfnDaemonProps:
     ) -> None:
         '''Properties for defining a ``CfnDaemon``.
 
-        :param capacity_provider_arns: 
-        :param cluster_arn: 
+        :param capacity_provider_arns: The Amazon Resource Names (ARNs) of the capacity providers associated with the daemon.
+        :param cluster_arn: The Amazon Resource Name (ARN) of the cluster that the daemon is running in.
         :param daemon_name: 
-        :param daemon_task_definition_arn: 
-        :param deployment_configuration: 
-        :param enable_ecs_managed_tags: 
-        :param enable_execute_command: 
-        :param propagate_tags: 
+        :param daemon_task_definition_arn: The Amazon Resource Name (ARN) of the daemon task definition used by this revision.
+        :param deployment_configuration: Optional deployment parameters that control how a daemon rolls out updates across container instances.
+        :param enable_ecs_managed_tags: Specifies whether Amazon ECS managed tags are turned on for the daemon tasks.
+        :param enable_execute_command: Specifies whether the execute command functionality is turned on for the daemon tasks.
+        :param propagate_tags: Specifies whether tags are propagated from the daemon to the daemon tasks.
         :param tags: 
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-daemon.html
@@ -12369,7 +12523,8 @@ class CfnDaemonProps:
 
     @builtins.property
     def capacity_provider_arns(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''
+        '''The Amazon Resource Names (ARNs) of the capacity providers associated with the daemon.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-daemon.html#cfn-ecs-daemon-capacityproviderarns
         '''
         result = self._values.get("capacity_provider_arns")
@@ -12377,7 +12532,8 @@ class CfnDaemonProps:
 
     @builtins.property
     def cluster_arn(self) -> typing.Optional[builtins.str]:
-        '''
+        '''The Amazon Resource Name (ARN) of the cluster that the daemon is running in.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-daemon.html#cfn-ecs-daemon-clusterarn
         '''
         result = self._values.get("cluster_arn")
@@ -12393,7 +12549,8 @@ class CfnDaemonProps:
 
     @builtins.property
     def daemon_task_definition_arn(self) -> typing.Optional[builtins.str]:
-        '''
+        '''The Amazon Resource Name (ARN) of the daemon task definition used by this revision.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-daemon.html#cfn-ecs-daemon-daemontaskdefinitionarn
         '''
         result = self._values.get("daemon_task_definition_arn")
@@ -12403,7 +12560,8 @@ class CfnDaemonProps:
     def deployment_configuration(
         self,
     ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDaemon.DaemonDeploymentConfigurationProperty"]]:
-        '''
+        '''Optional deployment parameters that control how a daemon rolls out updates across container instances.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-daemon.html#cfn-ecs-daemon-deploymentconfiguration
         '''
         result = self._values.get("deployment_configuration")
@@ -12413,7 +12571,8 @@ class CfnDaemonProps:
     def enable_ecs_managed_tags(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
-        '''
+        '''Specifies whether Amazon ECS managed tags are turned on for the daemon tasks.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-daemon.html#cfn-ecs-daemon-enableecsmanagedtags
         '''
         result = self._values.get("enable_ecs_managed_tags")
@@ -12423,7 +12582,8 @@ class CfnDaemonProps:
     def enable_execute_command(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
-        '''
+        '''Specifies whether the execute command functionality is turned on for the daemon tasks.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-daemon.html#cfn-ecs-daemon-enableexecutecommand
         '''
         result = self._values.get("enable_execute_command")
@@ -12431,7 +12591,8 @@ class CfnDaemonProps:
 
     @builtins.property
     def propagate_tags(self) -> typing.Optional[builtins.str]:
-        '''
+        '''Specifies whether tags are propagated from the daemon to the daemon tasks.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-daemon.html#cfn-ecs-daemon-propagatetags
         '''
         result = self._values.get("propagate_tags")
@@ -12463,7 +12624,9 @@ class CfnDaemonTaskDefinition(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_ecs.CfnDaemonTaskDefinition",
 ):
-    '''Resource Schema describing various properties for ECS DaemonTaskDefinition.
+    '''The details of a daemon task definition.
+
+    A daemon task definition is a template that describes the containers that form a daemon. Daemons deploy cross-cutting software agents independently across your Amazon ECS infrastructure.
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-daemontaskdefinition.html
     :cloudformationResource: AWS::ECS::DaemonTaskDefinition
@@ -12615,14 +12778,14 @@ class CfnDaemonTaskDefinition(
 
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
-        :param container_definitions: 
-        :param cpu: 
-        :param execution_role_arn: 
-        :param family: 
-        :param memory: 
+        :param container_definitions: A list of container definitions in JSON format that describe the containers that make up the daemon task.
+        :param cpu: The number of CPU units used by the daemon task.
+        :param execution_role_arn: The Amazon Resource Name (ARN) of the task execution role that grants the Amazon ECS container agent permission to make Amazon Web Services API calls on your behalf.
+        :param family: The name of a family that this daemon task definition is registered to.
+        :param memory: The amount of memory (in MiB) used by the daemon task.
         :param tags: 
-        :param task_role_arn: 
-        :param volumes: 
+        :param task_role_arn: The short name or full Amazon Resource Name (ARN) of the IAM role that grants containers in the daemon task permission to call Amazon Web Services APIs on your behalf.
+        :param volumes: The list of data volume definitions for the daemon task.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7893a90b02c25e9e2bfca6bbdc63398520e865b88812618aee19452d4cb92687)
@@ -12700,8 +12863,7 @@ class CfnDaemonTaskDefinition(
     @builtins.property
     @jsii.member(jsii_name="attrDaemonTaskDefinitionArn")
     def attr_daemon_task_definition_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the Amazon ECS daemon task definition.
-
+        '''
         :cloudformationAttribute: DaemonTaskDefinitionArn
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrDaemonTaskDefinitionArn"))
@@ -12728,6 +12890,7 @@ class CfnDaemonTaskDefinition(
     def container_definitions(
         self,
     ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDaemonTaskDefinition.DaemonContainerDefinitionProperty"]]]]:
+        '''A list of container definitions in JSON format that describe the containers that make up the daemon task.'''
         return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDaemonTaskDefinition.DaemonContainerDefinitionProperty"]]]], jsii.get(self, "containerDefinitions"))
 
     @container_definitions.setter
@@ -12743,6 +12906,7 @@ class CfnDaemonTaskDefinition(
     @builtins.property
     @jsii.member(jsii_name="cpu")
     def cpu(self) -> typing.Optional[builtins.str]:
+        '''The number of CPU units used by the daemon task.'''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "cpu"))
 
     @cpu.setter
@@ -12755,6 +12919,7 @@ class CfnDaemonTaskDefinition(
     @builtins.property
     @jsii.member(jsii_name="executionRoleArn")
     def execution_role_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the task execution role that grants the Amazon ECS container agent permission to make Amazon Web Services API calls on your behalf.'''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "executionRoleArn"))
 
     @execution_role_arn.setter
@@ -12767,6 +12932,7 @@ class CfnDaemonTaskDefinition(
     @builtins.property
     @jsii.member(jsii_name="family")
     def family(self) -> typing.Optional[builtins.str]:
+        '''The name of a family that this daemon task definition is registered to.'''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "family"))
 
     @family.setter
@@ -12779,6 +12945,7 @@ class CfnDaemonTaskDefinition(
     @builtins.property
     @jsii.member(jsii_name="memory")
     def memory(self) -> typing.Optional[builtins.str]:
+        '''The amount of memory (in MiB) used by the daemon task.'''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "memory"))
 
     @memory.setter
@@ -12803,6 +12970,7 @@ class CfnDaemonTaskDefinition(
     @builtins.property
     @jsii.member(jsii_name="taskRoleArn")
     def task_role_arn(self) -> typing.Optional[builtins.str]:
+        '''The short name or full Amazon Resource Name (ARN) of the IAM role that grants containers in the daemon task permission to call Amazon Web Services APIs on your behalf.'''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "taskRoleArn"))
 
     @task_role_arn.setter
@@ -12817,6 +12985,7 @@ class CfnDaemonTaskDefinition(
     def volumes(
         self,
     ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDaemonTaskDefinition.VolumeProperty"]]]]:
+        '''The list of data volume definitions for the daemon task.'''
         return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDaemonTaskDefinition.VolumeProperty"]]]], jsii.get(self, "volumes"))
 
     @volumes.setter
@@ -12841,9 +13010,19 @@ class CfnDaemonTaskDefinition(
             condition: typing.Optional[builtins.str] = None,
             container_name: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''
-            :param condition: 
-            :param container_name: 
+            '''The dependencies defined for container startup and shutdown.
+
+            A container can contain multiple dependencies. When a dependency is defined for container startup, for container shutdown it is reversed.
+            Your Amazon ECS container instances require at least version 1.26.0 of the container agent to use container dependencies. However, we recommend using the latest container agent version. For information about checking your agent version and updating to the latest version, see `Updating the Amazon ECS Container Agent <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-agent-update.html>`_ in the *Amazon Elastic Container Service Developer Guide*. If you're using an Amazon ECS-optimized Linux AMI, your instance needs at least version 1.26.0-1 of the ``ecs-init`` package. If your container instances are launched from version ``20190301`` or later, then they contain the required versions of the container agent and ``ecs-init``. For more information, see `Amazon ECS-optimized Linux AMI <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-optimized_AMI.html>`_ in the *Amazon Elastic Container Service Developer Guide*.
+            For tasks that use the Fargate launch type, the task or service requires the following platforms:
+
+            - Linux platform version ``1.3.0`` or later.
+            - Windows platform version ``1.0.0`` or later.
+
+            For more information about how to create a container dependency, see `Container dependency <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/example_task_definitions.html#example_task_definition-containerdependency>`_ in the *Amazon Elastic Container Service Developer Guide*.
+
+            :param condition: The dependency condition of the container. The following are the available conditions and their behavior: - ``START`` - This condition emulates the behavior of links and volumes today. It validates that a dependent container is started before permitting other containers to start. - ``COMPLETE`` - This condition validates that a dependent container runs to completion (exits) before permitting other containers to start. This can be useful for nonessential containers that run a script and then exit. This condition can't be set on an essential container. - ``SUCCESS`` - This condition is the same as ``COMPLETE``, but it also requires that the container exits with a ``zero`` status. This condition can't be set on an essential container. - ``HEALTHY`` - This condition validates that the dependent container passes its Docker health check before permitting other containers to start. This requires that the dependent container has health checks configured. This condition is confirmed only at task startup.
+            :param container_name: The name of a container.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-containerdependency.html
             :exampleMetadata: fixture=_generated
@@ -12871,7 +13050,15 @@ class CfnDaemonTaskDefinition(
 
         @builtins.property
         def condition(self) -> typing.Optional[builtins.str]:
-            '''
+            '''The dependency condition of the container.
+
+            The following are the available conditions and their behavior:
+
+            - ``START`` - This condition emulates the behavior of links and volumes today. It validates that a dependent container is started before permitting other containers to start.
+            - ``COMPLETE`` - This condition validates that a dependent container runs to completion (exits) before permitting other containers to start. This can be useful for nonessential containers that run a script and then exit. This condition can't be set on an essential container.
+            - ``SUCCESS`` - This condition is the same as ``COMPLETE``, but it also requires that the container exits with a ``zero`` status. This condition can't be set on an essential container.
+            - ``HEALTHY`` - This condition validates that the dependent container passes its Docker health check before permitting other containers to start. This requires that the dependent container has health checks configured. This condition is confirmed only at task startup.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-containerdependency.html#cfn-ecs-daemontaskdefinition-containerdependency-condition
             '''
             result = self._values.get("condition")
@@ -12879,7 +13066,8 @@ class CfnDaemonTaskDefinition(
 
         @builtins.property
         def container_name(self) -> typing.Optional[builtins.str]:
-            '''
+            '''The name of a container.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-containerdependency.html#cfn-ecs-daemontaskdefinition-containerdependency-containername
             '''
             result = self._values.get("container_name")
@@ -12965,37 +13153,39 @@ class CfnDaemonTaskDefinition(
             user: typing.Optional[builtins.str] = None,
             working_directory: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''Container definition for daemon task definition.
+            '''A container definition for a daemon task.
 
-            :param image: 
-            :param name: 
-            :param command: 
-            :param cpu: 
-            :param depends_on: 
-            :param entry_point: 
-            :param environment: 
-            :param environment_files: 
-            :param essential: 
-            :param firelens_configuration: 
-            :param health_check: 
-            :param interactive: 
-            :param linux_parameters: 
-            :param log_configuration: 
-            :param memory: 
-            :param memory_reservation: 
-            :param mount_points: 
-            :param privileged: 
-            :param pseudo_terminal: 
-            :param readonly_root_filesystem: 
-            :param repository_credentials: 
+            Daemon container definitions describe the containers that run as part of a daemon task on container instances managed by capacity providers.
+
+            :param image: The image used to start the container. This string is passed directly to the Docker daemon. Images in the Docker Hub registry are available by default. Other repositories are specified with either ``repository-url/image:tag`` or ``repository-url/image@digest``.
+            :param name: The name of the container. Up to 255 letters (uppercase and lowercase), numbers, underscores, and hyphens are allowed.
+            :param command: The command that's passed to the container.
+            :param cpu: The number of ``cpu`` units reserved for the container.
+            :param depends_on: The dependencies defined for container startup and shutdown. A container can contain multiple dependencies on other containers in a task definition.
+            :param entry_point: The entry point that's passed to the container.
+            :param environment: The environment variables to pass to a container.
+            :param environment_files: A list of files containing the environment variables to pass to a container.
+            :param essential: If the ``essential`` parameter of a container is marked as ``true``, and that container fails or stops for any reason, all other containers that are part of the task are stopped.
+            :param firelens_configuration: The FireLens configuration for the container. This is used to specify and configure a log router for container logs. For more information, see `Custom log routing <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/using_firelens.html>`_ in the *Amazon Elastic Container Service Developer Guide*.
+            :param health_check: An object representing a container health check. Health check parameters that are specified in a container definition override any Docker health checks that exist in the container image (such as those specified in a parent image or from the image's Dockerfile). This configuration maps to the ``HEALTHCHECK`` parameter of docker run. The Amazon ECS container agent only monitors and reports on the health checks specified in the task definition. Amazon ECS does not monitor Docker health checks that are embedded in a container image and not specified in the container definition. Health check parameters that are specified in a container definition override any Docker health checks that exist in the container image. You can view the health status of both individual containers and a task with the DescribeTasks API operation or when viewing the task details in the console. The health check is designed to make sure that your containers survive agent restarts, upgrades, or temporary unavailability. Amazon ECS performs health checks on containers with the default that launched the container instance or the task. The following describes the possible ``healthStatus`` values for a container: - ``HEALTHY``-The container health check has passed successfully. - ``UNHEALTHY``-The container health check has failed. - ``UNKNOWN``-The container health check is being evaluated, there's no container health check defined, or Amazon ECS doesn't have the health status of the container. The following describes the possible ``healthStatus`` values based on the container health checker status of essential containers in the task with the following priority order (high to low): - ``UNHEALTHY``-One or more essential containers have failed their health check. - ``UNKNOWN``-Any essential container running within the task is in an ``UNKNOWN`` state and no other essential containers have an ``UNHEALTHY`` state. - ``HEALTHY``-All essential containers within the task have passed their health checks. Consider the following task health example with 2 containers. - If Container1 is ``UNHEALTHY`` and Container2 is ``UNKNOWN``, the task health is ``UNHEALTHY``. - If Container1 is ``UNHEALTHY`` and Container2 is ``HEALTHY``, the task health is ``UNHEALTHY``. - If Container1 is ``HEALTHY`` and Container2 is ``UNKNOWN``, the task health is ``UNKNOWN``. - If Container1 is ``HEALTHY`` and Container2 is ``HEALTHY``, the task health is ``HEALTHY``. Consider the following task health example with 3 containers. - If Container1 is ``UNHEALTHY`` and Container2 is ``UNKNOWN``, and Container3 is ``UNKNOWN``, the task health is ``UNHEALTHY``. - If Container1 is ``UNHEALTHY`` and Container2 is ``UNKNOWN``, and Container3 is ``HEALTHY``, the task health is ``UNHEALTHY``. - If Container1 is ``UNHEALTHY`` and Container2 is ``HEALTHY``, and Container3 is ``HEALTHY``, the task health is ``UNHEALTHY``. - If Container1 is ``HEALTHY`` and Container2 is ``UNKNOWN``, and Container3 is ``HEALTHY``, the task health is ``UNKNOWN``. - If Container1 is ``HEALTHY`` and Container2 is ``UNKNOWN``, and Container3 is ``UNKNOWN``, the task health is ``UNKNOWN``. - If Container1 is ``HEALTHY`` and Container2 is ``HEALTHY``, and Container3 is ``HEALTHY``, the task health is ``HEALTHY``. If a task is run manually, and not as part of a service, the task will continue its lifecycle regardless of its health status. For tasks that are part of a service, if the task reports as unhealthy then the task will be stopped and the service scheduler will replace it. When a container health check fails for a task that is part of a service, the following process occurs: 1. The task is marked as ``UNHEALTHY``. 1. The unhealthy task will be stopped, and during the stopping process, it will go through the following states: - ``DEACTIVATING`` - In this state, Amazon ECS performs additional steps before stopping the task. For example, for tasks that are part of services configured to use Elastic Load Balancing target groups, target groups will be deregistered in this state. - ``STOPPING`` - The task is in the process of being stopped. - ``DEPROVISIONING`` - Resources associated with the task are being cleaned up. - ``STOPPED`` - The task has been completely stopped. 1. After the old task stops, a new task will be launched to ensure service operation, and the new task will go through the following lifecycle: - ``PROVISIONING`` - Resources required for the task are being provisioned. - ``PENDING`` - The task is waiting to be placed on a container instance. - ``ACTIVATING`` - In this state, Amazon ECS pulls container images, creates containers, configures task networking, registers load balancer target groups, and configures service discovery status. - ``RUNNING`` - The task is running and performing its work. For more detailed information about task lifecycle states, see `Task lifecycle <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task-lifecycle-explanation.html>`_ in the *Amazon Elastic Container Service Developer Guide*. The following are notes about container health check support: - If the Amazon ECS container agent becomes disconnected from the Amazon ECS service, this won't cause a container to transition to an ``UNHEALTHY`` status. This is by design, to ensure that containers remain running during agent restarts or temporary unavailability. The health check status is the "last heard from" response from the Amazon ECS agent, so if the container was considered ``HEALTHY`` prior to the disconnect, that status will remain until the agent reconnects and another health check occurs. There are no assumptions made about the status of the container health checks. - Container health checks require version ``1.17.0`` or greater of the Amazon ECS container agent. For more information, see `Updating the Amazon ECS container agent <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-agent-update.html>`_. - Container health checks are supported for Fargate tasks if you're using platform version ``1.1.0`` or greater. For more information, see `platform versions <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/platform_versions.html>`_. - Container health checks aren't supported for tasks that are part of a service that's configured to use a Classic Load Balancer. For an example of how to specify a task definition with multiple containers where container dependency is specified, see `Container dependency <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/example_task_definitions.html#example_task_definition-containerdependency>`_ in the *Amazon Elastic Container Service Developer Guide*.
+            :param interactive: When this parameter is ``true``, you can deploy containerized applications that require ``stdin`` or a ``tty`` to be allocated.
+            :param linux_parameters: The Linux-specific options that are applied to the container, such as Linux `KernelCapabilities <https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_KernelCapabilities.html>`_.
+            :param log_configuration: The log configuration for the container. This parameter maps to ``LogConfig`` in the docker container create command and the ``--log-driver`` option to docker run. By default, containers use the same logging driver that the Docker daemon uses. However, the container might use a different logging driver than the Docker daemon by specifying a log driver configuration in the container definition. Understand the following when specifying a log configuration for your containers. - Amazon ECS currently supports a subset of the logging drivers available to the Docker daemon. Additional log drivers may be available in future releases of the Amazon ECS container agent. For tasks on FARGATElong, the supported log drivers are ``awslogs``, ``splunk``, and ``awsfirelens``. For tasks hosted on Amazon EC2 instances, the supported log drivers are ``awslogs``, ``fluentd``, ``gelf``, ``json-file``, ``journald``,``syslog``, ``splunk``, and ``awsfirelens``. - This parameter requires version 1.18 of the Docker Remote API or greater on your container instance. - For tasks that are hosted on Amazon EC2 instances, the Amazon ECS container agent must register the available logging drivers with the ``ECS_AVAILABLE_LOGGING_DRIVERS`` environment variable before containers placed on that instance can use these log configuration options. For more information, see `Amazon ECS container agent configuration <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-agent-config.html>`_ in the *Amazon Elastic Container Service Developer Guide*. - For tasks that are on FARGATElong, because you don't have access to the underlying infrastructure your tasks are hosted on, any additional software needed must be installed outside of the task. For example, the Fluentd output aggregators or a remote host running Logstash to send Gelf logs to.
+            :param memory: The amount (in MiB) of memory to present to the container. If the container attempts to exceed the memory specified here, the container is killed.
+            :param memory_reservation: The soft limit (in MiB) of memory to reserve for the container.
+            :param mount_points: The mount points for data volumes in your container.
+            :param privileged: When this parameter is true, the container is given elevated privileges on the host container instance (similar to the ``root`` user).
+            :param pseudo_terminal: When this parameter is ``true``, a TTY is allocated.
+            :param readonly_root_filesystem: When this parameter is true, the container is given read-only access to its root file system.
+            :param repository_credentials: The repository credentials for private registry authentication.
             :param restart_policy: 
-            :param secrets: 
-            :param start_timeout: 
-            :param stop_timeout: 
-            :param system_controls: 
-            :param ulimits: 
-            :param user: 
-            :param working_directory: 
+            :param secrets: The secrets to pass to the container.
+            :param start_timeout: Time duration (in seconds) to wait before giving up on resolving dependencies for a container.
+            :param stop_timeout: Time duration (in seconds) to wait before the container is forcefully killed if it doesn't exit normally on its own.
+            :param system_controls: A list of namespaced kernel parameters to set in the container.
+            :param ulimits: A list of ``ulimits`` to set in the container.
+            :param user: The user to use inside the container.
+            :param working_directory: The working directory to run commands inside the container in.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-daemoncontainerdefinition.html
             :exampleMetadata: fixture=_generated
@@ -13201,7 +13391,10 @@ class CfnDaemonTaskDefinition(
 
         @builtins.property
         def image(self) -> builtins.str:
-            '''
+            '''The image used to start the container.
+
+            This string is passed directly to the Docker daemon. Images in the Docker Hub registry are available by default. Other repositories are specified with either ``repository-url/image:tag`` or ``repository-url/image@digest``.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-daemoncontainerdefinition.html#cfn-ecs-daemontaskdefinition-daemoncontainerdefinition-image
             '''
             result = self._values.get("image")
@@ -13210,7 +13403,10 @@ class CfnDaemonTaskDefinition(
 
         @builtins.property
         def name(self) -> builtins.str:
-            '''
+            '''The name of the container.
+
+            Up to 255 letters (uppercase and lowercase), numbers, underscores, and hyphens are allowed.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-daemoncontainerdefinition.html#cfn-ecs-daemontaskdefinition-daemoncontainerdefinition-name
             '''
             result = self._values.get("name")
@@ -13219,7 +13415,8 @@ class CfnDaemonTaskDefinition(
 
         @builtins.property
         def command(self) -> typing.Optional[typing.List[builtins.str]]:
-            '''
+            '''The command that's passed to the container.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-daemoncontainerdefinition.html#cfn-ecs-daemontaskdefinition-daemoncontainerdefinition-command
             '''
             result = self._values.get("command")
@@ -13227,7 +13424,8 @@ class CfnDaemonTaskDefinition(
 
         @builtins.property
         def cpu(self) -> typing.Optional[jsii.Number]:
-            '''
+            '''The number of ``cpu`` units reserved for the container.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-daemoncontainerdefinition.html#cfn-ecs-daemontaskdefinition-daemoncontainerdefinition-cpu
             '''
             result = self._values.get("cpu")
@@ -13237,7 +13435,10 @@ class CfnDaemonTaskDefinition(
         def depends_on(
             self,
         ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDaemonTaskDefinition.ContainerDependencyProperty"]]]]:
-            '''
+            '''The dependencies defined for container startup and shutdown.
+
+            A container can contain multiple dependencies on other containers in a task definition.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-daemoncontainerdefinition.html#cfn-ecs-daemontaskdefinition-daemoncontainerdefinition-dependson
             '''
             result = self._values.get("depends_on")
@@ -13245,7 +13446,8 @@ class CfnDaemonTaskDefinition(
 
         @builtins.property
         def entry_point(self) -> typing.Optional[typing.List[builtins.str]]:
-            '''
+            '''The entry point that's passed to the container.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-daemoncontainerdefinition.html#cfn-ecs-daemontaskdefinition-daemoncontainerdefinition-entrypoint
             '''
             result = self._values.get("entry_point")
@@ -13255,7 +13457,8 @@ class CfnDaemonTaskDefinition(
         def environment(
             self,
         ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDaemonTaskDefinition.KeyValuePairProperty"]]]]:
-            '''
+            '''The environment variables to pass to a container.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-daemoncontainerdefinition.html#cfn-ecs-daemontaskdefinition-daemoncontainerdefinition-environment
             '''
             result = self._values.get("environment")
@@ -13265,7 +13468,8 @@ class CfnDaemonTaskDefinition(
         def environment_files(
             self,
         ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDaemonTaskDefinition.EnvironmentFileProperty"]]]]:
-            '''
+            '''A list of files containing the environment variables to pass to a container.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-daemoncontainerdefinition.html#cfn-ecs-daemontaskdefinition-daemoncontainerdefinition-environmentfiles
             '''
             result = self._values.get("environment_files")
@@ -13275,7 +13479,8 @@ class CfnDaemonTaskDefinition(
         def essential(
             self,
         ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
-            '''
+            '''If the ``essential`` parameter of a container is marked as ``true``, and that container fails or stops for any reason, all other containers that are part of the task are stopped.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-daemoncontainerdefinition.html#cfn-ecs-daemontaskdefinition-daemoncontainerdefinition-essential
             '''
             result = self._values.get("essential")
@@ -13285,7 +13490,10 @@ class CfnDaemonTaskDefinition(
         def firelens_configuration(
             self,
         ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDaemonTaskDefinition.FirelensConfigurationProperty"]]:
-            '''
+            '''The FireLens configuration for the container.
+
+            This is used to specify and configure a log router for container logs. For more information, see `Custom log routing <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/using_firelens.html>`_ in the *Amazon Elastic Container Service Developer Guide*.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-daemoncontainerdefinition.html#cfn-ecs-daemontaskdefinition-daemoncontainerdefinition-firelensconfiguration
             '''
             result = self._values.get("firelens_configuration")
@@ -13295,7 +13503,69 @@ class CfnDaemonTaskDefinition(
         def health_check(
             self,
         ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDaemonTaskDefinition.HealthCheckProperty"]]:
-            '''
+            '''An object representing a container health check.
+
+            Health check parameters that are specified in a container definition override any Docker health checks that exist in the container image (such as those specified in a parent image or from the image's Dockerfile). This configuration maps to the ``HEALTHCHECK`` parameter of docker run.
+            The Amazon ECS container agent only monitors and reports on the health checks specified in the task definition. Amazon ECS does not monitor Docker health checks that are embedded in a container image and not specified in the container definition. Health check parameters that are specified in a container definition override any Docker health checks that exist in the container image.
+            You can view the health status of both individual containers and a task with the DescribeTasks API operation or when viewing the task details in the console.
+            The health check is designed to make sure that your containers survive agent restarts, upgrades, or temporary unavailability.
+            Amazon ECS performs health checks on containers with the default that launched the container instance or the task.
+            The following describes the possible ``healthStatus`` values for a container:
+
+            - ``HEALTHY``-The container health check has passed successfully.
+            - ``UNHEALTHY``-The container health check has failed.
+            - ``UNKNOWN``-The container health check is being evaluated, there's no container health check defined, or Amazon ECS doesn't have the health status of the container.
+
+            The following describes the possible ``healthStatus`` values based on the container health checker status of essential containers in the task with the following priority order (high to low):
+
+            - ``UNHEALTHY``-One or more essential containers have failed their health check.
+            - ``UNKNOWN``-Any essential container running within the task is in an ``UNKNOWN`` state and no other essential containers have an ``UNHEALTHY`` state.
+            - ``HEALTHY``-All essential containers within the task have passed their health checks.
+
+            Consider the following task health example with 2 containers.
+
+            - If Container1 is ``UNHEALTHY`` and Container2 is ``UNKNOWN``, the task health is ``UNHEALTHY``.
+            - If Container1 is ``UNHEALTHY`` and Container2 is ``HEALTHY``, the task health is ``UNHEALTHY``.
+            - If Container1 is ``HEALTHY`` and Container2 is ``UNKNOWN``, the task health is ``UNKNOWN``.
+            - If Container1 is ``HEALTHY`` and Container2 is ``HEALTHY``, the task health is ``HEALTHY``.
+
+            Consider the following task health example with 3 containers.
+
+            - If Container1 is ``UNHEALTHY`` and Container2 is ``UNKNOWN``, and Container3 is ``UNKNOWN``, the task health is ``UNHEALTHY``.
+            - If Container1 is ``UNHEALTHY`` and Container2 is ``UNKNOWN``, and Container3 is ``HEALTHY``, the task health is ``UNHEALTHY``.
+            - If Container1 is ``UNHEALTHY`` and Container2 is ``HEALTHY``, and Container3 is ``HEALTHY``, the task health is ``UNHEALTHY``.
+            - If Container1 is ``HEALTHY`` and Container2 is ``UNKNOWN``, and Container3 is ``HEALTHY``, the task health is ``UNKNOWN``.
+            - If Container1 is ``HEALTHY`` and Container2 is ``UNKNOWN``, and Container3 is ``UNKNOWN``, the task health is ``UNKNOWN``.
+            - If Container1 is ``HEALTHY`` and Container2 is ``HEALTHY``, and Container3 is ``HEALTHY``, the task health is ``HEALTHY``.
+
+            If a task is run manually, and not as part of a service, the task will continue its lifecycle regardless of its health status. For tasks that are part of a service, if the task reports as unhealthy then the task will be stopped and the service scheduler will replace it.
+            When a container health check fails for a task that is part of a service, the following process occurs:
+
+            1. The task is marked as ``UNHEALTHY``.
+            2. The unhealthy task will be stopped, and during the stopping process, it will go through the following states:
+
+            - ``DEACTIVATING`` - In this state, Amazon ECS performs additional steps before stopping the task. For example, for tasks that are part of services configured to use Elastic Load Balancing target groups, target groups will be deregistered in this state.
+            - ``STOPPING`` - The task is in the process of being stopped.
+            - ``DEPROVISIONING`` - Resources associated with the task are being cleaned up.
+            - ``STOPPED`` - The task has been completely stopped.
+
+            1. After the old task stops, a new task will be launched to ensure service operation, and the new task will go through the following lifecycle:
+
+            - ``PROVISIONING`` - Resources required for the task are being provisioned.
+            - ``PENDING`` - The task is waiting to be placed on a container instance.
+            - ``ACTIVATING`` - In this state, Amazon ECS pulls container images, creates containers, configures task networking, registers load balancer target groups, and configures service discovery status.
+            - ``RUNNING`` - The task is running and performing its work.
+
+            For more detailed information about task lifecycle states, see `Task lifecycle <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task-lifecycle-explanation.html>`_ in the *Amazon Elastic Container Service Developer Guide*.
+            The following are notes about container health check support:
+
+            - If the Amazon ECS container agent becomes disconnected from the Amazon ECS service, this won't cause a container to transition to an ``UNHEALTHY`` status. This is by design, to ensure that containers remain running during agent restarts or temporary unavailability. The health check status is the "last heard from" response from the Amazon ECS agent, so if the container was considered ``HEALTHY`` prior to the disconnect, that status will remain until the agent reconnects and another health check occurs. There are no assumptions made about the status of the container health checks.
+            - Container health checks require version ``1.17.0`` or greater of the Amazon ECS container agent. For more information, see `Updating the Amazon ECS container agent <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-agent-update.html>`_.
+            - Container health checks are supported for Fargate tasks if you're using platform version ``1.1.0`` or greater. For more information, see `platform versions <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/platform_versions.html>`_.
+            - Container health checks aren't supported for tasks that are part of a service that's configured to use a Classic Load Balancer.
+
+            For an example of how to specify a task definition with multiple containers where container dependency is specified, see `Container dependency <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/example_task_definitions.html#example_task_definition-containerdependency>`_ in the *Amazon Elastic Container Service Developer Guide*.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-daemoncontainerdefinition.html#cfn-ecs-daemontaskdefinition-daemoncontainerdefinition-healthcheck
             '''
             result = self._values.get("health_check")
@@ -13305,7 +13575,8 @@ class CfnDaemonTaskDefinition(
         def interactive(
             self,
         ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
-            '''
+            '''When this parameter is ``true``, you can deploy containerized applications that require ``stdin`` or a ``tty`` to be allocated.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-daemoncontainerdefinition.html#cfn-ecs-daemontaskdefinition-daemoncontainerdefinition-interactive
             '''
             result = self._values.get("interactive")
@@ -13315,7 +13586,8 @@ class CfnDaemonTaskDefinition(
         def linux_parameters(
             self,
         ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDaemonTaskDefinition.LinuxParametersProperty"]]:
-            '''
+            '''The Linux-specific options that are applied to the container, such as Linux `KernelCapabilities <https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_KernelCapabilities.html>`_.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-daemoncontainerdefinition.html#cfn-ecs-daemontaskdefinition-daemoncontainerdefinition-linuxparameters
             '''
             result = self._values.get("linux_parameters")
@@ -13325,7 +13597,19 @@ class CfnDaemonTaskDefinition(
         def log_configuration(
             self,
         ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDaemonTaskDefinition.LogConfigurationProperty"]]:
-            '''
+            '''The log configuration for the container.
+
+            This parameter maps to ``LogConfig`` in the docker container create command and the ``--log-driver`` option to docker run.
+            By default, containers use the same logging driver that the Docker daemon uses. However, the container might use a different logging driver than the Docker daemon by specifying a log driver configuration in the container definition.
+            Understand the following when specifying a log configuration for your containers.
+
+            - Amazon ECS currently supports a subset of the logging drivers available to the Docker daemon. Additional log drivers may be available in future releases of the Amazon ECS container agent.
+              For tasks on FARGATElong, the supported log drivers are ``awslogs``, ``splunk``, and ``awsfirelens``.
+              For tasks hosted on Amazon EC2 instances, the supported log drivers are ``awslogs``, ``fluentd``, ``gelf``, ``json-file``, ``journald``,``syslog``, ``splunk``, and ``awsfirelens``.
+            - This parameter requires version 1.18 of the Docker Remote API or greater on your container instance.
+            - For tasks that are hosted on Amazon EC2 instances, the Amazon ECS container agent must register the available logging drivers with the ``ECS_AVAILABLE_LOGGING_DRIVERS`` environment variable before containers placed on that instance can use these log configuration options. For more information, see `Amazon ECS container agent configuration <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-agent-config.html>`_ in the *Amazon Elastic Container Service Developer Guide*.
+            - For tasks that are on FARGATElong, because you don't have access to the underlying infrastructure your tasks are hosted on, any additional software needed must be installed outside of the task. For example, the Fluentd output aggregators or a remote host running Logstash to send Gelf logs to.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-daemoncontainerdefinition.html#cfn-ecs-daemontaskdefinition-daemoncontainerdefinition-logconfiguration
             '''
             result = self._values.get("log_configuration")
@@ -13333,7 +13617,10 @@ class CfnDaemonTaskDefinition(
 
         @builtins.property
         def memory(self) -> typing.Optional[jsii.Number]:
-            '''
+            '''The amount (in MiB) of memory to present to the container.
+
+            If the container attempts to exceed the memory specified here, the container is killed.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-daemoncontainerdefinition.html#cfn-ecs-daemontaskdefinition-daemoncontainerdefinition-memory
             '''
             result = self._values.get("memory")
@@ -13341,7 +13628,8 @@ class CfnDaemonTaskDefinition(
 
         @builtins.property
         def memory_reservation(self) -> typing.Optional[jsii.Number]:
-            '''
+            '''The soft limit (in MiB) of memory to reserve for the container.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-daemoncontainerdefinition.html#cfn-ecs-daemontaskdefinition-daemoncontainerdefinition-memoryreservation
             '''
             result = self._values.get("memory_reservation")
@@ -13351,7 +13639,8 @@ class CfnDaemonTaskDefinition(
         def mount_points(
             self,
         ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDaemonTaskDefinition.MountPointProperty"]]]]:
-            '''
+            '''The mount points for data volumes in your container.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-daemoncontainerdefinition.html#cfn-ecs-daemontaskdefinition-daemoncontainerdefinition-mountpoints
             '''
             result = self._values.get("mount_points")
@@ -13361,7 +13650,8 @@ class CfnDaemonTaskDefinition(
         def privileged(
             self,
         ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
-            '''
+            '''When this parameter is true, the container is given elevated privileges on the host container instance (similar to the ``root`` user).
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-daemoncontainerdefinition.html#cfn-ecs-daemontaskdefinition-daemoncontainerdefinition-privileged
             '''
             result = self._values.get("privileged")
@@ -13371,7 +13661,8 @@ class CfnDaemonTaskDefinition(
         def pseudo_terminal(
             self,
         ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
-            '''
+            '''When this parameter is ``true``, a TTY is allocated.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-daemoncontainerdefinition.html#cfn-ecs-daemontaskdefinition-daemoncontainerdefinition-pseudoterminal
             '''
             result = self._values.get("pseudo_terminal")
@@ -13381,7 +13672,8 @@ class CfnDaemonTaskDefinition(
         def readonly_root_filesystem(
             self,
         ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
-            '''
+            '''When this parameter is true, the container is given read-only access to its root file system.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-daemoncontainerdefinition.html#cfn-ecs-daemontaskdefinition-daemoncontainerdefinition-readonlyrootfilesystem
             '''
             result = self._values.get("readonly_root_filesystem")
@@ -13391,7 +13683,8 @@ class CfnDaemonTaskDefinition(
         def repository_credentials(
             self,
         ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDaemonTaskDefinition.RepositoryCredentialsProperty"]]:
-            '''
+            '''The repository credentials for private registry authentication.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-daemoncontainerdefinition.html#cfn-ecs-daemontaskdefinition-daemoncontainerdefinition-repositorycredentials
             '''
             result = self._values.get("repository_credentials")
@@ -13411,7 +13704,8 @@ class CfnDaemonTaskDefinition(
         def secrets(
             self,
         ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDaemonTaskDefinition.SecretProperty"]]]]:
-            '''
+            '''The secrets to pass to the container.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-daemoncontainerdefinition.html#cfn-ecs-daemontaskdefinition-daemoncontainerdefinition-secrets
             '''
             result = self._values.get("secrets")
@@ -13419,7 +13713,8 @@ class CfnDaemonTaskDefinition(
 
         @builtins.property
         def start_timeout(self) -> typing.Optional[jsii.Number]:
-            '''
+            '''Time duration (in seconds) to wait before giving up on resolving dependencies for a container.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-daemoncontainerdefinition.html#cfn-ecs-daemontaskdefinition-daemoncontainerdefinition-starttimeout
             '''
             result = self._values.get("start_timeout")
@@ -13427,7 +13722,8 @@ class CfnDaemonTaskDefinition(
 
         @builtins.property
         def stop_timeout(self) -> typing.Optional[jsii.Number]:
-            '''
+            '''Time duration (in seconds) to wait before the container is forcefully killed if it doesn't exit normally on its own.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-daemoncontainerdefinition.html#cfn-ecs-daemontaskdefinition-daemoncontainerdefinition-stoptimeout
             '''
             result = self._values.get("stop_timeout")
@@ -13437,7 +13733,8 @@ class CfnDaemonTaskDefinition(
         def system_controls(
             self,
         ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDaemonTaskDefinition.SystemControlProperty"]]]]:
-            '''
+            '''A list of namespaced kernel parameters to set in the container.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-daemoncontainerdefinition.html#cfn-ecs-daemontaskdefinition-daemoncontainerdefinition-systemcontrols
             '''
             result = self._values.get("system_controls")
@@ -13447,7 +13744,8 @@ class CfnDaemonTaskDefinition(
         def ulimits(
             self,
         ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDaemonTaskDefinition.UlimitProperty"]]]]:
-            '''
+            '''A list of ``ulimits`` to set in the container.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-daemoncontainerdefinition.html#cfn-ecs-daemontaskdefinition-daemoncontainerdefinition-ulimits
             '''
             result = self._values.get("ulimits")
@@ -13455,7 +13753,8 @@ class CfnDaemonTaskDefinition(
 
         @builtins.property
         def user(self) -> typing.Optional[builtins.str]:
-            '''
+            '''The user to use inside the container.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-daemoncontainerdefinition.html#cfn-ecs-daemontaskdefinition-daemoncontainerdefinition-user
             '''
             result = self._values.get("user")
@@ -13463,7 +13762,8 @@ class CfnDaemonTaskDefinition(
 
         @builtins.property
         def working_directory(self) -> typing.Optional[builtins.str]:
-            '''
+            '''The working directory to run commands inside the container in.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-daemoncontainerdefinition.html#cfn-ecs-daemontaskdefinition-daemoncontainerdefinition-workingdirectory
             '''
             result = self._values.get("working_directory")
@@ -13497,10 +13797,11 @@ class CfnDaemonTaskDefinition(
             host_path: typing.Optional[builtins.str] = None,
             permissions: typing.Optional[typing.Sequence[builtins.str]] = None,
         ) -> None:
-            '''
-            :param container_path: 
-            :param host_path: 
-            :param permissions: 
+            '''An object representing a container instance host device.
+
+            :param container_path: The path inside the container at which to expose the host device.
+            :param host_path: The path for the device on the host container instance.
+            :param permissions: The explicit permissions to provide to the container for the device. By default, the container has permissions for ``read``, ``write``, and ``mknod`` for the device.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-device.html
             :exampleMetadata: fixture=_generated
@@ -13532,7 +13833,8 @@ class CfnDaemonTaskDefinition(
 
         @builtins.property
         def container_path(self) -> typing.Optional[builtins.str]:
-            '''
+            '''The path inside the container at which to expose the host device.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-device.html#cfn-ecs-daemontaskdefinition-device-containerpath
             '''
             result = self._values.get("container_path")
@@ -13540,7 +13842,8 @@ class CfnDaemonTaskDefinition(
 
         @builtins.property
         def host_path(self) -> typing.Optional[builtins.str]:
-            '''
+            '''The path for the device on the host container instance.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-device.html#cfn-ecs-daemontaskdefinition-device-hostpath
             '''
             result = self._values.get("host_path")
@@ -13548,7 +13851,10 @@ class CfnDaemonTaskDefinition(
 
         @builtins.property
         def permissions(self) -> typing.Optional[typing.List[builtins.str]]:
-            '''
+            '''The explicit permissions to provide to the container for the device.
+
+            By default, the container has permissions for ``read``, ``write``, and ``mknod`` for the device.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-device.html#cfn-ecs-daemontaskdefinition-device-permissions
             '''
             result = self._values.get("permissions")
@@ -13577,9 +13883,24 @@ class CfnDaemonTaskDefinition(
             type: typing.Optional[builtins.str] = None,
             value: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''
-            :param type: 
-            :param value: 
+            '''A list of files containing the environment variables to pass to a container.
+
+            You can specify up to ten environment files. The file must have a ``.env`` file extension. Each line in an environment file should contain an environment variable in ``VARIABLE=VALUE`` format. Lines beginning with ``#`` are treated as comments and are ignored.
+            If there are environment variables specified using the ``environment`` parameter in a container definition, they take precedence over the variables contained within an environment file. If multiple environment files are specified that contain the same variable, they're processed from the top down. We recommend that you use unique variable names. For more information, see `Use a file to pass environment variables to a container <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/use-environment-file.html>`_ in the *Amazon Elastic Container Service Developer Guide*.
+            Environment variable files are objects in Amazon S3 and all Amazon S3 security considerations apply.
+            You must use the following platforms for the Fargate launch type:
+
+            - Linux platform version ``1.4.0`` or later.
+            - Windows platform version ``1.0.0`` or later.
+
+            Consider the following when using the Fargate launch type:
+
+            - The file is handled like a native Docker env-file.
+            - There is no support for shell escape handling.
+            - The container entry point interperts the ``VARIABLE`` values.
+
+            :param type: The file type to use. Environment files are objects in Amazon S3. The only supported value is ``s3``.
+            :param value: The Amazon Resource Name (ARN) of the Amazon S3 object containing the environment variable file.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-environmentfile.html
             :exampleMetadata: fixture=_generated
@@ -13607,7 +13928,10 @@ class CfnDaemonTaskDefinition(
 
         @builtins.property
         def type(self) -> typing.Optional[builtins.str]:
-            '''
+            '''The file type to use.
+
+            Environment files are objects in Amazon S3. The only supported value is ``s3``.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-environmentfile.html#cfn-ecs-daemontaskdefinition-environmentfile-type
             '''
             result = self._values.get("type")
@@ -13615,7 +13939,8 @@ class CfnDaemonTaskDefinition(
 
         @builtins.property
         def value(self) -> typing.Optional[builtins.str]:
-            '''
+            '''The Amazon Resource Name (ARN) of the Amazon S3 object containing the environment variable file.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-environmentfile.html#cfn-ecs-daemontaskdefinition-environmentfile-value
             '''
             result = self._values.get("value")
@@ -13644,9 +13969,12 @@ class CfnDaemonTaskDefinition(
             options: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
             type: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''
-            :param options: 
-            :param type: 
+            '''The FireLens configuration for the container.
+
+            This is used to specify and configure a log router for container logs. For more information, see `Custom log routing <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/using_firelens.html>`_ in the *Amazon Elastic Container Service Developer Guide*.
+
+            :param options: The options to use when configuring the log router. This field is optional and can be used to specify a custom configuration file or to add additional metadata, such as the task, task definition, cluster, and container instance details to the log event. If specified, the syntax to use is ``"options":{"enable-ecs-log-metadata":"true|false","config-file-type:"s3|file","config-file-value":"arn:aws:s3:::mybucket/fluent.conf|filepath"}``. For more information, see `Creating a task definition that uses a FireLens configuration <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/using_firelens.html#firelens-taskdef>`_ in the *Amazon Elastic Container Service Developer Guide*. Tasks hosted on FARGATElong only support the ``file`` configuration file type.
+            :param type: The log router to use. The valid values are ``fluentd`` or ``fluentbit``.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-firelensconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -13678,7 +14006,11 @@ class CfnDaemonTaskDefinition(
         def options(
             self,
         ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
-            '''
+            '''The options to use when configuring the log router.
+
+            This field is optional and can be used to specify a custom configuration file or to add additional metadata, such as the task, task definition, cluster, and container instance details to the log event. If specified, the syntax to use is ``"options":{"enable-ecs-log-metadata":"true|false","config-file-type:"s3|file","config-file-value":"arn:aws:s3:::mybucket/fluent.conf|filepath"}``. For more information, see `Creating a task definition that uses a FireLens configuration <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/using_firelens.html#firelens-taskdef>`_ in the *Amazon Elastic Container Service Developer Guide*.
+            Tasks hosted on FARGATElong only support the ``file`` configuration file type.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-firelensconfiguration.html#cfn-ecs-daemontaskdefinition-firelensconfiguration-options
             '''
             result = self._values.get("options")
@@ -13686,7 +14018,10 @@ class CfnDaemonTaskDefinition(
 
         @builtins.property
         def type(self) -> typing.Optional[builtins.str]:
-            '''
+            '''The log router to use.
+
+            The valid values are ``fluentd`` or ``fluentbit``.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-firelensconfiguration.html#cfn-ecs-daemontaskdefinition-firelensconfiguration-type
             '''
             result = self._values.get("type")
@@ -13724,12 +14059,74 @@ class CfnDaemonTaskDefinition(
             start_period: typing.Optional[jsii.Number] = None,
             timeout: typing.Optional[jsii.Number] = None,
         ) -> None:
-            '''
-            :param command: 
-            :param interval: 
-            :param retries: 
-            :param start_period: 
-            :param timeout: 
+            '''An object representing a container health check.
+
+            Health check parameters that are specified in a container definition override any Docker health checks that exist in the container image (such as those specified in a parent image or from the image's Dockerfile). This configuration maps to the ``HEALTHCHECK`` parameter of docker run.
+            The Amazon ECS container agent only monitors and reports on the health checks specified in the task definition. Amazon ECS does not monitor Docker health checks that are embedded in a container image and not specified in the container definition. Health check parameters that are specified in a container definition override any Docker health checks that exist in the container image.
+            You can view the health status of both individual containers and a task with the DescribeTasks API operation or when viewing the task details in the console.
+            The health check is designed to make sure that your containers survive agent restarts, upgrades, or temporary unavailability.
+            Amazon ECS performs health checks on containers with the default that launched the container instance or the task.
+            The following describes the possible ``healthStatus`` values for a container:
+
+            - ``HEALTHY``-The container health check has passed successfully.
+            - ``UNHEALTHY``-The container health check has failed.
+            - ``UNKNOWN``-The container health check is being evaluated, there's no container health check defined, or Amazon ECS doesn't have the health status of the container.
+
+            The following describes the possible ``healthStatus`` values based on the container health checker status of essential containers in the task with the following priority order (high to low):
+
+            - ``UNHEALTHY``-One or more essential containers have failed their health check.
+            - ``UNKNOWN``-Any essential container running within the task is in an ``UNKNOWN`` state and no other essential containers have an ``UNHEALTHY`` state.
+            - ``HEALTHY``-All essential containers within the task have passed their health checks.
+
+            Consider the following task health example with 2 containers.
+
+            - If Container1 is ``UNHEALTHY`` and Container2 is ``UNKNOWN``, the task health is ``UNHEALTHY``.
+            - If Container1 is ``UNHEALTHY`` and Container2 is ``HEALTHY``, the task health is ``UNHEALTHY``.
+            - If Container1 is ``HEALTHY`` and Container2 is ``UNKNOWN``, the task health is ``UNKNOWN``.
+            - If Container1 is ``HEALTHY`` and Container2 is ``HEALTHY``, the task health is ``HEALTHY``.
+
+            Consider the following task health example with 3 containers.
+
+            - If Container1 is ``UNHEALTHY`` and Container2 is ``UNKNOWN``, and Container3 is ``UNKNOWN``, the task health is ``UNHEALTHY``.
+            - If Container1 is ``UNHEALTHY`` and Container2 is ``UNKNOWN``, and Container3 is ``HEALTHY``, the task health is ``UNHEALTHY``.
+            - If Container1 is ``UNHEALTHY`` and Container2 is ``HEALTHY``, and Container3 is ``HEALTHY``, the task health is ``UNHEALTHY``.
+            - If Container1 is ``HEALTHY`` and Container2 is ``UNKNOWN``, and Container3 is ``HEALTHY``, the task health is ``UNKNOWN``.
+            - If Container1 is ``HEALTHY`` and Container2 is ``UNKNOWN``, and Container3 is ``UNKNOWN``, the task health is ``UNKNOWN``.
+            - If Container1 is ``HEALTHY`` and Container2 is ``HEALTHY``, and Container3 is ``HEALTHY``, the task health is ``HEALTHY``.
+
+            If a task is run manually, and not as part of a service, the task will continue its lifecycle regardless of its health status. For tasks that are part of a service, if the task reports as unhealthy then the task will be stopped and the service scheduler will replace it.
+            When a container health check fails for a task that is part of a service, the following process occurs:
+
+            1. The task is marked as ``UNHEALTHY``.
+            2. The unhealthy task will be stopped, and during the stopping process, it will go through the following states:
+
+            - ``DEACTIVATING`` - In this state, Amazon ECS performs additional steps before stopping the task. For example, for tasks that are part of services configured to use Elastic Load Balancing target groups, target groups will be deregistered in this state.
+            - ``STOPPING`` - The task is in the process of being stopped.
+            - ``DEPROVISIONING`` - Resources associated with the task are being cleaned up.
+            - ``STOPPED`` - The task has been completely stopped.
+
+            1. After the old task stops, a new task will be launched to ensure service operation, and the new task will go through the following lifecycle:
+
+            - ``PROVISIONING`` - Resources required for the task are being provisioned.
+            - ``PENDING`` - The task is waiting to be placed on a container instance.
+            - ``ACTIVATING`` - In this state, Amazon ECS pulls container images, creates containers, configures task networking, registers load balancer target groups, and configures service discovery status.
+            - ``RUNNING`` - The task is running and performing its work.
+
+            For more detailed information about task lifecycle states, see `Task lifecycle <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task-lifecycle-explanation.html>`_ in the *Amazon Elastic Container Service Developer Guide*.
+            The following are notes about container health check support:
+
+            - If the Amazon ECS container agent becomes disconnected from the Amazon ECS service, this won't cause a container to transition to an ``UNHEALTHY`` status. This is by design, to ensure that containers remain running during agent restarts or temporary unavailability. The health check status is the "last heard from" response from the Amazon ECS agent, so if the container was considered ``HEALTHY`` prior to the disconnect, that status will remain until the agent reconnects and another health check occurs. There are no assumptions made about the status of the container health checks.
+            - Container health checks require version ``1.17.0`` or greater of the Amazon ECS container agent. For more information, see `Updating the Amazon ECS container agent <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-agent-update.html>`_.
+            - Container health checks are supported for Fargate tasks if you're using platform version ``1.1.0`` or greater. For more information, see `platform versions <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/platform_versions.html>`_.
+            - Container health checks aren't supported for tasks that are part of a service that's configured to use a Classic Load Balancer.
+
+            For an example of how to specify a task definition with multiple containers where container dependency is specified, see `Container dependency <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/example_task_definitions.html#example_task_definition-containerdependency>`_ in the *Amazon Elastic Container Service Developer Guide*.
+
+            :param command: A string array representing the command that the container runs to determine if it is healthy. The string array must start with ``CMD`` to run the command arguments directly, or ``CMD-SHELL`` to run the command with the container's default shell. When you use the AWS Management Console JSON panel, the CLIlong, or the APIs, enclose the list of commands in double quotes and brackets. ``[ "CMD-SHELL", "curl -f http://localhost/ || exit 1" ]`` You don't include the double quotes and brackets when you use the AWS Management Console. ``CMD-SHELL, curl -f http://localhost/ || exit 1`` An exit code of 0 indicates success, and non-zero exit code indicates failure. For more information, see ``HealthCheck`` in the docker container create command.
+            :param interval: The time period in seconds between each health check execution. You may specify between 5 and 300 seconds. The default value is 30 seconds. This value applies only when you specify a ``command``.
+            :param retries: The number of times to retry a failed health check before the container is considered unhealthy. You may specify between 1 and 10 retries. The default value is 3. This value applies only when you specify a ``command``.
+            :param start_period: The optional grace period to provide containers time to bootstrap before failed health checks count towards the maximum number of retries. You can specify between 0 and 300 seconds. By default, the ``startPeriod`` is off. This value applies only when you specify a ``command``. If a health check succeeds within the ``startPeriod``, then the container is considered healthy and any subsequent failures count toward the maximum number of retries.
+            :param timeout: The time period in seconds to wait for a health check to succeed before it is considered a failure. You may specify between 2 and 60 seconds. The default value is 5. This value applies only when you specify a ``command``.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-healthcheck.html
             :exampleMetadata: fixture=_generated
@@ -13769,7 +14166,15 @@ class CfnDaemonTaskDefinition(
 
         @builtins.property
         def command(self) -> typing.Optional[typing.List[builtins.str]]:
-            '''
+            '''A string array representing the command that the container runs to determine if it is healthy.
+
+            The string array must start with ``CMD`` to run the command arguments directly, or ``CMD-SHELL`` to run the command with the container's default shell.
+            When you use the AWS Management Console JSON panel, the CLIlong, or the APIs, enclose the list of commands in double quotes and brackets.
+            ``[ "CMD-SHELL", "curl -f http://localhost/ || exit 1" ]``
+            You don't include the double quotes and brackets when you use the AWS Management Console.
+            ``CMD-SHELL, curl -f http://localhost/ || exit 1``
+            An exit code of 0 indicates success, and non-zero exit code indicates failure. For more information, see ``HealthCheck`` in the docker container create command.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-healthcheck.html#cfn-ecs-daemontaskdefinition-healthcheck-command
             '''
             result = self._values.get("command")
@@ -13777,7 +14182,10 @@ class CfnDaemonTaskDefinition(
 
         @builtins.property
         def interval(self) -> typing.Optional[jsii.Number]:
-            '''
+            '''The time period in seconds between each health check execution.
+
+            You may specify between 5 and 300 seconds. The default value is 30 seconds. This value applies only when you specify a ``command``.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-healthcheck.html#cfn-ecs-daemontaskdefinition-healthcheck-interval
             '''
             result = self._values.get("interval")
@@ -13785,7 +14193,10 @@ class CfnDaemonTaskDefinition(
 
         @builtins.property
         def retries(self) -> typing.Optional[jsii.Number]:
-            '''
+            '''The number of times to retry a failed health check before the container is considered unhealthy.
+
+            You may specify between 1 and 10 retries. The default value is 3. This value applies only when you specify a ``command``.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-healthcheck.html#cfn-ecs-daemontaskdefinition-healthcheck-retries
             '''
             result = self._values.get("retries")
@@ -13793,7 +14204,11 @@ class CfnDaemonTaskDefinition(
 
         @builtins.property
         def start_period(self) -> typing.Optional[jsii.Number]:
-            '''
+            '''The optional grace period to provide containers time to bootstrap before failed health checks count towards the maximum number of retries.
+
+            You can specify between 0 and 300 seconds. By default, the ``startPeriod`` is off. This value applies only when you specify a ``command``.
+            If a health check succeeds within the ``startPeriod``, then the container is considered healthy and any subsequent failures count toward the maximum number of retries.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-healthcheck.html#cfn-ecs-daemontaskdefinition-healthcheck-startperiod
             '''
             result = self._values.get("start_period")
@@ -13801,7 +14216,10 @@ class CfnDaemonTaskDefinition(
 
         @builtins.property
         def timeout(self) -> typing.Optional[jsii.Number]:
-            '''
+            '''The time period in seconds to wait for a health check to succeed before it is considered a failure.
+
+            You may specify between 2 and 60 seconds. The default value is 5. This value applies only when you specify a ``command``.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-healthcheck.html#cfn-ecs-daemontaskdefinition-healthcheck-timeout
             '''
             result = self._values.get("timeout")
@@ -13829,8 +14247,9 @@ class CfnDaemonTaskDefinition(
             *,
             source_path: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''
-            :param source_path: 
+            '''Details on a container instance bind mount host volume.
+
+            :param source_path: When the ``host`` parameter is used, specify a ``sourcePath`` to declare the path on the host container instance that's presented to the container. If this parameter is empty, then the Docker daemon has assigned a host path for you. If the ``host`` parameter contains a ``sourcePath`` file location, then the data volume persists at the specified location on the host container instance until you delete it manually. If the ``sourcePath`` value doesn't exist on the host container instance, the Docker daemon creates it. If the location does exist, the contents of the source path folder are exported. If you're using the Fargate launch type, the ``sourcePath`` parameter is not supported.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-hostvolumeproperties.html
             :exampleMetadata: fixture=_generated
@@ -13854,7 +14273,11 @@ class CfnDaemonTaskDefinition(
 
         @builtins.property
         def source_path(self) -> typing.Optional[builtins.str]:
-            '''
+            '''When the ``host`` parameter is used, specify a ``sourcePath`` to declare the path on the host container instance that's presented to the container.
+
+            If this parameter is empty, then the Docker daemon has assigned a host path for you. If the ``host`` parameter contains a ``sourcePath`` file location, then the data volume persists at the specified location on the host container instance until you delete it manually. If the ``sourcePath`` value doesn't exist on the host container instance, the Docker daemon creates it. If the location does exist, the contents of the source path folder are exported.
+            If you're using the Fargate launch type, the ``sourcePath`` parameter is not supported.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-hostvolumeproperties.html#cfn-ecs-daemontaskdefinition-hostvolumeproperties-sourcepath
             '''
             result = self._values.get("source_path")
@@ -13883,9 +14306,19 @@ class CfnDaemonTaskDefinition(
             add: typing.Optional[typing.Sequence[builtins.str]] = None,
             drop: typing.Optional[typing.Sequence[builtins.str]] = None,
         ) -> None:
-            '''
-            :param add: 
-            :param drop: 
+            '''The Linux capabilities to add or remove from the default Docker configuration for a container defined in the task definition.
+
+            For more detailed information about these Linux capabilities, see the `capabilities(7) <https://docs.aws.amazon.com/http://man7.org/linux/man-pages/man7/capabilities.7.html>`_ Linux manual page.
+            The following describes how Docker processes the Linux capabilities specified in the ``add`` and ``drop`` request parameters. For information about the latest behavior, see `Docker Compose: order of cap_drop and cap_add <https://docs.aws.amazon.com/https://forums.docker.com/t/docker-compose-order-of-cap-drop-and-cap-add/97136/1>`_ in the Docker Community Forum.
+
+            - When the container is a privleged container, the container capabilities are all of the default Docker capabilities. The capabilities specified in the ``add`` request parameter, and the ``drop`` request parameter are ignored.
+            - When the ``add`` request parameter is set to ALL, the container capabilities are all of the default Docker capabilities, excluding those specified in the ``drop`` request parameter.
+            - When the ``drop`` request parameter is set to ALL, the container capabilities are the capabilities specified in the ``add`` request parameter.
+            - When the ``add`` request parameter and the ``drop`` request parameter are both empty, the capabilities the container capabilities are all of the default Docker capabilities.
+            - The default is to first drop the capabilities specified in the ``drop`` request parameter, and then add the capabilities specified in the ``add`` request parameter.
+
+            :param add: The Linux capabilities for the container that have been added to the default configuration provided by Docker. This parameter maps to ``CapAdd`` in the docker container create command and the ``--cap-add`` option to docker run. Tasks launched on FARGATElong only support adding the ``SYS_PTRACE`` kernel capability. Valid values: ``"ALL" | "AUDIT_CONTROL" | "AUDIT_WRITE" | "BLOCK_SUSPEND" | "CHOWN" | "DAC_OVERRIDE" | "DAC_READ_SEARCH" | "FOWNER" | "FSETID" | "IPC_LOCK" | "IPC_OWNER" | "KILL" | "LEASE" | "LINUX_IMMUTABLE" | "MAC_ADMIN" | "MAC_OVERRIDE" | "MKNOD" | "NET_ADMIN" | "NET_BIND_SERVICE" | "NET_BROADCAST" | "NET_RAW" | "SETFCAP" | "SETGID" | "SETPCAP" | "SETUID" | "SYS_ADMIN" | "SYS_BOOT" | "SYS_CHROOT" | "SYS_MODULE" | "SYS_NICE" | "SYS_PACCT" | "SYS_PTRACE" | "SYS_RAWIO" | "SYS_RESOURCE" | "SYS_TIME" | "SYS_TTY_CONFIG" | "SYSLOG" | "WAKE_ALARM"``
+            :param drop: The Linux capabilities for the container that have been removed from the default configuration provided by Docker. This parameter maps to ``CapDrop`` in the docker container create command and the ``--cap-drop`` option to docker run. Valid values: ``"ALL" | "AUDIT_CONTROL" | "AUDIT_WRITE" | "BLOCK_SUSPEND" | "CHOWN" | "DAC_OVERRIDE" | "DAC_READ_SEARCH" | "FOWNER" | "FSETID" | "IPC_LOCK" | "IPC_OWNER" | "KILL" | "LEASE" | "LINUX_IMMUTABLE" | "MAC_ADMIN" | "MAC_OVERRIDE" | "MKNOD" | "NET_ADMIN" | "NET_BIND_SERVICE" | "NET_BROADCAST" | "NET_RAW" | "SETFCAP" | "SETGID" | "SETPCAP" | "SETUID" | "SYS_ADMIN" | "SYS_BOOT" | "SYS_CHROOT" | "SYS_MODULE" | "SYS_NICE" | "SYS_PACCT" | "SYS_PTRACE" | "SYS_RAWIO" | "SYS_RESOURCE" | "SYS_TIME" | "SYS_TTY_CONFIG" | "SYSLOG" | "WAKE_ALARM"``
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-kernelcapabilities.html
             :exampleMetadata: fixture=_generated
@@ -13913,7 +14346,12 @@ class CfnDaemonTaskDefinition(
 
         @builtins.property
         def add(self) -> typing.Optional[typing.List[builtins.str]]:
-            '''
+            '''The Linux capabilities for the container that have been added to the default configuration provided by Docker.
+
+            This parameter maps to ``CapAdd`` in the docker container create command and the ``--cap-add`` option to docker run.
+            Tasks launched on FARGATElong only support adding the ``SYS_PTRACE`` kernel capability.
+            Valid values: ``"ALL" | "AUDIT_CONTROL" | "AUDIT_WRITE" | "BLOCK_SUSPEND" | "CHOWN" | "DAC_OVERRIDE" | "DAC_READ_SEARCH" | "FOWNER" | "FSETID" | "IPC_LOCK" | "IPC_OWNER" | "KILL" | "LEASE" | "LINUX_IMMUTABLE" | "MAC_ADMIN" | "MAC_OVERRIDE" | "MKNOD" | "NET_ADMIN" | "NET_BIND_SERVICE" | "NET_BROADCAST" | "NET_RAW" | "SETFCAP" | "SETGID" | "SETPCAP" | "SETUID" | "SYS_ADMIN" | "SYS_BOOT" | "SYS_CHROOT" | "SYS_MODULE" | "SYS_NICE" | "SYS_PACCT" | "SYS_PTRACE" | "SYS_RAWIO" | "SYS_RESOURCE" | "SYS_TIME" | "SYS_TTY_CONFIG" | "SYSLOG" | "WAKE_ALARM"``
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-kernelcapabilities.html#cfn-ecs-daemontaskdefinition-kernelcapabilities-add
             '''
             result = self._values.get("add")
@@ -13921,7 +14359,11 @@ class CfnDaemonTaskDefinition(
 
         @builtins.property
         def drop(self) -> typing.Optional[typing.List[builtins.str]]:
-            '''
+            '''The Linux capabilities for the container that have been removed from the default configuration provided by Docker.
+
+            This parameter maps to ``CapDrop`` in the docker container create command and the ``--cap-drop`` option to docker run.
+            Valid values: ``"ALL" | "AUDIT_CONTROL" | "AUDIT_WRITE" | "BLOCK_SUSPEND" | "CHOWN" | "DAC_OVERRIDE" | "DAC_READ_SEARCH" | "FOWNER" | "FSETID" | "IPC_LOCK" | "IPC_OWNER" | "KILL" | "LEASE" | "LINUX_IMMUTABLE" | "MAC_ADMIN" | "MAC_OVERRIDE" | "MKNOD" | "NET_ADMIN" | "NET_BIND_SERVICE" | "NET_BROADCAST" | "NET_RAW" | "SETFCAP" | "SETGID" | "SETPCAP" | "SETUID" | "SYS_ADMIN" | "SYS_BOOT" | "SYS_CHROOT" | "SYS_MODULE" | "SYS_NICE" | "SYS_PACCT" | "SYS_PTRACE" | "SYS_RAWIO" | "SYS_RESOURCE" | "SYS_TIME" | "SYS_TTY_CONFIG" | "SYSLOG" | "WAKE_ALARM"``
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-kernelcapabilities.html#cfn-ecs-daemontaskdefinition-kernelcapabilities-drop
             '''
             result = self._values.get("drop")
@@ -13950,9 +14392,10 @@ class CfnDaemonTaskDefinition(
             name: typing.Optional[builtins.str] = None,
             value: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''
-            :param name: 
-            :param value: 
+            '''A key-value pair object.
+
+            :param name: The name of the key-value pair. For environment variables, this is the name of the environment variable.
+            :param value: The value of the key-value pair. For environment variables, this is the value of the environment variable.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-keyvaluepair.html
             :exampleMetadata: fixture=_generated
@@ -13980,7 +14423,10 @@ class CfnDaemonTaskDefinition(
 
         @builtins.property
         def name(self) -> typing.Optional[builtins.str]:
-            '''
+            '''The name of the key-value pair.
+
+            For environment variables, this is the name of the environment variable.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-keyvaluepair.html#cfn-ecs-daemontaskdefinition-keyvaluepair-name
             '''
             result = self._values.get("name")
@@ -13988,7 +14434,10 @@ class CfnDaemonTaskDefinition(
 
         @builtins.property
         def value(self) -> typing.Optional[builtins.str]:
-            '''
+            '''The value of the key-value pair.
+
+            For environment variables, this is the value of the environment variable.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-keyvaluepair.html#cfn-ecs-daemontaskdefinition-keyvaluepair-value
             '''
             result = self._values.get("value")
@@ -14024,11 +14473,12 @@ class CfnDaemonTaskDefinition(
             init_process_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
             tmpfs: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDaemonTaskDefinition.TmpfsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
-            '''
-            :param capabilities: 
-            :param devices: 
-            :param init_process_enabled: 
-            :param tmpfs: 
+            '''The Linux-specific options that are applied to the container, such as Linux `KernelCapabilities <https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_KernelCapabilities.html>`_.
+
+            :param capabilities: The Linux capabilities to add or remove from the default Docker configuration for a container defined in the task definition. For more detailed information about these Linux capabilities, see the `capabilities(7) <https://docs.aws.amazon.com/http://man7.org/linux/man-pages/man7/capabilities.7.html>`_ Linux manual page. The following describes how Docker processes the Linux capabilities specified in the ``add`` and ``drop`` request parameters. For information about the latest behavior, see `Docker Compose: order of cap_drop and cap_add <https://docs.aws.amazon.com/https://forums.docker.com/t/docker-compose-order-of-cap-drop-and-cap-add/97136/1>`_ in the Docker Community Forum. - When the container is a privleged container, the container capabilities are all of the default Docker capabilities. The capabilities specified in the ``add`` request parameter, and the ``drop`` request parameter are ignored. - When the ``add`` request parameter is set to ALL, the container capabilities are all of the default Docker capabilities, excluding those specified in the ``drop`` request parameter. - When the ``drop`` request parameter is set to ALL, the container capabilities are the capabilities specified in the ``add`` request parameter. - When the ``add`` request parameter and the ``drop`` request parameter are both empty, the capabilities the container capabilities are all of the default Docker capabilities. - The default is to first drop the capabilities specified in the ``drop`` request parameter, and then add the capabilities specified in the ``add`` request parameter.
+            :param devices: Any host devices to expose to the container. This parameter maps to ``Devices`` in the docker container create command and the ``--device`` option to docker run. If you're using tasks that use the Fargate launch type, the ``devices`` parameter isn't supported.
+            :param init_process_enabled: Run an ``init`` process inside the container that forwards signals and reaps processes. This parameter maps to the ``--init`` option to docker run. This parameter requires version 1.25 of the Docker Remote API or greater on your container instance. To check the Docker Remote API version on your container instance, log in to your container instance and run the following command: ``sudo docker version --format '{{.Server.APIVersion}}'``
+            :param tmpfs: The container path, mount options, and size (in MiB) of the tmpfs mount. This parameter maps to the ``--tmpfs`` option to docker run. If you're using tasks that use the Fargate launch type, the ``tmpfs`` parameter isn't supported.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-linuxparameters.html
             :exampleMetadata: fixture=_generated
@@ -14079,7 +14529,17 @@ class CfnDaemonTaskDefinition(
         def capabilities(
             self,
         ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDaemonTaskDefinition.KernelCapabilitiesProperty"]]:
-            '''
+            '''The Linux capabilities to add or remove from the default Docker configuration for a container defined in the task definition.
+
+            For more detailed information about these Linux capabilities, see the `capabilities(7) <https://docs.aws.amazon.com/http://man7.org/linux/man-pages/man7/capabilities.7.html>`_ Linux manual page.
+            The following describes how Docker processes the Linux capabilities specified in the ``add`` and ``drop`` request parameters. For information about the latest behavior, see `Docker Compose: order of cap_drop and cap_add <https://docs.aws.amazon.com/https://forums.docker.com/t/docker-compose-order-of-cap-drop-and-cap-add/97136/1>`_ in the Docker Community Forum.
+
+            - When the container is a privleged container, the container capabilities are all of the default Docker capabilities. The capabilities specified in the ``add`` request parameter, and the ``drop`` request parameter are ignored.
+            - When the ``add`` request parameter is set to ALL, the container capabilities are all of the default Docker capabilities, excluding those specified in the ``drop`` request parameter.
+            - When the ``drop`` request parameter is set to ALL, the container capabilities are the capabilities specified in the ``add`` request parameter.
+            - When the ``add`` request parameter and the ``drop`` request parameter are both empty, the capabilities the container capabilities are all of the default Docker capabilities.
+            - The default is to first drop the capabilities specified in the ``drop`` request parameter, and then add the capabilities specified in the ``add`` request parameter.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-linuxparameters.html#cfn-ecs-daemontaskdefinition-linuxparameters-capabilities
             '''
             result = self._values.get("capabilities")
@@ -14089,7 +14549,11 @@ class CfnDaemonTaskDefinition(
         def devices(
             self,
         ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDaemonTaskDefinition.DeviceProperty"]]]]:
-            '''
+            '''Any host devices to expose to the container.
+
+            This parameter maps to ``Devices`` in the docker container create command and the ``--device`` option to docker run.
+            If you're using tasks that use the Fargate launch type, the ``devices`` parameter isn't supported.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-linuxparameters.html#cfn-ecs-daemontaskdefinition-linuxparameters-devices
             '''
             result = self._values.get("devices")
@@ -14099,7 +14563,10 @@ class CfnDaemonTaskDefinition(
         def init_process_enabled(
             self,
         ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
-            '''
+            '''Run an ``init`` process inside the container that forwards signals and reaps processes.
+
+            This parameter maps to the ``--init`` option to docker run. This parameter requires version 1.25 of the Docker Remote API or greater on your container instance. To check the Docker Remote API version on your container instance, log in to your container instance and run the following command: ``sudo docker version --format '{{.Server.APIVersion}}'``
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-linuxparameters.html#cfn-ecs-daemontaskdefinition-linuxparameters-initprocessenabled
             '''
             result = self._values.get("init_process_enabled")
@@ -14109,7 +14576,11 @@ class CfnDaemonTaskDefinition(
         def tmpfs(
             self,
         ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDaemonTaskDefinition.TmpfsProperty"]]]]:
-            '''
+            '''The container path, mount options, and size (in MiB) of the tmpfs mount.
+
+            This parameter maps to the ``--tmpfs`` option to docker run.
+            If you're using tasks that use the Fargate launch type, the ``tmpfs`` parameter isn't supported.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-linuxparameters.html#cfn-ecs-daemontaskdefinition-linuxparameters-tmpfs
             '''
             result = self._values.get("tmpfs")
@@ -14143,10 +14614,22 @@ class CfnDaemonTaskDefinition(
             options: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
             secret_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDaemonTaskDefinition.SecretProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
-            '''
-            :param log_driver: 
-            :param options: 
-            :param secret_options: 
+            '''The log configuration for the container.
+
+            This parameter maps to ``LogConfig`` in the docker container create command and the ``--log-driver`` option to docker run.
+            By default, containers use the same logging driver that the Docker daemon uses. However, the container might use a different logging driver than the Docker daemon by specifying a log driver configuration in the container definition.
+            Understand the following when specifying a log configuration for your containers.
+
+            - Amazon ECS currently supports a subset of the logging drivers available to the Docker daemon. Additional log drivers may be available in future releases of the Amazon ECS container agent.
+              For tasks on FARGATElong, the supported log drivers are ``awslogs``, ``splunk``, and ``awsfirelens``.
+              For tasks hosted on Amazon EC2 instances, the supported log drivers are ``awslogs``, ``fluentd``, ``gelf``, ``json-file``, ``journald``,``syslog``, ``splunk``, and ``awsfirelens``.
+            - This parameter requires version 1.18 of the Docker Remote API or greater on your container instance.
+            - For tasks that are hosted on Amazon EC2 instances, the Amazon ECS container agent must register the available logging drivers with the ``ECS_AVAILABLE_LOGGING_DRIVERS`` environment variable before containers placed on that instance can use these log configuration options. For more information, see `Amazon ECS container agent configuration <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-agent-config.html>`_ in the *Amazon Elastic Container Service Developer Guide*.
+            - For tasks that are on FARGATElong, because you don't have access to the underlying infrastructure your tasks are hosted on, any additional software needed must be installed outside of the task. For example, the Fluentd output aggregators or a remote host running Logstash to send Gelf logs to.
+
+            :param log_driver: The log driver to use for the container. For tasks on FARGATElong, the supported log drivers are ``awslogs``, ``splunk``, and ``awsfirelens``. For tasks hosted on Amazon EC2 instances, the supported log drivers are ``awslogs``, ``fluentd``, ``gelf``, ``json-file``, ``journald``, ``syslog``, ``splunk``, and ``awsfirelens``. For more information about using the ``awslogs`` log driver, see `Send Amazon ECS logs to CloudWatch <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/using_awslogs.html>`_ in the *Amazon Elastic Container Service Developer Guide*. For more information about using the ``awsfirelens`` log driver, see `Send Amazon ECS logs to an service or Partner <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/using_firelens.html>`_. If you have a custom driver that isn't listed, you can fork the Amazon ECS container agent project that's `available on GitHub <https://docs.aws.amazon.com/https://github.com/aws/amazon-ecs-agent>`_ and customize it to work with that driver. We encourage you to submit pull requests for changes that you would like to have included. However, we don't currently provide support for running modified copies of this software.
+            :param options: The configuration options to send to the log driver. The options you can specify depend on the log driver. Some of the options you can specify when you use the ``awslogs`` log driver to route logs to Amazon CloudWatch include the following: - awslogs-create-group Required: No Specify whether you want the log group to be created automatically. If this option isn't specified, it defaults to false. Your IAM policy must include the logs:CreateLogGroup permission before you attempt to use awslogs-create-group. + awslogs-region Required: Yes Specify the Region that the awslogs log driver is to send your Docker logs to. You can choose to send all of your logs from clusters in different Regions to a single region in CloudWatch Logs. This is so that they're all visible in one location. Otherwise, you can separate them by Region for more granularity. Make sure that the specified log group exists in the Region that you specify with this option. + awslogs-group Required: Yes Make sure to specify a log group that the awslogs log driver sends its log streams to. + awslogs-stream-prefix Required: Yes, when using Fargate.Optional when using EC2. Use the awslogs-stream-prefix option to associate a log stream with the specified prefix, the container name, and the ID of the Amazon ECS task that the container belongs to. If you specify a prefix with this option, then the log stream takes the format prefix-name/container-name/ecs-task-id. If you don't specify a prefix with this option, then the log stream is named after the container ID that's assigned by the Docker daemon on the container instance. Because it's difficult to trace logs back to the container that sent them with just the Docker container ID (which is only available on the container instance), we recommend that you specify a prefix with this option. For Amazon ECS services, you can use the service name as the prefix. Doing so, you can trace log streams to the service that the container belongs to, the name of the container that sent them, and the ID of the task that the container belongs to. You must specify a stream-prefix for your logs to have your logs appear in the Log pane when using the Amazon ECS console. + awslogs-datetime-format Required: No This option defines a multiline start pattern in Python strftime format. A log message consists of a line that matches the pattern and any following lines that don’t match the pattern. The matched line is the delimiter between log messages. One example of a use case for using this format is for parsing output such as a stack dump, which might otherwise be logged in multiple entries. The correct pattern allows it to be captured in a single entry. For more information, see awslogs-datetime-format. You cannot configure both the awslogs-datetime-format and awslogs-multiline-pattern options. Multiline logging performs regular expression parsing and matching of all log messages. This might have a negative impact on logging performance. + awslogs-multiline-pattern Required: No This option defines a multiline start pattern that uses a regular expression. A log message consists of a line that matches the pattern and any following lines that don’t match the pattern. The matched line is the delimiter between log messages. For more information, see awslogs-multiline-pattern. This option is ignored if awslogs-datetime-format is also configured. You cannot configure both the awslogs-datetime-format and awslogs-multiline-pattern options. Multiline logging performs regular expression parsing and matching of all log messages. This might have a negative impact on logging performance. The following options apply to all supported log drivers. - mode Required: No Valid values: non-blocking | blocking This option defines the delivery mode of log messages from the container to the log driver specified using logDriver. The delivery mode you choose affects application availability when the flow of logs from container is interrupted. If you use the blocking mode and the flow of logs is interrupted, calls from container code to write to the stdout and stderr streams will block. The logging thread of the application will block as a result. This may cause the application to become unresponsive and lead to container healthcheck failure. If you use the non-blocking mode, the container's logs are instead stored in an in-memory intermediate buffer configured with the max-buffer-size option. This prevents the application from becoming unresponsive when logs cannot be sent. We recommend using this mode if you want to ensure service availability and are okay with some log loss. For more information, see Preventing log loss with non-blocking mode in the awslogs container log driver. You can set a default mode for all containers in a specific Region by using the defaultLogDriverMode account setting. If you don't specify the mode option or configure the account setting, Amazon ECS will default to the non-blocking mode. For more information about the account setting, see Default log driver mode in the Amazon Elastic Container Service Developer Guide. On June 25, 2025, Amazon ECS changed the default log driver mode from blocking to non-blocking to prioritize task availability over logging. To continue using the blocking mode after this change, do one of the following: Set the mode option in your container definition's logConfiguration as blocking. Set the defaultLogDriverMode account setting to blocking. + max-buffer-size Required: No Default value: 10m When non-blocking mode is used, the max-buffer-size log option controls the size of the buffer that's used for intermediate message storage. Make sure to specify an adequate buffer size based on your application. When the buffer fills up, further logs cannot be stored. Logs that cannot be stored are lost. To route logs using the ``splunk`` log router, you need to specify a ``splunk-token`` and a ``splunk-url``. When you use the ``awsfirelens`` log router to route logs to an AWS Service or AWS Partner Network destination for log storage and analytics, you can set the ``log-driver-buffer-limit`` option to limit the number of events that are buffered in memory, before being sent to the log router container. It can help to resolve potential log loss issue because high throughput might result in memory running out for the buffer inside of Docker. Other options you can specify when using ``awsfirelens`` to route logs depend on the destination. When you export logs to Amazon Data Firehose, you can specify the AWS Region with ``region`` and a name for the log stream with ``delivery_stream``. When you export logs to Amazon Kinesis Data Streams, you can specify an AWS Region with ``region`` and a data stream name with ``stream``. When you export logs to Amazon OpenSearch Service, you can specify options like ``Name``, ``Host`` (OpenSearch Service endpoint without protocol), ``Port``, ``Index``, ``Type``, ``Aws_auth``, ``Aws_region``, ``Suppress_Type_Name``, and ``tls``. For more information, see `Under the hood: FireLens for Amazon ECS Tasks <https://docs.aws.amazon.com/containers/under-the-hood-firelens-for-amazon-ecs-tasks/>`_. When you export logs to Amazon S3, you can specify the bucket using the ``bucket`` option. You can also specify ``region``, ``total_file_size``, ``upload_timeout``, and ``use_put_object`` as options. This parameter requires version 1.19 of the Docker Remote API or greater on your container instance. To check the Docker Remote API version on your container instance, log in to your container instance and run the following command: ``sudo docker version --format '{{.Server.APIVersion}}'``
+            :param secret_options: The secrets to pass to the log configuration. For more information, see `Specifying sensitive data <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/specifying-sensitive-data.html>`_ in the *Amazon Elastic Container Service Developer Guide*.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-logconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -14185,7 +14668,14 @@ class CfnDaemonTaskDefinition(
 
         @builtins.property
         def log_driver(self) -> builtins.str:
-            '''
+            '''The log driver to use for the container.
+
+            For tasks on FARGATElong, the supported log drivers are ``awslogs``, ``splunk``, and ``awsfirelens``.
+            For tasks hosted on Amazon EC2 instances, the supported log drivers are ``awslogs``, ``fluentd``, ``gelf``, ``json-file``, ``journald``, ``syslog``, ``splunk``, and ``awsfirelens``.
+            For more information about using the ``awslogs`` log driver, see `Send Amazon ECS logs to CloudWatch <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/using_awslogs.html>`_ in the *Amazon Elastic Container Service Developer Guide*.
+            For more information about using the ``awsfirelens`` log driver, see `Send Amazon ECS logs to an service or Partner <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/using_firelens.html>`_.
+            If you have a custom driver that isn't listed, you can fork the Amazon ECS container agent project that's `available on GitHub <https://docs.aws.amazon.com/https://github.com/aws/amazon-ecs-agent>`_ and customize it to work with that driver. We encourage you to submit pull requests for changes that you would like to have included. However, we don't currently provide support for running modified copies of this software.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-logconfiguration.html#cfn-ecs-daemontaskdefinition-logconfiguration-logdriver
             '''
             result = self._values.get("log_driver")
@@ -14196,7 +14686,21 @@ class CfnDaemonTaskDefinition(
         def options(
             self,
         ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
-            '''
+            '''The configuration options to send to the log driver.
+
+            The options you can specify depend on the log driver. Some of the options you can specify when you use the ``awslogs`` log driver to route logs to Amazon CloudWatch include the following:
+
+            - awslogs-create-group Required: No Specify whether you want the log group to be created automatically. If this option isn't specified, it defaults to false. Your IAM policy must include the logs:CreateLogGroup permission before you attempt to use awslogs-create-group. + awslogs-region Required: Yes Specify the Region that the awslogs log driver is to send your Docker logs to. You can choose to send all of your logs from clusters in different Regions to a single region in CloudWatch Logs. This is so that they're all visible in one location. Otherwise, you can separate them by Region for more granularity. Make sure that the specified log group exists in the Region that you specify with this option. + awslogs-group Required: Yes Make sure to specify a log group that the awslogs log driver sends its log streams to. + awslogs-stream-prefix Required: Yes, when using Fargate.Optional when using EC2. Use the awslogs-stream-prefix option to associate a log stream with the specified prefix, the container name, and the ID of the Amazon ECS task that the container belongs to. If you specify a prefix with this option, then the log stream takes the format prefix-name/container-name/ecs-task-id. If you don't specify a prefix with this option, then the log stream is named after the container ID that's assigned by the Docker daemon on the container instance. Because it's difficult to trace logs back to the container that sent them with just the Docker container ID (which is only available on the container instance), we recommend that you specify a prefix with this option. For Amazon ECS services, you can use the service name as the prefix. Doing so, you can trace log streams to the service that the container belongs to, the name of the container that sent them, and the ID of the task that the container belongs to. You must specify a stream-prefix for your logs to have your logs appear in the Log pane when using the Amazon ECS console. + awslogs-datetime-format Required: No This option defines a multiline start pattern in Python strftime format. A log message consists of a line that matches the pattern and any following lines that don’t match the pattern. The matched line is the delimiter between log messages. One example of a use case for using this format is for parsing output such as a stack dump, which might otherwise be logged in multiple entries. The correct pattern allows it to be captured in a single entry. For more information, see awslogs-datetime-format. You cannot configure both the awslogs-datetime-format and awslogs-multiline-pattern options. Multiline logging performs regular expression parsing and matching of all log messages. This might have a negative impact on logging performance. + awslogs-multiline-pattern Required: No This option defines a multiline start pattern that uses a regular expression. A log message consists of a line that matches the pattern and any following lines that don’t match the pattern. The matched line is the delimiter between log messages. For more information, see awslogs-multiline-pattern. This option is ignored if awslogs-datetime-format is also configured. You cannot configure both the awslogs-datetime-format and awslogs-multiline-pattern options. Multiline logging performs regular expression parsing and matching of all log messages. This might have a negative impact on logging performance.
+              The following options apply to all supported log drivers.
+            - mode Required: No Valid values: non-blocking | blocking This option defines the delivery mode of log messages from the container to the log driver specified using logDriver. The delivery mode you choose affects application availability when the flow of logs from container is interrupted. If you use the blocking mode and the flow of logs is interrupted, calls from container code to write to the stdout and stderr streams will block. The logging thread of the application will block as a result. This may cause the application to become unresponsive and lead to container healthcheck failure. If you use the non-blocking mode, the container's logs are instead stored in an in-memory intermediate buffer configured with the max-buffer-size option. This prevents the application from becoming unresponsive when logs cannot be sent. We recommend using this mode if you want to ensure service availability and are okay with some log loss. For more information, see Preventing log loss with non-blocking mode in the awslogs container log driver. You can set a default mode for all containers in a specific Region by using the defaultLogDriverMode account setting. If you don't specify the mode option or configure the account setting, Amazon ECS will default to the non-blocking mode. For more information about the account setting, see Default log driver mode in the Amazon Elastic Container Service Developer Guide. On June 25, 2025, Amazon ECS changed the default log driver mode from blocking to non-blocking to prioritize task availability over logging. To continue using the blocking mode after this change, do one of the following: Set the mode option in your container definition's logConfiguration as blocking. Set the defaultLogDriverMode account setting to blocking. + max-buffer-size Required: No Default value: 10m When non-blocking mode is used, the max-buffer-size log option controls the size of the buffer that's used for intermediate message storage. Make sure to specify an adequate buffer size based on your application. When the buffer fills up, further logs cannot be stored. Logs that cannot be stored are lost.
+              To route logs using the ``splunk`` log router, you need to specify a ``splunk-token`` and a ``splunk-url``.
+              When you use the ``awsfirelens`` log router to route logs to an AWS Service or AWS Partner Network destination for log storage and analytics, you can set the ``log-driver-buffer-limit`` option to limit the number of events that are buffered in memory, before being sent to the log router container. It can help to resolve potential log loss issue because high throughput might result in memory running out for the buffer inside of Docker.
+              Other options you can specify when using ``awsfirelens`` to route logs depend on the destination. When you export logs to Amazon Data Firehose, you can specify the AWS Region with ``region`` and a name for the log stream with ``delivery_stream``.
+              When you export logs to Amazon Kinesis Data Streams, you can specify an AWS Region with ``region`` and a data stream name with ``stream``.
+              When you export logs to Amazon OpenSearch Service, you can specify options like ``Name``, ``Host`` (OpenSearch Service endpoint without protocol), ``Port``, ``Index``, ``Type``, ``Aws_auth``, ``Aws_region``, ``Suppress_Type_Name``, and ``tls``. For more information, see `Under the hood: FireLens for Amazon ECS Tasks <https://docs.aws.amazon.com/containers/under-the-hood-firelens-for-amazon-ecs-tasks/>`_.
+              When you export logs to Amazon S3, you can specify the bucket using the ``bucket`` option. You can also specify ``region``, ``total_file_size``, ``upload_timeout``, and ``use_put_object`` as options.
+              This parameter requires version 1.19 of the Docker Remote API or greater on your container instance. To check the Docker Remote API version on your container instance, log in to your container instance and run the following command: ``sudo docker version --format '{{.Server.APIVersion}}'``
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-logconfiguration.html#cfn-ecs-daemontaskdefinition-logconfiguration-options
             '''
             result = self._values.get("options")
@@ -14206,7 +14710,10 @@ class CfnDaemonTaskDefinition(
         def secret_options(
             self,
         ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDaemonTaskDefinition.SecretProperty"]]]]:
-            '''
+            '''The secrets to pass to the log configuration.
+
+            For more information, see `Specifying sensitive data <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/specifying-sensitive-data.html>`_ in the *Amazon Elastic Container Service Developer Guide*.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-logconfiguration.html#cfn-ecs-daemontaskdefinition-logconfiguration-secretoptions
             '''
             result = self._values.get("secret_options")
@@ -14240,10 +14747,11 @@ class CfnDaemonTaskDefinition(
             read_only: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
             source_volume: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''
-            :param container_path: 
-            :param read_only: 
-            :param source_volume: 
+            '''The details for a volume mount point that's used in a container definition.
+
+            :param container_path: The path on the container to mount the host volume at.
+            :param read_only: If this value is ``true``, the container has read-only access to the volume. If this value is ``false``, then the container can write to the volume. The default value is ``false``.
+            :param source_volume: The name of the volume to mount. Must be a volume name referenced in the ``name`` parameter of task definition ``volume``.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-mountpoint.html
             :exampleMetadata: fixture=_generated
@@ -14275,7 +14783,8 @@ class CfnDaemonTaskDefinition(
 
         @builtins.property
         def container_path(self) -> typing.Optional[builtins.str]:
-            '''
+            '''The path on the container to mount the host volume at.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-mountpoint.html#cfn-ecs-daemontaskdefinition-mountpoint-containerpath
             '''
             result = self._values.get("container_path")
@@ -14285,7 +14794,10 @@ class CfnDaemonTaskDefinition(
         def read_only(
             self,
         ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
-            '''
+            '''If this value is ``true``, the container has read-only access to the volume.
+
+            If this value is ``false``, then the container can write to the volume. The default value is ``false``.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-mountpoint.html#cfn-ecs-daemontaskdefinition-mountpoint-readonly
             '''
             result = self._values.get("read_only")
@@ -14293,7 +14805,10 @@ class CfnDaemonTaskDefinition(
 
         @builtins.property
         def source_volume(self) -> typing.Optional[builtins.str]:
-            '''
+            '''The name of the volume to mount.
+
+            Must be a volume name referenced in the ``name`` parameter of task definition ``volume``.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-mountpoint.html#cfn-ecs-daemontaskdefinition-mountpoint-sourcevolume
             '''
             result = self._values.get("source_volume")
@@ -14321,8 +14836,9 @@ class CfnDaemonTaskDefinition(
             *,
             credentials_parameter: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''
-            :param credentials_parameter: 
+            '''The repository credentials for private registry authentication.
+
+            :param credentials_parameter: The Amazon Resource Name (ARN) of the secret containing the private repository credentials. When you use the Amazon ECS API, CLI, or AWS SDK, if the secret exists in the same Region as the task that you're launching then you can use either the full ARN or the name of the secret. When you use the AWS Management Console, you must specify the full ARN of the secret.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-repositorycredentials.html
             :exampleMetadata: fixture=_generated
@@ -14346,7 +14862,10 @@ class CfnDaemonTaskDefinition(
 
         @builtins.property
         def credentials_parameter(self) -> typing.Optional[builtins.str]:
-            '''
+            '''The Amazon Resource Name (ARN) of the secret containing the private repository credentials.
+
+            When you use the Amazon ECS API, CLI, or AWS SDK, if the secret exists in the same Region as the task that you're launching then you can use either the full ARN or the name of the secret. When you use the AWS Management Console, you must specify the full ARN of the secret.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-repositorycredentials.html#cfn-ecs-daemontaskdefinition-repositorycredentials-credentialsparameter
             '''
             result = self._values.get("credentials_parameter")
@@ -14459,9 +14978,17 @@ class CfnDaemonTaskDefinition(
     )
     class SecretProperty:
         def __init__(self, *, name: builtins.str, value_from: builtins.str) -> None:
-            '''
-            :param name: 
-            :param value_from: 
+            '''An object representing the secret to expose to your container.
+
+            Secrets can be exposed to a container in the following ways:
+
+            - To inject sensitive data into your containers as environment variables, use the ``secrets`` container definition parameter.
+            - To reference sensitive information in the log configuration of a container, use the ``secretOptions`` container definition parameter.
+
+            For more information, see `Specifying sensitive data <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/specifying-sensitive-data.html>`_ in the *Amazon Elastic Container Service Developer Guide*.
+
+            :param name: The name of the secret.
+            :param value_from: The secret to expose to the container. The supported values are either the full ARN of the ASMlong secret or the full ARN of the parameter in the SSM Parameter Store. For information about the require IAMlong permissions, see `Required IAM permissions for Amazon ECS secrets <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/specifying-sensitive-data-secrets.html#secrets-iam>`_ (for Secrets Manager) or `Required IAM permissions for Amazon ECS secrets <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/specifying-sensitive-data-parameters.html>`_ (for Systems Manager Parameter store) in the *Amazon Elastic Container Service Developer Guide*. If the SSM Parameter Store parameter exists in the same Region as the task you're launching, then you can use either the full ARN or name of the parameter. If the parameter exists in a different Region, then the full ARN must be specified.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-secret.html
             :exampleMetadata: fixture=_generated
@@ -14488,7 +15015,8 @@ class CfnDaemonTaskDefinition(
 
         @builtins.property
         def name(self) -> builtins.str:
-            '''
+            '''The name of the secret.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-secret.html#cfn-ecs-daemontaskdefinition-secret-name
             '''
             result = self._values.get("name")
@@ -14497,7 +15025,12 @@ class CfnDaemonTaskDefinition(
 
         @builtins.property
         def value_from(self) -> builtins.str:
-            '''
+            '''The secret to expose to the container.
+
+            The supported values are either the full ARN of the ASMlong secret or the full ARN of the parameter in the SSM Parameter Store.
+            For information about the require IAMlong permissions, see `Required IAM permissions for Amazon ECS secrets <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/specifying-sensitive-data-secrets.html#secrets-iam>`_ (for Secrets Manager) or `Required IAM permissions for Amazon ECS secrets <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/specifying-sensitive-data-parameters.html>`_ (for Systems Manager Parameter store) in the *Amazon Elastic Container Service Developer Guide*.
+            If the SSM Parameter Store parameter exists in the same Region as the task you're launching, then you can use either the full ARN or name of the parameter. If the parameter exists in a different Region, then the full ARN must be specified.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-secret.html#cfn-ecs-daemontaskdefinition-secret-valuefrom
             '''
             result = self._values.get("value_from")
@@ -14527,9 +15060,24 @@ class CfnDaemonTaskDefinition(
             namespace: typing.Optional[builtins.str] = None,
             value: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''
-            :param namespace: 
-            :param value: 
+            '''A list of namespaced kernel parameters to set in the container.
+
+            This parameter maps to ``Sysctls`` in the docker container create command and the ``--sysctl`` option to docker run. For example, you can configure ``net.ipv4.tcp_keepalive_time`` setting to maintain longer lived connections.
+            We don't recommend that you specify network-related ``systemControls`` parameters for multiple containers in a single task that also uses either the ``awsvpc`` or ``host`` network mode. Doing this has the following disadvantages:
+
+            - For tasks that use the ``awsvpc`` network mode including Fargate, if you set ``systemControls`` for any container, it applies to all containers in the task. If you set different ``systemControls`` for multiple containers in a single task, the container that's started last determines which ``systemControls`` take effect.
+            - For tasks that use the ``host`` network mode, the network namespace ``systemControls`` aren't supported.
+
+            If you're setting an IPC resource namespace to use for the containers in the task, the following conditions apply to your system controls. For more information, see `IPC mode <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task_definition_parameters.html#task_definition_ipcmode>`_.
+
+            - For tasks that use the ``host`` IPC mode, IPC namespace ``systemControls`` aren't supported.
+            - For tasks that use the ``task`` IPC mode, IPC namespace ``systemControls`` values apply to all containers within a task.
+
+            This parameter is not supported for Windows containers.
+            This parameter is only supported for tasks that are hosted on FARGATElong if the tasks are using platform version ``1.4.0`` or later (Linux). This isn't supported for Windows containers on Fargate.
+
+            :param namespace: The namespaced kernel parameter to set a ``value`` for.
+            :param value: The namespaced kernel parameter to set a ``value`` for. Valid IPC namespace values: ``"kernel.msgmax" | "kernel.msgmnb" | "kernel.msgmni" | "kernel.sem" | "kernel.shmall" | "kernel.shmmax" | "kernel.shmmni" | "kernel.shm_rmid_forced"``, and ``Sysctls`` that start with ``"fs.mqueue.*"`` Valid network namespace values: ``Sysctls`` that start with ``"net.*"``. Only namespaced ``Sysctls`` that exist within the container starting with "net.* are accepted. All of these values are supported by Fargate.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-systemcontrol.html
             :exampleMetadata: fixture=_generated
@@ -14557,7 +15105,8 @@ class CfnDaemonTaskDefinition(
 
         @builtins.property
         def namespace(self) -> typing.Optional[builtins.str]:
-            '''
+            '''The namespaced kernel parameter to set a ``value`` for.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-systemcontrol.html#cfn-ecs-daemontaskdefinition-systemcontrol-namespace
             '''
             result = self._values.get("namespace")
@@ -14565,7 +15114,12 @@ class CfnDaemonTaskDefinition(
 
         @builtins.property
         def value(self) -> typing.Optional[builtins.str]:
-            '''
+            '''The namespaced kernel parameter to set a ``value`` for.
+
+            Valid IPC namespace values: ``"kernel.msgmax" | "kernel.msgmnb" | "kernel.msgmni" | "kernel.sem" | "kernel.shmall" | "kernel.shmmax" | "kernel.shmmni" | "kernel.shm_rmid_forced"``, and ``Sysctls`` that start with ``"fs.mqueue.*"``
+            Valid network namespace values: ``Sysctls`` that start with ``"net.*"``. Only namespaced ``Sysctls`` that exist within the container starting with "net.* are accepted.
+            All of these values are supported by Fargate.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-systemcontrol.html#cfn-ecs-daemontaskdefinition-systemcontrol-value
             '''
             result = self._values.get("value")
@@ -14599,10 +15153,11 @@ class CfnDaemonTaskDefinition(
             container_path: typing.Optional[builtins.str] = None,
             mount_options: typing.Optional[typing.Sequence[builtins.str]] = None,
         ) -> None:
-            '''
-            :param size: 
-            :param container_path: 
-            :param mount_options: 
+            '''The container path, mount options, and size of the tmpfs mount.
+
+            :param size: The maximum size (in MiB) of the tmpfs volume.
+            :param container_path: The absolute file path where the tmpfs volume is to be mounted.
+            :param mount_options: The list of tmpfs volume mount options. Valid values: ``"defaults" | "ro" | "rw" | "suid" | "nosuid" | "dev" | "nodev" | "exec" | "noexec" | "sync" | "async" | "dirsync" | "remount" | "mand" | "nomand" | "atime" | "noatime" | "diratime" | "nodiratime" | "bind" | "rbind" | "unbindable" | "runbindable" | "private" | "rprivate" | "shared" | "rshared" | "slave" | "rslave" | "relatime" | "norelatime" | "strictatime" | "nostrictatime" | "mode" | "uid" | "gid" | "nr_inodes" | "nr_blocks" | "mpol"``
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-tmpfs.html
             :exampleMetadata: fixture=_generated
@@ -14636,7 +15191,8 @@ class CfnDaemonTaskDefinition(
 
         @builtins.property
         def size(self) -> jsii.Number:
-            '''
+            '''The maximum size (in MiB) of the tmpfs volume.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-tmpfs.html#cfn-ecs-daemontaskdefinition-tmpfs-size
             '''
             result = self._values.get("size")
@@ -14645,7 +15201,8 @@ class CfnDaemonTaskDefinition(
 
         @builtins.property
         def container_path(self) -> typing.Optional[builtins.str]:
-            '''
+            '''The absolute file path where the tmpfs volume is to be mounted.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-tmpfs.html#cfn-ecs-daemontaskdefinition-tmpfs-containerpath
             '''
             result = self._values.get("container_path")
@@ -14653,7 +15210,10 @@ class CfnDaemonTaskDefinition(
 
         @builtins.property
         def mount_options(self) -> typing.Optional[typing.List[builtins.str]]:
-            '''
+            '''The list of tmpfs volume mount options.
+
+            Valid values: ``"defaults" | "ro" | "rw" | "suid" | "nosuid" | "dev" | "nodev" | "exec" | "noexec" | "sync" | "async" | "dirsync" | "remount" | "mand" | "nomand" | "atime" | "noatime" | "diratime" | "nodiratime" | "bind" | "rbind" | "unbindable" | "runbindable" | "private" | "rprivate" | "shared" | "rshared" | "slave" | "rslave" | "relatime" | "norelatime" | "strictatime" | "nostrictatime" | "mode" | "uid" | "gid" | "nr_inodes" | "nr_blocks" | "mpol"``
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-tmpfs.html#cfn-ecs-daemontaskdefinition-tmpfs-mountoptions
             '''
             result = self._values.get("mount_options")
@@ -14687,10 +15247,14 @@ class CfnDaemonTaskDefinition(
             name: builtins.str,
             soft_limit: jsii.Number,
         ) -> None:
-            '''
-            :param hard_limit: 
-            :param name: 
-            :param soft_limit: 
+            '''The ``ulimit`` settings to pass to the container.
+
+            Amazon ECS tasks hosted on FARGATElong use the default resource limit values set by the operating system with the exception of the ``nofile`` resource limit parameter which FARGATElong overrides. The ``nofile`` resource limit sets a restriction on the number of open files that a container can use. The default ``nofile`` soft limit is ``65535`` and the default hard limit is ``65535``.
+            You can specify the ``ulimit`` settings for a container in a task definition.
+
+            :param hard_limit: The hard limit for the ``ulimit`` type. The value can be specified in bytes, seconds, or as a count, depending on the ``type`` of the ``ulimit``.
+            :param name: The ``type`` of the ``ulimit``.
+            :param soft_limit: The soft limit for the ``ulimit`` type. The value can be specified in bytes, seconds, or as a count, depending on the ``type`` of the ``ulimit``.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-ulimit.html
             :exampleMetadata: fixture=_generated
@@ -14720,7 +15284,10 @@ class CfnDaemonTaskDefinition(
 
         @builtins.property
         def hard_limit(self) -> jsii.Number:
-            '''
+            '''The hard limit for the ``ulimit`` type.
+
+            The value can be specified in bytes, seconds, or as a count, depending on the ``type`` of the ``ulimit``.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-ulimit.html#cfn-ecs-daemontaskdefinition-ulimit-hardlimit
             '''
             result = self._values.get("hard_limit")
@@ -14729,7 +15296,8 @@ class CfnDaemonTaskDefinition(
 
         @builtins.property
         def name(self) -> builtins.str:
-            '''
+            '''The ``type`` of the ``ulimit``.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-ulimit.html#cfn-ecs-daemontaskdefinition-ulimit-name
             '''
             result = self._values.get("name")
@@ -14738,7 +15306,10 @@ class CfnDaemonTaskDefinition(
 
         @builtins.property
         def soft_limit(self) -> jsii.Number:
-            '''
+            '''The soft limit for the ``ulimit`` type.
+
+            The value can be specified in bytes, seconds, or as a count, depending on the ``type`` of the ``ulimit``.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-ulimit.html#cfn-ecs-daemontaskdefinition-ulimit-softlimit
             '''
             result = self._values.get("soft_limit")
@@ -14768,9 +15339,12 @@ class CfnDaemonTaskDefinition(
             host: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDaemonTaskDefinition.HostVolumePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             name: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''
-            :param host: 
-            :param name: 
+            '''The data volume configuration for tasks launched using this task definition.
+
+            Specifying a volume configuration in a task definition is optional. The volume configuration may contain multiple volumes but only one volume configured at launch is supported. Each volume defined in the volume configuration may only specify a ``name`` and one of either ``configuredAtLaunch``, ``dockerVolumeConfiguration``, ``efsVolumeConfiguration``, ``fsxWindowsFileServerVolumeConfiguration``, or ``host``. If an empty volume configuration is specified, by default Amazon ECS uses a host volume. For more information, see `Using data volumes in tasks <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/using_data_volumes.html>`_.
+
+            :param host: Details on a container instance bind mount host volume.
+            :param name: The name of the volume. Up to 255 letters (uppercase and lowercase), numbers, underscores, and hyphens are allowed. When using a volume configured at launch, the ``name`` is required and must also be specified as the volume name in the ``ServiceVolumeConfiguration`` or ``TaskVolumeConfiguration`` parameter when creating your service or standalone task. For all other types of volumes, this name is referenced in the ``sourceVolume`` parameter of the ``mountPoints`` object in the container definition. When a volume is using the ``efsVolumeConfiguration``, the name is required.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-volume.html
             :exampleMetadata: fixture=_generated
@@ -14802,7 +15376,8 @@ class CfnDaemonTaskDefinition(
         def host(
             self,
         ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDaemonTaskDefinition.HostVolumePropertiesProperty"]]:
-            '''
+            '''Details on a container instance bind mount host volume.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-volume.html#cfn-ecs-daemontaskdefinition-volume-host
             '''
             result = self._values.get("host")
@@ -14810,7 +15385,13 @@ class CfnDaemonTaskDefinition(
 
         @builtins.property
         def name(self) -> typing.Optional[builtins.str]:
-            '''
+            '''The name of the volume.
+
+            Up to 255 letters (uppercase and lowercase), numbers, underscores, and hyphens are allowed.
+            When using a volume configured at launch, the ``name`` is required and must also be specified as the volume name in the ``ServiceVolumeConfiguration`` or ``TaskVolumeConfiguration`` parameter when creating your service or standalone task.
+            For all other types of volumes, this name is referenced in the ``sourceVolume`` parameter of the ``mountPoints`` object in the container definition.
+            When a volume is using the ``efsVolumeConfiguration``, the name is required.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-volume.html#cfn-ecs-daemontaskdefinition-volume-name
             '''
             result = self._values.get("name")
@@ -14857,14 +15438,14 @@ class CfnDaemonTaskDefinitionProps:
     ) -> None:
         '''Properties for defining a ``CfnDaemonTaskDefinition``.
 
-        :param container_definitions: 
-        :param cpu: 
-        :param execution_role_arn: 
-        :param family: 
-        :param memory: 
+        :param container_definitions: A list of container definitions in JSON format that describe the containers that make up the daemon task.
+        :param cpu: The number of CPU units used by the daemon task.
+        :param execution_role_arn: The Amazon Resource Name (ARN) of the task execution role that grants the Amazon ECS container agent permission to make Amazon Web Services API calls on your behalf.
+        :param family: The name of a family that this daemon task definition is registered to.
+        :param memory: The amount of memory (in MiB) used by the daemon task.
         :param tags: 
-        :param task_role_arn: 
-        :param volumes: 
+        :param task_role_arn: The short name or full Amazon Resource Name (ARN) of the IAM role that grants containers in the daemon task permission to call Amazon Web Services APIs on your behalf.
+        :param volumes: The list of data volume definitions for the daemon task.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-daemontaskdefinition.html
         :exampleMetadata: fixture=_generated
@@ -15028,7 +15609,8 @@ class CfnDaemonTaskDefinitionProps:
     def container_definitions(
         self,
     ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDaemonTaskDefinition.DaemonContainerDefinitionProperty"]]]]:
-        '''
+        '''A list of container definitions in JSON format that describe the containers that make up the daemon task.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-daemontaskdefinition.html#cfn-ecs-daemontaskdefinition-containerdefinitions
         '''
         result = self._values.get("container_definitions")
@@ -15036,7 +15618,8 @@ class CfnDaemonTaskDefinitionProps:
 
     @builtins.property
     def cpu(self) -> typing.Optional[builtins.str]:
-        '''
+        '''The number of CPU units used by the daemon task.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-daemontaskdefinition.html#cfn-ecs-daemontaskdefinition-cpu
         '''
         result = self._values.get("cpu")
@@ -15044,7 +15627,8 @@ class CfnDaemonTaskDefinitionProps:
 
     @builtins.property
     def execution_role_arn(self) -> typing.Optional[builtins.str]:
-        '''
+        '''The Amazon Resource Name (ARN) of the task execution role that grants the Amazon ECS container agent permission to make Amazon Web Services API calls on your behalf.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-daemontaskdefinition.html#cfn-ecs-daemontaskdefinition-executionrolearn
         '''
         result = self._values.get("execution_role_arn")
@@ -15052,7 +15636,8 @@ class CfnDaemonTaskDefinitionProps:
 
     @builtins.property
     def family(self) -> typing.Optional[builtins.str]:
-        '''
+        '''The name of a family that this daemon task definition is registered to.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-daemontaskdefinition.html#cfn-ecs-daemontaskdefinition-family
         '''
         result = self._values.get("family")
@@ -15060,7 +15645,8 @@ class CfnDaemonTaskDefinitionProps:
 
     @builtins.property
     def memory(self) -> typing.Optional[builtins.str]:
-        '''
+        '''The amount of memory (in MiB) used by the daemon task.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-daemontaskdefinition.html#cfn-ecs-daemontaskdefinition-memory
         '''
         result = self._values.get("memory")
@@ -15076,7 +15662,8 @@ class CfnDaemonTaskDefinitionProps:
 
     @builtins.property
     def task_role_arn(self) -> typing.Optional[builtins.str]:
-        '''
+        '''The short name or full Amazon Resource Name (ARN) of the IAM role that grants containers in the daemon task permission to call Amazon Web Services APIs on your behalf.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-daemontaskdefinition.html#cfn-ecs-daemontaskdefinition-taskrolearn
         '''
         result = self._values.get("task_role_arn")
@@ -15086,7 +15673,8 @@ class CfnDaemonTaskDefinitionProps:
     def volumes(
         self,
     ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDaemonTaskDefinition.VolumeProperty"]]]]:
-        '''
+        '''The list of data volume definitions for the daemon task.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-daemontaskdefinition.html#cfn-ecs-daemontaskdefinition-volumes
         '''
         result = self._values.get("volumes")
@@ -43731,15 +44319,17 @@ class LogDriver(
 
     Example::
 
+        # secret: ecs.Secret
+        
+        
         # Create a Task Definition for the container to start
         task_definition = ecs.Ec2TaskDefinition(self, "TaskDef")
         task_definition.add_container("TheContainer",
             image=ecs.ContainerImage.from_registry("example-image"),
             memory_limit_mi_b=256,
-            logging=ecs.LogDrivers.aws_logs(
-                stream_prefix="EventDemo",
-                mode=ecs.AwsLogDriverMode.NON_BLOCKING,
-                max_buffer_size=Size.mebibytes(25)
+            logging=ecs.LogDrivers.splunk(
+                secret_token=secret,
+                url="my-splunk-url"
             )
         )
     '''
@@ -47218,9 +47808,150 @@ class ServiceConnect(
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ecs.ServiceConnectAccessLogConfiguration",
+    jsii_struct_bases=[],
+    name_mapping={
+        "format": "format",
+        "include_query_parameters": "includeQueryParameters",
+    },
+)
+class ServiceConnectAccessLogConfiguration:
+    def __init__(
+        self,
+        *,
+        format: "ServiceConnectAccessLogFormat",
+        include_query_parameters: typing.Optional[builtins.bool] = None,
+    ) -> None:
+        '''Configuration for Service Connect access logs.
+
+        Service Connect access logs provide detailed telemetry about individual requests processed by the Service Connect proxy,
+        including HTTP methods, paths, response codes, and timing information.
+
+        :param format: The format for Service Connect access log output. - TEXT: Human-readable text format - JSON: Structured JSON format for log analysis tools
+        :param include_query_parameters: Whether to include query parameters in Service Connect access logs. When enabled, query parameters from HTTP requests are included in the access logs. Consider security and privacy implications as query parameters may contain sensitive information such as request IDs and tokens. Default: undefined - AWS ECS default is false, which means that query parameters are not included in access logs
+
+        :see: https://docs.aws.amazon.com/AmazonECS/latest/developerguide/service-connect-envoy-access-logs.html
+        :exampleMetadata: infused
+
+        Example::
+
+            # cluster: ecs.Cluster
+            # task_definition: ecs.TaskDefinition
+            
+            
+            service = ecs.FargateService(self, "Service",
+                cluster=cluster,
+                task_definition=task_definition,
+                service_connect_configuration=ecs.ServiceConnectProps(
+                    services=[ecs.ServiceConnectService(
+                        port_mapping_name="api"
+                    )
+                    ],
+                    access_log_configuration=ecs.ServiceConnectAccessLogConfiguration(
+                        format=ecs.ServiceConnectAccessLogFormat.JSON,
+                        include_query_parameters=True
+                    ),
+                    # When configuring access log,
+                    # you also need to configure the log driver accordingly.
+                    log_driver=ecs.LogDrivers.aws_logs(
+                        stream_prefix="prefix"
+                    )
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__398f75bc5c746a663cb89ac0680e31377495dfc1c6230433a411e565876822dc)
+            check_type(argname="argument format", value=format, expected_type=type_hints["format"])
+            check_type(argname="argument include_query_parameters", value=include_query_parameters, expected_type=type_hints["include_query_parameters"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "format": format,
+        }
+        if include_query_parameters is not None:
+            self._values["include_query_parameters"] = include_query_parameters
+
+    @builtins.property
+    def format(self) -> "ServiceConnectAccessLogFormat":
+        '''The format for Service Connect access log output.
+
+        - TEXT: Human-readable text format
+        - JSON: Structured JSON format for log analysis tools
+        '''
+        result = self._values.get("format")
+        assert result is not None, "Required property 'format' is missing"
+        return typing.cast("ServiceConnectAccessLogFormat", result)
+
+    @builtins.property
+    def include_query_parameters(self) -> typing.Optional[builtins.bool]:
+        '''Whether to include query parameters in Service Connect access logs.
+
+        When enabled, query parameters from HTTP requests are included in the access logs.
+        Consider security and privacy implications as query parameters may contain sensitive information such as request IDs and tokens.
+
+        :default: undefined - AWS ECS default is false, which means that query parameters are not included in access logs
+        '''
+        result = self._values.get("include_query_parameters")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ServiceConnectAccessLogConfiguration(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.enum(jsii_type="aws-cdk-lib.aws_ecs.ServiceConnectAccessLogFormat")
+class ServiceConnectAccessLogFormat(enum.Enum):
+    '''The format of Service Connect access logs.
+
+    :see: https://docs.aws.amazon.com/AmazonECS/latest/developerguide/service-connect-envoy-access-logs.html
+    :exampleMetadata: infused
+
+    Example::
+
+        # cluster: ecs.Cluster
+        # task_definition: ecs.TaskDefinition
+        
+        
+        service = ecs.FargateService(self, "Service",
+            cluster=cluster,
+            task_definition=task_definition,
+            service_connect_configuration=ecs.ServiceConnectProps(
+                services=[ecs.ServiceConnectService(
+                    port_mapping_name="api"
+                )
+                ],
+                access_log_configuration=ecs.ServiceConnectAccessLogConfiguration(
+                    format=ecs.ServiceConnectAccessLogFormat.JSON,
+                    include_query_parameters=True
+                ),
+                # When configuring access log,
+                # you also need to configure the log driver accordingly.
+                log_driver=ecs.LogDrivers.aws_logs(
+                    stream_prefix="prefix"
+                )
+            )
+        )
+    '''
+
+    TEXT = "TEXT"
+    '''Human-readable text format for access logs.'''
+    JSON = "JSON"
+    '''Structured JSON format for access logs.
+
+    This format is well-suited for integration with log analysis tools.
+    '''
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.aws_ecs.ServiceConnectProps",
     jsii_struct_bases=[],
     name_mapping={
+        "access_log_configuration": "accessLogConfiguration",
         "log_driver": "logDriver",
         "namespace": "namespace",
         "services": "services",
@@ -47230,12 +47961,14 @@ class ServiceConnectProps:
     def __init__(
         self,
         *,
+        access_log_configuration: typing.Optional[typing.Union["ServiceConnectAccessLogConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         log_driver: typing.Optional["LogDriver"] = None,
         namespace: typing.Optional[builtins.str] = None,
         services: typing.Optional[typing.Sequence[typing.Union["ServiceConnectService", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Interface for Service Connect configuration.
 
+        :param access_log_configuration: The configuration for Service Connect access logs. Access logs provide detailed telemetry about individual requests processed by the Service Connect proxy. Default: undefined - AWS ECS default is disabled, which means that access logs are not recorded
         :param log_driver: The log driver configuration to use for the Service Connect agent logs. Default: - none
         :param namespace: The cloudmap namespace to register this service into. Default: the cloudmap namespace specified on the cluster.
         :param services: The list of Services, including a port mapping, terse client alias, and optional intermediate DNS name. This property may be left blank if the current ECS service does not need to advertise any ports via Service Connect. Default: none
@@ -47274,18 +48007,36 @@ class ServiceConnectProps:
                 )
             )
         '''
+        if isinstance(access_log_configuration, dict):
+            access_log_configuration = ServiceConnectAccessLogConfiguration(**access_log_configuration)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__dd6728e165ac5e1d81a8131a30fd4a7d67b2c1b86b0cfb79b6924d5a8f3a00fb)
+            check_type(argname="argument access_log_configuration", value=access_log_configuration, expected_type=type_hints["access_log_configuration"])
             check_type(argname="argument log_driver", value=log_driver, expected_type=type_hints["log_driver"])
             check_type(argname="argument namespace", value=namespace, expected_type=type_hints["namespace"])
             check_type(argname="argument services", value=services, expected_type=type_hints["services"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if access_log_configuration is not None:
+            self._values["access_log_configuration"] = access_log_configuration
         if log_driver is not None:
             self._values["log_driver"] = log_driver
         if namespace is not None:
             self._values["namespace"] = namespace
         if services is not None:
             self._values["services"] = services
+
+    @builtins.property
+    def access_log_configuration(
+        self,
+    ) -> typing.Optional["ServiceConnectAccessLogConfiguration"]:
+        '''The configuration for Service Connect access logs.
+
+        Access logs provide detailed telemetry about individual requests processed by the　Service Connect proxy.
+
+        :default: undefined - AWS ECS default is disabled, which means that access logs are not recorded
+        '''
+        result = self._values.get("access_log_configuration")
+        return typing.cast(typing.Optional["ServiceConnectAccessLogConfiguration"], result)
 
     @builtins.property
     def log_driver(self) -> typing.Optional["LogDriver"]:
@@ -53684,18 +54435,23 @@ class BaseService(
     def enable_service_connect(
         self,
         *,
+        access_log_configuration: typing.Optional[typing.Union["ServiceConnectAccessLogConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         log_driver: typing.Optional["LogDriver"] = None,
         namespace: typing.Optional[builtins.str] = None,
         services: typing.Optional[typing.Sequence[typing.Union["ServiceConnectService", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Enable Service Connect on this service.
 
+        :param access_log_configuration: The configuration for Service Connect access logs. Access logs provide detailed telemetry about individual requests processed by the Service Connect proxy. Default: undefined - AWS ECS default is disabled, which means that access logs are not recorded
         :param log_driver: The log driver configuration to use for the Service Connect agent logs. Default: - none
         :param namespace: The cloudmap namespace to register this service into. Default: the cloudmap namespace specified on the cluster.
         :param services: The list of Services, including a port mapping, terse client alias, and optional intermediate DNS name. This property may be left blank if the current ECS service does not need to advertise any ports via Service Connect. Default: none
         '''
         config = ServiceConnectProps(
-            log_driver=log_driver, namespace=namespace, services=services
+            access_log_configuration=access_log_configuration,
+            log_driver=log_driver,
+            namespace=namespace,
+            services=services,
         )
 
         return typing.cast(None, jsii.invoke(self, "enableServiceConnect", [config]))
@@ -55708,6 +56464,8 @@ __all__ = [
     "Secret",
     "SecretVersionInfo",
     "ServiceConnect",
+    "ServiceConnectAccessLogConfiguration",
+    "ServiceConnectAccessLogFormat",
     "ServiceConnectProps",
     "ServiceConnectService",
     "ServiceConnectTlsConfiguration",
@@ -56156,6 +56914,13 @@ def _typecheckingstub__05b0b4abd870382eb40911671e91b829abe416723b1b38346d22783d1
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__ad12ee29837ba99fa7508b914604b5b419a441bbe3e997c6a940fb6fc733581a(
+    *,
+    actions_status: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__ca441075e92a847965e776db4f5ab9f545ce368b5efa4bc2476d58061dd0b742(
     *,
     auto_scaling_group_arn: builtins.str,
@@ -56254,6 +57019,7 @@ def _typecheckingstub__45a3888e29c1b6fb29bc3dbf90f279f8c543b8924bb51956a75f3290e
     *,
     infrastructure_role_arn: builtins.str,
     instance_launch_template: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCapacityProvider.InstanceLaunchTemplateProperty, typing.Dict[builtins.str, typing.Any]]],
+    auto_repair_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCapacityProvider.AutoRepairConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     infrastructure_optimization: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCapacityProvider.InfrastructureOptimizationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     propagate_tags: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -60190,8 +60956,17 @@ def _typecheckingstub__4499a3587f410005ea54489b8994ae262b4565727f13f1460d91017a2
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__398f75bc5c746a663cb89ac0680e31377495dfc1c6230433a411e565876822dc(
+    *,
+    format: ServiceConnectAccessLogFormat,
+    include_query_parameters: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__dd6728e165ac5e1d81a8131a30fd4a7d67b2c1b86b0cfb79b6924d5a8f3a00fb(
     *,
+    access_log_configuration: typing.Optional[typing.Union[ServiceConnectAccessLogConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
     log_driver: typing.Optional[LogDriver] = None,
     namespace: typing.Optional[builtins.str] = None,
     services: typing.Optional[typing.Sequence[typing.Union[ServiceConnectService, typing.Dict[builtins.str, typing.Any]]]] = None,

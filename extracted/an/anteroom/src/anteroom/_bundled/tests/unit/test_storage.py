@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+import anteroom.services.storage as storage_module
 from anteroom.db import _FTS_SCHEMA, _FTS_TRIGGERS, _SCHEMA, ThreadSafeConnection
 from anteroom.services.storage import (
     add_tag_to_conversation,
@@ -1271,11 +1272,33 @@ class TestSaveAttachment:
         with pytest.raises(ValueError, match="Unsupported file type"):
             save_attachment(db, msg["id"], conv["id"], "bad.exe", "application/x-executable", b"MZ", tmp_path)
 
-    def test_reject_oversized_file(self, db: ThreadSafeConnection, tmp_path: Path) -> None:
+    def test_reject_oversized_file(
+        self, db: ThreadSafeConnection, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         conv = create_conversation(db, title="Test")
         msg = create_message(db, conv["id"], "user", "See attached")
+        monkeypatch.setattr(storage_module, "MAX_ATTACHMENT_SIZE", 10)
         with pytest.raises(ValueError, match="maximum size"):
-            save_attachment(db, msg["id"], conv["id"], "big.txt", "text/plain", b"x" * (11 * 1024 * 1024), tmp_path)
+            save_attachment(db, msg["id"], conv["id"], "big.txt", "text/plain", b"x" * 11, tmp_path)
+
+    def test_accepts_configured_larger_size(
+        self, db: ThreadSafeConnection, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        conv = create_conversation(db, title="Test")
+        msg = create_message(db, conv["id"], "user", "See attached")
+        monkeypatch.setattr(storage_module, "MAX_ATTACHMENT_SIZE", 10)
+        result = save_attachment(
+            db,
+            msg["id"],
+            conv["id"],
+            "larger.txt",
+            "text/plain",
+            b"x" * 11,
+            tmp_path,
+            max_size_bytes=20,
+        )
+
+        assert result["size_bytes"] == 11
 
     def test_octet_stream_text_passes(self, db: ThreadSafeConnection, tmp_path: Path) -> None:
         conv = create_conversation(db, title="Test")

@@ -48,6 +48,9 @@ use crate::db::model_inferences::ModelInferenceQueries;
 use crate::db::postgres::PostgresConnectionInfo;
 use crate::db::resolve_uuid::{ResolveUuidQueries, ResolvedObject};
 use crate::db::stored_datapoint::StoredDatapoint;
+use crate::db::variant_statistics::{
+    GetVariantStatisticsParams, VariantStatisticsQueries, VariantStatisticsRow,
+};
 use crate::db::workflow_evaluation_queries::{
     GroupedWorkflowEvaluationRunEpisodeWithFeedbackRow, WorkflowEvaluationProjectRow,
     WorkflowEvaluationQueries, WorkflowEvaluationRunEpisodeWithFeedbackRow,
@@ -58,7 +61,7 @@ use crate::db::{
     CacheStatisticsTimePoint, ConfigQueries, DICLExampleWithDistance, DICLQueries,
     DeploymentIdQueries, EpisodeByIdRow, EpisodeQueries, HowdyFeedbackCounts, HowdyInferenceCounts,
     HowdyQueries, HowdyTokenUsage, ModelLatencyDatapoint, ModelUsageTimePoint, StoredDICLExample,
-    TableBoundsWithCount,
+    TableBoundsWithCount, VariantUsageTimePoint,
 };
 use crate::endpoints::inference::InferenceResponse;
 use crate::endpoints::stored_inferences::v1::types::InferenceFilter;
@@ -92,9 +95,9 @@ impl PrimaryDatastore {
         observability_config: &ObservabilityConfig,
         clickhouse: &ClickHouseConnectionInfo,
         postgres: &PostgresConnectionInfo,
-    ) -> Result<Self, Error> {
+    ) -> Result<Self, DelayedError> {
         let resolved = match observability_config.backend {
-            ObservabilityBackend::Auto => {
+            None | Some(ObservabilityBackend::Auto) => {
                 if clickhouse.client_type() != ClickHouseClientType::Disabled {
                     Self::ClickHouse
                 } else if !matches!(postgres, PostgresConnectionInfo::Disabled) {
@@ -103,41 +106,38 @@ impl PrimaryDatastore {
                     Self::Disabled
                 }
             }
-            ObservabilityBackend::ClickHouse => Self::ClickHouse,
-            ObservabilityBackend::Postgres => Self::Postgres,
+            Some(ObservabilityBackend::ClickHouse) => Self::ClickHouse,
+            Some(ObservabilityBackend::Postgres) => Self::Postgres,
         };
 
         match observability_config.enabled {
             Some(true) => match resolved {
                 Self::Postgres => {
                     if matches!(postgres, PostgresConnectionInfo::Disabled) {
-                        return Err(ErrorDetails::AppState {
+                        return Err(DelayedError::new(ErrorDetails::AppState {
                             message:
                                 "A Postgres connection is required when the primary datastore \
                                  is Postgres and observability is enabled."
                                     .to_string(),
-                        }
-                        .into());
+                        }));
                     }
                     Ok(Self::Postgres)
                 }
                 Self::ClickHouse => {
                     if clickhouse.client_type() == ClickHouseClientType::Disabled {
-                        return Err(ErrorDetails::AppState {
+                        return Err(DelayedError::new(ErrorDetails::AppState {
                             message: "Missing environment variable `TENSORZERO_CLICKHOUSE_URL`."
                                 .to_string(),
-                        }
-                        .into());
+                        }));
                     }
                     Ok(Self::ClickHouse)
                 }
-                Self::Disabled => Err(ErrorDetails::AppState {
+                Self::Disabled => Err(DelayedError::new(ErrorDetails::AppState {
                     message: "Observability is enabled but no backend is available. \
                               Set `TENSORZERO_CLICKHOUSE_URL` or `TENSORZERO_POSTGRES_URL`, \
                               or configure `gateway.observability.backend` explicitly."
                         .to_string(),
-                }
-                .into()),
+                })),
             },
             None => {
                 if resolved == Self::Disabled {
@@ -190,6 +190,7 @@ pub trait DelegatingDatabaseQueries:
     + ResolveUuidQueries
     + EpisodeQueries
     + DICLQueries
+    + VariantStatisticsQueries
 {
     fn batcher_join_handles(&self) -> Vec<BatchWriterHandle>;
 }
@@ -258,7 +259,7 @@ impl ConfigQueries for DelegatingDatabaseConnection {
         self.get_database().get_config_snapshot(snapshot_hash).await
     }
 
-    async fn write_config_snapshot(&self, snapshot: &ConfigSnapshot) -> Result<(), Error> {
+    async fn write_config_snapshot(&self, snapshot: &ConfigSnapshot) -> Result<(), DelayedError> {
         #[expect(clippy::disallowed_methods)]
         self.get_database().write_config_snapshot(snapshot).await
     }
@@ -709,6 +710,17 @@ impl ModelInferenceQueries for DelegatingDatabaseConnection {
             .get_model_latency_quantile_function_inputs()
     }
 
+    async fn get_variant_usage_timeseries(
+        &self,
+        function_name: &str,
+        time_window: TimeWindow,
+        max_periods: u32,
+    ) -> Result<Vec<VariantUsageTimePoint>, Error> {
+        self.get_database()
+            .get_variant_usage_timeseries(function_name, time_window, max_periods)
+            .await
+    }
+
     async fn get_cache_statistics_timeseries(
         &self,
         time_window: TimeWindow,
@@ -1107,6 +1119,20 @@ impl DICLQueries for DelegatingDatabaseConnection {
     }
 }
 
+#[async_trait]
+impl VariantStatisticsQueries for DelegatingDatabaseConnection {
+    async fn get_variant_statistics(
+        &self,
+        params: &GetVariantStatisticsParams,
+    ) -> Result<Vec<VariantStatisticsRow>, Error> {
+        self.get_database().get_variant_statistics(params).await
+    }
+
+    fn get_variant_statistics_quantiles(&self) -> Option<&[f64]> {
+        self.get_database().get_variant_statistics_quantiles()
+    }
+}
+
 #[cfg(any(test, feature = "e2e_tests"))]
 mod test_helpers_impl {
     use super::{DelegatingDatabaseConnection, PrimaryDatastore};
@@ -1153,6 +1179,18 @@ mod test_helpers_impl {
                 }
                 PrimaryDatastore::ClickHouse => {
                     self.clickhouse.prepare_model_provider_statistics().await;
+                }
+                PrimaryDatastore::Disabled => {}
+            }
+        }
+
+        async fn prepare_variant_statistics(&self) {
+            match self.primary {
+                PrimaryDatastore::Postgres => {
+                    self.postgres.prepare_variant_statistics().await;
+                }
+                PrimaryDatastore::ClickHouse => {
+                    self.clickhouse.prepare_variant_statistics().await;
                 }
                 PrimaryDatastore::Disabled => {}
             }

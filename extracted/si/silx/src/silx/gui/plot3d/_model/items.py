@@ -46,7 +46,6 @@ from ..Plot3DWidget import Plot3DWidget
 
 from .core import AngleDegreeRow, BaseRow, ColorProxyRow, ProxyRow, StaticRow
 
-
 _logger = logging.getLogger(__name__)
 
 
@@ -84,7 +83,7 @@ class ItemProxyRow(ProxyRow):
         fromModelData=None,
         editorHint=None,
     ):
-        super(ItemProxyRow, self).__init__(
+        super().__init__(
             name=name,
             fget=fget,
             fset=fset,
@@ -132,7 +131,7 @@ class _DirectionalLightProxy(qt.QObject):
     """Signal sent when altitude angle has changed."""
 
     def __init__(self, light):
-        super(_DirectionalLightProxy, self).__init__()
+        super().__init__()
         self._light = light
         light.addListener(self._directionUpdated)
         self._azimuth = 0
@@ -270,8 +269,14 @@ class Settings(StaticRow):
             editorHint=(-90, 90),
         )
 
-        lightDirection = StaticRow(
-            ("Light Direction", None), children=(azimuthNode, altitudeNode)
+        lightDirection = ProxyRow(
+            name="Light",
+            fget=sceneWidget.getLightMode,
+            fset=sceneWidget.setLightMode,
+            notify=sceneWidget.sigStyleChanged,
+            toModelData=lambda mode: mode == "directional",
+            fromModelData=lambda mode: ("directional" if mode else None),
+            children=(azimuthNode, altitudeNode),
         )
 
         # Fog
@@ -281,9 +286,9 @@ class Settings(StaticRow):
             fset=sceneWidget.setFogMode,
             notify=sceneWidget.sigStyleChanged,
             toModelData=lambda mode: mode is Plot3DWidget.FogMode.LINEAR,
-            fromModelData=lambda mode: Plot3DWidget.FogMode.LINEAR
-            if mode
-            else Plot3DWidget.FogMode.NONE,
+            fromModelData=lambda mode: (
+                Plot3DWidget.FogMode.LINEAR if mode else Plot3DWidget.FogMode.NONE
+            ),
         )
 
         # Settings row
@@ -296,7 +301,7 @@ class Settings(StaticRow):
             lightDirection,
             fog,
         )
-        super(Settings, self).__init__(("Settings", None), children=children)
+        super().__init__(("Settings", None), children=children)
 
 
 class Item3DRow(BaseRow):
@@ -311,7 +316,7 @@ class Item3DRow(BaseRow):
 
     def __init__(self, item, name=None):
         self.__name = None if name is None else str(name)
-        super(Item3DRow, self).__init__()
+        super().__init__()
 
         self.setFlags(
             self.flags(0) | qt.Qt.ItemIsUserCheckable | qt.Qt.ItemIsSelectable, 0
@@ -352,7 +357,7 @@ class Item3DRow(BaseRow):
                 else:
                     return self.__name
 
-        return super(Item3DRow, self).data(column, role)
+        return super().data(column, role)
 
     def setData(self, column, value, role):
         if column == 0 and role == qt.Qt.CheckStateRole:
@@ -362,7 +367,7 @@ class Item3DRow(BaseRow):
                 return True
             else:
                 return False
-        return super(Item3DRow, self).setData(column, value, role)
+        return super().setData(column, value, role)
 
     def columnCount(self):
         return 2
@@ -375,7 +380,7 @@ class DataItem3DBoundingBoxRow(ItemProxyRow):
     """
 
     def __init__(self, item):
-        super(DataItem3DBoundingBoxRow, self).__init__(
+        super().__init__(
             item=item,
             name="Bounding box",
             fget=item.isBoundingBoxVisible,
@@ -395,7 +400,7 @@ class MatrixProxyRow(ItemProxyRow):
         self._item = weakref.ref(item)
         self._index = index
 
-        super(MatrixProxyRow, self).__init__(
+        super().__init__(
             item=item,
             name="",
             fget=self._getMatrixRow,
@@ -427,11 +432,11 @@ class MatrixProxyRow(ItemProxyRow):
             item.setMatrix(matrix)
 
     def data(self, column, role):
-        data = super(MatrixProxyRow, self).data(column, role)
+        data = super().data(column, role)
 
         if column == 1 and role == qt.Qt.DisplayRole:
             # Convert QVector3D to text
-            data = "%g; %g; %g" % (data.x(), data.y(), data.z())
+            data = f"{data.x():g}; {data.y():g}; {data.z():g}"
 
         return data
 
@@ -445,7 +450,7 @@ class DataItem3DTransformRow(StaticRow):
     _ROTATION_CENTER_OPTIONS = "Origin", "Lower", "Center", "Upper"
 
     def __init__(self, item):
-        super(DataItem3DTransformRow, self).__init__(("Transform", None))
+        super().__init__(("Transform", None))
         self._item = weakref.ref(item)
 
         translation = ItemProxyRow(
@@ -632,7 +637,7 @@ class GroupItemRow(Item3DRow):
     """Number of rows for group parameters. Children are added after"""
 
     def __init__(self, item, name=None):
-        super(GroupItemRow, self).__init__(item, name)
+        super().__init__(item, name)
         self.addRow(DataItem3DBoundingBoxRow(item))
         self.addRow(DataItem3DTransformRow(item))
 
@@ -680,7 +685,7 @@ class InterpolationRow(ItemProxyRow):
 
     def __init__(self, item):
         modes = [mode.title() for mode in item.INTERPOLATION_MODES]
-        super(InterpolationRow, self).__init__(
+        super().__init__(
             item=item,
             name="Interpolation",
             fget=item.getInterpolation,
@@ -833,7 +838,7 @@ class _ColormapBoundRow(_ColormapBaseProxyRow):
             return flags
 
         else:  # Never event
-            return super(_ColormapBoundRow, self).flags(column)
+            return super().flags(column)
 
     def data(self, column, role):
         if column == 0 and role == qt.Qt.CheckStateRole:
@@ -843,7 +848,7 @@ class _ColormapBoundRow(_ColormapBaseProxyRow):
                 return qt.Qt.Checked
 
         else:
-            return super(_ColormapBoundRow, self).data(column, role)
+            return super().data(column, role)
 
     def setData(self, column, value, role):
         if column == 0 and role == qt.Qt.CheckStateRole:
@@ -858,7 +863,7 @@ class _ColormapBoundRow(_ColormapBaseProxyRow):
             else:
                 return False
 
-        return super(_ColormapBoundRow, self).setData(column, value, role)
+        return super().setData(column, value, role)
 
 
 class _ColormapGammaRow(_ColormapBaseProxyRow):
@@ -910,7 +915,7 @@ class _ColormapGammaRow(_ColormapBaseProxyRow):
             return flags
 
         else:  # Never event
-            return super(_ColormapGammaRow, self).flags(column)
+            return super().flags(column)
 
 
 class ColormapRow(_ColormapBaseProxyRow):
@@ -920,7 +925,7 @@ class ColormapRow(_ColormapBaseProxyRow):
     """
 
     def __init__(self, item):
-        super(ColormapRow, self).__init__(item, name="Colormap", fget=self._get)
+        super().__init__(item, name="Colormap", fget=self._get)
 
         self._colormapImage = None
 
@@ -1033,7 +1038,7 @@ class ColormapRow(_ColormapBaseProxyRow):
         if column == 1 and role == qt.Qt.DecorationRole:
             return self.getColormapImage()
         else:
-            return super(ColormapRow, self).data(column, role)
+            return super().data(column, role)
 
 
 class SymbolRow(ItemProxyRow):
@@ -1044,7 +1049,7 @@ class SymbolRow(ItemProxyRow):
 
     def __init__(self, item):
         names = [item.getSymbolName(s) for s in item.getSupportedSymbols()]
-        super(SymbolRow, self).__init__(
+        super().__init__(
             item=item,
             name="Marker",
             fget=item.getSymbolName,
@@ -1060,15 +1065,47 @@ class SymbolSizeRow(ItemProxyRow):
     :param Item3D item: Scene item with symbol size property
     """
 
-    def __init__(self, item):
-        super(SymbolSizeRow, self).__init__(
+    def __init__(self, item, setflags: bool = True):
+        super().__init__(
             item=item,
             name="Marker size",
             fget=item.getSymbolSize,
             fset=item.setSymbolSize,
+            toModelData=lambda data: (
+                "From data" if isinstance(data, numpy.ndarray) else data
+            ),
             events=items.ItemChangedType.SYMBOL_SIZE,
             editorHint=(1, 20),
         )  # TODO link with OpenGL max point size
+        # Disable tree row if the item size is an array
+        self.__isEnabled = item.isSingleSymbolSize()
+
+        if setflags:
+            self._setFlags()
+
+    def _isEnabled(self) -> bool:
+        return self.__isEnabled
+
+    def _setFlags(self):
+        if self._isEnabled():
+            self.setFlags(qt.Qt.ItemIsEnabled, 0)
+            self.setFlags(qt.Qt.ItemIsEnabled | qt.Qt.ItemIsEditable, 1)
+        else:
+            self.setFlags(qt.Qt.NoItemFlags)
+
+    def _itemChanged(self, event):
+        """Set flags to enable/disable the row"""
+        if event == items.ItemChangedType.SYMBOL_SIZE:
+            item = self.sender()
+            self.__isEnabled = item.isSingleSymbolSize()
+            self._setFlags()
+
+            # Notify model
+            model = self.model()
+            if model is not None:
+                begin = self.index(column=0)
+                end = self.index(column=1)
+                model.dataChanged.emit(begin, end)
 
 
 class PlaneEquationRow(ItemProxyRow):
@@ -1078,7 +1115,7 @@ class PlaneEquationRow(ItemProxyRow):
     """
 
     def __init__(self, item):
-        super(PlaneEquationRow, self).__init__(
+        super().__init__(
             item=item,
             name="Equation",
             fget=item.getParameters,
@@ -1094,13 +1131,10 @@ class PlaneEquationRow(ItemProxyRow):
             item = self._item()
             if item is not None:
                 params = item.getParameters()
-                return "%gx %+gy %+gz %+g = 0" % (
-                    params[0],
-                    params[1],
-                    params[2],
-                    params[3],
+                return (
+                    f"{params[0]:g}x {params[1]:+g}y {params[2]:+g}z {params[3]:+g} = 0"
                 )
-        return super(PlaneEquationRow, self).data(column, role)
+        return super().data(column, role)
 
 
 class PlaneRow(ItemProxyRow):
@@ -1128,7 +1162,7 @@ class PlaneRow(ItemProxyRow):
     """Mapping of plane names to normals"""
 
     def __init__(self, item):
-        super(PlaneRow, self).__init__(
+        super().__init__(
             item=item,
             name="Plane",
             fget=self.__getPlaneName,
@@ -1147,7 +1181,7 @@ class PlaneRow(ItemProxyRow):
         Here only send if plane name actually changed
         """
         if self._lastName != self.__getPlaneName():
-            super(PlaneRow, self)._notified()
+            super()._notified()
 
     def __getPlaneName(self):
         """Returns name of plane // to axes or '-'
@@ -1176,7 +1210,7 @@ class PlaneRow(ItemProxyRow):
     def data(self, column, role):
         if column == 1 and role == qt.Qt.DecorationRole:
             return icons.getQIcon(self._PLANE_ICONS[self.__getPlaneName()])
-        data = super(PlaneRow, self).data(column, role)
+        data = super().data(column, role)
         if column == 1 and role == qt.Qt.DisplayRole:
             self._lastName = data
         return data
@@ -1192,7 +1226,7 @@ class ComplexModeRow(ItemProxyRow):
         names = [
             m.value.replace("_", " ").title() for m in item.supportedComplexModes()
         ]
-        super(ComplexModeRow, self).__init__(
+        super().__init__(
             item=item,
             name=name,
             fget=item.getComplexMode,
@@ -1211,7 +1245,7 @@ class RemoveIsosurfaceRow(BaseRow):
     """
 
     def __init__(self, isosurface):
-        super(RemoveIsosurfaceRow, self).__init__()
+        super().__init__()
         self._isosurface = weakref.ref(isosurface)
 
     def createEditor(self):
@@ -1241,10 +1275,10 @@ class RemoveIsosurfaceRow(BaseRow):
         if column == 0 and role == qt.Qt.UserRole:  # editor hint
             return self.createEditor
 
-        return super(RemoveIsosurfaceRow, self).data(column, role)
+        return super().data(column, role)
 
     def flags(self, column):
-        flags = super(RemoveIsosurfaceRow, self).flags(column)
+        flags = super().flags(column)
         if column == 0:
             flags |= qt.Qt.ItemIsEditable
         return flags
@@ -1271,7 +1305,7 @@ class IsosurfaceRow(Item3DRow):
     """Events for which to update the first column in the tree"""
 
     def __init__(self, item):
-        super(IsosurfaceRow, self).__init__(item, name=item.getLevel())
+        super().__init__(item, name=item.getLevel())
 
         self.setFlags(self.flags(1) | qt.Qt.ItemIsEditable, 1)
 
@@ -1415,7 +1449,7 @@ class IsosurfaceRow(Item3DRow):
             item = self.item()
             return None if item is None else item.getLevel()
 
-        return super(IsosurfaceRow, self).data(column, role)
+        return super().data(column, role)
 
     def setData(self, column, value, role):
         if column == 1 and role == qt.Qt.EditRole:
@@ -1424,7 +1458,7 @@ class IsosurfaceRow(Item3DRow):
                 item.setLevel(value)
             return True
 
-        return super(IsosurfaceRow, self).setData(column, value, role)
+        return super().setData(column, value, role)
 
 
 class ComplexIsosurfaceRow(IsosurfaceRow):
@@ -1441,7 +1475,7 @@ class ComplexIsosurfaceRow(IsosurfaceRow):
     """Events for which to update the first column in the tree"""
 
     def __init__(self, item):
-        super(ComplexIsosurfaceRow, self).__init__(item)
+        super().__init__(item)
 
         self.addRow(ComplexModeRow(item, "Color Complex Mode"), index=1)
         for row in self.children():
@@ -1493,7 +1527,7 @@ class ComplexIsosurfaceRow(IsosurfaceRow):
             ):
                 return self._colormapRow.getColormapImage()
 
-        return super(ComplexIsosurfaceRow, self).data(column, role)
+        return super().data(column, role)
 
 
 class AddIsosurfaceRow(BaseRow):
@@ -1504,7 +1538,7 @@ class AddIsosurfaceRow(BaseRow):
     """
 
     def __init__(self, volume):
-        super(AddIsosurfaceRow, self).__init__()
+        super().__init__()
         self._volume = weakref.ref(volume)
 
     def createEditor(self):
@@ -1534,10 +1568,10 @@ class AddIsosurfaceRow(BaseRow):
         if column == 0 and role == qt.Qt.UserRole:  # editor hint
             return self.createEditor
 
-        return super(AddIsosurfaceRow, self).data(column, role)
+        return super().data(column, role)
 
     def flags(self, column):
-        flags = super(AddIsosurfaceRow, self).flags(column)
+        flags = super().flags(column)
         if column == 0:
             flags |= qt.Qt.ItemIsEditable
         return flags
@@ -1561,7 +1595,7 @@ class VolumeIsoSurfacesRow(StaticRow):
     """
 
     def __init__(self, volume):
-        super(VolumeIsoSurfacesRow, self).__init__(("Isosurfaces", None))
+        super().__init__(("Isosurfaces", None))
         self._volume = weakref.ref(volume)
 
         volume.sigIsosurfaceAdded.connect(self._isosurfaceAdded)
@@ -1614,20 +1648,20 @@ class VolumeIsoSurfacesRow(StaticRow):
             raise RuntimeError("Model does not correspond to scene content")
 
 
-class Scatter2DPropertyMixInRow(object):
+class Scatter2DPropertyMixInRow:
     """Mix-in class that enable/disable row according to Scatter2D mode.
 
     :param Scatter2D item:
     :param str propertyName: Name of the Scatter2D property of this row
     """
 
-    def __init__(self, item, propertyName):
+    def __init__(self, item, propertyName, setflags: bool = True):
         assert propertyName in ("lineWidth", "symbol", "symbolSize")
         self.__propertyName = propertyName
 
         self.__isEnabled = item.isPropertyEnabled(propertyName)
-        self.__updateFlags()
-
+        if setflags:
+            self._setFlags()
         item.sigItemChanged.connect(self._itemChanged)
 
     def data(self, column, role):
@@ -1635,11 +1669,14 @@ class Scatter2DPropertyMixInRow(object):
             # Discard data and editorHint if disabled
             return None
         else:
-            return super(Scatter2DPropertyMixInRow, self).data(column, role)
+            return super().data(column, role)
 
-    def __updateFlags(self):
+    def _isEnabled(self) -> bool:
+        return self.__isEnabled
+
+    def _setFlags(self):
         """Update model flags"""
-        if self.__isEnabled:
+        if self._isEnabled():
             self.setFlags(qt.Qt.ItemIsEnabled, 0)
             self.setFlags(qt.Qt.ItemIsEnabled | qt.Qt.ItemIsEditable, 1)
         else:
@@ -1651,7 +1688,7 @@ class Scatter2DPropertyMixInRow(object):
             item = self.sender()
             if item is not None:  # This occurs with PySide/python2.7
                 self.__isEnabled = item.isPropertyEnabled(self.__propertyName)
-                self.__updateFlags()
+                self._setFlags()
 
             # Notify model
             model = self.model()
@@ -1683,8 +1720,18 @@ class Scatter2DSymbolSizeRow(Scatter2DPropertyMixInRow, SymbolSizeRow):
     """
 
     def __init__(self, item):
-        SymbolSizeRow.__init__(self, item)
-        Scatter2DPropertyMixInRow.__init__(self, item, "symbolSize")
+        SymbolSizeRow.__init__(self, item, setflags=False)
+        Scatter2DPropertyMixInRow.__init__(self, item, "symbolSize", setflags=False)
+        self._setFlags()
+
+    def _isEnabled(self) -> bool:
+        return Scatter2DPropertyMixInRow._isEnabled(self) and SymbolSizeRow._isEnabled(
+            self
+        )
+
+    def _itemChanged(self, event):
+        Scatter2DPropertyMixInRow._itemChanged(self, event)
+        SymbolSizeRow._itemChanged(self, event)
 
 
 class Scatter2DLineWidth(Scatter2DPropertyMixInRow, ItemProxyRow):

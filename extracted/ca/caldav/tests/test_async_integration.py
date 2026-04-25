@@ -439,6 +439,559 @@ class AsyncFunctionalTestsBaseClass:
         assert len(todos) >= 1
         assert all(isinstance(t, AsyncTodo) for t in todos)
 
+    @pytest.mark.asyncio
+    async def test_add_organizer_no_arg(self, async_client: Any, async_calendar: Any) -> None:
+        """add_organizer() without args returns a coroutine and sets ORGANIZER (issue #524).
+
+        Verifies the async fix: on an AsyncDAVClient principal() is a coroutine
+        function, so add_organizer() must await it via _async_add_organizer()
+        rather than calling it synchronously (which would raise AttributeError
+        on the returned coroutine object).
+        """
+        from caldav import Event
+
+        self.skip_unless_support("scheduling.calendar-user-address-set")
+
+        principal = await async_client.principal()
+        expected_vcal = await principal._async_get_vcal_address()
+
+        event = Event(client=async_client, data=ev1(), parent=async_calendar)
+
+        ## Must return a coroutine, not raise AttributeError
+        coro = event.add_organizer()
+        assert asyncio.iscoroutine(coro), (
+            f"add_organizer() on async client must return a coroutine, got {type(coro)}"
+        )
+        await coro
+
+        org = event.icalendar_component.get("organizer")
+        assert org is not None, "ORGANIZER must be set after awaiting add_organizer()"
+        assert str(org) == str(expected_vcal), (
+            f"ORGANIZER {org!r} should match the principal's address {expected_vcal!r}"
+        )
+
+
+class _AsyncTestSchedulingBase:
+    """
+    Async counterpart of _TestSchedulingBase (tests/test_caldav.py) for
+    RFC6638 scheduling tests.  Not collected directly by pytest (no ``Test``
+    prefix); concrete subclasses supply ``_users`` and ``_server_features``.
+
+    Concrete subclasses are generated dynamically in the module epilogue,
+    one per server that has ``scheduling_users`` configured.
+    """
+
+    ## Subclasses set these when the class is dynamically generated.
+    _users: list[dict] = []
+    _server_features: object = None
+
+    def _skip_unless_support(self, feature: str) -> None:
+        """Skip if the server does not declare support for *feature*."""
+        from caldav.compatibility_hints import FeatureSet
+
+        if not self._server_features:
+            pytest.skip(f"No feature information available, skipping {feature} test")
+        fs = (
+            self._server_features
+            if isinstance(self._server_features, FeatureSet)
+            else FeatureSet(self._server_features)
+        )
+        if not fs.is_supported(feature):
+            msg = fs.find_feature(feature).get("description", feature)
+            pytest.skip("Test skipped due to server incompatibility issue: " + msg)
+
+    @pytest_asyncio.fixture
+    async def scheduling_setup(self) -> Any:
+        """Create async clients/principals/calendars for each scheduling user."""
+        from caldav.aio import get_async_davclient
+
+        from .fixture_helpers import aget_or_create_test_calendar, cleanup_calendar_objects
+
+        clients: list[Any] = []
+        principals: list[Any] = []
+        calendars: list[Any] = []
+        auto_uids: list[str] = []
+
+        for i, user_config in enumerate(self._users):
+            try:
+                client = await get_async_davclient(probe=False, **user_config)
+            except Exception:
+                continue
+            if not await client.check_scheduling_support():
+                await client.close()
+                continue
+            principal = await client.principal()
+            ## Use a fixed cal_id (not a random UUID) so the same calendar is
+            ## reused across test runs and does not accumulate on the server.
+            ## This mirrors the sync scheduling tests which use fixed calendar names.
+            cal, _ = await aget_or_create_test_calendar(
+                client,
+                principal,
+                calendar_name=f"async scheduling test {i}",
+                cal_id=f"asyncschedtest{i}",
+            )
+            if cal is None:
+                await client.close()
+                continue
+            await cleanup_calendar_objects(cal)
+            clients.append(client)
+            principals.append(principal)
+            calendars.append(cal)
+
+        if not clients:
+            pytest.skip("No scheduling users available or server does not support scheduling")
+
+        yield clients, principals, calendars, auto_uids
+
+        ## Teardown: clear calendar objects and clean up auto-scheduled events
+        for i, (client, principal) in enumerate(zip(clients, principals, strict=False)):
+            try:
+                await cleanup_calendar_objects(calendars[i])
+            except Exception:
+                pass
+            if auto_uids:
+                try:
+                    for cal in await principal.calendars():
+                        try:
+                            for event in await cal.get_events():
+                                if event.id in auto_uids:
+                                    await event.delete()
+                        except Exception:
+                            pass
+                except Exception:
+                    pass
+            await client.close()
+
+    @pytest.mark.asyncio
+    async def test_invite_and_respond(self, scheduling_setup: Any) -> None:
+        """send a calendar invite via save_with_invites and verify delivery.
+
+        Async counterpart of _TestSchedulingBase.testInviteAndRespond.
+        """
+        import uuid
+
+        clients, principals, calendars, auto_uids = scheduling_setup
+        if len(principals) < 2:
+            pytest.skip("need 2 principals to do the invite and respond test")
+
+        ## Snapshot inbox contents before the invite
+        inbox0 = await principals[0].schedule_inbox()
+        inbox1 = await principals[1].schedule_inbox()
+        inbox_urls_before: set[Any] = set()
+        for item in await inbox0.get_items():
+            inbox_urls_before.add(item.url)
+        for item in await inbox1.get_items():
+            inbox_urls_before.add(item.url)
+
+        ## Send the invite
+        base = _get_base_date()
+        ical = make_event(
+            f"async-sched-{uuid.uuid4()}@example.com",
+            "Async Schedule Test",
+            base + timedelta(days=3),
+            base + timedelta(days=3, hours=1),
+        )
+        attendee_vcal = await principals[1]._async_get_vcal_address()
+        saved_event = await calendars[0].save_with_invites(ical, [principals[0], attendee_vcal])
+        event_uid = saved_event.id
+        auto_uids.append(event_uid)
+
+        ## Event must be in the organizer's calendar
+        organizer_events = await calendars[0].get_events()
+        assert any(e.id == event_uid for e in organizer_events), (
+            "Event should appear in organizer's calendar after save_with_invites"
+        )
+
+        ## Poll: check attendee's inbox and calendars.  Some servers process
+        ## scheduling asynchronously, so poll with backoff before giving up.
+        new_attendee_inbox_items: list[Any] = []
+        auto_scheduled = False
+        for _ in range(30):
+            new_attendee_inbox_items = [
+                item for item in await inbox1.get_items() if item.url not in inbox_urls_before
+            ]
+            ## Check whether the server auto-scheduled the event directly into
+            ## the attendee's calendar.  The event may land in any calendar,
+            ## so search all attendee calendars for the event UID.
+            ## Always check even when inbox items were found: some servers (e.g.
+            ## Davis/sabre/dav) deliver iTIP to the inbox AND auto-schedule.
+            if not auto_scheduled:
+                for cal in await principals[1].calendars():
+                    for event in await cal.get_events():
+                        if event.id == event_uid:
+                            auto_scheduled = True
+                            break
+                    if auto_scheduled:
+                        break
+            if new_attendee_inbox_items or auto_scheduled:
+                break
+            await asyncio.sleep(1)
+
+        if len(new_attendee_inbox_items) == 0 or auto_scheduled:
+            ## Server implements automatic scheduling.  Some servers (e.g.
+            ## Stalwart) may additionally deliver an iTIP copy to the inbox as
+            ## a notification, but the acceptance is already done.
+            assert auto_scheduled, (
+                "Expected invite in attendee inbox OR event auto-added to attendee calendar, "
+                "got neither"
+            )
+            return
+
+        ## Normal inbox-delivery flow (RFC6638 section 4.1).
+
+        ## No new inbox items expected for principals[0] yet
+        for item in await inbox0.get_items():
+            assert item.url in inbox_urls_before
+
+        assert len(new_attendee_inbox_items) == 1
+        assert new_attendee_inbox_items[0].is_invite_request()
+
+        ## Approving the invite.
+        await new_attendee_inbox_items[0].accept_invite(calendar=calendars[1])
+
+        ## principals[0] should now have a notification in the inbox that the
+        ## calendar invite was accepted
+        new_organizer_inbox_items = [
+            item for item in await inbox0.get_items() if item.url not in inbox_urls_before
+        ]
+        assert len(new_organizer_inbox_items) == 1
+        assert new_organizer_inbox_items[0].is_invite_reply()
+        await new_organizer_inbox_items[0].delete()
+
+    @pytest.mark.asyncio
+    async def test_freebusy(self, scheduling_setup: Any) -> None:
+        """Test RFC6638 freebusy query via the schedule outbox.
+
+        Async counterpart of _TestSchedulingBase.testFreeBusy.
+        Verifies that Principal.freebusy_request() returns a coroutine for
+        async clients and that awaiting it completes without error.
+        """
+        clients, principals, calendars, auto_uids = scheduling_setup
+        self._skip_unless_support("scheduling.freebusy-query")
+
+        base = _get_base_date()
+        dtstart = base
+        dtend = base + timedelta(days=1)
+        attendees = [await principals[0]._async_get_vcal_address()]
+
+        coro = principals[0].freebusy_request(dtstart, dtend, attendees)
+        assert asyncio.iscoroutine(coro), (
+            f"Principal.freebusy_request() on async client must return a coroutine, "
+            f"got {type(coro)}"
+        )
+        ## Just verify it completes without raising; response format varies per server.
+        await coro
+
+    # ------------------------------------------------------------------ #
+    # Schedule-Tag tests (RFC 6638 section 3.2–3.3)                       #
+    # These are async counterparts of the sync tests in                   #
+    # _TestSchedulingBase.  They are EXPECTED TO FAIL until async         #
+    # scheduling support (_async_put with If-Schedule-Tag-Match etc.)     #
+    # is implemented.                                                      #
+    # ------------------------------------------------------------------ #
+
+    @pytest.mark.asyncio
+    async def test_schedule_tag_returned_on_save(self, scheduling_setup: Any) -> None:
+        """Saving a scheduling object must return a Schedule-Tag header.
+
+        Async counterpart of testScheduleTagReturnedOnSave.
+        Expected to fail: _async_put() does not yet capture the Schedule-Tag
+        response header into event.props.
+        """
+        import uuid
+
+        clients, principals, calendars, auto_uids = scheduling_setup
+        self._skip_unless_support("scheduling.schedule-tag")
+        if len(principals) < 2:
+            pytest.skip("need 2 principals")
+
+        organizer_cal = calendars[0]
+        addr = await principals[0].get_vcal_address()
+        addr2 = await principals[1].get_vcal_address()
+        uid = str(uuid.uuid4())
+        ical = (
+            "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Test//Test//EN\r\n"
+            "BEGIN:VEVENT\r\n"
+            f"UID:{uid}\r\n"
+            "DTSTAMP:20260101T000000Z\r\n"
+            "DTSTART:20320601T100000Z\r\nDURATION:PT1H\r\n"
+            "SUMMARY:Schedule-Tag test\r\n"
+            f"ORGANIZER:{addr}\r\n"
+            f"ATTENDEE;RSVP=TRUE;PARTSTAT=NEEDS-ACTION:{addr}\r\n"
+            f"ATTENDEE;RSVP=TRUE;PARTSTAT=NEEDS-ACTION:{addr2}\r\n"
+            "END:VEVENT\r\nEND:VCALENDAR\r\n"
+        )
+        event = await organizer_cal.save_event(ical)
+        auto_uids.append(uid)
+
+        assert event.schedule_tag is not None, "Server did not return Schedule-Tag header after PUT"
+
+    @pytest.mark.asyncio
+    async def test_schedule_tag_stable_on_partstate_update(self, scheduling_setup: Any) -> None:
+        """PARTSTAT-only update must not change the Schedule-Tag.
+
+        Async counterpart of testScheduleTagStableOnPartstateUpdate.
+        """
+        import uuid
+
+        clients, principals, calendars, auto_uids = scheduling_setup
+        self._skip_unless_support("scheduling.schedule-tag")
+        self._skip_unless_support("scheduling.schedule-tag.stable-partstat")
+        if len(principals) < 2:
+            pytest.skip("need 2 principals")
+        if not clients[1].features.is_supported("scheduling.mailbox.inbox-delivery"):
+            pytest.skip("server does not deliver iTIP requests to the inbox")
+
+        organizer_cal = calendars[0]
+        attendee_cal = calendars[1]
+        organizer_addr = await principals[0].get_vcal_address()
+        attendee_addr = await principals[1].get_vcal_address()
+        uid = str(uuid.uuid4())
+        ical = (
+            "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Test//Test//EN\r\n"
+            "BEGIN:VEVENT\r\n"
+            f"UID:{uid}\r\n"
+            "SEQUENCE:0\r\n"
+            "DTSTAMP:20260101T000000Z\r\n"
+            "DTSTART:20320601T100000Z\r\nDURATION:PT1H\r\n"
+            "SUMMARY:Partstat stability test\r\n"
+            f"ORGANIZER:{organizer_addr}\r\n"
+            f"ATTENDEE;RSVP=TRUE;PARTSTAT=NEEDS-ACTION:{attendee_addr}\r\n"
+            "END:VEVENT\r\nEND:VCALENDAR\r\n"
+        )
+        saved_event = await organizer_cal.save_with_invites(ical, [principals[0], attendee_addr])
+        auto_uids.append(uid)
+
+        ## Wait for the REQUEST invite to land in attendee's inbox
+        invite = None
+        for _ in range(30):
+            inbox = await principals[1].schedule_inbox()
+            for item in await inbox.get_items():
+                await item.load()
+                if item.is_invite_request() and item.id == saved_event.id:
+                    invite = item
+                    break
+            if invite:
+                break
+            await asyncio.sleep(1)
+
+        if not invite:
+            pytest.skip("Invite not delivered to attendee inbox; cannot test PARTSTAT stability")
+
+        await invite.accept_invite(calendar=attendee_cal)
+
+        ## Find the attendee's copy
+        attendee_event = None
+        for _ in range(5):
+            for cal in await principals[1].calendars():
+                try:
+                    attendee_event = await cal.get_event_by_uid(saved_event.id)
+                    break
+                except Exception:
+                    pass
+            if attendee_event:
+                break
+            await asyncio.sleep(1)
+
+        assert attendee_event is not None, "Event not found in any attendee calendar after accept"
+        await attendee_event.load()
+        tag_before = attendee_event.schedule_tag
+        assert tag_before is not None, "No Schedule-Tag on attendee's calendar event after accept"
+
+        ## PARTSTAT-only change — tag must not move.
+        ## Pass attendee_addr explicitly: without an arg, change_attendee_status() resolves
+        ## the principal via self.client.principal(), which returns a coroutine in async mode.
+        attendee_event.change_attendee_status(str(attendee_addr), partstat="TENTATIVE")
+        await attendee_event.save()
+        await attendee_event.load()
+        tag_after = attendee_event.schedule_tag
+
+        assert tag_after is not None, "No Schedule-Tag on attendee's event after PARTSTAT update"
+        assert tag_before == tag_after, (
+            f"Schedule-Tag changed after PARTSTAT-only update: {tag_before!r} → {tag_after!r}"
+        )
+
+    @pytest.mark.asyncio
+    async def test_schedule_tag_changes_on_organizer_update(self, scheduling_setup: Any) -> None:
+        """Organizer update must advance the Schedule-Tag on the attendee's copy.
+
+        Async counterpart of testScheduleTagChangesOnOrganizerUpdate.
+        Expected to fail: _async_load() does not yet capture the Schedule-Tag
+        response header.
+        """
+        import uuid
+
+        clients, principals, calendars, auto_uids = scheduling_setup
+        self._skip_unless_support("scheduling.schedule-tag")
+        if len(principals) < 2:
+            pytest.skip("need 2 principals")
+
+        organizer_cal = calendars[0]
+        organizer_addr = await principals[0].get_vcal_address()
+        attendee_addr = await principals[1].get_vcal_address()
+        uid = str(uuid.uuid4())
+        seqno = 0
+
+        def _make_ical(summary: str) -> str:
+            nonlocal seqno
+            s = seqno
+            seqno += 1
+            return (
+                "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Test//Test//EN\r\n"
+                "BEGIN:VEVENT\r\n"
+                f"UID:{uid}\r\n"
+                f"SEQUENCE:{s}\r\n"
+                "DTSTAMP:20260101T000000Z\r\n"
+                "DTSTART:20320601T100000Z\r\nDURATION:PT1H\r\n"
+                f"SUMMARY:{summary}\r\n"
+                f"ORGANIZER:{organizer_addr}\r\n"
+                f"ATTENDEE;RSVP=TRUE;PARTSTAT=NEEDS-ACTION:{attendee_addr}\r\n"
+                "END:VEVENT\r\nEND:VCALENDAR\r\n"
+            )
+
+        await organizer_cal.save_with_invites(
+            _make_ical("Original summary"), [principals[0], attendee_addr]
+        )
+        auto_uids.append(uid)
+
+        ## Poll for attendee's copy
+        attendee_event = None
+        for _ in range(30):
+            for cal in await principals[1].calendars():
+                for ev in await cal.get_events():
+                    if ev.id == uid:
+                        attendee_event = ev
+                        break
+                if attendee_event:
+                    break
+            if attendee_event:
+                break
+            await asyncio.sleep(1)
+
+        if attendee_event is None:
+            pytest.skip("Event not delivered to attendee; cannot test tag change")
+
+        await attendee_event.load()
+        tag_before = attendee_event.schedule_tag
+        assert tag_before is not None, "No Schedule-Tag on attendee's copy before organizer update"
+
+        ## Organizer sends a substantive update
+        await organizer_cal.save_with_invites(
+            _make_ical("Updated summary"), [principals[0], attendee_addr]
+        )
+
+        ## Poll until the tag advances
+        for _ in range(30):
+            await attendee_event.load()
+            if attendee_event.schedule_tag != tag_before:
+                break
+            await asyncio.sleep(1)
+
+        assert attendee_event.schedule_tag != tag_before, (
+            f"Schedule-Tag did not change after organizer update: still {tag_before!r}"
+        )
+
+    @pytest.mark.asyncio
+    async def test_schedule_tag_mismatch_raises_error(self, scheduling_setup: Any) -> None:
+        """save() with a stale Schedule-Tag must raise ScheduleTagMismatchError.
+
+        Async counterpart of testScheduleTagMismatchRaisesError.
+        Expected to fail: _async_put() does not yet send If-Schedule-Tag-Match
+        or raise ScheduleTagMismatchError on a 412 response.
+        """
+        import uuid
+
+        from caldav.lib import error
+
+        clients, principals, calendars, auto_uids = scheduling_setup
+        self._skip_unless_support("scheduling.schedule-tag")
+        if len(principals) < 2:
+            pytest.skip("need 2 principals to cause a server-side tag advance")
+
+        organizer_cal = calendars[0]
+        organizer_addr = await principals[0].get_vcal_address()
+        attendee_addr = await principals[1].get_vcal_address()
+        uid = str(uuid.uuid4())
+
+        def _make_ical(summary: str, seq: int) -> str:
+            return (
+                "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Test//Test//EN\r\n"
+                "BEGIN:VEVENT\r\n"
+                f"UID:{uid}\r\n"
+                f"SEQUENCE:{seq}\r\n"
+                "DTSTAMP:20260101T000000Z\r\n"
+                "DTSTART:20320601T100000Z\r\nDURATION:PT1H\r\n"
+                f"SUMMARY:{summary}\r\n"
+                f"ORGANIZER:{organizer_addr}\r\n"
+                f"ATTENDEE;RSVP=TRUE;PARTSTAT=NEEDS-ACTION:{attendee_addr}\r\n"
+                "END:VEVENT\r\nEND:VCALENDAR\r\n"
+            )
+
+        ## Create event, load it: event holds original content + tag=1
+        event = await organizer_cal.save_event(_make_ical("Original", 0))
+        auto_uids.append(uid)
+        await event.load()
+        assert event.schedule_tag is not None, (
+            "server did not return Schedule-Tag after initial save"
+        )
+
+        ## Make a local conflicting edit before the concurrent organizer update
+        event.icalendar_component["SUMMARY"] = "Conflicting client change"
+
+        ## Concurrent organizer PUT advances the server-side tag
+        await organizer_cal.save_event(_make_ical("Organizer update", 1))
+
+        ## PUT stale content with stale tag — server must reject with 412
+        with pytest.raises(error.ScheduleTagMismatchError):
+            await event.save(increase_seqno=False)
+
+    @pytest.mark.asyncio
+    async def test_schedule_tag_match_succeeds(self, scheduling_setup: Any) -> None:
+        """save() with the correct Schedule-Tag must succeed.
+
+        Async counterpart of testScheduleTagMatchSucceeds.
+        Expected to fail: _async_put() does not yet send If-Schedule-Tag-Match,
+        so the conditional PUT is not exercised.
+        """
+        import uuid
+
+        clients, principals, calendars, auto_uids = scheduling_setup
+        self._skip_unless_support("scheduling.schedule-tag")
+        if len(principals) < 2:
+            pytest.skip("need 2 principals for Schedule-Tag to be assigned")
+
+        cal = calendars[0]
+        addr = await principals[0].get_vcal_address()
+        addr2 = await principals[1].get_vcal_address()
+        uid = str(uuid.uuid4())
+        ical = (
+            "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Test//Test//EN\r\n"
+            "BEGIN:VEVENT\r\n"
+            f"UID:{uid}\r\n"
+            "DTSTAMP:20260101T000000Z\r\n"
+            "DTSTART:20320601T100000Z\r\nDURATION:PT1H\r\n"
+            "SUMMARY:Correct-tag test\r\n"
+            f"ORGANIZER:{addr}\r\n"
+            f"ATTENDEE;RSVP=TRUE;PARTSTAT=NEEDS-ACTION:{addr}\r\n"
+            f"ATTENDEE;RSVP=TRUE;PARTSTAT=NEEDS-ACTION:{addr2}\r\n"
+            "END:VEVENT\r\nEND:VCALENDAR\r\n"
+        )
+        event = await cal.save_event(ical)
+        auto_uids.append(uid)
+        await event.load()
+
+        tag_before = event.schedule_tag
+        assert tag_before is not None, "Server did not return Schedule-Tag"
+
+        ## Minor update with the correct tag — must not raise
+        event.icalendar_component["SUMMARY"] = "Correct-tag test (updated)"
+        await event.save(increase_seqno=False)
+
+        ## Tag must still be present after save
+        assert event.schedule_tag is not None, (
+            "schedule_tag property disappeared after conditional save"
+        )
+
 
 # ==================== Dynamic Test Class Generation ====================
 #
@@ -464,3 +1017,18 @@ for _server in get_available_servers():
     # Add to module namespace so pytest discovers it
     vars()[_classname] = _test_class
     _generated_classes[_classname] = _test_class
+
+    ## If the server has scheduling_users, also generate an async scheduling class.
+    if hasattr(_server, "config") and "scheduling_users" in _server.config:
+        _sched_classname = f"TestAsyncSchedulingFor{_server.name.replace(' ', '')}"
+        if _sched_classname not in _generated_classes:
+            _sched_class = type(
+                _sched_classname,
+                (_AsyncTestSchedulingBase,),
+                {
+                    "_users": _server.config["scheduling_users"],
+                    "_server_features": _server.features,
+                },
+            )
+            vars()[_sched_classname] = _sched_class
+            _generated_classes[_sched_classname] = _sched_class

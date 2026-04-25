@@ -27,6 +27,7 @@
 """
 Simple test of an addition
 """
+
 __authors__ = ["Henri Payno, Jérôme Kieffer"]
 __contact__ = "jerome.kieffer@esrf.eu"
 __license__ = "MIT"
@@ -41,10 +42,7 @@ import unittest
 from ..common import ocl
 
 if ocl:
-    import pyopencl
-    import pyopencl.array
     from ..statistics import StatResults, Statistics
-from ..utils import get_opencl_code
 
 logger = logging.getLogger(__name__)
 

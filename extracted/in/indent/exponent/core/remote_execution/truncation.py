@@ -183,11 +183,33 @@ class StringListTruncation(TruncationStrategy[_T]):
         max_items: int = DEFAULT_LIST_ITEM_LIMIT,
         preview_items: int = DEFAULT_LIST_PREVIEW_ITEMS,
         max_item_length: int = 1000,
+        max_total_length: int | None = None,
     ):
         self.field_name = field_name
         self.max_items = max_items
         self.preview_items = preview_items
         self.max_item_length = max_item_length
+        self.max_total_length = max_total_length
+
+    @staticmethod
+    def _item_len(item: str | dict[str, Any]) -> int:
+        if isinstance(item, str):
+            return len(item)
+        elif isinstance(item, dict) and "content" in item:
+            return len(item["content"])
+        return 0
+
+    def _effective_item_limit(self, num_items: int) -> int:
+        """Per-item length budget, derived from equal allocation of the total cap."""
+        if self.max_total_length is None or num_items <= 0:
+            return self.max_item_length
+        return min(self.max_item_length, max(1, self.max_total_length // num_items))
+
+    def _surviving_item_count(self, num_items: int) -> int:
+        """Number of original items that survive after list-length truncation."""
+        if num_items > self.max_items:
+            return 2 * self.preview_items
+        return num_items
 
     def should_truncate(self, result: _T) -> bool:
         if not hasattr(result, self.field_name):
@@ -201,30 +223,27 @@ class StringListTruncation(TruncationStrategy[_T]):
         if len(items) > self.max_items:
             return True
 
-        # Check if any individual item is too long
+        item_limit = self._effective_item_limit(self._surviving_item_count(len(items)))
+
+        # Check if any individual item is too long under the effective per-item limit
         for item in items:
-            if isinstance(item, str) and len(item) > self.max_item_length:
+            if self._item_len(item) > item_limit:
                 return True
-            # Handle dict items (e.g., with metadata like file path and line number)
-            elif isinstance(item, dict) and "content" in item:
-                if len(item["content"]) > self.max_item_length:
-                    return True
 
         return False
 
-    def _truncate_item_content(self, item: str | dict[str, Any]) -> str | dict[str, Any]:
+    def _truncate_item_content(self, item: str | dict[str, Any], item_limit: int) -> str | dict[str, Any]:
         """Truncate an individual item's content."""
         if isinstance(item, str):
-            if len(item) <= self.max_item_length:
+            if len(item) <= item_limit:
                 return item
-            # Truncate string item
-            truncated, _ = truncate_output(item, self.max_item_length)
+            truncated, _ = truncate_output(item, item_limit)
             return truncated
         elif isinstance(item, dict) and "content" in item:
             # Handle dict-style items (e.g., with metadata like file path and line number)
-            if len(item["content"]) <= self.max_item_length:
+            if len(item["content"]) <= item_limit:
                 return item
-            truncated_content, _ = truncate_output(item["content"], self.max_item_length)
+            truncated_content, _ = truncate_output(item["content"], item_limit)
             return {**item, "content": truncated_content}
         else:
             return item
@@ -237,20 +256,22 @@ class StringListTruncation(TruncationStrategy[_T]):
         if not isinstance(items, list):
             return result
 
-        # First, truncate individual item contents
-        truncated_items = [self._truncate_item_content(item) for item in items]
-
-        # Then, limit the number of items if needed
-        total_items = len(truncated_items)
+        total_items = len(items)
+        # Limit the number of items first so the per-item budget is allocated
+        # only across items that will actually be returned.
         if total_items > self.max_items:
             truncated_count = max(0, total_items - 2 * self.preview_items)
+            kept_items = items[: self.preview_items] + items[-self.preview_items :]
+            item_limit = self._effective_item_limit(len(kept_items))
+            truncated_kept = [self._truncate_item_content(item, item_limit) for item in kept_items]
             final_items = (
-                truncated_items[: self.preview_items]
+                truncated_kept[: self.preview_items]
                 + [f"... {truncated_count} items truncated ..."]
-                + truncated_items[-self.preview_items :]
+                + truncated_kept[self.preview_items :]
             )
         else:
-            final_items = truncated_items
+            item_limit = self._effective_item_limit(total_items)
+            final_items = [self._truncate_item_content(item, item_limit) for item in items]
 
         updates: dict[str, Any] = {self.field_name: final_items}
         if hasattr(result, "truncated"):
@@ -262,7 +283,7 @@ class StringListTruncation(TruncationStrategy[_T]):
 TRUNCATION_REGISTRY: dict[type[ToolResult], TruncationStrategy[Any]] = {
     ReadToolResult: StringFieldTruncation("content"),
     WriteToolResult: StringFieldTruncation("message"),
-    GrepToolResult: StringListTruncation("matches"),
+    GrepToolResult: StringListTruncation("matches", max_total_length=10_000),
     GlobToolResult: StringListTruncation("filenames", max_item_length=4096),
     BashToolResult: TailTruncation("output", character_limit=BASH_CHARACTER_LIMIT),
 }

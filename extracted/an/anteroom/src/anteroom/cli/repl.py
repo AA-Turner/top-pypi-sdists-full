@@ -83,6 +83,36 @@ _OPTION_PREFIX_RE = re.compile(r"^\s*(?:[A-Za-z]|\d+)[.)]\s+")
 _CHOICE_CANCEL_SENTINEL = "\x00__cancel__"
 
 
+def _register_shift_enter_csi_u() -> None:
+    """Map CSI-u Shift+Enter to Ctrl+J for prompt-toolkit when supported."""
+    try:
+        from prompt_toolkit.input import vt100_parser
+        from prompt_toolkit.keys import Keys
+
+        vt100_parser.ANSI_SEQUENCES["\x1b[13;2u"] = Keys.ControlJ
+    except Exception:
+        pass
+
+
+def _make_sub_prompt_key_bindings() -> Any:
+    """Create multiline ask_user bindings: Enter submits, newline shortcuts insert."""
+    from prompt_toolkit.key_binding import KeyBindings
+
+    kb = KeyBindings()
+
+    @kb.add("enter", eager=True)
+    @kb.add("c-m", eager=True)
+    def _submit(event: Any) -> None:
+        event.current_buffer.validate_and_handle()
+
+    @kb.add("escape", "enter", eager=True)
+    @kb.add("c-j", eager=True)
+    def _newline(event: Any) -> None:
+        event.current_buffer.insert_text("\n")
+
+    return kb
+
+
 def _strip_option_prefix(label: str) -> str:
     """Strip a leading enumeration prefix (``A.`` / ``1)`` / etc.) from an option label.
 
@@ -173,10 +203,12 @@ def _make_ask_user_callback(
             for i, opt in enumerate(stripped, 1):
                 console_print(f"    [{MUTED}]{i}.[/{MUTED}] {escape(opt)}")
             prompt_text = f"  Choice [1-{len(stripped)} or text] > "
-            console_print(f"  [{MUTED}]('x' or Ctrl-D to cancel)[/{MUTED}]")
         else:
             prompt_text = "  Answer > "
-            console_print(f"  [{MUTED}]('x' or Ctrl-D to cancel)[/{MUTED}]")
+        console_print(
+            f"  [{MUTED}](Enter submits; Shift+Enter adds a newline when supported; "
+            f"Ctrl+J or Esc+Enter adds a newline; 'x', Ctrl-D, or Ctrl-C cancels)[/{MUTED}]"
+        )
 
         answer = await sub_prompt_async(prompt_text)
 
@@ -740,7 +772,7 @@ def _estimate_current_request(
 
 
 def _load_conversation_messages(
-    db: Any, conversation_id: str, *, tool_replay_max_chars: int = 2000
+    db: Any, conversation_id: str, *, tool_replay_max_chars: int = 10_000
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Load existing conversation messages into AI message format.
 
@@ -3524,7 +3556,11 @@ async def run_cli(
         from prompt_toolkit import PromptSession as _SubSession
 
         try:
-            _sub: Any = _SubSession()
+            _register_shift_enter_csi_u()
+            _sub: Any = _SubSession(
+                key_bindings=_make_sub_prompt_key_bindings(),
+                prompt_continuation="  ",
+            )
             answer = await _sub.prompt_async(prompt_text)
             return answer.strip() if answer is not None else None
         except (EOFError, KeyboardInterrupt):
@@ -4621,12 +4657,7 @@ async def _run_repl(
     # natively send kitty keyboard protocol sequences (iTerm2, kitty, WezTerm).
     # Terminal.app doesn't send this sequence — Shift+Enter = Enter there.
     # See #673 for Warp terminal limitations.
-    try:
-        from prompt_toolkit.input import vt100_parser
-
-        vt100_parser.ANSI_SEQUENCES["\x1b[13;2u"] = "c-j"  # type: ignore[assignment]
-    except Exception:
-        pass
+    _register_shift_enter_csi_u()
 
     # Key bindings
     kb = KeyBindings()
@@ -4860,9 +4891,6 @@ async def _run_repl(
         _toolbar_dirty[0] = True
         if session.app:
             session.app.invalidate()
-
-    renderer._toolbar_invalidator = _invalidate_and_redraw
-    renderer._toolbar_is_active = lambda: bool(session.app and session.app.is_running)
 
     # Set approval mode for prompt coloring
     from anteroom.cli.layout import set_approval_mode
@@ -5164,6 +5192,11 @@ async def _run_repl(
     _current_cancel_event: list[asyncio.Event | None] = [None]
     _cancel_acked: list[bool] = [False]
     _force_cancel_event: list[threading.Event | None] = [None]
+    _prompt_input_active: list[bool] = [False]
+
+    renderer._toolbar_invalidator = _invalidate_and_redraw
+    renderer._toolbar_is_active = lambda: bool(session.app and session.app.is_running)
+    renderer._prompt_is_active = lambda: _prompt_input_active[0]
 
     @kb.add("tab")
     def _tab_complete(event: Any) -> None:
@@ -5785,7 +5818,7 @@ async def _run_repl(
 
                         import filetype as _ft
 
-                        max_size_mb = 10
+                        max_size_mb = config.server.max_upload_mb
                         max_size = max_size_mb * 1024 * 1024
                         file_size = upload_path.stat().st_size
                         if file_size > max_size:
@@ -5808,10 +5841,27 @@ async def _run_repl(
                             user_display_name=config.identity.display_name
                             if config.identity and hasattr(config.identity, "display_name")
                             else None,
+                            max_size_bytes=max_size,
                         )
+                        scope_status = "uploaded globally"
+                        if _active_space[0]:
+                            try:
+                                storage.link_source_to_space(db, _active_space[0]["id"], source_id=source["id"])
+                                scope_status = f"linked to active space: {_active_space[0]['name']}"
+                            except Exception:
+                                logger.warning(
+                                    "CLI upload stored source %s but failed to link to active space %s",
+                                    source["id"],
+                                    _active_space[0]["id"],
+                                    exc_info=True,
+                                )
+                                scope_status = (
+                                    f"stored globally; failed to link to active space: {_active_space[0]['name']}"
+                                )
                         renderer.console.print(
                             f"[{CHROME}]Uploaded {upload_path.name} -> source {source['id'][:8]}...[/{CHROME}]"
                         )
+                        renderer.console.print(f"  [{MUTED}]{scope_status}[/{MUTED}]")
                         if source.get("content"):
                             renderer.console.print(
                                 f"  [{MUTED}]{mime}, {len(source['content']):,} chars extracted[/{MUTED}]"
@@ -8622,6 +8672,7 @@ async def _run_repl(
 
         while not exit_flag.is_set():
             invalidate_toolbar()
+            _prompt_input_active[0] = True
             try:
                 user_input_raw = await session.prompt_async(
                     _prompt,
@@ -8631,6 +8682,8 @@ async def _run_repl(
             except (EOFError, KeyboardInterrupt):
                 exit_flag.set()
                 return
+            finally:
+                _prompt_input_active[0] = False
 
             if _exit_flag[0]:
                 exit_flag.set()
@@ -8725,6 +8778,7 @@ async def _run_repl(
     # Clean up toolbar callbacks to avoid stale closure references.
     renderer._toolbar_invalidator = None
     renderer._toolbar_is_active = None
+    renderer._prompt_is_active = None
     renderer._footer_mode = False
 
     # Show resume hint after exit

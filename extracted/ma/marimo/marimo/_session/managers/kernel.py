@@ -21,6 +21,7 @@ from marimo._session.model import SessionMode
 from marimo._session.queue import ProcessLike
 from marimo._session.types import KernelManager, QueueManager
 from marimo._utils.print import print_
+from marimo._utils.subprocess import try_kill_process_and_group
 from marimo._utils.typed_connection import TypedConnection
 
 if TYPE_CHECKING:
@@ -91,6 +92,10 @@ class KernelManagerImpl(KernelManager):
                     self.queue_manager.win32_interrupt_queue,
                     self.profile_path,
                     GLOBAL_SETTINGS.LOG_LEVEL,
+                    # is_ipc
+                    False,
+                    # PID
+                    os.getpid(),
                 ),
                 # The process can't be a daemon, because daemonic processes
                 # can't create children
@@ -154,11 +159,39 @@ class KernelManagerImpl(KernelManager):
 
         self.kernel_task.start()  # type: ignore
         if listener is not None:
-            # First thing kernel does is connect to the socket, so it's safe to
-            # call accept
-            self._read_conn = TypedConnection[KernelMessage].of(
-                listener.accept()
+            # Listener.accept() has no timeout. Run it on a helper thread so
+            # the main path can watchdog kernel_task liveness; otherwise a
+            # child that dies before connecting leaves us blocked forever.
+            result: dict[str, Any] = {}
+
+            def _accept() -> None:
+                try:
+                    result["conn"] = listener.accept()
+                except Exception as e:
+                    result["error"] = e
+
+            accept_thread = threading.Thread(
+                target=_accept, name="kernel-accept", daemon=True
             )
+            accept_thread.start()
+            while True:
+                accept_thread.join(timeout=0.5)
+                if not accept_thread.is_alive():
+                    break
+                if not self.kernel_task.is_alive():  # type: ignore[attr-defined]
+                    # Closing the listener unblocks accept() in the helper
+                    # thread so it can exit cleanly instead of leaking.
+                    listener.close()
+                    accept_thread.join(timeout=1.0)
+                    raise RuntimeError(
+                        "marimo kernel subprocess exited before "
+                        "connecting (exitcode="
+                        f"{getattr(self.kernel_task, 'exitcode', None)})"
+                        "; check subprocess stderr for the cause"
+                    )
+            if "error" in result:
+                raise result["error"]
+            self._read_conn = TypedConnection[KernelMessage].of(result["conn"])
 
     @property
     def pid(self) -> int | None:
@@ -221,28 +254,33 @@ class KernelManagerImpl(KernelManager):
                 self.queue_manager.put_control_request(
                     commands.StopKernelCommand()
                 )
-        else:
-            # otherwise we have something that is `ProcessLike`
-            if self.profile_path is not None and self.kernel_task.is_alive():
-                self.queue_manager.put_control_request(
-                    commands.StopKernelCommand()
-                )
-                # Hack: Wait for kernel to exit and write out profile;
-                # joining the process hangs, but not sure why.
-                print_(
-                    "\tWriting profile statistics to",
-                    self.profile_path,
-                    " ...",
-                )
-                while not os.path.exists(self.profile_path):
-                    time.sleep(0.1)
-                time.sleep(1)
+            return
 
-            self.queue_manager.close_queues()
-            if self.kernel_task.is_alive():
-                self.kernel_task.terminate()
-            if self._read_conn is not None:
-                self._read_conn.close()
+        # Otherwise, we have something that is `ProcessLike`
+        if self.profile_path is not None and self.kernel_task.is_alive():
+            self.queue_manager.put_control_request(
+                commands.StopKernelCommand()
+            )
+            # Hack: Wait for kernel to exit and write out profile;
+            # joining the process hangs, but not sure why.
+            print_(
+                "\tWriting profile statistics to",
+                self.profile_path,
+                " ...",
+            )
+            while not os.path.exists(self.profile_path):
+                time.sleep(0.1)
+            time.sleep(1)
+
+        self.queue_manager.close_queues()
+        try:
+            try_kill_process_and_group(self.kernel_task)
+        except ProcessLookupError:
+            pass
+        except Exception as e:
+            LOGGER.warning(e)
+        if self._read_conn is not None:
+            self._read_conn.close()
 
     @property
     def kernel_connection(self) -> TypedConnection[KernelMessage]:

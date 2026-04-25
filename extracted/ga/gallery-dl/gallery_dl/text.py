@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright 2015-2025 Mike Fährmann
+# Copyright 2015-2026 Mike Fährmann
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -135,6 +135,34 @@ def nameext_from_name(filename, data=None):
     return data
 
 
+def filename_from_contentdisposition(cd):
+    if (pos := cd.find("filename*=")) >= 0:
+        pos += 10
+        if cd[pos] == '"':
+            pos += 1
+            value = cd[pos:cd.find('"', pos)]
+        else:
+            end = cd.find(";", pos)
+            value = cd[pos:None if end < 0 else end]
+        try:
+            charset, _, value = value.split("'", 2)
+            return unquote(value, charset, "replace")
+        except Exception:
+            pass
+
+    if (pos := cd.find("filename=")) >= 0:
+        pos += 9
+        if cd[pos] == '"':
+            pos += 1
+            value = cd[pos:cd.find('"', pos)]
+        else:
+            end = cd.find(";", pos)
+            value = cd[pos:None if end < 0 else end]
+        return value
+
+    return ""
+
+
 def extract(txt, begin, end, pos=None):
     """Extract the text between 'begin' and 'end' from 'txt'
 
@@ -229,6 +257,14 @@ def extract_from(txt, pos=None, default=""):
         except Exception:
             return default
     return extr
+
+
+extract_urls = re(r"https?://[^\s\"'<>\\]+").findall
+
+
+def parse_hex_escapes(txt):
+    """Convert hex escapes in 'txt' into actual characters"""
+    return re(r"\\x([0-9a-fA-F]{2})").sub(_hex_to_char, txt)
 
 
 def parse_unicode_escapes(txt):

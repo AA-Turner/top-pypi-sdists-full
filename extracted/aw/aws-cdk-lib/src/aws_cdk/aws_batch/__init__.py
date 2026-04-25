@@ -1078,6 +1078,7 @@ class CfnComputeEnvironment(
                     image_type="imageType",
         
                     # the properties below are optional
+                    batch_image_status="batchImageStatus",
                     image_id_override="imageIdOverride",
                     image_kubernetes_version="imageKubernetesVersion"
                 )],
@@ -1525,6 +1526,7 @@ class CfnComputeEnvironment(
                         image_type="imageType",
                 
                         # the properties below are optional
+                        batch_image_status="batchImageStatus",
                         image_id_override="imageIdOverride",
                         image_kubernetes_version="imageKubernetesVersion"
                     )],
@@ -2009,6 +2011,7 @@ class CfnComputeEnvironment(
         jsii_struct_bases=[],
         name_mapping={
             "image_type": "imageType",
+            "batch_image_status": "batchImageStatus",
             "image_id_override": "imageIdOverride",
             "image_kubernetes_version": "imageKubernetesVersion",
         },
@@ -2018,6 +2021,7 @@ class CfnComputeEnvironment(
             self,
             *,
             image_type: builtins.str,
+            batch_image_status: typing.Optional[builtins.str] = None,
             image_id_override: typing.Optional[builtins.str] = None,
             image_kubernetes_version: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -2029,6 +2033,7 @@ class CfnComputeEnvironment(
                This object isn't applicable to jobs that are running on Fargate resources.
 
             :param image_type: The image type to match with the instance type to select an AMI. The supported values are different for ``ECS`` and ``EKS`` resources. - **ECS** - If the ``imageIdOverride`` parameter isn't specified, then a recent `Amazon ECS-optimized Amazon Linux 2 AMI <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-optimized_AMI.html#al2ami>`_ ( ``ECS_AL2`` ) is used. If a new image type is specified in an update, but neither an ``imageId`` nor a ``imageIdOverride`` parameter is specified, then the latest Amazon ECS optimized AMI for that image type that's supported by AWS Batch is used. .. epigraph:: AWS will end support for Amazon ECS optimized AL2-optimized and AL2-accelerated AMIs. Starting in January 2026, AWS Batch will change the default AMI for new Amazon ECS compute environments from Amazon Linux 2 to Amazon Linux 2023. We recommend migrating AWS Batch Amazon ECS compute environments to Amazon Linux 2023 to maintain optimal performance and security. For more information on upgrading from AL2 to AL2023, see `How to migrate from ECS AL2 to ECS AL2023 <https://docs.aws.amazon.com/batch/latest/userguide/ecs-migration-2023.html>`_ in the *AWS Batch User Guide* . - **ECS_AL2** - `Amazon Linux 2 <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-optimized_AMI.html#al2ami>`_ : Default for all non-GPU instance families. - **ECS_AL2_NVIDIA** - `Amazon Linux 2 (GPU) <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-optimized_AMI.html#gpuami>`_ : Default for all GPU instance families (for example ``P4`` and ``G4`` ) and can be used for all non AWS Graviton-based instance types. - **ECS_AL2023** - `Amazon Linux 2023 <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-optimized_AMI.html>`_ : AWS Batch supports Amazon Linux 2023. .. epigraph:: Amazon Linux 2023 does not support ``A1`` instances. - **ECS_AL2023_NVIDIA** - `Amazon Linux 2023 (GPU) <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-optimized_AMI.html#gpuami>`_ : For all GPU instance families and can be used for all non AWS Graviton-based instance types. .. epigraph:: ECS_AL2023_NVIDIA doesn't support ``p3`` and ``g3`` instance types. - **EKS** - If the ``imageIdOverride`` parameter isn't specified, then a recent `Amazon EKS-optimized Amazon Linux 2023 AMI <https://docs.aws.amazon.com/eks/latest/userguide/eks-optimized-ami.html>`_ ( ``EKS_AL2023`` ) is used. If a new image type is specified in an update, but neither an ``imageId`` nor a ``imageIdOverride`` parameter is specified, then the latest Amazon EKS optimized AMI for that image type that AWS Batch supports is used. .. epigraph:: Amazon Linux 2023 AMIs are the default on AWS Batch for Amazon EKS. AWS will end support for Amazon EKS AL2-optimized and AL2-accelerated AMIs, starting 11/26/25. You can continue using AWS Batch -provided Amazon EKS optimized Amazon Linux 2 AMIs on your Amazon EKS compute environments beyond the 11/26/25 end-of-support date, these compute environments will no longer receive any new software updates, security patches, or bug fixes from AWS . For more information on upgrading from AL2 to AL2023, see `How to upgrade from EKS AL2 to EKS AL2023 <https://docs.aws.amazon.com/batch/latest/userguide/eks-migration-2023.html>`_ in the *AWS Batch User Guide* . - **EKS_AL2** - `Amazon Linux 2 <https://docs.aws.amazon.com/eks/latest/userguide/eks-optimized-ami.html>`_ : Used for non-GPU instance families. - **EKS_AL2_NVIDIA** - `Amazon Linux 2 (accelerated) <https://docs.aws.amazon.com/eks/latest/userguide/eks-optimized-ami.html>`_ : Used for GPU instance families (for example, ``P4`` and ``G4`` ) and can be used for all non AWS Graviton-based instance types. - **EKS_AL2023** - `Amazon Linux 2023 <https://docs.aws.amazon.com/eks/latest/userguide/eks-optimized-ami.html>`_ : Default for non-GPU instance families. .. epigraph:: Amazon Linux 2023 does not support ``A1`` instances. - **EKS_AL2023_NVIDIA** - `Amazon Linux 2023 (accelerated) <https://docs.aws.amazon.com/eks/latest/userguide/eks-optimized-ami.html>`_ : Default for GPU instance families and can be used for all non AWS Graviton-based instance types.
+            :param batch_image_status: 
             :param image_id_override: The AMI ID used for instances launched in the compute environment that match the image type. This setting overrides the ``imageId`` set in the ``computeResource`` object. .. epigraph:: The AMI that you choose for a compute environment must match the architecture of the instance types that you intend to use for that compute environment. For example, if your compute environment uses A1 instance types, the compute resource AMI that you choose must support ARM instances. Amazon ECS vends both x86 and ARM versions of the Amazon ECS-optimized Amazon Linux 2 AMI. For more information, see `Amazon ECS-optimized Amazon Linux 2 AMI <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-optimized_AMI.html#ecs-optimized-ami-linux-variants.html>`_ in the *Amazon Elastic Container Service Developer Guide* .
             :param image_kubernetes_version: The Kubernetes version for the compute environment. If you don't specify a value, the latest version that AWS Batch supports is used.
 
@@ -2045,6 +2050,7 @@ class CfnComputeEnvironment(
                     image_type="imageType",
                 
                     # the properties below are optional
+                    batch_image_status="batchImageStatus",
                     image_id_override="imageIdOverride",
                     image_kubernetes_version="imageKubernetesVersion"
                 )
@@ -2052,11 +2058,14 @@ class CfnComputeEnvironment(
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__ce3b98c061a5de7793f276c675aa6c48c626a13d8debc8bf1a12f74113040fcb)
                 check_type(argname="argument image_type", value=image_type, expected_type=type_hints["image_type"])
+                check_type(argname="argument batch_image_status", value=batch_image_status, expected_type=type_hints["batch_image_status"])
                 check_type(argname="argument image_id_override", value=image_id_override, expected_type=type_hints["image_id_override"])
                 check_type(argname="argument image_kubernetes_version", value=image_kubernetes_version, expected_type=type_hints["image_kubernetes_version"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "image_type": image_type,
             }
+            if batch_image_status is not None:
+                self._values["batch_image_status"] = batch_image_status
             if image_id_override is not None:
                 self._values["image_id_override"] = image_id_override
             if image_kubernetes_version is not None:
@@ -2111,6 +2120,14 @@ class CfnComputeEnvironment(
             result = self._values.get("image_type")
             assert result is not None, "Required property 'image_type' is missing"
             return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def batch_image_status(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-ec2configurationobject.html#cfn-batch-computeenvironment-ec2configurationobject-batchimagestatus
+            '''
+            result = self._values.get("batch_image_status")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
         def image_id_override(self) -> typing.Optional[builtins.str]:
@@ -2696,6 +2713,7 @@ class CfnComputeEnvironmentProps:
                         image_type="imageType",
             
                         # the properties below are optional
+                        batch_image_status="batchImageStatus",
                         image_id_override="imageIdOverride",
                         image_kubernetes_version="imageKubernetesVersion"
                     )],
@@ -4105,7 +4123,15 @@ class CfnJobDefinition(
                         host=batch.CfnJobDefinition.VolumesHostProperty(
                             source_path="sourcePath"
                         ),
-                        name="name"
+                        name="name",
+                        s3_files_volume_configuration=batch.CfnJobDefinition.S3FilesVolumeConfigurationProperty(
+                            file_system_arn="fileSystemArn",
+                
+                            # the properties below are optional
+                            access_point_arn="accessPointArn",
+                            root_directory="rootDirectory",
+                            transit_encryption_port=123
+                        )
                     )]
                 )
             '''
@@ -4704,6 +4730,8 @@ class CfnJobDefinition(
                                 name="name",
                                 value_from="valueFrom"
                             )],
+                            start_timeout=123,
+                            stop_timeout=123,
                             ulimits=[batch.CfnJobDefinition.UlimitProperty(
                                 hard_limit=123,
                                 name="name",
@@ -4743,7 +4771,15 @@ class CfnJobDefinition(
                             host=batch.CfnJobDefinition.VolumesHostProperty(
                                 source_path="sourcePath"
                             ),
-                            name="name"
+                            name="name",
+                            s3_files_volume_configuration=batch.CfnJobDefinition.S3FilesVolumeConfigurationProperty(
+                                file_system_arn="fileSystemArn",
+                
+                                # the properties below are optional
+                                access_point_arn="accessPointArn",
+                                root_directory="rootDirectory",
+                                transit_encryption_port=123
+                            )
                         )]
                     )]
                 )
@@ -4912,6 +4948,8 @@ class CfnJobDefinition(
                             name="name",
                             value_from="valueFrom"
                         )],
+                        start_timeout=123,
+                        stop_timeout=123,
                         ulimits=[batch.CfnJobDefinition.UlimitProperty(
                             hard_limit=123,
                             name="name",
@@ -4951,7 +4989,15 @@ class CfnJobDefinition(
                         host=batch.CfnJobDefinition.VolumesHostProperty(
                             source_path="sourcePath"
                         ),
-                        name="name"
+                        name="name",
+                        s3_files_volume_configuration=batch.CfnJobDefinition.S3FilesVolumeConfigurationProperty(
+                            file_system_arn="fileSystemArn",
+                
+                            # the properties below are optional
+                            access_point_arn="accessPointArn",
+                            root_directory="rootDirectory",
+                            transit_encryption_port=123
+                        )
                     )]
                 )
             '''
@@ -7444,6 +7490,8 @@ class CfnJobDefinition(
                                 name="name",
                                 value_from="valueFrom"
                             )],
+                            start_timeout=123,
+                            stop_timeout=123,
                             ulimits=[batch.CfnJobDefinition.UlimitProperty(
                                 hard_limit=123,
                                 name="name",
@@ -7472,7 +7520,15 @@ class CfnJobDefinition(
                             host=batch.CfnJobDefinition.VolumesHostProperty(
                                 source_path="sourcePath"
                             ),
-                            name="name"
+                            name="name",
+                            s3_files_volume_configuration=batch.CfnJobDefinition.S3FilesVolumeConfigurationProperty(
+                                file_system_arn="fileSystemArn",
+                
+                                # the properties below are optional
+                                access_point_arn="accessPointArn",
+                                root_directory="rootDirectory",
+                                transit_encryption_port=123
+                            )
                         )]
                     )]
                 )
@@ -7629,6 +7685,8 @@ class CfnJobDefinition(
                             name="name",
                             value_from="valueFrom"
                         )],
+                        start_timeout=123,
+                        stop_timeout=123,
                         ulimits=[batch.CfnJobDefinition.UlimitProperty(
                             hard_limit=123,
                             name="name",
@@ -7657,7 +7715,15 @@ class CfnJobDefinition(
                         host=batch.CfnJobDefinition.VolumesHostProperty(
                             source_path="sourcePath"
                         ),
-                        name="name"
+                        name="name",
+                        s3_files_volume_configuration=batch.CfnJobDefinition.S3FilesVolumeConfigurationProperty(
+                            file_system_arn="fileSystemArn",
+                
+                            # the properties below are optional
+                            access_point_arn="accessPointArn",
+                            root_directory="rootDirectory",
+                            transit_encryption_port=123
+                        )
                     )]
                 )
             '''
@@ -8000,7 +8066,15 @@ class CfnJobDefinition(
                                 host=batch.CfnJobDefinition.VolumesHostProperty(
                                     source_path="sourcePath"
                                 ),
-                                name="name"
+                                name="name",
+                                s3_files_volume_configuration=batch.CfnJobDefinition.S3FilesVolumeConfigurationProperty(
+                                    file_system_arn="fileSystemArn",
+                
+                                    # the properties below are optional
+                                    access_point_arn="accessPointArn",
+                                    root_directory="rootDirectory",
+                                    transit_encryption_port=123
+                                )
                             )]
                         ),
                         ecs_properties=batch.CfnJobDefinition.MultiNodeEcsPropertiesProperty(
@@ -8074,6 +8148,8 @@ class CfnJobDefinition(
                                         name="name",
                                         value_from="valueFrom"
                                     )],
+                                    start_timeout=123,
+                                    stop_timeout=123,
                                     ulimits=[batch.CfnJobDefinition.UlimitProperty(
                                         hard_limit=123,
                                         name="name",
@@ -8102,7 +8178,15 @@ class CfnJobDefinition(
                                     host=batch.CfnJobDefinition.VolumesHostProperty(
                                         source_path="sourcePath"
                                     ),
-                                    name="name"
+                                    name="name",
+                                    s3_files_volume_configuration=batch.CfnJobDefinition.S3FilesVolumeConfigurationProperty(
+                                        file_system_arn="fileSystemArn",
+                
+                                        # the properties below are optional
+                                        access_point_arn="accessPointArn",
+                                        root_directory="rootDirectory",
+                                        transit_encryption_port=123
+                                    )
                                 )]
                             )]
                         ),
@@ -8423,7 +8507,15 @@ class CfnJobDefinition(
                             host=batch.CfnJobDefinition.VolumesHostProperty(
                                 source_path="sourcePath"
                             ),
-                            name="name"
+                            name="name",
+                            s3_files_volume_configuration=batch.CfnJobDefinition.S3FilesVolumeConfigurationProperty(
+                                file_system_arn="fileSystemArn",
+                
+                                # the properties below are optional
+                                access_point_arn="accessPointArn",
+                                root_directory="rootDirectory",
+                                transit_encryption_port=123
+                            )
                         )]
                     ),
                     ecs_properties=batch.CfnJobDefinition.MultiNodeEcsPropertiesProperty(
@@ -8497,6 +8589,8 @@ class CfnJobDefinition(
                                     name="name",
                                     value_from="valueFrom"
                                 )],
+                                start_timeout=123,
+                                stop_timeout=123,
                                 ulimits=[batch.CfnJobDefinition.UlimitProperty(
                                     hard_limit=123,
                                     name="name",
@@ -8525,7 +8619,15 @@ class CfnJobDefinition(
                                 host=batch.CfnJobDefinition.VolumesHostProperty(
                                     source_path="sourcePath"
                                 ),
-                                name="name"
+                                name="name",
+                                s3_files_volume_configuration=batch.CfnJobDefinition.S3FilesVolumeConfigurationProperty(
+                                    file_system_arn="fileSystemArn",
+                
+                                    # the properties below are optional
+                                    access_point_arn="accessPointArn",
+                                    root_directory="rootDirectory",
+                                    transit_encryption_port=123
+                                )
                             )]
                         )]
                     ),
@@ -9491,6 +9593,109 @@ class CfnJobDefinition(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_batch.CfnJobDefinition.S3FilesVolumeConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "file_system_arn": "fileSystemArn",
+            "access_point_arn": "accessPointArn",
+            "root_directory": "rootDirectory",
+            "transit_encryption_port": "transitEncryptionPort",
+        },
+    )
+    class S3FilesVolumeConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            file_system_arn: builtins.str,
+            access_point_arn: typing.Optional[builtins.str] = None,
+            root_directory: typing.Optional[builtins.str] = None,
+            transit_encryption_port: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''
+            :param file_system_arn: 
+            :param access_point_arn: 
+            :param root_directory: 
+            :param transit_encryption_port: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-jobdefinition-s3filesvolumeconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_batch as batch
+                
+                s3_files_volume_configuration_property = batch.CfnJobDefinition.S3FilesVolumeConfigurationProperty(
+                    file_system_arn="fileSystemArn",
+                
+                    # the properties below are optional
+                    access_point_arn="accessPointArn",
+                    root_directory="rootDirectory",
+                    transit_encryption_port=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__1385df6e8b539545f9536bd7cb5d752a51e352b7e2843860d21289f6c35bbc31)
+                check_type(argname="argument file_system_arn", value=file_system_arn, expected_type=type_hints["file_system_arn"])
+                check_type(argname="argument access_point_arn", value=access_point_arn, expected_type=type_hints["access_point_arn"])
+                check_type(argname="argument root_directory", value=root_directory, expected_type=type_hints["root_directory"])
+                check_type(argname="argument transit_encryption_port", value=transit_encryption_port, expected_type=type_hints["transit_encryption_port"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "file_system_arn": file_system_arn,
+            }
+            if access_point_arn is not None:
+                self._values["access_point_arn"] = access_point_arn
+            if root_directory is not None:
+                self._values["root_directory"] = root_directory
+            if transit_encryption_port is not None:
+                self._values["transit_encryption_port"] = transit_encryption_port
+
+        @builtins.property
+        def file_system_arn(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-jobdefinition-s3filesvolumeconfiguration.html#cfn-batch-jobdefinition-s3filesvolumeconfiguration-filesystemarn
+            '''
+            result = self._values.get("file_system_arn")
+            assert result is not None, "Required property 'file_system_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def access_point_arn(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-jobdefinition-s3filesvolumeconfiguration.html#cfn-batch-jobdefinition-s3filesvolumeconfiguration-accesspointarn
+            '''
+            result = self._values.get("access_point_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def root_directory(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-jobdefinition-s3filesvolumeconfiguration.html#cfn-batch-jobdefinition-s3filesvolumeconfiguration-rootdirectory
+            '''
+            result = self._values.get("root_directory")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def transit_encryption_port(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-jobdefinition-s3filesvolumeconfiguration.html#cfn-batch-jobdefinition-s3filesvolumeconfiguration-transitencryptionport
+            '''
+            result = self._values.get("transit_encryption_port")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "S3FilesVolumeConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_batch.CfnJobDefinition.SecretProperty",
         jsii_struct_bases=[],
         name_mapping={"name": "name", "value_from": "valueFrom"},
@@ -9800,6 +10005,8 @@ class CfnJobDefinition(
             "repository_credentials": "repositoryCredentials",
             "resource_requirements": "resourceRequirements",
             "secrets": "secrets",
+            "start_timeout": "startTimeout",
+            "stop_timeout": "stopTimeout",
             "ulimits": "ulimits",
             "user": "user",
         },
@@ -9823,6 +10030,8 @@ class CfnJobDefinition(
             repository_credentials: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnJobDefinition.RepositoryCredentialsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             resource_requirements: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnJobDefinition.ResourceRequirementProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             secrets: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnJobDefinition.SecretProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            start_timeout: typing.Optional[jsii.Number] = None,
+            stop_timeout: typing.Optional[jsii.Number] = None,
             ulimits: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnJobDefinition.UlimitProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             user: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -9845,6 +10054,8 @@ class CfnJobDefinition(
             :param repository_credentials: The private repository authentication credentials to use.
             :param resource_requirements: The type and amount of a resource to assign to a container. The only supported resource is a GPU.
             :param secrets: The secrets to pass to the container. For more information, see `Specifying Sensitive Data <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/specifying-sensitive-data.html>`_ in the Amazon Elastic Container Service Developer Guide.
+            :param start_timeout: 
+            :param stop_timeout: 
             :param ulimits: A list of ``ulimits`` to set in the container. If a ``ulimit`` value is specified in a task definition, it overrides the default values set by Docker. This parameter maps to ``Ulimits`` in the `Create a container <https://docs.aws.amazon.com/https://docs.docker.com/engine/api/v1.35/#operation/ContainerCreate>`_ section of the `Docker Remote API <https://docs.aws.amazon.com/https://docs.docker.com/engine/api/v1.35/>`_ and the ``--ulimit`` option to `docker run <https://docs.aws.amazon.com/https://docs.docker.com/engine/reference/run/#security-configuration>`_ . Amazon ECS tasks hosted on Fargate use the default resource limit values set by the operating system with the exception of the nofile resource limit parameter which Fargate overrides. The ``nofile`` resource limit sets a restriction on the number of open files that a container can use. The default ``nofile`` soft limit is ``1024`` and the default hard limit is ``65535`` . This parameter requires version 1.18 of the Docker Remote API or greater on your container instance. To check the Docker Remote API version on your container instance, log in to your container instance and run the following command: sudo docker version ``--format '{{.Server.APIVersion}}'`` .. epigraph:: This parameter is not supported for Windows containers.
             :param user: The user to use inside the container. This parameter maps to User in the Create a container section of the Docker Remote API and the --user option to docker run. .. epigraph:: When running tasks using the ``host`` network mode, don't run containers using the ``root user (UID 0)`` . We recommend using a non-root user for better security. You can specify the ``user`` using the following formats. If specifying a UID or GID, you must specify it as a positive integer. - ``user`` - ``user:group`` - ``uid`` - ``uid:gid`` - ``user:gi`` - ``uid:group`` .. epigraph:: This parameter is not supported for Windows containers.
 
@@ -9928,6 +10139,8 @@ class CfnJobDefinition(
                         name="name",
                         value_from="valueFrom"
                     )],
+                    start_timeout=123,
+                    stop_timeout=123,
                     ulimits=[batch.CfnJobDefinition.UlimitProperty(
                         hard_limit=123,
                         name="name",
@@ -9953,6 +10166,8 @@ class CfnJobDefinition(
                 check_type(argname="argument repository_credentials", value=repository_credentials, expected_type=type_hints["repository_credentials"])
                 check_type(argname="argument resource_requirements", value=resource_requirements, expected_type=type_hints["resource_requirements"])
                 check_type(argname="argument secrets", value=secrets, expected_type=type_hints["secrets"])
+                check_type(argname="argument start_timeout", value=start_timeout, expected_type=type_hints["start_timeout"])
+                check_type(argname="argument stop_timeout", value=stop_timeout, expected_type=type_hints["stop_timeout"])
                 check_type(argname="argument ulimits", value=ulimits, expected_type=type_hints["ulimits"])
                 check_type(argname="argument user", value=user, expected_type=type_hints["user"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -9986,6 +10201,10 @@ class CfnJobDefinition(
                 self._values["resource_requirements"] = resource_requirements
             if secrets is not None:
                 self._values["secrets"] = secrets
+            if start_timeout is not None:
+                self._values["start_timeout"] = start_timeout
+            if stop_timeout is not None:
+                self._values["stop_timeout"] = stop_timeout
             if ulimits is not None:
                 self._values["ulimits"] = ulimits
             if user is not None:
@@ -10199,6 +10418,22 @@ class CfnJobDefinition(
             '''
             result = self._values.get("secrets")
             return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnJobDefinition.SecretProperty"]]]], result)
+
+        @builtins.property
+        def start_timeout(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-jobdefinition-taskcontainerproperties.html#cfn-batch-jobdefinition-taskcontainerproperties-starttimeout
+            '''
+            result = self._values.get("start_timeout")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def stop_timeout(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-jobdefinition-taskcontainerproperties.html#cfn-batch-jobdefinition-taskcontainerproperties-stoptimeout
+            '''
+            result = self._values.get("stop_timeout")
+            return typing.cast(typing.Optional[jsii.Number], result)
 
         @builtins.property
         def ulimits(
@@ -10565,6 +10800,7 @@ class CfnJobDefinition(
             "efs_volume_configuration": "efsVolumeConfiguration",
             "host": "host",
             "name": "name",
+            "s3_files_volume_configuration": "s3FilesVolumeConfiguration",
         },
     )
     class VolumesProperty:
@@ -10574,11 +10810,13 @@ class CfnJobDefinition(
             efs_volume_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnJobDefinition.EfsVolumeConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             host: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnJobDefinition.VolumesHostProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             name: typing.Optional[builtins.str] = None,
+            s3_files_volume_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnJobDefinition.S3FilesVolumeConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''
             :param efs_volume_configuration: 
             :param host: 
             :param name: 
+            :param s3_files_volume_configuration: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-jobdefinition-volumes.html
             :exampleMetadata: fixture=_generated
@@ -10605,7 +10843,15 @@ class CfnJobDefinition(
                     host=batch.CfnJobDefinition.VolumesHostProperty(
                         source_path="sourcePath"
                     ),
-                    name="name"
+                    name="name",
+                    s3_files_volume_configuration=batch.CfnJobDefinition.S3FilesVolumeConfigurationProperty(
+                        file_system_arn="fileSystemArn",
+                
+                        # the properties below are optional
+                        access_point_arn="accessPointArn",
+                        root_directory="rootDirectory",
+                        transit_encryption_port=123
+                    )
                 )
             '''
             if __debug__:
@@ -10613,6 +10859,7 @@ class CfnJobDefinition(
                 check_type(argname="argument efs_volume_configuration", value=efs_volume_configuration, expected_type=type_hints["efs_volume_configuration"])
                 check_type(argname="argument host", value=host, expected_type=type_hints["host"])
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+                check_type(argname="argument s3_files_volume_configuration", value=s3_files_volume_configuration, expected_type=type_hints["s3_files_volume_configuration"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if efs_volume_configuration is not None:
                 self._values["efs_volume_configuration"] = efs_volume_configuration
@@ -10620,6 +10867,8 @@ class CfnJobDefinition(
                 self._values["host"] = host
             if name is not None:
                 self._values["name"] = name
+            if s3_files_volume_configuration is not None:
+                self._values["s3_files_volume_configuration"] = s3_files_volume_configuration
 
         @builtins.property
         def efs_volume_configuration(
@@ -10648,6 +10897,16 @@ class CfnJobDefinition(
             '''
             result = self._values.get("name")
             return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def s3_files_volume_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnJobDefinition.S3FilesVolumeConfigurationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-jobdefinition-volumes.html#cfn-batch-jobdefinition-volumes-s3filesvolumeconfiguration
+            '''
+            result = self._values.get("s3_files_volume_configuration")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnJobDefinition.S3FilesVolumeConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -11782,7 +12041,9 @@ class CfnQuotaShare(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_batch.CfnQuotaShare",
 ):
-    '''Resource Type definition for AWS::Batch::QuotaShare.
+    '''Creates an AWS Batch quota share.
+
+    Each quota share operates as a virtual queue with a configured compute capacity, resource sharing strategy, and borrow limits.
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-batch-quotashare.html
     :cloudformationResource: AWS::Batch::QuotaShare
@@ -11836,13 +12097,13 @@ class CfnQuotaShare(
 
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
-        :param capacity_limits: The capacity limits for the quota share.
-        :param job_queue: The Amazon Resource Name (ARN) or name of the job queue.
+        :param capacity_limits: A list that specifies the quantity and type of compute capacity allocated to the quota share.
+        :param job_queue: The AWS Batch job queue associated with the quota share. This can be the job queue name or ARN. A job queue must be in the ``VALID`` state before you can associate it with a quota share.
         :param preemption_configuration: 
-        :param quota_share_name: The name of the quota share.
+        :param quota_share_name: The name of the quota share. It can be up to 128 characters long. It can contain uppercase and lowercase letters, numbers, hyphens (-), and underscores (_).
         :param resource_sharing_configuration: 
-        :param state: The state of the quota share.
-        :param tags: A key-value pair to associate with a resource.
+        :param state: The state of the quota share. If the quota share is ``ENABLED``, it is able to accept jobs. If the quota share is ``DISABLED``, new jobs won't be accepted but jobs already submitted can finish. The default state is ``ENABLED``.
+        :param tags: The tags that you apply to the quota share to help you categorize and organize your resources. Each tag consists of a key and an optional value.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__893335fe1e3f100052a259441748213d537fef40673659b507ac4b645104f654)
@@ -11943,7 +12204,7 @@ class CfnQuotaShare(
     def capacity_limits(
         self,
     ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnQuotaShare.QuotaShareCapacityLimitProperty"]]]:
-        '''The capacity limits for the quota share.'''
+        '''A list that specifies the quantity and type of compute capacity allocated to the quota share.'''
         return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnQuotaShare.QuotaShareCapacityLimitProperty"]]], jsii.get(self, "capacityLimits"))
 
     @capacity_limits.setter
@@ -11959,7 +12220,7 @@ class CfnQuotaShare(
     @builtins.property
     @jsii.member(jsii_name="jobQueue")
     def job_queue(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) or name of the job queue.'''
+        '''The AWS Batch job queue associated with the quota share.'''
         return typing.cast(builtins.str, jsii.get(self, "jobQueue"))
 
     @job_queue.setter
@@ -12032,7 +12293,7 @@ class CfnQuotaShare(
     @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''A key-value pair to associate with a resource.'''
+        '''The tags that you apply to the quota share to help you categorize and organize your resources.'''
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], jsii.get(self, "tags"))
 
     @tags.setter
@@ -12058,8 +12319,8 @@ class CfnQuotaShare(
             max_capacity: jsii.Number,
         ) -> None:
             '''
-            :param capacity_unit: The unit of compute capacity for the capacityLimit.
-            :param max_capacity: The maximum capacity available for the quota share. This value represents the maximum amount of resources that can be allocated to jobs in the quota share without borrowing
+            :param capacity_unit: The unit of compute capacity for the capacityLimit. For example, ``ml.m5.large``.
+            :param max_capacity: The maximum capacity available for the quota share. This value represents the maximum quantity of a resource that can be allocated to jobs in the quota share without borrowing.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-quotashare-quotasharecapacitylimit.html
             :exampleMetadata: fixture=_generated
@@ -12088,6 +12349,8 @@ class CfnQuotaShare(
         def capacity_unit(self) -> builtins.str:
             '''The unit of compute capacity for the capacityLimit.
 
+            For example, ``ml.m5.large``.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-quotashare-quotasharecapacitylimit.html#cfn-batch-quotashare-quotasharecapacitylimit-capacityunit
             '''
             result = self._values.get("capacity_unit")
@@ -12098,7 +12361,7 @@ class CfnQuotaShare(
         def max_capacity(self) -> jsii.Number:
             '''The maximum capacity available for the quota share.
 
-            This value represents the maximum amount of resources that can be allocated to jobs in the quota share without borrowing
+            This value represents the maximum quantity of a resource that can be allocated to jobs in the quota share without borrowing.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-quotashare-quotasharecapacitylimit.html#cfn-batch-quotashare-quotasharecapacitylimit-maxcapacity
             '''
@@ -12125,7 +12388,7 @@ class CfnQuotaShare(
     class QuotaSharePreemptionConfigurationProperty:
         def __init__(self, *, in_share_preemption: builtins.str) -> None:
             '''
-            :param in_share_preemption: Whether preemption is enabled within the quota share.
+            :param in_share_preemption: Specifies whether jobs within a quota share can be preempted by another, higher priority job in the same quota share.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-quotashare-quotasharepreemptionconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -12149,7 +12412,7 @@ class CfnQuotaShare(
 
         @builtins.property
         def in_share_preemption(self) -> builtins.str:
-            '''Whether preemption is enabled within the quota share.
+            '''Specifies whether jobs within a quota share can be preempted by another, higher priority job in the same quota share.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-quotashare-quotasharepreemptionconfiguration.html#cfn-batch-quotashare-quotasharepreemptionconfiguration-insharepreemption
             '''
@@ -12181,8 +12444,8 @@ class CfnQuotaShare(
             borrow_limit: typing.Optional[jsii.Number] = None,
         ) -> None:
             '''
-            :param strategy: The resource sharing strategy.
-            :param borrow_limit: The maximum amount of compute capacity that can be borrowed. Use -1 for unlimited borrowing.
+            :param strategy: The resource sharing strategy for the quota share. The ``RESERVE`` strategy allows a quota share to reserve idle capacity for itself. ``LEND`` configures the share to lend its idle capacity to another share in need of capacity. The ``LEND_AND_BORROW`` strategy configures the share to borrow idle capacity from an underutilized share, as well as lend to another share.
+            :param borrow_limit: The maximum percentage of additional capacity that the quota share can borrow from other shares. ``BorrowLimit`` can only be applied to quota shares with a strategy of ``LEND_AND_BORROW``. This value is expressed as a percentage of the quota share's configured CapacityLimits. The ``BorrowLimit`` is applied uniformly across all capacity units. For example, if the ``BorrowLimit`` is 200, the quota share can borrow up to 200% of its configured ``maxCapacity`` for each capacity unit. The default ``BorrowLimit`` is -1, which indicates unlimited borrowing.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-quotashare-quotashareresourcesharingconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -12212,7 +12475,9 @@ class CfnQuotaShare(
 
         @builtins.property
         def strategy(self) -> builtins.str:
-            '''The resource sharing strategy.
+            '''The resource sharing strategy for the quota share.
+
+            The ``RESERVE`` strategy allows a quota share to reserve idle capacity for itself. ``LEND`` configures the share to lend its idle capacity to another share in need of capacity. The ``LEND_AND_BORROW`` strategy configures the share to borrow idle capacity from an underutilized share, as well as lend to another share.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-quotashare-quotashareresourcesharingconfiguration.html#cfn-batch-quotashare-quotashareresourcesharingconfiguration-strategy
             '''
@@ -12222,9 +12487,9 @@ class CfnQuotaShare(
 
         @builtins.property
         def borrow_limit(self) -> typing.Optional[jsii.Number]:
-            '''The maximum amount of compute capacity that can be borrowed.
+            '''The maximum percentage of additional capacity that the quota share can borrow from other shares.
 
-            Use -1 for unlimited borrowing.
+            ``BorrowLimit`` can only be applied to quota shares with a strategy of ``LEND_AND_BORROW``. This value is expressed as a percentage of the quota share's configured CapacityLimits. The ``BorrowLimit`` is applied uniformly across all capacity units. For example, if the ``BorrowLimit`` is 200, the quota share can borrow up to 200% of its configured ``maxCapacity`` for each capacity unit. The default ``BorrowLimit`` is -1, which indicates unlimited borrowing.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-quotashare-quotashareresourcesharingconfiguration.html#cfn-batch-quotashare-quotashareresourcesharingconfiguration-borrowlimit
             '''
@@ -12270,13 +12535,13 @@ class CfnQuotaShareProps:
     ) -> None:
         '''Properties for defining a ``CfnQuotaShare``.
 
-        :param capacity_limits: The capacity limits for the quota share.
-        :param job_queue: The Amazon Resource Name (ARN) or name of the job queue.
+        :param capacity_limits: A list that specifies the quantity and type of compute capacity allocated to the quota share.
+        :param job_queue: The AWS Batch job queue associated with the quota share. This can be the job queue name or ARN. A job queue must be in the ``VALID`` state before you can associate it with a quota share.
         :param preemption_configuration: 
-        :param quota_share_name: The name of the quota share.
+        :param quota_share_name: The name of the quota share. It can be up to 128 characters long. It can contain uppercase and lowercase letters, numbers, hyphens (-), and underscores (_).
         :param resource_sharing_configuration: 
-        :param state: The state of the quota share.
-        :param tags: A key-value pair to associate with a resource.
+        :param state: The state of the quota share. If the quota share is ``ENABLED``, it is able to accept jobs. If the quota share is ``DISABLED``, new jobs won't be accepted but jobs already submitted can finish. The default state is ``ENABLED``.
+        :param tags: The tags that you apply to the quota share to help you categorize and organize your resources. Each tag consists of a key and an optional value.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-batch-quotashare.html
         :exampleMetadata: fixture=_generated
@@ -12336,7 +12601,7 @@ class CfnQuotaShareProps:
     def capacity_limits(
         self,
     ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnQuotaShare.QuotaShareCapacityLimitProperty"]]]:
-        '''The capacity limits for the quota share.
+        '''A list that specifies the quantity and type of compute capacity allocated to the quota share.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-batch-quotashare.html#cfn-batch-quotashare-capacitylimits
         '''
@@ -12346,7 +12611,9 @@ class CfnQuotaShareProps:
 
     @builtins.property
     def job_queue(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) or name of the job queue.
+        '''The AWS Batch job queue associated with the quota share.
+
+        This can be the job queue name or ARN. A job queue must be in the ``VALID`` state before you can associate it with a quota share.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-batch-quotashare.html#cfn-batch-quotashare-jobqueue
         '''
@@ -12369,6 +12636,8 @@ class CfnQuotaShareProps:
     def quota_share_name(self) -> builtins.str:
         '''The name of the quota share.
 
+        It can be up to 128 characters long. It can contain uppercase and lowercase letters, numbers, hyphens (-), and underscores (_).
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-batch-quotashare.html#cfn-batch-quotashare-quotasharename
         '''
         result = self._values.get("quota_share_name")
@@ -12390,6 +12659,8 @@ class CfnQuotaShareProps:
     def state(self) -> typing.Optional[builtins.str]:
         '''The state of the quota share.
 
+        If the quota share is ``ENABLED``, it is able to accept jobs. If the quota share is ``DISABLED``, new jobs won't be accepted but jobs already submitted can finish. The default state is ``ENABLED``.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-batch-quotashare.html#cfn-batch-quotashare-state
         '''
         result = self._values.get("state")
@@ -12397,7 +12668,9 @@ class CfnQuotaShareProps:
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''A key-value pair to associate with a resource.
+        '''The tags that you apply to the quota share to help you categorize and organize your resources.
+
+        Each tag consists of a key and an optional value.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-batch-quotashare.html#cfn-batch-quotashare-tags
         '''
@@ -27671,6 +27944,7 @@ def _typecheckingstub__2602f4ba321e47e4e0add395c937e357e72d8e8db28874255613493fd
 def _typecheckingstub__ce3b98c061a5de7793f276c675aa6c48c626a13d8debc8bf1a12f74113040fcb(
     *,
     image_type: builtins.str,
+    batch_image_status: typing.Optional[builtins.str] = None,
     image_id_override: typing.Optional[builtins.str] = None,
     image_kubernetes_version: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -28327,6 +28601,16 @@ def _typecheckingstub__fbdffb76b27dbbdbbc0d2ebc2229966bd04e50d9dbe061567a0dba940
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__1385df6e8b539545f9536bd7cb5d752a51e352b7e2843860d21289f6c35bbc31(
+    *,
+    file_system_arn: builtins.str,
+    access_point_arn: typing.Optional[builtins.str] = None,
+    root_directory: typing.Optional[builtins.str] = None,
+    transit_encryption_port: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__627c25c89399f4c648455cf23b1833f2f5961be5393bea72498980b6dd1b8fac(
     *,
     name: builtins.str,
@@ -28372,6 +28656,8 @@ def _typecheckingstub__4946f5f042ef067bff74424b1b71c92ab13e52a7f47a4271e02811052
     repository_credentials: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnJobDefinition.RepositoryCredentialsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     resource_requirements: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnJobDefinition.ResourceRequirementProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     secrets: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnJobDefinition.SecretProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    start_timeout: typing.Optional[jsii.Number] = None,
+    stop_timeout: typing.Optional[jsii.Number] = None,
     ulimits: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnJobDefinition.UlimitProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     user: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -28415,6 +28701,7 @@ def _typecheckingstub__a4a9d90db8477ca586c3c89fb2ce5a548e9a3bb699ae625a80a8a105b
     efs_volume_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnJobDefinition.EfsVolumeConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     host: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnJobDefinition.VolumesHostProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     name: typing.Optional[builtins.str] = None,
+    s3_files_volume_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnJobDefinition.S3FilesVolumeConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

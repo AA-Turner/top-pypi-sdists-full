@@ -1,28 +1,28 @@
 Metadata-Version: 2.4
 Name: pyedb
-Version: 0.72.0
+Version: 0.73.0
 Summary: Higher-Level Pythonic Ansys Electronics Data Base
 Author-email: "ANSYS, Inc." <pyansys.core@ansys.com>
 Maintainer-email: PyEDB developers <simon.vandenbrouck@ansys.com>
 Requires-Python: >=3.10,<4
 Description-Content-Type: text/markdown
+License-Expression: MIT
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Science/Research
 Classifier: Topic :: Scientific/Engineering :: Information Analysis
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 License-File: LICENSE
 Requires-Dist: cffi>=1.16.0,<2.1; platform_system=='Linux'
-Requires-Dist: pywin32>=308;platform_system=='Windows'
+Requires-Dist: pywin32>=304;platform_system=='Windows'
 Requires-Dist: ansys-pythonnet>=3.1.0rc6
 Requires-Dist: numpy>=1.20.0,<3
-Requires-Dist: pydantic>=2.6.4,<2.13
+Requires-Dist: pydantic>=2.6.4,<2.14
 Requires-Dist: toml==0.10.2
-Requires-Dist: ansys-edb-core==0.2.6
+Requires-Dist: ansys-edb-core==0.3.1
 Requires-Dist: psutil
 Requires-Dist: defusedxml>=0.7,<8.0
 Requires-Dist: xmltodict
@@ -84,7 +84,7 @@ Provides-Extra: tests
 # PyEDB
 
 [![PyAnsys](https://img.shields.io/badge/Py-Ansys-ffc107.svg?logo=data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAABDklEQVQ4jWNgoDfg5mD8vE7q/3bpVyskbW0sMRUwofHD7Dh5OBkZGBgW7/3W2tZpa2tLQEOyOzeEsfumlK2tbVpaGj4N6jIs1lpsDAwMJ278sveMY2BgCA0NFRISwqkhyQ1q/Nyd3zg4OBgYGNjZ2ePi4rB5loGBhZnhxTLJ/9ulv26Q4uVk1NXV/f///////69du4Zdg78lx//t0v+3S88rFISInD59GqIH2esIJ8G9O2/XVwhjzpw5EAam1xkkBJn/bJX+v1365hxxuCAfH9+3b9/+////48cPuNehNsS7cDEzMTAwMMzb+Q2u4dOnT2vWrMHu9ZtzxP9vl/69RVpCkBlZ3N7enoDXBwEAAA+YYitOilMVAAAAAElFTkSuQmCC)](https://docs.pyansys.com/)
-[![PythonVersion](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![PythonVersion](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/ansys/pyedb)
 [![Codacy Badge](https://app.codacy.com/project/badge/Grade/cadfeebb7d8346eeb4c3373cbcdffa64)](https://app.codacy.com/gh/ansys/pyedb/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade)

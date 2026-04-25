@@ -40,7 +40,6 @@ from silx.gui.utils.testutils import getQToolButtonFromAction
 from silx.gui.plot import PlotWindow, ScatterMaskToolsWidget
 from .utils import PlotWidgetTestCase
 
-
 _logger = logging.getLogger(__name__)
 
 
@@ -51,7 +50,7 @@ class TestScatterMaskToolsWidget(PlotWidgetTestCase, ParametricTestCase):
         return PlotWindow()
 
     def setUp(self):
-        super(TestScatterMaskToolsWidget, self).setUp()
+        super().setUp()
         self.widget = ScatterMaskToolsWidget.ScatterMaskToolsDockWidget(
             plot=self.plot, name="TEST"
         )
@@ -64,7 +63,7 @@ class TestScatterMaskToolsWidget(PlotWidgetTestCase, ParametricTestCase):
         self.widget.close()
         del self.maskWidget
         del self.widget
-        super(TestScatterMaskToolsWidget, self).tearDown()
+        super().tearDown()
 
     def testEmptyPlot(self):
         """Empty plot, display MaskToolsDockWidget, toggle multiple masks"""
@@ -291,10 +290,10 @@ class TestScatterMaskToolsWidget(PlotWidgetTestCase, ParametricTestCase):
             legend="test",
         )
 
-        l = []
+        lst = []
 
         def slot():
-            l.append(1)
+            lst.append(1)
 
         self.maskWidget.sigMaskChanged.connect(slot)
 
@@ -306,4 +305,4 @@ class TestScatterMaskToolsWidget(PlotWidgetTestCase, ParametricTestCase):
         self.qapp.processEvents()
         self._drag()
 
-        self.assertGreater(len(l), 0)
+        self.assertGreater(len(lst), 0)

@@ -1,27 +1,26 @@
 # -*- coding: utf-8 -*-
 
-# Copyright 2024-2025 Mike Fährmann
+# Copyright 2024-2026 Mike Fährmann
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
 # published by the Free Software Foundation.
 
-"""Extractors for https://www.civitai.com/"""
+"""Extractors for https://www.civitai.red/ and https://www.civitai.com/"""
 
 from .common import Extractor, Message, Dispatch
-from .. import text, util, exception
-from ..cache import memcache
+from .. import text, util
 import itertools
 import time
 
-BASE_PATTERN = r"(?:https?://)?civitai\.com"
+BASE_PATTERN = r"(?:https?://)?civitai\.(?:red|com)"
 USER_PATTERN = BASE_PATTERN + r"/user/([^/?#]+)"
 
 
 class CivitaiExtractor(Extractor):
     """Base class for civitai extractors"""
     category = "civitai"
-    root = "https://civitai.com"
+    root = "https://civitai.red"
     directory_fmt = ("{category}", "{user[username]}", "images")
     filename_fmt = "{file[id]}.{extension}"
     archive_fmt = "{file[uuid]}"
@@ -200,8 +199,9 @@ class CivitaiExtractor(Extractor):
     def _require_auth(self):
         if "Authorization" not in self.api.headers and \
                 not self.cookies.get(
-                "__Secure-civitai-token", domain=".civitai.com"):
-            raise exception.AuthRequired(("api-key", "authenticated cookies"))
+                "__Secure-civitai-token", domain=".civitai.red"):
+            raise self.extractor.exc.AuthRequired(
+                ("api-key", "authenticated cookies"))
 
     def _parse_query(self, value):
         return text.parse_query_list(
@@ -231,7 +231,7 @@ class CivitaiExtractor(Extractor):
     def _extract_meta_version(self, item, is_post=True):
         try:
             if version_id := self._extract_version_id(item, is_post):
-                version = self.api.model_version(version_id).copy()
+                version = self.cache(self.api.model_version, version_id).copy()
                 return version.pop("model", None), version
         except Exception as exc:
             self.log.traceback(exc)
@@ -259,7 +259,7 @@ class CivitaiModelExtractor(CivitaiExtractor):
                      "{model[id]}{model[name]:? //}",
                      "{version[id]}{version[name]:? //}")
     pattern = BASE_PATTERN + r"/models/(\d+)(?:/?\?modelVersionId=(\d+))?"
-    example = "https://civitai.com/models/12345/TITLE"
+    example = "https://civitai.red/models/12345/TITLE"
 
     def items(self):
         model_id, version_id = self.groups
@@ -280,7 +280,7 @@ class CivitaiModelExtractor(CivitaiExtractor):
                 if version["id"] == version_id:
                     break
             else:
-                version = self.api.model_version(version_id)
+                version = self.cache(self.api.model_version, version_id)
             versions = (version,)
 
         for version in versions:
@@ -376,7 +376,7 @@ class CivitaiModelExtractor(CivitaiExtractor):
 class CivitaiImageExtractor(CivitaiExtractor):
     subcategory = "image"
     pattern = BASE_PATTERN + r"/images/(\d+)"
-    example = "https://civitai.com/images/12345"
+    example = "https://civitai.red/images/12345"
 
     def images(self):
         return self.api.image(self.groups[0])
@@ -387,7 +387,7 @@ class CivitaiCollectionExtractor(CivitaiExtractor):
     directory_fmt = ("{category}", "{user_collection[username]}",
                      "collections", "{collection[id]}{collection[name]:? //}")
     pattern = BASE_PATTERN + r"/collections/(\d+)"
-    example = "https://civitai.com/collections/12345"
+    example = "https://civitai.red/collections/12345"
 
     def images(self):
         cid = int(self.groups[0])
@@ -409,7 +409,7 @@ class CivitaiPostExtractor(CivitaiExtractor):
     directory_fmt = ("{category}", "{username|user[username]}", "posts",
                      "{post[id]}{post[title]:? //}")
     pattern = BASE_PATTERN + r"/posts/(\d+)"
-    example = "https://civitai.com/posts/12345"
+    example = "https://civitai.red/posts/12345"
 
     def posts(self):
         return ({"id": int(self.groups[0])},)
@@ -418,7 +418,7 @@ class CivitaiPostExtractor(CivitaiExtractor):
 class CivitaiTagExtractor(CivitaiExtractor):
     subcategory = "tag"
     pattern = BASE_PATTERN + r"/tag/([^/?&#]+)"
-    example = "https://civitai.com/tag/TAG"
+    example = "https://civitai.red/tag/TAG"
 
     def models(self):
         tag = text.unquote(self.groups[0])
@@ -428,7 +428,7 @@ class CivitaiTagExtractor(CivitaiExtractor):
 class CivitaiSearchModelsExtractor(CivitaiExtractor):
     subcategory = "search-models"
     pattern = BASE_PATTERN + r"/search/models\?([^#]+)"
-    example = "https://civitai.com/search/models?query=QUERY"
+    example = "https://civitai.red/search/models?query=QUERY"
 
     def models(self):
         params = self._parse_query(self.groups[0])
@@ -439,7 +439,7 @@ class CivitaiSearchModelsExtractor(CivitaiExtractor):
 class CivitaiSearchImagesExtractor(CivitaiExtractor):
     subcategory = "search-images"
     pattern = BASE_PATTERN + r"/search/images\?([^#]+)"
-    example = "https://civitai.com/search/images?query=QUERY"
+    example = "https://civitai.red/search/images?query=QUERY"
 
     def images(self):
         params = self._parse_query(self.groups[0])
@@ -450,7 +450,7 @@ class CivitaiSearchImagesExtractor(CivitaiExtractor):
 class CivitaiModelsExtractor(CivitaiExtractor):
     subcategory = "models"
     pattern = BASE_PATTERN + r"/models(?:/?\?([^#]+))?(?:$|#)"
-    example = "https://civitai.com/models"
+    example = "https://civitai.red/models"
 
     def models(self):
         params = self._parse_query(self.groups[0])
@@ -460,7 +460,7 @@ class CivitaiModelsExtractor(CivitaiExtractor):
 class CivitaiImagesExtractor(CivitaiExtractor):
     subcategory = "images"
     pattern = BASE_PATTERN + r"/images(?:/?\?([^#]+))?(?:$|#)"
-    example = "https://civitai.com/images"
+    example = "https://civitai.red/images"
 
     def images(self):
         params = self._parse_query(self.groups[0])
@@ -471,7 +471,7 @@ class CivitaiImagesExtractor(CivitaiExtractor):
 class CivitaiVideosExtractor(CivitaiExtractor):
     subcategory = "videos"
     pattern = BASE_PATTERN + r"/videos(?:/?\?([^#]+))?(?:$|#)"
-    example = "https://civitai.com/videos"
+    example = "https://civitai.red/videos"
 
     def images(self):
         params = self._parse_query(self.groups[0])
@@ -482,7 +482,7 @@ class CivitaiVideosExtractor(CivitaiExtractor):
 class CivitaiPostsExtractor(CivitaiExtractor):
     subcategory = "posts"
     pattern = BASE_PATTERN + r"/posts(?:/?\?([^#]+))?(?:$|#)"
-    example = "https://civitai.com/posts"
+    example = "https://civitai.red/posts"
 
     def posts(self):
         params = self._parse_query(self.groups[0])
@@ -491,7 +491,7 @@ class CivitaiPostsExtractor(CivitaiExtractor):
 
 class CivitaiUserExtractor(Dispatch, CivitaiExtractor):
     pattern = USER_PATTERN + r"/?(?:$|\?|#)"
-    example = "https://civitai.com/user/USER"
+    example = "https://civitai.red/user/USER"
 
     def items(self):
         base = f"{self.root}/user/{self.groups[0]}/"
@@ -507,7 +507,7 @@ class CivitaiUserExtractor(Dispatch, CivitaiExtractor):
 class CivitaiUserModelsExtractor(CivitaiExtractor):
     subcategory = "user-models"
     pattern = USER_PATTERN + r"/models/?(?:\?([^#]+))?"
-    example = "https://civitai.com/user/USER/models"
+    example = "https://civitai.red/user/USER/models"
 
     def models(self):
         user, query = self.groups
@@ -521,7 +521,7 @@ class CivitaiUserPostsExtractor(CivitaiExtractor):
     directory_fmt = ("{category}", "{username|user[username]}", "posts",
                      "{post[id]}{post[title]:? //}")
     pattern = USER_PATTERN + r"/posts/?(?:\?([^#]+))?"
-    example = "https://civitai.com/user/USER/posts"
+    example = "https://civitai.red/user/USER/posts"
 
     def posts(self):
         user, query = self.groups
@@ -533,7 +533,7 @@ class CivitaiUserPostsExtractor(CivitaiExtractor):
 class CivitaiUserImagesExtractor(CivitaiExtractor):
     subcategory = "user-images"
     pattern = USER_PATTERN + r"/images/?(?:\?([^#]+))?"
-    example = "https://civitai.com/user/USER/images"
+    example = "https://civitai.red/user/USER/images"
 
     def __init__(self, match):
         user, query = match.groups()
@@ -554,7 +554,7 @@ class CivitaiUserVideosExtractor(CivitaiExtractor):
     subcategory = "user-videos"
     directory_fmt = ("{category}", "{username|user[username]}", "videos")
     pattern = USER_PATTERN + r"/videos/?(?:\?([^#]+))?"
-    example = "https://civitai.com/user/USER/videos"
+    example = "https://civitai.red/user/USER/videos"
 
     def __init__(self, match):
         user, query = match.groups()
@@ -573,7 +573,7 @@ class CivitaiUserVideosExtractor(CivitaiExtractor):
 class CivitaiUserCollectionsExtractor(CivitaiExtractor):
     subcategory = "user-collections"
     pattern = USER_PATTERN + r"/collections/?(?:\?([^#]+))?"
-    example = "https://civitai.com/user/USER/collections"
+    example = "https://civitai.red/user/USER/collections"
 
     def items(self):
         user, query = self.groups
@@ -592,7 +592,7 @@ class CivitaiGeneratedExtractor(CivitaiExtractor):
     filename_fmt = "{filename}.{extension}"
     directory_fmt = ("{category}", "generated")
     pattern = BASE_PATTERN + "/generate"
-    example = "https://civitai.com/generate"
+    example = "https://civitai.red/generate"
 
     def items(self):
         self._require_auth()
@@ -650,7 +650,6 @@ class CivitaiRestAPI():
         endpoint = "/v1/models/" + str(model_id)
         return self._call(endpoint)
 
-    @memcache(keyarg=1)
     def model_version(self, model_version_id):
         endpoint = "/v1/model-versions/" + str(model_version_id)
         return self._call(endpoint)
@@ -761,7 +760,6 @@ class CivitaiTrpcAPI():
         params = {"id": int(model_id)}
         return self._call(endpoint, params)
 
-    @memcache(keyarg=1)
     def model_version(self, model_version_id):
         endpoint = "modelVersion.getById"
         params = {"id": int(model_version_id)}

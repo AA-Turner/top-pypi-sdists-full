@@ -125,11 +125,15 @@ class TestExtractorResults(unittest.TestCase):
         result.pop("#category", None)
         auth = result.pop("#auth", None)
 
-        extr_url = extractor.find(result["#url"])
-        self.assertTrue(extr_url, "extractor by URL/find")
-        extr_cls = extr = result["#class"].from_url(result["#url"])
-        self.assertTrue(extr_url, "extractor by cls.from_url()")
-        self.assertIs(extr_url.__class__, extr_cls.__class__)
+        cls = result["#class"]
+        if cls.__module__.startswith("gallery_dl.extractor."):
+            extr_url = extractor.find(result["#url"])
+        else:
+            extr_url = extractor_find_external(result)
+        self.assertIs(extr_url.__class__, cls, "extractor by URL/find")
+        extr_cls = extr = cls.from_url(result["#url"])
+        self.assertIs(extr_cls.__class__, cls, "extractor by cls.from_url()")
+        self.assertIs(extr_cls.__class__, extr_url.__class__)
 
         if len(result) <= 2:
             return  # only matching
@@ -154,8 +158,8 @@ class TestExtractorResults(unittest.TestCase):
                 key = key.split(".")
                 config.set(key[:-1], key[-1], value)
         if "#range" in result:
-            config.set((), "image-range"  , result["#range"])
-            config.set((), "chapter-range", result["#range"])
+            config.set((), "file-range" , result["#range"])
+            config.set((), "child-range", result["#range"])
 
         tjob = ResultJob(extr,
                          content=("#sha1_content" in result),
@@ -164,10 +168,17 @@ class TestExtractorResults(unittest.TestCase):
         if "#exception" in result:
             exc = result["#exception"]
             if isinstance(exc, str):
+                exc, _, msg = exc.partition(":")
                 exc = getattr(exception, exc, None)
-            with self.assertRaises(exc, msg="#exception"), \
+            elif isinstance(exc, tuple):
+                exc, msg = exc
+            else:
+                msg = ""
+            with self.assertRaises(exc, msg="#exception") as cm, \
                     self.assertLogs() as log_info:
                 tjob.run()
+            if msg:
+                self.assertEqual(str(cm.exception), msg, msg="#exception/msg")
             if "#log" in result:
                 self.assertLogEqual(result["#log"], log_info.output)
             return
@@ -582,6 +593,19 @@ def load_test_config():
         pass
     except Exception as exc:
         sys.exit(f"Error when loading {path}: {exc.__class__.__name__}: {exc}")
+
+
+def extractor_find_external(result, imported=set()):
+    _module_iter_orig = extractor._module_iter
+    try:
+        file = sys.modules[result["#class"].__module__].__file__
+        if file not in imported:
+            path, filename = os.path.split(file)
+            extractor._module_iter = extractor._modules_path(path, (filename,))
+            imported.add(file)
+        return extractor.find(result["#url"])
+    finally:
+        extractor._module_iter = _module_iter_orig
 
 
 def result_categories(result):

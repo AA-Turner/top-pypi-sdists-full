@@ -20,8 +20,9 @@ use crate::inference::types::batch::{BatchModelInferenceRow, BatchRequestRow, Ba
 use crate::inference::types::{StoredInput, StoredRequestMessage};
 use crate::tool::config::AllowedTools;
 use crate::tool::storage::ToolCallConfigDatabaseInsert;
-use crate::tool::types::{ProviderTool, Tool};
 use crate::tool::wire::ToolChoice;
+use tensorzero_inference_types::ProviderTool;
+use tensorzero_inference_types::tool::Tool;
 
 use super::PostgresConnectionInfo;
 use crate::endpoints::inference::InferenceParams;
@@ -33,7 +34,7 @@ impl BatchInferenceQueries for PostgresConnectionInfo {
         batch_id: Uuid,
         inference_id: Option<Uuid>,
     ) -> Result<Option<BatchRequestRow<'static>>, Error> {
-        let pool = self.get_pool_result()?;
+        let pool = self.get_pool_result().map_err(|e| e.log())?;
 
         let mut qb = build_get_batch_request_query(batch_id, inference_id);
 
@@ -59,7 +60,7 @@ impl BatchInferenceQueries for PostgresConnectionInfo {
             return Ok(vec![]);
         }
 
-        let pool = self.get_pool_result()?;
+        let pool = self.get_pool_result().map_err(|e| e.log())?;
 
         sqlx::query_as::<_, BatchModelInferenceRow<'static>>(
             r"
@@ -108,7 +109,7 @@ impl BatchInferenceQueries for PostgresConnectionInfo {
         variant_name: &str,
         inference_id: Option<Uuid>,
     ) -> Result<Vec<CompletedBatchInferenceRow>, Error> {
-        let pool = self.get_pool_result()?;
+        let pool = self.get_pool_result().map_err(|e| e.log())?;
 
         let mut qb = build_get_completed_chat_batch_inferences_query(
             batch_id,
@@ -134,7 +135,7 @@ impl BatchInferenceQueries for PostgresConnectionInfo {
         variant_name: &str,
         inference_id: Option<Uuid>,
     ) -> Result<Vec<CompletedBatchInferenceRow>, Error> {
-        let pool = self.get_pool_result()?;
+        let pool = self.get_pool_result().map_err(|e| e.log())?;
 
         let mut qb = build_get_completed_json_batch_inferences_query(
             batch_id,
@@ -156,7 +157,7 @@ impl BatchInferenceQueries for PostgresConnectionInfo {
     // ===== Write methods =====
 
     async fn write_batch_request(&self, row: &BatchRequestRow<'_>) -> Result<(), Error> {
-        let pool = self.get_pool_result()?;
+        let pool = self.get_pool_result().map_err(|e| e.log())?;
         let rows = std::slice::from_ref(row);
 
         let mut metadata_qb = build_insert_batch_requests_query(rows)?;
@@ -185,7 +186,7 @@ impl BatchInferenceQueries for PostgresConnectionInfo {
             return Ok(());
         }
 
-        let pool = self.get_pool_result()?;
+        let pool = self.get_pool_result().map_err(|e| e.log())?;
 
         let mut metadata_qb = build_insert_batch_model_inferences_query(rows)?;
         metadata_qb.build().execute(pool).await.map_err(|e| {

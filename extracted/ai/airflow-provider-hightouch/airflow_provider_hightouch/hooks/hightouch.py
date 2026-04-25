@@ -5,7 +5,9 @@ from typing import Any, Dict, List, Optional
 from urllib.parse import urljoin
 
 from airflow.exceptions import AirflowException
+from airflow.providers.http.hooks.http import HttpHook
 
+from airflow_provider_hightouch import __version__, utils
 from airflow_provider_hightouch.consts import (
     DEFAULT_POLL_INTERVAL,
     HIGHTOUCH_API_BASE_V3,
@@ -15,13 +17,6 @@ from airflow_provider_hightouch.consts import (
     WARNING,
 )
 from airflow_provider_hightouch.types import HightouchOutput
-
-try:
-    from airflow.providers.http.hooks.http import HttpHook
-except ImportError:
-    from airflow.hooks.http_hook import HttpHook
-
-from airflow_provider_hightouch import __version__, utils
 
 
 class HightouchHook(HttpHook):

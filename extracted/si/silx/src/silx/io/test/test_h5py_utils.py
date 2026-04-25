@@ -111,7 +111,7 @@ def _cause_segfault():
 def _top_level_names_test(txtfilename, *args, **kw):
     sys.stderr = open(os.devnull, "w")
 
-    with open(txtfilename, mode="r") as f:
+    with open(txtfilename) as f:
         failcounter = int(f.readline().strip())
 
     ncausefailure = kw.pop("ncausefailure")
@@ -153,14 +153,19 @@ class TestH5pyUtils(unittest.TestCase):
         self._subtest_options = {"mode": "w"}
         self.filename_generator = self._filenames()
         yield self._subtest_options
+
+        self._subtest_options = {"mode": "w", "libver": "v110"}
+        self.filename_generator = self._filenames()
+        yield self._subtest_options
+
         self._subtest_options = {"mode": "w", "libver": "latest"}
         self.filename_generator = self._filenames()
-        yield
+        yield self._subtest_options
 
     def _filenames(self):
         i = 1
         while True:
-            filename = os.path.join(self.test_dir, "file{}.h5".format(i))
+            filename = os.path.join(self.test_dir, f"file{i}.h5")
             with self._open_context(filename):
                 pass
             yield filename
@@ -332,6 +337,12 @@ class TestH5pyUtils(unittest.TestCase):
     @subtests
     @unittest.skipIf(not h5py_utils.HAS_SWMR, "SWMR not supported")
     def test_modes_multi_process_swmr(self):
+        libver = self._subtest_options.get("libver", "earliest")
+        if libver == "earliest":
+            self.skipTest(
+                "HDF5 file version is 'earliest': SWMR is not always supported since it needs v110"
+            )
+
         filename = self._new_filename()
 
         with self._open_context(filename, mode="w", libver="latest") as f:

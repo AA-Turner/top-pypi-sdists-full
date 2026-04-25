@@ -206,6 +206,7 @@ def _serialize_field(field, wf_pk_to_index=None):
         "field_type": field.field_type,
         "order": field.order,
         "help_text": field.help_text,
+        "show_help_text_in_detail": field.show_help_text_in_detail,
         "placeholder": field.placeholder,
         "css_class": field.css_class,
         "width": field.width,
@@ -445,6 +446,7 @@ def serialize_form(form_definition):
             "submit_groups": _group_names(form_definition.submit_groups),
             "view_groups": _group_names(form_definition.view_groups),
             "admin_groups": _group_names(form_definition.admin_groups),
+            "reviewer_groups": _group_names(form_definition.reviewer_groups),
             "allow_save_draft": form_definition.allow_save_draft,
             "allow_withdrawal": form_definition.allow_withdrawal,
             "allow_resubmit": form_definition.allow_resubmit,
@@ -543,6 +545,7 @@ def build_export_payload(queryset):
         "submit_groups",
         "view_groups",
         "admin_groups",
+        "reviewer_groups",
         "category",
         "category__allowed_groups",
     )
@@ -979,6 +982,9 @@ def import_form(form_data, conflict="update", category_cache=None):
     )
     form_obj.admin_groups.set(
         [_get_or_create_group(n) for n in fd.get("admin_groups", [])]
+    )
+    form_obj.reviewer_groups.set(
+        [_get_or_create_group(n) for n in fd.get("reviewer_groups", [])]
     )
 
     # ── Workflows (created BEFORE fields so stage FKs can be resolved) ─────────

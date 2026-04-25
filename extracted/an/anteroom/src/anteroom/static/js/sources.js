@@ -637,6 +637,11 @@ const Sources = (() => {
         return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
     }
 
+    function _appendActiveSpaceId(formData) {
+        const spaceId = App.state ? App.state.currentSpaceId : null;
+        if (spaceId) formData.append('space_id', spaceId);
+    }
+
     async function saveSource() {
         const title = document.getElementById('source-title-input').value.trim();
         if (!title) {
@@ -659,6 +664,7 @@ const Sources = (() => {
                         const formData = new FormData();
                         formData.append('file', file);
                         formData.append('title', file.name);
+                        _appendActiveSpaceId(formData);
                         const resp = await App.api('/api/sources/upload', {
                             method: 'POST',
                             body: formData,
@@ -677,6 +683,7 @@ const Sources = (() => {
                     const formData = new FormData();
                     formData.append('file', _selectedFile);
                     formData.append('title', title);
+                    _appendActiveSpaceId(formData);
                     const resp = await App.api('/api/sources/upload', {
                         method: 'POST',
                         body: formData,
@@ -710,6 +717,7 @@ const Sources = (() => {
                 });
             }
 
+            await _refreshSpaceSourceIds();
             showListView();
             await refreshList();
         } catch (err) {

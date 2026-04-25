@@ -45,16 +45,16 @@
 //! The upper branch (constructing a `RequestMessage`) is used when invoking a chat completion variant.
 //! The lower branch (constructing a `StoredInput`) is used when we to write to `ChatInference`/`JsonInference` in ClickHouse.
 
-use derive_builder::Builder;
-use extra_body::{FullExtraBodyConfig, UnfilteredInferenceExtraBody};
-use extra_headers::FullExtraHeadersConfig;
+use extra_body::UnfilteredInferenceExtraBody;
+
 pub use file::{
     Base64File, Base64FileMetadata, Detail, File, FileExt, ObjectStorageError, ObjectStorageFile,
     ObjectStoragePointer, UrlFile,
 };
 // Re-export content types from tensorzero-types
 pub use tensorzero_types::{
-    Arguments, FunctionType, RawText, System, Template, Text, Thought, ThoughtSummaryBlock, Unknown,
+    Arguments, ContentBlockChatOutput, FunctionType, JsonInferenceOutput, RawText, System,
+    Template, Text, Thought, ThoughtSummaryBlock, Unknown,
 };
 // Re-export message types from tensorzero-types
 use futures::FutureExt;
@@ -62,26 +62,18 @@ use futures::future::{join_all, try_join_all};
 use itertools::Itertools;
 #[cfg(feature = "pyo3")]
 use pyo3::prelude::*;
-#[cfg(feature = "pyo3")]
-use pyo3::types::PyAny;
-#[cfg(feature = "pyo3")]
-use pyo3_helpers::serialize_to_dict;
 pub use resolved_input::{
     LazyFileExt, ResolvedInput, ResolvedInputMessage, ResolvedInputMessageContent,
 };
 use rust_decimal::Decimal;
-use schemars::JsonSchema;
-use serde::de::Error as _;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use serde_json::{Map, Value};
-use std::borrow::Borrow;
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use std::{
-    borrow::Cow,
     collections::HashMap,
     sync::Arc,
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
-use tensorzero_derive::{TensorZeroDeserialize, export_schema};
+use tensorzero_derive::TensorZeroDeserialize;
 pub use tensorzero_types::{Input, InputMessage, InputMessageContent, TextKind, ToolCallWrapper};
 use uuid::Uuid;
 
@@ -93,7 +85,6 @@ use crate::endpoints::object_storage::get_object;
 use crate::error::{Error, ErrorDetails, ErrorDetails::RateLimitMissingMaxTokens};
 use crate::function::FunctionConfigType;
 use crate::http::TensorzeroHttpClient;
-use crate::inference::types::chat_completion_inference_params::ChatCompletionInferenceParamsV2;
 use crate::inference::types::resolved_input::{
     LazyResolvedInput, LazyResolvedInputMessage, LazyResolvedInputMessageContent, write_file,
 };
@@ -138,12 +129,17 @@ pub use streams::{
 };
 pub use usage::{ApiType, RawResponseEntry, RawUsageEntry, Usage};
 
-pub use tensorzero_provider_types::{
-    ContentBlock, ContentBlockChunk, ContentBlockOutput, FileFuture, FileUrl, FinishReason,
-    FlattenUnknown, Latency, LazyFile, ModelInferenceRequestJsonMode,
-    PeekableProviderInferenceResponseStream, PendingObjectStoreFile, ProviderInferenceResponse,
-    ProviderInferenceResponseArgs, ProviderInferenceResponseChunk,
-    ProviderInferenceResponseStreamInner, RequestMessage, TextChunk, ThoughtChunk, UnknownChunk,
+pub use tensorzero_inference_types::{
+    AllowedTools, AllowedToolsChoice, BatchStatus, ContentBlock, ContentBlockChunk,
+    ContentBlockOutput, FileFuture, FileUrl, FinishReason, FlattenUnknown, FunctionToolDef,
+    Latency, LazyFile, ModelInferenceRequest, ModelInferenceRequestBuilder,
+    ModelInferenceRequestJsonMode, OpenAICustomTool, OpenAICustomToolFormat,
+    OpenAIGrammarDefinition, OpenAIGrammarSyntax, PeekableProviderInferenceResponseStream,
+    PendingObjectStoreFile, PollBatchInferenceResponse, ProviderBatchInferenceOutput,
+    ProviderBatchInferenceResponse, ProviderInferenceResponse, ProviderInferenceResponseArgs,
+    ProviderInferenceResponseChunk, ProviderInferenceResponseStreamInner, ProviderTool,
+    ProviderToolCallConfig, ProviderToolScope, ProviderToolScopeModelProvider, RequestMessage,
+    StartBatchProviderInferenceResponse, TextChunk, ThoughtChunk, ToolConfigRef, UnknownChunk,
 };
 
 /*
@@ -925,50 +921,28 @@ enum ContentBlockOutputType {
     Unknown,
 }
 
-/// Defines the types of content block that can come from a `chat` function
-#[cfg_attr(feature = "ts-bindings", derive(ts_rs::TS))]
-#[derive(Clone, Debug, JsonSchema, PartialEq, Serialize, TensorZeroDeserialize)]
-#[cfg_attr(feature = "ts-bindings", ts(export, optional_fields))]
-#[serde(tag = "type")]
-#[serde(rename_all = "snake_case")]
-#[export_schema]
-pub enum ContentBlockChatOutput {
-    #[schemars(title = "ContentBlockChatOutputText")]
-    Text(Text),
-    #[schemars(title = "ContentBlockChatOutputToolCall")]
-    ToolCall(InferenceResponseToolCall),
-    #[schemars(title = "ContentBlockChatOutputThought")]
-    Thought(Thought),
-    #[schemars(title = "ContentBlockChatOutputUnknown")]
-    Unknown(Unknown),
-}
-
-impl ContentBlockChatOutput {
-    /// Validates a `ContentBlockChatOutput` and re-validate and re-parse structured fields.
-    /// (e.g. ToolCallOutput.name and .arguments). Returns a new `ContentBlockChatOutput` with the validated fields.
-    ///
-    /// This is used in CreateChatDatapointRequest, which accepts a ContentBlockChatOutput. In these cases where a
-    /// user specifies it, we cannot trust raw and parsed values agree, and we use the raw fields as the source of truth
-    /// and re-validate.
-    pub async fn into_validated(
-        self,
-        tool_call_config: Option<&ToolCallConfig>,
-    ) -> ContentBlockChatOutput {
-        if let ContentBlockChatOutput::ToolCall(input_tool_call) = self {
-            let unvalidated_tool_call = ToolCall {
-                name: input_tool_call.raw_name,
-                arguments: input_tool_call.raw_arguments,
-                id: input_tool_call.id,
-            };
-            let validated_tool_call = InferenceResponseToolCall::new_from_tool_call(
-                unvalidated_tool_call,
-                tool_call_config,
-            )
-            .await;
-            ContentBlockChatOutput::ToolCall(validated_tool_call)
-        } else {
-            self
-        }
+/// Validates a `ContentBlockChatOutput` and re-validate and re-parse structured fields.
+/// (e.g. ToolCallOutput.name and .arguments). Returns a new `ContentBlockChatOutput` with the validated fields.
+///
+/// This is used in CreateChatDatapointRequest, which accepts a ContentBlockChatOutput. In these cases where a
+/// user specifies it, we cannot trust raw and parsed values agree, and we use the raw fields as the source of truth
+/// and re-validate.
+pub async fn validate_content_block_chat_output(
+    output: ContentBlockChatOutput,
+    tool_call_config: Option<&ToolCallConfig>,
+) -> ContentBlockChatOutput {
+    if let ContentBlockChatOutput::ToolCall(input_tool_call) = output {
+        let unvalidated_tool_call = ToolCall {
+            name: input_tool_call.raw_name,
+            arguments: input_tool_call.raw_arguments,
+            id: input_tool_call.id,
+        };
+        let validated_tool_call =
+            InferenceResponseToolCall::new_from_tool_call(unvalidated_tool_call, tool_call_config)
+                .await;
+        ContentBlockChatOutput::ToolCall(validated_tool_call)
+    } else {
+        output
     }
 }
 
@@ -1014,48 +988,6 @@ impl RateLimitedInputContent for RequestMessage {
             .iter()
             .map(RateLimitedInputContent::estimated_input_token_usage)
             .sum()
-    }
-}
-
-/// Top-level TensorZero type for an inference request to a particular model.
-/// This should contain all the information required to make a valid inference request
-/// for a provider, except for information about what model to actually request,
-/// and to convert it back to the appropriate response format.
-/// An example of the latter is that we might have prepared a request with Tools available
-/// but the client actually just wants a chat response.
-#[derive(Builder, Clone, Debug, Default, Serialize)]
-#[cfg_attr(any(feature = "e2e_tests", test), derive(PartialEq))]
-#[builder(setter(into, strip_option), default)]
-pub struct ModelInferenceRequest<'a> {
-    pub inference_id: Uuid,
-    pub messages: Vec<RequestMessage>,
-    pub system: Option<String>,
-    pub tool_config: Option<Cow<'a, ToolCallConfig>>,
-    pub temperature: Option<f32>,
-    pub top_p: Option<f32>,
-    pub max_tokens: Option<u32>,
-    pub presence_penalty: Option<f32>,
-    pub frequency_penalty: Option<f32>,
-    pub seed: Option<u32>,
-    pub stop_sequences: Option<Cow<'a, [String]>>,
-    pub stream: bool,
-    pub json_mode: ModelInferenceRequestJsonMode,
-    pub function_type: FunctionType,
-    pub output_schema: Option<&'a Value>,
-    pub extra_body: FullExtraBodyConfig,
-    pub extra_headers: FullExtraHeadersConfig,
-    pub fetch_and_encode_input_files_before_inference: bool,
-    /// Optional arbitrary data, only used when constructing the cache key.
-    /// This is used by best_of_n/mixture_of_n to force different sub-variants
-    /// to have different cache keys.
-    pub extra_cache_key: Option<String>,
-    #[serde(flatten)]
-    pub inference_params_v2: ChatCompletionInferenceParamsV2,
-}
-
-impl<'a> ModelInferenceRequest<'a> {
-    pub fn borrow_stop_sequences(&'a self) -> Option<Cow<'a, [String]>> {
-        self.stop_sequences.as_ref().map(borrow_cow)
     }
 }
 
@@ -1305,43 +1237,6 @@ pub struct JsonInferenceResult {
     pub finish_reason: Option<FinishReason>,
 }
 
-#[cfg_attr(feature = "ts-bindings", derive(ts_rs::TS))]
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, JsonSchema)]
-#[export_schema]
-#[cfg_attr(feature = "ts-bindings", ts(export))]
-#[cfg_attr(feature = "pyo3", pyclass(str))]
-pub struct JsonInferenceOutput {
-    /// This is never omitted from the response even if it's None. A `null` value indicates no output from the model.
-    /// It's rare and unexpected from the model, but it's possible.
-    pub raw: Option<String>,
-    /// This is never omitted from the response even if it's None.
-    pub parsed: Option<Value>,
-}
-
-impl std::fmt::Display for JsonInferenceOutput {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let json = serde_json::to_string_pretty(self).map_err(|_| std::fmt::Error)?;
-        write!(f, "{json}")
-    }
-}
-
-#[cfg(feature = "pyo3")]
-#[pymethods]
-impl JsonInferenceOutput {
-    #[getter]
-    fn get_raw(&self) -> Option<String> {
-        self.raw.clone()
-    }
-
-    #[getter]
-    fn get_parsed<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
-        Ok(match &self.parsed {
-            Some(value) => serialize_to_dict(py, value)?.into_bound(py),
-            None => py.None().into_bound(py),
-        })
-    }
-}
-
 #[derive(Clone, Debug, PartialEq)]
 pub struct InternalJsonInferenceOutput {
     pub raw: Option<String>,
@@ -1438,6 +1333,10 @@ pub enum InferenceDatabaseInsert {
 pub struct StoredModelInference {
     pub id: Uuid,
     pub inference_id: Uuid,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub function_name: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub variant_name: String,
     pub raw_request: Option<String>,
     pub raw_response: Option<String>,
     pub system: Option<String>,
@@ -1485,13 +1384,6 @@ impl From<String> for ResolvedInputMessageContent {
 impl From<String> for LazyResolvedInputMessageContent {
     fn from(text: String) -> Self {
         LazyResolvedInputMessageContent::Text(Text { text })
-    }
-}
-
-#[cfg(any(test, feature = "e2e_tests"))]
-impl From<String> for ContentBlockChatOutput {
-    fn from(text: String) -> Self {
-        ContentBlockChatOutput::Text(Text { text })
     }
 }
 
@@ -1589,10 +1481,12 @@ impl ModelInferenceResponseWithMetadata {
 
 impl StoredModelInference {
     /// Create a new StoredModelInference from a runtime ModelInferenceResponseWithMetadata.
-    /// Used when inserting into ClickHouse.
+    /// Used when inserting into the database.
     pub async fn new(
         result: ModelInferenceResponseWithMetadata,
         inference_id: Uuid,
+        function_name: String,
+        variant_name: String,
         snapshot_hash: SnapshotHash,
     ) -> Result<Self, Error> {
         let (latency_ms, ttft_ms) = match result.latency {
@@ -1649,6 +1543,8 @@ impl StoredModelInference {
         Ok(Self {
             id: Uuid::now_v7(),
             inference_id,
+            function_name,
+            variant_name,
             raw_request: Some(result.raw_request),
             raw_response: Some(result.raw_response),
             system: result.system,
@@ -1684,6 +1580,8 @@ impl InferenceResult {
     /// Any errors during construction are logged and the result is skipped.
     pub async fn get_model_inferences(
         &self,
+        function_name: &str,
+        variant_name: &str,
         snapshot_hash: SnapshotHash,
     ) -> Vec<StoredModelInference> {
         let model_inference_responses = self.model_inference_results();
@@ -1691,10 +1589,22 @@ impl InferenceResult {
             InferenceResult::Chat(chat_result) => chat_result.inference_id,
             InferenceResult::Json(json_result) => json_result.inference_id,
         };
+        let function_name = function_name.to_string();
+        let variant_name = variant_name.to_string();
         join_all(model_inference_responses.iter().map(|r| {
             let snapshot_hash = snapshot_hash.clone();
+            let function_name = function_name.clone();
+            let variant_name = variant_name.clone();
             async move {
-                match StoredModelInference::new(r.clone(), inference_id, snapshot_hash).await {
+                match StoredModelInference::new(
+                    r.clone(),
+                    inference_id,
+                    function_name,
+                    variant_name,
+                    snapshot_hash,
+                )
+                .await
+                {
                     Ok(model_inference) => Some(model_inference),
                     Err(e) => {
                         ErrorDetails::Serialization {
@@ -1936,32 +1846,6 @@ pub fn current_timestamp() -> u64 {
         .as_secs()
 }
 
-impl From<ContentBlockChatOutput> for ContentBlock {
-    fn from(output: ContentBlockChatOutput) -> Self {
-        match output {
-            ContentBlockChatOutput::Text(text) => ContentBlock::Text(text),
-            ContentBlockChatOutput::ToolCall(inference_response_tool_call) => {
-                ContentBlock::ToolCall(inference_response_tool_call.into_tool_call())
-            }
-            ContentBlockChatOutput::Thought(thought) => ContentBlock::Thought(thought),
-            ContentBlockChatOutput::Unknown(unknown) => ContentBlock::Unknown(unknown),
-        }
-    }
-}
-
-impl From<ContentBlockChatOutput> for ContentBlockOutput {
-    fn from(output: ContentBlockChatOutput) -> Self {
-        match output {
-            ContentBlockChatOutput::Text(text) => ContentBlockOutput::Text(text),
-            ContentBlockChatOutput::ToolCall(tool_call) => {
-                ContentBlockOutput::ToolCall(tool_call.into_tool_call())
-            }
-            ContentBlockChatOutput::Thought(thought) => ContentBlockOutput::Thought(thought),
-            ContentBlockChatOutput::Unknown(unknown) => ContentBlockOutput::Unknown(unknown),
-        }
-    }
-}
-
 /// Serializes a value that implements `Serialize` into a JSON string.
 /// If serialization fails, it logs the error and returns an empty string.
 ///
@@ -1982,63 +1866,6 @@ pub fn serialize_or_log<T: Serialize>(value: &T) -> String {
             String::new()
         }
     }
-}
-
-/// Turns a reference to a Cow into a `Cow::Borrowed`, without cloning
-fn borrow_cow<'a, T: ToOwned + ?Sized>(cow: &'a Cow<'a, T>) -> Cow<'a, T> {
-    match cow {
-        Cow::Borrowed(x) => Cow::Borrowed(x),
-        Cow::Owned(x) => Cow::Borrowed(x.borrow()),
-    }
-}
-
-pub(super) fn serialize_delete<S>(s: S) -> Result<S::Ok, S::Error>
-where
-    S: Serializer,
-{
-    true.serialize(s)
-}
-
-pub(super) fn deserialize_delete<'de, D>(d: D) -> Result<(), D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let val = bool::deserialize(d)?;
-    if !val {
-        return Err(D::Error::custom(
-            "Error deserializing replacement config: `delete` must be `true`, or not set",
-        ));
-    }
-    Ok(())
-}
-
-// Field-aware versions for struct fields (not enum variants)
-#[expect(clippy::trivially_copy_pass_by_ref)]
-pub(super) fn serialize_delete_field<S>(_: &(), s: S) -> Result<S::Ok, S::Error>
-where
-    S: Serializer,
-{
-    true.serialize(s)
-}
-
-pub(super) fn deserialize_delete_field<'de, D>(d: D) -> Result<(), D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let val = bool::deserialize(d)?;
-    if !val {
-        return Err(D::Error::custom(
-            "Error deserializing replacement config: `delete` must be `true`, or not set",
-        ));
-    }
-    Ok(())
-}
-
-pub(super) fn schema_for_delete_field(_gen: &mut schemars::SchemaGenerator) -> schemars::Schema {
-    let mut map = Map::new();
-    map.insert("type".to_owned(), Value::String("boolean".to_owned()));
-    map.insert("const".to_owned(), Value::Bool(true));
-    schemars::Schema::from(map)
 }
 
 #[cfg(test)]

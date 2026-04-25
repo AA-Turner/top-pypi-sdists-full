@@ -37,7 +37,7 @@ import pytest
 import logging
 from itertools import product
 import numpy as np
-from silx.image.utils import gaussian_kernel
+from ...image.utils import gaussian_kernel
 
 try:
     from scipy.ndimage import convolve, convolve1d
@@ -47,13 +47,12 @@ try:
     scipy_convolve1d = convolve1d
 except ImportError:
     scipy_convolve = None
-import unittest
+
 from ..common import ocl, check_textures_availability
 
 if ocl:
-    import pyopencl as cl
     import pyopencl.array as parray
-    from silx.opencl.convolution import Convolution
+    from ..convolution import Convolution
 logger = logging.getLogger(__name__)
 
 
@@ -101,13 +100,10 @@ class ConvolutionData:
 
     @staticmethod
     def print_err(conv):
-        errmsg = str(
-            """
+        errmsg = str("""
             Something wrong with %s
             mode=%s, texture=%s
-            """
-            % (conv.use_case_desc, conv.mode, conv.use_textures)
-        )
+            """ % (conv.use_case_desc, conv.mode, conv.use_textures))
         return errmsg
 
     def instantiate_convol(self, shape, kernel, axes=None):
@@ -188,7 +184,7 @@ class ConvolutionData:
         ref_func = self.get_reference_function(test_name)
         ref = ref_func(data, kernel)
         metric = self.compare(res, ref)
-        logger.info("%s: max error = %.2e" % (test_name, metric))
+        logger.info(f"{test_name}: max error = {metric:.2e}")
         tol = self.tol[str("%dD" % kernel.ndim)]
         assert metric < tol, self.print_err(conv)
 

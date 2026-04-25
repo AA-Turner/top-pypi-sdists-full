@@ -7,21 +7,11 @@ from abc import ABC, abstractmethod
 from functools import cached_property
 from typing import Iterable, Optional, Sequence, Tuple
 
-from dbt_semantic_interfaces.dataclass_serialization import SerializableDataclass
-from dbt_semantic_interfaces.enum_extension import assert_values_exhausted
-from dbt_semantic_interfaces.references import EntityReference, SemanticModelReference
-from dbt_semantic_interfaces.type_enums import DatePart
-from typing_extensions import Self
-
-from metricflow_semantics.collection_helpers.mf_type_aliases import AnyLengthTuple
-from metricflow_semantics.experimental.dataclass_helpers import fast_frozen_dataclass
-from metricflow_semantics.experimental.ordered_set import FrozenOrderedSet
-from metricflow_semantics.experimental.semantic_graph.model_id import SemanticModelId
-from metricflow_semantics.mf_logging.lazy_formattable import LazyFormat
 from metricflow_semantics.model.linkable_element_property import GroupByItemProperty
 from metricflow_semantics.model.semantic_model_derivation import SemanticModelDerivation
 from metricflow_semantics.model.semantics.element_filter import GroupByItemSetFilter
 from metricflow_semantics.model.semantics.linkable_element import LinkableElementType
+from metricflow_semantics.semantic_graph.model_id import SemanticModelId
 from metricflow_semantics.specs.dimension_spec import DimensionSpec
 from metricflow_semantics.specs.entity_spec import EntitySpec
 from metricflow_semantics.specs.group_by_metric_spec import GroupByMetricSpec
@@ -29,10 +19,20 @@ from metricflow_semantics.specs.instance_spec import LinkableInstanceSpec
 from metricflow_semantics.specs.patterns.spec_pattern import SpecPattern
 from metricflow_semantics.specs.time_dimension_spec import TimeDimensionSpec
 from metricflow_semantics.time.granularity import ExpandedTimeGranularity
+from metricflow_semantics.toolkit.collections.ordered_set import FrozenOrderedSet
+from metricflow_semantics.toolkit.dataclass_helpers import fast_frozen_dataclass
+from metricflow_semantics.toolkit.mf_logging.lazy_formattable import LazyFormat
+from metricflow_semantics.toolkit.mf_type_aliases import AnyLengthTuple
+from typing_extensions import Self
+
+from metricflow_semantic_interfaces.dataclass_serialization import SerializableDataclass
+from metricflow_semantic_interfaces.enum_extension import assert_values_exhausted
+from metricflow_semantic_interfaces.references import EntityReference, SemanticModelReference
+from metricflow_semantic_interfaces.type_enums import DatePart
 
 if typing.TYPE_CHECKING:
-    from metricflow_semantics.experimental.semantic_graph.attribute_resolution.attribute_recipe import IndexedDunderName
-    from metricflow_semantics.experimental.semantic_graph.trie_resolver.dunder_name_descriptor import (
+    from metricflow_semantics.semantic_graph.attribute_resolution.attribute_recipe import IndexedDunderName
+    from metricflow_semantics.semantic_graph.trie_resolver.dunder_name_descriptor import (
         DunderNameDescriptor,
     )
 

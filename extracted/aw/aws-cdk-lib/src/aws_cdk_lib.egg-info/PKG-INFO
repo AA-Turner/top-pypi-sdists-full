@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: aws-cdk-lib
-Version: 2.250.0
+Version: 2.251.0
 Summary: Version 2 of the AWS Cloud Development Kit library
 Home-page: https://github.com/aws/aws-cdk
 Author: Amazon Web Services
@@ -22,7 +22,7 @@ License-File: LICENSE
 License-File: NOTICE
 Requires-Dist: aws-cdk.asset-awscli-v1==2.2.273
 Requires-Dist: aws-cdk.asset-node-proxy-agent-v6<3.0.0,>=2.1.1
-Requires-Dist: aws-cdk.cloud-assembly-schema<54.0.0,>=53.0.0
+Requires-Dist: aws-cdk.cloud-assembly-schema<54.0.0,>=53.18.0
 Requires-Dist: constructs<11.0.0,>=10.5.0
 Requires-Dist: jsii<2.0.0,>=1.127.0
 Requires-Dist: publication>=0.0.3
@@ -1592,31 +1592,20 @@ generated CloudFormation templates against your policies immediately after
 synthesis. If there are any violations, the synthesis will fail and a report
 will be printed to the console or to a file (see below).
 
-> [!NOTE]
-> This feature is considered experimental, and both the plugin API and the
-> format of the validation report are subject to change in the future.
-
 ### For application developers
 
 To use one or more validation plugins in your application, use the
-`policyValidationBeta1` property of `Stage`:
+`Validations.of()` API:
 
 ```python
 # globally for the entire app (an app is a stage)
-app = App(
-    policy_validation_beta1=[
-        # These hypothetical classes implement IPolicyValidationPluginBeta1:
-        ThirdPartyPluginX(),
-        ThirdPartyPluginY()
-    ]
-)
+app = App()
+Validations.of(app).add_plugins(ThirdPartyPluginX())
+Validations.of(app).add_plugins(ThirdPartyPluginY())
 
 # only apply to a particular stage
-prod_stage = Stage(app, "ProdStage",
-    policy_validation_beta1=[
-        ThirdPartyPluginX()
-    ]
-)
+prod_stage = Stage(app, "ProdStage")
+Validations.of(prod_stage).add_plugins(ThirdPartyPluginX())
 ```
 
 Immediately after synthesis, all plugins registered this way will be invoked to
@@ -1664,19 +1653,19 @@ the standard output.
 ### For plugin authors
 
 The communication protocol between the CDK core module and your policy tool is
-defined by the `IPolicyValidationPluginBeta1` interface. To create a new plugin you must
+defined by the `IPolicyValidationPlugin` interface. To create a new plugin you must
 write a class that implements this interface. There are two things you need to
 implement: the plugin name (by overriding the `name` property), and the
 `validate()` method.
 
-The framework will call `validate()`, passing an `IPolicyValidationContextBeta1` object.
+The framework will call `validate()`, passing an `IPolicyValidationContext` object.
 The location of the templates to be validated is given by `templatePaths`. The
-plugin should return an instance of `PolicyValidationPluginReportBeta1`. This object
-represents the report that the user wil receive at the end of the synthesis.
+plugin should return an instance of `PolicyValidationPluginReport`. This object
+represents the report that the user will receive at the end of the synthesis.
 
 ```python
-from aws_cdk import PolicyValidationPluginReportBeta1, PolicyViolationBeta1, PolicyViolatingResourceBeta1
-@jsii.implements(IPolicyValidationPluginBeta1)
+from aws_cdk import PolicyValidationPluginReport, PolicyViolation, PolicyViolatingResource
+@jsii.implements(IPolicyValidationPlugin)
 class MyPlugin:
 
     def validate(self, context):
@@ -1684,13 +1673,13 @@ class MyPlugin:
 
         # ...then perform the validation, and then compose and return the report.
         # Using hard-coded values here for better clarity:
-        return PolicyValidationPluginReportBeta1(
+        return PolicyValidationPluginReport(
             success=False,
-            violations=[PolicyViolationBeta1(
+            violations=[PolicyViolation(
                 rule_name="CKV_AWS_117",
                 description="Ensure that AWS Lambda function is configured inside a VPC",
                 fix="https://docs.bridgecrew.io/docs/ensure-that-aws-lambda-function-is-configured-inside-a-vpc-1",
-                violating_resources=[PolicyViolatingResourceBeta1(
+                violating_resources=[PolicyViolatingResource(
                     resource_logical_id="MyFunction3BAA72D1",
                     template_path="/home/johndoe/myapp/cdk.out/MyService.template.json",
                     locations=["Properties/VpcConfig"]
@@ -1700,7 +1689,7 @@ class MyPlugin:
 ```
 
 In addition to the name, plugins may optionally report their version (`version`
-property ) and a list of IDs of the rules they are going to evaluate (`ruleIds`
+property) and a list of IDs of the rules they are going to evaluate (`ruleIds`
 property).
 
 Note that plugins are not allowed to modify anything in the cloud assembly. Any

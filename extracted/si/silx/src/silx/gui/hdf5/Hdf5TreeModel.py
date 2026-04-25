@@ -29,7 +29,6 @@ __date__ = "12/03/2019"
 
 import os
 import logging
-from typing import Optional
 import functools
 from .. import qt
 from .. import icons
@@ -39,9 +38,10 @@ from .Hdf5LoadingItem import Hdf5LoadingItem
 from . import _utils
 from ... import io as silx_io
 from ...io._sliceh5 import DatasetSlice
+from ...io.url import DataUrl
+from ..._utils import nfs_cache_refresh as _nfs_cache_refresh
 
 import h5py
-
 
 _logger = logging.getLogger(__name__)
 
@@ -61,7 +61,7 @@ def _createRootLabel(h5obj):
         path = h5obj.name
         if path.startswith("/"):
             path = path[1:]
-        label = "%s::%s" % (filename, path)
+        label = f"{filename}::{path}"
         if isinstance(h5obj, DatasetSlice):
             label += str(list(h5obj.indices))
     return label
@@ -81,7 +81,7 @@ class LoadingItemRunnable(qt.QRunnable):
 
         :param LoadingItemWorker worker: Object holding data and signals
         """
-        super(LoadingItemRunnable, self).__init__()
+        super().__init__()
         self.filename = filename
         self.oldItem = item
         self.signals = self.__Signals()
@@ -123,7 +123,7 @@ class LoadingItemRunnable(qt.QRunnable):
             h5file = silx_io.open(self.filename)
             newItem = self.__loadItemTree(self.oldItem, h5file)
             error = None
-        except IOError as e:
+        except OSError as e:
             # Should be logged
             error = e
             newItem = None
@@ -202,7 +202,7 @@ class Hdf5TreeModel(qt.QAbstractItemModel):
         :param bool ownFiles: If true (default) the model will manage the files
             life cycle when they was added using path (like DnD).
         """
-        super(Hdf5TreeModel, self).__init__(parent)
+        super().__init__(parent)
 
         self.header_labels = [None] * len(self.COLUMN_IDS)
         self.header_labels[self.NAME_COLUMN] = "Name"
@@ -221,7 +221,7 @@ class Hdf5TreeModel(qt.QAbstractItemModel):
 
         self.__animatedIcon = icons.getWaitIcon()
         self.__animatedIcon.iconChanged.connect(self.__updateLoadingItems)
-        self.__runnerSet = set([])
+        self.__runnerSet = set()
 
         # store used icons to avoid the cache to release it
         self.__icons = []
@@ -272,8 +272,8 @@ class Hdf5TreeModel(qt.QAbstractItemModel):
     def __itemReady(
         self,
         oldItem: Hdf5Node,
-        newItem: Optional[Hdf5Node],
-        error: Optional[Exception],
+        newItem: Hdf5Node | None,
+        error: Exception | None,
         filename: str,
     ):
         """Called at the end of a concurent file loading, when the loading
@@ -292,6 +292,10 @@ class Hdf5TreeModel(qt.QAbstractItemModel):
         self.__root.removeChildAtIndex(row)
         self.endRemoveRows()
 
+        if error:
+            _logger.error(error)
+            return
+
         if newItem is not None:
             rootIndex = qt.QModelIndex()
             if self.__ownFiles:
@@ -304,8 +308,6 @@ class Hdf5TreeModel(qt.QAbstractItemModel):
                 self.sigH5pyObjectLoaded.emit(newItem.obj, filename)
             else:
                 self.sigH5pyObjectSynchronized.emit(oldItem.obj, newItem.obj)
-
-        # FIXME the error must be displayed
 
     def isFileDropEnabled(self):
         return self.__fileDropEnabled
@@ -431,14 +433,11 @@ class Hdf5TreeModel(qt.QAbstractItemModel):
                 try:
                     self.insertFileAsync(url.toLocalFile(), row)
                     row += 1
-                except IOError as e:
+                except OSError as e:
                     messages.append(e.args[0])
             if len(messages) > 0:
                 title = "Error occurred when loading files"
-                message = "<html>%s:<ul><li>%s</li><ul></html>" % (
-                    title,
-                    "</li><li>".join(messages),
-                )
+                message = f"<html>{title}:<ul><li>{'</li><li>'.join(messages)}</li><ul></html>"
                 qt.QMessageBox.critical(None, title, message)
             return True
 
@@ -569,6 +568,49 @@ class Hdf5TreeModel(qt.QAbstractItemModel):
     def nodeFromIndex(self, index):
         return index.internalPointer() if index.isValid() else self.__root
 
+    def _findNode(self, startIndex: qt.QModelIndex, name: str) -> qt.QModelIndex | None:
+        matchingItems = self.match(
+            startIndex,
+            qt.Qt.DisplayRole,
+            name,
+            hits=1,
+        )
+        if len(matchingItems) == 0:
+            return None
+
+        return matchingItems[0]
+
+    def _findChildren(self, parentNode: Hdf5Item, childName: str) -> Hdf5Item | None:
+        # TODO: FIXME: we should be able to use the generic 'model.match' but Hdf5Item is not inheriting from the default qt.QAbstractView
+        # cannot use the default 'search' function as the item is not inheriting from the default QTreeItem...
+        for i in range(parentNode.childCount()):
+            if parentNode.child(i).basename == childName:
+                return parentNode.child(i)
+
+    def findHdf5Item(self, url: DataUrl) -> Hdf5Item | None:
+        """Return the Hdf5Object matching the url if exists in the model. Else None"""
+
+        # 1.0 find file name
+        fileName = url.file_path()
+
+        startIndex = self._findNode(
+            startIndex=self.index(0, 0), name=os.path.basename(fileName)
+        )
+        if startIndex is None:
+            return None
+        node = self.nodeFromIndex(startIndex)
+
+        # 2.0 find data path node
+        nodeNames = filter(None, url.data_path().split("/"))
+
+        for nodeName in nodeNames:
+            # find file name
+            if node is None:
+                return None
+            node = self._findChildren(parentNode=node, childName=nodeName)
+
+        return node
+
     def _closeFileIfOwned(self, node):
         """Close the file if it was loaded from a filename or a
         drag-and-drop"""
@@ -671,9 +713,9 @@ class Hdf5TreeModel(qt.QAbstractItemModel):
     def insertH5pyObject(
         self,
         h5pyObject,
-        text: Optional[str] = None,
+        text: str | None = None,
         row: int = -1,
-        filename: Optional[str] = None,
+        filename: str | None = None,
     ):
         """Append an HDF5 object from h5py to the tree.
 
@@ -697,9 +739,9 @@ class Hdf5TreeModel(qt.QAbstractItemModel):
     def hasPendingOperations(self):
         return len(self.__runnerSet) > 0
 
-    def insertFileAsync(self, filename, row=-1, synchronizingNode=None):
+    def insertFileAsync(self, filename: str, row=-1, synchronizingNode=None):
         if not os.path.isfile(filename):
-            raise IOError("Filename '%s' must be a file path" % filename)
+            raise OSError("Filename '%s' must be a file path" % filename)
 
         # create temporary item
         if synchronizingNode is None:
@@ -714,6 +756,9 @@ class Hdf5TreeModel(qt.QAbstractItemModel):
         else:
             item = synchronizingNode
 
+            # Only refresh NFS cache for updates
+            _nfs_cache_refresh(os.path.dirname(os.path.realpath(filename)))
+
         # start loading the real one
         runnable = LoadingItemRunnable(filename, item)
         runnable.itemReady.connect(self.__itemReady)
@@ -723,6 +768,26 @@ class Hdf5TreeModel(qt.QAbstractItemModel):
 
     def __releaseRunner(self, runner):
         self.__runnerSet.remove(runner)
+
+    def _getFiles(self) -> tuple[str, ...]:
+        """Return the list of files open in the model"""
+        files = []
+        for rowIndex in range(self.rowCount()):
+            modelIndex = self.index(row=rowIndex, column=0)
+            obj = self.data(modelIndex, self.H5PY_OBJECT_ROLE)
+            files.append(obj.file.filename)
+        return tuple(files)
+
+    def _cleanChildlessNodes(self):
+        """Remove any childless nodes
+
+        Use case: remove file nodes without at least one dataset
+        """
+        for rowIndex in range(self.rowCount()):
+            modelIndex = self.index(row=rowIndex, column=0)
+            hasChildren = self.hasChildren(modelIndex)
+            if not hasChildren:
+                self.removeIndex(modelIndex)
 
     def insertFile(self, filename, row=-1):
         """Load a HDF5 file into the data model.
@@ -735,7 +800,7 @@ class Hdf5TreeModel(qt.QAbstractItemModel):
                 self.__openedFiles.append(h5file)
             self.sigH5pyObjectLoaded.emit(h5file, filename)
             self.insertH5pyObject(h5file, row=row, filename=filename)
-        except IOError:
+        except OSError:
             _logger.debug("File '%s' can't be read.", filename, exc_info=True)
             raise
 
@@ -780,7 +845,7 @@ class Hdf5TreeModel(qt.QAbstractItemModel):
         found = False
         foundIndices = []
         for _ in range(1000 * len(rootIndices)):
-            # Avoid too much iterations, in case of recurssive links
+            # Avoid too much iterations, in case of recursive links
             if len(foundIndices) == 0:
                 if len(rootIndices) == 0:
                     # Nothing found

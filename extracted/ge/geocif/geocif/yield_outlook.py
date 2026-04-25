@@ -343,56 +343,174 @@ def _load_observed_baselines(countries, crop, parser, current_year=None):
     return baselines
 
 
-def _generate_diagnostics(df_pred_store, dg, dir_outlook):
-    """Generate scatter, MAPE bar chart, and MAPE map for each (country, crop, model).
+def _generate_diagnostics_for_stage(df, country, crop, model, dg, dir_outlook,
+                                    stage_name=""):
+    """Generate scatter, MAPE bar chart, and MAPE map for one stage.
 
-    Called after the main outlook loop.  Uses the raw per-year obs/pred DataFrame
-    collected during _query_predictions() to produce model-accuracy diagnostics.
-    Output goes to outlook/plots/{model}/{country}/ and outlook/maps/{model}/.
+    Args:
+        df: DataFrame with obs/pred columns for this stage.
+        country, crop, model: Identifiers.
+        dg: GeoDataFrame for choropleth maps.
+        dir_outlook: Base output directory.
+        stage_name: Stage name suffix for filenames/subdirectories.
     """
     from .viz import diagnostics as diag
 
+    obs_col = "Observed Yield (tn per ha)"
+    pred_col = "Predicted Yield (tn per ha)"
+    df = df.dropna(subset=[obs_col, pred_col]) if obs_col in df.columns else pd.DataFrame()
+    if df.empty:
+        return
+
+    countries_display = [country.title().replace("_", " ")]
+    stage_safe = stage_name.replace(" ", "_") if stage_name else ""
+    stage_suffix = f"_{stage_safe}" if stage_safe else ""
+
+    dir_plots = dir_outlook / "plots" / model / country
+    dir_maps = dir_outlook / "maps" / model
+    if stage_safe:
+        dir_plots = dir_plots / stage_safe
+        dir_maps = dir_maps / stage_safe
+    os.makedirs(dir_plots, exist_ok=True)
+    os.makedirs(dir_maps, exist_ok=True)
+
+    title = f"{country.title()} {crop.title()} — {model}"
+    if stage_name:
+        title += f" ({stage_name})"
+
+    diag.scatter_obs_pred(df, title, dir_plots,
+                          f"scatter_{country}_{crop}_{model}{stage_suffix}.png")
+
+    df_mape = (
+        df.assign(
+            MAPE=lambda d: (
+                (d[pred_col] - d[obs_col]).abs() / d[obs_col].replace(0, np.nan) * 100
+            )
+        )
+        .groupby("Region", as_index=False)["MAPE"].mean()
+    )
+    diag.mape_bar_chart(df_mape, title, dir_plots,
+                        f"mape_bar_{country}_{crop}_{model}{stage_suffix}.png")
+
+    df_mape["Country Region"] = (
+        country.lower().replace("_", " ") + " " + df_mape["Region"].str.lower()
+    )
+    df_mape = df_mape.rename(columns={"MAPE": "Mean Absolute Percentage Error"})
+    dg_sub = dg[dg["ADM0_NAME"].isin(countries_display)].copy()
+    diag.mape_choropleth(
+        dg_sub, df_mape, countries_display, False,
+        dir_maps, f"mape_map_{country}_{crop}_{model}{stage_suffix}.png",
+    )
+
+
+def _plot_mape_progression(df, country, crop, model, dir_outlook):
+    """Plot MAPE progression across time steps for multi-stage runs.
+
+    Produces a line chart with:
+    - One thin line per region (MAPE at each stage)
+    - A bold line for the area-weighted national MAPE
+
+    Args:
+        df: DataFrame with obs/pred/stage columns for all stages.
+        country, crop, model: Identifiers.
+        dir_outlook: Base output directory.
+    """
+    import matplotlib.pyplot as plt
+
+    obs_col = "Observed Yield (tn per ha)"
+    pred_col = "Predicted Yield (tn per ha)"
+    df = df.dropna(subset=[obs_col, pred_col])
+    if df.empty or "Stage Name" not in df.columns:
+        return
+
+    df = df[df[obs_col] != 0].copy()
+    df["MAPE"] = (df[pred_col] - df[obs_col]).abs() / df[obs_col] * 100
+
+    stages_sorted = sorted(df["Stage Name"].dropna().unique())
+    if len(stages_sorted) < 2:
+        return
+
+    # Per-region MAPE at each stage
+    region_mape = (
+        df.groupby(["Stage Name", "Region"])["MAPE"]
+        .mean()
+        .reset_index()
+    )
+
+    # Area-weighted national MAPE at each stage
+    has_area = "Area (ha)" in df.columns and df["Area (ha)"].notna().any()
+    national_rows = []
+    for stage in stages_sorted:
+        ds = df[df["Stage Name"] == stage]
+        if has_area:
+            region_stats = ds.groupby("Region").agg(
+                mape=("MAPE", "mean"),
+                area=("Area (ha)", "first"),
+            ).dropna()
+            if region_stats.empty or region_stats["area"].sum() == 0:
+                national_rows.append({"Stage Name": stage, "National MAPE": ds["MAPE"].mean()})
+            else:
+                weighted = (region_stats["mape"] * region_stats["area"]).sum() / region_stats["area"].sum()
+                national_rows.append({"Stage Name": stage, "National MAPE": weighted})
+        else:
+            national_rows.append({"Stage Name": stage, "National MAPE": ds["MAPE"].mean()})
+    df_national = pd.DataFrame(national_rows)
+
+    # Plot
+    fig, ax = plt.subplots(figsize=(10, 6))
+
+    regions = sorted(region_mape["Region"].unique())
+    cmap = plt.cm.get_cmap("tab20", max(len(regions), 1))
+    for i, region in enumerate(regions):
+        rdf = region_mape[region_mape["Region"] == region]
+        rdf = rdf.set_index("Stage Name").reindex(stages_sorted)
+        ax.plot(stages_sorted, rdf["MAPE"].values, color=cmap(i),
+                alpha=0.4, linewidth=1, label=region)
+
+    # National line
+    df_national = df_national.set_index("Stage Name").reindex(stages_sorted)
+    label = "National (area-weighted)" if has_area else "National (mean)"
+    ax.plot(stages_sorted, df_national["National MAPE"].values,
+            color="black", linewidth=2.5, marker="o", markersize=5, label=label)
+
+    ax.set_xlabel("Stage")
+    ax.set_ylabel("MAPE (%)")
+    ax.set_title(f"MAPE Progression — {country.title()} {crop.title()} ({model})")
+    ax.legend(bbox_to_anchor=(1.05, 1), loc="upper left", fontsize=7, ncol=1)
+    plt.xticks(rotation=45, ha="right", fontsize=8)
+    plt.tight_layout()
+
+    dir_plots = dir_outlook / "plots" / model / country
+    os.makedirs(dir_plots, exist_ok=True)
+    fig.savefig(dir_plots / f"mape_progression_{country}_{crop}_{model}.png",
+                dpi=250, bbox_inches="tight")
+    plt.close(fig)
+
+
+def _generate_diagnostics(df_pred_store, dg, dir_outlook):
+    """Generate scatter, MAPE bar chart, and MAPE map per (country, crop, model, stage).
+
+    When multi-step results are present (multiple Stage Names), produces
+    separate plots per stage, an aggregate, and a MAPE progression plot.
+    """
     for (country, crop, model), df in df_pred_store.items():
-        obs_col  = "Observed Yield (tn per ha)"
-        pred_col = "Predicted Yield (tn per ha)"
-        df = df.dropna(subset=[obs_col, pred_col]) if obs_col in df.columns else pd.DataFrame()
         if df.empty:
             continue
 
-        countries_display = [country.title().replace("_", " ")]
-        dir_plots = dir_outlook / "plots" / model / country
-        dir_maps  = dir_outlook / "maps"  / model
-        os.makedirs(dir_plots, exist_ok=True)
-        os.makedirs(dir_maps, exist_ok=True)
+        # Check for multiple stages
+        stages = df["Stage Name"].dropna().unique() if "Stage Name" in df.columns else []
 
-        title = f"{country.title()} {crop.title()} — {model}"
-
-        # Scatter: observed vs predicted, all years
-        diag.scatter_obs_pred(df, title, dir_plots,
-                              f"scatter_{country}_{crop}_{model}.png")
-
-        # MAPE bar chart: mean MAPE per region
-        df_mape = (
-            df.assign(
-                MAPE=lambda d: (
-                    (d[pred_col] - d[obs_col]).abs() / d[obs_col].replace(0, np.nan) * 100
+        if len(stages) > 1:
+            for stage_name in sorted(stages):
+                df_stage = df[df["Stage Name"] == stage_name]
+                _generate_diagnostics_for_stage(
+                    df_stage, country, crop, model, dg, dir_outlook, stage_name
                 )
-            )
-            .groupby("Region", as_index=False)["MAPE"].mean()
-        )
-        diag.mape_bar_chart(df_mape, title, dir_plots,
-                            f"mape_bar_{country}_{crop}_{model}.png")
+            # MAPE progression across time steps
+            _plot_mape_progression(df, country, crop, model, dir_outlook)
 
-        # MAPE choropleth map
-        df_mape["Country Region"] = (
-            country.lower().replace("_", " ") + " " + df_mape["Region"].str.lower()
-        )
-        df_mape = df_mape.rename(columns={"MAPE": "Mean Absolute Percentage Error"})
-        dg_sub = dg[dg["ADM0_NAME"].isin(countries_display)].copy()
-        diag.mape_choropleth(
-            dg_sub, df_mape, countries_display, False,
-            dir_maps, f"mape_map_{country}_{crop}_{model}.png",
-        )
+        # Always produce an aggregate (latest stage or all data)
+        _generate_diagnostics_for_stage(df, country, crop, model, dg, dir_outlook)
 
 
 def _generate_outlook_map(
@@ -517,15 +635,6 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
         orig_db = parser.get("DEFAULT", "db")
         outlook_db = ar.utcnow().to("America/New_York").format("[outlook_]MM[_]DD[_]YYYY[.db]")
         parser.set("DEFAULT", "db", outlook_db)
-        # Force every hindcast forecast_season to use today's partial-season
-        # stage window so stored predictions are time-aligned across years.
-        # Without this, 2020's prediction would use full-season CIDs while
-        # 2026's uses only Mar-today — making the outlook index a
-        # comparison between incomparable models.
-        orig_align = parser.get("ML", "align_hindcast_stage", fallback="False")
-        if not parser.has_section("ML"):
-            parser.add_section("ML")
-        parser.set("ML", "align_hindcast_stage", "True")
         pool_countries_flag = parser.getboolean("ML", "pool_countries", fallback=False)
         if pool_countries_flag:
             inputs = gc.gather_pooled_inputs(parser)
@@ -546,7 +655,7 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
             ("Outlook index window", f"{n_years} years"),
             ("Seasons", f"{outlook_seasons[0]}-{outlook_seasons[-1]}"),
             ("Aggregation", aggregation),
-            ("Stage alignment", "time-aligned to today"),
+            ("Stage alignment", str(parser.getboolean("ML", "align_hindcast_stage", fallback=False))),
             ("Pooled", str(pool_countries_flag)),
             ("DB", parser.get("DEFAULT", "db")),
             ("Total combinations", str(len(inputs))),
@@ -563,7 +672,6 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
             parser.set(country, "forecast_seasons", orig)
         parser.set("DEFAULT", "experiment_name", experiment_name)
         parser.set("DEFAULT", "db", orig_db)
-        parser.set("ML", "align_hindcast_stage", orig_align)
 
     # ---- Step 2: Load shapefiles ----
     dg, dict_config = _load_shapefiles(parser)
@@ -611,58 +719,68 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
             # Store raw predictions for diagnostics
             df_pred_store[(country, crop, model)] = df
 
-            # Compute outlook index
-            df_outlook = _compute_outlook_index(
-                df, current_year, n_years, aggregation,
-                use_latest_stage=use_latest_stage,
-            )
-            if df_outlook.empty:
-                logger.warning(
-                    f"Could not compute outlook for {country} {crop} {model}"
+            # Determine which stages to produce maps for
+            available_stages = sorted(df_current["Stage Name"].dropna().unique())
+            if use_latest_stage or len(available_stages) <= 1:
+                stages_to_map = [available_stages[-1]] if available_stages else []
+            else:
+                stages_to_map = available_stages
+
+            for stage_name in stages_to_map:
+                # Filter to this stage across all years
+                df_stage = df[df["Stage Name"] == stage_name] if len(available_stages) > 1 else df
+
+                df_outlook = _compute_outlook_index(
+                    df_stage, current_year, n_years, aggregation,
+                    use_latest_stage=(len(available_stages) <= 1),
                 )
-                continue
+                if df_outlook.empty:
+                    logger.warning(
+                        f"Could not compute outlook for {country} {crop} {model} stage {stage_name}"
+                    )
+                    continue
 
-            # Use current year's stage name for labeling
-            stage_name = df_current["Stage Name"].iloc[-1]
-
-            n_hist = len(
-                df[
-                    (df["Harvest Year"] < current_year)
-                    & (df["Harvest Year"] >= current_year - n_years)
-                ]["Harvest Year"].unique()
-            )
-            if n_hist < 3:
-                logger.warning(
-                    f"Only {n_hist} historical years for {country} {crop} {model} "
-                    f"(requested {n_years})"
+                n_hist = len(
+                    df_stage[
+                        (df_stage["Harvest Year"] < current_year)
+                        & (df_stage["Harvest Year"] >= current_year - n_years)
+                    ]["Harvest Year"].unique()
                 )
+                if n_hist < 3:
+                    logger.warning(
+                        f"Only {n_hist} historical years for {country} {crop} {model} "
+                        f"stage {stage_name} (requested {n_years})"
+                    )
 
-            df_outlook["Crop"] = crop
-            df_outlook["Model"] = model
-            df_outlook["Stage Name"] = stage_name
-            df_outlook["Forecast Year"] = current_year
-            all_outlook_frames.append(df_outlook)
+                df_outlook["Crop"] = crop
+                df_outlook["Model"] = model
+                df_outlook["Stage Name"] = stage_name
+                df_outlook["Forecast Year"] = current_year
+                all_outlook_frames.append(df_outlook)
 
-            # Generate map — saved in maps/{model} subfolder
-            dir_model = dir_outlook / "maps" / model
-            os.makedirs(dir_model, exist_ok=True)
-            _generate_outlook_map(
-                dg,
-                df_outlook,
-                map_countries,
-                crop,
-                model,
-                current_year,
-                n_years,
-                aggregation,
-                dir_model,
-                stage_name=stage_name,
-                annotate_regions=False,
-            )
-            _countries_str = "_".join(map_countries)
-            logger.info(
-                f"Map saved: {dir_model / f'yield_outlook_{_countries_str}_{crop}_{model}_{stage_name}_{current_year}.png'}"
-            )
+                # Generate map — saved in maps/{model}[/{stage}] subfolder
+                stage_safe = stage_name.replace(" ", "_")
+                dir_model = dir_outlook / "maps" / model
+                if len(available_stages) > 1:
+                    dir_model = dir_model / stage_safe
+                os.makedirs(dir_model, exist_ok=True)
+                _generate_outlook_map(
+                    dg,
+                    df_outlook,
+                    map_countries,
+                    crop,
+                    model,
+                    current_year,
+                    n_years,
+                    aggregation,
+                    dir_model,
+                    stage_name=stage_name,
+                    annotate_regions=False,
+                )
+                _countries_str = "_".join(map_countries)
+                logger.info(
+                    f"Map saved: {dir_model / f'yield_outlook_{_countries_str}_{crop}_{model}_{stage_name}_{current_year}.png'}"
+                )
 
             # Absolute predicted-yield choropleth (sequential, tn/ha).
             # Complements the diverging outlook-index map by showing the

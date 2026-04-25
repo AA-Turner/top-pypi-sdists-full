@@ -15,7 +15,7 @@ from typing import (
 from uuid import UUID
 
 import uuid_utils
-from typing_extensions import deprecated
+from typing_extensions import deprecated, disjoint_base
 
 # PyO3
 from tensorzero import (
@@ -321,9 +321,10 @@ class GEPAConfig:
         self,
         *,
         function_name: str,
-        evaluation_name: str,
+        evaluation_name: Optional[str] = None,
         analysis_model: str,
         mutation_model: str,
+        evaluator_names: Optional[List[str]] = None,
         initial_variants: Optional[List[str]] = None,
         variant_prefix: Optional[str] = None,
         batch_size: Optional[int] = None,
@@ -471,7 +472,7 @@ class ChainOfThoughtConfig:
 class VariantsConfig:
     def __len__(self) -> int: ...
     def __getitem__(
-        self, key: str
+        self, key: str, /
     ) -> Union[
         ChatCompletionConfig,
         BestOfNSamplingConfig,
@@ -511,13 +512,14 @@ class FunctionConfigJson:
 @final
 class FunctionsConfig:
     def __len__(self) -> int: ...
-    def __getitem__(self, key: str) -> Union[FunctionConfigChat, FunctionConfigJson]: ...
+    def __getitem__(self, key: str, /) -> Union[FunctionConfigChat, FunctionConfigJson]: ...
 
 @final
 class Config:
     @property
     def functions(self) -> FunctionsConfig: ...
 
+@disjoint_base
 class BaseTensorZeroGateway:
     def experimental_get_config(self) -> Config: ...
 
@@ -593,6 +595,7 @@ class TensorZeroGateway(BaseTensorZeroGateway):
         include_raw_usage: Optional[bool] = None,
         include_aggregated_response: Optional[bool] = None,
         internal_dynamic_variant_config: Optional[Dict[str, Any]] = None,
+        gateway_http_headers: Optional[Dict[str, str]] = None,
     ) -> Union[InferenceResponse, Iterator[InferenceChunk]]:
         """
         Make a POST request to the /inference endpoint.
@@ -1066,6 +1069,7 @@ class AsyncTensorZeroGateway(BaseTensorZeroGateway):
         include_raw_usage: Optional[bool] = None,
         include_aggregated_response: Optional[bool] = None,
         internal_dynamic_variant_config: Optional[Dict[str, Any]] = None,
+        gateway_http_headers: Optional[Dict[str, str]] = None,
     ) -> Union[InferenceResponse, AsyncIterator[InferenceChunk]]:
         """
         Make a POST request to the /inference endpoint.

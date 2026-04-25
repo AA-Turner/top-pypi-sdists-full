@@ -18,6 +18,7 @@ from comfy_cli.command.custom_nodes.cm_cli_util import execute_cm_cli, find_cm_c
 from comfy_cli.config_manager import ConfigManager
 from comfy_cli.constants import NODE_ZIP_FILENAME
 from comfy_cli.file_utils import (
+    DownloadException,
     download_file,
     extract_package_as_zip,
     upload_file_to_signed_url,
@@ -170,13 +171,11 @@ def execute_install_script(repo_path):
     if os.path.exists(requirements_path):
         print("Install: pip packages")
         python = resolve_workspace_python(workspace_manager.workspace_path)
-        with open(requirements_path, encoding="utf-8") as requirements_file:
-            for line in requirements_file:
-                package_name = line.strip()
-                if package_name and not package_name.startswith("#"):
-                    install_cmd = [python, "-m", "pip", "install", package_name]
-                    if package_name.strip() != "":
-                        try_install_script(repo_path, install_cmd)
+        # Absolute path so pip doesn't re-resolve it against cwd=repo_path
+        # in try_install_script, which would double the path if repo_path
+        # is relative.
+        install_cmd = [python, "-m", "pip", "install", "-r", os.path.abspath(requirements_path)]
+        try_install_script(repo_path, install_cmd)
 
     if os.path.exists(install_script_path):
         print("Install: install script")
@@ -1168,7 +1167,12 @@ def registry_install(
 
     local_filename = node_specific_path / f"{node_id}-{node_version.version}.zip"
     logging.debug(f"Start downloading the node {node_id} version {node_version.version} to {local_filename}")
-    download_file(node_version.download_url, local_filename)
+    try:
+        download_file(node_version.download_url, local_filename)
+    except DownloadException as e:
+        logging.error(f"Failed to download node {node_id} version {node_version.version}: {e}")
+        ui.display_error_message(f"Failed to download the custom node {node_id}: {e}")
+        raise typer.Exit(code=1) from None
 
     # Extract the downloaded archive to the custom_node directory on the workspace.
     logging.debug(f"Start extracting the node {node_id} version {node_version.version} to {custom_nodes_path}")

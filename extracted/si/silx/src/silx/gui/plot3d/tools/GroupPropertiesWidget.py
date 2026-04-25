@@ -47,7 +47,7 @@ class GroupPropertiesWidget(qt.QWidget):
     """Maximum value for line width"""
 
     def __init__(self, parent=None):
-        super(GroupPropertiesWidget, self).__init__(parent)
+        super().__init__(parent)
         self._group = None
         self.setEnabled(False)
 
@@ -185,7 +185,7 @@ class GroupPropertiesWidget(qt.QWidget):
 
         markerSize = self._markerSizeSlider.value()
         for item in group.visit():
-            if isinstance(item, SymbolMixIn):
+            if isinstance(item, SymbolMixIn) and item.isSingleSymbolSize():
                 item.setSymbolSize(markerSize)
 
     def _lineWidthButtonClicked(self, checked=False):

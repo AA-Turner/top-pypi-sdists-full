@@ -21,8 +21,7 @@
 # THE SOFTWARE.
 #
 # ###########################################################################*/
-"""This module adds convenient functions to use plot3d widgets from the console.
-"""
+"""This module adds convenient functions to use plot3d widgets from the console."""
 
 __authors__ = ["T. Vincent"]
 __license__ = "MIT"
@@ -40,7 +39,6 @@ from ..gui.plot3d import SFViewParamTree
 from ..gui.colors import Colormap
 from ..gui.colors import rgba
 
-
 _logger = logging.getLogger(__name__)
 
 
@@ -55,7 +53,8 @@ def contour3d(
     opacity=1.0,
 ):
     """
-    Plot isosurfaces of a 3D scalar field in a :class:`~silx.gui.plot3d.ScalarFieldView.ScalarFieldView` widget.
+    Plot isosurfaces of a 3D scalar field in a
+    :class:`~silx.gui.plot3d.ScalarFieldView.ScalarFieldView` widget.
 
     How to use:
 
@@ -184,7 +183,8 @@ def points3d(
     mode=None,
 ):
     """
-    Plot a 3D scatter plot in a :class:`~silx.gui.plot3d.SceneWindow.SceneWindow` widget.
+    Plot a 3D scatter plot in a :class:`~silx.gui.plot3d.SceneWindow.SceneWindow`
+    widget.
 
     How to use:
 

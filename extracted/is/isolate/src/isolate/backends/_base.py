@@ -2,14 +2,7 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import (
-    Any,
-    Callable,
-    ClassVar,
-    Generic,
-    Iterator,
-    TypeVar,
-)
+from typing import Any, Callable, ClassVar, Generic, Iterator, Optional, TypeVar
 
 from isolate.backends.settings import DEFAULT_SETTINGS, IsolateSettings
 from isolate.logs import Log, LogLevel, LogSource
@@ -131,7 +124,7 @@ class EnvironmentConnection:
         self,
         entrypoint: str,
         *,
-        run_on_main_thread: bool = False,
+        run_on_main_thread: Optional[bool] = None,
     ) -> CallResultType:  # type: ignore[type-var]
         """Run a ``"module:attr"`` Python entrypoint inside the environment,
         and return the result. If the entrypoint raises an exception, then it
@@ -139,7 +132,9 @@ class EnvironmentConnection:
 
         If ``run_on_main_thread`` is True, the resolved callable is invoked on
         the agent's main thread (and coroutines it returns are awaited on that
-        loop); otherwise it runs on a thread pool."""
+        loop). If False, it runs on a thread pool. If None, the backend may
+        fall back to legacy callable-level hints such as
+        ``_run_on_main_thread``."""
         raise NotImplementedError
 
     def log(

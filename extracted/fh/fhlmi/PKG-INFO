@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fhlmi
-Version: 0.45.3
+Version: 0.46.0
 Summary: A client to provide LLM responses for FutureHouse applications.
 Author-email: FutureHouse technical staff <hello@futurehouse.org>
 License:                                  Apache License
@@ -224,7 +224,7 @@ Requires-Dist: aiohttp
 Requires-Dist: coredis>=3.0.1
 Requires-Dist: fhaviary>=0.14.0
 Requires-Dist: limits[async-redis]>=4.8
-Requires-Dist: litellm<=1.83.10,>=1.83.7
+Requires-Dist: litellm<=1.83.10,>=1.83.9
 Requires-Dist: openai>=2
 Requires-Dist: orjson
 Requires-Dist: pydantic>=2.10.1,~=2.0

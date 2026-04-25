@@ -27,7 +27,7 @@
 __authors__ = ["Pierre paleo"]
 __license__ = "MIT"
 __copyright__ = "2013-2017 European Synchrotron Radiation Facility, Grenoble, France"
-__date__ = "14/06/2017"
+__date__ = "13/03/2026"
 
 
 import logging
@@ -107,7 +107,7 @@ class TestCpy2d(unittest.TestCase):
         errmax = np.max(np.abs(result - reference))
         logger.info("Max error = %e" % (errmax))
         self.assertTrue(
-            errmax == 0, str("Max error is too high")
+            errmax == 0, "Max error is too high"
         )  # . PRNG state was %s" % str(self.prng_state)))
 
     @unittest.skipUnless(ocl and mako, "pyopencl is missing")
@@ -150,6 +150,6 @@ class TestCpy2d(unittest.TestCase):
         )
         wg = None
         ndrange = self.transfer_shape[::-1]
-        self.program.cpy2d(self.queue, ndrange, wg, *kernel_args)
+        cl.Kernel(self.program, "cpy2d")(self.queue, ndrange, wg, *kernel_args)
         res = self.d_array2.get()
         self.compare(res, self.array2)

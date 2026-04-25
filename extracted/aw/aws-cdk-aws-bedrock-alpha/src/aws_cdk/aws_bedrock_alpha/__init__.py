@@ -14810,6 +14810,21 @@ class BedrockFoundationModel(
         return typing.cast("BedrockFoundationModel", jsii.sget(cls, "ANTHROPIC_CLAUDE_OPUS_4_6_V1"))
 
     @jsii.python.classproperty
+    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_OPUS_4_7")
+    def ANTHROPIC_CLAUDE_OPUS_4_7(cls) -> "BedrockFoundationModel":
+        '''(experimental) Anthropic's Claude Opus 4.7 model, Anthropic's most capable generally available model, advancing performance across coding, enterprise workflows, and long-running agentic tasks. Features a 1M token context window, 128K max output tokens, and supports reasoning.
+
+        Features:
+
+        - Supports vision (Image input modality)
+        - Cross-region support
+        - Supports Bedrock Agents
+
+        :stability: experimental
+        '''
+        return typing.cast("BedrockFoundationModel", jsii.sget(cls, "ANTHROPIC_CLAUDE_OPUS_4_7"))
+
+    @jsii.python.classproperty
     @jsii.member(jsii_name="ANTHROPIC_CLAUDE_OPUS_4_V1_0")
     def ANTHROPIC_CLAUDE_OPUS_4_V1_0(cls) -> "BedrockFoundationModel":
         '''(experimental) Anthropic's Claude Opus 4 model, next-generation frontier model. High-performance model for advanced reasoning and complex multi-step tasks.

@@ -35,7 +35,6 @@ from .Hdf5TreeModel import Hdf5TreeModel
 import silx.io.utils
 from silx.gui import icons
 
-
 _logger = logging.getLogger(__name__)
 
 
@@ -75,9 +74,7 @@ class NexusSortFilterProxyModel(qt.QSortFilterProxyModel):
         :rtype: bool
         """
         if sourceLeft.column() != Hdf5TreeModel.NAME_COLUMN:
-            return super(NexusSortFilterProxyModel, self).lessThan(
-                sourceLeft, sourceRight
-            )
+            return super().lessThan(sourceLeft, sourceRight)
 
         # Do not sort child of root (files)
         if sourceLeft.parent() == qt.QModelIndex():
@@ -213,7 +210,7 @@ class NexusSortFilterProxyModel(qt.QSortFilterProxyModel):
         return icon
 
     def data(self, index, role=qt.Qt.DisplayRole):
-        result = super(NexusSortFilterProxyModel, self).data(index, role)
+        result = super().data(index, role)
 
         if index.column() == Hdf5TreeModel.NAME_COLUMN:
             if role == qt.Qt.DecorationRole:

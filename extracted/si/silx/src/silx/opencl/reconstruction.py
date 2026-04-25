@@ -111,14 +111,12 @@ class ReconstructionAlgorithm(OpenclProcessing):
         # Arrays
         self.d_data = parray.empty(self.queue, sino_shape, dtype=np.float32)
         self.d_data.fill(0.0)
-        self.d_sino = parray.empty_like(self.d_data)
-        self.d_sino.fill(0.0)
+        self.d_sino = self.array_zeros(self.d_data)
         self.d_x = parray.empty(
             self.queue, self.backprojector.slice_shape, dtype=np.float32
         )
         self.d_x.fill(0.0)
-        self.d_x_old = parray.empty_like(self.d_x)
-        self.d_x_old.fill(0.0)
+        self.d_x_old = self.array_zeros(self.d_x)
 
         self.add_to_cl_mem(
             {
@@ -212,16 +210,16 @@ class SIRT(ReconstructionAlgorithm):
         R = 1.0 / self.projector.projection(
             slice_ones
         )  # could be all done on GPU, but I want extra checks
-        R[
-            np.logical_not(np.isfinite(R))
-        ] = 1.0  # In the case where the rotation axis is excentred
+        R[np.logical_not(np.isfinite(R))] = (
+            1.0  # In the case where the rotation axis is excentred
+        )
         self.d_R = parray.to_device(self.queue, R)
         # c_{j,j} = 1/(sum_i a_{i,j})
         sino_ones = np.ones(self.sino_shape, dtype=np.float32)
         C = 1.0 / self.backprojector.backprojection(sino_ones)
-        C[
-            np.logical_not(np.isfinite(C))
-        ] = 1.0  # In the case where the rotation axis is excentred
+        C[np.logical_not(np.isfinite(C))] = (
+            1.0  # In the case where the rotation axis is excentred
+        )
         self.d_C = parray.to_device(self.queue, C)
 
         self.add_to_cl_mem({"d_R": self.d_R, "d_C": self.d_C})
@@ -331,13 +329,10 @@ class TV(ReconstructionAlgorithm):
         )
         # Additional arrays
         self.linalg.gradient(self.d_x)
-        self.d_p = parray.empty_like(self.linalg.cl_mem["d_gradient"])
-        self.d_q = parray.empty_like(self.d_data)
+        self.d_p = self.array_zeros(self.linalg.cl_mem["d_gradient"])
+        self.d_q = self.array_zeros(self.d_data)
         self.d_g = self.linalg.d_image
-        self.d_tmp = parray.empty_like(self.d_x)
-        self.d_p.fill(0)
-        self.d_q.fill(0)
-        self.d_tmp.fill(0)
+        self.d_tmp = self.array_zeros(self.d_x)
         self.add_to_cl_mem(
             {
                 "d_p": self.d_p,

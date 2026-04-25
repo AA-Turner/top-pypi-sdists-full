@@ -29,14 +29,20 @@ import logging
 import sys
 import tempfile
 
+import fabio
+import h5py
 import numpy
+import silx.gui.hdf5
+from silx.gui import qt
+from silx.gui.data.DataViewerFrame import DataViewerFrame
+from silx.gui.widgets.ThreadPoolPushButton import ThreadPoolPushButton
 
 logging.basicConfig()
 _logger = logging.getLogger("hdf5widget")
 """Module logger"""
 
+
 try:
-    # it should be loaded before h5py
     import hdf5plugin  # noqa
 except ImportError:
     message = (
@@ -44,14 +50,6 @@ except ImportError:
         + ' compressions. You can install it using "pip install hdf5plugin".'
     )
     _logger.warning(message)
-import h5py
-
-import silx.gui.hdf5
-from silx.gui import qt
-from silx.gui.data.DataViewerFrame import DataViewerFrame
-from silx.gui.widgets.ThreadPoolPushButton import ThreadPoolPushButton
-
-import fabio
 
 
 _file_cache = {}
@@ -604,7 +602,7 @@ class Hdf5TreeViewExample(qt.QMainWindow):
 
         def formatKey(name, value):
             name, value = html.escape(str(name)), html.escape(str(value))
-            return "<li><b>%s</b>: %s</li>" % (name, value)
+            return f"<li><b>{name}</b>: {value}</li>"
 
         text = "<html>"
         text += "<h1>Event</h1>"
@@ -785,11 +783,14 @@ class Hdf5TreeViewExample(qt.QMainWindow):
         multiselection.setChecked(
             treeview.selectionMode() == qt.QAbstractItemView.MultiSelection
         )
-        switch_selection = lambda: treeview.setSelectionMode(
-            qt.QAbstractItemView.MultiSelection
-            if multiselection.isChecked()
-            else qt.QAbstractItemView.SingleSelection
-        )
+
+        def switch_selection():
+            return treeview.setSelectionMode(
+                qt.QAbstractItemView.MultiSelection
+                if multiselection.isChecked()
+                else qt.QAbstractItemView.SingleSelection
+            )
+
         multiselection.toggled.connect(switch_selection)
         option.layout().addWidget(multiselection)
 

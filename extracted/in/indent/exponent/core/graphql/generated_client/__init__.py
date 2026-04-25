@@ -45,6 +45,7 @@ from .input_types import (
     DatabaseResourceConfigInput,
     EnvironmentVariableResponseEntry,
     EnvironmentVariableResponseInput,
+    ExitCreateSkillResponseInput,
     FileAttachmentInput,
     FileInput,
     McpServerConfigInput,
@@ -53,6 +54,9 @@ from .input_types import (
     PromptAttachmentInput,
     PromptInput,
     RepositoryResourceConfigInput,
+    RequestIndentConfigurationResponseInput,
+    RequestSecretsResponseEntry,
+    RequestSecretsResponseInput,
     SkillAttachmentInput,
     SkillConfigInput,
     SkillConfigsInput,
@@ -60,7 +64,6 @@ from .input_types import (
     TableSchemaAttachmentInput,
     URLAttachmentInput,
 )
-from .refresh_api_key import RefreshApiKey, RefreshApiKeyRefreshApiKey
 from .set_login_complete import SetLoginComplete, SetLoginCompleteSetLoginComplete
 from .start_chat_turn import StartChatTurn, StartChatTurnStartChatTurn
 
@@ -88,6 +91,7 @@ __all__ = [
     "DatabaseResourceConfigInput",
     "EnvironmentVariableResponseEntry",
     "EnvironmentVariableResponseInput",
+    "ExitCreateSkillResponseInput",
     "FileAttachmentInput",
     "FileInput",
     "GithubRepositories",
@@ -105,9 +109,10 @@ __all__ = [
     "PromptAttachmentInput",
     "PromptInput",
     "ReasoningLevel",
-    "RefreshApiKey",
-    "RefreshApiKeyRefreshApiKey",
     "RepositoryResourceConfigInput",
+    "RequestIndentConfigurationResponseInput",
+    "RequestSecretsResponseEntry",
+    "RequestSecretsResponseInput",
     "SQLAttachmentInput",
     "SandboxProvider",
     "SetLoginComplete",

@@ -241,8 +241,29 @@ def snowpark_to_proto_type(
                         column_metadata_str = json.dumps(metadata)
                         udt_info = metadata.get("__udt_info__")
 
-                # If this field has UDT info, return a StructField with UDT type
+                # If this field has UDT info, return a StructField with UDT type,
+                # but only if the field's actual datatype still matches the UDT's
+                # underlying SQL type.  A cast (e.g. UDT→StringType) changes the
+                # Snowflake column type while leaving column_metadata intact;
+                # wrapping such a column in UDT would garble client-side
+                # deserialization.
                 if udt_info:
+                    udt_sql_type = udt_info.get("sqlType")
+                    field_matches_udt = False
+                    if udt_sql_type is not None:
+                        try:
+                            expected_type = map_json_schema_to_snowpark(udt_sql_type)
+                            field_matches_udt = field.datatype == expected_type
+                        except (ValueError, KeyError, TypeError) as e:
+                            logger.debug(
+                                f"Could not parse UDT sqlType {udt_sql_type!r} "
+                                f"for field {spark_name}: {e}"
+                            )
+                    else:
+                        # No sqlType info — assume it still matches
+                        field_matches_udt = True
+
+                if udt_info and field_matches_udt:
                     python_class = udt_info.get("pyClass")
                     logger.debug(
                         f"Creating UDT proto type for field: {spark_name} with class: {python_class}"

@@ -5,7 +5,6 @@ import grpc
 from isolate.connections.grpc.definitions import agent_pb2 as agent__pb2
 from isolate.connections.grpc.definitions import common_pb2 as common__pb2
 
-
 class AgentStub(object):
     """Missing associated documentation comment in .proto file."""
 

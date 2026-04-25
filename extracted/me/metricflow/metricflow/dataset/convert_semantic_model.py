@@ -5,20 +5,9 @@ import re
 from dataclasses import dataclass
 from typing import List, Optional, Sequence, Tuple
 
-from dbt_semantic_interfaces.protocols.dimension import Dimension, DimensionType
-from dbt_semantic_interfaces.protocols.entity import Entity
-from dbt_semantic_interfaces.references import (
-    EntityReference,
-    SemanticModelElementReference,
-    SemanticModelReference,
-)
-from dbt_semantic_interfaces.type_enums.date_part import DatePart
-from dbt_semantic_interfaces.type_enums.time_granularity import TimeGranularity
 from metricflow_semantics.aggregation_properties import AggregationState
 from metricflow_semantics.dag.id_prefix import DynamicIdPrefix, StaticIdPrefix
 from metricflow_semantics.dag.sequential_id import SequentialIdGenerator
-from metricflow_semantics.experimental.dsi.simple_metric_model_object_lookup import SimpleMetricModelObjectLookup
-from metricflow_semantics.experimental.semantic_graph.model_id import SemanticModelId
 from metricflow_semantics.instances import (
     DimensionInstance,
     EntityInstance,
@@ -26,9 +15,10 @@ from metricflow_semantics.instances import (
     SimpleMetricInputInstance,
     TimeDimensionInstance,
 )
-from metricflow_semantics.mf_logging.lazy_formattable import LazyFormat
 from metricflow_semantics.model.semantic_manifest_lookup import SemanticManifestLookup
 from metricflow_semantics.model.semantics.semantic_model_helper import SemanticModelHelper
+from metricflow_semantics.semantic_graph.lookups.simple_metric_model_object_lookup import SimpleMetricModelObjectLookup
+from metricflow_semantics.semantic_graph.model_id import SemanticModelId
 from metricflow_semantics.specs.column_assoc import ColumnAssociationResolver
 from metricflow_semantics.specs.dimension_spec import DimensionSpec
 from metricflow_semantics.specs.entity_spec import EntitySpec
@@ -45,6 +35,7 @@ from metricflow_semantics.sql.sql_exprs import (
 from metricflow_semantics.sql.sql_table import SqlTable
 from metricflow_semantics.time.granularity import ExpandedTimeGranularity
 from metricflow_semantics.time.time_spine_source import TimeSpineSource
+from metricflow_semantics.toolkit.mf_logging.lazy_formattable import LazyFormat
 
 from metricflow.dataset.semantic_model_adapter import SemanticModelDataSet
 from metricflow.dataset.sql_dataset import SqlDataSet
@@ -53,6 +44,15 @@ from metricflow.sql.sql_plan import (
 )
 from metricflow.sql.sql_select_node import SqlSelectStatementNode
 from metricflow.sql.sql_table_node import SqlTableNode
+from metricflow_semantic_interfaces.protocols.dimension import Dimension, DimensionType
+from metricflow_semantic_interfaces.protocols.entity import Entity
+from metricflow_semantic_interfaces.references import (
+    EntityReference,
+    SemanticModelElementReference,
+    SemanticModelReference,
+)
+from metricflow_semantic_interfaces.type_enums.date_part import DatePart
+from metricflow_semantic_interfaces.type_enums.time_granularity import TimeGranularity
 
 logger = logging.getLogger(__name__)
 

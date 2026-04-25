@@ -1,1 +1,0 @@
-import{f as e}from"./index-BSvhCNbO.js";import{A as s}from"./index.es-DovV9WG3.js";import{s as r}from"./@zod-ddIhTJP1.js";const m=s(async a=>(await e({name:a})).total===0,500),o=a=>r().trim().min(1,"Stack name is required").max(255,"Stack name must be less than 255 characters").refine(t=>a&&t===a?!0:m(t),"Stack name is already in use");export{o as s};

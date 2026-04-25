@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from anteroom.tools.ask_user import DEFINITION, handle
+from anteroom.tools.ask_user import DEFINITION, MAX_ANSWER_CHARS, handle
 
 
 class TestAskUserHandler:
@@ -93,6 +93,16 @@ class TestAskUserHandler:
         assert "cancelled" not in result
 
     @pytest.mark.asyncio
+    async def test_callback_answer_is_capped_to_web_limit(self) -> None:
+        """CLI and web ask_user paths share the same maximum answer size."""
+
+        async def callback(question: str, options: list[str] | None = None) -> str:
+            return "a" * (MAX_ANSWER_CHARS + 1)
+
+        result = await handle(question="What?", _ask_callback=callback)
+        assert result == {"answer": "a" * MAX_ANSWER_CHARS}
+
+    @pytest.mark.asyncio
     async def test_callback_none_returns_cancelled(self) -> None:
         """None from callback is the cancel sentinel."""
 
@@ -175,6 +185,10 @@ class TestAskUserSchema:
         assert "options" in props
         assert props["options"]["type"] == "array"
         assert props["options"]["items"]["type"] == "string"
+
+    def test_options_description_allows_custom_text(self) -> None:
+        description = DEFINITION["parameters"]["properties"]["options"]["description"]
+        assert "custom text" in description
 
     def test_options_not_required(self) -> None:
         assert "options" not in DEFINITION["parameters"]["required"]

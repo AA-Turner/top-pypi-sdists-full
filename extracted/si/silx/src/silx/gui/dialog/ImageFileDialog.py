@@ -36,7 +36,6 @@ from silx.gui.plot.PlotWidget import PlotWidget
 from .AbstractDataFileDialog import AbstractDataFileDialog
 import silx.io
 
-
 _logger = logging.getLogger(__name__)
 
 
@@ -137,7 +136,7 @@ class _ImagePreview(qt.QWidget):
     """Provide a preview of the selected image"""
 
     def __init__(self, parent=None):
-        super(_ImagePreview, self).__init__(parent)
+        super().__init__(parent)
 
         self.__data = None
         self.__plot = PlotWidget(self)
@@ -308,7 +307,7 @@ class ImageFileDialog(AbstractDataFileDialog):
         if data is None or data.shape is None:
             return False
 
-        if data.dtype.kind not in set(["f", "u", "i", "b"]):
+        if data.dtype.kind not in {"f", "u", "i", "b"}:
             return False
 
         dim = len(data.shape)
@@ -342,7 +341,7 @@ class ImageFileDialog(AbstractDataFileDialog):
         """
         destination = self.__formatShape(dataAfterSelection.shape)
         source = self.__formatShape(dataBeforeSelection.shape)
-        return "%s \u2192 %s" % (source, destination)
+        return f"{source} \u2192 {destination}"
 
     def __formatShape(self, shape):
         result = []
@@ -352,4 +351,4 @@ class ImageFileDialog(AbstractDataFileDialog):
             else:
                 v = str(s)
             result.append(v)
-        return " \u00D7 ".join(result)
+        return " \u00d7 ".join(result)

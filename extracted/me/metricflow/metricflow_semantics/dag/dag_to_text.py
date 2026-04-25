@@ -8,12 +8,12 @@ import typing
 from contextlib import contextmanager
 from typing import Iterator, Optional
 
-from metricflow_semantics.helpers.string_helpers import mf_indent
+from metricflow_semantics.toolkit.string_helpers import mf_indent
 
 if typing.TYPE_CHECKING:
     from metricflow_semantics.dag.mf_dag import DagNode, DagNodeT, DisplayedProperty, MetricFlowDag
 
-from metricflow_semantics.mf_logging.pretty_print import PrettyFormatDictOption, mf_pformat
+from metricflow_semantics.toolkit.mf_logging.pretty_print import PrettyFormatDictOption, mf_pformat
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +47,7 @@ class MetricFlowDagTextFormatter:
 
     The text representation should be similar to the XML format where the parents are printed in an indented section.:
 
-    <FilterElementsNode>
+    <SelectorNode>
       ...
     </>
     """

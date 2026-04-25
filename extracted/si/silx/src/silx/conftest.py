@@ -5,7 +5,6 @@ from io import BytesIO
 
 import h5py
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -55,11 +54,11 @@ def pytest_addoption(parser):
         help="Disable the test of the OpenCL part",
     )
     parser.addoption(
-        "--low-mem",
-        dest="low_mem",
+        "--high-mem",
+        dest="high_mem",
         default=False,
         action="store_true",
-        help="Disable test with large memory consumption (>100Mbyte",
+        help="Enable tests with large memory consumption (>100Mbytes)",
     )
 
 
@@ -68,6 +67,28 @@ def pytest_configure(config):
         os.environ["SILX_OPENCL"] = "False"  # Disable OpenCL support in silx
 
     _set_qt_binding(config.option.qt_binding)
+
+
+_FILTERWARNINGS = (
+    r"ignore:tostring\(\) is deprecated\. Use tobytes\(\) instead\.:DeprecationWarning:OpenGL.GL.VERSION.GL_2_0",
+    "ignore:Jupyter is migrating its paths to use standard platformdirs:DeprecationWarning",
+    "ignore:Unable to import recommended hash 'siphash24.siphash13', falling back to 'hashlib.sha256'. Run 'python3 -m pip install siphash24' to install the recommended hash.:UserWarning:pytools.persistent_dict",
+    "ignore:Non-empty compiler output encountered. Set the environment variable PYOPENCL_COMPILER_OUTPUT=1 to see more.:UserWarning",
+    # Remove __array__ ignore once h5py v3.12 is released
+    "ignore:__array__ implementation doesn't accept a copy keyword, so passing copy=False failed. __array__ must implement 'dtype' and 'copy' keyword arguments.:DeprecationWarning",
+    # Deprecated pyparsing usage in matplotlib: https://github.com/matplotlib/matplotlib/issues/30617
+    "ignore::DeprecationWarning:matplotlib._fontconfig_pattern",
+    "ignore::DeprecationWarning:matplotlib._mathtext",
+    "ignore::DeprecationWarning:pyparsing.util",
+)
+
+
+def pytest_collection_modifyitems(items):
+    """Add warnings filters to all tests"""
+    for item in items:
+        item.add_marker(pytest.mark.filterwarnings("error"), append=False)
+        for filter_string in _FILTERWARNINGS:
+            item.add_marker(pytest.mark.filterwarnings(filter_string))
 
 
 @pytest.fixture(scope="session")
@@ -112,10 +133,10 @@ def use_opencl(test_options):
 def use_large_memory(test_options):
     """Fixture to flag test using a large memory consumption.
 
-    This can be skipped with `--low-mem`.
+    This can be enabled with `--high-mem`.
     """
-    if test_options.TEST_LOW_MEM:
-        pytest.skip(test_options.TEST_LOW_MEM_REASON, allow_module_level=True)
+    if not test_options.WITH_HIGH_MEM_TEST:
+        pytest.skip(test_options.WITH_HIGH_MEM_TEST_REASON, allow_module_level=True)
 
 
 @pytest.fixture(scope="session")
@@ -144,7 +165,7 @@ def qapp(use_gui, xvfb, request):
             app.closeAllWindows()
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def qapp_utils(qapp):
     """Helper containing method to deal with QApplication and widget"""
     from silx.gui.utils.testutils import TestCaseQt
@@ -197,7 +218,8 @@ def qWidgetFactory(qapp, qapp_utils):
     validWidgets = [widget for widget in widgets if isValid(widget)]
     assert not validWidgets, f"Some widgets were not destroyed: {validWidgets}"
 
-    del widgets
+    # Make sure not to keep references on widgets
+    widgets.clear()
 
 
 @pytest.fixture

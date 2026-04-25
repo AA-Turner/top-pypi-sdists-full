@@ -1,0 +1,87 @@
+name: Continuous integration
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+      - name: Install
+        run: pip install --upgrade black build flake8
+      - run: black --check .
+      - run: flake8
+      - name: Build wheel
+        run: |
+          python -m build --wheel
+          ls dist
+      - name: Check meson.build files
+        run: |
+          python ./tools/check_meson.py dist/silx-*.whl
+
+  build:
+    name: "Python ${{ matrix.python-version }} on ${{ matrix.os }} ${{ matrix.QT_API }}"
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            python-version: "3.12"
+            QT_API: PySide6
+            with_opencl: true
+
+          - os: macos-latest
+            python-version: "3.14"
+            QT_API: PyQt6
+            with_opencl: false
+
+          - os: windows-latest
+            python-version: "3.10"
+            QT_API: PyQt5
+            with_opencl: false
+
+    steps:
+      - uses: actions/checkout@v5        
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+      - uses: ./.github/actions/setup-system
+      - name: Install build dependencies
+        run: |
+          pip install --upgrade --pre build wheel 
+
+      - name: Build wheel
+        env:
+          MACOSX_DEPLOYMENT_TARGET: "10.9"
+        run: |
+          python -m build
+          ls dist
+
+      - name: Install
+        run: |
+          pip install -r ci/requirements-pinned.txt
+          pip install --pre "${{ matrix.QT_API }}"
+          pip install --pre "$(ls dist/silx*.whl)[full,test]"
+          python ./ci/info_platform.py
+          pip list
+
+      - name: Test
+        env:
+          QT_API: ${{ matrix.QT_API }}
+          SILX_OPENCL: ${{ matrix.with_opencl && 'True' || 'False' }}
+        run: |
+          python -c "import silx.test, sys; sys.exit(silx.test.run_tests(verbosity=3, args=['--qt-binding=${{ matrix.QT_API }}']))"

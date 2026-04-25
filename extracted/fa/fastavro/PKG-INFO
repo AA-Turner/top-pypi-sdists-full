@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fastavro
-Version: 1.12.1
+Version: 1.12.2
 Summary: Fast read/write of AVRO files
 Home-page: https://github.com/fastavro/fastavro
 Author: Miki Tebeka
@@ -30,12 +30,12 @@ License-File: LICENSE
 License-File: NOTICE.txt
 Provides-Extra: codecs
 Requires-Dist: cramjam; extra == "codecs"
-Requires-Dist: zstandard; extra == "codecs"
+Requires-Dist: backports.zstd; python_version < "3.14" and extra == "codecs"
 Requires-Dist: lz4; extra == "codecs"
 Provides-Extra: snappy
 Requires-Dist: cramjam; extra == "snappy"
 Provides-Extra: zstandard
-Requires-Dist: zstandard; extra == "zstandard"
+Requires-Dist: backports.zstd; python_version < "3.14" and extra == "zstandard"
 Provides-Extra: lz4
 Requires-Dist: lz4; extra == "lz4"
 Dynamic: author

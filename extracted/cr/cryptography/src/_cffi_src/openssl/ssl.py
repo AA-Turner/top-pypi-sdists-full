@@ -21,7 +21,6 @@ static const long Cryptography_HAS_VERIFIED_CHAIN;
 static const long Cryptography_HAS_KEYLOG;
 static const long Cryptography_HAS_SSL_COOKIE;
 
-static const long Cryptography_HAS_OP_NO_RENEGOTIATION;
 static const long Cryptography_HAS_SSL_OP_IGNORE_UNEXPECTED_EOF;
 static const long Cryptography_HAS_ALPN;
 static const long Cryptography_HAS_NEXTPROTONEG;
@@ -71,6 +70,7 @@ static const long SSL_OP_NETSCAPE_CA_DN_BUG;
 static const long SSL_OP_NETSCAPE_DEMO_CIPHER_CHANGE_BUG;
 static const long SSL_OP_NO_QUERY_MTU;
 static const long SSL_OP_COOKIE_EXCHANGE;
+static const long DTLS1_COOKIE_LENGTH;
 static const long SSL_OP_NO_TICKET;
 static const long SSL_OP_ALL;
 static const long SSL_OP_SINGLE_ECDH_USE;
@@ -347,6 +347,13 @@ int SSL_version(const SSL *);
 
 const char *SSL_get0_group_name(SSL *);
 
+/* both functions are have int return type according to the man page but
+ * long in its implementation. Newer versions also have the set1_groups
+ * function but the curves variants are available on all forks and OpenSSL
+ * variants */
+long SSL_CTX_set1_curves_list(SSL_CTX *, char *);
+long SSL_set1_curves_list(SSL *, char *);
+
 void SSL_set_tlsext_host_name(SSL *, char *);
 void SSL_CTX_set_tlsext_servername_callback(
     SSL_CTX *,
@@ -455,13 +462,6 @@ static const long Cryptography_HAS_KEYLOG = 1;
 static const long Cryptography_HAS_NEXTPROTONEG = 0;
 static const long Cryptography_HAS_ALPN = 1;
 
-#ifdef SSL_OP_NO_RENEGOTIATION
-static const long Cryptography_HAS_OP_NO_RENEGOTIATION = 1;
-#else
-static const long Cryptography_HAS_OP_NO_RENEGOTIATION = 0;
-static const long SSL_OP_NO_RENEGOTIATION = 0;
-#endif
-
 #ifdef SSL_OP_IGNORE_UNEXPECTED_EOF
 static const long Cryptography_HAS_SSL_OP_IGNORE_UNEXPECTED_EOF = 1;
 #else
@@ -481,8 +481,8 @@ static const long Cryptography_HAS_SET_CERT_CB = 1;
 static const long Cryptography_HAS_GET_EXTMS_SUPPORT = 1;
 #endif
 
-/* in OpenSSL 1.1.0 the SSL_ST values were renamed to TLS_ST and several were
-   removed */
+/* The SSL_ST values were renamed to TLS_ST in OpenSSL and several were
+   removed, but are still available in LibreSSL, BoringSSL, and AWS-LC */
 #if CRYPTOGRAPHY_IS_LIBRESSL || CRYPTOGRAPHY_IS_BORINGSSL \
     || CRYPTOGRAPHY_IS_AWSLC
 static const long Cryptography_HAS_SSL_ST = 1;
@@ -628,6 +628,7 @@ static const long Cryptography_HAS_SSL_VERIFY_CLIENT_POST_HANDSHAKE = 1;
 static const long Cryptography_HAS_SSL_COOKIE = 0;
 
 static const long SSL_OP_COOKIE_EXCHANGE = 0;
+static const long DTLS1_COOKIE_LENGTH = 0;
 int (*DTLSv1_listen)(SSL *, BIO_ADDR *) = NULL;
 void (*SSL_CTX_set_cookie_generate_cb)(SSL_CTX *,
                                        int (*)(

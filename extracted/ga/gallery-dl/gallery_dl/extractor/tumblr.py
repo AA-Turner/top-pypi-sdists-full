@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright 2016-2025 Mike Fährmann
+# Copyright 2016-2026 Mike Fährmann
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -9,7 +9,7 @@
 """Extractors for https://www.tumblr.com/"""
 
 from .common import Extractor, Message
-from .. import text, util, dt, oauth, exception
+from .. import text, util, dt, oauth
 
 
 BASE_PATTERN = (
@@ -56,6 +56,10 @@ class TumblrExtractor(Extractor):
 
         self.date_min, self.api.before = self._get_date_min_max(0, None)
 
+    def skip_date(self, date):
+        self.api.before = int(dt.to_ts(date))
+        return True
+
     def items(self):
         blog = None
 
@@ -68,8 +72,8 @@ class TumblrExtractor(Extractor):
                 r"https?://(\d+\.media\.tumblr\.com(?:/[0-9a-f]+)?"
                 r"/tumblr(?:_inline)?_[^_]+)_\d+\.([0-9a-z]+)").sub
             self._subn_orig_image = text.re(r"/s\d+x\d+/").subn
-            _findall_image = text.re('<img src="([^"]+)"').findall
-            _findall_video = text.re('<source src="([^"]+)"').findall
+            _findall_image = text.re('<img [^>]*src="([^"]+)"').findall
+            _findall_video = text.re('<source [^>]*src="([^"]+)"').findall
 
         for post in self.posts():
             if self.date_min > post["timestamp"]:
@@ -94,6 +98,8 @@ class TumblrExtractor(Extractor):
 
             reblog = "reblogged_from_id" in post
             if reblog and self._skip_reblog(post):
+                self.log.debug("%s: Skipping reblogged post from %s",
+                               post.get("id"), post.get("reblogged_from_name"))
                 continue
             post["reblogged"] = reblog
 
@@ -145,7 +151,7 @@ class TumblrExtractor(Extractor):
                 if "question" in post:
                     body = (f"{body} {post['question']} "
                             f"{post.get('answer') or ''}")
-                for url in _findall_image(body):
+                for url in util.unique(_findall_image(body)):
                     url, fb = self._original_inline_image(url)
                     if fb:
                         post["_fallback"] = self._original_image_fallback(
@@ -236,7 +242,10 @@ class TumblrExtractor(Extractor):
         return not self.reblogs
 
     def _skip_reblog_same_blog(self, post):
-        return self.blog != post.get("reblogged_root_uuid")
+        try:
+            return post["blog"]["uuid"] != post.get("reblogged_root_uuid")
+        except Exception:
+            return self.blog != post.get("reblogged_root_uuid")
 
     def _original_photo(self, url):
         resized = url.replace("/s2048x3072/", "/s99999x99999/", 1)
@@ -287,7 +296,6 @@ class TumblrPostExtractor(TumblrExtractor):
     example = "https://www.tumblr.com/BLOG/12345"
 
     def posts(self):
-        self.reblogs = True
         self.date_min = 0
         return self.api.posts(self.blog, {"id": self.groups[3]})
 
@@ -476,7 +484,16 @@ class TumblrAPI(oauth.OAuth1API):
             self.log.debug(data)
 
             if status == 403:
-                raise exception.AuthorizationError()
+                msg = data.get("response")
+                if msg == "You do not have permission to view this blog" and \
+                        self.api_key is None:
+                    self.log.debug("Retrying with 'api_key' authentication")
+                    self.api_key = params["api_key"] = \
+                        self.session.auth.consumer_key
+                    self.session = self.extractor.session
+                    continue
+                msg = f"'{msg}'" if isinstance(msg, str) else None
+                raise self.exc.AuthorizationError(msg)
 
             elif status == 404:
                 try:
@@ -495,8 +512,8 @@ class TumblrAPI(oauth.OAuth1API):
                     else:
                         self.log.info("Run 'gallery-dl oauth:tumblr' "
                                       "to access dashboard-only blogs")
-                    raise exception.AuthorizationError(error)
-                raise exception.NotFoundError("user or post")
+                    raise self.exc.AuthorizationError(error)
+                raise self.exc.NotFoundError("user or post")
 
             elif status == 429:
                 # daily rate limit
@@ -517,7 +534,7 @@ class TumblrAPI(oauth.OAuth1API):
                         continue
 
                     t = (dt.now() + dt.timedelta(0, float(reset))).time()
-                    raise exception.AbortExtraction(
+                    raise self.exc.AbortExtraction(
                         f"Aborting - Rate limit will reset at "
                         f"{t.hour:02}:{t.minute:02}:{t.second:02}")
 
@@ -527,7 +544,7 @@ class TumblrAPI(oauth.OAuth1API):
                     self.extractor.wait(seconds=reset)
                     continue
 
-            raise exception.AbortExtraction(data)
+            raise self.exc.AbortExtraction(data)
 
     def _pagination(self, endpoint, params,
                     blog=None, key="posts", cache=False):

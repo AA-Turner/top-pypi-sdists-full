@@ -107,6 +107,17 @@ class TestResolveAskChoice:
         # Empty Enter is a real answer, not a cancel — preserved as "".
         assert _resolve_ask_choice("", ["Alpha"]) == ""
 
+    def test_multiline_answer_stays_freeform_without_options(self) -> None:
+        assert _resolve_ask_choice("first line\nsecond line", None) == "first line\nsecond line"
+
+    def test_multiline_answer_with_options_stays_freeform(self) -> None:
+        answer = "Alpha\nwith more detail"
+        assert _resolve_ask_choice(answer, ["Alpha", "Beta"]) == answer
+
+    def test_x_inside_multiline_answer_does_not_cancel(self) -> None:
+        answer = "x\nmore detail"
+        assert _resolve_ask_choice(answer, ["Alpha", "Beta"]) == answer
+
 
 class TestMakeAskUserCallback:
     def _build(
@@ -167,6 +178,14 @@ class TestMakeAskUserCallback:
         callback, cancel_ref, _ = self._build(prompt_return="1")
         result = await callback("Pick:", ["Alpha", "Beta"])
         assert result == "Alpha"
+        assert not cancel_ref[0].is_set()
+
+    @pytest.mark.asyncio
+    async def test_multiline_freeform_answer_with_options_is_preserved(self) -> None:
+        answer = "Alpha\nbecause the default needs context"
+        callback, cancel_ref, _ = self._build(prompt_return=answer)
+        result = await callback("Pick:", ["Alpha", "Beta"])
+        assert result == answer
         assert not cancel_ref[0].is_set()
 
     @pytest.mark.asyncio
@@ -282,3 +301,13 @@ class TestMakeAskUserCallback:
         # The echo line for empty should show "(empty)" rather than the
         # (invisible) empty string.
         assert any("(empty)" in line for line in printed)
+
+    @pytest.mark.asyncio
+    async def test_inline_help_exposes_multiline_and_cancel_controls(self) -> None:
+        callback, _, printed = self._build(prompt_return="ok")
+        await callback("Q?", ["Alpha", "Beta"])
+        rendered = "\n".join(printed)
+        assert "Enter submits" in rendered
+        assert "Shift+Enter adds a newline" in rendered
+        assert "Ctrl+J or Esc+Enter adds a newline" in rendered
+        assert "'x', Ctrl-D, or Ctrl-C cancels" in rendered

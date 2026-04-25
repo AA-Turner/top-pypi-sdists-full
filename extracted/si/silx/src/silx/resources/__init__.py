@@ -1,6 +1,6 @@
 # /*##########################################################################
 #
-# Copyright (c) 2016-2023 European Synchrotron Radiation Facility
+# Copyright (c) 2016-2025 European Synchrotron Radiation Facility
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -52,6 +52,7 @@ of this modules to ensure access across different distribution schemes:
              options={'py2app': {'packages': ['silx']}}
              )
 """
+
 from __future__ import annotations
 
 __authors__ = ["V.A. Sole", "Thomas Vincent", "J. Kieffer"]
@@ -65,13 +66,13 @@ import functools
 import logging
 import os
 import sys
-from typing import NamedTuple, Optional
+from typing import NamedTuple
 
-if sys.version_info < (3, 9):
-    import importlib_resources
-else:
-    import importlib.resources as importlib_resources
+import importlib
+import importlib.resources as importlib_resources
 
+# Expose ExternalResources for compatibility (since silx 0.11)
+from ..utils.ExternalResources import ExternalResources  # noqa
 
 logger = logging.getLogger(__name__)
 
@@ -100,7 +101,7 @@ class _ResourceDirectory(NamedTuple):
     """Store a source of resources"""
 
     package_name: str
-    forced_path: Optional[str] = None
+    forced_path: str | None = None
 
 
 _SILX_DIRECTORY = _ResourceDirectory(package_name=__name__, forced_path=_RESOURCES_DIR)
@@ -110,7 +111,7 @@ _RESOURCE_DIRECTORIES["silx"] = _SILX_DIRECTORY
 
 
 def register_resource_directory(
-    name: str, package_name: str, forced_path: Optional[str] = None
+    name: str, package_name: str, forced_path: str | None = None
 ):
     """Register another resource directory to the available list.
 
@@ -182,7 +183,7 @@ def exists(resource: str) -> bool:
 
 
 def _get_package_and_resource(
-    resource: str, default_directory: Optional[str] = None
+    resource: str, default_directory: str | None = None
 ) -> tuple[_ResourceDirectory, str]:
     """
     Return the resource directory class and a cleaned resource name without
@@ -231,7 +232,7 @@ _file_manager = contextlib.ExitStack()
 atexit.register(_file_manager.close)
 
 
-@functools.lru_cache(maxsize=None)
+@functools.cache
 def _get_resource_filename(package: str, resource: str) -> str:
     """Returns path to requested resource in package
 
@@ -240,14 +241,18 @@ def _get_resource_filename(package: str, resource: str) -> str:
     :return: Abolute resource path in the file system
     """
     # Caching prevents extracting the resource twice
-    file_context = importlib_resources.as_file(
-        importlib_resources.files(package) / resource
-    )
+    traversable = importlib_resources.files(package).joinpath(resource)
+    if not traversable.is_file() and not traversable.is_dir():
+        module = importlib.import_module(package)
+        return os.path.join(os.path.dirname(module.__file__), resource)
+
+    file_context = importlib_resources.as_file(traversable)
+
     path = _file_manager.enter_context(file_context)
     return str(path.absolute())
 
 
-def _resource_filename(resource: str, default_directory: Optional[str] = None) -> str:
+def _resource_filename(resource: str, default_directory: str | None = None) -> str:
     """Return filename corresponding to resource.
 
     The existence of the resource is not checked.
@@ -275,7 +280,3 @@ def _resource_filename(resource: str, default_directory: Optional[str] = None) -
         return resource_path
 
     return _get_resource_filename(resource_directory.package_name, resource_name)
-
-
-# Expose ExternalResources for compatibility (since silx 0.11)
-from ..utils.ExternalResources import ExternalResources

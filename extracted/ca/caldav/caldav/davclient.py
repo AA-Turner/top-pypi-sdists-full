@@ -8,7 +8,6 @@ for XML building and response parsing.
 For async code, use: from caldav import aio
 """
 
-import copy
 import logging
 import sys
 import time
@@ -38,24 +37,20 @@ except ImportError:
 
 from collections.abc import Mapping
 
-from lxml import etree
-
-import caldav.compatibility_hints
 from caldav import __version__
 from caldav.base_client import BaseDAVClient
 from caldav.base_client import get_calendars as _base_get_calendars
 from caldav.base_client import get_davclient as _base_get_davclient
-from caldav.collection import Calendar, CalendarSet, Principal
+from caldav.collection import Calendar, Principal
 from caldav.compatibility_hints import FeatureSet
 
 # Re-export CONNKEYS for backward compatibility
 from caldav.config import CONNKEYS  # noqa: F401
-from caldav.elements import cdav, dav
 from caldav.lib import error
 from caldav.lib.python_utilities import to_wire
 from caldav.lib.url import URL
 from caldav.requests import HTTPBearerAuth
-from caldav.response import BaseDAVResponse
+from caldav.response import DAVResponse
 
 log = logging.getLogger("caldav")
 
@@ -65,7 +60,7 @@ else:
     from typing import Self
 
 if TYPE_CHECKING:
-    from caldav.calendarobjectresource import CalendarObjectResource, Event, Todo
+    from caldav.calendarobjectresource import CalendarObjectResource
 
 
 """
@@ -160,28 +155,6 @@ def _auto_url(
     return (url, None)
 
 
-class DAVResponse(BaseDAVResponse):
-    """
-    This class is a response from a DAV request.  It is instantiated from
-    the DAVClient class.  End users of the library should not need to
-    know anything about this class.  Since we often get XML responses,
-    it tries to parse it into `self.tree`
-    """
-
-    # Protocol-layer parsed results (new interface, replaces find_objects_and_props())
-    results: list | None = None
-    sync_token: str | None = None
-
-    def __init__(
-        self,
-        response: Response,
-        davclient: Optional["DAVClient"] = None,
-    ) -> None:
-        self._init_from_response(response, davclient)
-
-    # Response parsing methods are inherited from BaseDAVResponse
-
-
 class DAVClient(BaseDAVClient):
     """
     Basic client for webdav, uses the niquests lib; gives access to
@@ -272,7 +245,7 @@ class DAVClient(BaseDAVClient):
         when returning 401, warnings will be printed which might be unwanted.
         Check auth parameter for details.
         """
-        headers = headers or {}
+        headers = headers or CaseInsensitiveDict()
 
         ## Deprecation TODO: give a warning, user should use get_davclient or auto_calendar instead.  Probably.
 
@@ -323,7 +296,7 @@ class DAVClient(BaseDAVClient):
                 "Accept": "text/xml, text/calendar",
             }
         )
-        self.headers.update(headers or {})
+        self.headers.update(headers or CaseInsensitiveDict())
         if self.url.username is not None:
             username = unquote(self.url.username)
             password = unquote(self.url.password)
@@ -456,19 +429,6 @@ class DAVClient(BaseDAVClient):
             self._principal = Principal(*largs, client=self, **kwargs)
         return self._principal
 
-    def calendar(self, **kwargs):
-        """Returns a calendar object.
-
-        Typically, a URL should be given as a named parameter (url)
-
-        No network traffic will be initiated by this method.
-
-        If you don't know the URL of the calendar, use
-        client.principal().calendar(...) instead, or
-        client.principal().get_calendars()
-        """
-        return Calendar(client=self, **kwargs)
-
     # ==================== High-Level Methods ====================
     # These methods mirror the async API for consistency.
 
@@ -506,11 +466,11 @@ class DAVClient(BaseDAVClient):
             for cal in calendars:
                 print(f"Calendar: {cal.get_display_name()}")
         """
-        from caldav.operations.calendarset_ops import (
-            _extract_calendars_from_propfind_results as extract_calendars,
-        )
-        from caldav.operations.principal_ops import (
+        from caldav.collection import (
             _extract_calendar_home_set_from_results as extract_home_set,
+        )
+        from caldav.collection import (
+            _extract_calendars_from_propfind_results as extract_calendars,
         )
 
         if principal is None:
@@ -708,13 +668,11 @@ class DAVClient(BaseDAVClient):
         -------
         DAVResponse
         """
-        from caldav.protocol.xml_builders import _build_propfind_body
-
         # Handle both old interface (props=xml_string) and new interface (props=list)
         body = ""
         if props is not None:
             if isinstance(props, list):
-                body = _build_propfind_body(props).decode("utf-8")
+                body = self._build_propfind_body(props).decode("utf-8")
             else:
                 body = props  # Old interface: props is XML string
 
@@ -722,16 +680,8 @@ class DAVClient(BaseDAVClient):
         headers = {"Depth": str(depth)}
         response = self.request(url or str(self.url), "PROPFIND", body, headers)
 
-        # Parse response using protocol layer
         if response.status in (200, 207) and response._raw:
-            from caldav.protocol.xml_parsers import _parse_propfind_response
-
-            raw_bytes = (
-                response._raw if isinstance(response._raw, bytes) else response._raw.encode("utf-8")
-            )
-            response.results = _parse_propfind_response(
-                raw_bytes, response.status, response.huge_tree
-            )
+            response.results = response.parse_propfind()
         return response
 
     def proppatch(self, url: str, body: str, dummy: None = None) -> DAVResponse:
@@ -761,7 +711,7 @@ class DAVClient(BaseDAVClient):
         Returns
             DAVResponse
         """
-        headers = {"Depth": str(depth)} if depth is not None else {}
+        headers = {"Depth": str(depth)} if depth is not None else CaseInsensitiveDict()
         return self.request(url, "REPORT", query, headers)
 
     def mkcol(self, url: str, body: str, dummy: None = None) -> DAVResponse:

@@ -607,11 +607,11 @@ mod ca {
             let permitted_subtrees_empty = name_constraints
                 .permitted_subtrees
                 .as_ref()
-                .map_or(true, |pst| pst.is_empty());
+                .is_none_or(|pst| pst.is_empty());
             let excluded_subtrees_empty = name_constraints
                 .excluded_subtrees
                 .as_ref()
-                .map_or(true, |est| est.is_empty());
+                .is_none_or(|est| est.is_empty());
 
             if permitted_subtrees_empty && excluded_subtrees_empty {
                 return Err(ValidationError::new(ValidationErrorKind::Other(
@@ -642,7 +642,7 @@ mod ca {
                 Ok(())
             } else {
                 Err(ValidationError::new(ValidationErrorKind::Other(
-                    "required EKU not found".to_string(),
+                    "Neither EKU nor anyEKU could be found".to_string(),
                 )))
             }
         } else {
@@ -707,7 +707,10 @@ mod tests {
         oid: ObjectIdentifier,
         critical: bool,
         ext: &T,
-    ) -> Vec<u8> {
+    ) -> Vec<u8>
+    where
+        <T as SimpleAsn1Writable>::Error: std::fmt::Debug,
+    {
         let ext_value = asn1::write_single(ext).unwrap();
         let ext = Extension {
             extn_id: oid,

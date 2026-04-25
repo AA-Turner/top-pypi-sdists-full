@@ -7,16 +7,9 @@
 """Extractors for https://pholder.com/"""
 
 from .common import Extractor, Message
-from .. import text, util, exception
+from .. import text, util
 
 BASE_PATTERN = r"(?:https?://)?(?:www\.)?pholder\.com"
-
-
-def _thumb_resolution(thumbnail):
-    try:
-        return int(thumbnail["width"]) * int(thumbnail["height"])
-    except Exception:
-        return 0
 
 
 class PholderExtractor(Extractor):
@@ -28,6 +21,12 @@ class PholderExtractor(Extractor):
     archive_fmt = "{id}_{filename}_{gallery_id:? / /}"
     request_interval = (2.0, 4.0)
     referer = False
+
+    def _init(self):
+        if values := self.cache(_cookies, "", _exp=86400, _mem=False):
+            domain = self.root[8:]
+            self.cookies.set("_bcs", values[0], domain=domain)
+            self.cookies.set("_bcc", values[1], domain=domain)
 
     def _parse_window_data(self, html):
         # sometimes, window.data content is split across multiple script
@@ -50,13 +49,13 @@ class PholderExtractor(Extractor):
                 except ValueError:
                     pass
 
-        raise exception.AbortExtraction("Could not locate window.data JSON.")
+        raise self.exc.AbortExtraction("Could not locate window.data JSON.")
 
     def _solve_challenge(self, html):
         extr = text.extract_from(html)
-        ts = text.parse_int(extr(" ts=", ";"))
-        ip = text.parse_int(extr(" ip=", ";"))
-        vl = text.parse_int(extr("^(", ")"))
+        ts = int(extr("_t=", ","), 0)
+        ip = int(extr("_b=", ";"), 0)
+        vl = int(extr(",c=", ";"), 0)
 
         # '& 0xFFFFFFFF' to replicate JS behavior
         n = ts ^ ip ^ vl
@@ -72,11 +71,14 @@ class PholderExtractor(Extractor):
     def _posts(self, page_url):
         params = {"page": 1}
         while True:
-            html = self.request(page_url, params=params).text
+            response = self.request(page_url, params=params)
+            html = response.text
 
             if len(html) < 4096:
-                value = self._solve_challenge(html)
-                self.cookies.set("_bcc", value, domain=self.root[8:])
+                bcs = response.cookies.get("_bcs")
+                bcc = self._solve_challenge(html)
+                self.cookies.set("_bcc", bcc, domain=self.root[8:])
+                self.cache_update(_cookies, "", (bcs, bcc), _exp=86400)
                 continue
             window_data = self._parse_window_data(html)
 
@@ -144,3 +146,14 @@ class PholderSearchExtractor(PholderExtractor):
     subcategory = "search"
     pattern = BASE_PATTERN + r"/(.*)"
     example = "https://www.pholder.com/SEARCH"
+
+
+def _thumb_resolution(thumbnail):
+    try:
+        return int(thumbnail["width"]) * int(thumbnail["height"])
+    except Exception:
+        return 0
+
+
+def _cookies(_):
+    return None

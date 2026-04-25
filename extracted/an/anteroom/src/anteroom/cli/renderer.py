@@ -6,6 +6,7 @@ import asyncio
 import hashlib
 import json
 import os
+import re
 import sys
 import time
 from collections import deque
@@ -36,6 +37,17 @@ _stdout = sys.stdout
 # ---------------------------------------------------------------------------
 
 _theme: CliTheme = CliTheme.load("midnight")
+_ANSI_ESCAPE_RE = re.compile(
+    r"(?:"
+    r"\x1b\][^\x07\x1b]*(?:\x07|\x1b\\|$)"  # OSC
+    r"|\x9d[^\x07\x9c]*(?:\x07|\x9c|$)"  # 8-bit OSC
+    r"|\x1b[PX^_][^\x1b]*(?:\x1b\\|$)"  # DCS/SOS/PM/APC
+    r"|[\x90\x98\x9e\x9f][^\x9c]*(?:\x9c|$)"  # 8-bit DCS/SOS/PM/APC
+    r"|\x1b(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])"
+    r"|\x9b[0-?]*[ -/]*[@-~]"
+    r")"
+)
+_CONTROL_CHAR_RE = re.compile(r"[\x00-\x1f\x7f-\x9f]")
 
 
 def set_theme(theme: CliTheme) -> None:
@@ -86,6 +98,11 @@ def _apply_markdown_theme() -> None:
             c.pop_theme()
         c.push_theme(override)
         setattr(c, "_anteroom_markdown_theme_applied", True)
+
+
+def _strip_terminal_control(text: str) -> str:
+    """Remove untrusted control sequences before raw terminal writes."""
+    return _CONTROL_CHAR_RE.sub("", _ANSI_ESCAPE_RE.sub("", text))
 
 
 _ESC_HINT_DELAY: float = 5.0  # seconds before showing "esc to cancel" hint
@@ -245,6 +262,7 @@ _tool_start: float = 0
 _tool_ticker_task: asyncio.Task[None] | None = None
 _tool_ticker_summary: str = ""
 _tool_spinner: Status | None = None
+_tool_line_visible: bool = False
 
 # Dedup tracking for repeated similar tool calls
 _dedup_key: str = ""  # tool action type (e.g. "Editing", "Reading", "bash")
@@ -742,6 +760,12 @@ _toolbar_invalidator: Callable[[], None] | None = None
 # back to the raw in-place thinking line.
 _toolbar_is_active: Callable[[], bool] | None = None
 
+# Probe set by repl.py while the concurrent input collector is inside
+# ``PromptSession.prompt_async()``.  This is distinct from toolbar
+# availability: prompt_toolkit may be accepting queued input even when the
+# toolbar active probe is false.
+_prompt_is_active: Callable[[], bool] | None = None
+
 
 def _invalidate_footer_toolbar() -> None:
     """Repaint the footer immediately when the live busy state changes."""
@@ -754,12 +778,14 @@ def format_busy_status_toolbar(busy_status: BusyStatus | None) -> list[tuple[str
     parts: list[tuple[str, str]] = []
     if busy_status is None:
         return parts
-    if busy_status.tool_label and not busy_status.thinking_text:
+    tool_label = _strip_terminal_control(busy_status.tool_label) if busy_status.tool_label else ""
+    thinking_text = _strip_terminal_control(busy_status.thinking_text) if busy_status.thinking_text else ""
+    if tool_label and not thinking_text:
         parts.append(("class:bottom-toolbar.sep", " \u00b7 "))
-        parts.append(("class:bottom-toolbar.model", busy_status.tool_label))
-    if busy_status.thinking_text:
+        parts.append(("class:bottom-toolbar.model", tool_label))
+    if thinking_text:
         parts.append(("class:bottom-toolbar.sep", " \u00b7 "))
-        parts.append(("class:bottom-toolbar.tokens-warn", busy_status.thinking_text))
+        parts.append(("class:bottom-toolbar.tokens-warn", thinking_text))
     if busy_status.show_cancel_hint:
         parts.append(("class:bottom-toolbar.sep", " \u00b7 "))
         parts.append(("class:bottom-toolbar.dim", "esc to cancel"))
@@ -782,8 +808,9 @@ def get_busy_status() -> BusyStatus | None:
             thinking_text = f"{label} {elapsed:.0f}s"
             if suffix:
                 thinking_text += f"  {suffix}"
+            thinking_text = _strip_terminal_control(thinking_text)
         show_cancel = elapsed >= _ESC_HINT_DELAY
-    tool_label = _tool_ticker_summary or None
+    tool_label = _strip_terminal_control(_tool_ticker_summary) or None
     return BusyStatus(
         thinking_text=thinking_text,
         tool_label=tool_label,
@@ -924,7 +951,7 @@ def _build_thinking_text(
     ):
         return ""
 
-    label = _phase_label()
+    label = _strip_terminal_control(_phase_label())
 
     if elapsed < 3.0 and not error_msg and not cancel_msg:
         return f"{gold}{label}{rst}"
@@ -1358,6 +1385,7 @@ def _phase_label() -> str:
     - ``accepted`` → ``"Working..."`` (initial ack between prompt submit and first phase)
     - ``connecting`` → ``"Connecting..."``
     - ``waiting`` → ``"Thinking..."``
+    - ``compacting`` → ``"Compacting conversation history..."``
     - ``streaming`` → ``"Writing..."``
     - ``retrying`` → ``"Thinking..."`` (retry suffix handles detail)
     - ``tool_exec`` → tool-context label via ``_tool_phase_label()``
@@ -1367,6 +1395,8 @@ def _phase_label() -> str:
         return "Working..."
     if phase == "connecting":
         return "Connecting..."
+    if phase == "compacting":
+        return "Compacting conversation history..."
     if phase == "streaming":
         return "Writing..."
     if phase == "tool_exec":
@@ -1386,14 +1416,14 @@ def _tool_phase_label() -> str:
     if _active_tool_count == 0:
         return "Running tools..."
     if _active_tool_count == 1 and _active_tool_summaries:
-        summary = _active_tool_summaries[0]
+        summary = _strip_terminal_control(_active_tool_summaries[0])
         if not summary.endswith("..."):
             summary += "..."
         return summary
     # Multiple tools: check if they share an action prefix
     if _active_tool_summaries:
         prefixes = set()
-        for s in _active_tool_summaries:
+        for s in (_strip_terminal_control(summary) for summary in _active_tool_summaries):
             prefix = s.split(" ", 1)[0] if " " in s else s
             prefixes.add(prefix)
         if len(prefixes) == 1:
@@ -1482,6 +1512,8 @@ def _phase_suffix(elapsed: float) -> str:
     # connecting: label already says "Connecting..." — no suffix needed (#1382)
     if phase == "connecting":
         return ""
+    if phase == "compacting":
+        return ""
     # waiting suppressed during calm window
     if elapsed < 5.0:
         return ""
@@ -1522,10 +1554,12 @@ def _patch_heading_left() -> None:
 
 
 def flush_buffered_text() -> None:
-    """Flush any buffered AI text to screen immediately.
+    """Flush buffered AI text at a tool boundary when live streaming is active.
 
-    Called before tool calls start so the AI's task explanation
-    (e.g. 'Let me review your auth files') renders before the tool output.
+    Called before tool calls start. With live streaming enabled, the AI's
+    task explanation (e.g. 'Let me review your auth files') settles before
+    tool output. With streaming disabled/unavailable, the text remains
+    buffered for the end-of-turn static render.
 
     When live streaming is active (#1365), the Live region is torn down
     cleanly so the subsequent tool output renders underneath a settled
@@ -1533,13 +1567,13 @@ def flush_buffered_text() -> None:
     """
     global _streaming_buffer, _tool_batch_active
     text = "".join(_streaming_buffer)
-    _streaming_buffer = []
 
     # If the live-streaming renderer was driving the turn, let it emit its
     # own static finalize (which uses the hierarchy-aware
     # ``render_assistant_prose`` helper) and then return. We still honour
     # tool-batch spacing semantics.
     if _streaming_renderer is not None and _streaming_renderer.live_available():
+        _streaming_buffer = []
         if not text.strip():
             # Buffer-only whitespace: still clear the live renderer state
             # so a fresh segment can start next.
@@ -1559,6 +1593,16 @@ def flush_buffered_text() -> None:
 
             _stdout_console.print(_Padding(_make_markdown(text), (0, 2, 0, 2)))
         return
+
+    # When streaming is configured but unavailable (disabled by config,
+    # non-TTY, NO_COLOR, or exec without opt-in), preserve the documented
+    # fallback contract: keep prose buffered until render_response_end().
+    if _streaming_renderer is not None:
+        if not text.strip():
+            _streaming_buffer = []
+        return
+
+    _streaming_buffer = []
 
     if not text.strip():
         return
@@ -1978,6 +2022,7 @@ def _has_diff_data(tool_name: str, output: Any) -> bool:
 
 async def _tool_ticker() -> None:
     """Background task that updates tool elapsed time every 0.5s."""
+    global _tool_line_visible
     try:
         while True:
             await asyncio.sleep(0.5)
@@ -1986,15 +2031,60 @@ async def _tool_ticker() -> None:
                 if _tool_spinner:
                     label = f"  [{MUTED}]{escape(_tool_ticker_summary)}  {elapsed:.0f}s[/{MUTED}]"
                     _tool_spinner.update(label)
-                elif _footer_mode and _toolbar_invalidator:
-                    _toolbar_invalidator()
+                elif _invalidate_tool_status_toolbar():
+                    pass
                 elif _repl_mode and _stdout:
                     muted = _theme.ansi_fg("muted")
                     rst = _theme.ansi_reset
-                    _stdout.write(f"\r\033[2K{muted}  {_tool_ticker_summary}  {elapsed:.0f}s{rst}")
+                    summary = _strip_terminal_control(_tool_ticker_summary)
+                    _stdout.write(f"\r\033[2K{muted}  {summary}  {elapsed:.0f}s{rst}")
                     _stdout.flush()
+                    _tool_line_visible = True
     except asyncio.CancelledError:
         return
+
+
+def _tool_status_uses_toolbar() -> bool:
+    """Return True when tool-only status should render via prompt_toolkit.
+
+    Tool calls often start after ``stop_thinking()`` has cleared ``_footer_mode``.
+    By then the input collector may already have mounted the next
+    ``PromptSession.prompt_async()`` for queued input.  Falling back to raw
+    carriage-return writes in that state can visually overwrite the prompt.
+
+    Keep the raw fallback for #1512's inactive-toolbar case, but prefer the
+    prompt_toolkit invalidation surface whenever the REPL prompt is live.
+    """
+    if not _repl_mode or _toolbar_invalidator is None:
+        return False
+    if _footer_mode:
+        return True
+    if _prompt_is_active is not None and _prompt_is_active():
+        return True
+    return bool(_toolbar_is_active is not None and _toolbar_is_active())
+
+
+def _invalidate_tool_status_toolbar() -> bool:
+    """Invalidate the prompt_toolkit status surface when available."""
+    if not _tool_status_uses_toolbar():
+        return False
+    invalidator = _toolbar_invalidator
+    if invalidator is None:
+        return False
+    _clear_tool_line()
+    invalidator()
+    return True
+
+
+def _clear_tool_line() -> None:
+    """Clear a raw tool ticker line if one is currently visible."""
+    global _tool_line_visible
+    if not _tool_line_visible:
+        return
+    if _repl_mode and _stdout:
+        _stdout.write("\r\033[2K")
+        _stdout.flush()
+    _tool_line_visible = False
 
 
 def start_tool_ticker(summary: str) -> None:
@@ -2024,13 +2114,19 @@ def start_tool_ticker(summary: str) -> None:
     if _active_tool_count > 1:
         _tool_ticker_summary = _tool_phase_label()
     else:
-        _tool_ticker_summary = summary
+        _tool_ticker_summary = _strip_terminal_control(summary)
     if _tool_ticker_task is not None:
         _tool_ticker_task.cancel()
         _tool_ticker_task = None
     if not _repl_mode:
-        _tool_spinner = Status(f"  [{MUTED}]{escape(summary)}[/{MUTED}]", console=console, spinner="dots12")
+        _tool_spinner = Status(
+            f"  [{MUTED}]{escape(_tool_ticker_summary)}[/{MUTED}]",
+            console=console,
+            spinner="dots12",
+        )
         _tool_spinner.start()
+    elif _invalidate_tool_status_toolbar():
+        pass
     try:
         loop = asyncio.get_running_loop()
         _tool_ticker_task = loop.create_task(_tool_ticker())
@@ -2041,20 +2137,19 @@ def start_tool_ticker(summary: str) -> None:
 def stop_tool_ticker_sync() -> None:
     """Stop the tool ticker synchronously (safe from sync render_tool_call_end)."""
     global _tool_ticker_task, _tool_spinner, _tool_ticker_summary
+    uses_toolbar = _tool_status_uses_toolbar()
     if _tool_ticker_task is not None:
         _tool_ticker_task.cancel()
         _tool_ticker_task = None
     if _tool_spinner:
         _tool_spinner.stop()
         _tool_spinner = None
-    elif _footer_mode:
-        if _toolbar_invalidator:
-            _toolbar_invalidator()
-    elif _repl_mode and _stdout:
-        _stdout.write("\r\033[2K")
-        _stdout.flush()
+    else:
+        _clear_tool_line()
     # Always clear summary so get_busy_status() doesn't return a stale tool label.
     _tool_ticker_summary = ""
+    if uses_toolbar and _toolbar_invalidator:
+        _toolbar_invalidator()
 
 
 # ---------------------------------------------------------------------------

@@ -6,10 +6,6 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Generic, List, Sequence, Tuple, TypeVar
 
-from dbt_semantic_interfaces.dataclass_serialization import SerializableDataclass
-from dbt_semantic_interfaces.references import EntityReference, MetricModelReference, SemanticModelElementReference
-from typing_extensions import override
-
 from metricflow_semantics.aggregation_properties import AggregationState
 from metricflow_semantics.specs.column_assoc import ColumnAssociation, ColumnAssociationResolver
 from metricflow_semantics.specs.dimension_spec import DimensionSpec
@@ -21,7 +17,15 @@ from metricflow_semantics.specs.metric_spec import MetricSpec
 from metricflow_semantics.specs.simple_metric_input_spec import SimpleMetricInputSpec
 from metricflow_semantics.specs.spec_set import InstanceSpecSet
 from metricflow_semantics.specs.time_dimension_spec import TimeDimensionSpec
-from metricflow_semantics.visitor import VisitorOutputT
+from metricflow_semantics.toolkit.visitor import VisitorOutputT
+from typing_extensions import override
+
+from metricflow_semantic_interfaces.dataclass_serialization import SerializableDataclass
+from metricflow_semantic_interfaces.references import (
+    EntityReference,
+    MetricModelReference,
+    SemanticModelElementReference,
+)
 
 # Type for the specification used in the instance.
 SpecT = TypeVar("SpecT", bound=InstanceSpec)
@@ -56,11 +60,11 @@ class MdoInstance(ABC, Generic[SpecT]):
 
     def accept(self, visitor: InstanceVisitor[VisitorOutputT]) -> VisitorOutputT:
         """See Visitable."""
-        raise NotImplementedError()
+        raise NotImplementedError
 
     def with_new_spec(self, new_spec: SpecT, column_association_resolver: ColumnAssociationResolver) -> MdoInstance:
         """Returns a new instance with the spec replaced."""
-        raise NotImplementedError()
+        raise NotImplementedError
 
 
 class LinkableInstance(MdoInstance, Generic[SpecT]):
@@ -70,7 +74,7 @@ class LinkableInstance(MdoInstance, Generic[SpecT]):
         self, entity_prefix: EntityReference, column_association_resolver: ColumnAssociationResolver
     ) -> MdoInstance:
         """Add entity link to the underlying spec and associated column."""
-        raise NotImplementedError()
+        raise NotImplementedError
 
 
 # Instances for the major metric object types

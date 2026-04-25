@@ -8,13 +8,13 @@ use pyo3::types::{IntoPyDict, PyAnyMethods};
 use pyo3::IntoPyObject;
 
 use crate::error::{CryptographyError, CryptographyResult};
-use crate::types;
+use crate::serialization::Encoding;
 
 pub(crate) fn py_oid_to_oid(
     py_oid: pyo3::Bound<'_, pyo3::PyAny>,
 ) -> pyo3::PyResult<asn1::ObjectIdentifier> {
     Ok(py_oid
-        .downcast::<crate::oid::ObjectIdentifier>()?
+        .cast::<crate::oid::ObjectIdentifier>()?
         .get()
         .oid
         .clone())
@@ -71,46 +71,53 @@ pub(crate) fn py_uint_to_big_endian_bytes<'p>(
     py: pyo3::Python<'p>,
     v: pyo3::Bound<'p, pyo3::types::PyInt>,
 ) -> pyo3::PyResult<PyBackedBytes> {
+    // Round the length up so that we prefix an extra \x00. This ensures that
+    // integers that'd have the high bit set in their first octet are not
+    // encoded as negative in DER.
+    let length = v
+        .call_method0(pyo3::intern!(py, "bit_length"))?
+        .extract::<usize>()?
+        / 8
+        + 1;
+    py_uint_to_be_bytes_with_length(py, v, length)
+}
+
+pub(crate) fn py_uint_to_be_bytes_with_length<'p>(
+    py: pyo3::Python<'p>,
+    v: pyo3::Bound<'p, pyo3::types::PyInt>,
+    length: usize,
+) -> pyo3::PyResult<PyBackedBytes> {
     if v.lt(0)? {
         return Err(pyo3::exceptions::PyValueError::new_err(
             "Negative integers are not supported",
         ));
     }
-
-    // Round the length up so that we prefix an extra \x00. This ensures that
-    // integers that'd have the high bit set in their first octet are not
-    // encoded as negative in DER.
-    let n = v
-        .call_method0(pyo3::intern!(py, "bit_length"))?
-        .extract::<usize>()?
-        / 8
-        + 1;
-    v.call_method1(pyo3::intern!(py, "to_bytes"), (n, "big"))?
-        .extract()
+    Ok(
+        v.call_method1(pyo3::intern!(py, "to_bytes"), (length, "big"))?
+            .extract()?,
+    )
 }
 
 pub(crate) fn encode_der_data<'p>(
     py: pyo3::Python<'p>,
     pem_tag: String,
     data: Vec<u8>,
-    encoding: &pyo3::Bound<'p, pyo3::PyAny>,
+    encoding: Encoding,
 ) -> CryptographyResult<pyo3::Bound<'p, pyo3::types::PyBytes>> {
-    if encoding.is(&types::ENCODING_DER.get(py)?) {
-        Ok(pyo3::types::PyBytes::new(py, &data))
-    } else if encoding.is(&types::ENCODING_PEM.get(py)?) {
-        Ok(pyo3::types::PyBytes::new(
+    match encoding {
+        Encoding::DER => Ok(pyo3::types::PyBytes::new(py, &data)),
+        Encoding::PEM => Ok(pyo3::types::PyBytes::new(
             py,
             &pem::encode_config(
                 &pem::Pem::new(pem_tag, data),
-                pem::EncodeConfig::new().set_line_ending(pem::LineEnding::LF),
+                cryptography_key_parsing::pem::ENCODE_CONFIG,
             )
             .into_bytes(),
-        ))
-    } else {
-        Err(
-            pyo3::exceptions::PyTypeError::new_err("encoding must be Encoding.DER or Encoding.PEM")
-                .into(),
+        )),
+        _ => Err(pyo3::exceptions::PyTypeError::new_err(
+            "encoding must be Encoding.DER or Encoding.PEM",
         )
+        .into()),
     }
 }
 

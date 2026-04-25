@@ -79,7 +79,9 @@ from .. import (
 )
 from ..interfaces.aws_neptunegraph import (
     GraphReference as _GraphReference_cf154cc8,
+    GraphSnapshotReference as _GraphSnapshotReference_e2527c22,
     IGraphRef as _IGraphRef_799f5749,
+    IGraphSnapshotRef as _IGraphSnapshotRef_845bb971,
     IPrivateGraphEndpointRef as _IPrivateGraphEndpointRef_2aef1eff,
     PrivateGraphEndpointReference as _PrivateGraphEndpointReference_1f09acbb,
 )
@@ -114,6 +116,7 @@ class CfnGraph(
             # the properties below are optional
             deletion_protection=False,
             graph_name="graphName",
+            kms_key_identifier="kmsKeyIdentifier",
             public_connectivity=False,
             replica_count=123,
             tags=[CfnTag(
@@ -134,6 +137,7 @@ class CfnGraph(
         provisioned_memory: jsii.Number,
         deletion_protection: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         graph_name: typing.Optional[builtins.str] = None,
+        kms_key_identifier: typing.Optional[builtins.str] = None,
         public_connectivity: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         replica_count: typing.Optional[jsii.Number] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -146,6 +150,7 @@ class CfnGraph(
         :param provisioned_memory: The provisioned memory-optimized Neptune Capacity Units (m-NCUs) to use for the graph. Min = 16
         :param deletion_protection: A value that indicates whether the graph has deletion protection enabled. The graph can't be deleted when deletion protection is enabled.
         :param graph_name: The graph name. For example: ``my-graph-1`` . The name must contain from 1 to 63 letters, numbers, or hyphens, and its first character must be a letter. It cannot end with a hyphen or contain two consecutive hyphens. If you don't specify a graph name, a unique graph name is generated for you using the prefix ``graph-for`` , followed by a combination of ``Stack Name`` and a ``UUID`` .
+        :param kms_key_identifier: The ARN of the KMS key used to encrypt data in the Neptune Analytics graph. If not specified, the graph is encrypted with an AWS managed key.
         :param public_connectivity: Specifies whether or not the graph can be reachable over the internet. All access to graphs is IAM authenticated. When the graph is publicly available, its domain name system (DNS) endpoint resolves to the public IP address from the internet. When the graph isn't publicly available, you need to create a ``PrivateGraphEndpoint`` in a given VPC to ensure the DNS name resolves to a private IP address that is reachable from the VPC. Default: If not specified, the default value is false. .. epigraph:: If enabling public connectivity for the first time, there will be a delay while it is enabled.
         :param replica_count: The number of replicas in other AZs. Default: If not specified, the default value is 1.
         :param tags: Adds metadata tags to the new graph. These tags can also be used with cost allocation reporting, or used in a Condition statement in an IAM policy.
@@ -159,6 +164,7 @@ class CfnGraph(
             provisioned_memory=provisioned_memory,
             deletion_protection=deletion_protection,
             graph_name=graph_name,
+            kms_key_identifier=kms_key_identifier,
             public_connectivity=public_connectivity,
             replica_count=replica_count,
             tags=tags,
@@ -318,6 +324,19 @@ class CfnGraph(
         jsii.set(self, "graphName", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="kmsKeyIdentifier")
+    def kms_key_identifier(self) -> typing.Optional[builtins.str]:
+        '''The ARN of the KMS key used to encrypt data in the Neptune Analytics graph.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "kmsKeyIdentifier"))
+
+    @kms_key_identifier.setter
+    def kms_key_identifier(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__66eae9326926bf2762131d397fd2ef48f5c33238e6f606a97cfb83b84eadd586)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "kmsKeyIdentifier", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="publicConnectivity")
     def public_connectivity(
         self,
@@ -442,6 +461,7 @@ class CfnGraph(
         "provisioned_memory": "provisionedMemory",
         "deletion_protection": "deletionProtection",
         "graph_name": "graphName",
+        "kms_key_identifier": "kmsKeyIdentifier",
         "public_connectivity": "publicConnectivity",
         "replica_count": "replicaCount",
         "tags": "tags",
@@ -455,6 +475,7 @@ class CfnGraphProps:
         provisioned_memory: jsii.Number,
         deletion_protection: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         graph_name: typing.Optional[builtins.str] = None,
+        kms_key_identifier: typing.Optional[builtins.str] = None,
         public_connectivity: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         replica_count: typing.Optional[jsii.Number] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -465,6 +486,7 @@ class CfnGraphProps:
         :param provisioned_memory: The provisioned memory-optimized Neptune Capacity Units (m-NCUs) to use for the graph. Min = 16
         :param deletion_protection: A value that indicates whether the graph has deletion protection enabled. The graph can't be deleted when deletion protection is enabled.
         :param graph_name: The graph name. For example: ``my-graph-1`` . The name must contain from 1 to 63 letters, numbers, or hyphens, and its first character must be a letter. It cannot end with a hyphen or contain two consecutive hyphens. If you don't specify a graph name, a unique graph name is generated for you using the prefix ``graph-for`` , followed by a combination of ``Stack Name`` and a ``UUID`` .
+        :param kms_key_identifier: The ARN of the KMS key used to encrypt data in the Neptune Analytics graph. If not specified, the graph is encrypted with an AWS managed key.
         :param public_connectivity: Specifies whether or not the graph can be reachable over the internet. All access to graphs is IAM authenticated. When the graph is publicly available, its domain name system (DNS) endpoint resolves to the public IP address from the internet. When the graph isn't publicly available, you need to create a ``PrivateGraphEndpoint`` in a given VPC to ensure the DNS name resolves to a private IP address that is reachable from the VPC. Default: If not specified, the default value is false. .. epigraph:: If enabling public connectivity for the first time, there will be a delay while it is enabled.
         :param replica_count: The number of replicas in other AZs. Default: If not specified, the default value is 1.
         :param tags: Adds metadata tags to the new graph. These tags can also be used with cost allocation reporting, or used in a Condition statement in an IAM policy.
@@ -486,6 +508,7 @@ class CfnGraphProps:
                 # the properties below are optional
                 deletion_protection=False,
                 graph_name="graphName",
+                kms_key_identifier="kmsKeyIdentifier",
                 public_connectivity=False,
                 replica_count=123,
                 tags=[CfnTag(
@@ -502,6 +525,7 @@ class CfnGraphProps:
             check_type(argname="argument provisioned_memory", value=provisioned_memory, expected_type=type_hints["provisioned_memory"])
             check_type(argname="argument deletion_protection", value=deletion_protection, expected_type=type_hints["deletion_protection"])
             check_type(argname="argument graph_name", value=graph_name, expected_type=type_hints["graph_name"])
+            check_type(argname="argument kms_key_identifier", value=kms_key_identifier, expected_type=type_hints["kms_key_identifier"])
             check_type(argname="argument public_connectivity", value=public_connectivity, expected_type=type_hints["public_connectivity"])
             check_type(argname="argument replica_count", value=replica_count, expected_type=type_hints["replica_count"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -513,6 +537,8 @@ class CfnGraphProps:
             self._values["deletion_protection"] = deletion_protection
         if graph_name is not None:
             self._values["graph_name"] = graph_name
+        if kms_key_identifier is not None:
+            self._values["kms_key_identifier"] = kms_key_identifier
         if public_connectivity is not None:
             self._values["public_connectivity"] = public_connectivity
         if replica_count is not None:
@@ -558,6 +584,17 @@ class CfnGraphProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-neptunegraph-graph.html#cfn-neptunegraph-graph-graphname
         '''
         result = self._values.get("graph_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def kms_key_identifier(self) -> typing.Optional[builtins.str]:
+        '''The ARN of the KMS key used to encrypt data in the Neptune Analytics graph.
+
+        If not specified, the graph is encrypted with an AWS managed key.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-neptunegraph-graph.html#cfn-neptunegraph-graph-kmskeyidentifier
+        '''
+        result = self._values.get("kms_key_identifier")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -621,6 +658,319 @@ class CfnGraphProps:
 
     def __repr__(self) -> str:
         return "CfnGraphProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IGraphSnapshotRef_845bb971, _ITaggableV2_4e6798f8)
+class CfnGraphSnapshot(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_neptunegraph.CfnGraphSnapshot",
+):
+    '''Resource Type definition for AWS::NeptuneGraph::GraphSnapshot.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-neptunegraph-graphsnapshot.html
+    :cloudformationResource: AWS::NeptuneGraph::GraphSnapshot
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_neptunegraph as neptunegraph
+        
+        cfn_graph_snapshot = neptunegraph.CfnGraphSnapshot(self, "MyCfnGraphSnapshot",
+            snapshot_name="snapshotName",
+        
+            # the properties below are optional
+            graph_identifier="graphIdentifier",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        snapshot_name: builtins.str,
+        graph_identifier: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::NeptuneGraph::GraphSnapshot``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param snapshot_name: The snapshot name.
+        :param graph_identifier: The unique identifier of the Neptune Analytics graph to create the snapshot from.
+        :param tags: An array of key-value pairs to apply to this resource.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7b273af87939df7320e78f6dbbcda46d30a6cb3a886e613d553987ca21783091)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnGraphSnapshotProps(
+            snapshot_name=snapshot_name, graph_identifier=graph_identifier, tags=tags
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForGraphSnapshot")
+    @builtins.classmethod
+    def arn_for_graph_snapshot(
+        cls,
+        resource: "_IGraphSnapshotRef_845bb971",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2aff3a2c55c3bbe27cabdbfaa250e29f997c15921435adb7a60a31f2f31fca5c)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForGraphSnapshot", [resource]))
+
+    @jsii.member(jsii_name="isCfnGraphSnapshot")
+    @builtins.classmethod
+    def is_cfn_graph_snapshot(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnGraphSnapshot.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8e2bd7fcc1af7512968450d56fdf837bfd34ea119dd1947bf8f40cb404864066)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnGraphSnapshot", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__284080f94127e9c5751055c8ea194858d64a90afce11d6e15332d395ce48ce5a)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__366a7e3e25a64a38592f5cf1a057d02a05e8a02c41172807c4bc20679afd3737)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The ARN of the graph snapshot.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''The unique identifier of the graph snapshot.
+
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrKmsKeyIdentifier")
+    def attr_kms_key_identifier(self) -> builtins.str:
+        '''The ID of the KMS key used to encrypt and decrypt the snapshot.
+
+        :cloudformationAttribute: KmsKeyIdentifier
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrKmsKeyIdentifier"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrSnapshotCreateTime")
+    def attr_snapshot_create_time(self) -> builtins.str:
+        '''The time when the snapshot was created.
+
+        :cloudformationAttribute: SnapshotCreateTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrSnapshotCreateTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''The current status of the graph snapshot.
+
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="graphSnapshotRef")
+    def graph_snapshot_ref(self) -> "_GraphSnapshotReference_e2527c22":
+        '''A reference to a GraphSnapshot resource.'''
+        return typing.cast("_GraphSnapshotReference_e2527c22", jsii.get(self, "graphSnapshotRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="snapshotName")
+    def snapshot_name(self) -> builtins.str:
+        '''The snapshot name.'''
+        return typing.cast(builtins.str, jsii.get(self, "snapshotName"))
+
+    @snapshot_name.setter
+    def snapshot_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1759ae4be2e5644b66f054d3c4adc3cca6727598fd99f15e86703859a38aaedd)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "snapshotName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="graphIdentifier")
+    def graph_identifier(self) -> typing.Optional[builtins.str]:
+        '''The unique identifier of the Neptune Analytics graph to create the snapshot from.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "graphIdentifier"))
+
+    @graph_identifier.setter
+    def graph_identifier(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d0a2037a6ee434a7e65b019496dbfd45f74914d1a417fd92a7d81edd1da67ffc)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "graphIdentifier", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''An array of key-value pairs to apply to this resource.'''
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__978655c50014b4b38ffb448afc36c36654ddcd652fe6d17e30faf72998b5c1c9)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_neptunegraph.CfnGraphSnapshotProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "snapshot_name": "snapshotName",
+        "graph_identifier": "graphIdentifier",
+        "tags": "tags",
+    },
+)
+class CfnGraphSnapshotProps:
+    def __init__(
+        self,
+        *,
+        snapshot_name: builtins.str,
+        graph_identifier: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnGraphSnapshot``.
+
+        :param snapshot_name: The snapshot name.
+        :param graph_identifier: The unique identifier of the Neptune Analytics graph to create the snapshot from.
+        :param tags: An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-neptunegraph-graphsnapshot.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_neptunegraph as neptunegraph
+            
+            cfn_graph_snapshot_props = neptunegraph.CfnGraphSnapshotProps(
+                snapshot_name="snapshotName",
+            
+                # the properties below are optional
+                graph_identifier="graphIdentifier",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8cc8f9cb6d73aafcff273f6458108a762cbffccc4d5287fc5d75c40db810444c)
+            check_type(argname="argument snapshot_name", value=snapshot_name, expected_type=type_hints["snapshot_name"])
+            check_type(argname="argument graph_identifier", value=graph_identifier, expected_type=type_hints["graph_identifier"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "snapshot_name": snapshot_name,
+        }
+        if graph_identifier is not None:
+            self._values["graph_identifier"] = graph_identifier
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def snapshot_name(self) -> builtins.str:
+        '''The snapshot name.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-neptunegraph-graphsnapshot.html#cfn-neptunegraph-graphsnapshot-snapshotname
+        '''
+        result = self._values.get("snapshot_name")
+        assert result is not None, "Required property 'snapshot_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def graph_identifier(self) -> typing.Optional[builtins.str]:
+        '''The unique identifier of the Neptune Analytics graph to create the snapshot from.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-neptunegraph-graphsnapshot.html#cfn-neptunegraph-graphsnapshot-graphidentifier
+        '''
+        result = self._values.get("graph_identifier")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-neptunegraph-graphsnapshot.html#cfn-neptunegraph-graphsnapshot-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnGraphSnapshotProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -933,6 +1283,8 @@ class CfnPrivateGraphEndpointProps:
 __all__ = [
     "CfnGraph",
     "CfnGraphProps",
+    "CfnGraphSnapshot",
+    "CfnGraphSnapshotProps",
     "CfnPrivateGraphEndpoint",
     "CfnPrivateGraphEndpointProps",
 ]
@@ -946,6 +1298,7 @@ def _typecheckingstub__e963857650d4e99964bc9bad7da0b29a5d2d3c66d3452d1e9b4f35e89
     provisioned_memory: jsii.Number,
     deletion_protection: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     graph_name: typing.Optional[builtins.str] = None,
+    kms_key_identifier: typing.Optional[builtins.str] = None,
     public_connectivity: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     replica_count: typing.Optional[jsii.Number] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -996,6 +1349,12 @@ def _typecheckingstub__e36e1cbffa42257001fdc31d1dd6378f3a98ce8e7f3bcd68a4772b9cb
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__66eae9326926bf2762131d397fd2ef48f5c33238e6f606a97cfb83b84eadd586(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__9704e1ee452151e117b8f45f27e9257936bf4012fb73bd4445e9f623dce33af6(
     value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
 ) -> None:
@@ -1032,10 +1391,73 @@ def _typecheckingstub__1c5873f5b0997b6619747c309d6a4e6c52de08653e961a9abf16f71c4
     provisioned_memory: jsii.Number,
     deletion_protection: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     graph_name: typing.Optional[builtins.str] = None,
+    kms_key_identifier: typing.Optional[builtins.str] = None,
     public_connectivity: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     replica_count: typing.Optional[jsii.Number] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     vector_search_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGraph.VectorSearchConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7b273af87939df7320e78f6dbbcda46d30a6cb3a886e613d553987ca21783091(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    snapshot_name: builtins.str,
+    graph_identifier: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2aff3a2c55c3bbe27cabdbfaa250e29f997c15921435adb7a60a31f2f31fca5c(
+    resource: _IGraphSnapshotRef_845bb971,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8e2bd7fcc1af7512968450d56fdf837bfd34ea119dd1947bf8f40cb404864066(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__284080f94127e9c5751055c8ea194858d64a90afce11d6e15332d395ce48ce5a(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__366a7e3e25a64a38592f5cf1a057d02a05e8a02c41172807c4bc20679afd3737(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1759ae4be2e5644b66f054d3c4adc3cca6727598fd99f15e86703859a38aaedd(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d0a2037a6ee434a7e65b019496dbfd45f74914d1a417fd92a7d81edd1da67ffc(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__978655c50014b4b38ffb448afc36c36654ddcd652fe6d17e30faf72998b5c1c9(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8cc8f9cb6d73aafcff273f6458108a762cbffccc4d5287fc5d75c40db810444c(
+    *,
+    snapshot_name: builtins.str,
+    graph_identifier: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

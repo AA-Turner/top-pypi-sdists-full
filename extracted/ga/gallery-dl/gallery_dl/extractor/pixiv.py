@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright 2014-2025 Mike Fährmann
+# Copyright 2014-2026 Mike Fährmann
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -9,8 +9,7 @@
 """Extractors for https://www.pixiv.net/"""
 
 from .common import Extractor, Message, Dispatch
-from .. import text, util, dt, exception
-from ..cache import cache, memcache
+from .. import text, util, dt
 import itertools
 import hashlib
 
@@ -30,6 +29,7 @@ class PixivExtractor(Extractor):
     # https://s.pximg.net/common/images/limit_sanity_level_360.png
     # https://s.pximg.net/common/images/limit_unviewable_360.png
     # https://s.pximg.net/common/images/limit_mypixiv_360.png
+    # https://s.pximg.net/common/images/limit_unknown_360.png
 
     def _init(self):
         self.api = PixivAppAPI(self)
@@ -74,7 +74,7 @@ class PixivExtractor(Extractor):
             if self.meta_user:
                 work.update(self.api.user_detail(str(work["user"]["id"])))
             if self.meta_comments:
-                if work["total_comments"] and not work.get("_ajax"):
+                if work.get("total_comments") and not work.get("_ajax"):
                     try:
                         work["comments"] = list(
                             self.api.illust_comments(work["id"]))
@@ -134,11 +134,11 @@ class PixivExtractor(Extractor):
             self.log.debug("%s: %s", work_id, url)
 
             limit_type = url.rpartition("/")[2]
-            if limit_type in (
+            if limit_type in {
                 "limit_",  # for '_extend_sanity()' inserts
                 "limit_unviewable_360.png",
                 "limit_sanity_level_360.png",
-            ):
+            }:
                 work["_ajax"] = True
                 self.log.warning("%s: 'limit_sanity_level' warning", work_id)
                 if self.sanity_workaround:
@@ -162,6 +162,10 @@ class PixivExtractor(Extractor):
             elif limit_type == "limit_mypixiv_360.png":
                 work["_mypixiv"] = True
                 self.log.warning("%s: 'My pixiv' locked", work_id)
+
+            elif limit_type == "limit_unknown_360.png":
+                work["_mypixiv"] = True  # stop further processing
+                self.log.warning("%s: Deleted", work_id)
 
             else:
                 work["_mypixiv"] = True  # stop further processing
@@ -208,7 +212,7 @@ class PixivExtractor(Extractor):
                         url = f"{base}0.{ext}"
                         self.request(url, method="HEAD")
                         break
-                    except exception.HttpError:
+                    except self.exc.HttpError:
                         pass
                 else:
                     self.log.warning(
@@ -332,7 +336,7 @@ class PixivExtractor(Extractor):
                 url = f"{base}_p0.{ext}"
                 self.request(url, method="HEAD")
                 return url
-            except exception.HttpError:
+            except self.exc.HttpError:
                 pass
 
     def _sanitize_ajax_caption(self, caption):
@@ -653,7 +657,8 @@ class PixivFavoriteExtractor(PixivExtractor):
         if self.query.get("rest") == "hide":
             restrict = "private"
 
-        return self.api.user_bookmarks_illust(self.user_id, tag, restrict)
+        return self.api.user_bookmarks_illust(
+            self.user_id, tag, restrict, self.config("cursor"))
 
     def metadata(self):
         if self.user_id:
@@ -664,6 +669,12 @@ class PixivFavoriteExtractor(PixivExtractor):
 
         self.user_id = user["id"]
         return {"user_bookmark": user}
+
+    def finalize(self, status):
+        if status and self.api.params and (
+                bid := self.api.params.get("max_bookmark_id")):
+            self.log.info("Use '-o cursor=%s' to continue downloading "
+                          "from the current position", bid)
 
     def _items_following(self):
         restrict = "public"
@@ -724,7 +735,7 @@ class PixivRankingExtractor(PixivExtractor):
         try:
             self.mode = mode = mode_map[mode]
         except KeyError:
-            raise exception.AbortExtraction(f"Invalid mode '{mode}'")
+            raise self.exc.AbortExtraction(f"Invalid mode '{mode}'")
 
         if date := query.get("date"):
             if len(date) == 8 and date.isdecimal():
@@ -775,7 +786,7 @@ class PixivSearchExtractor(PixivExtractor):
             try:
                 self.word = query["word"]
             except KeyError:
-                raise exception.AbortExtraction("Missing search term")
+                raise self.exc.AbortExtraction("Missing search term")
 
         sort = query.get("order", "date_d")
         sort_map = {
@@ -788,7 +799,7 @@ class PixivSearchExtractor(PixivExtractor):
         try:
             self.sort = sort = sort_map[sort]
         except KeyError:
-            raise exception.AbortExtraction(f"Invalid search order '{sort}'")
+            raise self.exc.AbortExtraction(f"Invalid search order '{sort}'")
 
         target = query.get("s_mode", "s_tag_full")
         target_map = {
@@ -799,7 +810,7 @@ class PixivSearchExtractor(PixivExtractor):
         try:
             self.target = target = target_map[target]
         except KeyError:
-            raise exception.AbortExtraction(f"Invalid search mode '{target}'")
+            raise self.exc.AbortExtraction(f"Invalid search mode '{target}'")
 
         self.date_start = query.get("scd")
         self.date_end = query.get("ecd")
@@ -813,9 +824,9 @@ class PixivSearchExtractor(PixivExtractor):
         }}
 
 
-class PixivFollowExtractor(PixivExtractor):
+class PixivFollowedExtractor(PixivExtractor):
     """Extractor for new illustrations from your followed artists"""
-    subcategory = "follow"
+    subcategory = "followed"
     archive_fmt = "F_{user_follow[id]}_{id}{num}.{extension}"
     directory_fmt = ("{category}", "following")
     pattern = BASE_PATTERN + r"/bookmark_new_illust\.php"
@@ -976,7 +987,7 @@ class PixivNovelExtractor(PixivExtractor):
             if self.meta_user:
                 novel.update(self.api.user_detail(str(novel["user"]["id"])))
             if self.meta_comments:
-                if novel["total_comments"]:
+                if novel.get("total_comments"):
                     novel["comments"] = list(
                         self.api.novel_comments(novel["id"]))
                 else:
@@ -1105,7 +1116,14 @@ class PixivNovelBookmarkExtractor(PixivNovelExtractor):
         else:
             restrict = "public"
 
-        return self.api.user_bookmarks_novel(user_id, tag, restrict)
+        return self.api.user_bookmarks_novel(
+            user_id, tag, restrict, self.config("cursor"))
+
+    def finalize(self, status):
+        if status and self.api.params and (
+                bid := self.api.params.get("max_bookmark_id")):
+            self.log.info("Use '-o cursor=%s' to continue downloading "
+                          "from the current position", bid)
 
 
 ###############################################################################
@@ -1126,8 +1144,10 @@ class PixivAppAPI():
     def __init__(self, extractor):
         self.extractor = extractor
         self.log = extractor.log
+        self.exc = extractor.exc
         self.username = extractor._get_auth_info()[0]
         self.user = None
+        self.params = None
 
         extractor.headers_web = extractor.session.headers.copy()
         extractor.session.headers.update({
@@ -1145,18 +1165,19 @@ class PixivAppAPI():
 
         token = extractor.config("refresh-token")
         if token is None or token == "cache":
-            token = _refresh_token_cache(self.username)
+            token = extractor.cache(
+                _refresh_token_cache, self.username, _mem=False)
         self.refresh_token = token
 
     def login(self):
         """Login and gain an access token"""
-        self.user, auth = self._login_impl(self.username)
+        self.user, auth = self.extractor.cache(
+            self._login_impl, self.username, _exp=3600, _mem=False)
         self.extractor.session.headers["Authorization"] = auth
 
-    @cache(maxage=3600, keyarg=1)
     def _login_impl(self, username):
         if not self.refresh_token:
-            raise exception.AuthenticationError(
+            raise self.exc.AuthenticationError(
                 "'refresh-token' required.\n"
                 "Run `gallery-dl oauth:pixiv` to get one.")
 
@@ -1181,7 +1202,7 @@ class PixivAppAPI():
             url, method="POST", headers=headers, data=data, fatal=False)
         if response.status_code >= 400:
             self.log.debug(response.text)
-            raise exception.AuthenticationError("Invalid refresh token")
+            raise self.exc.AuthenticationError("Invalid refresh token")
 
         data = response.json()["response"]
         return data["user"], "Bearer " + data["access_token"]
@@ -1253,14 +1274,18 @@ class PixivAppAPI():
                   "start_date": date_start, "end_date": date_end}
         return self._pagination_search("/v1/search/illust", params)
 
-    def user_bookmarks_illust(self, user_id, tag=None, restrict="public"):
+    def user_bookmarks_illust(self, user_id, tag=None, restrict="public",
+                              max_id=None):
         """Return illusts bookmarked by a user"""
-        params = {"user_id": user_id, "tag": tag, "restrict": restrict}
+        params = {"user_id": user_id, "tag": tag, "restrict": restrict,
+                  "max_bookmark_id": max_id}
         return self._pagination("/v1/user/bookmarks/illust", params)
 
-    def user_bookmarks_novel(self, user_id, tag=None, restrict="public"):
+    def user_bookmarks_novel(self, user_id, tag=None, restrict="public",
+                             max_id=None):
         """Return novels bookmarked by a user"""
-        params = {"user_id": user_id, "tag": tag, "restrict": restrict}
+        params = {"user_id": user_id, "tag": tag, "restrict": restrict,
+                  "max_bookmark_id": max_id}
         return self._pagination("/v1/user/bookmarks/novel", params, "novels")
 
     def user_bookmark_tags_illust(self, user_id, restrict="public"):
@@ -1269,8 +1294,10 @@ class PixivAppAPI():
         return self._pagination(
             "/v1/user/bookmark-tags/illust", params, "bookmark_tags")
 
-    @memcache(keyarg=1)
     def user_detail(self, user_id, fatal=True):
+        return self.extractor.cache(self._user_detail_impl, user_id, fatal)
+
+    def _user_detail_impl(self, user_id, fatal):
         params = {"user_id": user_id}
         return self._call("/v1/user/detail", params, fatal=fatal)
 
@@ -1308,7 +1335,7 @@ class PixivAppAPI():
             self.log.debug(data)
 
             if response.status_code == 404:
-                raise exception.NotFoundError()
+                raise self.exc.NotFoundError()
 
             error = data["error"]
             if "rate limit" in (error.get("message") or "").lower():
@@ -1318,7 +1345,7 @@ class PixivAppAPI():
             msg = (f"'{msg}'" if (msg := error.get("user_message")) else
                    f"'{msg}'" if (msg := error.get("message")) else
                    error)
-            raise exception.AbortExtraction("API request failed: " + msg)
+            raise self.exc.AbortExtraction("API request failed: " + msg)
 
     def _pagination(self, endpoint, params,
                     key_items="illusts", key_data=None, key_user=None):
@@ -1329,7 +1356,7 @@ class PixivAppAPI():
         if key_user is not None and not data[key_user].get("id"):
             user = self.user_detail(self.extractor.user_id, fatal=False)
             if user.get("error"):
-                raise exception.NotFoundError("user")
+                raise self.exc.NotFoundError("user")
             return
 
         while True:
@@ -1338,8 +1365,8 @@ class PixivAppAPI():
             if not data["next_url"]:
                 return
             query = data["next_url"].rpartition("?")[2]
-            params = text.parse_query(query)
-            data = self._call(endpoint, params)
+            self.params = text.parse_query(query)
+            data = self._call(endpoint, self.params)
 
     def _pagination_search(self, endpoint, params):
         sort = params["sort"]
@@ -1384,6 +1411,5 @@ class PixivAppAPI():
                 params.pop("offset", None)
 
 
-@cache(maxage=36500*86400, keyarg=0)
 def _refresh_token_cache(username):
     return None

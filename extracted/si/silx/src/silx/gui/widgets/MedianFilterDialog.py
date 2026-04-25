@@ -21,7 +21,7 @@
 # THE SOFTWARE.
 #
 # ###########################################################################*/
-""" MedianFilterDialog
+"""MedianFilterDialog
 Classes
 -------
 
@@ -38,7 +38,6 @@ __date__ = "14/02/2017"
 import logging
 
 from silx.gui import qt
-
 
 _logger = logging.getLogger(__name__)
 
@@ -69,7 +68,6 @@ class MedianFilterDialog(qt.QDialog):
 
         # filter option GUI
         self._filterOption = qt.QCheckBox("conditional", parent=self)
-        conditionalTooltip = """if check, implement a conditional filter"""
         self._filterOption.stateChanged.connect(self._filterOptionChanged)
         self.mainLayout.addWidget(self._filterOption)
 

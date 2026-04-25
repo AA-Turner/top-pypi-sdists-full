@@ -24,7 +24,6 @@ use crate::asn1::{
 };
 use crate::backend::{hashes, keys};
 use crate::error::{CryptographyError, CryptographyResult};
-use crate::utils::cstr_from_literal;
 use crate::x509::verify::PyCryptoOps;
 use crate::x509::{extensions, sct, sign};
 use crate::{exceptions, types, x509};
@@ -42,6 +41,9 @@ self_cell::self_cell!(
 pub(crate) struct Certificate {
     pub(crate) raw: OwnedCertificate,
     pub(crate) cached_extensions: pyo3::sync::PyOnceLock<pyo3::Py<pyo3::PyAny>>,
+    pub(crate) cached_issuer: pyo3::sync::PyOnceLock<pyo3::Py<pyo3::PyAny>>,
+    pub(crate) cached_subject: pyo3::sync::PyOnceLock<pyo3::Py<pyo3::PyAny>>,
+    pub(crate) cached_public_key: pyo3::sync::PyOnceLock<pyo3::Py<pyo3::PyAny>>,
 }
 
 #[pyo3::pymethods]
@@ -56,10 +58,16 @@ impl Certificate {
         self.raw.borrow_dependent() == other.raw.borrow_dependent()
     }
 
-    fn __repr__(&self, py: pyo3::Python<'_>) -> pyo3::PyResult<String> {
+    fn __repr__<'py>(
+        &self,
+        py: pyo3::Python<'py>,
+    ) -> pyo3::PyResult<pyo3::Bound<'py, pyo3::types::PyString>> {
         let subject = self.subject(py)?;
         let subject_repr = subject.repr()?.extract::<pyo3::pybacked::PyBackedStr>()?;
-        Ok(format!("<Certificate(subject={subject_repr}, ...)>"))
+        pyo3::types::PyString::from_fmt(
+            py,
+            format_args!("<Certificate(subject={subject_repr}, ...)>"),
+        )
     }
 
     fn __deepcopy__(
@@ -73,10 +81,17 @@ impl Certificate {
         &self,
         py: pyo3::Python<'p>,
     ) -> CryptographyResult<pyo3::Bound<'p, pyo3::PyAny>> {
-        keys::load_der_public_key_bytes(
-            py,
-            self.raw.borrow_dependent().tbs_cert.spki.tlv().full_data(),
-        )
+        Ok(self
+            .cached_public_key
+            .get_or_try_init(py, || {
+                keys::load_der_public_key_bytes(
+                    py,
+                    self.raw.borrow_dependent().tbs_cert.spki.tlv().full_data(),
+                )
+                .map(|v| v.unbind())
+            })?
+            .bind(py)
+            .clone())
     }
 
     #[getter]
@@ -105,7 +120,7 @@ impl Certificate {
     fn public_bytes<'p>(
         &self,
         py: pyo3::Python<'p>,
-        encoding: &pyo3::Bound<'p, pyo3::PyAny>,
+        encoding: crate::serialization::Encoding,
     ) -> CryptographyResult<pyo3::Bound<'p, pyo3::types::PyBytes>> {
         let result = asn1::write_single(self.raw.borrow_dependent())?;
 
@@ -133,14 +148,28 @@ impl Certificate {
 
     #[getter]
     fn issuer<'p>(&self, py: pyo3::Python<'p>) -> pyo3::PyResult<pyo3::Bound<'p, pyo3::PyAny>> {
-        Ok(x509::parse_name(py, self.raw.borrow_dependent().issuer())
-            .map_err(|e| e.add_location(asn1::ParseLocation::Field("issuer")))?)
+        Ok(self
+            .cached_issuer
+            .get_or_try_init(py, || {
+                x509::parse_name(py, self.raw.borrow_dependent().issuer())
+                    .map_err(|e| e.add_location(asn1::ParseLocation::Field("issuer")))
+                    .map(|v| v.unbind())
+            })?
+            .bind(py)
+            .clone())
     }
 
     #[getter]
     fn subject<'p>(&self, py: pyo3::Python<'p>) -> pyo3::PyResult<pyo3::Bound<'p, pyo3::PyAny>> {
-        Ok(x509::parse_name(py, self.raw.borrow_dependent().subject())
-            .map_err(|e| e.add_location(asn1::ParseLocation::Field("subject")))?)
+        Ok(self
+            .cached_subject
+            .get_or_try_init(py, || {
+                x509::parse_name(py, self.raw.borrow_dependent().subject())
+                    .map_err(|e| e.add_location(asn1::ParseLocation::Field("subject")))
+                    .map(|v| v.unbind())
+            })?
+            .bind(py)
+            .clone())
     }
 
     #[getter]
@@ -207,7 +236,7 @@ impl Certificate {
         py: pyo3::Python<'p>,
     ) -> pyo3::PyResult<pyo3::Bound<'p, pyo3::PyAny>> {
         let warning_cls = types::DEPRECATED_IN_42.get(py)?;
-        let message = cstr_from_literal!("Properties that return a naïve datetime object have been deprecated. Please switch to not_valid_before_utc.");
+        let message = c"Properties that return a naïve datetime object have been deprecated. Please switch to not_valid_before_utc.";
         pyo3::PyErr::warn(py, &warning_cls, message, 1)?;
         let dt = &self
             .raw
@@ -240,7 +269,7 @@ impl Certificate {
         py: pyo3::Python<'p>,
     ) -> pyo3::PyResult<pyo3::Bound<'p, pyo3::PyAny>> {
         let warning_cls = types::DEPRECATED_IN_42.get(py)?;
-        let message = cstr_from_literal!("Properties that return a naïve datetime object have been deprecated. Please switch to not_valid_after_utc.");
+        let message = c"Properties that return a naïve datetime object have been deprecated. Please switch to not_valid_after_utc.";
         pyo3::PyErr::warn(py, &warning_cls, message, 1)?;
         let dt = &self
             .raw
@@ -436,13 +465,16 @@ pub(crate) fn load_der_x509_certificate(
     Ok(Certificate {
         raw,
         cached_extensions: pyo3::sync::PyOnceLock::new(),
+        cached_issuer: pyo3::sync::PyOnceLock::new(),
+        cached_subject: pyo3::sync::PyOnceLock::new(),
+        cached_public_key: pyo3::sync::PyOnceLock::new(),
     })
 }
 
 fn warn_if_not_positive(py: pyo3::Python<'_>, bytes: &[u8]) -> pyo3::PyResult<()> {
     if bytes[0] & 0x80 != 0 || bytes == [0] {
         let warning_cls = types::DEPRECATED_IN_36.get(py)?;
-        let message = cstr_from_literal!("Parsed a serial number which wasn't positive (i.e., it was negative or zero), which is disallowed by RFC 5280. Loading this certificate will cause an exception in a future release of cryptography.");
+        let message = c"Parsed a serial number which wasn't positive (i.e., it was negative or zero), which is disallowed by RFC 5280. Loading this certificate will cause an exception in a future release of cryptography.";
         pyo3::PyErr::warn(py, &warning_cls, message, 1)?;
     }
     Ok(())
@@ -464,7 +496,7 @@ fn warn_if_invalid_params(
             // This can also be triggered by an Intel On Die certificate
             // https://github.com/pyca/cryptography/issues/11723
             let warning_cls = types::DEPRECATED_IN_41.get(py)?;
-            let message = cstr_from_literal!("The parsed certificate contains a NULL parameter value in its signature algorithm parameters. This is invalid and will be rejected in a future version of cryptography. If this certificate was created via Java, please upgrade to JDK21+ or the latest JDK11/17 once a fix is issued. If this certificate was created in some other fashion please report the issue to the cryptography issue tracker. See https://github.com/pyca/cryptography/issues/8996 and https://github.com/pyca/cryptography/issues/9253 for more details.");
+            let message = c"The parsed certificate contains a NULL parameter value in its signature algorithm parameters. This is invalid and will be rejected in a future version of cryptography. If this certificate was created via Java, please upgrade to JDK21+ or the latest JDK11/17 once a fix is issued. If this certificate was created in some other fashion please report the issue to the cryptography issue tracker. See https://github.com/pyca/cryptography/issues/8996 and https://github.com/pyca/cryptography/issues/9253 for more details.";
             pyo3::PyErr::warn(py, &warning_cls, message, 2)?;
         }
         _ => {}
@@ -483,7 +515,7 @@ fn parse_display_text<'p>(
             // We should be able to remove this at the start of 2027.
             if asn1::VisibleString::new(o.as_str()).is_none() {
                 let warning_cls = types::DEPRECATED_IN_41.get(py)?;
-                let message = cstr_from_literal!("Invalid ASN.1 (UTF-8 characters in a VisibleString) in the explicit text and/or notice reference of the certificate policies extension. In a future version of cryptography, an exception will be raised.");
+                let message = c"Invalid ASN.1 (UTF-8 characters in a VisibleString) in the explicit text and/or notice reference of the certificate policies extension. In a future version of cryptography, an exception will be raised.";
                 pyo3::PyErr::warn(py, &warning_cls, message, 1)?;
             }
             Ok(pyo3::types::PyString::new(py, o.as_str()).into_any())
@@ -665,10 +697,10 @@ pub(crate) fn encode_distribution_point_reasons(
             .extract::<usize>()?;
         set_bit(&mut bits, bit, true);
     }
-    if bits[1] == 0 {
-        bits.truncate(1);
+    while bits.last() == Some(&0) {
+        bits.pop();
     }
-    let unused_bits = bits.last().unwrap().trailing_zeros() as u8;
+    let unused_bits = bits.last().map_or(0, |b| b.trailing_zeros() as u8);
     Ok(asn1::OwnedBitString::new(bits, unused_bits).unwrap())
 }
 
@@ -984,7 +1016,7 @@ pub fn parse_cert_ext<'p>(
 
 pub(crate) fn time_from_py(
     py: pyo3::Python<'_>,
-    val: &pyo3::Bound<'_, pyo3::PyAny>,
+    val: &pyo3::Bound<'_, pyo3::types::PyDateTime>,
 ) -> CryptographyResult<common::Time> {
     let dt = x509::py_to_datetime(py, val.clone())?;
     time_from_datetime(dt)
@@ -1016,11 +1048,15 @@ pub(crate) fn create_x509_certificate(
         rsa_padding.clone(),
     )?;
 
-    let der = types::ENCODING_DER.get(py)?;
-    let spki = types::PUBLIC_FORMAT_SUBJECT_PUBLIC_KEY_INFO.get(py)?;
     let spki_bytes = builder
         .getattr(pyo3::intern!(py, "_public_key"))?
-        .call_method1(pyo3::intern!(py, "public_bytes"), (der, spki))?
+        .call_method1(
+            pyo3::intern!(py, "public_bytes"),
+            (
+                crate::serialization::Encoding::DER,
+                crate::serialization::PublicFormat::SubjectPublicKeyInfo,
+            ),
+        )?
         .extract::<pyo3::pybacked::PyBackedBytes>()?;
 
     let py_serial = builder
@@ -1029,8 +1065,12 @@ pub(crate) fn create_x509_certificate(
 
     let py_issuer_name = builder.getattr(pyo3::intern!(py, "_issuer_name"))?;
     let py_subject_name = builder.getattr(pyo3::intern!(py, "_subject_name"))?;
-    let py_not_before = builder.getattr(pyo3::intern!(py, "_not_valid_before"))?;
-    let py_not_after = builder.getattr(pyo3::intern!(py, "_not_valid_after"))?;
+    let py_not_before = builder
+        .getattr(pyo3::intern!(py, "_not_valid_before"))?
+        .extract()?;
+    let py_not_after = builder
+        .getattr(pyo3::intern!(py, "_not_valid_after"))?
+        .extract()?;
 
     let ka_vec = cryptography_keepalive::KeepAlive::new();
     let ka_bytes = cryptography_keepalive::KeepAlive::new();

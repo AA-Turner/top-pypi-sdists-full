@@ -5458,6 +5458,12 @@ class CfnGatewayTarget(
                         credential_parameter_name="credentialParameterName",
                         credential_prefix="credentialPrefix"
                     ),
+                    iam_credential_provider=bedrockagentcore.CfnGatewayTarget.IamCredentialProviderProperty(
+                        service="service",
+        
+                        # the properties below are optional
+                        region="region"
+                    ),
                     oauth_credential_provider=bedrockagentcore.CfnGatewayTarget.OAuthCredentialProviderProperty(
                         provider_arn="providerArn",
                         scopes=["scopes"],
@@ -6311,6 +6317,12 @@ class CfnGatewayTarget(
                             credential_parameter_name="credentialParameterName",
                             credential_prefix="credentialPrefix"
                         ),
+                        iam_credential_provider=bedrockagentcore.CfnGatewayTarget.IamCredentialProviderProperty(
+                            service="service",
+                
+                            # the properties below are optional
+                            region="region"
+                        ),
                         oauth_credential_provider=bedrockagentcore.CfnGatewayTarget.OAuthCredentialProviderProperty(
                             provider_arn="providerArn",
                             scopes=["scopes"],
@@ -6372,6 +6384,7 @@ class CfnGatewayTarget(
         jsii_struct_bases=[],
         name_mapping={
             "api_key_credential_provider": "apiKeyCredentialProvider",
+            "iam_credential_provider": "iamCredentialProvider",
             "oauth_credential_provider": "oauthCredentialProvider",
         },
     )
@@ -6380,10 +6393,12 @@ class CfnGatewayTarget(
             self,
             *,
             api_key_credential_provider: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGatewayTarget.ApiKeyCredentialProviderProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            iam_credential_provider: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGatewayTarget.IamCredentialProviderProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             oauth_credential_provider: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGatewayTarget.OAuthCredentialProviderProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''
             :param api_key_credential_provider: The API key credential provider.
+            :param iam_credential_provider: 
             :param oauth_credential_provider: The OAuth credential provider for the gateway target.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-gatewaytarget-credentialprovider.html
@@ -6404,6 +6419,12 @@ class CfnGatewayTarget(
                         credential_parameter_name="credentialParameterName",
                         credential_prefix="credentialPrefix"
                     ),
+                    iam_credential_provider=bedrockagentcore.CfnGatewayTarget.IamCredentialProviderProperty(
+                        service="service",
+                
+                        # the properties below are optional
+                        region="region"
+                    ),
                     oauth_credential_provider=bedrockagentcore.CfnGatewayTarget.OAuthCredentialProviderProperty(
                         provider_arn="providerArn",
                         scopes=["scopes"],
@@ -6420,10 +6441,13 @@ class CfnGatewayTarget(
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__db13937427760cb24e319f55daf7a1b38d00d0bb009b7b145665b608c53b0f5c)
                 check_type(argname="argument api_key_credential_provider", value=api_key_credential_provider, expected_type=type_hints["api_key_credential_provider"])
+                check_type(argname="argument iam_credential_provider", value=iam_credential_provider, expected_type=type_hints["iam_credential_provider"])
                 check_type(argname="argument oauth_credential_provider", value=oauth_credential_provider, expected_type=type_hints["oauth_credential_provider"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if api_key_credential_provider is not None:
                 self._values["api_key_credential_provider"] = api_key_credential_provider
+            if iam_credential_provider is not None:
+                self._values["iam_credential_provider"] = iam_credential_provider
             if oauth_credential_provider is not None:
                 self._values["oauth_credential_provider"] = oauth_credential_provider
 
@@ -6437,6 +6461,16 @@ class CfnGatewayTarget(
             '''
             result = self._values.get("api_key_credential_provider")
             return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnGatewayTarget.ApiKeyCredentialProviderProperty"]], result)
+
+        @builtins.property
+        def iam_credential_provider(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnGatewayTarget.IamCredentialProviderProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-gatewaytarget-credentialprovider.html#cfn-bedrockagentcore-gatewaytarget-credentialprovider-iamcredentialprovider
+            '''
+            result = self._values.get("iam_credential_provider")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnGatewayTarget.IamCredentialProviderProperty"]], result)
 
         @builtins.property
         def oauth_credential_provider(
@@ -6457,6 +6491,76 @@ class CfnGatewayTarget(
 
         def __repr__(self) -> str:
             return "CredentialProviderProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnGatewayTarget.IamCredentialProviderProperty",
+        jsii_struct_bases=[],
+        name_mapping={"service": "service", "region": "region"},
+    )
+    class IamCredentialProviderProperty:
+        def __init__(
+            self,
+            *,
+            service: builtins.str,
+            region: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param service: 
+            :param region: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-gatewaytarget-iamcredentialprovider.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                iam_credential_provider_property = bedrockagentcore.CfnGatewayTarget.IamCredentialProviderProperty(
+                    service="service",
+                
+                    # the properties below are optional
+                    region="region"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__58f63af2f6ae46af5711bca9cdbaced1932fb057d793186525e5d0b9b56995ca)
+                check_type(argname="argument service", value=service, expected_type=type_hints["service"])
+                check_type(argname="argument region", value=region, expected_type=type_hints["region"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "service": service,
+            }
+            if region is not None:
+                self._values["region"] = region
+
+        @builtins.property
+        def service(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-gatewaytarget-iamcredentialprovider.html#cfn-bedrockagentcore-gatewaytarget-iamcredentialprovider-service
+            '''
+            result = self._values.get("service")
+            assert result is not None, "Required property 'service' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def region(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-gatewaytarget-iamcredentialprovider.html#cfn-bedrockagentcore-gatewaytarget-iamcredentialprovider-region
+            '''
+            result = self._values.get("region")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "IamCredentialProviderProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -7747,6 +7851,12 @@ class CfnGatewayTargetProps:
                             credential_location="credentialLocation",
                             credential_parameter_name="credentialParameterName",
                             credential_prefix="credentialPrefix"
+                        ),
+                        iam_credential_provider=bedrockagentcore.CfnGatewayTarget.IamCredentialProviderProperty(
+                            service="service",
+            
+                            # the properties below are optional
+                            region="region"
                         ),
                         oauth_credential_provider=bedrockagentcore.CfnGatewayTarget.OAuthCredentialProviderProperty(
                             provider_arn="providerArn",
@@ -19518,7 +19628,16 @@ def _typecheckingstub__149dd633d64001d8edf5b8db5417ed0fc1bfaecff9240452d6911051e
 def _typecheckingstub__db13937427760cb24e319f55daf7a1b38d00d0bb009b7b145665b608c53b0f5c(
     *,
     api_key_credential_provider: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGatewayTarget.ApiKeyCredentialProviderProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    iam_credential_provider: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGatewayTarget.IamCredentialProviderProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     oauth_credential_provider: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGatewayTarget.OAuthCredentialProviderProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__58f63af2f6ae46af5711bca9cdbaced1932fb057d793186525e5d0b9b56995ca(
+    *,
+    service: builtins.str,
+    region: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

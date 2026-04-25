@@ -5,20 +5,20 @@ import pathlib
 from pathlib import Path
 from typing import Dict, Optional
 
-from dbt_semantic_interfaces.implementations.metric import PydanticMetric
-from dbt_semantic_interfaces.implementations.node_relation import PydanticNodeRelation
-from dbt_semantic_interfaces.implementations.project_configuration import PydanticProjectConfiguration
-from dbt_semantic_interfaces.implementations.saved_query import PydanticSavedQuery
-from dbt_semantic_interfaces.implementations.semantic_manifest import PydanticSemanticManifest
-from dbt_semantic_interfaces.implementations.semantic_model import PydanticSemanticModel
-from dbt_semantic_interfaces.implementations.time_spine import PydanticTimeSpine, PydanticTimeSpinePrimaryColumn
-from dbt_semantic_interfaces.parsing.dir_to_model import (
+from metricflow_semantics.toolkit.mf_logging.lazy_formattable import LazyFormat
+
+from metricflow_semantic_interfaces.implementations.metric import PydanticMetric
+from metricflow_semantic_interfaces.implementations.project_configuration import PydanticProjectConfiguration
+from metricflow_semantic_interfaces.implementations.saved_query import PydanticSavedQuery
+from metricflow_semantic_interfaces.implementations.semantic_manifest import PydanticSemanticManifest
+from metricflow_semantic_interfaces.implementations.semantic_model import PydanticSemanticModel
+from metricflow_semantic_interfaces.parsing.dir_to_model import (
     parse_directory_of_yaml_files_to_semantic_manifest,
 )
-from dbt_semantic_interfaces.type_enums import TimeGranularity
-from dbt_semantic_interfaces.validations.semantic_manifest_validator import SemanticManifestValidator
-
-from metricflow_semantics.mf_logging.lazy_formattable import LazyFormat
+from metricflow_semantic_interfaces.transformations.semantic_manifest_transformer import (
+    PydanticSemanticManifestTransformer,
+)
+from metricflow_semantic_interfaces.validations.semantic_manifest_validator import SemanticManifestValidator
 
 
 def mf_load_manifest_from_yaml_directory(
@@ -40,11 +40,17 @@ def mf_load_manifest_from_yaml_directory(
 
 
 def mf_load_manifest_from_json_file(
-    json_file_path: Path, project_configuration: Optional[PydanticProjectConfiguration] = None
+    json_file_path: Path,
+    override_project_configuration: Optional[PydanticProjectConfiguration] = None,
+    apply_transforms: bool = False,
 ) -> PydanticSemanticManifest:
     """Load a manifest from a file containing the JSON-serialized form of a `PydanticSemanticManifest`.
 
-    If the project configuration is not provided, a dummy one with an `HOUR` time spine will be used.
+    Args:
+        json_file_path: The path to the semantic-manifest JSON file.
+        override_project_configuration: If set, use this project configuration instead of the one in the manifest.
+        apply_transforms: Apply transformations that are typically applied after deserializing from YAML files.
+    Returns: The deserialized semantic manifest.
     """
     try:
         with open(json_file_path) as fp:
@@ -58,32 +64,20 @@ def mf_load_manifest_from_json_file(
         saved_queries = [
             PydanticSavedQuery.parse_obj(saved_query_json) for saved_query_json in manifest_json["saved_queries"]
         ]
+        project_configuration = override_project_configuration or PydanticProjectConfiguration.parse_obj(
+            manifest_json["project_configuration"]
+        )
 
-        if project_configuration is None:
-            node_relation = PydanticNodeRelation(
-                schema_name="dummy_schema",
-                relation_name="dummy_relation",
-                database="dummy_database",
-                alias="dummy_alias",
-            )
-            project_configuration = PydanticProjectConfiguration(
-                time_spines=[
-                    PydanticTimeSpine(
-                        node_relation=node_relation,
-                        primary_column=PydanticTimeSpinePrimaryColumn(
-                            name="date_hour",
-                            time_granularity=TimeGranularity.HOUR,
-                        ),
-                    )
-                ],
-            )
-
-        return PydanticSemanticManifest(
+        semantic_manifest = PydanticSemanticManifest(
             semantic_models=semantic_models,
             metrics=metrics,
             saved_queries=saved_queries,
             project_configuration=project_configuration,
         )
+
+        if apply_transforms:
+            return PydanticSemanticManifestTransformer.transform(semantic_manifest)
+        return semantic_manifest
 
     except Exception as e:
         raise RuntimeError(LazyFormat("Error while loading semantic manifest", json_file_path=json_file_path)) from e

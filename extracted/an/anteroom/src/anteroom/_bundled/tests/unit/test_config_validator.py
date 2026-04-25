@@ -196,6 +196,20 @@ class TestIntFields:
         assert result.is_valid  # warning only — parser falls back
         assert result.has_warnings
 
+    def test_tool_output_default_metadata_is_10000(self) -> None:
+        result = validate_config({"cli": {"tool_output_max_chars": "bad"}})
+        assert result.is_valid
+        assert any(
+            e.path == "cli.tool_output_max_chars" and "will use default 10000" in e.message for e in result.errors
+        )
+
+    def test_tool_replay_default_metadata_is_10000(self) -> None:
+        result = validate_config({"cli": {"tool_replay_max_chars": "bad"}})
+        assert result.is_valid
+        assert any(
+            e.path == "cli.tool_replay_max_chars" and "will use default 10000" in e.message for e in result.errors
+        )
+
 
 class TestFloatFields:
     def test_valid_float(self) -> None:

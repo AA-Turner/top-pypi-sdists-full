@@ -50,6 +50,7 @@ To get more control on the name of the archive and its content:
 
 WARNING: The content of this directory is not checked for outdated documents.
 """
+
 __authors__ = ["T. Vincent"]
 __license__ = "MIT"
 __date__ = "01/09/2017"
@@ -65,7 +66,6 @@ import tempfile
 
 from docutils.parsers.rst import directives, Directive
 import docutils.nodes
-
 
 _logger = logging.getLogger(__name__)
 
@@ -165,7 +165,7 @@ def visit_archive_html(self, node):
 
     # Generate HTML
     relative_path = posixpath.join(self.builder.dlpath, filename)
-    self.body.append('<a href="%s">%s</a>' % (relative_path, filename))
+    self.body.append(f'<a href="{relative_path}">{filename}</a>')
     raise docutils.nodes.SkipNode
 
 

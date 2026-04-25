@@ -1,22 +1,17 @@
 from typing import Optional
 
-from airflow.models.baseoperator import BaseOperatorLink
-from airflow.sensors.base import BaseSensorOperator
-
 from airflow.exceptions import AirflowException
-from airflow.utils.decorators import apply_defaults
+from airflow.sdk import BaseSensorOperator
 
+from airflow_provider_hightouch.consts import (
+    PENDING_STATUSES,
+    SUCCESS,
+    TERMINAL_STATUSES,
+    WARNING,
+)
 from airflow_provider_hightouch.hooks.hightouch import HightouchHook
+from airflow_provider_hightouch.operators.hightouch import HightouchLink
 from airflow_provider_hightouch.utils import parse_sync_run_details
-
-from airflow_provider_hightouch.consts import *
-
-
-class HightouchLink(BaseOperatorLink):
-    name = "Hightouch"
-
-    def get_link(self, operator, dttm):
-        return "https://app.hightouch.io"
 
 
 class HightouchSyncRunSensor(BaseSensorOperator):
@@ -41,7 +36,6 @@ class HightouchSyncRunSensor(BaseSensorOperator):
 
     operator_extra_links = (HightouchLink(),)
 
-    @apply_defaults
     def __init__(
         self,
         sync_run_id: str,
@@ -66,12 +60,10 @@ class HightouchSyncRunSensor(BaseSensorOperator):
 
         sync_run_details = hook.get_sync_run_details(
             self.sync_id,
-            self.sync_run_id
+            self.sync_run_id,
         )[0]
 
-        run = parse_sync_run_details(
-            sync_run_details
-        )
+        run = parse_sync_run_details(sync_run_details)
 
         if run.status in TERMINAL_STATUSES:
             self.log.info(f"Sync request status: {run.status}.")
@@ -83,7 +75,7 @@ class HightouchSyncRunSensor(BaseSensorOperator):
             if run.status == WARNING and not self.error_on_warning:
                 return True
             raise AirflowException(
-                f"Sync {self.sync_id} for request: {self.sync_request_id} failed with status: "
+                f"Sync {self.sync_id} for request: {self.sync_run_id} failed with status: "
                 f"{run.status} and error:  {run.error}"
             )
 

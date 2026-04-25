@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: alpaca-py
-Version: 0.43.2
+Version: 0.43.3
 Summary: The Official Python SDK for Alpaca APIs
 License: Apache-2.0
 License-File: LICENSE
@@ -19,6 +19,7 @@ Classifier: Programming Language :: Python :: 3.14
 Requires-Dist: msgpack (>=1.0.3,<2.0.0)
 Requires-Dist: pandas (>=1.5.3)
 Requires-Dist: pydantic (>=2.0.3,<3.0.0)
+Requires-Dist: pytz (>=2020.1)
 Requires-Dist: requests (>=2.30.0,<3.0.0)
 Requires-Dist: sseclient-py (>=1.7.2,<2.0.0)
 Requires-Dist: websockets (>=10.4)

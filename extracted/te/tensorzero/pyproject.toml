@@ -72,4 +72,5 @@ include = [".cargo/*", ".sqlx/*"]
 manifest-path = "tensorzero-python/Cargo.toml"
 
 [tool.uv]
+exclude-newer = "3 days"
 constraint-dependencies = ["urllib3>=2.6.0"]

@@ -30,7 +30,7 @@ large data where numpy is not very efficient.
 
 __author__ = "Jerome Kieffer"
 __license__ = "MIT"
-__date__ = "19/05/2021"
+__date__ = "13/03/2026"
 __copyright__ = "2012-2019, ESRF, Grenoble"
 __contact__ = "jerome.kieffer@esrf.fr"
 
@@ -137,9 +137,7 @@ class Statistics(OpenclProcessing):
     def set_kernel_arguments(self):
         """Parametrize all kernel arguments"""
         for val in self.mapping.values():
-            self.cl_kernel_args[val] = dict(
-                ((i, self.cl_mem[i]) for i in ("raw", "converted"))
-            )
+            self.cl_kernel_args[val] = {i: self.cl_mem[i] for i in ("raw", "converted")}
 
     def compile_kernels(self):
         """Compile the kernel"""
@@ -209,7 +207,7 @@ class Statistics(OpenclProcessing):
             copy_image = pyopencl.enqueue_copy(
                 self.queue, self.cl_mem["raw"].data, numpy.ascontiguousarray(data)
             )
-            kernel = getattr(self.program, self.mapping[data.dtype.type])
+            kernel = getattr(self.kernels, self.mapping[data.dtype.type])
             cast_to_float = kernel(
                 self.queue,
                 (self.size,),

@@ -8,9 +8,12 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+use tensorzero_inference_types::{FunctionToolDef, ProviderToolCallConfig};
+
 use crate::error::Error;
 use crate::inference::types::ModelInferenceRequest;
-use crate::tool::{FunctionTool, FunctionToolConfig, ToolChoice};
+use crate::tool::ToolChoice;
+use tensorzero_inference_types::tool::FunctionTool;
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "lowercase")]
@@ -92,16 +95,16 @@ type PreparedChatCompletionToolsResult<'a> = (
     Option<bool>,
 );
 
-impl<'a> From<&'a FunctionToolConfig> for ChatCompletionTool<'a> {
-    fn from(tool: &'a FunctionToolConfig) -> Self {
+impl<'a> From<&'a FunctionToolDef> for ChatCompletionTool<'a> {
+    fn from(tool: &'a FunctionToolDef) -> Self {
         ChatCompletionTool {
             r#type: ChatCompletionToolType::Function,
             function: ChatCompletionFunction {
-                name: tool.name(),
-                description: Some(tool.description()),
-                parameters: tool.parameters(),
+                name: &tool.name,
+                description: Some(&tool.description),
+                parameters: &tool.parameters,
             },
-            strict: tool.strict(),
+            strict: tool.strict,
         }
     }
 }
@@ -147,7 +150,7 @@ impl<'a> From<&'a ToolChoice> for ChatCompletionToolChoice<'a> {
 ///
 /// This is shared logic across OpenAI-compatible providers that support allowed_tools (Azure, Groq, OpenRouter).
 fn prepare_chat_completion_allowed_tools_constraint<'a>(
-    tool_config: &'a crate::tool::ToolCallConfig,
+    tool_config: &'a ProviderToolCallConfig,
 ) -> Option<ChatCompletionAllowedToolsChoice<'a>> {
     // OpenAI-compatible providers don't allow both tool-choice "none" and tool-choice "allowed_tools",
     // since they're both set via the top-level "tool_choice" field.
@@ -237,45 +240,23 @@ pub fn prepare_chat_completion_tools<'a>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::tool::{AllowedTools, AllowedToolsChoice, ToolCallConfig};
+    use crate::tool::{AllowedTools, AllowedToolsChoice};
     use serde_json::json;
+    use tensorzero_inference_types::{FunctionToolDef, ProviderToolCallConfig};
 
-    // Helper to create a test tool config
-    fn create_static_tool_config() -> FunctionToolConfig {
-        use crate::jsonschema_util::JSONSchema;
-        use crate::tool::StaticToolConfig;
-        use std::sync::Arc;
-
-        FunctionToolConfig::Static(Arc::new(StaticToolConfig {
+    // Helper to create a test function tool def
+    fn create_function_tool_def() -> FunctionToolDef {
+        FunctionToolDef {
             name: "test_tool".to_string(),
-            key: "test_tool".to_string(),
             description: "A test tool".to_string(),
-            parameters: JSONSchema::from_value(json!({
+            parameters: json!({
                 "type": "object",
                 "properties": {
                     "param1": {"type": "string"}
                 }
-            }))
-            .unwrap(),
+            }),
             strict: true,
-        }))
-    }
-
-    fn create_dynamic_tool_config() -> FunctionToolConfig {
-        use crate::jsonschema_util::JSONSchema;
-        use crate::tool::DynamicToolConfig;
-
-        FunctionToolConfig::Dynamic(DynamicToolConfig {
-            name: "dynamic_tool".to_string(),
-            description: "A dynamic tool".to_string(),
-            parameters: JSONSchema::compile_background(json!({
-                "type": "object",
-                "properties": {
-                    "param1": {"type": "string"}
-                }
-            })),
-            strict: true,
-        })
+        }
     }
 
     // Test serialization of ChatCompletionToolType
@@ -405,22 +386,24 @@ mod tests {
 
     // Test From implementations
     #[test]
-    fn test_from_function_tool_config_static() {
-        let tool_config = create_static_tool_config();
-        let chat_tool: ChatCompletionTool = (&tool_config).into();
+    fn test_from_function_tool_def() {
+        use tensorzero_inference_types::FunctionToolDef;
+        let tool_def = FunctionToolDef {
+            name: "test_tool".to_string(),
+            description: "A test tool".to_string(),
+            parameters: json!({
+                "type": "object",
+                "properties": {
+                    "param1": {"type": "string"}
+                }
+            }),
+            strict: true,
+        };
+        let chat_tool: ChatCompletionTool = (&tool_def).into();
 
         assert_eq!(chat_tool.function.name, "test_tool");
         assert_eq!(chat_tool.function.description, Some("A test tool"));
         assert!(chat_tool.strict);
-        assert!(matches!(chat_tool.r#type, ChatCompletionToolType::Function));
-    }
-
-    #[tokio::test]
-    async fn test_from_function_tool_config_dynamic() {
-        let tool_config = create_dynamic_tool_config();
-        let chat_tool: ChatCompletionTool = (&tool_config).into();
-
-        assert_eq!(chat_tool.function.name, "dynamic_tool");
         assert!(matches!(chat_tool.r#type, ChatCompletionToolType::Function));
     }
 
@@ -488,15 +471,14 @@ mod tests {
     // Test prepare_chat_completion_allowed_tools_constraint
     #[test]
     fn test_prepare_allowed_tools_constraint_none_without_dynamic() {
-        let tool_config = ToolCallConfig {
+        let tool_config = ProviderToolCallConfig {
             tool_choice: ToolChoice::Auto,
             allowed_tools: AllowedTools {
                 tools: vec![],
                 choice: AllowedToolsChoice::FunctionDefault,
             },
             parallel_tool_calls: None,
-            static_tools_available: vec![create_static_tool_config()],
-            dynamic_tools_available: vec![],
+            tools: vec![create_function_tool_def()],
             provider_tools: vec![],
             openai_custom_tools: vec![],
         };
@@ -507,7 +489,7 @@ mod tests {
 
     #[test]
     fn test_prepare_allowed_tools_constraint_with_required() {
-        let tool_config = ToolCallConfig {
+        let tool_config = ProviderToolCallConfig {
             tool_choice: ToolChoice::Required,
             allowed_tools: AllowedTools {
                 tools: vec!["tool1".to_string(), "tool2".to_string()]
@@ -516,8 +498,7 @@ mod tests {
                 choice: AllowedToolsChoice::Explicit,
             },
             parallel_tool_calls: None,
-            static_tools_available: vec![create_static_tool_config()],
-            dynamic_tools_available: vec![],
+            tools: vec![create_function_tool_def()],
             provider_tools: vec![],
             openai_custom_tools: vec![],
         };
@@ -541,7 +522,7 @@ mod tests {
 
     #[test]
     fn test_prepare_allowed_tools_constraint_choice_none() {
-        let tool_config = ToolCallConfig {
+        let tool_config = ProviderToolCallConfig {
             tool_choice: ToolChoice::None,
             allowed_tools: AllowedTools {
                 tools: vec!["tool1".to_string(), "tool2".to_string()]
@@ -550,8 +531,7 @@ mod tests {
                 choice: AllowedToolsChoice::Explicit,
             },
             parallel_tool_calls: None,
-            static_tools_available: vec![create_static_tool_config()],
-            dynamic_tools_available: vec![],
+            tools: vec![create_function_tool_def()],
             provider_tools: vec![],
             openai_custom_tools: vec![],
         };
@@ -562,15 +542,14 @@ mod tests {
 
     #[test]
     fn test_prepare_allowed_tools_constraint_with_auto() {
-        let tool_config = ToolCallConfig {
+        let tool_config = ProviderToolCallConfig {
             tool_choice: ToolChoice::Auto,
             allowed_tools: AllowedTools {
                 tools: vec!["tool1".to_string()].into_iter().collect(),
                 choice: AllowedToolsChoice::Explicit,
             },
             parallel_tool_calls: None,
-            static_tools_available: vec![create_static_tool_config()],
-            dynamic_tools_available: vec![],
+            tools: vec![create_function_tool_def()],
             provider_tools: vec![],
             openai_custom_tools: vec![],
         };
@@ -585,15 +564,14 @@ mod tests {
 
     #[test]
     fn test_prepare_allowed_tools_constraint_with_specific_uses_auto_mode() {
-        let tool_config = ToolCallConfig {
+        let tool_config = ProviderToolCallConfig {
             tool_choice: ToolChoice::Specific("tool1".to_string()),
             allowed_tools: AllowedTools {
                 tools: vec!["tool1".to_string()].into_iter().collect(),
                 choice: AllowedToolsChoice::Explicit,
             },
             parallel_tool_calls: None,
-            static_tools_available: vec![],
-            dynamic_tools_available: vec![],
+            tools: vec![],
             provider_tools: vec![],
             openai_custom_tools: vec![],
         };
@@ -621,15 +599,14 @@ mod tests {
 
     #[test]
     fn test_prepare_tools_with_empty_tools() {
-        let tool_config = ToolCallConfig {
+        let tool_config = ProviderToolCallConfig {
             tool_choice: ToolChoice::Auto,
             allowed_tools: AllowedTools {
                 tools: Vec::new(),
                 choice: AllowedToolsChoice::FunctionDefault,
             },
             parallel_tool_calls: None,
-            static_tools_available: vec![],
-            dynamic_tools_available: vec![],
+            tools: vec![],
             provider_tools: vec![],
             openai_custom_tools: vec![],
         };
@@ -647,15 +624,14 @@ mod tests {
 
     #[test]
     fn test_prepare_tools_supports_allowed_tools_without_constraint() {
-        let tool_config = ToolCallConfig {
+        let tool_config = ProviderToolCallConfig {
             tool_choice: ToolChoice::Auto,
             allowed_tools: AllowedTools {
                 tools: Vec::new(),
                 choice: AllowedToolsChoice::FunctionDefault,
             },
             parallel_tool_calls: Some(true),
-            static_tools_available: vec![create_static_tool_config()],
-            dynamic_tools_available: vec![],
+            tools: vec![create_function_tool_def()],
             provider_tools: vec![],
             openai_custom_tools: vec![],
         };
@@ -680,15 +656,14 @@ mod tests {
 
     #[test]
     fn test_prepare_tools_supports_allowed_tools_with_constraint() {
-        let tool_config = ToolCallConfig {
+        let tool_config = ProviderToolCallConfig {
             tool_choice: ToolChoice::Required,
             allowed_tools: AllowedTools {
                 tools: vec!["test_tool".to_string()].into_iter().collect(),
                 choice: AllowedToolsChoice::Explicit,
             },
             parallel_tool_calls: Some(false),
-            static_tools_available: vec![create_static_tool_config()],
-            dynamic_tools_available: vec![],
+            tools: vec![create_function_tool_def()],
             provider_tools: vec![],
             openai_custom_tools: vec![],
         };
@@ -718,15 +693,14 @@ mod tests {
 
     #[test]
     fn test_prepare_tools_no_allowed_tools_support() {
-        let tool_config = ToolCallConfig {
+        let tool_config = ProviderToolCallConfig {
             tool_choice: ToolChoice::Auto,
             allowed_tools: AllowedTools {
                 tools: Vec::new(),
                 choice: AllowedToolsChoice::FunctionDefault,
             },
             parallel_tool_calls: None,
-            static_tools_available: vec![create_static_tool_config()],
-            dynamic_tools_available: vec![],
+            tools: vec![create_function_tool_def()],
             provider_tools: vec![],
             openai_custom_tools: vec![],
         };
@@ -751,15 +725,14 @@ mod tests {
 
     #[test]
     fn test_prepare_tools_no_allowed_tools_support_with_explicit_allowed() {
-        let tool_config = ToolCallConfig {
+        let tool_config = ProviderToolCallConfig {
             tool_choice: ToolChoice::Required,
             allowed_tools: AllowedTools {
                 tools: vec!["test_tool".to_string()].into_iter().collect(),
                 choice: AllowedToolsChoice::Explicit,
             },
             parallel_tool_calls: Some(true),
-            static_tools_available: vec![create_static_tool_config()],
-            dynamic_tools_available: vec![],
+            tools: vec![create_function_tool_def()],
             provider_tools: vec![],
             openai_custom_tools: vec![],
         };
@@ -784,35 +757,28 @@ mod tests {
 
     #[test]
     fn test_prepare_tools_multiple_tools() {
-        use crate::jsonschema_util::JSONSchema;
-        use crate::tool::StaticToolConfig;
-        use std::sync::Arc;
-
-        let tool1 = FunctionToolConfig::Static(Arc::new(StaticToolConfig {
+        let tool1 = FunctionToolDef {
             name: "tool1".to_string(),
-            key: "tool1".to_string(),
             description: "First tool".to_string(),
-            parameters: JSONSchema::from_value(json!({"type": "object"})).unwrap(),
+            parameters: json!({"type": "object"}),
             strict: true,
-        }));
+        };
 
-        let tool2 = FunctionToolConfig::Static(Arc::new(StaticToolConfig {
+        let tool2 = FunctionToolDef {
             name: "tool2".to_string(),
-            key: "tool2".to_string(),
             description: "Second tool".to_string(),
-            parameters: JSONSchema::from_value(json!({"type": "object"})).unwrap(),
+            parameters: json!({"type": "object"}),
             strict: false,
-        }));
+        };
 
-        let tool_config = ToolCallConfig {
+        let tool_config = ProviderToolCallConfig {
             tool_choice: ToolChoice::Auto,
             allowed_tools: AllowedTools {
                 tools: Vec::new(),
                 choice: AllowedToolsChoice::FunctionDefault,
             },
             parallel_tool_calls: None,
-            static_tools_available: vec![tool1, tool2],
-            dynamic_tools_available: vec![],
+            tools: vec![tool1, tool2],
             provider_tools: vec![],
             openai_custom_tools: vec![],
         };
@@ -834,15 +800,14 @@ mod tests {
 
     #[test]
     fn test_prepare_tools_with_specific_tool_choice() {
-        let tool_config = ToolCallConfig {
+        let tool_config = ProviderToolCallConfig {
             tool_choice: ToolChoice::Specific("test_tool".to_string()),
             allowed_tools: AllowedTools {
                 tools: Vec::new(),
                 choice: AllowedToolsChoice::FunctionDefault,
             },
             parallel_tool_calls: None,
-            static_tools_available: vec![create_static_tool_config()],
-            dynamic_tools_available: vec![],
+            tools: vec![create_function_tool_def()],
             provider_tools: vec![],
             openai_custom_tools: vec![],
         };

@@ -11,12 +11,11 @@ import pytest
 
 from cryptography import utils
 from cryptography.exceptions import AlreadyFinalized
+from cryptography.hazmat.decrepit.ciphers.algorithms import Camellia
+from cryptography.hazmat.decrepit.ciphers.modes import CFB, CFB8, OFB
 from cryptography.hazmat.primitives import ciphers
 from cryptography.hazmat.primitives.ciphers import modes
-from cryptography.hazmat.primitives.ciphers.algorithms import (
-    AES,
-    Camellia,
-)
+from cryptography.hazmat.primitives.ciphers.algorithms import AES
 
 from ...utils import load_nist_vectors, load_vectors_from_file
 from .test_aead import large_mmap
@@ -30,6 +29,10 @@ def test_deprecated_ciphers_import_with_warning():
     with pytest.warns(utils.CryptographyDeprecationWarning):
         from cryptography.hazmat.primitives.ciphers.algorithms import (
             TripleDES,  # noqa: F401
+        )
+    with pytest.warns(utils.CryptographyDeprecationWarning):
+        from cryptography.hazmat.primitives.ciphers.algorithms import (
+            Camellia,  # noqa: F401
         )
 
 
@@ -52,9 +55,7 @@ class TestAES:
 
 
 class TestAESXTS:
-    @pytest.mark.parametrize(
-        "mode", (modes.CBC, modes.CTR, modes.CFB, modes.CFB8, modes.OFB)
-    )
+    @pytest.mark.parametrize("mode", (modes.CBC, modes.CTR, CFB, CFB8, OFB))
     def test_invalid_key_size_with_mode(self, mode, backend):
         with pytest.raises(ValueError):
             ciphers.Cipher(AES(b"0" * 64), mode(b"0" * 16), backend)

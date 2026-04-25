@@ -6,23 +6,23 @@ They are tightly coupled with the Zotero class and are internal implementation d
 
 from __future__ import annotations
 
+import copy
 import io
 import zipfile
 from collections.abc import Callable, Generator
 from functools import wraps
 from typing import TYPE_CHECKING, Any, TypeVar
-from urllib.parse import urlparse
+from urllib.parse import urlencode
 
 import bibtexparser
 import feedparser
 import httpx
-from httpx import Request
 
-from ._utils import DEFAULT_TIMEOUT, build_url, get_backoff_duration
+from ._utils import DEFAULT_TIMEOUT, get_backoff_duration
 from .errors import error_handler
 
 if TYPE_CHECKING:
-    pass
+    from ._client import Zotero
 
 T = TypeVar("T")
 
@@ -31,7 +31,7 @@ def cleanwrap(func: Callable[..., T]) -> Callable[..., Generator[T, None, None]]
     """Wrap for Zotero._cleanup to process multiple items."""
 
     @wraps(func)
-    def enc(self: Any, *args: Any, **kwargs: Any) -> Generator[T, None, None]:
+    def enc(self: Zotero, *args: Any, **kwargs: Any) -> Generator[T, None, None]:
         """Send each item to _cleanup()."""
         return (func(self, item, **kwargs) for item in args)
 
@@ -44,30 +44,22 @@ def tcache(
     """Handle URL building and caching for template functions."""
 
     @wraps(func)
-    def wrapped_f(self: Any, *args: Any, **kwargs: Any) -> dict[str, Any]:
+    def wrapped_f(self: Zotero, *args: Any, **kwargs: Any) -> dict[str, Any]:
         """Call the decorated function to get query string and params,
-        builds URL, retrieves template, caches result, and returns template.
+        check the local template cache, and retrieve + cache on miss.
         """
         query_string, params = func(self, *args, **kwargs)
         params["timeout"] = DEFAULT_TIMEOUT
-        r = Request(
-            "GET",
-            build_url(self.endpoint, query_string),
-            params=params,
-        )
-        response = self.client.send(r)
-
-        # now split up the URL
-        result = urlparse(str(response.url))
-        # construct cache key
-        cachekey = f"{result.path}_{result.query}"
+        # Build a stable cache key locally, without a network round-trip.
+        cachekey = f"{query_string}?{urlencode(sorted(params.items()))}"
         if self.templates.get(cachekey) and not self._updated(
             query_string,
             self.templates[cachekey],
             cachekey,
         ):
-            return self.templates[cachekey]["tmplt"]
-        # otherwise perform a normal request and cache the response
+            # Deep-copy so callers may mutate the result without corrupting
+            # the cached entry (matches the contract of Zotero._cache).
+            return copy.deepcopy(self.templates[cachekey]["tmplt"])
         retrieved = self._retrieve_data(query_string, params=params)
         return self._cache(retrieved, cachekey)
 
@@ -89,7 +81,7 @@ def backoff_check(
     """
 
     @wraps(func)
-    def wrapped_f(self: Any, *args: Any, **kwargs: Any) -> bool:
+    def wrapped_f(self: Zotero, *args: Any, **kwargs: Any) -> bool:
         self._check_backoff()
         # resp is a Requests response object
         resp = func(self, *args, **kwargs)
@@ -107,11 +99,36 @@ def backoff_check(
     return wrapped_f
 
 
+def _extract_zip_attachment(retrieved: httpx.Response) -> bytes:
+    """Extract the single file from a Zotero-compressed attachment response.
+
+    The Zotero API zips plain-text attachments when the redirect carries the
+    ``Zotero-File-Compressed: Yes`` header. When present, return the inner
+    file's bytes; otherwise return the response body as-is.
+    """
+    if (
+        retrieved.history
+        and retrieved.history[0].headers.get("Zotero-File-Compressed") == "Yes"
+    ):
+        z = zipfile.ZipFile(io.BytesIO(retrieved.content))
+        return z.read(z.namelist()[0])
+    return retrieved.content
+
+
+def _parse_bibtex(text: str) -> Any:
+    """Parse a BibTeX response body into a BibDatabase."""
+    parser = bibtexparser.bparser.BibTexParser(
+        common_strings=True,
+        ignore_nonstandard_types=False,
+    )
+    return parser.parse(text)
+
+
 def retrieve(func: Callable[..., str]) -> Callable[..., Any]:
     """Call _retrieve_data() and pass the result to the correct processor."""
 
     @wraps(func)
-    def wrapped_f(self: Any, *args: Any, **kwargs: Any) -> Any:
+    def wrapped_f(self: Zotero, *args: Any, **kwargs: Any) -> Any:
         """Return result of _retrieve_data().
 
         func's return value is part of a URI, and it's this
@@ -121,60 +138,32 @@ def retrieve(func: Callable[..., str]) -> Callable[..., Any]:
         if kwargs:
             self.add_parameters(**kwargs)
         retrieved = self._retrieve_data(func(self, *args))
-        # we now always have links in the header response
         self.links = self._extract_links()
-        # determine content and format, based on url params
-        content = (
-            self.content.search(str(self.request.url))
-            and self.content.search(str(self.request.url)).group(0)
-        ) or "bib"
-        # select format, or assume JSON
-        content_type_header = self.request.headers["Content-Type"].lower() + ";"
-        fmt = self.formats.get(
-            # strip "; charset=..." segment
-            content_type_header[0 : content_type_header.index(";")],
-            "json",
-        )
-        # clear all query parameters
         self.url_params = None
-        # Zotero API returns plain-text attachments as zipped content
-        # We can inspect the redirect header to check whether Zotero compressed the file
-        if fmt == "zip":
-            if (
-                self.request.history
-                and self.request.history[0].headers.get("Zotero-File-Compressed")
-                == "Yes"
-            ):
-                z = zipfile.ZipFile(io.BytesIO(retrieved.content))
-                namelist = z.namelist()
-                file = z.read(namelist[0])
-            else:
-                file = retrieved.content
-            return file
-        # check to see whether it's tag data
+
+        # Tag responses short-circuit format dispatch.
         if "tags" in str(self.request.url):
-            self.tag_data = False
             return self._tags_data(retrieved.json())
+
+        content_type = self.request.headers["Content-Type"].lower().split(";", 1)[0]
+        fmt = self.formats.get(content_type, "json")
+
+        if fmt == "zip":
+            return _extract_zip_attachment(retrieved)
         if fmt == "atom":
-            parsed = feedparser.parse(retrieved.text)
-            # select the correct processor
-            processor = self.processors.get(content)
-            # process the content correctly with a custom rule
-            return processor(parsed)
-        if fmt == "snapshot":
-            # we need to dump as a zip!
-            self.snapshot = True
+            content_match = self.content.search(str(retrieved.url))
+            content = content_match.group(0) if content_match else "bib"
+            processor = self.processors.get(content, self.processors["bib"])
+            return processor(feedparser.parse(retrieved.text))
         if fmt == "bibtex":
-            parser = bibtexparser.bparser.BibTexParser(
-                common_strings=True,
-                ignore_nonstandard_types=False,
-            )
-            return parser.parse(retrieved.text)
-        # it's binary, so return raw content
-        if fmt != "json":
-            return retrieved.content
-        # no need to do anything special, return JSON
-        return retrieved.json()
+            return _parse_bibtex(retrieved.text)
+        if fmt == "json":
+            return retrieved.json()
+        if fmt == "snapshot":
+            # dump() uses this flag to append .zip to the output filename.
+            self.snapshot = True
+        # Anything else (snapshot, PDFs, Office formats, media, binary) → raw bytes.
+        return retrieved.content
 
     return wrapped_f
 
@@ -182,7 +171,7 @@ def retrieve(func: Callable[..., str]) -> Callable[..., Any]:
 def ss_wrap(func: Callable[..., T]) -> Callable[..., T]:
     """Ensure that a SavedSearch object exists before method execution."""
 
-    def wrapper(self: Any, *args: Any, **kwargs: Any) -> T:
+    def wrapper(self: Zotero, *args: Any, **kwargs: Any) -> T:
         if not self.savedsearch:
             # Import here to avoid circular imports
             from ._search import SavedSearch  # noqa: PLC0415

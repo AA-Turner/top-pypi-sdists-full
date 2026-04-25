@@ -81,8 +81,16 @@ class OTelSpanLogHandler(logging.Handler):
     def emit(self, record: logging.LogRecord) -> None:
         """Emit a log record as an OTel span."""
         try:
+            extra_attrs = getattr(record, "otel_attributes", None)
+            if not isinstance(extra_attrs, dict):
+                extra_attrs = None
+
+            # Non-plato.* debug records are dropped unless explicitly tagged
+            # with otel_attributes (an opt-in debug-span marker that non-plato
+            # loggers — e.g. world loggers — can use).
             if record.levelno < logging.INFO and not record.name.startswith("plato."):
-                return
+                if extra_attrs is None:
+                    return
 
             message = record.getMessage()
             if record.exc_info:
@@ -112,6 +120,10 @@ class OTelSpanLogHandler(logging.Handler):
                     span.set_attribute("error", True)
                 elif record.levelno == logging.DEBUG:
                     span.set_attribute("plato.debug", True)
+
+                if extra_attrs is not None:
+                    for key, value in extra_attrs.items():
+                        span.set_attribute(key, value)
         except Exception:
             pass
 

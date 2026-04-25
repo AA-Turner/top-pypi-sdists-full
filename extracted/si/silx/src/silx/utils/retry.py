@@ -36,7 +36,6 @@ from functools import wraps
 from contextlib import contextmanager
 from queue import Empty
 
-
 RETRY_PERIOD = 0.01
 
 
@@ -110,7 +109,6 @@ def retry(
     :param callable or None retry_on_error: checks whether an exception is
                                             eligible for retry
     """
-
     if retry_period is None:
         retry_period = RETRY_PERIOD
 
@@ -118,7 +116,8 @@ def retry(
         if inspect.isgeneratorfunction(method):
             if "start_index" not in inspect.signature(method).parameters:
                 raise TypeError(
-                    "The generator function '%s' needs a `start_index` named argument because it is wrapped with the `retry` decorator."
+                    "The generator function '%s' needs a `start_index` named argument"
+                    " because it is wrapped with the `retry` decorator."
                     % method.__name__
                 )
 

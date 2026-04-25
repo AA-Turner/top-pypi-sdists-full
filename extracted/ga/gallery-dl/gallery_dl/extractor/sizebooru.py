@@ -84,7 +84,7 @@ class SizebooruExtractor(BooruExtractor):
             for thumb in text.extract_iter(
                     page, '<a href="/Details/', ';base64'):
                 yield {
-                    "id"       : thumb[:thumb.find('"')],
+                    "id"       : thumb[:thumb.find('?')],
                     "extension": thumb[thumb.rfind("/")+1:],
                 }
 

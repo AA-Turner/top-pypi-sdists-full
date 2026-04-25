@@ -106,7 +106,6 @@ class CfnApplication(
                     approved_origins=["approvedOrigins"]
                 )
             ),
-            description="description",
             name="name",
             namespace="namespace",
         
@@ -116,6 +115,8 @@ class CfnApplication(
                     scope="scope"
                 )
             ),
+            application_type="applicationType",
+            description="description",
             iframe_config=appintegrations.CfnApplication.IframeConfigProperty(
                 allow=["allow"],
                 sandbox=["sandbox"]
@@ -136,10 +137,11 @@ class CfnApplication(
         id: builtins.str,
         *,
         application_source_config: typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplication.ApplicationSourceConfigProperty", typing.Dict[builtins.str, typing.Any]]],
-        description: builtins.str,
         name: builtins.str,
         namespace: builtins.str,
         application_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplication.ApplicationConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        application_type: typing.Optional[builtins.str] = None,
+        description: typing.Optional[builtins.str] = None,
         iframe_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplication.IframeConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         initialization_timeout: typing.Optional[jsii.Number] = None,
         is_service: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
@@ -151,10 +153,11 @@ class CfnApplication(
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param application_source_config: The configuration for where the application should be loaded from.
-        :param description: The description of the application.
         :param name: The name of the application.
         :param namespace: The namespace of the application.
         :param application_config: 
+        :param application_type: The type of application.
+        :param description: The description of the application.
         :param iframe_config: 
         :param initialization_timeout: The initialization timeout in milliseconds. Required when IsService is true.
         :param is_service: Indicates whether the application is a service. Default: - false
@@ -167,10 +170,11 @@ class CfnApplication(
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnApplicationProps(
             application_source_config=application_source_config,
-            description=description,
             name=name,
             namespace=namespace,
             application_config=application_config,
+            application_type=application_type,
+            description=description,
             iframe_config=iframe_config,
             initialization_timeout=initialization_timeout,
             is_service=is_service,
@@ -287,19 +291,6 @@ class CfnApplication(
         jsii.set(self, "applicationSourceConfig", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
-    @jsii.member(jsii_name="description")
-    def description(self) -> builtins.str:
-        '''The description of the application.'''
-        return typing.cast(builtins.str, jsii.get(self, "description"))
-
-    @description.setter
-    def description(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__87943d6227ebd97ed6b280da7778e22bd3c7bef93cf9ab4a400fe6c9240847b1)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="name")
     def name(self) -> builtins.str:
         '''The name of the application.'''
@@ -341,6 +332,32 @@ class CfnApplication(
             type_hints = typing.get_type_hints(_typecheckingstub__f3caf601b0f569fd019f866e47cc5b0bb49379d4b882f320078ed605052b7ca7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "applicationConfig", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="applicationType")
+    def application_type(self) -> typing.Optional[builtins.str]:
+        '''The type of application.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "applicationType"))
+
+    @application_type.setter
+    def application_type(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ff0b1b75808885a4f334f5f84d807773cd77be8f49c2b5fe7f8fd827680a2605)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "applicationType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the application.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__87943d6227ebd97ed6b280da7778e22bd3c7bef93cf9ab4a400fe6c9240847b1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="iframeConfig")
@@ -735,10 +752,11 @@ class CfnApplication(
     jsii_struct_bases=[],
     name_mapping={
         "application_source_config": "applicationSourceConfig",
-        "description": "description",
         "name": "name",
         "namespace": "namespace",
         "application_config": "applicationConfig",
+        "application_type": "applicationType",
+        "description": "description",
         "iframe_config": "iframeConfig",
         "initialization_timeout": "initializationTimeout",
         "is_service": "isService",
@@ -751,10 +769,11 @@ class CfnApplicationProps:
         self,
         *,
         application_source_config: typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplication.ApplicationSourceConfigProperty", typing.Dict[builtins.str, typing.Any]]],
-        description: builtins.str,
         name: builtins.str,
         namespace: builtins.str,
         application_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplication.ApplicationConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        application_type: typing.Optional[builtins.str] = None,
+        description: typing.Optional[builtins.str] = None,
         iframe_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplication.IframeConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         initialization_timeout: typing.Optional[jsii.Number] = None,
         is_service: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
@@ -764,10 +783,11 @@ class CfnApplicationProps:
         '''Properties for defining a ``CfnApplication``.
 
         :param application_source_config: The configuration for where the application should be loaded from.
-        :param description: The description of the application.
         :param name: The name of the application.
         :param namespace: The namespace of the application.
         :param application_config: 
+        :param application_type: The type of application.
+        :param description: The description of the application.
         :param iframe_config: 
         :param initialization_timeout: The initialization timeout in milliseconds. Required when IsService is true.
         :param is_service: Indicates whether the application is a service. Default: - false
@@ -793,7 +813,6 @@ class CfnApplicationProps:
                         approved_origins=["approvedOrigins"]
                     )
                 ),
-                description="description",
                 name="name",
                 namespace="namespace",
             
@@ -803,6 +822,8 @@ class CfnApplicationProps:
                         scope="scope"
                     )
                 ),
+                application_type="applicationType",
+                description="description",
                 iframe_config=appintegrations.CfnApplication.IframeConfigProperty(
                     allow=["allow"],
                     sandbox=["sandbox"]
@@ -819,10 +840,11 @@ class CfnApplicationProps:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7d2c7ce5dfd3af1b41c02f961c30070527579ac243574e11a9dfe26cc453fe9f)
             check_type(argname="argument application_source_config", value=application_source_config, expected_type=type_hints["application_source_config"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument namespace", value=namespace, expected_type=type_hints["namespace"])
             check_type(argname="argument application_config", value=application_config, expected_type=type_hints["application_config"])
+            check_type(argname="argument application_type", value=application_type, expected_type=type_hints["application_type"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument iframe_config", value=iframe_config, expected_type=type_hints["iframe_config"])
             check_type(argname="argument initialization_timeout", value=initialization_timeout, expected_type=type_hints["initialization_timeout"])
             check_type(argname="argument is_service", value=is_service, expected_type=type_hints["is_service"])
@@ -830,12 +852,15 @@ class CfnApplicationProps:
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "application_source_config": application_source_config,
-            "description": description,
             "name": name,
             "namespace": namespace,
         }
         if application_config is not None:
             self._values["application_config"] = application_config
+        if application_type is not None:
+            self._values["application_type"] = application_type
+        if description is not None:
+            self._values["description"] = description
         if iframe_config is not None:
             self._values["iframe_config"] = iframe_config
         if initialization_timeout is not None:
@@ -858,16 +883,6 @@ class CfnApplicationProps:
         result = self._values.get("application_source_config")
         assert result is not None, "Required property 'application_source_config' is missing"
         return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnApplication.ApplicationSourceConfigProperty"], result)
-
-    @builtins.property
-    def description(self) -> builtins.str:
-        '''The description of the application.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appintegrations-application.html#cfn-appintegrations-application-description
-        '''
-        result = self._values.get("description")
-        assert result is not None, "Required property 'description' is missing"
-        return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
@@ -898,6 +913,24 @@ class CfnApplicationProps:
         '''
         result = self._values.get("application_config")
         return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.ApplicationConfigProperty"]], result)
+
+    @builtins.property
+    def application_type(self) -> typing.Optional[builtins.str]:
+        '''The type of application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appintegrations-application.html#cfn-appintegrations-application-applicationtype
+        '''
+        result = self._values.get("application_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appintegrations-application.html#cfn-appintegrations-application-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def iframe_config(
@@ -2141,10 +2174,11 @@ def _typecheckingstub__2c1bbb1e03e672595eb80bdb7dcb70bb6e71fccf39633133ee8a5b86b
     id: builtins.str,
     *,
     application_source_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.ApplicationSourceConfigProperty, typing.Dict[builtins.str, typing.Any]]],
-    description: builtins.str,
     name: builtins.str,
     namespace: builtins.str,
     application_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.ApplicationConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    application_type: typing.Optional[builtins.str] = None,
+    description: typing.Optional[builtins.str] = None,
     iframe_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.IframeConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     initialization_timeout: typing.Optional[jsii.Number] = None,
     is_service: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
@@ -2184,12 +2218,6 @@ def _typecheckingstub__1e6a672bbf82d8b3bb39f56510a2db6c1a10b1776e0b968cd61c6665d
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__87943d6227ebd97ed6b280da7778e22bd3c7bef93cf9ab4a400fe6c9240847b1(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__416a93fef610e4b348e491404913fee978fabfb7d56f70287417ddc540c85c77(
     value: builtins.str,
 ) -> None:
@@ -2204,6 +2232,18 @@ def _typecheckingstub__c1133ff0df5163630ae65aa9c2ffa87e2e0db4c7e7d6a197c3a256bd1
 
 def _typecheckingstub__f3caf601b0f569fd019f866e47cc5b0bb49379d4b882f320078ed605052b7ca7(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApplication.ApplicationConfigProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ff0b1b75808885a4f334f5f84d807773cd77be8f49c2b5fe7f8fd827680a2605(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__87943d6227ebd97ed6b280da7778e22bd3c7bef93cf9ab4a400fe6c9240847b1(
+    value: typing.Optional[builtins.str],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2278,10 +2318,11 @@ def _typecheckingstub__a4e1d29a683508d5dce338ead2d5d12168d88348304cab46c45234c9c
 def _typecheckingstub__7d2c7ce5dfd3af1b41c02f961c30070527579ac243574e11a9dfe26cc453fe9f(
     *,
     application_source_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.ApplicationSourceConfigProperty, typing.Dict[builtins.str, typing.Any]]],
-    description: builtins.str,
     name: builtins.str,
     namespace: builtins.str,
     application_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.ApplicationConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    application_type: typing.Optional[builtins.str] = None,
+    description: typing.Optional[builtins.str] = None,
     iframe_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.IframeConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     initialization_timeout: typing.Optional[jsii.Number] = None,
     is_service: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,

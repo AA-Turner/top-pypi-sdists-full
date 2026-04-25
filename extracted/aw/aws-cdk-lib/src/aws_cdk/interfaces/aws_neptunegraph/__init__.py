@@ -94,6 +94,55 @@ class GraphReference:
         )
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_neptunegraph.GraphSnapshotReference",
+    jsii_struct_bases=[],
+    name_mapping={"graph_snapshot_arn": "graphSnapshotArn"},
+)
+class GraphSnapshotReference:
+    def __init__(self, *, graph_snapshot_arn: builtins.str) -> None:
+        '''A reference to a GraphSnapshot resource.
+
+        :param graph_snapshot_arn: The Arn of the GraphSnapshot resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_neptunegraph as interfaces_neptunegraph
+            
+            graph_snapshot_reference = interfaces_neptunegraph.GraphSnapshotReference(
+                graph_snapshot_arn="graphSnapshotArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e456ac401ff60f8801b9d000719098efa90be19d977e87e1024b8d3e944023b6)
+            check_type(argname="argument graph_snapshot_arn", value=graph_snapshot_arn, expected_type=type_hints["graph_snapshot_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "graph_snapshot_arn": graph_snapshot_arn,
+        }
+
+    @builtins.property
+    def graph_snapshot_arn(self) -> builtins.str:
+        '''The Arn of the GraphSnapshot resource.'''
+        result = self._values.get("graph_snapshot_arn")
+        assert result is not None, "Required property 'graph_snapshot_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "GraphSnapshotReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_neptunegraph.IGraphRef")
 class IGraphRef(
     _constructs_77d1e7e8.IConstruct,
@@ -137,6 +186,51 @@ class _IGraphRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IGraphRef).__jsii_proxy_class__ = lambda : _IGraphRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_neptunegraph.IGraphSnapshotRef")
+class IGraphSnapshotRef(
+    _constructs_77d1e7e8.IConstruct,
+    _IEnvironmentAware_f39049ee,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a GraphSnapshot.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="graphSnapshotRef")
+    def graph_snapshot_ref(self) -> "GraphSnapshotReference":
+        '''(experimental) A reference to a GraphSnapshot resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IGraphSnapshotRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a GraphSnapshot.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_neptunegraph.IGraphSnapshotRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="graphSnapshotRef")
+    def graph_snapshot_ref(self) -> "GraphSnapshotReference":
+        '''(experimental) A reference to a GraphSnapshot resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("GraphSnapshotReference", jsii.get(self, "graphSnapshotRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IGraphSnapshotRef).__jsii_proxy_class__ = lambda : _IGraphSnapshotRefProxy
 
 
 @jsii.interface(
@@ -239,7 +333,9 @@ class PrivateGraphEndpointReference:
 
 __all__ = [
     "GraphReference",
+    "GraphSnapshotReference",
     "IGraphRef",
+    "IGraphSnapshotRef",
     "IPrivateGraphEndpointRef",
     "PrivateGraphEndpointReference",
 ]
@@ -254,6 +350,13 @@ def _typecheckingstub__401f4219a143f0d18ff519d94a91d225890cda8d15e3db0ed99855f20
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__e456ac401ff60f8801b9d000719098efa90be19d977e87e1024b8d3e944023b6(
+    *,
+    graph_snapshot_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__165df245cdebb6d7603090b9a3b7a84c382733456814a2820d93b1ac9b005307(
     *,
     private_graph_endpoint_identifier: builtins.str,
@@ -261,5 +364,5 @@ def _typecheckingstub__165df245cdebb6d7603090b9a3b7a84c382733456814a2820d93b1ac9
     """Type checking stubs"""
     pass
 
-for cls in [IGraphRef, IPrivateGraphEndpointRef]:
+for cls in [IGraphRef, IGraphSnapshotRef, IPrivateGraphEndpointRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

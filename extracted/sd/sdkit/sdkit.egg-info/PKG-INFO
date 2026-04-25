@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sdkit
-Version: 2.1.0
+Version: 2.1.1
 Summary: sdkit (stable diffusion kit) is an easy-to-use library for using Stable Diffusion in your AI Art projects. It is fast, feature-packed, and memory-efficient. It bundles Stable Diffusion along with commonly-used features (like SDXL, ControlNet, LoRA, Embeddings, GFPGAN, RealESRGAN, k-samplers, custom VAE etc). It also includes a model-downloader with a database of commonly used models, and advanced features like running in parallel on multiple GPUs, auto-scanning for malicious models etc.
 Author-email: cmdr2 <secondary.cmdr2@gmail.com>
 Project-URL: Homepage, https://github.com/easydiffusion/sdkit

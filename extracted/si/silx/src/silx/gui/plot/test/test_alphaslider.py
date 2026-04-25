@@ -23,7 +23,6 @@
 # ###########################################################################*/
 """Tests for ImageAlphaSlider"""
 
-
 __authors__ = ["P. Knobel"]
 __license__ = "MIT"
 __date__ = "28/03/2017"
@@ -38,7 +37,7 @@ from silx.gui.plot import AlphaSlider
 
 class TestActiveImageAlphaSlider(TestCaseQt):
     def setUp(self):
-        super(TestActiveImageAlphaSlider, self).setUp()
+        super().setUp()
         self.plot = PlotWidget()
         self.aslider = AlphaSlider.ActiveImageAlphaSlider(plot=self.plot)
         self.aslider.setOrientation(qt.Qt.Horizontal)
@@ -60,7 +59,7 @@ class TestActiveImageAlphaSlider(TestCaseQt):
         del self.plot
         del self.aslider
 
-        super(TestActiveImageAlphaSlider, self).tearDown()
+        super().tearDown()
 
     def testWidgetEnabled(self):
         # no active image initially, slider must be deactivate
@@ -89,7 +88,7 @@ class TestActiveImageAlphaSlider(TestCaseQt):
 
 class TestNamedImageAlphaSlider(TestCaseQt):
     def setUp(self):
-        super(TestNamedImageAlphaSlider, self).setUp()
+        super().setUp()
         self.plot = PlotWidget()
         self.aslider = AlphaSlider.NamedImageAlphaSlider(plot=self.plot)
         self.aslider.setOrientation(qt.Qt.Horizontal)
@@ -111,7 +110,7 @@ class TestNamedImageAlphaSlider(TestCaseQt):
         del self.plot
         del self.aslider
 
-        super(TestNamedImageAlphaSlider, self).tearDown()
+        super().tearDown()
 
     def testWidgetEnabled(self):
         # no image set initially, slider must be deactivate
@@ -140,7 +139,7 @@ class TestNamedImageAlphaSlider(TestCaseQt):
 
 class TestNamedScatterAlphaSlider(TestCaseQt):
     def setUp(self):
-        super(TestNamedScatterAlphaSlider, self).setUp()
+        super().setUp()
         self.plot = PlotWidget()
         self.aslider = AlphaSlider.NamedScatterAlphaSlider(plot=self.plot)
         self.aslider.setOrientation(qt.Qt.Horizontal)
@@ -162,7 +161,7 @@ class TestNamedScatterAlphaSlider(TestCaseQt):
         del self.plot
         del self.aslider
 
-        super(TestNamedScatterAlphaSlider, self).tearDown()
+        super().tearDown()
 
     def testWidgetEnabled(self):
         # no Scatter set initially, slider must be deactivate

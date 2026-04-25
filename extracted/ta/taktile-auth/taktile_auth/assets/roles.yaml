@@ -161,6 +161,7 @@ ws_editor/org_id,ws_id:
     - r:workspace_case_queue/org_id,ws_id
 ws_admin/org_id,ws_id:
     - ws_editor/org_id,ws_id
+    - w:workspace_endpoint/org_id,ws_id
     - w:workspace_routing_production/org_id,ws_id
     - w+d:workspace_connection/org_id,ws_id
     - w+d:workspace_connection_resource/org_id,ws_id

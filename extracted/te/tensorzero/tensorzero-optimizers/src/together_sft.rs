@@ -31,7 +31,7 @@ use tensorzero_core::{
     },
     providers::{
         helpers::UrlParseErrExt,
-        openai::{OpenAIMessagesConfig, OpenAITool},
+        openai::{OpenAIMessagesConfig, OpenAITool, ReasoningFieldName},
         together::prepare_together_messages,
         together::tensorzero_to_together_assistant_message,
         together::{PROVIDER_TYPE, TOGETHER_API_BASE, TogetherRequestMessage},
@@ -43,7 +43,10 @@ use tensorzero_core::{
 use crate::{JobHandle, Optimizer};
 
 fn get_sft_config(provider_types: &ProviderTypesConfig) -> Option<&TogetherProviderSFTConfig> {
-    provider_types.together.sft.as_ref()
+    provider_types
+        .together
+        .as_ref()
+        .and_then(|t| t.sft.as_ref())
 }
 
 #[derive(Debug, Deserialize)]
@@ -390,8 +393,8 @@ impl<'a> TogetherSupervisedRow<'a> {
                 tools
                     .iter()
                     .filter_map(|dt| match &dt {
-                        tensorzero_core::tool::Tool::Function(func) => Some(func.into()),
-                        tensorzero_core::tool::Tool::OpenAICustom(_) => None, // Skip custom tools for SFT
+                        tensorzero_inference_types::tool::Tool::Function(func) => Some(func.into()),
+                        tensorzero_inference_types::tool::Tool::OpenAICustom(_) => None, // Skip custom tools for SFT
                     })
                     .collect()
             })
@@ -405,6 +408,7 @@ impl<'a> TogetherSupervisedRow<'a> {
                 // For now, this isn't configurable in SFT (we should never need to resolve a file URL here)
                 fetch_and_encode_input_files_before_inference: true,
                 content_type_overrides: None,
+                reasoning_field_name: ReasoningFieldName::ReasoningContent,
             },
         )
         .await?;
@@ -429,6 +433,7 @@ impl<'a> TogetherSupervisedRow<'a> {
                 // For now, this isn't configurable in SFT (we should never need to resolve a file URL here)
                 fetch_and_encode_input_files_before_inference: true,
                 content_type_overrides: None,
+                reasoning_field_name: ReasoningFieldName::ReasoningContent,
             },
         )
         .await?;

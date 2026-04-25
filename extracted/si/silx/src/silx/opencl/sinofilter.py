@@ -33,7 +33,7 @@ from math import pi
 
 
 import pyopencl.array as parray
-from .common import pyopencl as cl
+from .common import pyopencl as cl  # noqa F401
 from .processing import OpenclProcessing
 from ..math.fft.clfft import CLFFT, __have_clfft__
 from ..math.fft.npfft import NPFFT
@@ -193,14 +193,11 @@ class SinoFilter(OpenclProcessing):
         :param normalize: Whether to normalize the filter with pi/num_angles.
         """
         if h_filt.size != self.sino_f_shape[-1]:
-            raise ValueError(
-                """
+            raise ValueError("""
                 Invalid filter size: expected %d, got %d.
                 Please check that the filter is the Fourier R2C transform of
                 some real 1D filter.
-                """
-                % (self.sino_f_shape[-1], h_filt.size)
-            )
+                """ % (self.sino_f_shape[-1], h_filt.size))
         if not (np.iscomplexobj(h_filt)):
             print("Warning: expected a complex Fourier filter")
         self.filter_f = h_filt
@@ -227,7 +224,7 @@ class SinoFilter(OpenclProcessing):
             raise ValueError("Expected data type = numpy.float32")
         if arr.shape != self.sino_shape:
             raise ValueError(
-                "Expected sinogram shape %s, got %s" % (self.sino_shape, arr.shape)
+                f"Expected sinogram shape {self.sino_shape}, got {arr.shape}"
             )
         if not (isinstance(arr, np.ndarray) or isinstance(arr, parray.Array)):
             raise ValueError("Expected either numpy.ndarray or " "pyopencl.array.Array")

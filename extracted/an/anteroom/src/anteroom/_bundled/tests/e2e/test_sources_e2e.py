@@ -139,6 +139,46 @@ class TestSourceUpload:
         assert resp.status_code == 201
         assert resp.json()["title"] == "My Notes"
 
+    def test_upload_with_space_id_links_source(self, api_client) -> None:
+        space = api_client.post(
+            "/api/spaces",
+            json={"name": "upload-space"},
+        ).json()
+
+        resp = api_client.post(
+            "/api/sources/upload",
+            files={"file": ("space.txt", b"Space scoped content", "text/plain")},
+            data={"title": "Space File", "space_id": space["id"]},
+        )
+        assert resp.status_code == 201
+        source = resp.json()
+
+        space_sources = api_client.get(f"/api/spaces/{space['id']}/sources")
+        assert space_sources.status_code == 200
+        assert any(s["id"] == source["id"] for s in space_sources.json())
+
+    def test_deduped_upload_still_links_existing_source_to_new_space(self, api_client) -> None:
+        space_a = api_client.post("/api/spaces", json={"name": "upload-space-a"}).json()
+        space_b = api_client.post("/api/spaces", json={"name": "upload-space-b"}).json()
+
+        first = api_client.post(
+            "/api/sources/upload",
+            files={"file": ("shared.txt", b"Shared content", "text/plain")},
+            data={"space_id": space_a["id"]},
+        )
+        second = api_client.post(
+            "/api/sources/upload",
+            files={"file": ("shared.txt", b"Shared content", "text/plain")},
+            data={"space_id": space_b["id"]},
+        )
+        assert first.status_code == 201
+        assert second.status_code == 201
+        assert first.json()["id"] == second.json()["id"]
+
+        space_sources = api_client.get(f"/api/spaces/{space_b['id']}/sources")
+        assert space_sources.status_code == 200
+        assert any(s["id"] == second.json()["id"] for s in space_sources.json())
+
 
 class TestSourceTags:
     """Verify tagging and untagging sources."""
@@ -405,3 +445,42 @@ class TestBrowserSourcesPanel:
             and "Refused to" not in e
         ]
         assert unexpected == [], f"Unexpected console errors: {unexpected}"
+
+    def test_upload_file_in_active_space_via_ui_links_source(self, authenticated_page, api_client) -> None:
+        """Uploading from the sources panel with an active space should auto-link the file."""
+        page = authenticated_page
+        space = api_client.post("/api/spaces", json={"name": "ui-upload-space"}).json()
+
+        page.evaluate(
+            """(spaceId) => {
+                if (typeof App !== 'undefined' && App.state) {
+                    App.state.currentSpaceId = spaceId;
+                    sessionStorage.setItem('anteroom_space_id', spaceId);
+                }
+            }""",
+            space["id"],
+        )
+
+        toggle = page.locator("#btn-sources-toggle")
+        if not toggle.is_visible():
+            return
+
+        toggle.click()
+        page.wait_for_selector("#sources-panel")
+        page.locator("#sources-add-btn").click()
+        page.locator(".sources-tab[data-type='file']").click()
+        page.locator("#source-title-input").fill("UI Upload File")
+        page.locator("#source-file-input").set_input_files(
+            [{"name": "ui-upload.txt", "mimeType": "text/plain", "buffer": b"UI upload in active space"}]
+        )
+
+        with page.expect_response(
+            lambda r: r.url.endswith("/api/sources/upload") and r.request.method == "POST"
+        ) as resp:
+            page.locator("#source-create-save").click()
+        assert resp.value.ok
+
+        page.wait_for_timeout(500)
+        space_sources = api_client.get(f"/api/spaces/{space['id']}/sources")
+        assert space_sources.status_code == 200
+        assert any(s["title"] == "UI Upload File" for s in space_sources.json())

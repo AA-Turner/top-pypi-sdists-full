@@ -21,6 +21,7 @@ class PoipikuExtractor(Extractor):
     directory_fmt = ("{category}", "{user_id} {user_name}")
     filename_fmt = "{post_id}_{num}.{extension}"
     archive_fmt = "{post_id}_{num}"
+    cookies_names = ("POIPIKU_LK",)
     cookies_domain = "poipiku.com"
     cookies_warning = True
     request_interval = (0.5, 1.5)
@@ -39,18 +40,12 @@ class PoipikuExtractor(Extractor):
             "Sec-Fetch-Mode": "cors",
             "Sec-Fetch-Site": "same-origin",
         }
-        self.password = self.config("password", "")
+        self.password = self.config("passwords", "")
 
     def items(self):
-        if self.cookies_check(("POIPIKU_LK",)):
-            extract_files = self._extract_files_auth
-            logged_in = True
-        else:
-            extract_files = self._extract_files_noauth
-            logged_in = False
-            if self.cookies_warning:
-                self.log.warning("no 'POIPIKU_LK' cookie set")
-                PoipikuExtractor.cookies_warning = False
+        logged_in = self.login()
+        extract_files = (self._extract_files_auth if logged_in else
+                         self._extract_files_noauth)
 
         for post_url in self.posts():
             if post_url[0] == "/":
@@ -85,6 +80,41 @@ class PoipikuExtractor(Extractor):
             for post["num"], url in enumerate(extract_files(
                     post, thumb, extr), 1):
                 yield Message.Url, url, text.nameext_from_url(url, post)
+
+    def login(self):
+        if self.cookies_check(self.cookies_names):
+            return True
+
+        username, password = self._get_auth_info()
+        if username:
+            self.cookies_update(self.cache(
+                self._login_impl, username, password,
+                _exp=365*86400, _mem=False))
+            return True
+
+        if self.cookies_warning:
+            self.log.warning("no 'POIPIKU_LK' cookie set")
+            PoipikuExtractor.cookies_warning = False
+        return False
+
+    def _login_impl(self, username, password):
+        self.log.info("Logging in as %s", username)
+
+        url = self.root + "/f/LoginUserF.jsp"
+        headers = {
+            "X-Requested-With": "XMLHttpRequest",
+            "Origin": self.root,
+            "Referer": url,
+        }
+        data = {
+            "EM": username,
+            "PW": password,
+        }
+        response = self.request(url, method="POST", headers=headers, data=data)
+
+        if value := response.cookies.get("POIPIKU_LK"):
+            return {"POIPIKU_LK": value}
+        raise self.exc.AuthenticationError()
 
     def _extract_thumb(self, post, extr):
         thumb = ""

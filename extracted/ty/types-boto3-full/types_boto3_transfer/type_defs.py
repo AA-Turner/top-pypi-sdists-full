@@ -61,6 +61,7 @@ from .literals import (
     TransferTableStatusType,
     WebAppEndpointPolicyType,
     WebAppEndpointTypeType,
+    WebAppVpcEndpointIpAddressTypeType,
     WorkflowStepTypeType,
 )
 
@@ -926,6 +927,7 @@ class UpdateProfileRequestTypeDef(TypedDict):
 
 class UpdateWebAppVpcConfigTypeDef(TypedDict):
     SubnetIds: NotRequired[Sequence[str]]
+    IpAddressType: NotRequired[WebAppVpcEndpointIpAddressTypeType]
 
 
 class UpdateWebAppIdentityCenterConfigTypeDef(TypedDict):
@@ -936,6 +938,7 @@ class WebAppVpcConfigTypeDef(TypedDict):
     SubnetIds: NotRequired[Sequence[str]]
     VpcId: NotRequired[str]
     SecurityGroupIds: NotRequired[Sequence[str]]
+    IpAddressType: NotRequired[WebAppVpcEndpointIpAddressTypeType]
 
 
 class WorkflowDetailTypeDef(TypedDict):

@@ -4,6 +4,9 @@
 //! - Single-record write (NoSync, Batch, Sync)
 //! - Batch write throughput (1K records in a committed transaction)
 //! - Recovery replay of a pre-populated WAL
+// reason: criterion_group! expansion from codspeed-criterion-compat does not
+// carry doc comments on the generated wrapper functions.
+#![allow(missing_docs)]
 
 use std::hint::black_box;
 

@@ -34,7 +34,7 @@ __authors__ = ["Jérôme Kieffer", "Pierre Paleo"]
 __contact__ = "jerome.kieffer@esrf.eu"
 __license__ = "MIT"
 __copyright__ = "2013 European Synchrotron Radiation Facility, Grenoble, France"
-__date__ = "25/06/2018"
+__date__ = "13/03/2026"
 
 
 import os
@@ -52,7 +52,7 @@ else:
     import scipy.ndimage
     from scipy.datasets import ascent
 
-from silx.opencl import ocl, kernel_workgroup_size
+from ... import ocl, kernel_workgroup_size
 
 if ocl:
     import pyopencl.array
@@ -70,7 +70,7 @@ logger = logging.getLogger(__name__)
 class TestTransform(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        super(TestTransform, cls).setUpClass()
+        super().setUpClass()
         if ocl:
             cls.ctx = ocl.create_context()
             if logger.getEffectiveLevel() <= logging.INFO:
@@ -91,7 +91,7 @@ class TestTransform(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        super(TestTransform, cls).tearDownClass()
+        super().tearDownClass()
         cls.ctx = None
         cls.queue = None
 
@@ -131,9 +131,12 @@ class TestTransform(unittest.TestCase):
         # ---------------
         matrix = numpy.array([[1.0, -0.75], [0.7, 0.5]], dtype=numpy.float32)
         offset_value = numpy.array([250.0, -150.0], dtype=numpy.float32)
-        transformation = lambda img: scipy.ndimage.affine_transform(
-            img, matrix, offset=offset_value, order=1, mode="constant"
-        )
+
+        def transformation(img):
+            return scipy.ndimage.affine_transform(
+                img, matrix, offset=offset_value, order=1, mode="constant"
+            )
+
         image_transformed = transformation(self.image)
 
         fill_value = numpy.float32(0.0)
@@ -187,7 +190,7 @@ class TestTransform(unittest.TestCase):
 
         # Call the kernel
         t0 = time.time()
-        k1 = self.program.transform(self.queue, shape, wg, *kargs)
+        k1 = self.kernels.transform(self.queue, shape, wg, *kargs)
         res = gpu_output.get()
 
         # Reference result

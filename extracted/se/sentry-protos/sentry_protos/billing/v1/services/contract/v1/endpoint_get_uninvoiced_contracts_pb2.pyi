@@ -52,18 +52,24 @@ class GetUninvoicedContractsResponse(google.protobuf.message.Message):
 
     CONTRACTS_FIELD_NUMBER: builtins.int
     TRUNCATED_FIELD_NUMBER: builtins.int
+    CONTRACT_IDS_FIELD_NUMBER: builtins.int
     truncated: builtins.bool
     """True if additional matching contracts existed beyond max_items and were
     not included in this response.
     """
     @property
-    def contracts(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[sentry_protos.billing.v1.services.contract.v1.contract_pb2.Contract]: ...
+    def contracts(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[sentry_protos.billing.v1.services.contract.v1.contract_pb2.Contract]:
+        """DEPRECATED: use contract_ids instead"""
+
+    @property
+    def contract_ids(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.int]: ...
     def __init__(
         self,
         *,
         contracts: collections.abc.Iterable[sentry_protos.billing.v1.services.contract.v1.contract_pb2.Contract] | None = ...,
         truncated: builtins.bool = ...,
+        contract_ids: collections.abc.Iterable[builtins.int] | None = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing.Literal["contracts", b"contracts", "truncated", b"truncated"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["contract_ids", b"contract_ids", "contracts", b"contracts", "truncated", b"truncated"]) -> None: ...
 
 global___GetUninvoicedContractsResponse = GetUninvoicedContractsResponse

@@ -37,6 +37,7 @@ import weakref
 import silx
 from silx.utils.weakref import WeakMethodProxy
 from silx.utils.proxy import docstring
+from silx.utils.deprecation import deprecated
 
 from . import PlotWidget
 from . import actions
@@ -47,6 +48,7 @@ from .actions import control as actions_control
 from .actions import histogram as actions_histogram
 from . import PlotToolButtons
 from . import tools
+from .tools._PlotOptionButton import PlotOptionButton
 from .Profile import ProfileToolBar
 from .LegendSelector import LegendsDockWidget
 from .CurvesROIWidget import CurvesROIDockWidget
@@ -60,7 +62,6 @@ except ImportError:
     IPythonDockWidget = None
 
 from .. import qt
-
 
 _logger = logging.getLogger(__name__)
 
@@ -121,7 +122,7 @@ class PlotWindow(PlotWidget):
         mask=True,
         fit=False,
     ):
-        super(PlotWindow, self).__init__(parent=parent, backend=backend)
+        super().__init__(parent=parent, backend=backend)
         if parent is None:
             self.setWindowTitle("PlotWindow")
 
@@ -213,6 +214,9 @@ class PlotWindow(PlotWidget):
         )
         self.keepDataAspectRatioButton.setVisible(aspectRatio)
 
+        self._xAxisInvertedButton = PlotToolButtons.XAxisOriginToolButton(
+            parent=self, plot=self
+        )
         self.yAxisInvertedButton = PlotToolButtons.YAxisOriginToolButton(
             parent=self, plot=self
         )
@@ -254,14 +258,10 @@ class PlotWindow(PlotWidget):
         self._updateColorBarBackground()
 
         if control:  # Create control button only if requested
-            self.controlButton = qt.QToolButton()
-            self.controlButton.setText("Options")
-            self.controlButton.setToolButtonStyle(qt.Qt.ToolButtonTextBesideIcon)
-            self.controlButton.setAutoRaise(True)
-            self.controlButton.setPopupMode(qt.QToolButton.InstantPopup)
-            menu = qt.QMenu(self)
-            menu.aboutToShow.connect(self._customControlButtonMenu)
-            self.controlButton.setMenu(menu)
+            self._plotOptionButton = PlotOptionButton(self)
+            self._plotOptionButton.setPlot(self)
+        else:
+            self._plotOptionButton = None
 
         self._positionWidget = None
         if position:  # Add PositionInfo widget to the bottom of the plot
@@ -302,6 +302,21 @@ class PlotWindow(PlotWidget):
             for action in toolbar.actions():
                 self.addAction(action)
 
+        if control:
+            plotOptionToolBar = qt.QToolBar()
+            spacer = qt.QWidget()
+            spacer.setSizePolicy(
+                qt.QSizePolicy.Policy.Expanding, qt.QSizePolicy.Policy.Preferred
+            )
+            plotOptionToolBar.addWidget(spacer)
+            plotOptionToolBar.addWidget(self._plotOptionButton)
+            self.addToolBar(plotOptionToolBar)
+
+    @property
+    @deprecated(since_version="3.0.0", replacement="getPlotOptionButton")
+    def controlButton(self):
+        return self.getPlotOptionButton()
+
     def __setCentralWidget(self):
         """Set central widget to host plot backend, colorbar, and bottom bar"""
         gridLayout = qt.QGridLayout()
@@ -314,12 +329,9 @@ class PlotWindow(PlotWidget):
         centralWidget = qt.QWidget(self)
         centralWidget.setLayout(gridLayout)
 
-        if hasattr(self, "controlButton") or self._positionWidget is not None:
+        if self._positionWidget is not None:
             hbox = qt.QHBoxLayout()
             hbox.setContentsMargins(0, 0, 0, 0)
-
-            if hasattr(self, "controlButton"):
-                hbox.addWidget(self.controlButton)
 
             if self._positionWidget is not None:
                 hbox.addWidget(self._positionWidget)
@@ -334,22 +346,22 @@ class PlotWindow(PlotWidget):
 
     @docstring(PlotWidget)
     def setBackend(self, backend):
-        super(PlotWindow, self).setBackend(backend)
+        super().setBackend(backend)
         self.__setCentralWidget()  # Recreate PlotWindow's central widget
 
     @docstring(PlotWidget)
     def setBackgroundColor(self, color):
-        super(PlotWindow, self).setBackgroundColor(color)
+        super().setBackgroundColor(color)
         self._updateColorBarBackground()
 
     @docstring(PlotWidget)
     def setDataBackgroundColor(self, color):
-        super(PlotWindow, self).setDataBackgroundColor(color)
+        super().setDataBackgroundColor(color)
         self._updateColorBarBackground()
 
     @docstring(PlotWidget)
     def setForegroundColor(self, color):
-        super(PlotWindow, self).setForegroundColor(color)
+        super().setForegroundColor(color)
         self._updateColorBarBackground()
 
     def _updateColorBarBackground(self):
@@ -413,6 +425,9 @@ class PlotWindow(PlotWidget):
         """
         return bool(self.getMaskToolsDockWidget().setSelectionMask(mask))
 
+    def getPlotOptionButton(self):
+        return self._plotOptionButton
+
     def _toggleConsoleVisibility(self, isChecked=False):
         """Create IPythonDockWidget if needed,
         show it or hide it."""
@@ -449,25 +464,19 @@ class PlotWindow(PlotWidget):
         toolbar = qt.QToolBar(title, parent)
 
         # Order widgets with actions
-        objects = self.group.actions()
+        toolbar.addActions(self.group.actions())
 
         # Add push buttons to list
-        index = objects.index(self.colormapAction)
-        objects.insert(index + 1, self.keepDataAspectRatioButton)
-        objects.insert(index + 2, self.yAxisInvertedButton)
+        self.keepDataAspectRatioAction = toolbar.insertWidget(
+            self.colorbarAction, self.keepDataAspectRatioButton
+        )
+        self._xAxisInvertedAction = toolbar.insertWidget(
+            self.colorbarAction, self._xAxisInvertedButton
+        )
+        self.yAxisInvertedAction = toolbar.insertWidget(
+            self.colorbarAction, self.yAxisInvertedButton
+        )
 
-        for obj in objects:
-            if isinstance(obj, qt.QAction):
-                toolbar.addAction(obj)
-            else:
-                # Add action for toolbutton in order to allow changing
-                # visibility (see doc QToolBar.addWidget doc)
-                if obj is self.keepDataAspectRatioButton:
-                    self.keepDataAspectRatioAction = toolbar.addWidget(obj)
-                elif obj is self.yAxisInvertedButton:
-                    self.yAxisInvertedAction = toolbar.addWidget(obj)
-                else:
-                    raise RuntimeError("unknow action to be defined")
         return toolbar
 
     def toolBar(self):
@@ -484,20 +493,6 @@ class PlotWindow(PlotWidget):
         for action in self.group.actions():
             menu.addAction(action)
         return menu
-
-    def _customControlButtonMenu(self):
-        """Display Options button sub-menu."""
-        controlMenu = self.controlButton.menu()
-        controlMenu.clear()
-        controlMenu.addAction(self.getLegendsDockWidget().toggleViewAction())
-        controlMenu.addAction(self.getRoiAction())
-        controlMenu.addAction(self.getStatsAction())
-        controlMenu.addAction(self.getMaskAction())
-        controlMenu.addAction(self.getConsoleAction())
-
-        controlMenu.addSeparator()
-        controlMenu.addAction(self.getCrosshairAction())
-        controlMenu.addAction(self.getPanWithArrowKeysAction())
 
     def addTabbedDockWidget(self, dock_widget):
         """Add a dock widget as a new tab if there are already dock widgets
@@ -532,7 +527,7 @@ class PlotWindow(PlotWidget):
         """
         if dockwidget in self._dockWidgets:
             self._dockWidgets.remove(dockwidget)
-        super(PlotWindow, self).removeDockWidget(dockwidget)
+        super().removeDockWidget(dockwidget)
 
     def _handleFirstDockWidgetShow(self, visible):
         """Handle QDockWidget.visibilityChanged
@@ -787,11 +782,20 @@ class PlotWindow(PlotWidget):
         """
         return self.keepDataAspectRatioAction
 
-    def getYAxisInvertedButton(self):
-        """Button to switch the Y axis orientation
+    def getXAxisInvertedButton(self) -> PlotToolButtons.XAxisOriginToolButton:
+        """Button to switch the X axis orientation"""
+        return self._xAxisInvertedButton
 
-        :rtype: PlotToolButtons.YAxisOriginToolButton
+    def getXAxisInvertedAction(self) -> qt.QAction:
+        """Action associated to xAxisInvertedButton.
+
+        Use this to change the visibility xAxisInvertedButton in the toolbar.
+        (See :meth:`QToolBar.addWidget` documentation).
         """
+        return self._xAxisInvertedAction
+
+    def getYAxisInvertedButton(self) -> PlotToolButtons.YAxisOriginToolButton:
+        """Button to switch the Y axis orientation"""
         return self.yAxisInvertedButton
 
     def getYAxisInvertedAction(self):
@@ -875,7 +879,7 @@ class Plot1D(PlotWindow):
     """
 
     def __init__(self, parent=None, backend=None):
-        super(Plot1D, self).__init__(
+        super().__init__(
             parent=parent,
             backend=backend,
             resetzoom=True,
@@ -926,7 +930,7 @@ class Plot2D(PlotWindow):
             ("Dims", WeakMethodProxy(self._getImageDims)),
         ]
 
-        super(Plot2D, self).__init__(
+        super().__init__(
             parent=parent,
             backend=backend,
             resetzoom=True,

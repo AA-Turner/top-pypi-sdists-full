@@ -22,15 +22,14 @@ use tensorzero_core::db::postgres::PostgresConnectionInfo;
 use tensorzero_core::db::postgres::batching::PostgresBatchSender;
 pub use tensorzero_core::evaluations::EvaluationFunctionConfig;
 pub use tensorzero_core::statistics_util::{mean, std_deviation};
-use tensorzero_core::utils::gateway::AppStateData;
+use tensorzero_core::utils::gateway::ResolvedAppStateData;
 pub use types::*;
 
 use tensorzero_core::cache::CacheEnabledMode;
 use tensorzero_core::client::Input;
 use tensorzero_core::client::{
-    ClientBuilder, ClientBuilderMode, ClientInferenceParams, DynamicToolParams, InferenceOutput,
-    InferenceParams, InferenceResponse, PostgresConfig,
-    input_handling::resolved_input_to_client_input,
+    ClientBuilder, ClientBuilderMode, ClientInferenceParams, InferenceOutput, InferenceParams,
+    InferenceResponse, PostgresConfig, input_handling::resolved_input_to_client_input,
 };
 use tensorzero_core::config::{ConfigFileGlob, MetricConfigOptimize};
 use tensorzero_core::endpoints::datasets::v1::{
@@ -49,6 +48,7 @@ use tensorzero_core::{
     config::Config, db::delegating_connection::DelegatingDatabaseQueries,
     endpoints::datasets::Datapoint,
 };
+use tensorzero_inference_types::tool::DynamicToolParams;
 use tokio::{
     sync::{Semaphore, mpsc},
     task::JoinSet,
@@ -91,6 +91,12 @@ pub(crate) fn merge_tags(
 pub struct Clients {
     pub inference_executor: Arc<dyn EvaluationsInferenceExecutor>,
     pub db: Arc<dyn DelegatingDatabaseQueries>,
+    /// Resources required to run TypeScript judge evaluators. Always present —
+    /// construct via [`TypescriptJudgeExecutor::with_defaults`] if the caller
+    /// has no particular configuration in mind.
+    ///
+    /// [`TypescriptJudgeExecutor::with_defaults`]: crate::evaluators::typescript_judge::TypescriptJudgeExecutor::with_defaults
+    pub ts_executor: crate::evaluators::typescript_judge::TypescriptJudgeExecutor,
 }
 
 /// Generates a default evaluation name when one is not explicitly provided.
@@ -218,13 +224,18 @@ pub async fn run_evaluation(
     )
     .await?;
 
-    let clickhouse_client = setup_clickhouse(&unwritten_config, clickhouse_url.clone()).await?;
-    let postgres_connection = setup_postgres(&unwritten_config, postgres_url.as_deref()).await?;
+    let clickhouse_client = setup_clickhouse(&unwritten_config, clickhouse_url.clone())
+        .await
+        .map_err(|e| e.log())?;
+    let postgres_connection = setup_postgres(&unwritten_config, postgres_url.as_deref())
+        .await
+        .map_err(|e| e.log())?;
     let primary_datastore = PrimaryDatastore::resolve(
         &unwritten_config.gateway.observability,
         &clickhouse_client,
         &postgres_connection,
-    )?;
+    )
+    .map_err(|e| e.log())?;
     if primary_datastore == PrimaryDatastore::Disabled {
         bail!(
             "Evaluations require an observability database but none is available. Set \
@@ -236,7 +247,9 @@ pub async fn run_evaluation(
         postgres_connection.clone(),
         primary_datastore,
     );
-    let config = Box::pin(unwritten_config.into_config(&database)).await?;
+    let (config, _) = Box::pin(unwritten_config.into_config(&database))
+        .await
+        .map_err(|e| e.log())?;
     let config = Arc::new(config);
     debug!("Configuration loaded successfully");
 
@@ -312,6 +325,10 @@ pub async fn run_evaluation(
     // Wrap the client in ClientInferenceExecutor for use with evaluations
     let inference_executor = Arc::new(ClientInferenceExecutor::new(tensorzero_client));
 
+    let ts_executor = evaluators::typescript_judge::TypescriptJudgeExecutor::with_defaults()
+        .await
+        .map_err(|e| anyhow!("Failed to build TypeScript judge executor: {e}"))?;
+
     let core_args = EvaluationCoreArgs {
         inference_executor,
         db: Arc::new(database),
@@ -326,6 +343,7 @@ pub async fn run_evaluation(
         inference_cache: args.inference_cache,
         concurrency: args.concurrency,
         tags: HashMap::new(), // CLI doesn't have autopilot context
+        ts_executor,
     };
 
     // Convert Vec<(String, f32)> to HashMap<String, f32> for precision_targets
@@ -429,7 +447,7 @@ pub async fn run_evaluation(
 /// - `evaluation_config`: The evaluation configuration
 #[instrument(skip_all, fields(evaluation_name = ?params.evaluation_name, dataset_name = ?params.dataset_name, variant = ?params.variant, concurrency = %params.concurrency))]
 pub async fn run_evaluation_with_app_state(
-    app_state: AppStateData,
+    app_state: ResolvedAppStateData,
     params: RunEvaluationWithAppStateParams,
 ) -> Result<EvaluationStreamResult> {
     // Create fresh ClickHouse and Postgres clients for the evaluation (with independent batch writers)
@@ -439,7 +457,13 @@ pub async fn run_evaluation_with_app_state(
         .recreate()
         .await
         .map_err(|e| anyhow!("Failed to create ClickHouse client for evaluation: {e}"))?;
-    let batch_writes_config = &app_state.config.gateway.observability.batch_writes;
+    let batch_writes_config = app_state
+        .config
+        .gateway
+        .observability
+        .batch_writes
+        .clone()
+        .unwrap_or_default();
     let postgres_client = match app_state.postgres_connection_info.get_pool() {
         Some(pool) if batch_writes_config.enabled => {
             let batch_sender = Arc::new(
@@ -465,6 +489,10 @@ pub async fn run_evaluation_with_app_state(
     // Generate a new evaluation run ID
     let evaluation_run_id = Uuid::now_v7();
 
+    let ts_executor = evaluators::typescript_judge::TypescriptJudgeExecutor::with_defaults()
+        .await
+        .map_err(|e| anyhow!("Failed to build TypeScript judge executor: {e}"))?;
+
     // Build the core args
     let core_args = EvaluationCoreArgs {
         inference_executor,
@@ -480,6 +508,7 @@ pub async fn run_evaluation_with_app_state(
         inference_cache: params.cache_mode,
         concurrency: params.concurrency,
         tags: params.tags,
+        ts_executor,
     };
 
     // Run the evaluation
@@ -570,6 +599,7 @@ pub async fn run_evaluation_core_streaming(
     let clients = Arc::new(Clients {
         inference_executor: args.inference_executor,
         db: args.db,
+        ts_executor: args.ts_executor,
     });
 
     debug!(evaluation_name = ?args.evaluation_name, "Evaluation config found");

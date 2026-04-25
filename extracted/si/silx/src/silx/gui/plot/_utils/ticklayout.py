@@ -30,7 +30,6 @@ __date__ = "18/10/2016"
 
 import math
 
-
 # utils #######################################################################
 
 
@@ -167,7 +166,7 @@ def ticks(vMin, vMax, nbTicks=5):
             nfrac = numberOfDigits(vMax - vMin)
 
     # Generate labels
-    format_ = "%g" if nfrac == 0 else "%.{}f".format(nfrac)
+    format_ = "%g" if nfrac == 0 else f"%.{nfrac}f"
     labels = [format_ % tick for tick in positions]
     return positions, labels
 

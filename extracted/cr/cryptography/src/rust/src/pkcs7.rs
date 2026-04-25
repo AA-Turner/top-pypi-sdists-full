@@ -4,13 +4,17 @@
 
 use std::borrow::Cow;
 use std::collections::HashMap;
+#[cfg(not(any(CRYPTOGRAPHY_IS_BORINGSSL, CRYPTOGRAPHY_IS_AWSLC)))]
+use std::ffi::CString;
+use std::mem;
 use std::ops::Deref;
+use std::sync::LazyLock;
 
+use cryptography_x509::certificate::Certificate as RawCertificate;
 use cryptography_x509::common::{AlgorithmIdentifier, AlgorithmParameters};
 use cryptography_x509::csr::Attribute;
 use cryptography_x509::pkcs7::PKCS7_DATA_OID;
 use cryptography_x509::{common, oid, pkcs7};
-use once_cell::sync::Lazy;
 #[cfg(not(any(CRYPTOGRAPHY_IS_BORINGSSL, CRYPTOGRAPHY_IS_AWSLC)))]
 use openssl::pkcs7::Pkcs7;
 use pyo3::types::{PyAnyMethods, PyBytesMethods, PyListMethods};
@@ -23,8 +27,7 @@ use crate::buf::CffiBuf;
 use crate::error::{CryptographyError, CryptographyResult};
 use crate::padding::PKCS7UnpaddingContext;
 use crate::pkcs12::symmetric_encrypt;
-#[cfg(not(any(CRYPTOGRAPHY_IS_BORINGSSL, CRYPTOGRAPHY_IS_AWSLC)))]
-use crate::utils::cstr_from_literal;
+use crate::x509::certificate;
 #[cfg(not(any(CRYPTOGRAPHY_IS_BORINGSSL, CRYPTOGRAPHY_IS_AWSLC)))]
 use crate::x509::certificate::load_der_x509_certificate;
 use crate::{exceptions, types, x509};
@@ -34,7 +37,7 @@ const PKCS7_MESSAGE_DIGEST_OID: asn1::ObjectIdentifier = asn1::oid!(1, 2, 840, 1
 const PKCS7_SIGNING_TIME_OID: asn1::ObjectIdentifier = asn1::oid!(1, 2, 840, 113549, 1, 9, 5);
 const PKCS7_SMIME_CAP_OID: asn1::ObjectIdentifier = asn1::oid!(1, 2, 840, 113549, 1, 9, 15);
 
-static OIDS_TO_MIC_NAME: Lazy<HashMap<&asn1::ObjectIdentifier, &str>> = Lazy::new(|| {
+static OIDS_TO_MIC_NAME: LazyLock<HashMap<&asn1::ObjectIdentifier, &str>> = LazyLock::new(|| {
     let mut h = HashMap::new();
     h.insert(&oid::SHA224_OID, "sha-224");
     h.insert(&oid::SHA256_OID, "sha-256");
@@ -47,7 +50,7 @@ static OIDS_TO_MIC_NAME: Lazy<HashMap<&asn1::ObjectIdentifier, &str>> = Lazy::ne
 fn serialize_certificates<'p>(
     py: pyo3::Python<'p>,
     py_certs: Vec<pyo3::PyRef<'p, x509::certificate::Certificate>>,
-    encoding: &pyo3::Bound<'p, pyo3::PyAny>,
+    encoding: crate::serialization::Encoding,
 ) -> CryptographyResult<pyo3::Bound<'p, pyo3::types::PyBytes>> {
     if py_certs.is_empty() {
         return Err(pyo3::exceptions::PyTypeError::new_err(
@@ -89,7 +92,7 @@ fn encrypt_and_serialize<'p>(
     py: pyo3::Python<'p>,
     builder: &pyo3::Bound<'p, pyo3::PyAny>,
     content_encryption_algorithm: &pyo3::Bound<'p, pyo3::PyAny>,
-    encoding: &pyo3::Bound<'p, pyo3::PyAny>,
+    encoding: crate::serialization::Encoding,
     options: &pyo3::Bound<'p, pyo3::types::PyList>,
 ) -> CryptographyResult<pyo3::Bound<'p, pyo3::types::PyBytes>> {
     let raw_data: CffiBuf<'p> = builder.getattr(pyo3::intern!(py, "_data"))?.extract()?;
@@ -127,6 +130,7 @@ fn encrypt_and_serialize<'p>(
     for cert in py_recipients.iter() {
         // Currently, keys are encrypted with RSA (PKCS #1 v1.5), which the S/MIME v3.2 RFC
         // specifies as MUST support (https://datatracker.ietf.org/doc/html/rfc5751#section-2.3)
+        // however rest of S/MIME v3.2 is not currently supported
         let encrypted_key = cert
             .call_method0(pyo3::intern!(py, "public_key"))?
             .call_method1(pyo3::intern!(py, "encrypt"), (&key, &padding))?
@@ -175,7 +179,7 @@ fn encrypt_and_serialize<'p>(
     };
     let ci_bytes = asn1::write_single(&content_info)?;
 
-    if encoding.is(&types::ENCODING_SMIME.get(py)?) {
+    if encoding == crate::serialization::Encoding::SMIME {
         Ok(types::SMIME_ENVELOPED_ENCODE
             .get(py)?
             .call1((&*ci_bytes,))?
@@ -290,7 +294,7 @@ fn decrypt_der<'p>(
             // The function can decrypt content encrypted with AES-128-CBC, which the S/MIME v3.2
             // RFC specifies as MUST support, and AES-256-CBC, which is specified as SHOULD+
             // support. More info: https://datatracker.ietf.org/doc/html/rfc5751#section-2.7
-            // TODO: implement the possible algorithms from S/MIME 3.2 (and 4.0?)
+            // however rest of S/MIME v3.2 is not currently supported
             let algorithm_identifier = enveloped_data
                 .encrypted_content_info
                 .content_encryption_algorithm;
@@ -457,7 +461,7 @@ pub(crate) fn symmetric_decrypt(
 fn sign_and_serialize<'p>(
     py: pyo3::Python<'p>,
     builder: &pyo3::Bound<'p, pyo3::PyAny>,
-    encoding: &pyo3::Bound<'p, pyo3::PyAny>,
+    encoding: crate::serialization::Encoding,
     options: &pyo3::Bound<'p, pyo3::types::PyList>,
 ) -> CryptographyResult<pyo3::Bound<'p, pyo3::types::PyBytes>> {
     let raw_data: CffiBuf<'p> = builder.getattr(pyo3::intern!(py, "_data"))?.extract()?;
@@ -636,7 +640,7 @@ fn sign_and_serialize<'p>(
     };
     let ci_bytes = asn1::write_single(&content_info)?;
 
-    if encoding.is(&types::ENCODING_SMIME.get(py)?) {
+    if encoding == crate::serialization::Encoding::SMIME {
         let mic_algs = digest_algs
             .iter()
             .map(|d| OIDS_TO_MIC_NAME[&d.oid()])
@@ -741,65 +745,113 @@ fn load_pkcs7_certificates(
     }
 }
 
-#[pyo3::pyfunction]
-fn load_pem_pkcs7_certificates<'p>(
+pub fn try_list_of_certificates<'p, F>(
     py: pyo3::Python<'p>,
-    data: &[u8],
-) -> CryptographyResult<pyo3::Bound<'p, pyo3::types::PyList>> {
-    cfg_if::cfg_if! {
-        if #[cfg(not(any(CRYPTOGRAPHY_IS_BORINGSSL, CRYPTOGRAPHY_IS_AWSLC)))] {
-            let pem_block = pem::parse(data)?;
-            if pem_block.tag() != "PKCS7" {
-                return Err(CryptographyError::from(
-                    pyo3::exceptions::PyValueError::new_err(
-                        "The provided PEM data does not have the PKCS7 tag.",
-                    ),
-                ));
-            }
+    data: pyo3::Py<pyo3::types::PyBytes>,
+    f: F,
+) -> CryptographyResult<pyo3::Bound<'p, pyo3::types::PyList>>
+where
+    F: for<'a> FnOnce(
+        &'a pyo3::Py<pyo3::types::PyBytes>,
+        &mut dyn FnMut(RawCertificate<'a>) -> CryptographyResult<()>,
+    ) -> CryptographyResult<()>,
+{
+    let result = pyo3::types::PyList::empty(py);
+    let mut cb = |val| {
+        // SAFETY: based on the type of `F`, we know `val` must be derived from
+        // data, and we know that `data.clone_ref(py)` makes any pointers into
+        // the original one also valid.
+        let raw_cert = certificate::OwnedCertificate::new(data.clone_ref(py), |_| unsafe {
+            mem::transmute(val)
+        });
+        result.append(pyo3::Bound::new(
+            py,
+            x509::certificate::Certificate {
+                raw: raw_cert,
+                cached_extensions: pyo3::sync::PyOnceLock::new(),
+                cached_issuer: pyo3::sync::PyOnceLock::new(),
+                cached_subject: pyo3::sync::PyOnceLock::new(),
+                cached_public_key: pyo3::sync::PyOnceLock::new(),
+            },
+        )?)?;
 
-            load_der_pkcs7_certificates(py, pem_block.contents())
-        } else {
-            let _ = py;
-            let _ = data;
-            Err(CryptographyError::from(
+        Ok(())
+    };
+    f(&data, &mut cb)?;
+
+    Ok(result)
+}
+
+fn load_pkcs7_certificates_rust(
+    py: pyo3::Python<'_>,
+    data: pyo3::Py<pyo3::types::PyBytes>,
+) -> CryptographyResult<pyo3::Bound<'_, pyo3::types::PyList>> {
+    try_list_of_certificates(py, data, |data, cb| {
+        let p7 = asn1::parse_single::<pkcs7::ContentInfo<'_>>(data.as_bytes(py))?;
+        let pkcs7::Content::SignedData(signed_data) = p7.content else {
+            return Err(CryptographyError::from(
                 exceptions::UnsupportedAlgorithm::new_err((
-                    "PKCS#7 is not supported by this backend.",
+                    "Only basic signed structures are currently supported.",
                     exceptions::Reasons::UNSUPPORTED_SERIALIZATION,
                 )),
-            ))
+            ));
+        };
+        let Some(certs) = signed_data.into_inner().certificates else {
+            return Err(CryptographyError::from(
+                pyo3::exceptions::PyValueError::new_err(
+                    "The provided PKCS7 has no certificate data, but a cert loading method was called.",
+                ),
+            ));
+        };
+        for c in certs.unwrap_read().clone() {
+            cb(c)?;
         }
-    }
+
+        Ok(())
+    })
 }
 
 #[pyo3::pyfunction]
-fn load_der_pkcs7_certificates<'p>(
-    py: pyo3::Python<'p>,
-    data: &[u8],
-) -> CryptographyResult<pyo3::Bound<'p, pyo3::types::PyList>> {
+fn load_pem_pkcs7_certificates(
+    py: pyo3::Python<'_>,
+    data: pyo3::Py<pyo3::types::PyBytes>,
+) -> CryptographyResult<pyo3::Bound<'_, pyo3::types::PyList>> {
+    let pem_block = pem::parse(data.as_bytes(py))?;
+    if pem_block.tag() != "PKCS7" {
+        return Err(CryptographyError::from(
+            pyo3::exceptions::PyValueError::new_err(
+                "The provided PEM data does not have the PKCS7 tag.",
+            ),
+        ));
+    }
+    let data = pyo3::types::PyBytes::new(py, pem_block.contents()).unbind();
+
+    load_der_pkcs7_certificates(py, data)
+}
+
+#[pyo3::pyfunction]
+fn load_der_pkcs7_certificates(
+    py: pyo3::Python<'_>,
+    data: pyo3::Py<pyo3::types::PyBytes>,
+) -> CryptographyResult<pyo3::Bound<'_, pyo3::types::PyList>> {
     cfg_if::cfg_if! {
         if #[cfg(not(any(CRYPTOGRAPHY_IS_BORINGSSL, CRYPTOGRAPHY_IS_AWSLC)))] {
-            let pkcs7_decoded = openssl::pkcs7::Pkcs7::from_der(data).map_err(|_| {
+            let pkcs7_decoded = openssl::pkcs7::Pkcs7::from_der(data.as_bytes(py)).map_err(|_| {
                 CryptographyError::from(pyo3::exceptions::PyValueError::new_err(
                     "Unable to parse PKCS7 data",
                 ))
             })?;
             let result = load_pkcs7_certificates(py, pkcs7_decoded)?;
-            if asn1::parse_single::<pkcs7::ContentInfo<'_>>(data).is_err() {
+            if let Err(e) =  load_pkcs7_certificates_rust(py, data) {
+                let err = pyo3::PyErr::from(e);
                 let warning_cls = pyo3::exceptions::PyUserWarning::type_object(py);
-                let message = cstr_from_literal!("PKCS#7 certificates could not be parsed as DER, falling back to parsing as BER. Please file an issue at https://github.com/pyca/cryptography/issues explaining how your PKCS#7 certificates were created. In the future, this may become an exception.");
-                pyo3::PyErr::warn(py, &warning_cls, message, 1)?;
+                let message = CString::new(format!("PKCS#7 certificates could not be parsed as DER, falling back to parsing as BER. Please file an issue at https://github.com/pyca/cryptography/issues explaining how your PKCS#7 certificates were created. In the future, this may become an exception. Error details: {err}")).unwrap();
+                pyo3::PyErr::warn(py, &warning_cls, &message, 1)?;
             }
 
             Ok(result)
         } else {
-            let _ = py;
-            let _ = data;
-            Err(CryptographyError::from(
-                exceptions::UnsupportedAlgorithm::new_err((
-                    "PKCS#7 is not supported by this backend.",
-                    exceptions::Reasons::UNSUPPORTED_SERIALIZATION,
-                )),
-            ))
+            load_pkcs7_certificates_rust(py, data)
         }
     }
 }

@@ -550,6 +550,22 @@ When directly constructing the `KeySigningKey` resource, enabling DNSSEC signing
 zone will be need to be done explicitly (either using the `CfnDNSSEC` construct or via another
 means).
 
+## Accelerated Recovery
+
+Route 53 accelerated recovery for managing public DNS records is designed to achieve a 60-minute Recovery Time Objective (RTO) in the event of service unavailability in the US East (N. Virginia) Region.
+When enabled on a Route 53 public hosted zone, you will be able to resume making changes to DNS records in the public hosted zone within approximately 60 minutes after AWS detects that operations in the US East (N. Virginia) Region are impaired.
+
+This feature is only available for public hosted zones.
+
+```python
+route53.PublicHostedZone(self, "HostedZone",
+    zone_name="example.com",
+    accelerated_recovery_enabled=True
+)
+```
+
+For more information, see [Enabling accelerated recovery for managing public DNS records](https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/accelerated-recovery.html).
+
 ## Imports
 
 If you don't know the ID of the Hosted Zone to import, you can use the
@@ -9205,6 +9221,7 @@ class PublicHostedZoneAttributes(HostedZoneAttributes):
         "add_trailing_dot": "addTrailingDot",
         "comment": "comment",
         "query_logs_log_group_arn": "queryLogsLogGroupArn",
+        "accelerated_recovery_enabled": "acceleratedRecoveryEnabled",
         "caa_amazon": "caaAmazon",
         "cross_account_zone_delegation_principal": "crossAccountZoneDelegationPrincipal",
         "cross_account_zone_delegation_role_name": "crossAccountZoneDelegationRoleName",
@@ -9218,6 +9235,7 @@ class PublicHostedZoneProps(CommonHostedZoneProps):
         add_trailing_dot: typing.Optional[builtins.bool] = None,
         comment: typing.Optional[builtins.str] = None,
         query_logs_log_group_arn: typing.Optional[builtins.str] = None,
+        accelerated_recovery_enabled: typing.Optional[builtins.bool] = None,
         caa_amazon: typing.Optional[builtins.bool] = None,
         cross_account_zone_delegation_principal: typing.Optional["_IPrincipal_539bb2fd"] = None,
         cross_account_zone_delegation_role_name: typing.Optional[builtins.str] = None,
@@ -9228,6 +9246,7 @@ class PublicHostedZoneProps(CommonHostedZoneProps):
         :param add_trailing_dot: Whether to add a trailing dot to the zone name. Default: true
         :param comment: Any comments that you want to include about the hosted zone. Default: none
         :param query_logs_log_group_arn: The Amazon Resource Name (ARN) for the log group that you want Amazon Route 53 to send query logs to. Default: disabled
+        :param accelerated_recovery_enabled: Whether to enable accelerated recovery for this hosted zone. Accelerated recovery reduces the time to recovery when a hosted zone becomes unavailable due to DNS resolution issues. This feature is only available for public hosted zones. Default: - no accelerated recovery
         :param caa_amazon: Whether to create a CAA record to restrict certificate authorities allowed to issue certificates for this domain to Amazon only. Default: false
         :param cross_account_zone_delegation_principal: (deprecated) A principal which is trusted to assume a role for zone delegation. If supplied, this will create a Role in the same account as the Hosted Zone, which can be assumed by the ``CrossAccountZoneDelegationRecord`` to create a delegation record to a zone in a different account. Be sure to indicate the account(s) that you trust to create delegation records, using either ``iam.AccountPrincipal`` or ``iam.OrganizationPrincipal``. If you are planning to use ``iam.ServicePrincipal``s here, be sure to include region-specific service principals for every opt-in region you are going to be delegating to; or don't use this feature and create separate roles with appropriate permissions for every opt-in region instead. Default: - No delegation configuration
         :param cross_account_zone_delegation_role_name: (deprecated) The name of the role created for cross account delegation. Default: - A role name is generated automatically
@@ -9263,6 +9282,7 @@ class PublicHostedZoneProps(CommonHostedZoneProps):
             check_type(argname="argument add_trailing_dot", value=add_trailing_dot, expected_type=type_hints["add_trailing_dot"])
             check_type(argname="argument comment", value=comment, expected_type=type_hints["comment"])
             check_type(argname="argument query_logs_log_group_arn", value=query_logs_log_group_arn, expected_type=type_hints["query_logs_log_group_arn"])
+            check_type(argname="argument accelerated_recovery_enabled", value=accelerated_recovery_enabled, expected_type=type_hints["accelerated_recovery_enabled"])
             check_type(argname="argument caa_amazon", value=caa_amazon, expected_type=type_hints["caa_amazon"])
             check_type(argname="argument cross_account_zone_delegation_principal", value=cross_account_zone_delegation_principal, expected_type=type_hints["cross_account_zone_delegation_principal"])
             check_type(argname="argument cross_account_zone_delegation_role_name", value=cross_account_zone_delegation_role_name, expected_type=type_hints["cross_account_zone_delegation_role_name"])
@@ -9275,6 +9295,8 @@ class PublicHostedZoneProps(CommonHostedZoneProps):
             self._values["comment"] = comment
         if query_logs_log_group_arn is not None:
             self._values["query_logs_log_group_arn"] = query_logs_log_group_arn
+        if accelerated_recovery_enabled is not None:
+            self._values["accelerated_recovery_enabled"] = accelerated_recovery_enabled
         if caa_amazon is not None:
             self._values["caa_amazon"] = caa_amazon
         if cross_account_zone_delegation_principal is not None:
@@ -9319,6 +9341,22 @@ class PublicHostedZoneProps(CommonHostedZoneProps):
         '''
         result = self._values.get("query_logs_log_group_arn")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def accelerated_recovery_enabled(self) -> typing.Optional[builtins.bool]:
+        '''Whether to enable accelerated recovery for this hosted zone.
+
+        Accelerated recovery reduces the time to recovery when a hosted zone
+        becomes unavailable due to DNS resolution issues.
+
+        This feature is only available for public hosted zones.
+
+        :default: - no accelerated recovery
+
+        :see: https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/accelerated-recovery.html
+        '''
+        result = self._values.get("accelerated_recovery_enabled")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def caa_amazon(self) -> typing.Optional[builtins.bool]:
@@ -17668,30 +17706,25 @@ class PublicHostedZone(
 
     Example::
 
-        from aws_cdk import Environment, Environment
-        stack1 = Stack(app, "Stack1",
-            env=Environment(
-                region="us-east-1"
-            ),
-            cross_region_references=True
-        )
-        cert = acm.Certificate(stack1, "Cert",
-            domain_name="*.example.com",
-            validation=acm.CertificateValidation.from_dns(route53.PublicHostedZone.from_hosted_zone_id(stack1, "Zone", "Z0329774B51CGXTDQV3X"))
+        sub_zone = route53.PublicHostedZone(self, "SubZone",
+            zone_name="sub.someexample.com"
         )
         
-        stack2 = Stack(app, "Stack2",
-            env=Environment(
-                region="us-east-2"
-            ),
-            cross_region_references=True
+        # import the delegation role by constructing the roleArn
+        delegation_role_arn = Stack.of(self).format_arn(
+            region="",  # IAM is global in each partition
+            service="iam",
+            account="parent-account-id",
+            resource="role",
+            resource_name="MyDelegationRole"
         )
-        cloudfront.Distribution(stack2, "Distribution",
-            default_behavior=cloudfront.BehaviorOptions(
-                origin=origins.HttpOrigin("example.com")
-            ),
-            domain_names=["dev.example.com"],
-            certificate=cert
+        delegation_role = iam.Role.from_role_arn(self, "DelegationRole", delegation_role_arn)
+        
+        route53.CrossAccountZoneDelegationRecord(self, "delegate",
+            delegated_zone=sub_zone,
+            parent_hosted_zone_name="someexample.com",  # or you can use parentHostedZoneId
+            delegation_role=delegation_role,
+            assume_role_region="us-east-1"
         )
     '''
 
@@ -17700,6 +17733,7 @@ class PublicHostedZone(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
+        accelerated_recovery_enabled: typing.Optional[builtins.bool] = None,
         caa_amazon: typing.Optional[builtins.bool] = None,
         cross_account_zone_delegation_principal: typing.Optional["_IPrincipal_539bb2fd"] = None,
         cross_account_zone_delegation_role_name: typing.Optional[builtins.str] = None,
@@ -17711,6 +17745,7 @@ class PublicHostedZone(
         '''
         :param scope: -
         :param id: -
+        :param accelerated_recovery_enabled: Whether to enable accelerated recovery for this hosted zone. Accelerated recovery reduces the time to recovery when a hosted zone becomes unavailable due to DNS resolution issues. This feature is only available for public hosted zones. Default: - no accelerated recovery
         :param caa_amazon: Whether to create a CAA record to restrict certificate authorities allowed to issue certificates for this domain to Amazon only. Default: false
         :param cross_account_zone_delegation_principal: (deprecated) A principal which is trusted to assume a role for zone delegation. If supplied, this will create a Role in the same account as the Hosted Zone, which can be assumed by the ``CrossAccountZoneDelegationRecord`` to create a delegation record to a zone in a different account. Be sure to indicate the account(s) that you trust to create delegation records, using either ``iam.AccountPrincipal`` or ``iam.OrganizationPrincipal``. If you are planning to use ``iam.ServicePrincipal``s here, be sure to include region-specific service principals for every opt-in region you are going to be delegating to; or don't use this feature and create separate roles with appropriate permissions for every opt-in region instead. Default: - No delegation configuration
         :param cross_account_zone_delegation_role_name: (deprecated) The name of the role created for cross account delegation. Default: - A role name is generated automatically
@@ -17724,6 +17759,7 @@ class PublicHostedZone(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = PublicHostedZoneProps(
+            accelerated_recovery_enabled=accelerated_recovery_enabled,
             caa_amazon=caa_amazon,
             cross_account_zone_delegation_principal=cross_account_zone_delegation_principal,
             cross_account_zone_delegation_role_name=cross_account_zone_delegation_role_name,
@@ -18928,6 +18964,7 @@ def _typecheckingstub__b51e553dd18a8a033ac24f091492db4b2bc8c672421ced82613174be3
     add_trailing_dot: typing.Optional[builtins.bool] = None,
     comment: typing.Optional[builtins.str] = None,
     query_logs_log_group_arn: typing.Optional[builtins.str] = None,
+    accelerated_recovery_enabled: typing.Optional[builtins.bool] = None,
     caa_amazon: typing.Optional[builtins.bool] = None,
     cross_account_zone_delegation_principal: typing.Optional[_IPrincipal_539bb2fd] = None,
     cross_account_zone_delegation_role_name: typing.Optional[builtins.str] = None,
@@ -19829,6 +19866,7 @@ def _typecheckingstub__6f67fd33cdf6043dd6c0a287fb380d5704e93c1d3a80eabf2da05bc36
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
+    accelerated_recovery_enabled: typing.Optional[builtins.bool] = None,
     caa_amazon: typing.Optional[builtins.bool] = None,
     cross_account_zone_delegation_principal: typing.Optional[_IPrincipal_539bb2fd] = None,
     cross_account_zone_delegation_role_name: typing.Optional[builtins.str] = None,

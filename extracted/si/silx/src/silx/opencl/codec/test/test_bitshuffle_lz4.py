@@ -27,7 +27,7 @@
 # OTHER DEALINGS IN THE SOFTWARE.
 
 """
-Test suite for byte-offset decompression 
+Test suite for byte-offset decompression
 """
 
 __authors__ = ["Jérôme Kieffer"]
@@ -44,9 +44,8 @@ try:
     import bitshuffle
 except ImportError:
     bitshuffle = None
-from silx.opencl.common import ocl, pyopencl
-from silx.opencl.codec.bitshuffle_lz4 import BitshuffleLz4
-
+from ...common import ocl, pyopencl
+from ...codec.bitshuffle_lz4 import BitshuffleLz4
 
 TESTCASES = (  # dtype, shape
     ("uint64", (103, 503)),

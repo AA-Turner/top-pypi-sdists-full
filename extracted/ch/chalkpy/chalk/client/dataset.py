@@ -1276,7 +1276,7 @@ class DatasetRevisionImpl(DatasetRevision):
                 show_progress=show_progress_bool,
                 caller_method=caller_method,
                 environment_id=self.environment,
-                num_computers=self.num_computers,
+                num_shards=self.num_partitions,
                 timeout=timeout,
                 raise_on_dataset_failure=False,
             )
@@ -1505,7 +1505,7 @@ This occurred during the actual execution of resolver {resolver.fqn}.
             show_progress=show_progress_bool,
             caller_method=caller_method,
             environment_id=self.environment,
-            num_computers=self.num_computers,
+            num_shards=self.num_partitions,
             timeout=timeout,
             raise_on_dataset_failure=True,
         )

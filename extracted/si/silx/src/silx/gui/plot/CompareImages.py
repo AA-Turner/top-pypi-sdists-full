@@ -21,8 +21,7 @@
 # THE SOFTWARE.
 #
 # ###########################################################################*/
-"""A widget dedicated to compare 2 images.
-"""
+"""A widget dedicated to compare 2 images."""
 
 __authors__ = ["V. Valls"]
 __license__ = "MIT"
@@ -50,7 +49,6 @@ from .tools.compare.core import AffineTransformation
 from .tools.compare.toolbar import CompareImagesToolBar
 from .tools.compare.statusbar import CompareImagesStatusBar
 from .tools.compare.core import _CompareImageItem
-
 
 _logger = logging.getLogger(__name__)
 
@@ -854,9 +852,9 @@ class CompareImages(qt.QMainWindow):
                 pos0 : pos0 + image.shape[0], pos1 : pos1 + image.shape[1], 0:depth
             ] = image[:, :, 0:depth]
             if transparent and depth == 3:
-                data[
-                    pos0 : pos0 + image.shape[0], pos1 : pos1 + image.shape[1], 3
-                ] = 255
+                data[pos0 : pos0 + image.shape[0], pos1 : pos1 + image.shape[1], 3] = (
+                    255
+                )
         return data
 
     def __toAffineTransformation(self, sift_result):

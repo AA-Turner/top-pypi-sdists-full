@@ -69,7 +69,7 @@ use crate::{
         feedback::{FeedbackByVariant, FeedbackQueries},
         postgres::PostgresConnectionInfo,
     },
-    error::{Error, ErrorDetails, IMPOSSIBLE_ERROR_MESSAGE},
+    error::{DelayedError, Error, ErrorDetails, IMPOSSIBLE_ERROR_MESSAGE},
     utils::spawn_ignoring_shutdown,
     variant::VariantInfo,
 };
@@ -266,29 +266,27 @@ impl Nursery {
 
 #[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[cfg_attr(feature = "ts-bindings", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts-bindings", ts(export))]
+#[cfg_attr(feature = "ts-bindings", ts(export, optional_fields))]
 pub struct UninitializedTrackAndStopExperimentationConfig {
-    metric: String,
-    candidate_variants: Vec<String>,
+    pub(crate) metric: String,
+    pub(crate) candidate_variants: Vec<String>,
     #[serde(default)]
-    fallback_variants: Vec<String>,
+    pub(crate) fallback_variants: Vec<String>,
     #[serde(default = "default_min_samples_per_variant")]
-    min_samples_per_variant: u64,
+    pub(crate) min_samples_per_variant: u64,
     #[serde(default = "default_delta")]
-    delta: f64,
+    pub(crate) delta: f64,
     #[serde(default)]
-    epsilon: f64,
+    pub(crate) epsilon: f64,
     #[serde(default = "default_update_period_s")]
-    update_period_s: u64,
+    pub(crate) update_period_s: u64,
     #[serde(default = "default_min_prob", skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts-bindings", ts(optional))]
-    min_prob: Option<f64>,
+    pub(crate) min_prob: Option<f64>,
     #[serde(
         default = "default_max_samples_per_variant",
         skip_serializing_if = "Option::is_none"
     )]
-    #[cfg_attr(feature = "ts-bindings", ts(optional))]
-    max_samples_per_variant: Option<u64>,
+    pub(crate) max_samples_per_variant: Option<u64>,
 }
 
 fn default_min_samples_per_variant() -> u64 {
@@ -313,6 +311,30 @@ fn default_min_prob() -> Option<f64> {
 #[expect(clippy::unnecessary_wraps)]
 fn default_max_samples_per_variant() -> Option<u64> {
     Some(10_000)
+}
+
+impl From<tensorzero_stored_config::StoredAdaptiveExperimentationConfig>
+    for UninitializedTrackAndStopExperimentationConfig
+{
+    fn from(stored: tensorzero_stored_config::StoredAdaptiveExperimentationConfig) -> Self {
+        UninitializedTrackAndStopExperimentationConfig {
+            metric: stored.metric,
+            candidate_variants: stored.candidate_variants.unwrap_or_default(),
+            fallback_variants: stored.fallback_variants.unwrap_or_default(),
+            min_samples_per_variant: stored
+                .min_samples_per_variant
+                .unwrap_or_else(default_min_samples_per_variant),
+            delta: stored.delta.unwrap_or_else(default_delta),
+            epsilon: stored.epsilon.unwrap_or_default(),
+            update_period_s: stored
+                .update_period_s
+                .unwrap_or_else(default_update_period_s),
+            min_prob: stored.min_prob.or_else(default_min_prob),
+            max_samples_per_variant: stored
+                .max_samples_per_variant
+                .or_else(default_max_samples_per_variant),
+        }
+    }
 }
 
 impl UninitializedTrackAndStopExperimentationConfig {
@@ -484,11 +506,11 @@ impl VariantSampler for TrackAndStopConfig {
         function_name: &str,
         postgres: &PostgresConnectionInfo,
         cancel_token: CancellationToken,
-    ) -> Result<(), Error> {
+    ) -> Result<(), DelayedError> {
         // Track-and-Stop requires Postgres for episode-to-variant mapping
         match postgres {
             PostgresConnectionInfo::Disabled => {
-                return Err(Error::new(ErrorDetails::Config {
+                return Err(DelayedError::new(ErrorDetails::Config {
                     message: format!(
                         "Track-and-Stop experimentation is configured for function `{function_name}` but Postgres is not available. \
                         Track-and-Stop requires Postgres for episode-to-variant consistency. \
@@ -504,7 +526,7 @@ impl VariantSampler for TrackAndStopConfig {
 
         // Check if postgres is healthy
         postgres.health().await.map_err(|e| {
-            Error::new(ErrorDetails::Config {
+            DelayedError::new(ErrorDetails::Config {
                 message: format!(
                     "Track-and-Stop experimentation is configured for function `{function_name}` but Postgres is unhealthy: {e}. \
                     Track-and-Stop requires a healthy Postgres connection for episode-to-variant consistency.",

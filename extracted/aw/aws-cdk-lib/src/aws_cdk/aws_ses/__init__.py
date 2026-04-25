@@ -6512,7 +6512,16 @@ class CfnMailManagerIngressPoint(
             # the properties below are optional
             ingress_point_configuration=ses.CfnMailManagerIngressPoint.IngressPointConfigurationProperty(
                 secret_arn="secretArn",
-                smtp_password="smtpPassword"
+                smtp_password="smtpPassword",
+                tls_auth_configuration=ses.CfnMailManagerIngressPoint.TlsAuthConfigurationProperty(
+                    trust_store=ses.CfnMailManagerIngressPoint.TrustStoreProperty(
+                        ca_content="caContent",
+        
+                        # the properties below are optional
+                        crl_content="crlContent",
+                        kms_key_arn="kmsKeyArn"
+                    )
+                )
             ),
             ingress_point_name="ingressPointName",
             network_configuration=ses.CfnMailManagerIngressPoint.NetworkConfigurationProperty(
@@ -6527,7 +6536,8 @@ class CfnMailManagerIngressPoint(
             tags=[CfnTag(
                 key="key",
                 value="value"
-            )]
+            )],
+            tls_policy="tlsPolicy"
         )
     '''
 
@@ -6544,6 +6554,7 @@ class CfnMailManagerIngressPoint(
         network_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMailManagerIngressPoint.NetworkConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         status_to_update: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tls_policy: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Create a new ``AWS::SES::MailManagerIngressPoint``.
 
@@ -6557,6 +6568,7 @@ class CfnMailManagerIngressPoint(
         :param network_configuration: The network type (IPv4-only, Dual-Stack, PrivateLink) of the ingress endpoint resource.
         :param status_to_update: The update status of an ingress endpoint.
         :param tags: The tags used to organize, track, or control access for the resource. For example, { "tags": {"key1":"value1", "key2":"value2"} }.
+        :param tls_policy: 
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1ceb1a8308b4e72eecdc0962cf663d2c0564dbffbabebaa887b776484517fab5)
@@ -6571,6 +6583,7 @@ class CfnMailManagerIngressPoint(
             network_configuration=network_configuration,
             status_to_update=status_to_update,
             tags=tags,
+            tls_policy=tls_policy,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -6844,10 +6857,26 @@ class CfnMailManagerIngressPoint(
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
+    @builtins.property
+    @jsii.member(jsii_name="tlsPolicy")
+    def tls_policy(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "tlsPolicy"))
+
+    @tls_policy.setter
+    def tls_policy(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__24584d962b5789a4ebba111e496d5a01e7f04620b2ad08dc1a014bc01e840b6c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tlsPolicy", value) # pyright: ignore[reportArgumentType]
+
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_ses.CfnMailManagerIngressPoint.IngressPointConfigurationProperty",
         jsii_struct_bases=[],
-        name_mapping={"secret_arn": "secretArn", "smtp_password": "smtpPassword"},
+        name_mapping={
+            "secret_arn": "secretArn",
+            "smtp_password": "smtpPassword",
+            "tls_auth_configuration": "tlsAuthConfiguration",
+        },
     )
     class IngressPointConfigurationProperty:
         def __init__(
@@ -6855,6 +6884,7 @@ class CfnMailManagerIngressPoint(
             *,
             secret_arn: typing.Optional[builtins.str] = None,
             smtp_password: typing.Optional[builtins.str] = None,
+            tls_auth_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMailManagerIngressPoint.TlsAuthConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The configuration of the ingress endpoint resource.
 
@@ -6864,6 +6894,7 @@ class CfnMailManagerIngressPoint(
 
             :param secret_arn: The SecretsManager::Secret ARN of the ingress endpoint resource.
             :param smtp_password: The password of the ingress endpoint resource.
+            :param tls_auth_configuration: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanageringresspoint-ingresspointconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -6876,18 +6907,30 @@ class CfnMailManagerIngressPoint(
                 
                 ingress_point_configuration_property = ses.CfnMailManagerIngressPoint.IngressPointConfigurationProperty(
                     secret_arn="secretArn",
-                    smtp_password="smtpPassword"
+                    smtp_password="smtpPassword",
+                    tls_auth_configuration=ses.CfnMailManagerIngressPoint.TlsAuthConfigurationProperty(
+                        trust_store=ses.CfnMailManagerIngressPoint.TrustStoreProperty(
+                            ca_content="caContent",
+                
+                            # the properties below are optional
+                            crl_content="crlContent",
+                            kms_key_arn="kmsKeyArn"
+                        )
+                    )
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__3799ee40c4fb2a5153cb73f62102e77ad68fed1ac1eec8eef79d4bb8f44e8ea0)
                 check_type(argname="argument secret_arn", value=secret_arn, expected_type=type_hints["secret_arn"])
                 check_type(argname="argument smtp_password", value=smtp_password, expected_type=type_hints["smtp_password"])
+                check_type(argname="argument tls_auth_configuration", value=tls_auth_configuration, expected_type=type_hints["tls_auth_configuration"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if secret_arn is not None:
                 self._values["secret_arn"] = secret_arn
             if smtp_password is not None:
                 self._values["smtp_password"] = smtp_password
+            if tls_auth_configuration is not None:
+                self._values["tls_auth_configuration"] = tls_auth_configuration
 
         @builtins.property
         def secret_arn(self) -> typing.Optional[builtins.str]:
@@ -6906,6 +6949,16 @@ class CfnMailManagerIngressPoint(
             '''
             result = self._values.get("smtp_password")
             return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def tls_auth_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerIngressPoint.TlsAuthConfigurationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanageringresspoint-ingresspointconfiguration.html#cfn-ses-mailmanageringresspoint-ingresspointconfiguration-tlsauthconfiguration
+            '''
+            result = self._values.get("tls_auth_configuration")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerIngressPoint.TlsAuthConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7105,6 +7158,156 @@ class CfnMailManagerIngressPoint(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_ses.CfnMailManagerIngressPoint.TlsAuthConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"trust_store": "trustStore"},
+    )
+    class TlsAuthConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            trust_store: typing.Union["_IResolvable_da3f097b", typing.Union["CfnMailManagerIngressPoint.TrustStoreProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''
+            :param trust_store: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanageringresspoint-tlsauthconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_ses as ses
+                
+                tls_auth_configuration_property = ses.CfnMailManagerIngressPoint.TlsAuthConfigurationProperty(
+                    trust_store=ses.CfnMailManagerIngressPoint.TrustStoreProperty(
+                        ca_content="caContent",
+                
+                        # the properties below are optional
+                        crl_content="crlContent",
+                        kms_key_arn="kmsKeyArn"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__e31fb5a20e3f2e0f2bc0d19c2180fc15176f7fa1de8292a41c2c93290c09d6c3)
+                check_type(argname="argument trust_store", value=trust_store, expected_type=type_hints["trust_store"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "trust_store": trust_store,
+            }
+
+        @builtins.property
+        def trust_store(
+            self,
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnMailManagerIngressPoint.TrustStoreProperty"]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanageringresspoint-tlsauthconfiguration.html#cfn-ses-mailmanageringresspoint-tlsauthconfiguration-truststore
+            '''
+            result = self._values.get("trust_store")
+            assert result is not None, "Required property 'trust_store' is missing"
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnMailManagerIngressPoint.TrustStoreProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "TlsAuthConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_ses.CfnMailManagerIngressPoint.TrustStoreProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "ca_content": "caContent",
+            "crl_content": "crlContent",
+            "kms_key_arn": "kmsKeyArn",
+        },
+    )
+    class TrustStoreProperty:
+        def __init__(
+            self,
+            *,
+            ca_content: builtins.str,
+            crl_content: typing.Optional[builtins.str] = None,
+            kms_key_arn: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param ca_content: 
+            :param crl_content: 
+            :param kms_key_arn: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanageringresspoint-truststore.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_ses as ses
+                
+                trust_store_property = ses.CfnMailManagerIngressPoint.TrustStoreProperty(
+                    ca_content="caContent",
+                
+                    # the properties below are optional
+                    crl_content="crlContent",
+                    kms_key_arn="kmsKeyArn"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__1e3b465353ba41a923f2f375703c24b2c179303fdf2722a3571d4724525a5559)
+                check_type(argname="argument ca_content", value=ca_content, expected_type=type_hints["ca_content"])
+                check_type(argname="argument crl_content", value=crl_content, expected_type=type_hints["crl_content"])
+                check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "ca_content": ca_content,
+            }
+            if crl_content is not None:
+                self._values["crl_content"] = crl_content
+            if kms_key_arn is not None:
+                self._values["kms_key_arn"] = kms_key_arn
+
+        @builtins.property
+        def ca_content(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanageringresspoint-truststore.html#cfn-ses-mailmanageringresspoint-truststore-cacontent
+            '''
+            result = self._values.get("ca_content")
+            assert result is not None, "Required property 'ca_content' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def crl_content(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanageringresspoint-truststore.html#cfn-ses-mailmanageringresspoint-truststore-crlcontent
+            '''
+            result = self._values.get("crl_content")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def kms_key_arn(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanageringresspoint-truststore.html#cfn-ses-mailmanageringresspoint-truststore-kmskeyarn
+            '''
+            result = self._values.get("kms_key_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "TrustStoreProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
 
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_ses.CfnMailManagerIngressPointProps",
@@ -7118,6 +7321,7 @@ class CfnMailManagerIngressPoint(
         "network_configuration": "networkConfiguration",
         "status_to_update": "statusToUpdate",
         "tags": "tags",
+        "tls_policy": "tlsPolicy",
     },
 )
 class CfnMailManagerIngressPointProps:
@@ -7132,6 +7336,7 @@ class CfnMailManagerIngressPointProps:
         network_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMailManagerIngressPoint.NetworkConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         status_to_update: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tls_policy: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for defining a ``CfnMailManagerIngressPoint``.
 
@@ -7143,6 +7348,7 @@ class CfnMailManagerIngressPointProps:
         :param network_configuration: The network type (IPv4-only, Dual-Stack, PrivateLink) of the ingress endpoint resource.
         :param status_to_update: The update status of an ingress endpoint.
         :param tags: The tags used to organize, track, or control access for the resource. For example, { "tags": {"key1":"value1", "key2":"value2"} }.
+        :param tls_policy: 
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanageringresspoint.html
         :exampleMetadata: fixture=_generated
@@ -7162,7 +7368,16 @@ class CfnMailManagerIngressPointProps:
                 # the properties below are optional
                 ingress_point_configuration=ses.CfnMailManagerIngressPoint.IngressPointConfigurationProperty(
                     secret_arn="secretArn",
-                    smtp_password="smtpPassword"
+                    smtp_password="smtpPassword",
+                    tls_auth_configuration=ses.CfnMailManagerIngressPoint.TlsAuthConfigurationProperty(
+                        trust_store=ses.CfnMailManagerIngressPoint.TrustStoreProperty(
+                            ca_content="caContent",
+            
+                            # the properties below are optional
+                            crl_content="crlContent",
+                            kms_key_arn="kmsKeyArn"
+                        )
+                    )
                 ),
                 ingress_point_name="ingressPointName",
                 network_configuration=ses.CfnMailManagerIngressPoint.NetworkConfigurationProperty(
@@ -7177,7 +7392,8 @@ class CfnMailManagerIngressPointProps:
                 tags=[CfnTag(
                     key="key",
                     value="value"
-                )]
+                )],
+                tls_policy="tlsPolicy"
             )
         '''
         if __debug__:
@@ -7190,6 +7406,7 @@ class CfnMailManagerIngressPointProps:
             check_type(argname="argument network_configuration", value=network_configuration, expected_type=type_hints["network_configuration"])
             check_type(argname="argument status_to_update", value=status_to_update, expected_type=type_hints["status_to_update"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument tls_policy", value=tls_policy, expected_type=type_hints["tls_policy"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "rule_set_id": rule_set_id,
             "traffic_policy_id": traffic_policy_id,
@@ -7205,6 +7422,8 @@ class CfnMailManagerIngressPointProps:
             self._values["status_to_update"] = status_to_update
         if tags is not None:
             self._values["tags"] = tags
+        if tls_policy is not None:
+            self._values["tls_policy"] = tls_policy
 
     @builtins.property
     def rule_set_id(self) -> builtins.str:
@@ -7286,6 +7505,14 @@ class CfnMailManagerIngressPointProps:
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    @builtins.property
+    def tls_policy(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanageringresspoint.html#cfn-ses-mailmanageringresspoint-tlspolicy
+        '''
+        result = self._values.get("tls_policy")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7827,6 +8054,17 @@ class CfnMailManagerRuleSet(
                         # the properties below are optional
                         action_failure_policy="actionFailurePolicy"
                     ),
+                    bounce=ses.CfnMailManagerRuleSet.BounceActionProperty(
+                        diagnostic_message="diagnosticMessage",
+                        role_arn="roleArn",
+                        sender="sender",
+                        smtp_reply_code="smtpReplyCode",
+                        status_code="statusCode",
+        
+                        # the properties below are optional
+                        action_failure_policy="actionFailurePolicy",
+                        message="message"
+                    ),
                     deliver_to_mailbox=ses.CfnMailManagerRuleSet.DeliverToMailboxActionProperty(
                         mailbox_arn="mailboxArn",
                         role_arn="roleArn",
@@ -7843,6 +8081,15 @@ class CfnMailManagerRuleSet(
                         action_failure_policy="actionFailurePolicy"
                     ),
                     drop=drop,
+                    invoke_lambda=ses.CfnMailManagerRuleSet.InvokeLambdaActionProperty(
+                        function_arn="functionArn",
+                        invocation_type="invocationType",
+                        role_arn="roleArn",
+        
+                        # the properties below are optional
+                        action_failure_policy="actionFailurePolicy",
+                        retry_time_minutes=123
+                    ),
                     publish_to_sns=ses.CfnMailManagerRuleSet.SnsActionProperty(
                         role_arn="roleArn",
                         topic_arn="topicArn",
@@ -7920,6 +8167,7 @@ class CfnMailManagerRuleSet(
                                 result_field="resultField"
                             ),
                             attribute="attribute",
+                            client_certificate_attribute="clientCertificateAttribute",
                             mime_header_attribute="mimeHeaderAttribute"
                         ),
                         operator="operator",
@@ -7978,6 +8226,7 @@ class CfnMailManagerRuleSet(
                                 result_field="resultField"
                             ),
                             attribute="attribute",
+                            client_certificate_attribute="clientCertificateAttribute",
                             mime_header_attribute="mimeHeaderAttribute"
                         ),
                         operator="operator",
@@ -8437,6 +8686,154 @@ class CfnMailManagerRuleSet(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_ses.CfnMailManagerRuleSet.BounceActionProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "diagnostic_message": "diagnosticMessage",
+            "role_arn": "roleArn",
+            "sender": "sender",
+            "smtp_reply_code": "smtpReplyCode",
+            "status_code": "statusCode",
+            "action_failure_policy": "actionFailurePolicy",
+            "message": "message",
+        },
+    )
+    class BounceActionProperty:
+        def __init__(
+            self,
+            *,
+            diagnostic_message: builtins.str,
+            role_arn: builtins.str,
+            sender: builtins.str,
+            smtp_reply_code: builtins.str,
+            status_code: builtins.str,
+            action_failure_policy: typing.Optional[builtins.str] = None,
+            message: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param diagnostic_message: 
+            :param role_arn: 
+            :param sender: 
+            :param smtp_reply_code: 
+            :param status_code: 
+            :param action_failure_policy: 
+            :param message: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanagerruleset-bounceaction.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_ses as ses
+                
+                bounce_action_property = ses.CfnMailManagerRuleSet.BounceActionProperty(
+                    diagnostic_message="diagnosticMessage",
+                    role_arn="roleArn",
+                    sender="sender",
+                    smtp_reply_code="smtpReplyCode",
+                    status_code="statusCode",
+                
+                    # the properties below are optional
+                    action_failure_policy="actionFailurePolicy",
+                    message="message"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__a3d33598e29d9218ef5404a2b7e9e322959999debd653ce5bc9262d308558747)
+                check_type(argname="argument diagnostic_message", value=diagnostic_message, expected_type=type_hints["diagnostic_message"])
+                check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
+                check_type(argname="argument sender", value=sender, expected_type=type_hints["sender"])
+                check_type(argname="argument smtp_reply_code", value=smtp_reply_code, expected_type=type_hints["smtp_reply_code"])
+                check_type(argname="argument status_code", value=status_code, expected_type=type_hints["status_code"])
+                check_type(argname="argument action_failure_policy", value=action_failure_policy, expected_type=type_hints["action_failure_policy"])
+                check_type(argname="argument message", value=message, expected_type=type_hints["message"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "diagnostic_message": diagnostic_message,
+                "role_arn": role_arn,
+                "sender": sender,
+                "smtp_reply_code": smtp_reply_code,
+                "status_code": status_code,
+            }
+            if action_failure_policy is not None:
+                self._values["action_failure_policy"] = action_failure_policy
+            if message is not None:
+                self._values["message"] = message
+
+        @builtins.property
+        def diagnostic_message(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanagerruleset-bounceaction.html#cfn-ses-mailmanagerruleset-bounceaction-diagnosticmessage
+            '''
+            result = self._values.get("diagnostic_message")
+            assert result is not None, "Required property 'diagnostic_message' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def role_arn(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanagerruleset-bounceaction.html#cfn-ses-mailmanagerruleset-bounceaction-rolearn
+            '''
+            result = self._values.get("role_arn")
+            assert result is not None, "Required property 'role_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def sender(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanagerruleset-bounceaction.html#cfn-ses-mailmanagerruleset-bounceaction-sender
+            '''
+            result = self._values.get("sender")
+            assert result is not None, "Required property 'sender' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def smtp_reply_code(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanagerruleset-bounceaction.html#cfn-ses-mailmanagerruleset-bounceaction-smtpreplycode
+            '''
+            result = self._values.get("smtp_reply_code")
+            assert result is not None, "Required property 'smtp_reply_code' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def status_code(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanagerruleset-bounceaction.html#cfn-ses-mailmanagerruleset-bounceaction-statuscode
+            '''
+            result = self._values.get("status_code")
+            assert result is not None, "Required property 'status_code' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def action_failure_policy(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanagerruleset-bounceaction.html#cfn-ses-mailmanagerruleset-bounceaction-actionfailurepolicy
+            '''
+            result = self._values.get("action_failure_policy")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def message(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanagerruleset-bounceaction.html#cfn-ses-mailmanagerruleset-bounceaction-message
+            '''
+            result = self._values.get("message")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "BounceActionProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_ses.CfnMailManagerRuleSet.DeliverToMailboxActionProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -8645,6 +9042,124 @@ class CfnMailManagerRuleSet(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_ses.CfnMailManagerRuleSet.InvokeLambdaActionProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "function_arn": "functionArn",
+            "invocation_type": "invocationType",
+            "role_arn": "roleArn",
+            "action_failure_policy": "actionFailurePolicy",
+            "retry_time_minutes": "retryTimeMinutes",
+        },
+    )
+    class InvokeLambdaActionProperty:
+        def __init__(
+            self,
+            *,
+            function_arn: builtins.str,
+            invocation_type: builtins.str,
+            role_arn: builtins.str,
+            action_failure_policy: typing.Optional[builtins.str] = None,
+            retry_time_minutes: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''
+            :param function_arn: 
+            :param invocation_type: 
+            :param role_arn: 
+            :param action_failure_policy: 
+            :param retry_time_minutes: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanagerruleset-invokelambdaaction.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_ses as ses
+                
+                invoke_lambda_action_property = ses.CfnMailManagerRuleSet.InvokeLambdaActionProperty(
+                    function_arn="functionArn",
+                    invocation_type="invocationType",
+                    role_arn="roleArn",
+                
+                    # the properties below are optional
+                    action_failure_policy="actionFailurePolicy",
+                    retry_time_minutes=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__cacf681e0e6982078f5633a333a1337db9fbf1d3063eac31f1cfedea626626dd)
+                check_type(argname="argument function_arn", value=function_arn, expected_type=type_hints["function_arn"])
+                check_type(argname="argument invocation_type", value=invocation_type, expected_type=type_hints["invocation_type"])
+                check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
+                check_type(argname="argument action_failure_policy", value=action_failure_policy, expected_type=type_hints["action_failure_policy"])
+                check_type(argname="argument retry_time_minutes", value=retry_time_minutes, expected_type=type_hints["retry_time_minutes"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "function_arn": function_arn,
+                "invocation_type": invocation_type,
+                "role_arn": role_arn,
+            }
+            if action_failure_policy is not None:
+                self._values["action_failure_policy"] = action_failure_policy
+            if retry_time_minutes is not None:
+                self._values["retry_time_minutes"] = retry_time_minutes
+
+        @builtins.property
+        def function_arn(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanagerruleset-invokelambdaaction.html#cfn-ses-mailmanagerruleset-invokelambdaaction-functionarn
+            '''
+            result = self._values.get("function_arn")
+            assert result is not None, "Required property 'function_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def invocation_type(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanagerruleset-invokelambdaaction.html#cfn-ses-mailmanagerruleset-invokelambdaaction-invocationtype
+            '''
+            result = self._values.get("invocation_type")
+            assert result is not None, "Required property 'invocation_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def role_arn(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanagerruleset-invokelambdaaction.html#cfn-ses-mailmanagerruleset-invokelambdaaction-rolearn
+            '''
+            result = self._values.get("role_arn")
+            assert result is not None, "Required property 'role_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def action_failure_policy(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanagerruleset-invokelambdaaction.html#cfn-ses-mailmanagerruleset-invokelambdaaction-actionfailurepolicy
+            '''
+            result = self._values.get("action_failure_policy")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def retry_time_minutes(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanagerruleset-invokelambdaaction.html#cfn-ses-mailmanagerruleset-invokelambdaaction-retrytimeminutes
+            '''
+            result = self._values.get("retry_time_minutes")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "InvokeLambdaActionProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_ses.CfnMailManagerRuleSet.RelayActionProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -8801,9 +9316,11 @@ class CfnMailManagerRuleSet(
         name_mapping={
             "add_header": "addHeader",
             "archive": "archive",
+            "bounce": "bounce",
             "deliver_to_mailbox": "deliverToMailbox",
             "deliver_to_q_business": "deliverToQBusiness",
             "drop": "drop",
+            "invoke_lambda": "invokeLambda",
             "publish_to_sns": "publishToSns",
             "relay": "relay",
             "replace_recipient": "replaceRecipient",
@@ -8817,9 +9334,11 @@ class CfnMailManagerRuleSet(
             *,
             add_header: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMailManagerRuleSet.AddHeaderActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             archive: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMailManagerRuleSet.ArchiveActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            bounce: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMailManagerRuleSet.BounceActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             deliver_to_mailbox: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMailManagerRuleSet.DeliverToMailboxActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             deliver_to_q_business: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMailManagerRuleSet.DeliverToQBusinessActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             drop: typing.Any = None,
+            invoke_lambda: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMailManagerRuleSet.InvokeLambdaActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             publish_to_sns: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMailManagerRuleSet.SnsActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             relay: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMailManagerRuleSet.RelayActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             replace_recipient: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMailManagerRuleSet.ReplaceRecipientActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -8834,9 +9353,11 @@ class CfnMailManagerRuleSet(
 
             :param add_header: This action adds a header. This can be used to add arbitrary email headers.
             :param archive: This action archives the email. This can be used to deliver an email to an archive.
+            :param bounce: 
             :param deliver_to_mailbox: This action delivers an email to a WorkMail mailbox.
             :param deliver_to_q_business: This action delivers an email to an Amazon Q Business application for ingestion into its knowledge base.
             :param drop: This action terminates the evaluation of rules in the rule set.
+            :param invoke_lambda: 
             :param publish_to_sns: This action publishes the email content to an Amazon SNS topic.
             :param relay: This action relays the email to another SMTP server.
             :param replace_recipient: The action replaces certain or all recipients with a different set of recipients.
@@ -8865,6 +9386,17 @@ class CfnMailManagerRuleSet(
                         # the properties below are optional
                         action_failure_policy="actionFailurePolicy"
                     ),
+                    bounce=ses.CfnMailManagerRuleSet.BounceActionProperty(
+                        diagnostic_message="diagnosticMessage",
+                        role_arn="roleArn",
+                        sender="sender",
+                        smtp_reply_code="smtpReplyCode",
+                        status_code="statusCode",
+                
+                        # the properties below are optional
+                        action_failure_policy="actionFailurePolicy",
+                        message="message"
+                    ),
                     deliver_to_mailbox=ses.CfnMailManagerRuleSet.DeliverToMailboxActionProperty(
                         mailbox_arn="mailboxArn",
                         role_arn="roleArn",
@@ -8881,6 +9413,15 @@ class CfnMailManagerRuleSet(
                         action_failure_policy="actionFailurePolicy"
                     ),
                     drop=drop,
+                    invoke_lambda=ses.CfnMailManagerRuleSet.InvokeLambdaActionProperty(
+                        function_arn="functionArn",
+                        invocation_type="invocationType",
+                        role_arn="roleArn",
+                
+                        # the properties below are optional
+                        action_failure_policy="actionFailurePolicy",
+                        retry_time_minutes=123
+                    ),
                     publish_to_sns=ses.CfnMailManagerRuleSet.SnsActionProperty(
                         role_arn="roleArn",
                         topic_arn="topicArn",
@@ -8921,9 +9462,11 @@ class CfnMailManagerRuleSet(
                 type_hints = typing.get_type_hints(_typecheckingstub__305f0be9d67c9da493953a4770d737df26a1af8dedfd249fd9135006243da951)
                 check_type(argname="argument add_header", value=add_header, expected_type=type_hints["add_header"])
                 check_type(argname="argument archive", value=archive, expected_type=type_hints["archive"])
+                check_type(argname="argument bounce", value=bounce, expected_type=type_hints["bounce"])
                 check_type(argname="argument deliver_to_mailbox", value=deliver_to_mailbox, expected_type=type_hints["deliver_to_mailbox"])
                 check_type(argname="argument deliver_to_q_business", value=deliver_to_q_business, expected_type=type_hints["deliver_to_q_business"])
                 check_type(argname="argument drop", value=drop, expected_type=type_hints["drop"])
+                check_type(argname="argument invoke_lambda", value=invoke_lambda, expected_type=type_hints["invoke_lambda"])
                 check_type(argname="argument publish_to_sns", value=publish_to_sns, expected_type=type_hints["publish_to_sns"])
                 check_type(argname="argument relay", value=relay, expected_type=type_hints["relay"])
                 check_type(argname="argument replace_recipient", value=replace_recipient, expected_type=type_hints["replace_recipient"])
@@ -8934,12 +9477,16 @@ class CfnMailManagerRuleSet(
                 self._values["add_header"] = add_header
             if archive is not None:
                 self._values["archive"] = archive
+            if bounce is not None:
+                self._values["bounce"] = bounce
             if deliver_to_mailbox is not None:
                 self._values["deliver_to_mailbox"] = deliver_to_mailbox
             if deliver_to_q_business is not None:
                 self._values["deliver_to_q_business"] = deliver_to_q_business
             if drop is not None:
                 self._values["drop"] = drop
+            if invoke_lambda is not None:
+                self._values["invoke_lambda"] = invoke_lambda
             if publish_to_sns is not None:
                 self._values["publish_to_sns"] = publish_to_sns
             if relay is not None:
@@ -8978,6 +9525,16 @@ class CfnMailManagerRuleSet(
             return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerRuleSet.ArchiveActionProperty"]], result)
 
         @builtins.property
+        def bounce(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerRuleSet.BounceActionProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanagerruleset-ruleaction.html#cfn-ses-mailmanagerruleset-ruleaction-bounce
+            '''
+            result = self._values.get("bounce")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerRuleSet.BounceActionProperty"]], result)
+
+        @builtins.property
         def deliver_to_mailbox(
             self,
         ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerRuleSet.DeliverToMailboxActionProperty"]]:
@@ -9007,6 +9564,16 @@ class CfnMailManagerRuleSet(
             '''
             result = self._values.get("drop")
             return typing.cast(typing.Any, result)
+
+        @builtins.property
+        def invoke_lambda(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerRuleSet.InvokeLambdaActionProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanagerruleset-ruleaction.html#cfn-ses-mailmanagerruleset-ruleaction-invokelambda
+            '''
+            result = self._values.get("invoke_lambda")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMailManagerRuleSet.InvokeLambdaActionProperty"]], result)
 
         @builtins.property
         def publish_to_sns(
@@ -9341,6 +9908,7 @@ class CfnMailManagerRuleSet(
                                 result_field="resultField"
                             ),
                             attribute="attribute",
+                            client_certificate_attribute="clientCertificateAttribute",
                             mime_header_attribute="mimeHeaderAttribute"
                         ),
                         operator="operator",
@@ -9947,6 +10515,17 @@ class CfnMailManagerRuleSet(
                             # the properties below are optional
                             action_failure_policy="actionFailurePolicy"
                         ),
+                        bounce=ses.CfnMailManagerRuleSet.BounceActionProperty(
+                            diagnostic_message="diagnosticMessage",
+                            role_arn="roleArn",
+                            sender="sender",
+                            smtp_reply_code="smtpReplyCode",
+                            status_code="statusCode",
+                
+                            # the properties below are optional
+                            action_failure_policy="actionFailurePolicy",
+                            message="message"
+                        ),
                         deliver_to_mailbox=ses.CfnMailManagerRuleSet.DeliverToMailboxActionProperty(
                             mailbox_arn="mailboxArn",
                             role_arn="roleArn",
@@ -9963,6 +10542,15 @@ class CfnMailManagerRuleSet(
                             action_failure_policy="actionFailurePolicy"
                         ),
                         drop=drop,
+                        invoke_lambda=ses.CfnMailManagerRuleSet.InvokeLambdaActionProperty(
+                            function_arn="functionArn",
+                            invocation_type="invocationType",
+                            role_arn="roleArn",
+                
+                            # the properties below are optional
+                            action_failure_policy="actionFailurePolicy",
+                            retry_time_minutes=123
+                        ),
                         publish_to_sns=ses.CfnMailManagerRuleSet.SnsActionProperty(
                             role_arn="roleArn",
                             topic_arn="topicArn",
@@ -10040,6 +10628,7 @@ class CfnMailManagerRuleSet(
                                     result_field="resultField"
                                 ),
                                 attribute="attribute",
+                                client_certificate_attribute="clientCertificateAttribute",
                                 mime_header_attribute="mimeHeaderAttribute"
                             ),
                             operator="operator",
@@ -10098,6 +10687,7 @@ class CfnMailManagerRuleSet(
                                     result_field="resultField"
                                 ),
                                 attribute="attribute",
+                                client_certificate_attribute="clientCertificateAttribute",
                                 mime_header_attribute="mimeHeaderAttribute"
                             ),
                             operator="operator",
@@ -10230,6 +10820,7 @@ class CfnMailManagerRuleSet(
                             result_field="resultField"
                         ),
                         attribute="attribute",
+                        client_certificate_attribute="clientCertificateAttribute",
                         mime_header_attribute="mimeHeaderAttribute"
                     ),
                     operator="operator",
@@ -10298,6 +10889,7 @@ class CfnMailManagerRuleSet(
         name_mapping={
             "analysis": "analysis",
             "attribute": "attribute",
+            "client_certificate_attribute": "clientCertificateAttribute",
             "mime_header_attribute": "mimeHeaderAttribute",
         },
     )
@@ -10307,6 +10899,7 @@ class CfnMailManagerRuleSet(
             *,
             analysis: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMailManagerRuleSet.AnalysisProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             attribute: typing.Optional[builtins.str] = None,
+            client_certificate_attribute: typing.Optional[builtins.str] = None,
             mime_header_attribute: typing.Optional[builtins.str] = None,
         ) -> None:
             '''The string to evaluate in a string condition expression.
@@ -10317,6 +10910,7 @@ class CfnMailManagerRuleSet(
 
             :param analysis: The Add On ARN and its returned value to evaluate in a string condition expression.
             :param attribute: The email attribute to evaluate in a string condition expression.
+            :param client_certificate_attribute: 
             :param mime_header_attribute: The email MIME X-Header attribute to evaluate in a string condition expression.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanagerruleset-rulestringtoevaluate.html
@@ -10334,6 +10928,7 @@ class CfnMailManagerRuleSet(
                         result_field="resultField"
                     ),
                     attribute="attribute",
+                    client_certificate_attribute="clientCertificateAttribute",
                     mime_header_attribute="mimeHeaderAttribute"
                 )
             '''
@@ -10341,12 +10936,15 @@ class CfnMailManagerRuleSet(
                 type_hints = typing.get_type_hints(_typecheckingstub__2da4d9d015f3b7cc8e8bc228c621ebc8b1b100adb32a59eb61a9ceba92a64fd5)
                 check_type(argname="argument analysis", value=analysis, expected_type=type_hints["analysis"])
                 check_type(argname="argument attribute", value=attribute, expected_type=type_hints["attribute"])
+                check_type(argname="argument client_certificate_attribute", value=client_certificate_attribute, expected_type=type_hints["client_certificate_attribute"])
                 check_type(argname="argument mime_header_attribute", value=mime_header_attribute, expected_type=type_hints["mime_header_attribute"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if analysis is not None:
                 self._values["analysis"] = analysis
             if attribute is not None:
                 self._values["attribute"] = attribute
+            if client_certificate_attribute is not None:
+                self._values["client_certificate_attribute"] = client_certificate_attribute
             if mime_header_attribute is not None:
                 self._values["mime_header_attribute"] = mime_header_attribute
 
@@ -10368,6 +10966,14 @@ class CfnMailManagerRuleSet(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanagerruleset-rulestringtoevaluate.html#cfn-ses-mailmanagerruleset-rulestringtoevaluate-attribute
             '''
             result = self._values.get("attribute")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def client_certificate_attribute(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanagerruleset-rulestringtoevaluate.html#cfn-ses-mailmanagerruleset-rulestringtoevaluate-clientcertificateattribute
+            '''
+            result = self._values.get("client_certificate_attribute")
             return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
@@ -10956,6 +11562,17 @@ class CfnMailManagerRuleSetProps:
                             # the properties below are optional
                             action_failure_policy="actionFailurePolicy"
                         ),
+                        bounce=ses.CfnMailManagerRuleSet.BounceActionProperty(
+                            diagnostic_message="diagnosticMessage",
+                            role_arn="roleArn",
+                            sender="sender",
+                            smtp_reply_code="smtpReplyCode",
+                            status_code="statusCode",
+            
+                            # the properties below are optional
+                            action_failure_policy="actionFailurePolicy",
+                            message="message"
+                        ),
                         deliver_to_mailbox=ses.CfnMailManagerRuleSet.DeliverToMailboxActionProperty(
                             mailbox_arn="mailboxArn",
                             role_arn="roleArn",
@@ -10972,6 +11589,15 @@ class CfnMailManagerRuleSetProps:
                             action_failure_policy="actionFailurePolicy"
                         ),
                         drop=drop,
+                        invoke_lambda=ses.CfnMailManagerRuleSet.InvokeLambdaActionProperty(
+                            function_arn="functionArn",
+                            invocation_type="invocationType",
+                            role_arn="roleArn",
+            
+                            # the properties below are optional
+                            action_failure_policy="actionFailurePolicy",
+                            retry_time_minutes=123
+                        ),
                         publish_to_sns=ses.CfnMailManagerRuleSet.SnsActionProperty(
                             role_arn="roleArn",
                             topic_arn="topicArn",
@@ -11049,6 +11675,7 @@ class CfnMailManagerRuleSetProps:
                                     result_field="resultField"
                                 ),
                                 attribute="attribute",
+                                client_certificate_attribute="clientCertificateAttribute",
                                 mime_header_attribute="mimeHeaderAttribute"
                             ),
                             operator="operator",
@@ -11107,6 +11734,7 @@ class CfnMailManagerRuleSetProps:
                                     result_field="resultField"
                                 ),
                                 attribute="attribute",
+                                client_certificate_attribute="clientCertificateAttribute",
                                 mime_header_attribute="mimeHeaderAttribute"
                             ),
                             operator="operator",
@@ -22169,6 +22797,7 @@ def _typecheckingstub__1ceb1a8308b4e72eecdc0962cf663d2c0564dbffbabebaa887b776484
     network_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerIngressPoint.NetworkConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     status_to_update: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tls_policy: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22261,10 +22890,17 @@ def _typecheckingstub__cce45f739601c47c27bc527ba7632a6a2242cd64cc012548482a4bb3a
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__24584d962b5789a4ebba111e496d5a01e7f04620b2ad08dc1a014bc01e840b6c(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__3799ee40c4fb2a5153cb73f62102e77ad68fed1ac1eec8eef79d4bb8f44e8ea0(
     *,
     secret_arn: typing.Optional[builtins.str] = None,
     smtp_password: typing.Optional[builtins.str] = None,
+    tls_auth_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerIngressPoint.TlsAuthConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22291,6 +22927,22 @@ def _typecheckingstub__44de118258c4f2ec589299800463fecb183b1dbbd040e740d7547fd88
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__e31fb5a20e3f2e0f2bc0d19c2180fc15176f7fa1de8292a41c2c93290c09d6c3(
+    *,
+    trust_store: typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerIngressPoint.TrustStoreProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1e3b465353ba41a923f2f375703c24b2c179303fdf2722a3571d4724525a5559(
+    *,
+    ca_content: builtins.str,
+    crl_content: typing.Optional[builtins.str] = None,
+    kms_key_arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__4a58faebfc97ab1b10162e7546f05d5e8ed2912a90a84602bdbf7d61271bfdd1(
     *,
     rule_set_id: builtins.str,
@@ -22301,6 +22953,7 @@ def _typecheckingstub__4a58faebfc97ab1b10162e7546f05d5e8ed2912a90a84602bdbf7d612
     network_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerIngressPoint.NetworkConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     status_to_update: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tls_policy: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22500,6 +23153,19 @@ def _typecheckingstub__518af23c328c1f1a91be07d8044820bea7565371ff76042a867696440
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__a3d33598e29d9218ef5404a2b7e9e322959999debd653ce5bc9262d308558747(
+    *,
+    diagnostic_message: builtins.str,
+    role_arn: builtins.str,
+    sender: builtins.str,
+    smtp_reply_code: builtins.str,
+    status_code: builtins.str,
+    action_failure_policy: typing.Optional[builtins.str] = None,
+    message: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__f83f79033a3d3e41cc283500ac0cae687aff7a85f60f1ed286d539e65e6d58f3(
     *,
     mailbox_arn: builtins.str,
@@ -22515,6 +23181,17 @@ def _typecheckingstub__9bd73a70e10ea34690bce68c862abcfb0eb828f9546668bcdea3ffbc5
     index_id: builtins.str,
     role_arn: builtins.str,
     action_failure_policy: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cacf681e0e6982078f5633a333a1337db9fbf1d3063eac31f1cfedea626626dd(
+    *,
+    function_arn: builtins.str,
+    invocation_type: builtins.str,
+    role_arn: builtins.str,
+    action_failure_policy: typing.Optional[builtins.str] = None,
+    retry_time_minutes: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22539,9 +23216,11 @@ def _typecheckingstub__305f0be9d67c9da493953a4770d737df26a1af8dedfd249fd91350062
     *,
     add_header: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerRuleSet.AddHeaderActionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     archive: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerRuleSet.ArchiveActionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    bounce: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerRuleSet.BounceActionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     deliver_to_mailbox: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerRuleSet.DeliverToMailboxActionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     deliver_to_q_business: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerRuleSet.DeliverToQBusinessActionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     drop: typing.Any = None,
+    invoke_lambda: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerRuleSet.InvokeLambdaActionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     publish_to_sns: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerRuleSet.SnsActionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     relay: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerRuleSet.RelayActionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     replace_recipient: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerRuleSet.ReplaceRecipientActionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -22651,6 +23330,7 @@ def _typecheckingstub__2da4d9d015f3b7cc8e8bc228c621ebc8b1b100adb32a59eb61a9ceba9
     *,
     analysis: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerRuleSet.AnalysisProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     attribute: typing.Optional[builtins.str] = None,
+    client_certificate_attribute: typing.Optional[builtins.str] = None,
     mime_header_attribute: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""

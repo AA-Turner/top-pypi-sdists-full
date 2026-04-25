@@ -38,8 +38,8 @@ from silx.gui.widgets.FrameBrowser import HorizontalSliderWithBrowser
 from silx.gui.widgets.UrlList import UrlList
 from silx.gui.utils import blockSignals
 from silx.utils.deprecation import deprecated
+from silx.gui.plot.items._cache import LRUCache
 
-import typing
 import logging
 from silx.gui.widgets.WaitingOverlay import WaitingOverlay
 from collections.abc import Iterable
@@ -118,7 +118,7 @@ class _ToggleableUrlSelectionTable(qt.QWidget):
     def addUrls(self, urls: Iterable[DataUrl]):
         self._urlsTable.addUrls(urls=urls)
 
-    def setUrl(self, url: typing.Optional[DataUrl]):
+    def setUrl(self, url: DataUrl | None):
         self._urlsTable.setUrl(url=url)
 
     def removeUrl(self, url: str):
@@ -142,7 +142,7 @@ class UrlLoader(qt.QThread):
     def run(self):
         try:
             self.data = get_data(self.url)
-        except IOError:
+        except OSError:
             self.data = None
 
 
@@ -163,6 +163,7 @@ class ImageStack(qt.QMainWindow):
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
         self.__n_prefetch = ImageStack.N_PRELOAD
+        self._urlData = LRUCache(maxsize=None)
         self._loadingThreads = []
         self.setWindowFlags(qt.Qt.Widget)
         self._current_url = None
@@ -205,7 +206,7 @@ class ImageStack(qt.QMainWindow):
         self._plot.close()
         super().close()
 
-    def setUrlLoaderClass(self, urlLoader: typing.Type[UrlLoader]) -> None:
+    def setUrlLoaderClass(self, urlLoader: type[UrlLoader]) -> None:
         """
 
         :param urlLoader: define the class to call for loading urls.
@@ -243,7 +244,7 @@ class ImageStack(qt.QMainWindow):
         self._freeLoadingThreads()
         self._urls = None
         self._urlIndexes = {}
-        self._urlData = {}
+        self._urlData.clear()
         self._current_url = None
         self._plot.clear()
         self._urlsTable.clear()
@@ -299,6 +300,14 @@ class ImageStack(qt.QMainWindow):
         :param int n: number of url to prefetch on left and right sides.
                       In total n*2 DataUrl will be prefetch
         """
+        if n < 0:
+            raise ValueError("'n' should be positive")
+        if self._urlData.maxsize < self.__n_prefetch:
+            _logger.warning(
+                "Number of prefetchs lower that data cache size: This is not optimal"
+            )
+            self._urlData.maxsize = None
+
         self.__n_prefetch = n
         current_url = self.getCurrentUrl()
         if current_url is not None:
@@ -311,6 +320,22 @@ class ImageStack(qt.QMainWindow):
                  will load 2* NPrefetch DataUrls
         """
         return self.__n_prefetch
+
+    def getDataCacheSize(self) -> int | None:
+        """
+        Return the maximum number of images kept in cache.
+        """
+        return self._urlData.maxsize
+
+    def setDataCacheSize(self, n: int | None) -> None:
+        """
+        Define the maximum number of images to cache.
+
+        :param n: Maximum number of images to keep in cache. If None: All images are cached.
+        """
+        if n is not None and n < self.__n_prefetch:
+            raise ValueError("'Data cache size should be higher than 'n' prefetch")
+        self._urlData.maxsize = n
 
     def setUrlsEditable(self, editable: bool):
         self._urlsTable._urlsTable.setEditable(editable)
@@ -398,7 +423,7 @@ class ImageStack(qt.QMainWindow):
         """
         return tuple(self._urlIndexes.keys())
 
-    def _getNextUrl(self, url: DataUrl) -> typing.Union[None, DataUrl]:
+    def _getNextUrl(self, url: DataUrl) -> DataUrl | None:
         """
         return the next url in the stack
 
@@ -419,7 +444,7 @@ class ImageStack(qt.QMainWindow):
             else:
                 return self._urls[res[0]]
 
-    def _getPreviousUrl(self, url: DataUrl) -> typing.Union[None, DataUrl]:
+    def _getPreviousUrl(self, url: DataUrl) -> DataUrl | None:
         """
         return the previous url in the stack
 
@@ -492,7 +517,7 @@ class ImageStack(qt.QMainWindow):
         else:
             return self.setCurrentUrl(self._urls[index])
 
-    def setCurrentUrl(self, url: typing.Optional[typing.Union[DataUrl, str]]) -> None:
+    def setCurrentUrl(self, url: DataUrl | str | None) -> None:
         """
         Define the url to be displayed
 
@@ -529,7 +554,7 @@ class ImageStack(qt.QMainWindow):
                     self._preFetch(self._getNNextUrls(self.__n_prefetch, url))
                     self._preFetch(self._getNPreviousUrls(self.__n_prefetch, url))
 
-    def getCurrentUrl(self) -> typing.Union[None, DataUrl]:
+    def getCurrentUrl(self) -> DataUrl | None:
         """
 
         :return: url currently displayed
@@ -537,7 +562,7 @@ class ImageStack(qt.QMainWindow):
         """
         return self._current_url
 
-    def getCurrentUrlIndex(self) -> typing.Union[None, int]:
+    def getCurrentUrlIndex(self) -> int | None:
         """
 
         :return: index of the url currently displayed

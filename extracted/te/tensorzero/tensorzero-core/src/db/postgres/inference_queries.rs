@@ -43,8 +43,9 @@ use crate::stored_inference::{
 };
 use crate::tool::ToolCallConfigDatabaseInsert;
 use crate::tool::config::AllowedTools;
-use crate::tool::types::{ProviderTool, Tool};
 use crate::tool::wire::ToolChoice;
+use tensorzero_inference_types::ProviderTool;
+use tensorzero_inference_types::tool::Tool;
 
 use super::PostgresConnectionInfo;
 
@@ -59,7 +60,7 @@ impl InferenceQueries for PostgresConnectionInfo {
     ) -> Result<Vec<StoredInferenceDatabase>, Error> {
         params.validate_pagination()?;
 
-        let pool = self.get_pool_result()?;
+        let pool = self.get_pool_result().map_err(|e| e.log())?;
 
         // Determine which table(s) to query based on function_name
         let function_config_type = match params.function_name {
@@ -107,7 +108,7 @@ impl InferenceQueries for PostgresConnectionInfo {
         &self,
         params: &ListInferenceMetadataParams,
     ) -> Result<Vec<InferenceMetadata>, Error> {
-        let pool = self.get_pool_result()?;
+        let pool = self.get_pool_result().map_err(|e| e.log())?;
 
         // Determine ORDER BY direction based on pagination
         let order_direction = match &params.pagination {
@@ -133,7 +134,7 @@ impl InferenceQueries for PostgresConnectionInfo {
         config: &Config,
         params: &CountInferencesParams<'_>,
     ) -> Result<u64, Error> {
-        let pool = self.get_pool_result()?;
+        let pool = self.get_pool_result().map_err(|e| e.log())?;
 
         // Determine which table(s) to query based on function_name
         // If the function doesn't exist in config, query both tables since we don't know
@@ -177,7 +178,7 @@ impl InferenceQueries for PostgresConnectionInfo {
         target_id: &Uuid,
         level: MetricConfigLevel,
     ) -> Result<Option<FunctionInfo>, Error> {
-        let pool = self.get_pool_result()?;
+        let pool = self.get_pool_result().map_err(|e| e.log())?;
 
         // Use a single UNION query to search both tables
         let mut query_builder: QueryBuilder<sqlx::Postgres> = match level {
@@ -251,7 +252,7 @@ impl InferenceQueries for PostgresConnectionInfo {
         function_name: &str,
         inference_id: Uuid,
     ) -> Result<Option<ToolCallConfigDatabaseInsert>, Error> {
-        let pool = self.get_pool_result()?;
+        let pool = self.get_pool_result().map_err(|e| e.log())?;
 
         let result = sqlx::query!(
             r"
@@ -301,7 +302,7 @@ impl InferenceQueries for PostgresConnectionInfo {
         function_name: &str,
         inference_id: Uuid,
     ) -> Result<Option<Value>, Error> {
-        let pool = self.get_pool_result()?;
+        let pool = self.get_pool_result().map_err(|e| e.log())?;
 
         let result = sqlx::query!(
             r"
@@ -326,7 +327,7 @@ impl InferenceQueries for PostgresConnectionInfo {
         function_info: &FunctionInfo,
         inference_id: Uuid,
     ) -> Result<Option<String>, Error> {
-        let pool = self.get_pool_result()?;
+        let pool = self.get_pool_result().map_err(|e| e.log())?;
 
         match function_info.function_type {
             FunctionType::Chat => {
@@ -397,7 +398,7 @@ impl InferenceQueries for PostgresConnectionInfo {
             return Ok(());
         }
 
-        let pool = self.get_pool_result()?;
+        let pool = self.get_pool_result().map_err(|e| e.log())?;
         let mut metadata_qb = build_insert_chat_inferences_query(rows)?;
         metadata_qb.build().execute(pool).await?;
         let mut io_qb = build_insert_chat_inference_data_query(rows)?;
@@ -419,7 +420,7 @@ impl InferenceQueries for PostgresConnectionInfo {
             return Ok(());
         }
 
-        let pool = self.get_pool_result()?;
+        let pool = self.get_pool_result().map_err(|e| e.log())?;
         let mut metadata_qb = build_insert_json_inferences_query(rows)?;
         metadata_qb.build().execute(pool).await?;
         let mut io_qb = build_insert_json_inference_data_query(rows)?;
@@ -434,7 +435,7 @@ impl InferenceQueries for PostgresConnectionInfo {
         &self,
         params: CountInferencesForFunctionParams<'_>,
     ) -> Result<Vec<CountByVariant>, Error> {
-        let pool = self.get_pool_result()?;
+        let pool = self.get_pool_result().map_err(|e| e.log())?;
         count_by_variant_impl(
             pool,
             params.function_type,
@@ -449,7 +450,7 @@ impl InferenceQueries for PostgresConnectionInfo {
         &self,
         params: CountInferencesWithFeedbackParams<'_>,
     ) -> Result<u64, Error> {
-        let pool = self.get_pool_result()?;
+        let pool = self.get_pool_result().map_err(|e| e.log())?;
         count_inferences_with_metric_feedback(
             pool,
             params.function_name,
@@ -465,7 +466,7 @@ impl InferenceQueries for PostgresConnectionInfo {
         &self,
         params: GetFunctionThroughputByVariantParams<'_>,
     ) -> Result<Vec<VariantThroughput>, Error> {
-        let pool = self.get_pool_result()?;
+        let pool = self.get_pool_result().map_err(|e| e.log())?;
         throughput_by_variant_impl(
             pool,
             params.function_name,
@@ -478,7 +479,7 @@ impl InferenceQueries for PostgresConnectionInfo {
     async fn list_functions_with_inference_count(
         &self,
     ) -> Result<Vec<FunctionInferenceCount>, Error> {
-        let pool = self.get_pool_result()?;
+        let pool = self.get_pool_result().map_err(|e| e.log())?;
 
         // Query the pre-aggregated rollup table instead of scanning chat_inferences/json_inferences.
         // MAX(minute) gives minute-level precision (vs. exact timestamp), acceptable for dashboard listing.

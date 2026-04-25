@@ -560,7 +560,6 @@ filterwarnings = [
     "ignore::DeprecationWarning",
     "ignore::ImportWarning",
     "ignore:You have an incompatible version of 'pyarrow' installed:UserWarning",
-    "ignore:Hey! It looks like you discovered an experimental Chalk feature",
     "ignore:The GenericFunction 'flatten' is already registered and is going to be overridden.",
     "ignore:You are using a Python version:FutureWarning",
     "ignore:Resolving the schema of a LazyFrame",

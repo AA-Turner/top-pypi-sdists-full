@@ -9,8 +9,9 @@
 """Extractors for https://www.reddit.com/"""
 
 from .common import Extractor, Message
-from .. import text, util, exception
-from ..cache import cache
+from .. import text, util
+
+BASE_PATTERN = r"(?:https?://)?(?:www\.)?(?:\w+\.)?reddit\.com"
 
 
 class RedditExtractor(Extractor):
@@ -274,7 +275,7 @@ class RedditExtractor(Extractor):
 class RedditSubredditExtractor(RedditExtractor):
     """Extractor for URLs from subreddits on reddit.com"""
     subcategory = "subreddit"
-    pattern = (r"(?:https?://)?(?:\w+\.)?reddit\.com"
+    pattern = (BASE_PATTERN +
                r"(/r/[^/?#]+(?:/([a-z]+))?)/?(?:\?([^#]*))?(?:$|#)")
     example = "https://www.reddit.com/r/SUBREDDIT/"
 
@@ -294,8 +295,7 @@ class RedditSubredditExtractor(RedditExtractor):
 class RedditHomeExtractor(RedditSubredditExtractor):
     """Extractor for submissions from your home feed on reddit.com"""
     subcategory = "home"
-    pattern = (r"(?:https?://)?(?:\w+\.)?reddit\.com"
-               r"((?:/([a-z]+))?)/?(?:\?([^#]*))?(?:$|#)")
+    pattern = BASE_PATTERN + r"((?:/([a-z]+))?)/?(?:\?([^#]*))?(?:$|#)"
     example = "https://www.reddit.com/"
 
 
@@ -303,8 +303,8 @@ class RedditUserExtractor(RedditExtractor):
     """Extractor for URLs from posts by a reddit user"""
     subcategory = "user"
     directory_fmt = ("{category}", "Users", "{user[name]}")
-    pattern = (r"(?:https?://)?(?:\w+\.)?reddit\.com/u(?:ser)?/"
-               r"([^/?#]+)(/[a-z]+)?/?(?:\?([^#]*))?$")
+    pattern = (BASE_PATTERN +
+               r"/u(?:ser)?/([^/?#]+)(/[a-z]+)?/?(?:\?([^#]*))?$")
     example = "https://www.reddit.com/user/USER/"
 
     def __init__(self, match):
@@ -325,7 +325,12 @@ class RedditUserExtractor(RedditExtractor):
         return submissions
 
     def _only(self, submissions, user):
-        uid = "t2_" + user["id"]
+        try:
+            uid = "t2_" + user["id"]
+        except Exception:
+            if user.get("is_suspended"):
+                raise self.exc.NotFoundError("Suspended User", False)
+            raise self.exc.NotFoundError("user")
         for submission, comments in submissions:
             if submission and submission.get("author_fullname") != uid:
                 submission["_media"] = False
@@ -342,7 +347,7 @@ class RedditSubmissionExtractor(RedditExtractor):
     """Extractor for URLs from a submission on reddit.com"""
     subcategory = "submission"
     pattern = (r"(?:https?://)?(?:"
-               r"(?:\w+\.)?reddit\.com/(?:(?:(?:r|u|user)/[^/?#]+/)?"
+               r"(?:www\.)?(?:\w+\.)?reddit\.com/(?:(?:(?:r|u|user)/[^/?#]+/)?"
                r"comments|gallery)|redd\.it)/([a-z0-9]+)")
     example = "https://www.reddit.com/r/SUBREDDIT/comments/id/"
 
@@ -381,9 +386,7 @@ class RedditRedirectExtractor(Extractor):
     """Extractor for personalized share URLs produced by the mobile app"""
     category = "reddit"
     subcategory = "redirect"
-    pattern = (r"(?:https?://)?(?:"
-               r"(?:\w+\.)?reddit\.com/(?:(r|u|user)/([^/?#]+)))"
-               r"/s/([a-zA-Z0-9]{10})")
+    pattern = BASE_PATTERN + r"/(?:(r|u|user)/([^/?#]+))/s/([a-zA-Z0-9]{10})"
     example = "https://www.reddit.com/r/SUBREDDIT/s/abc456GHIJ"
 
     def items(self):
@@ -415,7 +418,8 @@ class RedditAPI():
         self.morecomments = config("morecomments", False)
         self._warn_429 = False
 
-        if config("api") != "oauth":
+        client_id = config("client-id")
+        if config("api") == "rest" or not client_id:
             self.root = "https://www.reddit.com"
             self.headers = None
             self.authenticate = util.noop
@@ -423,29 +427,26 @@ class RedditAPI():
         else:
             self.root = self.ROOT
 
-            client_id = config("client-id")
-            if client_id is None:
-                self.client_id = self.CLIENT_ID
+            if client_id is None or client_id == self.CLIENT_ID:
+                self.client_id = client_id = self.CLIENT_ID
                 self.headers = {"User-Agent": self.USER_AGENT}
-            else:
-                self.client_id = client_id
-                self.headers = {"User-Agent": config("user-agent")}
-
-            if self.client_id == self.CLIENT_ID:
-                client_id = self.client_id
                 self._warn_429 = True
                 kind = "default"
             else:
+                self.client_id = client_id
+                self.headers = {"User-Agent": (config("user-agent-oauth") or
+                                               config("user-agent"))}
                 client_id = client_id[:5] + "*" * (len(client_id)-5)
                 kind = "custom"
 
             self.log.debug(
-                "Using %s API credentials (client-id %s)", kind, client_id)
+                "Using OAuth API with %s credentials (client-id %s)",
+                kind, client_id)
 
             token = config("refresh-token")
             if token is None or token == "cache":
-                key = "#" + self.client_id
-                self.refresh_token = _refresh_token_cache(key)
+                self.refresh_token = extractor.cache(
+                    _refresh_token_cache, "#"+self.client_id, _mem=False)
             else:
                 self.refresh_token = token
 
@@ -498,10 +499,9 @@ class RedditAPI():
 
     def authenticate(self):
         """Authenticate the application by requesting an access token"""
-        self.headers["Authorization"] = \
-            self._authenticate_impl(self.refresh_token)
+        self.headers["Authorization"] = self.extractor.cache(
+            self._authenticate_impl, self.refresh_token, _exp=3600, _mem=False)
 
-    @cache(maxage=3600, keyarg=1)
     def _authenticate_impl(self, refresh_token=None):
         """Actual authenticate implementation"""
         url = "https://www.reddit.com/api/v1/access_token"
@@ -525,7 +525,7 @@ class RedditAPI():
 
         if response.status_code != 200:
             self.log.debug("Server response: %s", data)
-            raise exception.AuthenticationError(
+            raise self.extractor.exc.AuthenticationError(
                 f"\"{data.get('error')}: {data.get('message')}\"")
         return "Bearer " + data["access_token"]
 
@@ -555,16 +555,17 @@ class RedditAPI():
             try:
                 data = response.json()
             except ValueError:
-                raise exception.AbortExtraction(
+                raise self.extractor.exc.AbortExtraction(
                     text.remove_html(response.text))
 
             if "error" in data:
+                exc = self.extractor.exc
                 if data["error"] == 403:
-                    raise exception.AuthorizationError()
+                    raise exc.AuthorizationError()
                 if data["error"] == 404:
-                    raise exception.NotFoundError()
+                    raise exc.NotFoundError(self.extractor.subcategory)
                 self.log.debug(data)
-                raise exception.AbortExtraction(data.get("message"))
+                raise exc.AbortExtraction(data.get("message"))
             return data
 
     def _pagination(self, endpoint, params):
@@ -586,13 +587,13 @@ class RedditAPI():
                 post = child["data"]
 
                 if (date_min <= post["created_utc"] <= date_max and
-                        id_min <= self._decode(post["id"]) <= id_max):
+                        id_min <= util.b36decode(post["id"]) <= id_max):
 
                     if kind == "t3":
                         if post["num_comments"] and self.comments:
                             try:
                                 yield self.submission(post["id"])
-                            except exception.AuthorizationError:
+                            except self.extractor.exc.AuthorizationError:
                                 pass
                         else:
                             yield post, ()
@@ -622,13 +623,10 @@ class RedditAPI():
 
     def _parse_id(self, key, default):
         sid = self.extractor.config(key)
-        return self._decode(sid.rpartition("_")[2].lower()) if sid else default
-
-    def _decode(self, sid):
-        return util.bdecode(sid, "0123456789abcdefghijklmnopqrstuvwxyz")
+        return util.b36decode(
+            sid.rpartition("_")[2].lower()) if sid else default
 
 
-@cache(maxage=36500*86400, keyarg=0)
 def _refresh_token_cache(token):
     if token and token[0] == "#":
         return None

@@ -42,7 +42,7 @@ def check_version(package, required_version):
     return ver_v >= req_v
 
 
-class BaseFFT(object):
+class BaseFFT:
     """
     Base class for all FFT backends.
     """
@@ -85,7 +85,6 @@ class BaseFFT(object):
             np.dtype("complex64"): np.complex64,
             np.dtype("complex128"): np.complex128,
         }
-        dp = {np.dtype("float32"): np.float64, np.dtype("complex64"): np.complex128}
         self.dtype_in = np.dtype(self.dtype)
         if self.dtype_in not in dtypes_mapping:
             raise ValueError("Invalid input data type: got %s" % self.dtype_in)
@@ -94,7 +93,6 @@ class BaseFFT(object):
     def __calc_shape(self):
         # TODO allow for C2C even for real input data (?)
         if self.dtype_in in [np.float32, np.float64]:
-            last_dim = self.shape[-1] // 2 + 1
             # FFTW convention
             self.shape_out = self.shape[:-1] + (self.shape[-1] // 2 + 1,)
         else:

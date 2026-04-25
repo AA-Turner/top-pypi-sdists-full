@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: SpeechRecognition
-Version: 3.16.0
+Version: 3.16.1
 Summary: Library for performing speech recognition, with support for several engines and APIs, online and offline.
 Author-email: "Anthony Zhang (Uberi)" <azhang9@gmail.com>
 Maintainer-email: nikkie <takuyafjp+develop@gmail.com>
@@ -20,6 +20,7 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Multimedia :: Sound/Audio :: Speech
 Requires-Python: >=3.9

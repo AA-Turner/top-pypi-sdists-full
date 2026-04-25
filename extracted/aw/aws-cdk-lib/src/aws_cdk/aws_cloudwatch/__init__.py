@@ -1852,6 +1852,14 @@ class CfnAlarm(
                 value="value"
             )],
             evaluate_low_sample_count_percentile="evaluateLowSampleCountPercentile",
+            evaluation_criteria=cloudwatch.CfnAlarm.EvaluationCriteriaProperty(
+                prom_ql_criteria=cloudwatch.CfnAlarm.AlarmPromQLCriteriaProperty(
+                    pending_period=123,
+                    query="query",
+                    recovery_period=123
+                )
+            ),
+            evaluation_interval=123,
             evaluation_periods=123,
             extended_statistic="extendedStatistic",
             insufficient_data_actions=["insufficientDataActions"],
@@ -1909,6 +1917,8 @@ class CfnAlarm(
         datapoints_to_alarm: typing.Optional[jsii.Number] = None,
         dimensions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAlarm.DimensionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         evaluate_low_sample_count_percentile: typing.Optional[builtins.str] = None,
+        evaluation_criteria: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAlarm.EvaluationCriteriaProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        evaluation_interval: typing.Optional[jsii.Number] = None,
         evaluation_periods: typing.Optional[jsii.Number] = None,
         extended_statistic: typing.Optional[builtins.str] = None,
         insufficient_data_actions: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_ITopicRef_29aa9a88"]]] = None,
@@ -1936,6 +1946,8 @@ class CfnAlarm(
         :param datapoints_to_alarm: The number of datapoints that must be breaching to trigger the alarm. This is used only if you are setting an "M out of N" alarm. In that case, this value is the M, and the value that you set for ``EvaluationPeriods`` is the N value. For more information, see `Evaluating an Alarm <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/AlarmThatSendsEmail.html#alarm-evaluation>`_ in the *Amazon CloudWatch User Guide* . If you omit this parameter, CloudWatch uses the same value here that you set for ``EvaluationPeriods`` , and the alarm goes to alarm state if that many consecutive periods are breaching.
         :param dimensions: The dimensions for the metric associated with the alarm. For an alarm based on a math expression, you can't specify ``Dimensions`` . Instead, you use ``Metrics`` .
         :param evaluate_low_sample_count_percentile: Used only for alarms based on percentiles. If ``ignore`` , the alarm state does not change during periods with too few data points to be statistically significant. If ``evaluate`` or this parameter is not used, the alarm is always evaluated and possibly changes state no matter how many data points are available.
+        :param evaluation_criteria: 
+        :param evaluation_interval: 
         :param evaluation_periods: The number of periods over which data is compared to the specified threshold. If you are setting an alarm that requires that a number of consecutive data points be breaching to trigger the alarm, this value specifies that number. If you are setting an "M out of N" alarm, this value is the N, and ``DatapointsToAlarm`` is the M. For more information, see `Evaluating an Alarm <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/AlarmThatSendsEmail.html#alarm-evaluation>`_ in the *Amazon CloudWatch User Guide* .
         :param extended_statistic: The percentile statistic for the metric associated with the alarm. Specify a value between p0.0 and p100. For an alarm based on a metric, you must specify either ``Statistic`` or ``ExtendedStatistic`` but not both. For an alarm based on a math expression, you can't specify ``ExtendedStatistic`` . Instead, you use ``Metrics`` .
         :param insufficient_data_actions: The actions to execute when this alarm transitions to the ``INSUFFICIENT_DATA`` state from any other state. Each action is specified as an Amazon Resource Name (ARN).
@@ -1964,6 +1976,8 @@ class CfnAlarm(
             datapoints_to_alarm=datapoints_to_alarm,
             dimensions=dimensions,
             evaluate_low_sample_count_percentile=evaluate_low_sample_count_percentile,
+            evaluation_criteria=evaluation_criteria,
+            evaluation_interval=evaluation_interval,
             evaluation_periods=evaluation_periods,
             extended_statistic=extended_statistic,
             insufficient_data_actions=insufficient_data_actions,
@@ -2221,6 +2235,35 @@ class CfnAlarm(
         jsii.set(self, "evaluateLowSampleCountPercentile", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="evaluationCriteria")
+    def evaluation_criteria(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAlarm.EvaluationCriteriaProperty"]]:
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAlarm.EvaluationCriteriaProperty"]], jsii.get(self, "evaluationCriteria"))
+
+    @evaluation_criteria.setter
+    def evaluation_criteria(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAlarm.EvaluationCriteriaProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__71045c60addcf83ef8ad5b89a6f10e2356c40958a68edb03238ba7f3c6c32f7c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "evaluationCriteria", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="evaluationInterval")
+    def evaluation_interval(self) -> typing.Optional[jsii.Number]:
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "evaluationInterval"))
+
+    @evaluation_interval.setter
+    def evaluation_interval(self, value: typing.Optional[jsii.Number]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9b73f7296958c694aafdc052a403054092cf3be773c45f71d031860bb42ac387)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "evaluationInterval", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="evaluationPeriods")
     def evaluation_periods(self) -> typing.Optional[jsii.Number]:
         '''The number of periods over which data is compared to the specified threshold.'''
@@ -2417,6 +2460,94 @@ class CfnAlarm(
         jsii.set(self, "unit", value) # pyright: ignore[reportArgumentType]
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cloudwatch.CfnAlarm.AlarmPromQLCriteriaProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "pending_period": "pendingPeriod",
+            "query": "query",
+            "recovery_period": "recoveryPeriod",
+        },
+    )
+    class AlarmPromQLCriteriaProperty:
+        def __init__(
+            self,
+            *,
+            pending_period: typing.Optional[jsii.Number] = None,
+            query: typing.Optional[builtins.str] = None,
+            recovery_period: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''
+            :param pending_period: The pending period for the alarm.
+            :param query: The PromQL query string.
+            :param recovery_period: The recovery period for the alarm.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-alarmpromqlcriteria.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cloudwatch as cloudwatch
+                
+                alarm_prom_qLCriteria_property = cloudwatch.CfnAlarm.AlarmPromQLCriteriaProperty(
+                    pending_period=123,
+                    query="query",
+                    recovery_period=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__eca5b42a79ed0b85738a1d3bd7ab396cd5c081454d961525656b642417fc6716)
+                check_type(argname="argument pending_period", value=pending_period, expected_type=type_hints["pending_period"])
+                check_type(argname="argument query", value=query, expected_type=type_hints["query"])
+                check_type(argname="argument recovery_period", value=recovery_period, expected_type=type_hints["recovery_period"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if pending_period is not None:
+                self._values["pending_period"] = pending_period
+            if query is not None:
+                self._values["query"] = query
+            if recovery_period is not None:
+                self._values["recovery_period"] = recovery_period
+
+        @builtins.property
+        def pending_period(self) -> typing.Optional[jsii.Number]:
+            '''The pending period for the alarm.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-alarmpromqlcriteria.html#cfn-cloudwatch-alarm-alarmpromqlcriteria-pendingperiod
+            '''
+            result = self._values.get("pending_period")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def query(self) -> typing.Optional[builtins.str]:
+            '''The PromQL query string.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-alarmpromqlcriteria.html#cfn-cloudwatch-alarm-alarmpromqlcriteria-query
+            '''
+            result = self._values.get("query")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def recovery_period(self) -> typing.Optional[jsii.Number]:
+            '''The recovery period for the alarm.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-alarmpromqlcriteria.html#cfn-cloudwatch-alarm-alarmpromqlcriteria-recoveryperiod
+            '''
+            result = self._values.get("recovery_period")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AlarmPromQLCriteriaProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_cloudwatch.CfnAlarm.DimensionProperty",
         jsii_struct_bases=[],
         name_mapping={"name": "name", "value": "value"},
@@ -2483,6 +2614,65 @@ class CfnAlarm(
 
         def __repr__(self) -> str:
             return "DimensionProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cloudwatch.CfnAlarm.EvaluationCriteriaProperty",
+        jsii_struct_bases=[],
+        name_mapping={"prom_ql_criteria": "promQlCriteria"},
+    )
+    class EvaluationCriteriaProperty:
+        def __init__(
+            self,
+            *,
+            prom_ql_criteria: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAlarm.AlarmPromQLCriteriaProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param prom_ql_criteria: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-evaluationcriteria.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cloudwatch as cloudwatch
+                
+                evaluation_criteria_property = cloudwatch.CfnAlarm.EvaluationCriteriaProperty(
+                    prom_ql_criteria=cloudwatch.CfnAlarm.AlarmPromQLCriteriaProperty(
+                        pending_period=123,
+                        query="query",
+                        recovery_period=123
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__38a7772ce3b5785b40cbaff90247c13196fc1c188fa9df5615c0c74a96f8c5f4)
+                check_type(argname="argument prom_ql_criteria", value=prom_ql_criteria, expected_type=type_hints["prom_ql_criteria"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if prom_ql_criteria is not None:
+                self._values["prom_ql_criteria"] = prom_ql_criteria
+
+        @builtins.property
+        def prom_ql_criteria(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAlarm.AlarmPromQLCriteriaProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-evaluationcriteria.html#cfn-cloudwatch-alarm-evaluationcriteria-promqlcriteria
+            '''
+            result = self._values.get("prom_ql_criteria")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAlarm.AlarmPromQLCriteriaProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "EvaluationCriteriaProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -3602,6 +3792,8 @@ class CfnAlarmMuteRuleProps:
         "datapoints_to_alarm": "datapointsToAlarm",
         "dimensions": "dimensions",
         "evaluate_low_sample_count_percentile": "evaluateLowSampleCountPercentile",
+        "evaluation_criteria": "evaluationCriteria",
+        "evaluation_interval": "evaluationInterval",
         "evaluation_periods": "evaluationPeriods",
         "extended_statistic": "extendedStatistic",
         "insufficient_data_actions": "insufficientDataActions",
@@ -3630,6 +3822,8 @@ class CfnAlarmProps:
         datapoints_to_alarm: typing.Optional[jsii.Number] = None,
         dimensions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAlarm.DimensionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         evaluate_low_sample_count_percentile: typing.Optional[builtins.str] = None,
+        evaluation_criteria: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAlarm.EvaluationCriteriaProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        evaluation_interval: typing.Optional[jsii.Number] = None,
         evaluation_periods: typing.Optional[jsii.Number] = None,
         extended_statistic: typing.Optional[builtins.str] = None,
         insufficient_data_actions: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_ITopicRef_29aa9a88"]]] = None,
@@ -3655,6 +3849,8 @@ class CfnAlarmProps:
         :param datapoints_to_alarm: The number of datapoints that must be breaching to trigger the alarm. This is used only if you are setting an "M out of N" alarm. In that case, this value is the M, and the value that you set for ``EvaluationPeriods`` is the N value. For more information, see `Evaluating an Alarm <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/AlarmThatSendsEmail.html#alarm-evaluation>`_ in the *Amazon CloudWatch User Guide* . If you omit this parameter, CloudWatch uses the same value here that you set for ``EvaluationPeriods`` , and the alarm goes to alarm state if that many consecutive periods are breaching.
         :param dimensions: The dimensions for the metric associated with the alarm. For an alarm based on a math expression, you can't specify ``Dimensions`` . Instead, you use ``Metrics`` .
         :param evaluate_low_sample_count_percentile: Used only for alarms based on percentiles. If ``ignore`` , the alarm state does not change during periods with too few data points to be statistically significant. If ``evaluate`` or this parameter is not used, the alarm is always evaluated and possibly changes state no matter how many data points are available.
+        :param evaluation_criteria: 
+        :param evaluation_interval: 
         :param evaluation_periods: The number of periods over which data is compared to the specified threshold. If you are setting an alarm that requires that a number of consecutive data points be breaching to trigger the alarm, this value specifies that number. If you are setting an "M out of N" alarm, this value is the N, and ``DatapointsToAlarm`` is the M. For more information, see `Evaluating an Alarm <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/AlarmThatSendsEmail.html#alarm-evaluation>`_ in the *Amazon CloudWatch User Guide* .
         :param extended_statistic: The percentile statistic for the metric associated with the alarm. Specify a value between p0.0 and p100. For an alarm based on a metric, you must specify either ``Statistic`` or ``ExtendedStatistic`` but not both. For an alarm based on a math expression, you can't specify ``ExtendedStatistic`` . Instead, you use ``Metrics`` .
         :param insufficient_data_actions: The actions to execute when this alarm transitions to the ``INSUFFICIENT_DATA`` state from any other state. Each action is specified as an Amazon Resource Name (ARN).
@@ -3692,6 +3888,14 @@ class CfnAlarmProps:
                     value="value"
                 )],
                 evaluate_low_sample_count_percentile="evaluateLowSampleCountPercentile",
+                evaluation_criteria=cloudwatch.CfnAlarm.EvaluationCriteriaProperty(
+                    prom_ql_criteria=cloudwatch.CfnAlarm.AlarmPromQLCriteriaProperty(
+                        pending_period=123,
+                        query="query",
+                        recovery_period=123
+                    )
+                ),
+                evaluation_interval=123,
                 evaluation_periods=123,
                 extended_statistic="extendedStatistic",
                 insufficient_data_actions=["insufficientDataActions"],
@@ -3745,6 +3949,8 @@ class CfnAlarmProps:
             check_type(argname="argument datapoints_to_alarm", value=datapoints_to_alarm, expected_type=type_hints["datapoints_to_alarm"])
             check_type(argname="argument dimensions", value=dimensions, expected_type=type_hints["dimensions"])
             check_type(argname="argument evaluate_low_sample_count_percentile", value=evaluate_low_sample_count_percentile, expected_type=type_hints["evaluate_low_sample_count_percentile"])
+            check_type(argname="argument evaluation_criteria", value=evaluation_criteria, expected_type=type_hints["evaluation_criteria"])
+            check_type(argname="argument evaluation_interval", value=evaluation_interval, expected_type=type_hints["evaluation_interval"])
             check_type(argname="argument evaluation_periods", value=evaluation_periods, expected_type=type_hints["evaluation_periods"])
             check_type(argname="argument extended_statistic", value=extended_statistic, expected_type=type_hints["extended_statistic"])
             check_type(argname="argument insufficient_data_actions", value=insufficient_data_actions, expected_type=type_hints["insufficient_data_actions"])
@@ -3776,6 +3982,10 @@ class CfnAlarmProps:
             self._values["dimensions"] = dimensions
         if evaluate_low_sample_count_percentile is not None:
             self._values["evaluate_low_sample_count_percentile"] = evaluate_low_sample_count_percentile
+        if evaluation_criteria is not None:
+            self._values["evaluation_criteria"] = evaluation_criteria
+        if evaluation_interval is not None:
+            self._values["evaluation_interval"] = evaluation_interval
         if evaluation_periods is not None:
             self._values["evaluation_periods"] = evaluation_periods
         if extended_statistic is not None:
@@ -3903,6 +4113,24 @@ class CfnAlarmProps:
         '''
         result = self._values.get("evaluate_low_sample_count_percentile")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def evaluation_criteria(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAlarm.EvaluationCriteriaProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-alarm.html#cfn-cloudwatch-alarm-evaluationcriteria
+        '''
+        result = self._values.get("evaluation_criteria")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAlarm.EvaluationCriteriaProperty"]], result)
+
+    @builtins.property
+    def evaluation_interval(self) -> typing.Optional[jsii.Number]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-alarm.html#cfn-cloudwatch-alarm-evaluationinterval
+        '''
+        result = self._values.get("evaluation_interval")
+        return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def evaluation_periods(self) -> typing.Optional[jsii.Number]:
@@ -18006,6 +18234,8 @@ def _typecheckingstub__5adc477b9cef758736625389f1a51dec08eb7b348be35f42b0e37d6d4
     datapoints_to_alarm: typing.Optional[jsii.Number] = None,
     dimensions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAlarm.DimensionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     evaluate_low_sample_count_percentile: typing.Optional[builtins.str] = None,
+    evaluation_criteria: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAlarm.EvaluationCriteriaProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    evaluation_interval: typing.Optional[jsii.Number] = None,
     evaluation_periods: typing.Optional[jsii.Number] = None,
     extended_statistic: typing.Optional[builtins.str] = None,
     insufficient_data_actions: typing.Optional[typing.Sequence[typing.Union[builtins.str, _ITopicRef_29aa9a88]]] = None,
@@ -18112,6 +18342,18 @@ def _typecheckingstub__aec0314071d83d4872fc9ec8f90d1938e3aa18c267eaf43f637379b01
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__71045c60addcf83ef8ad5b89a6f10e2356c40958a68edb03238ba7f3c6c32f7c(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAlarm.EvaluationCriteriaProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9b73f7296958c694aafdc052a403054092cf3be773c45f71d031860bb42ac387(
+    value: typing.Optional[jsii.Number],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__c080be98f630293bbc63f05942376d4ca0d4a15c82eb9cee4cb1c32b2740abc4(
     value: typing.Optional[jsii.Number],
 ) -> None:
@@ -18196,10 +18438,26 @@ def _typecheckingstub__c2311746224e8eb79c889c7ea604776c607667cdabb1ca67c2b7b269c
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__eca5b42a79ed0b85738a1d3bd7ab396cd5c081454d961525656b642417fc6716(
+    *,
+    pending_period: typing.Optional[jsii.Number] = None,
+    query: typing.Optional[builtins.str] = None,
+    recovery_period: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__caa951097684de7785a360ff0dd7dd52b38193dd6abedc429031dbeef388a48b(
     *,
     name: builtins.str,
     value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__38a7772ce3b5785b40cbaff90247c13196fc1c188fa9df5615c0c74a96f8c5f4(
+    *,
+    prom_ql_criteria: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAlarm.AlarmPromQLCriteriaProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18363,6 +18621,8 @@ def _typecheckingstub__bc643fb1b5f1f1f0e0d9896a5988171163c1f79adc28d1e921bdf85f1
     datapoints_to_alarm: typing.Optional[jsii.Number] = None,
     dimensions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAlarm.DimensionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     evaluate_low_sample_count_percentile: typing.Optional[builtins.str] = None,
+    evaluation_criteria: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAlarm.EvaluationCriteriaProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    evaluation_interval: typing.Optional[jsii.Number] = None,
     evaluation_periods: typing.Optional[jsii.Number] = None,
     extended_statistic: typing.Optional[builtins.str] = None,
     insufficient_data_actions: typing.Optional[typing.Sequence[typing.Union[builtins.str, _ITopicRef_29aa9a88]]] = None,

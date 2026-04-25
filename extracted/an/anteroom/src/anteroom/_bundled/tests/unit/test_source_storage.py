@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+import anteroom.services.storage as storage_module
 from anteroom.db import _SCHEMA, _VEC_METADATA_SCHEMA, ThreadSafeConnection
 from anteroom.services.document_extractor import ExtractionResult
 from anteroom.services.storage import (
@@ -288,16 +289,35 @@ class TestSaveSourceFile:
                 data_dir=tmp_path,
             )
 
-    def test_save_file_validates_size(self, db: ThreadSafeConnection, tmp_path: Path) -> None:
+    def test_save_file_validates_size(
+        self, db: ThreadSafeConnection, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(storage_module, "MAX_ATTACHMENT_SIZE", 10)
         with pytest.raises(ValueError, match="maximum size"):
             save_source_file(
                 db,
                 title="big",
                 filename="big.txt",
                 mime_type="text/plain",
-                data=b"x" * (11 * 1024 * 1024),
+                data=b"x" * 11,
                 data_dir=tmp_path,
             )
+
+    def test_save_file_accepts_configured_larger_size(
+        self, db: ThreadSafeConnection, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(storage_module, "MAX_ATTACHMENT_SIZE", 10)
+        source, _ = save_source_file(
+            db,
+            title="larger",
+            filename="larger.txt",
+            mime_type="text/plain",
+            data=b"x" * 11,
+            data_dir=tmp_path,
+            max_size_bytes=20,
+        )
+
+        assert source["size_bytes"] == 11
 
     def test_save_docx_file(self, db: ThreadSafeConnection, tmp_path: Path) -> None:
         # .docx files are ZIP containers — filetype detects application/zip
@@ -341,6 +361,9 @@ class TestSaveSourceFile:
 
 
 class TestValidateUpload:
+    def test_size_limit_default_is_50_mb(self) -> None:
+        assert storage_module.MAX_ATTACHMENT_SIZE == 50 * 1024 * 1024
+
     def test_text_plain_passes(self) -> None:
         _validate_upload("text/plain", b"hello world", "test.txt")
 
@@ -363,9 +386,15 @@ class TestValidateUpload:
         with pytest.raises(ValueError, match="Unsupported file type"):
             _validate_upload("application/x-executable", b"binary", "bad.exe")
 
-    def test_size_limit(self) -> None:
+    def test_size_limit(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(storage_module, "MAX_ATTACHMENT_SIZE", 10)
+        _validate_upload("text/plain", b"x" * 10, "limit.txt")
         with pytest.raises(ValueError, match="maximum size"):
-            _validate_upload("text/plain", b"x" * (11 * 1024 * 1024), "big.txt")
+            _validate_upload("text/plain", b"x" * 11, "big.txt")
+
+    def test_configured_size_limit_overrides_default(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(storage_module, "MAX_ATTACHMENT_SIZE", 10)
+        _validate_upload("text/plain", b"x" * 11, "larger.txt", max_size_bytes=20)
 
     def test_png_magic_bytes_match(self) -> None:
         # PNG magic bytes

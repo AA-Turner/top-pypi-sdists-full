@@ -34,7 +34,6 @@ import logging
 import functools
 import traceback
 from types import TracebackType
-from typing import Optional
 
 import silx.io.nxdata
 from silx.gui import qt
@@ -44,6 +43,7 @@ from .ApplicationContext import ApplicationContext
 from .CustomNxdataWidget import CustomNxdataWidget
 from .CustomNxdataWidget import CustomNxDataToolBar
 from ..utils import parseutils
+from ..._utils import nfs_cache_refresh
 from silx.gui.utils import projecturl
 from .DataPanel import DataPanel
 from .CustomPlotSelectionWindow import CustomPlotSelectionWindow
@@ -239,7 +239,7 @@ class Viewer(qt.QMainWindow):
         indexes = selection.selectedIndexes()
         selectedItems = []
         model = self.__treeview.model()
-        h5files = set([])
+        h5files = set()
         while len(indexes) > 0:
             index = indexes.pop(0)
             if index.column() != 0:
@@ -257,7 +257,6 @@ class Viewer(qt.QMainWindow):
         if len(h5files) != 0:
             model = self.__treeview.findHdf5TreeModel()
             for h5 in h5files:
-                row = model.h5pyObjectRow(h5)
                 model.removeH5pyObject(h5)
 
         qt.QApplication.restoreOverrideCursor()
@@ -311,7 +310,7 @@ class Viewer(qt.QMainWindow):
 
         qt.QApplication.restoreOverrideCursor()
 
-    def __synchronizeH5pyObject(self, h5, filename: Optional[str] = None):
+    def __synchronizeH5pyObject(self, h5, filename: str | None = None):
         model = self.__treeview.findHdf5TreeModel()
         # This is buggy right now while h5py do not allow to close a file
         # while references are still used.
@@ -324,6 +323,9 @@ class Viewer(qt.QMainWindow):
         index = self.__treeview.model().index(row, 0, qt.QModelIndex())
         paths = self.__getPathFromExpandedNodes(self.__treeview, index)
         model.removeH5pyObject(h5)
+
+        nfs_cache_refresh(os.path.dirname(os.path.realpath(filename)))
+
         model.insertFile(filename, row)
         index = self.__treeview.model().index(row, 0, qt.QModelIndex())
         self.__expandNodesFromPaths(self.__treeview, index, paths)
@@ -680,7 +682,9 @@ class Viewer(qt.QMainWindow):
         action.setCheckable(True)
         action.toggled.connect(self.__togglePlotSelectionWindow)
         self._displayCustomPlotSelectionWindow = action
-        self._customPlotSelectionWindow.sigVisibilityChanged.connect(self._displayCustomPlotSelectionWindow.setChecked)
+        self._customPlotSelectionWindow.sigVisibilityChanged.connect(
+            self._displayCustomPlotSelectionWindow.setChecked
+        )
 
     def __toggleCustomNxdataWindow(self):
         isVisible = self._displayCustomNxdataWindow.isChecked()
@@ -853,7 +857,7 @@ class Viewer(qt.QMainWindow):
         filters = []
         filters.append("All supported files (%s)" % " ".join(all_supported_extensions))
         for name, extension in extensions.items():
-            filters.append("%s (%s)" % (name, extension))
+            filters.append(f"{name} ({extension})")
         filters.append("All files (*)")
 
         dialog.setNameFilters(filters)
@@ -984,6 +988,9 @@ class Viewer(qt.QMainWindow):
         model = self.__customNxdata.model()
         model.createFromNxdata(h5nxdata)
 
+    def _copyNameToClipboard(self, obj):
+        qt.Application.clipboard().setText(obj.name)
+
     def customContextMenu(self, event):
         """Called to populate the context menu
 
@@ -1014,12 +1021,20 @@ class Viewer(qt.QMainWindow):
                 menu.addAction(action)
 
                 if h5.ndim == 1:
-                    action = qt.QAction("Set X values of plot selection", event.source())
-                    action.triggered.connect(lambda: self.setToPlotSelectionAbscissaValues(obj.data_url))
+                    action = qt.QAction(
+                        "Set X values of plot selection", event.source()
+                    )
+                    action.triggered.connect(
+                        lambda: self.setToPlotSelectionAbscissaValues(obj.data_url)
+                    )
                     menu.addAction(action)
 
-                    action = qt.QAction("Add Y values to plot selection", event.source())
-                    action.triggered.connect(lambda: self.addAsPlotSelectionOrdinateValues(obj.data_url))
+                    action = qt.QAction(
+                        "Add Y values to plot selection", event.source()
+                    )
+                    action.triggered.connect(
+                        lambda: self.addAsPlotSelectionOrdinateValues(obj.data_url)
+                    )
                     menu.addAction(action)
 
             if silx.io.is_group(h5) and silx.io.nxdata.is_valid_nxdata(h5):
@@ -1037,6 +1052,12 @@ class Viewer(qt.QMainWindow):
                     "Synchronize %s" % obj.local_filename, event.source()
                 )
                 action.triggered.connect(lambda: self.__synchronizeH5pyObject(h5))
+                menu.addAction(action)
+
+            if silx.io.is_group(h5) or silx.io.is_dataset(h5):
+                menu.addSeparator()
+                action = qt.QAction("Copy path", event.source())
+                action.triggered.connect(lambda: self._copyNameToClipboard(h5))
                 menu.addAction(action)
 
     def __errorButtonClicked(self):

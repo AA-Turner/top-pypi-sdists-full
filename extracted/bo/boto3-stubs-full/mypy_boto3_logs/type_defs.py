@@ -1125,6 +1125,8 @@ class GetLookupTableRequestTypeDef(TypedDict):
 
 class GetQueryResultsRequestTypeDef(TypedDict):
     queryId: str
+    nextToken: NotRequired[str]
+    maxItems: NotRequired[int]
 
 
 class QueryStatisticsTypeDef(TypedDict):
@@ -2195,6 +2197,7 @@ class GetQueryResultsResponseTypeDef(TypedDict):
     status: QueryStatusType
     encryptionKey: str
     ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
 
 
 class PutLogEventsRequestTypeDef(TypedDict):

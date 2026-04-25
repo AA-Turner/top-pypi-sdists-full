@@ -38,14 +38,15 @@ import logging
 import numpy
 import weakref
 import functools
-from typing import Optional
+from typing import Union
+
+from numpy.typing import ArrayLike
 
 from ....utils.weakref import WeakList
 from ... import qt
 from .. import items
 from ..items import core
 from ...colors import rgba
-
 
 logger = logging.getLogger(__name__)
 
@@ -73,18 +74,17 @@ class _RegionOfInterestBase(qt.QObject):
             self.setParent(parent)
         self.__name = ""
 
-    def getName(self):
+    def getName(self) -> str:
         """Returns the name of the ROI
 
         :return: name of the region of interest
-        :rtype: str
         """
         return self.__name
 
-    def setName(self, name):
+    def setName(self, name: str):
         """Set the name of the ROI
 
-        :param str name: name of the region of interest
+        :param name: name of the region of interest
         """
         name = str(name)
         if self.__name != name:
@@ -98,18 +98,38 @@ class _RegionOfInterestBase(qt.QObject):
         """
         self.sigItemChanged.emit(event)
 
-    def contains(self, position):
-        """Returns True if the `position` is in this ROI.
+    def contains(self, position: ArrayLike) -> Union[bool, numpy.ndarray]:
+        """Check which positions are inside the ROI.
 
-        :param tuple[float,float] position: position to check
-        :return: True if the value / point is consider to be in the region of
-                 interest.
-        :rtype: bool
+        :param position: array-like of positions, where each position is given as ``(x, y)``.
+            If multiple positions are provided, the shape should be ``(N, 2)``.
+            For a single position, the shape should be ``(2,)``.
+        :return: boolean or boolean array of shape ``(N,)``, True if the point is inside the ROI.
         """
-        return False  # Override in subclass to perform actual test
+        # Overwrite in subclass
+        positions, is_single = self._normalize_positions_shape(position)
+        if is_single:
+            return False
+        return numpy.zeros(len(positions), dtype=bool)
+
+    @staticmethod
+    def _normalize_positions_shape(positions: ArrayLike) -> Union[numpy.ndarray, bool]:
+        """
+        :param positions: array-like of shape (N, 2) or (2,)
+        :return: numpy array shape (N, 2) and a boolean that indicates (2,) was provided
+        """
+        positions = numpy.asarray(positions)
+        ndim_org = positions.ndim
+        if ndim_org == 1:
+            if positions.shape[0] != 2:
+                raise ValueError("positions must be shape (N,2) or (2,)")
+            positions = positions.reshape(1, 2)
+        elif ndim_org != 2 or positions.shape[1] != 2:
+            raise ValueError("positions must be shape (N,2) or (2,)")
+        return positions, ndim_org == 1
 
 
-class RoiInteractionMode(object):
+class RoiInteractionMode:
     """Description of an interaction mode.
 
     An interaction mode provide a specific kind of interaction for a ROI.
@@ -131,7 +151,7 @@ class RoiInteractionMode(object):
         return self._description
 
 
-class InteractionModeMixIn(object):
+class InteractionModeMixIn:
     """Mix in feature which can be implemented by a ROI object.
 
     This provides user interaction to switch between different
@@ -245,7 +265,7 @@ class RegionOfInterest(_RegionOfInterestBase, core.HighlightedMixIn):
 
     sigEditingFinished = qt.Signal()
     """Signal emitted when the region edition is finished. During edition
-    sigEditionChanged will be emitted several times and 
+    sigEditionChanged will be emitted several times and
     sigRegionEditionFinished only at end"""
 
     def __init__(self, parent=None):
@@ -303,7 +323,7 @@ class RegionOfInterest(_RegionOfInterestBase, core.HighlightedMixIn):
             previousPlot = previousParent.parent()
             if previousPlot is not None:
                 self._disconnectFromPlot(previousPlot)
-        super(RegionOfInterest, self).setParent(parent)
+        super().setParent(parent)
         if parent is not None:
             plot = parent.parent()
             if plot is not None:
@@ -473,7 +493,7 @@ class RegionOfInterest(_RegionOfInterestBase, core.HighlightedMixIn):
         """Returns the currently displayed text for this ROI"""
         return self.getName() if self.__text is None else self.__text
 
-    def setText(self, text: Optional[str] = None) -> None:
+    def setText(self, text: str | None = None) -> None:
         """Set the displayed text for this ROI.
 
         If None (the default), the ROI name is used.
@@ -490,26 +510,22 @@ class RegionOfInterest(_RegionOfInterestBase, core.HighlightedMixIn):
         pass
 
     @classmethod
-    def showFirstInteractionShape(cls):
+    def showFirstInteractionShape(cls) -> bool:
         """Returns True if the shape created by the first interaction and
         managed by the plot have to be visible.
-
-        :rtype: bool
         """
         return False
 
     @classmethod
-    def getFirstInteractionShape(cls):
+    def getFirstInteractionShape(cls) -> str:
         """Returns the shape kind which will be used by the very first
         interaction with the plot.
 
         This interactions are hardcoded inside the plot
-
-        :rtype: str
         """
         return cls._plotShape
 
-    def setFirstShapePoints(self, points):
+    def setFirstShapePoints(self, points: numpy.ndarray | list[tuple[float, float]]):
         """Initialize the ROI using the points from the first interaction.
 
         This interaction is constrained by the plot API and only supports few
@@ -598,7 +614,7 @@ class RegionOfInterest(_RegionOfInterestBase, core.HighlightedMixIn):
                 style = self.getCurrentStyle()
                 self._updatedStyle(event, style)
 
-        super(RegionOfInterest, self)._updated(event, checkVisibility)
+        super()._updated(event, checkVisibility)
 
         # Displayed text has changed, send a text event
         if event == items.ItemChangedType.NAME and self.__text is None:
@@ -628,7 +644,7 @@ class RegionOfInterest(_RegionOfInterestBase, core.HighlightedMixIn):
             baseLinewidth = self._DEFAULT_LINEWIDTH
         if isinstance(self, core.SymbolMixIn):
             baseSymbol = self.getSymbol()
-            baseSymbolsize = self.getSymbolSize()
+            baseSymbolsize = self.getSymbolSize() if self.isSingleSymbolSize() else 1
         else:
             baseSymbol = "o"
             baseSymbolsize = 1
@@ -678,20 +694,19 @@ class HandleBasedROI(RegionOfInterest):
         self._posOrigin = None
         self._posPrevious = None
 
-    def addUserHandle(self, item=None):
+    def addUserHandle(self, item: items.Marker | None = None) -> items.Marker:
         """
         Add a new free handle to the ROI.
 
         This handle do nothing. It have to be managed by the ROI
         implementing this class.
 
-        :param Union[None,silx.gui.plot.items.Marker] item: The new marker to
+        :param item: The new marker to
             add, else None to create a default marker.
-        :rtype: silx.gui.plot.items.Marker
         """
         return self.addHandle(item, role="user")
 
-    def addLabelHandle(self, item=None):
+    def addLabelHandle(self, item: items.Marker | None = None) -> items.Marker:
         """
         Add a new label handle to the ROI.
 
@@ -700,35 +715,34 @@ class HandleBasedROI(RegionOfInterest):
         It is displayed without symbol, but it is always visible anyway
         the ROI is editable, in order to display text.
 
-        :param Union[None,silx.gui.plot.items.Marker] item: The new marker to
+        :param item: The new marker to
             add, else None to create a default marker.
-        :rtype: silx.gui.plot.items.Marker
         """
         return self.addHandle(item, role="label")
 
-    def addTranslateHandle(self, item=None):
+    def addTranslateHandle(self, item: items.Marker | None = None) -> items.Marker:
         """
         Add a new translate handle to the ROI.
 
         Dragging translate handles affect the position position of the ROI
         but not the shape itself.
 
-        :param Union[None,silx.gui.plot.items.Marker] item: The new marker to
+        :param item: The new marker to
             add, else None to create a default marker.
-        :rtype: silx.gui.plot.items.Marker
         """
         return self.addHandle(item, role="translate")
 
-    def addHandle(self, item=None, role="default"):
+    def addHandle(
+        self, item: items.Marker | None = None, role: str = "default"
+    ) -> items.Marker:
         """
         Add a new handle to the ROI.
 
         Dragging handles while affect the position or the shape of the
         ROI.
 
-        :param Union[None,silx.gui.plot.items.Marker] item: The new marker to
+        :param item: The new marker to
             add, else None to create a default marker.
-        :rtype: silx.gui.plot.items.Marker
         """
         if item is None:
             item = items.Marker()
@@ -758,7 +772,7 @@ class HandleBasedROI(RegionOfInterest):
         self.addItem(item)
         return item
 
-    def removeHandle(self, handle):
+    def removeHandle(self, handle: items.Marker):
         data = [d for d in self._handles if d[0] is handle][0]
         self._handles.remove(data)
         role = data[1]
@@ -767,11 +781,8 @@ class HandleBasedROI(RegionOfInterest):
                 self.__updateEditable(handle, False)
         self.removeItem(handle)
 
-    def getHandles(self):
-        """Returns the list of handles of this HandleBasedROI.
-
-        :rtype: List[~silx.gui.plot.items.Marker]
-        """
+    def getHandles(self) -> list[items.Marker]:
+        """Returns the list of handles of this HandleBasedROI."""
         return tuple(data[0] for data in self._handles)
 
     def _updated(self, event=None, checkVisibility=True):
@@ -792,10 +803,10 @@ class HandleBasedROI(RegionOfInterest):
                 editable = self.isEditable()
                 if role not in ["user", "label"]:
                     self.__updateEditable(item, editable)
-        super(HandleBasedROI, self)._updated(event, checkVisibility)
+        super()._updated(event, checkVisibility)
 
     def _updatedStyle(self, event, style):
-        super(HandleBasedROI, self)._updatedStyle(event, style)
+        super()._updatedStyle(event, style)
 
         # Update color of shape items in the plot
         color = rgba(self.getColor())
@@ -823,7 +834,7 @@ class HandleBasedROI(RegionOfInterest):
                 handle.sigDragFinished.disconnect(self._handleEditingFinished)
 
     def _handleEditingStarted(self):
-        super(HandleBasedROI, self)._editingStarted()
+        super()._editingStarted()
         handle = self.sender()
         self._posOrigin = numpy.array(handle.getPosition())
         self._posPrevious = numpy.array(self._posOrigin)
@@ -844,13 +855,10 @@ class HandleBasedROI(RegionOfInterest):
         self.handleDragFinished(handle, self._posOrigin, current)
         self._posPrevious = None
         self._posOrigin = None
-        super(HandleBasedROI, self)._editingFinished()
+        super()._editingFinished()
 
-    def isHandleBeingDragged(self):
-        """Returns True if one of the handles is currently being dragged.
-
-        :rtype: bool
-        """
+    def isHandleBeingDragged(self) -> bool:
+        """Returns True if one of the handles is currently being dragged."""
         return self._posOrigin is not None
 
     def handleDragStarted(self, handle, origin):

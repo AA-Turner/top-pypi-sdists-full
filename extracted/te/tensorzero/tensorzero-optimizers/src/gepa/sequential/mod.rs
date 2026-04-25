@@ -84,17 +84,22 @@ impl Optimizer for GEPAConfig {
         // Read TENSORZERO_CLICKHOUSE_URL from env, consistent with gateway startup
         // (see tensorzero-core/src/utils/gateway.rs).
         let gateway_clickhouse = match std::env::var("TENSORZERO_CLICKHOUSE_URL") {
-            Ok(url) => {
-                ClickHouseConnectionInfo::new(
-                    &url,
-                    config.gateway.observability.batch_writes.clone(),
-                )
-                .await?
-            }
+            Ok(url) => ClickHouseConnectionInfo::new(
+                &url,
+                config
+                    .gateway
+                    .observability
+                    .batch_writes
+                    .clone()
+                    .unwrap_or_default(),
+            )
+            .await
+            .map_err(|e| e.log())?,
             Err(_) => ClickHouseConnectionInfo::new_disabled(),
         };
         let gateway_client = ClientBuilder::new(ClientBuilderMode::FromComponents {
             config: config.clone(),
+            runtime_overlay: Arc::new(tensorzero_core::config::RuntimeOverlay::default()),
             clickhouse_connection_info: gateway_clickhouse,
             postgres_connection_info: PostgresConnectionInfo::Disabled,
             valkey_connection_info: ValkeyConnectionInfo::Disabled,
@@ -128,7 +133,8 @@ impl Optimizer for GEPAConfig {
 
         // Create validation dataset for Pareto filtering
         let run_id = Uuid::now_v7();
-        let val_dataset_name = format!("{}_gepa_val_{}", self.evaluation_name, run_id);
+        let evaluation_label = self.evaluation_label();
+        let val_dataset_name = format!("{evaluation_label}_gepa_val_{run_id}");
 
         // Track all temporary datasets for cleanup at the end
         let mut temporary_datasets = vec![val_dataset_name.clone()];
@@ -310,10 +316,8 @@ impl Optimizer for GEPAConfig {
                 .cloned()
                 .collect();
 
-            let mutation_dataset_name = format!(
-                "{}_gepa_mutation_{}_{}",
-                self.evaluation_name, iteration, run_id,
-            );
+            let mutation_dataset_name =
+                format!("{evaluation_label}_gepa_mutation_{iteration}_{run_id}");
             temporary_datasets.push(mutation_dataset_name.clone());
 
             tracing::debug!(

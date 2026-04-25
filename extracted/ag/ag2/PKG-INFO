@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ag2
-Version: 0.12.0
+Version: 0.12.1
 Summary: A programming framework for agentic AI
 Project-URL: Homepage, https://ag2.ai/
 Project-URL: Documentation, https://docs.ag2.ai
@@ -33,7 +33,6 @@ Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.10
 Requires-Dist: anyio<5.0.0,>=4.0.0
-Requires-Dist: docker
 Requires-Dist: fast-depends[pydantic]<4.0.0,>=3.0.8
 Requires-Dist: httpx<1,>=0.28.1
 Requires-Dist: packaging
@@ -60,6 +59,7 @@ Provides-Extra: blendsearch
 Requires-Dist: flaml[blendsearch]; extra == 'blendsearch'
 Provides-Extra: browser-use
 Requires-Dist: browser-use<1.0,>=0.3.1; extra == 'browser-use'
+Requires-Dist: langchain-google-vertexai<3.0,>=2.0; extra == 'browser-use'
 Provides-Extra: captainagent
 Requires-Dist: chromadb<1.4,>=1.3.0; extra == 'captainagent'
 Requires-Dist: huggingface-hub; extra == 'captainagent'
@@ -83,6 +83,8 @@ Provides-Extra: dashscope
 Requires-Dist: dashscope>=1.25.13; extra == 'dashscope'
 Provides-Extra: daytona
 Requires-Dist: daytona>=0.1.0; extra == 'daytona'
+Provides-Extra: ddgs
+Requires-Dist: ddgs<10,>=9.0.0; extra == 'ddgs'
 Provides-Extra: deepseek
 Requires-Dist: openai<2,>=1.99.3; extra == 'deepseek'
 Provides-Extra: dev
@@ -93,8 +95,11 @@ Requires-Dist: anthropic[vertex]<1,>=0.79.0; extra == 'dev'
 Requires-Dist: cairosvg; extra == 'dev'
 Requires-Dist: codespell==2.4.1; extra == 'dev'
 Requires-Dist: dashscope>=1.25.13; extra == 'dev'
+Requires-Dist: ddgs<10,>=9.0.0; extra == 'dev'
 Requires-Dist: detect-secrets==1.5.0; extra == 'dev'
 Requires-Dist: dirty-equals<0.12,>=0.11; extra == 'dev'
+Requires-Dist: docker>=6.0.0; extra == 'dev'
+Requires-Dist: exa-py<3,>=2.0.0; extra == 'dev'
 Requires-Dist: fastapi==0.116.1; extra == 'dev'
 Requires-Dist: fix-busted-json>=0.0.18; extra == 'dev'
 Requires-Dist: freezegun<2,>=1.5.5; extra == 'dev'
@@ -122,6 +127,7 @@ Requires-Dist: nbconvert==7.16.6; extra == 'dev'
 Requires-Dist: nbformat==5.10.4; extra == 'dev'
 Requires-Dist: ollama>=0.4.7; extra == 'dev'
 Requires-Dist: openai<2,>=1.99.3; extra == 'dev'
+Requires-Dist: opentelemetry-exporter-otlp-proto-grpc>=1.20; extra == 'dev'
 Requires-Dist: opentelemetry-sdk>=1.20; extra == 'dev'
 Requires-Dist: pandas==2.3.3; extra == 'dev'
 Requires-Dist: pdoc3==0.11.6; extra == 'dev'
@@ -134,6 +140,7 @@ Requires-Dist: pytest==9.0.2; extra == 'dev'
 Requires-Dist: pyyaml==6.0.2; extra == 'dev'
 Requires-Dist: redis; extra == 'dev'
 Requires-Dist: ruff==0.14.14; extra == 'dev'
+Requires-Dist: tavily-python<0.8,>=0.7.4; extra == 'dev'
 Requires-Dist: termcolor==3.1.0; extra == 'dev'
 Requires-Dist: toml==0.10.2; extra == 'dev'
 Requires-Dist: typer==0.17.4; extra == 'dev'
@@ -148,12 +155,17 @@ Requires-Dist: uv==0.8.15; extra == 'dev'
 Requires-Dist: zizmor==1.11.0; extra == 'dev'
 Provides-Extra: diskcache
 Requires-Dist: diskcache; extra == 'diskcache'
+Provides-Extra: docker
+Requires-Dist: docker>=6.0.0; extra == 'docker'
 Provides-Extra: docs
 Requires-Dist: a2a-sdk[http-server]<0.4,>=0.3.11; extra == 'docs'
 Requires-Dist: ag-ui-protocol<0.2,>=0.1.10; extra == 'docs'
 Requires-Dist: anthropic[vertex]<1,>=0.79.0; extra == 'docs'
 Requires-Dist: cairosvg; extra == 'docs'
 Requires-Dist: dashscope>=1.25.13; extra == 'docs'
+Requires-Dist: ddgs<10,>=9.0.0; extra == 'docs'
+Requires-Dist: docker>=6.0.0; extra == 'docs'
+Requires-Dist: exa-py<3,>=2.0.0; extra == 'docs'
 Requires-Dist: fix-busted-json>=0.0.18; extra == 'docs'
 Requires-Dist: google-api-core; extra == 'docs'
 Requires-Dist: google-auth; extra == 'docs'
@@ -175,15 +187,19 @@ Requires-Dist: mkdocstrings[python]==0.30.0; extra == 'docs'
 Requires-Dist: nbclient==0.10.2; extra == 'docs'
 Requires-Dist: ollama>=0.4.7; extra == 'docs'
 Requires-Dist: openai<2,>=1.99.3; extra == 'docs'
+Requires-Dist: opentelemetry-exporter-otlp-proto-grpc>=1.20; extra == 'docs'
 Requires-Dist: opentelemetry-sdk>=1.20; extra == 'docs'
 Requires-Dist: pdoc3==0.11.6; extra == 'docs'
 Requires-Dist: pillow; extra == 'docs'
 Requires-Dist: pyyaml==6.0.2; extra == 'docs'
 Requires-Dist: redis; extra == 'docs'
+Requires-Dist: tavily-python<0.8,>=0.7.4; extra == 'docs'
 Requires-Dist: termcolor==3.1.0; extra == 'docs'
 Requires-Dist: typer==0.17.4; extra == 'docs'
 Provides-Extra: duckduckgo
 Requires-Dist: duckduckgo-search>=8.0.2; extra == 'duckduckgo'
+Provides-Extra: exa
+Requires-Dist: exa-py<3,>=2.0.0; extra == 'exa'
 Provides-Extra: flaml
 Requires-Dist: flaml; extra == 'flaml'
 Requires-Dist: numpy<2.0.0,>=1.24.0; (python_version < '3.13') and extra == 'flaml'
@@ -236,6 +252,7 @@ Provides-Extra: interop-pydantic-ai
 Requires-Dist: fasta2a; extra == 'interop-pydantic-ai'
 Requires-Dist: pydantic-ai>=1.0.12; extra == 'interop-pydantic-ai'
 Provides-Extra: jupyter-executor
+Requires-Dist: docker>=6.0.0; extra == 'jupyter-executor'
 Requires-Dist: ipykernel>=6.29.0; extra == 'jupyter-executor'
 Requires-Dist: jupyter-client>=8.6.0; extra == 'jupyter-executor'
 Requires-Dist: jupyter-kernel-gateway; extra == 'jupyter-executor'
@@ -355,12 +372,13 @@ Requires-Dist: pypdf; extra == 'retrievechat-qdrant'
 Requires-Dist: qdrant-client; extra == 'retrievechat-qdrant'
 Requires-Dist: sentence-transformers<=6,>=5.2.2; extra == 'retrievechat-qdrant'
 Provides-Extra: tavily
-Requires-Dist: tavily-python>=0.7.4; extra == 'tavily'
+Requires-Dist: tavily-python<0.8,>=0.7.4; extra == 'tavily'
 Provides-Extra: teachable
 Requires-Dist: chromadb; extra == 'teachable'
 Provides-Extra: test
 Requires-Dist: aiofiles<26.0.0,>=24.1.0; extra == 'test'
 Requires-Dist: dirty-equals<0.12,>=0.11; extra == 'test'
+Requires-Dist: docker>=6.0.0; extra == 'test'
 Requires-Dist: fastapi==0.116.1; extra == 'test'
 Requires-Dist: freezegun<2,>=1.5.5; extra == 'test'
 Requires-Dist: ipykernel==7.1.0; extra == 'test'
@@ -384,6 +402,7 @@ Requires-Dist: tinyfish>=0.2.3; extra == 'tinyfish'
 Provides-Extra: together
 Requires-Dist: together>=1.2; extra == 'together'
 Provides-Extra: tracing
+Requires-Dist: opentelemetry-exporter-otlp-proto-grpc>=1.20; extra == 'tracing'
 Requires-Dist: opentelemetry-sdk>=1.20; extra == 'tracing'
 Provides-Extra: twilio
 Requires-Dist: fastapi<1,>=0.115.0; extra == 'twilio'
@@ -394,6 +413,7 @@ Requires-Dist: a2a-sdk[http-server]<0.4,>=0.3.11; extra == 'types'
 Requires-Dist: ag-ui-protocol<0.2,>=0.1.10; extra == 'types'
 Requires-Dist: aiofiles<26.0.0,>=24.1.0; extra == 'types'
 Requires-Dist: dirty-equals<0.12,>=0.11; extra == 'types'
+Requires-Dist: docker>=6.0.0; extra == 'types'
 Requires-Dist: fastapi==0.116.1; extra == 'types'
 Requires-Dist: freezegun<2,>=1.5.5; extra == 'types'
 Requires-Dist: ipykernel==7.1.0; extra == 'types'

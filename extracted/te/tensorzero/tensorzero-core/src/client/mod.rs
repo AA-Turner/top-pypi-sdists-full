@@ -1,10 +1,9 @@
 use std::collections::HashSet;
 use std::{env, fmt::Display, future::Future, path::PathBuf, sync::Arc, time::Duration};
 
-use crate::config::ConfigFileGlob;
-use crate::config::RuntimeOverlay;
 use crate::config::snapshot::ConfigSnapshot;
 use crate::config::unwritten::UnwrittenConfig;
+use crate::config::{ConfigFileGlob, RuntimeOverlay};
 use crate::endpoints::openai_compatible::types::embeddings::OpenAICompatibleEmbeddingParams;
 use crate::endpoints::openai_compatible::types::embeddings::OpenAIEmbeddingResponse;
 use crate::http::TensorzeroResponseWrapper;
@@ -33,6 +32,8 @@ use url::Url;
 
 pub use client_inference_params::{ClientInferenceParams, ClientSecretString};
 pub use input_handling::resolved_input_to_client_input;
+mod tool_context;
+pub use tool_context::{ToolContextHelper, checkpointed_inference};
 
 pub use crate::cache::CacheParamsOptions;
 pub use crate::endpoints::feedback::FeedbackResponse;
@@ -46,7 +47,6 @@ pub use crate::inference::types::{Base64File, File, ObjectStoragePointer, UrlFil
 pub use crate::inference::types::{
     ContentBlockChunk, Input, InputMessage, InputMessageContent, Role, System, Unknown,
 };
-pub use crate::tool::{DynamicToolParams, Tool};
 
 pub mod client_inference_params;
 pub mod input_handling;
@@ -134,12 +134,9 @@ impl HTTPGateway {
 
     pub fn customize_builder<'a>(
         &self,
-        mut builder: TensorzeroRequestBuilder<'a>,
+        builder: TensorzeroRequestBuilder<'a>,
     ) -> TensorzeroRequestBuilder<'a> {
-        if let Some(timeout) = self.timeout {
-            builder = builder.timeout(timeout);
-        }
-        builder.headers(self.headers.clone())
+        self.customize_builder_with_extras(builder, None)
     }
 
     /// Like `customize_builder` but without applying the per-request timeout.
@@ -149,14 +146,57 @@ impl HTTPGateway {
         &self,
         builder: TensorzeroRequestBuilder<'a>,
     ) -> TensorzeroRequestBuilder<'a> {
-        builder.headers(self.headers.clone())
+        self.customize_builder_no_timeout_with_extras(builder, None)
+    }
+
+    fn customize_builder_with_extras<'a>(
+        &self,
+        mut builder: TensorzeroRequestBuilder<'a>,
+        extra_headers: Option<&HeaderMap>,
+    ) -> TensorzeroRequestBuilder<'a> {
+        if let Some(timeout) = self.timeout {
+            builder = builder.timeout(timeout);
+        }
+        self.apply_headers_with_extras(builder, extra_headers)
+    }
+
+    fn customize_builder_no_timeout_with_extras<'a>(
+        &self,
+        builder: TensorzeroRequestBuilder<'a>,
+        extra_headers: Option<&HeaderMap>,
+    ) -> TensorzeroRequestBuilder<'a> {
+        self.apply_headers_with_extras(builder, extra_headers)
+    }
+
+    /// Applies the client-level headers followed by any caller-supplied extras.
+    /// Since `RequestBuilder::headers` replaces same-named entries, applying the
+    /// extras last ensures they override both prior per-request headers and the
+    /// client-level defaults.
+    fn apply_headers_with_extras<'a>(
+        &self,
+        builder: TensorzeroRequestBuilder<'a>,
+        extra_headers: Option<&HeaderMap>,
+    ) -> TensorzeroRequestBuilder<'a> {
+        let builder = builder.headers(self.headers.clone());
+        match extra_headers {
+            Some(extras) if !extras.is_empty() => builder.headers(extras.clone()),
+            _ => builder,
+        }
     }
 
     pub async fn send_request(
         &self,
         builder: TensorzeroRequestBuilder<'_>,
     ) -> Result<String, TensorZeroError> {
-        let builder = self.customize_builder(builder);
+        self.send_request_with_extras(builder, None).await
+    }
+
+    pub(crate) async fn send_request_with_extras(
+        &self,
+        builder: TensorzeroRequestBuilder<'_>,
+        extra_headers: Option<&HeaderMap>,
+    ) -> Result<String, TensorZeroError> {
+        let builder = self.customize_builder_with_extras(builder, extra_headers);
         let resp = builder.send().await;
         self.check_http_response(resp)
             .await?
@@ -180,7 +220,16 @@ impl HTTPGateway {
         &self,
         builder: TensorzeroRequestBuilder<'_>,
     ) -> Result<(T, String), TensorZeroError> {
-        let builder = self.customize_builder(builder);
+        self.send_and_parse_http_response_with_extras(builder, None)
+            .await
+    }
+
+    pub(crate) async fn send_and_parse_http_response_with_extras<T: serde::de::DeserializeOwned>(
+        &self,
+        builder: TensorzeroRequestBuilder<'_>,
+        extra_headers: Option<&HeaderMap>,
+    ) -> Result<(T, String), TensorZeroError> {
+        let builder = self.customize_builder_with_extras(builder, extra_headers);
         let resp = self.check_http_response(builder.send().await).await?;
         let raw_response = resp.text().await.map_err(|e| TensorZeroError::Other {
             source: Error::new(ErrorDetails::Serialization {
@@ -214,8 +263,13 @@ impl HTTPGateway {
     async fn send_http_stream_inference(
         &self,
         builder: TensorzeroRequestBuilder<'_>,
+        extra_headers: Option<&HeaderMap>,
     ) -> Result<InferenceStream, TensorZeroError> {
-        let event_source = match self.customize_builder(builder).eventsource().await {
+        let event_source = match self
+            .customize_builder_with_extras(builder, extra_headers)
+            .eventsource()
+            .await
+        {
             Ok(es) => es,
             Err(e) => {
                 let err_str = format!("Error in streaming response: {e:?}");
@@ -471,6 +525,8 @@ pub enum ClientBuilderMode {
     FromComponents {
         /// Pre-parsed TensorZero configuration
         config: Arc<Config>,
+        /// Runtime overlay captured when the live config was originally parsed.
+        runtime_overlay: Arc<RuntimeOverlay>,
         /// Use the settings from this `ClickHouseConnectionInfo` to create a *new* ClickHouseConnectionInfo
         /// We do *not* re-use this directly,since we block when an embedded client `GatewayHandle` is dropped,
         /// waiting on all outstanding `ClickHouseConnectionInfo` to get dropped.
@@ -598,25 +654,27 @@ impl ClientBuilder {
                         .await
                         .map_err(|e| {
                             ClientBuilderError::Clickhouse(TensorZeroError::Other {
-                                source: e.into(),
+                                source: e.log().into(),
                             })
                         })?;
-                let config = Box::pin(unwritten_config.into_config(&clickhouse_connection_info))
-                    .await
-                    .map_err(|e| {
-                        ClientBuilderError::Clickhouse(TensorZeroError::Other { source: e.into() })
-                    })?;
+                let (config, runtime_overlay) =
+                    Box::pin(unwritten_config.into_config(&clickhouse_connection_info))
+                        .await
+                        .map_err(|e| ClientBuilderError::Clickhouse(TensorZeroError::Other {
+                            source: e.log().into(),
+                        }))?;
                 let config = Arc::new(config);
+                let runtime_overlay = Arc::new(runtime_overlay);
                 Self::validate_embedded_gateway_config(&config, *allow_batch_writes)?;
                 let postgres_connection_info = match postgres_config {
                     Some(PostgresConfig::Url(url)) => {
                         setup_postgres(&config, Some(url)).await.map_err(|e| {
-                            ClientBuilderError::Postgres(TensorZeroError::Other { source: e.into() })
+                            ClientBuilderError::Postgres(TensorZeroError::Other { source: e.log().into() })
                         })?
                     }
                     Some(PostgresConfig::ExistingConnectionInfo(connection_info)) => connection_info.clone(),
                     None => setup_postgres(&config, None).await.map_err(|e| {
-                        ClientBuilderError::Postgres(TensorZeroError::Other { source: e.into() })
+                        ClientBuilderError::Postgres(TensorZeroError::Other { source: e.log().into() })
                     })?
                 };
 
@@ -625,7 +683,7 @@ impl ClientBuilder {
                 // TODO: support a dedicated cache Valkey URL for embedded gateways.
                 let valkey_connection_info = setup_valkey(valkey_url.as_deref()).await.map_err(|e| {
                     ClientBuilderError::EmbeddedGatewaySetup(TensorZeroError::Other {
-                        source: e.into(),
+                        source: e.log().into(),
                     })
                 })?;
                 let valkey_cache_connection_info = valkey_connection_info.clone();
@@ -647,6 +705,7 @@ impl ClientBuilder {
                         gateway: EmbeddedGateway {
                             handle: GatewayHandle::new_with_database_and_http_client(
                                 config,
+                                runtime_overlay,
                                 clickhouse_connection_info,
                                 postgres_connection_info,
                                 valkey_connection_info,
@@ -655,11 +714,12 @@ impl ClientBuilder {
                                 self.drop_wrapper,
                                 HashSet::new(), // available_tools not needed for embedded client
                                 HashSet::new(), // tool_whitelist not needed for embedded client
+                                false,
                             )
                             .await
                             .map_err(|e| {
                                 ClientBuilderError::EmbeddedGatewaySetup(TensorZeroError::Other {
-                                    source: e.into(),
+                                    source: e.log().into(),
                                 })
                             })?,
                         },
@@ -670,6 +730,7 @@ impl ClientBuilder {
             }).await,
             ClientBuilderMode::FromComponents {
                 config,
+                runtime_overlay,
                 clickhouse_connection_info,
                 postgres_connection_info,
                 valkey_connection_info,
@@ -689,6 +750,7 @@ impl ClientBuilder {
                         gateway: EmbeddedGateway {
                             handle: GatewayHandle::new_with_database_and_http_client(
                                 config.clone(),
+                                runtime_overlay.clone(),
                                 // We create a new independent `ClickHouseConnectionInfo` here,
                                 // and do *not* directly use the existing `clickhouse_connection_info`
                                 // See `ClientBuilderMode::FromComponents` for more details
@@ -704,11 +766,12 @@ impl ClientBuilder {
                                 self.drop_wrapper,
                                 HashSet::new(), // available_tools not needed for embedded client
                                 HashSet::new(), // tool_whitelist not needed for embedded client
+                                false,
                             )
                             .await
                             .map_err(|e| {
                                 ClientBuilderError::EmbeddedGatewaySetup(TensorZeroError::Other {
-                                    source: e.into(),
+                                    source: e.log().into(),
                                 })
                             })?,
                         },
@@ -740,10 +803,9 @@ impl ClientBuilder {
     ///
     /// # Parameters
     /// - `snapshot`: The ConfigSnapshot to load from (historical semantic config)
-    /// - `live_config`: Reference to the current live gateway config. Runtime fields
-    ///   (`gateway`, `object_store_info`, `postgres`, `rate_limiting`, `http_client`)
-    ///   are copied from this config to override the snapshot's values, since these
-    ///   represent current infrastructure rather than historical behavior.
+    /// - `runtime_overlay`: Runtime fields captured from the live gateway's original
+    ///   `UninitializedConfig`. These override the snapshot's infrastructure settings
+    ///   without reintroducing defaulted values that were omitted in the source config.
     /// - `clickhouse_url`: Current ClickHouse connection (not from snapshot)
     /// - `postgres_url`: Current Postgres connection (not from snapshot)
     /// - `verify_credentials`: Whether to validate model provider credentials
@@ -753,22 +815,17 @@ impl ClientBuilder {
     /// A Client configured with historical semantic settings but current runtime parameters
     pub async fn from_config_snapshot(
         snapshot: ConfigSnapshot,
-        live_config: &Config,
+        runtime_overlay: RuntimeOverlay,
         clickhouse_url: Option<String>,
         postgres_url: Option<String>,
         valkey_url: Option<String>,
         verify_credentials: bool,
         timeout: Option<Duration>,
     ) -> Result<Client, ClientBuilderError> {
-        // Create runtime overlay from live config.
-        // This ensures infrastructure settings (gateway, postgres, rate limiting, etc.)
-        // reflect the current environment rather than historical snapshot values.
-        let runtime_overlay = RuntimeOverlay::from_config(live_config);
-
         // Load config from snapshot with runtime overlay applied
         let unwritten_config = Box::pin(Config::load_from_snapshot(
             snapshot,
-            runtime_overlay,
+            runtime_overlay.clone(),
             verify_credentials,
         ))
         .await
@@ -781,14 +838,18 @@ impl ClientBuilder {
         let clickhouse_connection_info = setup_clickhouse(&unwritten_config, clickhouse_url)
             .await
             .map_err(|e| {
-                ClientBuilderError::Clickhouse(TensorZeroError::Other { source: e.into() })
+                ClientBuilderError::Clickhouse(TensorZeroError::Other {
+                    source: e.log().into(),
+                })
             })?;
 
         // Convert config_load_info into Config with hash
-        let config = Box::pin(unwritten_config.into_config(&clickhouse_connection_info))
+        let (config, _) = Box::pin(unwritten_config.into_config(&clickhouse_connection_info))
             .await
             .map_err(|e| {
-                ClientBuilderError::Clickhouse(TensorZeroError::Other { source: e.into() })
+                ClientBuilderError::Clickhouse(TensorZeroError::Other {
+                    source: e.log().into(),
+                })
             })?;
 
         let config = Arc::new(config);
@@ -800,22 +861,27 @@ impl ClientBuilder {
         let postgres_connection_info = setup_postgres(&config, postgres_url.as_deref())
             .await
             .map_err(|e| {
-                ClientBuilderError::Postgres(TensorZeroError::Other { source: e.into() })
+                ClientBuilderError::Postgres(TensorZeroError::Other {
+                    source: e.log().into(),
+                })
             })?;
 
         // Setup Valkey with runtime URL.
         // Config snapshot clients use the same Valkey instance for both rate limiting and caching.
         let valkey_connection_info = setup_valkey(valkey_url.as_deref()).await.map_err(|e| {
-            ClientBuilderError::EmbeddedGatewaySetup(TensorZeroError::Other { source: e.into() })
+            ClientBuilderError::EmbeddedGatewaySetup(TensorZeroError::Other {
+                source: e.log().into(),
+            })
         })?;
         let valkey_cache_connection_info = valkey_connection_info.clone();
 
-        // Use HTTP client from config (now overlaid from live_config)
+        // Use HTTP client from config (now overlaid from the provided runtime overlay)
         let http_client = config.http_client.clone();
 
         // Build client using FromComponents pattern
         let builder = ClientBuilder::new(ClientBuilderMode::FromComponents {
             config,
+            runtime_overlay: Arc::new(runtime_overlay),
             clickhouse_connection_info,
             postgres_connection_info,
             valkey_connection_info,
@@ -834,13 +900,11 @@ impl ClientBuilder {
         allow_batch_writes: bool,
     ) -> Result<(), ClientBuilderError> {
         // Validate batch writes configuration
+        let batch_writes = config.gateway.observability.batch_writes.as_ref();
         if !allow_batch_writes
-            && config.gateway.observability.batch_writes.enabled
-            && !config
-                .gateway
-                .observability
-                .batch_writes
-                .__force_allow_embedded_batch_writes
+            && batch_writes.is_some_and(|bw| bw.enabled)
+            && !batch_writes
+                .is_some_and(|bw| bw.__force_allow_embedded_batch_writes.unwrap_or(false))
         {
             return Err(ClientBuilderError::Clickhouse(TensorZeroError::Other {
                 source: Error::new(ErrorDetails::Config {
@@ -997,7 +1061,7 @@ impl Client {
                 // so we don't have an API key here
                 Ok(with_embedded_timeout(*timeout, async {
                     crate::endpoints::feedback::feedback(
-                        gateway.handle.app_state.clone(),
+                        gateway.handle.app_state.load_latest(),
                         params,
                         None,
                     )
@@ -1075,6 +1139,17 @@ impl Client {
         &self,
         params: ClientInferenceParams,
     ) -> Result<HttpResponse<InferenceOutput>, TensorZeroError> {
+        Box::pin(self.http_inference_with_request_headers(params, None)).await
+    }
+
+    /// Like `http_inference`, but additionally attaches caller-supplied HTTP headers to the
+    /// gateway request. Extra headers override any header with the same name that would
+    /// otherwise be set by the client.
+    pub async fn http_inference_with_request_headers(
+        &self,
+        params: ClientInferenceParams,
+        extra_request_headers: Option<&std::collections::HashMap<String, String>>,
+    ) -> Result<HttpResponse<InferenceOutput>, TensorZeroError> {
         match &*self.mode {
             ClientMode::HTTPGateway(client) => {
                 let url =
@@ -1130,17 +1205,28 @@ impl Client {
                     builder = builder.header(header_name, value);
                 }
 
+                let extra_header_map = extra_request_headers
+                    .filter(|map| !map.is_empty())
+                    .map(build_extra_request_headers)
+                    .transpose()?;
+
                 if params.stream.unwrap_or(false) {
                     Ok(HttpResponse {
                         response: InferenceOutput::Streaming(
-                            client.send_http_stream_inference(builder).await?,
+                            client
+                                .send_http_stream_inference(builder, extra_header_map.as_ref())
+                                .await?,
                         ),
                         raw_request: body,
                         raw_response: None,
                     })
                 } else {
-                    let (response, raw_response) =
-                        client.send_and_parse_http_response(builder).await?;
+                    let (response, raw_response) = client
+                        .send_and_parse_http_response_with_extras(
+                            builder,
+                            extra_header_map.as_ref(),
+                        )
+                        .await?;
                     Ok(HttpResponse {
                         response: InferenceOutput::NonStreaming(response),
                         raw_request: body,
@@ -1163,19 +1249,34 @@ impl Client {
         &self,
         params: ClientInferenceParams,
     ) -> Result<InferenceOutput, TensorZeroError> {
+        Box::pin(self.inference_with_request_headers(params, None)).await
+    }
+
+    /// Like `inference`, but in HTTPGateway mode additionally attaches caller-supplied HTTP
+    /// headers to the gateway request. Extra headers override any header with the same name
+    /// that would otherwise be set by the client. Ignored in embedded mode.
+    pub async fn inference_with_request_headers(
+        &self,
+        params: ClientInferenceParams,
+        extra_request_headers: Option<&std::collections::HashMap<String, String>>,
+    ) -> Result<InferenceOutput, TensorZeroError> {
         match &*self.mode {
-            ClientMode::HTTPGateway(_) => Ok(self.http_inference(params).await?.response),
+            ClientMode::HTTPGateway(_) => Ok(self
+                .http_inference_with_request_headers(params, extra_request_headers)
+                .await?
+                .response),
             ClientMode::EmbeddedGateway { gateway, timeout } => {
                 Ok(with_embedded_timeout(*timeout, async {
+                    let app_state = gateway.handle.app_state.load_latest();
                     let res = Box::pin(crate::endpoints::inference::inference(
-                        gateway.handle.app_state.config.clone(),
-                        &gateway.handle.app_state.http_client,
-                        gateway.handle.app_state.clickhouse_connection_info.clone(),
-                        gateway.handle.app_state.postgres_connection_info.clone(),
-                        gateway.handle.app_state.cache_manager.clone(),
-                        gateway.handle.app_state.deferred_tasks.clone(),
-                        gateway.handle.app_state.rate_limiting_manager.clone(),
-                        gateway.handle.app_state.primary_datastore,
+                        app_state.config.clone(),
+                        &app_state.http_client,
+                        app_state.clickhouse_connection_info.clone(),
+                        app_state.postgres_connection_info.clone(),
+                        app_state.cache_manager.clone(),
+                        app_state.deferred_tasks.clone(),
+                        app_state.rate_limiting_manager.clone(),
+                        app_state.primary_datastore,
                         params.try_into().map_err(err_to_http)?,
                         // We currently ban auth-enabled configs in embedded gateway mode,
                         // so we don't have an API key here
@@ -1232,8 +1333,9 @@ impl Client {
             }
             ClientMode::EmbeddedGateway { gateway, timeout } => {
                 Ok(with_embedded_timeout(*timeout, async {
+                    let config = gateway.handle.app_state.config().load();
                     crate::endpoints::object_storage::get_object(
-                        gateway.handle.app_state.config.object_store_info.as_ref(),
+                        config.object_store_info.as_ref(),
                         storage_path,
                     )
                     .await
@@ -1243,6 +1345,34 @@ impl Client {
             }
         }
     }
+}
+
+/// Validates caller-supplied HTTP headers and returns them as a `HeaderMap` so they can be
+/// applied after the client-level headers (which ensures caller values win the replace).
+fn build_extra_request_headers(
+    extra_headers: &std::collections::HashMap<String, String>,
+) -> Result<HeaderMap, TensorZeroError> {
+    let mut header_map = HeaderMap::with_capacity(extra_headers.len());
+    for (name, value) in extra_headers {
+        let header_name = reqwest::header::HeaderName::try_from(name.as_str()).map_err(|e| {
+            TensorZeroError::Other {
+                source: Error::new(ErrorDetails::InvalidRequest {
+                    message: format!("Invalid HTTP header name `{name}`: {e}"),
+                })
+                .into(),
+            }
+        })?;
+        let header_value = reqwest::header::HeaderValue::try_from(value.as_str()).map_err(|e| {
+            TensorZeroError::Other {
+                source: Error::new(ErrorDetails::InvalidRequest {
+                    message: format!("Invalid HTTP header value for `{name}`: {e}"),
+                })
+                .into(),
+            }
+        })?;
+        header_map.insert(header_name, header_value);
+    }
+    Ok(header_map)
 }
 
 #[doc(hidden)]
@@ -1429,6 +1559,7 @@ mod tests {
         // Attempt to build client with FromComponents mode
         let err = ClientBuilder::new(ClientBuilderMode::FromComponents {
             config,
+            runtime_overlay: Arc::new(RuntimeOverlay::default()),
             clickhouse_connection_info,
             postgres_connection_info,
             valkey_connection_info: ValkeyConnectionInfo::Disabled,
@@ -1455,10 +1586,12 @@ mod tests {
 
     #[tokio::test]
     async fn test_from_components_rejects_batch_writes() {
-        // Create a config that enables batch writes, which is not supported in embedded mode
+        // Create a config that enables batch writes, which is not supported in embedded mode.
+        // async_writes must be explicitly disabled since it defaults to true and conflicts.
         let config_str = r"
-        [gateway.observability.batch_writes]
-        enabled = true
+        [gateway.observability]
+        async_writes = false
+        batch_writes = { enabled = true }
         ";
         let tmp_config = NamedTempFile::new().unwrap();
         std::fs::write(tmp_config.path(), config_str).unwrap();
@@ -1482,6 +1615,7 @@ mod tests {
         // Attempt to build client with FromComponents mode
         let err = ClientBuilder::new(ClientBuilderMode::FromComponents {
             config,
+            runtime_overlay: Arc::new(RuntimeOverlay::default()),
             clickhouse_connection_info,
             postgres_connection_info,
             valkey_connection_info: ValkeyConnectionInfo::Disabled,
@@ -1576,6 +1710,94 @@ mod tests {
         assert!(
             !feature_flags::TEST_FLAG.get(),
             "Should be able to get TEST_FLAG value without panic"
+        );
+    }
+
+    #[googletest::gtest]
+    fn test_extra_request_headers_override_client_headers() {
+        use googletest::prelude::*;
+        use reqwest::header::{HeaderName, HeaderValue};
+
+        let mut client_headers = HeaderMap::new();
+        client_headers.insert(
+            reqwest::header::AUTHORIZATION,
+            HeaderValue::from_static("Bearer client-level"),
+        );
+        client_headers.insert(
+            HeaderName::from_static("x-client-only"),
+            HeaderValue::from_static("keep"),
+        );
+
+        let gateway = HTTPGateway {
+            base_url: Url::parse("http://example.invalid/").expect("valid url"),
+            http_client: TensorzeroHttpClient::new_testing().expect("http client"),
+            headers: client_headers,
+            timeout: None,
+            verbose_errors: false,
+        };
+
+        let mut extras = HeaderMap::new();
+        extras.insert(
+            reqwest::header::AUTHORIZATION,
+            HeaderValue::from_static("Bearer per-call"),
+        );
+        extras.insert(
+            HeaderName::from_static("traceparent"),
+            HeaderValue::from_static("00-trace-span-01"),
+        );
+
+        let builder = gateway
+            .http_client
+            .post(gateway.base_url.clone())
+            .header(reqwest::header::AUTHORIZATION, "Bearer stale-request");
+        let request = gateway
+            .customize_builder_with_extras(builder, Some(&extras))
+            .build_for_test()
+            .expect("request should build");
+
+        let headers = request.headers();
+        expect_that!(
+            headers.get(reqwest::header::AUTHORIZATION),
+            some(eq(&HeaderValue::from_static("Bearer per-call")))
+        );
+        expect_that!(
+            headers.get("x-client-only"),
+            some(eq(&HeaderValue::from_static("keep")))
+        );
+        expect_that!(
+            headers.get("traceparent"),
+            some(eq(&HeaderValue::from_static("00-trace-span-01")))
+        );
+    }
+
+    #[googletest::gtest]
+    fn test_customize_builder_without_extras_uses_client_headers() {
+        use googletest::prelude::*;
+        use reqwest::header::HeaderValue;
+
+        let mut client_headers = HeaderMap::new();
+        client_headers.insert(
+            reqwest::header::AUTHORIZATION,
+            HeaderValue::from_static("Bearer client-level"),
+        );
+
+        let gateway = HTTPGateway {
+            base_url: Url::parse("http://example.invalid/").expect("valid url"),
+            http_client: TensorzeroHttpClient::new_testing().expect("http client"),
+            headers: client_headers,
+            timeout: None,
+            verbose_errors: false,
+        };
+
+        let builder = gateway.http_client.post(gateway.base_url.clone());
+        let request = gateway
+            .customize_builder(builder)
+            .build_for_test()
+            .expect("request should build");
+
+        expect_that!(
+            request.headers().get(reqwest::header::AUTHORIZATION),
+            some(eq(&HeaderValue::from_static("Bearer client-level")))
         );
     }
 }

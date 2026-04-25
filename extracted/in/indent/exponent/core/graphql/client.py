@@ -18,7 +18,6 @@ from exponent.core.graphql.generated_client import (
     HaltChatStream,
     IndentGraphQLClient,
     PromptInput,
-    RefreshApiKey,
     RepositoryResourceConfigInput,
     SetLoginComplete,
     StartChatTurn,
@@ -49,10 +48,6 @@ class GraphQLClient:
 
     async def halt_chat_stream(self, chat_uuid: str) -> HaltChatStream:
         return await self._typed_client.halt_chat_stream(chat_uuid=uuid.UUID(chat_uuid))
-
-    async def refresh_api_key(self) -> RefreshApiKey:
-        """Refresh API key with proper typing."""
-        return await self._typed_client.refresh_api_key()
 
     async def create_cloud_chat_from_repository(self, repository_uuid: str) -> CreateCloudChatFromRepository:
         return await self._typed_client.create_cloud_chat_from_repository(

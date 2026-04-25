@@ -85,6 +85,31 @@ def test_load_conversation_messages_reconstructs_tool_calls() -> None:
     assert ai_messages[4] == {"role": "assistant", "content": "done"}
 
 
+def test_load_conversation_messages_default_replay_limit_is_10000() -> None:
+    db = MagicMock()
+    stored_messages = [
+        {
+            "role": "assistant",
+            "content": "using tools",
+            "tool_calls": [
+                {
+                    "id": "call_1",
+                    "tool_name": "read_file",
+                    "input": {"path": "big.txt"},
+                    "output": {"content": "x" * 10_500},
+                }
+            ],
+        },
+    ]
+
+    with patch("anteroom.cli.repl.storage.list_messages", return_value=stored_messages):
+        ai_messages, _ = _load_conversation_messages(db, "conv-1")
+
+    tool_message = ai_messages[1]
+    assert tool_message["role"] == "tool"
+    assert 10_000 <= len(tool_message["content"]) < 10_500
+
+
 @pytest.mark.asyncio
 async def test_check_for_update_returns_newer_version() -> None:
     proc = _FakeProc(stdout=b"anteroom (9.9.9)\n", returncode=0)

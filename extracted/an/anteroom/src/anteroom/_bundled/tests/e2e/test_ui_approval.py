@@ -134,12 +134,10 @@ class TestAskUserPromptRendering:
 
         assert card.locator(".ask-user-title").count() == 1
         assert "target directory" in card.locator(".ask-user-question").text_content()
-        has_input = (
-            card.locator(".ask-user-input").count() == 1
-            or card.locator("input").count() >= 1
-            or card.locator("textarea").count() >= 1
-        )
-        assert has_input
+        assert card.locator("textarea.ask-user-input").count() == 1
+        help_text = card.locator(".ask-user-help").text_content() or ""
+        assert "Enter submits" in help_text
+        assert "Shift+Enter adds a newline" in help_text
 
     def test_ask_user_card_inserts_after_last_assistant(self, authenticated_page) -> None:
         page = authenticated_page

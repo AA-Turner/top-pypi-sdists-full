@@ -13,14 +13,12 @@ use uuid::Uuid;
 
 use super::helpers::check_new_tool_call_name;
 use super::helpers::inject_extra_request_data_and_send_eventsource;
-use crate::cache::ModelProviderRequest;
 use crate::endpoints::inference::InferenceCredentials;
 use crate::error::warn_discarded_unknown_chunk;
 use crate::error::{DelayedError, DisplayOrDebugGateway, Error, ErrorDetails};
 use crate::http::TensorZeroEventSource;
 use crate::http::TensorzeroHttpClient;
 use crate::inference::InferenceProvider;
-use crate::inference::types::ProviderInferenceResponseArgs;
 use crate::inference::types::batch::{BatchRequestRow, PollBatchInferenceResponse};
 use crate::inference::types::chat_completion_inference_params::{
     ChatCompletionInferenceParamsV2, warn_inference_parameter_not_supported,
@@ -33,18 +31,20 @@ use crate::inference::types::{
 use crate::inference::types::{FinishReason, FlattenUnknown};
 use crate::inference::types::{
     ModelInferenceRequest, PeekableProviderInferenceResponseStream, ProviderInferenceResponse,
-    ProviderInferenceResponseChunk, Usage, batch::StartBatchProviderInferenceResponse,
-    serialize_or_log,
+    ProviderInferenceResponseArgs, ProviderInferenceResponseChunk, Usage,
+    batch::StartBatchProviderInferenceResponse, serialize_or_log,
 };
-use crate::model::{Credential, ModelProvider};
+use crate::model::Credential;
+use crate::model::{ModelProviderRequestInfo, ProviderInferenceRequest};
 use crate::providers::gcp_vertex_gemini::GCPVertexGeminiContent;
 use crate::providers::gcp_vertex_gemini::GCPVertexGeminiContentPart;
 use crate::providers::gcp_vertex_gemini::GCPVertexGeminiPartData;
 use crate::providers::gcp_vertex_gemini::GCPVertexGeminiRole;
-use crate::tool::FunctionToolConfig;
+use tensorzero_inference_types::{FunctionToolDef, ProviderToolCallConfig};
+
 #[cfg(test)]
 use crate::tool::{AllowedTools, AllowedToolsChoice};
-use crate::tool::{ToolCall, ToolCallChunk, ToolCallConfig, ToolChoice};
+use crate::tool::{ToolCall, ToolCallChunk, ToolChoice};
 
 use super::gcp_vertex_gemini::process_jsonschema_for_gcp_vertex_gemini;
 use super::helpers::{convert_stream_error, inject_extra_request_data_and_send};
@@ -171,16 +171,15 @@ impl InferenceProvider for GoogleAIStudioGeminiProvider {
     /// Google AI Studio Gemini non-streaming API request
     async fn infer<'a>(
         &'a self,
-        ModelProviderRequest {
+        ProviderInferenceRequest {
             request,
             provider_name,
             model_name,
-            otlp_config: _,
             model_inference_id,
-        }: ModelProviderRequest<'a>,
+        }: ProviderInferenceRequest<'a>,
         http_client: &'a TensorzeroHttpClient,
         dynamic_api_keys: &'a InferenceCredentials,
-        model_provider: &'a ModelProvider,
+        model_provider: &'a ModelProviderRequestInfo,
     ) -> Result<ProviderInferenceResponse, Error> {
         let request_body =
             serde_json::to_value(GeminiRequest::new(request).await?).map_err(|e| {
@@ -272,16 +271,15 @@ impl InferenceProvider for GoogleAIStudioGeminiProvider {
     /// Google AI Studio Gemini streaming API request
     async fn infer_stream<'a>(
         &'a self,
-        ModelProviderRequest {
+        ProviderInferenceRequest {
             request,
             provider_name,
             model_name,
-            otlp_config: _,
             model_inference_id,
-        }: ModelProviderRequest<'a>,
+        }: ProviderInferenceRequest<'a>,
         http_client: &'a TensorzeroHttpClient,
         dynamic_api_keys: &'a InferenceCredentials,
-        model_provider: &'a ModelProvider,
+        model_provider: &'a ModelProviderRequestInfo,
     ) -> Result<(PeekableProviderInferenceResponseStream, String), Error> {
         let request_body =
             serde_json::to_value(GeminiRequest::new(request).await?).map_err(|e| {
@@ -353,7 +351,7 @@ impl InferenceProvider for GoogleAIStudioGeminiProvider {
 fn stream_google_ai_studio_gemini(
     mut event_source: TensorZeroEventSource,
     start_time: Instant,
-    model_provider: &ModelProvider,
+    model_provider: &ModelProviderRequestInfo,
     model_name: &str,
     provider_name: &str,
     raw_request: &str,
@@ -429,12 +427,12 @@ struct GeminiTool<'a> {
 }
 
 impl<'a> GeminiFunctionDeclaration<'a> {
-    fn from_tool_config(tool: &'a FunctionToolConfig) -> Self {
-        let parameters = process_jsonschema_for_gcp_vertex_gemini(tool.parameters());
+    fn from_function_tool_def(tool: &'a FunctionToolDef) -> Self {
+        let parameters = process_jsonschema_for_gcp_vertex_gemini(&tool.parameters);
 
         GeminiFunctionDeclaration {
-            name: tool.name(),
-            description: tool.description(),
+            name: &tool.name,
+            description: &tool.description,
             parameters,
         }
     }
@@ -463,7 +461,7 @@ struct GoogleAIStudioGeminiToolConfig<'a> {
 }
 
 impl<'a> GoogleAIStudioGeminiToolConfig<'a> {
-    fn from_tool_config(tool_config: &'a ToolCallConfig) -> Self {
+    fn from_tool_config(tool_config: &'a ProviderToolCallConfig) -> Self {
         match &tool_config.tool_choice {
             ToolChoice::None => GoogleAIStudioGeminiToolConfig {
                 function_calling_config: GeminiFunctionCallingConfig {
@@ -694,7 +692,7 @@ fn prepare_tools<'a>(
             let tools = Some(vec![GeminiTool {
                 function_declarations: tool_config
                     .tools_available()?
-                    .map(GeminiFunctionDeclaration::from_tool_config)
+                    .map(GeminiFunctionDeclaration::from_function_tool_def)
                     .collect(),
             }]);
             let tool_config_converted = Some(GoogleAIStudioGeminiToolConfig::from_tool_config(
@@ -1281,8 +1279,9 @@ mod tests {
     use crate::inference::types::{
         FlattenUnknown, FunctionType, ModelInferenceRequestJsonMode, RequestMessage, Role, Text,
     };
-    use crate::providers::test_helpers::{MULTI_TOOL_CONFIG, QUERY_TOOL, WEATHER_TOOL};
-    use crate::tool::ToolCallConfig;
+    use tensorzero_inference_types::ProviderToolCallConfig;
+
+    use crate::providers::test_helpers::{MULTI_PROVIDER_TOOL_CONFIG, QUERY_TOOL, WEATHER_TOOL};
     use crate::utils::testing::capture_logs;
 
     #[test]
@@ -1341,12 +1340,14 @@ mod tests {
 
     #[test]
     fn test_from_vec_tool() {
-        let tools_vec: Vec<&FunctionToolConfig> =
-            MULTI_TOOL_CONFIG.tools_available().unwrap().collect();
+        let tools_vec: Vec<&FunctionToolDef> = MULTI_PROVIDER_TOOL_CONFIG
+            .tools_available()
+            .unwrap()
+            .collect();
         let tool = GeminiTool {
             function_declarations: tools_vec
                 .iter()
-                .map(|&t| GeminiFunctionDeclaration::from_tool_config(t))
+                .map(|&t| GeminiFunctionDeclaration::from_function_tool_def(t))
                 .collect(),
         };
         assert_eq!(
@@ -1356,12 +1357,12 @@ mod tests {
                     GeminiFunctionDeclaration {
                         name: "get_temperature",
                         description: "Get the current temperature in a given location",
-                        parameters: tools_vec[0].parameters().clone(),
+                        parameters: tools_vec[0].parameters.clone(),
                     },
                     GeminiFunctionDeclaration {
                         name: "query_articles",
                         description: "Query articles from Wikipedia",
-                        parameters: tools_vec[1].parameters().clone(),
+                        parameters: tools_vec[1].parameters.clone(),
                     }
                 ]
             }
@@ -1371,9 +1372,8 @@ mod tests {
     #[test]
     fn test_from_tool_config() {
         // Test Auto mode
-        let tool_call_config = ToolCallConfig {
-            static_tools_available: vec![],
-            dynamic_tools_available: vec![],
+        let tool_call_config = ProviderToolCallConfig {
+            tools: vec![],
             provider_tools: vec![],
             openai_custom_tools: vec![],
             tool_choice: ToolChoice::Auto,
@@ -1391,9 +1391,8 @@ mod tests {
             }
         );
 
-        let tool_call_config = ToolCallConfig {
-            static_tools_available: vec![],
-            dynamic_tools_available: vec![],
+        let tool_call_config = ProviderToolCallConfig {
+            tools: vec![],
             provider_tools: vec![],
             openai_custom_tools: vec![],
             tool_choice: ToolChoice::Required,
@@ -1411,9 +1410,8 @@ mod tests {
             }
         );
 
-        let tool_call_config = ToolCallConfig {
-            static_tools_available: vec![],
-            dynamic_tools_available: vec![],
+        let tool_call_config = ProviderToolCallConfig {
+            tools: vec![],
             provider_tools: vec![],
             openai_custom_tools: vec![],
             tool_choice: ToolChoice::Specific("get_temperature".to_string()),
@@ -1435,9 +1433,8 @@ mod tests {
         );
 
         // Test Auto mode with specific allowed tools - should use Any mode
-        let tool_call_config = ToolCallConfig {
-            static_tools_available: vec![],
-            dynamic_tools_available: vec![],
+        let tool_call_config = ProviderToolCallConfig {
+            tools: vec![],
             provider_tools: vec![],
             openai_custom_tools: vec![],
             tool_choice: ToolChoice::Auto,
@@ -1462,9 +1459,8 @@ mod tests {
         assert_eq!(allowed_names, vec!["tool1", "tool2"]);
 
         // Test Required mode with specific allowed tools (new behavior)
-        let tool_call_config = ToolCallConfig {
-            static_tools_available: vec![],
-            dynamic_tools_available: vec![],
+        let tool_call_config = ProviderToolCallConfig {
+            tools: vec![],
             provider_tools: vec![],
             openai_custom_tools: vec![],
             tool_choice: ToolChoice::Required,
@@ -1485,9 +1481,8 @@ mod tests {
             }
         );
 
-        let tool_call_config = ToolCallConfig {
-            static_tools_available: vec![],
-            dynamic_tools_available: vec![],
+        let tool_call_config = ProviderToolCallConfig {
+            tools: vec![],
             provider_tools: vec![],
             openai_custom_tools: vec![],
             tool_choice: ToolChoice::None,
@@ -1509,12 +1504,12 @@ mod tests {
     #[tokio::test]
     async fn test_google_ai_studio_gemini_request_try_from() {
         // Test Case 1: Empty message list
-        let tool_config = ToolCallConfig::default();
+        let provider_tool_config = ProviderToolCallConfig::default();
         let inference_request = ModelInferenceRequest {
             inference_id: Uuid::now_v7(),
             messages: vec![],
             system: None,
-            tool_config: Some(Cow::Borrowed(&tool_config)),
+            tool_config: Some(Cow::Borrowed(&provider_tool_config)),
             temperature: None,
             max_tokens: None,
             seed: None,
@@ -1553,7 +1548,7 @@ mod tests {
             inference_id: Uuid::now_v7(),
             messages: messages.clone(),
             system: Some("test_system".to_string()),
-            tool_config: Some(Cow::Borrowed(&tool_config)),
+            tool_config: Some(Cow::Borrowed(&provider_tool_config)),
             temperature: None,
             max_tokens: None,
             seed: None,
@@ -1614,7 +1609,7 @@ mod tests {
             inference_id: Uuid::now_v7(),
             messages: messages.clone(),
             system: Some("test_system".to_string()),
-            tool_config: Some(Cow::Borrowed(&tool_config)),
+            tool_config: Some(Cow::Borrowed(&provider_tool_config)),
             temperature: Some(0.5),
             max_tokens: Some(100),
             seed: Some(69),
@@ -2072,7 +2067,7 @@ mod tests {
             frequency_penalty: None,
             stream: false,
             json_mode: ModelInferenceRequestJsonMode::On,
-            tool_config: Some(Cow::Borrowed(&MULTI_TOOL_CONFIG)),
+            tool_config: Some(Cow::Borrowed(&*MULTI_PROVIDER_TOOL_CONFIG)),
             function_type: FunctionType::Chat,
             output_schema: None,
             extra_body: Default::default(),
@@ -2115,7 +2110,7 @@ mod tests {
             frequency_penalty: None,
             stream: false,
             json_mode: ModelInferenceRequestJsonMode::On,
-            tool_config: Some(Cow::Borrowed(&MULTI_TOOL_CONFIG)),
+            tool_config: Some(Cow::Borrowed(&*MULTI_PROVIDER_TOOL_CONFIG)),
             function_type: FunctionType::Chat,
             output_schema: None,
             extra_body: Default::default(),

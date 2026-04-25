@@ -469,9 +469,8 @@ class BaseWorld(PreviewMixin, RuntimeMixin, ChronosSessionMixin, ABC, Generic[Co
 
     async def checkpoint(self, label: str, *, trigger_span_id: str = "") -> None:
         """Save state and commit all tracked workspaces."""
-        for name, workspace in self._workspaces.items():
+        for workspace in self._workspaces.values():
             if workspace.tracked:
-                self.logger.info(f"Checkpoint workspace '{name}' at '{label}'")
                 await workspace.commit(label, trigger_span_id=trigger_span_id)
         await self.save_state()
 

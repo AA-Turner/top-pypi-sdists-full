@@ -33,6 +33,7 @@ __all__ = (
     "AnsweringMachineDetectionStatusType",
     "ApplicationTypeType",
     "ArtifactStatusType",
+    "AttachmentScopeType",
     "AutoEvaluationStatusType",
     "BehaviorTypeType",
     "BooleanComparisonTypeType",
@@ -111,6 +112,7 @@ __all__ = (
     "LexVersionType",
     "ListAgentStatusesPaginatorName",
     "ListApprovedOriginsPaginatorName",
+    "ListAttachedFilesConfigurationsPaginatorName",
     "ListAuthenticationProfilesPaginatorName",
     "ListBotsPaginatorName",
     "ListChildHoursOfOperationsPaginatorName",
@@ -313,6 +315,7 @@ AnsweringMachineDetectionStatusType = Literal[
 ]
 ApplicationTypeType = Literal["MCP", "THIRD_PARTY_APPLICATION"]
 ArtifactStatusType = Literal["APPROVED", "IN_PROGRESS", "REJECTED"]
+AttachmentScopeType = Literal["CASE", "CHAT", "EMAIL", "TASK"]
 AutoEvaluationStatusType = Literal["FAILED", "IN_PROGRESS", "SUCCEEDED"]
 BehaviorTypeType = Literal["ROUTE_ANY_CHANNEL", "ROUTE_CURRENT_CHANNEL_ONLY"]
 BooleanComparisonTypeType = Literal["IS_FALSE", "IS_TRUE"]
@@ -586,6 +589,7 @@ IvrRecordingTrackType = Literal["ALL"]
 LexVersionType = Literal["V1", "V2"]
 ListAgentStatusesPaginatorName = Literal["list_agent_statuses"]
 ListApprovedOriginsPaginatorName = Literal["list_approved_origins"]
+ListAttachedFilesConfigurationsPaginatorName = Literal["list_attached_files_configurations"]
 ListAuthenticationProfilesPaginatorName = Literal["list_authentication_profiles"]
 ListBotsPaginatorName = Literal["list_bots"]
 ListChildHoursOfOperationsPaginatorName = Literal["list_child_hours_of_operations"]
@@ -1558,6 +1562,7 @@ PaginatorName = Literal[
     "get_metric_data",
     "list_agent_statuses",
     "list_approved_origins",
+    "list_attached_files_configurations",
     "list_authentication_profiles",
     "list_bots",
     "list_child_hours_of_operations",

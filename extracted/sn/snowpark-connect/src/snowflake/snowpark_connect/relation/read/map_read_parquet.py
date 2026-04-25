@@ -18,6 +18,7 @@ from snowflake.snowpark._internal.utils import (
 )
 from snowflake.snowpark.types import (
     ArrayType,
+    BinaryType,
     DataType,
     MapType,
     StringType,
@@ -925,20 +926,21 @@ def _build_parquet_typed_transformations(
             source_expr = f'$1:"{raw_user}"'
 
         if isinstance(dt, (StructType, ArrayType, MapType)):
+            # Complex types keep the client-side permissive TRY_CAST: the
+            # server-side implicit structured cast is strict and raises on any
+            # shape mismatch (missing struct fields, non-vectorized MAP
+            # key_value encoding, etc.). PERMISSIVE nulls out mismatches,
+            # which is the behavior SCOS needs here.
             variant_dt = _transform_complex_type(
                 dt, strip_quotes=True, coerce_ntz_to_ltz=True
             )
-            use_permissive = getattr(session, "_has_structured_try_cast", False)
-
             file_dt = file_type_lookup.get(_norm(raw_user))
-            needs_json_parse = isinstance(file_dt, StringType)
-
-            if needs_json_parse:
+            if isinstance(file_dt, StringType):
                 parsed = sql_expr(f"PARSE_JSON(TO_VARCHAR({source_expr}))")
             else:
                 parsed = sql_expr(source_expr)
 
-            if use_permissive:
+            if getattr(session, "_has_structured_try_cast", False):
                 transforms.append(parsed.try_cast(variant_dt, permissive=True))
             else:
                 transforms.append(parsed.cast(variant_dt))
@@ -959,10 +961,19 @@ def _build_parquet_typed_transformations(
             transforms.append(sql_expr(expr))
             loading_fields.append(StructField(quoted_name, ltz_type, field.nullable))
         else:
-            # Parquet cells are VARIANT in the scan; cast to the target scalar type with
-            # SQL :: (structured OBJECT/ARRAY/MAP are handled in the branch above).
-            type_sql = map_type_to_snowflake_type(dt, structured=True)
-            transforms.append(sql_expr(f"{source_expr}::{type_sql}"))
+            # Parquet scalars come through as VARIANT. When the server supports
+            # ENABLE_IMPLICIT_STRUCTURED_CAST_IN_COPY_TRANSFORM, COPY INTO will
+            # implicit-cast VARIANT to the target scalar column type, so the
+            # explicit ``::TYPE`` cast is redundant and can be skipped.
+            # BinaryType is excluded: the server-side implicit cast does not
+            # handle VARIANT -> BINARY and fails with a type-mismatch error.
+            if getattr(session, "_enable_scos_feature", False) and not isinstance(
+                dt, BinaryType
+            ):
+                transforms.append(sql_expr(source_expr))
+            else:
+                type_sql = map_type_to_snowflake_type(dt, structured=True)
+                transforms.append(sql_expr(f"{source_expr}::{type_sql}"))
             loading_fields.append(StructField(quoted_name, dt, field.nullable))
 
     return target_cols, transforms, StructType(loading_fields)

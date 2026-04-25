@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tardis-dev
-Version: 4.0.0
+Version: 4.1.0
 Summary: Python client for tardis.dev - historical tick-level cryptocurrency market data replay API.
 Keywords: cryptocurrency data feed,market data,api client,orderbook,crypto markets data replay,historical data,historical cryptocurrency prices,cryptocurrency api
 Author: Thad

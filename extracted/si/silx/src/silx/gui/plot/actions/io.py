@@ -53,7 +53,6 @@ from silx.io.nxdata import save_NXdata
 from . import PlotAction
 from ...utils.image import convertArrayToQImage
 
-
 _logger = logging.getLogger(__name__)
 
 _NEXUS_HDF5_EXT_STR = " ".join(["*" + ext for ext in NEXUS_HDF5_EXT])
@@ -89,6 +88,8 @@ class SaveAction(PlotAction):
 
     DEFAULT_ALL_FILTERS = (SNAPSHOT_FILTER_PNG, SNAPSHOT_FILTER_SVG)
 
+    _DEFAULT_FMT = "%.18e"
+
     # Dict of curve filters with CSV-like format
     # Using ordered dict to guarantee filters order
     # Note: '%.18e' is numpy.savetxt default format
@@ -96,27 +97,27 @@ class SaveAction(PlotAction):
         (
             (
                 "Curve as Raw ASCII (*.txt)",
-                {"fmt": "%.18e", "delimiter": " ", "header": False},
+                {"fmt": _DEFAULT_FMT, "delimiter": " ", "header": False},
             ),
             (
                 'Curve as ";"-separated CSV (*.csv)',
-                {"fmt": "%.18e", "delimiter": ";", "header": True},
+                {"fmt": _DEFAULT_FMT, "delimiter": ";", "header": True},
             ),
             (
                 'Curve as ","-separated CSV (*.csv)',
-                {"fmt": "%.18e", "delimiter": ",", "header": True},
+                {"fmt": _DEFAULT_FMT, "delimiter": ",", "header": True},
             ),
             (
                 "Curve as tab-separated CSV (*.csv)",
-                {"fmt": "%.18e", "delimiter": "\t", "header": True},
+                {"fmt": _DEFAULT_FMT, "delimiter": "\t", "header": True},
             ),
             (
                 "Curve as OMNIC CSV (*.csv)",
-                {"fmt": "%.7E", "delimiter": ",", "header": False},
+                {"fmt": _DEFAULT_FMT, "delimiter": ",", "header": False},
             ),
             (
                 "Curve as SpecFile (*.dat)",
-                {"fmt": "%.10g", "delimiter": "", "header": False},
+                {"fmt": _DEFAULT_FMT, "delimiter": "", "header": False},
             ),
         )
     )
@@ -143,8 +144,8 @@ class SaveAction(PlotAction):
     IMAGE_FILTER_NXDATA = "Image as NXdata (%s)" % _NEXUS_HDF5_EXT_STR
 
     DEFAULT_IMAGE_FILTERS = (
-        IMAGE_FILTER_EDF,
         IMAGE_FILTER_TIFF,
+        IMAGE_FILTER_EDF,
         IMAGE_FILTER_NUMPY,
         IMAGE_FILTER_ASCII,
         IMAGE_FILTER_CSV_COMMA,
@@ -201,7 +202,7 @@ class SaveAction(PlotAction):
                 dataKind="scatter", nameFilter=nameFilter, func=self._saveScatter
             )
 
-        super(SaveAction, self).__init__(
+        super().__init__(
             plot,
             icon="document-save",
             text="Save as...",
@@ -372,7 +373,7 @@ class SaveAction(PlotAction):
                 csvdelim=csvdelim,
                 autoheader=autoheader,
             )
-        except IOError:
+        except OSError:
             self._errorMessage("Save failed\n", parent=self.plot)
             return False
 
@@ -411,7 +412,7 @@ class SaveAction(PlotAction):
                 write_file_header=True,
                 close_file=False,
             )
-        except IOError:
+        except OSError:
             self._errorMessage("Save failed\n", parent=self.plot)
             return False
 
@@ -430,7 +431,7 @@ class SaveAction(PlotAction):
                     write_file_header=False,
                     close_file=False,
                 )
-            except IOError:
+            except OSError:
                 self._errorMessage("Save failed\n", parent=self.plot)
                 return False
         specfile.close()
@@ -468,7 +469,7 @@ class SaveAction(PlotAction):
         elif nameFilter == self.IMAGE_FILTER_NUMPY:
             try:
                 numpy.save(filename, data)
-            except IOError:
+            except OSError:
                 self._errorMessage("Save failed\n", parent=self.plot)
                 return False
             return True
@@ -523,7 +524,7 @@ class SaveAction(PlotAction):
                     autoheader=True,
                 )
 
-            except IOError:
+            except OSError:
                 self._errorMessage("Save failed\n", parent=self.plot)
                 return False
             return True
@@ -758,7 +759,7 @@ class PrintAction(PlotAction):
     """
 
     def __init__(self, plot, parent=None):
-        super(PrintAction, self).__init__(
+        super().__init__(
             plot,
             icon="document-print",
             text="Print...",
@@ -854,7 +855,7 @@ class CopyAction(PlotAction):
     """
 
     def __init__(self, plot, parent=None):
-        super(CopyAction, self).__init__(
+        super().__init__(
             plot,
             icon="edit-copy",
             text="Copy plot",

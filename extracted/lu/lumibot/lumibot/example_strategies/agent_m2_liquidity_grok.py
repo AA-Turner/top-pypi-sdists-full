@@ -7,7 +7,7 @@ AI agent support via the LiteLLM bridge.
 
 The only differences vs the Gemini version:
     - default_model is an xAI id ("xai/grok-4.20-0309-reasoning")
-    - XAI_API_KEY is required instead of GOOGLE_API_KEY
+    - XAI_API_KEY or GROK_API_KEY is required instead of GEMINI_API_KEY
     - The litellm package must be installed (it ships with Lumibot)
 
 Model choice note:
@@ -23,7 +23,7 @@ cache key includes the model string, so swapping providers on the same
 backtest produces fresh runs rather than stale cross-model replays.
 
 Requirements:
-    - XAI_API_KEY (get one at https://console.x.ai/)
+    - XAI_API_KEY or GROK_API_KEY (get one at https://console.x.ai/)
 
 Usage:
     export XAI_API_KEY='your-xai-key'
@@ -124,8 +124,8 @@ class M2LiquidityGrokStrategy(Strategy):
 
 
 if __name__ == "__main__":
-    if not os.environ.get("XAI_API_KEY"):
-        print("ERROR: XAI_API_KEY environment variable is required.")
+    if not os.environ.get("XAI_API_KEY") and not os.environ.get("GROK_API_KEY"):
+        print("ERROR: XAI_API_KEY or GROK_API_KEY environment variable is required.")
         print("Get an API key at https://console.x.ai/")
         print("Then set it: export XAI_API_KEY='your-key-here'")
         raise SystemExit(1)

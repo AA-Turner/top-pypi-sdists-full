@@ -5,7 +5,7 @@ requires = [ "uv-build>=0.9" ]
 [project]
 # Docs: https://packaging.python.org/en/latest/guides/writing-pyproject-toml/
 name = "click-extra"
-version = "7.13.0"
+version = "7.14.0"
 description = "🌈 Drop-in replacement for Click to make user-friendly and colorful CLI"
 readme = "readme.md"
 keywords = [
@@ -84,11 +84,9 @@ classifiers = [
 # - adds new explicit support Python version.
 dependencies = [
   # boltons 20.0.0 added shrinkuser(); our config.py uses it for path display.
-  # XXX boltons.ecoutils breaks PDB interactive sessions in pytest. Investigation of the root cause is being
-  # discussed upstream at: https://github.com/mahmoud/boltons/issues/334
   "boltons>=20",
-  # Click 8.3.1 fix an issue with parameters sharing same name.
-  "click>=8.3.1",
+  # Click 8.3.3 makes ParameterSource an IntEnum with ordered members.
+  "click>=8.3.3",
   # Cloup 3.0.7 fix issues with metavars: https://github.com/kdeldycke/click-extra/pull/1281
   "cloup>=3.0.7",
   # always_merger (recursive dict merge) available since deepmerge 1.0.1.
@@ -187,11 +185,10 @@ yaml = [
 
 [project.scripts]
 click-extra = "click_extra.__main__:main"
-click-extra-demo = "click_extra.__main__:main"
 
 [project.urls]
 "Homepage" = "https://github.com/kdeldycke/click-extra"
-"Download" = "https://github.com/kdeldycke/click-extra/releases/tag/v7.13.0"
+"Download" = "https://github.com/kdeldycke/click-extra/releases/tag/v7.14.0"
 "Changelog" = "https://github.com/kdeldycke/click-extra/blob/main/changelog.md"
 "Issues" = "https://github.com/kdeldycke/click-extra/issues"
 "Repository" = "https://github.com/kdeldycke/click-extra"
@@ -230,10 +227,24 @@ test = [
   "tomli>=2; python_version<'3.11'",
 ]
 docs = [
+  # Flask is used as a real-world example in docs {click:run} blocks.
+  "flask>=3",
   # furo 2024.8.6+ supports Sphinx 8; pinned to recent CalVer release.
   "furo>=2025.9.25",
+  # All optional config format dependencies are needed for {click:run} blocks in config.md.
+  "hjson>=3.1",
+  "json-with-comments>=1.2.10",
+  "json5>=0.12.1",
+  # MkDocs is needed for automodule/autoclasstree of click_extra.mkdocs.
+  "mkdocs>=1.4",
   # myst-parser 5.0 stabilized MyST extensions and improved Sphinx directive support.
   "myst-parser>=5",
+  # Pygments is needed for automodule/autoclasstree of click_extra.pygments.
+  "pygments>=2.14",
+  # pymdown-extensions is needed by the mkdocs plugin module.
+  "pymdown-extensions>=10",
+  # pytest is needed for automodule/autoclasstree of click_extra.pytest.
+  "pytest>=8",
   # Sphinx 8.0.0 is the first version to drop Python 3.9, like us.
   "sphinx>=8",
   # sphinx-autodoc-typehints 2.4.0 is the first version that is aligned to our Python >= 3.10 requirement.
@@ -248,6 +259,7 @@ docs = [
   "sphinxcontrib-mermaid>=1.2.3",
   # sphinxext-opengraph 0.13 stabilized OpenGraph metadata generation for Sphinx 8+.
   "sphinxext-opengraph>=0.13",
+  "xmltodict>=1",
 ]
 typing = [
   "types-boltons>=25.0.0.20250919",
@@ -266,6 +278,7 @@ dependency-groups.docs = { requires-python = ">= 3.14" }
 # Relative dates are fine here because the Renovate lock-maintenance job
 # (sync-uv-lock) reverts uv.lock when the only diff is timestamp noise.
 exclude-newer = "1 week"
+exclude-newer-package.click = false
 # Package is at root level, not in "./src/".
 build-backend.module-root = ""
 
@@ -365,7 +378,7 @@ run.source = [ "click_extra" ]
 report.precision = 2
 
 [tool.bumpversion]
-current_version = "7.13.0"
+current_version = "7.14.0"
 allow_dirty = true
 ignore_missing_files = true
 # Parse versions with an optional .devN suffix (PEP 440).

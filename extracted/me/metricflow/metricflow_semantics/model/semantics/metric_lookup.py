@@ -4,35 +4,36 @@ import logging
 from functools import cached_property
 from typing import Dict, Final, Iterable, Sequence
 
-from dbt_semantic_interfaces.enum_extension import assert_values_exhausted
-from dbt_semantic_interfaces.naming.keywords import METRIC_TIME_ELEMENT_NAME
-from dbt_semantic_interfaces.protocols import MetricInput
-from dbt_semantic_interfaces.protocols.metric import Metric, MetricType
-from dbt_semantic_interfaces.protocols.semantic_manifest import SemanticManifest
-from dbt_semantic_interfaces.references import MetricReference, SemanticModelReference
-from dbt_semantic_interfaces.type_enums.time_granularity import TimeGranularity
-
 from metricflow_semantics.errors.error_classes import (
     DuplicateMetricError,
+    InvalidManifestException,
+    MetricFlowInternalError,
     MetricNotFoundError,
     UnknownMetricError,
 )
-from metricflow_semantics.experimental.cache.mf_cache import ResultCache
-from metricflow_semantics.experimental.dsi.manifest_object_lookup import ManifestObjectLookup
-from metricflow_semantics.experimental.metricflow_exception import InvalidManifestException, MetricFlowInternalError
-from metricflow_semantics.experimental.ordered_set import FrozenOrderedSet, MutableOrderedSet, OrderedSet
-from metricflow_semantics.experimental.semantic_graph.attribute_resolution.annotated_spec_linkable_element_set import (
-    GroupByItemSet,
-)
-from metricflow_semantics.mf_logging.lazy_formattable import LazyFormat
 from metricflow_semantics.model.linkable_element_property import GroupByItemProperty
 from metricflow_semantics.model.semantics.element_filter import GroupByItemSetFilter
 from metricflow_semantics.model.semantics.linkable_element_set_base import BaseGroupByItemSet
 from metricflow_semantics.model.semantics.linkable_spec_resolver import (
     GroupByItemSetResolver,
 )
+from metricflow_semantics.semantic_graph.attribute_resolution.group_by_item_set import (
+    GroupByItemSet,
+)
+from metricflow_semantics.semantic_graph.lookups.manifest_object_lookup import ManifestObjectLookup
 from metricflow_semantics.specs.spec_set import group_specs_by_type
 from metricflow_semantics.specs.time_dimension_spec import TimeDimensionSpec
+from metricflow_semantics.toolkit.cache.result_cache import ResultCache
+from metricflow_semantics.toolkit.collections.ordered_set import FrozenOrderedSet, MutableOrderedSet, OrderedSet
+from metricflow_semantics.toolkit.mf_logging.lazy_formattable import LazyFormat
+
+from metricflow_semantic_interfaces.enum_extension import assert_values_exhausted
+from metricflow_semantic_interfaces.naming.keywords import METRIC_TIME_ELEMENT_NAME
+from metricflow_semantic_interfaces.protocols import MetricInput
+from metricflow_semantic_interfaces.protocols.metric import Metric, MetricType
+from metricflow_semantic_interfaces.protocols.semantic_manifest import SemanticManifest
+from metricflow_semantic_interfaces.references import MetricReference, SemanticModelReference
+from metricflow_semantic_interfaces.type_enums.time_granularity import TimeGranularity
 
 logger = logging.getLogger(__name__)
 

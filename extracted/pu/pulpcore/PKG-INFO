@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pulpcore
-Version: 3.109.1
+Version: 3.109.2
 Summary: Pulp Django Application and Related Modules
 Author-email: Pulp Team <pulp-list@redhat.com>
 License-Expression: GPL-2.0-or-later
@@ -51,7 +51,7 @@ Requires-Dist: pulp-glue<0.40,>=0.30.0
 Requires-Dist: pygtrie<=2.5.0,>=2.5
 Requires-Dist: psycopg[binary]<3.4,>=3.1.8
 Requires-Dist: pyparsing<3.4,>=3.1.0
-Requires-Dist: pysequoia==0.1.32
+Requires-Dist: pysequoia<0.2,>=0.1.33
 Requires-Dist: PyYAML<6.1,>=5.1.1
 Requires-Dist: redis<7.2,>=4.3.0
 Requires-Dist: tablib!=3.6,<4.0,>=3.5.0

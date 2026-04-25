@@ -295,6 +295,24 @@ class ModelAPI(abc.ABC):
         """
         return count_media_tokens(media)
 
+    async def tokenize(self, text: str) -> list[int]:
+        """Tokenize text into token IDs using the model's tokenizer.
+
+        Override in providers that support server-side tokenization
+        (e.g. vLLM's ``/tokenize`` endpoint).
+
+        Args:
+            text: Text to tokenize.
+
+        Returns:
+            List of token IDs.
+
+        Raises:
+            NotImplementedError: If the provider does not support
+                tokenization.
+        """
+        raise NotImplementedError(f"{type(self).__name__} does not support tokenize().")
+
     def max_tokens(self) -> int | None:
         """Default max_tokens."""
         return None
@@ -1424,6 +1442,9 @@ def get_model(
     if model is None:
         if isinstance(default, Model):
             if role is not None:
+                # shallow-copy so we don't mutate the caller's Model
+                # (e.g. a shared instance held in model_roles())
+                default = copy(default)
                 default._set_role(role)
             return default
         else:

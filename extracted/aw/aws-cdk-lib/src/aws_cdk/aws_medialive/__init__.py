@@ -3544,6 +3544,7 @@ class CfnChannel(
         name_mapping={
             "color_space_passthrough_settings": "colorSpacePassthroughSettings",
             "hdr10_settings": "hdr10Settings",
+            "hlg2020_settings": "hlg2020Settings",
             "rec601_settings": "rec601Settings",
             "rec709_settings": "rec709Settings",
         },
@@ -3554,12 +3555,14 @@ class CfnChannel(
             *,
             color_space_passthrough_settings: typing.Any = None,
             hdr10_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.Hdr10SettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            hlg2020_settings: typing.Any = None,
             rec601_settings: typing.Any = None,
             rec709_settings: typing.Any = None,
         ) -> None:
             '''
             :param color_space_passthrough_settings: 
             :param hdr10_settings: 
+            :param hlg2020_settings: 
             :param rec601_settings: 
             :param rec709_settings: 
 
@@ -3573,6 +3576,7 @@ class CfnChannel(
                 from aws_cdk import aws_medialive as medialive
                 
                 # color_space_passthrough_settings: Any
+                # hlg2020_settings: Any
                 # rec601_settings: Any
                 # rec709_settings: Any
                 
@@ -3582,6 +3586,7 @@ class CfnChannel(
                         max_cll=123,
                         max_fall=123
                     ),
+                    hlg2020_settings=hlg2020_settings,
                     rec601_settings=rec601_settings,
                     rec709_settings=rec709_settings
                 )
@@ -3590,6 +3595,7 @@ class CfnChannel(
                 type_hints = typing.get_type_hints(_typecheckingstub__fc0689af3b0f6f7131d0da1e3e64aeee57f565115f0a26ac370f2cf08cbba949)
                 check_type(argname="argument color_space_passthrough_settings", value=color_space_passthrough_settings, expected_type=type_hints["color_space_passthrough_settings"])
                 check_type(argname="argument hdr10_settings", value=hdr10_settings, expected_type=type_hints["hdr10_settings"])
+                check_type(argname="argument hlg2020_settings", value=hlg2020_settings, expected_type=type_hints["hlg2020_settings"])
                 check_type(argname="argument rec601_settings", value=rec601_settings, expected_type=type_hints["rec601_settings"])
                 check_type(argname="argument rec709_settings", value=rec709_settings, expected_type=type_hints["rec709_settings"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -3597,6 +3603,8 @@ class CfnChannel(
                 self._values["color_space_passthrough_settings"] = color_space_passthrough_settings
             if hdr10_settings is not None:
                 self._values["hdr10_settings"] = hdr10_settings
+            if hlg2020_settings is not None:
+                self._values["hlg2020_settings"] = hlg2020_settings
             if rec601_settings is not None:
                 self._values["rec601_settings"] = rec601_settings
             if rec709_settings is not None:
@@ -3619,6 +3627,14 @@ class CfnChannel(
             '''
             result = self._values.get("hdr10_settings")
             return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.Hdr10SettingsProperty"]], result)
+
+        @builtins.property
+        def hlg2020_settings(self) -> typing.Any:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-av1colorspacesettings.html#cfn-medialive-channel-av1colorspacesettings-hlg2020settings
+            '''
+            result = self._values.get("hlg2020_settings")
+            return typing.cast(typing.Any, result)
 
         @builtins.property
         def rec601_settings(self) -> typing.Any:
@@ -3742,6 +3758,7 @@ class CfnChannel(
                 from aws_cdk import aws_medialive as medialive
                 
                 # color_space_passthrough_settings: Any
+                # hlg2020_settings: Any
                 # rec601_settings: Any
                 # rec709_settings: Any
                 
@@ -3756,6 +3773,7 @@ class CfnChannel(
                             max_cll=123,
                             max_fall=123
                         ),
+                        hlg2020_settings=hlg2020_settings,
                         rec601_settings=rec601_settings,
                         rec709_settings=rec709_settings
                     ),
@@ -24070,6 +24088,7 @@ class CfnChannel(
                                 max_cll=123,
                                 max_fall=123
                             ),
+                            hlg2020_settings=hlg2020_settings,
                             rec601_settings=rec601_settings,
                             rec709_settings=rec709_settings
                         ),
@@ -24414,6 +24433,7 @@ class CfnChannel(
                                     max_cll=123,
                                     max_fall=123
                                 ),
+                                hlg2020_settings=hlg2020_settings,
                                 rec601_settings=rec601_settings,
                                 rec709_settings=rec709_settings
                             ),
@@ -35263,6 +35283,7 @@ def _typecheckingstub__fc0689af3b0f6f7131d0da1e3e64aeee57f565115f0a26ac370f2cf08
     *,
     color_space_passthrough_settings: typing.Any = None,
     hdr10_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.Hdr10SettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    hlg2020_settings: typing.Any = None,
     rec601_settings: typing.Any = None,
     rec709_settings: typing.Any = None,
 ) -> None:

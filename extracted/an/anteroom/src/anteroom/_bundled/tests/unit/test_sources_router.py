@@ -26,6 +26,7 @@ def _make_app(*, config=None) -> FastAPI:
         config = MagicMock()
         config.identity = None
         config.app.data_dir = "/tmp/test"
+        config.server.max_upload_mb = 50
     app.state.config = config
     app.state.embedding_worker = None
 
@@ -173,6 +174,7 @@ class TestUploadSource:
             assert resp.status_code == 201
             assert resp.json()["id"] == "s1"
             mock_storage.save_source_file.assert_called_once()
+            assert mock_storage.save_source_file.call_args.kwargs["max_size_bytes"] == 50 * 1024 * 1024
 
     def test_upload_with_title(self) -> None:
         app = _make_app()
@@ -218,6 +220,92 @@ class TestUploadSource:
             )
             assert resp.status_code == 400
             assert "File too large" in resp.json()["detail"]
+
+    def test_upload_with_space_links_source(self) -> None:
+        app = _make_app()
+        space_id = "12345678-1234-1234-1234-123456789012"
+        with (
+            patch("anteroom.routers.sources.storage") as mock_storage,
+            patch("anteroom.routers.sources.get_space", return_value={"id": space_id, "name": "Docs Space"}),
+        ):
+            mock_storage.save_source_file.return_value = (
+                {
+                    "id": "s-space",
+                    "type": "file",
+                    "title": "test.txt",
+                    "filename": "test.txt",
+                    "content": "file content",
+                },
+                [],
+            )
+            client = TestClient(app)
+            resp = client.post(
+                "/api/sources/upload",
+                files={"file": ("test.txt", io.BytesIO(b"file content"), "text/plain")},
+                data={"space_id": space_id},
+            )
+            assert resp.status_code == 201
+            mock_storage.link_source_to_space.assert_called_once()
+            args = mock_storage.link_source_to_space.call_args
+            assert args.args[1] == space_id
+            assert args.kwargs == {"source_id": "s-space"}
+
+    def test_upload_existing_source_still_links_space(self) -> None:
+        app = _make_app()
+        space_id = "12345678-1234-1234-1234-123456789012"
+        with (
+            patch("anteroom.routers.sources.storage") as mock_storage,
+            patch("anteroom.routers.sources.get_space", return_value={"id": space_id, "name": "Docs Space"}),
+        ):
+            mock_storage.save_source_file.return_value = (
+                {
+                    "id": "s-existing",
+                    "type": "file",
+                    "title": "existing.txt",
+                    "filename": "existing.txt",
+                    "content": "existing content",
+                },
+                [],
+            )
+            client = TestClient(app)
+            resp = client.post(
+                "/api/sources/upload",
+                files={"file": ("existing.txt", io.BytesIO(b"existing content"), "text/plain")},
+                data={"space_id": space_id},
+            )
+            assert resp.status_code == 201
+            mock_storage.link_source_to_space.assert_called_once()
+            args = mock_storage.link_source_to_space.call_args
+            assert args.args[1] == space_id
+            assert args.kwargs == {"source_id": "s-existing"}
+
+    def test_upload_with_invalid_space_uuid_returns_400(self) -> None:
+        app = _make_app()
+        with patch("anteroom.routers.sources.storage") as mock_storage:
+            client = TestClient(app)
+            resp = client.post(
+                "/api/sources/upload",
+                files={"file": ("test.txt", io.BytesIO(b"file content"), "text/plain")},
+                data={"space_id": "not-a-uuid"},
+            )
+            assert resp.status_code == 400
+            mock_storage.save_source_file.assert_not_called()
+
+    def test_upload_with_missing_space_returns_404(self) -> None:
+        app = _make_app()
+        space_id = "12345678-1234-1234-1234-123456789012"
+        with (
+            patch("anteroom.routers.sources.storage") as mock_storage,
+            patch("anteroom.routers.sources.get_space", return_value=None),
+        ):
+            client = TestClient(app)
+            resp = client.post(
+                "/api/sources/upload",
+                files={"file": ("test.txt", io.BytesIO(b"file content"), "text/plain")},
+                data={"space_id": space_id},
+            )
+            assert resp.status_code == 404
+            mock_storage.save_source_file.assert_not_called()
 
 
 class TestGetSource:

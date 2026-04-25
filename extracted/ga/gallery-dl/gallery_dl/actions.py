@@ -226,14 +226,45 @@ def action_wait(opts):
 
 def action_flag(opts):
     flag, value = util.re(
-        r"(?i)(file|post|child|download)(?:\s*[= ]\s*(.+))?"
+        r"(?i)(file|post|child|download|clear)(?:\s*[= ]\s*(.+))?"
     ).match(opts).groups()
     flag = flag.upper()
-    value = "stop" if value is None else value.lower()
+
+    if flag == "CLEAR":
+        return (lambda _: util.FLAGS.clear()), None
+
+    if value is None:
+        value = "stop"
+    elif value == "skip":
+        value = False
+    elif value == "clear":
+        value = None
+    elif value == "toggle":
+        def _flag_toggle(args):
+            util.FLAGS.__dict__[flag] = \
+                "stop" if util.FLAGS.__dict__[flag] is None else None
+        del value
+        return _flag_toggle, None
+    else:
+        value = value.lower()
 
     def _flag(args):
         util.FLAGS.__dict__[flag] = value
     return _flag, None
+
+
+def action_keyword(opts):
+    name, _, value = opts.partition(" ")
+
+    try:
+        value = value.strip()
+        value = util.json_loads(value)
+    except Exception:
+        pass
+
+    def _keyword(args):
+        args["job"].kwdict[name] = value
+    return _keyword, None
 
 
 def action_raise(opts):
@@ -288,6 +319,7 @@ ACTIONS = {
     "exec"     : action_exec,
     "exit"     : action_exit,
     "flag"     : action_flag,
+    "keyword"  : action_keyword,
     "level"    : action_level,
     "print"    : action_print,
     "raise"    : action_raise,

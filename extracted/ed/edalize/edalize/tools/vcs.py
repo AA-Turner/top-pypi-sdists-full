@@ -53,6 +53,10 @@ class Vcs(Edatool):
             "type": "str",
             "desc": "Set name of the simulation binary (defaults to system name)",
         },
+        "vcs_unr_cfg_file": {
+            "type": "str",
+            "desc": "Unreachability config file",
+        },
     }
 
     def setup(self, edam):
@@ -67,6 +71,7 @@ class Vcs(Edatool):
         incdirs = []
         include_files = []
         unused_files = self.files.copy()
+        self.sim_setup_files = []
         # Get all include dirs. Move include files to a separate list
         for f in self.files:
             if not "simulation" in f.get("tags", ["simulation"]):
@@ -78,6 +83,9 @@ class Vcs(Edatool):
                 if self._add_include_dir(f, incdirs, force_slash=True):
                     include_files.append(f["name"])
                     unused_files.remove(f)
+            elif file_type == "synopsys_sim_setup":
+                self.sim_setup_files.append(f["name"])
+                unused_files.remove(f)
 
         full64 = [] if self.tool_options.get("32bit") else ["-full64"]
         if self.tool_options.get("2_stage_flow"):
@@ -89,10 +97,20 @@ class Vcs(Edatool):
         self.edam["files"] = unused_files
 
         binary_name = self.tool_options.get("binary_name", self.name)
+        unr = self.tool_options.get("vcs_unr_cfg_file")
+
+        # -unr needs to be on the command-line. In UNR mode, the -o option is also
+        # not used since the outbut binary is always called unrSimv
+        vcs_args = full64
+        if unr:
+            vcs_args.append(f"-unr={unr}")
+            binary_name = "unrSimv"
+        else:
+            vcs_args += ["-o", binary_name]
         self.commands.add(
             ["vcs"]
-            + full64
-            + ["-o", binary_name, "-file", "vcs.f", "-parameters", "parameters.txt"]
+            + vcs_args
+            + ["-file", "vcs.f", "-parameters", "parameters.txt"]
             + self.vcs_files,
             [binary_name],
             self.target_files + self.user_files + ["vcs.f", "parameters.txt"],
@@ -265,6 +283,8 @@ class Vcs(Edatool):
         for lib in self.workdirs:
             if lib != "work":
                 s += f"{lib} : ./{lib}.workdir\n"
+        for fname in self.sim_setup_files:
+            s += f"OTHERS = {fname}\n"
         self.update_config_file("synopsys_sim.setup", s)
         for k, v in self.f_files.items():
             self.update_config_file(k, " ".join(v) + "\n")

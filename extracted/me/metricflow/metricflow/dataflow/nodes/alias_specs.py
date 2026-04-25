@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 from abc import ABC
+from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Sequence, Tuple
 
 from metricflow_semantics.dag.id_prefix import IdPrefix, StaticIdPrefix
 from metricflow_semantics.dag.mf_dag import DisplayedProperty
 from metricflow_semantics.specs.instance_spec import InstanceSpec
-from metricflow_semantics.visitor import VisitorOutputT
+from metricflow_semantics.toolkit.visitor import VisitorOutputT
 
 from metricflow.dataflow.dataflow_plan import DataflowPlanNode
 from metricflow.dataflow.dataflow_plan_visitor import DataflowPlanNodeVisitor
@@ -32,8 +33,8 @@ class AliasSpecsNode(DataflowPlanNode, ABC):
         assert len(self.change_specs) > 0, "Must have at least one value in change_specs for AliasSpecsNode."
 
     @staticmethod
-    def create(parent_node: DataflowPlanNode, change_specs: Tuple[SpecToAlias, ...]) -> AliasSpecsNode:  # noqa: D102
-        return AliasSpecsNode(parent_nodes=(parent_node,), change_specs=change_specs)
+    def create(parent_node: DataflowPlanNode, change_specs: Iterable[SpecToAlias]) -> AliasSpecsNode:  # noqa: D102
+        return AliasSpecsNode(parent_nodes=(parent_node,), change_specs=tuple(change_specs))
 
     @classmethod
     def id_prefix(cls) -> IdPrefix:  # noqa: D102

@@ -27,9 +27,9 @@ use crate::db::resolve_uuid::{ResolveUuidQueries, ResolvedObject};
 use crate::db::stored_datapoint::StoredDatapoint;
 use crate::db::{
     CacheStatisticsTimePoint, ConfigQueries, MockConfigQueries, ModelLatencyDatapoint,
-    ModelUsageTimePoint, TimeWindow,
+    ModelUsageTimePoint, TimeWindow, VariantUsageTimePoint,
 };
-use crate::error::Error;
+use crate::error::{DelayedError, Error};
 use crate::function::FunctionConfig;
 use crate::inference::types::StoredModelInference;
 use crate::inference::types::{ChatInferenceDatabaseInsert, JsonInferenceDatabaseInsert};
@@ -251,7 +251,7 @@ impl ConfigQueries for MockClickHouseConnectionInfo {
         self.config_queries.get_config_snapshot(snapshot_hash).await
     }
 
-    async fn write_config_snapshot(&self, snapshot: &ConfigSnapshot) -> Result<(), Error> {
+    async fn write_config_snapshot(&self, snapshot: &ConfigSnapshot) -> Result<(), DelayedError> {
         #[expect(clippy::disallowed_methods)]
         self.config_queries.write_config_snapshot(snapshot).await
     }
@@ -318,6 +318,17 @@ impl ModelInferenceQueries for MockClickHouseConnectionInfo {
                 model_name,
                 model_provider_name,
             )
+            .await
+    }
+
+    async fn get_variant_usage_timeseries(
+        &self,
+        function_name: &str,
+        time_window: TimeWindow,
+        max_periods: u32,
+    ) -> Result<Vec<VariantUsageTimePoint>, Error> {
+        self.model_inference_queries
+            .get_variant_usage_timeseries(function_name, time_window, max_periods)
             .await
     }
 }

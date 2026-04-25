@@ -749,9 +749,14 @@ class OEMHandler(generic.OEMHandler):
         fd.join()
 
     def get_diagnostic_data(self, savefile, progress=None, autosuffix=False):
-        tsk = self._do_web_request(
-            '/redfish/v1/Systems/1/LogServices/DiagnosticLog/Actions/LogService.CollectDiagnosticData',
-            {"DiagnosticDataType": "Manager", "SelectDataTypes": ["adapter","worknote","thermal"]})
+        try:
+            tsk = self._do_web_request(
+                '/redfish/v1/Systems/1/LogServices/DiagnosticLog/Actions/LogService.CollectDiagnosticData',
+                {"DiagnosticDataType": "Manager", "SelectDataTypes": ["adapter","worknote","thermal"]})
+        except pygexc.RedfishError as e:
+            tsk = self._do_web_request(
+                '/redfish/v1/Systems/1/LogServices/DiagnosticLog/Actions/LogService.CollectDiagnosticData',
+                {"DiagnosticDataType": "Manager", "SelectDataTypes": ["adapter"]})
         taskrunning = True
         taskurl = tsk.get('TaskMonitor', None)
         pct = 0 if taskurl else 100
@@ -1147,7 +1152,10 @@ class OEMHandler(generic.OEMHandler):
             pendingscm = None
         if pendinghpm == '*':
             pendinghpm = None
+        oldtimeout = fishclient.wc.mytimeout
+        fishclient.wc.mytimeout = 120
         fwlist = fishclient._do_web_request(fishclient._fwinventory + '?$expand=.')
+        fishclient.wc.mytimeout = oldtimeout
         fwlist = copy.deepcopy(fwlist.get('Members', []))
         self._fwnamemap = {}
         for redres in fwlist:

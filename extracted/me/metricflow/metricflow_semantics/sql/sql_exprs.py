@@ -8,21 +8,21 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Dict, Generic, List, Mapping, Optional, Sequence, Tuple
 
-from dbt_semantic_interfaces.enum_extension import assert_values_exhausted
-from dbt_semantic_interfaces.protocols.measure import MeasureAggregationParameters
-from dbt_semantic_interfaces.type_enums.aggregation_type import AggregationType
-from dbt_semantic_interfaces.type_enums.date_part import DatePart
-from dbt_semantic_interfaces.type_enums.period_agg import PeriodAggregation
-from dbt_semantic_interfaces.type_enums.time_granularity import TimeGranularity
-from typing_extensions import override
-
-from metricflow_semantics.collection_helpers.merger import Mergeable
 from metricflow_semantics.dag.id_prefix import IdPrefix, StaticIdPrefix
 from metricflow_semantics.dag.mf_dag import DagNode, DisplayedProperty
-from metricflow_semantics.mf_logging.pretty_formatter import PrettyFormatContext
 from metricflow_semantics.model.semantics.simple_metric_input import SimpleMetricInputAggregation
 from metricflow_semantics.sql.sql_bind_parameters import SqlBindParameterSet
-from metricflow_semantics.visitor import Visitable, VisitorOutputT
+from metricflow_semantics.toolkit.merger import Mergeable
+from metricflow_semantics.toolkit.mf_logging.pretty_formatter import PrettyFormatContext
+from metricflow_semantics.toolkit.visitor import Visitable, VisitorOutputT
+from typing_extensions import override
+
+from metricflow_semantic_interfaces.enum_extension import assert_values_exhausted
+from metricflow_semantic_interfaces.protocols.measure import MeasureAggregationParameters
+from metricflow_semantic_interfaces.type_enums.aggregation_type import AggregationType
+from metricflow_semantic_interfaces.type_enums.date_part import DatePart
+from metricflow_semantic_interfaces.type_enums.period_agg import PeriodAggregation
+from metricflow_semantic_interfaces.type_enums.time_granularity import TimeGranularity
 
 
 @dataclass(frozen=True, eq=False)

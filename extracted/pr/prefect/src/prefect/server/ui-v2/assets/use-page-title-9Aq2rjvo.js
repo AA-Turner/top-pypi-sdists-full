@@ -1,0 +1,2 @@
+import{r as e}from"./rolldown-runtime-S-ySWqyJ.js";import{s as t}from"./vendor-codemirror-CPtRGrRG.js";var n=e(t(),1),r=`Prefect Server`,i=` • `;function a(...e){let t=[...e.filter(e=>e!=null),r].join(i);(0,n.useEffect)(()=>(document.title=t,()=>{document.title=r}),[t])}export{a as t};
+//# sourceMappingURL=use-page-title-9Aq2rjvo.js.map

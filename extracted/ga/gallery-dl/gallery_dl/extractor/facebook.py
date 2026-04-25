@@ -7,8 +7,7 @@
 """Extractors for https://www.facebook.com/"""
 
 from .common import Extractor, Message, Dispatch
-from .. import text, util, exception
-from ..cache import memcache
+from .. import text, util
 
 BASE_PATTERN = r"(?:https?://)?(?:[\w-]+\.)?facebook\.com"
 USER_PATTERN = (BASE_PATTERN +
@@ -20,7 +19,7 @@ class FacebookExtractor(Extractor):
     """Base class for Facebook extractors"""
     category = "facebook"
     root = "https://www.facebook.com"
-    directory_fmt = ("{category}", "{username}", "{title} ({set_id})")
+    directory_fmt = ("{category}", "{username}", "{title}{set_id:? (/)/}")
     filename_fmt = "{id}.{extension}"
     archive_fmt = "{id}.{extension}"
 
@@ -37,6 +36,7 @@ class FacebookExtractor(Extractor):
         self.fallback_retries = self.config("fallback-retries", 2)
         self.videos = self.config("videos", True)
         self.author_followups = self.config("author-followups", False)
+        self._detect_jump = True
 
     def decode_all(self, txt):
         return text.unescape(
@@ -119,10 +119,6 @@ class FacebookExtractor(Extractor):
                 photo_page,
                 '"nextMediaAfterNodeId":{"__typename":"Photo","id":"',
                 '"'
-            ) or text.extr(
-                photo_page,
-                '"nextMedia":{"edges":[{"node":{"__typename":"Photo","id":"',
-                '"'
             )
         }
 
@@ -154,11 +150,15 @@ class FacebookExtractor(Extractor):
             ), '"url":"', ','
         )
 
-        post = {
-            "set_id": text.extr(post_page, '{"mediaset_token":"', '"') or
-            text.extr(first_photo_url, 'set=', '"').rsplit("&", 1)[0]
-        }
+        if post_page.count('"__isMedia":"Photo"') > 2:
+            post = {
+                "set_id": text.extr(post_page, '{"mediaset_token":"', '"') or
+                text.extr(first_photo_url, 'set=', '"').rsplit("&", 1)[0]
+            }
+        else:
+            post = {"set_id": None}
 
+        post["post_photo"] = first_photo_url
         return post
 
     def parse_video_page(self, video_page):
@@ -236,12 +236,12 @@ class FacebookExtractor(Extractor):
         res = self.request(url, **kwargs)
 
         if res.url.startswith(self.root + "/login"):
-            raise exception.AuthRequired(
+            raise self.exc.AuthRequired(
                 message=("You must be logged in to continue viewing images." +
                          LEFT_OFF_TXT))
 
         if b'{"__dr":"CometErrorRoot.react"}' in res.content:
-            raise exception.AbortExtraction(
+            raise self.exc.AbortExtraction(
                 "You've been temporarily blocked from viewing images.\n"
                 "Please try using a different account, "
                 "using a VPN or waiting before you retry." + LEFT_OFF_TXT)
@@ -273,7 +273,7 @@ class FacebookExtractor(Extractor):
 
             if not photo["url"]:
                 if retries < self.fallback_retries and self._interval_429:
-                    seconds = self._interval_429()
+                    seconds = self._interval_429(retries + 1)
                     self.log.warning(
                         "Failed to find photo download URL for %s. "
                         "Retrying in %s seconds.", photo_url, seconds,
@@ -304,18 +304,18 @@ class FacebookExtractor(Extractor):
                         "Detected a loop in the set, it's likely finished. "
                         "Extraction is over."
                     )
-            elif int(photo["next_photo_id"]) > int(photo["id"]) + i*120:
+            elif self._detect_jump and not set_id.startswith('pcb.') and \
+                    int(photo["next_photo_id"]) > int(photo["id"]) + i*120:
                 self.log.info(
-                    "Detected jump to the beginning of the set. (%s -> %s)",
-                    photo["id"], photo["next_photo_id"])
-                if self.config("loop", False):
+                    "Detected possible jump to the beginning of the set. "
+                    "(%s -> %s)", photo["id"], photo["next_photo_id"])
+                if self.config("loop", True):
                     all_photo_ids.append(photo["next_photo_id"])
             else:
                 all_photo_ids.append(photo["next_photo_id"])
 
             i += 1
 
-    @memcache(keyarg=1)
     def _extract_profile(self, profile, set_id=False):
         if set_id:
             url = f"{self.root}/{profile}/photos_by"
@@ -331,7 +331,7 @@ class FacebookExtractor(Extractor):
                 break
             if ('"props":{"title":"This content isn\'t available right now"' in
                     page):
-                raise exception.AuthRequired(
+                raise self.exc.AuthRequired(
                     "authenticated cookies", "profile",
                     "This content isn't available right now")
 
@@ -440,23 +440,38 @@ class FacebookSetExtractor(FacebookExtractor):
         BASE_PATTERN +
         r"/(?:(?:media/set|photo)/?\?(?:[^&#]+&)*set=([^&#]+)"
         r"[^/?#]*(?<!&setextract)$"
-        r"|([^/?#]+/posts/[^/?#]+)"
-        r"|photo/\?(?:[^&#]+&)*fbid=([^/?&#]+)&set=([^/?&#]+)&setextract)"
+        r"|[^/?#]+/posts/([^/?#]+)"
+        r"|photo/\?(?:[^&#]+&)*fbid=([^/?&#]+)&set=([^/?&#]+)&setextract"
+        r"|(?:groups/)?(?:[^/?#]+/)?(?:permalink|posts)(?:\.php)?"
+        r"(?:/(\d+)|\?\w+=([^/?#]+))"
+        r"|events/[^/?#]+/\??post_id=(\d+))"
     )
     example = "https://www.facebook.com/media/set/?set=SET_ID"
 
     def items(self):
-        set_id = self.groups[0] or self.groups[3]
-        if path := self.groups[1]:
-            post_url = self.root + "/" + path
+        set_id, path, first_pid, set_id2, pcb1, pcb2, pcb3 = self.groups
+        if not set_id:
+            set_id = set_id2
+
+        if path:
+            post_url = f"{self.root}/{path}"
             post_page = self.request(post_url).text
-            set_id = self.parse_post_page(post_page)["set_id"]
+            post = self.parse_post_page(post_page)
+
+            set_id = post["set_id"]
+            if not set_id:
+                params = text.parse_query(post["post_photo"].partition("?")[2])
+                self.groups = (params["fbid"],)
+                return FacebookPhotoExtractor.items(self)
+            self._detect_jump = False
+        elif not set_id:
+            set_id = "pcb." + (pcb1 or pcb2 or pcb3)
 
         set_url = f"{self.root}/media/set/?set={set_id}"
         set_page = self.request(set_url).text
         set_data = self.parse_set_page(set_page)
-        if self.groups[2]:
-            set_data["first_photo_id"] = self.groups[2]
+        if first_pid:
+            set_data["first_photo_id"] = first_pid
 
         return self.extract_set(set_data)
 
@@ -496,8 +511,8 @@ class FacebookInfoExtractor(FacebookExtractor):
     example = "https://www.facebook.com/USERNAME/info"
 
     def items(self):
-        user = self._extract_profile(self.groups[0])
-        return iter(((Message.Directory, "", user),))
+        user = self.cache(self._extract_profile, self.groups[0])
+        return iter(((Message.Directory, "", user.copy()),))
 
 
 class FacebookAlbumsExtractor(FacebookExtractor):
@@ -540,7 +555,8 @@ class FacebookPhotosExtractor(FacebookExtractor):
     example = "https://www.facebook.com/USERNAME/photos"
 
     def items(self):
-        set_id = self._extract_profile(self.groups[0], True)["set_id"]
+        set_id = self.cache(
+            self._extract_profile, self.groups[0], True)["set_id"]
         if not set_id:
             return iter(())
 
@@ -557,17 +573,43 @@ class FacebookAvatarExtractor(FacebookExtractor):
     example = "https://www.facebook.com/USERNAME/avatar"
 
     def items(self):
-        user = self._extract_profile(self.groups[0])
-        avatar_page_url = user["profilePhoto"]["url"]
-        avatar_page = self.photo_page_request_wrapper(avatar_page_url).text
+        user = self.cache(self._extract_profile, self.groups[0])
 
-        avatar = self.parse_photo_page(avatar_page)
-        avatar["count"] = avatar["num"] = 1
-        avatar["type"] = "avatar"
+        if avatar_page := user.get("profilePhoto"):
+            avatar_page_url = avatar_page["url"]
+            avatar_page = self.photo_page_request_wrapper(avatar_page_url).text
 
-        set_url = f"{self.root}/media/set/?set={avatar['set_id']}"
-        set_page = self.request(set_url).text
-        directory = self.parse_set_page(set_page)
+            avatar = self.parse_photo_page(avatar_page)
+            avatar["count"] = avatar["num"] = 1
+            avatar["type"] = "avatar"
+
+            set_url = f"{self.root}/media/set/?set={avatar['set_id']}"
+            set_page = self.request(set_url).text
+            directory = self.parse_set_page(set_page)
+        else:
+            for key in ("profilePicLarge",
+                        "profilePicMedium",
+                        "profilePicSmall"):
+                if url := user.get(key):
+                    url = url["uri"]
+                    break
+            else:
+                return
+
+            directory = {
+                "set_id"    : "",
+                "username"  : user.get("username"),
+                "user_id"   : user.get("id"),
+                "user_pfbid": user.get("user_pfbid"),
+                "title"     : "Profile pictures",
+            }
+            avatar = text.nameext_from_url(url, {
+                **directory,
+                "id"   : (a := user.get("user_avatar")) and a.get("id"),
+                "url"  : url,
+                "count": 1,
+                "type" : "avatar",
+            })
 
         yield Message.Directory, "", directory
         yield Message.Url, avatar["url"], avatar

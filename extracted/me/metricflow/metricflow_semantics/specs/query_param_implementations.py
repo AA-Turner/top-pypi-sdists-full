@@ -3,11 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional, Union
 
-from dbt_semantic_interfaces.protocols import ProtocolHint
-from dbt_semantic_interfaces.references import EntityReference
-from dbt_semantic_interfaces.type_enums.date_part import DatePart
-from typing_extensions import override
-
 from metricflow_semantics.model.semantic_manifest_lookup import SemanticManifestLookup
 from metricflow_semantics.naming.linkable_spec_name import StructuredLinkableSpecName
 from metricflow_semantics.naming.metric_scheme import MetricNamingScheme
@@ -30,6 +25,11 @@ from metricflow_semantics.specs.patterns.entity_link_pattern import (
     SpecPatternParameterSet,
 )
 from metricflow_semantics.specs.patterns.typed_patterns import TimeDimensionPattern
+from typing_extensions import override
+
+from metricflow_semantic_interfaces.protocols import ProtocolHint
+from metricflow_semantic_interfaces.references import EntityReference
+from metricflow_semantic_interfaces.type_enums.date_part import DatePart
 
 
 @dataclass(frozen=True)

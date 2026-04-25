@@ -40,6 +40,7 @@ from acryl.executor.cloud_utils.env_utils import (
     DATAHUB_CLOUD_LOG_PATH_ENV_VAR,
     get_cloud_log_bucket,
     get_cloud_log_path,
+    get_print_subprocess_logs,
 )
 from acryl.executor.cloud_utils.executor_credentials import ExecutorCredentials
 from acryl.executor.cloud_utils.s3_cloud_copier import S3CloudCopier
@@ -415,7 +416,9 @@ class SubProcessIngestionTask(Task):
         # Create shared LogHolder for both venv setup and subprocess monitoring
         shared_logs = LogHolder(
             max_log_lines=self.config.max_log_lines,
-            echo_to_stdout_prefix=None,
+            echo_to_stdout_prefix=f"[{exec_id} logs] "
+            if get_print_subprocess_logs()
+            else None,
         )
         full_log_file = open(
             f"{artifact_output_dir}/executor-logs/ingestion-logs.log", "w"

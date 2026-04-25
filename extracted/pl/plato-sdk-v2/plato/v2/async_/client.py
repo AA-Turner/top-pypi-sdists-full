@@ -8,6 +8,7 @@ import httpx
 from dotenv import load_dotenv
 
 from plato.v2.async_.artifact import AsyncArtifactManager
+from plato.v2.async_.datagen_session import DatagenSession
 from plato.v2.async_.session import Session
 from plato.v2.async_.testcase import AsyncTestcaseManager
 from plato.v2.types import EnvFromArtifact, EnvFromResource, EnvFromSimulator
@@ -137,6 +138,34 @@ class AsyncSessionManager:
         return session
 
 
+class AsyncDatagenSessionManager:
+    """Async manager for DatagenSession operations — sibling of AsyncSessionManager."""
+
+    def __init__(self, http_client: httpx.AsyncClient, api_key: str):
+        self._http = http_client
+        self._api_key = api_key
+
+    async def create(
+        self,
+        *,
+        envs: list[EnvFromSimulator | EnvFromArtifact | EnvFromResource],
+        experiment: str,
+        instruction: str,
+        allow_prerelease: bool = True,
+        timeout: int = 1800,
+    ) -> DatagenSession:
+        """Launch a DatagenSession — see the sync :class:`DatagenSessionManager`."""
+        return await DatagenSession.from_envs(
+            http_client=self._http,
+            api_key=self._api_key,
+            envs=envs,
+            experiment=experiment,
+            instruction=instruction,
+            allow_prerelease=allow_prerelease,
+            timeout=timeout,
+        )
+
+
 class AsyncPlato:
     """Asynchronous Plato client for v2 API.
 
@@ -189,6 +218,7 @@ class AsyncPlato:
         )
 
         self.sessions = AsyncSessionManager(self._http, self.api_key)
+        self.datagen_sessions = AsyncDatagenSessionManager(self._http, self.api_key)
         self.artifacts = AsyncArtifactManager(self._http, self.api_key)
         self.testcases = AsyncTestcaseManager(self._http, self.api_key)
 

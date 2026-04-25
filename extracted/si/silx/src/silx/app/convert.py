@@ -33,12 +33,21 @@ from glob import glob
 import logging
 import re
 import time
+
+import h5py
 import numpy
 
 import silx.io
+from silx.io.convert import write_to_h5
 from silx.io.specfile import is_specfile
 from silx.io.fioh5 import is_fiofile
 from silx.io import fabioh5
+
+try:
+    import hdf5plugin  # noqa
+except ImportError:
+    hdf5plugin = None
+
 
 _logger = logging.getLogger(__name__)
 """Module logger"""
@@ -85,7 +94,7 @@ def drop_indices_before_begin(filenames, regex, begin):
         m = re.match(regex, fname)
         file_indices = list(map(int, m.groups()))
         if len(file_indices) != len(begin_indices):
-            raise IOError(
+            raise OSError(
                 "Number of indices found in filename "
                 "does not match number of parsed end indices."
             )
@@ -112,7 +121,7 @@ def drop_indices_after_end(filenames, regex, end):
         m = re.match(regex, fname)
         file_indices = list(map(int, m.groups()))
         if len(file_indices) != len(end_indices):
-            raise IOError(
+            raise OSError(
                 "Number of indices found in filename "
                 "does not match number of parsed end indices."
             )
@@ -137,7 +146,7 @@ def are_files_missing_in_series(filenames, regex):
     previous_indices = None
     for fname in filenames:
         m = re.match(regex, fname)
-        assert m is not None, "regex %s does not match filename %s" % (fname, regex)
+        assert m is not None, f"regex {fname} does not match filename {regex}"
         new_indices = list(map(int, m.groups()))
         if previous_indices is not None:
             for old_idx, new_idx in zip(previous_indices, new_indices):
@@ -335,22 +344,6 @@ def main(argv):
 
     if options.debug:
         logging.root.setLevel(logging.DEBUG)
-
-    # Import after parsing --debug
-    try:
-        # it should be loaded before h5py
-        import hdf5plugin  # noqa
-    except ImportError:
-        _logger.debug("Backtrace", exc_info=True)
-        hdf5plugin = None
-
-    import h5py
-
-    try:
-        from silx.io.convert import write_to_h5
-    except ImportError:
-        _logger.debug("Backtrace", exc_info=True)
-        write_to_h5 = None
 
     if hdf5plugin is None:
         message = (
@@ -554,7 +547,7 @@ def main(argv):
                 h5paths_and_groups.append(
                     (hdf5_path_for_file, silx.io.open(input_name))
                 )
-            except IOError:
+            except OSError:
                 _logger.error(
                     "Cannot read file %s. If this is a file format "
                     "supported by the fabio library, you can try to"

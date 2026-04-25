@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aiohomematic
-Version: 2026.4.19
+Version: 2026.4.20
 Summary: Homematic interface for Home Assistant running on Python 3.
 Home-page: https://github.com/sukramj/aiohomematic
 Author-email: SukramJ <sukramj@icloud.com>, Daniel Perna <danielperna84@gmail.com>
@@ -34,6 +34,7 @@ Requires-Python: >=3.14
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: aiohttp>=3.12.0
+Requires-Dist: openccu-data>=2026.4.1
 Requires-Dist: pydantic>=2.10.0
 Requires-Dist: python-slugify>=8.0.0
 Provides-Extra: fast

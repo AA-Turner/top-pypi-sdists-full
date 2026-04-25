@@ -15,6 +15,7 @@ Usage::
         GetMetricDataPaginator,
         ListAgentStatusesPaginator,
         ListApprovedOriginsPaginator,
+        ListAttachedFilesConfigurationsPaginator,
         ListAuthenticationProfilesPaginator,
         ListBotsPaginator,
         ListChildHoursOfOperationsPaginator,
@@ -100,6 +101,7 @@ Usage::
     get_metric_data_paginator: GetMetricDataPaginator = client.get_paginator("get_metric_data")
     list_agent_statuses_paginator: ListAgentStatusesPaginator = client.get_paginator("list_agent_statuses")
     list_approved_origins_paginator: ListApprovedOriginsPaginator = client.get_paginator("list_approved_origins")
+    list_attached_files_configurations_paginator: ListAttachedFilesConfigurationsPaginator = client.get_paginator("list_attached_files_configurations")
     list_authentication_profiles_paginator: ListAuthenticationProfilesPaginator = client.get_paginator("list_authentication_profiles")
     list_bots_paginator: ListBotsPaginator = client.get_paginator("list_bots")
     list_child_hours_of_operations_paginator: ListChildHoursOfOperationsPaginator = client.get_paginator("list_child_hours_of_operations")
@@ -185,6 +187,7 @@ from .paginator import (
     GetMetricDataPaginator,
     ListAgentStatusesPaginator,
     ListApprovedOriginsPaginator,
+    ListAttachedFilesConfigurationsPaginator,
     ListAuthenticationProfilesPaginator,
     ListBotsPaginator,
     ListChildHoursOfOperationsPaginator,
@@ -272,6 +275,7 @@ __all__ = (
     "GetMetricDataPaginator",
     "ListAgentStatusesPaginator",
     "ListApprovedOriginsPaginator",
+    "ListAttachedFilesConfigurationsPaginator",
     "ListAuthenticationProfilesPaginator",
     "ListBotsPaginator",
     "ListChildHoursOfOperationsPaginator",

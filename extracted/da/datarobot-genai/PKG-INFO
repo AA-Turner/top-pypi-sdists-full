@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: datarobot-genai
-Version: 0.15.13
+Version: 0.15.17
 Summary: Generic helpers for GenAI
 Author: DataRobot, Inc.
 License: Apache-2.0
@@ -22,7 +22,7 @@ Requires-Dist: opentelemetry-instrumentation-aiohttp-client<1.0.0,>=0.43b0; extr
 Requires-Dist: opentelemetry-instrumentation-httpx<1.0.0,>=0.43b0; extra == "core"
 Requires-Dist: opentelemetry-instrumentation-openai<1.0.0,>=0.40.5; extra == "core"
 Requires-Dist: opentelemetry-instrumentation-threading<1.0.0,>=0.43b0; extra == "core"
-Requires-Dist: ag-ui-protocol<0.2.0,>=0.1.14; extra == "core"
+Requires-Dist: ag-ui-protocol==0.1.15; extra == "core"
 Requires-Dist: pyarrow==21.0.0; extra == "core"
 Provides-Extra: crewai
 Requires-Dist: requests<3.0.0,>=2.32.4; extra == "crewai"
@@ -37,7 +37,7 @@ Requires-Dist: opentelemetry-instrumentation-aiohttp-client<1.0.0,>=0.43b0; extr
 Requires-Dist: opentelemetry-instrumentation-httpx<1.0.0,>=0.43b0; extra == "crewai"
 Requires-Dist: opentelemetry-instrumentation-openai<1.0.0,>=0.40.5; extra == "crewai"
 Requires-Dist: opentelemetry-instrumentation-threading<1.0.0,>=0.43b0; extra == "crewai"
-Requires-Dist: ag-ui-protocol<0.2.0,>=0.1.14; extra == "crewai"
+Requires-Dist: ag-ui-protocol==0.1.15; extra == "crewai"
 Requires-Dist: pyarrow==21.0.0; extra == "crewai"
 Requires-Dist: anthropic<1.0.0,~=0.71.0; extra == "crewai"
 Requires-Dist: azure-ai-inference<2.0.0,>=1.0.0b9; extra == "crewai"
@@ -60,7 +60,7 @@ Requires-Dist: opentelemetry-instrumentation-aiohttp-client<1.0.0,>=0.43b0; extr
 Requires-Dist: opentelemetry-instrumentation-httpx<1.0.0,>=0.43b0; extra == "langgraph"
 Requires-Dist: opentelemetry-instrumentation-openai<1.0.0,>=0.40.5; extra == "langgraph"
 Requires-Dist: opentelemetry-instrumentation-threading<1.0.0,>=0.43b0; extra == "langgraph"
-Requires-Dist: ag-ui-protocol<0.2.0,>=0.1.14; extra == "langgraph"
+Requires-Dist: ag-ui-protocol==0.1.15; extra == "langgraph"
 Requires-Dist: pyarrow==21.0.0; extra == "langgraph"
 Requires-Dist: langchain-mcp-adapters<0.2.0,>=0.1.12; extra == "langgraph"
 Requires-Dist: langgraph<2.0.0,>=1.0.0; extra == "langgraph"
@@ -81,7 +81,7 @@ Requires-Dist: opentelemetry-instrumentation-aiohttp-client<1.0.0,>=0.43b0; extr
 Requires-Dist: opentelemetry-instrumentation-httpx<1.0.0,>=0.43b0; extra == "llamaindex"
 Requires-Dist: opentelemetry-instrumentation-openai<1.0.0,>=0.40.5; extra == "llamaindex"
 Requires-Dist: opentelemetry-instrumentation-threading<1.0.0,>=0.43b0; extra == "llamaindex"
-Requires-Dist: ag-ui-protocol<0.2.0,>=0.1.14; extra == "llamaindex"
+Requires-Dist: ag-ui-protocol==0.1.15; extra == "llamaindex"
 Requires-Dist: pyarrow==21.0.0; extra == "llamaindex"
 Requires-Dist: llama-index<0.15.0,>=0.14.0; extra == "llamaindex"
 Requires-Dist: llama-index-core<0.15.0,>=0.14.0; extra == "llamaindex"
@@ -106,7 +106,7 @@ Requires-Dist: opentelemetry-instrumentation-aiohttp-client<1.0.0,>=0.43b0; extr
 Requires-Dist: opentelemetry-instrumentation-httpx<1.0.0,>=0.43b0; extra == "nat"
 Requires-Dist: opentelemetry-instrumentation-openai<1.0.0,>=0.40.5; extra == "nat"
 Requires-Dist: opentelemetry-instrumentation-threading<1.0.0,>=0.43b0; extra == "nat"
-Requires-Dist: ag-ui-protocol<0.2.0,>=0.1.14; extra == "nat"
+Requires-Dist: ag-ui-protocol==0.1.15; extra == "nat"
 Requires-Dist: pyarrow==21.0.0; extra == "nat"
 Requires-Dist: litellm<2.0.0,>=1.83.0; extra == "nat"
 Requires-Dist: nvidia-nat==1.6.0; extra == "nat"
@@ -182,7 +182,7 @@ Requires-Dist: opentelemetry-instrumentation-aiohttp-client<1.0.0,>=0.43b0; extr
 Requires-Dist: opentelemetry-instrumentation-httpx<1.0.0,>=0.43b0; extra == "dragent"
 Requires-Dist: opentelemetry-instrumentation-openai<1.0.0,>=0.40.5; extra == "dragent"
 Requires-Dist: opentelemetry-instrumentation-threading<1.0.0,>=0.43b0; extra == "dragent"
-Requires-Dist: ag-ui-protocol<0.2.0,>=0.1.14; extra == "dragent"
+Requires-Dist: ag-ui-protocol==0.1.15; extra == "dragent"
 Requires-Dist: pyarrow==21.0.0; extra == "dragent"
 Requires-Dist: litellm<2.0.0,>=1.83.0; extra == "dragent"
 Requires-Dist: nvidia-nat==1.6.0; extra == "dragent"
@@ -257,8 +257,13 @@ export DATAROBOT_API_TOKEN=YOUR_DATAROBOT_API_TOKEN
 export DATAROBOT_ENDPOINT=https://app.datarobot.com/api/v2
 ```
 
-## Standalone end-to-end example
-Follow [docs/example.ipynb](docs/example.ipynb) to walk through a LangGraph agent on DataRobot: LLM Gateway, `drtools`, conversion to DataRobot agent format, and running the agent with an AG-UI interface.
+## Standalone end-to-end examples
+Follow [quickstart.ipynb](e2e-tests/examples/quickstart.ipynb) to walk through an experience of setting a LangGraph agent with DataRobot:
+* LLM Gateway
+* `drtools`
+* Prompt Management
+* Conversion to DataRobot agent format
+* Running the agent with an AG-UI interface.
 
 ## In-depth documentation
 See [docs/README.md](docs/README.md) for guides on every framework and feature in `datarobot-genai`.

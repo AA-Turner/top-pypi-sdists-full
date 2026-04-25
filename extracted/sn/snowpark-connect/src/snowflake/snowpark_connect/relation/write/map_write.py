@@ -18,12 +18,20 @@ from pyspark.errors.exceptions.base import AnalysisException
 from pyspark.errors.exceptions.connect import IllegalArgumentException
 
 from snowflake import snowpark
+from snowflake.snowpark import Window
 from snowflake.snowpark._internal.analyzer.analyzer_utils import (
     quote_name_without_upper_casing,
     unquote_if_quoted,
 )
 from snowflake.snowpark.exceptions import SnowparkSQLException
-from snowflake.snowpark.functions import col, lit, object_construct, sql_expr, when
+from snowflake.snowpark.functions import (
+    col,
+    lit,
+    object_construct,
+    random,
+    row_number,
+    when,
+)
 from snowflake.snowpark.types import (
     ArrayType,
     DataType,
@@ -781,14 +789,13 @@ def map_write(request: proto_base.ExecutePlanRequest):
                 and not write_op.partitioning_columns
             ):
                 # Create a stable synthetic file number per row using ROW_NUMBER() over a
-                # randomized order, then modulo partition_hint. We rely on sql_expr to avoid
-                # adding new helpers.
+                # randomized order, then modulo partition_hint.
+                # Using proper Snowpark window functions allows the flattening logic to
+                # correctly detect window functions and prevent invalid SQL generation.
                 file_num_col = "_sas_file_num"
                 partitioned_df = rewritten_df.withColumn(
                     file_num_col,
-                    sql_expr(
-                        f"(ROW_NUMBER() OVER (ORDER BY RANDOM())) % {partition_hint}"
-                    ),
+                    row_number().over(Window.order_by(random())) % partition_hint,
                 )
 
                 # Execute multiple COPY INTO operations, one per target file.

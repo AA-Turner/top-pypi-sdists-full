@@ -50,6 +50,10 @@ extensions = [
     "sphinx_inline_tabs",
 ]
 
+doctest_global_setup = """
+from cryptography.hazmat.backends.openssl.backend import backend as _backend
+"""
+
 if spelling is not None:
     extensions.append("sphinxcontrib.spelling")
 
@@ -72,7 +76,7 @@ master_doc = "index"
 
 # General information about the project.
 project = "Cryptography"
-copyright = "2013-2025, Individual Contributors"
+copyright = "2013-2026, Individual Contributors"
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -207,6 +211,8 @@ linkcheck_ignore = [
     r"https://wiki.sei.cmu.edu",
     # GitHub has started heavily rate-limiting causing job failures
     r"https://github.com",
+    # 403s
+    r"https://e-trust.gosuslugi.ru/",
 ]
 
 autosectionlabel_prefix_document = True

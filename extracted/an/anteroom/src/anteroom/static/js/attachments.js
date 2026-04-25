@@ -2,7 +2,7 @@
 
 const Attachments = (() => {
     let files = [];
-    const MAX_SIZE = 10 * 1024 * 1024; // 10 MB
+    const MAX_SIZE = 50 * 1024 * 1024; // 50 MB
 
     const ALLOWED_EXTENSIONS = new Set([
         'txt', 'md', 'py', 'js', 'ts', 'json', 'yaml', 'yml', 'csv',
@@ -80,7 +80,7 @@ const Attachments = (() => {
                 }
             }
             if (file.size > MAX_SIZE) {
-                alert(`File too large: ${file.name} (${(file.size / 1024 / 1024).toFixed(1)} MB)\n\nMaximum size: 10 MB`);
+                alert(`File too large: ${file.name} (${(file.size / 1024 / 1024).toFixed(1)} MB)\n\nMaximum size: 50 MB`);
                 continue;
             }
             files.push(file);

@@ -44,7 +44,6 @@ from silx.gui import qt
 from silx.gui.plot.ImageStack import ImageStack, UrlLoader
 import fabio
 
-
 logging.basicConfig()
 _logger = logging.getLogger("hdf5widget")
 """Module logger"""
@@ -108,7 +107,7 @@ class MyOwnUrlLoader(UrlLoader):
     """
 
     def __init__(self, parent, url):
-        super(MyOwnUrlLoader, self).__init__(parent=parent, url=url)
+        super().__init__(parent=parent, url=url)
         self.url = url
         self.data = None
 

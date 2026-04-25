@@ -43,9 +43,12 @@ class TestUnifiedTurnStatus:
         self._orig_stdout = r._stdout
         self._orig_inv = r._toolbar_invalidator
         self._orig_active = r._toolbar_is_active
+        self._orig_prompt_active = r._prompt_is_active
         self._orig_console = r.console
+        self._orig_tool_start = r._tool_start
         _reset_tool_phase()
         r._tool_ticker_summary = ""
+        r._tool_line_visible = False
 
     def teardown_method(self) -> None:
         stop_tool_ticker_sync()
@@ -54,8 +57,11 @@ class TestUnifiedTurnStatus:
         r._stdout = self._orig_stdout
         r._toolbar_invalidator = self._orig_inv
         r._toolbar_is_active = self._orig_active
+        r._prompt_is_active = self._orig_prompt_active
         r.console = self._orig_console
+        r._tool_start = self._orig_tool_start
         r._thinking_ticker_task = None
+        r._tool_line_visible = False
         _reset_tool_phase()
 
     def test_unified_status_no_duplicate_surface(self) -> None:
@@ -81,6 +87,62 @@ class TestUnifiedTurnStatus:
         # Tool finishes — state must be pristine for the next tool/turn.
         exit_tool_phase("read_file")
         assert r._tool_ticker_summary == ""
+
+    @pytest.mark.asyncio
+    async def test_tool_only_status_uses_toolbar_when_prompt_is_active(self) -> None:
+        """After thinking stops, tool-only ticker status must not raw-repaint over the prompt."""
+        session = _make_mock_session(is_running=True)
+        invalidator_calls: list[int] = []
+        buf = io.StringIO()
+
+        r._repl_mode = True
+        r._footer_mode = False
+        r._stdout = buf
+        r._toolbar_invalidator = lambda: invalidator_calls.append(1)
+        r._toolbar_is_active = lambda: bool(session.app and session.app.is_running)
+        r._prompt_is_active = lambda: True
+        r._tool_start = 1.0
+
+        try:
+            start_tool_ticker("Finding **/config.yaml")
+            await asyncio.sleep(0.6)
+
+            assert r._tool_ticker_task is not None
+            assert invalidator_calls, "tool-only status should repaint through prompt_toolkit"
+            assert "Finding **/config.yaml" not in buf.getvalue()
+            status = r.get_busy_status()
+            assert status is not None
+            assert status.tool_label == "Finding **/config.yaml"
+
+            invalidations_before_stop = len(invalidator_calls)
+            stop_tool_ticker_sync()
+            assert r._tool_ticker_summary == ""
+            assert len(invalidator_calls) > invalidations_before_stop
+        finally:
+            stop_tool_ticker_sync()
+
+    @pytest.mark.asyncio
+    async def test_tool_only_status_keeps_raw_fallback_when_prompt_inactive(self) -> None:
+        """#1512 fallback still applies when no prompt_toolkit input surface can render."""
+        session = _make_mock_session(is_running=False)
+        invalidator_calls: list[int] = []
+        buf = io.StringIO()
+
+        r._repl_mode = True
+        r._footer_mode = False
+        r._stdout = buf
+        r._toolbar_invalidator = lambda: invalidator_calls.append(1)
+        r._toolbar_is_active = lambda: bool(session.app and session.app.is_running)
+        r._tool_start = 1.0
+
+        try:
+            start_tool_ticker("Finding **/config.yaml")
+            await asyncio.sleep(0.6)
+
+            assert invalidator_calls == []
+            assert "Finding **/config.yaml" in buf.getvalue()
+        finally:
+            stop_tool_ticker_sync()
 
     def test_turn_summary_rendered_once(self) -> None:
         """``render_turn_summary()`` called once per turn prints exactly one line.
@@ -153,6 +215,7 @@ class TestFooterModeAvailabilityWiring:
         self._orig_footer = r._footer_mode
         self._orig_inv = r._toolbar_invalidator
         self._orig_active = r._toolbar_is_active
+        self._orig_prompt_active = r._prompt_is_active
         self._orig_stdout = r._stdout
         self._orig_plan_visible = r._plan_visible
         self._orig_plan_steps = r._plan_steps
@@ -170,6 +233,7 @@ class TestFooterModeAvailabilityWiring:
         r._footer_mode = self._orig_footer
         r._toolbar_invalidator = self._orig_inv
         r._toolbar_is_active = self._orig_active
+        r._prompt_is_active = self._orig_prompt_active
         r._stdout = self._orig_stdout
         r._plan_visible = self._orig_plan_visible
         r._plan_steps = self._orig_plan_steps

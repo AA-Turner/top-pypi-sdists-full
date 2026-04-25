@@ -482,6 +482,27 @@ class TestDH:
 
         assert key1 == key2
 
+    def test_public_key_deepcopy(self):
+        key_bytes = load_vectors_from_file(
+            os.path.join("asymmetric", "DH", "dhpub.pem"),
+            lambda pemfile: pemfile.read(),
+            mode="rb",
+        )
+
+        key_bytes_2 = load_vectors_from_file(
+            os.path.join("asymmetric", "DH", "dhpub_rfc5114_2.pem"),
+            lambda pemfile: pemfile.read(),
+            mode="rb",
+        )
+
+        key1 = serialization.load_pem_public_key(key_bytes)
+        key2 = copy.deepcopy(key1)
+
+        assert key1 == key2
+
+        key1 = serialization.load_pem_public_key(key_bytes_2)
+        assert key1 != key2
+
     @pytest.mark.skip_fips(reason="non-FIPS parameters")
     def test_private_key_copy(self, backend):
         key_bytes = load_vectors_from_file(
@@ -493,6 +514,28 @@ class TestDH:
         key2 = copy.copy(key1)
 
         assert key1 == key2
+
+    @pytest.mark.skip_fips(reason="non-FIPS parameters")
+    def test_private_key_deepcopy(self, backend):
+        key_bytes = load_vectors_from_file(
+            os.path.join("asymmetric", "DH", "dhkey.pem"),
+            lambda pemfile: pemfile.read(),
+            mode="rb",
+        )
+
+        key_bytes_2 = load_vectors_from_file(
+            os.path.join("asymmetric", "DH", "dhkey_rfc5114_2.pem"),
+            lambda pemfile: pemfile.read(),
+            mode="rb",
+        )
+
+        key1 = serialization.load_pem_private_key(key_bytes, None, backend)
+        key2 = copy.deepcopy(key1)
+
+        assert key1 == key2
+
+        key1 = serialization.load_pem_private_key(key_bytes_2, None, backend)
+        assert key1 != key2
 
 
 @pytest.mark.supported(
@@ -532,7 +575,7 @@ class TestDHPrivateKeySerialization:
     def test_private_bytes_rejects_invalid(self, encoding, fmt, backend):
         parameters = FFDH3072_P.parameters(backend)
         key = parameters.generate_private_key()
-        with pytest.raises(ValueError):
+        with pytest.raises((ValueError, TypeError)):
             key.private_bytes(encoding, fmt, serialization.NoEncryption())
 
     @pytest.mark.skip_fips(reason="non-FIPS parameters")
@@ -658,7 +701,7 @@ class TestDHPrivateKeySerialization:
     def test_private_bytes_invalid_format(self, backend):
         parameters = FFDH3072_P.parameters(backend)
         key = parameters.generate_private_key()
-        with pytest.raises(ValueError):
+        with pytest.raises(TypeError):
             key.private_bytes(
                 serialization.Encoding.PEM,
                 "invalidformat",  # type:ignore[arg-type]
@@ -962,7 +1005,7 @@ class TestDHParameterSerialization:
     def test_public_bytes_rejects_invalid(self, encoding, fmt, backend):
         parameters = FFDH3072_P.parameters(backend)
         key = parameters.generate_private_key().public_key()
-        with pytest.raises(ValueError):
+        with pytest.raises((ValueError, TypeError)):
             key.public_bytes(encoding, fmt)
 
     def test_parameter_bytes_invalid_encoding(self, backend):
@@ -975,7 +1018,7 @@ class TestDHParameterSerialization:
 
     def test_parameter_bytes_invalid_format(self, backend):
         parameters = FFDH3072_P.parameters(backend)
-        with pytest.raises(ValueError):
+        with pytest.raises(TypeError):
             parameters.parameter_bytes(
                 serialization.Encoding.PEM,
                 "notformat",  # type: ignore[arg-type]

@@ -308,6 +308,11 @@ def eligibility_policy_schema() -> "StructType":
             t["StructField"]("derivation_method", t["StringType"](), True),
             t["StructField"]("eligibility_rules", t["StringType"](), True),  # JSON predicate tree
             t["StructField"]("eligibility_rules_sql", t["StringType"](), True),  # rendered SQL for dashboard
+            # Human-readable prose rendering of the predicate via the
+            # interpretation layer (feature_meta + population_stats + column_descriptions).
+            # Nullable so existing rows read back as NULL and the dashboard falls
+            # back to `eligibility_rules_sql` via COALESCE.
+            t["StructField"]("eligibility_rules_prose", t["StringType"](), True),
             t["StructField"]("requires_features", t["ArrayType"](t["StringType"]()), True),
             t["StructField"]("expected_uplift_pct", t["DoubleType"](), True),
             # Archetype↔playbook prose/LLM match score in [0, 1]. Review tier
@@ -696,6 +701,128 @@ def run_context_schema() -> "StructType":
     )
 
 
+def _top_category_struct():
+    """One (value, count, share) entry for a categorical feature's top-10 list."""
+    t = _types()
+    return t["StructType"](
+        [
+            t["StructField"]("value", t["StringType"](), True),
+            t["StructField"]("count", t["LongType"](), True),
+            t["StructField"]("share", t["DoubleType"](), True),
+        ]
+    )
+
+
+def feature_population_stats_schema() -> "StructType":
+    """Per-run, per-feature population summary from training rows.
+
+    Computed once per derivation run on the training split only (never on
+    test — leakage). Feeds the quantile-phrasing layer so the dashboard
+    and LLM prompt can say "elevated" / "typical" / "very low" instead of
+    quoting raw cutoffs.
+    """
+    t = _types()
+    return t["StructType"](
+        [
+            t["StructField"]("run_id", t["StringType"](), False),
+            t["StructField"]("feature_name", t["StringType"](), False),
+            # ``numeric`` / ``categorical``
+            t["StructField"]("dtype", t["StringType"](), False),
+            t["StructField"]("count_nonnull", t["LongType"](), True),
+            t["StructField"]("mean", t["DoubleType"](), True),
+            t["StructField"]("stddev", t["DoubleType"](), True),
+            t["StructField"]("q01", t["DoubleType"](), True),
+            t["StructField"]("q05", t["DoubleType"](), True),
+            t["StructField"]("q25", t["DoubleType"](), True),
+            t["StructField"]("q50", t["DoubleType"](), True),
+            t["StructField"]("q75", t["DoubleType"](), True),
+            t["StructField"]("q95", t["DoubleType"](), True),
+            t["StructField"]("q99", t["DoubleType"](), True),
+            t["StructField"](
+                "top_categories",
+                t["ArrayType"](_top_category_struct()),
+                True,
+            ),
+            t["StructField"]("computed_at", t["TimestampType"](), False),
+        ]
+    )
+
+
+def column_descriptions_schema() -> "StructType":
+    """Source-column business definitions, slowly-changing.
+
+    One row per ``(catalog, schema, table, column_name)``. Bootstrapped
+    from ``docs/sps_table_descriptions.md`` and maintained manually. Read
+    by ``feature_meta`` rendering to lift raw column names into business
+    phrases without hitting the LLM.
+    """
+    t = _types()
+    return t["StructType"](
+        [
+            t["StructField"]("catalog", t["StringType"](), True),
+            t["StructField"]("schema", t["StringType"](), True),
+            t["StructField"]("table", t["StringType"](), False),
+            t["StructField"]("column_name", t["StringType"](), False),
+            t["StructField"]("business_name", t["StringType"](), True),
+            t["StructField"]("business_definition", t["StringType"](), True),
+            # ``currency_usd`` / ``days`` / ``count`` / ``score_0_10`` /
+            # ``boolean`` / ``categorical`` / NULL.
+            t["StructField"]("unit", t["StringType"](), True),
+            # ``high_is_good`` / ``high_is_bad`` / ``neutral`` / ``unknown``.
+            t["StructField"]("polarity", t["StringType"](), True),
+            # ``none`` / ``direct`` / ``quasi`` / ``sensitive``.
+            t["StructField"]("pii_class", t["StringType"](), True),
+            t["StructField"]("value_examples", t["StringType"](), True),
+            t["StructField"]("last_verified_at", t["TimestampType"](), True),
+            # ``manual`` / ``llm_proposed`` / ``imported_from_md``.
+            t["StructField"]("source", t["StringType"](), True),
+            t["StructField"]("written_at", t["TimestampType"](), False),
+        ]
+    )
+
+
+def feature_meta_schema() -> "StructType":
+    """Per-feature lineage and business-interpretation metadata.
+
+    One row per ``(run_id, composite_name, feature_name)``. Written at gold
+    materialization time from the pipeline-generation lineage. Readers (LLM
+    namer, predicate prose renderer, dashboard "why surfaced") resolve a
+    feature to its business phrase via this table instead of guessing from
+    the raw column name. Optional fields stay nullable so the writer can
+    emit partial rows when upstream lineage is incomplete.
+    """
+    t = _types()
+    return t["StructType"](
+        [
+            t["StructField"]("run_id", t["StringType"](), False),
+            t["StructField"]("composite_name", t["StringType"](), False),
+            t["StructField"]("feature_name", t["StringType"](), False),
+            # Upstream raw columns this gold feature derives from.
+            t["StructField"]("source_columns", t["ArrayType"](t["StringType"]()), True),
+            t["StructField"]("source_table", t["StringType"](), True),
+            # ``count`` / ``count_distinct`` / ``sum`` / ``avg`` / ``max`` / ``min`` /
+            # ``last`` / ``first`` / ``ratio`` / ``recency_days`` / ``derived_datetime`` /
+            # ``passthrough``. String instead of enum — Delta has no native enum type.
+            t["StructField"]("aggregation_kind", t["StringType"](), True),
+            # Aggregation window in days (30 / 90 / 365). NULL for snapshot features.
+            t["StructField"]("window_days", t["IntegerType"](), True),
+            # Precomputed human phrase: "last 30 days", "lifetime", "this quarter".
+            t["StructField"]("window_phrase", t["StringType"](), True),
+            # TRUE if the feature is derived from the prediction target —
+            # flagged for leakage review by the causal-track approval gate.
+            t["StructField"]("target_dependency", t["BooleanType"](), True),
+            # Mirrors the landing ``mask_future_columns`` config for audit.
+            t["StructField"]("mask_future", t["BooleanType"](), True),
+            # ``high_is_good`` / ``high_is_bad`` / ``neutral`` / ``unknown`` —
+            # inherited from the dominant source column when unambiguous.
+            t["StructField"]("polarity", t["StringType"](), True),
+            # Deterministic render: "{aggregation} of {source.business_name} over {window_phrase}".
+            t["StructField"]("business_phrase", t["StringType"](), True),
+            t["StructField"]("written_at", t["TimestampType"](), False),
+        ]
+    )
+
+
 def top_shap_drivers_schema() -> "StructType":
     """Per-account cache of top SHAP drivers from the training cohort.
 
@@ -747,6 +874,9 @@ ALL_SCHEMAS: Dict[str, Callable[[], "StructType"]] = {
     "shap_background": shap_background_schema,
     "top_shap_drivers": top_shap_drivers_schema,
     "run_context": run_context_schema,
+    "feature_meta": feature_meta_schema,
+    "column_descriptions": column_descriptions_schema,
+    "feature_population_stats": feature_population_stats_schema,
 }
 
 

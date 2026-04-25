@@ -140,7 +140,7 @@ def _build_array_to_string_expr(
 
     from snowflake.snowpark import Session
 
-    placeholder = snowpark_fn.col("x")
+    placeholder = snowpark_fn.sql_expr("x")
 
     if element_type is not None:
         if isinstance(element_type, ArrayType):
@@ -302,6 +302,19 @@ def map_cast(
             col_name = new_name
 
     from_type = typed_column.typ
+
+    # Spark does not allow casting to a UserDefinedType.
+    # Detect this from the raw proto before UDT info is lost.
+    if (
+        exp.cast.WhichOneof("cast_to_type") == "type"
+        and exp.cast.type.WhichOneof("kind") == "udt"
+    ):
+        exception = AnalysisException(
+            f'[DATATYPE_MISMATCH.INVALID_CAST] Cannot resolve "{col_name}" '
+            f"due to data type mismatch: cannot cast to a UserDefinedType.;"
+        )
+        attach_custom_error_code(exception, ErrorCodes.INVALID_CAST)
+        raise exception
 
     if from_exp.WhichOneof("expr_type") == "literal":
         if (

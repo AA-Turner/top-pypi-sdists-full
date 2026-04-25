@@ -137,8 +137,8 @@ impl DsaPrivateKey {
     fn private_bytes<'p>(
         slf: &pyo3::Bound<'p, Self>,
         py: pyo3::Python<'p>,
-        encoding: &pyo3::Bound<'p, pyo3::PyAny>,
-        format: &pyo3::Bound<'p, pyo3::PyAny>,
+        encoding: crate::serialization::Encoding,
+        format: crate::serialization::PrivateFormat,
         encryption_algorithm: &pyo3::Bound<'p, pyo3::PyAny>,
     ) -> CryptographyResult<pyo3::Bound<'p, pyo3::types::PyBytes>> {
         utils::pkey_private_bytes(
@@ -154,6 +154,13 @@ impl DsaPrivateKey {
     }
 
     fn __copy__(slf: pyo3::PyRef<'_, Self>) -> pyo3::PyRef<'_, Self> {
+        slf
+    }
+
+    fn __deepcopy__<'p>(
+        slf: pyo3::PyRef<'p, Self>,
+        _memo: &pyo3::Bound<'p, pyo3::PyAny>,
+    ) -> pyo3::PyRef<'p, Self> {
         slf
     }
 }
@@ -216,8 +223,8 @@ impl DsaPublicKey {
     fn public_bytes<'p>(
         slf: &pyo3::Bound<'p, Self>,
         py: pyo3::Python<'p>,
-        encoding: &pyo3::Bound<'p, pyo3::PyAny>,
-        format: &pyo3::Bound<'p, pyo3::PyAny>,
+        encoding: crate::serialization::Encoding,
+        format: crate::serialization::PublicFormat,
     ) -> CryptographyResult<pyo3::Bound<'p, pyo3::types::PyBytes>> {
         utils::pkey_public_bytes(py, slf, &slf.borrow().pkey, encoding, format, true, false)
     }
@@ -227,6 +234,13 @@ impl DsaPublicKey {
     }
 
     fn __copy__(slf: pyo3::PyRef<'_, Self>) -> pyo3::PyRef<'_, Self> {
+        slf
+    }
+
+    fn __deepcopy__<'p>(
+        slf: pyo3::PyRef<'p, Self>,
+        _memo: &pyo3::Bound<'p, pyo3::PyAny>,
+    ) -> pyo3::PyRef<'p, Self> {
         slf
     }
 }
@@ -451,12 +465,16 @@ impl DsaPublicNumbers {
                 .eq(other.parameter_numbers.bind(py))?)
     }
 
-    fn __repr__(&self, py: pyo3::Python<'_>) -> pyo3::PyResult<String> {
+    fn __repr__<'py>(
+        &self,
+        py: pyo3::Python<'py>,
+    ) -> pyo3::PyResult<pyo3::Bound<'py, pyo3::types::PyString>> {
         let y = self.y.bind(py);
         let parameter_numbers = self.parameter_numbers.bind(py).repr()?;
-        Ok(format!(
-            "<DSAPublicNumbers(y={y}, parameter_numbers={parameter_numbers})>"
-        ))
+        pyo3::types::PyString::from_fmt(
+            py,
+            format_args!("<DSAPublicNumbers(y={y}, parameter_numbers={parameter_numbers})>"),
+        )
     }
 }
 
@@ -500,11 +518,17 @@ impl DsaParameterNumbers {
             && (**self.g.bind(py)).eq(other.g.bind(py))?)
     }
 
-    fn __repr__(&self, py: pyo3::Python<'_>) -> pyo3::PyResult<String> {
+    fn __repr__<'py>(
+        &self,
+        py: pyo3::Python<'py>,
+    ) -> pyo3::PyResult<pyo3::Bound<'py, pyo3::types::PyString>> {
         let p = self.p.bind(py);
         let q = self.q.bind(py);
         let g = self.g.bind(py);
-        Ok(format!("<DSAParameterNumbers(p={p}, q={q}, g={g})>"))
+        pyo3::types::PyString::from_fmt(
+            py,
+            format_args!("<DSAParameterNumbers(p={p}, q={q}, g={g})>"),
+        )
     }
 }
 

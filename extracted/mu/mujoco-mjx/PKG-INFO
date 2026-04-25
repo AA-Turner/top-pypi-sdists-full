@@ -1,13 +1,13 @@
 Metadata-Version: 2.4
 Name: mujoco-mjx
-Version: 3.7.0
+Version: 3.8.0
 Summary: MuJoCo XLA (MJX)
 Author-email: Google DeepMind <mujoco@deepmind.com>
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/google-deepmind/mujoco/tree/main/mjx
-Project-URL: Documentation, https://mujoco.readthedocs.io/en/3.7.0
+Project-URL: Documentation, https://mujoco.readthedocs.io/en/3.8.0
 Project-URL: Repository, https://github.com/google-deepmind/mujoco/tree/main/mjx
-Project-URL: Changelog, https://mujoco.readthedocs.io/en/3.7.0/changelog.html
+Project-URL: Changelog, https://mujoco.readthedocs.io/en/3.8.0/changelog.html
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
@@ -17,6 +17,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
@@ -25,11 +26,11 @@ Requires-Dist: absl-py
 Requires-Dist: etils[epath]
 Requires-Dist: jax
 Requires-Dist: jaxlib
-Requires-Dist: mujoco>=3.7.0.dev0
+Requires-Dist: mujoco>=3.8.0.dev0
 Requires-Dist: scipy
 Requires-Dist: trimesh
 Provides-Extra: warp
-Requires-Dist: warp-lang==1.12.0; extra == "warp"
+Requires-Dist: warp-lang==1.12.1; extra == "warp"
 Dynamic: license-file
 
 # MuJoCo XLA (MJX)

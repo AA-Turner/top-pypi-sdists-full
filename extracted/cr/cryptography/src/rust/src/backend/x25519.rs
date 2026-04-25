@@ -17,7 +17,7 @@ pub(crate) struct X25519PublicKey {
 }
 
 #[pyo3::pyfunction]
-fn generate_key() -> CryptographyResult<X25519PrivateKey> {
+pub(crate) fn generate_key() -> CryptographyResult<X25519PrivateKey> {
     Ok(X25519PrivateKey {
         pkey: openssl::pkey::PKey::generate_x25519()?,
     })
@@ -52,7 +52,7 @@ fn from_private_bytes(data: CffiBuf<'_>) -> pyo3::PyResult<X25519PrivateKey> {
 }
 
 #[pyo3::pyfunction]
-fn from_public_bytes(data: &[u8]) -> pyo3::PyResult<X25519PublicKey> {
+pub(crate) fn from_public_bytes(data: &[u8]) -> pyo3::PyResult<X25519PublicKey> {
     let pkey = openssl::pkey::PKey::public_key_from_raw_bytes(data, openssl::pkey::Id::X25519)
         .map_err(|_| {
             pyo3::exceptions::PyValueError::new_err("An X25519 public key is 32 bytes long")
@@ -100,8 +100,8 @@ impl X25519PrivateKey {
     fn private_bytes<'p>(
         slf: &pyo3::Bound<'p, Self>,
         py: pyo3::Python<'p>,
-        encoding: &pyo3::Bound<'p, pyo3::PyAny>,
-        format: &pyo3::Bound<'p, pyo3::PyAny>,
+        encoding: crate::serialization::Encoding,
+        format: crate::serialization::PrivateFormat,
         encryption_algorithm: &pyo3::Bound<'p, pyo3::PyAny>,
     ) -> CryptographyResult<pyo3::Bound<'p, pyo3::types::PyBytes>> {
         utils::pkey_private_bytes(
@@ -119,6 +119,13 @@ impl X25519PrivateKey {
     fn __copy__(slf: pyo3::PyRef<'_, Self>) -> pyo3::PyRef<'_, Self> {
         slf
     }
+
+    fn __deepcopy__<'p>(
+        slf: pyo3::PyRef<'p, Self>,
+        _memo: &pyo3::Bound<'p, pyo3::PyAny>,
+    ) -> pyo3::PyRef<'p, Self> {
+        slf
+    }
 }
 
 #[pyo3::pymethods]
@@ -134,8 +141,8 @@ impl X25519PublicKey {
     fn public_bytes<'p>(
         slf: &pyo3::Bound<'p, Self>,
         py: pyo3::Python<'p>,
-        encoding: &pyo3::Bound<'p, pyo3::PyAny>,
-        format: &pyo3::Bound<'p, pyo3::PyAny>,
+        encoding: crate::serialization::Encoding,
+        format: crate::serialization::PublicFormat,
     ) -> CryptographyResult<pyo3::Bound<'p, pyo3::types::PyBytes>> {
         utils::pkey_public_bytes(py, slf, &slf.borrow().pkey, encoding, format, false, true)
     }
@@ -145,6 +152,13 @@ impl X25519PublicKey {
     }
 
     fn __copy__(slf: pyo3::PyRef<'_, Self>) -> pyo3::PyRef<'_, Self> {
+        slf
+    }
+
+    fn __deepcopy__<'p>(
+        slf: pyo3::PyRef<'p, Self>,
+        _memo: &pyo3::Bound<'p, pyo3::PyAny>,
+    ) -> pyo3::PyRef<'p, Self> {
         slf
     }
 }

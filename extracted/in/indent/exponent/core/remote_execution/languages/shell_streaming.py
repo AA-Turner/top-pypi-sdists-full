@@ -2,7 +2,6 @@ import asyncio
 import codecs
 import os
 import platform
-import shutil
 import signal
 from collections.abc import AsyncGenerator, Callable
 from typing import Any
@@ -12,6 +11,7 @@ from exponent.core.remote_execution.languages.types import (
     ShellExecutionResult,
     StreamedOutputPiece,
 )
+from exponent.core.remote_execution.shell_resolution import resolve_shell
 
 STDOUT_FD = 1
 STDERR_FD = 2
@@ -87,7 +87,7 @@ async def execute_shell_streaming(
 ) -> AsyncGenerator[StreamedOutputPiece | ShellExecutionResult, None]:
     timeout_seconds = min(timeout, MAX_TIMEOUT)
 
-    shell_path = os.environ.get("SHELL") or shutil.which("bash") or shutil.which("sh")
+    shell_path = resolve_shell()
 
     # Track whether we created a process group (for proper cleanup)
     uses_process_group = False

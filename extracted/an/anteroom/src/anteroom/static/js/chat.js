@@ -1872,6 +1872,9 @@ const Chat = (() => {
             case 'waiting':
                 _setPhaseLabel('thinking\u2026' + elapsed, false);
                 break;
+            case 'compacting':
+                _setPhaseLabel('compacting conversation history\u2026' + elapsed, false);
+                break;
             case 'streaming': {
                 const chars = _streamingChars.toLocaleString();
                 const gap = Date.now() - _lastChunkTime;
@@ -3065,7 +3068,8 @@ const Chat = (() => {
         const actions = document.createElement('div');
         actions.className = 'ask-user-actions';
 
-        if (data.options && data.options.length > 0) {
+        const hasOptions = data.options && data.options.length > 0;
+        if (hasOptions) {
             data.options.forEach(opt => {
                 const btn = document.createElement('button');
                 btn.className = 'ask-user-btn ask-user-option';
@@ -3073,35 +3077,48 @@ const Chat = (() => {
                 btn.addEventListener('click', () => _respondAskUser(data.ask_id, opt, el));
                 actions.appendChild(btn);
             });
-        } else {
-            const inputRow = document.createElement('div');
-            inputRow.className = 'ask-user-input-row';
-            const input = document.createElement('input');
-            input.type = 'text';
-            input.className = 'ask-user-input';
-            input.placeholder = 'Type your answer...';
-            input.maxLength = 4096;
-            input.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    // Empty submit is a real answer ("no content to share"),
-                    // distinct from clicking Cancel. The backend now
-                    // distinguishes the two via the approved flag.
-                    _respondAskUser(data.ask_id, input.value, el);
-                }
-            });
-            inputRow.appendChild(input);
-            const submitBtn = document.createElement('button');
-            submitBtn.className = 'ask-user-btn ask-user-submit';
-            submitBtn.textContent = 'Submit';
-            submitBtn.addEventListener('click', () => {
-                _respondAskUser(data.ask_id, input.value, el);
-            });
-            inputRow.appendChild(submitBtn);
-            actions.appendChild(inputRow);
-            setTimeout(() => input.focus(), 50);
         }
+
+        const inputBlock = document.createElement('div');
+        inputBlock.className = 'ask-user-input-block';
+        const inputRow = document.createElement('div');
+        inputRow.className = 'ask-user-input-row';
+        const input = document.createElement('textarea');
+        input.className = 'ask-user-input';
+        input.placeholder = hasOptions ? 'Type another answer...' : 'Type your answer...';
+        input.maxLength = 4096;
+        input.rows = 2;
+        const customAnswer = () => input.value.trim();
+        input.addEventListener('keydown', (e) => {
+            if (e.key !== 'Enter') return;
+            if (e.shiftKey) {
+                e.stopPropagation();
+                return;
+            }
+            e.preventDefault();
+            e.stopPropagation();
+            // Empty submit is a real answer ("no content to share"),
+            // distinct from clicking Cancel. The backend distinguishes
+            // the two via the approved flag.
+            _respondAskUser(data.ask_id, customAnswer(), el);
+        });
+        inputRow.appendChild(input);
+        const submitBtn = document.createElement('button');
+        submitBtn.className = 'ask-user-btn ask-user-submit';
+        submitBtn.textContent = 'Submit';
+        submitBtn.addEventListener('click', () => {
+            _respondAskUser(data.ask_id, customAnswer(), el);
+        });
+        inputRow.appendChild(submitBtn);
+        inputBlock.appendChild(inputRow);
+        const helpText = document.createElement('div');
+        helpText.className = 'ask-user-help';
+        helpText.textContent = hasOptions
+            ? 'Choose an option, or type another answer. Enter submits; Shift+Enter adds a newline; Ctrl/Cmd+Enter submits.'
+            : 'Enter submits; Shift+Enter adds a newline; Ctrl/Cmd+Enter submits.';
+        inputBlock.appendChild(helpText);
+        actions.appendChild(inputBlock);
+        setTimeout(() => input.focus(), 50);
 
         const cancelBtn = document.createElement('button');
         cancelBtn.className = 'ask-user-btn ask-user-cancel';

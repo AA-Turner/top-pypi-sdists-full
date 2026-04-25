@@ -202,6 +202,8 @@ clipboard_copy_parser.add_argument('record', nargs='?', type=str, action='store'
 
 rm_parser = argparse.ArgumentParser(prog='rm', description='Remove or delete a record from the vault')
 rm_parser.add_argument('-f', '--force', dest='force', action='store_true', help='do not prompt')
+rm_parser.add_argument('--purge', dest='purge', action='store_true',
+                        help='permanently delete the record for ALL users (default: remove only from your vault)')
 rm_parser.add_argument('records', nargs='*', type=str, help='record path or UID. Can be repeated.')
 
 
@@ -844,16 +846,62 @@ class RecordGetUidCommand(Command):
             'rotation': None,
             'sessionRecording': None,
             'typescriptRecording': None,
-            'remoteBrowserIsolation': None
+            'remoteBrowserIsolation': None,
+            'aiEnabled': None,
+            'aiSessionTerminate': None,
         }
+        ro['pam_configuration_uid'] = None
+        ro['gateway_uid'] = None
+        ro['folder'] = None
+        ro['configuration_allowed_settings'] = None
 
         try:
             # Get keeper tokens for DAG access
-            from .tunnel.port_forward.tunnel_helpers import get_keeper_tokens
-            from .tunnel.port_forward.TunnelGraph import TunnelDAG
+            from .tunnel.port_forward.tunnel_helpers import get_keeper_tokens, get_config_uid, get_gateway_uid_from_record
+            from .tunnel.port_forward.TunnelGraph import TunnelDAG, get_vertex_content
             from ..keeper_dag import EdgeType
 
             encrypted_session_token, encrypted_transmission_key, transmission_key = get_keeper_tokens(params)
+
+            ro['pam_configuration_uid'] = get_config_uid(
+                params, encrypted_session_token, encrypted_transmission_key, r.record_uid) or None
+            try:
+                _gw = get_gateway_uid_from_record(params, vault, r.record_uid)
+                ro['gateway_uid'] = _gw if _gw else None
+            except Exception as e:
+                logging.debug('get gateway for record %s: %s', r.record_uid, e)
+                ro['gateway_uid'] = None
+
+            _first_fuid = next(find_folders(params, r.record_uid), None)
+            if _first_fuid:
+                ro['folder'] = {
+                    'uid': _first_fuid,
+                    'path': get_folder_path(params, _first_fuid),
+                }
+
+            cfg_uid = ro['pam_configuration_uid']
+            if cfg_uid:
+                try:
+                    cfg_dag = TunnelDAG(params, encrypted_session_token, encrypted_transmission_key, cfg_uid,
+                                        is_config=True, transmission_key=transmission_key)
+                    cfg_dag.linking_dag.load()
+                    cfg_vertex = cfg_dag.linking_dag.get_vertex(cfg_uid)
+                    cfg_content = get_vertex_content(cfg_vertex) if cfg_vertex else None
+                    ca = (cfg_content or {}).get('allowedSettings')
+                    if ca is not None and isinstance(ca, dict):
+                        ro['configuration_allowed_settings'] = {
+                            'connections': ca.get('connections'),
+                            'tunneling': ca.get('portForwards'),
+                            'rotation': ca.get('rotation'),
+                            'connections_recording': ca.get('sessionRecording'),
+                            'typescript_recording': ca.get('typescriptRecording'),
+                            'remote_browser_isolation': ca.get('remoteBrowserIsolation'),
+                            'ai_threat_detection': ca.get('aiEnabled'),
+                            'ai_terminate_session_on_detection': ca.get('aiSessionTerminate'),
+                        }
+                except Exception as e:
+                    logging.debug('PAM config allowedSettings for %s: %s', cfg_uid, e)
+
             tdag = TunnelDAG(params, encrypted_session_token, encrypted_transmission_key, r.record_uid,
                              transmission_key=transmission_key)
 
@@ -887,6 +935,8 @@ class RecordGetUidCommand(Command):
                         ro['pamSettingsEnabled']['sessionRecording'] = allowed_settings.get('sessionRecording')
                         ro['pamSettingsEnabled']['typescriptRecording'] = allowed_settings.get('typescriptRecording')
                         ro['pamSettingsEnabled']['remoteBrowserIsolation'] = allowed_settings.get('remoteBrowserIsolation')
+                        ro['pamSettingsEnabled']['aiEnabled'] = allowed_settings.get('aiEnabled')
+                        ro['pamSettingsEnabled']['aiSessionTerminate'] = allowed_settings.get('aiSessionTerminate')
             except Exception as e:
                 ro['dagDebug']['content_error'] = str(e)
 
@@ -2617,50 +2667,116 @@ class RecordRemoveCommand(Command):
                                         if record.title.casefold() == record_name.casefold():
                                             records_to_delete.append((folder, record_uid))
                 if len(records_to_delete) == orig_len:
-                    raise CommandError('rm', f'Record {name} cannot be resolved')
+                    # Fallback: global title search so records in shared folders are also found.
+                    for record_uid in params.record_cache:
+                        record = vault.KeeperRecord.load(params, record_uid)
+                        if record and record.title.casefold() == name.casefold():
+                            for folder in find_all_folders(params, record_uid):
+                                records_to_delete.append((folder, record_uid))
+                if len(records_to_delete) == orig_len:
+                    raise CommandError('rm', f'No record found matching "{name}". '
+                                       f'Provide a valid record title, path, or UID.')
+                # Check across both path-based and fallback results: if multiple distinct
+                # record UIDs were matched by title, require the user to specify a UID.
+                found_uids = list({uid for _, uid in records_to_delete[orig_len:]})
+                if len(found_uids) > 1:
+                    lines = [f'  {uid}' for uid in found_uids]
+                    raise CommandError('rm', f'"{name}" matches {len(found_uids)} records. '
+                                       f'Use a UID to identify the record:\n' + '\n'.join(lines))
 
         vault_changed = False
-        while len(records_to_delete) > 0:
-            rq = {
-                'command': 'pre_delete',
-                'objects': []
-            }
+        force = kwargs.get('force') or False
+        purge = kwargs.get('purge') or False
 
-            chunk = records_to_delete[:rq_obj_limit]
-            records_to_delete = records_to_delete[rq_obj_limit:]
-            for folder, record_uid in chunk:
-                del_obj = {
-                    'delete_resolution': 'unlink',
-                    'object_uid': record_uid,
-                    'object_type': 'record'
-                }
-                if folder.type in {BaseFolderNode.RootFolderType, BaseFolderNode.UserFolderType}:
-                    del_obj['from_type'] = 'user_folder'
-                    if folder.type == BaseFolderNode.UserFolderType:
-                        del_obj['from_uid'] = folder.uid
+        if purge:
+            # Hard-delete records for ALL users: deduplicate UIDs across folders
+            record_uids = list({uid for _, uid in records_to_delete})
+
+            # Only the record owner may permanently delete a record
+            non_owned = []
+            owned_uids = []
+            for uid in record_uids:
+                ro = params.record_owner_cache.get(uid)
+                if ro and ro.owner:
+                    owned_uids.append(uid)
                 else:
-                    del_obj['from_type'] = 'shared_folder_folder'
-                    del_obj['from_uid'] = folder.uid
-                rq['objects'].append(del_obj)
+                    record = vault.KeeperRecord.load(params, uid)
+                    title = record.title if record else uid
+                    non_owned.append(title)
+            if non_owned:
+                for title in non_owned:
+                    logging.warning('Cannot permanently delete "%s": you are not the record owner.', title)
+            if not owned_uids:
+                return
+            record_uids = owned_uids
 
-            rs = api.communicate(params, rq)
-            if rs['result'] == 'success':
-                pdr = rs['pre_delete_response']
+            if not force:
+                print(f'This will permanently delete {len(record_uids)} record(s) for ALL users.')
+                np = base.user_choice('Do you want to proceed?', 'y/n', default='n')
+                if np.lower() != 'y':
+                    return
+            success_count = 0
+            while record_uids:
+                chunk = record_uids[:rq_obj_limit]
+                record_uids = record_uids[rq_obj_limit:]
+                rq = {
+                    'command': 'record_update',
+                    'delete_records': chunk
+                }
+                rs = api.communicate(params, rq)
+                if 'delete_records' in rs:
+                    for status in rs['delete_records']:
+                        if status.get('status') == 'success':
+                            success_count += 1
+                        else:
+                            logging.warning('Failed to delete record %s: %s',
+                                            status.get('uid', ''), status.get('status', ''))
+            if success_count:
+                logging.info('%d record(s) permanently deleted for all users.', success_count)
+                api.sync_down(params)
+                vault_changed = True
+        else:
+            # Remove records from your vault only (unlink), leaving them intact for other users
+            while len(records_to_delete) > 0:
+                rq = {
+                    'command': 'pre_delete',
+                    'objects': []
+                }
 
-                force = kwargs.get('force') or False
-                np = 'y'
-                if force is not True:
-                    summary = pdr['would_delete']['deletion_summary']
-                    for x in summary:
-                        print(x)
-                    np = base.user_choice('Do you want to proceed with deletion?', 'yn', default='n')
-                if np.lower() == 'y':
-                    rq = {
-                        'command': 'delete',
-                        'pre_delete_token': pdr['pre_delete_token']
+                chunk = records_to_delete[:rq_obj_limit]
+                records_to_delete = records_to_delete[rq_obj_limit:]
+                for folder, record_uid in chunk:
+                    del_obj = {
+                        'delete_resolution': 'unlink',
+                        'object_uid': record_uid,
+                        'object_type': 'record'
                     }
-                    api.communicate(params, rq)
-                    vault_changed = True
+                    if folder.type in {BaseFolderNode.RootFolderType, BaseFolderNode.UserFolderType}:
+                        del_obj['from_type'] = 'user_folder'
+                        if folder.type == BaseFolderNode.UserFolderType:
+                            del_obj['from_uid'] = folder.uid
+                    else:
+                        del_obj['from_type'] = 'shared_folder_folder'
+                        del_obj['from_uid'] = folder.uid
+                    rq['objects'].append(del_obj)
+
+                rs = api.communicate(params, rq)
+                if rs['result'] == 'success':
+                    pdr = rs['pre_delete_response']
+
+                    np = 'y'
+                    if force is not True:
+                        summary = pdr['would_delete']['deletion_summary']
+                        for x in summary:
+                            print(x)
+                        np = base.user_choice('Do you want to proceed with removal?', 'yn', default='n')
+                    if np.lower() == 'y':
+                        rq = {
+                            'command': 'delete',
+                            'pre_delete_token': pdr['pre_delete_token']
+                        }
+                        api.communicate(params, rq)
+                        vault_changed = True
 
         if vault_changed:
             BreachWatch.save_reused_pw_count(params)

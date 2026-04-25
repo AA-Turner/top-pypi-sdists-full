@@ -94,7 +94,7 @@ class Geometry(core.Elem):
     _TRIANGLE_MODES = "triangles", "triangle_strip", "fan"
 
     def __init__(self, mode, indices=None, copy=True, attrib0="position", **attributes):
-        super(Geometry, self).__init__()
+        super().__init__()
 
         self._attrib0 = str(attrib0)
 
@@ -236,7 +236,9 @@ class Geometry(core.Elem):
         :rtype: numpy.ndarray
         """
         attr = self._attributes.get(name, None)
-        return None if attr is None else numpy.array(attr, copy=copy or NP_OPTIONAL_COPY)
+        return (
+            None if attr is None else numpy.array(attr, copy=copy or NP_OPTIONAL_COPY)
+        )
 
     def useAttribute(self, program, name=None):
         """Enable and bind attribute(s) for a specific program.
@@ -272,7 +274,7 @@ class Geometry(core.Elem):
                     assert len(array) in (1, 2, 3, 4)
                     gl.glDisableVertexAttribArray(attribute)
                     _glVertexAttribFunc = getattr(
-                        _glutils.gl, "glVertexAttrib{}f".format(len(array))
+                        _glutils.gl, f"glVertexAttrib{len(array)}f"
                     )
                     _glVertexAttribFunc(attribute, *array)
                 else:
@@ -453,8 +455,7 @@ class Lines(Geometry):
         vColor = color;
     }
     """,
-        string.Template(
-            """
+        string.Template("""
     varying vec4 vCameraPosition;
     varying vec3 vPosition;
     varying vec3 vNormal;
@@ -469,8 +470,7 @@ class Lines(Geometry):
         gl_FragColor = $lightingCall(vColor, vPosition, vNormal);
         $scenePostCall(vCameraPosition);
     }
-    """
-        ),
+    """),
     )
 
     def __init__(
@@ -489,7 +489,7 @@ class Lines(Geometry):
         self._width = width
         self._smooth = True
 
-        super(Lines, self).__init__(
+        super().__init__(
             mode, indices, position=positions, normal=normals, color=colors
         )
 
@@ -572,8 +572,7 @@ class DashedLines(Lines):
         vOriginFragCoord = (ndcOrigin.xy + vec2(1.0, 1.0)) * 0.5 * viewportSize + vec2(0.5, 0.5);
     }
     """,  # noqa
-        string.Template(
-            """
+        string.Template("""
     varying vec4 vCameraPosition;
     varying vec3 vPosition;
     varying vec3 vNormal;
@@ -598,13 +597,12 @@ class DashedLines(Lines):
 
         $scenePostCall(vCameraPosition);
     }
-    """
-        ),
+    """),
     )
 
     def __init__(self, positions, colors=(1.0, 1.0, 1.0, 1.0), indices=None, width=1.0):
         self._dash = 1, 0
-        super(DashedLines, self).__init__(
+        super().__init__(
             positions=positions,
             colors=colors,
             indices=indices,
@@ -629,7 +627,7 @@ class DashedLines(Lines):
 
         :param bool copy: True to get a copy, False otherwise
         :returns: Coordinates of lines
-        :rtype: numpy.ndarray of float32 of shape (N, 2, Ndim)
+        :rtype: numpy.ndarray of float32 of shape: (N, 2, Ndim)
         """
         return self.getAttribute("position", copy=copy)
 
@@ -723,7 +721,7 @@ class Box(core.PrivateGroup):
     )
 
     def __init__(self, stroke=(1.0, 1.0, 1.0, 1.0), fill=(1.0, 1.0, 1.0, 0.0)):
-        super(Box, self).__init__()
+        super().__init__()
 
         self._fill = Mesh3D(
             self._vertices,
@@ -871,7 +869,7 @@ class Axes(Lines):
     )
 
     def __init__(self):
-        super(Axes, self).__init__(self._vertices, colors=self._colors, width=3.0)
+        super().__init__(self._vertices, colors=self._colors, width=3.0)
         self._size = 1.0, 1.0, 1.0
 
     @property
@@ -954,7 +952,7 @@ class BoxWithAxes(Lines):
         colors = numpy.ones((len(self._vertices), 4), dtype=numpy.float32)
         colors[: len(self._axesColors), :] = self._axesColors
 
-        super(BoxWithAxes, self).__init__(
+        super().__init__(
             self._vertices, indices=self._lineIndices, colors=colors, width=2.0
         )
         self._size = 1.0, 1.0, 1.0
@@ -1004,7 +1002,7 @@ class PlaneInGroup(core.PrivateGroup):
     # TODO inherit from Lines directly?, make sure the plane remains visible?
 
     def __init__(self, point=(0.0, 0.0, 0.0), normal=(0.0, 0.0, 1.0)):
-        super(PlaneInGroup, self).__init__()
+        super().__init__()
         self._cache = None, None  # Store bounds, vertices
         self._outline = None
 
@@ -1136,11 +1134,11 @@ class PlaneInGroup(core.PrivateGroup):
             # Update vertices, TODO only when necessary
             self._outline.setAttribute("position", self.contourVertices)
 
-            super(PlaneInGroup, self).prepareGL2(ctx)
+            super().prepareGL2(ctx)
 
     def renderGL2(self, ctx):
         if self.isValid:
-            super(PlaneInGroup, self).renderGL2(ctx)
+            super().renderGL2(ctx)
 
 
 class BoundedGroup(core.Group):
@@ -1181,7 +1179,7 @@ class BoundedGroup(core.Group):
         if dataBounds and self.size is not None:
             return numpy.array(((0.0, 0.0, 0.0), self.size), dtype=numpy.float32)
         else:
-            return super(BoundedGroup, self)._bounds(dataBounds)
+            return super()._bounds(dataBounds)
 
 
 # Points ######################################################################
@@ -1301,8 +1299,7 @@ class _Points(Geometry):
     }
 
     _shaders = (
-        string.Template(
-            """
+        string.Template("""
     #version 120
 
     attribute float x;
@@ -1329,10 +1326,8 @@ class _Points(Geometry):
         gl_PointSize = size;
         vSize = size;
     }
-    """
-        ),
-        string.Template(
-            """
+    """),
+        string.Template("""
     #version 120
 
     varying vec4 vCameraPosition;
@@ -1357,8 +1352,7 @@ class _Points(Geometry):
 
         $scenePostCall(vCameraPosition);
     }
-    """
-        ),
+    """),
     )
 
     _ATTR_INFO = {
@@ -1369,7 +1363,7 @@ class _Points(Geometry):
     }
 
     def __init__(self, x, y, z, value, size=1.0, indices=None):
-        super(_Points, self).__init__(
+        super().__init__(
             "points", indices, x=x, y=y, z=z, value=value, size=size, attrib0="x"
         )
         self.boundsAttributeNames = "x", "y", "z"
@@ -1435,9 +1429,7 @@ class Points(_Points):
     _ATTR_INFO.update({"value": {"dims": (1, 2), "lastDim": (1,)}})
 
     def __init__(self, x, y, z, value=0.0, size=1.0, indices=None, colormap=None):
-        super(Points, self).__init__(
-            x=x, y=y, z=z, indices=indices, size=size, value=value
-        )
+        super().__init__(x=x, y=y, z=z, indices=indices, size=size, value=value)
 
         self._colormap = colormap or Colormap()  # Default colormap
         self._colormap.addListener(self._cmapChanged)
@@ -1467,9 +1459,7 @@ class ColorPoints(_Points):
     _ATTR_INFO.update({"value": {"dims": (1, 2), "lastDim": (3, 4)}})
 
     def __init__(self, x, y, z, color=(1.0, 1.0, 1.0, 1.0), size=1.0, indices=None):
-        super(ColorPoints, self).__init__(
-            x=x, y=y, z=z, indices=indices, size=size, value=color
-        )
+        super().__init__(x=x, y=y, z=z, indices=indices, size=size, value=color)
 
     def _shaderValueDefinition(self):
         """Type definition, fragment shader declaration, fragment shader call"""
@@ -1558,8 +1548,7 @@ class GridPoints(Geometry):
         gl_PointSize = size;
     }
     """,
-        string.Template(
-            """
+        string.Template("""
     #version 130
 
     in vec4 vCameraPosition;
@@ -1576,8 +1565,7 @@ class GridPoints(Geometry):
 
         $scenePostCall(vCameraPosition);
     }
-    """
-        ),
+    """),
     )
 
     _ATTR_INFO = {
@@ -1612,7 +1600,7 @@ class GridPoints(Geometry):
 
         assert len(self._shape) in (1, 2, 3)
 
-        super(GridPoints, self).__init__("points", indices, value=values, size=sizes)
+        super().__init__("points", indices, value=values, size=sizes)
 
         data = self.getAttribute("value", copy=False)
         self._minValue = data.min() if minValue is None else minValue
@@ -1724,8 +1712,7 @@ class Spheres(Geometry):
         vViewDepth = vCameraPosition.z;
     }
     """,
-        string.Template(
-            """
+        string.Template("""
     # version 120
 
     uniform mat4 projMat;
@@ -1753,10 +1740,9 @@ class Spheres(Geometry):
         }
         normal.z = sqrt(1.0 - sqLength);
 
-        /*Lighting performed in NDC*/
-        /*TODO update this when lighting changed*/
-        //XXX vec3 position = vPosition + vViewRadius * normal;
-        gl_FragColor = $lightingCall(vColor, vPosition, normal);
+        /*Lighting performed in camera*/
+        vec3 position = vCameraPosition.xyz + vViewRadius * normal;
+        gl_FragColor = $lightingCall(vColor, position, normal);
 
         /*Offset depth*/
         float viewDepth = vViewDepth + vViewRadius * normal.z;
@@ -1765,8 +1751,7 @@ class Spheres(Geometry):
 
         $scenePostCall(vCameraPosition);
     }
-    """
-        ),
+    """),
     )
 
     _ATTR_INFO = {
@@ -1777,7 +1762,7 @@ class Spheres(Geometry):
 
     def __init__(self, positions, radius=1.0, colors=(1.0, 1.0, 1.0, 1.0)):
         self.__bounds = None
-        super(Spheres, self).__init__(
+        super().__init__(
             "points", None, position=positions, radius=radius, color=colors
         )
 
@@ -1792,7 +1777,7 @@ class Spheres(Geometry):
         prog = ctx.glCtx.prog(self._shaders[0], fragment)
         prog.use()
 
-        ctx.viewport.light.setupProgram(ctx, prog)
+        ctx.viewport.light.setupProgram(ctx, prog, frame="camera")
 
         gl.glEnable(gl.GL_VERTEX_PROGRAM_POINT_SIZE)  # OpenGL 2
         gl.glEnable(gl.GL_POINT_SPRITE)  # OpenGL 2
@@ -1853,8 +1838,7 @@ class Mesh3D(Geometry):
         gl_Position = matrix * vec4(position, 1.0);
     }
     """,
-        string.Template(
-            """
+        string.Template("""
     varying vec4 vCameraPosition;
     varying vec3 vPosition;
     varying vec3 vNormal;
@@ -1871,15 +1855,14 @@ class Mesh3D(Geometry):
 
         $scenePostCall(vCameraPosition);
     }
-    """
-        ),
+    """),
     )
 
     def __init__(
         self, positions, colors, normals=None, mode="triangles", indices=None, copy=True
     ):
         assert mode in self._TRIANGLE_MODES
-        super(Mesh3D, self).__init__(
+        super().__init__(
             mode, indices, position=positions, normal=normals, color=colors, copy=copy
         )
 
@@ -1964,8 +1947,7 @@ class ColormapMesh3D(Geometry):
         gl_Position = matrix * vec4(position, 1.0);
     }
     """,
-        string.Template(
-            """
+        string.Template("""
     uniform float alpha;
 
     varying vec4 vCameraPosition;
@@ -1987,8 +1969,7 @@ class ColormapMesh3D(Geometry):
 
         $scenePostCall(vCameraPosition);
     }
-    """
-        ),
+    """),
     )
 
     def __init__(
@@ -2001,7 +1982,7 @@ class ColormapMesh3D(Geometry):
         indices=None,
         copy=True,
     ):
-        super(ColormapMesh3D, self).__init__(
+        super().__init__(
             mode, indices, position=position, normal=normal, value=value, copy=copy
         )
 
@@ -2122,8 +2103,7 @@ class _Image(Geometry):
         gl_Position = matrix * positionVec4;
     }
     """,
-        string.Template(
-            """
+        string.Template("""
     varying vec4 vCameraPosition;
     varying vec3 vPosition;
     varying vec2 vTexCoords;
@@ -2149,8 +2129,7 @@ class _Image(Geometry):
 
         $scenePostCall(vCameraPosition);
     }
-    """
-        ),
+    """),
     )
 
     _UNIT_SQUARE = numpy.array(
@@ -2158,7 +2137,7 @@ class _Image(Geometry):
     )
 
     def __init__(self, data, copy=True):
-        super(_Image, self).__init__(mode="triangle_strip", position=self._UNIT_SQUARE)
+        super().__init__(mode="triangle_strip", position=self._UNIT_SQUARE)
 
         self._texture = None
         self._update_texture = True
@@ -2250,7 +2229,7 @@ class _Image(Geometry):
             self._texture.minFilter = filter_
             self._texture.magFilter = filter_
 
-        super(_Image, self).prepareGL2(ctx)
+        super().prepareGL2(ctx)
 
     def renderGL2(self, ctx):
         if self._texture is None:
@@ -2309,8 +2288,7 @@ class _Image(Geometry):
 class ImageData(_Image):
     """Display a 2x2 data array with a texture."""
 
-    _imageDecl = string.Template(
-        """
+    _imageDecl = string.Template("""
     $colormapDecl
 
     vec4 imageColor(sampler2D data, vec2 texCoords) {
@@ -2318,21 +2296,22 @@ class ImageData(_Image):
         vec4 color = $colormapCall(value);
         return color;
     }
-    """
-    )
+    """)
 
     def __init__(self, data, copy=True, colormap=None):
-        super(ImageData, self).__init__(data, copy=copy)
+        super().__init__(data, copy=copy)
 
         self._colormap = colormap or Colormap()  # Default colormap
         self._colormap.addListener(self._cmapChanged)
 
     def setData(self, data, copy=True):
-        data = numpy.array(data, copy=copy or NP_OPTIONAL_COPY, order="C", dtype=numpy.float32)
+        data = numpy.array(
+            data, copy=copy or NP_OPTIONAL_COPY, order="C", dtype=numpy.float32
+        )
         # TODO support (u)int8|16
         assert data.ndim == 2
 
-        super(ImageData, self).setData(data, copy=False)
+        super().setData(data, copy=False)
 
     @property
     def colormap(self):
@@ -2372,7 +2351,7 @@ class ImageRgba(_Image):
     """
 
     def __init__(self, data, copy=True):
-        super(ImageRgba, self).__init__(data, copy=copy)
+        super().__init__(data, copy=copy)
 
     def setData(self, data, copy=True):
         data = numpy.array(data, copy=copy or NP_OPTIONAL_COPY, order="C")
@@ -2385,7 +2364,7 @@ class ImageRgba(_Image):
         else:
             assert data.dtype == numpy.dtype(numpy.uint8)
 
-        super(ImageRgba, self).setData(data, copy=False)
+        super().setData(data, copy=False)
 
     def _textureFormat(self):
         format_ = gl.GL_RGBA if self._data.shape[2] == 4 else gl.GL_RGB
@@ -2405,7 +2384,7 @@ class GroupDepthOffset(core.Group):
     """A group using 2-pass rendering and glDepthRange to avoid Z-fighting"""
 
     def __init__(self, children=(), epsilon=None):
-        super(GroupDepthOffset, self).__init__(children)
+        super().__init__(children)
         self._epsilon = epsilon
         self.isDepthRangeOn = True
 
@@ -2418,7 +2397,7 @@ class GroupDepthOffset(core.Group):
         if self.isDepthRangeOn:
             self._renderGL2WithDepthRange(ctx)
         else:
-            super(GroupDepthOffset, self).renderGL2(ctx)
+            super().renderGL2(ctx)
 
     def _renderGL2WithDepthRange(self, ctx):
         # gl.glDepthFunc(gl.GL_LESS)
@@ -2466,7 +2445,7 @@ class GroupNoDepth(core.Group):
     """
 
     def __init__(self, children=(), mask=True, notest=True):
-        super(GroupNoDepth, self).__init__(children)
+        super().__init__(children)
         self._mask = bool(mask)
         self._notest = bool(notest)
 
@@ -2475,7 +2454,7 @@ class GroupNoDepth(core.Group):
             gl.glDepthMask(gl.GL_FALSE)
 
         with gl.disabled(gl.GL_DEPTH_TEST, disable=self._notest):
-            super(GroupNoDepth, self).renderGL2(ctx)
+            super().renderGL2(ctx)
 
         if self._mask:
             gl.glDepthMask(gl.GL_TRUE)
@@ -2485,7 +2464,7 @@ class GroupBBox(core.PrivateGroup):
     """A group displaying a bounding box around the children."""
 
     def __init__(self, children=(), color=(1.0, 1.0, 1.0, 1.0)):
-        super(GroupBBox, self).__init__()
+        super().__init__()
         self._group = core.Group(children)
 
         self._boxTransforms = transform.TransformList((transform.Translate(),))
@@ -2527,11 +2506,11 @@ class GroupBBox(core.PrivateGroup):
 
     def _bounds(self, dataBounds=False):
         self._updateBoxAndAxes()
-        return super(GroupBBox, self)._bounds(dataBounds)
+        return super()._bounds(dataBounds)
 
     def prepareGL2(self, ctx):
         self._updateBoxAndAxes()
-        super(GroupBBox, self).prepareGL2(ctx)
+        super().prepareGL2(ctx)
 
     # Give access to _group children
 
@@ -2609,7 +2588,7 @@ class ClipPlane(PlaneInGroup):
     """A clipping plane attached to a box"""
 
     def renderGL2(self, ctx):
-        super(ClipPlane, self).renderGL2(ctx)
+        super().renderGL2(ctx)
 
         if self.visible:
             # Set-up clipping plane for following brothers

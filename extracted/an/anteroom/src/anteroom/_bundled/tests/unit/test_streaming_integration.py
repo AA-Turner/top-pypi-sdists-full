@@ -582,8 +582,8 @@ class TestTruncateLargeToolOutputs:
     def test_truncates_oversized_tool_output(self) -> None:
         from anteroom.services.agent_loop import _truncate_large_tool_outputs
 
-        # Create a tool output message with 3000+ chars
-        large_content = "x" * 3500
+        # Create a tool output message above the default 10,000-char budget.
+        large_content = "x" * 12_500
         messages = [
             {
                 "role": "assistant",
@@ -608,7 +608,7 @@ class TestTruncateLargeToolOutputs:
         assert result is True
         assert len(messages[1]["content"]) < len(large_content)
         assert "TRUNCATED" in messages[1]["content"]
-        assert "3,500 chars" in messages[1]["content"]
+        assert "12,500 chars" in messages[1]["content"]
 
     def test_leaves_small_tool_output_alone(self) -> None:
         from anteroom.services.agent_loop import _truncate_large_tool_outputs
@@ -642,7 +642,7 @@ class TestTruncateLargeToolOutputs:
     def test_includes_tool_name_in_truncation_notice(self) -> None:
         from anteroom.services.agent_loop import _truncate_large_tool_outputs
 
-        large_content = "y" * 2500
+        large_content = "y" * 11_000
         messages = [
             {
                 "role": "assistant",
